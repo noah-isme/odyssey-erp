@@ -53,6 +53,9 @@ jobs:
       - name: Database migrations
         run: migrate -path migrations -database "$PG_DSN" up
 
+      - name: Seed phase 4
+        run: make seed-phase4
+
       - name: Test
         run: go test ./...
 

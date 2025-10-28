@@ -266,3 +266,10 @@ go get github.com/stretchr/testify
 ```
 
 >  *"Odyssey" membuktikan: full-Go ERP dengan SSR itu tidak hanya mungkin, tapi juga lebih cepat, aman, dan mudah dirawat. Tidak semua pahlawan butuh JavaScript... cape.*
+
+
+## Phase 4.2 Finance Commands
+
+* `make seed-phase4` – seed chart of accounts and finance mappings.
+* `make refresh-mv` – refresh `gl_balances` materialized view.
+* `make reports-demo` – print helper commands for PDF previews.

@@ -1,4 +1,6 @@
-# Accounting Period Policy – Phase 4
+# Accounting Period Policy – Phase 4.2
+
+Status: Finalised
 
 This policy defines lifecycle management, permissions, and audit requirements for accounting periods in Odyssey ERP.
 
