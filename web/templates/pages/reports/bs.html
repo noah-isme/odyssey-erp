@@ -1,26 +1,32 @@
-{{ define "reports/bs_pdf.html" }}
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>Balance Sheet</title>
-    <style>
-        body { font-family: "Helvetica", Arial, sans-serif; font-size: 12px; }
-        header { text-align: center; margin-bottom: 24px; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
-        th, td { border: 1px solid #222; padding: 6px; }
-        th { background: #f0f0f0; }
-        .numeric { text-align: right; }
-        .signature { margin-top: 48px; display: flex; justify-content: space-between; }
-        .signature div { width: 30%; text-align: center; }
-    </style>
-</head>
-<body>
-    {{ $data := .Data }}
-    <header>
-        <h1>{{ $data.CompanyName }}</h1>
-        <p>Balance Sheet · Period {{ $data.PeriodLabel }} · Branch {{ $data.BranchName }}</p>
-    </header>
+{{ define "pages/reports/bs.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Balance Sheet{{ end }}
+
+{{ define "content" }}
+{{ $data := .Data }}
+<h1>Balance Sheet</h1>
+<p class="contrast">Company: {{ $data.CompanyName }} · Period: {{ $data.PeriodLabel }} · Branch: {{ $data.BranchName }}</p>
+<form method="get" class="grid">
+    <label>
+        Period
+        <input type="month" name="period" value="{{ $data.FilterPeriod }}">
+    </label>
+    <label>
+        Branch
+        <input type="text" name="branch" value="{{ $data.FilterBranch }}" placeholder="All branches">
+    </label>
+    <label>
+        Company
+        <input type="text" name="company" value="{{ $data.FilterCompany }}" placeholder="All companies">
+    </label>
+    <div class="grid">
+        <button type="submit">Apply</button>
+        <a role="button" href="?">Reset</a>
+    </div>
+</form>
+<div class="grid">
     <section>
         <h2>Assets</h2>
         <table>
@@ -78,21 +84,7 @@
             </tfoot>
         </table>
     </section>
-    <p><strong>Total Liabilities &amp; Equity:</strong> {{ printf "%.2f" $data.Report.TotalLiabilitiesAndEquity }}</p>
-    <section class="signature">
-        <div>
-            <p>Prepared By</p>
-            <p>________________________</p>
-        </div>
-        <div>
-            <p>Reviewed By</p>
-            <p>________________________</p>
-        </div>
-        <div>
-            <p>Approved By</p>
-            <p>________________________</p>
-        </div>
-    </section>
-</body>
-</html>
+</div>
+<p class="contrast"><strong>Total Liabilities &amp; Equity:</strong> {{ printf "%.2f" $data.Report.TotalLiabilitiesAndEquity }}</p>
+<p><a role="button" href="/finance/reports/bs/pdf?period={{ $data.FilterPeriod }}&branch={{ $data.FilterBranch }}&company={{ $data.FilterCompany }}">Download PDF</a></p>
 {{ end }}
