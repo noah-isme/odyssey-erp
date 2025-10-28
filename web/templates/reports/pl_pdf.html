@@ -4,10 +4,76 @@
 <head>
     <meta charset="utf-8">
     <title>Profit &amp; Loss</title>
+    <style>
+        body { font-family: "Helvetica", Arial, sans-serif; font-size: 12px; }
+        header { text-align: center; margin-bottom: 24px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+        th, td { border: 1px solid #222; padding: 6px; }
+        th { background: #f0f0f0; }
+        .numeric { text-align: right; }
+        .signature { margin-top: 48px; display: flex; justify-content: space-between; }
+        .signature div { width: 30%; text-align: center; }
+    </style>
 </head>
 <body>
-    <h1>Profit &amp; Loss (Placeholder)</h1>
-    <p>P&amp;L PDF template placeholder for Phase 4.2.</p>
+    {{ $data := .Data }}
+    <header>
+        <h1>{{ $data.CompanyName }}</h1>
+        <p>Profit &amp; Loss · Period {{ $data.PeriodLabel }} · Branch {{ $data.BranchName }}</p>
+    </header>
+    <section>
+        <h2>Revenue</h2>
+        <table>
+            <tbody>
+            {{ range $row := $data.Report.Revenue.Accounts }}
+                <tr>
+                    <td>{{ $row.Code }} – {{ $row.Name }}</td>
+                    <td class="numeric">{{ printf "%.2f" $row.Amount }}</td>
+                </tr>
+            {{ end }}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th>Total Revenue</th>
+                    <th class="numeric">{{ printf "%.2f" $data.Report.Revenue.Total }}</th>
+                </tr>
+            </tfoot>
+        </table>
+    </section>
+    <section>
+        <h2>Expense</h2>
+        <table>
+            <tbody>
+            {{ range $row := $data.Report.Expense.Accounts }}
+                <tr>
+                    <td>{{ $row.Code }} – {{ $row.Name }}</td>
+                    <td class="numeric">{{ printf "%.2f" $row.Amount }}</td>
+                </tr>
+            {{ end }}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th>Total Expense</th>
+                    <th class="numeric">{{ printf "%.2f" $data.Report.Expense.Total }}</th>
+                </tr>
+            </tfoot>
+        </table>
+    </section>
+    <p><strong>Net Income:</strong> {{ printf "%.2f" $data.Report.NetIncome }}</p>
+    <section class="signature">
+        <div>
+            <p>Prepared By</p>
+            <p>________________________</p>
+        </div>
+        <div>
+            <p>Reviewed By</p>
+            <p>________________________</p>
+        </div>
+        <div>
+            <p>Approved By</p>
+            <p>________________________</p>
+        </div>
+    </section>
 </body>
 </html>
 {{ end }}

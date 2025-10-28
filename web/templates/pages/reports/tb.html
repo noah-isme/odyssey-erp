@@ -1,0 +1,73 @@
+{{ define "pages/reports/tb.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Trial Balance{{ end }}
+
+{{ define "content" }}
+{{ $data := .Data }}
+<h1>Trial Balance</h1>
+<p class="contrast">Company: {{ $data.CompanyName }} · Period: {{ $data.PeriodLabel }} · Branch: {{ $data.BranchName }}</p>
+<form method="get" class="grid">
+    <label>
+        Period
+        <input type="month" name="period" value="{{ $data.FilterPeriod }}">
+    </label>
+    <label>
+        Branch
+        <input type="text" name="branch" value="{{ $data.FilterBranch }}" placeholder="All branches">
+    </label>
+    <label>
+        Company
+        <input type="text" name="company" value="{{ $data.FilterCompany }}" placeholder="All companies">
+    </label>
+    <div class="grid">
+        <button type="submit">Apply</button>
+        <a role="button" href="?">Reset</a>
+    </div>
+</form>
+<table>
+    <thead>
+        <tr>
+            <th>Account</th>
+            <th class="numeric">Opening</th>
+            <th class="numeric">Debit</th>
+            <th class="numeric">Credit</th>
+            <th class="numeric">Closing</th>
+        </tr>
+    </thead>
+    <tbody>
+    {{ range $group := $data.Report.Groups }}
+        <tr>
+            <td colspan="5"><strong>{{ $group.Key }}</strong></td>
+        </tr>
+        {{ range $row := $group.Accounts }}
+        <tr>
+            <td>{{ $row.Code }} – {{ $row.Name }}</td>
+            <td class="numeric">{{ printf "%.2f" $row.Opening }}</td>
+            <td class="numeric">{{ printf "%.2f" $row.Debit }}</td>
+            <td class="numeric">{{ printf "%.2f" $row.Credit }}</td>
+            <td class="numeric">{{ printf "%.2f" $row.Closing }}</td>
+        </tr>
+        {{ end }}
+        <tr>
+            <td><em>Subtotal {{ $group.Key }}</em></td>
+            <td class="numeric"><em>{{ printf "%.2f" $group.Opening }}</em></td>
+            <td class="numeric"><em>{{ printf "%.2f" $group.Debit }}</em></td>
+            <td class="numeric"><em>{{ printf "%.2f" $group.Credit }}</em></td>
+            <td class="numeric"><em>{{ printf "%.2f" $group.Closing }}</em></td>
+        </tr>
+    {{ end }}
+    </tbody>
+    <tfoot>
+        <tr>
+            <th>Total</th>
+            <th class="numeric">{{ printf "%.2f" $data.Report.TotalOpening }}</th>
+            <th class="numeric">{{ printf "%.2f" $data.Report.TotalDebit }}</th>
+            <th class="numeric">{{ printf "%.2f" $data.Report.TotalCredit }}</th>
+            <th class="numeric">{{ printf "%.2f" $data.Report.TotalClosing }}</th>
+        </tr>
+    </tfoot>
+</table>
+<p><a role="button" href="/finance/reports/trial-balance/pdf?period={{ $data.FilterPeriod }}&branch={{ $data.FilterBranch }}&company={{ $data.FilterCompany }}">Download PDF</a></p>
+{{ end }}
