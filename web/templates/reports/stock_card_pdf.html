@@ -1,0 +1,38 @@
+{{ define "reports/stock_card_pdf.html" }}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Stock Card Report</title>
+    <style>
+    body { font-family: Arial, sans-serif; font-size: 12px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #000; padding: 4px; }
+    </style>
+</head>
+<body>
+<h1>Stock Card</h1>
+<p>Warehouse: {{ .Data.WarehouseID }} · Product: {{ .Data.ProductID }}</p>
+<table>
+    <thead>
+    <tr><th>Date</th><th>Code</th><th>Type</th><th>In</th><th>Out</th><th>Balance</th><th>Cost</th></tr>
+    </thead>
+    <tbody>
+    {{ range .Data.Entries }}
+    <tr>
+        <td>{{ formatDate .PostedAt }}</td>
+        <td>{{ .TxCode }}</td>
+        <td>{{ .TxType }}</td>
+        <td>{{ printf "%.4f" .QtyIn }}</td>
+        <td>{{ printf "%.4f" .QtyOut }}</td>
+        <td>{{ printf "%.4f" .BalanceQty }}</td>
+        <td>{{ printf "%.2f" .UnitCost }}</td>
+    </tr>
+    {{ else }}
+    <tr><td colspan="7">No data available</td></tr>
+    {{ end }}
+    </tbody>
+</table>
+</body>
+</html>
+{{ end }}

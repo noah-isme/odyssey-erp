@@ -52,6 +52,12 @@ func seedRBAC(ctx context.Context, pool *pgxpool.Pool) error {
 		{"rbac.view", "View RBAC setup"},
 		{"rbac.edit", "Manage RBAC configuration"},
 		{"report.view", "Access reports"},
+		{"inventory.view", "View inventory transactions"},
+		{"inventory.edit", "Post inventory transactions"},
+		{"procurement.view", "View procurement documents"},
+		{"procurement.edit", "Manage procurement documents"},
+		{"finance.ap.view", "View AP documents"},
+		{"finance.ap.edit", "Manage AP documents"},
 	}
 
 	tx, err := pool.Begin(ctx)
@@ -73,9 +79,9 @@ ON CONFLICT (name) DO UPDATE SET description = EXCLUDED.description`, perm.name,
 		description string
 		permissions []string
 	}{
-		{"admin", "Full access to all modules", []string{"org.view", "org.edit", "master.view", "master.edit", "master.import", "rbac.view", "rbac.edit", "report.view"}},
-		{"manager", "Manage organization and master data", []string{"org.view", "org.edit", "master.view", "master.edit", "master.import", "report.view"}},
-		{"viewer", "Read-only access", []string{"org.view", "master.view", "report.view"}},
+		{"admin", "Full access to all modules", []string{"org.view", "org.edit", "master.view", "master.edit", "master.import", "rbac.view", "rbac.edit", "report.view", "inventory.view", "inventory.edit", "procurement.view", "procurement.edit", "finance.ap.view", "finance.ap.edit"}},
+		{"manager", "Manage operations", []string{"org.view", "org.edit", "master.view", "master.edit", "master.import", "report.view", "inventory.view", "inventory.edit", "procurement.view", "procurement.edit", "finance.ap.view"}},
+		{"viewer", "Read-only access", []string{"org.view", "master.view", "report.view", "inventory.view", "procurement.view", "finance.ap.view"}},
 	}
 
 	for _, role := range roles {

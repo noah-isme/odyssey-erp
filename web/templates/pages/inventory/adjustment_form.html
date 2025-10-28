@@ -1,0 +1,30 @@
+{{ define "pages/inventory/adjustment_form.html" }}
+<h1>Penyesuaian Stok</h1>
+<form method="post" class="grid">
+    <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+    <label>Kode (opsional)
+        <input type="text" name="code" value="{{ .Data.Form.Code }}">
+    </label>
+    <label>Gudang
+        <input type="number" name="warehouse_id" value="{{ .Data.Form.WarehouseID }}" required>
+    </label>
+    <label>Produk
+        <input type="number" name="product_id" value="{{ .Data.Form.ProductID }}" required>
+    </label>
+    <label>Kuantitas (+/-)
+        <input type="number" step="0.0001" name="qty" value="{{ .Data.Form.Qty }}" required>
+    </label>
+    <label>Harga Satuan
+        <input type="number" step="0.0001" name="unit_cost" value="{{ .Data.Form.UnitCost }}">
+    </label>
+    <label>Catatan
+        <textarea name="note">{{ .Data.Form.Note }}</textarea>
+    </label>
+    <button type="submit">Posting</button>
+</form>
+{{ if .Data.Errors }}
+<ul>
+    {{ range $k, $v := .Data.Errors }}<li><strong>{{ $k }}</strong>: {{ $v }}</li>{{ end }}
+</ul>
+{{ end }}
+{{ end }}

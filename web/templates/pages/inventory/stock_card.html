@@ -1,0 +1,39 @@
+{{ define "pages/inventory/stock_card.html" }}
+<h1>Kartu Stok</h1>
+<form method="get" class="grid">
+    <label>Gudang
+        <input type="number" name="warehouse_id" value="{{ .Data.WarehouseID }}" required>
+    </label>
+    <label>Produk
+        <input type="number" name="product_id" value="{{ .Data.ProductID }}" required>
+    </label>
+    <label>Periode Mulai
+        <input type="date" name="from" value="{{ .Data.From }}">
+    </label>
+    <label>Periode Akhir
+        <input type="date" name="to" value="{{ .Data.To }}">
+    </label>
+    <button type="submit">Tampilkan</button>
+</form>
+{{ if .Data.Errors.general }}<p class="error">{{ index .Data.Errors "general" }}</p>{{ end }}
+<table>
+    <thead>
+    <tr><th>Tanggal</th><th>Kode</th><th>Jenis</th><th>Masuk</th><th>Keluar</th><th>Saldo</th><th>Harga</th></tr>
+    </thead>
+    <tbody>
+    {{ range .Data.Entries }}
+    <tr>
+        <td>{{ formatDate .PostedAt }}</td>
+        <td>{{ .TxCode }}</td>
+        <td>{{ .TxType }}</td>
+        <td>{{ printf "%.4f" .QtyIn }}</td>
+        <td>{{ printf "%.4f" .QtyOut }}</td>
+        <td>{{ printf "%.4f" .BalanceQty }}</td>
+        <td>{{ printf "%.2f" .UnitCost }}</td>
+    </tr>
+    {{ else }}
+    <tr><td colspan="7">Belum ada data.</td></tr>
+    {{ end }}
+    </tbody>
+</table>
+{{ end }}

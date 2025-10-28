@@ -1,0 +1,17 @@
+{{ define "pages/procurement/ap_invoice_form.html" }}
+<h1>AP Invoice</h1>
+<form method="post" class="grid">
+    <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+    <label>Nomor
+        <input type="text" name="number">
+    </label>
+    <label>GRN ID
+        <input type="number" name="grn_id" required>
+    </label>
+    <label>Jatuh Tempo
+        <input type="date" name="due_date">
+    </label>
+    <button type="submit">Buat Invoice</button>
+</form>
+{{ if .Data.Errors }}<p class="error">{{ index .Data.Errors "general" }}</p>{{ end }}
+{{ end }}
