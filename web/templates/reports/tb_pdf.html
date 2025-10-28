@@ -4,10 +4,81 @@
 <head>
     <meta charset="utf-8">
     <title>Trial Balance</title>
+    <style>
+        body { font-family: "Helvetica", Arial, sans-serif; font-size: 12px; }
+        header { text-align: center; margin-bottom: 24px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #222; padding: 6px; }
+        th { background: #f0f0f0; }
+        tfoot th { text-align: right; }
+        .numeric { text-align: right; }
+        .signature { margin-top: 48px; display: flex; justify-content: space-between; }
+        .signature div { width: 30%; text-align: center; }
+    </style>
 </head>
 <body>
-    <h1>Trial Balance (Placeholder)</h1>
-    <p>Trial balance PDF template will be implemented in Phase 4.3.</p>
+    {{ $data := .Data }}
+    <header>
+        <h1>{{ $data.CompanyName }}</h1>
+        <p>Trial Balance · Period {{ $data.PeriodLabel }} · Branch {{ $data.BranchName }}</p>
+    </header>
+    <table>
+        <thead>
+            <tr>
+                <th>Account</th>
+                <th class="numeric">Opening</th>
+                <th class="numeric">Debit</th>
+                <th class="numeric">Credit</th>
+                <th class="numeric">Closing</th>
+            </tr>
+        </thead>
+        <tbody>
+        {{ range $group := $data.Report.Groups }}
+            <tr>
+                <td colspan="5"><strong>{{ $group.Key }}</strong></td>
+            </tr>
+            {{ range $row := $group.Accounts }}
+            <tr>
+                <td>{{ $row.Code }} – {{ $row.Name }}</td>
+                <td class="numeric">{{ printf "%.2f" $row.Opening }}</td>
+                <td class="numeric">{{ printf "%.2f" $row.Debit }}</td>
+                <td class="numeric">{{ printf "%.2f" $row.Credit }}</td>
+                <td class="numeric">{{ printf "%.2f" $row.Closing }}</td>
+            </tr>
+            {{ end }}
+            <tr>
+                <td><em>Subtotal {{ $group.Key }}</em></td>
+                <td class="numeric"><em>{{ printf "%.2f" $group.Opening }}</em></td>
+                <td class="numeric"><em>{{ printf "%.2f" $group.Debit }}</em></td>
+                <td class="numeric"><em>{{ printf "%.2f" $group.Credit }}</em></td>
+                <td class="numeric"><em>{{ printf "%.2f" $group.Closing }}</em></td>
+            </tr>
+        {{ end }}
+        </tbody>
+        <tfoot>
+            <tr>
+                <th>Total</th>
+                <th class="numeric">{{ printf "%.2f" $data.Report.TotalOpening }}</th>
+                <th class="numeric">{{ printf "%.2f" $data.Report.TotalDebit }}</th>
+                <th class="numeric">{{ printf "%.2f" $data.Report.TotalCredit }}</th>
+                <th class="numeric">{{ printf "%.2f" $data.Report.TotalClosing }}</th>
+            </tr>
+        </tfoot>
+    </table>
+    <section class="signature">
+        <div>
+            <p>Prepared By</p>
+            <p>________________________</p>
+        </div>
+        <div>
+            <p>Reviewed By</p>
+            <p>________________________</p>
+        </div>
+        <div>
+            <p>Approved By</p>
+            <p>________________________</p>
+        </div>
+    </section>
 </body>
 </html>
 {{ end }}
