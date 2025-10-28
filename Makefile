@@ -9,28 +9,28 @@ export PG_DSN?=postgres://odyssey:odyssey@localhost:5432/odyssey?sslmode=disable
 .PHONY: dev lint test build migrate-up migrate-down sqlc-gen seed pdf-sample
 
 dev:
-docker compose up --build
+	docker compose up --build
 
 lint:
-golangci-lint run ./...
+	golangci-lint run ./...
 
 test:
-$(GO_BIN) test ./...
+	$(GO_BIN) test ./...
 
 build:
-$(GO_BIN) build ./...
+	$(GO_BIN) build ./...
 
 migrate-up:
-$(MIGRATE_BIN) -path migrations -database "$(PG_DSN)" up
+	$(MIGRATE_BIN) -path migrations -database "$(PG_DSN)" up
 
 migrate-down:
-$(MIGRATE_BIN) -path migrations -database "$(PG_DSN)" down 1
+	$(MIGRATE_BIN) -path migrations -database "$(PG_DSN)" down 1
 
 sqlc-gen:
-$(SQLC_BIN) generate
+	$(SQLC_BIN) generate
 
 seed:
-$(GO_BIN) run ./scripts/seed/main.go
+	$(GO_BIN) run ./scripts/seed/main.go
 
 pdf-sample:
-curl -s -o sample.pdf -X POST http://localhost:8080/report/sample -H "Content-Type: application/x-www-form-urlencoded" -d "csrf_token=dummy"
+	curl -s -o sample.pdf -X POST http://localhost:8080/report/sample -H "Content-Type: application/x-www-form-urlencoded" -d "csrf_token=dummy"
