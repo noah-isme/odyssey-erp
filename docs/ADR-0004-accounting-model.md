@@ -1,7 +1,7 @@
 # ADR-0004 – Accounting Model & Ledger Architecture
 
 ## Status
-Draft – Phase 4
+Accepted – Phase 4.2
 
 ## Context
 The accounting phase introduces double-entry bookkeeping, statutory financial reporting, and automated integration with procurem
@@ -31,15 +31,11 @@ Constraints include:
   allow traceability from journals to originating document and vice versa.
 * **Account Mapping** – `account_mappings` table provides configurable mapping keys (e.g., `grn.inventory`, `ap.invoice.tax`). Map
   ping is required for automated postings. Integrations resolve mappings before creating journal payloads.
-* **Reporting Structures** – Materialized view `gl_balances` holds aggregated opening/debit/credit/closing per account/period to s
-  peed up TB. Additional helper tables `pl_structure` and `bs_structure` capture report ordering and aggregation rules referencing
-  accounts.
-* **Audit Trail** – Reuse central `audit_logs` table, capturing posting, void, reversal, period close/lock, and override events wit
-  h metadata (source IDs, actor IDs, diffs). Services emit logs within the same transaction to guarantee alignment.
+* **Reporting Structures** – Materialized view `gl_balances` holds aggregated opening/debit/credit/closing per account/period to speed up TB. P&L and Balance Sheet derive from structure tables backed by CSV seed (Phase 4.2 introduces baseline templates that can be extended per company policy).
+* **Audit Trail** – Reuse central `audit_logs` table, capturing posting, void, reversal, period close/lock, and override events with metadata (source IDs, actor IDs, diffs). Services emit logs within the same transaction to guarantee alignment. Phase 4.2 finalises the required fields (`action`, `entity`, `entity_id`, `meta`, `occurred_at`) and standardises JSON payload keys.
 * **Service Boundaries** – Accounting domain package exposes posting, void, reverse, and query operations. Integrations adapt sour
   ce modules to ledger-specific DTOs. Shared period/lock helpers centralize RBAC checks.
-* **Performance & Jobs** – Nightly Asynq jobs refresh materialized views and run integrity checks (balance equality, orphan links).
-  Reporting endpoints always read the latest MV snapshot but allow manual refresh for finance operators.
+* **Performance & Jobs** – Nightly Asynq jobs refresh materialized views and run integrity checks (balance equality, orphan links). Reporting endpoints always read the latest MV snapshot but allow manual refresh for finance operators via `make refresh-mv` and the finance UI trigger.
 
 ## Consequences
 * Introducing hierarchical CoA increases complexity of CRUD UI but enables regulatory reporting, consolidations, and alignment wi

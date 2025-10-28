@@ -48,3 +48,24 @@ appings must reference active leaf accounts.
 * Accounts Receivable (AR) module will add `ar.invoice.*` and `ar.receipt.*` keys following the same pattern.
 * Multi-entity deployments may extend mapping keys with dimension suffixes (e.g., `ap.invoice.inventory.branch_<code>`); the repo
   sitory structure supports this through composite keys.
+
+
+## Seed Alignment
+
+The default `samples/coa.csv` file assigns the following demo mappings:
+
+| Module.Key | Account Code | Notes |
+| --- | --- | --- |
+| `grn.inventory` | 1300 | Inventory asset for GRN receipts. |
+| `grn.grir` | 5500 | GRIR clearing. |
+| `ap.invoice.ap` | 2100 | Trade AP. |
+| `ap.invoice.inventory` | 1300 | Stock purchase. |
+| `ap.invoice.expense` | 5200 | Operational expense fallback. |
+| `ap.invoice.tax_input` | 5400 | VAT receivable. |
+| `ap.payment.cash` | 1110 | Operating bank account. |
+| `ap.payment.ap` | 2100 | Liability clearing. |
+| `inventory.adjustment.gain` | 5300 | Inventory gain. |
+| `inventory.adjustment.loss` | 5300 | For demo both gain/loss share account; adjust in production. |
+| `inventory.adjustment.inventory` | 1300 | Inventory asset adjustment. |
+
+Mappings are idempotent—rerunning `make seed-phase4` keeps finance overrides intact while ensuring mandatory keys exist.
