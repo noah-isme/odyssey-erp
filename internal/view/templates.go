@@ -3,7 +3,10 @@ package view
 import (
 	"fmt"
 	"html/template"
+	"io/fs"
 	"net/http"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
@@ -12,7 +15,7 @@ import (
 
 // Engine renders HTML templates.
 type Engine struct {
-	templates *template.Template
+	templates map[string]*template.Template
 }
 
 // TemplateData contains values shared across templates.
@@ -34,11 +37,45 @@ func NewEngine() (*Engine, error) {
 			return t.Format("02 Jan 2006 15:04")
 		},
 	}
-	tpl, err := template.New("root").Funcs(funcMap).ParseFS(web.Templates, "templates/layouts/*.html", "templates/partials/*.html", "templates/pages/*.html")
+
+	base, err := template.New("root").Funcs(funcMap).ParseFS(web.Templates,
+		"templates/layouts/*.html",
+		"templates/partials/*.html",
+	)
 	if err != nil {
 		return nil, err
 	}
-	return &Engine{templates: tpl}, nil
+
+	patterns := []string{
+		"templates/pages/*.html",
+		"templates/pages/*/*.html",
+	}
+
+	templates := make(map[string]*template.Template)
+	for _, pattern := range patterns {
+		matches, err := fs.Glob(web.Templates, pattern)
+		if err != nil {
+			return nil, err
+		}
+		sort.Strings(matches)
+		for _, match := range matches {
+			clone, err := base.Clone()
+			if err != nil {
+				return nil, err
+			}
+			if _, err := clone.ParseFS(web.Templates, match); err != nil {
+				return nil, err
+			}
+			name := strings.TrimPrefix(match, "templates/")
+			templates[name] = clone
+		}
+	}
+
+	if len(templates) == 0 {
+		return nil, fmt.Errorf("no page templates found")
+	}
+
+	return &Engine{templates: templates}, nil
 }
 
 // Render executes a named template with TemplateData.
@@ -46,6 +83,10 @@ func (e *Engine) Render(w http.ResponseWriter, name string, data TemplateData) e
 	if e == nil {
 		return fmt.Errorf("template engine not initialised")
 	}
+	tpl, ok := e.templates[name]
+	if !ok {
+		return fmt.Errorf("template %s not found", name)
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	return e.templates.ExecuteTemplate(w, name, data)
+	return tpl.ExecuteTemplate(w, name, data)
 }

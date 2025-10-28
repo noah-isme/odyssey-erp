@@ -27,6 +27,8 @@ func NewWorker(redisOpts asynq.RedisClientOpt, logger *slog.Logger) *Worker {
 	})
 	mux := asynq.NewServeMux()
 	mux.HandleFunc(TaskTypeSendEmail, HandleSendEmailTask)
+	mux.HandleFunc(TaskInventoryRevaluation, HandleInventoryRevaluationTask)
+	mux.HandleFunc(TaskProcurementReindex, HandleProcurementReindexTask)
 	return &Worker{server: srv, mux: mux, logger: logger}
 }
 

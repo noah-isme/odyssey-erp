@@ -1,0 +1,33 @@
+{{ define "pages/inventory/transfer_form.html" }}
+<h1>Transfer Stok</h1>
+<form method="post" class="grid">
+    <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+    <label>Kode (opsional)
+        <input type="text" name="code" value="{{ .Data.Form.Code }}">
+    </label>
+    <label>Gudang Asal
+        <input type="number" name="src_warehouse" value="{{ .Data.Form.SrcWarehouse }}" required>
+    </label>
+    <label>Gudang Tujuan
+        <input type="number" name="dst_warehouse" value="{{ .Data.Form.DstWarehouse }}" required>
+    </label>
+    <label>Produk
+        <input type="number" name="product_id" value="{{ .Data.Form.ProductID }}" required>
+    </label>
+    <label>Kuantitas
+        <input type="number" step="0.0001" name="qty" value="{{ .Data.Form.Qty }}" required>
+    </label>
+    <label>Harga Satuan
+        <input type="number" step="0.0001" name="unit_cost" value="{{ .Data.Form.UnitCost }}" required>
+    </label>
+    <label>Catatan
+        <textarea name="note">{{ .Data.Form.Note }}</textarea>
+    </label>
+    <button type="submit">Transfer</button>
+</form>
+{{ if .Data.Errors }}
+<ul>
+    {{ range $k, $v := .Data.Errors }}<li><strong>{{ $k }}</strong>: {{ $v }}</li>{{ end }}
+</ul>
+{{ end }}
+{{ end }}
