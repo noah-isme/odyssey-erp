@@ -1,0 +1,20 @@
+{{ define "layouts/base.html" }}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ block "title" . }}{{ .Title }} · Odyssey ERP{{ end }}</title>
+    <link rel="stylesheet" href="/static/css/pico.min.css">
+</head>
+<body>
+    <main class="container">
+        {{ template "partials/nav.html" . }}
+        {{ template "partials/flash.html" . }}
+        <section>
+            {{ block "content" . }}{{ end }}
+        </section>
+    </main>
+</body>
+</html>
+{{ end }}
