@@ -1,0 +1,11 @@
+DROP MATERIALIZED VIEW IF EXISTS gl_balances;
+DROP TABLE IF EXISTS account_mappings;
+DROP TABLE IF EXISTS source_links;
+DROP TABLE IF EXISTS journal_lines;
+DROP TABLE IF EXISTS journal_entries;
+DROP TABLE IF EXISTS periods;
+DROP TABLE IF EXISTS accounts;
+DROP SEQUENCE IF EXISTS journal_entries_number_seq;
+DROP TYPE IF EXISTS journal_status;
+DROP TYPE IF EXISTS period_status;
+DROP TYPE IF EXISTS account_type;

@@ -1,0 +1,17 @@
+code,name,type,parent_code
+1000,Assets,ASSET,
+1100,Cash & Bank,ASSET,1000
+1110,Operating Bank,ASSET,1100
+1120,Petty Cash,ASSET,1100
+1200,Accounts Receivable,ASSET,1000
+1300,Inventory,ASSET,1000
+2000,Liabilities,LIABILITY,
+2100,Accounts Payable,LIABILITY,2000
+3000,Equity,EQUITY,
+4000,Revenue,REVENUE,
+5000,Expenses,EXPENSE,
+5100,Cost of Goods Sold,EXPENSE,5000
+5200,Operational Expense,EXPENSE,5000
+5300,Inventory Gain/Loss,EXPENSE,5000
+5400,Tax Input,ASSET,1000
+5500,Goods Receipt Clearing,LIABILITY,2000
