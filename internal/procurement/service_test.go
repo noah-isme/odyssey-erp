@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/inventory"
+	_ "github.com/odyssey-erp/odyssey-erp/testing"
 )
 
 type memoryProcRepo struct {

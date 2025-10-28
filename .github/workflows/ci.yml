@@ -26,6 +26,8 @@ jobs:
     env:
       PG_DSN: postgres://odyssey:odyssey@localhost:5432/odyssey?sslmode=disable
       REDIS_ADDR: localhost:6379
+      ODYSSEY_TEST_MODE: "1"
+      GOTENBERG_URL: http://127.0.0.1:0
 
     steps:
       - uses: actions/checkout@v4

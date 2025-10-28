@@ -1,6 +1,10 @@
 package reports
 
-import "testing"
+import (
+	"testing"
+
+	_ "github.com/odyssey-erp/odyssey-erp/testing"
+)
 
 func TestBuildTrialBalance(t *testing.T) {
 	accounts := []AccountBalance{
