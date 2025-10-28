@@ -1,0 +1,71 @@
+{{ define "pages/reports/pl.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Profit &amp; Loss{{ end }}
+
+{{ define "content" }}
+{{ $data := .Data }}
+<h1>Profit &amp; Loss</h1>
+<p class="contrast">Company: {{ $data.CompanyName }} · Period: {{ $data.PeriodLabel }} · Branch: {{ $data.BranchName }}</p>
+<form method="get" class="grid">
+    <label>
+        Period
+        <input type="month" name="period" value="{{ $data.FilterPeriod }}">
+    </label>
+    <label>
+        Branch
+        <input type="text" name="branch" value="{{ $data.FilterBranch }}" placeholder="All branches">
+    </label>
+    <label>
+        Company
+        <input type="text" name="company" value="{{ $data.FilterCompany }}" placeholder="All companies">
+    </label>
+    <div class="grid">
+        <button type="submit">Apply</button>
+        <a role="button" href="?">Reset</a>
+    </div>
+</form>
+<div class="grid">
+    <section>
+        <h2>Revenue</h2>
+        <table>
+            <tbody>
+            {{ range $row := $data.Report.Revenue.Accounts }}
+                <tr>
+                    <td>{{ $row.Code }} – {{ $row.Name }}</td>
+                    <td class="numeric">{{ printf "%.2f" $row.Amount }}</td>
+                </tr>
+            {{ end }}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th>Total Revenue</th>
+                    <th class="numeric">{{ printf "%.2f" $data.Report.Revenue.Total }}</th>
+                </tr>
+            </tfoot>
+        </table>
+    </section>
+    <section>
+        <h2>Expense</h2>
+        <table>
+            <tbody>
+            {{ range $row := $data.Report.Expense.Accounts }}
+                <tr>
+                    <td>{{ $row.Code }} – {{ $row.Name }}</td>
+                    <td class="numeric">{{ printf "%.2f" $row.Amount }}</td>
+                </tr>
+            {{ end }}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th>Total Expense</th>
+                    <th class="numeric">{{ printf "%.2f" $data.Report.Expense.Total }}</th>
+                </tr>
+            </tfoot>
+        </table>
+    </section>
+</div>
+<p class="contrast"><strong>Net Income:</strong> {{ printf "%.2f" $data.Report.NetIncome }}</p>
+<p><a role="button" href="/finance/reports/pl/pdf?period={{ $data.FilterPeriod }}&branch={{ $data.FilterBranch }}&company={{ $data.FilterCompany }}">Download PDF</a></p>
+{{ end }}
