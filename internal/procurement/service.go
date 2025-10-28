@@ -40,11 +40,12 @@ type Service struct {
 	approvals   *shared.ApprovalRecorder
 	audit       AuditPort
 	idempotency *shared.IdempotencyStore
+	integration IntegrationHandler
 }
 
 // NewService constructs procurement service.
-func NewService(repo RepositoryPort, inventory InventoryPort, approvals *shared.ApprovalRecorder, audit AuditPort, idem *shared.IdempotencyStore) *Service {
-	return &Service{repo: repo, inventory: inventory, approvals: approvals, audit: audit, idempotency: idem}
+func NewService(repo RepositoryPort, inventory InventoryPort, approvals *shared.ApprovalRecorder, audit AuditPort, idem *shared.IdempotencyStore, integration IntegrationHandler) *Service {
+	return &Service{repo: repo, inventory: inventory, approvals: approvals, audit: audit, idempotency: idem, integration: integration}
 }
 
 // CreatePRInput describes creation payload.
@@ -324,6 +325,22 @@ func (s *Service) PostGoodsReceipt(ctx context.Context, grnID int64) error {
 		return err
 	}
 	s.recordAudit(ctx, "GRN_POST", grnID, map[string]any{"number": grn.Number})
+	if s.integration != nil {
+		evt := GRNPostedEvent{
+			ID:          grn.ID,
+			Number:      grn.Number,
+			SupplierID:  grn.SupplierID,
+			WarehouseID: grn.WarehouseID,
+			ReceivedAt:  grn.ReceivedAt,
+		}
+		evt.Lines = make([]GRNLineEvent, 0, len(lines))
+		for _, line := range lines {
+			evt.Lines = append(evt.Lines, GRNLineEvent{ProductID: line.ProductID, Qty: line.Qty, UnitCost: line.UnitCost})
+		}
+		if err := s.integration.HandleGRNPosted(ctx, evt); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -371,9 +388,26 @@ func (s *Service) PostAPInvoice(ctx context.Context, invoiceID int64) error {
 	if inv.Status != APStatusDraft {
 		return ErrInvalidState
 	}
-	return s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
+	postedAt := time.Now()
+	if err := s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
 		return tx.UpdateAPStatus(ctx, invoiceID, APStatusPosted)
-	})
+	}); err != nil {
+		return err
+	}
+	if s.integration != nil {
+		evt := APInvoicePostedEvent{
+			ID:         inv.ID,
+			Number:     inv.Number,
+			SupplierID: inv.SupplierID,
+			GRNID:      inv.GRNID,
+			Total:      inv.Total,
+			PostedAt:   postedAt,
+		}
+		if err := s.integration.HandleAPInvoicePosted(ctx, evt); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // RegisterPayment records payment and marks invoice paid if fully settled.
@@ -385,20 +419,40 @@ func (s *Service) RegisterPayment(ctx context.Context, input PaymentInput) error
 	if err != nil {
 		return err
 	}
-	return s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
+	paidAt := time.Now()
+	var payment APPayment
+	if err := s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
 		if input.Number == "" {
 			input.Number = generateNumber("PAY")
 		}
-		if _, err := tx.CreatePayment(ctx, APPayment{Number: input.Number, APInvoiceID: input.APInvoiceID, Amount: input.Amount}); err != nil {
+		payment = APPayment{Number: input.Number, APInvoiceID: input.APInvoiceID, Amount: input.Amount}
+		id, err := tx.CreatePayment(ctx, payment)
+		if err != nil {
 			return err
 		}
+		payment.ID = id
 		if input.Amount >= target.Total {
 			if err := tx.UpdateAPStatus(ctx, input.APInvoiceID, APStatusPaid); err != nil {
 				return err
 			}
 		}
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
+	if s.integration != nil {
+		evt := APPaymentPostedEvent{
+			ID:          payment.ID,
+			Number:      payment.Number,
+			APInvoiceID: payment.APInvoiceID,
+			Amount:      payment.Amount,
+			PaidAt:      paidAt,
+		}
+		if err := s.integration.HandleAPPaymentPosted(ctx, evt); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // APAgingBucket summarises totals.

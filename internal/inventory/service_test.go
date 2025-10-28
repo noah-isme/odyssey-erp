@@ -71,7 +71,7 @@ func (tx *memoryTx) InsertCardEntry(ctx context.Context, card StockCardEntry, wa
 
 func TestAverageMovingCost(t *testing.T) {
 	repo := newMemoryRepo()
-	svc := NewService(repo, nil, nil, ServiceConfig{})
+	svc := NewService(repo, nil, nil, ServiceConfig{}, nil)
 	ctx := context.Background()
 
 	entry, err := svc.PostInbound(ctx, InboundInput{WarehouseID: 1, ProductID: 1, Qty: 10, UnitCost: 100000, Note: "GRN#1"})
@@ -93,7 +93,7 @@ func TestAverageMovingCost(t *testing.T) {
 
 func TestTransfer(t *testing.T) {
 	repo := newMemoryRepo()
-	svc := NewService(repo, nil, nil, ServiceConfig{})
+	svc := NewService(repo, nil, nil, ServiceConfig{}, nil)
 	ctx := context.Background()
 
 	_, err := svc.PostInbound(ctx, InboundInput{WarehouseID: 1, ProductID: 1, Qty: 20, UnitCost: 50000, Note: "GRN"})
@@ -110,7 +110,7 @@ func TestTransfer(t *testing.T) {
 
 func TestNegativeStockGuard(t *testing.T) {
 	repo := newMemoryRepo()
-	svc := NewService(repo, nil, nil, ServiceConfig{})
+	svc := NewService(repo, nil, nil, ServiceConfig{}, nil)
 	ctx := context.Background()
 
 	_, err := svc.PostAdjustment(ctx, AdjustmentInput{WarehouseID: 1, ProductID: 1, Qty: -1, Note: "negative"})
