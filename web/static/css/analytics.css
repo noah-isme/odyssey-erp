@@ -1,0 +1,100 @@
+.dashboard-wrapper {
+    display: grid;
+    gap: 1.5rem;
+}
+
+.dashboard-section {
+    background: var(--pico-color-background, #ffffff);
+    border: 1px solid var(--pico-color-muted-border, #d0d7de);
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+}
+
+.filters-form {
+    display: grid;
+    gap: 1rem;
+}
+
+.filters-form .filter-grid {
+    display: grid;
+    gap: 1rem;
+}
+
+@media (min-width: 640px) {
+    .filters-form .filter-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+.kpi-grid {
+    display: grid;
+    gap: 1rem;
+}
+
+@media (min-width: 640px) {
+    .kpi-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+.kpi-card {
+    border-radius: 0.75rem;
+    border: 1px solid var(--pico-color-muted-border, #d0d7de);
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.kpi-card .label {
+    font-size: 0.9rem;
+    color: var(--pico-color-muted, #6e7781);
+}
+
+.kpi-card .value {
+    font-size: 1.35rem;
+    font-weight: 600;
+}
+
+.chart-container {
+    overflow-x: auto;
+}
+
+.chart-frame {
+    min-width: 280px;
+}
+
+.aging-grid {
+    display: grid;
+    gap: 1.25rem;
+}
+
+@media (min-width: 720px) {
+    .aging-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+.table-responsive {
+    overflow-x: auto;
+}
+
+.table-responsive table {
+    width: 100%;
+}
+
+.table-responsive th,
+.table-responsive td {
+    text-align: right;
+}
+
+.table-responsive th:first-child,
+.table-responsive td:first-child {
+    text-align: left;
+}
+
+.chart-description {
+    font-size: 0.85rem;
+    color: var(--pico-color-muted, #6e7781);
+    margin-top: 0.5rem;
+}

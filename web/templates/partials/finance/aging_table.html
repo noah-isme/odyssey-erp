@@ -1,0 +1,55 @@
+{{ define "partials/finance/aging_table.html" }}
+<section class="dashboard-section" aria-label="Aging Piutang & Hutang">
+    <header>
+        <h2>Aging AR &amp; AP</h2>
+    </header>
+    <div class="aging-grid">
+        <div class="table-responsive">
+            <table aria-label="Aging piutang">
+                <caption>Aging Piutang</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Bucket</th>
+                        <th scope="col">Nilai</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ range .AgingAR }}
+                    <tr>
+                        <th scope="row">{{ .Bucket }}</th>
+                        <td>Rp {{ formatDecimal .Amount }}</td>
+                    </tr>
+                    {{ else }}
+                    <tr>
+                        <td colspan="2">Tidak ada data aging piutang.</td>
+                    </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
+        <div class="table-responsive">
+            <table aria-label="Aging hutang">
+                <caption>Aging Hutang</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Bucket</th>
+                        <th scope="col">Nilai</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ range .AgingAP }}
+                    <tr>
+                        <th scope="row">{{ .Bucket }}</th>
+                        <td>Rp {{ formatDecimal .Amount }}</td>
+                    </tr>
+                    {{ else }}
+                    <tr>
+                        <td colspan="2">Tidak ada data aging hutang.</td>
+                    </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+{{ end }}

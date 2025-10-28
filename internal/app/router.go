@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
 
+	analytichttp "github.com/odyssey-erp/odyssey-erp/internal/analytics/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/auth"
 	"github.com/odyssey-erp/odyssey-erp/internal/inventory"
 	"github.com/odyssey-erp/odyssey-erp/internal/procurement"
@@ -29,6 +30,7 @@ type RouterParams struct {
 	ProcurementHandler *procurement.Handler
 	ReportHandler      *report.Handler
 	JobHandler         *jobs.Handler
+	AnalyticsHandler   *analytichttp.Handler
 }
 
 // NewRouter constructs the chi.Router with Odyssey defaults.
@@ -78,6 +80,9 @@ func NewRouter(params RouterParams) http.Handler {
 	r.Route("/procurement", params.ProcurementHandler.MountRoutes)
 	r.Route("/report", params.ReportHandler.MountRoutes)
 	r.Route("/jobs", params.JobHandler.MountRoutes)
+	if params.AnalyticsHandler != nil {
+		params.AnalyticsHandler.MountRoutes(r)
+	}
 
 	fileServer := http.StripPrefix("/static/", http.FileServer(http.FS(web.Static)))
 	r.Handle("/static/*", fileServer)

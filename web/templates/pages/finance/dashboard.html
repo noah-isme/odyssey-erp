@@ -1,0 +1,29 @@
+{{ define "pages/finance/dashboard.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Dashboard Keuangan{{ end }}
+
+{{ define "head" }}
+<link rel="stylesheet" href="/static/css/analytics.css">
+{{ end }}
+
+{{ define "content" }}
+<div class="dashboard-wrapper">
+    <header>
+        <h1>Dashboard Keuangan</h1>
+        <p>Ringkasan KPI, tren P&amp;L, cashflow, dan aging untuk periode {{ .Data.Filters.Period }}.</p>
+        <div role="group" aria-label="Ekspor dashboard">
+            <a class="secondary" href="/finance/analytics/pdf?period={{ .Data.Filters.Period }}&amp;company_id={{ .Data.Filters.CompanyID }}{{ with .Data.Filters.BranchID }}&amp;branch_id={{ . }}{{ end }}">Unduh PDF</a>
+            <a class="secondary" href="/finance/analytics/export.csv?period={{ .Data.Filters.Period }}&amp;company_id={{ .Data.Filters.CompanyID }}{{ with .Data.Filters.BranchID }}&amp;branch_id={{ . }}{{ end }}">Unduh CSV</a>
+        </div>
+    </header>
+    <section class="dashboard-section">
+        {{ template "partials/finance/filters.html" .Data }}
+    </section>
+    {{ template "partials/finance/kpi_card.html" .Data }}
+    {{ template "partials/finance/svg_trend.html" .Data }}
+    {{ template "partials/finance/svg_cashflow.html" .Data }}
+    {{ template "partials/finance/aging_table.html" .Data }}
+</div>
+{{ end }}

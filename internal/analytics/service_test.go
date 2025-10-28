@@ -1,14 +1,14 @@
 package analytics
 
 import (
-    "context"
-    "testing"
-    "time"
+	"context"
+	"testing"
+	"time"
 
 	miniredis "github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
 
-    analyticsdb "github.com/odyssey-erp/odyssey-erp/internal/analytics/db"
+	analyticsdb "github.com/odyssey-erp/odyssey-erp/internal/analytics/db"
 )
 
 type mockRepo struct {

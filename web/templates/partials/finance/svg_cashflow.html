@@ -1,0 +1,38 @@
+{{ define "partials/finance/svg_cashflow.html" }}
+<section class="dashboard-section" aria-label="Tren Cashflow">
+    <header>
+        <h2>Cashflow</h2>
+    </header>
+    <div class="chart-container">
+        <figure class="chart-frame">
+            {{ .CashflowSVG }}
+            <figcaption class="chart-description">Perbandingan cash in dan cash out bulanan.</figcaption>
+        </figure>
+    </div>
+    <div class="table-responsive">
+        <table aria-label="Ringkasan cashflow">
+            <caption>Detail cashflow bulanan</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Periode</th>
+                    <th scope="col">Cash In</th>
+                    <th scope="col">Cash Out</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{ range .CashflowTrend }}
+                <tr>
+                    <th scope="row">{{ .Period }}</th>
+                    <td>Rp {{ formatDecimal .In }}</td>
+                    <td>Rp {{ formatDecimal .Out }}</td>
+                </tr>
+                {{ else }}
+                <tr>
+                    <td colspan="3">Tidak ada data cashflow untuk filter ini.</td>
+                </tr>
+                {{ end }}
+            </tbody>
+        </table>
+    </div>
+</section>
+{{ end }}
