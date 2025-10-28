@@ -16,6 +16,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/auth"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
+	_ "github.com/odyssey-erp/odyssey-erp/testing"
 )
 
 type stubRepo struct {

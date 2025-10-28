@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	_ "github.com/odyssey-erp/odyssey-erp/testing"
 )
 
 type memoryRepo struct {
