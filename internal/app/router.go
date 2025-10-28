@@ -8,6 +8,8 @@ import (
 	chimw "github.com/go-chi/chi/v5/middleware"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/auth"
+	"github.com/odyssey-erp/odyssey-erp/internal/inventory"
+	"github.com/odyssey-erp/odyssey-erp/internal/procurement"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
 	"github.com/odyssey-erp/odyssey-erp/jobs"
@@ -17,14 +19,16 @@ import (
 
 // RouterParams groups dependencies for building the HTTP router.
 type RouterParams struct {
-	Logger         *slog.Logger
-	Config         *Config
-	Templates      *view.Engine
-	SessionManager *shared.SessionManager
-	CSRFManager    *shared.CSRFManager
-	AuthHandler    *auth.Handler
-	ReportHandler  *report.Handler
-	JobHandler     *jobs.Handler
+	Logger             *slog.Logger
+	Config             *Config
+	Templates          *view.Engine
+	SessionManager     *shared.SessionManager
+	CSRFManager        *shared.CSRFManager
+	AuthHandler        *auth.Handler
+	InventoryHandler   *inventory.Handler
+	ProcurementHandler *procurement.Handler
+	ReportHandler      *report.Handler
+	JobHandler         *jobs.Handler
 }
 
 // NewRouter constructs the chi.Router with Odyssey defaults.
@@ -70,6 +74,8 @@ func NewRouter(params RouterParams) http.Handler {
 	})
 
 	r.Route("/auth", params.AuthHandler.MountRoutes)
+	r.Route("/inventory", params.InventoryHandler.MountRoutes)
+	r.Route("/procurement", params.ProcurementHandler.MountRoutes)
 	r.Route("/report", params.ReportHandler.MountRoutes)
 	r.Route("/jobs", params.JobHandler.MountRoutes)
 

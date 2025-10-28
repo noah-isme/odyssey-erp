@@ -126,6 +126,13 @@
 * PR → PO → GRN, AP aging.
 * Report stok & pembelian (PDF/CSV).
 
+#### Highlights (Phase 3)
+
+* **Inventory module**: transaction journal (`inventory_tx`) dengan average moving cost, form SSR untuk adjustment/transfer, dan kartu stok PDF.
+* **Procurement/AP module**: lifecycle PR→PO→GRN→AP Invoice→Payment, approval single-level, serta integrasi ke inventory saat GRN posting.
+* **RBAC & Controls**: permission granular `inventory.*`, `procurement.*`, `finance.ap.*`, approval log di tabel `approvals`, dan idempotency key untuk GRN/adjustment.
+* **Jobs & Reports**: tambahan tugas Asynq (`inventory:revaluation`, `procurement:reindex`) dan template PDF (`stock-card`, `grn`).
+
 ### Phase 4 – Sales
 
 * Quotation → SO → Delivery.
