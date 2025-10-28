@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: odyssey
+          POSTGRES_PASSWORD: odyssey
+          POSTGRES_DB: odyssey
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U odyssey" --health-interval 10s --health-timeout 5s --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+    env:
+      PG_DSN: postgres://odyssey:odyssey@localhost:5432/odyssey?sslmode=disable
+      REDIS_ADDR: localhost:6379
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.x'
+
+      - name: Install tools
+        run: |
+          go install github.com/kyleconroy/sqlc/cmd/sqlc@latest
+          go install github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+
+      - name: Go mod download
+        run: go mod download
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v4
+        with:
+          version: latest
+
+      - name: Run sqlc
+        run: sqlc generate
+
+      - name: Database migrations
+        run: migrate -path migrations -database "$PG_DSN" up
+
+      - name: Test
+        run: go test ./...
+
+      - name: Build
+        run: go build ./...

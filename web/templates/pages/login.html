@@ -1,0 +1,25 @@
+{{ define "pages/login.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Masuk{{ end }}
+
+{{ define "content" }}
+<h1>Masuk</h1>
+{{ $errors := .Data.Errors }}
+{{ if $errors.general }}
+<article class="error">{{ $errors.general }}</article>
+{{ end }}
+<form method="post" action="/auth/login">
+    <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+    <label>Email
+        <input type="email" name="email" value="{{ .Data.Form.Email }}" required>
+        {{ if $errors.Email }}<small class="error">{{ $errors.Email }}</small>{{ end }}
+    </label>
+    <label>Password
+        <input type="password" name="password" required>
+        {{ if $errors.Password }}<small class="error">{{ $errors.Password }}</small>{{ end }}
+    </label>
+    <button type="submit">Masuk</button>
+</form>
+{{ end }}

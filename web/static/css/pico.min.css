@@ -1,0 +1,31 @@
+/* Placeholder Pico.css. Download full version from https://cdn.jsdelivr.net/npm/@picocss/pico@1.5.13/css/pico.min.css */
+:root {
+    color-scheme: light dark;
+}
+body {
+    font-family: system-ui, sans-serif;
+    margin: 0;
+    padding: 2rem 0;
+}
+.container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 1rem;
+}
+nav ul {
+    list-style: none;
+    display: flex;
+    gap: 1rem;
+    padding: 0;
+}
+nav ul:first-child {
+    font-weight: 600;
+}
+article.success {
+    background: #e0f8e0;
+    padding: 0.75rem;
+}
+article.error {
+    background: #fbe3e4;
+    padding: 0.75rem;
+}

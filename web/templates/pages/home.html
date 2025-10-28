@@ -1,0 +1,14 @@
+{{ define "pages/home.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Beranda{{ end }}
+
+{{ define "content" }}
+<h1>Selamat datang di Odyssey ERP</h1>
+<p>Environment: {{ index .Data "AppEnv" }}</p>
+<form method="post" action="/report/sample">
+    <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+    <button type="submit">Generate Sample PDF</button>
+</form>
+{{ end }}

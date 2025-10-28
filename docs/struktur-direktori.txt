@@ -1,0 +1,16 @@
+/cmd
+  /odyssey         # HTTP server entrypoint
+  /worker          # Asynq worker entrypoint
+/internal
+  /app             # config, router, middleware
+  /auth            # domain auth (handler, service, repo, sqlc)
+  /shared          # session, csrf, respond, errors
+  /view            # template engine helper
+/jobs              # asynq client/server + HTTP observability
+/report            # gotenberg client + handler
+/migrations        # SQL schema changes
+/web
+  /static          # CSS placeholder
+  /templates       # layout, partials, pages SSR
+/docs              # arsitektur & struktur
+/sqlc.yaml         # sqlc config
