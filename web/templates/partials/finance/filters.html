@@ -1,0 +1,24 @@
+{{ define "partials/finance/filters.html" }}
+<form class="filters-form" method="get" action="/finance/analytics" role="search" aria-label="Filter dashboard">
+    <fieldset>
+        <legend>Filter parameter</legend>
+        <div class="filter-grid">
+            <label>
+                <span>Periode (YYYY-MM)</span>
+                <input type="month" name="period" value="{{ .Filters.Period }}" aria-label="Pilih periode">
+            </label>
+            <label>
+                <span>ID Perusahaan</span>
+                <input type="number" name="company_id" min="1" value="{{ .Filters.CompanyID }}" aria-label="Pilih perusahaan">
+            </label>
+            <label>
+                <span>ID Cabang</span>
+                <input type="number" name="branch_id" min="1" value="{{ with .Filters.BranchID }}{{ . }}{{ end }}" aria-label="Pilih cabang opsional">
+            </label>
+        </div>
+    </fieldset>
+    <div>
+        <button type="submit">Terapkan</button>
+    </div>
+</form>
+{{ end }}

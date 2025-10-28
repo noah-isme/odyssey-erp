@@ -2,6 +2,9 @@ package main
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"html/template"
 	"log/slog"
 	"net/http"
 	"os"
@@ -10,10 +13,16 @@ import (
 	"time"
 
 	"github.com/hibiken/asynq"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting"
+	"github.com/odyssey-erp/odyssey-erp/internal/analytics"
+	analyticsdb "github.com/odyssey-erp/odyssey-erp/internal/analytics/db"
+	"github.com/odyssey-erp/odyssey-erp/internal/analytics/export"
+	analytichttp "github.com/odyssey-erp/odyssey-erp/internal/analytics/http"
+	"github.com/odyssey-erp/odyssey-erp/internal/analytics/svg"
 	"github.com/odyssey-erp/odyssey-erp/internal/app"
 	"github.com/odyssey-erp/odyssey-erp/internal/auth"
 	"github.com/odyssey-erp/odyssey-erp/internal/integration"
@@ -25,6 +34,41 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/jobs"
 	"github.com/odyssey-erp/odyssey-erp/report"
 )
+
+type lineRenderer struct{}
+
+func (lineRenderer) Line(width, height int, series []float64, labels []string, opts svg.LineOpts) (template.HTML, error) {
+	return svg.Line(width, height, series, labels, opts)
+}
+
+type barRenderer struct{}
+
+func (barRenderer) Bars(width, height int, seriesA, seriesB []float64, labels []string, opts svg.BarOpts) (template.HTML, error) {
+	return svg.Bars(width, height, seriesA, seriesB, labels, opts)
+}
+
+type analyticsPeriodValidator struct {
+	pool   *pgxpool.Pool
+	logger *slog.Logger
+}
+
+func (v analyticsPeriodValidator) ValidatePeriod(ctx context.Context, period string) error {
+	if v.pool == nil || period == "" {
+		return nil
+	}
+	const query = "SELECT status FROM accounting_periods WHERE period = $1 AND status IN ('OPEN','CLOSED') LIMIT 1"
+	var status string
+	if err := v.pool.QueryRow(ctx, query, period).Scan(&status); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("analytics: period %s not accessible", period)
+		}
+		if v.logger != nil {
+			v.logger.Warn("validate period fallback", slog.Any("error", err))
+		}
+		return nil
+	}
+	return nil
+}
 
 func main() {
 	if app.InTestMode() {
@@ -90,6 +134,22 @@ func main() {
 	rbacService := rbac.NewService(dbpool)
 	rbacMiddleware := rbac.Middleware{Service: rbacService, Logger: logger}
 
+	analyticsRepo := analyticsdb.New(dbpool)
+	analyticsCache := analytics.NewCache(redisClient, 10*time.Minute)
+	analyticsService := analytics.NewService(analyticsRepo, analyticsCache)
+	pdfExporter := &export.PDFExporter{Endpoint: cfg.GotenbergURL, Client: http.DefaultClient}
+	analyticsValidator := analyticsPeriodValidator{pool: dbpool, logger: logger}
+	analyticsHandler := analytichttp.NewHandler(
+		logger,
+		analyticsService,
+		templates,
+		lineRenderer{},
+		barRenderer{},
+		pdfExporter,
+		rbacService,
+		analyticsValidator,
+	)
+
 	inventoryHandler := inventory.NewHandler(logger, inventoryService, templates, csrfManager, sessionManager, rbacMiddleware)
 	procurementHandler := procurement.NewHandler(logger, procurementService, templates, csrfManager, sessionManager, rbacMiddleware)
 
@@ -115,6 +175,7 @@ func main() {
 		ProcurementHandler: procurementHandler,
 		ReportHandler:      reportHandler,
 		JobHandler:         jobHandler,
+		AnalyticsHandler:   analyticsHandler,
 	})
 
 	server := &http.Server{

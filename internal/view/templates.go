@@ -11,6 +11,8 @@ import (
 
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 	"github.com/odyssey-erp/odyssey-erp/web"
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
 )
 
 // Engine renders HTML templates.
@@ -29,6 +31,7 @@ type TemplateData struct {
 
 // NewEngine parses templates at build-time.
 func NewEngine() (*Engine, error) {
+	printer := message.NewPrinter(language.Indonesian)
 	funcMap := template.FuncMap{
 		"formatDate": func(t time.Time) string {
 			if t.IsZero() {
@@ -36,11 +39,15 @@ func NewEngine() (*Engine, error) {
 			}
 			return t.Format("02 Jan 2006 15:04")
 		},
+		"formatDecimal": func(v float64) string {
+			return printer.Sprintf("%.2f", v)
+		},
 	}
 
 	base, err := template.New("root").Funcs(funcMap).ParseFS(web.Templates,
 		"templates/layouts/*.html",
 		"templates/partials/*.html",
+		"templates/partials/*/*.html",
 	)
 	if err != nil {
 		return nil, err
