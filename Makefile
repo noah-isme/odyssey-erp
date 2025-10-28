@@ -2,11 +2,15 @@ PROJECT_NAME=odyssey-erp
 GO_BIN?=go
 SQLC_BIN?=sqlc
 MIGRATE_BIN?=migrate
+PERIOD?=$(shell date +%Y-%m)
+COMPANY_ID?=1
+BRANCH_ID?=
+BRANCH_QUERY=$(if $(BRANCH_ID),&branch_id=$(BRANCH_ID),)
 
 export APP_ENV?=development
 export PG_DSN?=postgres://odyssey:odyssey@localhost:5432/odyssey?sslmode=disable
 
-.PHONY: dev lint test build migrate-up migrate-down sqlc-gen seed seed-phase3 seed-phase4 refresh-mv reports-demo pdf-sample
+.PHONY: dev lint test build migrate-up migrate-down sqlc-gen seed seed-phase3 seed-phase4 refresh-mv reports-demo pdf-sample analytics-dashboard analytics-dashboard-pdf analytics-dashboard-csv
 
 dev:
 	docker compose up --build
@@ -48,4 +52,15 @@ refresh-mv:
 	$(GO_BIN) run ./scripts/finance/refreshmv/main.go
 
 reports-demo:
-	$(GO_BIN) run ./scripts/finance/reportsdemo/main.go
+        $(GO_BIN) run ./scripts/finance/reportsdemo/main.go
+
+analytics-dashboard:
+        curl -fsS "http://localhost:8080/finance/analytics?period=$(PERIOD)&company_id=$(COMPANY_ID)$(BRANCH_QUERY)"
+
+analytics-dashboard-pdf:
+        curl -fsS -o /tmp/analytics-dashboard.pdf "http://localhost:8080/finance/analytics/pdf?period=$(PERIOD)&company_id=$(COMPANY_ID)$(BRANCH_QUERY)"
+        test -s /tmp/analytics-dashboard.pdf
+
+analytics-dashboard-csv:
+        curl -fsS -o /tmp/analytics-dashboard.csv "http://localhost:8080/finance/analytics/export.csv?period=$(PERIOD)&company_id=$(COMPANY_ID)$(BRANCH_QUERY)"
+        test -s /tmp/analytics-dashboard.csv

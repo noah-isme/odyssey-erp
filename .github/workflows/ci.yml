@@ -63,3 +63,8 @@ jobs:
 
       - name: Build
         run: go build ./...
+
+      - name: Analytics SSR smoke tests
+        run: |
+          go test ./internal/analytics/http -run 'Test(DashboardSuccess|PDFExport)'
+          go test ./internal/analytics/svg

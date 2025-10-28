@@ -1,0 +1,41 @@
+{{ define "partials/finance/kpi_card.html" }}
+<section class="dashboard-section" aria-label="KPI Keuangan">
+    <header>
+        <h2>KPI Utama</h2>
+    </header>
+    <div class="kpi-grid" role="list">
+        <article class="kpi-card" role="listitem">
+            <span class="label">Pendapatan</span>
+            <span class="value">Rp {{ formatDecimal .KPI.Revenue }}</span>
+        </article>
+        <article class="kpi-card" role="listitem">
+            <span class="label">Beban Operasional</span>
+            <span class="value">Rp {{ formatDecimal .KPI.Opex }}</span>
+        </article>
+        <article class="kpi-card" role="listitem">
+            <span class="label">Laba Bersih</span>
+            <span class="value">Rp {{ formatDecimal .KPI.NetProfit }}</span>
+        </article>
+        <article class="kpi-card" role="listitem">
+            <span class="label">Cash In</span>
+            <span class="value">Rp {{ formatDecimal .KPI.CashIn }}</span>
+        </article>
+        <article class="kpi-card" role="listitem">
+            <span class="label">Cash Out</span>
+            <span class="value">Rp {{ formatDecimal .KPI.CashOut }}</span>
+        </article>
+        <article class="kpi-card" role="listitem">
+            <span class="label">AR Outstanding</span>
+            <span class="value">Rp {{ formatDecimal .KPI.AROutstanding }}</span>
+        </article>
+        <article class="kpi-card" role="listitem">
+            <span class="label">AP Outstanding</span>
+            <span class="value">Rp {{ formatDecimal .KPI.APOutstanding }}</span>
+        </article>
+        <article class="kpi-card" role="listitem">
+            <span class="label">COGS</span>
+            <span class="value">Rp {{ formatDecimal .KPI.COGS }}</span>
+        </article>
+    </div>
+</section>
+{{ end }}
