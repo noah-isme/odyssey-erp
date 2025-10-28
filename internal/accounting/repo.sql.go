@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -163,6 +164,39 @@ func (r *txRepository) UpdateJournalStatus(ctx context.Context, entryID int64, s
 		return ErrJournalNotFound
 	}
 	return nil
+}
+
+// FindOpenPeriodByDate returns the open period covering the supplied date.
+func (r *Repository) FindOpenPeriodByDate(ctx context.Context, date time.Time) (Period, error) {
+	var period Period
+	err := r.pool.QueryRow(ctx, `SELECT id, code, start_date, end_date, status, closed_at, locked_by, created_at, updated_at
+FROM periods WHERE status='OPEN' AND $1 BETWEEN start_date AND end_date ORDER BY start_date LIMIT 1`, date).
+		Scan(&period.ID, &period.Code, &period.StartDate, &period.EndDate, &period.Status, &period.ClosedAt, &period.LockedBy, &period.CreatedAt, &period.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Period{}, ErrInvalidPeriod
+		}
+		return Period{}, err
+	}
+	return period, nil
+}
+
+// GetAccountMapping resolves an account mapping for the specified key.
+func (r *Repository) GetAccountMapping(ctx context.Context, module, key string) (AccountMapping, error) {
+	if module == "" || key == "" {
+		return AccountMapping{}, errors.New("accounting: module and key required")
+	}
+	normalized := strings.ToUpper(module)
+	var mapping AccountMapping
+	err := r.pool.QueryRow(ctx, `SELECT module, key, account_id, created_at, updated_at FROM account_mappings WHERE module=$1 AND key=$2`, normalized, key).
+		Scan(&mapping.Module, &mapping.Key, &mapping.AccountID, &mapping.CreatedAt, &mapping.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return AccountMapping{}, ErrMappingNotFound
+		}
+		return AccountMapping{}, err
+	}
+	return mapping, nil
 }
 
 func nullInt(val int64) any {

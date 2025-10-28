@@ -189,7 +189,7 @@ func (s *stubInventory) PostInbound(ctx context.Context, input inventory.Inbound
 func TestProcurementFlow(t *testing.T) {
 	repo := newMemoryProcRepo()
 	inv := &stubInventory{}
-	svc := NewService(repo, inv, nil, nil, nil)
+	svc := NewService(repo, inv, nil, nil, nil, nil)
 	ctx := context.Background()
 
 	pr, err := svc.CreatePurchaseRequest(ctx, CreatePRInput{

@@ -13,8 +13,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
+	"github.com/odyssey-erp/odyssey-erp/internal/accounting"
 	"github.com/odyssey-erp/odyssey-erp/internal/app"
 	"github.com/odyssey-erp/odyssey-erp/internal/auth"
+	"github.com/odyssey-erp/odyssey-erp/internal/integration"
 	"github.com/odyssey-erp/odyssey-erp/internal/inventory"
 	"github.com/odyssey-erp/odyssey-erp/internal/procurement"
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
@@ -70,11 +72,15 @@ func main() {
 	approvalRecorder := shared.NewApprovalRecorder(dbpool, logger)
 	idempotencyStore := shared.NewIdempotencyStore(dbpool)
 
+	accountingRepo := accounting.NewRepository(dbpool)
+	accountingService := accounting.NewService(accountingRepo, auditLogger)
+	integrationHooks := integration.NewHooks(accountingService, accountingRepo)
+
 	inventoryRepo := inventory.NewRepository(dbpool)
-	inventoryService := inventory.NewService(inventoryRepo, auditLogger, idempotencyStore, inventory.ServiceConfig{})
+	inventoryService := inventory.NewService(inventoryRepo, auditLogger, idempotencyStore, inventory.ServiceConfig{}, integrationHooks)
 
 	procurementRepo := procurement.NewRepository(dbpool)
-	procurementService := procurement.NewService(procurementRepo, inventoryService, approvalRecorder, auditLogger, idempotencyStore)
+	procurementService := procurement.NewService(procurementRepo, inventoryService, approvalRecorder, auditLogger, idempotencyStore, integrationHooks)
 
 	rbacService := rbac.NewService(dbpool)
 	rbacMiddleware := rbac.Middleware{Service: rbacService, Logger: logger}
