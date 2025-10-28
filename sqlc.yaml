@@ -10,3 +10,13 @@ sql:
         sql_package: "pgx/v5"
         emit_interface: false
         emit_json_tags: true
+  - engine: "postgresql"
+    schema: "migrations"
+    queries: "internal/rbac/queries"
+    gen:
+      go:
+        package: "rbacdb"
+        out: "internal/rbac/db"
+        sql_package: "pgx/v5"
+        emit_interface: false
+        emit_json_tags: true
