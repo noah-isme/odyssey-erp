@@ -1,0 +1,24 @@
+{{ define "pages/procurement/po_form.html" }}
+<h1>Purchase Order</h1>
+<form method="post" class="grid">
+    <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+    <label>Nomor
+        <input type="text" name="number">
+    </label>
+    <label>PR ID
+        <input type="number" name="pr_id" required>
+    </label>
+    <label>Mata Uang
+        <input type="text" name="currency" value="IDR">
+    </label>
+    <label>Tanggal Estimasi
+        <input type="date" name="expected_date">
+    </label>
+    <label>Catatan
+        <textarea name="note"></textarea>
+    </label>
+    <button type="submit">Buat PO</button>
+</form>
+{{ if .Data.Errors }}<p class="error">{{ index .Data.Errors "general" }}</p>{{ end }}
+<p>Gunakan endpoint <code>/procurement/pos/&lt;id&gt;/submit</code> dan <code>/procurement/pos/&lt;id&gt;/approve</code> untuk melanjutkan workflow.</p>
+{{ end }}

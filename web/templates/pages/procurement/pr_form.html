@@ -1,0 +1,29 @@
+{{ define "pages/procurement/pr_form.html" }}
+<h1>Purchase Request</h1>
+<form method="post" class="grid">
+    <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+    <label>Nomor
+        <input type="text" name="number">
+    </label>
+    <label>Supplier ID
+        <input type="number" name="supplier_id">
+    </label>
+    <label>Request By (User ID)
+        <input type="number" name="request_by" required>
+    </label>
+    <div class="grid">
+        <label>Produk ID
+            <input type="number" name="product_id" required>
+        </label>
+        <label>Kuantitas
+            <input type="number" step="0.0001" name="qty" required>
+        </label>
+    </div>
+    <label>Catatan
+        <textarea name="note"></textarea>
+    </label>
+    <button type="submit">Simpan</button>
+</form>
+{{ if .Data.Errors }}<p class="error">{{ index .Data.Errors "general" }}</p>{{ end }}
+<p>Gunakan tombol Submit di daftar PR untuk mengajukan dokumen.</p>
+{{ end }}

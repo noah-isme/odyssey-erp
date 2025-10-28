@@ -15,6 +15,9 @@ import (
 
 	"github.com/odyssey-erp/odyssey-erp/internal/app"
 	"github.com/odyssey-erp/odyssey-erp/internal/auth"
+	"github.com/odyssey-erp/odyssey-erp/internal/inventory"
+	"github.com/odyssey-erp/odyssey-erp/internal/procurement"
+	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
 	"github.com/odyssey-erp/odyssey-erp/jobs"
@@ -63,6 +66,22 @@ func main() {
 	authService := auth.NewService(authRepo)
 	authHandler := auth.NewHandler(logger, authService, templates, sessionManager, csrfManager)
 
+	auditLogger := shared.NewAuditLogger(dbpool)
+	approvalRecorder := shared.NewApprovalRecorder(dbpool, logger)
+	idempotencyStore := shared.NewIdempotencyStore(dbpool)
+
+	inventoryRepo := inventory.NewRepository(dbpool)
+	inventoryService := inventory.NewService(inventoryRepo, auditLogger, idempotencyStore, inventory.ServiceConfig{})
+
+	procurementRepo := procurement.NewRepository(dbpool)
+	procurementService := procurement.NewService(procurementRepo, inventoryService, approvalRecorder, auditLogger, idempotencyStore)
+
+	rbacService := rbac.NewService(dbpool)
+	rbacMiddleware := rbac.Middleware{Service: rbacService, Logger: logger}
+
+	inventoryHandler := inventory.NewHandler(logger, inventoryService, templates, csrfManager, sessionManager, rbacMiddleware)
+	procurementHandler := procurement.NewHandler(logger, procurementService, templates, csrfManager, sessionManager, rbacMiddleware)
+
 	reportClient := report.NewClient(cfg.GotenbergURL)
 	reportHandler := report.NewHandler(reportClient, logger)
 
@@ -75,14 +94,16 @@ func main() {
 	jobHandler := jobs.NewHandler(inspector, logger)
 
 	router := app.NewRouter(app.RouterParams{
-		Logger:         logger,
-		Config:         cfg,
-		Templates:      templates,
-		SessionManager: sessionManager,
-		CSRFManager:    csrfManager,
-		AuthHandler:    authHandler,
-		ReportHandler:  reportHandler,
-		JobHandler:     jobHandler,
+		Logger:             logger,
+		Config:             cfg,
+		Templates:          templates,
+		SessionManager:     sessionManager,
+		CSRFManager:        csrfManager,
+		AuthHandler:        authHandler,
+		InventoryHandler:   inventoryHandler,
+		ProcurementHandler: procurementHandler,
+		ReportHandler:      reportHandler,
+		JobHandler:         jobHandler,
 	})
 
 	server := &http.Server{
