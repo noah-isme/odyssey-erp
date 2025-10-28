@@ -1,0 +1,42 @@
+{{ define "partials/finance/svg_trend.html" }}
+<section class="dashboard-section" aria-label="Tren Profit & Loss">
+    <header>
+        <h2>Tren P&amp;L</h2>
+    </header>
+    <div class="chart-container">
+        <figure class="chart-frame">
+            {{ .PLTrendSVG }}
+            <figcaption class="chart-description">Pergerakan laba bersih bulanan.</figcaption>
+        </figure>
+    </div>
+    <div class="table-responsive">
+        <table aria-label="Ringkasan tren P&amp;L">
+            <caption>Detail P&amp;L bulanan</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Periode</th>
+                    <th scope="col">Pendapatan</th>
+                    <th scope="col">COGS</th>
+                    <th scope="col">Opex</th>
+                    <th scope="col">Laba Bersih</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{ range .PLTrend }}
+                <tr>
+                    <th scope="row">{{ .Period }}</th>
+                    <td>Rp {{ formatDecimal .Revenue }}</td>
+                    <td>Rp {{ formatDecimal .COGS }}</td>
+                    <td>Rp {{ formatDecimal .Opex }}</td>
+                    <td>Rp {{ formatDecimal .Net }}</td>
+                </tr>
+                {{ else }}
+                <tr>
+                    <td colspan="5">Tidak ada data tren untuk filter ini.</td>
+                </tr>
+                {{ end }}
+            </tbody>
+        </table>
+    </div>
+</section>
+{{ end }}

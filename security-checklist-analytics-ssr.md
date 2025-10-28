@@ -1,0 +1,25 @@
+# Security Checklist – Finance Analytics SSR Dashboard
+
+- [x] **RBAC Enforcement**
+  - View endpoint (`/finance/analytics`) requires `finance.view_analytics`.
+  - Export endpoints (`/finance/analytics/pdf`, `/finance/analytics/export.csv`) require `finance.export_analytics`.
+- [x] **Rate Limiting**
+  - PDF/CSV exports limited to 10 requests per minute per user/IP via `httprate` middleware.
+- [x] **Input Validation & Sanitisation**
+  - Query parameters (`period`, `company_id`, `branch_id`) validated against regex/positive integers.
+  - Period verified via finance period validator to ensure OPEN/CLOSED status.
+  - No raw query values logged.
+- [x] **Output Encoding**
+  - Templates use `html/template`; dynamic SVG content provided as `template.HTML` from trusted renderer.
+  - CSV/PDF filenames restrict to numeric period tokens.
+- [x] **Content Security Policy Compatibility**
+  - No inline scripts; custom styling served via `/static/css/analytics.css`.
+- [x] **Sensitive Data Handling**
+  - No credentials or secrets embedded. CSV/PDF exports include only aggregated financial metrics.
+- [x] **Error Responses**
+  - Validation errors return 400 with generic messaging.
+  - Authorization failures return 403. Internal errors log via `slog` and return 500.
+- [x] **Session Usage**
+  - Session retrieved from context only; no new cookies set.
+- [x] **PDF Generation**
+  - Gotenberg endpoint configurable; HTTP errors bubbled with sanitised logs.
