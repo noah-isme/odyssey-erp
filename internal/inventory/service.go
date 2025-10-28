@@ -29,6 +29,7 @@ type Service struct {
 	audit       AuditPort
 	idempotency *shared.IdempotencyStore
 	allowNeg    bool
+	integration IntegrationHandler
 }
 
 // ServiceConfig groups optional settings.
@@ -37,8 +38,8 @@ type ServiceConfig struct {
 }
 
 // NewService builds Service.
-func NewService(repo RepositoryPort, audit AuditPort, idem *shared.IdempotencyStore, cfg ServiceConfig) *Service {
-	return &Service{repo: repo, audit: audit, idempotency: idem, allowNeg: cfg.AllowNegativeStock}
+func NewService(repo RepositoryPort, audit AuditPort, idem *shared.IdempotencyStore, cfg ServiceConfig, integration IntegrationHandler) *Service {
+	return &Service{repo: repo, audit: audit, idempotency: idem, allowNeg: cfg.AllowNegativeStock, integration: integration}
 }
 
 // PostInbound posts an inbound movement (e.g. GRN).
@@ -90,7 +91,24 @@ func (s *Service) PostAdjustment(ctx context.Context, input AdjustmentInput) (St
 		RefModule:   input.RefModule,
 		RefID:       input.RefID,
 	}
-	return s.postMovement(ctx, params)
+	entry, err := s.postMovement(ctx, params)
+	if err != nil {
+		return StockCardEntry{}, err
+	}
+	if s.integration != nil {
+		evt := AdjustmentPostedEvent{
+			Code:        entry.TxCode,
+			WarehouseID: input.WarehouseID,
+			ProductID:   input.ProductID,
+			Qty:         input.Qty,
+			UnitCost:    entry.UnitCost,
+			PostedAt:    entry.PostedAt,
+		}
+		if err := s.integration.HandleInventoryAdjustmentPosted(ctx, evt); err != nil {
+			return StockCardEntry{}, err
+		}
+	}
+	return entry, nil
 }
 
 // PostTransfer moves stock between warehouses using OUT + IN.
