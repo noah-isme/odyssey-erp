@@ -27,6 +27,11 @@ import (
 )
 
 func main() {
+	if app.InTestMode() {
+		slog.Default().Info("test mode detected, skipping runtime startup")
+		return
+	}
+
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
