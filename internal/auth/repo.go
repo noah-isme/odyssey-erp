@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	authdb "github.com/odyssey-erp/odyssey-erp/internal/auth/db"
@@ -42,21 +43,22 @@ func (r *PGRepository) FindByEmail(ctx context.Context, email string) (*User, er
 		Email:        record.Email,
 		PasswordHash: record.PasswordHash,
 		IsActive:     record.IsActive,
-		CreatedAt:    record.CreatedAt,
-		UpdatedAt:    record.UpdatedAt,
+		CreatedAt:    record.CreatedAt.Time,
+		UpdatedAt:    record.UpdatedAt.Time,
 	}
 	return user, nil
 }
 
 // CreateSession persists a new login session in the database for auditing.
 func (r *PGRepository) CreateSession(ctx context.Context, id string, userID int64, expiresAt time.Time, ip, ua string) error {
+	now := time.Now().UTC()
 	return r.queries.CreateSession(ctx, authdb.CreateSessionParams{
 		ID:        id,
 		UserID:    userID,
-		CreatedAt: time.Now().UTC(),
-		ExpiresAt: expiresAt,
-		Ip:        ip,
-		Ua:        ua,
+		CreatedAt: pgtype.Timestamptz{Time: now, Valid: true},
+		ExpiresAt: pgtype.Timestamptz{Time: expiresAt.UTC(), Valid: true},
+		Ip:        pgtype.Text{String: ip, Valid: ip != ""},
+		Ua:        pgtype.Text{String: ua, Valid: ua != ""},
 	})
 }
 
