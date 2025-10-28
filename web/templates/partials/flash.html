@@ -1,0 +1,7 @@
+{{ define "partials/flash.html" }}
+{{ if .Flash }}
+<article class="{{ .Flash.Kind }}">
+    {{ .Flash.Message }}
+</article>
+{{ end }}
+{{ end }}
