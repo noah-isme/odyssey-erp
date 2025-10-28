@@ -92,6 +92,15 @@ type JournalLine struct {
 	UpdatedAt      time.Time
 }
 
+// AccountMapping links integration keys to ledger accounts.
+type AccountMapping struct {
+	Module    string
+	Key       string
+	AccountID int64
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
 // PostingLineInput describes a journal line for posting request.
 type PostingLineInput struct {
 	AccountID int64
@@ -146,6 +155,8 @@ var (
 	ErrInvalidStatus = errors.New("accounting: invalid status transition")
 	// ErrDateOutOfRange indicates journal date mismatch.
 	ErrDateOutOfRange = errors.New("accounting: date outside period")
+	// ErrMappingNotFound indicates account mapping missing.
+	ErrMappingNotFound = errors.New("accounting: account mapping not found")
 )
 
 // Validate ensures posting input meets minimum criteria.
