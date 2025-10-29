@@ -33,6 +33,7 @@ import (
 	insightshhtp "github.com/odyssey-erp/odyssey-erp/internal/insights/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/integration"
 	"github.com/odyssey-erp/odyssey-erp/internal/inventory"
+	jobmetrics "github.com/odyssey-erp/odyssey-erp/internal/jobs"
 	"github.com/odyssey-erp/odyssey-erp/internal/observability"
 	"github.com/odyssey-erp/odyssey-erp/internal/procurement"
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
@@ -165,6 +166,7 @@ func main() {
 	auditExporter := audit.NewExporter(templates)
 	auditHandler := audithttp.NewHandler(logger, auditService, templates, auditExporter, rbacService)
 	metrics := observability.NewMetrics()
+	jobmetrics.NewMetrics(metrics.Registerer())
 
 	inventoryHandler := inventory.NewHandler(logger, inventoryService, templates, csrfManager, sessionManager, rbacMiddleware)
 	procurementHandler := procurement.NewHandler(logger, procurementService, templates, csrfManager, sessionManager, rbacMiddleware)

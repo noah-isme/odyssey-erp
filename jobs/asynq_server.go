@@ -2,24 +2,48 @@ package jobs
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/hibiken/asynq"
 )
 
-// Worker wraps the Asynq server.
+// Worker wraps the Asynq server and optional scheduler.
 type Worker struct {
-	server *asynq.Server
-	mux    *asynq.ServeMux
-	logger *slog.Logger
+	server    *asynq.Server
+	mux       *asynq.ServeMux
+	scheduler *asynq.Scheduler
+	logger    *slog.Logger
+}
+
+// TaskHandler allows injecting custom Asynq handlers during worker setup.
+type TaskHandler struct {
+	Type    string
+	Handler asynq.HandlerFunc
+}
+
+// CronRegistration wires a cron expression to a prepared task.
+type CronRegistration struct {
+	Spec    string
+	Task    *asynq.Task
+	Options []asynq.Option
+}
+
+// WorkerConfig collects dependencies required to bootstrap the worker.
+type WorkerConfig struct {
+	RedisOpts asynq.RedisClientOpt
+	Logger    *slog.Logger
+	Handlers  []TaskHandler
+	Cron      []CronRegistration
 }
 
 // NewWorker constructs a Worker instance.
-func NewWorker(redisOpts asynq.RedisClientOpt, logger *slog.Logger) *Worker {
-	srv := asynq.NewServer(redisOpts, asynq.Config{
+func NewWorker(cfg WorkerConfig) (*Worker, error) {
+	srv := asynq.NewServer(cfg.RedisOpts, asynq.Config{
 		Concurrency: 5,
 		Queues: map[string]int{
 			QueueDefault: 1,
@@ -29,20 +53,54 @@ func NewWorker(redisOpts asynq.RedisClientOpt, logger *slog.Logger) *Worker {
 	mux.HandleFunc(TaskTypeSendEmail, HandleSendEmailTask)
 	mux.HandleFunc(TaskInventoryRevaluation, HandleInventoryRevaluationTask)
 	mux.HandleFunc(TaskProcurementReindex, HandleProcurementReindexTask)
-	return &Worker{server: srv, mux: mux, logger: logger}
+	for _, h := range cfg.Handlers {
+		if h.Type == "" || h.Handler == nil {
+			continue
+		}
+		mux.HandleFunc(h.Type, h.Handler)
+	}
+
+	var scheduler *asynq.Scheduler
+	if len(cfg.Cron) > 0 {
+		scheduler = asynq.NewScheduler(cfg.RedisOpts, &asynq.SchedulerOpts{Location: time.UTC})
+		for _, entry := range cfg.Cron {
+			if entry.Spec == "" || entry.Task == nil {
+				continue
+			}
+			if _, err := scheduler.Register(entry.Spec, entry.Task, entry.Options...); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return &Worker{server: srv, mux: mux, scheduler: scheduler, logger: cfg.Logger}, nil
 }
 
 // Run starts processing jobs until context cancellation.
 func (w *Worker) Run(ctx context.Context) error {
+	if w == nil {
+		return errors.New("worker: not configured")
+	}
+	if w.scheduler != nil {
+		if err := w.scheduler.Start(); err != nil {
+			return err
+		}
+	}
 	errCh := make(chan error, 1)
 	go func() {
 		errCh <- w.server.Run(w.mux)
 	}()
 	select {
 	case <-ctx.Done():
+		if w.scheduler != nil {
+			w.scheduler.Shutdown()
+		}
 		w.server.Shutdown()
 		return ctx.Err()
 	case err := <-errCh:
+		if w.scheduler != nil {
+			w.scheduler.Shutdown()
+		}
 		return err
 	}
 }
