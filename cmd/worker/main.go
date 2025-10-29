@@ -15,6 +15,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/analytics"
 	analyticsdb "github.com/odyssey-erp/odyssey-erp/internal/analytics/db"
 	"github.com/odyssey-erp/odyssey-erp/internal/app"
+	"github.com/odyssey-erp/odyssey-erp/internal/consol"
 	"github.com/odyssey-erp/odyssey-erp/jobs"
 )
 
@@ -58,6 +59,9 @@ func main() {
 
 	warmupJob := jobs.NewInsightsWarmupJob(analyticsService, pool, logger, nil)
 	anomalyJob := jobs.NewAnomalyScanJob(pool, logger, nil)
+	consolRepo := consol.NewRepository(pool)
+	consolService := consol.NewService(consolRepo)
+	consolidator := jobs.NewConsolidateRefreshJob(consolService, consolRepo, logger, nil)
 
 	warmupTask, err := jobs.NewInsightsWarmupTask("active")
 	if err != nil {
@@ -69,6 +73,11 @@ func main() {
 		logger.Error("build anomaly task", slog.Any("error", err))
 		os.Exit(1)
 	}
+	consolidateTask, err := jobs.NewConsolidateRefreshTask("all", "active")
+	if err != nil {
+		logger.Error("build consolidate task", slog.Any("error", err))
+		os.Exit(1)
+	}
 
 	worker, err := jobs.NewWorker(jobs.WorkerConfig{
 		RedisOpts: asynq.RedisClientOpt{Addr: cfg.RedisAddr},
@@ -76,10 +85,12 @@ func main() {
 		Handlers: []jobs.TaskHandler{
 			{Type: jobs.TaskAnalyticsInsightsWarmup, Handler: warmupJob.Handle},
 			{Type: jobs.TaskAnalyticsAnomalyScan, Handler: anomalyJob.Handle},
+			{Type: jobs.TaskConsolidateRefresh, Handler: consolidator.Handle},
 		},
 		Cron: []jobs.CronRegistration{
 			{Spec: "15 1 * * *", Task: warmupTask, Options: []asynq.Option{asynq.MaxRetry(3)}},
 			{Spec: "30 1 * * *", Task: anomalyTask, Options: []asynq.Option{asynq.MaxRetry(3)}},
+			{Spec: "0 2 * * *", Task: consolidateTask, Options: []asynq.Option{asynq.MaxRetry(3)}},
 		},
 	})
 	if err != nil {
