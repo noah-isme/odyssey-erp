@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/csv"
 	"fmt"
-	"html/template"
 	"log/slog"
 	"net"
 	"net/http"
@@ -20,20 +19,23 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
-	"github.com/odyssey-erp/odyssey-erp/web"
 )
 
 // Handler wires consolidation TB endpoints.
 type Handler struct {
-	logger       *slog.Logger
-	service      *consol.Service
-	templates    *view.Engine
-	pdfTemplates *template.Template
-	pdfClient    PDFRenderClient
-	csrf         *shared.CSRFManager
-	sessions     *shared.SessionManager
-	rbac         rbac.Middleware
-	rateLimit    func(http.Handler) http.Handler
+	logger      *slog.Logger
+	service     *consol.Service
+	templates   *view.Engine
+	pdfExporter pdfExporter
+	csrf        *shared.CSRFManager
+	sessions    *shared.SessionManager
+	rbac        rbac.Middleware
+	rateLimit   func(http.Handler) http.Handler
+}
+
+type pdfExporter interface {
+	Ready() bool
+	Serve(http.ResponseWriter, *http.Request, *Handler)
 }
 
 // PDFRenderClient defines the minimal subset of the report client we use.
@@ -46,12 +48,7 @@ func NewHandler(logger *slog.Logger, service *consol.Service, templates *view.En
 	if templates == nil {
 		return nil, fmt.Errorf("consol handler: template engine required")
 	}
-	funcMap := template.FuncMap{
-		"formatDecimal": func(v float64) string {
-			return fmt.Sprintf("%.2f", v)
-		},
-	}
-	pdfTpl, err := template.New("consol_tb_pdf.html").Funcs(funcMap).ParseFS(web.Templates, "templates/reports/finance/consol_tb_pdf.html")
+	pdfExporter, err := newPDFExporter(logger, pdfClient)
 	if err != nil {
 		return nil, err
 	}
@@ -69,15 +66,14 @@ func NewHandler(logger *slog.Logger, service *consol.Service, templates *view.En
 		return "ip:" + host, nil
 	}))
 	return &Handler{
-		logger:       logger,
-		service:      service,
-		templates:    templates,
-		pdfTemplates: pdfTpl,
-		pdfClient:    pdfClient,
-		csrf:         csrf,
-		sessions:     sessions,
-		rbac:         rbac,
-		rateLimit:    limiter,
+		logger:      logger,
+		service:     service,
+		templates:   templates,
+		pdfExporter: pdfExporter,
+		csrf:        csrf,
+		sessions:    sessions,
+		rbac:        rbac,
+		rateLimit:   limiter,
 	}, nil
 }
 
@@ -139,52 +135,40 @@ func (h *Handler) handleExportCSV(w http.ResponseWriter, r *http.Request) {
 	}
 	buf := &bytes.Buffer{}
 	writer := csv.NewWriter(buf)
-	_ = writer.Write([]string{"Group Account", "Name", "Local Amount", "Group Amount"})
+	if err := writer.Write([]string{"Group Account", "Name", "Local Amount", "Group Amount"}); err != nil {
+		h.logger.Error("write consol tb csv header", slog.Any("error", err))
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
 	for _, line := range tb.Lines {
-		writer.Write([]string{
+		if err := writer.Write([]string{
 			line.GroupAccountCode,
 			line.GroupAccountName,
 			fmt.Sprintf("%.2f", line.LocalAmount),
 			fmt.Sprintf("%.2f", line.GroupAmount),
-		})
+		}); err != nil {
+			h.logger.Error("write consol tb csv line", slog.Any("error", err))
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
 	}
 	writer.Flush()
+	if err := writer.Error(); err != nil {
+		h.logger.Error("flush consol tb csv", slog.Any("error", err))
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "text/csv")
 	w.Header().Set("Content-Disposition", "attachment; filename=consolidated_tb.csv")
 	_, _ = w.Write(buf.Bytes())
 }
 
 func (h *Handler) handleExportPDF(w http.ResponseWriter, r *http.Request) {
-	if h.pdfTemplates == nil || h.pdfClient == nil {
+	if h.pdfExporter == nil || !h.pdfExporter.Ready() {
 		http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
 		return
 	}
-	filter, errors := h.parseFilters(r)
-	if len(errors) > 0 {
-		http.Error(w, strings.Join(mapValues(errors), "; "), http.StatusBadRequest)
-		return
-	}
-	tb, err := h.service.GetConsolidatedTB(r.Context(), filter)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	vm := FromDomain(tb)
-	buf := &bytes.Buffer{}
-	if err := h.pdfTemplates.ExecuteTemplate(buf, "consol_tb_pdf.html", vm); err != nil {
-		h.logger.Error("render consol tb pdf", slog.Any("error", err))
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-	pdf, err := h.pdfClient.RenderHTML(r.Context(), buf.String())
-	if err != nil {
-		h.logger.Error("generate consol tb pdf", slog.Any("error", err))
-		http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
-		return
-	}
-	w.Header().Set("Content-Type", "application/pdf")
-	w.Header().Set("Content-Disposition", "attachment; filename=consolidated_tb.pdf")
-	_, _ = w.Write(pdf)
+	h.pdfExporter.Serve(w, r, h)
 }
 
 func (h *Handler) parseFilters(r *http.Request) (consol.Filters, map[string]string) {
