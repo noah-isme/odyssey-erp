@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/odyssey-erp/odyssey-erp/internal/consol/fx"
 )
 
 // ProfitLossFilters defines the supported filters for the consolidated P&L report.
@@ -55,6 +57,9 @@ type ProfitLossReport struct {
 // ProfitLossRepository abstracts the data access required by the P&L service.
 type ProfitLossRepository interface {
 	ConsolBalancesByType(ctx context.Context, groupID int64, periodCode string, entities []int64) ([]ConsolBalanceByTypeQueryRow, error)
+	GroupReportingCurrency(ctx context.Context, groupID int64) (string, error)
+	MemberCurrencies(ctx context.Context, groupID int64) (map[int64]string, error)
+	FxRateForPeriod(ctx context.Context, asOf time.Time, pair string) (fx.Quote, error)
 }
 
 // ProfitLossService performs aggregation of the consolidated profit and loss statement.
@@ -68,29 +73,92 @@ func NewProfitLossService(repo ProfitLossRepository) *ProfitLossService {
 }
 
 // Build assembles the consolidated profit and loss report for the provided filters.
-func (s *ProfitLossService) Build(ctx context.Context, filters ProfitLossFilters) (ProfitLossReport, error) {
+func (s *ProfitLossService) Build(ctx context.Context, filters ProfitLossFilters) (ProfitLossReport, []string, error) {
 	if s == nil || s.repo == nil {
-		return ProfitLossReport{}, errors.New("consol: profit loss service not initialised")
+		return ProfitLossReport{}, nil, errors.New("consol: profit loss service not initialised")
 	}
 	if filters.GroupID <= 0 {
-		return ProfitLossReport{}, fmt.Errorf("group id wajib diisi")
+		return ProfitLossReport{}, nil, fmt.Errorf("group id wajib diisi")
 	}
 	if strings.TrimSpace(filters.Period) == "" {
-		return ProfitLossReport{}, fmt.Errorf("periode wajib diisi")
+		return ProfitLossReport{}, nil, fmt.Errorf("periode wajib diisi")
 	}
 	if _, err := time.Parse("2006-01", filters.Period); err != nil {
-		return ProfitLossReport{}, fmt.Errorf("format periode tidak valid")
+		return ProfitLossReport{}, nil, fmt.Errorf("format periode tidak valid")
 	}
 
 	rows, err := s.repo.ConsolBalancesByType(ctx, filters.GroupID, filters.Period, filters.Entities)
 	if err != nil {
-		return ProfitLossReport{}, err
+		return ProfitLossReport{}, nil, err
 	}
 
 	includeAll := len(filters.Entities) == 0
 	included := make(map[int64]struct{}, len(filters.Entities))
 	for _, id := range filters.Entities {
 		included[id] = struct{}{}
+	}
+
+	fxApplied := false
+	warnings := make([]string, 0)
+	var converter *fx.Converter
+	var reportingCurrency string
+	var memberCurrencies map[int64]string
+
+	if filters.FxOn {
+		reportingCurrency, err = s.repo.GroupReportingCurrency(ctx, filters.GroupID)
+		if err != nil {
+			return ProfitLossReport{}, nil, err
+		}
+		reportingCurrency = strings.ToUpper(strings.TrimSpace(reportingCurrency))
+		memberCurrencies, err = s.repo.MemberCurrencies(ctx, filters.GroupID)
+		if err != nil {
+			return ProfitLossReport{}, nil, err
+		}
+		asOf, _ := time.Parse("2006-01", filters.Period)
+		asOf = time.Date(asOf.Year(), asOf.Month(), 1, 0, 0, 0, 0, time.UTC)
+		requiredCurrencies := make(map[string]struct{})
+		if includeAll {
+			for id, cur := range memberCurrencies {
+				_ = id
+				cur = strings.ToUpper(strings.TrimSpace(cur))
+				if cur == "" || cur == reportingCurrency {
+					continue
+				}
+				requiredCurrencies[cur] = struct{}{}
+			}
+		} else {
+			for id := range included {
+				cur := strings.ToUpper(strings.TrimSpace(memberCurrencies[id]))
+				if cur == "" || cur == reportingCurrency {
+					continue
+				}
+				requiredCurrencies[cur] = struct{}{}
+			}
+		}
+		quotes := make(map[string]fx.Quote, len(requiredCurrencies))
+		missing := make([]string, 0)
+		for cur := range requiredCurrencies {
+			pair := cur + reportingCurrency
+			quote, err := s.repo.FxRateForPeriod(ctx, asOf, pair)
+			if err != nil {
+				missing = append(missing, pair)
+				continue
+			}
+			if quote.Average <= 0 {
+				missing = append(missing, pair)
+				continue
+			}
+			quotes[pair] = quote
+		}
+		if len(missing) > 0 {
+			for _, pair := range missing {
+				warnings = append(warnings, fmt.Sprintf("FX rate missing for %s at %s", pair, filters.Period))
+			}
+		} else {
+			policy := fx.Policy{ReportingCurrency: reportingCurrency, ProfitLossMethod: fx.MethodAverage, BalanceSheetMethod: fx.MethodClosing}
+			converter = fx.NewConverter(policy, quotes)
+			fxApplied = true
+		}
 	}
 
 	contributions := make(map[int64]ProfitLossContribution)
@@ -105,7 +173,7 @@ func (s *ProfitLossService) Build(ctx context.Context, filters ProfitLossFilters
 	for _, row := range rows {
 		members, err := ParseMembers(row.MembersJSON)
 		if err != nil {
-			return ProfitLossReport{}, err
+			return ProfitLossReport{}, nil, err
 		}
 		filtered := members[:0]
 		var localTotal float64
@@ -125,8 +193,57 @@ func (s *ProfitLossService) Build(ctx context.Context, filters ProfitLossFilters
 		}
 
 		convertedGroup := scaleAmount(row.GroupAmount, row.LocalAmount, localTotal)
-		originalGroup := convertedGroup
-		deltaFX += convertedGroup - originalGroup
+
+		if fxApplied && converter != nil {
+			currencyTotals := make(map[string]float64)
+			for _, member := range filtered {
+				currency := reportingCurrency
+				if memberCurrencies != nil {
+					if cur, ok := memberCurrencies[member.CompanyID]; ok {
+						if trimmed := strings.ToUpper(strings.TrimSpace(cur)); trimmed != "" {
+							currency = trimmed
+						}
+					}
+				}
+				currencyTotals[currency] += member.LocalAmount
+			}
+			fxInput := make([]fx.Line, 0, len(currencyTotals))
+			for currency, amount := range currencyTotals {
+				var share float64
+				if localTotal == 0 {
+					share = 0
+				} else {
+					share = convertedGroup * (amount / localTotal)
+				}
+				fxInput = append(fxInput, fx.Line{
+					AccountCode:   row.GroupAccountCode,
+					LocalCurrency: currency,
+					LocalAmount:   amount,
+					GroupAmount:   share,
+				})
+			}
+			if len(fxInput) > 0 {
+				convertedLines, delta, err := converter.ConvertProfitLoss(fxInput)
+				if err != nil {
+					if missingErr, ok := err.(*fx.MissingRateError); ok {
+						for _, pair := range missingErr.Pairs {
+							warnings = append(warnings, fmt.Sprintf("FX rate missing for %s at %s", pair, filters.Period))
+						}
+						fxApplied = false
+						converter = nil
+					} else {
+						return ProfitLossReport{}, nil, err
+					}
+				} else {
+					var convertedTotal float64
+					for _, line := range convertedLines {
+						convertedTotal += line.GroupAmount
+					}
+					deltaFX += delta
+					convertedGroup = convertedTotal
+				}
+			}
+		}
 
 		section := classifyPLSection(row.AccountType, row.GroupAccountCode)
 		displayLocal, displayGroup := normalisePLAmounts(section, localTotal, convertedGroup)
@@ -198,8 +315,8 @@ func (s *ProfitLossService) Build(ctx context.Context, filters ProfitLossFilters
 		},
 		Contributions: contributionList,
 	}
-
-	return report, nil
+	report.Filters.FxOn = fxApplied && converter != nil
+	return report, warnings, nil
 }
 
 func classifyPLSection(accountType, accountCode string) string {

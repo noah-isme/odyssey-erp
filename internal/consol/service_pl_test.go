@@ -3,12 +3,19 @@ package consol
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
+	"time"
+
+	"github.com/odyssey-erp/odyssey-erp/internal/consol/fx"
 )
 
 type fakePLRepo struct {
-	rows []ConsolBalanceByTypeQueryRow
-	err  error
+	rows              []ConsolBalanceByTypeQueryRow
+	err               error
+	reportingCurrency string
+	memberCurrencies  map[int64]string
+	rates             map[string]fx.Quote
 }
 
 func (f *fakePLRepo) ConsolBalancesByType(ctx context.Context, groupID int64, periodCode string, entities []int64) ([]ConsolBalanceByTypeQueryRow, error) {
@@ -16,6 +23,32 @@ func (f *fakePLRepo) ConsolBalancesByType(ctx context.Context, groupID int64, pe
 		return nil, f.err
 	}
 	return append([]ConsolBalanceByTypeQueryRow(nil), f.rows...), nil
+}
+
+func (f *fakePLRepo) GroupReportingCurrency(ctx context.Context, groupID int64) (string, error) {
+	if f.reportingCurrency != "" {
+		return f.reportingCurrency, nil
+	}
+	return "USD", nil
+}
+
+func (f *fakePLRepo) MemberCurrencies(ctx context.Context, groupID int64) (map[int64]string, error) {
+	out := make(map[int64]string, len(f.memberCurrencies))
+	for id, cur := range f.memberCurrencies {
+		out[id] = cur
+	}
+	return out, nil
+}
+
+func (f *fakePLRepo) FxRateForPeriod(ctx context.Context, asOf time.Time, pair string) (fx.Quote, error) {
+	if f.rates == nil {
+		return fx.Quote{}, errors.New("no rates")
+	}
+	quote, ok := f.rates[pair]
+	if !ok {
+		return fx.Quote{}, errors.New("not found")
+	}
+	return quote, nil
 }
 
 func marshalMembers(members ...map[string]interface{}) []byte {
@@ -64,9 +97,12 @@ func TestProfitLossServiceBuildAggregatesSections(t *testing.T) {
 	}}
 
 	svc := NewProfitLossService(repo)
-	report, err := svc.Build(context.Background(), ProfitLossFilters{GroupID: 10, Period: "2024-01"})
+	report, warnings, err := svc.Build(context.Background(), ProfitLossFilters{GroupID: 10, Period: "2024-01"})
 	if err != nil {
 		t.Fatalf("Build() error = %v", err)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("expected no warnings got %v", warnings)
 	}
 	if got, want := len(report.Lines), 3; got != want {
 		t.Fatalf("expected %d lines, got %d", want, got)
@@ -111,9 +147,12 @@ func TestProfitLossServiceBuildFiltersEntities(t *testing.T) {
 		},
 	}}
 	svc := NewProfitLossService(repo)
-	report, err := svc.Build(context.Background(), ProfitLossFilters{GroupID: 10, Period: "2024-01", Entities: []int64{2}})
+	report, warnings, err := svc.Build(context.Background(), ProfitLossFilters{GroupID: 10, Period: "2024-01", Entities: []int64{2}})
 	if err != nil {
 		t.Fatalf("Build() error = %v", err)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("expected no warnings got %v", warnings)
 	}
 	if len(report.Lines) != 1 {
 		t.Fatalf("expected one line got %d", len(report.Lines))
