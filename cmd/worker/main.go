@@ -6,9 +6,14 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/hibiken/asynq"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 
+	"github.com/odyssey-erp/odyssey-erp/internal/analytics"
+	analyticsdb "github.com/odyssey-erp/odyssey-erp/internal/analytics/db"
 	"github.com/odyssey-erp/odyssey-erp/internal/app"
 	"github.com/odyssey-erp/odyssey-erp/jobs"
 )
@@ -30,7 +35,58 @@ func main() {
 
 	logger := app.NewLogger(cfg)
 
-	worker := jobs.NewWorker(asynq.RedisClientOpt{Addr: cfg.RedisAddr}, logger)
+	pool, err := pgxpool.New(ctx, cfg.PGDSN)
+	if err != nil {
+		logger.Error("connect database", slog.Any("error", err))
+		os.Exit(1)
+	}
+	defer pool.Close()
+
+	redisClient := redis.NewClient(&redis.Options{Addr: cfg.RedisAddr})
+	defer func() {
+		if err := redisClient.Close(); err != nil {
+			logger.Warn("redis close", slog.Any("error", err))
+		}
+	}()
+	if err := redisClient.Ping(ctx).Err(); err != nil {
+		logger.Warn("redis ping", slog.Any("error", err))
+	}
+
+	analyticsRepo := analyticsdb.New(pool)
+	analyticsCache := analytics.NewCache(redisClient, 10*time.Minute)
+	analyticsService := analytics.NewService(analyticsRepo, analyticsCache)
+
+	warmupJob := jobs.NewInsightsWarmupJob(analyticsService, pool, logger, nil)
+	anomalyJob := jobs.NewAnomalyScanJob(pool, logger, nil)
+
+	warmupTask, err := jobs.NewInsightsWarmupTask("active")
+	if err != nil {
+		logger.Error("build warmup task", slog.Any("error", err))
+		os.Exit(1)
+	}
+	anomalyTask, err := jobs.NewAnomalyScanTask(12, 2.5)
+	if err != nil {
+		logger.Error("build anomaly task", slog.Any("error", err))
+		os.Exit(1)
+	}
+
+	worker, err := jobs.NewWorker(jobs.WorkerConfig{
+		RedisOpts: asynq.RedisClientOpt{Addr: cfg.RedisAddr},
+		Logger:    logger,
+		Handlers: []jobs.TaskHandler{
+			{Type: jobs.TaskAnalyticsInsightsWarmup, Handler: warmupJob.Handle},
+			{Type: jobs.TaskAnalyticsAnomalyScan, Handler: anomalyJob.Handle},
+		},
+		Cron: []jobs.CronRegistration{
+			{Spec: "15 1 * * *", Task: warmupTask, Options: []asynq.Option{asynq.MaxRetry(3)}},
+			{Spec: "30 1 * * *", Task: anomalyTask, Options: []asynq.Option{asynq.MaxRetry(3)}},
+		},
+	})
+	if err != nil {
+		logger.Error("init worker", slog.Any("error", err))
+		os.Exit(1)
+	}
+
 	if err := worker.Run(ctx); err != nil && err != context.Canceled {
 		logger.Error("worker run", slog.Any("error", err))
 		os.Exit(1)

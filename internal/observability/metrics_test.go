@@ -8,10 +8,14 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+
+	jobmetrics "github.com/odyssey-erp/odyssey-erp/internal/jobs"
 )
 
 func TestMetricsHandlerExposesPrometheusMetrics(t *testing.T) {
 	metrics := NewMetrics()
+	jm := jobmetrics.NewMetrics(metrics.Registerer())
+	_ = jm.Track("test.job").End(nil)
 
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
