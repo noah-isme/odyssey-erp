@@ -1,5 +1,7 @@
 package http
 
+import "github.com/odyssey-erp/odyssey-erp/internal/consol"
+
 // ConsolPLViewModel represents the data required to render the consolidated profit and loss page.
 type ConsolPLViewModel struct {
 	Filters       ConsolPLFilters
@@ -7,6 +9,7 @@ type ConsolPLViewModel struct {
 	Totals        ConsolPLTotals
 	Contributions []ConsolPLEntityContribution
 	Errors        map[string]string
+	Warnings      []string
 }
 
 // ConsolPLFilters captures the user provided filter inputs.
@@ -51,6 +54,7 @@ type ConsolBSViewModel struct {
 	Totals        ConsolBSTotals
 	Contributions []ConsolBSEntityContribution
 	Errors        map[string]string
+	Warnings      []string
 }
 
 // ConsolBSFilters describes the balance sheet filter inputs.
@@ -83,4 +87,94 @@ type ConsolBSEntityContribution struct {
 	EntityName  string
 	GroupAmount float64
 	Percent     float64
+}
+
+// NewConsolPLViewModel transforms the domain report into a template friendly structure.
+func NewConsolPLViewModel(report consol.ProfitLossReport, warnings []string) ConsolPLViewModel {
+	vm := ConsolPLViewModel{
+		Filters: ConsolPLFilters{
+			GroupID:  report.Filters.GroupID,
+			Period:   report.Filters.Period,
+			Entities: append([]int64(nil), report.Filters.Entities...),
+			FxOn:     report.Filters.FxOn,
+		},
+		Errors:   map[string]string{},
+		Warnings: append([]string(nil), warnings...),
+	}
+	vm.Lines = make([]ConsolPLLine, len(report.Lines))
+	for i, line := range report.Lines {
+		vm.Lines[i] = ConsolPLLine{
+			AccountCode: line.AccountCode,
+			AccountName: line.AccountName,
+			LocalAmount: line.LocalAmount,
+			GroupAmount: line.GroupAmount,
+			Section:     line.Section,
+		}
+	}
+	vm.Totals = ConsolPLTotals{
+		Revenue:     report.Totals.Revenue,
+		COGS:        report.Totals.COGS,
+		GrossProfit: report.Totals.GrossProfit,
+		Opex:        report.Totals.Opex,
+		NetIncome:   report.Totals.NetIncome,
+		DeltaFX:     report.Totals.DeltaFX,
+	}
+	vm.Contributions = make([]ConsolPLEntityContribution, len(report.Contributions))
+	for i, contrib := range report.Contributions {
+		vm.Contributions[i] = ConsolPLEntityContribution{
+			EntityName:  contrib.EntityName,
+			GroupAmount: contrib.GroupAmount,
+			Percent:     contrib.Percent,
+		}
+	}
+	return vm
+}
+
+// NewConsolBSViewModel maps the balance sheet report to a view model.
+func NewConsolBSViewModel(report consol.BalanceSheetReport, warnings []string) ConsolBSViewModel {
+	vm := ConsolBSViewModel{
+		Filters: ConsolBSFilters{
+			GroupID:  report.Filters.GroupID,
+			Period:   report.Filters.Period,
+			Entities: append([]int64(nil), report.Filters.Entities...),
+			FxOn:     report.Filters.FxOn,
+		},
+		Errors:   map[string]string{},
+		Warnings: append([]string(nil), warnings...),
+	}
+	vm.Assets = make([]ConsolBSLine, len(report.Assets))
+	for i, line := range report.Assets {
+		vm.Assets[i] = ConsolBSLine{
+			AccountCode: line.AccountCode,
+			AccountName: line.AccountName,
+			LocalAmount: line.LocalAmount,
+			GroupAmount: line.GroupAmount,
+			Section:     line.Section,
+		}
+	}
+	vm.LiabilitiesEq = make([]ConsolBSLine, len(report.LiabilitiesEq))
+	for i, line := range report.LiabilitiesEq {
+		vm.LiabilitiesEq[i] = ConsolBSLine{
+			AccountCode: line.AccountCode,
+			AccountName: line.AccountName,
+			LocalAmount: line.LocalAmount,
+			GroupAmount: line.GroupAmount,
+			Section:     line.Section,
+		}
+	}
+	vm.Totals = ConsolBSTotals{
+		Assets:     report.Totals.Assets,
+		LiabEquity: report.Totals.LiabEquity,
+		Balanced:   report.Totals.Balanced,
+		DeltaFX:    report.Totals.DeltaFX,
+	}
+	vm.Contributions = make([]ConsolBSEntityContribution, len(report.Contributions))
+	for i, contrib := range report.Contributions {
+		vm.Contributions[i] = ConsolBSEntityContribution{
+			EntityName:  contrib.EntityName,
+			GroupAmount: contrib.GroupAmount,
+			Percent:     contrib.Percent,
+		}
+	}
+	return vm
 }
