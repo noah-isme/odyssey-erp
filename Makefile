@@ -52,15 +52,15 @@ refresh-mv:
 	$(GO_BIN) run ./scripts/finance/refreshmv/main.go
 
 reports-demo:
-        $(GO_BIN) run ./scripts/finance/reportsdemo/main.go
+	$(GO_BIN) run ./scripts/finance/reportsdemo/main.go
 
 analytics-dashboard:
-        curl -fsS "http://localhost:8080/finance/analytics?period=$(PERIOD)&company_id=$(COMPANY_ID)$(BRANCH_QUERY)"
+	curl -fsS "http://localhost:8080/finance/analytics?period=$(PERIOD)&company_id=$(COMPANY_ID)$(BRANCH_QUERY)"
 
 analytics-dashboard-pdf:
-        curl -fsS -o /tmp/analytics-dashboard.pdf "http://localhost:8080/finance/analytics/pdf?period=$(PERIOD)&company_id=$(COMPANY_ID)$(BRANCH_QUERY)"
-        test -s /tmp/analytics-dashboard.pdf
+	curl -fsS -o /tmp/analytics-dashboard.pdf "http://localhost:8080/finance/analytics/pdf?period=$(PERIOD)&company_id=$(COMPANY_ID)$(BRANCH_QUERY)"
+	test -s /tmp/analytics-dashboard.pdf
 
 analytics-dashboard-csv:
-        curl -fsS -o /tmp/analytics-dashboard.csv "http://localhost:8080/finance/analytics/export.csv?period=$(PERIOD)&company_id=$(COMPANY_ID)$(BRANCH_QUERY)"
-        test -s /tmp/analytics-dashboard.csv
+	curl -fsS -o /tmp/analytics-dashboard.csv "http://localhost:8080/finance/analytics/export.csv?period=$(PERIOD)&company_id=$(COMPANY_ID)$(BRANCH_QUERY)"
+	test -s /tmp/analytics-dashboard.csv

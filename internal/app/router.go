@@ -8,7 +8,9 @@ import (
 	chimw "github.com/go-chi/chi/v5/middleware"
 
 	analytichttp "github.com/odyssey-erp/odyssey-erp/internal/analytics/http"
+	audithttp "github.com/odyssey-erp/odyssey-erp/internal/audit/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/auth"
+	insightshhtp "github.com/odyssey-erp/odyssey-erp/internal/insights/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/inventory"
 	"github.com/odyssey-erp/odyssey-erp/internal/procurement"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
@@ -26,11 +28,14 @@ type RouterParams struct {
 	SessionManager     *shared.SessionManager
 	CSRFManager        *shared.CSRFManager
 	AuthHandler        *auth.Handler
+	InsightsHandler    *insightshhtp.Handler
+	AuditHandler       *audithttp.Handler
 	InventoryHandler   *inventory.Handler
 	ProcurementHandler *procurement.Handler
 	ReportHandler      *report.Handler
 	JobHandler         *jobs.Handler
 	AnalyticsHandler   *analytichttp.Handler
+	MetricsHandler     http.Handler
 }
 
 // NewRouter constructs the chi.Router with Odyssey defaults.
@@ -82,6 +87,15 @@ func NewRouter(params RouterParams) http.Handler {
 	r.Route("/jobs", params.JobHandler.MountRoutes)
 	if params.AnalyticsHandler != nil {
 		params.AnalyticsHandler.MountRoutes(r)
+	}
+	if params.InsightsHandler != nil {
+		params.InsightsHandler.MountRoutes(r)
+	}
+	if params.AuditHandler != nil {
+		params.AuditHandler.MountRoutes(r)
+	}
+	if params.MetricsHandler != nil {
+		r.Method(http.MethodGet, "/metrics", params.MetricsHandler)
 	}
 
 	fileServer := http.StripPrefix("/static/", http.FileServer(http.FS(web.Static)))
