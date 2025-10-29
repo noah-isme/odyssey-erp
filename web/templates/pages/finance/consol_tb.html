@@ -1,0 +1,100 @@
+{{ define "pages/finance/consol_tb.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Consolidated Trial Balance{{ end }}
+
+{{ define "content" }}
+<div class="page-header">
+    <h1>Consolidated Trial Balance</h1>
+    <p>Group {{ .Data.GroupName }} — Reporting Currency {{ .Data.ReportingCCY }}</p>
+</div>
+<section class="filters">
+    <form method="get" action="/finance/consol/tb" class="filters-form">
+        <div class="field">
+            <label for="group">Group ID</label>
+            <input type="number" id="group" name="group" value="{{ .Data.Filters.GroupID }}" min="1" required>
+            {{ with index .Data.Errors "group" }}<p class="error">{{ . }}</p>{{ end }}
+        </div>
+        <div class="field">
+            <label for="period">Period (YYYY-MM)</label>
+            <input type="text" id="period" name="period" value="{{ .Data.Filters.Period }}" placeholder="2024-01" required>
+            {{ with index .Data.Errors "period" }}<p class="error">{{ . }}</p>{{ end }}
+        </div>
+        <div class="field">
+            <label for="entities">Entities (comma separated IDs)</label>
+            <input type="text" id="entities" name="entities" value="{{ range $i, $id := .Data.Filters.Entities }}{{ if $i }},{{ end }}{{ $id }}{{ end }}" placeholder="all">
+            {{ with index .Data.Errors "entities" }}<p class="error">{{ . }}</p>{{ end }}
+        </div>
+        <div class="actions">
+            <button type="submit">Terapkan</button>
+            <a class="secondary" href="/finance/consol/tb/export.csv?group={{ .Data.Filters.GroupID }}&period={{ .Data.Filters.Period }}{{ if .Data.Filters.Entities }}&entities={{ range $i, $id := .Data.Filters.Entities }}{{ if $i }},{{ end }}{{ $id }}{{ end }}{{ end }}">Export CSV</a>
+            <a class="secondary" href="/finance/consol/tb/pdf?group={{ .Data.Filters.GroupID }}&period={{ .Data.Filters.Period }}{{ if .Data.Filters.Entities }}&entities={{ range $i, $id := .Data.Filters.Entities }}{{ if $i }},{{ end }}{{ $id }}{{ end }}{{ end }}">Export PDF</a>
+        </div>
+    </form>
+</section>
+{{ with index .Data.Errors "general" }}
+<div class="alert error">{{ . }}</div>
+{{ end }}
+<section class="totals">
+    <h2>Totals</h2>
+    <p>Local Amount: {{ formatDecimal .Data.Totals.Local }}</p>
+    <p>Group Amount: {{ formatDecimal .Data.Totals.Group }}</p>
+    <p>Status: {{ if .Data.Totals.Balanced }}Balanced{{ else }}Unbalanced{{ end }}</p>
+</section>
+<section class="table-section">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Group Account</th>
+                <th>Name</th>
+                <th class="num">Local Amount</th>
+                <th class="num">Group Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{ if .Data.Lines }}
+                {{ range .Data.Lines }}
+                <tr>
+                    <td>{{ .GroupAccount }}</td>
+                    <td>{{ .Name }}</td>
+                    <td class="num">{{ formatDecimal .Local }}</td>
+                    <td class="num">{{ formatDecimal .Group }}</td>
+                </tr>
+                {{ end }}
+            {{ else }}
+                <tr>
+                    <td colspan="4">Belum ada saldo konsolidasi untuk filter saat ini.</td>
+                </tr>
+            {{ end }}
+        </tbody>
+    </table>
+</section>
+<section class="contribution">
+    <h2>Entity Contribution</h2>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Entity</th>
+                <th class="num">Group Amount</th>
+                <th class="num">Contribution %</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{ if .Data.Contribution }}
+                {{ range .Data.Contribution }}
+                <tr>
+                    <td>{{ .Entity }}</td>
+                    <td class="num">{{ formatDecimal .GroupAmt }}</td>
+                    <td class="num">{{ printf "%.2f" .Pct }}</td>
+                </tr>
+                {{ end }}
+            {{ else }}
+                <tr>
+                    <td colspan="3">Belum ada kontribusi entitas.</td>
+                </tr>
+            {{ end }}
+        </tbody>
+    </table>
+</section>
+{{ end }}

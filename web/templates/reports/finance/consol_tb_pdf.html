@@ -1,0 +1,77 @@
+{{ define "consol_tb_pdf.html" }}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Consolidated Trial Balance</title>
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 12px; margin: 24px; }
+        h1 { font-size: 18px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+        th, td { border: 1px solid #ccc; padding: 6px; text-align: left; }
+        th.num, td.num { text-align: right; }
+        .totals { margin-top: 12px; }
+    </style>
+</head>
+<body>
+    <h1>Consolidated Trial Balance</h1>
+    <p>Group: {{ .GroupName }} | Reporting CCY: {{ .ReportingCCY }} | Period: {{ .Filters.Period }}</p>
+    <section class="totals">
+        <p><strong>Local Amount:</strong> {{ formatDecimal .Totals.Local }}</p>
+        <p><strong>Group Amount:</strong> {{ formatDecimal .Totals.Group }}</p>
+        <p><strong>Status:</strong> {{ if .Totals.Balanced }}Balanced{{ else }}Unbalanced{{ end }}</p>
+    </section>
+    <table>
+        <thead>
+            <tr>
+                <th>Group Account</th>
+                <th>Name</th>
+                <th class="num">Local Amount</th>
+                <th class="num">Group Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{ if .Lines }}
+                {{ range .Lines }}
+                <tr>
+                    <td>{{ .GroupAccount }}</td>
+                    <td>{{ .Name }}</td>
+                    <td class="num">{{ formatDecimal .Local }}</td>
+                    <td class="num">{{ formatDecimal .Group }}</td>
+                </tr>
+                {{ end }}
+            {{ else }}
+                <tr>
+                    <td colspan="4">No consolidated balances for current filter.</td>
+                </tr>
+            {{ end }}
+        </tbody>
+    </table>
+    <h2>Entity Contribution</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Entity</th>
+                <th class="num">Group Amount</th>
+                <th class="num">Contribution %</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{ if .Contribution }}
+                {{ range .Contribution }}
+                <tr>
+                    <td>{{ .Entity }}</td>
+                    <td class="num">{{ formatDecimal .GroupAmt }}</td>
+                    <td class="num">{{ printf "%.2f" .Pct }}</td>
+                </tr>
+                {{ end }}
+            {{ else }}
+                <tr>
+                    <td colspan="3">No contributions available.</td>
+                </tr>
+            {{ end }}
+        </tbody>
+    </table>
+</body>
+</html>
+{{ end }}
