@@ -5,10 +5,91 @@
 {{ define "title" }}Audit Timeline{{ end }}
 
 {{ define "content" }}
-<section class="container">
+<section class="container audit-timeline">
     <header>
         <h1>Audit Timeline</h1>
-        <p>Tabel audit akan muncul di tahap implementasi berikutnya.</p>
+        <p>Jejak perubahan finansial dengan filter aktor, entitas, dan aksi.</p>
     </header>
+    {{ $filters := .Data.Filters }}
+    {{ $from := $filters.From.Format "2006-01-02" }}
+    {{ $to := $filters.To.Format "2006-01-02" }}
+    <form class="filters-form" method="get" action="/finance/audit/timeline" role="search" aria-label="Filter audit timeline">
+        <fieldset>
+            <legend>Filter</legend>
+            <div class="filter-grid">
+                <label>
+                    <span>Dari</span>
+                    <input type="date" name="from" value="{{ $from }}" aria-label="Tanggal awal">
+                </label>
+                <label>
+                    <span>Sampai</span>
+                    <input type="date" name="to" value="{{ $to }}" aria-label="Tanggal akhir">
+                </label>
+                <label>
+                    <span>Aktor</span>
+                    <input type="text" name="actor" value="{{ $filters.Actor }}" aria-label="Filter aktor">
+                </label>
+                <label>
+                    <span>Entitas</span>
+                    <input type="text" name="entity" value="{{ $filters.Entity }}" aria-label="Filter entitas">
+                </label>
+                <label>
+                    <span>Aksi</span>
+                    <input type="text" name="action" value="{{ $filters.Action }}" aria-label="Filter aksi">
+                </label>
+            </div>
+        </fieldset>
+        <input type="hidden" name="page" value="1">
+        <input type="hidden" name="page_size" value="{{ .Data.Paging.PageSize }}">
+        <div>
+            <button type="submit">Terapkan</button>
+        </div>
+    </form>
+
+    {{ if .Data.Rows }}
+    <div class="export-links" role="group" aria-label="Ekspor timeline">
+        <a class="secondary" href="/finance/audit/timeline/export.csv?from={{ $from }}&amp;to={{ $to }}{{ with $filters.Actor }}&amp;actor={{ urlquery . }}{{ end }}{{ with $filters.Entity }}&amp;entity={{ urlquery . }}{{ end }}{{ with $filters.Action }}&amp;action={{ urlquery . }}{{ end }}">Unduh CSV</a>
+        <a class="secondary" href="/finance/audit/timeline/pdf?from={{ $from }}&amp;to={{ $to }}{{ with $filters.Actor }}&amp;actor={{ urlquery . }}{{ end }}{{ with $filters.Entity }}&amp;entity={{ urlquery . }}{{ end }}{{ with $filters.Action }}&amp;action={{ urlquery . }}{{ end }}">Unduh PDF</a>
+    </div>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th scope="col">Timestamp</th>
+                <th scope="col">Aktor</th>
+                <th scope="col">Aksi</th>
+                <th scope="col">Entitas</th>
+                <th scope="col">Entity ID</th>
+                <th scope="col">Periode</th>
+                <th scope="col">Journal No</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{ range .Data.Rows }}
+            <tr>
+                <td>{{ .At.Format "2006-01-02 15:04:05" }}</td>
+                <td>{{ .Actor }}</td>
+                <td>{{ .Action }}</td>
+                <td>{{ .Entity }}</td>
+                <td>{{ .EntityID }}</td>
+                <td>{{ .Period }}</td>
+                <td>{{ .JournalNo }}</td>
+            </tr>
+            {{ end }}
+        </tbody>
+    </table>
+    <nav class="pagination" aria-label="Navigasi halaman">
+        <span>Halaman {{ .Data.Paging.Page }}</span>
+        <div>
+            {{ if gt .Data.Paging.PrevPage 0 }}
+            <a href="/finance/audit/timeline?from={{ $from }}&amp;to={{ $to }}{{ with $filters.Actor }}&amp;actor={{ urlquery . }}{{ end }}{{ with $filters.Entity }}&amp;entity={{ urlquery . }}{{ end }}{{ with $filters.Action }}&amp;action={{ urlquery . }}{{ end }}&amp;page={{ .Data.Paging.PrevPage }}&amp;page_size={{ .Data.Paging.PageSize }}">Sebelumnya</a>
+            {{ end }}
+            {{ if gt .Data.Paging.NextPage 0 }}
+            <a href="/finance/audit/timeline?from={{ $from }}&amp;to={{ $to }}{{ with $filters.Actor }}&amp;actor={{ urlquery . }}{{ end }}{{ with $filters.Entity }}&amp;entity={{ urlquery . }}{{ end }}{{ with $filters.Action }}&amp;action={{ urlquery . }}{{ end }}&amp;page={{ .Data.Paging.NextPage }}&amp;page_size={{ .Data.Paging.PageSize }}">Berikutnya</a>
+            {{ end }}
+        </div>
+    </nav>
+    {{ else }}
+    <p>Belum ada aktivitas pada rentang yang dipilih.</p>
+    {{ end }}
 </section>
 {{ end }}

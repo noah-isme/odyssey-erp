@@ -5,10 +5,109 @@
 {{ define "title" }}Finance Insights{{ end }}
 
 {{ define "content" }}
-<section class="container">
+<section class="container insights-page">
     <header>
         <h1>Finance Insights</h1>
-        <p>Halaman ini sedang dalam pengembangan. Grafik perbandingan Net &amp; Revenue akan tersedia di fase berikutnya.</p>
+        <p>Analisis Net Profit dan Revenue 12 bulan terakhir, lengkap dengan variansi serta kontribusi per cabang.</p>
     </header>
+    <form class="filters-form" method="get" action="/finance/insights" role="search" aria-label="Filter insights">
+        <fieldset>
+            <legend>Rentang Analisis</legend>
+            <div class="filter-grid">
+                <label>
+                    <span>Dari (YYYY-MM)</span>
+                    <input type="month" name="from" value="{{ .Data.Filters.From }}" aria-label="Periode awal">
+                </label>
+                <label>
+                    <span>Sampai (YYYY-MM)</span>
+                    <input type="month" name="to" value="{{ .Data.Filters.To }}" aria-label="Periode akhir">
+                </label>
+                <label>
+                    <span>ID Perusahaan</span>
+                    <input type="number" name="company_id" min="1" value="{{ with .Data.Filters.CompanyID }}{{ . }}{{ end }}" aria-label="Perusahaan">
+                </label>
+                <label>
+                    <span>ID Cabang</span>
+                    <input type="number" name="branch_id" min="1" value="{{ with .Data.Filters.BranchID }}{{ . }}{{ end }}" aria-label="Cabang opsional">
+                </label>
+            </div>
+        </fieldset>
+        <div>
+            <button type="submit">Terapkan</button>
+        </div>
+    </form>
+
+    {{ if .Data.Ready }}
+    <section class="insights-section" aria-labelledby="insights-trend">
+        <h2 id="insights-trend">Tren Net vs Revenue</h2>
+        <div class="chart-wrapper">
+            {{ .Data.Chart }}
+        </div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th scope="col">Bulan</th>
+                    <th scope="col">Net</th>
+                    <th scope="col">Revenue</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{ range .Data.Series }}
+                <tr>
+                    <th scope="row">{{ .Month }}</th>
+                    <td>{{ printf "%.2f" .Net }}</td>
+                    <td>{{ printf "%.2f" .Revenue }}</td>
+                </tr>
+                {{ end }}
+            </tbody>
+        </table>
+    </section>
+
+    <section class="insights-section" aria-labelledby="insights-variance">
+        <h2 id="insights-variance">Variansi MoM &amp; YoY</h2>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th scope="col">Metrik</th>
+                    <th scope="col">MoM %</th>
+                    <th scope="col">YoY %</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{ range .Data.Variances }}
+                <tr>
+                    <th scope="row">{{ .Metric }}</th>
+                    <td>{{ printf "%.2f%%" .MoMPct }}</td>
+                    <td>{{ printf "%.2f%%" .YoYPct }}</td>
+                </tr>
+                {{ end }}
+            </tbody>
+        </table>
+    </section>
+
+    <section class="insights-section" aria-labelledby="insights-contrib">
+        <h2 id="insights-contrib">Kontribusi per Cabang ({{ .Data.Filters.To }})</h2>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th scope="col">Cabang</th>
+                    <th scope="col">Net %</th>
+                    <th scope="col">Revenue %</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{ range .Data.Contribution }}
+                <tr>
+                    <th scope="row">{{ .Branch }}</th>
+                    <td>{{ printf "%.2f%%" .NetPct }}</td>
+                    <td>{{ printf "%.2f%%" .RevenuePct }}</td>
+                </tr>
+                {{ end }}
+            </tbody>
+        </table>
+    </section>
+    {{ else }}
+    <p>Data belum tersedia untuk filter yang dipilih.</p>
+    {{ end }}
 </section>
 {{ end }}
