@@ -16,7 +16,6 @@
     ]
   },
   "editable": true,
-  "gnetId": null,
   "graphTooltip": 0,
   "id": null,
   "links": [],
@@ -28,7 +27,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "req/s"
+          "unit": "reqps"
         },
         "overrides": []
       },
@@ -40,12 +39,12 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(odyssey_http_requests_total{route=~$route,company=~$company,branch=~$branch}[5m]))",
-          "legendFormat": "HTTP req/s",
+          "expr": "sum(rate(odyssey_http_requests_total{route=~$route,company=~$company,branch=~$branch}[5m])) by (route) or sum(rate(odyssey_http_requests_total{route=~$route}[5m])) by (route)",
+          "legendFormat": "{{route}}",
           "refId": "A"
         }
       ],
-      "title": "HTTP Requests per Second",
+      "title": "HTTP Request Rate",
       "type": "timeseries"
     },
     {
@@ -59,17 +58,17 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(odyssey_http_requests_total{route=~$route,company=~$company,branch=~$branch,code=~\"5..\"}[5m])) / sum(rate(odyssey_http_requests_total{route=~$route,company=~$company,branch=~$branch}[5m]))",
-          "legendFormat": "5xx rate",
+          "expr": "100 * (sum(rate(odyssey_http_requests_total{route=~$route,company=~$company,branch=~$branch,code=~\"5..\"}[5m])) or sum(rate(odyssey_http_requests_total{route=~$route,code=~\"5..\"}[5m]))) / (sum(rate(odyssey_http_requests_total{route=~$route,company=~$company,branch=~$branch}[5m])) or sum(rate(odyssey_http_requests_total{route=~$route}[5m])))",
+          "legendFormat": "5xx %",
           "refId": "A"
         }
       ],
-      "title": "HTTP 5xx Percentage",
+      "title": "Error Rate (5xx)",
       "type": "timeseries"
     },
     {
       "datasource": {"type": "prometheus", "uid": "PROM_DS"},
-      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "fieldConfig": {"defaults": {"unit": "ms"}, "overrides": []},
       "gridPos": {"h": 9, "w": 12, "x": 0, "y": 8},
       "id": 3,
       "options": {
@@ -78,12 +77,12 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(odyssey_http_request_duration_seconds_bucket{route=~$route,company=~$company,branch=~$branch}[5m])) by (le, route))",
+          "expr": "1000 * histogram_quantile(0.95, sum(rate(odyssey_http_request_duration_seconds_bucket{route=~$route,company=~$company,branch=~$branch}[5m])) by (le, route))",
           "legendFormat": "{{route}}",
           "refId": "A"
         }
       ],
-      "title": "p95 Latency per Route",
+      "title": "Latency p95",
       "type": "timeseries"
     },
     {
@@ -97,7 +96,7 @@
       },
       "targets": [
         {
-          "expr": "avg(odyssey_cache_hit_ratio{scope=~$period,company=~$company,branch=~$branch})",
+          "expr": "avg(odyssey_finance_cache_hit_ratio{company=~$company,branch=~$branch}) or avg(odyssey_finance_cache_hit_ratio)",
           "legendFormat": "Cache hit",
           "refId": "A"
         }
@@ -107,18 +106,23 @@
     },
     {
       "datasource": {"type": "prometheus", "uid": "PROM_DS"},
-      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "fieldConfig": {"defaults": {"unit": "percent"}, "overrides": []},
       "gridPos": {"h": 8, "w": 12, "x": 0, "y": 17},
       "id": 5,
       "options": {
-        "legend": {"displayMode": "table", "placement": "bottom"},
+        "legend": {"displayMode": "list", "placement": "bottom"},
         "tooltip": {"mode": "single"}
       },
       "targets": [
         {
-          "expr": "sum(rate(odyssey_jobs_total{job=~\"analytics.*\",status=~\"(success|failure)\"}[5m])) by (job, status)",
-          "legendFormat": "{{job}} {{status}}",
+          "expr": "100 * sum(rate(odyssey_jobs_total{job=~\"analytics.*\",status=\"success\"}[5m])) / sum(rate(odyssey_jobs_total{job=~\"analytics.*\",status=~\"success|failure\"}[5m]))",
+          "legendFormat": "Success %",
           "refId": "A"
+        },
+        {
+          "expr": "100 * sum(rate(odyssey_jobs_total{job=~\"analytics.*\",status=\"failure\"}[5m])) / sum(rate(odyssey_jobs_total{job=~\"analytics.*\",status=~\"success|failure\"}[5m]))",
+          "legendFormat": "Failure %",
+          "refId": "B"
         }
       ],
       "title": "Job Success vs Failure",
@@ -135,12 +139,12 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(odyssey_finance_anomalies_total{severity=~\"HIGH|MEDIUM\",company=~$company,branch=~$branch}[15m])) by (severity)",
+          "expr": "sum(rate(odyssey_finance_anomalies_total{severity=~$severity,company=~$company,branch=~$branch}[15m])) by (severity) or sum(rate(odyssey_finance_anomalies_total{severity=~$severity}[15m])) by (severity)",
           "legendFormat": "{{severity}}",
           "refId": "A"
         }
       ],
-      "title": "Anomaly Detections",
+      "title": "Anomaly Trend",
       "type": "timeseries"
     }
   ],
@@ -151,12 +155,12 @@
   "templating": {
     "list": [
       {
-        "current": {"text": "/finance/.*", "value": "/finance/.*"},
+        "current": {"text": "/finance/.+", "value": "/finance/.+"},
         "hide": 0,
         "label": "Route",
         "name": "route",
         "options": [],
-        "query": "/finance/.*",
+        "query": "/finance/.+",
         "skipUrlSync": false,
         "type": "textbox"
       },
@@ -181,12 +185,12 @@
         "type": "textbox"
       },
       {
-        "current": {"text": "active", "value": "active"},
+        "current": {"text": "HIGH|MEDIUM|LOW", "value": "HIGH|MEDIUM|LOW"},
         "hide": 0,
-        "label": "Period",
-        "name": "period",
+        "label": "Severity",
+        "name": "severity",
         "options": [],
-        "query": "active",
+        "query": "HIGH|MEDIUM|LOW",
         "skipUrlSync": false,
         "type": "textbox"
       }
@@ -197,5 +201,5 @@
   "timezone": "",
   "title": "Finance Observability",
   "uid": "finance-dashboard",
-  "version": 1
+  "version": 2
 }
