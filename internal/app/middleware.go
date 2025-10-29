@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/httprate"
 	"github.com/unrolled/secure"
 
+	"github.com/odyssey-erp/odyssey-erp/internal/observability"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 )
 
@@ -18,6 +19,7 @@ type MiddlewareConfig struct {
 	Config         *Config
 	SessionManager *shared.SessionManager
 	CSRFManager    *shared.CSRFManager
+	Metrics        *observability.Metrics
 }
 
 // MiddlewareStack installs the Odyssey middleware chain.
@@ -80,7 +82,7 @@ func MiddlewareStack(cfg MiddlewareConfig) []func(http.Handler) http.Handler {
 		timeout = cfg.Config.AppRequestTimeout
 	}
 
-	return []func(http.Handler) http.Handler{
+	middlewares := []func(http.Handler) http.Handler{
 		middleware.RealIP,
 		middleware.RequestID,
 		middleware.Recoverer,
@@ -100,4 +102,10 @@ func MiddlewareStack(cfg MiddlewareConfig) []func(http.Handler) http.Handler {
 		sessionMiddleware,
 		csrfMiddleware,
 	}
+	if cfg.Metrics != nil {
+		middlewares = append(middlewares, func(next http.Handler) http.Handler {
+			return cfg.Metrics.Middleware(next)
+		})
+	}
+	return middlewares
 }

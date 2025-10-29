@@ -1,10 +1,98 @@
 package observability
 
-import "net/http"
+import (
+	"net/http"
+	"strconv"
+	"time"
 
-// MetricsHandler mengembalikan handler Prometheus placeholder.
-func MetricsHandler() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, http.StatusText(http.StatusNotImplemented), http.StatusNotImplemented)
+	"github.com/go-chi/chi/v5"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+)
+
+// Metrics mengumpulkan metrik Prometheus untuk aplikasi.
+type Metrics struct {
+	registry        *prometheus.Registry
+	handler         http.Handler
+	requestsTotal   *prometheus.CounterVec
+	requestDuration *prometheus.HistogramVec
+	jobsGauge       prometheus.Gauge
+}
+
+// NewMetrics menginisialisasi registry dan metrik dasar.
+func NewMetrics() *Metrics {
+	registry := prometheus.NewRegistry()
+	requests := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "http_requests_total",
+		Help: "Jumlah permintaan HTTP berdasarkan route dan status.",
+	}, []string{"route", "code"})
+	duration := prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "http_request_duration_seconds",
+		Help:    "Durasi permintaan HTTP per route.",
+		Buckets: prometheus.DefBuckets,
+	}, []string{"route"})
+	jobs := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "odyssey_jobs_total",
+		Help: "Jumlah pekerjaan yang terdaftar.",
 	})
+	registry.MustRegister(requests, duration, jobs)
+	return &Metrics{
+		registry:        registry,
+		handler:         promhttp.HandlerFor(registry, promhttp.HandlerOpts{}),
+		requestsTotal:   requests,
+		requestDuration: duration,
+		jobsGauge:       jobs,
+	}
+}
+
+// Handler mengembalikan http.Handler untuk endpoint /metrics.
+func (m *Metrics) Handler() http.Handler {
+	if m == nil {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
+		})
+	}
+	return m.handler
+}
+
+// Middleware mencatat metrik untuk setiap permintaan HTTP.
+func (m *Metrics) Middleware(next http.Handler) http.Handler {
+	if m == nil {
+		return next
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		recorder := statusRecorder{ResponseWriter: w, status: http.StatusOK}
+		next.ServeHTTP(&recorder, r)
+		route := routePattern(r)
+		m.requestsTotal.WithLabelValues(route, strconv.Itoa(recorder.status)).Inc()
+		m.requestDuration.WithLabelValues(route).Observe(time.Since(start).Seconds())
+	})
+}
+
+// SetJobs mengatur nilai metrik odyssey_jobs_total.
+func (m *Metrics) SetJobs(value float64) {
+	if m == nil {
+		return
+	}
+	m.jobsGauge.Set(value)
+}
+
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (r *statusRecorder) WriteHeader(status int) {
+	r.status = status
+	r.ResponseWriter.WriteHeader(status)
+}
+
+func routePattern(r *http.Request) string {
+	if routeCtx := chi.RouteContext(r.Context()); routeCtx != nil {
+		if pattern := routeCtx.RoutePattern(); pattern != "" {
+			return pattern
+		}
+	}
+	return "unknown"
 }
