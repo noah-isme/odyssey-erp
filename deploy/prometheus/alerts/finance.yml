@@ -1,27 +1,30 @@
- groups:
-   - name: finance
-     rules:
-       - alert: HighErrorRate
-         expr: sum(rate(odyssey_http_requests_total{code=~"5.."}[5m])) / sum(rate(odyssey_http_requests_total[5m])) > 0.02
-         for: 5m
-         labels:
-           severity: critical
-         annotations:
-           summary: HTTP 5xx > 2% (5m)
-           runbook: docs/runbook-ops-finance.md#high-error-rate
-       - alert: HighLatencyDashboard
-         expr: histogram_quantile(0.95, sum(rate(odyssey_http_request_duration_seconds_bucket{route=~"/finance/.+"}[10m])) by (le, route)) > 0.8
-         for: 10m
-         labels:
-           severity: warning
-         annotations:
-           summary: p95 latency > 800ms (finance routes)
-           runbook: docs/runbook-ops-finance.md#high-latency
-       - alert: AnomalySpike
-         expr: sum(increase(odyssey_finance_anomalies_total{severity="HIGH"}[1h])) > 3
-         for: 15m
-         labels:
-           severity: warning
-         annotations:
-           summary: HIGH anomalies > 3/hour
-           runbook: docs/runbook-ops-finance.md#anomaly-spike
+groups:
+  - name: finance
+    rules:
+      - alert: HighErrorRate
+        expr: sum(rate(odyssey_http_requests_total{code=~"5.."}[5m])) / sum(rate(odyssey_http_requests_total[5m])) > 0.02
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: HTTP 5xx > 2%
+          description: Error budget burn detected for finance HTTP endpoints.
+          runbook: docs/runbook-ops-finance.md#high-error-rate
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, sum(rate(odyssey_http_request_duration_seconds_bucket{route=~"/finance/.+"}[10m])) by (le, route)) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Finance route p95 > 800ms
+          description: Cached and cold requests exceeding latency SLO for finance APIs.
+          runbook: docs/runbook-ops-finance.md#high-latency
+      - alert: AnomalySpike
+        expr: sum(increase(odyssey_finance_anomalies_total{severity="HIGH"}[1h])) > 3
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: More than 3 HIGH anomalies per hour
+          description: Investigate anomaly classifier, source jobs, and downstream effects.
+          runbook: docs/runbook-ops-finance.md#anomaly-spike
