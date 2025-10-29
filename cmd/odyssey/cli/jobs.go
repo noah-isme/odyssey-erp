@@ -51,6 +51,8 @@ func (c *JobsCLI) Trigger(ctx context.Context, name string) (*asynq.TaskInfo, er
 		task, err = jobs.NewInsightsWarmupTask("active")
 	case jobs.TaskAnalyticsAnomalyScan:
 		task, err = jobs.NewAnomalyScanTask(12, 2.5)
+	case jobs.TaskConsolidateRefresh:
+		task, err = jobs.NewConsolidateRefreshTask("all", "active")
 	default:
 		return nil, fmt.Errorf("jobs cli: unsupported job %s", name)
 	}
@@ -58,6 +60,17 @@ func (c *JobsCLI) Trigger(ctx context.Context, name string) (*asynq.TaskInfo, er
 		return nil, err
 	}
 	return c.client.EnqueueContext(ctx, task, asynq.MaxRetry(3))
+}
+
+// Enqueue submits the provided task with optional Asynq options.
+func (c *JobsCLI) Enqueue(ctx context.Context, task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error) {
+	if c == nil || c.client == nil {
+		return nil, errors.New("jobs cli: client not configured")
+	}
+	if task == nil {
+		return nil, errors.New("jobs cli: task is required")
+	}
+	return c.client.EnqueueContext(ctx, task, opts...)
 }
 
 // QueueStats summarises the current queue state.
