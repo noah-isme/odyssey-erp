@@ -11,6 +11,7 @@ import (
 
 	"github.com/hibiken/asynq"
 
+	consolhttp "github.com/odyssey-erp/odyssey-erp/internal/consol/http"
 	jobmetrics "github.com/odyssey-erp/odyssey-erp/internal/jobs"
 )
 
@@ -124,6 +125,8 @@ func (j *ConsolidateRefreshJob) Handle(ctx context.Context, task *asynq.Task) er
 		}
 		refreshed++
 	}
+
+	consolhttp.BustConsolViewCache()
 
 	j.log().Info("refreshed consolidation balances", slog.String("period", period), slog.Int("groups", refreshed), slog.Duration("duration", time.Since(start)))
 	return resultErr
