@@ -12,6 +12,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/auth"
 	insightshhtp "github.com/odyssey-erp/odyssey-erp/internal/insights/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/inventory"
+	"github.com/odyssey-erp/odyssey-erp/internal/observability"
 	"github.com/odyssey-erp/odyssey-erp/internal/procurement"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
@@ -35,7 +36,7 @@ type RouterParams struct {
 	ReportHandler      *report.Handler
 	JobHandler         *jobs.Handler
 	AnalyticsHandler   *analytichttp.Handler
-	MetricsHandler     http.Handler
+	Metrics            *observability.Metrics
 }
 
 // NewRouter constructs the chi.Router with Odyssey defaults.
@@ -47,6 +48,7 @@ func NewRouter(params RouterParams) http.Handler {
 		Config:         params.Config,
 		SessionManager: params.SessionManager,
 		CSRFManager:    params.CSRFManager,
+		Metrics:        params.Metrics,
 	}) {
 		r.Use(mw)
 	}
@@ -94,8 +96,8 @@ func NewRouter(params RouterParams) http.Handler {
 	if params.AuditHandler != nil {
 		params.AuditHandler.MountRoutes(r)
 	}
-	if params.MetricsHandler != nil {
-		r.Method(http.MethodGet, "/metrics", params.MetricsHandler)
+	if params.Metrics != nil {
+		r.Method(http.MethodGet, "/metrics", params.Metrics.Handler())
 	}
 
 	fileServer := http.StripPrefix("/static/", http.FileServer(http.FS(web.Static)))

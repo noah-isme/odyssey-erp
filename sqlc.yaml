@@ -41,3 +41,23 @@ sql:
         sql_package: "pgx/v5"
         emit_interface: false
         emit_json_tags: true
+  - engine: "postgresql"
+    schema: "migrations"
+    queries: "internal/insights/queries"
+    gen:
+      go:
+        package: "insightsdb"
+        out: "internal/insights/db"
+        sql_package: "pgx/v5"
+        emit_interface: false
+        emit_json_tags: true
+  - engine: "postgresql"
+    schema: "migrations"
+    queries: "internal/audit/queries"
+    gen:
+      go:
+        package: "auditdb"
+        out: "internal/audit/db"
+        sql_package: "pgx/v5"
+        emit_interface: false
+        emit_json_tags: true
