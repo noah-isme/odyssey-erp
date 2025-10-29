@@ -24,9 +24,12 @@ import (
 	analytichttp "github.com/odyssey-erp/odyssey-erp/internal/analytics/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/analytics/svg"
 	"github.com/odyssey-erp/odyssey-erp/internal/app"
+	audithttp "github.com/odyssey-erp/odyssey-erp/internal/audit/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/auth"
+	insightshhtp "github.com/odyssey-erp/odyssey-erp/internal/insights/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/integration"
 	"github.com/odyssey-erp/odyssey-erp/internal/inventory"
+	"github.com/odyssey-erp/odyssey-erp/internal/observability"
 	"github.com/odyssey-erp/odyssey-erp/internal/procurement"
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
@@ -150,6 +153,10 @@ func main() {
 		analyticsValidator,
 	)
 
+	insightsHandler := insightshhtp.NewHandler(logger, templates)
+	auditHandler := audithttp.NewHandler(logger, templates)
+	metricsHandler := observability.MetricsHandler()
+
 	inventoryHandler := inventory.NewHandler(logger, inventoryService, templates, csrfManager, sessionManager, rbacMiddleware)
 	procurementHandler := procurement.NewHandler(logger, procurementService, templates, csrfManager, sessionManager, rbacMiddleware)
 
@@ -176,6 +183,9 @@ func main() {
 		ReportHandler:      reportHandler,
 		JobHandler:         jobHandler,
 		AnalyticsHandler:   analyticsHandler,
+		InsightsHandler:    insightsHandler,
+		AuditHandler:       auditHandler,
+		MetricsHandler:     metricsHandler,
 	})
 
 	server := &http.Server{
