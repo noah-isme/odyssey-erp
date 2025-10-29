@@ -10,7 +10,7 @@ BRANCH_QUERY=$(if $(BRANCH_ID),&branch_id=$(BRANCH_ID),)
 export APP_ENV?=development
 export PG_DSN?=postgres://odyssey:odyssey@localhost:5432/odyssey?sslmode=disable
 
-.PHONY: dev lint test build migrate-up migrate-down sqlc-gen seed seed-phase3 seed-phase4 refresh-mv reports-demo pdf-sample analytics-dashboard analytics-dashboard-pdf analytics-dashboard-csv
+.PHONY: dev lint test build migrate-up migrate-down sqlc-gen seed seed-phase3 seed-phase4 refresh-mv reports-demo pdf-sample analytics-dashboard analytics-dashboard-pdf analytics-dashboard-csv prom-up grafana-load alert-test monitor-demo release-phase6
 
 dev:
 	docker compose up --build
@@ -62,5 +62,24 @@ analytics-dashboard-pdf:
 	test -s /tmp/analytics-dashboard.pdf
 
 analytics-dashboard-csv:
-	curl -fsS -o /tmp/analytics-dashboard.csv "http://localhost:8080/finance/analytics/export.csv?period=$(PERIOD)&company_id=$(COMPANY_ID)$(BRANCH_QUERY)"
-	test -s /tmp/analytics-dashboard.csv
+        curl -fsS -o /tmp/analytics-dashboard.csv "http://localhost:8080/finance/analytics/export.csv?period=$(PERIOD)&company_id=$(COMPANY_ID)$(BRANCH_QUERY)"
+        test -s /tmp/analytics-dashboard.csv
+
+prom-up:
+        @echo "Starting observability stack (Prometheus + Grafana)"
+        @echo "Run: docker compose -f deploy/observability/docker-compose.yml up -d"
+
+grafana-load:
+        @echo "Provisioning dashboards from deploy/grafana/dashboards"
+        @echo "Use grafana-dashboard-tooling or API to upload JSON definitions."
+
+alert-test:
+        $(GO_BIN) test ./internal/observability -run TestFinanceAlertRules -count=1
+        $(GO_BIN) test ./internal/e2e -run TestAlertSimulationProducesFiringAndResolvedLogs -count=1
+
+monitor-demo:
+        $(GO_BIN) test ./internal/perf -run TestFinanceLatencyTargets -count=1
+        $(GO_BIN) test ./internal/perf -run TestAnalyticsJobThroughputAndReliability -count=1
+
+release-phase6: lint test build
+        @echo "Phase 6 release checklist complete. Tag with v0.6.0-final."

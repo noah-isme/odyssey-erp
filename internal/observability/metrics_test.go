@@ -57,10 +57,10 @@ func TestMetricsMiddlewareRecordsRequest(t *testing.T) {
 	metrics.Handler().ServeHTTP(metricsRR, httptest.NewRequest(http.MethodGet, "/metrics", nil))
 
 	metricsBody := metricsRR.Body.String()
-	if !strings.Contains(metricsBody, "http_requests_total{code=\"418\",route=\"/test\"} 1") {
+	if !strings.Contains(metricsBody, "odyssey_http_requests_total{code=\"418\",route=\"/test\"} 1") {
 		t.Fatalf("expected metrics to record request, got: %s", metricsBody)
 	}
-	if !strings.Contains(metricsBody, "http_request_duration_seconds_bucket{route=\"/test\"") {
+	if !strings.Contains(metricsBody, "odyssey_http_request_duration_seconds_bucket{route=\"/test\"") {
 		t.Fatalf("expected duration histogram to be present, got: %s", metricsBody)
 	}
 }
