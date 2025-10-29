@@ -151,7 +151,7 @@ func (s *Service) GetConsolidatedTB(ctx context.Context, filter Filters) (TrialB
 	}
 	tbMembers := make([]Member, 0, len(members))
 	for _, m := range members {
-		tbMembers = append(tbMembers, Member{CompanyID: m.CompanyID, Name: m.Name, Enabled: m.Enabled})
+		tbMembers = append(tbMembers, Member(m))
 	}
 	return TrialBalance{
 		Filters: Filters{

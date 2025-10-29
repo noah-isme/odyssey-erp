@@ -28,6 +28,11 @@ jobs:
       REDIS_ADDR: localhost:6379
       ODYSSEY_TEST_MODE: "1"
       GOTENBERG_URL: http://127.0.0.1:0
+      GOPROXY: https://proxy.golang.org
+      GOSUMDB: sum.golang.org
+      GOFLAGS: -mod=readonly
+      GOINSECURE: ""
+      GONOSUMDB: ""
 
     steps:
       - uses: actions/checkout@v4
@@ -48,6 +53,9 @@ jobs:
         uses: golangci/golangci-lint-action@v4
         with:
           version: latest
+
+      - name: Vet
+        run: make vet
 
       - name: Run sqlc
         run: sqlc generate
