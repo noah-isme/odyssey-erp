@@ -1,0 +1,201 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "-- Grafana --",
+          "uid": "grafana"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PROM_DS"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "req/s"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "id": 1,
+      "options": {
+        "legend": {"displayMode": "list", "placement": "bottom"},
+        "tooltip": {"mode": "single"}
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(odyssey_http_requests_total{route=~$route,company=~$company,branch=~$branch}[5m]))",
+          "legendFormat": "HTTP req/s",
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP Requests per Second",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "PROM_DS"},
+      "fieldConfig": {"defaults": {"unit": "percent"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "id": 2,
+      "options": {
+        "legend": {"displayMode": "list", "placement": "bottom"},
+        "tooltip": {"mode": "single"}
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(odyssey_http_requests_total{route=~$route,company=~$company,branch=~$branch,code=~\"5..\"}[5m])) / sum(rate(odyssey_http_requests_total{route=~$route,company=~$company,branch=~$branch}[5m]))",
+          "legendFormat": "5xx rate",
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP 5xx Percentage",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "PROM_DS"},
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "gridPos": {"h": 9, "w": 12, "x": 0, "y": 8},
+      "id": 3,
+      "options": {
+        "legend": {"displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "single"}
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(odyssey_http_request_duration_seconds_bucket{route=~$route,company=~$company,branch=~$branch}[5m])) by (le, route))",
+          "legendFormat": "{{route}}",
+          "refId": "A"
+        }
+      ],
+      "title": "p95 Latency per Route",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "PROM_DS"},
+      "fieldConfig": {"defaults": {"unit": "percent"}, "overrides": []},
+      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 8},
+      "id": 4,
+      "options": {
+        "legend": {"displayMode": "list", "placement": "bottom"},
+        "tooltip": {"mode": "single"}
+      },
+      "targets": [
+        {
+          "expr": "avg(odyssey_cache_hit_ratio{scope=~$period,company=~$company,branch=~$branch})",
+          "legendFormat": "Cache hit",
+          "refId": "A"
+        }
+      ],
+      "title": "Cache Hit Ratio",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "PROM_DS"},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 17},
+      "id": 5,
+      "options": {
+        "legend": {"displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "single"}
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(odyssey_jobs_total{job=~\"analytics.*\",status=~\"(success|failure)\"}[5m])) by (job, status)",
+          "legendFormat": "{{job}} {{status}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Job Success vs Failure",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "PROM_DS"},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 17},
+      "id": 6,
+      "options": {
+        "legend": {"displayMode": "list", "placement": "bottom"},
+        "tooltip": {"mode": "single"}
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(odyssey_finance_anomalies_total{severity=~\"HIGH|MEDIUM\",company=~$company,branch=~$branch}[15m])) by (severity)",
+          "legendFormat": "{{severity}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Anomaly Detections",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["finance"],
+  "templating": {
+    "list": [
+      {
+        "current": {"text": "/finance/.*", "value": "/finance/.*"},
+        "hide": 0,
+        "label": "Route",
+        "name": "route",
+        "options": [],
+        "query": "/finance/.*",
+        "skipUrlSync": false,
+        "type": "textbox"
+      },
+      {
+        "current": {"text": ".*", "value": ".*"},
+        "hide": 0,
+        "label": "Company",
+        "name": "company",
+        "options": [],
+        "query": ".*",
+        "skipUrlSync": false,
+        "type": "textbox"
+      },
+      {
+        "current": {"text": ".*", "value": ".*"},
+        "hide": 0,
+        "label": "Branch",
+        "name": "branch",
+        "options": [],
+        "query": ".*",
+        "skipUrlSync": false,
+        "type": "textbox"
+      },
+      {
+        "current": {"text": "active", "value": "active"},
+        "hide": 0,
+        "label": "Period",
+        "name": "period",
+        "options": [],
+        "query": "active",
+        "skipUrlSync": false,
+        "type": "textbox"
+      }
+    ]
+  },
+  "time": {"from": "now-6h", "to": "now"},
+  "timepicker": {},
+  "timezone": "",
+  "title": "Finance Observability",
+  "uid": "finance-dashboard",
+  "version": 1
+}

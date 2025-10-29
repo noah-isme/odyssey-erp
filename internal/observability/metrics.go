@@ -16,7 +16,6 @@ type Metrics struct {
 	handler         http.Handler
 	requestsTotal   *prometheus.CounterVec
 	requestDuration *prometheus.HistogramVec
-	jobsGauge       prometheus.Gauge
 }
 
 // NewMetrics menginisialisasi registry dan metrik dasar.
@@ -31,17 +30,12 @@ func NewMetrics() *Metrics {
 		Help:    "Durasi permintaan HTTP per route.",
 		Buckets: prometheus.DefBuckets,
 	}, []string{"route"})
-	jobs := prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "odyssey_jobs_total",
-		Help: "Jumlah pekerjaan yang terdaftar.",
-	})
-	registry.MustRegister(requests, duration, jobs)
+	registry.MustRegister(requests, duration)
 	return &Metrics{
 		registry:        registry,
 		handler:         promhttp.HandlerFor(registry, promhttp.HandlerOpts{}),
 		requestsTotal:   requests,
 		requestDuration: duration,
-		jobsGauge:       jobs,
 	}
 }
 
@@ -70,12 +64,12 @@ func (m *Metrics) Middleware(next http.Handler) http.Handler {
 	})
 }
 
-// SetJobs mengatur nilai metrik odyssey_jobs_total.
-func (m *Metrics) SetJobs(value float64) {
+// Registerer mengekspos registry untuk pendaftaran metrik khusus.
+func (m *Metrics) Registerer() prometheus.Registerer {
 	if m == nil {
-		return
+		return prometheus.DefaultRegisterer
 	}
-	m.jobsGauge.Set(value)
+	return m.registry
 }
 
 type statusRecorder struct {
