@@ -25,10 +25,7 @@
       "fieldConfig": {"defaults": {"unit": "percent"}, "overrides": []},
       "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
       "id": 10,
-      "options": {
-        "legend": {"displayMode": "list", "placement": "bottom"},
-        "tooltip": {"mode": "single"}
-      },
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "single"}},
       "targets": [
         {
           "expr": "avg(rate(process_cpu_seconds_total[1m])) * 100",
@@ -36,49 +33,30 @@
           "refId": "A"
         }
       ],
-      "title": "CPU Usage",
+      "title": "CPU Usage %",
       "type": "timeseries"
     },
     {
       "datasource": {"type": "prometheus", "uid": "PROM_DS"},
-      "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []},
+      "fieldConfig": {"defaults": {"unit": "decmbytes"}, "overrides": []},
       "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
       "id": 11,
-      "options": {
-        "legend": {"displayMode": "list", "placement": "bottom"},
-        "tooltip": {"mode": "single"}
-      },
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "single"}},
       "targets": [
         {
-          "expr": "go_memstats_alloc_bytes",
+          "expr": "go_memstats_alloc_bytes / 1000000",
           "legendFormat": "Heap Alloc",
           "refId": "A"
         }
       ],
-      "title": "Memory Allocation",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {"type": "prometheus", "uid": "PROM_DS"},
-      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
-      "id": 12,
-      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "single"}},
-      "targets": [
-        {
-          "expr": "rate(go_gc_duration_seconds_sum[5m]) / rate(go_gc_duration_seconds_count[5m])",
-          "legendFormat": "GC duration",
-          "refId": "A"
-        }
-      ],
-      "title": "Average GC Duration",
+      "title": "Memory Usage MB",
       "type": "timeseries"
     },
     {
       "datasource": {"type": "prometheus", "uid": "PROM_DS"},
       "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
-      "id": 13,
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "id": 12,
       "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "single"}},
       "targets": [
         {
@@ -92,30 +70,9 @@
     },
     {
       "datasource": {"type": "prometheus", "uid": "PROM_DS"},
-      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
-      "id": 14,
-      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "single"}},
-      "targets": [
-        {
-          "expr": "odyssey_db_pool_in_use",
-          "legendFormat": "DB connections",
-          "refId": "A"
-        },
-        {
-          "expr": "odyssey_db_pool_wait_count",
-          "legendFormat": "Pool waits",
-          "refId": "B"
-        }
-      ],
-      "title": "Database Pool",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {"type": "prometheus", "uid": "PROM_DS"},
       "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
-      "id": 15,
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "id": 13,
       "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "single"}},
       "targets": [
         {
@@ -124,7 +81,44 @@
           "refId": "A"
         }
       ],
-      "title": "Redis Operations",
+      "title": "Redis Ops/sec",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "PROM_DS"},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+      "id": 14,
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "single"}},
+      "targets": [
+        {
+          "expr": "odyssey_db_pool_in_use",
+          "legendFormat": "In use",
+          "refId": "A"
+        },
+        {
+          "expr": "odyssey_db_pool_wait_count",
+          "legendFormat": "Wait count",
+          "refId": "B"
+        }
+      ],
+      "title": "DB Pool Connections",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "PROM_DS"},
+      "fieldConfig": {"defaults": {"unit": "ms"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+      "id": 15,
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "single"}},
+      "targets": [
+        {
+          "expr": "rate(go_gc_duration_seconds_sum[5m]) / rate(go_gc_duration_seconds_count[5m]) * 1000",
+          "legendFormat": "GC p95",
+          "refId": "A"
+        }
+      ],
+      "title": "GC Pauses (ms)",
       "type": "timeseries"
     }
   ],
@@ -138,5 +132,5 @@
   "timezone": "",
   "title": "Platform Health",
   "uid": "platform-dashboard",
-  "version": 1
+  "version": 2
 }

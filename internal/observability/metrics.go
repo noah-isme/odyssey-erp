@@ -22,11 +22,11 @@ type Metrics struct {
 func NewMetrics() *Metrics {
 	registry := prometheus.NewRegistry()
 	requests := prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "http_requests_total",
+		Name: "odyssey_http_requests_total",
 		Help: "Jumlah permintaan HTTP berdasarkan route dan status.",
 	}, []string{"route", "code"})
 	duration := prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "http_request_duration_seconds",
+		Name:    "odyssey_http_request_duration_seconds",
 		Help:    "Durasi permintaan HTTP per route.",
 		Buckets: prometheus.DefBuckets,
 	}, []string{"route"})

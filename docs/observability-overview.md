@@ -8,12 +8,12 @@ This document captures the core observability assets for the finance and platfor
 
 * **UID:** `finance-dashboard`
 * **Location:** `deploy/grafana/dashboards/finance.json`
-* **Key panels:** HTTP request rate, 5xx percentage, finance latency p95 per route, cache hit ratio, analytics job success/failure, and anomaly detection trends.
+* **Key panels:** HTTP request rate, error rate percentage, finance latency p95 (ms), cache hit ratio, analytics job success/failure ratio, anomaly trend by severity.
 * **Variables:**
-  * `route` – Regex filter for finance endpoints (defaults to `/finance/.*`).
+  * `route` – Regex filter for finance endpoints (defaults to `/finance/.+`).
   * `company` – Multi-tenant selector for finance organizations.
   * `branch` – Narrow down to branches within a company.
-  * `period` – Cache scope (defaults to `active`).
+  * `severity` – Severity filter for anomaly counts (defaults to `HIGH|MEDIUM|LOW`).
 
 ### Platform Health
 
@@ -30,7 +30,7 @@ The finance alert suite lives in `deploy/prometheus/alerts/finance.yml`. All rul
 | Alert | Expr summary | For | Severity | Runbook |
 | --- | --- | --- | --- | --- |
 | `HighErrorRate` | Finance 5xx ratio > 2% over 5m | 5m | `critical` | `docs/runbook-ops-finance.md#high-error-rate` |
-| `HighLatencyDashboard` | Finance p95 latency > 800ms | 10m | `warning` | `docs/runbook-ops-finance.md#high-latency` |
+| `HighLatency` | Finance p95 latency > 800ms | 10m | `warning` | `docs/runbook-ops-finance.md#high-latency` |
 | `AnomalySpike` | High severity anomalies > 3 / hour | 15m | `warning` | `docs/runbook-ops-finance.md#anomaly-spike` |
 
 ## Labeling Conventions
