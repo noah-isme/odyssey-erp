@@ -12,12 +12,19 @@ type CompareFilters struct {
 
 // MonthlySeries mewakili satu titik data bulanan.
 type MonthlySeries struct {
-	Month   string
-	Net     float64
-	Revenue float64
+        Month   string
+        Net     float64
+        Revenue float64
+}
+
+// VarianceMetric menyimpan persentase MoM dan YoY untuk suatu metrik.
+type VarianceMetric struct {
+        Metric string
+        MoMPct float64
+        YoYPct float64
 }
 
 // CompareService mendefinisikan kontrak data yang dibutuhkan handler insights.
 type CompareService interface {
-	CompareMonthlyNetRevenue(ctx context.Context, filters CompareFilters) ([]MonthlySeries, error)
+        CompareMonthlyNetRevenue(ctx context.Context, filters CompareFilters) ([]MonthlySeries, error)
 }

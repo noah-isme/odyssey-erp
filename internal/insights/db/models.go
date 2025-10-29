@@ -2,7 +2,7 @@
 // versions:
 //   sqlc v1.27.0
 
-package rbacdb
+package insightsdb
 
 import (
 	"database/sql/driver"
