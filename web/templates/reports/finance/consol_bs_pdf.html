@@ -1,6 +1,103 @@
 {{ define "reports/finance/consol_bs_pdf.html" }}
-<main>
-  <h1>Consolidated Balance Sheet (PDF)</h1>
-  <p>PDF output will be available in a future update.</p>
-</main>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Consolidated Balance Sheet</title>
+    <style>
+        body { font-family: "Helvetica", Arial, sans-serif; font-size: 12px; color: #1f2933; }
+        h1, h2 { margin-bottom: 8px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+        th, td { border: 1px solid #d2d6dc; padding: 6px; text-align: left; }
+        th.num, td.num { text-align: right; }
+        .totals td { font-weight: bold; }
+        .warnings { margin: 12px 0; padding: 8px; border: 1px solid #f7c948; background: #fff8e1; }
+        .meta { margin-bottom: 12px; }
+    </style>
+</head>
+<body>
+    <h1>Consolidated Balance Sheet</h1>
+    <div class="meta">
+        <p>Group ID {{ .Filters.GroupID }} &mdash; Period {{ .Filters.Period }} &mdash; FX {{ if .Filters.FxOn }}On{{ else }}Off{{ end }}</p>
+    </div>
+    {{ if .Warnings }}
+    <div class="warnings">
+        <strong>Peringatan:</strong>
+        <ul>
+            {{ range .Warnings }}<li>{{ . }}</li>{{ end }}
+        </ul>
+    </div>
+    {{ end }}
+    <h2>Totals</h2>
+    <table class="totals">
+        <tbody>
+            <tr><td>Assets</td><td class="num">{{ formatDecimal .Totals.Assets }}</td></tr>
+            <tr><td>Liabilities + Equity</td><td class="num">{{ formatDecimal .Totals.LiabEquity }}</td></tr>
+            <tr><td>Balanced</td><td class="num">{{ if .Totals.Balanced }}Ya{{ else }}Tidak{{ end }}</td></tr>
+            <tr><td>Delta FX</td><td class="num">{{ formatDecimal .Totals.DeltaFX }}</td></tr>
+        </tbody>
+    </table>
+    <h2>Assets</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Account Code</th>
+                <th>Account Name</th>
+                <th class="num">Local Amount</th>
+                <th class="num">Group Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{ range .Assets }}
+            <tr>
+                <td>{{ .AccountCode }}</td>
+                <td>{{ .AccountName }}</td>
+                <td class="num">{{ formatDecimal .LocalAmount }}</td>
+                <td class="num">{{ formatDecimal .GroupAmount }}</td>
+            </tr>
+            {{ end }}
+        </tbody>
+    </table>
+    <h2>Liabilities &amp; Equity</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Account Code</th>
+                <th>Account Name</th>
+                <th class="num">Local Amount</th>
+                <th class="num">Group Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{ range .LiabilitiesEq }}
+            <tr>
+                <td>{{ .AccountCode }}</td>
+                <td>{{ .AccountName }}</td>
+                <td class="num">{{ formatDecimal .LocalAmount }}</td>
+                <td class="num">{{ formatDecimal .GroupAmount }}</td>
+            </tr>
+            {{ end }}
+        </tbody>
+    </table>
+    <h2>Entity Contribution</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Entity</th>
+                <th class="num">Group Amount</th>
+                <th class="num">Contribution %</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{ range .Contributions }}
+            <tr>
+                <td>{{ .EntityName }}</td>
+                <td class="num">{{ formatDecimal .GroupAmount }}</td>
+                <td class="num">{{ printf "%.2f" .Percent }}</td>
+            </tr>
+            {{ end }}
+        </tbody>
+    </table>
+</body>
+</html>
 {{ end }}
