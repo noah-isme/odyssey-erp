@@ -5,9 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/odyssey-erp/odyssey-erp/internal/consol/fx"
 )
 
 // Repository provides persistence helpers for consolidation workloads.
@@ -25,6 +29,9 @@ var ErrPeriodNotFound = errors.New("consol: period not found")
 
 // ErrGroupNotFound indicates the consolidation group is missing.
 var ErrGroupNotFound = errors.New("consol: group not found")
+
+// ErrFxRateNotFound indicates the FX rate for the requested pair/date is missing.
+var ErrFxRateNotFound = errors.New("consol: fx rate not found")
 
 // FindPeriodID resolves a period code to its identifier.
 func (r *Repository) FindPeriodID(ctx context.Context, code string) (int64, error) {
@@ -56,6 +63,12 @@ func (r *Repository) GetGroup(ctx context.Context, groupID int64) (string, strin
 		return "", "", err
 	}
 	return name, ccy, nil
+}
+
+// GroupReportingCurrency fetches the configured reporting currency for the group.
+func (r *Repository) GroupReportingCurrency(ctx context.Context, groupID int64) (string, error) {
+	_, ccy, err := r.GetGroup(ctx, groupID)
+	return ccy, err
 }
 
 // MemberRow describes a group member fetched from the database.
@@ -90,6 +103,33 @@ ORDER BY c.name`
 		members = append(members, m)
 	}
 	return members, rows.Err()
+}
+
+// MemberCurrencies returns the local currency configured for group members.
+func (r *Repository) MemberCurrencies(ctx context.Context, groupID int64) (map[int64]string, error) {
+	if r == nil || r.pool == nil {
+		return nil, fmt.Errorf("consol repo not initialised")
+	}
+	const query = `
+SELECT cm.company_id, c.currency
+FROM consol_members cm
+JOIN companies c ON c.id = cm.company_id
+WHERE cm.group_id = $1`
+	rows, err := r.pool.Query(ctx, query, groupID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	currencies := make(map[int64]string)
+	for rows.Next() {
+		var companyID int64
+		var currency string
+		if err := rows.Scan(&companyID, &currency); err != nil {
+			return nil, err
+		}
+		currencies[companyID] = strings.ToUpper(strings.TrimSpace(currency))
+	}
+	return currencies, rows.Err()
 }
 
 // RebuildConsolidation recomputes balances for the provided period and group.
@@ -250,4 +290,29 @@ func ParseMembers(data []byte) ([]MemberShare, error) {
 		})
 	}
 	return members, nil
+}
+
+// FxRateForPeriod fetches the FX quote for a given pair and as-of date.
+func (r *Repository) FxRateForPeriod(ctx context.Context, asOf time.Time, pair string) (fx.Quote, error) {
+	var zero fx.Quote
+	if r == nil || r.pool == nil {
+		return zero, fmt.Errorf("consol repo not initialised")
+	}
+	pair = strings.ToUpper(strings.TrimSpace(pair))
+	if pair == "" {
+		return zero, fmt.Errorf("fx pair required")
+	}
+	if asOf.IsZero() {
+		return zero, fmt.Errorf("as of date required")
+	}
+	asOf = time.Date(asOf.Year(), asOf.Month(), 1, 0, 0, 0, 0, time.UTC)
+	const query = `SELECT average_rate, closing_rate FROM fx_rates WHERE as_of_date = $1 AND pair = $2 LIMIT 1`
+	var quote fx.Quote
+	if err := r.pool.QueryRow(ctx, query, asOf, pair).Scan(&quote.Average, &quote.Closing); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return zero, ErrFxRateNotFound
+		}
+		return zero, err
+	}
+	return quote, nil
 }

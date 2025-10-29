@@ -1,8 +1,148 @@
 {{ define "pages/finance/consol_bs.html" }}
-<section class="stack">
-  <header>
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Consolidated Balance Sheet{{ end }}
+
+{{ define "content" }}
+<div class="page-header">
     <h1>Consolidated Balance Sheet</h1>
-    <p class="text-muted">Coming soon: consolidated balance sheet.</p>
-  </header>
+    <p>Group ID {{ .Data.Filters.GroupID }} &mdash; Period {{ .Data.Filters.Period }} &mdash; FX {{ if .Data.Filters.FxOn }}On{{ else }}Off{{ end }}</p>
+</div>
+<section class="filters">
+    <form method="get" action="/finance/consol/bs" class="filters-form">
+        <div class="field">
+            <label for="group">Group ID</label>
+            <input type="number" id="group" name="group" value="{{ .Data.Filters.GroupID }}" min="1" required>
+            {{ with index .Data.Errors "group" }}<p class="error">{{ . }}</p>{{ end }}
+        </div>
+        <div class="field">
+            <label for="period">Period (YYYY-MM)</label>
+            <input type="text" id="period" name="period" value="{{ .Data.Filters.Period }}" placeholder="2024-01" required>
+            {{ with index .Data.Errors "period" }}<p class="error">{{ . }}</p>{{ end }}
+        </div>
+        <div class="field">
+            <label for="entities">Entities (comma separated IDs)</label>
+            <input type="text" id="entities" name="entities" value="{{ range $i, $id := .Data.Filters.Entities }}{{ if $i }},{{ end }}{{ $id }}{{ end }}" placeholder="all">
+            {{ with index .Data.Errors "entities" }}<p class="error">{{ . }}</p>{{ end }}
+        </div>
+        <div class="field">
+            <label for="fx">FX Policy</label>
+            <select id="fx" name="fx">
+                <option value="off" {{ if not .Data.Filters.FxOn }}selected{{ end }}>Off</option>
+                <option value="on" {{ if .Data.Filters.FxOn }}selected{{ end }}>On</option>
+            </select>
+            {{ with index .Data.Errors "fx" }}<p class="error">{{ . }}</p>{{ end }}
+        </div>
+        <div class="actions">
+            <button type="submit">Terapkan</button>
+            <a class="secondary" href="/finance/consol/bs/export.csv?group={{ .Data.Filters.GroupID }}&period={{ .Data.Filters.Period }}{{ if .Data.Filters.Entities }}&entities={{ range $i, $id := .Data.Filters.Entities }}{{ if $i }},{{ end }}{{ $id }}{{ end }}{{ end }}&fx={{ if .Data.Filters.FxOn }}on{{ else }}off{{ end }}">Export CSV</a>
+            <a class="secondary" href="/finance/consol/bs/pdf?group={{ .Data.Filters.GroupID }}&period={{ .Data.Filters.Period }}{{ if .Data.Filters.Entities }}&entities={{ range $i, $id := .Data.Filters.Entities }}{{ if $i }},{{ end }}{{ $id }}{{ end }}{{ end }}&fx={{ if .Data.Filters.FxOn }}on{{ else }}off{{ end }}">Export PDF</a>
+        </div>
+    </form>
+</section>
+{{ with .Data.Warnings }}
+<div class="alert warning">
+    <ul>
+        {{ range . }}<li>{{ . }}</li>{{ end }}
+    </ul>
+</div>
+{{ end }}
+{{ with index .Data.Errors "general" }}
+<div class="alert error">{{ . }}</div>
+{{ end }}
+<section class="totals">
+    <h2>Totals</h2>
+    <dl class="totals-list">
+        <div><dt>Assets</dt><dd>{{ formatDecimal .Data.Totals.Assets }}</dd></div>
+        <div><dt>Liabilities + Equity</dt><dd>{{ formatDecimal .Data.Totals.LiabEquity }}</dd></div>
+        <div><dt>Balanced</dt><dd>{{ if .Data.Totals.Balanced }}Ya{{ else }}Tidak{{ end }}</dd></div>
+        <div><dt>Delta FX</dt><dd>{{ formatDecimal .Data.Totals.DeltaFX }}</dd></div>
+    </dl>
+</section>
+<section class="table-section">
+    <h2>Assets</h2>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Account Code</th>
+                <th>Account Name</th>
+                <th class="num">Local Amount</th>
+                <th class="num">Group Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{ if .Data.Assets }}
+                {{ range .Data.Assets }}
+                <tr>
+                    <td>{{ .AccountCode }}</td>
+                    <td>{{ .AccountName }}</td>
+                    <td class="num">{{ formatDecimal .LocalAmount }}</td>
+                    <td class="num">{{ formatDecimal .GroupAmount }}</td>
+                </tr>
+                {{ end }}
+            {{ else }}
+                <tr>
+                    <td colspan="4">Belum ada saldo aset konsolidasi untuk filter saat ini.</td>
+                </tr>
+            {{ end }}
+        </tbody>
+    </table>
+</section>
+<section class="table-section">
+    <h2>Liabilities &amp; Equity</h2>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Account Code</th>
+                <th>Account Name</th>
+                <th class="num">Local Amount</th>
+                <th class="num">Group Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{ if .Data.LiabilitiesEq }}
+                {{ range .Data.LiabilitiesEq }}
+                <tr>
+                    <td>{{ .AccountCode }}</td>
+                    <td>{{ .AccountName }}</td>
+                    <td class="num">{{ formatDecimal .LocalAmount }}</td>
+                    <td class="num">{{ formatDecimal .GroupAmount }}</td>
+                </tr>
+                {{ end }}
+            {{ else }}
+                <tr>
+                    <td colspan="4">Belum ada saldo kewajiban &amp; ekuitas konsolidasi untuk filter saat ini.</td>
+                </tr>
+            {{ end }}
+        </tbody>
+    </table>
+</section>
+<section class="contribution">
+    <h2>Entity Contribution</h2>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Entity</th>
+                <th class="num">Group Amount</th>
+                <th class="num">Contribution %</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{ if .Data.Contributions }}
+                {{ range .Data.Contributions }}
+                <tr>
+                    <td>{{ .EntityName }}</td>
+                    <td class="num">{{ formatDecimal .GroupAmount }}</td>
+                    <td class="num">{{ printf "%.2f" .Percent }}</td>
+                </tr>
+                {{ end }}
+            {{ else }}
+                <tr>
+                    <td colspan="3">Belum ada kontribusi entitas.</td>
+                </tr>
+            {{ end }}
+        </tbody>
+    </table>
 </section>
 {{ end }}
