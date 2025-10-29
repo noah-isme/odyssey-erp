@@ -28,6 +28,8 @@ import (
 	auditdb "github.com/odyssey-erp/odyssey-erp/internal/audit/db"
 	audithttp "github.com/odyssey-erp/odyssey-erp/internal/audit/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/auth"
+	"github.com/odyssey-erp/odyssey-erp/internal/consol"
+	consolhttp "github.com/odyssey-erp/odyssey-erp/internal/consol/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/insights"
 	insightsdb "github.com/odyssey-erp/odyssey-erp/internal/insights/db"
 	insightshhtp "github.com/odyssey-erp/odyssey-erp/internal/insights/http"
@@ -174,6 +176,14 @@ func main() {
 	reportClient := report.NewClient(cfg.GotenbergURL)
 	reportHandler := report.NewHandler(reportClient, logger)
 
+	consolRepo := consol.NewRepository(dbpool)
+	consolService := consol.NewService(consolRepo)
+	consolHandler, err := consolhttp.NewHandler(logger, consolService, templates, csrfManager, sessionManager, rbacMiddleware, reportClient)
+	if err != nil {
+		logger.Error("init consolidation handler", slog.Any("error", err))
+		os.Exit(1)
+	}
+
 	inspector := asynq.NewInspector(asynq.RedisClientOpt{Addr: cfg.RedisAddr})
 	defer func() {
 		if err := inspector.Close(); err != nil {
@@ -192,6 +202,7 @@ func main() {
 		InventoryHandler:   inventoryHandler,
 		ProcurementHandler: procurementHandler,
 		ReportHandler:      reportHandler,
+		ConsolHandler:      consolHandler,
 		JobHandler:         jobHandler,
 		AnalyticsHandler:   analyticsHandler,
 		InsightsHandler:    insightsHandler,
