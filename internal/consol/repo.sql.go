@@ -146,6 +146,46 @@ GROUP BY base.group_account_id`
 	return err
 }
 
+// ListGroupIDs returns the identifiers for all consolidation groups.
+func (r *Repository) ListGroupIDs(ctx context.Context) ([]int64, error) {
+	if r == nil || r.pool == nil {
+		return nil, fmt.Errorf("consol repo not initialised")
+	}
+	rows, err := r.pool.Query(ctx, `SELECT id FROM consol_groups ORDER BY id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return ids, nil
+}
+
+// ActiveConsolidationPeriod returns the period code flagged as OPEN_CONSOL.
+func (r *Repository) ActiveConsolidationPeriod(ctx context.Context) (string, error) {
+	if r == nil || r.pool == nil {
+		return "", fmt.Errorf("consol repo not initialised")
+	}
+	const query = `SELECT code FROM periods WHERE status = 'OPEN_CONSOL' ORDER BY start_date DESC LIMIT 1`
+	var code string
+	if err := r.pool.QueryRow(ctx, query).Scan(&code); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", nil
+		}
+		return "", err
+	}
+	return code, nil
+}
+
 // BalanceRow maps to consolidated balance output from the materialised view.
 type BalanceRow struct {
 	GroupAccountID   int64
