@@ -19,6 +19,10 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"log/slog"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/testutil"
+	dto "github.com/prometheus/client_model/go"
+
 	"github.com/odyssey-erp/odyssey-erp/internal/consol"
 	"github.com/odyssey-erp/odyssey-erp/internal/consol/fx"
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
@@ -26,6 +30,12 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
 )
+
+func init() {
+	if err := SetupCacheMetrics(prometheus.NewRegistry()); err != nil {
+		panic(err)
+	}
+}
 
 type member struct {
 	id     int64
@@ -141,6 +151,73 @@ func (r *stubBSRepo) FxRateForPeriod(ctx context.Context, asOf time.Time, pair s
 		return quote, nil
 	}
 	return fx.Quote{}, fmt.Errorf("rate missing")
+}
+
+type slowPLRepo struct {
+	*stubPLRepo
+	delay time.Duration
+}
+
+func (r *slowPLRepo) ConsolBalancesByType(ctx context.Context, groupID int64, period string, entities []int64) ([]consol.ConsolBalanceByTypeQueryRow, error) {
+	time.Sleep(r.delay)
+	return r.stubPLRepo.ConsolBalancesByType(ctx, groupID, period, entities)
+}
+
+func resetCacheMetrics(t *testing.T) {
+	t.Helper()
+	if cacheHitCounter != nil {
+		cacheHitCounter.Reset()
+	}
+	if cacheMissCounter != nil {
+		cacheMissCounter.Reset()
+	}
+	if vmBuildHistogram != nil {
+		vmBuildHistogram.Reset()
+	}
+}
+
+func histogramSampleCount(t *testing.T, vec *prometheus.HistogramVec, labels prometheus.Labels) uint64 {
+	t.Helper()
+	if vec == nil {
+		return 0
+	}
+	metricsCh := make(chan prometheus.Metric, 16)
+	go func() {
+		vec.Collect(metricsCh)
+		close(metricsCh)
+	}()
+	for metric := range metricsCh {
+		dtoMetric := &dto.Metric{}
+		if err := metric.Write(dtoMetric); err != nil {
+			t.Fatalf("write histogram metric: %v", err)
+		}
+		if dtoMetric.GetHistogram() == nil {
+			continue
+		}
+		if labelsMatch(dtoMetric, labels) {
+			return dtoMetric.GetHistogram().GetSampleCount()
+		}
+	}
+	return 0
+}
+
+func labelsMatch(metric *dto.Metric, labels prometheus.Labels) bool {
+	if metric == nil {
+		return false
+	}
+	pairs := metric.GetLabel()
+	if len(pairs) != len(labels) {
+		return false
+	}
+	for _, pair := range pairs {
+		if pair == nil {
+			continue
+		}
+		if val, ok := labels[pair.GetName()]; !ok || val != pair.GetValue() {
+			return false
+		}
+	}
+	return true
 }
 
 type stubDB struct {
@@ -349,6 +426,110 @@ func TestBalanceSheetHandleGetCachesViewModel(t *testing.T) {
 	}
 	if repo.calls != 1 {
 		t.Fatalf("expected cache hit to avoid new build, got %d calls", repo.calls)
+	}
+}
+
+func TestConsolHandlersRecordCacheMetrics(t *testing.T) {
+	BustConsolViewCache()
+	resetCacheMetrics(t)
+	repo := &stubPLRepo{
+		rows: []consol.ConsolBalanceByTypeQueryRow{
+			{
+				GroupAccountID:   1,
+				GroupAccountCode: "4000",
+				GroupAccountName: "Revenue",
+				AccountType:      "REVENUE",
+				LocalAmount:      -1000,
+				GroupAmount:      -1000,
+				MembersJSON:      makeMembersJSON(t, member{id: 1, name: "Alpha", amount: -1000}),
+			},
+			{
+				GroupAccountID:   2,
+				GroupAccountCode: "5000",
+				GroupAccountName: "COGS",
+				AccountType:      "EXPENSE",
+				LocalAmount:      600,
+				GroupAmount:      600,
+				MembersJSON:      makeMembersJSON(t, member{id: 1, name: "Alpha", amount: 600}),
+			},
+		},
+	}
+	service := consol.NewProfitLossService(repo)
+	templates := newTestTemplates(t)
+	handler, err := NewProfitLossHandler(newTestLogger(), service, templates, shared.NewCSRFManager("secret"), nil, rbac.Middleware{}, nil)
+	if err != nil {
+		t.Fatalf("failed to init handler: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "/finance/consol/pl?group=1&period=2024-01&fx=off", nil)
+	rr := httptest.NewRecorder()
+	handler.HandleGet(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("unexpected status %d", rr.Code)
+	}
+	rr = httptest.NewRecorder()
+	handler.HandleGet(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("unexpected status %d", rr.Code)
+	}
+	if got := testutil.ToFloat64(cacheMissCounter.WithLabelValues("pl", "1", "2024-01")); got != 1 {
+		t.Fatalf("expected 1 cache miss metric, got %v", got)
+	}
+	if got := testutil.ToFloat64(cacheHitCounter.WithLabelValues("pl", "1", "2024-01")); got != 1 {
+		t.Fatalf("expected 1 cache hit metric, got %v", got)
+	}
+	if count := histogramSampleCount(t, vmBuildHistogram, prometheus.Labels{"report": "pl", "group": "1", "period": "2024-01"}); count == 0 {
+		t.Fatalf("expected vm build duration metric sample")
+	}
+}
+
+func TestProfitLossHandleGetSingleflightPreventsStampede(t *testing.T) {
+	BustConsolViewCache()
+	resetCacheMetrics(t)
+	base := &stubPLRepo{
+		rows: []consol.ConsolBalanceByTypeQueryRow{
+			{
+				GroupAccountID:   1,
+				GroupAccountCode: "4000",
+				GroupAccountName: "Revenue",
+				AccountType:      "REVENUE",
+				LocalAmount:      -1000,
+				GroupAmount:      -1000,
+				MembersJSON:      makeMembersJSON(t, member{id: 1, name: "Alpha", amount: -1000}),
+			},
+		},
+	}
+	repo := &slowPLRepo{stubPLRepo: base, delay: 50 * time.Millisecond}
+	service := consol.NewProfitLossService(repo)
+	templates := newTestTemplates(t)
+	handler, err := NewProfitLossHandler(newTestLogger(), service, templates, shared.NewCSRFManager("secret"), nil, rbac.Middleware{}, nil)
+	if err != nil {
+		t.Fatalf("failed to init handler: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "/finance/consol/pl?group=1&period=2024-01&fx=off", nil)
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for i := 0; i < 5; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			rr := httptest.NewRecorder()
+			handler.HandleGet(rr, req)
+			if rr.Code != http.StatusOK {
+				t.Errorf("unexpected status %d", rr.Code)
+			}
+		}()
+	}
+	close(start)
+	wg.Wait()
+	if repo.calls != 1 {
+		t.Fatalf("expected single build call, got %d", repo.calls)
+	}
+	if got := testutil.ToFloat64(cacheMissCounter.WithLabelValues("pl", "1", "2024-01")); got != 1 {
+		t.Fatalf("expected one cache miss metric, got %v", got)
+	}
+	if got := testutil.ToFloat64(cacheHitCounter.WithLabelValues("pl", "1", "2024-01")); got != 0 {
+		t.Fatalf("expected zero cache hit metrics during stampede, got %v", got)
 	}
 }
 

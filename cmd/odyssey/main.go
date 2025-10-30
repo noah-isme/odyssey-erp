@@ -169,6 +169,9 @@ func main() {
 	auditHandler := audithttp.NewHandler(logger, auditService, templates, auditExporter, rbacService)
 	metrics := observability.NewMetrics()
 	jobmetrics.NewMetrics(metrics.Registerer())
+	if err := consolhttp.SetupCacheMetrics(metrics.Registerer()); err != nil {
+		logger.Warn("register consol cache metrics", slog.Any("error", err))
+	}
 
 	inventoryHandler := inventory.NewHandler(logger, inventoryService, templates, csrfManager, sessionManager, rbacMiddleware)
 	procurementHandler := procurement.NewHandler(logger, procurementService, templates, csrfManager, sessionManager, rbacMiddleware)
