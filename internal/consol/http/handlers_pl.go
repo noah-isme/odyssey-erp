@@ -2,6 +2,7 @@ package http
 
 import (
 	"bytes"
+	"context"
 	"encoding/csv"
 	"fmt"
 	"log/slog"
@@ -103,16 +104,31 @@ func (h *ProfitLossHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 				vm = clonePLViewModel(cachedVM)
 				vm.Errors = errors
 				cachedHit = true
+				recordCacheHit("pl", filters.GroupID, filters.Period)
 			}
 		}
 		if !cachedHit {
-			report, warnings, err := h.service.Build(r.Context(), filters)
+			result, err, _ := singleflightBuild(r.Context(), cacheKey, func(ctx context.Context) (interface{}, error) {
+				start := time.Now()
+				recordCacheMiss("pl", filters.GroupID, filters.Period)
+				defer func(start time.Time) {
+					observeVMBuildDuration("pl", filters.GroupID, filters.Period, time.Since(start))
+				}(start)
+				report, warnings, err := h.service.Build(ctx, filters)
+				if err != nil {
+					return nil, err
+				}
+				vm := NewConsolPLViewModel(report, warnings)
+				viewModelCache.Set(cacheKey, clonePLViewModel(vm))
+				return vm, nil
+			})
 			if err != nil {
 				errors["general"] = err.Error()
-			} else {
-				vm = NewConsolPLViewModel(report, warnings)
-				vm.Errors = errors
-				viewModelCache.Set(cacheKey, clonePLViewModel(vm))
+			} else if result != nil {
+				if builtVM, ok := result.(ConsolPLViewModel); ok {
+					vm = builtVM
+					vm.Errors = errors
+				}
 			}
 		}
 	}
