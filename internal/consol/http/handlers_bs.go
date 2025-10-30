@@ -2,6 +2,7 @@ package http
 
 import (
 	"bytes"
+	"context"
 	"encoding/csv"
 	"fmt"
 	"log/slog"
@@ -103,20 +104,35 @@ func (h *BalanceSheetHandler) HandleGet(w http.ResponseWriter, r *http.Request) 
 				vm = cloneBSViewModel(cachedVM)
 				vm.Errors = errors
 				cachedHit = true
+				recordCacheHit("bs", filters.GroupID, filters.Period)
 			}
 		}
 		if !cachedHit {
-			report, warnings, err := h.service.Build(r.Context(), filters)
-			if err != nil {
-				errors["general"] = err.Error()
-			} else {
+			result, err, _ := singleflightBuild(r.Context(), cacheKey, func(ctx context.Context) (interface{}, error) {
+				start := time.Now()
+				recordCacheMiss("bs", filters.GroupID, filters.Period)
+				defer func(start time.Time) {
+					observeVMBuildDuration("bs", filters.GroupID, filters.Period, time.Since(start))
+				}(start)
+				report, warnings, err := h.service.Build(ctx, filters)
+				if err != nil {
+					return nil, err
+				}
 				extraWarnings := append([]string(nil), warnings...)
 				if !report.Totals.Balanced {
 					extraWarnings = append(extraWarnings, "Consolidated BS not balanced")
 				}
-				vm = NewConsolBSViewModel(report, extraWarnings)
-				vm.Errors = errors
+				vm := NewConsolBSViewModel(report, extraWarnings)
 				viewModelCache.Set(cacheKey, cloneBSViewModel(vm))
+				return vm, nil
+			})
+			if err != nil {
+				errors["general"] = err.Error()
+			} else if result != nil {
+				if builtVM, ok := result.(ConsolBSViewModel); ok {
+					vm = builtVM
+					vm.Errors = errors
+				}
 			}
 		}
 	}
