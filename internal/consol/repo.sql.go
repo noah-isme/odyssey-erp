@@ -33,6 +33,14 @@ var ErrGroupNotFound = errors.New("consol: group not found")
 // ErrFxRateNotFound indicates the FX rate for the requested pair/date is missing.
 var ErrFxRateNotFound = errors.New("consol: fx rate not found")
 
+// FxRateInput represents a single FX quote to be stored.
+type FxRateInput struct {
+	AsOf    time.Time
+	Pair    string
+	Average float64
+	Closing float64
+}
+
 // FindPeriodID resolves a period code to its identifier.
 func (r *Repository) FindPeriodID(ctx context.Context, code string) (int64, error) {
 	if r == nil || r.pool == nil {
@@ -315,4 +323,41 @@ func (r *Repository) FxRateForPeriod(ctx context.Context, asOf time.Time, pair s
 		return zero, err
 	}
 	return quote, nil
+}
+
+// UpsertFxRates persists FX quotes, replacing existing rows when necessary.
+func (r *Repository) UpsertFxRates(ctx context.Context, rows []FxRateInput) error {
+	if r == nil || r.pool == nil {
+		return fmt.Errorf("consol repo not initialised")
+	}
+	if len(rows) == 0 {
+		return nil
+	}
+	batch := &pgx.Batch{}
+	const query = `
+INSERT INTO fx_rates (as_of_date, pair, average_rate, closing_rate)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (as_of_date, pair)
+DO UPDATE SET average_rate = EXCLUDED.average_rate, closing_rate = EXCLUDED.closing_rate`
+	for _, row := range rows {
+		pair := strings.ToUpper(strings.TrimSpace(row.Pair))
+		if pair == "" {
+			return fmt.Errorf("fx pair required")
+		}
+		if row.AsOf.IsZero() {
+			return fmt.Errorf("as of date required for pair %s", pair)
+		}
+		if row.Average <= 0 || row.Closing <= 0 {
+			return fmt.Errorf("fx rates must be positive for %s %s", pair, row.AsOf.Format("2006-01"))
+		}
+		asOf := time.Date(row.AsOf.Year(), row.AsOf.Month(), 1, 0, 0, 0, 0, time.UTC)
+		batch.Queue(query, asOf, pair, row.Average, row.Closing)
+	}
+	results := r.pool.SendBatch(ctx, batch)
+	for range rows {
+		if _, err := results.Exec(); err != nil {
+			return err
+		}
+	}
+	return results.Close()
 }
