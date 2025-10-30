@@ -17,6 +17,7 @@ type FXRepository interface {
 	GroupReportingCurrency(ctx context.Context, groupID int64) (string, error)
 	MemberCurrencies(ctx context.Context, groupID int64) (map[int64]string, error)
 	FxRateForPeriod(ctx context.Context, asOf time.Time, pair string) (fx.Quote, error)
+	UpsertFxRates(ctx context.Context, rows []consol.FxRateInput) error
 }
 
 // FXOpsCLI offers operational helpers to manage FX rates used by consolidation.
