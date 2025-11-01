@@ -179,9 +179,15 @@ func main() {
 	reportClient := report.NewClient(cfg.GotenbergURL)
 	reportHandler := report.NewHandler(reportClient, logger)
 
+	consolPDFClient, err := consolhttp.NewPDFRenderClient(cfg.GotenbergURL)
+	if err != nil {
+		logger.Error("init consol pdf client", slog.Any("error", err))
+		os.Exit(1)
+	}
+
 	consolRepo := consol.NewRepository(dbpool)
 	consolService := consol.NewService(consolRepo)
-	consolHandler, err := consolhttp.NewHandler(logger, consolService, templates, csrfManager, sessionManager, rbacMiddleware, reportClient)
+	consolHandler, err := consolhttp.NewHandler(logger, consolService, templates, csrfManager, sessionManager, rbacMiddleware, consolPDFClient)
 	if err != nil {
 		logger.Error("init consolidation handler", slog.Any("error", err))
 		os.Exit(1)

@@ -1,5 +1,21 @@
 # Changelog
 
+## Phase 7 Sprint 3.4.4
+
+### Added
+
+- Production-ready consolidation PDF exporter backed by Gotenberg with 10s timeout, two retries, and minimum-size validation.
+- Streaming CSV exporter with buffered writes, metadata comment headers, and regression tests for P&L/Balance Sheet.
+- `docs/runbook-consol-plbs.md` plus Makefile helpers (`export-demo`, `fx-tools`) for day-two export and FX operations.
+
+### Changed
+
+- Consolidation warnings now persist in cached view-models and render consistently across SSR banners, CSV metadata, and PDF warning lists.
+
+### Testing
+
+- Updated `TESTING-PHASE7-S3.md` to cover prod-tag PDF checks, CSV streaming, and warning parity.
+
 ## Phase 6 Final (v0.6.0-final)
 
 ### Added
