@@ -6,13 +6,20 @@ SQLC_BIN?=sqlc
 MIGRATE_BIN?=migrate
 PERIOD?=$(shell date +%Y-%m)
 COMPANY_ID?=1
+GROUP_ID?=1
+ENTITIES?=all
+FX_MODE?=on
+FX_PAIR?=IDRUSD
+FX_FROM?=2024-01
+FX_TO?=2025-12
+FX_SOURCE?=./rates.csv
 BRANCH_ID?=
 BRANCH_QUERY=$(if $(BRANCH_ID),&branch_id=$(BRANCH_ID),)
 
 export APP_ENV?=development
 export PG_DSN?=postgres://odyssey:odyssey@localhost:5432/odyssey?sslmode=disable
 
-.PHONY: dev lint vet vet-consol test build migrate-up migrate-down sqlc-gen seed seed-phase3 seed-phase4 refresh-mv reports-demo pdf-sample analytics-dashboard analytics-dashboard-pdf analytics-dashboard-csv prom-up grafana-load alert-test monitor-demo release-phase6
+.PHONY: dev lint vet vet-consol test build migrate-up migrate-down sqlc-gen seed seed-phase3 seed-phase4 refresh-mv reports-demo pdf-sample export-demo fx-tools analytics-dashboard analytics-dashboard-pdf analytics-dashboard-csv prom-up grafana-load alert-test monitor-demo release-phase6
 
 dev:
 	docker compose up --build
@@ -73,6 +80,24 @@ refresh-mv:
 
 reports-demo:
 	$(GO_BIN) run ./scripts/finance/reportsdemo/main.go
+
+export-demo:
+	curl -fsS -o /tmp/consol-pl.csv "http://localhost:8080/finance/consol/pl/export.csv?group=$(GROUP_ID)&period=$(PERIOD)&entities=$(ENTITIES)&fx=$(FX_MODE)"
+	test -s /tmp/consol-pl.csv
+	curl -fsS -o /tmp/consol-pl.pdf "http://localhost:8080/finance/consol/pl/pdf?group=$(GROUP_ID)&period=$(PERIOD)&entities=$(ENTITIES)&fx=$(FX_MODE)"
+	test -s /tmp/consol-pl.pdf
+	curl -fsS -o /tmp/consol-bs.csv "http://localhost:8080/finance/consol/bs/export.csv?group=$(GROUP_ID)&period=$(PERIOD)&entities=$(ENTITIES)&fx=$(FX_MODE)"
+	test -s /tmp/consol-bs.csv
+	curl -fsS -o /tmp/consol-bs.pdf "http://localhost:8080/finance/consol/bs/pdf?group=$(GROUP_ID)&period=$(PERIOD)&entities=$(ENTITIES)&fx=$(FX_MODE)"
+	test -s /tmp/consol-bs.pdf
+	@echo "Exports saved to /tmp/consol-pl.{csv,pdf} and /tmp/consol-bs.{csv,pdf}"
+
+fx-tools:
+	@echo "Validate FX coverage:";
+	@echo "  odyssey fx validate --group $(GROUP_ID) --period $(PERIOD) --pair $(FX_PAIR) --json";
+	@echo ""
+	@echo "Preview FX backfill candidates:";
+	@echo "  odyssey fx backfill --pair $(FX_PAIR) --from $(FX_FROM) --to $(FX_TO) --source $(FX_SOURCE) --mode dry";
 
 analytics-dashboard:
 	curl -fsS "http://localhost:8080/finance/analytics?period=$(PERIOD)&company_id=$(COMPANY_ID)$(BRANCH_QUERY)"

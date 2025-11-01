@@ -1,9 +1,7 @@
 package http
 
 import (
-	"bytes"
 	"context"
-	"encoding/csv"
 	"fmt"
 	"log/slog"
 	"net"
@@ -133,34 +131,11 @@ func (h *Handler) handleExportCSV(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	buf := &bytes.Buffer{}
-	writer := csv.NewWriter(buf)
-	if err := writer.Write([]string{"Group Account", "Name", "Local Amount", "Group Amount"}); err != nil {
-		h.logger.Error("write consol tb csv header", slog.Any("error", err))
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-	for _, line := range tb.Lines {
-		if err := writer.Write([]string{
-			line.GroupAccountCode,
-			line.GroupAccountName,
-			fmt.Sprintf("%.2f", line.LocalAmount),
-			fmt.Sprintf("%.2f", line.GroupAmount),
-		}); err != nil {
-			h.logger.Error("write consol tb csv line", slog.Any("error", err))
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-			return
-		}
-	}
-	writer.Flush()
-	if err := writer.Error(); err != nil {
-		h.logger.Error("flush consol tb csv", slog.Any("error", err))
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
 	w.Header().Set("Content-Type", "text/csv")
 	w.Header().Set("Content-Disposition", "attachment; filename=consolidated_tb.csv")
-	_, _ = w.Write(buf.Bytes())
+	if err := writeTBCsv(w, tb, nil); err != nil {
+		h.logger.Error("stream consol tb csv", slog.Any("error", err))
+	}
 }
 
 func (h *Handler) handleExportPDF(w http.ResponseWriter, r *http.Request) {
