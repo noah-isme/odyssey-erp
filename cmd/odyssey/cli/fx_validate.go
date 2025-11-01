@@ -53,23 +53,23 @@ func (c *FXOpsCLI) ValidateCommand(ctx context.Context, opts FXValidateOptions) 
 		opts.Stderr = os.Stderr
 	}
 	if opts.GroupID <= 0 {
-		fmt.Fprintln(opts.Stderr, "fx validate: --group is required and must be positive")
+		_, _ = fmt.Fprintln(opts.Stderr, "fx validate: --group is required and must be positive")
 		return 1
 	}
 	period, err := time.Parse("2006-01", strings.TrimSpace(opts.Period))
 	if err != nil {
-		fmt.Fprintf(opts.Stderr, "fx validate: invalid period %q (expected YYYY-MM)\n", opts.Period)
+		_, _ = fmt.Fprintf(opts.Stderr, "fx validate: invalid period %q (expected YYYY-MM)\n", opts.Period)
 		return 1
 	}
 	result, err := c.ValidateGaps(ctx, ValidateParams{GroupID: opts.GroupID, Period: period, Pairs: opts.Pairs})
 	if err != nil {
-		fmt.Fprintf(opts.Stderr, "fx validate: %v\n", err)
+		_, _ = fmt.Fprintf(opts.Stderr, "fx validate: %v\n", err)
 		return 1
 	}
 	if opts.JSONOutput {
 		summary := buildValidateSummary(result)
 		if err := json.NewEncoder(opts.Stdout).Encode(summary); err != nil {
-			fmt.Fprintf(opts.Stderr, "fx validate: encode json: %v\n", err)
+			_, _ = fmt.Fprintf(opts.Stderr, "fx validate: encode json: %v\n", err)
 			return 1
 		}
 	} else {
@@ -130,26 +130,26 @@ func buildValidateSummary(result ValidateResult) FXValidateSummary {
 
 func renderValidateHuman(out io.Writer, result ValidateResult) {
 	period := result.Result.Period.Format("2006-01")
-	fmt.Fprintf(out, "FX validation for group %d (%s) — period %s\n", result.GroupID, result.ReportingCurrency, period)
+	_, _ = fmt.Fprintf(out, "FX validation for group %d (%s) — period %s\n", result.GroupID, result.ReportingCurrency, period)
 	if len(result.Result.Gaps) == 0 {
-		fmt.Fprintln(out, "All required FX rates are present.")
+		_, _ = fmt.Fprintln(out, "All required FX rates are present.")
 	} else {
-		fmt.Fprintf(out, "%d gap(s) detected:\n", len(result.Result.Gaps))
+		_, _ = fmt.Fprintf(out, "%d gap(s) detected:\n", len(result.Result.Gaps))
 		for _, gap := range result.Result.Gaps {
 			missing := make([]string, len(gap.Methods))
 			for i, method := range gap.Methods {
 				missing[i] = string(method)
 			}
 			sort.Strings(missing)
-			fmt.Fprintf(out, " - %s missing %s\n", gap.Pair, strings.Join(missing, ", "))
+			_, _ = fmt.Fprintf(out, " - %s missing %s\n", gap.Pair, strings.Join(missing, ", "))
 		}
 	}
 	if len(result.ConsideredPairs) > 0 {
-		fmt.Fprintln(out, "Checked pairs:")
+		_, _ = fmt.Fprintln(out, "Checked pairs:")
 		for _, pair := range result.ConsideredPairs {
 			quote, ok := result.Result.Available[pair]
 			if !ok {
-				fmt.Fprintf(out, " - %s (missing)\n", pair)
+				_, _ = fmt.Fprintf(out, " - %s (missing)\n", pair)
 				continue
 			}
 			methods := make([]string, 0, 2)
@@ -159,10 +159,10 @@ func renderValidateHuman(out io.Writer, result ValidateResult) {
 			if quote.Closing > 0 {
 				methods = append(methods, string(fx.MethodClosing))
 			}
-			fmt.Fprintf(out, " - %s (%s)\n", pair, strings.Join(methods, ", "))
+			_, _ = fmt.Fprintf(out, " - %s (%s)\n", pair, strings.Join(methods, ", "))
 		}
 	}
 	if len(result.RequestedPairNames) > 0 {
-		fmt.Fprintf(out, "Requested pairs: %s\n", strings.Join(result.RequestedPairNames, ", "))
+		_, _ = fmt.Fprintf(out, "Requested pairs: %s\n", strings.Join(result.RequestedPairNames, ", "))
 	}
 }

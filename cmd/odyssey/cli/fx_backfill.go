@@ -86,26 +86,26 @@ func (c *FXOpsCLI) BackfillCommand(ctx context.Context, opts FXBackfillOptions) 
 	switch mode {
 	case FXBackfillModeDry, FXBackfillModeApply:
 	default:
-		fmt.Fprintf(opts.Stderr, "fx backfill: invalid mode %q (expected dry or apply)\n", opts.Mode)
+		_, _ = fmt.Fprintf(opts.Stderr, "fx backfill: invalid mode %q (expected dry or apply)\n", opts.Mode)
 		return 1
 	}
 	pair := strings.ToUpper(strings.TrimSpace(opts.Pair))
 	if pair == "" {
-		fmt.Fprintln(opts.Stderr, "fx backfill: --pair is required")
+		_, _ = fmt.Fprintln(opts.Stderr, "fx backfill: --pair is required")
 		return 1
 	}
 	from, err := time.Parse("2006-01", strings.TrimSpace(opts.From))
 	if err != nil {
-		fmt.Fprintf(opts.Stderr, "fx backfill: invalid --from %q (expected YYYY-MM)\n", opts.From)
+		_, _ = fmt.Fprintf(opts.Stderr, "fx backfill: invalid --from %q (expected YYYY-MM)\n", opts.From)
 		return 1
 	}
 	to, err := time.Parse("2006-01", strings.TrimSpace(opts.To))
 	if err != nil {
-		fmt.Fprintf(opts.Stderr, "fx backfill: invalid --to %q (expected YYYY-MM)\n", opts.To)
+		_, _ = fmt.Fprintf(opts.Stderr, "fx backfill: invalid --to %q (expected YYYY-MM)\n", opts.To)
 		return 1
 	}
 	if from.After(to) {
-		fmt.Fprintln(opts.Stderr, "fx backfill: --from must be earlier than --to")
+		_, _ = fmt.Fprintln(opts.Stderr, "fx backfill: --from must be earlier than --to")
 		return 1
 	}
 	periods := enumeratePeriods(from, to)
@@ -114,7 +114,7 @@ func (c *FXOpsCLI) BackfillCommand(ctx context.Context, opts FXBackfillOptions) 
 	for _, period := range periods {
 		res, err := fx.Validate(ctx, provider, period, []fx.Requirement{{Pair: pair, Methods: []fx.Method{fx.MethodAverage, fx.MethodClosing}}})
 		if err != nil {
-			fmt.Fprintf(opts.Stderr, "fx backfill: validate %s: %v\n", period.Format("2006-01"), err)
+			_, _ = fmt.Fprintf(opts.Stderr, "fx backfill: validate %s: %v\n", period.Format("2006-01"), err)
 			return 1
 		}
 		for _, gap := range res.Gaps {
@@ -131,7 +131,7 @@ func (c *FXOpsCLI) BackfillCommand(ctx context.Context, opts FXBackfillOptions) 
 	}
 	candidates, err := loadBackfillCandidates(pair, opts)
 	if err != nil {
-		fmt.Fprintf(opts.Stderr, "fx backfill: %v\n", err)
+		_, _ = fmt.Fprintf(opts.Stderr, "fx backfill: %v\n", err)
 		return 1
 	}
 	summary := FXBackfillSummary{
@@ -144,7 +144,7 @@ func (c *FXOpsCLI) BackfillCommand(ctx context.Context, opts FXBackfillOptions) 
 	summary.Candidates = filterCandidates(gaps, candidates)
 	if mode == FXBackfillModeDry {
 		if err := writeBackfillOutput(opts, summary); err != nil {
-			fmt.Fprintf(opts.Stderr, "fx backfill: %v\n", err)
+			_, _ = fmt.Fprintf(opts.Stderr, "fx backfill: %v\n", err)
 			return 1
 		}
 		if len(gaps) > 0 {
@@ -154,14 +154,14 @@ func (c *FXOpsCLI) BackfillCommand(ctx context.Context, opts FXBackfillOptions) 
 	}
 	if len(gaps) == 0 {
 		if err := writeBackfillOutput(opts, summary); err != nil {
-			fmt.Fprintf(opts.Stderr, "fx backfill: %v\n", err)
+			_, _ = fmt.Fprintf(opts.Stderr, "fx backfill: %v\n", err)
 			return 1
 		}
 		return 0
 	}
 	rows, err := prepareUpserts(pair, summary.Candidates, gaps)
 	if err != nil {
-		fmt.Fprintf(opts.Stderr, "fx backfill: %v\n", err)
+		_, _ = fmt.Fprintf(opts.Stderr, "fx backfill: %v\n", err)
 		return 1
 	}
 	confirm := opts.Confirm
@@ -170,15 +170,15 @@ func (c *FXOpsCLI) BackfillCommand(ctx context.Context, opts FXBackfillOptions) 
 	}
 	ok, err := confirm(opts.Stdin, opts.Stdout)
 	if err != nil {
-		fmt.Fprintf(opts.Stderr, "fx backfill: confirmation failed: %v\n", err)
+		_, _ = fmt.Fprintf(opts.Stderr, "fx backfill: confirmation failed: %v\n", err)
 		return 1
 	}
 	if !ok {
-		fmt.Fprintln(opts.Stderr, "fx backfill: cancelled by user")
+		_, _ = fmt.Fprintln(opts.Stderr, "fx backfill: cancelled by user")
 		return 1
 	}
 	if err := c.repo.UpsertFxRates(ctx, rows); err != nil {
-		fmt.Fprintf(opts.Stderr, "fx backfill: apply failed: %v\n", err)
+		_, _ = fmt.Fprintf(opts.Stderr, "fx backfill: apply failed: %v\n", err)
 		return 1
 	}
 	applied := make([]FXBackfillCandidate, len(rows))
@@ -192,7 +192,7 @@ func (c *FXOpsCLI) BackfillCommand(ctx context.Context, opts FXBackfillOptions) 
 	sort.Slice(applied, func(i, j int) bool { return applied[i].Period < applied[j].Period })
 	summary.Applied = applied
 	if err := writeBackfillOutput(opts, summary); err != nil {
-		fmt.Fprintf(opts.Stderr, "fx backfill: %v\n", err)
+		_, _ = fmt.Fprintf(opts.Stderr, "fx backfill: %v\n", err)
 		return 1
 	}
 	return 0
@@ -380,31 +380,31 @@ func writeBackfillOutput(opts FXBackfillOptions, summary FXBackfillSummary) erro
 }
 
 func renderBackfillHuman(out io.Writer, summary FXBackfillSummary) {
-	fmt.Fprintf(out, "FX backfill (%s) for %s — %s to %s\n", summary.Mode, summary.Pair, summary.From, summary.To)
+	_, _ = fmt.Fprintf(out, "FX backfill (%s) for %s — %s to %s\n", summary.Mode, summary.Pair, summary.From, summary.To)
 	if len(summary.Missing) == 0 {
-		fmt.Fprintln(out, "No gaps detected.")
+		_, _ = fmt.Fprintln(out, "No gaps detected.")
 	} else {
-		fmt.Fprintf(out, "%d gap(s) detected:\n", len(summary.Missing))
+		_, _ = fmt.Fprintf(out, "%d gap(s) detected:\n", len(summary.Missing))
 		for _, gap := range summary.Missing {
-			fmt.Fprintf(out, " - %s missing %s\n", gap.Period, strings.Join(gap.Missing, ", "))
+			_, _ = fmt.Fprintf(out, " - %s missing %s\n", gap.Period, strings.Join(gap.Missing, ", "))
 		}
 	}
 	if len(summary.Candidates) > 0 {
-		fmt.Fprintln(out, "Source candidates:")
+		_, _ = fmt.Fprintln(out, "Source candidates:")
 		for _, candidate := range summary.Candidates {
-			fmt.Fprintf(out, " - %s average %.6f closing %.6f\n", candidate.Period, candidate.Average, candidate.Closing)
+			_, _ = fmt.Fprintf(out, " - %s average %.6f closing %.6f\n", candidate.Period, candidate.Average, candidate.Closing)
 		}
 	}
 	if len(summary.Applied) > 0 {
-		fmt.Fprintln(out, "Applied:")
+		_, _ = fmt.Fprintln(out, "Applied:")
 		for _, row := range summary.Applied {
-			fmt.Fprintf(out, " - %s average %.6f closing %.6f\n", row.Period, row.Average, row.Closing)
+			_, _ = fmt.Fprintf(out, " - %s average %.6f closing %.6f\n", row.Period, row.Average, row.Closing)
 		}
 	}
 }
 
 func defaultBackfillConfirm(r io.Reader, w io.Writer) (bool, error) {
-	fmt.Fprint(w, "Apply FX backfill? Type YES to confirm: ")
+	_, _ = fmt.Fprint(w, "Apply FX backfill? Type YES to confirm: ")
 	reader := bufio.NewReader(r)
 	line, err := reader.ReadString('\n')
 	if err != nil && !errors.Is(err, io.EOF) {

@@ -1,9 +1,7 @@
 package http
 
 import (
-	"bytes"
 	"context"
-	"encoding/csv"
 	"fmt"
 	"log/slog"
 	"net"
@@ -161,80 +159,19 @@ func (h *BalanceSheetHandler) HandleExportCSV(w http.ResponseWriter, r *http.Req
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	buf := &bytes.Buffer{}
-	writer := csv.NewWriter(buf)
-	if err := writer.Write([]string{"Section", "Account Code", "Account Name", "Local Amount", "Group Amount"}); err != nil {
-		h.logger.Error("write consol bs csv header", slog.Any("error", err))
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-	for _, line := range report.Assets {
-		if err := writer.Write([]string{
-			"ASSET",
-			line.AccountCode,
-			line.AccountName,
-			fmt.Sprintf("%.2f", line.LocalAmount),
-			fmt.Sprintf("%.2f", line.GroupAmount),
-		}); err != nil {
-			h.logger.Error("write consol bs csv asset", slog.Any("error", err))
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-			return
-		}
-	}
-	if err := writer.Write([]string{"", "", "", "", ""}); err != nil {
-		h.logger.Error("write consol bs csv spacer", slog.Any("error", err))
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-	for _, line := range report.LiabilitiesEq {
-		if err := writer.Write([]string{
-			line.Section,
-			line.AccountCode,
-			line.AccountName,
-			fmt.Sprintf("%.2f", line.LocalAmount),
-			fmt.Sprintf("%.2f", line.GroupAmount),
-		}); err != nil {
-			h.logger.Error("write consol bs csv liab", slog.Any("error", err))
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-			return
-		}
-	}
-	if err := writer.Write([]string{"", "", "", "", ""}); err != nil {
-		h.logger.Error("write consol bs totals spacer", slog.Any("error", err))
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-	totalsRows := [][]string{
-		{"Totals", "", "Assets", "", fmt.Sprintf("%.2f", report.Totals.Assets)},
-		{"Totals", "", "Liabilities + Equity", "", fmt.Sprintf("%.2f", report.Totals.LiabEquity)},
-		{"Totals", "", "Balanced", "", fmt.Sprintf("%t", report.Totals.Balanced)},
-		{"Totals", "", "Delta FX", "", fmt.Sprintf("%.2f", report.Totals.DeltaFX)},
-	}
-	for _, row := range totalsRows {
-		if err := writer.Write(row); err != nil {
-			h.logger.Error("write consol bs totals", slog.Any("error", err))
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-			return
-		}
-	}
-	writer.Flush()
-	if err := writer.Error(); err != nil {
-		h.logger.Error("flush consol bs csv", slog.Any("error", err))
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-	warningsHeader := append([]string(nil), warnings...)
+	exportWarnings := append([]string(nil), warnings...)
 	if !report.Totals.Balanced {
-		warningsHeader = append(warningsHeader, "Consolidated BS not balanced")
+		exportWarnings = append(exportWarnings, "Consolidated BS not balanced")
 	}
-	if len(warningsHeader) > 0 {
-		w.Header().Set("X-Consol-Warning", strings.Join(warningsHeader, "; "))
+	vm := NewConsolBSViewModel(report, exportWarnings)
+	if len(vm.Warnings) > 0 {
+		w.Header().Set("X-Consol-Warning", strings.Join(vm.Warnings, "; "))
 	}
 	filename := fmt.Sprintf("bs-%d-%s.csv", report.Filters.GroupID, report.Filters.Period)
 	w.Header().Set("Content-Type", "text/csv")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
-	if _, err := w.Write(buf.Bytes()); err != nil {
-		h.logger.Error("write consol bs csv", slog.Any("error", err))
+	if err := writeBSCsv(w, report, vm.Warnings); err != nil {
+		h.logger.Error("stream consol bs csv", slog.Any("error", err))
 	}
 }
 
