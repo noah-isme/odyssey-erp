@@ -1,9 +1,7 @@
 package http
 
 import (
-	"bytes"
 	"context"
-	"encoding/csv"
 	"fmt"
 	"log/slog"
 	"net"
@@ -157,60 +155,15 @@ func (h *ProfitLossHandler) HandleExportCSV(w http.ResponseWriter, r *http.Reque
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	buf := &bytes.Buffer{}
-	writer := csv.NewWriter(buf)
-	if err := writer.Write([]string{"Section", "Account Code", "Account Name", "Local Amount", "Group Amount"}); err != nil {
-		h.logger.Error("write consol pl csv header", slog.Any("error", err))
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-	for _, line := range report.Lines {
-		if err := writer.Write([]string{
-			line.Section,
-			line.AccountCode,
-			line.AccountName,
-			fmt.Sprintf("%.2f", line.LocalAmount),
-			fmt.Sprintf("%.2f", line.GroupAmount),
-		}); err != nil {
-			h.logger.Error("write consol pl csv line", slog.Any("error", err))
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-			return
-		}
-	}
-	if err := writer.Write([]string{"", "", "", "", ""}); err != nil {
-		h.logger.Error("write consol pl csv spacer", slog.Any("error", err))
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-	totalsRows := [][]string{
-		{"Totals", "", "Revenue", "", fmt.Sprintf("%.2f", report.Totals.Revenue)},
-		{"Totals", "", "COGS", "", fmt.Sprintf("%.2f", report.Totals.COGS)},
-		{"Totals", "", "Gross Profit", "", fmt.Sprintf("%.2f", report.Totals.GrossProfit)},
-		{"Totals", "", "Opex", "", fmt.Sprintf("%.2f", report.Totals.Opex)},
-		{"Totals", "", "Net Income", "", fmt.Sprintf("%.2f", report.Totals.NetIncome)},
-		{"Totals", "", "Delta FX", "", fmt.Sprintf("%.2f", report.Totals.DeltaFX)},
-	}
-	for _, row := range totalsRows {
-		if err := writer.Write(row); err != nil {
-			h.logger.Error("write consol pl csv totals", slog.Any("error", err))
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-			return
-		}
-	}
-	writer.Flush()
-	if err := writer.Error(); err != nil {
-		h.logger.Error("flush consol pl csv", slog.Any("error", err))
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-	if len(warnings) > 0 {
-		w.Header().Set("X-Consol-Warning", strings.Join(warnings, "; "))
+	vm := NewConsolPLViewModel(report, warnings)
+	if len(vm.Warnings) > 0 {
+		w.Header().Set("X-Consol-Warning", strings.Join(vm.Warnings, "; "))
 	}
 	filename := fmt.Sprintf("pl-%d-%s.csv", report.Filters.GroupID, report.Filters.Period)
 	w.Header().Set("Content-Type", "text/csv")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
-	if _, err := w.Write(buf.Bytes()); err != nil {
-		h.logger.Error("write consol pl csv", slog.Any("error", err))
+	if err := writePLCSV(w, report, vm.Warnings); err != nil {
+		h.logger.Error("stream consol pl csv", slog.Any("error", err))
 	}
 }
 
