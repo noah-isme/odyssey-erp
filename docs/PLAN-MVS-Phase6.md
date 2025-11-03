@@ -17,12 +17,12 @@
 - **T1 – Insights**: implementasi query, view model, chart SVG, dan halaman SSR.
 - **T2 – Audit**: implementasi timeline, paging, dan ekspor CSV termasuk guard RBAC + rate limit.
 - **T3 – Observability**: wiring metrik Prometheus dan integrasi dengan router utama.
-- **T4 – Hardening**: perkuat RBAC, dokumentasi tambahan, dan catat TODO sisa.
+- **T4 – Hardening**: perkuat RBAC, dokumentasi tambahan, dan catat tindak lanjut yang belum selesai.
 - **T5 – Opsional**: anomaly rule berbasis threshold jika kapasitas tersedia.
 
 ## Risiko & Mitigasi
 - **Data kosong / rentang besar**: fallback placeholder chart dan batasi rentang default.
-- **Performa query**: gunakan indeks atau materialized view bila diperlukan; catat TODO bila belum sempat.
+- **Performa query**: gunakan indeks atau materialized view bila diperlukan; catat tindak lanjut bila belum sempat.
 - **Kompleksitas SVG**: prioritaskan pengujian renderer sedini mungkin agar mudah di-refactor.
 
 ## Catatan Koordinasi
