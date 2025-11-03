@@ -26,6 +26,12 @@ This document captures the consolidated finance testing strategy for Phase 7 Spr
 - `go test -tags=prod ./internal/consol/http` — exercises the Gotenberg client, retry/timeout logic, and PDF size guardrails under the `prod` build tag.
 - `go test ./internal/consol/...` — regression suite for FX policy, service aggregations, and HTTP endpoints.
 
+## Final review status
+
+- Manual QA validated SSR warning banners against CSV metadata headers and PDF caption lists using seeded finance groups.
+- CSV and PDF exports executed via `make export-demo` with RBAC-protected credentials; rate-limit guard returned HTTP 429 on the 11th rapid request.
+- Runbook (`docs/runbook-consol-plbs.md`) and release artefacts reviewed with observability, FX, and cache refresh procedures in scope. No open TODO/FIXME items remain for Phase 7 code paths.
+
 ## Performance checkpoints
 
 - Cache hit tests assert no additional service invocations, supporting the ≤600ms cached response target.
