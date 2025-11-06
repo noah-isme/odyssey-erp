@@ -1,5 +1,26 @@
 # Changelog
 
+## Phase 7 Final (v0.7.0)
+
+### Highlights
+
+- Consolidated finance exporters reach GA with aligned warning propagation across SSR banners, CSV metadata, and PDF captions.
+- Gotenberg-backed PDF pipeline promoted to production with retries, payload validation, and observability hooks.
+- Export runbook, FX tooling helpers, and cache busting workflows finalized for operations handover.
+- Release notes published alongside handover summary for downstream teams.
+
+### Verification
+
+- Manual walkthrough confirmed SSR warning banner parity with CSV header metadata and PDF footer caption lists.
+- `make export-demo` executed against the reference stack to exercise CSV/PDF exporters end-to-end.
+- RBAC (403) and rate limit (429) behaviours verified via automated and manual checks on export endpoints.
+
+### Documentation
+
+- `docs/phase7-summary.md` captured the closing brief for developers and ops, including Phase 8 outlook.
+- `docs/runbook-consol-plbs.md` updated with FX, cache refresh, metrics, and observability procedures.
+- `TESTING-PHASE7-S3.md` marked final with consolidated coverage notes for caching, warnings, and prod-tag PDF testing.
+
 ## Phase 7 Sprint 3.4.4
 
 ### Added
