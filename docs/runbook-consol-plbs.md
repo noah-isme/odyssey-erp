@@ -36,6 +36,18 @@ This runbook describes day-two operations for the consolidated Profit & Loss and
   - `odyssey fx validate --group 1 --period 2025-08 --pair IDRUSD --json` – check for missing FX methods for the requested period and emit JSON for dashboards.
   - `odyssey fx backfill --pair IDRUSD --from 2024-01 --to 2025-12 --source ./rates.csv --mode dry` – preview import candidates without mutating storage. Switch `--mode apply` once the dry-run output is satisfactory.
 
+## Cache refresh & data hygiene
+
+- The consolidation handlers cache view-model payloads for five minutes. Trigger `BustConsolViewCache()` via the job dashboard (or call `/finance/consol/cache/bust` with admin credentials) after a data correction to avoid stale warnings.
+- Nightly `jobs/consolidate_refresh` runs automatically invoke the cache buster once consolidation materialized views finish refreshing.
+- For auditability, keep the exporter cache metrics (`odyssey_consol_cache_hits_total`, `odyssey_consol_cache_misses_total`) visible in Grafana and alert when miss ratio exceeds 20% for ten minutes.
+
+## Observability & metrics
+
+- The consolidation HTTP handlers emit Prometheus metrics for latency, rate limit denials, and warning propagation (`odyssey_consol_warnings_total` labelled by `channel=ssr|csv|pdf`). Use dashboard `Consol / Exporters` to confirm counts track within ±5% across channels.
+- Alert `FinanceExportHighErrorRate` fires when 5xx responses exceed 2% for 15 minutes. Follow the alert annotation to inspect Gotenberg health and recent deploys.
+- Structured logs include `warning_count` and `warning_types`. When incidents arise, export the logs to the observability bucket for handoff to Phase 8 analytics work.
+
 ## Troubleshooting
 
 - **TimeoutError / InvalidResponse** – the PDF exporter logs the upstream status. Restart or scale the Gotenberg deployment and retry the request.
