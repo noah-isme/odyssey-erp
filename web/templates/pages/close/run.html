@@ -1,0 +1,63 @@
+{{ define "pages/close/run.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Close Run{{ end }}
+
+{{ define "content" }}
+{{ $period := index .Data "Period" }}
+{{ $run := index .Data "Run" }}
+<h1>Close Run {{ $period.Name }}</h1>
+<p>Periode: {{ $period.Name }} ({{ $period.StartDate.Format "02 Jan 2006" }} - {{ $period.EndDate.Format "02 Jan 2006" }})</p>
+<p>Status Periode: {{ $period.Status }}</p>
+<p>Status Close Run: {{ $run.Status }}</p>
+
+<article>
+    <h3>Checklist</h3>
+    <table>
+        <thead>
+        <tr>
+            <th>Langkah</th>
+            <th>Status</th>
+            <th>Komentar</th>
+            <th>Aksi</th>
+        </tr>
+        </thead>
+        <tbody>
+        {{ range $item := $run.Checklist }}
+            <tr>
+                <td>{{ $item.Label }}</td>
+                <td>{{ $item.Status }}</td>
+                <td>{{ $item.Comment }}</td>
+                <td>
+                    <form method="post" action="/close-runs/{{ $run.ID }}/checklist/{{ $item.ID }}">
+                        <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
+                        <select name="status">
+                            {{ range $status := index $.Data "ChecklistStatuses" }}
+                                <option value="{{ $status }}" {{ if eq $status $item.Status }}selected{{ end }}>{{ $status }}</option>
+                            {{ end }}
+                        </select>
+                        <input type="text" name="comment" placeholder="Catatan" value="{{ $item.Comment }}">
+                        <button type="submit">Update</button>
+                    </form>
+                </td>
+            </tr>
+        {{ end }}
+        </tbody>
+    </table>
+</article>
+
+<article>
+    <h3>Aksi Periode</h3>
+    <form method="post" action="/close-runs/{{ $run.ID }}/soft-close" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+        <button type="submit">Soft Close</button>
+    </form>
+    <form method="post" action="/close-runs/{{ $run.ID }}/hard-close" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+        <button type="submit">Hard Close</button>
+    </form>
+</article>
+
+<p><a href="/accounting/periods">← Kembali ke daftar periode</a></p>
+{{ end }}

@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	closepkg "github.com/odyssey-erp/odyssey-erp/internal/close"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 )
 
@@ -21,16 +22,22 @@ type AuditPort interface {
 	Record(ctx context.Context, log shared.AuditLog) error
 }
 
+// PeriodGuard blocks journal postings for hard closed periods.
+type PeriodGuard interface {
+	EnsurePeriodOpenForPosting(ctx context.Context, periodID int64) error
+}
+
 // Service coordinates posting, voiding, and reversing journal entries.
 type Service struct {
 	repo  RepositoryPort
 	audit AuditPort
+	guard PeriodGuard
 	now   func() time.Time
 }
 
 // NewService constructs the ledger service.
-func NewService(repo RepositoryPort, audit AuditPort) *Service {
-	return &Service{repo: repo, audit: audit, now: time.Now}
+func NewService(repo RepositoryPort, audit AuditPort, guard PeriodGuard) *Service {
+	return &Service{repo: repo, audit: audit, guard: guard, now: time.Now}
 }
 
 // WithNow overrides the clock for testing.
@@ -47,6 +54,14 @@ func (s *Service) PostJournal(ctx context.Context, input PostingInput) (JournalE
 	}
 	var entry JournalEntry
 	err := s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
+		if s.guard != nil {
+			if err := s.guard.EnsurePeriodOpenForPosting(ctx, input.PeriodID); err != nil {
+				if errors.Is(err, closepkg.ErrPeriodHardClosed) {
+					return ErrPeriodLocked
+				}
+				return err
+			}
+		}
 		period, err := tx.GetPeriodForUpdate(ctx, input.PeriodID)
 		if err != nil {
 			return err
@@ -54,7 +69,7 @@ func (s *Service) PostJournal(ctx context.Context, input PostingInput) (JournalE
 		if period.Status == PeriodStatusLocked {
 			return ErrPeriodLocked
 		}
-		if period.Status != PeriodStatusOpen {
+		if period.Status != PeriodStatusOpen && period.Status != PeriodStatusClosed {
 			return ErrInvalidPeriod
 		}
 		if input.Date.Before(period.StartDate) || input.Date.After(period.EndDate) {
