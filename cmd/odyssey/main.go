@@ -28,6 +28,8 @@ import (
 	auditdb "github.com/odyssey-erp/odyssey-erp/internal/audit/db"
 	audithttp "github.com/odyssey-erp/odyssey-erp/internal/audit/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/auth"
+	closepkg "github.com/odyssey-erp/odyssey-erp/internal/close"
+	closehttp "github.com/odyssey-erp/odyssey-erp/internal/close/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/consol"
 	consolhttp "github.com/odyssey-erp/odyssey-erp/internal/consol/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/insights"
@@ -130,9 +132,11 @@ func main() {
 	auditLogger := shared.NewAuditLogger(dbpool)
 	approvalRecorder := shared.NewApprovalRecorder(dbpool, logger)
 	idempotencyStore := shared.NewIdempotencyStore(dbpool)
+	closeRepo := closepkg.NewRepository(dbpool)
+	closeService := closepkg.NewService(closeRepo)
 
 	accountingRepo := accounting.NewRepository(dbpool)
-	accountingService := accounting.NewService(accountingRepo, auditLogger)
+	accountingService := accounting.NewService(accountingRepo, auditLogger, closeService)
 	integrationHooks := integration.NewHooks(accountingService, accountingRepo)
 
 	inventoryRepo := inventory.NewRepository(dbpool)
@@ -143,6 +147,7 @@ func main() {
 
 	rbacService := rbac.NewService(dbpool)
 	rbacMiddleware := rbac.Middleware{Service: rbacService, Logger: logger}
+	closeHandler := closehttp.NewHandler(logger, closeService, templates, csrfManager, rbacMiddleware)
 
 	analyticsRepo := analyticsdb.New(dbpool)
 	analyticsCache := analytics.NewCache(redisClient, 10*time.Minute)
@@ -208,6 +213,7 @@ func main() {
 		SessionManager:     sessionManager,
 		CSRFManager:        csrfManager,
 		AuthHandler:        authHandler,
+		CloseHandler:       closeHandler,
 		InventoryHandler:   inventoryHandler,
 		ProcurementHandler: procurementHandler,
 		ReportHandler:      reportHandler,

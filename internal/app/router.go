@@ -10,6 +10,7 @@ import (
 	analytichttp "github.com/odyssey-erp/odyssey-erp/internal/analytics/http"
 	audithttp "github.com/odyssey-erp/odyssey-erp/internal/audit/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/auth"
+	closehttp "github.com/odyssey-erp/odyssey-erp/internal/close/http"
 	consolhttp "github.com/odyssey-erp/odyssey-erp/internal/consol/http"
 	insightshhtp "github.com/odyssey-erp/odyssey-erp/internal/insights/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/inventory"
@@ -30,6 +31,7 @@ type RouterParams struct {
 	SessionManager     *shared.SessionManager
 	CSRFManager        *shared.CSRFManager
 	AuthHandler        *auth.Handler
+	CloseHandler       *closehttp.Handler
 	InsightsHandler    *insightshhtp.Handler
 	AuditHandler       *audithttp.Handler
 	InventoryHandler   *inventory.Handler
@@ -85,6 +87,9 @@ func NewRouter(params RouterParams) http.Handler {
 	})
 
 	r.Route("/auth", params.AuthHandler.MountRoutes)
+	if params.CloseHandler != nil {
+		params.CloseHandler.MountRoutes(r)
+	}
 	r.Route("/inventory", params.InventoryHandler.MountRoutes)
 	r.Route("/procurement", params.ProcurementHandler.MountRoutes)
 	r.Route("/report", params.ReportHandler.MountRoutes)
