@@ -4,60 +4,108 @@
 
 {{ define "title" }}Close Run{{ end }}
 
+{{ define "head" }}
+<link rel="stylesheet" href="/static/css/close.css">
+{{ end }}
+
 {{ define "content" }}
-{{ $period := index .Data "Period" }}
-{{ $run := index .Data "Run" }}
-<h1>Close Run {{ $period.Name }}</h1>
-<p>Periode: {{ $period.Name }} ({{ $period.StartDate.Format "02 Jan 2006" }} - {{ $period.EndDate.Format "02 Jan 2006" }})</p>
-<p>Status Periode: {{ $period.Status }}</p>
-<p>Status Close Run: {{ $run.Status }}</p>
+{{ $data := .Data }}
+{{ $period := $data.Period }}
+{{ $run := $data.Run }}
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Close Run</p>
+        <h1>{{ $period.Name }}</h1>
+        <div class="status-stack">
+            {{ template "partials/close/status_badge.html" $data.PeriodBadge }}
+            {{ template "partials/close/status_badge.html" $data.RunBadge }}
+        </div>
+        <p class="muted">Periode {{ $period.StartDate.Format "02 Jan 2006" }} – {{ $period.EndDate.Format "02 Jan 2006" }}, Company {{ if gt $period.CompanyID 0 }}#{{ $period.CompanyID }}{{ else }}N/A{{ end }}</p>
+        {{ if $run.Notes }}<p class="note">Catatan: {{ $run.Notes }}</p>{{ end }}
+    </div>
+    <div>
+        <a class="secondary outline" href="/accounting/periods?company_id={{ $period.CompanyID }}">Kembali ke daftar</a>
+    </div>
+</section>
 
-<article>
-    <h3>Checklist</h3>
-    <table>
-        <thead>
-        <tr>
-            <th>Langkah</th>
-            <th>Status</th>
-            <th>Komentar</th>
-            <th>Aksi</th>
-        </tr>
-        </thead>
-        <tbody>
-        {{ range $item := $run.Checklist }}
+<section class="card summary-card">
+    <div>
+        <h2>Ringkasan Checklist</h2>
+        <p class="muted">{{ $data.Summary.Completed }} dari {{ $data.Summary.Total }} checklist selesai.</p>
+        <progress value="{{ $data.Summary.Completed }}" max="{{ $data.Summary.ProgressMax }}"></progress>
+    </div>
+    <dl class="summary-grid">
+        <div>
+            <dt>Selesai</dt>
+            <dd>{{ $data.Summary.Completed }}</dd>
+        </div>
+        <div>
+            <dt>Pending</dt>
+            <dd>{{ $data.Summary.Pending }}</dd>
+        </div>
+    </dl>
+</section>
+
+<section class="card">
+    <header class="card-heading">
+        <h2>Checklist Close</h2>
+    </header>
+    <div class="responsive-table">
+        <table class="checklist-table">
+            <thead>
             <tr>
-                <td>{{ $item.Label }}</td>
-                <td>{{ $item.Status }}</td>
-                <td>{{ $item.Comment }}</td>
-                <td>
-                    <form method="post" action="/close-runs/{{ $run.ID }}/checklist/{{ $item.ID }}">
-                        <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
-                        <select name="status">
-                            {{ range $status := index $.Data "ChecklistStatuses" }}
-                                <option value="{{ $status }}" {{ if eq $status $item.Status }}selected{{ end }}>{{ $status }}</option>
-                            {{ end }}
-                        </select>
-                        <input type="text" name="comment" placeholder="Catatan" value="{{ $item.Comment }}">
-                        <button type="submit">Update</button>
-                    </form>
-                </td>
+                <th>Langkah</th>
+                <th>Status</th>
+                <th>Update</th>
             </tr>
-        {{ end }}
-        </tbody>
-    </table>
-</article>
+            </thead>
+            <tbody>
+            {{ if not $data.Summary.HasItems }}
+                <tr>
+                    <td colspan="3">Belum ada checklist untuk close run ini.</td>
+                </tr>
+            {{ end }}
+            {{ range $item := $data.Checklist }}
+                <tr>
+                    <td>
+                        <strong>{{ $item.Item.Label }}</strong>
+                        <div class="muted">Kode {{ $item.Item.Code }}</div>
+                    </td>
+                    <td>{{ template "partials/close/status_badge.html" $item.StatusBadge }}</td>
+                    <td>
+                        <form method="post" action="/close-runs/{{ $run.ID }}/checklist/{{ $item.Item.ID }}" class="checklist-form">
+                            <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
+                            <select name="status">
+                                {{ range $option := $data.ChecklistStatuses }}
+                                    <option value="{{ $option.Value }}" {{ if eq $option.Value $item.Item.Status }}selected{{ end }}>{{ $option.Label }}</option>
+                                {{ end }}
+                            </select>
+                            <textarea name="comment" rows="2" placeholder="Catatan">{{ $item.Item.Comment }}</textarea>
+                            <button type="submit">Update</button>
+                        </form>
+                    </td>
+                </tr>
+            {{ end }}
+            </tbody>
+        </table>
+    </div>
+</section>
 
-<article>
-    <h3>Aksi Periode</h3>
-    <form method="post" action="/close-runs/{{ $run.ID }}/soft-close" style="display:inline">
-        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
-        <button type="submit">Soft Close</button>
-    </form>
-    <form method="post" action="/close-runs/{{ $run.ID }}/hard-close" style="display:inline">
-        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
-        <button type="submit">Hard Close</button>
-    </form>
-</article>
+<section class="card">
+    <h2>Aksi Periode</h2>
+    <div class="close-actions">
+        <form method="post" action="/close-runs/{{ $run.ID }}/soft-close">
+            <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+            <button type="submit" class="secondary" {{ if not $data.SoftClose.Enabled }}disabled{{ end }}>Soft Close</button>
+            {{ if and (not $data.SoftClose.Enabled) $data.SoftClose.Message }}<small class="muted">{{ $data.SoftClose.Message }}</small>{{ end }}
+        </form>
+        <form method="post" action="/close-runs/{{ $run.ID }}/hard-close">
+            <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+            <button type="submit" class="contrast" {{ if not $data.HardClose.Enabled }}disabled{{ end }}>Hard Close</button>
+            {{ if and (not $data.HardClose.Enabled) $data.HardClose.Message }}<small class="muted">{{ $data.HardClose.Message }}</small>{{ end }}
+        </form>
+    </div>
+</section>
 
-<p><a href="/accounting/periods">← Kembali ke daftar periode</a></p>
+<p><a href="/accounting/periods">&larr; Kembali ke daftar periode</a></p>
 {{ end }}
