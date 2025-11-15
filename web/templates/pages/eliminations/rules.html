@@ -1,0 +1,68 @@
+{{ define "pages/eliminations/rules.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Elimination Rules{{ end }}
+
+{{ define "content" }}
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Eliminations</p>
+        <h1>Elimination Rules</h1>
+        <p class="muted">Atur pasangan perusahaan dan akun yang akan dieliminasi.</p>
+    </div>
+</section>
+
+<section class="card">
+    <h2>Tambah Rule</h2>
+    <form method="post" action="/eliminations/rules" class="grid">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+        <label>Nama
+            <input type="text" name="name" required>
+        </label>
+        <label>Group ID (opsional)
+            <input type="number" name="group_id" min="1">
+        </label>
+        <label>Company Sumber
+            <input type="number" name="source_company_id" required>
+        </label>
+        <label>Company Target
+            <input type="number" name="target_company_id" required>
+        </label>
+        <label>Akun Sumber (code)
+            <input type="text" name="account_src" required>
+        </label>
+        <label>Akun Target (code)
+            <input type="text" name="account_tgt" required>
+        </label>
+        <button type="submit">Simpan</button>
+    </form>
+</section>
+
+<section class="card">
+    <h2>Daftar Rules</h2>
+    <table class="period-table">
+        <thead>
+        <tr>
+            <th>Nama</th>
+            <th>Company Pair</th>
+            <th>Akun</th>
+            <th>Status</th>
+        </tr>
+        </thead>
+        <tbody>
+        {{ if eq (len .Data.Rules) 0 }}
+            <tr><td colspan="4">Belum ada rule.</td></tr>
+        {{ end }}
+        {{ range $rule := .Data.Rules }}
+            <tr>
+                <td>{{ $rule.Name }}</td>
+                <td>{{ $rule.SourceCompanyID }} → {{ $rule.TargetCompanyID }}</td>
+                <td>{{ $rule.AccountSource }} / {{ $rule.AccountTarget }}</td>
+                <td>{{ if $rule.Active }}Aktif{{ else }}Nonaktif{{ end }}</td>
+            </tr>
+        {{ end }}
+        </tbody>
+    </table>
+</section>
+{{ end }}

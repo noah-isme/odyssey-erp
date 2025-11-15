@@ -1,0 +1,63 @@
+{{ define "pages/variance/snapshots.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Variance Snapshots{{ end }}
+
+{{ define "content" }}
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Variance</p>
+        <h1>Variance Dashboard</h1>
+        <p class="muted">Trigger snapshot untuk melihat variance terbaru.</p>
+    </div>
+</section>
+
+<section class="card">
+    <h2>Trigger Snapshot</h2>
+    <form method="post" action="/variance/snapshots" class="grid">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+        <label>Rule
+            <select name="rule_id" required>
+                <option value="">-- Pilih Rule --</option>
+                {{ range $rule := .Data.Rules }}
+                    <option value="{{ $rule.ID }}">{{ $rule.Name }}</option>
+                {{ end }}
+            </select>
+        </label>
+        <label>Periode (accounting_periods.id)
+            <input type="number" name="period_id" required>
+        </label>
+        <button type="submit">Queue Snapshot</button>
+    </form>
+</section>
+
+<section class="card">
+    <h2>Snapshots</h2>
+    <table class="period-table">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Rule</th>
+            <th>Status</th>
+            <th>Diperbarui</th>
+            <th></th>
+        </tr>
+        </thead>
+        <tbody>
+        {{ if eq (len .Data.Snapshots) 0 }}
+            <tr><td colspan="5">Belum ada snapshot.</td></tr>
+        {{ end }}
+        {{ range $snap := .Data.Snapshots }}
+            <tr>
+                <td>{{ $snap.ID }}</td>
+                <td>{{ if $snap.Rule }}{{ $snap.Rule.Name }}{{ else }}#{{ $snap.RuleID }}{{ end }}</td>
+                <td>{{ $snap.Status }}</td>
+                <td>{{ $snap.UpdatedAt.Format "02 Jan 15:04" }}</td>
+                <td><a href="/variance/snapshots/{{ $snap.ID }}">Detail</a></td>
+            </tr>
+        {{ end }}
+        </tbody>
+    </table>
+</section>
+{{ end }}

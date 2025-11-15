@@ -1,0 +1,67 @@
+{{ define "pages/variance/rules.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Variance Rules{{ end }}
+
+{{ define "content" }}
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Variance</p>
+        <h1>Variance Rules</h1>
+        <p class="muted">Definisikan perbandingan untuk analisis variance.</p>
+    </div>
+</section>
+
+<section class="card">
+    <h2>Buat Rule</h2>
+    <form method="post" action="/variance/rules" class="grid">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+        <label>Nama
+            <input type="text" name="name" required>
+        </label>
+        <label>Company ID
+            <input type="number" name="company_id" required>
+        </label>
+        <label>Tipe Perbandingan
+            <select name="comparison_type">
+                <option value="ACTUAL_VS_ACTUAL">Actual vs Actual</option>
+            </select>
+        </label>
+        <label>Periode Base (accounting_periods.id)
+            <input type="number" name="base_period_id" required>
+        </label>
+        <label>Periode Pembanding
+            <input type="number" name="compare_period_id">
+        </label>
+        <button type="submit">Simpan</button>
+    </form>
+</section>
+
+<section class="card">
+    <h2>Daftar Rules</h2>
+    <table class="period-table">
+        <thead>
+        <tr>
+            <th>Nama</th>
+            <th>Company</th>
+            <th>Base</th>
+            <th>Compare</th>
+        </tr>
+        </thead>
+        <tbody>
+        {{ if eq (len .Data.Rules) 0 }}
+            <tr><td colspan="4">Belum ada rule.</td></tr>
+        {{ end }}
+        {{ range $rule := .Data.Rules }}
+            <tr>
+                <td>{{ $rule.Name }}</td>
+                <td>{{ $rule.CompanyID }}</td>
+                <td>{{ $rule.BasePeriodID }}</td>
+                <td>{{ if $rule.ComparePeriodID }}{{ $rule.ComparePeriodID }}{{ else }}-{{ end }}</td>
+            </tr>
+        {{ end }}
+        </tbody>
+    </table>
+</section>
+{{ end }}

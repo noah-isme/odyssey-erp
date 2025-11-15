@@ -16,6 +16,7 @@ import (
 	analyticsdb "github.com/odyssey-erp/odyssey-erp/internal/analytics/db"
 	"github.com/odyssey-erp/odyssey-erp/internal/app"
 	"github.com/odyssey-erp/odyssey-erp/internal/consol"
+	"github.com/odyssey-erp/odyssey-erp/internal/variance"
 	"github.com/odyssey-erp/odyssey-erp/jobs"
 )
 
@@ -62,6 +63,9 @@ func main() {
 	consolRepo := consol.NewRepository(pool)
 	consolService := consol.NewService(consolRepo)
 	consolidator := jobs.NewConsolidateRefreshJob(consolService, consolRepo, logger, nil)
+	varianceRepo := variance.NewRepository(pool)
+	varianceService := variance.NewService(varianceRepo)
+	varianceJob := variance.NewSnapshotJob(varianceService, logger)
 
 	warmupTask, err := jobs.NewInsightsWarmupTask("active")
 	if err != nil {
@@ -86,6 +90,7 @@ func main() {
 			{Type: jobs.TaskAnalyticsInsightsWarmup, Handler: warmupJob.Handle},
 			{Type: jobs.TaskAnalyticsAnomalyScan, Handler: anomalyJob.Handle},
 			{Type: jobs.TaskConsolidateRefresh, Handler: consolidator.Handle},
+			{Type: jobs.TaskVarianceSnapshotProcess, Handler: varianceJob.Handle},
 		},
 		Cron: []jobs.CronRegistration{
 			{Spec: "15 1 * * *", Task: warmupTask, Options: []asynq.Option{asynq.MaxRetry(3)}},

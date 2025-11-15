@@ -17,6 +17,8 @@ const (
 	TaskAnalyticsInsightsWarmup = "analytics:insights_warmup"
 	// TaskAnalyticsAnomalyScan scans finance signals for anomalies.
 	TaskAnalyticsAnomalyScan = "analytics:anomaly_scan"
+	// TaskVarianceSnapshotProcess processes variance snapshots.
+	TaskVarianceSnapshotProcess = "variance:snapshot_process"
 )
 
 // SendEmailPayload describes the information required to send an email.
@@ -82,4 +84,21 @@ func NewAnomalyScanTask(window int, z float64) (*asynq.Task, error) {
 		return nil, err
 	}
 	return asynq.NewTask(TaskAnalyticsAnomalyScan, body, asynq.Queue(QueueDefault)), nil
+}
+
+// VarianceSnapshotPayload requests a variance snapshot processing.
+type VarianceSnapshotPayload struct {
+	SnapshotID int64 `json:"snapshot_id"`
+}
+
+// NewVarianceSnapshotTask enqueues a variance snapshot job.
+func NewVarianceSnapshotTask(snapshotID int64) (*asynq.Task, error) {
+	if snapshotID == 0 {
+		return nil, fmt.Errorf("jobs: snapshot id required")
+	}
+	body, err := json.Marshal(VarianceSnapshotPayload{SnapshotID: snapshotID})
+	if err != nil {
+		return nil, err
+	}
+	return asynq.NewTask(TaskVarianceSnapshotProcess, body, asynq.Queue(QueueDefault)), nil
 }

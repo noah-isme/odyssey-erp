@@ -125,6 +125,15 @@ func (c *Client) EnqueueSendEmail(ctx context.Context, payload SendEmailPayload)
 	return c.client.EnqueueContext(ctx, task, asynq.Queue(QueueDefault))
 }
 
+// EnqueueVarianceSnapshot enqueues a variance snapshot task.
+func (c *Client) EnqueueVarianceSnapshot(ctx context.Context, snapshotID int64) (*asynq.TaskInfo, error) {
+	task, err := NewVarianceSnapshotTask(snapshotID)
+	if err != nil {
+		return nil, err
+	}
+	return c.client.EnqueueContext(ctx, task, asynq.Queue(QueueDefault))
+}
+
 // Close releases client resources.
 func (c *Client) Close() error {
 	return c.client.Close()
