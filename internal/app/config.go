@@ -29,7 +29,8 @@ type Config struct {
 	SMTPPort int    `envconfig:"SMTP_PORT" default:"1025"`
 	SMTPFrom string `envconfig:"SMTP_FROM" default:"no-reply@odyssey.local"`
 
-	GotenbergURL string `envconfig:"GOTENBERG_URL" default:"http://127.0.0.1:3000"`
+	GotenbergURL        string `envconfig:"GOTENBERG_URL" default:"http://127.0.0.1:3000"`
+	BoardPackStorageDir string `envconfig:"BOARD_PACK_STORAGE" default:"./var/boardpacks"`
 }
 
 // LoadConfig reads configuration from environment variables.

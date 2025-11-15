@@ -1,0 +1,57 @@
+{{ define "pages/boardpacks/new.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Generate Board Pack{{ end }}
+
+{{ define "content" }}
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Close & Insights</p>
+        <h1>Generate Board Pack</h1>
+        <p class="muted">Pilih Company, Period, dan Template untuk mengantrekan Board Pack.</p>
+    </div>
+</section>
+
+<section class="card">
+    <form method="post" action="/board-packs" class="grid">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+        <label>Company
+            <select name="company_id" required>
+                <option value="">-- pilih --</option>
+                {{ range $c := .Data.Companies }}
+                    <option value="{{ $c.ID }}" {{ if eq $.Data.SelectedCompany $c.ID }}selected{{ end }}>{{ $c.Name }}</option>
+                {{ end }}
+            </select>
+        </label>
+        <label>Accounting Period
+            <select name="period_id" required>
+                <option value="">-- pilih --</option>
+                {{ range $p := .Data.Periods }}
+                    <option value="{{ $p.ID }}">{{ $p.Name }} ({{ formatDate $p.StartDate }} – {{ formatDate $p.EndDate }})</option>
+                {{ end }}
+            </select>
+        </label>
+        <label>Template
+            <select name="template_id" required>
+                {{ range $tpl := .Data.Templates }}
+                    <option value="{{ $tpl.ID }}">{{ $tpl.Name }}</option>
+                {{ end }}
+            </select>
+        </label>
+        <label>Variance Snapshot (opsional)
+            <select name="variance_snapshot_id">
+                <option value="">-- skip --</option>
+                {{ range $snap := .Data.Snapshots }}
+                    <option value="{{ $snap.ID }}">#{{ $snap.ID }} – {{ $snap.RuleName }}</option>
+                {{ end }}
+            </select>
+        </label>
+        <label>Catatan
+            <textarea name="note" rows="2" placeholder="Catatan singkat untuk eksekutif"></textarea>
+        </label>
+        <button type="submit">Queue Board Pack</button>
+    </form>
+    <p class="muted">Daftar period ditampilkan berdasarkan Company (atau seluruh period terakhir jika belum memilih company).</p>
+</section>
+{{ end }}

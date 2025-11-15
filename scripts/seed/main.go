@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -27,6 +28,9 @@ func main() {
 	}
 	if err := seedRBAC(ctx, pool); err != nil {
 		log.Fatalf("seed rbac: %v", err)
+	}
+	if err := seedBoardPackTemplates(ctx, pool); err != nil {
+		log.Fatalf("seed board pack templates: %v", err)
 	}
 	fmt.Println("Seed complete at", time.Now().Format(time.RFC3339))
 }
@@ -58,6 +62,7 @@ func seedRBAC(ctx context.Context, pool *pgxpool.Pool) error {
 		{"procurement.edit", "Manage procurement documents"},
 		{"finance.ap.view", "View AP documents"},
 		{"finance.ap.edit", "Manage AP documents"},
+		{"finance.boardpack", "Generate Board Pack"},
 	}
 
 	tx, err := pool.Begin(ctx)
@@ -79,8 +84,8 @@ ON CONFLICT (name) DO UPDATE SET description = EXCLUDED.description`, perm.name,
 		description string
 		permissions []string
 	}{
-		{"admin", "Full access to all modules", []string{"org.view", "org.edit", "master.view", "master.edit", "master.import", "rbac.view", "rbac.edit", "report.view", "inventory.view", "inventory.edit", "procurement.view", "procurement.edit", "finance.ap.view", "finance.ap.edit"}},
-		{"manager", "Manage operations", []string{"org.view", "org.edit", "master.view", "master.edit", "master.import", "report.view", "inventory.view", "inventory.edit", "procurement.view", "procurement.edit", "finance.ap.view"}},
+		{"admin", "Full access to all modules", []string{"org.view", "org.edit", "master.view", "master.edit", "master.import", "rbac.view", "rbac.edit", "report.view", "inventory.view", "inventory.edit", "procurement.view", "procurement.edit", "finance.ap.view", "finance.ap.edit", "finance.boardpack"}},
+		{"manager", "Manage operations", []string{"org.view", "org.edit", "master.view", "master.edit", "master.import", "report.view", "inventory.view", "inventory.edit", "procurement.view", "procurement.edit", "finance.ap.view", "finance.boardpack"}},
 		{"viewer", "Read-only access", []string{"org.view", "master.view", "report.view", "inventory.view", "procurement.view", "finance.ap.view"}},
 	}
 
@@ -125,6 +130,42 @@ ON CONFLICT DO NOTHING`, adminID); err != nil {
 	}
 
 	return tx.Commit(ctx)
+}
+
+func seedBoardPackTemplates(ctx context.Context, pool *pgxpool.Pool) error {
+	const name = "Standard Executive Pack"
+	var exists bool
+	err := pool.QueryRow(ctx, `SELECT TRUE FROM board_pack_templates WHERE name = $1 LIMIT 1`, name).Scan(&exists)
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	var createdBy int64
+	if err := pool.QueryRow(ctx, `SELECT id FROM users WHERE email = $1`, "admin@odyssey.local").Scan(&createdBy); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			if err := pool.QueryRow(ctx, `SELECT id FROM users ORDER BY id LIMIT 1`).Scan(&createdBy); err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+	sections := []map[string]any{
+		{"type": "EXEC_SUMMARY", "title": "Executive Summary"},
+		{"type": "PL_SUMMARY", "title": "Profit & Loss"},
+		{"type": "BS_SUMMARY", "title": "Balance Sheet"},
+		{"type": "CASHFLOW_SUMMARY", "title": "Cashflow"},
+		{"type": "TOP_VARIANCES", "title": "Top Variances", "options": map[string]any{"limit": 10}},
+	}
+	payload, err := json.Marshal(sections)
+	if err != nil {
+		return err
+	}
+	_, err = pool.Exec(ctx, `INSERT INTO board_pack_templates (name, description, sections, is_default, is_active, created_by)
+VALUES ($1,$2,$3,TRUE,TRUE,$4)`, name, "Default sections covering summary, PL, BS, cashflow, dan variance.", payload, createdBy)
+	return err
 }
 
 func getenv(key, fallback string) string {

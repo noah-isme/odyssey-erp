@@ -19,6 +19,8 @@ const (
 	TaskAnalyticsAnomalyScan = "analytics:anomaly_scan"
 	// TaskVarianceSnapshotProcess processes variance snapshots.
 	TaskVarianceSnapshotProcess = "variance:snapshot_process"
+	// TaskBoardPackGenerate triggers board pack generation.
+	TaskBoardPackGenerate = "boardpack:generate"
 )
 
 // SendEmailPayload describes the information required to send an email.
@@ -91,6 +93,11 @@ type VarianceSnapshotPayload struct {
 	SnapshotID int64 `json:"snapshot_id"`
 }
 
+// BoardPackPayload points to the board pack record that should be generated.
+type BoardPackPayload struct {
+	BoardPackID int64 `json:"board_pack_id"`
+}
+
 // NewVarianceSnapshotTask enqueues a variance snapshot job.
 func NewVarianceSnapshotTask(snapshotID int64) (*asynq.Task, error) {
 	if snapshotID == 0 {
@@ -101,4 +108,16 @@ func NewVarianceSnapshotTask(snapshotID int64) (*asynq.Task, error) {
 		return nil, err
 	}
 	return asynq.NewTask(TaskVarianceSnapshotProcess, body, asynq.Queue(QueueDefault)), nil
+}
+
+// NewBoardPackTask enqueues a board pack generation job.
+func NewBoardPackTask(boardPackID int64) (*asynq.Task, error) {
+	if boardPackID == 0 {
+		return nil, fmt.Errorf("jobs: board pack id required")
+	}
+	body, err := json.Marshal(BoardPackPayload{BoardPackID: boardPackID})
+	if err != nil {
+		return nil, err
+	}
+	return asynq.NewTask(TaskBoardPackGenerate, body, asynq.Queue(QueueDefault)), nil
 }

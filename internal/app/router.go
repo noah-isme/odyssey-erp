@@ -10,6 +10,7 @@ import (
 	analytichttp "github.com/odyssey-erp/odyssey-erp/internal/analytics/http"
 	audithttp "github.com/odyssey-erp/odyssey-erp/internal/audit/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/auth"
+	boardpackhttp "github.com/odyssey-erp/odyssey-erp/internal/boardpack/http"
 	closehttp "github.com/odyssey-erp/odyssey-erp/internal/close/http"
 	consolhttp "github.com/odyssey-erp/odyssey-erp/internal/consol/http"
 	eliminationhttp "github.com/odyssey-erp/odyssey-erp/internal/elimination/http"
@@ -41,6 +42,7 @@ type RouterParams struct {
 	InventoryHandler   *inventory.Handler
 	ProcurementHandler *procurement.Handler
 	ReportHandler      *report.Handler
+	BoardPackHandler   *boardpackhttp.Handler
 	JobHandler         *jobs.Handler
 	AnalyticsHandler   *analytichttp.Handler
 	ConsolHandler      *consolhttp.Handler
@@ -93,6 +95,9 @@ func NewRouter(params RouterParams) http.Handler {
 	r.Route("/auth", params.AuthHandler.MountRoutes)
 	if params.CloseHandler != nil {
 		params.CloseHandler.MountRoutes(r)
+	}
+	if params.BoardPackHandler != nil {
+		params.BoardPackHandler.MountRoutes(r)
 	}
 	if params.EliminationHandler != nil {
 		params.EliminationHandler.MountRoutes(r)
