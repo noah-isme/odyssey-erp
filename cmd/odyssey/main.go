@@ -32,6 +32,8 @@ import (
 	closehttp "github.com/odyssey-erp/odyssey-erp/internal/close/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/consol"
 	consolhttp "github.com/odyssey-erp/odyssey-erp/internal/consol/http"
+	eliminationpkg "github.com/odyssey-erp/odyssey-erp/internal/elimination"
+	eliminationhttp "github.com/odyssey-erp/odyssey-erp/internal/elimination/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/insights"
 	insightsdb "github.com/odyssey-erp/odyssey-erp/internal/insights/db"
 	insightshhtp "github.com/odyssey-erp/odyssey-erp/internal/insights/http"
@@ -42,6 +44,8 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/procurement"
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
+	variancepkg "github.com/odyssey-erp/odyssey-erp/internal/variance"
+	variancehttp "github.com/odyssey-erp/odyssey-erp/internal/variance/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
 	"github.com/odyssey-erp/odyssey-erp/jobs"
 	"github.com/odyssey-erp/odyssey-erp/report"
@@ -148,6 +152,9 @@ func main() {
 	rbacService := rbac.NewService(dbpool)
 	rbacMiddleware := rbac.Middleware{Service: rbacService, Logger: logger}
 	closeHandler := closehttp.NewHandler(logger, closeService, templates, csrfManager, rbacMiddleware)
+	eliminationRepo := eliminationpkg.NewRepository(dbpool)
+	eliminationService := eliminationpkg.NewService(eliminationRepo, accountingService)
+	eliminationHandler := eliminationhttp.NewHandler(logger, eliminationService, templates, csrfManager, rbacMiddleware)
 
 	analyticsRepo := analyticsdb.New(dbpool)
 	analyticsCache := analytics.NewCache(redisClient, 10*time.Minute)
@@ -197,6 +204,15 @@ func main() {
 		logger.Error("init consolidation handler", slog.Any("error", err))
 		os.Exit(1)
 	}
+	varianceRepo := variancepkg.NewRepository(dbpool)
+	varianceService := variancepkg.NewService(varianceRepo)
+	jobClient, err := jobs.NewClient(asynq.RedisClientOpt{Addr: cfg.RedisAddr})
+	if err != nil {
+		logger.Error("init job client", slog.Any("error", err))
+		os.Exit(1)
+	}
+	defer jobClient.Close()
+	varianceHandler := variancehttp.NewHandler(logger, varianceService, templates, csrfManager, rbacMiddleware, jobClient)
 
 	inspector := asynq.NewInspector(asynq.RedisClientOpt{Addr: cfg.RedisAddr})
 	defer func() {
@@ -214,6 +230,8 @@ func main() {
 		CSRFManager:        csrfManager,
 		AuthHandler:        authHandler,
 		CloseHandler:       closeHandler,
+		EliminationHandler: eliminationHandler,
+		VarianceHandler:    varianceHandler,
 		InventoryHandler:   inventoryHandler,
 		ProcurementHandler: procurementHandler,
 		ReportHandler:      reportHandler,

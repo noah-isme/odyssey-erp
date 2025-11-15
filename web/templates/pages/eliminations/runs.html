@@ -1,0 +1,74 @@
+{{ define "pages/eliminations/runs.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Elimination Runs{{ end }}
+
+{{ define "content" }}
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Eliminations</p>
+        <h1>Elimination Runs</h1>
+        <p class="muted">Jalankan simulasi dan posting jurnal eliminasi.</p>
+    </div>
+</section>
+
+<section class="card">
+    <h2>Buat Run</h2>
+    <form method="post" action="/eliminations/runs" class="grid">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+        <label>Rule
+            <select name="rule_id" required>
+                <option value="">-- Pilih Rule --</option>
+                {{ range $rule := .Data.Rules }}
+                    <option value="{{ $rule.ID }}">{{ $rule.Name }}</option>
+                {{ end }}
+            </select>
+        </label>
+        <label>Periode
+            <select name="period_id" required>
+                <option value="">-- Pilih Periode --</option>
+                {{ range $period := .Data.Periods }}
+                    <option value="{{ $period.ID }}">{{ $period.Name }} ({{ $period.StartDate.Format "02 Jan" }} - {{ $period.EndDate.Format "02 Jan" }})</option>
+                {{ end }}
+            </select>
+        </label>
+        <button type="submit">Mulai</button>
+    </form>
+</section>
+
+<section class="card">
+    <h2>Riwayat Run</h2>
+    <table class="period-table">
+        <thead>
+        <tr>
+            <th>Rule</th>
+            <th>Periode</th>
+            <th>Status</th>
+            <th>Ringkasan</th>
+            <th></th>
+        </tr>
+        </thead>
+        <tbody>
+        {{ if eq (len .Data.Runs) 0 }}
+            <tr><td colspan="5">Belum ada run.</td></tr>
+        {{ end }}
+        {{ range $run := .Data.Runs }}
+            <tr>
+                <td>{{ if $run.Rule }}{{ $run.Rule.Name }}{{ else }}Rule #{{ $run.RuleID }}{{ end }}</td>
+                <td>{{ $run.PeriodID }}</td>
+                <td>{{ $run.Status }}</td>
+                <td>
+                    {{ if $run.Summary }}
+                        Eliminated {{ printf "%.2f" $run.Summary.Eliminated }}
+                    {{ else }}
+                        -
+                    {{ end }}
+                </td>
+                <td><a href="/eliminations/runs/{{ $run.ID }}">Lihat</a></td>
+            </tr>
+        {{ end }}
+        </tbody>
+    </table>
+</section>
+{{ end }}

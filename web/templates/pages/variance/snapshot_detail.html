@@ -1,0 +1,62 @@
+{{ define "pages/variance/snapshot_detail.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Variance Snapshot{{ end }}
+
+{{ define "content" }}
+{{ $snap := .Data.Snapshot }}
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Variance</p>
+        <h1>Snapshot #{{ $snap.ID }}</h1>
+        <p class="muted">Status: {{ $snap.Status }}</p>
+    </div>
+    <div>
+        <a href="/variance/snapshots" class="secondary outline">Kembali</a>
+    </div>
+</section>
+
+<section class="card">
+    <h3>Ringkasan</h3>
+    <p>Rule: {{ if $snap.Rule }}{{ $snap.Rule.Name }}{{ else }}#{{ $snap.RuleID }}{{ end }}</p>
+    <p>Periode: {{ $snap.PeriodID }}</p>
+    {{ if $snap.Error }}
+        <p class="text-danger">Error: {{ $snap.Error }}</p>
+    {{ end }}
+    <a class="secondary" href="/variance/snapshots/{{ $snap.ID }}/export">Export CSV</a>
+</section>
+
+<section class="card">
+    <h3>Variance Rows</h3>
+    <div class="responsive-table">
+        <table class="period-table">
+            <thead>
+            <tr>
+                <th>Account</th>
+                <th>Base</th>
+                <th>Compare</th>
+                <th>Variance</th>
+                <th>%</th>
+                <th>Flag</th>
+            </tr>
+            </thead>
+            <tbody>
+            {{ if eq (len .Data.Rows) 0 }}
+                <tr><td colspan="6">Belum ada payload.</td></tr>
+            {{ end }}
+            {{ range $row := .Data.Rows }}
+                <tr>
+                    <td>{{ $row.AccountCode }} - {{ $row.AccountName }}</td>
+                    <td>{{ printf "%.2f" $row.BaseAmount }}</td>
+                    <td>{{ printf "%.2f" $row.CompareAmount }}</td>
+                    <td>{{ printf "%.2f" $row.Variance }}</td>
+                    <td>{{ printf "%.2f" $row.VariancePct }}</td>
+                    <td>{{ if $row.Flagged }}⚠️{{ else }}-{{ end }}</td>
+                </tr>
+            {{ end }}
+            </tbody>
+        </table>
+    </div>
+</section>
+{{ end }}

@@ -12,11 +12,13 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/auth"
 	closehttp "github.com/odyssey-erp/odyssey-erp/internal/close/http"
 	consolhttp "github.com/odyssey-erp/odyssey-erp/internal/consol/http"
+	eliminationhttp "github.com/odyssey-erp/odyssey-erp/internal/elimination/http"
 	insightshhtp "github.com/odyssey-erp/odyssey-erp/internal/insights/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/inventory"
 	"github.com/odyssey-erp/odyssey-erp/internal/observability"
 	"github.com/odyssey-erp/odyssey-erp/internal/procurement"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
+	variancehttp "github.com/odyssey-erp/odyssey-erp/internal/variance/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
 	"github.com/odyssey-erp/odyssey-erp/jobs"
 	"github.com/odyssey-erp/odyssey-erp/report"
@@ -32,6 +34,8 @@ type RouterParams struct {
 	CSRFManager        *shared.CSRFManager
 	AuthHandler        *auth.Handler
 	CloseHandler       *closehttp.Handler
+	EliminationHandler *eliminationhttp.Handler
+	VarianceHandler    *variancehttp.Handler
 	InsightsHandler    *insightshhtp.Handler
 	AuditHandler       *audithttp.Handler
 	InventoryHandler   *inventory.Handler
@@ -89,6 +93,12 @@ func NewRouter(params RouterParams) http.Handler {
 	r.Route("/auth", params.AuthHandler.MountRoutes)
 	if params.CloseHandler != nil {
 		params.CloseHandler.MountRoutes(r)
+	}
+	if params.EliminationHandler != nil {
+		params.EliminationHandler.MountRoutes(r)
+	}
+	if params.VarianceHandler != nil {
+		params.VarianceHandler.MountRoutes(r)
 	}
 	r.Route("/inventory", params.InventoryHandler.MountRoutes)
 	r.Route("/procurement", params.ProcurementHandler.MountRoutes)

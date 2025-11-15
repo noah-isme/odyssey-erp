@@ -1,0 +1,46 @@
+{{ define "pages/eliminations/run_detail.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Elimination Run{{ end }}
+
+{{ define "content" }}
+{{ $run := .Data.Run }}
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Eliminations</p>
+        <h1>Run #{{ $run.ID }}</h1>
+        <p class="muted">Status: {{ $run.Status }}</p>
+    </div>
+    <div>
+        <a href="/eliminations/runs" class="secondary outline">Kembali</a>
+    </div>
+</section>
+
+<section class="card">
+    <h3>Ringkasan</h3>
+    <p>Rule: {{ if $run.Rule }}{{ $run.Rule.Name }}{{ else }}#{{ $run.RuleID }}{{ end }}</p>
+    <p>Periode ID: {{ $run.PeriodID }}</p>
+    {{ if $run.Summary }}
+        <ul>
+            <li>Saldo Sumber: {{ printf "%.2f" $run.Summary.SourceBalance }}</li>
+            <li>Saldo Target: {{ printf "%.2f" $run.Summary.TargetBalance }}</li>
+            <li>Nilai Eliminasi: {{ printf "%.2f" $run.Summary.Eliminated }}</li>
+        </ul>
+    {{ else }}
+        <p class="muted">Belum ada simulasi.</p>
+    {{ end }}
+</section>
+
+<section class="card">
+    <h3>Aksi</h3>
+    <form method="post" action="/eliminations/runs/{{ $run.ID }}/simulate" style="display:inline-block;margin-right:1rem">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+        <button type="submit">Simulate</button>
+    </form>
+    <form method="post" action="/eliminations/runs/{{ $run.ID }}/post" style="display:inline-block">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+        <button type="submit" {{ if ne $run.Status "SIMULATED" }}disabled{{ end }}>Post Journal</button>
+    </form>
+</section>
+{{ end }}
