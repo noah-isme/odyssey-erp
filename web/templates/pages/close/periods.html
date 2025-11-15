@@ -2,25 +2,108 @@
 {{ template "layouts/base.html" . }}
 {{ end }}
 
-{{ define "title" }}Accounting Periods{{ end }}
+{{ define "title" }}Period Close{{ end }}
+
+{{ define "head" }}
+<link rel="stylesheet" href="/static/css/close.css">
+{{ end }}
 
 {{ define "content" }}
-<h1>Accounting Periods</h1>
-<form method="get" action="/accounting/periods" class="grid">
-    <label>
-        Company ID (0 = semua)
-        <input type="number" name="company_id" min="0" value="{{ index .Data "CompanyID" }}">
-    </label>
-    <button type="submit">Terapkan Filter</button>
-</form>
-<article>
-    <h3>Buat Periode Baru</h3>
-    <form method="post" action="/accounting/periods">
-        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
-        {{ $company := index .Data "CompanyID" }}
+{{ $data := .Data }}
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Period Close</p>
+        <h1>Accounting Periods</h1>
+        <p class="muted">Pantau status periode dan mulai close run untuk setiap perusahaan.</p>
+    </div>
+    <form method="get" action="/accounting/periods" class="filters">
         <label>
             Company ID
-            <input type="number" name="company_id" min="1" required value="{{ if lt $company 1 }}1{{ else }}{{ $company }}{{ end }}">
+            <input type="number" name="company_id" min="0" value="{{ $data.CompanyID }}">
+        </label>
+        <label>
+            Tahun
+            <input type="number" name="year" min="1900" placeholder="2024" value="{{ $data.YearFilter }}">
+        </label>
+        <button type="submit">Terapkan</button>
+    </form>
+    {{ if $data.YearError }}<small class="text-danger">{{ $data.YearError }}</small>{{ end }}
+</section>
+
+<section class="card">
+    <header class="card-heading">
+        <div>
+            <h2>Daftar Periode</h2>
+            <p class="muted">{{ if gt $data.CompanyID 0 }}Perusahaan #{{ $data.CompanyID }}{{ else }}Semua Perusahaan{{ end }}</p>
+        </div>
+    </header>
+    <div class="responsive-table">
+        <table class="period-table">
+            <thead>
+            <tr>
+                <th>Periode</th>
+                <th>Rentang</th>
+                <th>Status</th>
+                <th>Close Run</th>
+                <th>Aksi</th>
+            </tr>
+            </thead>
+            <tbody>
+            {{ if eq (len $data.Periods) 0 }}
+                <tr>
+                    <td colspan="5">Belum ada periode untuk filter ini.</td>
+                </tr>
+            {{ end }}
+            {{ range $row := $data.Periods }}
+                <tr>
+                    <td>
+                        <strong>{{ $row.Period.Name }}</strong>
+                        <div class="muted">Company {{ if gt $row.Period.CompanyID 0 }}#{{ $row.Period.CompanyID }}{{ else }}N/A{{ end }}</div>
+                    </td>
+                    <td>
+                        <div>{{ $row.Period.StartDate.Format "02 Jan 2006" }}</div>
+                        <div class="muted">sampai {{ $row.Period.EndDate.Format "02 Jan 2006" }}</div>
+                    </td>
+                    <td>
+                        {{ template "partials/close/status_badge.html" $row.StatusBadge }}
+                    </td>
+                    <td>
+                        {{ if $row.HasRun }}
+                            <a class="secondary outline" href="{{ $row.RunURL }}">Lihat Close</a>
+                        {{ else }}
+                            <span class="muted">Belum ada run</span>
+                        {{ end }}
+                    </td>
+                    <td>
+                        {{ if $row.ShowStartRun }}
+                            <form method="post" action="/accounting/periods/{{ $row.Period.ID }}/close-run" class="inline-form">
+                                <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
+                                <input type="hidden" name="company_id" value="{{ if gt $row.Period.CompanyID 0 }}{{ $row.Period.CompanyID }}{{ else }}{{ $data.CompanyID }}{{ end }}">
+                                <button type="submit">Mulai Close</button>
+                            </form>
+                        {{ else }}
+                            {{ if $row.HasRun }}
+                                <small class="muted">Lanjutkan dari halaman run</small>
+                            {{ else }}
+                                <small class="muted">Tidak tersedia</small>
+                            {{ end }}
+                        {{ end }}
+                    </td>
+                </tr>
+            {{ end }}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="card">
+    <h2>Buat Periode Baru</h2>
+    <p class="muted">Gunakan form ini saat periode ledger belum tersedia di sistem.</p>
+    <form method="post" action="/accounting/periods" class="grid">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+        <label>
+            Company ID
+            <input type="number" name="company_id" min="1" required value="{{ if gt $data.CompanyID 0 }}{{ $data.CompanyID }}{{ else }}1{{ end }}">
         </label>
         <label>
             Nama Periode
@@ -36,43 +119,5 @@
         </label>
         <button type="submit">Simpan</button>
     </form>
-</article>
-
-<article>
-    <h3>Daftar Periode</h3>
-    <table>
-        <thead>
-        <tr>
-            <th>Nama</th>
-            <th>Rentang</th>
-            <th>Status</th>
-            <th>Aksi</th>
-        </tr>
-        </thead>
-        <tbody>
-        {{ if eq (len (index .Data "Periods")) 0 }}
-            <tr>
-                <td colspan="4">Belum ada periode untuk perusahaan ini.</td>
-            </tr>
-        {{ end }}
-        {{ range $period := index .Data "Periods" }}
-            <tr>
-                <td>{{ $period.Name }}</td>
-                <td>{{ $period.StartDate.Format "02 Jan 2006" }} → {{ $period.EndDate.Format "02 Jan 2006" }}</td>
-                <td>{{ $period.Status }}</td>
-                <td>
-                    {{ if gt $period.LatestRunID 0 }}
-                        <a href="/close-runs/{{ $period.LatestRunID }}">Lihat Close Run</a>
-                    {{ end }}
-                    <form method="post" action="/accounting/periods/{{ $period.ID }}/close-run" style="display:inline">
-                        <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
-                        <input type="hidden" name="company_id" value="{{ $period.CompanyID }}">
-                        <button type="submit" {{ if eq $period.Status "HARD_CLOSED" }}disabled{{ end }}>Mulai Close Run</button>
-                    </form>
-                </td>
-            </tr>
-        {{ end }}
-        </tbody>
-    </table>
-</article>
+</section>
 {{ end }}
