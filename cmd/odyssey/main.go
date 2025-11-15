@@ -28,6 +28,8 @@ import (
 	auditdb "github.com/odyssey-erp/odyssey-erp/internal/audit/db"
 	audithttp "github.com/odyssey-erp/odyssey-erp/internal/audit/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/auth"
+	boardpacksvc "github.com/odyssey-erp/odyssey-erp/internal/boardpack"
+	boardpackhttp "github.com/odyssey-erp/odyssey-erp/internal/boardpack/http"
 	closepkg "github.com/odyssey-erp/odyssey-erp/internal/close"
 	closehttp "github.com/odyssey-erp/odyssey-erp/internal/close/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/consol"
@@ -206,6 +208,8 @@ func main() {
 	}
 	varianceRepo := variancepkg.NewRepository(dbpool)
 	varianceService := variancepkg.NewService(varianceRepo)
+	boardpackRepo := boardpacksvc.NewRepository(dbpool)
+	boardpackService := boardpacksvc.NewService(boardpackRepo)
 	jobClient, err := jobs.NewClient(asynq.RedisClientOpt{Addr: cfg.RedisAddr})
 	if err != nil {
 		logger.Error("init job client", slog.Any("error", err))
@@ -213,6 +217,7 @@ func main() {
 	}
 	defer jobClient.Close()
 	varianceHandler := variancehttp.NewHandler(logger, varianceService, templates, csrfManager, rbacMiddleware, jobClient)
+	boardpackHandler := boardpackhttp.NewHandler(logger, boardpackService, templates, csrfManager, rbacMiddleware, jobClient)
 
 	inspector := asynq.NewInspector(asynq.RedisClientOpt{Addr: cfg.RedisAddr})
 	defer func() {
@@ -232,6 +237,7 @@ func main() {
 		CloseHandler:       closeHandler,
 		EliminationHandler: eliminationHandler,
 		VarianceHandler:    varianceHandler,
+		BoardPackHandler:   boardpackHandler,
 		InventoryHandler:   inventoryHandler,
 		ProcurementHandler: procurementHandler,
 		ReportHandler:      reportHandler,

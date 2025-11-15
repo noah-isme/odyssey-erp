@@ -15,9 +15,11 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/analytics"
 	analyticsdb "github.com/odyssey-erp/odyssey-erp/internal/analytics/db"
 	"github.com/odyssey-erp/odyssey-erp/internal/app"
+	"github.com/odyssey-erp/odyssey-erp/internal/boardpack"
 	"github.com/odyssey-erp/odyssey-erp/internal/consol"
 	"github.com/odyssey-erp/odyssey-erp/internal/variance"
 	"github.com/odyssey-erp/odyssey-erp/jobs"
+	"github.com/odyssey-erp/odyssey-erp/report"
 )
 
 func main() {
@@ -67,6 +69,23 @@ func main() {
 	varianceService := variance.NewService(varianceRepo)
 	varianceJob := variance.NewSnapshotJob(varianceService, logger)
 
+	boardpackRepo := boardpack.NewRepository(pool)
+	boardpackService := boardpack.NewService(boardpackRepo)
+	boardpackBuilder := boardpack.NewBuilder(boardpackRepo, varianceService, analyticsService)
+	pdfClient := report.NewClient(cfg.GotenbergURL)
+	boardpackRenderer, err := boardpack.NewRenderer(pdfClient)
+	if err != nil {
+		logger.Error("init board pack renderer", slog.Any("error", err))
+		os.Exit(1)
+	}
+	boardpackJob := boardpack.NewJob(boardpack.JobConfig{
+		Service:    boardpackService,
+		Builder:    boardpackBuilder,
+		Renderer:   boardpackRenderer,
+		StorageDir: cfg.BoardPackStorageDir,
+		Logger:     logger,
+	})
+
 	warmupTask, err := jobs.NewInsightsWarmupTask("active")
 	if err != nil {
 		logger.Error("build warmup task", slog.Any("error", err))
@@ -91,6 +110,7 @@ func main() {
 			{Type: jobs.TaskAnalyticsAnomalyScan, Handler: anomalyJob.Handle},
 			{Type: jobs.TaskConsolidateRefresh, Handler: consolidator.Handle},
 			{Type: jobs.TaskVarianceSnapshotProcess, Handler: varianceJob.Handle},
+			{Type: jobs.TaskBoardPackGenerate, Handler: boardpackJob.Handle},
 		},
 		Cron: []jobs.CronRegistration{
 			{Spec: "15 1 * * *", Task: warmupTask, Options: []asynq.Option{asynq.MaxRetry(3)}},

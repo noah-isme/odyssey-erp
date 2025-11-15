@@ -1,0 +1,49 @@
+{{ define "pages/boardpacks/detail.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Board Pack Detail{{ end }}
+
+{{ define "content" }}
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Close & Insights</p>
+        <h1>Board Pack #{{ .Data.Pack.ID }}</h1>
+        <p class="muted">{{ .Data.Pack.CompanyName }} · {{ .Data.Pack.PeriodName }}</p>
+    </div>
+    <div>
+        {{ if and (eq .Data.Pack.Status "READY") (.Data.Pack.FilePath) }}
+            <a class="button" href="/board-packs/{{ .Data.Pack.ID }}/download">Download PDF</a>
+        {{ end }}
+    </div>
+</section>
+
+<section class="card">
+    <dl>
+        <dt>Status</dt>
+        <dd>{{ .Data.Pack.Status }}</dd>
+        <dt>Template</dt>
+        <dd>{{ .Data.Pack.TemplateName }}</dd>
+        <dt>Dibuat</dt>
+        <dd>{{ formatDate .Data.Pack.CreatedAt }}</dd>
+        <dt>Generated At</dt>
+        <dd>{{ if .Data.Pack.GeneratedAt }}{{ formatDate .Data.Pack.GeneratedAt }}{{ else }}-{{ end }}</dd>
+        <dt>File Path</dt>
+        <dd>{{ if .Data.Pack.FilePath }}{{ .Data.Pack.FilePath }}{{ else }}-{{ end }}</dd>
+    </dl>
+</section>
+
+{{ if .Data.Pack.ErrorMessage }}
+<section class="card warn">
+    <strong>Error:</strong>
+    <p>{{ .Data.Pack.ErrorMessage }}</p>
+</section>
+{{ end }}
+
+{{ if .Data.Pack.Metadata }}
+<section class="card">
+    <h2>Metadata</h2>
+    <pre>{{ printf "%+v" .Data.Pack.Metadata }}</pre>
+</section>
+{{ end }}
+{{ end }}

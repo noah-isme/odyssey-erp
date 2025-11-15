@@ -134,6 +134,15 @@ func (c *Client) EnqueueVarianceSnapshot(ctx context.Context, snapshotID int64) 
 	return c.client.EnqueueContext(ctx, task, asynq.Queue(QueueDefault))
 }
 
+// EnqueueBoardPack enqueues a board pack generation task.
+func (c *Client) EnqueueBoardPack(ctx context.Context, boardPackID int64) (*asynq.TaskInfo, error) {
+	task, err := NewBoardPackTask(boardPackID)
+	if err != nil {
+		return nil, err
+	}
+	return c.client.EnqueueContext(ctx, task, asynq.Queue(QueueDefault))
+}
+
 // Close releases client resources.
 func (c *Client) Close() error {
 	return c.client.Close()

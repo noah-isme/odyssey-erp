@@ -1,0 +1,75 @@
+{{ define "pages/boardpacks/list.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Board Packs{{ end }}
+
+{{ define "content" }}
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Close & Insights</p>
+        <h1>Board Packs</h1>
+        <p class="muted">Kelola permintaan Board Pack dan unduh PDF setelah siap.</p>
+    </div>
+    <div>
+        <a class="button" href="/board-packs/new">Generate Baru</a>
+    </div>
+</section>
+
+<section class="card">
+    <form method="get" class="grid">
+        <label>Company
+            <select name="company_id">
+                <option value="">Semua</option>
+                {{ range $c := .Data.Companies }}
+                    <option value="{{ $c.ID }}" {{ if eq $.Data.Filter.CompanyID $c.ID }}selected{{ end }}>{{ $c.Name }}</option>
+                {{ end }}
+            </select>
+        </label>
+        <label>Period ID
+            <input type="number" name="period_id" value="{{ if gt .Data.Filter.PeriodID 0 }}{{ .Data.Filter.PeriodID }}{{ end }}">
+        </label>
+        <label>Status
+            <select name="status">
+                <option value="">Semua</option>
+                {{ range $s := .Data.Statuses }}
+                    <option value="{{ $s }}" {{ if eq $.Data.Filter.Status $s }}selected{{ end }}>{{ $s }}</option>
+                {{ end }}
+            </select>
+        </label>
+        <button type="submit">Filter</button>
+    </form>
+</section>
+
+<section class="card">
+    <table class="striped">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Company</th>
+            <th>Period</th>
+            <th>Template</th>
+            <th>Status</th>
+            <th>Dibuat</th>
+            <th></th>
+        </tr>
+        </thead>
+        <tbody>
+        {{ if eq (len .Data.Packs) 0 }}
+            <tr><td colspan="7">Belum ada board pack.</td></tr>
+        {{ end }}
+        {{ range $pack := .Data.Packs }}
+            <tr>
+                <td>#{{ $pack.ID }}</td>
+                <td>{{ $pack.CompanyName }}</td>
+                <td>{{ $pack.PeriodName }}</td>
+                <td>{{ $pack.TemplateName }}</td>
+                <td>{{ $pack.Status }}</td>
+                <td>{{ formatDate $pack.CreatedAt }}</td>
+                <td><a href="/board-packs/{{ $pack.ID }}">Detail</a></td>
+            </tr>
+        {{ end }}
+        </tbody>
+    </table>
+</section>
+{{ end }}

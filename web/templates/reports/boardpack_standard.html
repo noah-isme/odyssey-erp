@@ -1,0 +1,133 @@
+{{ define "boardpack_standard.html" }}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Board Pack – {{ .Company.Name }} ({{ .Period.Name }})</title>
+    <style>
+        body { font-family: "Helvetica", Arial, sans-serif; margin: 32px; color: #0f172a; }
+        header { border-bottom: 2px solid #0f172a; margin-bottom: 24px; padding-bottom: 8px; }
+        h1 { font-size: 24px; margin: 0; }
+        h2 { font-size: 18px; margin-top: 32px; margin-bottom: 12px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+        th, td { border: 1px solid #cbd5f5; padding: 6px 8px; font-size: 12px; }
+        th { background: #f8fafc; text-align: left; }
+        .muted { color: #475569; font-size: 12px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap: 12px; margin-bottom: 12px; }
+        .card { border: 1px solid #cbd5f5; padding: 12px; border-radius: 6px; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; background: #e2e8f0; }
+        .warn { color: #b45309; }
+        .section { page-break-inside: avoid; }
+    </style>
+</head>
+<body>
+<header>
+    <h1>Board Pack – {{ .Company.Name }}</h1>
+    <p class="muted">Periode {{ .Period.Name }} · {{ formatDate .Period.StartDate }} – {{ formatDate .Period.EndDate }}</p>
+    <p class="muted">Dihasilkan {{ formatDate .GeneratedAt }}</p>
+</header>
+{{ if .Warnings }}
+<section class="card warn">
+    <strong>Catatan:</strong>
+    <ul>
+        {{ range .Warnings }}<li>{{ . }}</li>{{ end }}
+    </ul>
+</section>
+{{ end }}
+{{ range .Sections }}
+<section class="section">
+    <h2>{{ .Title }}</h2>
+    {{ if eq .Type "EXEC_SUMMARY" }}
+        {{ if .Exec }}
+        <div class="grid">
+            <div class="card">
+                <strong>Company</strong>
+                <p>{{ .Exec.Company.Name }} ({{ .Exec.Company.Code }})</p>
+            </div>
+            <div class="card">
+                <strong>Status</strong>
+                <p><span class="badge">{{ .Exec.Status }}</span></p>
+            </div>
+            <div class="card">
+                <strong>Variance Snapshot</strong>
+                <p>{{ if .Exec.VarianceLabel }}{{ .Exec.VarianceLabel }}{{ else }}-{{ end }}</p>
+            </div>
+            <div class="card">
+                <strong>Permintaan</strong>
+                <p>{{ if .Exec.RequestedBy }}User #{{ .Exec.RequestedBy }}{{ else }}System{{ end }}</p>
+            </div>
+        </div>
+        <table>
+            <thead><tr><th>Metric</th><th>Nilai</th></tr></thead>
+            <tbody>
+                <tr><td>Revenue</td><td>{{ formatDecimal .Exec.KPISummary.Revenue }}</td></tr>
+                <tr><td>Net Profit</td><td>{{ formatDecimal .Exec.KPISummary.NetProfit }}</td></tr>
+                <tr><td>Opex</td><td>{{ formatDecimal .Exec.KPISummary.Opex }}</td></tr>
+                <tr><td>COGS</td><td>{{ formatDecimal .Exec.KPISummary.COGS }}</td></tr>
+                <tr><td>Cash In</td><td>{{ formatDecimal .Exec.KPISummary.CashIn }}</td></tr>
+                <tr><td>Cash Out</td><td>{{ formatDecimal .Exec.KPISummary.CashOut }}</td></tr>
+            </tbody>
+        </table>
+        {{ end }}
+    {{ else if eq .Type "PL_SUMMARY" }}
+        {{ $pl := .Payload }}
+        {{ if $pl }}
+        <table>
+            <thead><tr><th>Kategori</th><th>Akun</th><th>Nilai</th></tr></thead>
+            <tbody>
+            {{ range $pl.Revenue.Accounts }}
+                <tr><td>Revenue</td><td>{{ .Code }} – {{ .Name }}</td><td>{{ formatDecimal .Amount }}</td></tr>
+            {{ end }}
+            {{ range $pl.Expense.Accounts }}
+                <tr><td>Expense</td><td>{{ .Code }} – {{ .Name }}</td><td>{{ formatDecimal .Amount }}</td></tr>
+            {{ end }}
+            <tr><td colspan="2"><strong>Net Income</strong></td><td>{{ formatDecimal $pl.NetIncome }}</td></tr>
+            </tbody>
+        </table>
+        {{ else }}<p class="muted">Tidak ada data P&amp;L.</p>{{ end }}
+    {{ else if eq .Type "BS_SUMMARY" }}
+        {{ $bs := .Payload }}
+        {{ if $bs }}
+        <table>
+            <thead><tr><th>Klasifikasi</th><th>Nilai</th></tr></thead>
+            <tbody>
+                <tr><td>Assets</td><td>{{ formatDecimal $bs.Assets.Total }}</td></tr>
+                <tr><td>Liabilities</td><td>{{ formatDecimal $bs.Liabilities.Total }}</td></tr>
+                <tr><td>Equity</td><td>{{ formatDecimal $bs.Equity.Total }}</td></tr>
+                <tr><td><strong>Total Liabilities + Equity</strong></td><td>{{ formatDecimal $bs.TotalLiabilitiesAndEquity }}</td></tr>
+            </tbody>
+        </table>
+        {{ else }}<p class="muted">Belum ada data neraca.</p>{{ end }}
+    {{ else if eq .Type "CASHFLOW_SUMMARY" }}
+        {{ if .Cashflow }}
+        <table>
+            <thead><tr><th>Cash In</th><th>Cash Out</th><th>Net</th></tr></thead>
+            <tbody>
+                <tr><td>{{ formatDecimal .Cashflow.CashIn }}</td><td>{{ formatDecimal .Cashflow.CashOut }}</td><td>{{ formatDecimal .Cashflow.Net }}</td></tr>
+            </tbody>
+        </table>
+        {{ else }}<p class="muted">Tidak ada data cashflow.</p>{{ end }}
+    {{ else if eq .Type "TOP_VARIANCES" }}
+        {{ $rows := .Payload }}
+        {{ if $rows }}
+        <table>
+            <thead><tr><th>Account</th><th>Base</th><th>Compare</th><th>Variance</th><th>Variance %</th></tr></thead>
+            <tbody>
+                {{ range $rows }}
+                <tr>
+                    <td>{{ .AccountCode }} – {{ .AccountName }}</td>
+                    <td>{{ formatDecimal .BaseAmount }}</td>
+                    <td>{{ formatDecimal .CompareAmount }}</td>
+                    <td>{{ formatDecimal .Variance }}</td>
+                    <td>{{ formatPercent .VariancePct }}</td>
+                </tr>
+                {{ end }}
+            </tbody>
+        </table>
+        {{ else }}<p class="muted">Variance snapshot belum tersedia.</p>{{ end }}
+    {{ end }}
+</section>
+{{ end }}
+</body>
+</html>
+{{ end }}
