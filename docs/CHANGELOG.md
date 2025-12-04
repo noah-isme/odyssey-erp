@@ -1,5 +1,39 @@
 # Changelog
 
+## Phase 9 – Sales & Accounts Receivable (Planned)
+
+### Scope
+
+Phase 9 akan melengkapi siklus revenue dengan membangun modul Sales dan Accounts Receivable (AR) sebagai counterpart dari Procurement/AP. Dibagi menjadi 3 cycles:
+
+- **Cycle 9.1** – Quotation & Sales Order management dengan approval workflow
+- **Cycle 9.2** – Delivery Order, fulfillment, dan integrasi inventory untuk stock reduction
+- **Cycle 9.3** – AR Invoice, payment allocation, aging report, dan integrasi accounting
+
+### Key Features (Planned)
+
+- Quotation management dengan approval flow (draft → submitted → approved → converted to SO)
+- Sales Order processing dengan delivery tracking
+- Delivery Order dengan packing list PDF dan automatic stock reduction
+- AR Invoice creation dari DO/SO dengan auto journal entries
+- Payment recording dengan multi-invoice allocation
+- AR aging report (current, 1-30, 31-60, 61-90, 90+ days)
+- Customer statement PDF
+- Full RBAC integration dengan granular permissions
+- Background jobs untuk async posting dan daily overdue checks
+
+### Documentation
+
+- `docs/PLAN-Phase9-Sales.md` – comprehensive implementation plan
+- `docs/TESTING-PHASE9.md` – full testing strategy
+- `docs/security-checklist-phase9.md` – security requirements
+
+### Status
+
+📋 **Planning Complete** – Ready for implementation kickoff
+
+---
+
 ## Phase 8 Cycle 8.3 – Board Pack
 
 ### Added
