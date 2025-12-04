@@ -1,0 +1,233 @@
+{{ define "pages/sales/order_detail.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Sales Order {{ .Order.DocNumber }}{{ end }}
+
+{{ define "content" }}
+<div class="order-detail-wrapper">
+    <header>
+        <h1>Sales Order {{ .Order.DocNumber }}</h1>
+        <p>
+            Status:
+            {{ if eq .Order.Status "DRAFT" }}<span class="badge badge-secondary">Draft</span>{{ end }}
+            {{ if eq .Order.Status "CONFIRMED" }}<span class="badge badge-info">Confirmed</span>{{ end }}
+            {{ if eq .Order.Status "PROCESSING" }}<span class="badge badge-warning">Processing</span>{{ end }}
+            {{ if eq .Order.Status "COMPLETED" }}<span class="badge badge-success">Completed</span>{{ end }}
+            {{ if eq .Order.Status "CANCELLED" }}<span class="badge badge-danger">Cancelled</span>{{ end }}
+        </p>
+    </header>
+
+    <!-- Action Buttons -->
+    <section class="actions">
+        <div role="group">
+            <a href="/sales/orders" role="button" class="secondary">← Back to List</a>
+
+            {{ if eq .Order.Status "DRAFT" }}
+            <a href="/sales/orders/{{ .Order.ID }}/edit" role="button" class="secondary">Edit</a>
+            <form method="post" action="/sales/orders/{{ .Order.ID }}/confirm" style="display: inline;">
+                <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+                <button type="submit">Confirm Order</button>
+            </form>
+            {{ end }}
+
+            {{ if or (eq .Order.Status "DRAFT") (eq .Order.Status "CONFIRMED") (eq .Order.Status "PROCESSING") }}
+            <button type="button" class="danger" onclick="showCancelModal()">Cancel Order</button>
+            {{ end }}
+        </div>
+    </section>
+
+    <!-- Order Information -->
+    <section>
+        <h2>Order Information</h2>
+        <div class="grid">
+            <div>
+                <label>Document Number</label>
+                <p><strong>{{ .Order.DocNumber }}</strong></p></p>
+            </div>
+            <div>
+                <label>Customer</label>
+                <p><strong>{{ if .Customer }}{{ .Customer.Name }}{{ else }}Unknown{{ end }}</strong></p>
+            </div>
+            <div>
+                <label>Order Date</label>
+                <p>{{ .Order.OrderDate.Format "2006-01-02" }}</p>
+            </div>
+            <div>
+                <label>Expected Delivery</label>
+                <p>{{ if .Order.ExpectedDeliveryDate }}{{ .Order.ExpectedDeliveryDate.Format "2006-01-02" }}{{ else }}-{{ end }}</p>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div>
+                <label>Currency</label>
+                <p>{{ .Order.Currency }}</p>
+            </div>
+            <div>
+                <label>Created By</label>
+                <p>User #{{ .Order.CreatedBy }}</p>
+            </div>
+            <div>
+                <label>Created At</label>
+                <p>{{ .Order.CreatedAt.Format "2006-01-02 15:04" }}</p>
+            </div>
+            <div>
+                <label>Updated At</label>
+                <p>{{ .Order.UpdatedAt.Format "2006-01-02 15:04" }}</p>
+            </div>
+        </div>
+
+        {{ if .Order.QuotationID }}
+        <div>
+            <label>Created from Quotation</label>
+            <p>{{ if .Quotation }}<a href="/sales/quotations/{{ .Quotation.ID }}">{{ .Quotation.DocNumber }}</a>{{ else }}#{{ .Order.QuotationID }}{{ end }}</p>
+        </div>
+        {{ end }}
+
+        {{ if .Order.ConfirmedBy }}
+        <div class="grid">
+            <div>
+                <label>Confirmed By</label>
+                <p>User #{{ .Order.ConfirmedBy }}</p>
+            </div>
+            <div>
+                <label>Confirmed At</label>
+                <p>{{ .Order.ConfirmedAt.Format "2006-01-02 15:04" }}</p>
+            </div>
+        </div>
+        {{ end }}
+
+        {{ if .Order.CancelledBy }}
+        <div class="grid">
+            <div>
+                <label>Cancelled By</label>
+                <p>User #{{ .Order.CancelledBy }}</p>
+            </div>
+            <div>
+                <label>Cancelled At</label>
+                <p>{{ .Order.CancelledAt.Format "2006-01-02 15:04" }}</p>
+            </div>
+        </div>
+        {{ if .Order.CancellationReason }}
+        <div>
+            <label>Cancellation Reason</label>
+            <p>{{ .Order.CancellationReason }}</p>
+        </div>
+        {{ end }}
+        {{ end }}
+
+        {{ if .Order.Notes }}
+        <div>
+            <label>Notes</label>
+            <p>{{ .Order.Notes }}</p>
+        </div>
+        {{ end }}
+    </section>
+
+    <!-- Line Items -->
+    <section>
+        <h2>Line Items</h2>
+        <figure>
+            <table role="grid">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Product ID</th>
+                        <th>Description</th>
+                        <th>Quantity</th>
+                        <th>Delivered</th>
+                        <th></th>Invoiced</th>
+                        <th>UOM</th>
+                        <th>Unit Price</th>
+                        <th>Discount</th>
+                        <th>Tax</th>
+                        <th>Line Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ range .Order.Lines }}
+                    <tr>
+                        <td>{{ .LineOrder }}</td>
+                        <td>{{ .ProductID }}</td>
+                        <td>{{ if .Description }}{{ .Description }}{{ else }}-{{ end }}</td>
+                        <td>{{ printf "%.2f" .Quantity }}</td>
+                        <td>{{ printf "%.2f" .QuantityDelivered }}</td>
+                        <td>{{ printf "%.2f" .QuantityInvoiced }}</td>
+                        <td>{{ .UOM }}</td>
+                        <td>{{ printf "%.2f" .UnitPrice }}</td>
+                        <td>{{ printf "%.2f" .DiscountAmount }}</td>
+                        <td>{{ printf "%.2f" .TaxAmount }}</td>
+                        <td><strong>{{ printf "%.2f" .LineTotal }}</strong></td>
+                    </tr>
+                    {{ end }}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="10" style="text-align: right;"><strong>Subtotal:</strong></td>
+                        <td><strong>{{ printf "%.2f" .Order.Subtotal }}</strong></td>
+                    </tr>
+                    <tr>
+                        <td colspan="10" style="text-align: right;"><strong>Tax:</strong></td>
+                        <td><strong>{{ printf "%.2f" .Order.TaxAmount }}</strong></td>
+                    </tr>
+                    <tr>
+                        <td colspan="10" style="text-align: right;"><strong>Total Amount:</strong></td>
+                        <td><strong>{{ printf "%.2f" .Order.TotalAmount }} {{ .Order.Currency }}</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </figure>
+    </section>
+</div>
+
+<!-- Cancel Modal -->
+<dialog id="cancelModal">
+    <article>
+        <header>
+            <button aria-label="Close" rel="prev" onclick="closeCancelModal()"></button>
+            <h3>Cancel Sales Order</h3>
+        </header>
+        <form method="post" action="/sales/orders/{{ .Order.ID }}/cancel">
+            <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+            <label for="reason">Cancellation Reason</label>
+            <textarea name="reason" id="reason" required placeholder="Please provide a reason for cancellation"></textarea>
+            <footer>
+                <button type="button" class="secondary" onclick="closeCancelModal()">Close</button>
+                <button type="submit" class="danger">Cancel Order</button>
+            </footer>
+        </form>
+    </article>
+</dialog>
+
+<style>
+.badge {
+    display: inline-block;
+    padding: 0.25em 0.6em;
+    font-size: 0.85em;
+    font-weight: 600;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: baseline;
+    border-radius: 0.25rem;
+}
+.badge-secondary { background-color: #6c757d; color: white; }
+.badge-info { background-color: #0dcaf0; color: black; }
+.badge-warning { background-color: #ffc107; color: black; }
+.badge-success { background-color: #198754; color: white; }
+.badge-danger { background-color: #dc3545; color: white; }
+.actions { margin: 1rem 0; }
+button.danger { background-color: #dc3545; }
+</style>
+
+<script>
+function showCancelModal() {
+    document.getElementById('cancelModal').showModal();
+}
+
+function closeCancelModal() {
+    document.getElementById('cancelModal').close();
+}
+</script>
+{{ end }}

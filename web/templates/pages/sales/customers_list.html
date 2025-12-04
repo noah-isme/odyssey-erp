@@ -1,0 +1,126 @@
+{{ define "pages/sales/customers_list.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Customers{{ end }}
+
+{{ define "content" }}
+<div class="customers-wrapper">
+    <header>
+        <h1>Customers</h1>
+        <p>Manage customer information and accounts</p>
+        <div role="group" aria-label="Actions">
+            <a href="/sales/customers/new" role="button">+ New Customer</a>
+        </div>
+    </header>
+
+    <!-- Filters -->
+    <section class="filters">
+        <form method="get" action="/sales/customers">
+            <div class="grid">
+                <div>
+                    <label for="search">Search</label>
+                    <input type="text" name="search" id="search" placeholder="Search by code, name, or email" value="{{ if .Filters.Search }}{{ .Filters.Search }}{{ end }}">
+                </div>
+                <div>
+                    <label for="is_active">Status</label>
+                    <select name="is_active" id="is_active">
+                        <option value="">All</option>
+                        <option value="true" {{ if .Filters.IsActive }}{{ if .Filters.IsActive }}selected{{ end }}{{ end }}>Active</option>
+                        <option value="false" {{ if .Filters.IsActive }}{{ if not .Filters.IsActive }}selected{{ end }}{{ end }}>Inactive</option>
+                    </select>
+                </div>
+            </div>
+            <button type="submit">Filter</button>
+            <a href="/sales/customers" role="button" class="secondary">Clear</a>
+        </form>
+    </section>
+
+    <!-- Results -->
+    <section>
+        <p></p><strong>{{ .Total }}</strong> customer(s) found</p>
+
+        {{ if .Customers }}
+        <figure>
+            <table role="grid">
+                <thead>
+                    <tr>
+                        <th>Code</th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th>Credit Limit</th>
+                        <th>Payment Terms</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ range .Customers }}
+                    <tr>
+                        <td><a href="/sales/customers/{{ .ID }}">{{ .Code }}</a></td>
+                        <td>{{ .Name }}</td>
+                        <td>{{ if .Email }}{{ .Email }}{{ else }}-{{ end }}</td>
+                        <td>{{ if .Phone }}{{ .Phone }}{{ else }}-{{ end }}</td>
+                        <td>{{ printf "%.2f" .CreditLimit }}</td>
+                        <td>{{ .PaymentTermsDays }} days</td>
+                        <td>
+                            {{ if .IsActive }}
+                            <span class="badge badge-success">Active</span>
+                            {{ else }}
+                            <span class="badge badge-secondary">Inactive</span>
+                            {{ end }}
+                        </td>
+                        <td>
+                            <a href="/sales/customers/{{ .ID }}" role="button" class="outline secondary small">View</a>
+                        </td>
+                    </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </figure>
+
+        <!-- Pagination -->
+        {{ if gt .Total .Limit }}
+        <div class="pagination">
+            {{ $currentPage := div .Offset .Limit }}
+            {{ $totalPages := div (add .Total (sub .Limit 1)) .Limit }}
+
+            {{ if gt $currentPage 0 }}
+            <a href="?limit={{ .Limit }}&offset={{ sub .Offset .Limit }}{{ if .Filters.Search }}&search={{ .Filters.Search }}{{ end }}{{ if .Filters.IsActive }}&is_active={{ .Filters.IsActive }}{{ end }}" role="button" class="secondary">Previous</a>
+            {{ end }}
+
+            <span>Page {{ add $currentPage 1 }} of {{ $totalPages }}</span>
+
+            {{ if lt (add .Offset .Limit) .Total }}
+            <a href="?limit={{ .Limit }}&offset={{ add .Offset .Limit }}{{ if .Filters.Search }}&search={{ .Filters.Search }}{{ end }}{{ if .Filters.IsActive }}&is_active={{ .Filters.IsActive }}{{ end }}" role="button" class="secondary">Next</a>
+            {{ end }}
+        </div>
+        {{ end }}
+
+        {{ else }}
+        <article>
+            <p>No customers found. <a href="/sales/customers/new">Create your first customer</a></p>
+        </article>
+        {{ end }}
+    </section>
+</div>
+
+<style>
+.badge {
+    display: inline-block;
+    padding: 0.25em 0.6em;
+    font-size: 0.85em;
+    font-weight: 600;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: baseline;
+    border-radius: 0.25rem;
+}
+.badge-success { background-color: #198754; color: white; }
+.badge-secondary { background-color: #6c757d; color: white; }
+.small { font-size: 0.85em; padding: 0.25rem 0.5rem; }
+.pagination { display: flex; align-items: center; gap: 1rem; justify-content: center; margin-top: 1rem; }
+</style>
+{{ end }}

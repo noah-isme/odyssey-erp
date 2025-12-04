@@ -1,0 +1,263 @@
+{{ define "pages/sales/quotation_detail.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Quotation {{ .Quotation.DocNumber }}{{ end }}
+
+{{ define "content" }}
+<div class="quotation-detail-wrapper">
+    <header>
+        <h1>Quotation {{ .Quotation.DocNumber }}</h1>
+        <p>
+            Status:
+            {{ if eq .Quotation.Status</h1> "DRAFT" }}<span class="badge badge-secondary">Draft</span>{{ end }}
+            {{ if eq .Quotation.Status "SUBMITTED" }}<span class="badge badge-info">Submitted</span>{{ end }}
+            {{ if eq .Quotation.Status "APPROVED" }}<span class="badge badge-success">Approved</span>{{ end }}
+            {{ if eq .Quotation.Status "REJECTED" }}<span class="badge badge-danger">Rejected</span>{{ end }}
+            {{ if eq .Quotation.Status "CONVERTED" }}<span class="badge badge-primary">Converted</span>{{ end }}
+        </p>
+    </header>
+
+    <!-- Action Buttons -->
+    <section class="actions">
+        <div role="group">
+            <a href="/sales/quotations" role="button" class="secondary">← Back to List</a>
+
+            {{ if eq .Quotation.Status "DRAFT" }}
+            <a href="/sales/quotations/{{ .Quotation.ID }}/edit" role="button" class="secondary">Edit</a>
+            <form method="post" action="/sales/quotations/{{ .Quotation.ID }}/submit" style="display: inline;">
+                <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+                <button type="submit">Submit for Approval</button>
+            </form>
+            {{ end }}
+
+            {{ if eq .Quotation.Status "SUBMITTED" }}
+            <form method="post" action="/sales/quotations/{{ .Quotation.ID }}/approve" style="display: inline;">
+                <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+                <button type="submit" class="success">Approve</button>
+            </form>
+            <button type="button" class="danger" onclick="showRejectModal()">Reject</button>
+            {{ end }}
+
+            {{ if eq .Quotation.Status "APPROVED" }}
+            <button type="button" onclick="showConvertModal()">Convert to Sales Order</button>
+            {{ end }}
+        </div>
+    </section>
+
+    <!-- Quotation Information -->
+    <section>
+        <h2>Quotation Information</h2>
+        <div class="grid">
+            <div>
+                <label>Document Number</label>
+                <p><strong>{{ .Quotation.DocNumber }}</strong></p>
+            </div>
+            <div>
+                <label>Customer</label>
+                <p><strong>{{ if .Customer }}{{ .Customer.Name }}{{ else }}Unknown{{ end }}</strong></p>
+            </div>
+            <div>
+                <label>Quote Date</label>
+                <p>{{ .Quotation.QuoteDate.Format "2006-01-02" }}</p>
+            </div>
+            <div>
+                <label>Valid Until</label>
+                <p>{{ .Quotation.ValidUntil.Format "2006-01-02" }}</p>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div>
+                <label>Currency</label>
+                <p>{{ .Quotation.Currency }}</p>
+            </div>
+            <div>
+                <label>Created By</label>
+                <p>User #{{ .Quotation.CreatedBy }}</p>
+            </div>
+            <div>
+                <label>Created At</label>
+                <p>{{ .Quotation.CreatedAt.Format "2006-01-02 15:04" }}</p>
+            </div>
+            <div>
+                <label>Updated At</label>
+                <p>{{ .Quotation.UpdatedAt.Format "2006-01-02 15:04" }}</p>
+            </div>
+        </div>
+
+        {{ if .Quotation.ApprovedBy }}
+        <div class="grid">
+            <div>
+                <label>Approved By</label>
+                <p>User #{{ .Quotation.ApprovedBy }}</p>
+            </div>
+            <div>
+                <label>Approved At</label>
+                <p>{{ .Quotation.ApprovedAt.Format "2006-01-02 15:04" }}</p>
+            </div>
+        </div>
+        {{ end }}
+
+        {{ if .Quotation.RejectedBy }}
+        <div class="grid">
+            <div>
+                <label>Rejected By</label>
+                <p>User #{{ .Quotation.RejectedBy }}</p>
+            </div>
+            <div>
+                <label>Rejected At</label>
+                <p>{{ .Quotation.RejectedAt.Format "2006-01-02 15:04" }}</p>
+            </div>
+        </div>
+        {{ if .Quotation.RejectionReason }}
+        <div>
+            <label>Rejection Reason</label>
+            <p>{{ .Quotation.RejectionReason }}</p>
+        </div>
+        {{ end }}
+        {{ end }}
+
+        {{ if .Quotation.Notes }}
+        <div>
+            <label>Notes</label>
+            <p>{{ .Quotation.Notes }}</p>
+        </div>
+        {{ end }}
+    </section>
+
+    <!-- Line Items -->
+    <section>
+        <h2>Line Items</h2>
+        <figure>
+            <table role="grid">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Product ID</th>
+                        <th>Description</th>
+                        <th>Quantity</th>
+                        <th>UOM</th>
+                        <th>Unit Price</th>
+                        <th>Discount %</th>
+                        <th>Discount Amt</th>
+                        <th>Tax %</th>
+                        <th>Tax Amount</th>
+                        <th>Line Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ range .Quotation.Lines }}
+                    <tr>
+                        <td>{{ .LineOrder</th> }}</td>
+                        <td>{{ .ProductID }}</td>
+                        <td>{{ if .Description }}{{ .Description }}{{ else }}-{{ end }}</td>
+                        <td>{{ printf "%.2f" .Quantity }}</td>
+                        <td>{{ .UOM }}</td>
+                        <td>{{ printf "%.2f" .UnitPrice }}</td>
+                        <td>{{ printf "%.2f" .DiscountPercent }}%</td>
+                        <td>{{ printf "%.2f" .DiscountAmount }}</td>
+                        <td>{{ printf "%.2f" .TaxPercent }}%</td>
+                        <td>{{ printf "%.2f" .TaxAmount }}</td>
+                        <td><strong>{{ printf "%.2f" .LineTotal }}</strong></td>
+                    </tr>
+                    {{ end }}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="10" style="text-align: right;"><strong>Subtotal:</strong></td>
+                        <td><strong>{{ printf "%.2f" .Quotation.Subtotal }}</strong></td>
+                    </tr>
+                    <tr>
+                        <td colspan="10" style="text-align: right;"><strong>Tax:</strong></td>
+                        <td><strong>{{ printf "%.2f" .Quotation.TaxAmount }}</strong></td>
+                    </tr>
+                    <tr>
+                        <td colspan="10" style="text-align: right;"><strong>Total Amount:</strong></td>
+                        <td><strong>{{ printf "%.2f" .Quotation.TotalAmount }} {{ .Quotation.Currency }}</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </figure>
+    </section>
+</div>
+
+<!-- Reject Modal -->
+<dialog id="rejectModal">
+    <article>
+        <header>
+            <button aria-label="Close" rel="prev" onclick="closeRejectModal()"></button>
+            <h3>Reject Quotation</h3>
+        </header>
+        <form method="post" action="/sales/quotations/{{ .Quotation.ID }}/reject">
+            <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+            <label for="reason">Rejection Reason</label>
+            <textarea name="reason" id="reason" required placeholder="Please provide a reason for rejection"></textarea>
+            <footer>
+                <button type="button" class="secondary" onclick="closeRejectModal()">Cancel</button>
+                <button type="submit" class="danger">Reject Quotation</button>
+            </footer>
+        </form>
+    </article>
+</dialog>
+
+<!-- Convert to SO Modal -->
+<dialog id="convertModal">
+    <article>
+        <header>
+            <button aria-label="Close" rel="prev" onclick="closeConvertModal()"></button>
+            <h3>Convert to Sales Order</h3>
+        </header>
+        <form method="post" action="/sales/quotations/{{ .Quotation.ID }}/convert">
+            <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+            <label for="order_date">Order Date</label>
+            <input type="date" name="order_date" id="order_date" value="{{ .Quotation.QuoteDate.Format "2006-01-02" }}" required>
+            <p><small>This will create a new sales order from this quotation and mark it as converted.</small></p>
+            <footer>
+                <button type="button" class="secondary" onclick="closeConvertModal()">Cancel</button>
+                <button type="submit"></p>Create Sales Order</button>
+            </footer>
+        </form>
+    </article>
+</dialog>
+
+<style>
+.badge {
+    display: inline-block;
+    padding: 0.25em 0.6em;
+    font-size: 0.85em;
+    font-weight: 600;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: baseline;
+    border-radius: 0.25rem;
+}
+.badge-secondary { background-color: #6c757d; color: white; }
+.badge-info { background-color: #0dcaf0; color: black; }
+.badge-success { background-color: #198754; color: white; }
+.badge-danger { background-color: #dc3545; color: white; }
+.badge-primary { background-color: #0d6efd; color: white; }
+.actions { margin: 1rem 0; }
+button.success { background-color: #198754; }
+button.danger { background-color: #dc3545; }
+</style>
+
+<script>
+function showRejectModal() {
+    document.getElementById('rejectModal').showModal();
+}
+
+function closeRejectModal() {
+    document.getElementById('rejectModal').close();
+}
+
+function showConvertModal() {
+    document.getElementById('convertModal').showModal();
+}
+
+function closeConvertModal() {
+    document.getElementById('convertModal').close();
+}
+</script>
+{{ end }}
