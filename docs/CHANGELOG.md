@@ -49,12 +49,13 @@ Phase 9 melengkapi siklus revenue dengan membangun modul Sales dan Accounts Rece
 
 #### Next Steps for Cycle 9.1
 
-- [ ] HTTP handlers untuk SSR UI (list, create, edit, approve, convert)
+- [x] HTTP handlers untuk SSR UI (list, create, edit, approve, convert) ✅
+- [x] UI templates untuk quotation & SO pages ✅
 - [ ] RBAC permissions integration (sales.quotation.*, sales.order.*)
+- [ ] Route mounting di main application
 - [ ] Unit tests untuk service layer (create, approve, convert scenarios)
 - [ ] Integration tests dengan test database
 - [ ] E2E test: quotation → approve → convert → confirm SO
-- [ ] UI templates untuk quotation & SO pages
 - [ ] Documentation: howto-sales-quotation.md, runbook-sales.md
 
 ### Status
