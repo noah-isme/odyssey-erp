@@ -1,0 +1,245 @@
+{{ define "pages/sales/order_form.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}{{ if .Order }}Edit Sales Order{{ else }}New Sales Order{{ end }}{{ end }}
+
+{{ define "content" }}
+<div class="order-form-wrapper">
+    <header>
+        <h1>{{ if .Order }}Edit Sales Order {{ .Order.DocNumber }}{{ else }}New Sales Order{{ end }}</h1>
+        <p>{{ if .Order }}Update order details and line items{{ else }}Create a new sales order{{ end }}</p>
+    </header>
+
+    {{ if .Errors.general }}
+    <article class="error">
+        <p><strong>Error</p>:</strong> {{ .Errors.general }}</p>
+    </article>
+    {{ end }}
+
+    <form method="post" action="{{ if .Order }}/sales/orders/{{ .Order.ID }}/edit{{ else }}/sales/orders{{ end }}">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+
+        <!-- Header Information -->
+        <section>
+            <h2>Order Information</h2>
+            <div class="grid">
+                <div>
+                    <label for="customer_id">Customer <span class="required">*</span></label>
+                    <select name="customer_id" id="customer_id" required {{ if .Order }}disabled{{ end }}>
+                        <option value="">Select customer...</option>
+                        {{ range .Customers }}
+                        <option value="{{ .ID }}" {{ if $.Order }}{{ if eq $.Order.CustomerID .ID }}selected{{ end }}{{ end }}>
+                            {{ .Code }} - {{ .Name }}
+                        </option>
+                        {{ end }}
+                    </select>
+                    {{ if .Order }}
+                    <input type="hidden" name="customer_id" value="{{ .Order.CustomerID }}">
+                    {{ end }}
+                </div>
+                <div>
+                    <label for="currency">Currency <span class="required">*</span></label>
+                    <select name="currency" id="currency" required>
+                        <option value="IDR" {{ if .Order }}{{ if eq .Order.Currency "IDR" }}selected{{ end }}{{ else }}selected{{ end }}>IDR</option>
+                        <option value="USD" {{ if .Order }}{{ if eq .Order.Currency "USD" }}selected{{ end }}{{ end }}>USD</option>
+                        <option value="EUR" {{ if .Order }}{{ if eq .Order.Currency "EUR" }}selected{{ end }}{{ end }}>EUR</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid">
+                <div>
+                    <label for="order_date">Order Date <span class="required">*</span></label>
+                    <input type="date" name="order_date" id="order_date" required
+                           value="{{ if .Order }}{{ .Order.OrderDate.Format "2006-01-02" }}{{ end }}">
+                </div>
+                <div>
+                    <label for="expected_delivery_date">Expected Delivery Date</label>
+                    <input type="date" name="expected_delivery_date" id="expected_delivery_date"
+                           value="{{ if .Order }}{{ if .Order.ExpectedDeliveryDate }}{{ .Order.ExpectedDeliveryDate.Format "2006-01-02" }}{{ end }}{{ end }}">
+                </div>
+            </div>
+
+            <div>
+                <label for="notes">Notes</label>
+                <textarea name="notes" id="notes" rows="3" placeholder="Additional notes or terms">{{ if .Order }}{{ .Order.Notes }}{{ end }}</textarea>
+            </div>
+        </section>
+
+        <!-- Line Items -->
+        <section>
+            <h2>Line Items</h2>
+            <p><small>Add products and quantities to this order</small></p>
+
+            <div id="line-items-container">
+                {{ if .Order }}
+                {{ range $index, $line := .Order.Lines }}
+                <div class="line-item" data-index="{{ $index }}">
+                    <div class="grid">
+                        <div>
+                            <label for="product_id_{{ $index }}">Product ID <span class="required">*</span></label>
+                            <input type="number" name="product_id" id="product_id_{{ $index }}" required min="1" value="{{ $line.ProductID }}">
+                        </div>
+                        <div>
+                            <label for="quantity_{{ $index }}">Quantity <span class="required">*</span></label>
+                            <input type="number" name="quantity" id="quantity_{{ $index }}" required min="0.01" step="0.01" value="{{ printf "%.2f" $line.Quantity }}">
+                        </div>
+                        <div>
+                            <label for="uom_{{ $index }}">UOM <span class="required">*</span></label>
+                            <input type="text" name="uom" id="uom_{{ $index }}" required value="{{ $line.UOM }}" placeholder="PCS">
+                        </div>
+                    </div>
+                    <div class="grid">
+                        <div>
+                            <label for="unit_price_{{ $index }}">Unit Price <span class="required">*</span></label>
+                            <input type="number" name="unit_price" id="unit_price_{{ $index }}" required min="0" step="0.01" value="{{ printf "%.2f" $line.UnitPrice }}">
+                        </div>
+                        <div>
+                            <label for="discount_percent_{{ $index }}">Discount %</label>
+                            <input type="number" name="discount_percent" id="discount_percent_{{ $index }}" min="0" max="100" step="0.01" value="{{ printf "%.2f" $line.DiscountPercent }}">
+                        </div>
+                        <div>
+                            <label for="tax_percent_{{ $index }}">Tax %</label>
+                            <input type="number" name="tax_percent" id="tax_percent_{{ $index }}" min="0" max="100" step="0.01" value="{{ printf "%.2f" $line.TaxPercent }}">
+                        </div>
+                        <div style="display: flex; align-items: end;">
+                            <button type="button" class="secondary small" onclick="removeLine(this)">Remove</button>
+                        </div>
+                    </div>
+                </div>
+                {{ end }}
+                {{ else }}
+                <div class="line-item" data-index="0">
+                    <div class="grid">
+                        <div>
+                            <label for="product_id_0">Product ID <span class="required">*</span></label>
+                            <input type="number" name="product_id" id="product_id_0" required min="1">
+                        </div>
+                        <div>
+                            <label for="quantity_0">Quantity <span class="required">*</span></label>
+                            <input type="number" name="quantity" id="quantity_0" required min="0.01" step="0.01" value="1.00">
+                        </div>
+                        <div>
+                            <label for="uom_0">UOM <span class="required">*</span></label>
+                            <input type="text" name="uom" id="uom_0" required value="PCS">
+                        </div>
+                    </div>
+                    <div class="grid">
+                        <div>
+                            <label for="unit_price_0">Unit Price <span class="required">*</span></label>
+                            <input type="number" name="unit_price" id="unit_price_0" required min="0" step="0.01" value="0.00">
+                        </div>
+                        <div>
+                            <label for="discount_percent_0">Discount %</label>
+                            <input type="number" name="discount_percent" id="discount_percent_0" min="0" max="100" step="0.01" value="0.00">
+                        </div>
+                        <div>
+                            <label for="tax_percent_0">Tax %</label>
+                            <input type="number" name="tax_percent" id="tax_percent_0" min="0" max="100" step="0.01" value="11.00">
+                        </div>
+                        <div style="display: flex; align-items: end;">
+                            <button type="button" class="secondary small" onclick="removeLine(this)">Remove</button>
+                        </div>
+                    </div>
+                </div>
+                {{ end }}
+            </div>
+
+            <button type="button" class="secondary" onclick="addLine()">+ Add Line Item</button>
+        </section>
+
+        <!-- Actions -->
+        <section>
+            <div role="group">
+                <a href="{{ if .Order }}/sales/orders/{{ .Order.ID }}{{ else }}/sales/orders{{ end }}" role="button" class="secondary">Cancel</a>
+                <button type="submit">{{ if .Order }}Update Sales Order{{ else }}Create Sales Order{{ end }}</button>
+            </div>
+        </section>
+    </form>
+</div>
+
+<style>
+.line-item {
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border: 1px solid var(--form-element-border-color);
+    border-radius: 0.5rem;
+    background-color: var(--card-background-color);
+}
+.line-item:hover {
+    border-color: var(--primary);
+}
+.required {
+    color: #dc3545;
+}
+.small {
+    font-size: 0.85em;
+    padding: 0.25rem 0.5rem;
+}
+.error {
+    background-color: #f8d7da;
+    border-color: #f5c2c7;
+    color: #842029;
+}
+</style>
+
+<script>
+let lineCounter = {{ if .Order }}{{ len .Order.Lines }}{{ else }}1{{ end }};
+
+function addLine() {
+    const container = document.getElementById('line-items-container');
+    const newLine = document.createElement('div');
+    newLine.className = 'line-item';
+    newLine.setAttribute('data-index', lineCounter);
+
+    newLine.innerHTML = `
+        <div class="grid">
+            <div>
+                <label for="product_id_${lineCounter}">Product ID <span class="required">*</span></label>
+                <input type="number" name="product_id" id="product_id_${lineCounter}" required min="1">
+            </div>
+            <div>
+                <label for="quantity_${lineCounter}">Quantity <span class="required">*</span></label>
+                <input type="number" name="quantity" id="quantity_${lineCounter}" required min="0.01" step="0.01" value="1.00">
+            </div>
+            <div>
+                <label for="uom_${lineCounter}">UOM <span class="required">*</span></label>
+                <input type="text" name="uom" id="uom_${lineCounter}" required value="PCS">
+            </div>
+        </div>
+        <div class="grid">
+            <div>
+                <label for="unit_price_${lineCounter}">Unit Price <span class="required">*</span></label>
+                <input type="number" name="unit_price" id="unit_price_${lineCounter}" required min="0" step="0.01" value="0.00">
+            </div>
+            <div>
+                <label for="discount_percent_${lineCounter}">Discount %</label>
+                <input type="number" name="discount_percent" id="discount_percent_${lineCounter}" min="0" max="100" step="0.01" value="0.00">
+            </div>
+            <div>
+                <label for="tax_percent_${lineCounter}">Tax %</label>
+                <input type="number" name="tax_percent" id="tax_percent_${lineCounter}" min="0" max="100" step="0.01" value="11.00">
+            </div>
+            <div style="display: flex; align-items: end;">
+                <button type="button" class="secondary small" onclick="removeLine(this)">Remove</button>
+            </div>
+        </div>
+    `;
+
+    container.appendChild(newLine);
+    lineCounter++;
+}
+
+function removeLine(button) {
+    const container = document.getElementById('line-items-container');
+    const lineItems = container.getElementsByClassName('line-item');
+
+    if (lineItems.length > 1) {
+        button.closest('.line-item').remove();
+    } else {
+        alert('At least one line item is required.');
+    }
+}
+</script>
+{{ end }}
