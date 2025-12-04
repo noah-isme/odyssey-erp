@@ -1049,51 +1049,56 @@ func (h *Handler) cancelSalesOrder(w http.ResponseWriter, r *http.Request) {
 // ============================================================================
 
 func (h *Handler) render(w http.ResponseWriter, r *http.Request, tmpl string, data map[string]any, status int) {
-	if data == nil {
-		data = make(map[string]any)
+	sess := shared.SessionFromContext(r.Context())
+	csrfToken, _ := h.csrf.EnsureToken(r.Context(), sess)
+
+	var flash *shared.FlashMessage
+	if sess != nil {
+		flash = sess.PopFlash()
 	}
 
-	// Add CSRF token
-	data["CSRFToken"] = h.csrf.Token(r)
-
-	// Add session data if available
-	if h.sessions != nil {
-		if flash, ok := h.sessions.Pop(r.Context(), "flash_message").(string); ok {
-			data["FlashMessage"] = flash
-		}
-		if flashType, ok := h.sessions.Pop(r.Context(), "flash_type").(string); ok {
-			data["FlashType"] = flashType
-		}
+	viewData := view.TemplateData{
+		Title:       "Sales",
+		CSRFToken:   csrfToken,
+		Flash:       flash,
+		CurrentPath: r.URL.Path,
+		Data:        data,
 	}
 
 	w.WriteHeader(status)
-	if err := h.templates.Render(w, tmpl, data); err != nil {
+	if err := h.templates.Render(w, tmpl, viewData); err != nil {
 		h.logger.Error("template render failed", "error", err, "template", tmpl)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}
 }
 
 func (h *Handler) redirectWithFlash(w http.ResponseWriter, r *http.Request, url, flashType, message string) {
-	if h.sessions != nil {
-		h.sessions.Put(r.Context(), "flash_message", message)
-		h.sessions.Put(r.Context(), "flash_type", flashType)
+	sess := shared.SessionFromContext(r.Context())
+	if sess != nil {
+		sess.AddFlash(shared.FlashMessage{Kind: flashType, Message: message})
 	}
 	http.Redirect(w, r, url, http.StatusSeeOther)
 }
 
 func (h *Handler) getCurrentUserID(r *http.Request) int64 {
-	if h.sessions != nil {
-		if userID, ok := h.sessions.Get(r.Context(), "user_id").(int64); ok {
-			return userID
+	sess := shared.SessionFromContext(r.Context())
+	if sess != nil {
+		if userIDStr := sess.User(); userIDStr != "" {
+			if userID, err := strconv.ParseInt(userIDStr, 10, 64); err == nil {
+				return userID
+			}
 		}
 	}
 	return 1 // Default user for development
 }
 
 func (h *Handler) getCurrentCompanyID(r *http.Request) int64 {
-	if h.sessions != nil {
-		if companyID, ok := h.sessions.Get(r.Context(), "company_id").(int64); ok {
-			return companyID
+	sess := shared.SessionFromContext(r.Context())
+	if sess != nil {
+		if companyIDStr := sess.Get("company_id"); companyIDStr != "" {
+			if companyID, err := strconv.ParseInt(companyIDStr, 10, 64); err == nil {
+				return companyID
+			}
 		}
 	}
 	return 1 // Default company for development

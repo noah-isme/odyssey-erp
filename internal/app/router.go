@@ -18,6 +18,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/inventory"
 	"github.com/odyssey-erp/odyssey-erp/internal/observability"
 	"github.com/odyssey-erp/odyssey-erp/internal/procurement"
+	"github.com/odyssey-erp/odyssey-erp/internal/sales"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 	variancehttp "github.com/odyssey-erp/odyssey-erp/internal/variance/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
@@ -41,6 +42,7 @@ type RouterParams struct {
 	AuditHandler       *audithttp.Handler
 	InventoryHandler   *inventory.Handler
 	ProcurementHandler *procurement.Handler
+	SalesHandler       *sales.Handler
 	ReportHandler      *report.Handler
 	BoardPackHandler   *boardpackhttp.Handler
 	JobHandler         *jobs.Handler
@@ -107,6 +109,9 @@ func NewRouter(params RouterParams) http.Handler {
 	}
 	r.Route("/inventory", params.InventoryHandler.MountRoutes)
 	r.Route("/procurement", params.ProcurementHandler.MountRoutes)
+	if params.SalesHandler != nil {
+		r.Route("/sales", params.SalesHandler.MountRoutes)
+	}
 	r.Route("/report", params.ReportHandler.MountRoutes)
 	if params.ConsolHandler != nil {
 		params.ConsolHandler.MountRoutes(r)
