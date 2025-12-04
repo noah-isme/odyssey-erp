@@ -63,6 +63,19 @@ func seedRBAC(ctx context.Context, pool *pgxpool.Pool) error {
 		{"finance.ap.view", "View AP documents"},
 		{"finance.ap.edit", "Manage AP documents"},
 		{"finance.boardpack", "Generate Board Pack"},
+		// Sales module permissions
+		{"sales.customer.view", "View customer data"},
+		{"sales.customer.create", "Create new customers"},
+		{"sales.customer.edit", "Edit customer information"},
+		{"sales.quotation.view", "View sales quotations"},
+		{"sales.quotation.create", "Create new quotations"},
+		{"sales.quotation.edit", "Edit quotations"},
+		{"sales.quotation.approve", "Approve or reject quotations"},
+		{"sales.order.view", "View sales orders"},
+		{"sales.order.create", "Create new sales orders"},
+		{"sales.order.edit", "Edit sales orders"},
+		{"sales.order.confirm", "Confirm sales orders"},
+		{"sales.order.cancel", "Cancel sales orders"},
 	}
 
 	tx, err := pool.Begin(ctx)
@@ -84,9 +97,33 @@ ON CONFLICT (name) DO UPDATE SET description = EXCLUDED.description`, perm.name,
 		description string
 		permissions []string
 	}{
-		{"admin", "Full access to all modules", []string{"org.view", "org.edit", "master.view", "master.edit", "master.import", "rbac.view", "rbac.edit", "report.view", "inventory.view", "inventory.edit", "procurement.view", "procurement.edit", "finance.ap.view", "finance.ap.edit", "finance.boardpack"}},
-		{"manager", "Manage operations", []string{"org.view", "org.edit", "master.view", "master.edit", "master.import", "report.view", "inventory.view", "inventory.edit", "procurement.view", "procurement.edit", "finance.ap.view", "finance.boardpack"}},
-		{"viewer", "Read-only access", []string{"org.view", "master.view", "report.view", "inventory.view", "procurement.view", "finance.ap.view"}},
+		{"admin", "Full access to all modules", []string{
+			"org.view", "org.edit", "master.view", "master.edit", "master.import",
+			"rbac.view", "rbac.edit", "report.view",
+			"inventory.view", "inventory.edit",
+			"procurement.view", "procurement.edit",
+			"finance.ap.view", "finance.ap.edit", "finance.boardpack",
+			"sales.customer.view", "sales.customer.create", "sales.customer.edit",
+			"sales.quotation.view", "sales.quotation.create", "sales.quotation.edit", "sales.quotation.approve",
+			"sales.order.view", "sales.order.create", "sales.order.edit", "sales.order.confirm", "sales.order.cancel",
+		}},
+		{"manager", "Manage operations", []string{
+			"org.view", "org.edit", "master.view", "master.edit", "master.import",
+			"report.view",
+			"inventory.view", "inventory.edit",
+			"procurement.view", "procurement.edit",
+			"finance.ap.view", "finance.boardpack",
+			"sales.customer.view", "sales.customer.create", "sales.customer.edit",
+			"sales.quotation.view", "sales.quotation.create", "sales.quotation.edit", "sales.quotation.approve",
+			"sales.order.view", "sales.order.create", "sales.order.edit", "sales.order.confirm", "sales.order.cancel",
+		}},
+		{"viewer", "Read-only access", []string{
+			"org.view", "master.view", "report.view",
+			"inventory.view",
+			"procurement.view",
+			"finance.ap.view",
+			"sales.customer.view", "sales.quotation.view", "sales.order.view",
+		}},
 	}
 
 	for _, role := range roles {

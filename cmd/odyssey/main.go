@@ -45,6 +45,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/observability"
 	"github.com/odyssey-erp/odyssey-erp/internal/procurement"
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
+	"github.com/odyssey-erp/odyssey-erp/internal/sales"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 	variancepkg "github.com/odyssey-erp/odyssey-erp/internal/variance"
 	variancehttp "github.com/odyssey-erp/odyssey-erp/internal/variance/http"
@@ -190,6 +191,9 @@ func main() {
 	inventoryHandler := inventory.NewHandler(logger, inventoryService, templates, csrfManager, sessionManager, rbacMiddleware)
 	procurementHandler := procurement.NewHandler(logger, procurementService, templates, csrfManager, sessionManager, rbacMiddleware)
 
+	salesService := sales.NewService(dbpool)
+	salesHandler := sales.NewHandler(logger, salesService, templates, csrfManager, sessionManager, rbacMiddleware)
+
 	reportClient := report.NewClient(cfg.GotenbergURL)
 	reportHandler := report.NewHandler(reportClient, logger)
 
@@ -240,6 +244,7 @@ func main() {
 		BoardPackHandler:   boardpackHandler,
 		InventoryHandler:   inventoryHandler,
 		ProcurementHandler: procurementHandler,
+		SalesHandler:       salesHandler,
 		ReportHandler:      reportHandler,
 		ConsolHandler:      consolHandler,
 		JobHandler:         jobHandler,
