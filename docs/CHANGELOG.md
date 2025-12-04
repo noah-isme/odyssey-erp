@@ -1,36 +1,65 @@
 # Changelog
 
-## Phase 9 – Sales & Accounts Receivable (Planned)
+## Phase 9 – Sales & Accounts Receivable (In Progress)
 
 ### Scope
 
-Phase 9 akan melengkapi siklus revenue dengan membangun modul Sales dan Accounts Receivable (AR) sebagai counterpart dari Procurement/AP. Dibagi menjadi 3 cycles:
+Phase 9 melengkapi siklus revenue dengan membangun modul Sales dan Accounts Receivable (AR) sebagai counterpart dari Procurement/AP. Dibagi menjadi 3 cycles:
 
-- **Cycle 9.1** – Quotation & Sales Order management dengan approval workflow
+- **Cycle 9.1** – Quotation & Sales Order management dengan approval workflow ⚙️ **IN PROGRESS**
 - **Cycle 9.2** – Delivery Order, fulfillment, dan integrasi inventory untuk stock reduction
 - **Cycle 9.3** – AR Invoice, payment allocation, aging report, dan integrasi accounting
 
-### Key Features (Planned)
+### Cycle 9.1 – Quotation & Sales Order (In Progress)
 
-- Quotation management dengan approval flow (draft → submitted → approved → converted to SO)
-- Sales Order processing dengan delivery tracking
-- Delivery Order dengan packing list PDF dan automatic stock reduction
-- AR Invoice creation dari DO/SO dengan auto journal entries
-- Payment recording dengan multi-invoice allocation
-- AR aging report (current, 1-30, 31-60, 61-90, 90+ days)
-- Customer statement PDF
-- Full RBAC integration dengan granular permissions
-- Background jobs untuk async posting dan daily overdue checks
+#### Added
 
-### Documentation
+- **Database schema** — migration `000011_phase9_1_sales_quotation_so` menambahkan:
+  - `customers` table dengan credit limit, payment terms, dan address fields
+  - `quotations` dan `quotation_lines` dengan status workflow (DRAFT → SUBMITTED → APPROVED → REJECTED → CONVERTED)
+  - `sales_orders` dan `sales_order_lines` dengan delivery & invoice tracking (quantity_delivered, quantity_invoiced)
+  - Helper functions: `generate_customer_code()`, `generate_quotation_number()`, `generate_sales_order_number()`
+  - Auto-calculation triggers untuk subtotal, tax, dan total amounts
+  - Status update triggers berdasarkan delivery progress
+- **Domain models** — `internal/sales/domain.go` mendefinisikan:
+  - Customer, Quotation, QuotationLine, SalesOrder, SalesOrderLine entities
+  - CreateQuotationRequest, CreateSalesOrderRequest dengan validasi
+  - List & filter requests dengan pagination support
+  - WithDetails structs untuk join dengan user & customer names
+- **Repository layer** — `internal/sales/repository.go` menyediakan:
+  - CRUD operations untuk customers, quotations, sales orders
+  - Transaction support dengan `WithTx()` pattern
+  - List queries dengan dynamic filtering (status, customer, date range)
+  - Document number generation helpers
+  - Line totals calculation dengan discount & tax support
+- **Service layer** — `internal/sales/service.go` mengimplementasikan business logic:
+  - Customer creation & updates dengan duplicate code checking
+  - Quotation workflow: Create → Submit → Approve/Reject
+  - Sales Order workflow: Create → Confirm → Cancel
+  - Convert approved quotation to sales order dengan line items copy
+  - Status validation untuk semua state transitions
+  - Automatic totals calculation dan recalculation on updates
 
-- `docs/PLAN-Phase9-Sales.md` – comprehensive implementation plan
-- `docs/TESTING-PHASE9.md` – full testing strategy
-- `docs/security-checklist-phase9.md` – security requirements
+#### Documentation
+
+- `docs/PLAN-Phase9-Sales.md` – comprehensive implementation plan (991 lines)
+- `docs/TESTING-PHASE9.md` – full testing strategy (855 lines)
+- `docs/security-checklist-phase9.md` – security requirements (415 lines)
+- `docs/PHASE9-KICKOFF.md` – kickoff summary (477 lines)
+
+#### Next Steps for Cycle 9.1
+
+- [ ] HTTP handlers untuk SSR UI (list, create, edit, approve, convert)
+- [ ] RBAC permissions integration (sales.quotation.*, sales.order.*)
+- [ ] Unit tests untuk service layer (create, approve, convert scenarios)
+- [ ] Integration tests dengan test database
+- [ ] E2E test: quotation → approve → convert → confirm SO
+- [ ] UI templates untuk quotation & SO pages
+- [ ] Documentation: howto-sales-quotation.md, runbook-sales.md
 
 ### Status
 
-📋 **Planning Complete** – Ready for implementation kickoff
+⚙️ **Cycle 9.1 In Progress** – Backend foundation complete (schema, domain, repository, service)
 
 ---
 
