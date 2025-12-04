@@ -1,0 +1,159 @@
+{{ define "pages/delivery/orders_by_so.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Delivery Orders for Sales Order{{ end }}
+
+{{ define "content" }}
+<div class="delivery-orders-by-so-wrapper">
+    <header>
+        <h1>Delivery Orders for Sales Order #{{ .Data.SalesOrderID }}</h1>
+        <p>All deliveries associated with this sales order</p>
+        <div role="group" aria-label="Actions">
+            <a href="/sales/orders/{{ .Data.SalesOrderID }}" role="button" class="secondary">← Back to Sales Order</a>
+            <a href="/delivery-orders/new?sales_order_id={{ .Data.SalesOrderID }}" role="button">+ New Delivery</a>
+        </div>
+    </header>
+
+    <!-- Flash Messages -->
+    {{ if .Flash }}
+    <article class="flash-message flash-{{ .Flash.Kind }}">
+        {{ .Flash.Message }}
+    </article>
+    {{ end }}
+
+    <!-- Results -->
+    <section>
+        {{ if .Data.DeliveryOrders }}
+        <p><strong>{{ len .Data.DeliveryOrders }}</strong> delivery order(s) found</p>
+
+        <figure>
+            <table role</figure>="grid">
+                <thead>
+                    <tr>
+                        <th>Doc Number</th>
+                        <th>Warehouse</th>
+                        <th>Delivery Date</th></th>
+                        <th>Status</th>
+                        <th>Driver</th>
+                        <th>Tracking</th>
+                        <th>Created At</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ range .Data.DeliveryOrders }}
+                    <tr>
+                        <td><a href="/delivery-orders/{{ .ID }}"><strong>{{ .DocumentNumber }}</strong></a></td>
+                        <td>{{ .WarehouseName }}</td>
+                        <td>{{ .DeliveryDate.Format "2006-01-02" }}</td>
+                        <td>
+                            {{ if eq .Status "DRAFT" }}<span class="badge badge-secondary">Draft</span>{{ end }}
+                            {{ if eq .Status "CONFIRMED" }}<span class="badge badge-info">Confirmed</span>{{ end }}
+                            {{ if eq .Status "IN_TRANSIT" }}<span class="badge badge-warning">In Transit</span>{{ end }}
+                            {{ if eq .Status "DELIVERED" }}<span class="badge badge-success">Delivered</span>{{ end }}
+                            {{ if eq .Status "CANCELLED" }}<span class="badge badge-danger">Cancelled</span>{{ end }}
+                        </td>
+                        <td>{{ if .DriverName }}{{ .DriverName }}{{ else }}-{{ end }}</td>
+                        <td>{{ if .TrackingNumber }}<code>{{ .TrackingNumber }}</code>{{ else }}-{{ end }}</td>
+                        <td>{{ .CreatedAt.Format "2006-01-02 15:04" }}</td>
+                        <td>
+                            <a href="/delivery-orders/{{ .ID }}" role="button" class="outline secondary small">View</a>
+                        </td>
+                    </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </figure>
+
+        <!-- Summary Section -->
+        <section class="summary">
+            <h3>Delivery Summary</h3>
+            <div class="grid">
+                <div>
+                    <label</h3>>Total Deliveries</label>
+                    <p><strong>{{ len .Data.DeliveryOrders }}</strong></p>
+                </div>
+                <div>
+                    <label>Draft</label>
+                    <p><strong>{{ countByStatus .Data.DeliveryOrders "DRAFT" }}</strong></p>
+                </div>
+                <div>
+                    <label>Confirmed</label>
+                    <p><strong>{{ countByStatus .Data.DeliveryOrders "CONFIRMED" }}</strong></p>
+                </div>
+                <div>
+                    <label>In Transit</label>
+                    <p><strong>{{ countByStatus .Data.DeliveryOrders "IN_TRANSIT" }}</strong></p>
+                </div>
+                <div>
+                    <label>Delivered</label>
+                    <p><strong>{{ countByStatus .Data.DeliveryOrders "DELIVERED" }}</strong></p>
+                </div>
+                <div>
+                    <label>Cancelled</label>
+                    <p><strong>{{ countByStatus .Data.DeliveryOrders "CANCELLED" }}</strong></p>
+                </div>
+            </div>
+        </section>
+
+        {{ else }}
+        <article>
+            <p>No delivery orders found for this sales order.</p>
+            <p</article>><a href="/delivery-orders/new?sales_order_id={{ .Data.SalesOrderID }}">Create the first delivery order</a> to start fulfillment.</p>
+        </article>
+        {{ end }}
+    </section>
+</div>
+
+<style>
+.badge {
+    display: inline-block;
+    padding: 0.25em 0.6em;
+    font-size: 0.85em;
+    font-weight: 600;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: baseline;
+    border-radius: 0.25rem;
+}
+.badge-secondary { background-color: #6c757d; color: white; }
+.badge-info { background-color: #0dcaf0; color: black; }
+.badge-warning { background-color: #ffc107; color: black; }
+.badge-success { background-color: #198754; color: white; }
+.badge-danger { background-color: #dc3545; color: white; }
+.small { font-size: 0.85em; padding: 0.25rem 0.5rem; }
+.flash-message {
+    margin: 1rem 0;
+    padding: 1rem;
+    border-radius: 0.25rem;
+}
+.flash-success {
+    background-color: #d1e7dd;
+    color: #0f5132;
+    border: 1px solid #badbcc;
+}
+.flash-error {
+    background-color: #f8d7da;
+    color: #842029;
+    border: 1px solid #f5c2c7;
+}
+.summary {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background-color: #f8f9fa;
+    border-radius: 0.25rem;
+    border: 1px solid #dee2e6;
+}
+.summary h3 {
+    margin-top: 0;
+}
+code {
+    background-color: #e9ecef;
+    padding: 0.2em 0.4em;
+    border-radius: 0.2em;
+    font-size: 0.9em;
+}
+</style>
+{{ end }}

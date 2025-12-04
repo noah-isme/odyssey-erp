@@ -1,0 +1,812 @@
+package delivery
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
+)
+
+// ============================================================================
+// INTEGRATION TEST SUITE
+// ============================================================================
+
+// DeliveryIntegrationTestSuite provides end-to-end workflow tests for the delivery module.
+type DeliveryIntegrationTestSuite struct {
+	suite.Suite
+	service *Service
+	repo    *mockRepository
+	ctx     context.Context
+}
+
+// SetupTest runs before each test in the suite.
+func (s *DeliveryIntegrationTestSuite) SetupTest() {
+	s.repo = newMockRepository()
+	s.service = NewService(s.repo)
+	s.ctx = context.Background()
+}
+
+// ============================================================================
+// TEST SCENARIO 1: Complete Delivery Workflow (Happy Path)
+// ============================================================================
+
+// TestCompleteDeliveryWorkflow tests the full delivery lifecycle:
+// Create (DRAFT) → Confirm (CONFIRMED) → Ship (IN_TRANSIT) → Complete (DELIVERED)
+func (s *DeliveryIntegrationTestSuite) TestCompleteDeliveryWorkflow() {
+	t := s.T()
+
+	// Setup: Create a confirmed sales order with deliverable quantities
+	salesOrderID := int64(1001)
+	s.repo.salesOrders[salesOrderID] = &mockSalesOrderDetails{
+		ID:        salesOrderID,
+		DocNumber: "SO-202501-0001",
+		CompanyID: 1,
+		Status:    "CONFIRMED",
+	}
+	s.repo.deliverableLines[salesOrderID] = []DeliverableSOLine{
+		{
+			SOLineID:          1,
+			ProductID:         101,
+			ProductCode:       "WIDGET-A",
+			ProductName:       "Premium Widget A",
+			OrderedQuantity:   100.0,
+			DeliveredQuantity: 0.0,
+			RemainingQuantity: 100.0,
+			UOM:               "PCS",
+			UnitPrice:         150.00,
+		},
+		{
+			SOLineID:          2,
+			ProductID:         102,
+			ProductCode:       "WIDGET-B",
+			ProductName:       "Deluxe Widget B",
+			OrderedQuantity:   50.0,
+			DeliveredQuantity: 0.0,
+			RemainingQuantity: 50.0,
+			UOM:               "PCS",
+			UnitPrice:         250.00,
+		},
+	}
+	s.repo.warehouseExists[1] = true
+
+	// Step 1: Create delivery order in DRAFT status
+	createReq := CreateDeliveryOrderRequest{
+		SalesOrderID:  salesOrderID,
+		WarehouseID:   1,
+		CompanyID:     1,
+		PlannedDate:   time.Now().AddDate(0, 0, 2),
+		ShippingNotes: ptr("Handle with care"),
+		Lines: []CreateDeliveryOrderLineReq{
+			{
+				SOLineID:     1,
+				ProductID:    101,
+				Quantity:     50.0,
+				UOM:          "PCS",
+				BatchNumber:  ptr("BATCH-2025-001"),
+				SerialNumber: ptr("SN-001"),
+			},
+			{
+				SOLineID:  2,
+				ProductID: 102,
+				Quantity:  25.0,
+				UOM:       "PCS",
+			},
+		},
+	}
+
+	deliveryOrder, err := s.service.CreateDeliveryOrder(s.ctx, createReq, 100)
+	require.NoError(t, err)
+	assert.Equal(t, DeliveryOrderStatusDraft, deliveryOrder.Status)
+	assert.Len(t, deliveryOrder.Lines, 2)
+	assert.NotEmpty(t, deliveryOrder.DocNumber)
+	assert.Equal(t, salesOrderID, deliveryOrder.SalesOrderID)
+	assert.Equal(t, int64(1), deliveryOrder.WarehouseID)
+	assert.Equal(t, "Handle with care", *deliveryOrder.ShippingNotes)
+
+	doID := deliveryOrder.ID
+
+	// Step 2: Confirm delivery order (ready for picking)
+	confirmReq := ConfirmDeliveryOrderRequest{
+		ID: doID,
+	}
+
+	err = s.service.ConfirmDeliveryOrder(s.ctx, confirmReq, 100)
+	require.NoError(t, err)
+
+	// Verify status changed to CONFIRMED
+	confirmed := s.repo.deliveryOrders[doID]
+	assert.Equal(t, DeliveryOrderStatusConfirmed, confirmed.Status)
+	assert.NotNil(t, confirmed.ConfirmedAt)
+	assert.Equal(t, int64(100), *confirmed.ConfirmedBy)
+
+	// Step 3: Mark as shipped (in transit)
+	shipReq := MarkInTransitRequest{
+		ID:             doID,
+		ActualShipDate: ptr(time.Now()),
+		TrackingNumber: ptr("TRACK-12345"),
+		Carrier:        ptr("FedEx"),
+	}
+
+	err = s.service.MarkInTransit(s.ctx, shipReq, 100)
+	require.NoError(t, err)
+
+	// Verify status changed to IN_TRANSIT
+	inTransit := s.repo.deliveryOrders[doID]
+	assert.Equal(t, DeliveryOrderStatusInTransit, inTransit.Status)
+	assert.NotNil(t, inTransit.ActualShipDate)
+	assert.Equal(t, "TRACK-12345", *inTransit.TrackingNumber)
+	assert.Equal(t, "FedEx", *inTransit.Carrier)
+	assert.NotNil(t, inTransit.ShippedAt)
+	assert.Equal(t, int64(100), *inTransit.ShippedBy)
+
+	// Step 4: Mark as delivered (complete)
+	deliverReq := MarkDeliveredRequest{
+		ID:                 doID,
+		ActualDeliveryDate: ptr(time.Now()),
+		ReceivedBy:         ptr("John Doe"),
+		DeliveryNotes:      ptr("Delivered successfully, all items intact"),
+	}
+
+	err = s.service.MarkDelivered(s.ctx, deliverReq, 100)
+	require.NoError(t, err)
+
+	// Verify final status is DELIVERED
+	delivered := s.repo.deliveryOrders[doID]
+	assert.Equal(t, DeliveryOrderStatusDelivered, delivered.Status)
+	assert.NotNil(t, delivered.ActualDeliveryDate)
+	assert.Equal(t, "John Doe", *delivered.ReceivedBy)
+	assert.Equal(t, "Delivered successfully, all items intact", *delivered.DeliveryNotes)
+	assert.NotNil(t, delivered.DeliveredAt)
+	assert.Equal(t, int64(100), *delivered.DeliveredBy)
+
+	// Verify sales order quantities were updated
+	assert.True(t, s.repo.soQuantitiesUpdated, "Sales order quantities should be updated")
+}
+
+// ============================================================================
+// TEST SCENARIO 2: Partial Delivery Workflow
+// ============================================================================
+
+// TestPartialDeliveryWorkflow tests delivering only part of an order
+func (s *DeliveryIntegrationTestSuite) TestPartialDeliveryWorkflow() {
+	t := s.T()
+
+	// Setup: Sales order with 100 units ordered
+	salesOrderID := int64(1002)
+	s.repo.salesOrders[salesOrderID] = &mockSalesOrderDetails{
+		ID:        salesOrderID,
+		DocNumber: "SO-202501-0002",
+		CompanyID: 1,
+		Status:    "CONFIRMED",
+	}
+	s.repo.deliverableLines[salesOrderID] = []DeliverableSOLine{
+		{
+			SOLineID:          3,
+			ProductID:         103,
+			ProductCode:       "WIDGET-C",
+			ProductName:       "Standard Widget C",
+			OrderedQuantity:   100.0,
+			DeliveredQuantity: 0.0,
+			RemainingQuantity: 100.0,
+			UOM:               "PCS",
+			UnitPrice:         100.00,
+		},
+	}
+	s.repo.warehouseExists[1] = true
+
+	// Create first delivery order for 60 units
+	createReq1 := CreateDeliveryOrderRequest{
+		SalesOrderID: salesOrderID,
+		WarehouseID:  1,
+		CompanyID:    1,
+		PlannedDate:  time.Now().AddDate(0, 0, 1),
+		Lines: []CreateDeliveryOrderLineReq{
+			{
+				SOLineID:  3,
+				ProductID: 103,
+				Quantity:  60.0,
+				UOM:       "PCS",
+			},
+		},
+	}
+
+	do1, err := s.service.CreateDeliveryOrder(s.ctx, createReq1, 100)
+	require.NoError(t, err)
+	assert.Equal(t, 60.0, do1.Lines[0].Quantity)
+
+	// Complete first delivery
+	err = s.service.ConfirmDeliveryOrder(s.ctx, ConfirmDeliveryOrderRequest{ID: do1.ID}, 100)
+	require.NoError(t, err)
+	err = s.service.MarkInTransit(s.ctx, MarkInTransitRequest{ID: do1.ID}, 100)
+	require.NoError(t, err)
+	err = s.service.MarkDelivered(s.ctx, MarkDeliveredRequest{ID: do1.ID}, 100)
+	require.NoError(t, err)
+
+	// Update deliverable quantities to reflect first delivery
+	s.repo.deliverableLines[salesOrderID][0].DeliveredQuantity = 60.0
+	s.repo.deliverableLines[salesOrderID][0].RemainingQuantity = 40.0
+
+	// Create second delivery order for remaining 40 units
+	createReq2 := CreateDeliveryOrderRequest{
+		SalesOrderID: salesOrderID,
+		WarehouseID:  1,
+		CompanyID:    1,
+		PlannedDate:  time.Now().AddDate(0, 0, 5),
+		Lines: []CreateDeliveryOrderLineReq{
+			{
+				SOLineID:  3,
+				ProductID: 103,
+				Quantity:  40.0,
+				UOM:       "PCS",
+			},
+		},
+	}
+
+	do2, err := s.service.CreateDeliveryOrder(s.ctx, createReq2, 100)
+	require.NoError(t, err)
+	assert.Equal(t, 40.0, do2.Lines[0].Quantity)
+
+	// Verify both delivery orders exist
+	assert.Contains(t, s.repo.deliveryOrders, do1.ID)
+	assert.Contains(t, s.repo.deliveryOrders, do2.ID)
+}
+
+// ============================================================================
+// TEST SCENARIO 3: Cancellation Workflow
+// ============================================================================
+
+// TestCancellationWorkflow tests cancelling a delivery order
+func (s *DeliveryIntegrationTestSuite) TestCancellationWorkflow() {
+	t := s.T()
+
+	// Setup
+	salesOrderID := int64(1003)
+	s.repo.salesOrders[salesOrderID] = &mockSalesOrderDetails{
+		ID:        salesOrderID,
+		DocNumber: "SO-202501-0003",
+		CompanyID: 1,
+		Status:    "CONFIRMED",
+	}
+	s.repo.deliverableLines[salesOrderID] = []DeliverableSOLine{
+		{
+			SOLineID:          4,
+			ProductID:         104,
+			ProductCode:       "WIDGET-D",
+			ProductName:       "Economy Widget D",
+			OrderedQuantity:   75.0,
+			DeliveredQuantity: 0.0,
+			RemainingQuantity: 75.0,
+			UOM:               "PCS",
+			UnitPrice:         80.00,
+		},
+	}
+	s.repo.warehouseExists[1] = true
+
+	// Create delivery order
+	createReq := CreateDeliveryOrderRequest{
+		SalesOrderID: salesOrderID,
+		WarehouseID:  1,
+		CompanyID:    1,
+		PlannedDate:  time.Now().AddDate(0, 0, 3),
+		Lines: []CreateDeliveryOrderLineReq{
+			{
+				SOLineID:  4,
+				ProductID: 104,
+				Quantity:  75.0,
+				UOM:       "PCS",
+			},
+		},
+	}
+
+	do, err := s.service.CreateDeliveryOrder(s.ctx, createReq, 100)
+	require.NoError(t, err)
+
+	// Confirm delivery order
+	err = s.service.ConfirmDeliveryOrder(s.ctx, ConfirmDeliveryOrderRequest{ID: do.ID}, 100)
+	require.NoError(t, err)
+
+	// Cancel delivery order
+	cancelReq := CancelDeliveryOrderRequest{
+		ID:                 do.ID,
+		CancellationReason: "Customer requested cancellation",
+	}
+
+	err = s.service.CancelDeliveryOrder(s.ctx, cancelReq, 100)
+	require.NoError(t, err)
+
+	// Verify cancellation
+	cancelled := s.repo.deliveryOrders[do.ID]
+	assert.Equal(t, DeliveryOrderStatusCancelled, cancelled.Status)
+	assert.Equal(t, "Customer requested cancellation", *cancelled.CancellationReason)
+	assert.NotNil(t, cancelled.CancelledAt)
+	assert.Equal(t, int64(100), *cancelled.CancelledBy)
+}
+
+// ============================================================================
+// TEST SCENARIO 4: Edit Draft Delivery Order
+// ============================================================================
+
+// TestEditDraftDeliveryOrder tests updating a draft delivery order
+func (s *DeliveryIntegrationTestSuite) TestEditDraftDeliveryOrder() {
+	t := s.T()
+
+	// Setup
+	salesOrderID := int64(1004)
+	s.repo.salesOrders[salesOrderID] = &mockSalesOrderDetails{
+		ID:        salesOrderID,
+		DocNumber: "SO-202501-0004",
+		CompanyID: 1,
+		Status:    "CONFIRMED",
+	}
+	s.repo.deliverableLines[salesOrderID] = []DeliverableSOLine{
+		{
+			SOLineID:          5,
+			ProductID:         105,
+			ProductCode:       "WIDGET-E",
+			ProductName:       "Premium Widget E",
+			OrderedQuantity:   80.0,
+			DeliveredQuantity: 0.0,
+			RemainingQuantity: 80.0,
+			UOM:               "PCS",
+			UnitPrice:         200.00,
+		},
+	}
+	s.repo.warehouseExists[1] = true
+
+	// Create delivery order
+	createReq := CreateDeliveryOrderRequest{
+		SalesOrderID:  salesOrderID,
+		WarehouseID:   1,
+		CompanyID:     1,
+		PlannedDate:   time.Now().AddDate(0, 0, 5),
+		ShippingNotes: ptr("Original notes"),
+		Lines: []CreateDeliveryOrderLineReq{
+			{
+				SOLineID:  5,
+				ProductID: 105,
+				Quantity:  30.0,
+				UOM:       "PCS",
+			},
+		},
+	}
+
+	do, err := s.service.CreateDeliveryOrder(s.ctx, createReq, 100)
+	require.NoError(t, err)
+	assert.Equal(t, 30.0, do.Lines[0].Quantity)
+
+	// Update delivery order (increase quantity, change notes)
+	newPlannedDate := time.Now().AddDate(0, 0, 7)
+	updateReq := UpdateDeliveryOrderRequest{
+		ID:            do.ID,
+		PlannedDate:   newPlannedDate,
+		ShippingNotes: ptr("Updated notes - expedited shipping"),
+		Lines: []UpdateDeliveryOrderLineReq{
+			{
+				ID:        do.Lines[0].ID,
+				SOLineID:  5,
+				ProductID: 105,
+				Quantity:  50.0,
+				UOM:       "PCS",
+			},
+		},
+	}
+
+	updated, err := s.service.UpdateDeliveryOrder(s.ctx, updateReq, 100)
+	require.NoError(t, err)
+	assert.Equal(t, 50.0, updated.Lines[0].Quantity)
+	assert.Equal(t, "Updated notes - expedited shipping", *updated.ShippingNotes)
+	assert.Equal(t, newPlannedDate.Format("2006-01-02"), updated.PlannedDate.Format("2006-01-02"))
+}
+
+// ============================================================================
+// TEST SCENARIO 5: Multiple Deliveries for One Sales Order
+// ============================================================================
+
+// TestMultipleDeliveriesForOneSalesOrder tests creating multiple delivery orders
+// for the same sales order (split shipments)
+func (s *DeliveryIntegrationTestSuite) TestMultipleDeliveriesForOneSalesOrder() {
+	t := s.T()
+
+	// Setup: Sales order with multiple line items
+	salesOrderID := int64(1005)
+	s.repo.salesOrders[salesOrderID] = &mockSalesOrderDetails{
+		ID:        salesOrderID,
+		DocNumber: "SO-202501-0005",
+		CompanyID: 1,
+		Status:    "CONFIRMED",
+	}
+	s.repo.deliverableLines[salesOrderID] = []DeliverableSOLine{
+		{
+			SOLineID:          6,
+			ProductID:         106,
+			ProductCode:       "WIDGET-F",
+			ProductName:       "Widget F",
+			OrderedQuantity:   100.0,
+			DeliveredQuantity: 0.0,
+			RemainingQuantity: 100.0,
+			UOM:               "PCS",
+			UnitPrice:         120.00,
+		},
+		{
+			SOLineID:          7,
+			ProductID:         107,
+			ProductCode:       "WIDGET-G",
+			ProductName:       "Widget G",
+			OrderedQuantity:   50.0,
+			DeliveredQuantity: 0.0,
+			RemainingQuantity: 50.0,
+			UOM:               "PCS",
+			UnitPrice:         180.00,
+		},
+	}
+	s.repo.warehouseExists[1] = true
+	s.repo.warehouseExists[2] = true
+
+	// First delivery: Ship Widget F from Warehouse 1
+	createReq1 := CreateDeliveryOrderRequest{
+		SalesOrderID: salesOrderID,
+		WarehouseID:  1,
+		CompanyID:    1,
+		PlannedDate:  time.Now().AddDate(0, 0, 1),
+		Lines: []CreateDeliveryOrderLineReq{
+			{
+				SOLineID:  6,
+				ProductID: 106,
+				Quantity:  100.0,
+				UOM:       "PCS",
+			},
+		},
+	}
+
+	do1, err := s.service.CreateDeliveryOrder(s.ctx, createReq1, 100)
+	require.NoError(t, err)
+	assert.Len(t, do1.Lines, 1)
+
+	// Second delivery: Ship Widget G from Warehouse 2
+	createReq2 := CreateDeliveryOrderRequest{
+		SalesOrderID: salesOrderID,
+		WarehouseID:  2,
+		CompanyID:    1,
+		PlannedDate:  time.Now().AddDate(0, 0, 3),
+		Lines: []CreateDeliveryOrderLineReq{
+			{
+				SOLineID:  7,
+				ProductID: 107,
+				Quantity:  50.0,
+				UOM:       "PCS",
+			},
+		},
+	}
+
+	do2, err := s.service.CreateDeliveryOrder(s.ctx, createReq2, 100)
+	require.NoError(t, err)
+	assert.Len(t, do2.Lines, 1)
+
+	// Verify both deliveries exist and are for the same sales order
+	assert.Equal(t, salesOrderID, do1.SalesOrderID)
+	assert.Equal(t, salesOrderID, do2.SalesOrderID)
+	assert.NotEqual(t, do1.ID, do2.ID)
+	assert.NotEqual(t, do1.WarehouseID, do2.WarehouseID)
+
+	// List deliveries by sales order
+	list, err := s.service.ListDeliveryOrdersBySalesOrder(s.ctx, salesOrderID)
+	require.NoError(t, err)
+	assert.Len(t, list, 2)
+}
+
+// ============================================================================
+// TEST SCENARIO 6: Validation Errors
+// ============================================================================
+
+// TestValidationErrors tests various validation scenarios
+func (s *DeliveryIntegrationTestSuite) TestValidationErrors() {
+	t := s.T()
+
+	// Setup valid sales order
+	salesOrderID := int64(1006)
+	s.repo.salesOrders[salesOrderID] = &mockSalesOrderDetails{
+		ID:        salesOrderID,
+		DocNumber: "SO-202501-0006",
+		CompanyID: 1,
+		Status:    "CONFIRMED",
+	}
+	s.repo.deliverableLines[salesOrderID] = []DeliverableSOLine{
+		{
+			SOLineID:          8,
+			ProductID:         108,
+			OrderedQuantity:   50.0,
+			DeliveredQuantity: 0.0,
+			RemainingQuantity: 50.0,
+			UOM:               "PCS",
+			UnitPrice:         100.00,
+		},
+	}
+	s.repo.warehouseExists[1] = true
+
+	// Test 1: Cannot create delivery for non-existent sales order
+	_, err := s.service.CreateDeliveryOrder(s.ctx, CreateDeliveryOrderRequest{
+		SalesOrderID: 9999,
+		WarehouseID:  1,
+		CompanyID:    1,
+		PlannedDate:  time.Now(),
+		Lines:        []CreateDeliveryOrderLineReq{},
+	}, 100)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "sales order not found")
+
+	// Test 2: Cannot create delivery for DRAFT sales order
+	draftSOID := int64(2001)
+	s.repo.salesOrders[draftSOID] = &mockSalesOrderDetails{
+		ID:        draftSOID,
+		DocNumber: "SO-202501-DRAFT",
+		CompanyID: 1,
+		Status:    "DRAFT",
+	}
+	_, err = s.service.CreateDeliveryOrder(s.ctx, CreateDeliveryOrderRequest{
+		SalesOrderID: draftSOID,
+		WarehouseID:  1,
+		CompanyID:    1,
+		PlannedDate:  time.Now(),
+		Lines:        []CreateDeliveryOrderLineReq{},
+	}, 100)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "must be CONFIRMED or PROCESSING")
+
+	// Test 3: Cannot create delivery with non-existent warehouse
+	_, err = s.service.CreateDeliveryOrder(s.ctx, CreateDeliveryOrderRequest{
+		SalesOrderID: salesOrderID,
+		WarehouseID:  9999,
+		CompanyID:    1,
+		PlannedDate:  time.Now(),
+		Lines: []CreateDeliveryOrderLineReq{
+			{
+				SOLineID:  8,
+				ProductID: 108,
+				Quantity:  10.0,
+				UOM:       "PCS",
+			},
+		},
+	}, 100)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "warehouse not found")
+
+	// Test 4: Cannot deliver more than available quantity
+	_, err = s.service.CreateDeliveryOrder(s.ctx, CreateDeliveryOrderRequest{
+		SalesOrderID: salesOrderID,
+		WarehouseID:  1,
+		CompanyID:    1,
+		PlannedDate:  time.Now(),
+		Lines: []CreateDeliveryOrderLineReq{
+			{
+				SOLineID:  8,
+				ProductID: 108,
+				Quantity:  100.0, // Only 50 available
+				UOM:       "PCS",
+			},
+		},
+	}, 100)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "exceeds remaining")
+}
+
+// ============================================================================
+// TEST SCENARIO 7: Status Transition Validation
+// ============================================================================
+
+// TestStatusTransitionValidation tests that only valid status transitions are allowed
+func (s *DeliveryIntegrationTestSuite) TestStatusTransitionValidation() {
+	t := s.T()
+
+	// Setup
+	salesOrderID := int64(1007)
+	s.repo.salesOrders[salesOrderID] = &mockSalesOrderDetails{
+		ID:        salesOrderID,
+		DocNumber: "SO-202501-0007",
+		CompanyID: 1,
+		Status:    "CONFIRMED",
+	}
+	s.repo.deliverableLines[salesOrderID] = []DeliverableSOLine{
+		{
+			SOLineID:          9,
+			ProductID:         109,
+			OrderedQuantity:   30.0,
+			DeliveredQuantity: 0.0,
+			RemainingQuantity: 30.0,
+			UOM:               "PCS",
+			UnitPrice:         150.00,
+		},
+	}
+	s.repo.warehouseExists[1] = true
+
+	// Create delivery order (DRAFT)
+	do, err := s.service.CreateDeliveryOrder(s.ctx, CreateDeliveryOrderRequest{
+		SalesOrderID: salesOrderID,
+		WarehouseID:  1,
+		CompanyID:    1,
+		PlannedDate:  time.Now(),
+		Lines: []CreateDeliveryOrderLineReq{
+			{
+				SOLineID:  9,
+				ProductID: 109,
+				Quantity:  30.0,
+				UOM:       "PCS",
+			},
+		},
+	}, 100)
+	require.NoError(t, err)
+
+	// Test: Cannot ship without confirming first
+	err = s.service.MarkInTransit(s.ctx, MarkInTransitRequest{ID: do.ID}, 100)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "must be CONFIRMED")
+
+	// Test: Cannot deliver without confirming first
+	err = s.service.MarkDelivered(s.ctx, MarkDeliveredRequest{ID: do.ID}, 100)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "must be IN_TRANSIT")
+
+	// Now confirm and verify valid transitions
+	err = s.service.ConfirmDeliveryOrder(s.ctx, ConfirmDeliveryOrderRequest{ID: do.ID}, 100)
+	require.NoError(t, err)
+
+	// Now ship should work
+	err = s.service.MarkInTransit(s.ctx, MarkInTransitRequest{ID: do.ID}, 100)
+	require.NoError(t, err)
+
+	// Test: Cannot confirm already shipped order
+	err = s.service.ConfirmDeliveryOrder(s.ctx, ConfirmDeliveryOrderRequest{ID: do.ID}, 100)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "must be DRAFT")
+}
+
+// ============================================================================
+// TEST SCENARIO 8: Concurrent Operations
+// ============================================================================
+
+// TestConcurrentOperations tests that multiple operations don't interfere
+func (s *DeliveryIntegrationTestSuite) TestConcurrentOperations() {
+	t := s.T()
+
+	// Setup multiple sales orders
+	for i := int64(2001); i <= 2005; i++ {
+		s.repo.salesOrders[i] = &mockSalesOrderDetails{
+			ID:        i,
+			DocNumber: "SO-CONCURRENT-" + string(rune(i)),
+			CompanyID: 1,
+			Status:    "CONFIRMED",
+		}
+		s.repo.deliverableLines[i] = []DeliverableSOLine{
+			{
+				SOLineID:          i * 10,
+				ProductID:         i * 10,
+				OrderedQuantity:   100.0,
+				DeliveredQuantity: 0.0,
+				RemainingQuantity: 100.0,
+				UOM:               "PCS",
+				UnitPrice:         100.00,
+			},
+		}
+	}
+	s.repo.warehouseExists[1] = true
+
+	// Create delivery orders for all sales orders
+	deliveryOrders := make([]*DeliveryOrder, 0, 5)
+	for soID := int64(2001); soID <= 2005; soID++ {
+		do, err := s.service.CreateDeliveryOrder(s.ctx, CreateDeliveryOrderRequest{
+			SalesOrderID: soID,
+			WarehouseID:  1,
+			CompanyID:    1,
+			PlannedDate:  time.Now(),
+			Lines: []CreateDeliveryOrderLineReq{
+				{
+					SOLineID:  soID * 10,
+					ProductID: soID * 10,
+					Quantity:  50.0,
+					UOM:       "PCS",
+				},
+			},
+		}, 100)
+		require.NoError(t, err)
+		deliveryOrders = append(deliveryOrders, do)
+	}
+
+	// Verify all were created successfully
+	assert.Len(t, deliveryOrders, 5)
+	assert.Len(t, s.repo.deliveryOrders, 5)
+
+	// Verify each has unique document number
+	docNumbers := make(map[string]bool)
+	for _, do := range deliveryOrders {
+		assert.False(t, docNumbers[do.DocNumber], "Duplicate document number: "+do.DocNumber)
+		docNumbers[do.DocNumber] = true
+	}
+}
+
+// ============================================================================
+// TEST SCENARIO 9: Listing and Filtering
+// ============================================================================
+
+// TestListingAndFiltering tests the list functionality with various filters
+func (s *DeliveryIntegrationTestSuite) TestListingAndFiltering() {
+	t := s.T()
+
+	// Setup multiple delivery orders with different statuses
+	salesOrderID := int64(3001)
+	s.repo.salesOrders[salesOrderID] = &mockSalesOrderDetails{
+		ID:        salesOrderID,
+		DocNumber: "SO-202501-LIST",
+		CompanyID: 1,
+		Status:    "CONFIRMED",
+	}
+	s.repo.deliverableLines[salesOrderID] = []DeliverableSOLine{
+		{
+			SOLineID:          301,
+			ProductID:         301,
+			OrderedQuantity:   100.0,
+			DeliveredQuantity: 0.0,
+			RemainingQuantity: 100.0,
+			UOM:               "PCS",
+			UnitPrice:         100.00,
+		},
+	}
+	s.repo.warehouseExists[1] = true
+
+	// Create multiple delivery orders
+	for i := 0; i < 3; i++ {
+		_, err := s.service.CreateDeliveryOrder(s.ctx, CreateDeliveryOrderRequest{
+			SalesOrderID: salesOrderID,
+			WarehouseID:  1,
+			CompanyID:    1,
+			PlannedDate:  time.Now().AddDate(0, 0, i),
+			Lines: []CreateDeliveryOrderLineReq{
+				{
+					SOLineID:  301,
+					ProductID: 301,
+					Quantity:  10.0,
+					UOM:       "PCS",
+				},
+			},
+		}, 100)
+		require.NoError(t, err)
+	}
+
+	// List all delivery orders
+	allDOs, total, err := s.service.ListDeliveryOrders(s.ctx, ListDeliveryOrdersRequest{
+		CompanyID: 1,
+		Page:      1,
+		PageSize:  10,
+	})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(allDOs), 3)
+	assert.GreaterOrEqual(t, total, 3)
+
+	// Filter by status (DRAFT)
+	draftDOs, draftTotal, err := s.service.ListDeliveryOrders(s.ctx, ListDeliveryOrdersRequest{
+		CompanyID: 1,
+		Status:    ptr(DeliveryOrderStatusDraft),
+		Page:      1,
+		PageSize:  10,
+	})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(draftDOs), 3)
+	assert.GreaterOrEqual(t, draftTotal, 3)
+	for _, do := range draftDOs {
+		assert.Equal(t, DeliveryOrderStatusDraft, do.Status)
+	}
+}
+
+// ============================================================================
+// RUN SUITE
+// ============================================================================
+
+func TestDeliveryIntegrationSuite(t *testing.T) {
+	suite.Run(t, new(DeliveryIntegrationTestSuite))
+}
+
+// Helper function
+func ptr[T any](v T) *T {
+	return &v
+}

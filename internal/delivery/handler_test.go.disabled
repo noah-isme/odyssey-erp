@@ -1,0 +1,799 @@
+package delivery
+
+import (
+	"context"
+	"errors"
+	"io"
+	"log/slog"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"strings"
+	"testing"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+
+	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
+	"github.com/odyssey-erp/odyssey-erp/internal/shared"
+)
+
+// ============================================================================
+// MOCK SERVICE
+// ============================================================================
+
+// MockService is a mock implementation of Service for testing.
+type MockService struct {
+	mock.Mock
+}
+
+func (m *MockService) CreateDeliveryOrder(ctx context.Context, req CreateDeliveryOrderRequest, createdBy int64) (*DeliveryOrder, error) {
+	args := m.Called(ctx, req, createdBy)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*DeliveryOrder), args.Error(1)
+}
+
+func (m *MockService) GetDeliveryOrder(ctx context.Context, id int64) (*DeliveryOrder, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*DeliveryOrder), args.Error(1)
+}
+
+func (m *MockService) UpdateDeliveryOrder(ctx context.Context, id int64, req UpdateDeliveryOrderRequest) (*DeliveryOrder, error) {
+	args := m.Called(ctx, id, req)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*DeliveryOrder), args.Error(1)
+}
+
+func (m *MockService) ListDeliveryOrders(ctx context.Context, req ListDeliveryOrdersRequest) ([]DeliveryOrderWithDetails, int, error) {
+	args := m.Called(ctx, req)
+	if args.Get(0) == nil {
+		return nil, 0, args.Error(2)
+	}
+	return args.Get(0).([]DeliveryOrderWithDetails), args.Int(1), args.Error(2)
+}
+
+func (m *MockService) ConfirmDeliveryOrder(ctx context.Context, id int64, confirmedBy int64) (*DeliveryOrder, error) {
+	args := m.Called(ctx, id, confirmedBy)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*DeliveryOrder), args.Error(1)
+}
+
+func (m *MockService) MarkInTransit(ctx context.Context, id int64, req MarkInTransitRequest) (*DeliveryOrder, error) {
+	args := m.Called(ctx, id, req)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*DeliveryOrder), args.Error(1)
+}
+
+func (m *MockService) MarkDelivered(ctx context.Context, id int64, req MarkDeliveredRequest) (*DeliveryOrder, error) {
+	args := m.Called(ctx, id, req)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*DeliveryOrder), args.Error(1)
+}
+
+func (m *MockService) CancelDeliveryOrder(ctx context.Context, id int64, req CancelDeliveryOrderRequest) (*DeliveryOrder, error) {
+	args := m.Called(ctx, id, req)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*DeliveryOrder), args.Error(1)
+}
+
+// ============================================================================
+// MOCK TEMPLATE ENGINE
+// ============================================================================
+
+// MockTemplateEngine is a mock implementation of view.Engine for testing.
+type MockTemplateEngine struct {
+	mock.Mock
+}
+
+func (m *MockTemplateEngine) Render(w http.ResponseWriter, template string, data interface{}) error {
+	args := m.Called(w, template, data)
+	return args.Error(0)
+}
+
+// ============================================================================
+// MOCK CSRF MANAGER
+// ============================================================================
+
+// MockCSRFManager is a mock implementation of shared.CSRFManager for testing.
+type MockCSRFManager struct {
+	mock.Mock
+}
+
+func (m *MockCSRFManager) EnsureToken(ctx context.Context, sess *shared.Session) (string, error) {
+	args := m.Called(ctx, sess)
+	return args.String(0), args.Error(1)
+}
+
+func (m *MockCSRFManager) VerifyToken(ctx context.Context, sess *shared.Session, token string) error {
+	args := m.Called(ctx, sess, token)
+	return args.Error(0)
+}
+
+// ============================================================================
+// MOCK SESSION MANAGER
+// ============================================================================
+
+// MockSessionManager is a mock implementation of shared.SessionManager for testing.
+type MockSessionManager struct {
+	mock.Mock
+}
+
+func (m *MockSessionManager) GetFlash(ctx context.Context, key string) string {
+	args := m.Called(ctx, key)
+	return args.String(0)
+}
+
+func (m *MockSessionManager) SetFlash(ctx context.Context, key, value string) {
+	m.Called(ctx, key, value)
+}
+
+// ============================================================================
+// MOCK RBAC MIDDLEWARE
+// ============================================================================
+
+type mockRBACMiddleware struct{}
+
+func newMockRBACMiddleware() rbac.Middleware {
+	return mockRBACMiddleware{}
+}
+
+func (m mockRBACMiddleware) RequireAny(permissions ...string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return next
+	}
+}
+
+func (m mockRBACMiddleware) RequireAll(permissions ...string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return next
+	}
+}
+
+// ============================================================================
+// TEST HELPERS
+// ============================================================================
+
+// Helper function to create a test handler with mocks.
+func setupTestHandler() (*Handler, *MockService, *MockTemplateEngine, *MockCSRFManager, *MockSessionManager) {
+	mockService := new(MockService)
+	mockTemplates := new(MockTemplateEngine)
+	mockCSRF := new(MockCSRFManager)
+	mockSessions := new(MockSessionManager)
+	mockRBAC := newMockRBACMiddleware()
+
+	testLogger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	handler := NewHandler(
+		testLogger,
+		mockService,
+		mockTemplates,
+		mockCSRF,
+		mockSessions,
+		mockRBAC,
+	)
+
+	return handler, mockService, mockTemplates, mockCSRF, mockSessions
+}
+
+// Helper function to create a test request with context values.
+func newTestRequest(method, url string, body string) *http.Request {
+	var reqBody *strings.Reader
+	if body != "" {
+		reqBody = strings.NewReader(body)
+	} else {
+		reqBody = strings.NewReader("")
+	}
+
+	req := httptest.NewRequest(method, url, reqBody)
+	if method == "POST" {
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	}
+
+	// Add context values
+	ctx := req.Context()
+	ctx = context.WithValue(ctx, "user_id", int64(1))
+	ctx = context.WithValue(ctx, "company_id", int64(100))
+	return req.WithContext(ctx)
+}
+
+// ============================================================================
+// TESTS
+// ============================================================================
+
+// TestNewHandler tests Handler construction.
+func TestNewHandler(t *testing.T) {
+	handler, _, _, _, _ := setupTestHandler()
+	assert.NotNil(t, handler)
+	assert.NotNil(t, handler.logger)
+	assert.NotNil(t, handler.service)
+	assert.NotNil(t, handler.templates)
+	assert.NotNil(t, handler.csrf)
+	assert.NotNil(t, handler.sessions)
+	assert.NotNil(t, handler.rbac)
+}
+
+// TestMountRoutes tests route registration.
+func TestMountRoutes(t *testing.T) {
+	handler, _, _, _, _ := setupTestHandler()
+	router := chi.NewRouter()
+	handler.MountRoutes(router)
+
+	// Verify router is not nil and routes are registered
+	assert.NotNil(t, router)
+}
+
+// TestListDeliveryOrders tests listing delivery orders.
+func TestListDeliveryOrders(t *testing.T) {
+	handler, mockService, mockTemplates, _, mockSessions := setupTestHandler()
+
+	t.Run("success", func(t *testing.T) {
+		mockSessions.On("GetFlash", mock.Anything, "success").Return("")
+		mockSessions.On("GetFlash", mock.Anything, "error").Return("")
+
+		orders := []DeliveryOrderWithDetails{
+			{
+				ID:             1,
+				DocumentNumber: "DO-001",
+				SalesOrderID:   100,
+				Status:         DeliveryOrderStatusDraft,
+			},
+		}
+
+		mockService.On("ListDeliveryOrders", mock.Anything, mock.AnythingOfType("ListDeliveryOrdersRequest")).
+			Return(orders, 1, nil)
+
+		mockTemplates.On("Render", mock.Anything, "delivery/list", mock.Anything).
+			Return(nil)
+
+		req := newTestRequest("GET", "/delivery-orders", "")
+		w := httptest.NewRecorder()
+
+		handler.listDeliveryOrders(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		mockService.AssertExpectations(t)
+		mockTemplates.AssertExpectations(t)
+	})
+
+	t.Run("with filters", func(t *testing.T) {
+		mockSessions.On("GetFlash", mock.Anything, "success").Return("")
+		mockSessions.On("GetFlash", mock.Anything, "error").Return("")
+
+		orders := []DeliveryOrderWithDetails{}
+
+		mockService.On("ListDeliveryOrders", mock.Anything, mock.MatchedBy(func(r ListDeliveryOrdersRequest) bool {
+			return r.Status != nil && *r.Status == DeliveryOrderStatusConfirmed
+		})).Return(orders, 0, nil)
+
+		mockTemplates.On("Render", mock.Anything, "delivery/list", mock.Anything).
+			Return(nil)
+
+		req := newTestRequest("GET", "/delivery-orders?status=confirmed&page=2", "")
+		w := httptest.NewRecorder()
+
+		handler.listDeliveryOrders(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		mockService.AssertExpectations(t)
+		mockTemplates.AssertExpectations(t)
+	})
+
+	t.Run("service error", func(t *testing.T) {
+		mockService.On("ListDeliveryOrders", mock.Anything, mock.AnythingOfType("ListDeliveryOrdersRequest")).
+			Return(nil, 0, errors.New("database error"))
+
+		req := newTestRequest("GET", "/delivery-orders", "")
+		w := httptest.NewRecorder()
+
+		handler.listDeliveryOrders(w, req)
+
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+		mockService.AssertExpectations(t)
+	})
+}
+
+// TestShowDeliveryOrder tests showing a single delivery order.
+func TestShowDeliveryOrder(t *testing.T) {
+	handler, mockService, mockTemplates, _, mockSessions := setupTestHandler()
+
+	t.Run("success", func(t *testing.T) {
+		mockSessions.On("GetFlash", mock.Anything, "success").Return("")
+		mockSessions.On("GetFlash", mock.Anything, "error").Return("")
+
+		order := &DeliveryOrder{
+			ID:             1,
+			DocumentNumber: "DO-001",
+			SalesOrderID:   100,
+			Status:         DOStatusDraft,
+		}
+
+		mockService.On("GetDeliveryOrder", mock.Anything, int64(1)).
+			Return(order, nil)
+
+		mockTemplates.On("Render", mock.Anything, "delivery/detail", mock.Anything).
+			Return(nil)
+
+		req := newTestRequest("GET", "/delivery-orders/1", "")
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+		w := httptest.NewRecorder()
+
+		handler.showDeliveryOrder(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		mockService.AssertExpectations(t)
+		mockTemplates.AssertExpectations(t)
+	})
+
+	t.Run("invalid id", func(t *testing.T) {
+		req := newTestRequest("GET", "/delivery-orders/invalid", "")
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("id", "invalid")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+		w := httptest.NewRecorder()
+
+		handler.showDeliveryOrder(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		mockService.On("GetDeliveryOrder", mock.Anything, int64(999)).
+			Return(nil, ErrDeliveryOrderNotFound)
+
+		req := newTestRequest("GET", "/delivery-orders/999", "")
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("id", "999")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+		w := httptest.NewRecorder()
+
+		handler.showDeliveryOrder(w, req)
+
+		assert.Equal(t, http.StatusNotFound, w.Code)
+		mockService.AssertExpectations(t)
+	})
+
+	t.Run("service error", func(t *testing.T) {
+		mockService.On("GetDeliveryOrder", mock.Anything, int64(1)).
+			Return(nil, errors.New("database error"))
+
+		req := newTestRequest("GET", "/delivery-orders/1", "")
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+		w := httptest.NewRecorder()
+
+		handler.showDeliveryOrder(w, req)
+
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+		mockService.AssertExpectations(t)
+	})
+}
+
+// TestShowDeliveryOrderForm tests showing the create form.
+func TestShowDeliveryOrderForm(t *testing.T) {
+	handler, _, mockTemplates, mockCSRF, mockSessions := setupTestHandler()
+
+	mockSessions.On("GetFlash", mock.Anything, "success").Return("")
+	mockSessions.On("GetFlash", mock.Anything, "error").Return("")
+	mockCSRF.On("EnsureToken", mock.Anything, mock.Anything).Return("test-csrf-token", nil)
+	mockTemplates.On("Render", mock.Anything, "delivery/form", mock.Anything).
+		Return(nil)
+
+	req := newTestRequest("GET", "/delivery-orders/new", "")
+	w := httptest.NewRecorder()
+
+	handler.showDeliveryOrderForm(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	mockCSRF.AssertExpectations(t)
+	mockTemplates.AssertExpectations(t)
+}
+
+// TestCreateDeliveryOrder tests creating a delivery order.
+func TestCreateDeliveryOrder(t *testing.T) {
+	handler, mockService, mockTemplates, mockCSRF, mockSessions := setupTestHandler()
+
+	t.Run("success", func(t *testing.T) {
+		order := &DeliveryOrder{
+			ID:             1,
+			DocumentNumber: "DO-001",
+			SalesOrderID:   100,
+			Status:         DOStatusDraft,
+		}
+
+		mockService.On("CreateDeliveryOrder", mock.Anything, mock.AnythingOfType("CreateDeliveryOrderRequest"), int64(1)).
+			Return(order, nil)
+
+		mockSessions.On("SetFlash", mock.Anything, "success", "Delivery order created successfully").
+			Return()
+
+		formData := url.Values{}
+		formData.Set("sales_order_id", "100")
+		formData.Set("warehouse_id", "1")
+		formData.Set("delivery_date", "2024-01-15")
+		formData.Set("driver_name", "John Doe")
+		formData.Add("so_line_id[]", "1")
+		formData.Add("product_id[]", "10")
+		formData.Add("quantity[]", "10")
+		formData.Add("line_notes[]", "Test note")
+
+		req := newTestRequest("POST", "/delivery-orders", formData.Encode())
+		w := httptest.NewRecorder()
+
+		handler.createDeliveryOrder(w, req)
+
+		assert.Equal(t, http.StatusSeeOther, w.Code)
+		assert.Equal(t, "/delivery-orders/1", w.Header().Get("Location"))
+		mockService.AssertExpectations(t)
+		mockSessions.AssertExpectations(t)
+	})
+
+	t.Run("invalid sales order id", func(t *testing.T) {
+		mockSessions.On("GetFlash", mock.Anything, "success").Return("")
+		mockSessions.On("GetFlash", mock.Anything, "error").Return("")
+		mockCSRF.On("EnsureToken", mock.Anything, mock.Anything).Return("test-csrf-token", nil)
+		mockTemplates.On("Render", mock.Anything, "delivery/form", mock.Anything).Return(nil)
+
+		formData := url.Values{}
+		formData.Set("sales_order_id", "invalid")
+
+		req := newTestRequest("POST", "/delivery-orders", formData.Encode())
+		w := httptest.NewRecorder()
+
+		handler.createDeliveryOrder(w, req)
+
+		// Should render form with error (status 200)
+		assert.Equal(t, http.StatusOK, w.Code)
+	})
+
+	t.Run("invalid scheduled date", func(t *testing.T) {
+		mockSessions.On("GetFlash", mock.Anything, "success").Return("")
+		mockSessions.On("GetFlash", mock.Anything, "error").Return("")
+		mockCSRF.On("EnsureToken", mock.Anything, mock.Anything).Return("test-csrf-token", nil)
+		mockTemplates.On("Render", mock.Anything, "delivery/form", mock.Anything).Return(nil)
+
+		formData := url.Values{}
+		formData.Set("sales_order_id", "100")
+		formData.Set("scheduled_date", "invalid-date")
+
+		req := newTestRequest("POST", "/delivery-orders", formData.Encode())
+		w := httptest.NewRecorder()
+
+		handler.createDeliveryOrder(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+	})
+
+	t.Run("no line items", func(t *testing.T) {
+		mockSessions.On("GetFlash", mock.Anything, "success").Return("")
+		mockSessions.On("GetFlash", mock.Anything, "error").Return("")
+		mockCSRF.On("EnsureToken", mock.Anything, mock.Anything).Return("test-csrf-token", nil)
+		mockTemplates.On("Render", mock.Anything, "delivery/form", mock.Anything).Return(nil)
+
+		formData := url.Values{}
+		formData.Set("sales_order_id", "100")
+		formData.Set("scheduled_date", "2024-01-15")
+
+		req := newTestRequest("POST", "/delivery-orders", formData.Encode())
+		w := httptest.NewRecorder()
+
+		handler.createDeliveryOrder(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+	})
+
+	t.Run("service error", func(t *testing.T) {
+		mockSessions.On("GetFlash", mock.Anything, "success").Return("")
+		mockSessions.On("GetFlash", mock.Anything, "error").Return("")
+		mockCSRF.On("EnsureToken", mock.Anything, mock.Anything).Return("test-csrf-token", nil)
+		mockTemplates.On("Render", mock.Anything, "delivery/form", mock.Anything).Return(nil)
+
+		mockService.On("CreateDeliveryOrder", mock.Anything, mock.AnythingOfType("CreateDeliveryOrderRequest"), int64(1)).
+			Return(nil, errors.New("business rule violation"))
+
+		formData := url.Values{}
+		formData.Set("sales_order_id", "100")
+		formData.Set("warehouse_id", "1")
+		formData.Set("delivery_date", "2024-01-15")
+		formData.Add("so_line_id[]", "1")
+		formData.Add("product_id[]", "10")
+		formData.Add("quantity[]", "10")
+
+		req := newTestRequest("POST", "/delivery-orders", formData.Encode())
+		w := httptest.NewRecorder()
+
+		handler.createDeliveryOrder(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		mockService.AssertExpectations(t)
+	})
+}
+
+// TestConfirmDeliveryOrder tests confirming a delivery order.
+func TestConfirmDeliveryOrder(t *testing.T) {
+	handler, mockService, _, _, mockSessions := setupTestHandler()
+
+	t.Run("success", func(t *testing.T) {
+		order := &DeliveryOrder{
+			ID:             1,
+			DocumentNumber: "DO-001",
+			Status:         DOStatusConfirmed,
+		}
+
+		mockService.On("ConfirmDeliveryOrder", mock.Anything, int64(1), int64(1)).
+			Return(order, nil)
+
+		mockSessions.On("SetFlash", mock.Anything, "success", "Delivery order confirmed successfully").
+			Return()
+
+		req := newTestRequest("POST", "/delivery-orders/1/confirm", "")
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+		w := httptest.NewRecorder()
+
+		handler.confirmDeliveryOrder(w, req)
+
+		assert.Equal(t, http.StatusSeeOther, w.Code)
+		assert.Equal(t, "/delivery-orders/1", w.Header().Get("Location"))
+		mockService.AssertExpectations(t)
+		mockSessions.AssertExpectations(t)
+	})
+
+	t.Run("service error", func(t *testing.T) {
+		mockService.On("ConfirmDeliveryOrder", mock.Anything, int64(1), int64(1)).
+			Return(nil, errors.New("invalid status transition"))
+
+		mockSessions.On("SetFlash", mock.Anything, "success", "Failed to confirm: invalid status transition").
+			Return()
+
+		req := newTestRequest("POST", "/delivery-orders/1/confirm", "")
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+		w := httptest.NewRecorder()
+
+		handler.confirmDeliveryOrder(w, req)
+
+		assert.Equal(t, http.StatusSeeOther, w.Code)
+		mockService.AssertExpectations(t)
+		mockSessions.AssertExpectations(t)
+	})
+}
+
+// TestShipDeliveryOrder tests shipping a delivery order.
+func TestShipDeliveryOrder(t *testing.T) {
+	handler, mockService, _, _, mockSessions := setupTestHandler()
+
+	t.Run("success", func(t *testing.T) {
+		order := &DeliveryOrder{
+			ID:             1,
+			DocumentNumber: "DO-001",
+			Status:         DOStatusInTransit,
+		}
+
+		mockService.On("MarkInTransit", mock.Anything, int64(1), mock.MatchedBy(func(r MarkInTransitRequest) bool {
+			return r.TrackingNumber != nil && *r.TrackingNumber == "TRACK123"
+		})).Return(order, nil)
+
+		mockSessions.On("SetFlash", mock.Anything, "success", "Delivery order shipped successfully").
+			Return()
+
+		formData := url.Values{}
+		formData.Set("tracking_number", "TRACK123")
+
+		req := newTestRequest("POST", "/delivery-orders/1/ship", formData.Encode())
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+		w := httptest.NewRecorder()
+
+		handler.shipDeliveryOrder(w, req)
+
+		assert.Equal(t, http.StatusSeeOther, w.Code)
+		mockService.AssertExpectations(t)
+		mockSessions.AssertExpectations(t)
+	})
+}
+
+// TestCompleteDeliveryOrder tests completing a delivery order.
+func TestCompleteDeliveryOrder(t *testing.T) {
+	handler, mockService, _, _, mockSessions := setupTestHandler()
+
+	t.Run("success", func(t *testing.T) {
+		order := &DeliveryOrder{
+			ID:             1,
+			DocumentNumber: "DO-001",
+			Status:         DOStatusDelivered,
+		}
+
+		mockService.On("MarkDelivered", mock.Anything, int64(1), mock.MatchedBy(func(r MarkDeliveredRequest) bool {
+			return r.DeliveredAt.Format("2006-01-02") == "2024-01-20"
+		})).Return(order, nil)
+
+		mockSessions.On("SetFlash", mock.Anything, "success", "Delivery order completed successfully").
+			Return()
+
+		formData := url.Values{}
+		formData.Set("delivered_at", "2024-01-20")
+
+		req := newTestRequest("POST", "/delivery-orders/1/complete", formData.Encode())
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+		w := httptest.NewRecorder()
+
+		handler.completeDeliveryOrder(w, req)
+
+		assert.Equal(t, http.StatusSeeOther, w.Code)
+		mockService.AssertExpectations(t)
+		mockSessions.AssertExpectations(t)
+	})
+}
+
+// TestCancelDeliveryOrder tests cancelling a delivery order.
+func TestCancelDeliveryOrder(t *testing.T) {
+	handler, mockService, _, _, mockSessions := setupTestHandler()
+
+	t.Run("success", func(t *testing.T) {
+		order := &DeliveryOrder{
+			ID:             1,
+			DocumentNumber: "DO-001",
+			Status:         DOStatusCancelled,
+		}
+
+		mockService.On("CancelDeliveryOrder", mock.Anything, int64(1), mock.MatchedBy(func(r CancelDeliveryOrderRequest) bool {
+			return r.Reason == "Customer request"
+		})).Return(order, nil)
+
+		mockSessions.On("SetFlash", mock.Anything, "success", "Delivery order cancelled successfully").
+			Return()
+
+		formData := url.Values{}
+		formData.Set("cancellation_reason", "Customer request")
+
+		req := newTestRequest("POST", "/delivery-orders/1/cancel", formData.Encode())
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("id", "1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+		w := httptest.NewRecorder()
+
+		handler.cancelDeliveryOrder(w, req)
+
+		assert.Equal(t, http.StatusSeeOther, w.Code)
+		mockService.AssertExpectations(t)
+		mockSessions.AssertExpectations(t)
+	})
+}
+
+// TestParseDeliveryOrderLines tests parsing delivery order lines from form data.
+func TestParseDeliveryOrderLines(t *testing.T) {
+	handler, _, _, _, _ := setupTestHandler()
+
+	t.Run("success", func(t *testing.T) {
+		formData := url.Values{}
+		formData.Add("so_line_id[]", "1")
+		formData.Add("so_line_id[]", "2")
+		formData.Add("product_id[]", "10")
+		formData.Add("product_id[]", "20")
+		formData.Add("quantity[]", "10.5")
+		formData.Add("quantity[]", "20")
+		formData.Add("line_notes[]", "Note 1")
+		formData.Add("line_notes[]", "Note 2")
+
+		req := newTestRequest("POST", "/test", formData.Encode())
+		req.ParseForm()
+
+		lines, err := handler.parseDeliveryOrderLines(req)
+
+		assert.Nil(t, err)
+		assert.Len(t, lines, 2)
+		assert.Equal(t, int64(1), lines[0].SalesOrderLineID)
+		assert.Equal(t, int64(10), lines[0].ProductID)
+		assert.Equal(t, 10.5, lines[0].QuantityToDeliver)
+		assert.NotNil(t, lines[0].Notes)
+		assert.Equal(t, "Note 1", *lines[0].Notes)
+	})
+
+	t.Run("no lines", func(t *testing.T) {
+		req := newTestRequest("POST", "/test", "")
+		req.ParseForm()
+
+		lines, err := handler.parseDeliveryOrderLines(req)
+
+		assert.NotNil(t, err)
+		assert.Nil(t, lines)
+		assert.Contains(t, err, "lines")
+	})
+
+	t.Run("invalid quantity", func(t *testing.T) {
+		formData := url.Values{}
+		formData.Add("so_line_id[]", "1")
+		formData.Add("product_id[]", "10")
+		formData.Add("quantity[]", "invalid")
+
+		req := newTestRequest("POST", "/test", formData.Encode())
+		req.ParseForm()
+
+		lines, err := handler.parseDeliveryOrderLines(req)
+
+		assert.NotNil(t, err)
+		assert.Nil(t, lines)
+	})
+
+	t.Run("negative quantity", func(t *testing.T) {
+		formData := url.Values{}
+		formData.Add("so_line_id[]", "1")
+		formData.Add("product_id[]", "10")
+		formData.Add("quantity[]", "-5")
+
+		req := newTestRequest("POST", "/test", formData.Encode())
+		req.ParseForm()
+
+		lines, err := handler.parseDeliveryOrderLines(req)
+
+		assert.NotNil(t, err)
+		assert.Nil(t, lines)
+	})
+}
+
+// TestGetCurrentUserID tests retrieving user ID from context.
+func TestGetCurrentUserID(t *testing.T) {
+	handler, _, _, _, _ := setupTestHandler()
+
+	t.Run("valid user id", func(t *testing.T) {
+		req := newTestRequest("GET", "/test", "")
+		userID := handler.getCurrentUserID(req)
+		assert.Equal(t, int64(1), userID)
+	})
+
+	t.Run("no user id in context", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/test", nil)
+		userID := handler.getCurrentUserID(req)
+		assert.Equal(t, int64(0), userID)
+	})
+}
+
+// TestGetCurrentCompanyID tests retrieving company ID from context.
+func TestGetCurrentCompanyID(t *testing.T) {
+	handler, _, _, _, _ := setupTestHandler()
+
+	t.Run("valid company id", func(t *testing.T) {
+		req := newTestRequest("GET", "/test", "")
+		companyID := handler.getCurrentCompanyID(req)
+		assert.Equal(t, int64(100), companyID)
+	})
+
+	t.Run("no company id in context", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/test", nil)
+		companyID := handler.getCurrentCompanyID(req)
+		assert.Equal(t, int64(0), companyID)
+	})
+}

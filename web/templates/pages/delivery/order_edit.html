@@ -1,0 +1,272 @@
+{{ define "pages/delivery/order_edit.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Edit Delivery Order{{ end }}
+
+{{ define "content" }}
+<div class="delivery-order-edit-wrapper">
+    <header>
+        <h1>Edit Delivery Order {{ .Data.DeliveryOrder.DocumentNumber }}</h1>
+        <p>Modify delivery order details (only available for DRAFT orders)</p>
+    </header>
+
+    <!-- Flash Messages -->
+    {{ if .Flash }}
+    <article class="flash-message flash-{{ .Flash.Kind }}">
+        {{ .Flash.Message }}
+    </article>
+    {{ end }}
+
+    <!-- Validation Errors -->
+    {{ if .Data.Errors }}
+    <article class="error-summary">
+        <h4>Please correct the following errors:</h4>
+        <ul>
+            {{ range $field, $error := .Data.Errors }}
+            <li><strong>{{ $field }}:</strong> {{ $error }}</li>
+            {{ end }}
+        </ul>
+    </article>
+    {{ end }}
+
+    <form method="post" action="/delivery-orders/{{ .Data.DeliveryOrder.ID }}/edit" id="deliveryOrderEditForm">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+
+        <!-- Header Information -->
+        <section>
+            <h2>Delivery Information</h2>
+            <div class="grid">
+                <div>
+                    <label for="sales_order_id">Sales Order</label>
+                    <input
+                        type="text"
+                        id="sales_order_id"
+                        disabled
+                        value="{{ .Data.DeliveryOrder.SalesOrderNumber }} (ID: {{ .Data.DeliveryOrder.SalesOrderID }})"
+                    >
+                    <small>Sales order cannot be changed</small>
+                </div>
+                <div>
+                    <label for="warehouse">Warehouse</label>
+                    <input
+                        type="text"
+                        id="warehouse"
+                        disabled
+                        value="{{ .Data.DeliveryOrder.WarehouseName }}"
+                    >
+                    <small>Warehouse cannot be changed</small>
+                </div>
+            </div>
+
+            <div class="grid">
+                <div>
+                    <label for="delivery_date">Scheduled Delivery Date <span class="required">*</span></label>
+                    <input
+                        type="date"
+                        name="delivery_date"
+                        id="delivery_date"
+                        required
+                        value="{{ .Data.DeliveryOrder.DeliveryDate.Format "2006-01-02" }}"
+                    >
+                </div>
+                <div>
+                    <label for="driver_name">Driver Name</label>
+                    <input
+                        type="text"
+                        name="driver_name"
+                        id="driver_name"
+                        placeholder="Driver name"
+                        value="{{ if .Data.DeliveryOrder.DriverName }}{{ .Data.DeliveryOrder.DriverName }}{{ end }}"
+                    >
+                </div>
+            </div>
+
+            <div class="grid">
+                <div>
+                    <label for="vehicle_number">Vehicle Number</label>
+                    <input
+                        type="text"
+                        name="vehicle_number"
+                        id="vehicle_number"
+                        placeholder="Vehicle registration"
+                        value="{{ if .Data.DeliveryOrder.VehicleNumber }}{{ .Data.DeliveryOrder.VehicleNumber }}{{ end }}"
+                    >
+                </div>
+                <div>
+                    <label for="tracking_number">Tracking Number</label>
+                    <input
+                        type="text"
+                        name="tracking_number"
+                        id="tracking_number"
+                        placeholder="Shipment tracking number"
+                        value="{{ if .Data.DeliveryOrder.TrackingNumber }}{{ .Data.DeliveryOrder.TrackingNumber }}{{ end }}"
+                    >
+                </div>
+            </div>
+
+            <div>
+                <label for="notes">Notes</label>
+                <textarea
+                    name="notes"
+                    id="notes"
+                    rows="3"
+                    placeholder="Additional notes for this delivery"
+                >{{ if .Data.DeliveryOrder.Notes }}{{ .Data.DeliveryOrder.Notes }}{{ end }}</textarea>
+            </div>
+        </section>
+
+        <!-- Line Items -->
+        <section>
+            <h2>Items to Deliver</h2>
+            <p>Modify quantities and line items for this delivery</p>
+
+            <div id="lineItemsContainer">
+                {{ range $index, $line := .Data.DeliveryOrder.Lines }}
+                <div class="line-item" data-line-index="{{ $index }}">
+                    <div class="grid">
+                        <div>
+                            <label>SO Line ID</label>
+                            <input type="number" name="so_line_id[]" required value="{{ $line.SalesOrderLineID }}" readonly>
+                        </div>
+                        <div>
+                            <label>Product</label>
+                            <input type="text" value="{{ if $line.ProductName }}{{ $line.ProductName }}{{ else }}Product #{{ $line.ProductID }}{{ end }}" disabled>
+                            <input type="hidden" name="product_id[]" value="{{ $line.ProductID }}">
+                        </div>
+                        <div>
+                            <label>Quantity <span class="required">*</span></label>
+                            <input type="number" name="quantity[]" step="0.01" min="0.01" required value="{{ printf "%.2f" $line.Quantity }}">
+                        </div>
+                        <div>
+                            <label>Notes</label>
+                            <input type="text" name="line_notes[]" value="{{ if $line.Notes }}{{ $line.Notes }}{{ end }}">
+                        </div>
+                        <div style="display: flex; align-items: flex-end;">
+                            <button type="button" class="danger small" onclick="removeLine(this)">Remove</button>
+                        </div>
+                    </div>
+                </div>
+                {{ end }}
+            </div>
+
+            <button type="button" onclick="addLineItem()" class="secondary">+ Add Line Item</button>
+        </section>
+
+        <!-- Form Actions -->
+        <footer>
+            <div role="group">
+                <a href="/delivery-orders/{{ .Data.DeliveryOrder.ID }}" role="button" class="secondary">Cancel</a>
+                <button type="submit">Update Delivery Order</button>
+            </div>
+        </footer>
+    </form>
+</div>
+
+<style>
+.required {
+    color: #dc3545;
+}
+.error-summary {
+    background-color: #f8d7da;
+    color: #842029;
+    border: 1px solid #f5c2c7;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 0.25rem;
+}
+.error-summary h4 {
+    margin-top: 0;
+}
+.error-summary ul {
+    margin-bottom: 0;
+}
+.line-item {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 0.25rem;
+    border: 1px solid #dee2e6;
+}
+.small {
+    font-size: 0.85em;
+    padding: 0.25rem 0.5rem;
+}
+button.danger {
+    background-color: #dc3545;
+}
+.flash-message {
+    margin: 1rem 0;
+    padding: 1rem;
+    border-radius: 0.25rem;
+}
+.flash-success {
+    background-color: #d1e7dd;
+    color: #0f5132;
+    border: 1px solid #badbcc;
+}
+.flash-error {
+    background-color: #f8d7da;
+    color: #842029;
+    border: 1px solid #f5c2c7;
+}
+</style>
+
+<script>
+let lineIndex = {{ len .Data.DeliveryOrder.Lines }};
+
+function addLineItem() {
+    const container = document.getElementById('lineItemsContainer');
+    const newLine = document.createElement('div');
+    newLine.className = 'line-item';
+    newLine.setAttribute('data-line-index', lineIndex);
+    newLine.innerHTML = `
+        <div class="grid">
+            <div>
+                <label>SO Line ID <span class="required">*</span></label>
+                <input type="number" name="so_line_id[]" required placeholder="Sales order line ID">
+            </div>
+            <div>
+                <label>Product ID <span class="required">*</span></label>
+                <input type="number" name="product_id[]" required placeholder="Product ID">
+            </div>
+            <div>
+                <label>Quantity <span class="required">*</span></label>
+                <input type="number" name="quantity[]" step="0.01" min="0.01" required placeholder="Qty to deliver">
+            </div>
+            <div>
+                <label>Notes</label>
+                <input type="text" name="line_notes[]" placeholder="Line notes">
+            </div>
+            <div style="display: flex; align-items: flex-end;">
+                <button type="button" class="danger small" onclick="removeLine(this)">Remove</button>
+            </div>
+        </div>
+    `;
+    container.appendChild(newLine);
+    lineIndex++;
+}
+
+function removeLine(button) {
+    const container = document.getElementById('lineItemsContainer');
+    const lineItems = container.querySelectorAll('.line-item');
+
+    // Keep at least one line item
+    if (lineItems.length > 1) {
+        button.closest('.line-item').remove();
+    } else {
+        alert('At least one line item is required');
+    }
+}
+
+// Form validation
+document.getElementById('deliveryOrderEditForm').addEventListener('submit', function(e) {
+    const lineItems = document.querySelectorAll('.line-item');
+    if (lineItems.length === 0) {
+        e.preventDefault();
+        alert('Please add at least one line item');
+        return false;
+    }
+});
+</script>
+{{ end }}
