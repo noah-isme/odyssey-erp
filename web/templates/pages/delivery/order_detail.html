@@ -1,0 +1,314 @@
+{{ define "pages/delivery/order_detail.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Delivery Order {{ .Data.DeliveryOrder.DocumentNumber }}{{ end }}
+
+{{ define "content" }}
+<div class="delivery-order-detail-wrapper">
+    <header>
+        <h1>Delivery Order {{ .Data.DeliveryOrder.DocumentNumber }}</h1>
+        <p>
+            Status:
+            {{ if eq .Data.DeliveryOrder.Status "DRAFT" }}<span class="badge badge-secondary">Draft</span>{{ end }}
+            {{ if eq .Data.DeliveryOrder.Status "CONFIRMED" }}<span class="badge badge-info">Confirmed</span>{{ end }}
+            {{ if eq .Data.DeliveryOrder.Status "IN_TRANSIT" }}<span class="badge badge-warning">In Transit</span>{{ end }}
+            {{ if eq .Data.DeliveryOrder.Status "DELIVERED" }}<span class="badge badge-success">Delivered</span>{{ end }}
+            {{ if eq .Data.DeliveryOrder.Status "CANCELLED" }}<span class="badge badge-danger">Cancelled</span>{{ end }}
+        </p>
+    </header>
+
+    <!-- Flash Messages -->
+    {{ if .Flash }}
+    <article class="flash-message flash-{{ .Flash.Kind }}">
+        {{ .Flash.Message }}
+    </article>
+    {{ end }}
+
+    <!-- Action Buttons -->
+    <section class="actions">
+        <div role="group">
+            <a href="/delivery-orders" role="button" class="secondary">← Back to List</a>
+
+            {{ if eq .Data.DeliveryOrder.Status "DRAFT" }}
+            <a href="/delivery-orders/{{ .Data.DeliveryOrder.ID }}/edit" role="button" class="secondary">Edit</a>
+            <form method="post" action="/delivery-orders/{{ .Data.DeliveryOrder.ID }}/confirm" style="display: inline;">
+                <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+                <button type="submit">Confirm Order</button>
+            </form>
+            {{ end }}
+
+            {{ if eq .Data.DeliveryOrder.Status "CONFIRMED" }}
+            <button type="button" onclick="showShipModal()">Mark as Shipped</button>
+            {{ end }}
+
+            {{ if eq .Data.DeliveryOrder.Status "IN_TRANSIT" }}
+            <button type="button" class="success" onclick="showDeliverModal()">Mark as Delivered</button>
+            {{ end }}
+
+            {{ if or (eq .Data.DeliveryOrder.Status "DRAFT") (eq .Data.DeliveryOrder.Status "CONFIRMED") (eq .Data.DeliveryOrder.Status "IN_TRANSIT") }}
+            <button type="button" class="danger" onclick="showCancelModal()">Cancel Order</button>
+            {{ end }}
+        </div>
+    </section>
+
+    <!-- Delivery Information -->
+    <section>
+        <h2>Delivery Information</h2>
+        <div class="grid">
+            <div>
+                <label>Document Number</label>
+                <p</label>><strong>{{ .Data.DeliveryOrder.DocumentNumber }}</strong></p>
+            </div>
+            <div>
+                <label>Sales Order</label>
+                <p><a href="/sales/orders/{{ .Data.DeliveryOrder.SalesOrderID }}">{{ .Data</p>.DeliveryOrder.SalesOrderNumber }}</a></p>
+            </div>
+            <div>
+                <label>Customer</label>
+                <p><strong>{{ .Data.DeliveryOrder.CustomerName }}</strong></p>
+            </div>
+            <div>
+                <label>Warehouse</label>
+                <p>{{ .Data.DeliveryOrder.WarehouseName }}</p>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div>
+                <label>Scheduled Delivery Date</label>
+                <p>{{ .Data.DeliveryOrder.DeliveryDate.Format "2006-01-02" }}</p>
+            </div>
+            <div>
+                <label>Driver Name</label>
+                <p>{{ if .Data.DeliveryOrder.DriverName }}{{ .Data.DeliveryOrder.DriverName }}{{ else }}-{{ end }}</p>
+            </div>
+            <div>
+                <label>Vehicle Number</label>
+                <p>{{ if .Data.DeliveryOrder.VehicleNumber }}{{ .Data.DeliveryOrder.VehicleNumber }}{{ else }}-{{ end }}</p>
+            </div>
+            <div>
+                <label>Tracking Number</label>
+                <p>{{ if .Data.DeliveryOrder.TrackingNumber }}{{ .Data.DeliveryOrder.TrackingNumber }}{{ else }}-{{ end }}</p>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div>
+                <label>Created By</label>
+                <p>{{ .Data.DeliveryOrder.CreatedByName }}</p>
+            </div>
+            <div>
+                <label>Created At</label>
+                <p>{{ .Data.DeliveryOrder.CreatedAt.Format "2006-01-02 15:04" }}</p>
+            </div>
+            <div>
+                <label>Updated At</label>
+                <p>{{ .Data.DeliveryOrder.UpdatedAt.Format "2006-01-02 15:04" }}</p>
+            </div>
+        </div>
+
+        {{ if .Data.DeliveryOrder.ConfirmedBy }}
+        <div class="grid">
+            <div>
+                <label>Confirmed By</label>
+                <p>{{ .Data.DeliveryOrder.ConfirmedByName }}</p>
+            </div>
+            <div>
+                <label>Confirmed At</label>
+                <p>{{ .Data.DeliveryOrder.ConfirmedAt.Format "2006-01-02 15:04" }}</p>
+            </div>
+        </div>
+        {{ end }}
+
+        {{ if .Data.DeliveryOrder.DeliveredAt }}
+        <div class="grid">
+            <div>
+                <label>Delivered At</label>
+                <p>{{ .Data.DeliveryOrder.DeliveredAt.Format "2006-01-02 15:04" }}</p>
+            </div>
+        </div>
+        {{ end }}
+
+        {{ if .Data.DeliveryOrder.CancelledBy }}
+        <div class="grid">
+            <div>
+                <label>Cancelled By</label>
+                <p>{{ .Data.DeliveryOrder.CancelledByName }}</p>
+            </div>
+            <div>
+                <label>Cancelled At</label>
+                <p>{{ .Data.DeliveryOrder.CancelledAt.Format "2006-01-02 15:04" }}</p>
+            </div>
+        </div>
+        {{ if .Data.DeliveryOrder.CancellationReason }}
+        <div>
+            <label>Cancellation Reason</label>
+            <p>{{ .Data.DeliveryOrder.CancellationReason }}</p>
+        </div>
+        {{ end }}
+        {{ end }}
+
+        {{ if .Data.DeliveryOrder.Notes }}
+        <div>
+            <label>Notes</label>
+            <p>{{ .Data.DeliveryOrder.Notes }}</p>
+        </div>
+        {{ end }}
+    </section>
+
+    <!-- Line Items -->
+    <section>
+        <h2>Items to Deliver</h2>
+        <figure>
+            <table role="grid">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Product ID</th>
+                        <th>Product Name</th>
+                        <th>SO Line</th>
+                        <th>Quantity</th>
+                        <th>UOM</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ range .Data.DeliveryOrder.Lines }}
+                    <tr>
+                        <td>{{ .LineOrder }}</td>
+                        <td>{{ .ProductID }}</td>
+                        <td>{{ if .ProductName }}{{ .ProductName }}{{ else }}-{{ end }}</td>
+                        <td>{{ .SalesOrderLineID }}</td>
+                        <td><strong>{{ printf "%.2f" .Quantity }}</strong></td>
+                        <td>{{ if .UOM }}{{ .UOM }}{{ else }}-{{ end }}</td>
+                        <td>{{ if .Notes }}{{ .Notes }}{{ else }}-{{ end }}</td>
+                    </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </figure>
+    </section>
+</div>
+
+<!-- Ship Modal -->
+<dialog id="shipModal">
+    <article>
+        <header>
+            <button aria-label="Close" rel="prev" onclick="closeShipModal()"></button>
+            <h3>Mark as Shipped</h3>
+        </header>
+        <form method="post" action="/delivery-orders/{{ .Data.DeliveryOrder.ID }}/ship">
+            <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+            <label for="tracking_number">Tracking Number (optional)</label>
+            <input type="text" name="tracking_number" id="tracking_number" placeholder="Enter tracking number" value="{{ if .Data.DeliveryOrder.TrackingNumber }}{{ .Data.DeliveryOrder.TrackingNumber }}{{ end }}">
+            <footer>
+                <button type="button" class="secondary" onclick="closeShipModal()">Close</button>
+                <button type="submit">Confirm Shipment</button>
+            </footer>
+        </form>
+    </article>
+</dialog>
+
+<!-- Deliver Modal -->
+<dialog id="deliverModal">
+    <article>
+        <header>
+            <button aria-label="Close" rel="prev" onclick="closeDeliverModal()"></button>
+            <h3>Mark as Delivered</h3>
+        </header>
+        <form method="post" action="/delivery-orders/{{ .Data.DeliveryOrder.ID }}/complete">
+            <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+            <label for="delivered_at">Actual Delivery Date</label>
+            <input type="date" name="delivered_at" id="delivered_at" required value="{{ now.Format "2006-01-02" }}">
+            <small>Leave as today's date if delivered now</small>
+            <footer>
+                <button type="button" class="secondary" onclick="closeDeliverModal()">Close</button>
+                <button type="submit" class="success">Confirm Delivery</button>
+            </footer>
+        </form>
+    </article>
+</dialog>
+
+<!-- Cancel Modal -->
+<dialog id="cancelModal">
+    <article>
+        <header>
+            <button aria-label="Close" rel="prev" onclick="closeCancelModal()"></button>
+            <h3>Cancel Delivery Order</h3>
+        </header>
+        <form method="post" action="/delivery-orders/{{ .Data.DeliveryOrder.ID }}/cancel">
+            <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+            <label for="cancellation_reason">Cancellation Reason</label>
+            <textarea name="cancellation_reason" id="cancellation_reason" required placeholder="Please provide a reason for cancellation" rows="4"></textarea>
+            <footer>
+                <button type="button" class="secondary" onclick="closeCancelModal()">Close</button>
+                <button type="submit" class="danger">Cancel Order</button>
+            </footer>
+        </form>
+    </article>
+</dialog>
+
+<style>
+.badge {
+    display: inline-block;
+    padding: 0.25em 0.6em;
+    font-size: 0.85em;
+    font-weight: 600;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: baseline;
+    border-radius: 0.25rem;
+}
+.badge-secondary { background-color: #6c757d; color: white; }
+.badge-info { background-color: #0dcaf0; color: black; }
+.badge-warning { background-color: #ffc107; color: black; }
+.badge-success { background-color: #198754; color: white; }
+.badge-danger { background-color: #dc3545; color: white; }
+.actions { margin: 1rem 0; }
+button.danger { background-color: #dc3545; }
+button.success { background-color: #198754; }
+.flash-message {
+    margin: 1rem 0;
+    padding: 1rem;
+    border-radius: 0.25rem;
+}
+.flash-success {
+    background-color: #d1e7dd;
+    color: #0f5132;
+    border: 1px solid #badbcc;
+}
+.flash-error {
+    background-color: #f8d7da;
+    color: #842029;
+    border: 1px solid #f5c2c7;
+}
+</style>
+
+<script>
+function showShipModal() {
+    document.getElementById('shipModal').showModal();
+}
+
+function closeShipModal() {
+    document.getElementById('shipModal').close();
+}
+
+function showDeliverModal() {
+    document.getElementById('deliverModal').showModal();
+}
+
+function closeDeliverModal() {
+    document.getElementById('deliverModal').close();
+}
+
+function showCancelModal() {
+    document.getElementById('cancelModal').showModal();
+}
+
+function closeCancelModal() {
+    document.getElementById('cancelModal').close();
+}
+</script>
+{{ end }}

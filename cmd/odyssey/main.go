@@ -34,6 +34,7 @@ import (
 	closehttp "github.com/odyssey-erp/odyssey-erp/internal/close/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/consol"
 	consolhttp "github.com/odyssey-erp/odyssey-erp/internal/consol/http"
+	"github.com/odyssey-erp/odyssey-erp/internal/delivery"
 	eliminationpkg "github.com/odyssey-erp/odyssey-erp/internal/elimination"
 	eliminationhttp "github.com/odyssey-erp/odyssey-erp/internal/elimination/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/insights"
@@ -194,6 +195,12 @@ func main() {
 	salesService := sales.NewService(dbpool)
 	salesHandler := sales.NewHandler(logger, salesService, templates, csrfManager, sessionManager, rbacMiddleware)
 
+	deliveryService := delivery.NewService(dbpool)
+	// Wire up inventory integration for stock reduction on delivery
+	inventoryAdapter := delivery.NewInventoryAdapter(inventoryService)
+	deliveryService.SetInventoryService(inventoryAdapter)
+	deliveryHandler := delivery.NewHandler(logger, deliveryService, templates, csrfManager, sessionManager, rbacMiddleware)
+
 	reportClient := report.NewClient(cfg.GotenbergURL)
 	reportHandler := report.NewHandler(reportClient, logger)
 
@@ -245,6 +252,7 @@ func main() {
 		InventoryHandler:   inventoryHandler,
 		ProcurementHandler: procurementHandler,
 		SalesHandler:       salesHandler,
+		DeliveryHandler:    deliveryHandler,
 		ReportHandler:      reportHandler,
 		ConsolHandler:      consolHandler,
 		JobHandler:         jobHandler,
