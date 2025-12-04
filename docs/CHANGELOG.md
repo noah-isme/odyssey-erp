@@ -51,16 +51,29 @@ Phase 9 melengkapi siklus revenue dengan membangun modul Sales dan Accounts Rece
 
 - [x] HTTP handlers untuk SSR UI (list, create, edit, approve, convert) ✅
 - [x] UI templates untuk quotation & SO pages ✅
-- [ ] RBAC permissions integration (sales.quotation.*, sales.order.*)
-- [ ] Route mounting di main application
+- [x] RBAC permissions integration (sales.quotation.*, sales.order.*) ✅
+- [x] Route mounting di main application ✅
 - [ ] Unit tests untuk service layer (create, approve, convert scenarios)
 - [ ] Integration tests dengan test database
 - [ ] E2E test: quotation → approve → convert → confirm SO
 - [ ] Documentation: howto-sales-quotation.md, runbook-sales.md
 
+#### RBAC & Route Integration
+
+**RBAC Permissions Added:**
+- 12 new permissions: customer (view/create/edit), quotation (view/create/edit/approve), order (view/create/edit/confirm/cancel)
+- Role assignments: admin (full), manager (full), viewer (read-only)
+- Updated seed script: `scripts/seed/main.go`
+
+**Route Mounting:**
+- Sales routes mounted at `/sales/*` in main application
+- Navigation links added: Customers, Quotations, Sales Orders
+- Protected dengan RBAC middleware
+- Session & CSRF integration complete
+
 ### Status
 
-⚙️ **Cycle 9.1 In Progress** – Backend foundation complete (schema, domain, repository, service)
+⚙️ **Cycle 9.1 In Progress** – Core features complete, ready for testing & documentation
 
 ---
 
