@@ -1,0 +1,45 @@
+╔════════════════════════════════════════════════════════════╗
+║         Odyssey ERP - Quick Command Reference             ║
+╚════════════════════════════════════════════════════════════╝
+
+📦 START APPLICATION
+  ./run.sh                 → Run in foreground (interactive)
+  ./run-background.sh      → Run in background (daemon)
+
+🛑 STOP APPLICATION
+  ./stop.sh                → Stop background application
+
+📊 CHECK STATUS
+  ./status.sh              → Show application & services status
+
+📋 VIEW LOGS
+  tail -f /tmp/odyssey-erp.log    → Live logs
+  cat /tmp/odyssey-erp.log        → Full logs
+
+🌐 ACCESS
+  http://localhost:8080    → Web application
+
+🔧 MAKEFILE COMMANDS
+  make migrate-up          → Run database migrations
+  make migrate-down        → Rollback last migration
+  make seed                → Seed database with test data
+  make test                → Run tests
+  make lint                → Run linter
+  make build               → Build application
+
+⚙️  PREREQUISITES
+  ✓ Go 1.24+
+  ✓ PostgreSQL (localhost:5432)
+  ✓ Redis (auto-starts or localhost:6379)
+
+📖 DOCUMENTATION
+  See: RUN_WITHOUT_DOCKER.md
+
+💾 DATABASE SETUP
+  ./setup-db.sh            → Setup database & create test account
+
+🔐 TEST ACCOUNT
+  Email:    admin@odyssey.local
+  Password: admin123
+
+📖 More info: TEST_ACCOUNTS.md

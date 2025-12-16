@@ -1,6 +1,7 @@
 package app
 
 import (
+	"io/fs"
 	"log/slog"
 	"net/http"
 
@@ -135,8 +136,13 @@ func NewRouter(params RouterParams) http.Handler {
 		r.Method(http.MethodGet, "/metrics", params.Metrics.Handler())
 	}
 
-	fileServer := http.StripPrefix("/static/", http.FileServer(http.FS(web.Static)))
-	r.Handle("/static/*", fileServer)
+	staticFS, err := fs.Sub(web.Static, "static")
+	if err != nil {
+		params.Logger.Error("create static sub filesystem", slog.Any("error", err))
+	} else {
+		fileServer := http.StripPrefix("/static/", http.FileServer(http.FS(staticFS)))
+		r.Handle("/static/*", fileServer)
+	}
 
 	return r
 }

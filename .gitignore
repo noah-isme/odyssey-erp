@@ -1,0 +1,42 @@
+# Environment files
+.env
+.env.local
+
+# Redis dump
+dump.rdb
+
+# Binaries
+odyssey
+worker
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output
+*.out
+
+# Go workspace
+go.work
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+/tmp/
+
+# Build
+/bin/
+/dist/
