@@ -131,7 +131,7 @@ func (sm *SessionManager) Commit(ctx context.Context, w http.ResponseWriter, r *
 	}
 
 	if sess.ID != "" {
-		http.SetCookie(w, &http.Cookie{
+		cookie := &http.Cookie{
 			Name:     sm.cookieName,
 			Value:    sess.ID,
 			Path:     "/",
@@ -139,7 +139,8 @@ func (sm *SessionManager) Commit(ctx context.Context, w http.ResponseWriter, r *
 			Secure:   sm.secure,
 			SameSite: http.SameSiteStrictMode,
 			Expires:  time.Now().Add(sm.ttl),
-		})
+		}
+		http.SetCookie(w, cookie)
 	}
 
 	// Clear flashes after they have been persisted once.

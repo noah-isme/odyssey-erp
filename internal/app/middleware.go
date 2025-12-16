@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"time"
@@ -20,6 +21,30 @@ type MiddlewareConfig struct {
 	SessionManager *shared.SessionManager
 	CSRFManager    *shared.CSRFManager
 	Metrics        *observability.Metrics
+}
+
+type responseWriterWithCommit struct {
+	http.ResponseWriter
+	sess          *shared.Session
+	manager       *shared.SessionManager
+	ctx           context.Context
+	req           *http.Request
+	headerWritten bool
+}
+
+func (w *responseWriterWithCommit) WriteHeader(statusCode int) {
+	if !w.headerWritten {
+		w.headerWritten = true
+		_ = w.manager.Commit(w.ctx, w.ResponseWriter, w.req, w.sess)
+	}
+	w.ResponseWriter.WriteHeader(statusCode)
+}
+
+func (w *responseWriterWithCommit) Write(data []byte) (int, error) {
+	if !w.headerWritten {
+		w.WriteHeader(http.StatusOK)
+	}
+	return w.ResponseWriter.Write(data)
 }
 
 // MiddlewareStack installs the Odyssey middleware chain.
@@ -45,11 +70,17 @@ func MiddlewareStack(cfg MiddlewareConfig) []func(http.Handler) http.Handler {
 				return
 			}
 			ctx = shared.ContextWithSession(ctx, sess)
-			rr := r.WithContext(ctx)
-			next.ServeHTTP(w, rr)
-			if err := cfg.SessionManager.Commit(ctx, w, rr, sess); err != nil {
-				cfg.Logger.Error("failed to persist session", slog.Any("error", err))
+			
+			// Wrap to intercept WriteHeader
+			wrapped := &responseWriterWithCommit{
+				ResponseWriter: w,
+				sess:           sess,
+				manager:        cfg.SessionManager,
+				ctx:            ctx,
+				req:            r.WithContext(ctx),
 			}
+			
+			next.ServeHTTP(wrapped, r.WithContext(ctx))
 		})
 	}
 
@@ -85,6 +116,7 @@ func MiddlewareStack(cfg MiddlewareConfig) []func(http.Handler) http.Handler {
 	middlewares := []func(http.Handler) http.Handler{
 		middleware.RealIP,
 		middleware.RequestID,
+		sessionMiddleware,
 		middleware.Recoverer,
 		middleware.Timeout(timeout),
 		func(next http.Handler) http.Handler {
@@ -99,7 +131,6 @@ func MiddlewareStack(cfg MiddlewareConfig) []func(http.Handler) http.Handler {
 		},
 		middleware.Compress(5),
 		httprate.Limit(60, time.Minute, httprate.WithKeyFuncs(httprate.KeyByIP)),
-		sessionMiddleware,
 		csrfMiddleware,
 	}
 	if cfg.Metrics != nil {
