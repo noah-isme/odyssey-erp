@@ -28,7 +28,7 @@ func NewClient(baseURL string) *Client {
 
 // Ping checks if the remote Gotenberg service is available.
 func (c *Client) Ping(ctx context.Context) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/ping", c.baseURL), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/health", c.baseURL), nil)
 	if err != nil {
 		return err
 	}

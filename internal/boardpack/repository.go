@@ -191,7 +191,7 @@ JOIN accounting_periods ap ON ap.id = bp.period_id
 JOIN board_pack_templates tpl ON tpl.id = bp.template_id
 WHERE ($1 = 0 OR bp.company_id = $1)
   AND ($2 = 0 OR bp.period_id = $2)
-  AND ($3 = '' OR bp.status = $3)
+  AND ($3 = '' OR bp.status::TEXT = $3)
 ORDER BY bp.created_at DESC
 LIMIT $4 OFFSET $5`
 	rows, err := r.pool.Query(ctx, query, filter.CompanyID, filter.PeriodID, string(filter.Status), limit, offset)
