@@ -32,13 +32,14 @@ services:
 
   app:
     build: .
-    command: go run ./cmd/odyssey
+    command: /app/odyssey
     env_file:
       - .env.example
     environment:
       PG_DSN: postgres://odyssey:odyssey@postgres:5432/odyssey?sslmode=disable
       REDIS_ADDR: redis:6379
       GOTENBERG_URL: http://gotenberg:3000
+      ODYSSEY_TEST_MODE: "0"
     depends_on:
       - postgres
       - redis
@@ -48,7 +49,7 @@ services:
 
   worker:
     build: .
-    command: go run ./cmd/worker
+    command: /app/worker
     env_file:
       - .env.example
     environment:
