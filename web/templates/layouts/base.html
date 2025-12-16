@@ -1,21 +1,60 @@
 {{ define "layouts/base.html" }}
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ block "title" . }}{{ .Title }} · Odyssey ERP{{ end }}</title>
     {{ block "head" . }}{{ end }}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Main CSS (imports all modular files) -->
+    <link rel="stylesheet" href="/static/css/main.css">
+    <!-- Pico for form/table base styles -->
     <link rel="stylesheet" href="/static/css/pico.min.css">
+    <style>
+        /* Override Pico defaults for AppShell */
+        body {
+            background: var(--color-bg-app);
+            margin: 0;
+            padding: 0;
+        }
+
+        main {
+            padding: 0;
+            margin: 0;
+            max-width: none;
+        }
+
+        .container {
+            max-width: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        nav {
+            background: transparent;
+            padding: 0;
+        }
+    </style>
 </head>
-<body>
-    <main class="container">
-        {{ template "partials/nav.html" . }}
+
+<body class="app-shell">
+    {{ template "partials/header.html" . }}
+    {{ template "partials/sidebar.html" . }}
+
+    <main class="app-main">
         {{ template "partials/flash.html" . }}
         <section>
             {{ block "content" . }}{{ end }}
         </section>
     </main>
+
+    <!-- Main JS (ES modules) -->
+    <script type="module" src="/static/js/main.js"></script>
 </body>
+
 </html>
 {{ end }}

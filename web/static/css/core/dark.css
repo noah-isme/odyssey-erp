@@ -1,0 +1,321 @@
+/* ==========================================================================
+   DARK THEME OVERRIDES (Enterprise)
+   Usage: <html data-theme="dark"> ... </html>
+   ========================================================================== */
+
+:root[data-theme="dark"] {
+    /* App surfaces */
+    --bg-app: #0B0F14;
+    /* app background */
+    --bg-surface: #0F1722;
+    /* cards/panels */
+    --bg-surface-muted: #111C2A;
+
+    /* Text */
+    --text-primary: #E7EDF4;
+    --text-secondary: rgba(231, 237, 244, 0.82);
+    --text-muted: rgba(231, 237, 244, 0.62);
+    --text-inverse: #0E0F11;
+
+    /* Borders */
+    --border-subtle: rgba(231, 237, 244, 0.12);
+    --border-strong: rgba(231, 237, 244, 0.18);
+
+    /* Brand (keep authority, reduce saturation feel) */
+    --brand: #3A78A8;
+    /* slightly brighter for dark */
+    --brand-hover: #2F6792;
+    --brand-strong: #0B1F33;
+    --brand-soft: rgba(58, 120, 168, 0.18);
+
+    /* Focus ring */
+    --shadow-focus: 0 0 0 3px rgba(58, 120, 168, 0.28);
+
+    /* Header/Sidebar (enterprise dark) */
+    --header-bg: #0B1220;
+    --header-fg: rgba(231, 237, 244, 0.92);
+    --sidebar-bg: #0B1220;
+    --sidebar-fg: rgba(231, 237, 244, 0.78);
+
+    /* Card */
+    --card-bg: var(--bg-surface);
+    --card-border: var(--border-subtle);
+    --card-shadow: var(--shadow-0);
+
+    /* Buttons */
+    --btn-primary-bg: var(--brand);
+    --btn-primary-hover-bg: var(--brand-hover);
+
+    --btn-secondary-bg: rgba(231, 237, 244, 0.06);
+    --btn-secondary-fg: rgba(231, 237, 244, 0.88);
+    --btn-secondary-border: rgba(231, 237, 244, 0.14);
+    --btn-secondary-hover-bg: rgba(231, 237, 244, 0.10);
+
+    --btn-ghost-bg: transparent;
+    --btn-ghost-fg: rgba(231, 237, 244, 0.88);
+    --btn-ghost-hover-bg: rgba(231, 237, 244, 0.08);
+
+    --btn-danger-bg: #C2413A;
+    --btn-danger-hover-bg: #A63630;
+
+    /* Inputs */
+    --input-bg: rgba(231, 237, 244, 0.04);
+    --input-border: rgba(231, 237, 244, 0.16);
+    --input-border-hover: rgba(231, 237, 244, 0.22);
+    --input-border-focus: var(--brand);
+    --input-fg: rgba(231, 237, 244, 0.92);
+    --input-placeholder: rgba(231, 237, 244, 0.48);
+
+    /* Table */
+    --table-bg: var(--bg-surface);
+    --table-border: rgba(231, 237, 244, 0.12);
+    --table-head-bg: rgba(231, 237, 244, 0.06);
+    --table-head-fg: rgba(231, 237, 244, 0.76);
+    --table-row-hover: rgba(231, 237, 244, 0.05);
+
+    /* Status (dark: keep soft BG, readable text) */
+    --success-600: #46C27C;
+    --warning-600: #F0B45A;
+    --error-600: #F16A5E;
+    --info-600: #79A7FF;
+
+    --success-bg: rgba(70, 194, 124, 0.12);
+    --warning-bg: rgba(240, 180, 90, 0.14);
+    --error-bg: rgba(241, 106, 94, 0.14);
+    --info-bg: rgba(121, 167, 255, 0.14);
+
+    /* Overlay/Modal */
+    --overlay-bg: rgba(0, 0, 0, 0.55);
+    --modal-bg: #0F1722;
+    --modal-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+
+    /* Links */
+    --link: #79A7FF;
+    --link-hover: #9ABEFF;
+
+    /* ==========================================================================
+     LEGACY ALIASES FOR DARK MODE
+     ========================================================================== */
+    --color-bg-app: var(--bg-app);
+    --color-bg-card: var(--bg-surface);
+    --color-bg-header: var(--header-bg);
+    --color-bg-sidebar: var(--sidebar-bg);
+    --color-bg-sidebar-hover: rgba(255, 255, 255, 0.06);
+    --color-bg-sidebar-active: rgba(58, 120, 168, 0.24);
+
+    --color-text-primary: var(--text-primary);
+    --color-text-secondary: var(--text-secondary);
+    --color-text-muted: var(--text-muted);
+    --color-text-inverse: var(--text-inverse);
+    --color-text-brand: var(--brand);
+
+    --color-border-subtle: var(--border-subtle);
+    --color-border-strong: var(--border-strong);
+
+    --color-success: var(--success-600);
+    --color-success-soft: var(--success-bg);
+    --color-warning: var(--warning-600);
+    --color-warning-soft: var(--warning-bg);
+    --color-error: var(--error-600);
+    --color-error-soft: var(--error-bg);
+    --color-info: var(--info-600);
+    --color-info-soft: var(--info-bg);
+
+    --color-brand-500: var(--brand);
+    --color-brand-700: var(--brand-hover);
+    --color-brand-300: #7FA6C9;
+    --color-brand-100: var(--info-bg);
+
+    --color-gray-950: var(--text-primary);
+    --color-gray-800: rgba(231, 237, 244, 0.12);
+    --color-gray-700: var(--text-secondary);
+    --color-gray-600: var(--text-muted);
+    --color-gray-500: rgba(231, 237, 244, 0.48);
+    --color-gray-400: rgba(231, 237, 244, 0.38);
+    --color-gray-300: var(--border-strong);
+    --color-gray-200: var(--border-subtle);
+    --color-gray-100: var(--bg-surface-muted);
+    --color-gray-50: var(--bg-surface);
+
+    /* Nav item overrides for dark mode */
+    --nav-item-fg: rgba(231, 237, 244, 0.78);
+    --nav-item-hover-bg: rgba(255, 255, 255, 0.08);
+    --nav-item-active-bg: rgba(58, 120, 168, 0.28);
+    --nav-item-active-fg: #FFFFFF;
+    --nav-item-indicator: #7FA6C9;
+}
+
+/* ==========================================================================
+   DARK MODE COMPONENT OVERRIDES
+   ========================================================================== */
+
+/* Sidebar nav items in dark mode */
+:root[data-theme="dark"] .nav-item {
+    color: rgba(231, 237, 244, 0.78);
+}
+
+:root[data-theme="dark"] .nav-item:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+    color: #FFFFFF;
+}
+
+:root[data-theme="dark"] .nav-item.active {
+    background-color: rgba(58, 120, 168, 0.28);
+    color: #FFFFFF;
+}
+
+:root[data-theme="dark"] .sidebar-section-title {
+    color: rgba(231, 237, 244, 0.48);
+}
+
+/* Header elements in dark mode */
+:root[data-theme="dark"] .header-brand {
+    color: #FFFFFF;
+}
+
+:root[data-theme="dark"] .sidebar-toggle {
+    color: rgba(231, 237, 244, 0.92);
+}
+
+:root[data-theme="dark"] .sidebar-toggle:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+:root[data-theme="dark"] .breadcrumbs {
+    color: rgba(231, 237, 244, 0.62);
+}
+
+:root[data-theme="dark"] .breadcrumbs a {
+    color: rgba(231, 237, 244, 0.62);
+}
+
+:root[data-theme="dark"] .breadcrumbs a:hover {
+    color: #FFFFFF;
+}
+
+/* Global search in dark mode */
+:root[data-theme="dark"] .global-search {
+    background-color: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+:root[data-theme="dark"] .global-search input {
+    color: rgba(231, 237, 244, 0.92);
+}
+
+:root[data-theme="dark"] .global-search input::placeholder {
+    color: rgba(231, 237, 244, 0.48);
+}
+
+/* Header buttons in dark mode */
+:root[data-theme="dark"] .header-btn {
+    background-color: var(--brand);
+    color: #FFFFFF;
+}
+
+:root[data-theme="dark"] .header-btn:hover {
+    background-color: var(--brand-hover);
+}
+
+:root[data-theme="dark"] .header-btn-icon {
+    color: rgba(231, 237, 244, 0.82);
+}
+
+:root[data-theme="dark"] .header-btn-icon:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #FFFFFF;
+}
+
+:root[data-theme="dark"] .user-menu {
+    color: rgba(231, 237, 244, 0.92);
+}
+
+:root[data-theme="dark"] .user-menu:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+:root[data-theme="dark"] .user-avatar {
+    background-color: var(--brand);
+    color: #FFFFFF;
+}
+
+/* Sidebar footer in dark mode */
+:root[data-theme="dark"] .sidebar-footer {
+    border-top-color: rgba(231, 237, 244, 0.1);
+}
+
+:root[data-theme="dark"] .env-badge {
+    background-color: var(--warning-600);
+    color: #0E0F11;
+}
+
+:root[data-theme="dark"] .version-text {
+    color: rgba(231, 237, 244, 0.48);
+}
+
+/* ==========================================================================
+   SMOOTH THEME TRANSITION
+   ========================================================================== */
+
+/* Theme transition - keep subtle */
+html,
+html body,
+html .app-header,
+html .app-sidebar,
+html .card,
+html .dashboard-panel,
+html .kpi-card,
+html .btn {
+    transition: background-color var(--dur-2) var(--ease-standard),
+        border-color var(--dur-2) var(--ease-standard),
+        color var(--dur-2) var(--ease-standard);
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+
+    html,
+    html * {
+        transition: none !important;
+    }
+}
+
+/* ==========================================================================
+   THEME TOGGLE BUTTON STYLES
+   ========================================================================== */
+
+.theme-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-1);
+    color: var(--header-fg);
+    cursor: pointer;
+    transition: background-color var(--dur-2) var(--ease-standard);
+}
+
+.theme-toggle:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Show sun icon in dark mode, moon in light mode */
+.theme-toggle .icon-sun {
+    display: none;
+}
+
+.theme-toggle .icon-moon {
+    display: block;
+}
+
+:root[data-theme="dark"] .theme-toggle .icon-sun {
+    display: block;
+}
+
+:root[data-theme="dark"] .theme-toggle .icon-moon {
+    display: none;
+}

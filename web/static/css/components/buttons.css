@@ -1,0 +1,132 @@
+/* ============================================
+   Odyssey ERP - Button Components
+   ============================================ */
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-4);
+    height: 40px;
+    font-family: inherit;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    line-height: var(--line-height-tight);
+    text-decoration: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Primary */
+.btn-primary {
+    background-color: var(--color-brand-500);
+    border: 1px solid var(--color-brand-500);
+    color: var(--color-text-inverse);
+}
+
+.btn-primary:hover:not(:disabled) {
+    background-color: var(--color-brand-700);
+    border-color: var(--color-brand-700);
+}
+
+/* Secondary */
+.btn-secondary {
+    background-color: var(--color-bg-card);
+    border: 1px solid var(--color-border-strong);
+    color: var(--color-text-primary);
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background-color: var(--color-gray-100);
+}
+
+/* Ghost */
+.btn-ghost {
+    background-color: transparent;
+    border: 1px solid transparent;
+    color: var(--color-text-primary);
+}
+
+.btn-ghost:hover:not(:disabled) {
+    background-color: var(--color-gray-100);
+}
+
+/* Danger */
+.btn-danger {
+    background-color: var(--color-error);
+    border: 1px solid var(--color-error);
+    color: white;
+}
+
+.btn-danger:hover:not(:disabled) {
+    background-color: #9A1E14;
+    border-color: #9A1E14;
+}
+
+/* Sizes */
+.btn-sm {
+    height: 32px;
+    padding: var(--space-1) var(--space-3);
+    font-size: var(--font-size-xs);
+}
+
+.btn-lg {
+    height: 48px;
+    padding: var(--space-3) var(--space-6);
+    font-size: var(--font-size-base);
+}
+
+/* Loading State */
+.btn.loading {
+    position: relative;
+    color: transparent;
+}
+
+.btn.loading::after {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: btn-spin 0.6s linear infinite;
+}
+
+.btn-primary.loading::after {
+    border-color: white;
+    border-right-color: transparent;
+}
+
+@keyframes btn-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Icon Button */
+.btn-icon {
+    width: 40px;
+    padding: 0;
+}
+
+.btn-icon.btn-sm {
+    width: 32px;
+}
+
+.btn-icon.btn-lg {
+    width: 48px;
+}
+
+/* Button Spinner */
+.btn-spinner {
+    animation: btn-spin 0.6s linear infinite;
+    margin-right: var(--space-2);
+}

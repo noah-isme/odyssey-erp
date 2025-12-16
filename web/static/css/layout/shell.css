@@ -1,0 +1,59 @@
+/* ============================================
+   Odyssey ERP - App Shell Layout
+   ============================================ */
+
+.app-shell {
+    display: grid;
+    grid-template-areas:
+        "header header"
+        "sidebar main";
+    grid-template-columns: var(--sidebar-width) 1fr;
+    grid-template-rows: var(--header-height) 1fr;
+    min-height: 100vh;
+}
+
+.app-shell.sidebar-collapsed {
+    grid-template-columns: var(--sidebar-collapsed-width) 1fr;
+}
+
+.app-main {
+    grid-area: main;
+    padding: var(--space-6);
+    overflow-y: auto;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .app-shell {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            "header"
+            "main";
+    }
+}
+
+@media (max-width: 640px) {
+    .app-main {
+        padding: var(--space-4);
+    }
+}
+
+/* Print Styles */
+@media print {
+
+    .app-header,
+    .app-sidebar,
+    .sidebar-overlay,
+    .toast-container,
+    .loading-overlay {
+        display: none !important;
+    }
+
+    .app-shell {
+        display: block;
+    }
+
+    .app-main {
+        padding: 0;
+    }
+}
