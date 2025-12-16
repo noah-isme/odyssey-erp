@@ -62,6 +62,50 @@ odyssey-erp/
 ./tools/scripts/stop.sh
 ```
 
+## 🔥 Hot Reload (Recommended for Development)
+
+Use [Air](https://github.com/air-verse/air) for automatic rebuild on file changes (~3s vs ~80s Docker rebuild).
+
+### Setup
+
+```bash
+# Install Air
+go install github.com/air-verse/air@latest
+
+# Copy environment file
+cp .env.example .env
+
+# Edit .env - change hostnames from Docker to localhost:
+# PG_DSN=postgres://odyssey:odyssey@localhost:5432/odyssey?sslmode=disable
+# REDIS_ADDR=localhost:6379
+# GOTENBERG_URL=http://localhost:3000
+# ODYSSEY_TEST_MODE=0  # Required!
+```
+
+### Run with Hot Reload
+
+```bash
+# Start supporting services (keep Docker for database, redis, etc)
+docker-compose up -d postgres redis gotenberg mailpit
+docker-compose stop app
+
+# Load environment and start Air
+set -a && source .env && set +a
+~/go/bin/air
+
+# Or run in background
+nohup ~/go/bin/air > /tmp/air.log 2>&1 &
+tail -f /tmp/air.log
+```
+
+### Stop Hot Reload
+
+```bash
+pkill -f "air"
+# To return to Docker:
+docker-compose start app
+```
+
 ## 🐳 Docker Services
 
 - **App** - Odyssey ERP (Port 8080)
