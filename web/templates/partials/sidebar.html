@@ -1,0 +1,246 @@
+{{ define "partials/sidebar.html" }}
+<aside class="app-sidebar" id="sidebar">
+    <div class="sidebar-content">
+        <!-- Overview -->
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">Overview</div>
+            <a href="/" class="nav-item {{ if eq .Title " Odyssey ERP" }}active{{ end }}">
+                <span class="nav-item-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                        <polyline points="9 22 9 12 15 12 15 22" />
+                    </svg>
+                </span>
+                <span class="nav-item-text">Dashboard</span>
+            </a>
+        </div>
+
+        <!-- Sales -->
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">Sales</div>
+            <a href="/sales/customers" class="nav-item">
+                <span class="nav-item-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                    </svg>
+                </span>
+                <span class="nav-item-text">Customers</span>
+            </a>
+            <a href="/sales/quotations" class="nav-item">
+                <span class="nav-item-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                        <line x1="16" y1="13" x2="8" y2="13" />
+                        <line x1="16" y1="17" x2="8" y2="17" />
+                    </svg>
+                </span>
+                <span class="nav-item-text">Quotations</span>
+            </a>
+            <a href="/sales/orders" class="nav-item">
+                <span class="nav-item-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                        <line x1="3" y1="6" x2="21" y2="6" />
+                        <path d="M16 10a4 4 0 0 1-8 0" />
+                    </svg>
+                </span>
+                <span class="nav-item-text">Sales Orders</span>
+            </a>
+            <a href="/delivery/orders" class="nav-item">
+                <span class="nav-item-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="1" y="3" width="15" height="13" />
+                        <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
+                        <circle cx="5.5" cy="18.5" r="2.5" />
+                        <circle cx="18.5" cy="18.5" r="2.5" />
+                    </svg>
+                </span>
+                <span class="nav-item-text">Delivery Orders</span>
+            </a>
+        </div>
+
+        <!-- Procurement -->
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">Procurement</div>
+            <a href="/procurement/pos" class="nav-item">
+                <span class="nav-item-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path
+                            d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                    </svg>
+                </span>
+                <span class="nav-item-text">Purchase Orders</span>
+            </a>
+            <a href="/procurement/grns" class="nav-item">
+                <span class="nav-item-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="9 11 12 14 22 4" />
+                        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                    </svg>
+                </span>
+                <span class="nav-item-text">Goods Receipt</span>
+            </a>
+        </div>
+
+        <!-- Inventory -->
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">Inventory</div>
+            <a href="/inventory/stock-card" class="nav-item">
+                <span class="nav-item-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path
+                            d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                        <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                        <line x1="12" y1="22.08" x2="12" y2="12" />
+                    </svg>
+                </span>
+                <span class="nav-item-text">Stock Card</span>
+            </a>
+        </div>
+
+        <!-- Finance -->
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">Finance</div>
+            <a href="/procurement/ap-invoices" class="nav-item">
+                <span class="nav-item-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="2" y="3" width="20" height="18" rx="2" />
+                        <line x1="8" y1="7" x2="16" y2="7" />
+                        <line x1="8" y1="11" x2="16" y2="11" />
+                        <line x1="8" y1="15" x2="12" y2="15" />
+                    </svg>
+                </span>
+                <span class="nav-item-text">AP Invoices</span>
+            </a>
+            <a href="/accounting/periods" class="nav-item">
+                <span class="nav-item-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                        <line x1="16" y1="2" x2="16" y2="6" />
+                        <line x1="8" y1="2" x2="8" y2="6" />
+                        <line x1="3" y1="10" x2="21" y2="10" />
+                    </svg>
+                </span>
+                <span class="nav-item-text">Period Close</span>
+            </a>
+        </div>
+
+        <!-- Accounting -->
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">Accounting</div>
+            <a href="/consol" class="nav-item">
+                <span class="nav-item-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 20V10" />
+                        <path d="M12 20V4" />
+                        <path d="M6 20v-6" />
+                    </svg>
+                </span>
+                <span class="nav-item-text">Consolidation</span>
+            </a>
+            <a href="/eliminations/rules" class="nav-item">
+                <span class="nav-item-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                </span>
+                <span class="nav-item-text">Eliminations</span>
+            </a>
+            <a href="/variance/snapshots" class="nav-item">
+                <span class="nav-item-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="20" x2="12" y2="10" />
+                        <line x1="18" y1="20" x2="18" y2="4" />
+                        <line x1="6" y1="20" x2="6" y2="16" />
+                    </svg>
+                </span>
+                <span class="nav-item-text">Variance</span>
+            </a>
+        </div>
+
+        <!-- Insights -->
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">Insights</div>
+            <a href="/analytics" class="nav-item">
+                <span class="nav-item-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
+                        <path d="M22 12A10 10 0 0 0 12 2v10z" />
+                    </svg>
+                </span>
+                <span class="nav-item-text">Analytics</span>
+            </a>
+            <a href="/insights" class="nav-item">
+                <span class="nav-item-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="16" x2="12" y2="12" />
+                        <line x1="12" y1="8" x2="12.01" y2="8" />
+                    </svg>
+                </span>
+                <span class="nav-item-text">Insights</span>
+            </a>
+            <a href="/board-packs" class="nav-item">
+                <span class="nav-item-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+                    </svg>
+                </span>
+                <span class="nav-item-text">Board Pack</span>
+            </a>
+        </div>
+
+        <!-- System -->
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">System</div>
+            <a href="/audit" class="nav-item">
+                <span class="nav-item-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                        <line x1="12" y1="18" x2="12" y2="12" />
+                        <line x1="9" y1="15" x2="15" y2="15" />
+                    </svg>
+                </span>
+                <span class="nav-item-text">Audit Logs</span>
+            </a>
+            <a href="/jobs" class="nav-item">
+                <span class="nav-item-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                    </svg>
+                </span>
+                <span class="nav-item-text">Jobs</span>
+            </a>
+            <a href="/report/ping" class="nav-item">
+                <span class="nav-item-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <polyline points="12 6 12 12 16 14" />
+                    </svg>
+                </span>
+                <span class="nav-item-text">Report Ping</span>
+            </a>
+        </div>
+
+        <!-- Sidebar Footer -->
+        <div class="sidebar-footer">
+            {{ if .Data.AppEnv }}
+            <span class="env-badge {{ if eq .Data.AppEnv " production" }}production{{ end }}">
+                {{ .Data.AppEnv }}
+            </span>
+            {{ else }}
+            <span class="env-badge">dev</span>
+            {{ end }}
+            <div class="version-text">Odyssey ERP v1.0</div>
+        </div>
+    </div>
+</aside>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+{{ end }}

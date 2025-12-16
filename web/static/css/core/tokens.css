@@ -1,0 +1,425 @@
+/* ==========================================================================
+   ODYSSEY ERP THEME: "Midnight Ledger" (Enterprise Premium)
+   ========================================================================== */
+
+:root {
+    /* -----------------------------
+     Typography
+  ----------------------------- */
+    --font-sans: ui-sans-serif, system-ui, -apple-system, "Inter", "Segoe UI", Roboto, Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
+    --text-xs: 12px;
+    --text-sm: 13px;
+    --text-md: 14px;
+    --text-lg: 16px;
+    --text-xl: 20px;
+    --text-2xl: 22px;
+
+    --weight-regular: 400;
+    --weight-medium: 500;
+    --weight-semibold: 600;
+
+    --leading-tight: 1.25;
+    --leading-normal: 1.5;
+
+    /* Use for numeric tables/amounts */
+    --numeric: tabular-nums lining-nums;
+
+    /* -----------------------------
+     Spacing (8px base)
+  ----------------------------- */
+    --space-0: 0;
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-6: 24px;
+    --space-8: 32px;
+    --space-10: 40px;
+    --space-12: 48px;
+
+    /* -----------------------------
+     Radius
+  ----------------------------- */
+    --radius-1: 6px;
+    --radius-2: 8px;
+    --radius-3: 12px;
+    --radius-pill: 9999px;
+
+    /* -----------------------------
+     Elevation (Enterprise: subtle)
+  ----------------------------- */
+    --shadow-0: none;
+    --shadow-1: 0 1px 2px rgba(16, 24, 40, 0.08);
+    --shadow-2: 0 2px 6px rgba(16, 24, 40, 0.10);
+    --shadow-focus: 0 0 0 3px rgba(36, 92, 138, 0.22);
+
+    /* -----------------------------
+     Motion (calm)
+  ----------------------------- */
+    --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+    --dur-1: 120ms;
+    --dur-2: 180ms;
+    --dur-3: 240ms;
+
+    /* -----------------------------
+     Z-Index
+  ----------------------------- */
+    --z-base: 0;
+    --z-sticky: 10;
+    --z-dropdown: 50;
+    --z-modal: 100;
+    --z-toast: 200;
+
+    /* ==========================================================================
+     COLOR SYSTEM (Raw palette)
+     ========================================================================== */
+
+    /* Primary (Authority Blue) */
+    --primary-900: #0B1F33;
+    /* header/sidebar */
+    --primary-700: #163A5F;
+    --primary-500: #245C8A;
+    /* primary action */
+    --primary-300: #7FA6C9;
+
+    /* Neutral (Warm grays) */
+    --gray-950: #0E0F11;
+    --gray-800: #1F2933;
+    --gray-700: #33404A;
+    --gray-600: #5B6168;
+    --gray-500: #77808A;
+    --gray-400: #9AA0A6;
+    --gray-300: #C9CED6;
+    --gray-200: #E5E7EB;
+    --gray-100: #F4F6F8;
+    --gray-50: #FAFBFC;
+
+    /* Status */
+    --success-600: #1F7A4D;
+    --warning-600: #B26A00;
+    --error-600: #B42318;
+    --info-600: #2563EB;
+
+    /* Soft backgrounds */
+    --success-bg: #E9F5EE;
+    --warning-bg: #FFF4E0;
+    --error-bg: #FEECEC;
+    --info-bg: #EEF4FF;
+
+    /* Optional accent (use VERY sparingly) */
+    --gold-500: #C9A24D;
+    --gold-bg: #F7F1E3;
+
+    /* ==========================================================================
+     SEMANTIC TOKENS (Use these in components, not raw palette)
+     ========================================================================== */
+
+    /* App surfaces */
+    --bg-app: var(--gray-50);
+    --bg-surface: #FFFFFF;
+    --bg-surface-muted: var(--gray-100);
+
+    /* Text */
+    --text-primary: var(--gray-950);
+    --text-secondary: var(--gray-700);
+    --text-muted: var(--gray-600);
+    --text-inverse: var(--gray-100);
+
+    /* Borders */
+    --border-subtle: var(--gray-200);
+    --border-strong: var(--gray-300);
+
+    /* Brand */
+    --brand: var(--primary-500);
+    --brand-hover: var(--primary-700);
+    --brand-strong: var(--primary-900);
+    --brand-soft: rgba(36, 92, 138, 0.12);
+
+    /* Focus ring */
+    --focus-ring: var(--shadow-focus);
+
+    /* Link */
+    --link: var(--primary-500);
+    --link-hover: var(--primary-700);
+
+    /* ==========================================================================
+     COMPONENT TOKENS
+     ========================================================================== */
+
+    /* -----------------------------
+     Layout Shell
+  ----------------------------- */
+    --app-max: 1200px;
+    --header-h: 56px;
+    --sidebar-w: 280px;
+    --sidebar-w-collapsed: 72px;
+
+    --header-bg: var(--primary-900);
+    --header-fg: var(--gray-100);
+    --sidebar-bg: var(--primary-900);
+    --sidebar-fg: rgba(244, 246, 248, 0.82);
+
+    /* -----------------------------
+     Card
+  ----------------------------- */
+    --card-bg: var(--bg-surface);
+    --card-border: var(--border-subtle);
+    --card-radius: var(--radius-2);
+    --card-shadow: var(--shadow-0);
+    --card-pad: var(--space-5);
+
+    /* -----------------------------
+     Buttons
+  ----------------------------- */
+    --btn-h: 40px;
+    --btn-radius: var(--radius-1);
+    --btn-font: var(--text-sm);
+    --btn-weight: var(--weight-medium);
+    --btn-pad-x: 14px;
+    --btn-gap: 8px;
+
+    --btn-primary-bg: var(--brand);
+    --btn-primary-fg: #FFFFFF;
+    --btn-primary-hover-bg: var(--brand-hover);
+
+    --btn-secondary-bg: var(--gray-100);
+    --btn-secondary-fg: var(--gray-800);
+    --btn-secondary-border: var(--gray-300);
+    --btn-secondary-hover-bg: #FFFFFF;
+
+    --btn-ghost-bg: transparent;
+    --btn-ghost-fg: var(--gray-800);
+    --btn-ghost-hover-bg: rgba(15, 31, 51, 0.08);
+
+    --btn-danger-bg: var(--error-600);
+    --btn-danger-fg: #FFFFFF;
+    --btn-danger-hover-bg: #8F1D13;
+
+    /* -----------------------------
+     Inputs
+  ----------------------------- */
+    --input-h: 40px;
+    --input-radius: var(--radius-1);
+    --input-bg: #FFFFFF;
+    --input-border: var(--gray-300);
+    --input-border-hover: var(--gray-400);
+    --input-border-focus: var(--brand);
+    --input-fg: var(--text-primary);
+    --input-placeholder: var(--gray-500);
+    --input-pad-x: 12px;
+    --input-pad-y: 10px;
+
+    /* -----------------------------
+     Table
+  ----------------------------- */
+    --table-bg: #FFFFFF;
+    --table-border: var(--gray-200);
+    --table-head-bg: var(--gray-100);
+    --table-head-fg: var(--gray-700);
+    --table-row-hover: var(--gray-50);
+    --table-radius: var(--radius-2);
+    --table-cell-pad-y: 10px;
+    --table-cell-pad-x: 12px;
+
+    /* -----------------------------
+     Badges (Status)
+  ----------------------------- */
+    --badge-radius: var(--radius-pill);
+    --badge-font: var(--text-xs);
+    --badge-pad-y: 4px;
+    --badge-pad-x: 10px;
+
+    --badge-neutral-bg: var(--gray-100);
+    --badge-neutral-fg: var(--gray-700);
+
+    --badge-success-bg: var(--success-bg);
+    --badge-success-fg: var(--success-600);
+
+    --badge-warning-bg: var(--warning-bg);
+    --badge-warning-fg: var(--warning-600);
+
+    --badge-error-bg: var(--error-bg);
+    --badge-error-fg: var(--error-600);
+
+    --badge-info-bg: var(--info-bg);
+    --badge-info-fg: var(--info-600);
+
+    /* -----------------------------
+     Nav Item
+  ----------------------------- */
+    --nav-item-h: 40px;
+    --nav-item-radius: var(--radius-1);
+    --nav-item-fg: rgba(244, 246, 248, 0.78);
+    --nav-item-hover-bg: rgba(255, 255, 255, 0.06);
+    --nav-item-active-bg: rgba(127, 166, 201, 0.16);
+    --nav-item-active-fg: #FFFFFF;
+    --nav-item-indicator: var(--primary-300);
+
+    /* -----------------------------
+     Modal
+  ----------------------------- */
+    --modal-bg: #FFFFFF;
+    --modal-radius: var(--radius-2);
+    --modal-shadow: var(--shadow-2);
+    --overlay-bg: rgba(14, 15, 17, 0.45);
+
+    /* -----------------------------
+     Toast / Alert
+  ----------------------------- */
+    --toast-bg: #FFFFFF;
+    --toast-border: var(--gray-200);
+    --toast-shadow: var(--shadow-2);
+    --alert-radius: var(--radius-2);
+
+    /* ==========================================================================
+     LEGACY ALIASES (for compatibility with existing components)
+     ========================================================================== */
+    --color-brand-900: var(--primary-900);
+    --color-brand-700: var(--primary-700);
+    --color-brand-500: var(--primary-500);
+    --color-brand-300: var(--primary-300);
+    --color-brand-100: var(--info-bg);
+
+    --color-gray-950: var(--gray-950);
+    --color-gray-900: var(--gray-800);
+    --color-gray-800: var(--gray-800);
+    --color-gray-700: var(--gray-700);
+    --color-gray-600: var(--gray-600);
+    --color-gray-500: var(--gray-500);
+    --color-gray-400: var(--gray-400);
+    --color-gray-300: var(--gray-300);
+    --color-gray-200: var(--gray-200);
+    --color-gray-100: var(--gray-100);
+    --color-gray-50: var(--gray-50);
+
+    --color-success: var(--success-600);
+    --color-success-soft: var(--success-bg);
+    --color-warning: var(--warning-600);
+    --color-warning-soft: var(--warning-bg);
+    --color-error: var(--error-600);
+    --color-error-soft: var(--error-bg);
+    --color-info: var(--info-600);
+    --color-info-soft: var(--info-bg);
+
+    --color-gold: var(--gold-500);
+    --color-gold-soft: var(--gold-bg);
+
+    --color-bg-app: var(--bg-app);
+    --color-bg-card: var(--bg-surface);
+    --color-bg-header: var(--header-bg);
+    --color-bg-sidebar: var(--sidebar-bg);
+    --color-bg-sidebar-hover: rgba(255, 255, 255, 0.06);
+    --color-bg-sidebar-active: var(--nav-item-active-bg);
+
+    --color-text-primary: var(--text-primary);
+    --color-text-secondary: var(--text-secondary);
+    --color-text-muted: var(--text-muted);
+    --color-text-inverse: var(--text-inverse);
+    --color-text-brand: var(--brand);
+
+    --color-border-subtle: var(--border-subtle);
+    --color-border-strong: var(--border-strong);
+
+    --font-family: var(--font-sans);
+
+    --font-size-xs: var(--text-xs);
+    --font-size-sm: var(--text-sm);
+    --font-size-base: var(--text-md);
+    --font-size-lg: var(--text-lg);
+    --font-size-xl: var(--text-xl);
+    --font-size-2xl: var(--text-2xl);
+    --font-size-3xl: 28px;
+
+    --font-weight-normal: var(--weight-regular);
+    --font-weight-medium: var(--weight-medium);
+    --font-weight-semibold: var(--weight-semibold);
+    --font-weight-bold: 700;
+
+    --line-height-tight: var(--leading-tight);
+    --line-height-normal: var(--leading-normal);
+    --line-height-relaxed: 1.625;
+
+    --header-height: var(--header-h);
+    --sidebar-width: var(--sidebar-w);
+    --sidebar-collapsed-width: var(--sidebar-w-collapsed);
+
+    --shadow-sm: var(--shadow-1);
+    --shadow-md: var(--shadow-2);
+    --shadow-lg: 0 10px 15px -3px rgba(16, 24, 40, 0.1), 0 4px 6px -2px rgba(16, 24, 40, 0.05);
+
+    --radius-sm: var(--radius-1);
+    --radius-md: var(--radius-1);
+    --radius-lg: var(--radius-2);
+    --radius-xl: var(--radius-3);
+
+    --transition-fast: var(--dur-1) var(--ease-standard);
+    --transition-normal: var(--dur-2) var(--ease-standard);
+    --transition-slow: var(--dur-3) var(--ease-standard);
+}
+
+/* ==========================================================================
+   BASE STYLES
+   ========================================================================== */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    height: 100%;
+}
+
+html {
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+    margin: 0;
+    font-family: var(--font-sans);
+    font-size: var(--text-md);
+    line-height: var(--leading-normal);
+    color: var(--text-primary);
+    background: var(--bg-app);
+}
+
+a {
+    color: var(--link);
+    text-decoration: none;
+}
+
+a:hover {
+    color: var(--link-hover);
+}
+
+/* Make numbers align nicely in tables/amounts */
+.numeric {
+    font-variant-numeric: var(--numeric);
+    font-feature-settings: "tnum" 1, "lnum" 1;
+    font-family: var(--font-sans);
+}
+
+/* Focus visible (accessibility + premium feel) */
+:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+    border-color: var(--input-border-focus);
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}

@@ -2,13 +2,345 @@
 {{ template "layouts/base.html" . }}
 {{ end }}
 
-{{ define "title" }}Beranda{{ end }}
+{{ define "title" }}Dashboard{{ end }}
 
 {{ define "content" }}
-<h1>Selamat datang di Odyssey ERP</h1>
-<p>Environment: {{ index .Data "AppEnv" }}</p>
-<form method="post" action="/report/sample">
-    <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
-    <button type="submit">Generate Sample PDF</button>
-</form>
+<div class="dashboard">
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+        <div class="dashboard-header-content">
+            <h1 class="dashboard-title">Dashboard</h1>
+            <p class="dashboard-subtitle">Ringkasan operasional & keuangan hari ini</p>
+        </div>
+        <div class="dashboard-actions">
+            <button class="date-range-select">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                    <line x1="16" y1="2" x2="16" y2="6" />
+                    <line x1="8" y1="2" x2="8" y2="6" />
+                    <line x1="3" y1="10" x2="21" y2="10" />
+                </svg>
+                Hari Ini
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="6 9 12 15 18 9" />
+                </svg>
+            </button>
+            <button class="btn btn-secondary" onclick="location.reload()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="23 4 23 10 17 10" />
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                </svg>
+                Refresh
+            </button>
+        </div>
+    </div>
+
+    <!-- KPI Summary Cards -->
+    <div class="kpi-grid">
+        <!-- Open Sales Orders -->
+        <div class="kpi-card">
+            <div class="kpi-icon info">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                    <line x1="3" y1="6" x2="21" y2="6" />
+                    <path d="M16 10a4 4 0 0 1-8 0" />
+                </svg>
+            </div>
+            <div class="kpi-content">
+                <p class="kpi-label">Open Sales Orders</p>
+                <p class="kpi-value">24</p>
+                <p class="kpi-subtitle warning">3 overdue</p>
+            </div>
+        </div>
+
+        <!-- Pending Deliveries -->
+        <div class="kpi-card">
+            <div class="kpi-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="1" y="3" width="15" height="13" />
+                    <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
+                    <circle cx="5.5" cy="18.5" r="2.5" />
+                    <circle cx="18.5" cy="18.5" r="2.5" />
+                </svg>
+            </div>
+            <div class="kpi-content">
+                <p class="kpi-label">Pending Deliveries</p>
+                <p class="kpi-value">8</p>
+                <p class="kpi-subtitle">DO to process</p>
+            </div>
+        </div>
+
+        <!-- AP Invoices -->
+        <div class="kpi-card">
+            <div class="kpi-icon warning">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="3" width="20" height="18" rx="2" />
+                    <line x1="8" y1="7" x2="16" y2="7" />
+                    <line x1="8" y1="11" x2="16" y2="11" />
+                    <line x1="8" y1="15" x2="12" y2="15" />
+                </svg>
+            </div>
+            <div class="kpi-content">
+                <p class="kpi-label">AP Invoices</p>
+                <p class="kpi-value">Rp 128 jt</p>
+                <p class="kpi-subtitle warning">Due this week</p>
+            </div>
+        </div>
+
+        <!-- Inventory Alerts -->
+        <div class="kpi-card">
+            <div class="kpi-icon error">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path
+                        d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                    <line x1="12" y1="9" x2="12" y2="13" />
+                    <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+            </div>
+            <div class="kpi-content">
+                <p class="kpi-label">Inventory Alerts</p>
+                <p class="kpi-value">5</p>
+                <p class="kpi-subtitle error">Items low stock</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="dashboard-grid">
+        <!-- Left Column -->
+        <div class="dashboard-main">
+            <!-- Recent Sales Orders -->
+            <div class="dashboard-panel">
+                <div class="panel-header">
+                    <h3 class="panel-title">Recent Sales Orders</h3>
+                    <a href="/sales/orders" class="panel-action">View all →</a>
+                </div>
+                <div class="panel-body">
+                    <table class="mini-table">
+                        <thead>
+                            <tr>
+                                <th>SO Number</th>
+                                <th>Customer</th>
+                                <th>Status</th>
+                                <th class="col-amount">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><a href="/sales/orders/1" class="doc-link">SO-2024-0124</a></td>
+                                <td>PT Maju Bersama</td>
+                                <td><span class="status-badge status-confirmed">Confirmed</span></td>
+                                <td class="col-amount">Rp 45.500.000</td>
+                            </tr>
+                            <tr>
+                                <td><a href="/sales/orders/2" class="doc-link">SO-2024-0123</a></td>
+                                <td>CV Sentosa Jaya</td>
+                                <td><span class="status-badge status-processing">Processing</span></td>
+                                <td class="col-amount">Rp 12.750.000</td>
+                            </tr>
+                            <tr>
+                                <td><a href="/sales/orders/3" class="doc-link">SO-2024-0122</a></td>
+                                <td>PT Abadi Makmur</td>
+                                <td><span class="status-badge status-pending">Pending</span></td>
+                                <td class="col-amount">Rp 89.200.000</td>
+                            </tr>
+                            <tr>
+                                <td><a href="/sales/orders/4" class="doc-link">SO-2024-0121</a></td>
+                                <td>Toko Sejahtera</td>
+                                <td><span class="status-badge status-delivered">Delivered</span></td>
+                                <td class="col-amount">Rp 5.350.000</td>
+                            </tr>
+                            <tr>
+                                <td><a href="/sales/orders/5" class="doc-link">SO-2024-0120</a></td>
+                                <td>PT Global Indonesia</td>
+                                <td><span class="status-badge status-draft">Draft</span></td>
+                                <td class="col-amount">Rp 156.000.000</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Pending Actions -->
+            <div class="dashboard-panel" style="margin-top: var(--space-4);">
+                <div class="panel-header">
+                    <h3 class="panel-title">Pending Actions</h3>
+                </div>
+                <div class="panel-body">
+                    <ul class="pending-list">
+                        <li class="pending-item">
+                            <div class="pending-icon">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <polyline points="9 11 12 14 22 4" />
+                                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                                </svg>
+                            </div>
+                            <div class="pending-content">
+                                <span class="pending-count">3</span>
+                                <span class="pending-text">Sales Orders menunggu approval</span>
+                            </div>
+                            <a href="/sales/orders?status=pending" class="pending-action">Review</a>
+                        </li>
+                        <li class="pending-item">
+                            <div class="pending-icon">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <rect x="1" y="3" width="15" height="13" />
+                                    <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
+                                    <circle cx="5.5" cy="18.5" r="2.5" />
+                                    <circle cx="18.5" cy="18.5" r="2.5" />
+                                </svg>
+                            </div>
+                            <div class="pending-content">
+                                <span class="pending-count">2</span>
+                                <span class="pending-text">Delivery Orders belum diproses</span>
+                            </div>
+                            <a href="/delivery/orders?status=pending" class="pending-action">Process</a>
+                        </li>
+                        <li class="pending-item">
+                            <div class="pending-icon urgent">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                    <line x1="16" y1="2" x2="16" y2="6" />
+                                    <line x1="8" y1="2" x2="8" y2="6" />
+                                    <line x1="3" y1="10" x2="21" y2="10" />
+                                </svg>
+                            </div>
+                            <div class="pending-content">
+                                <span class="pending-count">1</span>
+                                <span class="pending-text">Period close pending</span>
+                            </div>
+                            <a href="/accounting/periods" class="pending-action">Close</a>
+                        </li>
+                        <li class="pending-item">
+                            <div class="pending-icon">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <rect x="2" y="3" width="20" height="18" rx="2" />
+                                    <line x1="8" y1="7" x2="16" y2="7" />
+                                    <line x1="8" y1="11" x2="16" y2="11" />
+                                    <line x1="8" y1="15" x2="12" y2="15" />
+                                </svg>
+                            </div>
+                            <div class="pending-content">
+                                <span class="pending-count">5</span>
+                                <span class="pending-text">AP Invoices perlu pembayaran</span>
+                            </div>
+                            <a href="/procurement/ap-invoices?status=unpaid" class="pending-action">Pay</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Sidebar -->
+        <div class="dashboard-sidebar">
+            <!-- System Status -->
+            <div class="dashboard-panel">
+                <div class="panel-header">
+                    <h3 class="panel-title">System Status</h3>
+                </div>
+                <div class="panel-body">
+                    <ul class="status-list">
+                        <li class="status-item">
+                            <span class="status-name">API</span>
+                            <span class="status-value">
+                                <span class="status-dot"></span>
+                                <span class="status-text">Operational</span>
+                            </span>
+                        </li>
+                        <li class="status-item">
+                            <span class="status-name">Database</span>
+                            <span class="status-value">
+                                <span class="status-dot"></span>
+                                <span class="status-text">Operational</span>
+                            </span>
+                        </li>
+                        <li class="status-item">
+                            <span class="status-name">Jobs</span>
+                            <span class="status-value">
+                                <span class="status-dot warning"></span>
+                                <span class="status-text warning">1 delayed</span>
+                            </span>
+                        </li>
+                        <li class="status-item">
+                            <span class="status-name">Reports</span>
+                            <span class="status-value">
+                                <span class="status-dot"></span>
+                                <span class="status-text">Operational</span>
+                            </span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="dashboard-panel">
+                <div class="panel-header">
+                    <h3 class="panel-title">Quick Actions</h3>
+                </div>
+                <div class="panel-body padded">
+                    <div class="quick-actions">
+                        <a href="/sales/orders/new" class="quick-action-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19" />
+                                <line x1="5" y1="12" x2="19" y2="12" />
+                            </svg>
+                            New Sales Order
+                        </a>
+                        <a href="/procurement/pos/new" class="quick-action-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19" />
+                                <line x1="5" y1="12" x2="19" y2="12" />
+                            </svg>
+                            New Purchase Order
+                        </a>
+                        <a href="/sales/customers/new" class="quick-action-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                                <circle cx="9" cy="7" r="4" />
+                                <line x1="19" y1="8" x2="19" y2="14" />
+                                <line x1="22" y1="11" x2="16" y2="11" />
+                            </svg>
+                            New Customer
+                        </a>
+                        <form method="post" action="/report/sample" style="margin: 0;">
+                            <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+                            <button type="submit" class="quick-action-btn" style="width: 100%; border: none;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                    <polyline points="14 2 14 8 20 8" />
+                                    <line x1="12" y1="18" x2="12" y2="12" />
+                                    <line x1="9" y1="15" x2="15" y2="15" />
+                                </svg>
+                                Generate Sample PDF
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Environment Info -->
+            <div class="metadata-block">
+                <div class="metadata-title">Environment</div>
+                <div class="metadata-list">
+                    <div class="metadata-item">
+                        <span class="metadata-label">Mode</span>
+                        <span class="metadata-value">{{ index .Data "AppEnv" }}</span>
+                    </div>
+                    <div class="metadata-item">
+                        <span class="metadata-label">Version</span>
+                        <span class="metadata-value">v1.0.0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {{ end }}
