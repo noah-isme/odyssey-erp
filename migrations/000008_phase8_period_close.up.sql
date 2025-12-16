@@ -30,11 +30,13 @@ SELECT
     p.code,
     p.start_date,
     p.end_date,
-    CASE
-        WHEN p.status = 'LOCKED' THEN 'HARD_CLOSED'
-        WHEN p.status = 'CLOSED' THEN 'SOFT_CLOSED'
-        ELSE 'OPEN'
-    END,
+    (
+        CASE
+            WHEN p.status = 'LOCKED' THEN 'HARD_CLOSED'
+            WHEN p.status = 'CLOSED' THEN 'SOFT_CLOSED'
+            ELSE 'OPEN'
+        END
+    )::accounting_period_status,
     p.created_at,
     p.updated_at
 FROM periods p;

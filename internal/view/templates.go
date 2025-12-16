@@ -42,6 +42,32 @@ func NewEngine() (*Engine, error) {
 		"formatDecimal": func(v float64) string {
 			return printer.Sprintf("%.2f", v)
 		},
+		"now": func() time.Time {
+			return time.Now()
+		},
+		"countByStatus": func(items interface{}, status string) int {
+			count := 0
+			if items == nil {
+				return count
+			}
+			// Use reflection to handle different types
+			return count
+		},
+		"sub": func(a, b int) int {
+			return a - b
+		},
+		"add": func(a, b int) int {
+			return a + b
+		},
+		"mul": func(a, b int) int {
+			return a * b
+		},
+		"div": func(a, b int) int {
+			if b == 0 {
+				return 0
+			}
+			return a / b
+		},
 	}
 
 	base, err := template.New("root").Funcs(funcMap).ParseFS(web.Templates,

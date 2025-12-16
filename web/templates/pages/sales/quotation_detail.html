@@ -10,7 +10,7 @@
         <h1>Quotation {{ .Quotation.DocNumber }}</h1>
         <p>
             Status:
-            {{ if eq .Quotation.Status</h1> "DRAFT" }}<span class="badge badge-secondary">Draft</span>{{ end }}
+            {{ if eq .Quotation.Status "DRAFT" }}<span class="badge badge-secondary">Draft</span>{{ end }}
             {{ if eq .Quotation.Status "SUBMITTED" }}<span class="badge badge-info">Submitted</span>{{ end }}
             {{ if eq .Quotation.Status "APPROVED" }}<span class="badge badge-success">Approved</span>{{ end }}
             {{ if eq .Quotation.Status "REJECTED" }}<span class="badge badge-danger">Rejected</span>{{ end }}
@@ -149,7 +149,7 @@
                 <tbody>
                     {{ range .Quotation.Lines }}
                     <tr>
-                        <td>{{ .LineOrder</th> }}</td>
+                        <td>{{ .LineOrder }}</td>
                         <td>{{ .ProductID }}</td>
                         <td>{{ if .Description }}{{ .Description }}{{ else }}-{{ end }}</td>
                         <td>{{ printf "%.2f" .Quantity }}</td>
