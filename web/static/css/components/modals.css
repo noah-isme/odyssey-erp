@@ -1,5 +1,6 @@
 /* ============================================
-   Odyssey ERP - Modal & Inspector Components
+   Odyssey ERP - Modals & Panels
+   Uses tokens from core/tokens.css
    ============================================ */
 
 /* Modal Overlay */
@@ -10,12 +11,12 @@
     align-items: center;
     justify-content: center;
     padding: var(--space-4);
-    background-color: rgba(0, 0, 0, 0.5);
+    background: var(--overlay-bg);
     backdrop-filter: blur(4px);
-    z-index: 1000;
+    z-index: var(--z-modal);
     opacity: 0;
     visibility: hidden;
-    transition: all var(--transition-fast);
+    transition: all var(--dur-2) var(--ease-standard);
 }
 
 .modal-overlay.open {
@@ -23,17 +24,18 @@
     visibility: visible;
 }
 
+/* Modal */
 .modal {
     width: 100%;
     max-width: 520px;
     max-height: calc(100vh - var(--space-8));
-    background-color: var(--color-bg-card);
-    border-radius: var(--radius-xl);
-    box-shadow: var(--shadow-lg);
+    background: var(--modal-bg);
+    border-radius: var(--modal-radius);
+    box-shadow: var(--modal-shadow);
     display: flex;
     flex-direction: column;
     transform: translateY(20px);
-    transition: transform var(--transition-normal);
+    transition: transform var(--dur-3) var(--ease-standard);
 }
 
 .modal-overlay.open .modal {
@@ -45,13 +47,13 @@
     align-items: center;
     justify-content: space-between;
     padding: var(--space-4) var(--space-5);
-    border-bottom: 1px solid var(--color-border-subtle);
+    border-bottom: 1px solid var(--border-subtle);
 }
 
 .modal-title {
     margin: 0;
-    font-size: var(--font-size-lg);
-    font-weight: var(--font-weight-semibold);
+    font-size: var(--text-lg);
+    font-weight: var(--weight-semibold);
 }
 
 .modal-close {
@@ -63,15 +65,15 @@
     padding: 0;
     background: transparent;
     border: none;
-    border-radius: var(--radius-md);
-    color: var(--color-text-muted);
+    border-radius: var(--radius-2);
+    color: var(--text-muted);
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition: all var(--dur-2) var(--ease-standard);
 }
 
 .modal-close:hover {
-    background-color: var(--color-gray-100);
-    color: var(--color-text-primary);
+    background: var(--bg-surface-muted);
+    color: var(--text-primary);
 }
 
 .modal-body {
@@ -86,44 +88,44 @@
     justify-content: flex-end;
     gap: var(--space-3);
     padding: var(--space-4) var(--space-5);
-    border-top: 1px solid var(--color-border-subtle);
-    background-color: var(--color-gray-50);
-    border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+    border-top: 1px solid var(--border-subtle);
+    background: var(--bg-surface-muted);
+    border-radius: 0 0 var(--modal-radius) var(--modal-radius);
 }
 
 /* Destructive modal */
 .modal.destructive .modal-header {
-    background-color: var(--color-error-soft);
-    border-color: var(--color-error);
+    background: var(--error-bg);
+    border-color: var(--error-600);
 }
 
 .modal.destructive .modal-title {
-    color: var(--color-error);
+    color: var(--error-600);
 }
 
 /* Modal sizes */
-.modal.modal-sm {
+.modal--sm {
     max-width: 400px;
 }
 
-.modal.modal-lg {
+.modal--lg {
     max-width: 720px;
 }
 
-.modal.modal-xl {
+.modal--xl {
     max-width: 960px;
 }
 
-/* Inspector / Detail Panel */
+/* Inspector / Side Panel */
 .inspector-overlay {
     position: fixed;
     inset: 0;
-    top: var(--header-height);
-    background-color: rgba(0, 0, 0, 0.3);
+    top: var(--header-h);
+    background: var(--overlay-bg);
     z-index: 90;
     opacity: 0;
     visibility: hidden;
-    transition: all var(--transition-fast);
+    transition: all var(--dur-2) var(--ease-standard);
 }
 
 .inspector-overlay.open {
@@ -133,19 +135,19 @@
 
 .inspector {
     position: fixed;
-    top: var(--header-height);
+    top: var(--header-h);
     right: 0;
     width: 100%;
     max-width: 480px;
-    height: calc(100vh - var(--header-height));
-    background-color: var(--color-bg-card);
-    border-left: 1px solid var(--color-border-subtle);
-    box-shadow: var(--shadow-lg);
+    height: calc(100vh - var(--header-h));
+    background: var(--bg-surface);
+    border-left: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-3);
     display: flex;
     flex-direction: column;
     z-index: 91;
     transform: translateX(100%);
-    transition: transform var(--transition-normal);
+    transition: transform var(--dur-3) var(--ease-standard);
 }
 
 .inspector.open {
@@ -157,20 +159,20 @@
     align-items: center;
     justify-content: space-between;
     padding: var(--space-4) var(--space-5);
-    border-bottom: 1px solid var(--color-border-subtle);
-    background-color: var(--color-gray-50);
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--bg-surface-muted);
 }
 
 .inspector-title {
     margin: 0;
-    font-size: var(--font-size-base);
-    font-weight: var(--font-weight-semibold);
+    font-size: var(--text-md);
+    font-weight: var(--weight-semibold);
 }
 
 .inspector-subtitle {
     margin: var(--space-1) 0 0 0;
-    font-size: var(--font-size-xs);
-    color: var(--color-text-secondary);
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
 }
 
 .inspector-close {
@@ -182,14 +184,14 @@
     padding: 0;
     background: transparent;
     border: none;
-    border-radius: var(--radius-md);
-    color: var(--color-text-muted);
+    border-radius: var(--radius-2);
+    color: var(--text-muted);
     cursor: pointer;
 }
 
 .inspector-close:hover {
-    background-color: var(--color-gray-200);
-    color: var(--color-text-primary);
+    background: var(--bg-surface-muted);
+    color: var(--text-primary);
 }
 
 .inspector-body {
@@ -204,11 +206,11 @@
 
 .inspector-section-title {
     margin: 0 0 var(--space-3) 0;
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-semibold);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: var(--color-text-secondary);
+    color: var(--text-secondary);
 }
 
 .inspector-footer {
@@ -216,6 +218,6 @@
     align-items: center;
     gap: var(--space-3);
     padding: var(--space-4) var(--space-5);
-    border-top: 1px solid var(--color-border-subtle);
-    background-color: var(--color-gray-50);
+    border-top: 1px solid var(--border-subtle);
+    background: var(--bg-surface-muted);
 }

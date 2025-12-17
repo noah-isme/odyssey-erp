@@ -1,103 +1,82 @@
 /* ============================================
-   Odyssey ERP - Card Components
+   Odyssey ERP - Cards / Surfaces
+   Uses tokens from core/tokens.css
    ============================================ */
 
 .card {
-    background-color: var(--color-bg-card);
-    border: 1px solid var(--color-border-subtle);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-sm);
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--card-radius);
+    padding: var(--card-pad);
+    box-shadow: var(--card-shadow);
 }
 
-.card-header {
+.card--muted {
+    background: var(--bg-surface-muted);
+}
+
+.card--floating {
+    background: var(--float-bg);
+    border-color: var(--float-border);
+    box-shadow: var(--float-shadow);
+}
+
+.card__header {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
-    padding: var(--space-4) var(--space-5);
-    border-bottom: 1px solid var(--color-border-subtle);
-}
-
-.card-title {
-    margin: 0;
-    font-size: var(--font-size-lg);
-    font-weight: var(--font-weight-semibold);
-}
-
-.card-body {
-    padding: var(--space-5);
-}
-
-.card-footer {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    padding: var(--space-4) var(--space-5);
-    border-top: 1px solid var(--color-border-subtle);
-    background-color: var(--color-gray-50);
-    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-}
-
-/* Summary Card */
-.summary-cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: var(--space-4);
-    margin-bottom: var(--space-6);
+    margin-bottom: var(--space-4);
 }
 
-.summary-card {
-    padding: var(--space-5);
-    background-color: var(--color-bg-card);
-    border: 1px solid var(--color-border-subtle);
-    border-radius: var(--radius-lg);
+.card__title {
+    font-size: var(--text-lg);
+    font-weight: var(--weight-semibold);
+    line-height: var(--leading-tight);
 }
 
-.summary-card-label {
-    display: block;
-    margin-bottom: var(--space-2);
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-medium);
-    color: var(--color-text-secondary);
+.card__desc {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    line-height: var(--leading-normal);
 }
 
-.summary-card-value {
+.divider {
+    height: 1px;
+    background: var(--border-subtle);
+    margin: var(--space-4) 0;
+}
+
+/* Clickable card */
+.card.is-clickable {
+    cursor: pointer;
+    transition: border-color var(--dur-2) var(--ease-standard),
+        box-shadow var(--dur-2) var(--ease-standard),
+        transform var(--dur-2) var(--ease-standard);
+}
+
+.card.is-clickable:hover {
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-1);
+    transform: translateY(-1px);
+}
+
+/* Card sizes */
+.card--sm {
+    padding: var(--space-4);
+}
+
+.card--lg {
+    padding: var(--space-8);
+}
+
+/* Card footer */
+.card__footer {
     display: flex;
-    align-items: baseline;
-    gap: var(--space-2);
-    font-size: var(--font-size-2xl);
-    font-weight: var(--font-weight-bold);
-    color: var(--color-text-primary);
-    font-variant-numeric: tabular-nums;
-}
-
-.summary-card-currency {
-    font-size: var(--font-size-lg);
-    font-weight: var(--font-weight-medium);
-    color: var(--color-text-secondary);
-}
-
-.summary-card-delta {
-    display: inline-flex;
     align-items: center;
-    gap: var(--space-1);
-    margin-top: var(--space-2);
-    padding: var(--space-1) var(--space-2);
-    border-radius: var(--radius-sm);
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-semibold);
-}
-
-.summary-card-delta.positive {
-    background-color: var(--color-success-soft);
-    color: var(--color-success);
-}
-
-.summary-card-delta.negative {
-    background-color: var(--color-error-soft);
-    color: var(--color-error);
-}
-
-.summary-card-delta.neutral {
-    background-color: var(--color-gray-200);
-    color: var(--color-text-secondary);
+    justify-content: flex-end;
+    gap: var(--space-3);
+    margin-top: var(--space-4);
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--border-subtle);
 }

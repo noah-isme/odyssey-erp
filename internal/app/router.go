@@ -76,8 +76,34 @@ func NewRouter(params RouterParams) http.Handler {
 		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	})
 
+	// Landing page for unauthenticated users
+	r.Get("/welcome", func(w http.ResponseWriter, r *http.Request) {
+		sess := shared.SessionFromContext(r.Context())
+		csrfToken, _ := params.CSRFManager.EnsureToken(r.Context(), sess)
+		var flash *shared.FlashMessage
+		if sess != nil {
+			flash = sess.PopFlash()
+		}
+		data := view.TemplateData{
+			Title:     "Odyssey ERP",
+			CSRFToken: csrfToken,
+			Flash:     flash,
+		}
+		if err := params.Templates.Render(w, "pages/landing.html", data); err != nil {
+			params.Logger.Error("render landing", slog.Any("error", err))
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		}
+	})
+
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		sess := shared.SessionFromContext(r.Context())
+		
+		// Redirect to landing page if not authenticated
+		if sess == nil || sess.User() == "" {
+			http.Redirect(w, r, "/welcome", http.StatusSeeOther)
+			return
+		}
+		
 		csrfToken, _ := params.CSRFManager.EnsureToken(r.Context(), sess)
 		var flash *shared.FlashMessage
 		if sess != nil {

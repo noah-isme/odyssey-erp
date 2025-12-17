@@ -1,25 +1,176 @@
 {{ define "pages/login.html" }}
-{{ template "layouts/base.html" . }}
+{{ template "layouts/public.html" . }}
 {{ end }}
 
-{{ define "title" }}Masuk{{ end }}
+{{ define "title" }}Masuk · Odyssey ERP{{ end }}
 
 {{ define "content" }}
-<h1>Masuk</h1>
-{{ $errors := .Data.Errors }}
-{{ if $errors.general }}
-<article class="error">{{ $errors.general }}</article>
-{{ end }}
-<form method="post" action="/auth/login">
-    <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
-    <label>Email
-        <input type="email" name="email" value="{{ .Data.Form.Email }}" required>
-        {{ if $errors.Email }}<small class="error">{{ $errors.Email }}</small>{{ end }}
-    </label>
-    <label>Password
-        <input type="password" name="password" required>
-        {{ if $errors.Password }}<small class="error">{{ $errors.Password }}</small>{{ end }}
-    </label>
-    <button type="submit">Masuk</button>
-</form>
+<div class="login-page">
+    <!-- Background -->
+    <div class="login-bg">
+        <div class="login-gradient"></div>
+        <div class="login-glow"></div>
+    </div>
+
+    <!-- Login Container -->
+    <div class="login-wrapper">
+        <!-- Branding Panel (left) - Keynote style -->
+        <div class="login-branding">
+            <div class="branding-content">
+                <a href="/welcome" class="login-logo-large">
+                    <svg class="logo-icon" viewBox="0 0 32 32" fill="none">
+                        <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="2" />
+                        <path d="M16 6C10.477 6 6 10.477 6 16s4.477 10 10 10 10-4.477 10-10" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" />
+                        <circle cx="16" cy="16" r="4" fill="currentColor" />
+                    </svg>
+                </a>
+                <h2 class="branding-title">Odyssey ERP</h2>
+                <p class="branding-tagline">Enterprise Resource Planning untuk Bisnis Indonesia</p>
+
+                <div class="branding-features">
+                    <div class="branding-feature">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                        Sales & Inventory
+                    </div>
+                    <div class="branding-feature">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                        Financial Reports
+                    </div>
+                    <div class="branding-feature">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                        Audit Trail
+                    </div>
+                </div>
+
+                <p class="branding-caption">Trusted internal systems start here.</p>
+            </div>
+        </div>
+
+        <!-- Form Panel (right) -->
+        <div class="login-form-panel">
+            <div class="login-form-container">
+                <!-- Back link - aligned with card -->
+                <a href="/welcome" class="login-back">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="19" y1="12" x2="5" y2="12" />
+                        <polyline points="12 19 5 12 12 5" />
+                    </svg>
+                    Kembali ke Landing
+                </a>
+
+                <!-- Login Card -->
+                <div class="login-card">
+                    <!-- Header - Moment of trust -->
+                    <div class="login-header">
+                        <div class="login-logo-mobile">
+                            <svg class="logo-icon" viewBox="0 0 32 32" fill="none">
+                                <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="2" />
+                                <path d="M16 6C10.477 6 6 10.477 6 16s4.477 10 10 10 10-4.477 10-10"
+                                    stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                                <circle cx="16" cy="16" r="4" fill="currentColor" />
+                            </svg>
+                        </div>
+                        <h1 class="login-title">Masuk ke Odyssey</h1>
+                        <p class="login-subtitle">Gunakan akun perusahaan Anda.</p>
+                        <p class="login-security-note">Akses dilindungi dan tercatat.</p>
+                    </div>
+
+                    <!-- Error Message - Informative, not punishing -->
+                    {{ $errors := .Data.Errors }}
+                    {{ if $errors.general }}
+                    <div class="login-alert">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="12" y1="8" x2="12" y2="12" />
+                            <line x1="12" y1="16" x2="12.01" y2="16" />
+                        </svg>
+                        <span>{{ $errors.general }}</span>
+                    </div>
+                    {{ end }}
+
+                    <!-- Login Form -->
+                    <form method="post" action="/auth/login" class="login-form">
+                        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+
+                        <div class="form-group">
+                            <label for="email" class="form-label">Email</label>
+                            <div class="input-wrapper">
+                                <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <path
+                                        d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                                    <polyline points="22,6 12,13 2,6" />
+                                </svg>
+                                <input type="email" id="email" name="email" value="{{ .Data.Form.Email }}"
+                                    placeholder="nama@perusahaan.com" required autofocus
+                                    class="form-input{{ if $errors.Email }} input-error{{ end }}">
+                            </div>
+                            {{ if $errors.Email }}
+                            <span class="field-error">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10" />
+                                    <line x1="12" y1="8" x2="12" y2="12" />
+                                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                                </svg>
+                                {{ $errors.Email }}
+                            </span>
+                            {{ end }}
+                        </div>
+
+                        <div class="form-group">
+                            <label for="password" class="form-label">Password</label>
+                            <div class="input-wrapper">
+                                <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                                </svg>
+                                <input type="password" id="password" name="password" placeholder="••••••••" required
+                                    class="form-input{{ if $errors.Password }} input-error{{ end }}">
+                            </div>
+                            {{ if $errors.Password }}
+                            <span class="field-error">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10" />
+                                    <line x1="12" y1="8" x2="12" y2="12" />
+                                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                                </svg>
+                                {{ $errors.Password }}
+                            </span>
+                            {{ end }}
+                        </div>
+
+                        <div class="form-options">
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="remember" class="checkbox-input">
+                                <span class="checkbox-text">Ingat saya</span>
+                            </label>
+                            <a href="#" class="forgot-link">Lupa password?</a>
+                        </div>
+
+                        <button type="submit" class="btn-login">
+                            Masuk
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="5" y1="12" x2="19" y2="12" />
+                                <polyline points="12 5 19 12 12 19" />
+                            </svg>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Footer - Page closure -->
+                <p class="login-footer">
+                    &copy; 2024 Odyssey ERP. All rights reserved.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
 {{ end }}

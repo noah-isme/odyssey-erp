@@ -2,6 +2,466 @@
    Odyssey ERP - Utility Classes
    ============================================ */
 
+/* -----------------------------
+   Base Reset (thin, safe)
+----------------------------- */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    height: 100%;
+}
+
+body {
+    margin: 0;
+    font-family: var(--font-sans);
+    font-size: var(--text-md);
+    line-height: var(--leading-normal);
+    color: var(--text-primary);
+    background: var(--bg-app);
+
+    /* Premium readability */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: geometricPrecision;
+}
+
+img,
+svg,
+video,
+canvas {
+    display: block;
+    max-width: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+    font: inherit;
+    color: inherit;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: none;
+    outline: none;
+}
+
+button {
+    cursor: pointer;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="search"],
+input[type="tel"],
+input[type="url"],
+textarea,
+select {
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+:focus {
+    outline: none;
+}
+
+:focus-visible {
+    outline: none;
+}
+
+html {
+    scrollbar-gutter: stable;
+}
+
+/* Base Table Styling (replaces Pico) */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+}
+
+th,
+td {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-default);
+}
+
+th {
+    font-weight: var(--weight-medium);
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    background: var(--bg-surface-muted);
+}
+
+tbody tr:hover {
+    background: var(--bg-surface-muted);
+}
+
+/* Base Heading Styling (replaces Pico) */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    margin: 0 0 var(--space-4);
+    font-weight: var(--weight-semibold);
+    line-height: var(--leading-tight);
+    color: var(--text-primary);
+}
+
+h1 {
+    font-size: var(--text-2xl);
+}
+
+h2 {
+    font-size: var(--text-xl);
+}
+
+h3 {
+    font-size: var(--text-lg);
+}
+
+h4 {
+    font-size: var(--text-md);
+}
+
+h5 {
+    font-size: var(--text-sm);
+}
+
+h6 {
+    font-size: var(--text-xs);
+}
+
+p {
+    margin: 0 0 var(--space-4);
+    line-height: var(--leading-normal);
+}
+
+/* Base Button Styling (replaces Pico) */
+button:not([class]) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: var(--btn-h);
+    padding: 0 var(--btn-pad-x);
+    font-size: var(--btn-font);
+    font-weight: var(--btn-weight);
+    color: var(--btn-primary-fg);
+    background: var(--btn-primary-bg);
+    border: none;
+    border-radius: var(--btn-radius);
+    cursor: pointer;
+    transition: background-color var(--dur-2) var(--ease-standard);
+}
+
+button:not([class]):hover {
+    background: var(--btn-primary-hover-bg);
+}
+
+/* Base Input Styling (replaces Pico) */
+input:not([type="checkbox"]):not([type="radio"]):not([class]),
+input[type="text"]:not([class]),
+input[type="email"]:not([class]),
+input[type="password"]:not([class]),
+input[type="search"]:not([class]),
+input[type="number"]:not([class]) {
+    width: 100%;
+    height: var(--input-h);
+    padding: 0 var(--input-pad-x);
+    font-size: var(--text-sm);
+    color: var(--input-fg);
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: var(--input-radius);
+    transition: border-color var(--dur-2) var(--ease-standard),
+        box-shadow var(--dur-2) var(--ease-standard);
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([class]):hover {
+    border-color: var(--input-border-hover);
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([class]):focus {
+    border-color: var(--input-border-focus);
+    box-shadow: var(--focus-ring);
+    outline: none;
+}
+
+input::placeholder {
+    color: var(--input-placeholder);
+}
+
+/* Base Select Styling (replaces Pico) */
+select:not([class]) {
+    width: 100%;
+    height: var(--input-h);
+    padding: 0 var(--input-pad-x);
+    padding-right: 36px;
+    font-size: var(--text-sm);
+    color: var(--input-fg);
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: var(--input-radius);
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235B6168' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    cursor: pointer;
+    transition: border-color var(--dur-2) var(--ease-standard);
+}
+
+select:not([class]):hover {
+    border-color: var(--input-border-hover);
+}
+
+select:not([class]):focus {
+    border-color: var(--input-border-focus);
+    box-shadow: var(--focus-ring);
+    outline: none;
+}
+
+/* Base Label Styling */
+label {
+    display: block;
+    margin-bottom: var(--space-1);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+    color: var(--text-secondary);
+}
+
+/* Link styled as button (role="button") - Pico pattern */
+a[role="button"] {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: var(--btn-h);
+    padding: 0 var(--btn-pad-x);
+    font-size: var(--btn-font);
+    font-weight: var(--btn-weight);
+    color: var(--btn-primary-fg);
+    background: var(--btn-primary-bg);
+    border: none;
+    border-radius: var(--btn-radius);
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color var(--dur-2) var(--ease-standard);
+}
+
+a[role="button"]:hover {
+    background: var(--btn-primary-hover-bg);
+}
+
+/* Secondary button variant */
+a[role="button"].secondary,
+button.secondary {
+    background: var(--btn-secondary-bg);
+    color: var(--btn-secondary-fg);
+    border: 1px solid var(--btn-secondary-border);
+}
+
+a[role="button"].secondary:hover,
+button.secondary:hover {
+    background: var(--btn-secondary-hover-bg);
+}
+
+/* Outline button variant */
+a[role="button"].outline,
+button.outline {
+    background: transparent;
+    color: var(--text-primary);
+    border: 1px solid var(--border-strong);
+}
+
+a[role="button"].outline:hover,
+button.outline:hover {
+    background: var(--bg-surface-muted);
+}
+
+/* Base anchor/link styling */
+a:not([role]):not([class]) {
+    color: var(--link);
+    text-decoration: none;
+    transition: color var(--dur-2) var(--ease-standard);
+}
+
+a:not([role]):not([class]):hover {
+    color: var(--link-hover);
+    text-decoration: underline;
+}
+
+/* Grid utility for forms */
+.grid {
+    display: grid;
+    gap: var(--space-4);
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+/* Filters section styling */
+.filters {
+    margin-bottom: var(--space-6);
+    padding: var(--space-4);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-3);
+}
+
+.filters form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+/* Page wrapper styling */
+.customers-wrapper,
+.quotations-wrapper,
+.orders-wrapper {
+    padding: var(--space-2);
+}
+
+.customers-wrapper header,
+.quotations-wrapper header,
+.orders-wrapper header {
+    margin-bottom: var(--space-6);
+}
+
+.customers-wrapper header h1,
+.quotations-wrapper header h1,
+.orders-wrapper header h1 {
+    margin-bottom: var(--space-2);
+}
+
+.customers-wrapper header p,
+.quotations-wrapper header p,
+.orders-wrapper header p {
+    color: var(--text-secondary);
+    margin-bottom: var(--space-4);
+}
+
+.customers-wrapper header [role="group"],
+.quotations-wrapper header [role="group"],
+.orders-wrapper header [role="group"] {
+    display: flex;
+    gap: var(--space-3);
+}
+
+::selection {
+    background: var(--brand-soft);
+    color: var(--text-primary);
+}
+
+hr {
+    border: 0;
+    height: 1px;
+    background: var(--border-subtle);
+    margin: var(--space-6) 0;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    margin: 0;
+    font-weight: var(--weight-semibold);
+    line-height: var(--leading-tight);
+    letter-spacing: -0.01em;
+}
+
+p {
+    margin: 0;
+}
+
+small {
+    font-size: var(--text-xs);
+}
+
+/* Subtle scrollbars */
+@supports (scrollbar-color: auto) {
+    :root {
+        scrollbar-color: rgba(15, 31, 51, 0.22) transparent;
+        scrollbar-width: thin;
+    }
+
+    :root[data-theme="dark"] {
+        scrollbar-color: rgba(231, 237, 244, 0.22) transparent;
+    }
+}
+
+/* -----------------------------
+   Numeric Utilities (finance-friendly)
+----------------------------- */
+.numeric {
+    font-variant-numeric: var(--numeric);
+    font-feature-settings: "tnum" 1, "lnum" 1;
+}
+
+.numeric-right {
+    font-variant-numeric: var(--numeric);
+    font-feature-settings: "tnum" 1, "lnum" 1;
+    text-align: right;
+}
+
+/* -----------------------------
+   Eyebrow Label (enterprise whisper)
+----------------------------- */
+.eyebrow {
+    font-size: var(--text-xs);
+    font-weight: var(--weight-medium);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+}
+
+/* -----------------------------
+   Link Baseline
+----------------------------- */
+.link {
+    color: var(--link);
+    text-underline-offset: 3px;
+}
+
+.link:hover {
+    color: var(--link-hover);
+    text-decoration: underline;
+}
+
+/* -----------------------------
+   Container
+----------------------------- */
+.container {
+    width: 100%;
+    max-width: var(--app-max);
+    margin: 0 auto;
+    padding-left: var(--space-6);
+    padding-right: var(--space-6);
+}
+
+@media (max-width: 640px) {
+    .container {
+        padding-left: var(--space-4);
+        padding-right: var(--space-4);
+    }
+}
+
 /* Text Alignment */
 .text-left {
     text-align: left;

@@ -10,11 +10,11 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: var(--header-height);
+    height: var(--header-h);
     padding: 0 var(--space-6);
-    background-color: var(--color-bg-header);
-    color: var(--color-text-inverse);
-    box-shadow: var(--shadow-md);
+    background-color: var(--header-bg);
+    color: var(--header-fg);
+    box-shadow: var(--shadow-1);
 }
 
 .header-left {
@@ -47,10 +47,10 @@
     padding: 0;
     background: transparent;
     border: none;
-    border-radius: var(--radius-md);
-    color: var(--color-text-inverse);
+    border-radius: var(--radius-2);
+    color: var(--header-fg);
     cursor: pointer;
-    transition: background-color var(--transition-fast);
+    transition: background-color var(--dur-2) var(--ease-standard);
 }
 
 .sidebar-toggle:hover {
@@ -59,9 +59,9 @@
 
 /* Brand */
 .header-brand {
-    font-size: var(--font-size-lg);
-    font-weight: var(--font-weight-bold);
-    color: var(--color-text-inverse);
+    font-size: var(--text-lg);
+    font-weight: var(--weight-semibold);
+    color: var(--header-fg);
     text-decoration: none;
 }
 
@@ -70,22 +70,22 @@
     display: flex;
     align-items: center;
     gap: var(--space-2);
-    font-size: var(--font-size-sm);
-    color: var(--color-gray-400);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
 }
 
 .breadcrumbs a {
-    color: var(--color-gray-400);
+    color: var(--text-muted);
     text-decoration: none;
-    transition: color var(--transition-fast);
+    transition: color var(--dur-2) var(--ease-standard);
 }
 
 .breadcrumbs a:hover {
-    color: var(--color-text-inverse);
+    color: var(--header-fg);
 }
 
 .breadcrumbs-separator {
-    color: var(--color-gray-600);
+    color: var(--text-muted);
 }
 
 /* Global Search */
@@ -97,36 +97,36 @@
     padding: var(--space-2) var(--space-4);
     background-color: rgba(255, 255, 255, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: var(--radius-lg);
-    color: var(--color-gray-400);
-    font-size: var(--font-size-sm);
-    transition: all var(--transition-fast);
+    border-radius: var(--radius-3);
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+    transition: all var(--dur-2) var(--ease-standard);
 }
 
 .global-search:focus-within {
     background-color: rgba(255, 255, 255, 0.15);
-    border-color: var(--color-brand-300);
+    border-color: var(--primary-300);
 }
 
 .global-search input {
     flex: 1;
     background: transparent;
     border: none;
-    color: var(--color-text-inverse);
-    font-size: var(--font-size-sm);
+    color: var(--header-fg);
+    font-size: var(--text-sm);
     outline: none;
 }
 
 .global-search input::placeholder {
-    color: var(--color-gray-400);
+    color: var(--text-muted);
 }
 
 .global-search-shortcut {
     padding: var(--space-1) var(--space-2);
     background-color: rgba(255, 255, 255, 0.1);
-    border-radius: var(--radius-sm);
-    font-size: var(--font-size-xs);
-    color: var(--color-gray-400);
+    border-radius: var(--radius-1);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
 }
 
 /* Header Buttons */
@@ -135,18 +135,18 @@
     align-items: center;
     gap: var(--space-2);
     padding: var(--space-2) var(--space-4);
-    background-color: var(--color-brand-500);
+    background-color: var(--brand);
     border: none;
-    border-radius: var(--radius-md);
-    color: var(--color-text-inverse);
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-medium);
+    border-radius: var(--radius-2);
+    color: #FFFFFF;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
     cursor: pointer;
-    transition: background-color var(--transition-fast);
+    transition: background-color var(--dur-2) var(--ease-standard);
 }
 
 .header-btn:hover {
-    background-color: var(--color-brand-700);
+    background-color: var(--brand-hover);
 }
 
 .header-btn-icon {
@@ -158,11 +158,11 @@
     padding: 0;
     background: transparent;
     border: none;
-    border-radius: var(--radius-md);
-    color: var(--color-text-inverse);
+    border-radius: var(--radius-2);
+    color: var(--header-fg);
     cursor: pointer;
     position: relative;
-    transition: background-color var(--transition-fast);
+    transition: background-color var(--dur-2) var(--ease-standard);
 }
 
 .header-btn-icon:hover {
@@ -176,10 +176,10 @@
     min-width: 18px;
     height: 18px;
     padding: 0 var(--space-1);
-    background-color: var(--color-error);
+    background-color: var(--error-600);
     border-radius: 9px;
     font-size: 11px;
-    font-weight: var(--font-weight-bold);
+    font-weight: var(--weight-semibold);
     line-height: 18px;
     text-align: center;
 }
@@ -192,10 +192,10 @@
     padding: var(--space-2);
     background: transparent;
     border: none;
-    border-radius: var(--radius-md);
-    color: var(--color-text-inverse);
+    border-radius: var(--radius-2);
+    color: var(--header-fg);
     cursor: pointer;
-    transition: background-color var(--transition-fast);
+    transition: background-color var(--dur-2) var(--ease-standard);
 }
 
 .user-menu:hover {
@@ -205,18 +205,55 @@
 .user-avatar {
     width: 32px;
     height: 32px;
-    background-color: var(--color-brand-500);
+    background-color: var(--brand);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-semibold);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
 }
 
 .user-name {
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-medium);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+}
+
+/* Theme Toggle */
+.theme-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-2);
+    color: var(--header-fg);
+    cursor: pointer;
+    transition: background-color var(--dur-2) var(--ease-standard);
+}
+
+.theme-toggle:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Show/hide icons based on theme */
+.theme-toggle .icon-sun {
+    display: block;
+}
+
+.theme-toggle .icon-moon {
+    display: none;
+}
+
+:root[data-theme="dark"] .theme-toggle .icon-sun {
+    display: none;
+}
+
+:root[data-theme="dark"] .theme-toggle .icon-moon {
+    display: block;
 }
 
 /* Responsive */

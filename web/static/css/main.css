@@ -3,9 +3,8 @@
    Combines all modular CSS files
    ============================================ */
 
-/* Core */
+/* Core (Midnight Ledger Design System) */
 @import url('./core/tokens.css');
-@import url('./core/dark.css');
 @import url('./core/utilities.css');
 
 /* Layout */
@@ -13,7 +12,7 @@
 @import url('./layout/header.css');
 @import url('./layout/sidebar.css');
 
-/* Components */
+/* Components (modular) */
 @import url('./components/buttons.css');
 @import url('./components/cards.css');
 @import url('./components/tables.css');
@@ -24,3 +23,5 @@
 
 /* Pages */
 @import url('./pages/dashboard.css');
+@import url('./pages/landing.css');
+@import url('./pages/login.css');

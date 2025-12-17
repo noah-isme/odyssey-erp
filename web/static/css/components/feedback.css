@@ -1,17 +1,20 @@
 /* ============================================
    Odyssey ERP - Feedback Components
-   Toast, Alerts, Empty State, Loading
+   Toast, Alerts, Empty State, Loading, Skeleton
+   Uses tokens from core/tokens.css
    ============================================ */
 
-/* Toast Container */
+/* -----------------------------
+   TOAST
+----------------------------- */
 .toast-container {
     position: fixed;
-    top: calc(var(--header-height) + var(--space-4));
+    top: calc(var(--header-h) + var(--space-4));
     right: var(--space-4);
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
-    z-index: 1000;
+    z-index: var(--z-toast);
     pointer-events: none;
 }
 
@@ -22,13 +25,14 @@
     min-width: 320px;
     max-width: 480px;
     padding: var(--space-3) var(--space-4);
-    background-color: var(--color-bg-card);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-lg);
+    background: var(--toast-bg);
+    border: 1px solid var(--toast-border);
+    border-radius: var(--radius-3);
+    box-shadow: var(--toast-shadow);
     pointer-events: auto;
     opacity: 0;
     transform: translateX(100%);
-    transition: all var(--transition-normal);
+    transition: all var(--dur-3) var(--ease-standard);
 }
 
 .toast.show {
@@ -48,8 +52,8 @@
 
 .toast-message {
     flex: 1;
-    font-size: var(--font-size-sm);
-    color: var(--color-text-primary);
+    font-size: var(--text-sm);
+    color: var(--text-primary);
 }
 
 .toast-close {
@@ -57,84 +61,89 @@
     padding: var(--space-1);
     background: transparent;
     border: none;
-    border-radius: var(--radius-sm);
-    color: var(--color-text-muted);
+    border-radius: var(--radius-1);
+    color: var(--text-muted);
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition: all var(--dur-2) var(--ease-standard);
 }
 
 .toast-close:hover {
-    background-color: var(--color-gray-100);
-    color: var(--color-text-primary);
+    background: var(--bg-surface-muted);
+    color: var(--text-primary);
+}
+
+/* Toast variants */
+.toast-success {
+    border-left: 3px solid var(--success-600);
 }
 
 .toast-success .toast-icon {
-    color: var(--color-success);
-}
-
-.toast-error .toast-icon {
-    color: var(--color-error);
-}
-
-.toast-warning .toast-icon {
-    color: var(--color-warning);
-}
-
-.toast-info .toast-icon {
-    color: var(--color-info);
-}
-
-.toast-success {
-    border-left: 3px solid var(--color-success);
+    color: var(--success-600);
 }
 
 .toast-error {
-    border-left: 3px solid var(--color-error);
+    border-left: 3px solid var(--error-600);
+}
+
+.toast-error .toast-icon {
+    color: var(--error-600);
 }
 
 .toast-warning {
-    border-left: 3px solid var(--color-warning);
+    border-left: 3px solid var(--warning-600);
+}
+
+.toast-warning .toast-icon {
+    color: var(--warning-600);
 }
 
 .toast-info {
-    border-left: 3px solid var(--color-info);
+    border-left: 3px solid var(--info-600);
 }
 
-/* Alerts */
+.toast-info .toast-icon {
+    color: var(--info-600);
+}
+
+/* -----------------------------
+   ALERTS
+----------------------------- */
 .alert {
     display: flex;
     align-items: flex-start;
     gap: var(--space-3);
     padding: var(--space-4);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-2);
     margin-bottom: var(--space-4);
 }
 
 .alert-success {
-    background-color: var(--color-success-soft);
-    border: 1px solid var(--color-success);
-    color: var(--color-success);
+    background: var(--success-bg);
+    border: 1px solid var(--success-600);
+    color: var(--success-600);
 }
 
 .alert-warning {
-    background-color: var(--color-warning-soft);
-    border: 1px solid var(--color-warning);
-    color: var(--color-warning);
+    background: var(--warning-bg);
+    border: 1px solid var(--warning-600);
+    color: var(--warning-600);
 }
 
 .alert-error {
-    background-color: var(--color-error-soft);
-    border: 1px solid var(--color-error);
-    color: var(--color-error);
+    background: var(--error-bg);
+    border: 1px solid var(--error-600);
+    color: var(--error-600);
 }
 
 .alert-info {
-    background-color: var(--color-info-soft);
-    border: 1px solid var(--color-info);
-    color: var(--color-info);
+    background: var(--info-bg);
+    border: 1px solid var(--info-600);
+    color: var(--info-600);
 }
 
-/* Empty State */
+/* -----------------------------
+   EMPTY STATE
+----------------------------- */
 .empty-state {
     display: flex;
     flex-direction: column;
@@ -151,9 +160,9 @@
     width: 80px;
     height: 80px;
     margin-bottom: var(--space-4);
-    background-color: var(--color-gray-100);
+    background: var(--bg-surface-muted);
     border-radius: 50%;
-    color: var(--color-gray-400);
+    color: var(--text-muted);
 }
 
 .empty-state-icon svg {
@@ -163,31 +172,37 @@
 
 .empty-state-title {
     margin: 0 0 var(--space-2) 0;
-    font-size: var(--font-size-lg);
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-text-primary);
+    font-size: var(--text-lg);
+    font-weight: var(--weight-semibold);
+    color: var(--text-primary);
 }
 
 .empty-state-description {
     margin: 0 0 var(--space-6) 0;
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
     max-width: 360px;
 }
 
-/* Loading Overlay */
+/* -----------------------------
+   LOADING
+----------------------------- */
 .loading-overlay {
     position: fixed;
     inset: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: rgba(255, 255, 255, 0.8);
+    background: rgba(255, 255, 255, 0.8);
     backdrop-filter: blur(4px);
     z-index: 9999;
     opacity: 0;
     visibility: hidden;
-    transition: all var(--transition-normal);
+    transition: all var(--dur-2) var(--ease-standard);
+}
+
+:root[data-theme="dark"] .loading-overlay {
+    background: rgba(11, 15, 20, 0.8);
 }
 
 .loading-overlay.active {
@@ -201,17 +216,17 @@
     justify-content: center;
     width: 64px;
     height: 64px;
-    background-color: var(--color-bg-card);
-    border-radius: var(--radius-xl);
-    box-shadow: var(--shadow-lg);
+    background: var(--bg-surface);
+    border-radius: var(--radius-3);
+    box-shadow: var(--shadow-2);
 }
 
 .loading-spinner svg {
-    animation: spin 1s linear infinite;
-    color: var(--color-brand-500);
+    animation: loading-spin 1s linear infinite;
+    color: var(--brand);
 }
 
-@keyframes spin {
+@keyframes loading-spin {
     from {
         transform: rotate(0deg);
     }
@@ -221,15 +236,17 @@
     }
 }
 
-/* Skeleton Loader */
+/* -----------------------------
+   SKELETON
+----------------------------- */
 .skeleton {
     background: linear-gradient(90deg,
-            var(--color-gray-200) 25%,
-            var(--color-gray-100) 50%,
-            var(--color-gray-200) 75%);
+            var(--bg-surface-muted) 25%,
+            var(--bg-surface) 50%,
+            var(--bg-surface-muted) 75%);
     background-size: 200% 100%;
     animation: skeleton-loading 1.5s infinite;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-1);
 }
 
 @keyframes skeleton-loading {
@@ -260,5 +277,5 @@
 }
 
 .skeleton-rect {
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-2);
 }
