@@ -38,7 +38,7 @@
 
 | No | Fitur | Route | Priority | Status |
 |----|-------|-------|----------|--------|
-| 1 | Users Management | `/users` | HIGH | [ ] Belum di menu |
+| 1 | Users Management | `/users` | HIGH | ✅ Handler tersedia |
 | 2 | Roles Management | `/roles` | HIGH | [ ] Belum di menu |
 | 3 | Permissions | `/permissions` | MEDIUM | [ ] Belum di menu |
 
@@ -108,13 +108,13 @@
 
 ---
 
-### Phase 9 - Sales & Delivery (AR belum ada handler)
+### Phase 9 - Sales & Delivery (AR Invoices & Payments memiliki handler)
 
 | No | Fitur | Route | Priority | Status |
 |----|-------|-------|----------|--------|
-| 26 | AR Invoices | `/finance/ar/invoices` | HIGH | [ ] Belum ada handler |
-| 27 | AR Payments | `/finance/ar/payments` | HIGH | [ ] Belum ada handler |
-| 28 | AR Aging Report | `/finance/ar/aging` | HIGH | [ ] Belum ada handler |
+| 26 | AR Invoices | `/finance/ar/invoices` | HIGH | ✅ Handler tersedia |
+| 27 | AR Payments | `/finance/ar/payments` | HIGH | ✅ Handler tersedia |
+| 28 | AR Aging Report | `/finance/ar/aging` | HIGH | ✅ Handler tersedia |
 | 29 | Customer Statement | `/finance/ar/customer-statement` | MEDIUM | [ ] Belum ada handler |
 
 ---
@@ -123,7 +123,7 @@
 
 | Kategori | Total Fitur | Di Menu | Belum | Progress |
 |----------|-------------|---------|-------|----------|
-| Core Platform | 4 | 2 (Login, Audit) | 2 | 50% |
+| Core Platform | 4 | 3 (Login, Audit, Users) | 1 | 75% |
 | Master Data | 9 | 9 (All master data) | 0 | 100% |
 | Inventory & Procurement | 8 | 6 | 2 | 75% |
 | Accounting | 7 | 7 (Period Close, COA, Journals, GL, TB, BS, P&L) | 0 | 100% |
@@ -131,10 +131,10 @@
 | Security | 2 | 1 (Jobs) | 1 | 50% |
 | Consolidation | 3 | 2 (Consol, Eliminations) | 1 | 67% |
 | Board Pack & Variance | 2 | 2 | 0 | 100% |
-| Sales & Delivery | 7 | 4 (Quotations, SO, DO) | 3* | 57% |
-| **TOTAL** | **45** | **36** | **9** | **80%** |
+| Sales & Delivery | 7 | 7 (Quotations, SO, DO, AR Invoices, AR Payments, AR Aging) | 0* | 100% |
+| **TOTAL** | **45** | **40** | **5** | **89%** |
 
-> *AR module belum memiliki handler, perlu development
+> *Users Management handler tersedia, Roles Management & Permissions perlu development
 
 ---
 
@@ -144,20 +144,20 @@
 
 
 
-### 🟡 MEDIUM Priority (7 fitur)
+### 🟡 MEDIUM Priority (6 fitur)
 
 1. [ ] Categories
 2. [ ] Units
 3. [ ] Taxes
-4. [ ] Users Management
-5. [ ] Roles Management
+4. [ ] Roles Management
+5. [ ] Permissions
 6. [ ] KPI Tracking
 
-### 🟠 Perlu Development (4 fitur AR)
+### 🟠 Perlu Development (1 fitur AR)
 
-1. [ ] AR Invoices
-2. [ ] AR Payments
-3. [ ] AR Aging Report
+1. [x] AR Invoices
+2. [x] AR Payments
+3. [x] AR Aging Report
 4. [ ] Customer Statement
 
 ---
@@ -171,4 +171,7 @@
 - [x] Implementasi Master Data module lengkap
 - [x] Tambahkan menu Master Data (Products, Suppliers, Companies, Branches, Warehouses, Categories, Units, Taxes)
 - [ ] Verifikasi RBAC untuk setiap menu
-- [ ] Implementasi AR module (Phase 9.3)
+- [x] Implementasi AR Invoices handler (Phase 9.3)
+- [x] Implementasi AR Payments handler (Phase 9.3)
+- [x] Implementasi AR Aging Report handler (Phase 9.3)
+- [x] Implementasi Users Management handler (Phase 1)
