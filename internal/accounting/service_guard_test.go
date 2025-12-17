@@ -60,6 +60,10 @@ func (tx stubTx) UpdateJournalStatus(ctx context.Context, entryID int64, status 
 	return nil
 }
 
+func (tx stubTx) ListAccounts(ctx context.Context) ([]Account, error) {
+	return nil, nil
+}
+
 type stubGuard struct {
 	err error
 }

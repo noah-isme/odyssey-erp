@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
 
+	"github.com/odyssey-erp/odyssey-erp/internal/accounting"
 	analytichttp "github.com/odyssey-erp/odyssey-erp/internal/analytics/http"
 	audithttp "github.com/odyssey-erp/odyssey-erp/internal/audit/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/auth"
@@ -18,6 +19,7 @@ import (
 	eliminationhttp "github.com/odyssey-erp/odyssey-erp/internal/elimination/http"
 	insightshhtp "github.com/odyssey-erp/odyssey-erp/internal/insights/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/inventory"
+	"github.com/odyssey-erp/odyssey-erp/internal/masterdata"
 	"github.com/odyssey-erp/odyssey-erp/internal/observability"
 	"github.com/odyssey-erp/odyssey-erp/internal/procurement"
 	"github.com/odyssey-erp/odyssey-erp/internal/sales"
@@ -37,6 +39,7 @@ type RouterParams struct {
 	SessionManager     *shared.SessionManager
 	CSRFManager        *shared.CSRFManager
 	AuthHandler        *auth.Handler
+	AccountingHandler  *accounting.Handler
 	CloseHandler       *closehttp.Handler
 	EliminationHandler *eliminationhttp.Handler
 	VarianceHandler    *variancehttp.Handler
@@ -45,6 +48,7 @@ type RouterParams struct {
 	InventoryHandler   *inventory.Handler
 	ProcurementHandler *procurement.Handler
 	SalesHandler       *sales.Handler
+	MasterDataHandler  *masterdata.Handler
 	DeliveryHandler    *delivery.Handler
 	ReportHandler      *report.Handler
 	BoardPackHandler   *boardpackhttp.Handler
@@ -97,13 +101,13 @@ func NewRouter(params RouterParams) http.Handler {
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		sess := shared.SessionFromContext(r.Context())
-		
+
 		// Redirect to landing page if not authenticated
 		if sess == nil || sess.User() == "" {
 			http.Redirect(w, r, "/welcome", http.StatusSeeOther)
 			return
 		}
-		
+
 		csrfToken, _ := params.CSRFManager.EnsureToken(r.Context(), sess)
 		var flash *shared.FlashMessage
 		if sess != nil {
@@ -124,6 +128,11 @@ func NewRouter(params RouterParams) http.Handler {
 	})
 
 	r.Route("/auth", params.AuthHandler.MountRoutes)
+	if params.AccountingHandler != nil {
+		r.Route("/accounting", func(r chi.Router) {
+			params.AccountingHandler.MountRoutes(r)
+		})
+	}
 	if params.CloseHandler != nil {
 		params.CloseHandler.MountRoutes(r)
 	}
@@ -140,6 +149,9 @@ func NewRouter(params RouterParams) http.Handler {
 	r.Route("/procurement", params.ProcurementHandler.MountRoutes)
 	if params.SalesHandler != nil {
 		r.Route("/sales", params.SalesHandler.MountRoutes)
+	}
+	if params.MasterDataHandler != nil {
+		r.Route("/masterdata", params.MasterDataHandler.MountRoutes)
 	}
 	if params.DeliveryHandler != nil {
 		r.Route("/delivery", params.DeliveryHandler.MountRoutes)

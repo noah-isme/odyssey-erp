@@ -283,3 +283,14 @@ func defaultReversalMemo(memo string, number int64) string {
 	}
 	return fmt.Sprintf("Reversal of JE %d", number)
 }
+
+// ListAccounts retrieves all chart of accounts entries.
+func (s *Service) ListAccounts(ctx context.Context) ([]Account, error) {
+	var accounts []Account
+	err := s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
+		var err error
+		accounts, err = tx.ListAccounts(ctx)
+		return err
+	})
+	return accounts, err
+}

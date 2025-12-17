@@ -1,0 +1,115 @@
+{{ define "pages/masterdata/products_list.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Products{{ end }}
+
+{{ define "content" }}
+<div class="products-wrapper">
+    <header>
+        <h1>Products</h1>
+        <p>Manage product information</p>
+        <div role="group" aria-label="Actions">
+            <a href="/masterdata/products/new" role="button" class="btn btn--primary">+ New Product</a>
+        </div>
+    </header>
+
+    <!-- Filters -->
+    <section class="filters">
+        <form method="get" action="/masterdata/products">
+            <div class="grid">
+                <div>
+                    <label for="search">Search</label>
+                    <input type="text" name="search" id="search" placeholder="Search by code or name" value="{{ if .Filters.Search }}{{ .Filters.Search }}{{ end }}" class="input">
+                </div>
+                <div>
+                    <label for="category_id">Category</label>
+                    <select name="category_id" id="category_id" class="input">
+                        <option value="">All Categories</option>
+                        {{ range .Categories }}
+                        <option value="{{ .ID }}" {{ if eq .Filters.CategoryID .ID }}selected{{ end }}>{{ .Name }}</option>
+                        {{ end }}
+                    </select>
+                </div>
+                <div>
+                    <label for="is_active">Status</label>
+                    <select name="is_active" id="is_active" class="input">
+                        <option value="">All</option>
+                        <option value="true" {{ if .Filters.IsActive }}{{ if .Filters.IsActive }}selected{{ end }}{{ end }}>Active</option>
+                        <option value="false" {{ if .Filters.IsActive }}{{ if not .Filters.IsActive }}selected{{ end }}{{ end }}>Inactive</option>
+                    </select>
+                </div>
+            </div>
+            <button type="submit" class="btn">Filter</button>
+            <a href="/masterdata/products" role="button" class="btn btn--secondary">Clear</a>
+        </form>
+    </section>
+
+    <!-- Results -->
+    <section>
+        <p><strong>{{ .Total }}</strong> product(s) found</p>
+
+        {{ if .Products }}
+        <div class="table-wrap">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Code</th>
+                        <th>Name</th>
+                        <th>Category</th>
+                        <th>Unit</th>
+                        <th>Price</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ range .Products }}
+                    <tr>
+                        <td><a href="/masterdata/products/{{ .ID }}">{{ .Code }}</a></td>
+                        <td>{{ .Name }}</td>
+                        <td>{{ if .Category }}{{ .Category.Name }}{{ else }}-{{ end }}</td>
+                        <td>{{ if .Unit }}{{ .Unit.Name }}{{ else }}-{{ end }}</td>
+                        <td>{{ printf "%.2f" .Price }}</td>
+                        <td>
+                            {{ if .IsActive }}
+                            <span class="badge badge--success">Active</span>
+                            {{ else }}
+                            <span class="badge badge--neutral">Inactive</span>
+                            {{ end }}
+                        </td>
+                        <td>
+                            <a href="/masterdata/products/{{ .ID }}" role="button" class="btn btn--secondary btn--small">View</a>
+                        </td>
+                    </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {{ if gt .Total .Limit }}
+        <div class="pagination">
+            {{ $currentPage := div .Offset .Limit }}
+            {{ $totalPages := div (add .Total (sub .Limit 1)) .Limit }}
+
+            {{ if gt $currentPage 0 }}
+            <a href="?limit={{ .Limit }}&offset={{ sub .Offset .Limit }}{{ if .Filters.Search }}&search={{ .Filters.Search }}{{ end }}{{ if .Filters.CategoryID }}&category_id={{ .Filters.CategoryID }}{{ end }}{{ if .Filters.IsActive }}&is_active={{ .Filters.IsActive }}{{ end }}" role="button" class="btn btn--secondary">Previous</a>
+            {{ end }}
+
+            <span>Page {{ add $currentPage 1 }} of {{ $totalPages }}</span>
+
+            {{ if lt (add .Offset .Limit) .Total }}
+            <a href="?limit={{ .Limit }}&offset={{ add .Offset .Limit }}{{ if .Filters.Search }}&search={{ .Filters.Search }}{{ end }}{{ if .Filters.CategoryID }}&category_id={{ .Filters.CategoryID }}{{ end }}{{ if .Filters.IsActive }}&is_active={{ .Filters.IsActive }}{{ end }}" role="button" class="btn btn--secondary">Next</a>
+            {{ end }}
+        </div>
+        {{ end }}
+
+        {{ else }}
+        <article>
+            <p>No products found. <a href="/masterdata/products/new">Create your first product</a></p>
+        </article>
+        {{ end }}
+    </section>
+</div>
+{{ end }}
