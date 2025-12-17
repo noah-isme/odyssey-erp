@@ -28,37 +28,37 @@
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>Code</th></thead>
+                            <th>Code</th>
                             <th>Name</th>
                             <th>Type</th>
                             <th>Status</th>
-                            <th>Actions</th</tr>>
+                            <th>Actions</th>
                         </tr>
-                    </thead</th>>
+                    </thead>
                     <tbody>
-                        {{ range</th> .Data.Accounts }}</th>
+                        {{ range .Data.Accounts }}
                         <tr>
-                            <td>{{ .</tbody></tr>Code }}</td>
+                            <td>{{ .Code }}</td>
                             <td>{{ .Name }}</td>
                             <td>
                                 <span class="badge badge-{{ .Type | lower }}">
                                     {{ .Type }}
                                 </span>
                             </td>
-                            <td></td>
+                            <td>
                                 {{ if .IsActive }}
                                 <span class="status-badge status-active">Active</span>
                                 {{ else }}
-                                <span class="status-badge status-in</td>active">Inactive</span>
+                                <span class="status-badge status-inactive">Inactive</span>
                                 {{ end }}
                             </td>
                             <td>
-                                <a href="/accounting</td>/coa/{{ .ID }}/edit" class="btn btn-sm btn-secondary">Edit</a>
+                                <a href="/accounting/coa/{{ .ID }}/edit" class="btn btn-sm btn-secondary">Edit</a>
                             </td>
                         </tr>
                         {{ else }}
                         <tr>
-                            <td colspan</tr>="5" class="text-center">No accounts found</td>
+                            <td colspan="5" class="text-center">No accounts found</td>
                         </tr>
                         {{ end }}
                     </tbody>

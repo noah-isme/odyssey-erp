@@ -30,6 +30,18 @@ func NewHandler(client *Client, logger *slog.Logger) *Handler {
 			}
 			return t.Format("02 Jan 2006")
 		},
+		"formatDecimal": func(v float64) string {
+			return strconv.FormatFloat(v, 'f', 2, 64)
+		},
+		"formatPercent": func(v float64) string {
+			return strconv.FormatFloat(v, 'f', 2, 64) + "%"
+		},
+		"abs": func(v float64) float64 {
+			if v < 0 {
+				return -v
+			}
+			return v
+		},
 	}
 	tpl, err := template.New("reports").Funcs(funcMap).ParseFS(web.Templates, "templates/reports/*.html")
 	if err != nil {

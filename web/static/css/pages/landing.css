@@ -67,30 +67,30 @@
 .landing-page .btn-primary,
 .landing-nav .btn-primary {
     height: 44px;
-    padding: 0 20px;
+    padding: 0 24px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: var(--space-2);
-    font-size: 14px;
-    font-weight: var(--weight-medium);
+    font-size: 15px;
+    font-weight: 600;
     font-family: var(--font-sans);
-    border-radius: 10px;
+    border-radius: 12px;
     cursor: pointer;
     text-decoration: none;
-    transition: all var(--dur-2) var(--ease-standard);
-    background: var(--brand);
+    transition: all 0.3s ease;
+    background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
     border: none;
     color: #FFFFFF;
-    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.10);
+    box-shadow: 0 4px 15px rgba(79, 172, 254, 0.3);
 }
 
 .landing-page .btn-primary:hover,
 .landing-nav .btn-primary:hover {
-    background: var(--brand-hover);
+    background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
     color: #FFFFFF;
     transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(16, 24, 40, 0.15);
+    box-shadow: 0 6px 20px rgba(79, 172, 254, 0.4);
 }
 
 .landing-page .btn-primary svg {
@@ -132,7 +132,9 @@
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-    background: var(--bg-app);
+    background: #050810;
+    /* Deeper dark for landing */
+    color: #E2E8F0;
 }
 
 /* ==========================================================================
@@ -148,10 +150,10 @@
     right: 0;
     z-index: 100;
     height: 60px;
-    background: rgba(11, 18, 32, 0.98);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(10, 15, 26, 0.8);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .landing-nav-container {
@@ -162,6 +164,15 @@
     display: flex;
     align-items: center;
     gap: 48px;
+}
+
+/* Glassmorphism Utility */
+.glass {
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px 0 rgba(0, 3, 10, 0.37);
 }
 
 /* Logo stays left */
@@ -292,17 +303,17 @@
     font-size: 14px;
     font-weight: 500;
     color: #FFFFFF;
-    background: #2563EB;
+    background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
     border: none;
     border-radius: 8px;
     cursor: pointer;
-    transition: all 0.15s ease;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(79, 172, 254, 0.4);
 }
 
 .landing-nav .btn-primary:hover {
-    background: #1D4ED8;
-    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(79, 172, 254, 0.6);
 }
 
 /* ==========================================================================
@@ -328,19 +339,18 @@
     position: absolute;
     inset: 0;
     background:
-        radial-gradient(ellipse 80% 60% at 70% 30%, rgba(36, 92, 138, 0.06), transparent 60%),
-        radial-gradient(ellipse 60% 40% at 20% 80%, rgba(36, 92, 138, 0.03), transparent 50%);
+        radial-gradient(ellipse 80% 60% at 70% 30%, rgba(0, 242, 254, 0.08), transparent 60%),
+        radial-gradient(ellipse 60% 40% at 20% 80%, rgba(79, 172, 254, 0.05), transparent 50%);
 }
 
 .hero-pattern {
     position: absolute;
     inset: 0;
     background-image:
-        linear-gradient(rgba(255, 255, 255, 0.012) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.012) 1px, transparent 1px);
-    background-size: 56px 56px;
-    mask-image: radial-gradient(ellipse 70% 50% at 60% 40%, black 20%, transparent 60%);
-    -webkit-mask-image: radial-gradient(ellipse 70% 50% at 60% 40%, black 20%, transparent 60%);
+        radial-gradient(circle at 2px 2px, rgba(255, 255, 255, 0.05) 1px, transparent 0);
+    background-size: 40px 40px;
+    mask-image: radial-gradient(ellipse 70% 50% at 50% 50%, black 20%, transparent 100%);
+    -webkit-mask-image: radial-gradient(ellipse 70% 50% at 50% 50%, black 20%, transparent 100%);
 }
 
 .hero-container {
@@ -397,13 +407,24 @@
 
 /* Hero Title */
 .hero-title {
-    font-size: clamp(36px, 4.5vw, 52px);
-    font-weight: 600;
-    line-height: 1.08;
-    letter-spacing: -0.02em;
-    color: var(--text-primary);
-    margin: 0 0 20px;
-    max-width: 520px;
+    font-size: clamp(40px, 5vw, 64px);
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    background: linear-gradient(135deg, #FFFFFF 0%, #94A3B8 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin: 0 0 24px;
+    max-width: 600px;
+}
+
+.hero-title span {
+    display: block;
+    background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
 }
 
 /* Hero Description */
@@ -468,14 +489,31 @@
     z-index: 1;
 }
 
+.hero-visual::after {
+    content: '';
+    position: absolute;
+    inset: -20px;
+    background: radial-gradient(circle, rgba(0, 242, 254, 0.15), transparent 70%);
+    filter: blur(40px);
+    z-index: -1;
+}
+
 .product-window {
-    background: var(--bg-surface);
-    border: 1px solid rgba(15, 31, 51, 0.12);
-    border-radius: 14px;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
     overflow: hidden;
-    box-shadow:
-        0 10px 30px rgba(16, 24, 40, 0.16),
-        0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+}
+
+.product-window::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(135deg, rgba(0, 242, 254, 0.05), transparent 60%);
 }
 
 .window-header {
@@ -735,10 +773,16 @@
     line-height: 1.5;
 }
 
-.highlight-divider {
-    height: 1px;
-    background: rgba(15, 31, 51, 0.08);
-    margin-bottom: 14px;
+.highlight-link {
+    font-size: 13px;
+    font-weight: 600;
+    color: #4facfe;
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+.highlight-link:hover {
+    color: #00f2fe;
 }
 
 .highlight-features {
@@ -826,6 +870,103 @@
 }
 
 /* ==========================================================================
+   TESTIMONIALS SECTION
+   ========================================================================== */
+
+.testimonials-section {
+    padding: 100px var(--space-6);
+    background: var(--bg-app);
+    position: relative;
+    overflow: hidden;
+}
+
+.testimonials-section::before {
+    content: '';
+    position: absolute;
+    top: -20%;
+    right: -10%;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(58, 120, 168, 0.08), transparent 70%);
+    pointer-events: none;
+}
+
+.testimonials-container {
+    max-width: 1120px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 1;
+}
+
+.testimonials-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 32px;
+}
+
+.testimonial-card {
+    background: rgba(15, 23, 42, 0.4);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 20px;
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: all 0.3s ease;
+}
+
+.testimonial-card:hover {
+    transform: translateY(-8px);
+    border-color: rgba(58, 120, 168, 0.3);
+    background: rgba(15, 23, 42, 0.6);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+}
+
+.testimonial-content {
+    margin-bottom: 24px;
+}
+
+.testimonial-content p {
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.testimonial-author {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.author-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background-size: cover;
+    background-position: center;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.author-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.author-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.author-title {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+/* ==========================================================================
    INDONESIA SECTION
    ========================================================================== */
 
@@ -856,12 +997,15 @@
 
 /* Compliance Card */
 .compliance-card {
-    background: var(--bg-surface);
-    border: 1px solid rgba(15, 31, 51, 0.10);
-    border-radius: 14px;
+    background: rgba(15, 23, 42, 0.4);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
     padding: 0;
     overflow: hidden;
-    transform: translateY(-12px);
+    transform: translateY(-20px);
+    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4);
 }
 
 .compliance-header {
@@ -940,8 +1084,9 @@
 
 .landing-footer {
     margin-top: auto;
-    background: var(--bg-surface-muted);
-    border-top: 1px solid rgba(15, 31, 51, 0.08);
+    padding: 80px 0 40px;
+    background: #050810;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .footer-container {

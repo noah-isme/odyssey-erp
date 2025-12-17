@@ -157,9 +157,6 @@ func NewRouter(params RouterParams) http.Handler {
 	if params.CloseHandler != nil {
 		params.CloseHandler.MountRoutes(r)
 	}
-	if params.CloseHandler != nil {
-		params.CloseHandler.MountRoutes(r)
-	}
 	if params.BoardPackHandler != nil {
 		params.BoardPackHandler.MountRoutes(r)
 	}
