@@ -24,6 +24,7 @@ import (
 	analytichttp "github.com/odyssey-erp/odyssey-erp/internal/analytics/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/analytics/svg"
 	"github.com/odyssey-erp/odyssey-erp/internal/app"
+	"github.com/odyssey-erp/odyssey-erp/internal/ar"
 	"github.com/odyssey-erp/odyssey-erp/internal/audit"
 	auditdb "github.com/odyssey-erp/odyssey-erp/internal/audit/db"
 	audithttp "github.com/odyssey-erp/odyssey-erp/internal/audit/http"
@@ -49,6 +50,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
 	"github.com/odyssey-erp/odyssey-erp/internal/sales"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
+	"github.com/odyssey-erp/odyssey-erp/internal/users"
 	variancepkg "github.com/odyssey-erp/odyssey-erp/internal/variance"
 	variancehttp "github.com/odyssey-erp/odyssey-erp/internal/variance/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
@@ -157,6 +159,15 @@ func main() {
 
 	rbacService := rbac.NewService(dbpool)
 	rbacMiddleware := rbac.Middleware{Service: rbacService, Logger: logger}
+
+	usersRepo := users.NewRepository(dbpool)
+	usersService := users.NewService(usersRepo)
+	usersHandler := users.NewHandler(logger, usersService, templates, csrfManager, sessionManager, rbacMiddleware)
+
+	arRepo := ar.NewRepository(dbpool)
+	arService := ar.NewService(arRepo)
+	arHandler := ar.NewHandler(logger, arService, templates, csrfManager, sessionManager, rbacMiddleware)
+
 	closeHandler := closehttp.NewHandler(logger, closeService, templates, csrfManager, rbacMiddleware)
 	eliminationRepo := eliminationpkg.NewRepository(dbpool)
 	eliminationService := eliminationpkg.NewService(eliminationRepo, accountingService)
@@ -252,6 +263,8 @@ func main() {
 		CSRFManager:        csrfManager,
 		AuthHandler:        authHandler,
 		AccountingHandler:  accountingHandler,
+		ARHandler:          arHandler,
+		UsersHandler:       usersHandler,
 		CloseHandler:       closeHandler,
 		EliminationHandler: eliminationHandler,
 		VarianceHandler:    varianceHandler,
