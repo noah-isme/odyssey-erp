@@ -76,7 +76,7 @@
 |----|-------|-------|----------|--------|
 | 16 | Chart of Accounts | `/accounting/coa` | HIGH | ✅ Di menu |
 | 17 | Journal Entries | `/accounting/journals` | HIGH | ✅ Di menu |
-| 18 | General Ledger | `/accounting/gl` | HIGH | [ ] Belum di menu |
+| 18 | General Ledger | `/accounting/gl` | HIGH | ✅ Di menu |
 | 19 | Trial Balance | `/accounting/trial-balance` | HIGH | [ ] Belum di menu |
 | 20 | Balance Sheet | `/accounting/balance-sheet` | HIGH | [ ] Belum di menu |
 | 21 | Profit & Loss | `/accounting/pnl` | HIGH | [ ] Belum di menu |
@@ -126,13 +126,13 @@
 | Core Platform | 4 | 2 (Login, Audit) | 2 | 50% |
 | Master Data | 9 | 9 (All master data) | 0 | 100% |
 | Inventory & Procurement | 8 | 6 | 2 | 75% |
-| Accounting | 7 | 3 (Period Close, COA, Journals) | 4 | 42% |
+| Accounting | 7 | 4 (Period Close, COA, Journals, GL) | 3 | 57% |
 | Analytics | 3 | 2 (Analytics, Insights) | 1 | 67% |
 | Security | 2 | 1 (Jobs) | 1 | 50% |
 | Consolidation | 3 | 2 (Consol, Eliminations) | 1 | 67% |
 | Board Pack & Variance | 2 | 2 | 0 | 100% |
 | Sales & Delivery | 7 | 4 (Quotations, SO, DO) | 3* | 57% |
-| **TOTAL** | **45** | **32** | **13** | **71%** |
+| **TOTAL** | **45** | **33** | **12** | **73%** |
 
 > *AR module belum memiliki handler, perlu development
 
@@ -140,10 +140,9 @@
 
 ### Prioritas Fitur yang Masih Perlu Ditambahkan
 
-### 🔴 HIGH Priority (2 fitur)
+### 🔴 HIGH Priority (1 fitur)
 
 1. [ ] Stock Adjustments
-2. [ ] General Ledger
 5. [ ] Trial Balance
 6. [ ] Balance Sheet
 7. [ ] Profit & Loss

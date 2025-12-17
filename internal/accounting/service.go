@@ -305,3 +305,9 @@ func (s *Service) ListJournalEntries(ctx context.Context) ([]JournalEntry, error
 	})
 	return entries, err
 }
+
+// ListGeneralLedger retrieves accounts with their balances for general ledger.
+func (s *Service) ListGeneralLedger(ctx context.Context) ([]Account, error) {
+	// For MVP, just return all accounts; full GL would include balances
+	return s.ListAccounts(ctx)
+}

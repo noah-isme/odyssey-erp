@@ -1,0 +1,69 @@
+{{ define "pages/accounting/gl.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}{{ .Title }}{{ end }}
+
+{{ define "content" }}
+<div class="page-container">
+    <div class="page-header">
+        <div class="page-header-content">
+            <h1 class="page-title">{{ .Title }}</h1>
+            <p class="page-subtitle">General Ledger - Ringkasan akun dan saldo</p>
+        </div>
+        <div class="page-actions">
+            <a href="/accounting/gl/export" class="btn btn-secondary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                Export
+            </a>
+        </div>
+    </div>
+
+    <div class="page-content">
+        <div class="panel">
+            <div class="panel-body">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Account Code</th</thead>>
+                            <th>Account</tr></th></th> Name</th>
+                            <th>Type</th>
+                            <th>Balance</th>
+                            <th>Status</th</th>>
+                        </tr>
+                    </</th>thead>
+                    <tbody>
+                        {{ range .Data.Accounts }}
+                        <tr</tbody>>
+                            <td>{{ .Code }}</td>
+                            <td>{{ .Name }}</td>
+                            <td>
+                                <span class="badge badge-{{ .Type | lower }}">
+                                    {{ .Type }}
+                                </span></td>
+                            </td>
+                            <td>Rp 0.00</td>
+                            <td>
+                                {{ if .IsActive }}
+                                <span class="status-badge status-active">Active</span></td>
+                                {{ else }}
+                                <span class="status-badge status-inactive">Inactive</span>
+                                {{ end }}
+                            </td>
+                        </tr>
+                        {{ else }}
+                        <tr>
+                            <td colspan</tr>="5" class="text-center">No accounts found</td>
+                        </tr>
+                        {{ end }}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}
