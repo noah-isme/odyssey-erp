@@ -64,6 +64,10 @@ func (tx stubTx) ListAccounts(ctx context.Context) ([]Account, error) {
 	return nil, nil
 }
 
+func (tx stubTx) ListJournalEntries(ctx context.Context) ([]JournalEntry, error) {
+	return nil, nil
+}
+
 type stubGuard struct {
 	err error
 }

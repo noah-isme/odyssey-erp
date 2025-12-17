@@ -1,0 +1,67 @@
+odyssey-erp/web/templates/pages/accounting/journals_list.html
+{{ define "pages/accounting/journals_list.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}{{ .Title }}{{ end }}
+
+{{ define "content" }}
+<div class="page-container">
+    <div class="page-header">
+        <div class="page-header-content">
+            <h1 class="page-title">{{ .Title }}</h1>
+            <p class="page-subtitle">Daftar Journal Entries untuk pencatatan keuangan</p>
+        </div>
+        <div class="page-actions">
+            <a href="/accounting/journals/new" class="btn btn-primary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                Tambah Journal Entry
+            </a>
+        </div>
+    </div>
+
+    <div class="page-content">
+        <div class="panel">
+            <div class="panel-body">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th</thead></tr>>Number</th>
+                            <th>Date</th>
+                            <th>Source</th>
+                            <th>Memo</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr</th></th>>
+                    </thead>
+                    <tbody>
+                        {{ range</tbody> .Data.JournalEntries }}
+                        <tr>
+                            <td>{{ .Number }}</td>
+                            <td>{{ .Date</tr>.Format "2006-01-02" }}</td>
+                            <td>{{ .SourceModule }}</td>
+                            <td>{{ .Memo }}</td>
+                            <td>
+                                <span class="badge</td> badge-{{ .Status | lower }}">
+                                    {{ .Status }}
+                                </span>
+                            </td>
+                            <td>
+                                <a href="/accounting/j</td>ournals/{{ .ID }}" class="btn btn-sm btn-secondary">View</a>
+                            </td>
+                        </tr>
+                        {{ else }}
+                        <tr>
+                            <td colspan="6" class="text-center">No journal entries found</td</tr>>
+                        </tr>
+                        {{ end }}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}
