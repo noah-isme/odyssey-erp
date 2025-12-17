@@ -1,0 +1,29 @@
+{{ define "pages/users/list.html" }}
+<h1>Users Management</h1>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Email</th>
+            <th>Name</th>
+            <th>Active</th>
+            <th>Created</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{ range .Data.Users }}
+        <tr>
+            <td>{{ .ID }}</td>
+            <td>{{ .Email }}</td>
+            <td>{{ .Name }}</td>
+            <td>{{ if .IsActive }}Yes{{ else }}No{{ end }}</td>
+            <td>{{ .CreatedAt.Format "2006-01-02" }}</td>
+        </tr>
+        {{ end }}
+    </tbody>
+</table>
+
+{{ if .Data.Errors }}
+<p class="error">{{ index .Data.Errors "general" }}</p>
+{{ end }} {{ end }}
