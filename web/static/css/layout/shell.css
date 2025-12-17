@@ -7,13 +7,13 @@
     grid-template-areas:
         "header header"
         "sidebar main";
-    grid-template-columns: var(--sidebar-width) 1fr;
-    grid-template-rows: var(--header-height) 1fr;
+    grid-template-columns: var(--sidebar-w) 1fr;
+    grid-template-rows: var(--header-h) 1fr;
     min-height: 100vh;
 }
 
 .app-shell.sidebar-collapsed {
-    grid-template-columns: var(--sidebar-collapsed-width) 1fr;
+    grid-template-columns: var(--sidebar-w-collapsed) 1fr;
 }
 
 .app-main {

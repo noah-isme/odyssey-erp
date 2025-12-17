@@ -49,13 +49,23 @@ func (w *responseWriterWithCommit) Write(data []byte) (int, error) {
 
 // MiddlewareStack installs the Odyssey middleware chain.
 func MiddlewareStack(cfg MiddlewareConfig) []func(http.Handler) http.Handler {
+	// CSP allows:
+	// - 'self' for scripts, styles, images, etc.
+	// - fonts.googleapis.com and fonts.gstatic.com for Google Fonts
+	// - 'unsafe-inline' for styles (needed for inline style attributes in templates)
+	csp := "default-src 'self'; " +
+		"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+		"font-src 'self' https://fonts.gstatic.com; " +
+		"img-src 'self' data:; " +
+		"script-src 'self'"
+
 	secureMiddleware := secure.New(secure.Options{
 		FrameDeny:             true,
 		ContentTypeNosniff:    true,
 		BrowserXssFilter:      true,
 		ReferrerPolicy:        "strict-origin-when-cross-origin",
 		FeaturePolicy:         "none",
-		ContentSecurityPolicy: "default-src 'self'",
+		ContentSecurityPolicy: csp,
 		SSLRedirect:           cfg.Config != nil && cfg.Config.IsProduction(),
 		SSLProxyHeaders:       map[string]string{"X-Forwarded-Proto": "https"},
 	})

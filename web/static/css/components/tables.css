@@ -1,221 +1,99 @@
 /* ============================================
-   Odyssey ERP - Table Components
+   Odyssey ERP - Tables (ERP core)
+   Uses tokens from core/tokens.css
    ============================================ */
 
-.table-container {
-    overflow-x: auto;
-    background-color: var(--color-bg-card);
-    border: 1px solid var(--color-border-subtle);
-    border-radius: var(--radius-lg);
+.table-wrap {
+    background: var(--table-bg);
+    border: 1px solid var(--table-border);
+    border-radius: var(--table-radius);
+    overflow: hidden;
 }
 
-.data-table {
+.table {
     width: 100%;
-    border-collapse: collapse;
-    font-size: var(--font-size-sm);
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: var(--text-sm);
+    color: var(--text-primary);
 }
 
-.data-table thead {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-}
-
-.data-table th {
-    padding: var(--space-3) var(--space-4);
-    background-color: var(--color-gray-100);
-    border-bottom: 1px solid var(--color-border-subtle);
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-semibold);
+.table thead th {
+    background: var(--table-head-bg);
+    color: var(--table-head-fg);
+    font-weight: var(--weight-medium);
+    font-size: var(--text-xs);
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--color-text-secondary);
+    padding: var(--table-cell-pad-y) var(--table-cell-pad-x);
+    border-bottom: 1px solid var(--table-border);
     text-align: left;
-    white-space: nowrap;
 }
 
-.data-table th.sortable {
-    cursor: pointer;
-    user-select: none;
-    transition: background-color var(--transition-fast);
-}
-
-.data-table th.sortable:hover {
-    background-color: var(--color-gray-200);
-}
-
-.data-table th .sort-icon {
-    display: inline-flex;
-    margin-left: var(--space-1);
-    opacity: 0.4;
-}
-
-.data-table th.sorted .sort-icon {
-    opacity: 1;
-    color: var(--color-brand-500);
-}
-
-.data-table td {
-    padding: var(--space-3) var(--space-4);
-    border-bottom: 1px solid var(--color-border-subtle);
-    color: var(--color-text-primary);
+.table tbody td {
+    padding: var(--table-cell-pad-y) var(--table-cell-pad-x);
+    border-bottom: 1px solid var(--table-border);
     vertical-align: middle;
 }
 
-.data-table tbody tr {
-    transition: background-color var(--transition-fast);
+.table tbody tr:hover {
+    background: var(--table-row-hover);
 }
 
-.data-table tbody tr:hover {
-    background-color: var(--color-gray-50);
+/* Last row border off */
+.table tbody tr:last-child td {
+    border-bottom: 0;
 }
 
-.data-table tbody tr:last-child td {
-    border-bottom: none;
+/* Numeric columns */
+.table .numeric,
+.table .numeric-right {
+    font-variant-numeric: var(--numeric);
+    font-feature-settings: "tnum" 1, "lnum" 1;
 }
 
-.data-table tbody tr.selected {
-    background-color: var(--color-brand-100);
-}
-
-.data-table tbody tr[data-href] {
-    cursor: pointer;
-}
-
-/* Column types */
-.data-table .col-number {
-    font-variant-numeric: tabular-nums;
+.table .numeric-right {
     text-align: right;
-    font-family: var(--font-mono);
 }
 
-.data-table .col-checkbox {
-    width: 48px;
-    text-align: center;
-}
-
-.data-table .col-checkbox input[type="checkbox"] {
-    width: 16px;
-    height: 16px;
-    cursor: pointer;
-}
-
-.data-table .col-actions {
-    width: 48px;
-    text-align: center;
-}
-
-.row-action-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    padding: 0;
-    background: transparent;
-    border: none;
-    border-radius: var(--radius-md);
-    color: var(--color-text-muted);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-}
-
-.row-action-btn:hover {
-    background-color: var(--color-gray-200);
-    color: var(--color-text-primary);
-}
-
-.row-action-menu {
-    position: absolute;
-    right: 0;
-    top: 100%;
-    min-width: 160px;
-    padding: var(--space-1) 0;
-    background-color: var(--color-bg-card);
-    border: 1px solid var(--color-border-subtle);
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-lg);
+/* Row actions appear on hover */
+.table .row-actions {
     opacity: 0;
-    visibility: hidden;
-    transform: translateY(-8px);
-    transition: all var(--transition-fast);
-    z-index: 50;
+    transition: opacity var(--dur-2) var(--ease-standard);
 }
 
-.row-action-menu.open {
+.table tbody tr:hover .row-actions {
     opacity: 1;
-    visibility: visible;
-    transform: translateY(0);
 }
 
-/* Table footer */
-.table-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: var(--space-3) var(--space-4);
-    border-top: 1px solid var(--color-border-subtle);
-    background-color: var(--color-gray-50);
+/* Compact mode */
+.table--compact thead th,
+.table--compact tbody td {
+    padding: 8px 10px;
 }
 
-.table-info {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
+/* Empty state */
+.table-empty {
+    padding: var(--space-10);
+    text-align: center;
+    color: var(--text-muted);
 }
 
-.table-pagination {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-}
-
-.pagination-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 32px;
-    height: 32px;
-    padding: 0 var(--space-2);
-    background-color: var(--color-bg-card);
-    border: 1px solid var(--color-border-subtle);
-    border-radius: var(--radius-md);
-    font-size: var(--font-size-sm);
-    color: var(--color-text-primary);
+/* Sortable headers */
+.table th.sortable {
     cursor: pointer;
-    transition: all var(--transition-fast);
+    user-select: none;
 }
 
-.pagination-btn:hover:not(:disabled) {
-    background-color: var(--color-gray-100);
-    border-color: var(--color-gray-300);
+.table th.sortable:hover {
+    background: var(--bg-surface-muted);
 }
 
-.pagination-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+/* Striped rows (optional) */
+.table--striped tbody tr:nth-child(even) {
+    background: var(--bg-surface-muted);
 }
 
-.pagination-btn.active {
-    background-color: var(--color-brand-500);
-    border-color: var(--color-brand-500);
-    color: white;
-}
-
-/* Bulk actions */
-.bulk-actions {
-    display: none;
-    align-items: center;
-    gap: var(--space-3);
-    padding: var(--space-3) var(--space-4);
-    background-color: var(--color-brand-100);
-    border-bottom: 1px solid var(--color-brand-300);
-}
-
-.bulk-actions.visible {
-    display: flex;
-}
-
-.bulk-count {
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-brand-700);
+.table--striped tbody tr:nth-child(even):hover {
+    background: var(--table-row-hover);
 }
