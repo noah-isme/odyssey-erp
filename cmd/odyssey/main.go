@@ -48,6 +48,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/observability"
 	"github.com/odyssey-erp/odyssey-erp/internal/procurement"
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
+	"github.com/odyssey-erp/odyssey-erp/internal/roles"
 	"github.com/odyssey-erp/odyssey-erp/internal/sales"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 	"github.com/odyssey-erp/odyssey-erp/internal/users"
@@ -164,6 +165,10 @@ func main() {
 	usersService := users.NewService(usersRepo)
 	usersHandler := users.NewHandler(logger, usersService, templates, csrfManager, sessionManager, rbacMiddleware)
 
+	rolesRepo := roles.NewRepository(dbpool)
+	rolesService := roles.NewService(rolesRepo)
+	rolesHandler := roles.NewHandler(logger, rolesService, templates, csrfManager, sessionManager, rbacMiddleware)
+
 	arRepo := ar.NewRepository(dbpool)
 	arService := ar.NewService(arRepo)
 	arHandler := ar.NewHandler(logger, arService, templates, csrfManager, sessionManager, rbacMiddleware)
@@ -264,6 +269,7 @@ func main() {
 		AuthHandler:        authHandler,
 		AccountingHandler:  accountingHandler,
 		ARHandler:          arHandler,
+		RolesHandler:       rolesHandler,
 		UsersHandler:       usersHandler,
 		CloseHandler:       closeHandler,
 		EliminationHandler: eliminationHandler,

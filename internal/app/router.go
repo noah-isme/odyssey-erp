@@ -23,6 +23,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata"
 	"github.com/odyssey-erp/odyssey-erp/internal/observability"
 	"github.com/odyssey-erp/odyssey-erp/internal/procurement"
+	"github.com/odyssey-erp/odyssey-erp/internal/roles"
 	"github.com/odyssey-erp/odyssey-erp/internal/sales"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 	"github.com/odyssey-erp/odyssey-erp/internal/users"
@@ -43,6 +44,7 @@ type RouterParams struct {
 	AuthHandler        *auth.Handler
 	AccountingHandler  *accounting.Handler
 	ARHandler          *ar.Handler
+	RolesHandler       *roles.Handler
 	UsersHandler       *users.Handler
 	CloseHandler       *closehttp.Handler
 	EliminationHandler *eliminationhttp.Handler
@@ -142,10 +144,18 @@ func NewRouter(params RouterParams) http.Handler {
 			params.ARHandler.MountRoutes(r)
 		})
 	}
+	if params.RolesHandler != nil {
+		r.Route("/roles", func(r chi.Router) {
+			params.RolesHandler.MountRoutes(r)
+		})
+	}
 	if params.UsersHandler != nil {
 		r.Route("/users", func(r chi.Router) {
 			params.UsersHandler.MountRoutes(r)
 		})
+	}
+	if params.CloseHandler != nil {
+		params.CloseHandler.MountRoutes(r)
 	}
 	if params.CloseHandler != nil {
 		params.CloseHandler.MountRoutes(r)
