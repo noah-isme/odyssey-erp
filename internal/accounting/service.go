@@ -311,3 +311,9 @@ func (s *Service) ListGeneralLedger(ctx context.Context) ([]Account, error) {
 	// For MVP, just return all accounts; full GL would include balances
 	return s.ListAccounts(ctx)
 }
+
+// ListTrialBalance retrieves accounts with their trial balance for reporting.
+func (s *Service) ListTrialBalance(ctx context.Context) ([]Account, error) {
+	// For MVP, just return all accounts; full TB would include calculated balances
+	return s.ListAccounts(ctx)
+}

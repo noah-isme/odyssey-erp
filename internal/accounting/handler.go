@@ -28,7 +28,7 @@ func (h *Handler) MountRoutes(r chi.Router) {
 	r.Post("/finance/journals/{id}/void", h.handleNotImplemented)
 	r.Post("/finance/journals/{id}/reverse", h.handleNotImplemented)
 	r.Get("/gl", h.handleGeneralLedger)
-	r.Get("/finance/reports/trial-balance", h.handleNotImplemented)
+	r.Get("/trial-balance", h.handleTrialBalance)
 	r.Get("/finance/reports/pl", h.handleNotImplemented)
 	r.Get("/finance/reports/bs", h.handleNotImplemented)
 	r.Get("/finance/reports/trial-balance/pdf", h.handleNotImplemented)
@@ -77,6 +77,21 @@ func (h *Handler) handleGeneralLedger(w http.ResponseWriter, r *http.Request) {
 	viewData := view.TemplateData{Title: "General Ledger", Data: data}
 	if err := h.templates.Render(w, "pages/accounting/gl.html", viewData); err != nil {
 		h.logger.Error("render gl", slog.Any("error", err))
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+	}
+}
+
+func (h *Handler) handleTrialBalance(w http.ResponseWriter, r *http.Request) {
+	accounts, err := h.service.ListTrialBalance(r.Context())
+	if err != nil {
+		h.logger.Error("list trial balance", slog.Any("error", err))
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	data := map[string]any{"Accounts": accounts}
+	viewData := view.TemplateData{Title: "Trial Balance", Data: data}
+	if err := h.templates.Render(w, "pages/accounting/trial_balance.html", viewData); err != nil {
+		h.logger.Error("render trial balance", slog.Any("error", err))
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }
