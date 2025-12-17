@@ -10,8 +10,9 @@ import (
 
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting"
 	analytichttp "github.com/odyssey-erp/odyssey-erp/internal/analytics/http"
+	"github.com/odyssey-erp/odyssey-erp/internal/ar"
 	audithttp "github.com/odyssey-erp/odyssey-erp/internal/audit/http"
-	"github.com/odyssey-erp/odyssey-erp/internal/auth"
+	auth "github.com/odyssey-erp/odyssey-erp/internal/auth"
 	boardpackhttp "github.com/odyssey-erp/odyssey-erp/internal/boardpack/http"
 	closehttp "github.com/odyssey-erp/odyssey-erp/internal/close/http"
 	consolhttp "github.com/odyssey-erp/odyssey-erp/internal/consol/http"
@@ -24,6 +25,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/procurement"
 	"github.com/odyssey-erp/odyssey-erp/internal/sales"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
+	"github.com/odyssey-erp/odyssey-erp/internal/users"
 	variancehttp "github.com/odyssey-erp/odyssey-erp/internal/variance/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
 	"github.com/odyssey-erp/odyssey-erp/jobs"
@@ -40,6 +42,8 @@ type RouterParams struct {
 	CSRFManager        *shared.CSRFManager
 	AuthHandler        *auth.Handler
 	AccountingHandler  *accounting.Handler
+	ARHandler          *ar.Handler
+	UsersHandler       *users.Handler
 	CloseHandler       *closehttp.Handler
 	EliminationHandler *eliminationhttp.Handler
 	VarianceHandler    *variancehttp.Handler
@@ -131,6 +135,16 @@ func NewRouter(params RouterParams) http.Handler {
 	if params.AccountingHandler != nil {
 		r.Route("/accounting", func(r chi.Router) {
 			params.AccountingHandler.MountRoutes(r)
+		})
+	}
+	if params.ARHandler != nil {
+		r.Route("/finance/ar", func(r chi.Router) {
+			params.ARHandler.MountRoutes(r)
+		})
+	}
+	if params.UsersHandler != nil {
+		r.Route("/users", func(r chi.Router) {
+			params.UsersHandler.MountRoutes(r)
 		})
 	}
 	if params.CloseHandler != nil {
