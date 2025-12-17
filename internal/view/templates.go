@@ -68,6 +68,8 @@ func NewEngine() (*Engine, error) {
 			}
 			return a / b
 		},
+		"lower": strings.ToLower,
+		"upper": strings.ToUpper,
 	}
 
 	base, err := template.New("root").Funcs(funcMap).ParseFS(web.Templates,

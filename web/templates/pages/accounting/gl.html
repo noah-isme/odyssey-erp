@@ -29,27 +29,27 @@
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>Account Code</th</thead>>
-                            <th>Account</tr></th></th> Name</th>
+                            <th>Account Code</th>
+                            <th>Account Name</th>
                             <th>Type</th>
                             <th>Balance</th>
-                            <th>Status</th</th>>
+                            <th>Status</th>
                         </tr>
-                    </</th>thead>
+                    </thead>
                     <tbody>
                         {{ range .Data.Accounts }}
-                        <tr</tbody>>
+                        <tr>
                             <td>{{ .Code }}</td>
                             <td>{{ .Name }}</td>
                             <td>
                                 <span class="badge badge-{{ .Type | lower }}">
                                     {{ .Type }}
-                                </span></td>
+                                </span>
                             </td>
                             <td>Rp 0.00</td>
                             <td>
                                 {{ if .IsActive }}
-                                <span class="status-badge status-active">Active</span></td>
+                                <span class="status-badge status-active">Active</span>
                                 {{ else }}
                                 <span class="status-badge status-inactive">Inactive</span>
                                 {{ end }}
@@ -57,7 +57,7 @@
                         </tr>
                         {{ else }}
                         <tr>
-                            <td colspan</tr>="5" class="text-center">No accounts found</td>
+                            <td colspan="5" class="text-center">No accounts found</td>
                         </tr>
                         {{ end }}
                     </tbody>
