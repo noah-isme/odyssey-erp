@@ -1,0 +1,38 @@
+{{ define "pages/ar/ar_aging_report.html" }}
+<h1>AR Aging Report</h1>
+<p>As of: {{ now.Format "2006-01-02" }}</p>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Aging Period</th>
+            <th>Amount</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Current (0-30 days)</td>
+            <td class="numeric">{{ .Data.Aging.Current | printf "%.2f" }}</td>
+        </tr>
+        <tr>
+            <td>31-60 days</td>
+            <td class="numeric">{{ .Data.Aging.Bucket30 | printf "%.2f" }}</td>
+        </tr>
+        <tr>
+            <td>61-90 days</td>
+            <td class="numeric">{{ .Data.Aging.Bucket60 | printf "%.2f" }}</td>
+        </tr>
+        <tr>
+            <td>91-120 days</td>
+            <td class="numeric">{{ .Data.Aging.Bucket90 | printf "%.2f" }}</td>
+        </tr>
+        <tr>
+            <td>Over 120 days</td>
+            <td class="numeric">{{ .Data.Aging.Bucket120 | printf "%.2f" }}</td>
+        </tr>
+    </tbody>
+</table>
+
+{{ if .Data.Errors }}
+<p class="error">{{ index .Data.Errors "general" }}</p>
+{{ end }} {{ end }}
