@@ -39,7 +39,7 @@
 | No | Fitur | Route | Priority | Status |
 |----|-------|-------|----------|--------|
 | 1 | Users Management | `/users` | HIGH | ✅ Handler tersedia |
-| 2 | Roles Management | `/roles` | HIGH | [ ] Belum di menu |
+| 2 | Roles Management | `/roles` | HIGH | ✅ Handler tersedia |
 | 3 | Permissions | `/permissions` | MEDIUM | [ ] Belum di menu |
 
 ---
@@ -123,7 +123,7 @@
 
 | Kategori | Total Fitur | Di Menu | Belum | Progress |
 |----------|-------------|---------|-------|----------|
-| Core Platform | 4 | 3 (Login, Audit, Users) | 1 | 75% |
+| Core Platform | 4 | 4 (Login, Audit, Users, Roles) | 0 | 100% |
 | Master Data | 9 | 9 (All master data) | 0 | 100% |
 | Inventory & Procurement | 8 | 6 | 2 | 75% |
 | Accounting | 7 | 7 (Period Close, COA, Journals, GL, TB, BS, P&L) | 0 | 100% |
@@ -132,9 +132,9 @@
 | Consolidation | 3 | 2 (Consol, Eliminations) | 1 | 67% |
 | Board Pack & Variance | 2 | 2 | 0 | 100% |
 | Sales & Delivery | 7 | 7 (Quotations, SO, DO, AR Invoices, AR Payments, AR Aging) | 0* | 100% |
-| **TOTAL** | **45** | **40** | **5** | **89%** |
+| **TOTAL** | **45** | **41** | **4** | **91%** |
 
-> *Users Management handler tersedia, Roles Management & Permissions perlu development
+> *Users Management & Roles Management handler tersedia, Permissions perlu development
 
 ---
 
@@ -144,14 +144,13 @@
 
 
 
-### 🟡 MEDIUM Priority (6 fitur)
+### 🟡 MEDIUM Priority (5 fitur)
 
 1. [ ] Categories
 2. [ ] Units
 3. [ ] Taxes
-4. [ ] Roles Management
-5. [ ] Permissions
-6. [ ] KPI Tracking
+4. [ ] Permissions
+5. [ ] KPI Tracking
 
 ### 🟠 Perlu Development (1 fitur AR)
 
@@ -175,3 +174,4 @@
 - [x] Implementasi AR Payments handler (Phase 9.3)
 - [x] Implementasi AR Aging Report handler (Phase 9.3)
 - [x] Implementasi Users Management handler (Phase 1)
+- [x] Implementasi Roles Management handler (Phase 1)
