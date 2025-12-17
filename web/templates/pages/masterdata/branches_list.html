@@ -1,0 +1,115 @@
+{{ define "pages/masterdata/branches_list.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Branches{{ end }}
+
+{{ define "content" }}
+<div class="branches-wrapper">
+    <header>
+        <h1>Branches</h1>
+        <p>Manage branch information</p>
+        <div role="group" aria-label="Actions">
+            <a href="/masterdata/branches/new" role="button" class="btn btn--primary">+ New Branch</a>
+        </div>
+    </header>
+
+    <!-- Filters -->
+    <section class="filters">
+        <form method="get" action="/masterdata/branches">
+            <div class="grid">
+                <div>
+                    <label for="search">Search</label>
+                    <input type="text" name="search" id="search" placeholder="Search by code or name" value="{{ if .Filters.Search }}{{ .Filters.Search }}{{ end }}" class="input">
+                </div>
+                <div>
+                    <label for="company_id">Company</label>
+                    <select name="company_id" id="company_id" class="input">
+                        <option value="">All Companies</option>
+                        {{ range .Companies }}
+                        <option value="{{ .ID }}" {{ if eq .Filters.CompanyID .ID }}selected{{ end }}>{{ .Name }}</option>
+                        {{ end }}
+                    </select>
+                </div>
+                <div>
+                    <label for="is_active">Status</label>
+                    <select name="is_active" id="is_active" class="input">
+                        <option value="">All</option>
+                        <option value="true" {{ if .Filters.IsActive }}{{ if .Filters.IsActive }}selected{{ end }}{{ end }}>Active</option>
+                        <option value="false" {{ if .Filters.IsActive }}{{ if not .Filters.IsActive }}selected{{ end }}{{ end }}>Inactive</option>
+                    </select>
+                </div>
+            </div>
+            <button type="submit" class="btn">Filter</button>
+            <a href="/masterdata/branches" role="button" class="btn btn--secondary">Clear</a>
+        </form>
+    </section>
+
+    <!-- Results -->
+    <section>
+        <p><strong>{{ .Total }}</strong> branch(es) found</p>
+
+        {{ if .Branches }}
+        <div class="table-wrap">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Code</th>
+                        <th>Name</th>
+                        <th>Company</th>
+                        <th>Address</th>
+                        <th>Phone</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ range .Branches }}
+                    <tr>
+                        <td><a href="/masterdata/branches/{{ .ID }}">{{ .Code }}</a></td>
+                        <td>{{ .Name }}</td>
+                        <td>{{ if .Company }}{{ .Company.Name }}{{ else }}-{{ end }}</td>
+                        <td>{{ if .Address }}{{ .Address }}{{ else }}-{{ end }}</td>
+                        <td>{{ if .Phone }}{{ .Phone }}{{ else }}-{{ end }}</td>
+                        <td>
+                            {{ if .IsActive }}
+                            <span class="badge badge--success">Active</span>
+                            {{ else }}
+                            <span class="badge badge--neutral">Inactive</span>
+                            {{ end }}
+                        </td>
+                        <td>
+                            <a href="/masterdata/branches/{{ .ID }}" role="button" class="btn btn--secondary btn--small">View</a>
+                        </td>
+                    </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {{ if gt .Total .Limit }}
+        <div class="pagination">
+            {{ $currentPage := div .Offset .Limit }}
+            {{ $totalPages := div (add .Total (sub .Limit 1)) .Limit }}
+
+            {{ if gt $currentPage 0 }}
+            <a href="?limit={{ .Limit }}&offset={{ sub .Offset .Limit }}{{ if .Filters.Search }}&search={{ .Filters.Search }}{{ end }}{{ if .Filters.CompanyID }}&company_id={{ .Filters.CompanyID }}{{ end }}{{ if .Filters.IsActive }}&is_active={{ .Filters.IsActive }}{{ end }}" role="button" class="btn btn--secondary">Previous</a>
+            {{ end }}
+
+            <span>Page {{ add $currentPage 1 }} of {{ $totalPages }}</span>
+
+            {{ if lt (add .Offset .Limit) .Total }}
+            <a href="?limit={{ .Limit }}&offset={{ add .Offset .Limit }}{{ if .Filters.Search }}&search={{ .Filters.Search }}{{ end }}{{ if .Filters.CompanyID }}&company_id={{ .Filters.CompanyID }}{{ end }}{{ if .Filters.IsActive }}&is_active={{ .Filters.IsActive }}{{ end }}" role="button" class="btn btn--secondary">Next</a>
+            {{ end }}
+        </div>
+        {{ end }}
+
+        {{ else }}
+        <article>
+            <p>No branches found. <a href="/masterdata/branches/new">Create your first branch</a></p>
+        </article>
+        {{ end }}
+    </section>
+</div>
+{{ end }}

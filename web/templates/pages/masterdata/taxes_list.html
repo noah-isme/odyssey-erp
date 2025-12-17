@@ -1,0 +1,102 @@
+{{ define "pages/masterdata/taxes_list.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Taxes{{ end }}
+
+{{ define "content" }}
+<div class="taxes-wrapper">
+    <header>
+        <h1>Taxes</h1>
+        <p>Manage tax rates</p>
+        <div role="group" aria-label="Actions">
+            <a href="/masterdata/taxes/new" role="button" class="btn btn--primary">+ New Tax</a>
+        </div>
+    </header>
+
+    <!-- Filters -->
+    <section class="filters">
+        <form method="get" action="/masterdata/taxes">
+            <div class="grid">
+                <div>
+                    <label for="search">Search</label>
+                    <input type="text" name="search" id="search" placeholder="Search by name" value="{{ if .Filters.Search }}{{ .Filters.Search }}{{ end }}" class="input">
+                </div>
+                <div>
+                    <label for="is_active">Status</label>
+                    <select name="is_active" id="is_active" class="input">
+                        <option value="">All</option>
+                        <option value="true" {{ if .Filters.IsActive }}{{ if .Filters.IsActive }}selected{{ end }}{{ end }}>Active</option>
+                        <option value="false" {{ if .Filters.IsActive }}{{ if not .Filters.IsActive }}selected{{ end }}{{ end }}>Inactive</option>
+                    </select>
+                </div>
+            </div>
+            <button type="submit" class="btn">Filter</button>
+            <a href="/masterdata/taxes" role="button" class="btn btn--secondary">Clear</a>
+        </form>
+    </section>
+
+    <!-- Results -->
+    <section>
+        <p><strong>{{ .Total }}</strong> tax(es) found</p>
+
+        {{ if .Taxes }}
+        <div class="table-wrap">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Rate (%)</th>
+                        <th>Description</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ range .Taxes }}
+                    <tr>
+                        <td><a href="/masterdata/taxes/{{ .ID }}">{{ .Name }}</a></td>
+                        <td>{{ printf "%.2f" .Rate }}</td>
+                        <td>{{ if .Description }}{{ .Description }}{{ else }}-{{ end }}</td>
+                        <td>
+                            {{ if .IsActive }}
+                            <span class="badge badge--success">Active</span>
+                            {{ else }}
+                            <span class="badge badge--neutral">Inactive</span>
+                            {{ end }}
+                        </td>
+                        <td>
+                            <a href="/masterdata/taxes/{{ .ID }}" role="button" class="btn btn--secondary btn--small">View</a>
+                        </td>
+                    </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {{ if gt .Total .Limit }}
+        <div class="pagination">
+            {{ $currentPage := div .Offset .Limit }}
+            {{ $totalPages := div (add .Total (sub .Limit 1)) .Limit }}
+
+            {{ if gt $currentPage 0 }}
+            <a href="?limit={{ .Limit }}&offset={{ sub .Offset .Limit }}{{ if .Filters.Search }}&search={{ .Filters.Search }}{{ end }}{{ if .Filters.IsActive }}&is_active={{ .Filters.IsActive }}{{ end }}" role="button" class="btn btn--secondary">Previous</a>
+            {{ end }}
+
+            <span>Page {{ add $currentPage 1 }} of {{ $totalPages }}</span>
+
+            {{ if lt (add .Offset .Limit) .Total }}
+            <a href="?limit={{ .Limit }}&offset={{ add .Offset .Limit }}{{ if .Filters.Search }}&search={{ .Filters.Search }}{{ end }}{{ if .Filters.IsActive }}&is_active={{ .Filters.IsActive }}{{ end }}" role="button" class="btn btn--secondary">Next</a>
+            {{ end }}
+        </div>
+        {{ end }}
+
+        {{ else }}
+        <article>
+            <p>No taxes found. <a href="/masterdata/taxes/new">Create your first tax</a></p>
+        </article>
+        {{ end }}
+    </section>
+</div>
+{{ end }}

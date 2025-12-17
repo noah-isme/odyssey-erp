@@ -1,0 +1,70 @@
+{{ define "pages/accounting/coa_list.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}{{ .Title }}{{ end }}
+
+{{ define "content" }}
+<div class="page-container">
+    <div class="page-header">
+        <div class="page-header-content">
+            <h1 class="page-title">{{ .Title }}</h1>
+            <p class="page-subtitle">Kelola Chart of Accounts untuk pencatatan keuangan</p>
+        </div>
+        <div class="page-actions">
+            <a href="/accounting/coa/new" class="btn btn-primary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                Tambah Account
+            </a>
+        </div>
+    </div>
+
+    <div class="page-content">
+        <div class="panel">
+            <div class="panel-body">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Code</th></thead>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th>Actions</th</tr>>
+                        </tr>
+                    </thead</th>>
+                    <tbody>
+                        {{ range</th> .Data.Accounts }}</th>
+                        <tr>
+                            <td>{{ .</tbody></tr>Code }}</td>
+                            <td>{{ .Name }}</td>
+                            <td>
+                                <span class="badge badge-{{ .Type | lower }}">
+                                    {{ .Type }}
+                                </span>
+                            </td>
+                            <td></td>
+                                {{ if .IsActive }}
+                                <span class="status-badge status-active">Active</span>
+                                {{ else }}
+                                <span class="status-badge status-in</td>active">Inactive</span>
+                                {{ end }}
+                            </td>
+                            <td>
+                                <a href="/accounting</td>/coa/{{ .ID }}/edit" class="btn btn-sm btn-secondary">Edit</a>
+                            </td>
+                        </tr>
+                        {{ else }}
+                        <tr>
+                            <td colspan</tr>="5" class="text-center">No accounts found</td>
+                        </tr>
+                        {{ end }}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}

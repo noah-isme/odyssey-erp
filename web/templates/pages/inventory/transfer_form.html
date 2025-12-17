@@ -1,33 +1,88 @@
 {{ define "pages/inventory/transfer_form.html" }}
-<h1>Transfer Stok</h1>
-<form method="post" class="grid">
-    <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
-    <label>Kode (opsional)
-        <input type="text" name="code" value="{{ .Data.Form.Code }}">
-    </label>
-    <label>Gudang Asal
-        <input type="number" name="src_warehouse" value="{{ .Data.Form.SrcWarehouse }}" required>
-    </label>
-    <label>Gudang Tujuan
-        <input type="number" name="dst_warehouse" value="{{ .Data.Form.DstWarehouse }}" required>
-    </label>
-    <label>Produk
-        <input type="number" name="product_id" value="{{ .Data.Form.ProductID }}" required>
-    </label>
-    <label>Kuantitas
-        <input type="number" step="0.0001" name="qty" value="{{ .Data.Form.Qty }}" required>
-    </label>
-    <label>Harga Satuan
-        <input type="number" step="0.0001" name="unit_cost" value="{{ .Data.Form.UnitCost }}" required>
-    </label>
-    <label>Catatan
-        <textarea name="note">{{ .Data.Form.Note }}</textarea>
-    </label>
-    <button type="submit">Transfer</button>
-</form>
-{{ if .Data.Errors }}
-<ul>
-    {{ range $k, $v := .Data.Errors }}<li><strong>{{ $k }}</strong>: {{ $v }}</li>{{ end }}
-</ul>
+{{ template "layouts/base.html" . }}
 {{ end }}
+
+{{ define "title" }}Stock Transfers{{ end }}
+
+{{ define "content" }}
+<div class="transfers-wrapper">
+    <header>
+        <h1>Stock Transfers</h1>
+        <p>Transfer stock between warehouses</p>
+    </header>
+
+    <form method="post" action="/inventory/transfers">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+
+        <section>
+            <fieldset>
+                <legend>Transfer Details</legend>
+                <div class="grid">
+                    <div>
+                        <label for="code">Code (optional)</label>
+                        <input type="text" name="code" id="code" value="{{ .Data.Form.Code }}" class="input">
+                    </div>
+                    <div>
+                        <label for="src_warehouse">Source Warehouse *</label>
+                        <select name="src_warehouse" id="src_warehouse" class="input" required>
+                            <option value="">Select Source Warehouse</option>
+                            <!-- Warehouses would be populated here -->
+                        </select>
+                        {{ if .Data.Errors.src_warehouse }}
+                        <small class="error">{{ .Data.Errors.src_warehouse }}</small>
+                        {{ end }}
+                    </div>
+                    <div>
+                        <label for="dst_warehouse">Destination Warehouse *</label>
+                        <select name="dst_warehouse" id="dst_warehouse" class="input" required>
+                            <option value="">Select Destination Warehouse</option>
+                            <!-- Warehouses would be populated here -->
+                        </select>
+                        {{ if .Data.Errors.dst_warehouse }}
+                        <small class="error">{{ .Data.Errors.dst_warehouse }}</small>
+                        {{ end }}
+                    </div>
+                    <div>
+                        <label for="product_id">Product *</label>
+                        <select name="product_id" id="product_id" class="input" required>
+                            <option value="">Select Product</option>
+                            <!-- Products would be populated here -->
+                        </select>
+                        {{ if .Data.Errors.product_id }}
+                        <small class="error">{{ .Data.Errors.product_id }}</small>
+                        {{ end }}
+                    </div>
+                    <div>
+                        <label for="qty">Quantity *</label>
+                        <input type="number" name="qty" id="qty" step="0.01" value="{{ .Data.Form.Qty }}" class="input" required>
+                        {{ if .Data.Errors.qty }}
+                        <small class="error">{{ .Data.Errors.qty }}</small>
+                        {{ end }}
+                    </div>
+                    <div>
+                        <label for="unit_cost">Unit Cost *</label>
+                        <input type="number" name="unit_cost" id="unit_cost" step="0.01" value="{{ .Data.Form.UnitCost }}" class="input" required>
+                        {{ if .Data.Errors.unit_cost }}
+                        <small class="error">{{ .Data.Errors.unit_cost }}</small>
+                        {{ end }}
+                    </div>
+                    <div>
+                        <label for="note">Note</label>
+                        <textarea name="note" id="note" class="input">{{ .Data.Form.Note }}</textarea>
+                    </div>
+                </div>
+            </fieldset>
+        </section>
+
+        <section>
+            <div role="group">
+                <button type="submit" class="btn btn--primary">Transfer Stock</button>
+                <a href="/inventory/transfers" role="button" class="btn btn--secondary">Cancel</a>
+            </div>
+            {{ if .Data.Errors.general }}
+            <p class="error">{{ .Data.Errors.general }}</p>
+            {{ end }}
+        </section>
+    </form>
+</div>
 {{ end }}

@@ -43,6 +43,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/integration"
 	"github.com/odyssey-erp/odyssey-erp/internal/inventory"
 	jobmetrics "github.com/odyssey-erp/odyssey-erp/internal/jobs"
+	"github.com/odyssey-erp/odyssey-erp/internal/masterdata"
 	"github.com/odyssey-erp/odyssey-erp/internal/observability"
 	"github.com/odyssey-erp/odyssey-erp/internal/procurement"
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
@@ -145,6 +146,7 @@ func main() {
 
 	accountingRepo := accounting.NewRepository(dbpool)
 	accountingService := accounting.NewService(accountingRepo, auditLogger, closeService)
+	accountingHandler := accounting.NewHandler(logger, accountingService, templates)
 	integrationHooks := integration.NewHooks(accountingService, accountingRepo)
 
 	inventoryRepo := inventory.NewRepository(dbpool)
@@ -194,6 +196,10 @@ func main() {
 
 	salesService := sales.NewService(dbpool)
 	salesHandler := sales.NewHandler(logger, salesService, templates, csrfManager, sessionManager, rbacMiddleware)
+
+	masterdataRepo := masterdata.NewRepository(dbpool)
+	masterdataService := masterdata.NewService(masterdataRepo)
+	masterdataHandler := masterdata.NewHandler(logger, masterdataService, templates, csrfManager, sessionManager, rbacMiddleware)
 
 	deliveryService := delivery.NewService(dbpool)
 	// Wire up inventory integration for stock reduction on delivery
@@ -245,6 +251,7 @@ func main() {
 		SessionManager:     sessionManager,
 		CSRFManager:        csrfManager,
 		AuthHandler:        authHandler,
+		AccountingHandler:  accountingHandler,
 		CloseHandler:       closeHandler,
 		EliminationHandler: eliminationHandler,
 		VarianceHandler:    varianceHandler,
@@ -252,6 +259,7 @@ func main() {
 		InventoryHandler:   inventoryHandler,
 		ProcurementHandler: procurementHandler,
 		SalesHandler:       salesHandler,
+		MasterDataHandler:  masterdataHandler,
 		DeliveryHandler:    deliveryHandler,
 		ReportHandler:      reportHandler,
 		ConsolHandler:      consolHandler,

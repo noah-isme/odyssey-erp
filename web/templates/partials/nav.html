@@ -8,6 +8,21 @@
         <li><a href="/">Home</a></li>
 
         <!-- Master Data -->
+        <li>
+            <details>
+                <summary>Master Data</summary>
+                <ul>
+                    <li><a href="/masterdata/companies">Companies</a></li>
+                    <li><a href="/masterdata/branches">Branches</a></li>
+                    <li><a href="/masterdata/warehouses">Warehouses</a></li>
+                    <li><a href="/masterdata/products">Products</a></li>
+                    <li><a href="/masterdata/suppliers">Suppliers</a></li>
+                    <li><a href="/masterdata/categories">Categories</a></li>
+                    <li><a href="/masterdata/units">Units</a></li>
+                    <li><a href="/masterdata/taxes">Taxes</a></li>
+                </ul>
+            </details>
+        </li>
         <li><a href="/sales/customers">Customers</a></li>
 
         <!-- Sales & Delivery -->
@@ -16,13 +31,34 @@
         <li><a href="/delivery/orders">Delivery Orders</a></li>
 
         <!-- Inventory & Procurement -->
-        <li><a href="/inventory/stock-card">Inventory</a></li>
+        <li>
+            <details>
+                <summary>Inventory</summary>
+                <ul>
+                    <li><a href="/inventory/stock-card">Stock Card</a></li>
+                    <li>
+                        <a href="/inventory/adjustments">Stock Adjustments</a>
+                    </li>
+                    <li><a href="/inventory/transfers">Stock Transfers</a></li>
+                </ul>
+            </details>
+        </li>
+        <li><a href="/procurement/prs">Purchase Requisitions</a></li>
         <li><a href="/procurement/pos">Purchase Orders</a></li>
         <li><a href="/procurement/grns">Goods Receipt</a></li>
         <li><a href="/procurement/ap-invoices">AP Invoices</a></li>
+        <li><a href="/procurement/ap/payments">AP Payments</a></li>
 
         <!-- Finance & Accounting -->
-        <li><a href="/accounting/periods">Period Close</a></li>
+        <li>
+            <details>
+                <summary>Accounting</summary>
+                <ul>
+                    <li><a href="/accounting/coa">Chart of Accounts</a></li>
+                    <li><a href="/accounting/periods">Period Close</a></li>
+                </ul>
+            </details>
+        </li>
         <li><a href="/analytics">Analytics</a></li>
         <li><a href="/insights">Insights</a></li>
         <li><a href="/consol">Consolidation</a></li>

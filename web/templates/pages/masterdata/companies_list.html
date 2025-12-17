@@ -1,0 +1,106 @@
+{{ define "pages/masterdata/companies_list.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Companies{{ end }}
+
+{{ define "content" }}
+<div class="companies-wrapper">
+    <header>
+        <h1>Companies</h1>
+        <p>Manage company information</p>
+        <div role="group" aria-label="Actions">
+            <a href="/masterdata/companies/new" role="button" class="btn btn--primary">+ New Company</a>
+        </div>
+    </header>
+
+    <!-- Filters -->
+    <section class="filters">
+        <form method="get" action="/masterdata/companies">
+            <div class="grid">
+                <div>
+                    <label for="search">Search</label>
+                    <input type="text" name="search" id="search" placeholder="Search by code or name" value="{{ if .Filters.Search }}{{ .Filters.Search }}{{ end }}" class="input">
+                </div>
+                <div>
+                    <label for="is_active">Status</label>
+                    <select name="is_active" id="is_active" class="input">
+                        <option value="">All</option>
+                        <option value="true" {{ if .Filters.IsActive }}{{ if .Filters.IsActive }}selected{{ end }}{{ end }}>Active</option>
+                        <option value="false" {{ if .Filters.IsActive }}{{ if not .Filters.IsActive }}selected{{ end }}{{ end }}>Inactive</option>
+                    </select>
+                </div>
+            </div>
+            <button type="submit" class="btn">Filter</button>
+            <a href="/masterdata/companies" role="button" class="btn btn--secondary">Clear</a>
+        </form>
+    </section>
+
+    <!-- Results -->
+    <section>
+        <p><strong>{{ .Total }}</strong> company(ies) found</p>
+
+        {{ if .Companies }}
+        <div class="table-wrap">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Code</th>
+                        <th>Name</th>
+                        <th>Address</th>
+                        <th>Phone</th>
+                        <th>Email</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ range .Companies }}
+                    <tr>
+                        <td><a href="/masterdata/companies/{{ .ID }}">{{ .Code }}</a></td>
+                        <td>{{ .Name }}</td>
+                        <td>{{ if .Address }}{{ .Address }}{{ else }}-{{ end }}</td>
+                        <td>{{ if .Phone }}{{ .Phone }}{{ else }}-{{ end }}</td>
+                        <td>{{ if .Email }}{{ .Email }}{{ else }}-{{ end }}</td>
+                        <td>
+                            {{ if .IsActive }}
+                            <span class="badge badge--success">Active</span>
+                            {{ else }}
+                            <span class="badge badge--neutral">Inactive</span>
+                            {{ end }}
+                        </td>
+                        <td>
+                            <a href="/masterdata/companies/{{ .ID }}" role="button" class="btn btn--secondary btn--small">View</a>
+                        </td>
+                    </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {{ if gt .Total .Limit }}
+        <div class="pagination">
+            {{ $currentPage := div .Offset .Limit }}
+            {{ $totalPages := div (add .Total (sub .Limit 1)) .Limit }}
+
+            {{ if gt $currentPage 0 }}
+            <a href="?limit={{ .Limit }}&offset={{ sub .Offset .Limit }}{{ if .Filters.Search }}&search={{ .Filters.Search }}{{ end }}{{ if .Filters.IsActive }}&is_active={{ .Filters.IsActive }}{{ end }}" role="button" class="btn btn--secondary">Previous</a>
+            {{ end }}
+
+            <span>Page {{ add $currentPage 1 }} of {{ $totalPages }}</span>
+
+            {{ if lt (add .Offset .Limit) .Total }}
+            <a href="?limit={{ .Limit }}&offset={{ add .Offset .Limit }}{{ if .Filters.Search }}&search={{ .Filters.Search }}{{ end }}{{ if .Filters.IsActive }}&is_active={{ .Filters.IsActive }}{{ end }}" role="button" class="btn btn--secondary">Next</a>
+            {{ end }}
+        </div>
+        {{ end }}
+
+        {{ else }}
+        <article>
+            <p>No companies found. <a href="/masterdata/companies/new">Create your first company</a></p>
+        </article>
+        {{ end }}
+    </section>
+</div>
+{{ end }}
