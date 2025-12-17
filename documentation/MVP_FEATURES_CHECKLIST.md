@@ -64,9 +64,9 @@
 | No | Fitur | Route | Priority | Status |
 |----|-------|-------|----------|--------|
 | 12 | Stock Adjustments | `/inventory/adjustments` | HIGH | ✅ Di menu |
-| 13 | Stock Transfers | `/inventory/transfers` | MEDIUM | [ ] Belum di menu |
-| 14 | Purchase Requisitions | `/procurement/prs` | MEDIUM | [ ] Belum di menu |
-| 15 | AP Payments | `/procurement/ap-payments` | HIGH | [ ] Belum di menu |
+| 13 | Stock Transfers | `/inventory/transfers` | MEDIUM | ✅ Di menu |
+| 14 | Purchase Requisitions | `/procurement/prs` | MEDIUM | ✅ Di menu |
+| 15 | AP Payments | `/procurement/ap-payments` | HIGH | ✅ Di menu |
 
 ---
 
@@ -75,7 +75,7 @@
 | No | Fitur | Route | Priority | Status |
 |----|-------|-------|----------|--------|
 | 16 | Chart of Accounts | `/accounting/coa` | HIGH | ✅ Di menu |
-| 17 | Journal Entries | `/accounting/journals` | HIGH | [ ] Belum di menu |
+| 17 | Journal Entries | `/accounting/journals` | HIGH | ✅ Di menu |
 | 18 | General Ledger | `/accounting/gl` | HIGH | [ ] Belum di menu |
 | 19 | Trial Balance | `/accounting/trial-balance` | HIGH | [ ] Belum di menu |
 | 20 | Balance Sheet | `/accounting/balance-sheet` | HIGH | [ ] Belum di menu |
@@ -126,13 +126,13 @@
 | Core Platform | 4 | 2 (Login, Audit) | 2 | 50% |
 | Master Data | 9 | 9 (All master data) | 0 | 100% |
 | Inventory & Procurement | 8 | 6 | 2 | 75% |
-| Accounting | 7 | 2 (Period Close, COA) | 5 | 28% |
+| Accounting | 7 | 3 (Period Close, COA, Journals) | 4 | 42% |
 | Analytics | 3 | 2 (Analytics, Insights) | 1 | 67% |
 | Security | 2 | 1 (Jobs) | 1 | 50% |
 | Consolidation | 3 | 2 (Consol, Eliminations) | 1 | 67% |
 | Board Pack & Variance | 2 | 2 | 0 | 100% |
 | Sales & Delivery | 7 | 4 (Quotations, SO, DO) | 3* | 57% |
-| **TOTAL** | **45** | **28** | **17** | **62%** |
+| **TOTAL** | **45** | **32** | **13** | **71%** |
 
 > *AR module belum memiliki handler, perlu development
 
@@ -140,26 +140,22 @@
 
 ### Prioritas Fitur yang Masih Perlu Ditambahkan
 
-### 🔴 HIGH Priority (4 fitur)
+### 🔴 HIGH Priority (2 fitur)
 
 1. [ ] Stock Adjustments
-2. [ ] AP Payments
-3. [ ] Journal Entries
-4. [ ] General Ledger
+2. [ ] General Ledger
 5. [ ] Trial Balance
 6. [ ] Balance Sheet
 7. [ ] Profit & Loss
 
-### 🟡 MEDIUM Priority (8 fitur)
+### 🟡 MEDIUM Priority (7 fitur)
 
 1. [ ] Categories
 2. [ ] Units
 3. [ ] Taxes
 4. [ ] Users Management
 5. [ ] Roles Management
-6. [ ] Stock Transfers
-7. [ ] Purchase Requisitions
-8. [ ] KPI Tracking
+6. [ ] KPI Tracking
 
 ### 🟠 Perlu Development (4 fitur AR)
 

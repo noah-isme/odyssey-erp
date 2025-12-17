@@ -23,7 +23,7 @@ func NewHandler(logger *slog.Logger, service *Service, templates *view.Engine) *
 // MountRoutes registers HTTP routes for the ledger module.
 func (h *Handler) MountRoutes(r chi.Router) {
 	r.Get("/coa", h.handleListAccounts)
-	r.Get("/finance/journals", h.handleNotImplemented)
+	r.Get("/journals", h.handleListJournals)
 	r.Post("/finance/journals", h.handleNotImplemented)
 	r.Post("/finance/journals/{id}/void", h.handleNotImplemented)
 	r.Post("/finance/journals/{id}/reverse", h.handleNotImplemented)
@@ -47,6 +47,21 @@ func (h *Handler) handleListAccounts(w http.ResponseWriter, r *http.Request) {
 	viewData := view.TemplateData{Title: "Chart of Accounts", Data: data}
 	if err := h.templates.Render(w, "pages/accounting/coa_list.html", viewData); err != nil {
 		h.logger.Error("render coa", slog.Any("error", err))
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+	}
+}
+
+func (h *Handler) handleListJournals(w http.ResponseWriter, r *http.Request) {
+	entries, err := h.service.ListJournalEntries(r.Context())
+	if err != nil {
+		h.logger.Error("list journals", slog.Any("error", err))
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	data := map[string]any{"JournalEntries": entries}
+	viewData := view.TemplateData{Title: "Journal Entries", Data: data}
+	if err := h.templates.Render(w, "pages/accounting/journals_list.html", viewData); err != nil {
+		h.logger.Error("render journals", slog.Any("error", err))
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }

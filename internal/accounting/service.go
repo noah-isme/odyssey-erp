@@ -294,3 +294,14 @@ func (s *Service) ListAccounts(ctx context.Context) ([]Account, error) {
 	})
 	return accounts, err
 }
+
+// ListJournalEntries retrieves all journal entries.
+func (s *Service) ListJournalEntries(ctx context.Context) ([]JournalEntry, error) {
+	var entries []JournalEntry
+	err := s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
+		var err error
+		entries, err = tx.ListJournalEntries(ctx)
+		return err
+	})
+	return entries, err
+}

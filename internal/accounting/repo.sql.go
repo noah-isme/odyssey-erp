@@ -26,6 +26,7 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 // TxRepository exposes transactional operations.
 type TxRepository interface {
 	ListAccounts(ctx context.Context) ([]Account, error)
+	ListJournalEntries(ctx context.Context) ([]JournalEntry, error)
 	InsertJournalEntry(ctx context.Context, in PostingInput) (JournalEntry, error)
 	InsertJournalLines(ctx context.Context, entryID int64, lines []PostingLineInput) error
 	LinkSource(ctx context.Context, module string, ref uuid.UUID, entryID int64) error
@@ -51,6 +52,24 @@ func (r *txRepository) ListAccounts(ctx context.Context) ([]Account, error) {
 		accounts = append(accounts, a)
 	}
 	return accounts, rows.Err()
+}
+
+func (r *txRepository) ListJournalEntries(ctx context.Context) ([]JournalEntry, error) {
+	rows, err := r.tx.Query(ctx, `SELECT id, number, period_id, date, source_module, source_id, memo, posted_by, posted_at, status, created_at, updated_at FROM journal_entries ORDER BY number DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var entries []JournalEntry
+	for rows.Next() {
+		var e JournalEntry
+		err := rows.Scan(&e.ID, &e.Number, &e.PeriodID, &e.Date, &e.SourceModule, &e.SourceID, &e.Memo, &e.PostedBy, &e.PostedAt, &e.Status, &e.CreatedAt, &e.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+		entries = append(entries, e)
+	}
+	return entries, rows.Err()
 }
 
 type txRepository struct {
