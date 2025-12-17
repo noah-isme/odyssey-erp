@@ -30,7 +30,7 @@ func (h *Handler) MountRoutes(r chi.Router) {
 	r.Get("/gl", h.handleGeneralLedger)
 	r.Get("/trial-balance", h.handleTrialBalance)
 	r.Get("/finance/reports/pl", h.handleNotImplemented)
-	r.Get("/finance/reports/bs", h.handleNotImplemented)
+	r.Get("/balance-sheet", h.handleBalanceSheet)
 	r.Get("/finance/reports/trial-balance/pdf", h.handleNotImplemented)
 	r.Get("/finance/reports/pl/pdf", h.handleNotImplemented)
 	r.Get("/finance/reports/bs/pdf", h.handleNotImplemented)
@@ -92,6 +92,21 @@ func (h *Handler) handleTrialBalance(w http.ResponseWriter, r *http.Request) {
 	viewData := view.TemplateData{Title: "Trial Balance", Data: data}
 	if err := h.templates.Render(w, "pages/accounting/trial_balance.html", viewData); err != nil {
 		h.logger.Error("render trial balance", slog.Any("error", err))
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+	}
+}
+
+func (h *Handler) handleBalanceSheet(w http.ResponseWriter, r *http.Request) {
+	accounts, err := h.service.ListBalanceSheet(r.Context())
+	if err != nil {
+		h.logger.Error("list balance sheet", slog.Any("error", err))
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	data := map[string]any{"Accounts": accounts}
+	viewData := view.TemplateData{Title: "Balance Sheet", Data: data}
+	if err := h.templates.Render(w, "pages/accounting/balance_sheet.html", viewData); err != nil {
+		h.logger.Error("render balance sheet", slog.Any("error", err))
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }
