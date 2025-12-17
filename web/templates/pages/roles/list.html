@@ -1,0 +1,27 @@
+{{ define "pages/roles/list.html" }}
+<h1>Roles Management</h1>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Description</th>
+            <th>Created</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{ range .Data.Roles }}
+        <tr>
+            <td>{{ .ID }}</td>
+            <td>{{ .Name }}</td>
+            <td>{{ .Description }}</td>
+            <td>{{ .CreatedAt.Format "2006-01-02" }}</td>
+        </tr>
+        {{ end }}
+    </tbody>
+</table>
+
+{{ if .Data.Errors }}
+<p class="error">{{ index .Data.Errors "general" }}</p>
+{{ end }} {{ end }}
