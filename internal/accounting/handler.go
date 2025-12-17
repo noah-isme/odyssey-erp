@@ -29,7 +29,7 @@ func (h *Handler) MountRoutes(r chi.Router) {
 	r.Post("/finance/journals/{id}/reverse", h.handleNotImplemented)
 	r.Get("/gl", h.handleGeneralLedger)
 	r.Get("/trial-balance", h.handleTrialBalance)
-	r.Get("/finance/reports/pl", h.handleNotImplemented)
+	r.Get("/pnl", h.handleProfitLoss)
 	r.Get("/balance-sheet", h.handleBalanceSheet)
 	r.Get("/finance/reports/trial-balance/pdf", h.handleNotImplemented)
 	r.Get("/finance/reports/pl/pdf", h.handleNotImplemented)
@@ -107,6 +107,21 @@ func (h *Handler) handleBalanceSheet(w http.ResponseWriter, r *http.Request) {
 	viewData := view.TemplateData{Title: "Balance Sheet", Data: data}
 	if err := h.templates.Render(w, "pages/accounting/balance_sheet.html", viewData); err != nil {
 		h.logger.Error("render balance sheet", slog.Any("error", err))
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+	}
+}
+
+func (h *Handler) handleProfitLoss(w http.ResponseWriter, r *http.Request) {
+	accounts, err := h.service.ListProfitLoss(r.Context())
+	if err != nil {
+		h.logger.Error("list profit loss", slog.Any("error", err))
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	data := map[string]any{"Accounts": accounts}
+	viewData := view.TemplateData{Title: "Profit & Loss", Data: data}
+	if err := h.templates.Render(w, "pages/accounting/pnl.html", viewData); err != nil {
+		h.logger.Error("render pnl", slog.Any("error", err))
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }

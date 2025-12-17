@@ -1,0 +1,61 @@
+{{ define "pages/accounting/pnl.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}{{ .Title }}{{ end }}
+
+{{ define "content" }}
+<div class="page-container">
+    <div class="page-header">
+        <div class="page-header-content">
+            <h1 class="page-title">{{ .Title }}</h1>
+            <p class="page-subtitle">Profit & Loss - Income statement</p>
+        </div>
+        <div class="page-actions">
+            <a href="/accounting/pnl/export" class="btn btn-secondary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                Export
+            </a>
+        </div>
+    </div>
+
+    <div class="page-content">
+        <div class="panel">
+            <div class="panel-body">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Account Code</th>
+                            <th>Account Name</th>
+                            <th>Type</th>
+                            <th>Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{ range</thead></tr></th></th></th></tbody> .Data.Accounts }}
+                        <tr>
+                            <td>{{ .Code }}</td></tr>
+                            <td>{{ .Name }}</td>
+                            <td>
+                                <span class="badge badge-{{ .Type | lower }}">
+                                    {{ .Type }}
+                                </span>
+                            </td>
+                            <td>Rp 0.00</td>
+                        </tr>
+                        {{ else }}
+                        <tr>
+                            <td colspan="4" class="text-center">No accounts found</td>
+                        </tr>
+                        {{ end }}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </</td></tr>div>
+</div>
+{{ end }}

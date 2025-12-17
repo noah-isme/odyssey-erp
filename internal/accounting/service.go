@@ -323,3 +323,9 @@ func (s *Service) ListBalanceSheet(ctx context.Context) ([]Account, error) {
 	// For MVP, just return all accounts; full BS would include calculated balances
 	return s.ListAccounts(ctx)
 }
+
+// ListProfitLoss retrieves profit & loss data.
+func (s *Service) ListProfitLoss(ctx context.Context) ([]Account, error) {
+	// For MVP, just return all accounts; full P&L would include calculated balances
+	return s.ListAccounts(ctx)
+}
