@@ -317,3 +317,9 @@ func (s *Service) ListTrialBalance(ctx context.Context) ([]Account, error) {
 	// For MVP, just return all accounts; full TB would include calculated balances
 	return s.ListAccounts(ctx)
 }
+
+// ListBalanceSheet retrieves balance sheet data.
+func (s *Service) ListBalanceSheet(ctx context.Context) ([]Account, error) {
+	// For MVP, just return all accounts; full BS would include calculated balances
+	return s.ListAccounts(ctx)
+}
