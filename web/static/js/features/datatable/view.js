@@ -129,6 +129,127 @@ const view = {
     },
 
     /**
+     * Render context menu
+     * @param {string} id - Table ID
+     * @param {Object} state - Current state
+     */
+    renderContextMenu(id, state) {
+        const table = this.getTable(id);
+        if (!table) return;
+
+        const container = table.closest('.table-container');
+        let menu = container?.querySelector('.context-menu[data-context-menu]');
+
+        if (!state.contextMenu) {
+            // Close menu
+            if (menu) {
+                menu.classList.remove('visible');
+                menu.setAttribute('data-state', 'closed');
+                menu.hidden = true;
+            }
+            return;
+        }
+
+        // Create menu if not exists
+        if (!menu) {
+            menu = this.createContextMenu(id, container);
+        }
+
+        // Position menu
+        const { x, y, rowId } = state.contextMenu;
+        const positioned = this.positionContextMenu(menu, x, y);
+
+        menu.dataset.rowId = rowId;
+        menu.style.left = `${positioned.x}px`;
+        menu.style.top = `${positioned.y}px`;
+        menu.hidden = false;
+        menu.classList.add('visible');
+        menu.setAttribute('data-state', 'open');
+
+        // Focus first item for accessibility
+        requestAnimationFrame(() => {
+            const firstItem = menu.querySelector('button, [role="menuitem"]');
+            if (firstItem) firstItem.focus();
+        });
+    },
+
+    /**
+     * Create context menu element
+     * @param {string} id - Table ID
+     * @param {HTMLElement} container - Table container
+     * @returns {HTMLElement}
+     */
+    createContextMenu(id, container) {
+        const menu = document.createElement('div');
+        menu.className = 'context-menu';
+        menu.setAttribute('data-context-menu', id);
+        menu.setAttribute('role', 'menu');
+        menu.setAttribute('aria-label', 'Row actions');
+        menu.hidden = true;
+
+        // Default menu items - can be customized via data attributes
+        menu.innerHTML = `
+            <button type="button" role="menuitem" data-context-action="view">View</button>
+            <button type="button" role="menuitem" data-context-action="edit">Edit</button>
+            <hr role="separator">
+            <button type="button" role="menuitem" data-context-action="duplicate">Duplicate</button>
+            <button type="button" role="menuitem" data-context-action="delete" class="danger">Delete</button>
+        `;
+
+        container.appendChild(menu);
+        return menu;
+    },
+
+    /**
+     * Position context menu within viewport
+     * @param {HTMLElement} menu - Menu element
+     * @param {number} x - Mouse X
+     * @param {number} y - Mouse Y
+     * @returns {{ x: number, y: number }}
+     */
+    positionContextMenu(menu, x, y) {
+        // Temporarily show to measure
+        menu.style.visibility = 'hidden';
+        menu.hidden = false;
+
+        const rect = menu.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+
+        // Adjust if overflowing right
+        let finalX = x;
+        if (x + rect.width > viewportWidth - 10) {
+            finalX = x - rect.width;
+        }
+
+        // Adjust if overflowing bottom
+        let finalY = y;
+        if (y + rect.height > viewportHeight - 10) {
+            finalY = y - rect.height;
+        }
+
+        // Ensure not negative
+        finalX = Math.max(10, finalX);
+        finalY = Math.max(10, finalY);
+
+        menu.style.visibility = '';
+        menu.hidden = true;
+
+        return { x: finalX, y: finalY };
+    },
+
+    /**
+     * Get context menu element
+     * @param {string} id - Table ID
+     * @returns {HTMLElement|null}
+     */
+    getContextMenu(id) {
+        const table = this.getTable(id);
+        const container = table?.closest('.table-container');
+        return container?.querySelector('.context-menu[data-context-menu]');
+    },
+
+    /**
      * Render loading state
      * @param {string} id - Table ID
      * @param {boolean} loading - Is loading
