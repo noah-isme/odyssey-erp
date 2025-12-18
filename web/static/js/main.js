@@ -9,6 +9,9 @@ import { Toast, Loading } from './core/toast.js';
 import { Dropdown } from './core/dropdown.js';
 import { Shortcuts } from './core/shortcuts.js';
 
+// Feature modules (state-driven architecture)
+import { Theme } from './features/theme/index.js';
+
 // Component modules
 import { Modal } from './components/modal.js';
 import { Inspector } from './components/inspector.js';
@@ -18,8 +21,10 @@ import { Forms } from './components/forms.js';
 
 // Initialize all modules on DOMContentLoaded
 document.addEventListener('DOMContentLoaded', () => {
+    // Features (state-driven)
+    Theme.init();
+
     // Core
-    // Theme handled by ui.js
     Sidebar.init();
     Navigation.init();
     Toast.init();
@@ -40,7 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.OdysseyModal = Modal;
     window.OdysseyInspector = Inspector;
     window.OdysseyDataTable = DataTable;
-    // window.OdysseyTheme handled by ui.js (OdysseyUI.theme)
+    window.OdysseyTheme = Theme; // Expose theme for external access
 
     console.log('🚀 Odyssey ERP initialized');
 });
