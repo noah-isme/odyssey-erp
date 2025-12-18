@@ -168,7 +168,7 @@
     opacity: 0;
     visibility: hidden;
     transition: all var(--dur-2) var(--ease-standard);
-    z-index: 100;
+    z-index: var(--z-tooltip);
 }
 
 .sidebar-collapsed .nav-item:hover::after {
@@ -183,7 +183,7 @@
     inset: 0;
     top: var(--header-h);
     background-color: rgba(0, 0, 0, 0.5);
-    z-index: 98;
+    z-index: var(--z-sidebar-overlay);
 }
 
 .sidebar-overlay.open {
@@ -198,7 +198,7 @@
         top: var(--header-h);
         width: var(--sidebar-w);
         height: calc(100vh - var(--header-h));
-        z-index: 99;
+        z-index: var(--z-sidebar);
         transition: left var(--dur-2) var(--ease-standard);
     }
 

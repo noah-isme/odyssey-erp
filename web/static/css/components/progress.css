@@ -90,9 +90,10 @@
     }
 }
 
-/* Indeterminate state */
-.progress.indeterminate .progress-bar {
-    width: 30% !important;
+/* Indeterminate state - higher specificity */
+.progress.indeterminate>.progress-bar,
+.progress.indeterminate .progress-bar[style] {
+    width: 30%;
     animation: progress-indeterminate 1.5s ease-in-out infinite;
 }
 
