@@ -1,38 +1,59 @@
 {{ define "pages/ar/ar_aging_report.html" }}
-<h1>AR Aging Report</h1>
-<p>As of: {{ now.Format "2006-01-02" }}</p>
+{{ template "layouts/base.html" . }}
+{{ end }}
 
-<table class="table">
-    <thead>
-        <tr>
-            <th>Aging Period</th>
-            <th>Amount</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr>
-            <td>Current (0-30 days)</td>
-            <td class="numeric">{{ .Data.Aging.Current | printf "%.2f" }}</td>
-        </tr>
-        <tr>
-            <td>31-60 days</td>
-            <td class="numeric">{{ .Data.Aging.Bucket30 | printf "%.2f" }}</td>
-        </tr>
-        <tr>
-            <td>61-90 days</td>
-            <td class="numeric">{{ .Data.Aging.Bucket60 | printf "%.2f" }}</td>
-        </tr>
-        <tr>
-            <td>91-120 days</td>
-            <td class="numeric">{{ .Data.Aging.Bucket90 | printf "%.2f" }}</td>
-        </tr>
-        <tr>
-            <td>Over 120 days</td>
-            <td class="numeric">{{ .Data.Aging.Bucket120 | printf "%.2f" }}</td>
-        </tr>
-    </tbody>
-</table>
+{{ define "title" }}AR Aging Report{{ end }}
+
+{{ define "content" }}
+<header class="page-header">
+    <h1>AR Aging Report</h1>
+    <p>Outstanding receivables aged by invoice date as of {{ now.Format "2006-01-02" }}</p>
+</header>
+
+<div class="table-wrap" data-component="datatable">
+    <table class="table">
+        <caption>Accounts Receivable Aging Summary</caption>
+        <thead>
+            <tr>
+                <th scope="col">Aging Period</th>
+                <th scope="col" class="text-right">Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Current (0-30 days)</td>
+                <td class="numeric text-right">{{ .Data.Aging.Current | printf "%.2f" }}</td>
+            </tr>
+            <tr>
+                <td>31-60 days</td>
+                <td class="numeric text-right">{{ .Data.Aging.Bucket30 | printf "%.2f" }}</td>
+            </tr>
+            <tr>
+                <td>61-90 days</td>
+                <td class="numeric text-right">{{ .Data.Aging.Bucket60 | printf "%.2f" }}</td>
+            </tr>
+            <tr>
+                <td>91-120 days</td>
+                <td class="numeric text-right">{{ .Data.Aging.Bucket90 | printf "%.2f" }}</td>
+            </tr>
+            <tr>
+                <td>Over 120 days</td>
+                <td class="numeric text-right">{{ .Data.Aging.Bucket120 | printf "%.2f" }}</td>
+            </tr>
+        </tbody>
+        <tfoot>
+            <tr class="table-summary">
+                <th scope="row">Total Outstanding</th>
+                <td class="text-right font-bold">{{ add .Data.Aging.Current (add .Data.Aging.Bucket30 (add
+                    .Data.Aging.Bucket60 (add .Data.Aging.Bucket90 .Data.Aging.Bucket120))) | printf "%.2f" }}</td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
 
 {{ if .Data.Errors }}
-<p class="error">{{ index .Data.Errors "general" }}</p>
-{{ end }} {{ end }}
+<div class="alert alert--danger" role="alert">
+    {{ index .Data.Errors "general" }}
+</div>
+{{ end }}
+{{ end }}

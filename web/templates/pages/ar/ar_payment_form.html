@@ -1,33 +1,66 @@
 {{ define "pages/ar/ar_payment_form.html" }}
-<h1>AR Payment</h1>
-<form method="post" class="grid">
-    <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
-    <label
-        >Number
-        <input type="text" name="number" required />
-    </label>
-    <label
-        >AR Invoice ID
-        <input type="number" name="ar_invoice_id" required />
-    </label>
-    <label
-        >Amount
-        <input type="number" step="0.01" name="amount" required />
-    </label>
-    <label
-        >Paid At
-        <input type="date" name="paid_at" />
-    </label>
-    <label
-        >Method
-        <input type="text" name="method" value="BANK" />
-    </label>
-    <label
-        >Note
-        <textarea name="note"></textarea>
-    </label>
-    <button type="submit">Record Payment</button>
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Record AR Payment{{ end }}
+
+{{ define "content" }}
+<header class="page-header">
+    <h1>Record AR Payment</h1>
+    <p>Register a payment received from a customer for an outstanding invoice.</p>
+</header>
+
+<form method="post" class="form" data-component="form" data-validate="true">
+    <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+
+    <div class="form-group">
+        <label for="number">Payment Number</label>
+        <input type="text" id="number" name="number" required placeholder="e.g. PAY-2023-001">
+    </div>
+
+    <div class="form-grid">
+        <div class="form-group">
+            <label for="ar_invoice_id">AR Invoice ID</label>
+            <input type="number" id="ar_invoice_id" name="ar_invoice_id" required>
+        </div>
+
+        <div class="form-group">
+            <label for="amount">Payment Amount</label>
+            <input type="number" step="0.01" id="amount" name="amount" required>
+        </div>
+    </div>
+
+    <div class="form-grid">
+        <div class="form-group">
+            <label for="paid_at">Payment Date</label>
+            <input type="date" id="paid_at" name="paid_at" required>
+        </div>
+
+        <div class="form-group">
+            <label for="method">Payment Method</label>
+            <input type="text" id="method" name="method" value="BANK" list="payment-methods" required>
+            <datalist id="payment-methods">
+                <option value="BANK">Bank Transfer</option>
+                <option value="CASH">Cash</option>
+                <option value="CHEQUE">Cheque</option>
+            </datalist>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label for="note">Note</label>
+        <textarea id="note" name="note" rows="3" placeholder="Optional transaction details..."></textarea>
+    </div>
+
+    {{ if .Data.Errors }}
+    <div class="alert alert--danger" role="alert">
+        {{ index .Data.Errors "general" }}
+    </div>
+    {{ end }}
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn--primary">Record Payment</button>
+        <a href="/finance/ar/payments" class="btn btn--secondary">Cancel</a>
+    </div>
 </form>
-{{ if .Data.Errors }}
-<p class="error">{{ index .Data.Errors "general" }}</p>
-{{ end }} {{ end }}
+{{ end }}
