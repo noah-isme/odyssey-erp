@@ -29,11 +29,12 @@ func NewHandler(logger *slog.Logger, service *Service, templates *view.Engine, c
 // MountRoutes registers user routes.
 func (h *Handler) MountRoutes(r chi.Router) {
 	r.Group(func(r chi.Router) {
-		r.Use(h.rbac.RequireAny("users.view"))
+		// Backwards-compatible: older seeds use `rbac.view`/`rbac.edit` while the UI uses `users.*`.
+		r.Use(h.rbac.RequireAny(shared.PermUsersView, "rbac.view"))
 		r.Get("/", h.listUsers)
 	})
 	r.Group(func(r chi.Router) {
-		r.Use(h.rbac.RequireAll("users.edit"))
+		r.Use(h.rbac.RequireAny(shared.PermUsersEdit, "rbac.edit"))
 		r.Get("/new", h.showCreateUserForm)
 		r.Post("/", h.createUser)
 	})

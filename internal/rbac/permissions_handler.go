@@ -28,7 +28,8 @@ func NewPermissionsHandler(logger *slog.Logger, service *Service, templates *vie
 // MountRoutes registers permission routes.
 func (h *PermissionsHandler) MountRoutes(r chi.Router) {
 	r.Group(func(r chi.Router) {
-		r.Use(h.rbac.RequireAny("permissions.view"))
+		// Backwards-compatible: older seeds use `rbac.view`/`rbac.edit` while the UI uses `permissions.view`.
+		r.Use(h.rbac.RequireAny(shared.PermPermissionsView, "rbac.view"))
 		r.Get("/", h.listPermissions)
 	})
 }

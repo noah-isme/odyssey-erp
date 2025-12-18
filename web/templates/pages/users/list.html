@@ -1,29 +1,55 @@
 {{ define "pages/users/list.html" }}
-<h1>Users Management</h1>
+{{ template "layouts/base.html" . }}
+{{ end }}
 
-<table class="table">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Email</th>
-            <th>Name</th>
-            <th>Active</th>
-            <th>Created</th>
-        </tr>
-    </thead>
-    <tbody>
-        {{ range .Data.Users }}
-        <tr>
-            <td>{{ .ID }}</td>
-            <td>{{ .Email }}</td>
-            <td>{{ .Name }}</td>
-            <td>{{ if .IsActive }}Yes{{ else }}No{{ end }}</td>
-            <td>{{ .CreatedAt.Format "2006-01-02" }}</td>
-        </tr>
-        {{ end }}
-    </tbody>
-</table>
+{{ define "title" }}Users Management{{ end }}
 
-{{ if .Data.Errors }}
-<p class="error">{{ index .Data.Errors "general" }}</p>
-{{ end }} {{ end }}
+{{ define "content" }}
+<section class="container page-users">
+    <header class="page-header">
+        <h1>Users Management</h1>
+        <p class="text-muted">Manage system user accounts</p>
+    </header>
+
+    {{ if .Data.Errors }}
+    <div class="alert alert--error" role="alert">
+        {{ index .Data.Errors "general" }}
+    </div>
+    {{ end }}
+
+    <div class="table-wrap" data-component="datatable">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th scope="col">ID</th>
+                    <th scope="col">Email</th>
+                    <th scope="col">Name</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Created</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{ range .Data.Users }}
+                <tr data-id="{{ .ID }}">
+                    <td>{{ .ID }}</td>
+                    <td>{{ .Email }}</td>
+                    <td>{{ .Name }}</td>
+                    <td>
+                        {{ if .IsActive }}
+                        <span class="badge badge--success">Active</span>
+                        {{ else }}
+                        <span class="badge badge--muted">Inactive</span>
+                        {{ end }}
+                    </td>
+                    <td>{{ .CreatedAt.Format "2006-01-02" }}</td>
+                </tr>
+                {{ else }}
+                <tr>
+                    <td colspan="5" class="text-center text-muted">No users found</td>
+                </tr>
+                {{ end }}
+            </tbody>
+        </table>
+    </div>
+</section>
+{{ end }}
