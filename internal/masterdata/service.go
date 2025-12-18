@@ -269,8 +269,8 @@ func (s *service) DeleteSupplier(ctx context.Context, id int64) error {
 }
 
 // Product operations
-func (s *service) ListProducts(ctx context.Context, categoryID *int64, isActive *bool) ([]Product, error) {
-	return s.repo.ListProducts(ctx, categoryID, isActive)
+func (s *service) ListProducts(ctx context.Context, categoryID *int64, isActive *bool, sortBy, sortDir string) ([]Product, error) {
+	return s.repo.ListProducts(ctx, categoryID, isActive, sortBy, sortDir)
 }
 
 func (s *service) GetProduct(ctx context.Context, id int64) (Product, error) {

@@ -369,7 +369,7 @@ func (r *repo) DeleteSupplier(ctx context.Context, id int64) error {
 }
 
 // Product operations
-func (r *repo) ListProducts(ctx context.Context, categoryID *int64, isActive *bool) ([]Product, error) {
+func (r *repo) ListProducts(ctx context.Context, categoryID *int64, isActive *bool, sortBy, sortDir string) ([]Product, error) {
 	query := `SELECT id, sku, name, category_id, unit_id, price, tax_id, is_active, deleted_at FROM products WHERE deleted_at IS NULL`
 	args := []interface{}{}
 	argCount := 0
@@ -386,7 +386,7 @@ func (r *repo) ListProducts(ctx context.Context, categoryID *int64, isActive *bo
 		args = append(args, *isActive)
 	}
 
-	query += ` ORDER BY name`
+	query += " ORDER BY " + sortOrderProduct(sortBy, sortDir)
 
 	rows, err := r.db.Query(ctx, query, args...)
 	if err != nil {
@@ -429,4 +429,22 @@ func (r *repo) DeleteProduct(ctx context.Context, id int64) error {
 	query := `UPDATE products SET deleted_at = $1 WHERE id = $2 AND deleted_at IS NULL`
 	_, err := r.db.Exec(ctx, query, time.Now(), id)
 	return err
+}
+
+func sortOrderProduct(sortBy, sortDir string) string {
+dir := "ASC"
+if sortDir == "desc" {
+dir = "DESC"
+}
+
+switch sortBy {
+case "sku":
+return "sku " + dir
+case "name":
+return "name " + dir
+case "price":
+return "price " + dir
+default:
+return "name " + dir
+}
 }

@@ -141,7 +141,7 @@ type Repository interface {
 	DeleteSupplier(ctx context.Context, id int64) error
 
 	// Product operations
-	ListProducts(ctx context.Context, categoryID *int64, isActive *bool) ([]Product, error)
+	ListProducts(ctx context.Context, categoryID *int64, isActive *bool, sortBy, sortDir string) ([]Product, error)
 	GetProduct(ctx context.Context, id int64) (Product, error)
 	CreateProduct(ctx context.Context, product Product) (Product, error)
 	UpdateProduct(ctx context.Context, id int64, product Product) error
@@ -200,7 +200,7 @@ type Service interface {
 	DeleteSupplier(ctx context.Context, id int64) error
 
 	// Product operations
-	ListProducts(ctx context.Context, categoryID *int64, isActive *bool) ([]Product, error)
+	ListProducts(ctx context.Context, categoryID *int64, isActive *bool, sortBy, sortDir string) ([]Product, error)
 	GetProduct(ctx context.Context, id int64) (Product, error)
 	CreateProduct(ctx context.Context, product Product) (Product, error)
 	UpdateProduct(ctx context.Context, id int64, product Product) error

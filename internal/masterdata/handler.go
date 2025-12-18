@@ -1208,7 +1208,10 @@ func (h *Handler) listProducts(w http.ResponseWriter, r *http.Request) {
 		isActive = &val
 	}
 
-	products, err := h.service.ListProducts(r.Context(), categoryID, isActive)
+	sortBy := r.URL.Query().Get("sort")
+	sortDir := r.URL.Query().Get("dir")
+
+	products, err := h.service.ListProducts(r.Context(), categoryID, isActive, sortBy, sortDir)
 	if err != nil {
 		h.logger.Error("list products failed", "error", err)
 		http.Error(w, "Failed to load products", http.StatusInternalServerError)
@@ -1217,6 +1220,12 @@ func (h *Handler) listProducts(w http.ResponseWriter, r *http.Request) {
 
 	h.render(w, r, "pages/masterdata/products_list.html", map[string]any{
 		"Products": products,
+		"Filters": map[string]any{
+			"CategoryID": categoryIDStr,
+			"IsActive":   isActiveStr,
+			"SortBy":     r.URL.Query().Get("sort"),
+			"SortDir":    r.URL.Query().Get("dir"),
+		},
 	}, http.StatusOK)
 }
 

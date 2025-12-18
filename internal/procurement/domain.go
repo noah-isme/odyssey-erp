@@ -126,6 +126,43 @@ type APPayment struct {
 	Amount      float64
 }
 
+// POListItem is a DTO for listing purchase orders with joined data.
+type POListItem struct {
+	ID           int64
+	Number       string
+	SupplierID   int64
+	SupplierName string
+	Status       POStatus
+	Currency     string
+	ExpectedDate time.Time
+	CreatedAt    time.Time
+	Total        float64
+}
+
+// GRNListItem is a DTO for listing goods receipts with joined data.
+type GRNListItem struct {
+	ID            int64
+	Number        string
+	POID          int64
+	PONumber      string
+	SupplierID    int64
+	SupplierName  string
+	WarehouseID   int64
+	WarehouseName string
+	Status        GRNStatus
+	ReceivedAt    time.Time
+	CreatedAt     time.Time
+}
+
+// ListFilters contains filter parameters for list queries.
+type ListFilters struct {
+	Status     string
+	SupplierID int64
+	Search     string
+	SortBy     string
+	SortDir    string // "asc" or "desc"
+}
+
 var (
 	// ErrInvalidState occurs when action violates status workflow.
 	ErrInvalidState = errors.New("procurement: invalid state transition")

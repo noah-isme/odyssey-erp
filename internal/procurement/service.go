@@ -21,6 +21,8 @@ type RepositoryPort interface {
 	GetGRN(ctx context.Context, id int64) (GoodsReceipt, []GRNLine, error)
 	GetAPInvoice(ctx context.Context, id int64) (APInvoice, error)
 	ListAPOutstanding(ctx context.Context) ([]APInvoice, error)
+	ListPOs(ctx context.Context, limit, offset int, filters ListFilters) ([]POListItem, int, error)
+	ListGRNs(ctx context.Context, limit, offset int, filters ListFilters) ([]GRNListItem, int, error)
 }
 
 // InventoryPort exposes required inventory integration.
@@ -493,6 +495,22 @@ func (s *Service) CalculateAPAging(ctx context.Context, asOf time.Time) (APAging
 		}
 	}
 	return bucket, nil
+}
+
+// ListPOs returns paginated purchase orders.
+func (s *Service) ListPOs(ctx context.Context, limit, offset int, filters ListFilters) ([]POListItem, int, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	return s.repo.ListPOs(ctx, limit, offset, filters)
+}
+
+// ListGRNs returns paginated goods receipts.
+func (s *Service) ListGRNs(ctx context.Context, limit, offset int, filters ListFilters) ([]GRNListItem, int, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	return s.repo.ListGRNs(ctx, limit, offset, filters)
 }
 
 func (s *Service) recordAudit(ctx context.Context, action string, entityID int64, meta map[string]any) {

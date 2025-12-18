@@ -1,4 +1,128 @@
 {{ define "pages/procurement/grns_list.html" }}
-<h1>Daftar Goods Receipt</h1>
-<p>Konten akan tersedia setelah integrasi penuh.</p>
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Goods Receipts{{ end }}
+
+{{ define "content" }}
+<div class="page-container">
+    <div class="page-header">
+        <div class="page-header-content">
+            <h1 class="page-title">Goods Receipts</h1>
+            <p class="page-subtitle">Manage goods receipt notes</p>
+        </div>
+        <div class="page-actions">
+            <a href="/procurement/grns/new" class="btn btn--primary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                New GRN
+            </a>
+        </div>
+    </div>
+
+    <div class="page-content">
+        <!-- Filters -->
+        <div class="card mb-4">
+            <form method="get" action="/procurement/grns" class="filters-form">
+                <div class="filters-row">
+                    <div class="filter-group">
+                        <label for="search">Search</label>
+                        <input type="text" name="search" id="search" placeholder="GRN number" class="input">
+                    </div>
+                    <div class="filter-group">
+                        <label for="status">Status</label>
+                        <select name="status" id="status" class="input">
+                            <option value="">All</option>
+                            <option value="DRAFT">Draft</option>
+                            <option value="POSTED">Posted</option>
+                            <option value="CANCELLED">Cancelled</option>
+                        </select>
+                    </div>
+                    <div class="filter-actions">
+                        <button type="submit" class="btn btn--primary">Filter</button>
+                        <a href="/procurement/grns" class="btn btn--ghost">Clear</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Results Table -->
+        <div class="table-container">
+            <div class="table-wrap">
+                <table class="table data-table" data-datatable="grns">
+                    <thead>
+                        <tr>
+                            <th scope="col" class="sortable" data-column="number" {{ if eq .Data.Filters.SortBy "number"
+                                }}data-sort-dir="{{ .Data.Filters.SortDir }}" {{ end }}>
+                                Number
+                                {{ if eq .Data.Filters.SortBy "number" }}
+                                {{ if eq .Data.Filters.SortDir "asc" }}<span class="sort-icon">↑</span>{{ else }}<span
+                                    class="sort-icon">↓</span>{{ end }}
+                                {{ end }}
+                            </th>
+                            <th scope="col">PO</th>
+                            <th scope="col" class="sortable" data-column="supplier" {{ if eq
+                                .Data.Filters.SortBy "supplier" }}data-sort-dir="{{ .Data.Filters.SortDir }}" {{ end }}>
+                                Supplier
+                                {{ if eq .Data.Filters.SortBy "supplier" }}
+                                {{ if eq .Data.Filters.SortDir "asc" }}<span class="sort-icon">↑</span>{{ else }}<span
+                                    class="sort-icon">↓</span>{{ end }}
+                                {{ end }}
+                            </th>
+                            <th scope="col">Warehouse</th>
+                            <th scope="col">Status</th>
+                            <th scope="col" class="sortable" data-column="received_at" {{ if eq
+                                .Data.Filters.SortBy "received_at" }}data-sort-dir="{{ .Data.Filters.SortDir }}" {{ end
+                                }}>
+                                Received
+                                {{ if eq .Data.Filters.SortBy "received_at" }}
+                                {{ if eq .Data.Filters.SortDir "asc" }}<span class="sort-icon">↑</span>{{ else }}<span
+                                    class="sort-icon">↓</span>{{ end }}
+                                {{ end }}
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{ range .Data.GRNs }}
+                        <tr data-row-id="{{ .ID }}" data-href="/procurement/grns/{{ .ID }}">
+                            <td>{{ .Number }}</td>
+                            <td>{{ if .PONumber }}{{ .PONumber }}{{ else }}-{{ end }}</td>
+                            <td>{{ if .SupplierName }}{{ .SupplierName }}{{ else }}-{{ end }}</td>
+                            <td>{{ if .WarehouseName }}{{ .WarehouseName }}{{ else }}-{{ end }}</td>
+                            <td>
+                                {{ if eq .Status "DRAFT" }}<span class="status-badge status-draft">Draft</span>{{ end }}
+                                {{ if eq .Status "POSTED" }}<span class="status-badge status-completed">Posted</span>{{
+                                end }}
+                                {{ if eq .Status "CANCELLED" }}<span class="status-badge status-void">Cancelled</span>{{
+                                end }}
+                            </td>
+                            <td><small>{{ .ReceivedAt.Format "02 Jan 06" }}</small></td>
+                        </tr>
+                        {{ else }}
+                        <tr>
+                            <td colspan="6" class="table-empty">
+                                No goods receipts found. <a href="/procurement/grns/new" class="link">Create your first
+                                    GRN</a>
+                            </td>
+                        </tr>
+                        {{ end }}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Context Menu Template -->
+<div class="context-menu" data-context-menu="grns" style="display: none;">
+    <button class="context-menu__item" data-context-action="view">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+        </svg>
+        View
+    </button>
+</div>
 {{ end }}

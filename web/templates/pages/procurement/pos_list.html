@@ -1,4 +1,141 @@
 {{ define "pages/procurement/pos_list.html" }}
-<h1>Daftar Purchase Order</h1>
-<p>Konten akan tersedia setelah integrasi penuh.</p>
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Purchase Orders{{ end }}
+
+{{ define "content" }}
+<div class="page-container">
+    <div class="page-header">
+        <div class="page-header-content">
+            <h1 class="page-title">Purchase Orders</h1>
+            <p class="page-subtitle">Manage purchase orders</p>
+        </div>
+        <div class="page-actions">
+            <a href="/procurement/pos/new" class="btn btn--primary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                New PO
+            </a>
+        </div>
+    </div>
+
+    <div class="page-content">
+        <!-- Filters -->
+        <div class="card mb-4">
+            <form method="get" action="/procurement/pos" class="filters-form">
+                <div class="filters-row">
+                    <div class="filter-group">
+                        <label for="search">Search</label>
+                        <input type="text" name="search" id="search" placeholder="PO number" class="input">
+                    </div>
+                    <div class="filter-group">
+                        <label for="status">Status</label>
+                        <select name="status" id="status" class="input">
+                            <option value="">All</option>
+                            <option value="DRAFT">Draft</option>
+                            <option value="APPROVAL">Pending Approval</option>
+                            <option value="APPROVED">Approved</option>
+                            <option value="CLOSED">Closed</option>
+                            <option value="CANCELLED">Cancelled</option>
+                        </select>
+                    </div>
+                    <div class="filter-actions">
+                        <button type="submit" class="btn btn--primary">Filter</button>
+                        <a href="/procurement/pos" class="btn btn--ghost">Clear</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Results Table -->
+        <div class="table-container">
+            <div class="table-wrap">
+                <table class="table data-table" data-datatable="pos">
+                    <thead>
+                        <tr>
+                            <th scope="col" class="sortable" data-column="number" {{ if eq .Data.Filters.SortBy "number"
+                                }}data-sort-dir="{{ .Data.Filters.SortDir }}" {{ end }}>
+                                Number
+                                {{ if eq .Data.Filters.SortBy "number" }}
+                                {{ if eq .Data.Filters.SortDir "asc" }}<span class="sort-icon">↑</span>{{ else }}<span
+                                    class="sort-icon">↓</span>{{ end }}
+                                {{ end }}
+                            </th>
+                            <th scope="col" class="sortable" data-column="supplier" {{ if eq
+                                .Data.Filters.SortBy "supplier" }}data-sort-dir="{{ .Data.Filters.SortDir }}" {{ end }}>
+                                Supplier
+                                {{ if eq .Data.Filters.SortBy "supplier" }}
+                                {{ if eq .Data.Filters.SortDir "asc" }}<span class="sort-icon">↑</span>{{ else }}<span
+                                    class="sort-icon">↓</span>{{ end }}
+                                {{ end }}
+                            </th>
+                            <th scope="col">Status</th>
+                            <th scope="col" class="sortable" data-column="expected_date" {{ if eq
+                                .Data.Filters.SortBy "expected_date" }}data-sort-dir="{{ .Data.Filters.SortDir }}" {{
+                                end }}>
+                                Expected Date
+                                {{ if eq .Data.Filters.SortBy "expected_date" }}
+                                {{ if eq .Data.Filters.SortDir "asc" }}<span class="sort-icon">↑</span>{{ else }}<span
+                                    class="sort-icon">↓</span>{{ end }}
+                                {{ end }}
+                            </th>
+                            <th scope="col" class="sortable numeric-right" data-column="total" {{ if eq
+                                .Data.Filters.SortBy "total" }}data-sort-dir="{{ .Data.Filters.SortDir }}" {{ end }}>
+                                Total
+                                {{ if eq .Data.Filters.SortBy "total" }}
+                                {{ if eq .Data.Filters.SortDir "asc" }}<span class="sort-icon">↑</span>{{ else }}<span
+                                    class="sort-icon">↓</span>{{ end }}
+                                {{ end }}
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{ range .Data.POs }}
+                        <tr data-row-id="{{ .ID }}" data-href="/procurement/pos/{{ .ID }}">
+                            <td>{{ .Number }}</td>
+                            <td>{{ if .SupplierName }}{{ .SupplierName }}{{ else }}-{{ end }}</td>
+                            <td>
+                                {{ if eq .Status "DRAFT" }}<span class="status-badge status-draft">Draft</span>{{ end }}
+                                {{ if eq .Status "APPROVAL" }}<span class="status-badge status-pending">Pending</span>{{
+                                end }}
+                                {{ if eq .Status "APPROVED" }}<span
+                                    class="status-badge status-completed">Approved</span>{{ end }}
+                                {{ if eq .Status "CLOSED" }}<span class="status-badge status-active">Closed</span>{{ end
+                                }}
+                                {{ if eq .Status "CANCELLED" }}<span class="status-badge status-void">Cancelled</span>{{
+                                end }}
+                            </td>
+                            <td><small>{{ .ExpectedDate.Format "02 Jan 06" }}</small></td>
+                            <td class="numeric-right font-medium">
+                                {{ printf "%.2f" .Total }} <span class="text-xs text-muted">{{ .Currency }}</span>
+                            </td>
+                        </tr>
+                        {{ else }}
+                        <tr>
+                            <td colspan="5" class="table-empty">
+                                No purchase orders found. <a href="/procurement/pos/new" class="link">Create your first
+                                    PO</a>
+                            </td>
+                        </tr>
+                        {{ end }}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Context Menu Template -->
+<div class="context-menu" data-context-menu="pos" style="display: none;">
+    <button class="context-menu__item" data-context-action="view">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+        </svg>
+        View
+    </button>
+</div>
 {{ end }}
