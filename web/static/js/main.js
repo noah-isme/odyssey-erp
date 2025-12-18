@@ -23,6 +23,7 @@ import { Upload } from './features/upload/index.js';
 import { Slideout } from './features/slideout/index.js';
 import { Form } from './features/form/index.js';
 import { ComboBox } from './features/combobox/index.js';
+import * as QuotationForm from './features/quotation-form/index.js';
 
 // Component modules
 import { Inspector } from './components/inspector.js';
@@ -52,6 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
     Form.init();
     ComboBox.init();
     DataTable.init();
+    QuotationForm.init();
 
     // Core
     Shortcuts.init();
