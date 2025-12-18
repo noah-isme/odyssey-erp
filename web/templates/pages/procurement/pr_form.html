@@ -1,4 +1,10 @@
 {{ define "pages/procurement/pr_form.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Purchase Request{{ end }}
+
+{{ define "content" }}
 <h1>Purchase Request</h1>
 <form method="post" class="grid">
     <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">

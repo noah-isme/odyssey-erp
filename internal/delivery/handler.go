@@ -52,22 +52,22 @@ func (h *Handler) MountRoutes(r chi.Router) {
 	// Delivery Order routes - View
 	r.Group(func(r chi.Router) {
 		r.Use(h.rbac.RequireAny(shared.PermDeliveryOrderView))
-		r.Get("/delivery-orders", h.listDeliveryOrders)
-		r.Get("/delivery-orders/{id}", h.showDeliveryOrder)
+		r.Get("/orders", h.listDeliveryOrders)
+		r.Get("/orders/{id}", h.showDeliveryOrder)
 	})
 
 	// Delivery Order routes - Create
 	r.Group(func(r chi.Router) {
 		r.Use(h.rbac.RequireAll(shared.PermDeliveryOrderCreate))
-		r.Get("/delivery-orders/new", h.showDeliveryOrderForm)
-		r.Post("/delivery-orders", h.createDeliveryOrder)
+		r.Get("/orders/new", h.showDeliveryOrderForm)
+		r.Post("/orders", h.createDeliveryOrder)
 	})
 
 	// Delivery Order routes - Edit
 	r.Group(func(r chi.Router) {
 		r.Use(h.rbac.RequireAll(shared.PermDeliveryOrderEdit))
-		r.Get("/delivery-orders/{id}/edit", h.showEditDeliveryOrderForm)
-		r.Post("/delivery-orders/{id}/edit", h.updateDeliveryOrder)
+		r.Get("/orders/{id}/edit", h.showEditDeliveryOrderForm)
+		r.Post("/orders/{id}/edit", h.updateDeliveryOrder)
 	})
 
 	// Delivery Order routes - Confirm
