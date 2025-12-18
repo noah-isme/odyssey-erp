@@ -102,10 +102,40 @@ function init() {
     // Initial render
     view.render(getState());
 
+    // Restore scroll position (try immediate)
+    effects.restoreScroll(view.sidebar);
+
+    // Restore again on load (to ensure content is ready)
+    window.addEventListener('load', handleLoad);
+
     // Event Delegation (single listener at document level)
     document.addEventListener('click', handleClick);
     document.addEventListener('keydown', handleKeydown);
     window.addEventListener('resize', handleResize);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    // Scroll listener (throttled)
+    if (view.sidebar) {
+        view.sidebar.addEventListener('scroll', handleScroll);
+    }
+}
+
+function handleLoad() {
+    effects.restoreScroll(view.sidebar);
+}
+
+// Scroll throttling
+let scrollTimer = null;
+function handleScroll() {
+    if (scrollTimer) return;
+    scrollTimer = setTimeout(() => {
+        effects.saveScroll(view.sidebar);
+        scrollTimer = null;
+    }, 100);
+}
+
+function handleBeforeUnload() {
+    effects.saveScroll(view.sidebar);
 }
 
 // ========== DESTROY (cleanup) ==========
@@ -113,6 +143,13 @@ function destroy() {
     document.removeEventListener('click', handleClick);
     document.removeEventListener('keydown', handleKeydown);
     window.removeEventListener('resize', handleResize);
+    window.removeEventListener('beforeunload', handleBeforeUnload);
+    window.removeEventListener('load', handleLoad);
+
+    if (view.sidebar) {
+        view.sidebar.removeEventListener('scroll', handleScroll);
+    }
+    if (scrollTimer) clearTimeout(scrollTimer);
 }
 
 // ========== NAVIGATION (highlight active) ==========
