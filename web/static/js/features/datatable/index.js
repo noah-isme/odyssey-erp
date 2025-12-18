@@ -74,6 +74,11 @@ function dispatch(id, action) {
             case 'TABLE_CLEAR_ERROR':
                 view.renderError(id, nextState.error);
                 break;
+
+            case 'TABLE_OPEN_CONTEXT_MENU':
+            case 'TABLE_CLOSE_CONTEXT_MENU':
+                view.renderContextMenu(id, nextState);
+                break;
         }
     }
 }
@@ -188,24 +193,121 @@ function handleClick(e) {
         return;
     }
 
+    // ===== CONTEXT MENU ACTION =====
+    const contextAction = e.target.closest('[data-context-action]');
+    if (contextAction) {
+        e.preventDefault();
+        const menu = contextAction.closest('[data-context-menu]');
+        if (menu) {
+            const tableId = menu.dataset.contextMenu;
+            const rowId = menu.dataset.rowId;
+            const action = contextAction.dataset.contextAction;
+            handleContextAction(tableId, rowId, action);
+            dispatch(tableId, { type: 'TABLE_CLOSE_CONTEXT_MENU' });
+        }
+        return;
+    }
+
     // ===== CLOSE MENUS ON OUTSIDE CLICK =====
     mounted.forEach(id => {
         const state = getState(id);
         if (state.activeRowMenu) {
             dispatch(id, { type: 'TABLE_CLOSE_ROW_MENU' });
         }
+        if (state.contextMenu) {
+            dispatch(id, { type: 'TABLE_CLOSE_CONTEXT_MENU' });
+        }
     });
 }
 
 function handleKeydown(e) {
-    // Escape closes row menus
+    // Escape closes row menus and context menu
     if (e.key === 'Escape') {
         mounted.forEach(id => {
             const state = getState(id);
             if (state.activeRowMenu) {
                 dispatch(id, { type: 'TABLE_CLOSE_ROW_MENU' });
             }
+            if (state.contextMenu) {
+                dispatch(id, { type: 'TABLE_CLOSE_CONTEXT_MENU' });
+            }
         });
+    }
+}
+
+function handleContextMenu(e) {
+    const row = e.target.closest('tbody tr[data-row-id]');
+    if (!row) return;
+
+    const table = row.closest('[data-datatable]');
+    if (!table) return;
+
+    // Check if table has context menu enabled
+    if (table.dataset.contextMenu === 'false') return;
+
+    e.preventDefault();
+
+    const id = table.dataset.datatable;
+    const rowId = row.dataset.rowId;
+
+    dispatch(id, {
+        type: 'TABLE_OPEN_CONTEXT_MENU',
+        payload: { rowId, x: e.clientX, y: e.clientY }
+    });
+}
+
+function handleScroll() {
+    // Close context menu on scroll
+    mounted.forEach(id => {
+        const state = getState(id);
+        if (state.contextMenu) {
+            dispatch(id, { type: 'TABLE_CLOSE_CONTEXT_MENU' });
+        }
+    });
+}
+
+function handleContextAction(tableId, rowId, action) {
+    const table = view.getTable(tableId);
+    const row = table?.querySelector(`tr[data-row-id="${rowId}"]`);
+    if (!table || !row) return;
+
+    switch (action) {
+        case 'view':
+            if (row.dataset.href) {
+                effects.navigateRow(row.dataset.href);
+            }
+            break;
+
+        case 'edit':
+            if (row.dataset.editHref) {
+                effects.navigateRow(row.dataset.editHref);
+            } else if (row.dataset.href) {
+                effects.navigateRow(row.dataset.href + '/edit');
+            }
+            break;
+
+        case 'duplicate':
+            // Emit event for duplicate action
+            table.dispatchEvent(new CustomEvent('table-action', {
+                bubbles: true,
+                detail: { action: 'duplicate', rowId }
+            }));
+            break;
+
+        case 'delete':
+            if (effects.confirmBulkAction('delete', 1)) {
+                const container = table.closest('.table-container');
+                const form = container?.querySelector('form[data-bulk-form]');
+                effects.submitBulkAction(form, [rowId], 'delete');
+            }
+            break;
+
+        default:
+            // Custom action - emit event
+            table.dispatchEvent(new CustomEvent('table-action', {
+                bubbles: true,
+                detail: { action, rowId }
+            }));
     }
 }
 
@@ -264,12 +366,16 @@ function init() {
     // Event delegation
     document.addEventListener('click', handleClick);
     document.addEventListener('keydown', handleKeydown);
+    document.addEventListener('contextmenu', handleContextMenu);
+    window.addEventListener('scroll', handleScroll, true); // Capture phase for nested scrolls
 }
 
 // ========== DESTROY ==========
 function destroy() {
     document.removeEventListener('click', handleClick);
     document.removeEventListener('keydown', handleKeydown);
+    document.removeEventListener('contextmenu', handleContextMenu);
+    window.removeEventListener('scroll', handleScroll, true);
 
     mounted.forEach(id => {
         deleteState(id);

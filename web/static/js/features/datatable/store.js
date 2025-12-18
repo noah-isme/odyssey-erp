@@ -16,8 +16,11 @@ function createInitialState() {
         allSelected: false,
         indeterminate: false,
 
-        // Row actions menu
+        // Row actions menu (click trigger)
         activeRowMenu: null,    // Row ID with open menu
+
+        // Context menu (right-click)
+        contextMenu: null,      // { rowId, x, y } or null
 
         // Expanded rows (for row expand feature)
         expandedRows: [],       // Array of row IDs
@@ -85,7 +88,25 @@ function reducer(state, action) {
             const rowId = action.payload;
             return {
                 ...state,
-                activeRowMenu: state.activeRowMenu === rowId ? null : rowId
+                activeRowMenu: state.activeRowMenu === rowId ? null : rowId,
+                contextMenu: null // Close context menu when opening row menu
+            };
+        }
+
+        // ========== CONTEXT MENU (RIGHT-CLICK) ==========
+        case 'TABLE_OPEN_CONTEXT_MENU': {
+            const { rowId, x, y } = action.payload;
+            return {
+                ...state,
+                contextMenu: { rowId, x, y },
+                activeRowMenu: null // Close row menu when opening context menu
+            };
+        }
+
+        case 'TABLE_CLOSE_CONTEXT_MENU': {
+            return {
+                ...state,
+                contextMenu: null
             };
         }
 
@@ -159,6 +180,11 @@ const selectors = {
     // Row menu
     getActiveRowMenu: (id) => (instances.get(id) || {}).activeRowMenu,
     isRowMenuOpen: (id, rowId) => (instances.get(id) || {}).activeRowMenu === rowId,
+
+    // Context menu
+    getContextMenu: (id) => (instances.get(id) || {}).contextMenu,
+    isContextMenuOpen: (id) => !!(instances.get(id) || {}).contextMenu,
+    getContextMenuRowId: (id) => ((instances.get(id) || {}).contextMenu || {}).rowId,
 
     // Row expand
     getExpandedRows: (id) => (instances.get(id) || {}).expandedRows || [],
