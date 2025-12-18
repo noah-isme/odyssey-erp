@@ -1,7 +1,7 @@
 {{ define "partials/header.html" }}
 <header class="app-header">
     <div class="header-left">
-        <button class="sidebar-toggle" onclick="toggleSidebar()" aria-label="Toggle sidebar">
+        <button class="sidebar-toggle" aria-label="Toggle sidebar">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M3 12h18M3 6h18M3 18h18" />
             </svg>
@@ -34,7 +34,8 @@
         </button>
 
         <!-- Theme Toggle -->
-        <button id="themeToggle" class="theme-toggle" aria-label="Toggle theme" title="Toggle light/dark mode">
+        <button id="themeToggle" class="theme-toggle" data-theme-toggle aria-label="Toggle theme"
+            title="Toggle light/dark mode">
             <svg class="icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                 stroke-width="2">
                 <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />

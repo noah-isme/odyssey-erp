@@ -12,7 +12,7 @@
             <p class="page-subtitle">General Ledger - Ringkasan akun dan saldo</p>
         </div>
         <div class="page-actions">
-            <a href="/accounting/gl/export" class="btn btn-secondary">
+            <a href="/accounting/gl/export" class="btn btn--secondary">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                     <polyline points="7 10 12 15 17 10" />
@@ -24,15 +24,15 @@
     </div>
 
     <div class="page-content">
-        <div class="panel">
-            <div class="panel-body">
-                <table class="data-table">
+        <div class="card p-0 overflow-hidden">
+            <div class="table-wrap">
+                <table class="table">
                     <thead>
                         <tr>
                             <th>Account Code</th>
                             <th>Account Name</th>
                             <th>Type</th>
-                            <th>Balance</th>
+                            <th class="numeric-right">Balance</th>
                             <th>Status</th>
                         </tr>
                     </thead>
@@ -42,22 +42,22 @@
                             <td>{{ .Code }}</td>
                             <td>{{ .Name }}</td>
                             <td>
-                                <span class="badge badge-{{ .Type | lower }}">
+                                <span class="badge badge--neutral">
                                     {{ .Type }}
                                 </span>
                             </td>
-                            <td>Rp 0.00</td>
+                            <td class="numeric-right">Rp 0.00</td>
                             <td>
                                 {{ if .IsActive }}
-                                <span class="status-badge status-active">Active</span>
+                                <span class="status-badge status-completed">Active</span>
                                 {{ else }}
-                                <span class="status-badge status-inactive">Inactive</span>
+                                <span class="status-badge status-draft">Inactive</span>
                                 {{ end }}
                             </td>
                         </tr>
                         {{ else }}
                         <tr>
-                            <td colspan="5" class="text-center">No accounts found</td>
+                            <td colspan="5" class="table-empty">No accounts found</td>
                         </tr>
                         {{ end }}
                     </tbody>

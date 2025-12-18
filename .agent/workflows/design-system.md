@@ -58,6 +58,11 @@ Contoh: `landing.css`, `login.css`, `dashboard.css`
 
 ## Token Naming Convention
 
+### Strict Rules (JANGAN DILANGGAR)
+- **Critical State Restoration**: Logic untuk tema (theme) atau state visual kritikal HARUS ada di inline script `<head>` untuk mencegah FOUC.
+- **Single Source of Truth**: `ui.js` adalah satu-satunya controller untuk UI state global. Jangan buat logic duplikat di module lain.
+- **Event Delegation**: Gunakan delegation di `document` untuk handler global (modal, dropdown, shortcuts), jangan attach ke elemen spesifik yang mungkin belum ada.
+
 ### Semantic Tokens (gunakan ini)
 - `--bg-app`, `--bg-surface`, `--bg-surface-muted`
 - `--text-primary`, `--text-secondary`, `--text-muted`
@@ -87,17 +92,12 @@ Contoh:
 .card.is-clickable   → Clickable state
 ```
 
-## JavaScript Components
+## JavaScript Architecture
+- **`js/core/ui.js`**: Core UI logic (Vanilla JS) - Theme, Mobile Menu, Toast (Base). Must be included in head/body.
+- **`js/main.js`**: Application Logic (Modules) - Sidebar, Component Init, Complex Interactions.
+- **Conflict Avoidance**: Theme logic is handled EXCLUSIVELY by `ui.js`. Do not import `theme.js` in modules.
 
-File: `js/core/ui.js`
-
-### Patterns
-- **Theme**: `data-theme-toggle`, `data-theme-set`
-- **Menu**: `data-menu-trigger` + `aria-controls`
-- **Modal**: `data-modal-open`, `data-modal-close`
-- **Toast**: `OdysseyUI.toast.show({...})`
-
-### API
+### UI patterns (ui.js)
 ```js
 OdysseyUI.theme.apply('dark');
 OdysseyUI.modal.open('modal-id');

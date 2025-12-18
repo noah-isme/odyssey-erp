@@ -13,30 +13,18 @@
     <!-- Main CSS (imports all modular files) -->
     <link rel="stylesheet" href="/static/css/main.css">
     <style>
-        /* Base layout for AppShell */
+        /* Essential Shell Layout Reset */
         body {
-            background: var(--bg-app);
             margin: 0;
-            padding: 0;
-        }
-
-        main {
-            padding: 0;
-            margin: 0;
-            max-width: none;
-        }
-
-        .container {
-            max-width: none;
-            padding: 0;
-            margin: 0;
-        }
-
-        nav {
-            background: transparent;
             padding: 0;
         }
     </style>
+    <!-- Critical: Theme restore MUST be blocking, before CSS paints -->
+    <script src="/static/js/core/theme-critical.js"></script>
+    <!-- Core UI (defer to not block rendering, but guaranteed to load) -->
+    <script src="/static/js/core/ui.js" defer></script>
+    <!-- Main JS modules (defer) -->
+    <script type="module" src="/static/js/main.js"></script>
 </head>
 
 <body class="app-shell">
@@ -49,11 +37,6 @@
             {{ block "content" . }}{{ end }}
         </section>
     </main>
-
-    <!-- UI Components (vanilla JS) -->
-    <script src="/static/js/core/ui.js"></script>
-    <!-- Main JS (ES modules) -->
-    <script type="module" src="/static/js/main.js"></script>
 </body>
 
 </html>

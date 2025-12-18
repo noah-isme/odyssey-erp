@@ -5,132 +5,134 @@
 {{ define "title" }}Sales Orders{{ end }}
 
 {{ define "content" }}
-<div class="sales-orders-wrapper">
-    <header>
-        <h1>Sales Orders</h1>
-        <p>Manage customer orders and track delivery status</p>
-        <div role="group" aria-label="Actions">
-            <a href="/sales/orders/new" role="button">+ New Sales Order</a>
+<div class="page-container">
+    <div class="page-header">
+        <div class="page-header-content">
+            <h1 class="page-title">Sales Orders</h1>
+            <p class="page-subtitle">Manage customer orders and track delivery status</p>
         </div>
-    </header>
+        <div class="page-actions">
+            <a href="/sales/orders/new" class="btn btn--primary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                New Order
+            </a>
+        </div>
+    </div>
 
-    <!-- Filters -->
-    <section class="filters">
-        <form method="get" action="/sales/orders">
-            <div class="grid">
-                <div>
-                    <label for="status">Status</label>
-                    <select name="status" id="status">
-                        <option value="">All Statuses</option>
-                        <option value="DRAFT" {{ if eq .Filters.Status "DRAFT" }}selected{{ end }}>Draft</option>
-                        <option value="CONFIRMED" {{ if eq .Filters.Status "CONFIRMED" }}selected{{ end }}>Confirmed</option>
-                        <option value="PROCESSING" {{ if eq .Filters.Status "PROCESSING" }}selected{{ end }}>Processing</option>
-                        <option value="COMPLETED" {{ if eq .Filters.Status "COMPLETED" }}selected{{ end }}>Completed</option>
-                        <option value="CANCELLED" {{ if eq .Filters.Status "CANCELLED" }}selected{{ end }}>Cancelled</option>
-                    </select>
+    <div class="page-content">
+        <!-- Filters -->
+        <div class="filters">
+            <form method="get" action="/sales/orders">
+                <div class="grid">
+                    <div>
+                        <label for="status">Status</label>
+                        <select name="status" id="status">
+                            <option value="">All Statuses</option>
+                            <option value="DRAFT" {{ if eq .Filters.Status "DRAFT" }}selected{{ end }}>Draft</option>
+                            <option value="CONFIRMED" {{ if eq .Filters.Status "CONFIRMED" }}selected{{ end }}>Confirmed
+                            </option>
+                            <option value="PROCESSING" {{ if eq .Filters.Status "PROCESSING" }}selected{{ end }}>
+                                Processing</option>
+                            <option value="COMPLETED" {{ if eq .Filters.Status "COMPLETED" }}selected{{ end }}>Completed
+                            </option>
+                            <option value="CANCELLED" {{ if eq .Filters.Status "CANCELLED" }}selected{{ end }}>Cancelled
+                            </option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="date_from">From Date</label>
+                        <input type="date" name="date_from" id="date_from"
+                            value="{{ if .Filters.DateFrom }}{{ .Filters.DateFrom.Format " 2006-01-02" }}{{ end }}">
+                    </div>
+                    <div>
+                        <label for="date_to">To Date</label>
+                        <input type="date" name="date_to" id="date_to"
+                            value="{{ if .Filters.DateTo }}{{ .Filters.DateTo.Format " 2006-01-02" }}{{ end }}">
+                    </div>
                 </div>
-                <div>
-                    <label for="date_from">From Date</label>
-                    <input type="date" name="date_from" id="date_from" value="{{ if .Filters.DateFrom }}{{ .Filters.DateFrom.Format "2006-01-02" }}{{ end }}">
+                <div class="flex gap-2">
+                    <button type="submit" class="btn btn--primary">Filter</button>
+                    <a href="/sales/orders" class="btn btn--secondary">Clear</a>
                 </div>
-                <div>
-                    <label for="date_to">To Date</label>
-                    <input type="date" name="date_to" id="date_to" value="{{ if .Filters.DateTo }}{{ .Filters.DateTo.Format "2006-01-02" }}{{ end }}">
-                </div>
+            </form>
+        </div>
+
+        <!-- Results Table -->
+        <div class="card p-0 overflow-hidden">
+            <div class="table-wrap">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Number</th>
+                            <th>Customer</th>
+                            <th>Order Date</th>
+                            <th>Delivery</th>
+                            <th>Status</th>
+                            <th class="numeric-right">Total</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{ range .Orders }}
+                        <tr>
+                            <td><a href="/sales/orders/{{ .ID }}" class="link font-medium">{{ .DocNumber }}</a></td>
+                            <td>{{ .CustomerName }}</td>
+                            <td><small>{{ .OrderDate.Format "02 Jan 06" }}</small></td>
+                            <td><small>{{ if .ExpectedDeliveryDate }}{{ .ExpectedDeliveryDate.Format "02 Jan 06" }}{{
+                                    else }}-{{ end }}</small></td>
+                            <td>
+                                {{ if eq .Status "DRAFT" }}<span class="status-badge status-draft">Draft</span>{{ end }}
+                                {{ if eq .Status "CONFIRMED" }}<span
+                                    class="status-badge status-pending">Confirmed</span>{{ end }}
+                                {{ if eq .Status "PROCESSING" }}<span
+                                    class="status-badge status-processing">Processing</span>{{ end }}
+                                {{ if eq .Status "COMPLETED" }}<span
+                                    class="status-badge status-completed">Completed</span>{{ end }}
+                                {{ if eq .Status "CANCELLED" }}<span class="status-badge status-void">Cancelled</span>{{
+                                end }}
+                            </td>
+                            <td class="numeric-right font-medium">
+                                {{ printf "%.2f" .TotalAmount }} <span class="text-xs text-muted">{{ .Currency }}</span>
+                            </td>
+                            <td class="text-right">
+                                <a href="/sales/orders/{{ .ID }}" class="btn btn--ghost btn--sm">View</a>
+                            </td>
+                        </tr>
+                        {{ else }}
+                        <tr>
+                            <td colspan="7" class="table-empty">
+                                No sales orders found. <a href="/sales/orders/new" class="link">Create your first sales
+                                    order</a>
+                            </td>
+                        </tr>
+                        {{ end }}
+                    </tbody>
+                </table>
             </div>
-            <button type="submit">Filter</button>
-            <a href="/sales/orders" role="button" class="secondary">Clear</a>
-        </form>
-    </section>
 
-    <!-- Results -->
-    <section>
-        <p><strong>{{ .Total }}</strong> sales order(s) found</p>
+            <!-- Pagination -->
+            {{ if gt .Total .Limit }}
+            <div class="card__footer justify-center">
+                {{ $currentPage := div .Offset .Limit }}
+                {{ $totalPages := div (add .Total (sub .Limit 1)) .Limit }}
 
-        {{ if .Orders }}
-        <figure>
-            <table role="grid">
-                <thead>
-                    <tr></figure>
-                        <th>Doc Number</th>
-                        <th>Customer</th>
-                        <th>Order Date</th>
-                        <th>Expected Delivery</th>
-                        <th>Status</th>
-                        <th>Total Amount</th>
-                        <th>Created By</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {{ range .Orders }}
-                    <tr>
-                        <td><a href="/sales/orders/{{ .ID }}">{{ .DocNumber }}</a></td>
-                        <td>{{ .CustomerName }}</td>
-                        <td>{{ .OrderDate.Format "2006-01-02" }}</td>
-                        <td>{{ if .ExpectedDeliveryDate }}{{ .ExpectedDeliveryDate.Format "2006-01-02" }}{{ else }}-{{ end }}</td>
-                        <td>
-                            {{ if eq .Status "DRAFT" }}<span class="badge badge-secondary">Draft</span>{{ end }}
-                            {{ if eq .Status "CONFIRMED" }}<span class="badge badge-info">Confirmed</span>{{ end }}
-                            {{ if eq .Status "PROCESSING" }}<span class="badge badge-warning">Processing</span>{{ end }}
-                            {{ if eq .Status "COMPLETED" }}<span class="badge badge-success">Completed</span>{{ end }}
-                            {{ if eq .Status "CANCELLED" }}<span class="badge badge-danger">Cancelled</span>{{ end }}
-                        </td>
-                        <td>{{ printf "%.2f" .TotalAmount }} {{ .Currency }}</td>
-                        <td>{{ .CreatedByName }}</td>
-                        <td>
-                            <a href="/sales/orders/{{ .ID }}" role="button" class="outline secondary small">View</a>
-                        </td>
-                    </tr>
-                    {{ end }}
-                </tbody>
-            </table>
-        </figure>
+                {{ if gt $currentPage 0 }}
+                <a href="?limit={{ .Limit }}&offset={{ sub .Offset .Limit }}"
+                    class="btn btn--secondary btn--sm">Previous</a>
+                {{ end }}
 
-        <!-- Pagination -->
-        {{ if gt .Total .Limit }}
-        <div class="pagination">
-            {{ $currentPage := div .Offset .Limit }}
-            {{ $totalPages := div (add .Total (sub .Limit 1)) .Limit }}
+                <span class="text-xs text-muted mx-4">Page {{ add $currentPage 1 }} of {{ $totalPages }}</span>
 
-            {{ if gt $currentPage 0 }}
-            <a href="?limit={{ .Limit }}&offset={{ sub .Offset .Limit }}" role="button" class="secondary">Previous</a>
-            {{ end }}
-
-            <span>Page {{ add $currentPage 1 }} of {{ $totalPages }}</span>
-
-            {{ if lt (add .Offset .Limit) .Total }}
-            <a href="?limit={{ .Limit }}&offset={{ add .Offset .Limit }}" role="button" class="secondary">Next</a>
+                {{ if lt (add .Offset .Limit) .Total }}
+                <a href="?limit={{ .Limit }}&offset={{ add .Offset .Limit }}"
+                    class="btn btn--secondary btn--sm">Next</a>
+                {{ end }}
+            </div>
             {{ end }}
         </div>
-        {{ end }}
-
-        {{ else }}
-        <article>
-            <p>No sales orders</article> found. <a href="/sales/orders/new">Create your first sales order</a></p>
-        </article>
-        {{ end }}
-    </section>
+    </div>
 </div>
-
-<style>
-.badge {
-    display: inline-block;
-    padding: 0.25em 0.6em;
-    font-size: 0.85em;
-    font-weight: 600;
-    line-height: 1;
-    text-align: center;
-    white-space: nowrap;
-    vertical-align: baseline;
-    border-radius: 0.25rem;
-}
-.badge-secondary { background-color: #6c757d; color: white; }
-.badge-info { background-color: #0dcaf0; color: black; }
-.badge-warning { background-color: #ffc107; color: black; }
-.badge-success { background-color: #198754; color: white; }
-.badge-danger { background-color: #dc3545; color: white; }
-.small { font-size: 0.85em; padding: 0.25rem 0.5rem; }
-.pagination { display: flex; align-items: center; gap: 1rem; justify-content: center; margin-top: 1rem; }
-</style>
 {{ end }}

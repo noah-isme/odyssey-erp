@@ -97,7 +97,7 @@ th,
 td {
     padding: 10px 12px;
     text-align: left;
-    border-bottom: 1px solid var(--border-default);
+    border-bottom: 1px solid var(--border-subtle);
 }
 
 th {
@@ -477,31 +477,31 @@ small {
 
 /* Text Colors */
 .text-primary {
-    color: var(--color-text-primary);
+    color: var(--text-primary);
 }
 
 .text-secondary {
-    color: var(--color-text-secondary);
+    color: var(--text-secondary);
 }
 
 .text-muted {
-    color: var(--color-text-muted);
+    color: var(--text-muted);
 }
 
 .text-success {
-    color: var(--color-success);
+    color: var(--success-600);
 }
 
 .text-warning {
-    color: var(--color-warning);
+    color: var(--warning-600);
 }
 
 .text-error {
-    color: var(--color-error);
+    color: var(--error-600);
 }
 
 .text-info {
-    color: var(--color-info);
+    color: var(--info-600);
 }
 
 /* Font Weight */
@@ -791,11 +791,11 @@ small {
 
 /* Border */
 .border {
-    border: 1px solid var(--color-border-subtle);
+    border: 1px solid var(--border-subtle);
 }
 
 .border-t {
-    border-top: 1px solid var(--color-border-subtle);
+    border-top: 1px solid var(--border-subtle);
 }
 
 .border-b {

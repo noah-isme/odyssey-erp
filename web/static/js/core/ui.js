@@ -12,7 +12,10 @@
     const root = document.documentElement;
 
     /* ============================
-       1) THEME SWITCHER (persist)
+       1) THEME SWITCHER (State-Driven Architecture)
+       
+       Flow: Event → dispatch(action) → reducer → effects → render
+       
        Markup:
          <button data-theme-toggle>Toggle</button>
        Optional:
@@ -20,35 +23,104 @@
          <button data-theme-set="light">Light</button>
        ============================ */
     UI.theme = (function () {
-        const KEY = "odyssey.theme"; // "light" | "dark"
+        const KEY = "odyssey.theme";
+        const root = document.documentElement;
 
-        function apply(theme) {
-            if (theme === "dark") root.setAttribute("data-theme", "dark");
-            else root.removeAttribute("data-theme"); // light default
+        // ========== STATE ==========
+        let state = { theme: "light" };
 
-            // update any theme labels (optional)
-            document.querySelectorAll("[data-theme-label]").forEach((el) => {
-                el.textContent = theme === "dark" ? "Dark" : "Light";
-            });
+        // ========== SELECTORS ==========
+        const selectors = {
+            isDark: () => state.theme === "dark",
+            current: () => state.theme
+        };
+
+        // ========== EFFECTS (side effects layer) ==========
+        const effects = {
+            persist(theme) {
+                try {
+                    localStorage.setItem(KEY, theme);
+                } catch (e) {
+                    // Silent fail
+                }
+            },
+
+            restore() {
+                try {
+                    return localStorage.getItem(KEY);
+                } catch (e) {
+                    return null;
+                }
+            },
+
+            getSystemPref() {
+                if (!window.matchMedia) return "light";
+                return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+            }
+        };
+
+        // ========== VIEW (render layer) ==========
+        const view = {
+            render(theme) {
+                // Single point of DOM update
+                if (theme === "dark") {
+                    root.setAttribute("data-theme", "dark");
+                } else {
+                    root.removeAttribute("data-theme");
+                }
+
+                // Update optional labels
+                document.querySelectorAll("[data-theme-label]").forEach((el) => {
+                    el.textContent = theme === "dark" ? "Dark" : "Light";
+                });
+            }
+        };
+
+        // ========== REDUCER (pure function) ==========
+        function reducer(currentState, action) {
+            switch (action.type) {
+                case "THEME_SET":
+                    return { ...currentState, theme: action.payload };
+                case "THEME_TOGGLE":
+                    return { ...currentState, theme: currentState.theme === "dark" ? "light" : "dark" };
+                default:
+                    return currentState;
+            }
         }
 
-        function getSystemPref() {
-            if (!window.matchMedia) return "light";
-            return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        // ========== DISPATCH ==========
+        function dispatch(action) {
+            const prevState = state;
+            state = reducer(state, action);
+
+            // Only update if state changed
+            if (state.theme !== prevState.theme) {
+                // Effects (side effects)
+                effects.persist(state.theme);
+
+                // View (render)
+                view.render(state.theme);
+            }
         }
 
+        // ========== INIT ==========
         function init() {
-            const saved = localStorage.getItem(KEY);
-            const initial = saved || getSystemPref();
-            apply(initial);
+            // Restore state from effects
+            const saved = effects.restore();
+            const initial = saved || effects.getSystemPref();
 
+            // Set initial state (without dispatch to avoid double-persist)
+            state = { theme: initial };
+
+            // Initial render
+            view.render(state.theme);
+
+            // Event Delegation (single listener at document level)
             document.addEventListener("click", (e) => {
                 const toggle = e.target.closest("[data-theme-toggle]");
                 if (toggle) {
-                    const isDark = root.getAttribute("data-theme") === "dark";
-                    const next = isDark ? "light" : "dark";
-                    apply(next);
-                    localStorage.setItem(KEY, next);
+                    e.preventDefault();
+                    dispatch({ type: "THEME_TOGGLE" });
                     return;
                 }
 
@@ -56,14 +128,20 @@
                 if (setBtn) {
                     const next = setBtn.getAttribute("data-theme-set");
                     if (next === "light" || next === "dark") {
-                        apply(next);
-                        localStorage.setItem(KEY, next);
+                        dispatch({ type: "THEME_SET", payload: next });
                     }
                 }
             });
         }
 
-        return { init, apply };
+        // Public API
+        return {
+            init,
+            dispatch,
+            selectors,
+            // Legacy compatibility
+            apply: (theme) => dispatch({ type: "THEME_SET", payload: theme })
+        };
     })();
 
 

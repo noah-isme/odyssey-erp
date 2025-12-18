@@ -12,7 +12,7 @@
             <p class="page-subtitle">Kelola Chart of Accounts untuk pencatatan keuangan</p>
         </div>
         <div class="page-actions">
-            <a href="/accounting/coa/new" class="btn btn-primary">
+            <a href="/accounting/coa/new" class="btn btn--primary">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="12" y1="5" x2="12" y2="19" />
                     <line x1="5" y1="12" x2="19" y2="12" />
@@ -23,16 +23,16 @@
     </div>
 
     <div class="page-content">
-        <div class="panel">
-            <div class="panel-body">
-                <table class="data-table">
+        <div class="card p-0 overflow-hidden">
+            <div class="table-wrap">
+                <table class="table">
                     <thead>
                         <tr>
                             <th>Code</th>
                             <th>Name</th>
                             <th>Type</th>
                             <th>Status</th>
-                            <th>Actions</th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -41,24 +41,24 @@
                             <td>{{ .Code }}</td>
                             <td>{{ .Name }}</td>
                             <td>
-                                <span class="badge badge-{{ .Type | lower }}">
+                                <span class="badge badge--neutral">
                                     {{ .Type }}
                                 </span>
                             </td>
                             <td>
                                 {{ if .IsActive }}
-                                <span class="status-badge status-active">Active</span>
+                                <span class="status-badge status-completed">Active</span>
                                 {{ else }}
-                                <span class="status-badge status-inactive">Inactive</span>
+                                <span class="status-badge status-draft">Inactive</span>
                                 {{ end }}
                             </td>
-                            <td>
-                                <a href="/accounting/coa/{{ .ID }}/edit" class="btn btn-sm btn-secondary">Edit</a>
+                            <td class="text-right">
+                                <a href="/accounting/coa/{{ .ID }}/edit" class="btn btn--secondary btn--sm">Edit</a>
                             </td>
                         </tr>
                         {{ else }}
                         <tr>
-                            <td colspan="5" class="text-center">No accounts found</td>
+                            <td colspan="5" class="table-empty">No accounts found</td>
                         </tr>
                         {{ end }}
                     </tbody>
