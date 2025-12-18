@@ -16,7 +16,7 @@ SELECT period,
 FROM mv_pl_monthly
 WHERE period BETWEEN $1 AND $2
   AND company_id = $3
-  AND ($4 IS NULL OR branch_id = $4)
+  AND ($4::bigint IS NULL OR branch_id = $4::bigint)
 GROUP BY period
 ORDER BY period
 `

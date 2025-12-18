@@ -1,0 +1,43 @@
+{{ define "pages/permissions/list.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}System Permissions{{ end }}
+
+{{ define "content" }}
+<section class="container permissions-page">
+    <header>
+        <h1>System Permissions</h1>
+        <p>List of all available system permissions.</p>
+    </header>
+
+    {{ if .Data.Permissions }}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th scope="col">ID</th>
+                <th scope="col">Name</th>
+                <th scope="col">Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{ range .Data.Permissions }}
+            <tr>
+                <td>{{ .ID }}</td>
+                <td><code>{{ .Name }}</code></td>
+                <td>{{ .Description }}</td>
+            </tr>
+            {{ end }}
+        </tbody>
+    </table>
+    {{ else }}
+    <p>No permissions found.</p>
+    {{ end }}
+
+    {{ if .Data.Errors }}
+    <div class="alert alert-error">
+        {{ index .Data.Errors "general" }}
+    </div>
+    {{ end }}
+</section>
+{{ end }}

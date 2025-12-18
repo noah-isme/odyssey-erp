@@ -13,7 +13,7 @@
     {{ $filters := .Data.Filters }}
     {{ $from := $filters.From.Format "2006-01-02" }}
     {{ $to := $filters.To.Format "2006-01-02" }}
-    <form class="filters-form" method="get" action="/finance/audit/timeline" role="search" aria-label="Filter audit timeline">
+    <form class="filters-form" method="get" action="/audit" role="search" aria-label="Filter audit timeline">
         <fieldset>
             <legend>Filter</legend>
             <div class="filter-grid">
@@ -48,8 +48,12 @@
 
     {{ if .Data.Rows }}
     <div class="export-links" role="group" aria-label="Ekspor timeline">
-        <a class="secondary" href="/finance/audit/timeline/export.csv?from={{ $from }}&amp;to={{ $to }}{{ with $filters.Actor }}&amp;actor={{ urlquery . }}{{ end }}{{ with $filters.Entity }}&amp;entity={{ urlquery . }}{{ end }}{{ with $filters.Action }}&amp;action={{ urlquery . }}{{ end }}">Unduh CSV</a>
-        <a class="secondary" href="/finance/audit/timeline/pdf?from={{ $from }}&amp;to={{ $to }}{{ with $filters.Actor }}&amp;actor={{ urlquery . }}{{ end }}{{ with $filters.Entity }}&amp;entity={{ urlquery . }}{{ end }}{{ with $filters.Action }}&amp;action={{ urlquery . }}{{ end }}">Unduh PDF</a>
+        <a class="secondary"
+            href="/audit/export.csv?from={{ $from }}&amp;to={{ $to }}{{ with $filters.Actor }}&amp;actor={{ urlquery . }}{{ end }}{{ with $filters.Entity }}&amp;entity={{ urlquery . }}{{ end }}{{ with $filters.Action }}&amp;action={{ urlquery . }}{{ end }}">Unduh
+            CSV</a>
+        <a class="secondary"
+            href="/audit/pdf?from={{ $from }}&amp;to={{ $to }}{{ with $filters.Actor }}&amp;actor={{ urlquery . }}{{ end }}{{ with $filters.Entity }}&amp;entity={{ urlquery . }}{{ end }}{{ with $filters.Action }}&amp;action={{ urlquery . }}{{ end }}">Unduh
+            PDF</a>
     </div>
     <table class="data-table">
         <thead>
@@ -81,10 +85,12 @@
         <span>Halaman {{ .Data.Paging.Page }}</span>
         <div>
             {{ if gt .Data.Paging.PrevPage 0 }}
-            <a href="/finance/audit/timeline?from={{ $from }}&amp;to={{ $to }}{{ with $filters.Actor }}&amp;actor={{ urlquery . }}{{ end }}{{ with $filters.Entity }}&amp;entity={{ urlquery . }}{{ end }}{{ with $filters.Action }}&amp;action={{ urlquery . }}{{ end }}&amp;page={{ .Data.Paging.PrevPage }}&amp;page_size={{ .Data.Paging.PageSize }}">Sebelumnya</a>
+            <a
+                href="/audit?from={{ $from }}&amp;to={{ $to }}{{ with $filters.Actor }}&amp;actor={{ urlquery . }}{{ end }}{{ with $filters.Entity }}&amp;entity={{ urlquery . }}{{ end }}{{ with $filters.Action }}&amp;action={{ urlquery . }}{{ end }}&amp;page={{ .Data.Paging.PrevPage }}&amp;page_size={{ .Data.Paging.PageSize }}">Sebelumnya</a>
             {{ end }}
             {{ if gt .Data.Paging.NextPage 0 }}
-            <a href="/finance/audit/timeline?from={{ $from }}&amp;to={{ $to }}{{ with $filters.Actor }}&amp;actor={{ urlquery . }}{{ end }}{{ with $filters.Entity }}&amp;entity={{ urlquery . }}{{ end }}{{ with $filters.Action }}&amp;action={{ urlquery . }}{{ end }}&amp;page={{ .Data.Paging.NextPage }}&amp;page_size={{ .Data.Paging.PageSize }}">Berikutnya</a>
+            <a
+                href="/audit?from={{ $from }}&amp;to={{ $to }}{{ with $filters.Actor }}&amp;actor={{ urlquery . }}{{ end }}{{ with $filters.Entity }}&amp;entity={{ urlquery . }}{{ end }}{{ with $filters.Action }}&amp;action={{ urlquery . }}{{ end }}&amp;page={{ .Data.Paging.NextPage }}&amp;page_size={{ .Data.Paging.PageSize }}">Berikutnya</a>
             {{ end }}
         </div>
     </nav>

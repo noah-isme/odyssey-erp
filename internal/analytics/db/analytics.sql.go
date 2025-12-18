@@ -14,7 +14,7 @@ SELECT a.bucket, a.amount::double precision AS amount, a.as_of
 FROM mv_ap_aging a
 WHERE a.as_of = $1
   AND a.company_id = $2
-  AND ($3 IS NULL OR a.branch_id = $3)
+  AND ($3::bigint IS NULL OR a.branch_id = $3::bigint)
 ORDER BY a.bucket
 `
 
@@ -55,7 +55,7 @@ SELECT a.bucket, a.amount::double precision AS amount, a.as_of
 FROM mv_ar_aging a
 WHERE a.as_of = $1
   AND a.company_id = $2
-  AND ($3 IS NULL OR a.branch_id = $3)
+  AND ($3::bigint IS NULL OR a.branch_id = $3::bigint)
 ORDER BY a.bucket
 `
 
@@ -101,7 +101,7 @@ WITH pl AS (
   FROM mv_pl_monthly m
   WHERE m.period = $1
     AND m.company_id = $2
-    AND ($3 IS NULL OR m.branch_id = $3)
+    AND ($3::bigint IS NULL OR m.branch_id = $3::bigint)
 ), cash AS (
   SELECT
     COALESCE(SUM(m.cash_in)::double precision, 0) AS cash_in,
@@ -109,19 +109,19 @@ WITH pl AS (
   FROM mv_cashflow_monthly m
   WHERE m.period = $1
     AND m.company_id = $2
-    AND ($3 IS NULL OR m.branch_id = $3)
+    AND ($3::bigint IS NULL OR m.branch_id = $3::bigint)
 ), ar AS (
   SELECT COALESCE(SUM(a.amount)::double precision, 0) AS outstanding
   FROM mv_ar_aging a
   WHERE a.as_of = $4
     AND a.company_id = $2
-    AND ($3 IS NULL OR a.branch_id = $3)
+    AND ($3::bigint IS NULL OR a.branch_id = $3::bigint)
 ), ap AS (
   SELECT COALESCE(SUM(a.amount)::double precision, 0) AS outstanding
   FROM mv_ap_aging a
   WHERE a.as_of = $4
     AND a.company_id = $2
-    AND ($3 IS NULL OR a.branch_id = $3)
+    AND ($3::bigint IS NULL OR a.branch_id = $3::bigint)
 )
 SELECT
   pl.net_profit,
@@ -186,7 +186,7 @@ SELECT m.period,
 FROM mv_cashflow_monthly m
 WHERE m.period BETWEEN $1 AND $2
   AND m.company_id = $3
-  AND ($4 IS NULL OR m.branch_id = $4)
+  AND ($4::bigint IS NULL OR m.branch_id = $4::bigint)
 ORDER BY m.period
 `
 
@@ -247,7 +247,7 @@ SELECT m.period,
 FROM mv_pl_monthly m
 WHERE m.period BETWEEN $1 AND $2
   AND m.company_id = $3
-  AND ($4 IS NULL OR m.branch_id = $4)
+  AND ($4::bigint IS NULL OR m.branch_id = $4::bigint)
 ORDER BY m.period
 `
 

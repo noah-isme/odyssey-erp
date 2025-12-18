@@ -7,5 +7,5 @@ func (h *Handler) MountRoutes(r chi.Router) {
 	if h == nil {
 		return
 	}
-	r.Get("/finance/insights", h.handleInsights)
+	r.Get("/insights", h.handleInsights)
 }

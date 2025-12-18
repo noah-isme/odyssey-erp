@@ -10,7 +10,7 @@
         <h1>Finance Insights</h1>
         <p>Analisis Net Profit dan Revenue 12 bulan terakhir, lengkap dengan variansi serta kontribusi per cabang.</p>
     </header>
-    <form class="filters-form" method="get" action="/finance/insights" role="search" aria-label="Filter insights">
+    <form class="filters-form" method="get" action="/insights" role="search" aria-label="Filter insights">
         <fieldset>
             <legend>Rentang Analisis</legend>
             <div class="filter-grid">
@@ -24,11 +24,13 @@
                 </label>
                 <label>
                     <span>ID Perusahaan</span>
-                    <input type="number" name="company_id" min="1" value="{{ with .Data.Filters.CompanyID }}{{ . }}{{ end }}" aria-label="Perusahaan">
+                    <input type="number" name="company_id" min="1"
+                        value="{{ with .Data.Filters.CompanyID }}{{ . }}{{ end }}" aria-label="Perusahaan">
                 </label>
                 <label>
                     <span>ID Cabang</span>
-                    <input type="number" name="branch_id" min="1" value="{{ with .Data.Filters.BranchID }}{{ . }}{{ end }}" aria-label="Cabang opsional">
+                    <input type="number" name="branch_id" min="1"
+                        value="{{ with .Data.Filters.BranchID }}{{ . }}{{ end }}" aria-label="Cabang opsional">
                 </label>
             </div>
         </fieldset>
