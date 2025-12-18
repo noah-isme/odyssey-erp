@@ -27,10 +27,11 @@
     min-height: 300px;
 }
 
-/* Chart canvas */
-.chart-container canvas {
-    width: 100% !important;
-    height: 100% !important;
+/* Chart canvas - higher specificity to override Chart.js inline styles */
+.chart-container>canvas,
+.chart-container canvas[style] {
+    width: 100%;
+    height: 100%;
 }
 
 /* Loading state */
