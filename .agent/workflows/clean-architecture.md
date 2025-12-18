@@ -48,7 +48,9 @@ description: Panduan Clean Architecture untuk pengembangan Odyssey ERP
 └─────────────────────────────────────────┘
 ```
 
-## Struktur Domain
+---
+
+## Struktur Backend (Go)
 
 ### File Wajib per Domain
 
@@ -68,8 +70,48 @@ description: Panduan Clean Architecture untuk pengembangan Odyssey ERP
 | `export/` folder | PDF/CSV export logic |
 | `fx/` folder | Domain-specific utilities |
 
+---
+
+## Struktur Frontend (JavaScript)
+
+### 4-File Pattern untuk Features
+
+```
+web/static/js/
+├── core/
+│   └── ui.js         ← Critical theme restore only
+├── features/
+│   └── <feature>/
+│       ├── store.js   ← State + Reducer + Selectors
+│       ├── effects.js ← Side effects (fetch, timer, focus)
+│       ├── view.js    ← DOM rendering
+│       └── index.js   ← Mount + Event delegation + Public API
+├── components/
+│   └── <simple>.js   ← Simple presentational components
+└── main.js           ← Entry point
+```
+
+### Responsibility per File
+
+| File | Responsibility | Pure? |
+|------|---------------|-------|
+| `store.js` | State, Reducer, Selectors | ✅ Yes |
+| `effects.js` | Fetch, timer, localStorage, focus | ❌ Side effects |
+| `view.js` | DOM rendering, cache nodes | ❌ Side effects |
+| `index.js` | Event delegation, init/destroy | ❌ Orchestration |
+
+### Kapan 4-File vs 1-File?
+
+| Struktur | Gunakan Untuk |
+|----------|---------------|
+| 4-file | Complex state, async, lifecycle needed |
+| 1-file | Simple, stateless, no async |
+
+---
+
 ## Dependency Flow
 
+### Backend
 ```
 cmd/odyssey/main.go
     ↓
@@ -84,102 +126,123 @@ internal/<domain>/repository.go
 PostgreSQL
 ```
 
+### Frontend
+```
+main.js (entry point)
+    ↓
+features/<feature>/index.js   ← init(), destroy()
+    ↓
+Event → dispatch(action)
+    ↓
+features/<feature>/store.js   ← reducer(state, action)
+    ↓
+features/<feature>/effects.js ← side effects
+    ↓
+features/<feature>/view.js    ← render(state)
+    ↓
+DOM
+```
+
+---
+
 ## Naming Convention
 
-### Package Names
+### Backend (Go)
+
 ```
 internal/sales       ← Domain name (singular/plural OK)
 internal/auth        ← Lower snake_case
 internal/rbac        ← Akronim lowercase
 ```
 
-### File Names
-```
-handler.go           ← Main handler file
-handler_quotation.go ← Sub-handler (jika kompleks)
-service.go           ← Main service
-service_test.go      ← Unit tests
-integration_test.go  ← Integration tests
-```
-
-### Function Names
 ```go
 // Handler (HTTP verb prefix)
 func (h *Handler) handleList(w, r)
-func (h *Handler) handleCreate(w, r)
 func (h *Handler) handleGet(w, r)
-func (h *Handler) handleUpdate(w, r)
-func (h *Handler) handleDelete(w, r)
 
 // Service (business action)
 func (s *Service) CreateCustomer(ctx, input)
 func (s *Service) ApproveQuotation(ctx, id, approverID)
-func (s *Service) CalculateTotals(items)
 
 // Repository (CRUD prefix)
 func (r *Repo) Get(ctx, id)
-func (r *Repo) List(ctx, filter)
 func (r *Repo) Create(ctx, entity)
-func (r *Repo) Update(ctx, entity)
-func (r *Repo) Delete(ctx, id)
 ```
+
+### Frontend (JavaScript)
+
+```
+features/form/       ← feature name lowercase
+features/combobox/   ← compound words no separator
+features/table-edit/ ← hyphenated if needed
+```
+
+```javascript
+// Store - Action types (UPPERCASE_SNAKE)
+'FORM_SET_VALUE'
+'MODAL_OPEN'
+'COMBOBOX_SELECT'
+
+// Store - State keys (camelCase)
+{ isOpen, selectedValue, highlightIndex }
+
+// Effects - Methods (camelCase)
+effects.focusFirst(el)
+effects.lockScroll()
+
+// View - Render methods (render prefix)
+view.render(id, state)
+view.renderError(id, error)
+```
+
+---
 
 ## Shared Packages
 
-### `internal/shared`
-Untuk utilities yang dipakai banyak domain:
+### Backend: `internal/shared`
 - `session.go` - Session management
 - `csrf.go` - CSRF protection
 - `respond.go` - HTTP response helpers
 - `context.go` - Context helpers
 
-### `internal/view`
-Template rendering engine
+### Frontend: `js/core`
+- `ui.js` - Critical theme restore
+- `toast.js` - Loading helper (legacy)
+- `shortcuts.js` - Keyboard shortcuts
 
-### `internal/rbac`
-Permission checking (dipakai semua protected handlers)
+---
 
 ## Testing Pattern
 
-### Unit Test (`*_test.go`)
+### Backend: Unit Test
 ```go
 func TestService_CreateCustomer(t *testing.T) {
-    // Arrange
     mockRepo := &MockRepository{}
     svc := NewService(mockRepo)
     
-    // Act
     result, err := svc.CreateCustomer(ctx, input)
     
-    // Assert
     require.NoError(t, err)
     assert.Equal(t, expected, result)
 }
 ```
 
-### Integration Test (`integration_test.go`)
-```go
-func TestHandler_Integration(t *testing.T) {
-    // Setup real DB connection
-    db := setupTestDB(t)
-    defer cleanupTestDB(t, db)
-    
-    // Create real dependencies
-    repo := NewRepository(db)
-    svc := NewService(repo)
-    handler := NewHandler(svc)
-    
-    // Test via HTTP
-    req := httptest.NewRequest("POST", "/api/customers", body)
-    rec := httptest.NewRecorder()
-    handler.ServeHTTP(rec, req)
-    
-    assert.Equal(t, 201, rec.Code)
-}
+### Frontend: Manual Testing
+```javascript
+// Console testing
+OdysseyForm.register('test-form', {
+    email: { required: true }
+});
+OdysseyForm.setValue('test-form', 'email', 'test@example.com');
+OdysseyForm.validate('test-form'); // true/false
+OdysseyForm.getValues('test-form');
 ```
+
+---
 
 ## Checklist Domain Baru
 
+### Backend
 1. [ ] Buat folder `internal/<domain>/`
 2. [ ] Definisikan entities di `domain.go`
 3. [ ] Definisikan interfaces di `domain.go`
@@ -188,46 +251,75 @@ func TestHandler_Integration(t *testing.T) {
 6. [ ] Implementasi handler di `handler.go`
 7. [ ] Mount routes di `internal/app/router.go`
 8. [ ] Tulis unit tests di `*_test.go`
-9. [ ] Tulis integration tests di `integration_test.go`
-10. [ ] Tambahkan RBAC permissions jika perlu
+
+### Frontend Feature
+1. [ ] Buat folder `features/<feature>/`
+2. [ ] Buat `store.js` dengan state + reducer + selectors
+3. [ ] Buat `effects.js` untuk side effects
+4. [ ] Buat `view.js` untuk DOM rendering
+5. [ ] Buat `index.js` dengan init/destroy + event delegation
+6. [ ] Import di `main.js`
+7. [ ] Expose globally jika perlu (`window.Odyssey<Feature>`)
+8. [ ] Buat CSS di `components/<feature>.css`
+9. [ ] Import CSS di `main.css`
+
+---
 
 ## Anti-Patterns (JANGAN Lakukan)
 
-### ❌ Handler langsung akses DB
+### Backend
+
+#### ❌ Handler langsung akses DB
 ```go
-// SALAH
 func (h *Handler) handleCreate(w, r) {
     db.Exec("INSERT INTO customers...")  // Bypass service!
 }
 ```
 
-### ❌ Service return HTTP response
+#### ❌ Service return HTTP response
 ```go
-// SALAH
 func (s *Service) Create(w http.ResponseWriter) {
     w.WriteHeader(201)  // Service tidak boleh tahu HTTP!
 }
 ```
 
-### ❌ Import domain lain langsung
-```go
-// SALAH
-import "internal/sales"  // Di package accounting
+### Frontend
 
-// BENAR: Gunakan shared types atau event
-import "internal/shared"
-```
-
-### ❌ Business logic di handler
-```go
-// SALAH
-func handleApprove(w, r) {
-    if order.Status != "pending" { return }  // Logic di handler!
-    if order.Total > user.Limit { return }
-}
-
-// BENAR
-func handleApprove(w, r) {
-    err := svc.ApproveOrder(ctx, orderID, userID)  // Delegate ke service
+#### ❌ DOM mutation di event handler
+```javascript
+function handleClick(e) {
+    // SALAH - langsung ubah DOM
+    e.target.style.display = 'none';
+    document.body.classList.add('loading');
 }
 ```
+
+#### ❌ State tersebar di banyak tempat
+```javascript
+// SALAH - state di global var, DOM, dan objek terpisah
+let isOpen = true;
+document.body.dataset.modalOpen = 'true';
+myModal.state = { open: true };
+```
+
+#### ❌ Effect di dalam reducer
+```javascript
+function reducer(state, action) {
+    // SALAH - side effect di reducer
+    localStorage.setItem('key', action.payload);
+    return { ...state, value: action.payload };
+}
+```
+
+---
+
+## Quick Reference
+
+| Layer | Backend (Go) | Frontend (JS) |
+|-------|--------------|---------------|
+| Entry | `cmd/odyssey/main.go` | `main.js` |
+| Domain/Feature | `internal/<domain>/` | `features/<feature>/` |
+| Data/State | `repository.go` | `store.js` |
+| Business/Logic | `service.go` | `effects.js` |
+| Presentation | `handler.go` | `view.js` |
+| Shared | `internal/shared/` | `core/` |

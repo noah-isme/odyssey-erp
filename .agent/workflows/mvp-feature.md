@@ -21,6 +21,8 @@ description: Panduan MVP Feature Development untuk menghindari over-engineering 
 - Jika tidak bisa fix setelah 3x → tanya user
 - Jangan looping tanpa progress visible
 
+---
+
 ## Workflow MVP
 
 ```
@@ -31,35 +33,100 @@ description: Panduan MVP Feature Development untuk menghindari over-engineering 
 5. COMMIT  → Jika OK, commit segera
 ```
 
+---
+
 ## Scope Control
 
 ### ✅ Scope yang BENAR
 ```
-Task: "Tambah tombol Export CSV di halaman Customers"
+Task: "Tambah ComboBox untuk select customer"
 
 Scope:
-- [ ] Tambah button di template
-- [ ] Buat handler export
-- [ ] Test download working
+- [ ] Buat feature files (store/effects/view/index)
+- [ ] Buat CSS component
+- [ ] Test keyboard navigation works
 ```
 
 ### ❌ Scope yang SALAH (Over-engineering)
 ```
-Task: "Tambah tombol Export CSV di halaman Customers"
+Task: "Tambah ComboBox untuk select customer"
 
 JANGAN expand ke:
-- Refactor seluruh template system
-- Buat generic export framework
+- Refactor seluruh form system
+- Buat generic component framework
 - Redesign UI halaman
 - Fix unrelated CSS bugs
 ```
 
+---
+
 ## Checklist Sebelum Mulai
 
+### Backend Feature
 1. [ ] **Scope jelas?** - Max 3 deliverables
-2. [ ] **File target?** - Sudah tahu file mana yang diubah
-3. [ ] **Test plan?** - Bagaimana verify hasilnya
+2. [ ] **Files target?** - domain.go, service.go, handler.go
+3. [ ] **Test plan?** - Unit test atau manual test
 4. [ ] **Rollback plan?** - Bisa revert jika gagal
+
+### Frontend Feature
+1. [ ] **Scope jelas?** - Max 3 deliverables
+2. [ ] **Pattern?** - 4-file (complex) atau 1-file (simple)
+3. [ ] **Files target?**
+   - [ ] `features/<name>/store.js`
+   - [ ] `features/<name>/effects.js`
+   - [ ] `features/<name>/view.js`
+   - [ ] `features/<name>/index.js`
+   - [ ] `components/<name>.css`
+   - [ ] `main.js` (import)
+   - [ ] `main.css` (import)
+4. [ ] **State shape?** - Definisikan state sebelum coding
+5. [ ] **Action types?** - List semua actions
+6. [ ] **Test plan?** - Console test atau browser test
+
+---
+
+## Frontend Feature Checklist (State-Driven)
+
+### Step 1: Define State Shape
+```javascript
+// SEBELUM coding, tulis state shape
+{
+    isOpen: false,
+    data: null,
+    loading: false,
+    error: null
+}
+```
+
+### Step 2: Define Actions
+```javascript
+// List semua actions
+'FEATURE_OPEN'
+'FEATURE_CLOSE'
+'FEATURE_SET_DATA'
+'FEATURE_SET_LOADING'
+'FEATURE_SET_ERROR'
+```
+
+### Step 3: Create Files in Order
+1. `store.js` → State + Reducer + Selectors
+2. `effects.js` → Side effects
+3. `view.js` → DOM rendering
+4. `index.js` → Event delegation + Public API
+5. Update `main.js` → Import + init
+6. Create CSS → `components/<name>.css`
+7. Update `main.css` → Import CSS
+
+### Step 4: Verify Each Layer
+```
+[ ] State changes correctly (console.log di reducer)
+[ ] Effects run after state change
+[ ] View updates DOM correctly
+[ ] Events dispatch actions (not mutate DOM)
+[ ] Global API works (window.OdysseyFeature)
+```
+
+---
 
 ## Anti-Looping Rules
 
@@ -90,34 +157,79 @@ Selesai edit file X
 ### Rule 4: Commit Incremental
 ```
 Fitur besar? Pecah jadi commits kecil:
-1. commit: "feat: add export button to template"
-2. commit: "feat: implement export handler"
-3. commit: "feat: add CSV generation logic"
+1. commit: "feat(form): add store with state and reducer"
+2. commit: "feat(form): add effects for async validation"
+3. commit: "feat(form): add view for error rendering"
+4. commit: "feat(form): add index with event delegation"
 ```
+
+---
 
 ## Template Task Breakdown
 
+### Backend Feature
 ```markdown
 ## Task: [Nama Fitur]
 
 ### Deliverables (max 3)
-1. [ ] ...
-2. [ ] ...
-3. [ ] ...
+1. [ ] Create domain.go with entities
+2. [ ] Create service.go with business logic
+3. [ ] Create handler.go with routes
 
 ### Files to Change
-- `path/to/file1.go`
-- `path/to/template.html`
+- `internal/<domain>/domain.go`
+- `internal/<domain>/service.go`
+- `internal/<domain>/handler.go`
+- `internal/app/router.go`
 
 ### Test Plan
-- [ ] Verify X works
-- [ ] Check Y displays correctly
+- [ ] Unit test service methods
+- [ ] Manual test via browser
 
 ### Out of Scope (JANGAN sentuh)
-- Unrelated CSS fixes
-- Refactoring existing code
-- New features not requested
+- Unrelated domains
+- Frontend changes
+- Database migrations not required
 ```
+
+### Frontend Feature
+```markdown
+## Task: [Nama Fitur]
+
+### State Shape
+```javascript
+{ isOpen: false, data: null, loading: false, error: null }
+```
+
+### Actions
+- OPEN, CLOSE, SET_DATA, SET_LOADING, SET_ERROR
+
+### Deliverables (max 3)
+1. [ ] Create 4-file feature structure
+2. [ ] Create CSS component
+3. [ ] Expose global API
+
+### Files to Create/Change
+- `features/<name>/store.js` [NEW]
+- `features/<name>/effects.js` [NEW]
+- `features/<name>/view.js` [NEW]
+- `features/<name>/index.js` [NEW]
+- `components/<name>.css` [NEW]
+- `main.js` [MODIFY: add import]
+- `main.css` [MODIFY: add import]
+
+### Test Plan
+- [ ] Console: OdysseyFeature.open('test')
+- [ ] Keyboard: Arrow keys work
+- [ ] State: Check with selectors
+
+### Out of Scope (JANGAN sentuh)
+- Other features
+- Backend changes
+- Unrelated CSS fixes
+```
+
+---
 
 ## Kapan STOP dan Tanya User
 
@@ -126,30 +238,41 @@ Fitur besar? Pecah jadi commits kecil:
 3. **Keputusan desain** - ada beberapa pilihan approach
 4. **Breaking change** - perubahan akan affect fitur lain
 5. **Tidak yakin** - requirements tidak jelas
+6. **State shape unclear** - tidak tahu structure yang tepat
+
+---
 
 ## Common Looping Patterns (HINDARI)
+
+### ❌ Pattern: State Mutation Error
+```
+State tidak update → tambah direct DOM change
+DOM change → mismatch dengan state
+→ STOP! Cek reducer apakah return new object
+```
+
+### ❌ Pattern: Event Handler Chaos
+```
+Click tidak work → tambah listener lagi
+Multiple listeners → fire multiple times
+→ STOP! Cek event delegation pattern
+```
 
 ### ❌ Pattern: CSS Whack-a-Mole
 ```
 Fix header color → sidebar broken
 Fix sidebar → button broken
-Fix button → header broken lagi
-→ STOP! Step back, cek root cause
+→ STOP! Step back, cek CSS specificity
 ```
 
-### ❌ Pattern: Endless Refactoring
+### ❌ Pattern: Import Error Loop
 ```
-Lihat code "jelek" → refactor
-Refactor lagi → jelek di tempat lain
-→ STOP! Fokus ke task original
+Module not found → change import path
+Still not found → change again
+→ STOP! Verify file exists, check main.js
 ```
 
-### ❌ Pattern: Dependency Rabbit Hole
-```
-Update package A → requires B
-B requires C → C requires D
-→ STOP! Tanya user dulu sebelum upgrade chain
-```
+---
 
 ## Quick Reference
 
@@ -161,3 +284,5 @@ B requires C → C requires D
 | Tidak yakin | Tanya user sebelum implementasi |
 | Banyak file berubah | Commit incremental |
 | Test gagal | Rollback, coba approach lain |
+| State tidak update | Cek reducer return new object |
+| Event tidak fire | Cek event delegation di document |
