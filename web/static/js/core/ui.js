@@ -12,137 +12,15 @@
     const root = document.documentElement;
 
     /* ============================
-       1) THEME SWITCHER (State-Driven Architecture)
+       1) THEME SWITCHER
+       MOVED TO: features/theme/ (modular state-driven architecture)
+       - store.js: State + Reducer + Selectors
+       - effects.js: localStorage persistence
+       - view.js: DOM rendering
+       - index.js: Init + Event delegation
        
-       Flow: Event → dispatch(action) → reducer → effects → render
-       
-       Markup:
-         <button data-theme-toggle>Toggle</button>
-       Optional:
-         <button data-theme-set="dark">Dark</button>
-         <button data-theme-set="light">Light</button>
+       Theme is now initialized via main.js (ES module)
        ============================ */
-    UI.theme = (function () {
-        const KEY = "odyssey.theme";
-        const root = document.documentElement;
-
-        // ========== STATE ==========
-        let state = { theme: "light" };
-
-        // ========== SELECTORS ==========
-        const selectors = {
-            isDark: () => state.theme === "dark",
-            current: () => state.theme
-        };
-
-        // ========== EFFECTS (side effects layer) ==========
-        const effects = {
-            persist(theme) {
-                try {
-                    localStorage.setItem(KEY, theme);
-                } catch (e) {
-                    // Silent fail
-                }
-            },
-
-            restore() {
-                try {
-                    return localStorage.getItem(KEY);
-                } catch (e) {
-                    return null;
-                }
-            },
-
-            getSystemPref() {
-                if (!window.matchMedia) return "light";
-                return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-            }
-        };
-
-        // ========== VIEW (render layer) ==========
-        const view = {
-            render(theme) {
-                // Single point of DOM update
-                if (theme === "dark") {
-                    root.setAttribute("data-theme", "dark");
-                } else {
-                    root.removeAttribute("data-theme");
-                }
-
-                // Update optional labels
-                document.querySelectorAll("[data-theme-label]").forEach((el) => {
-                    el.textContent = theme === "dark" ? "Dark" : "Light";
-                });
-            }
-        };
-
-        // ========== REDUCER (pure function) ==========
-        function reducer(currentState, action) {
-            switch (action.type) {
-                case "THEME_SET":
-                    return { ...currentState, theme: action.payload };
-                case "THEME_TOGGLE":
-                    return { ...currentState, theme: currentState.theme === "dark" ? "light" : "dark" };
-                default:
-                    return currentState;
-            }
-        }
-
-        // ========== DISPATCH ==========
-        function dispatch(action) {
-            const prevState = state;
-            state = reducer(state, action);
-
-            // Only update if state changed
-            if (state.theme !== prevState.theme) {
-                // Effects (side effects)
-                effects.persist(state.theme);
-
-                // View (render)
-                view.render(state.theme);
-            }
-        }
-
-        // ========== INIT ==========
-        function init() {
-            // Restore state from effects
-            const saved = effects.restore();
-            const initial = saved || effects.getSystemPref();
-
-            // Set initial state (without dispatch to avoid double-persist)
-            state = { theme: initial };
-
-            // Initial render
-            view.render(state.theme);
-
-            // Event Delegation (single listener at document level)
-            document.addEventListener("click", (e) => {
-                const toggle = e.target.closest("[data-theme-toggle]");
-                if (toggle) {
-                    e.preventDefault();
-                    dispatch({ type: "THEME_TOGGLE" });
-                    return;
-                }
-
-                const setBtn = e.target.closest("[data-theme-set]");
-                if (setBtn) {
-                    const next = setBtn.getAttribute("data-theme-set");
-                    if (next === "light" || next === "dark") {
-                        dispatch({ type: "THEME_SET", payload: next });
-                    }
-                }
-            });
-        }
-
-        // Public API
-        return {
-            init,
-            dispatch,
-            selectors,
-            // Legacy compatibility
-            apply: (theme) => dispatch({ type: "THEME_SET", payload: theme })
-        };
-    })();
 
 
     /* ============================
@@ -517,10 +395,10 @@
 
 
     /* ============================
-       Init all
+       Init all (except Theme - handled by main.js module)
        ============================ */
     UI.init = function () {
-        UI.theme.init();
+        // Theme is now modular: features/theme/ (initialized via main.js)
         UI.menu.init();
         UI.modal.init();
     };
