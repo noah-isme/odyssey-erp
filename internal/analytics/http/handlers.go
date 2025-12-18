@@ -144,6 +144,11 @@ func (h *Handler) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (h *Handler) handleKPI(w http.ResponseWriter, r *http.Request) {
+	// For now, KPI tracking uses the same dashboard but could be specialized later
+	h.handleDashboard(w, r)
+}
+
 func (h *Handler) handlePDF(w http.ResponseWriter, r *http.Request) {
 	sess := shared.SessionFromContext(r.Context())
 	if err := h.authorize(r.Context(), sess, shared.PermFinanceAnalyticsExport); err != nil {

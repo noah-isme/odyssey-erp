@@ -55,7 +55,24 @@ func (h *Handler) showCreateRoleForm(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) createRole(w http.ResponseWriter, r *http.Request) {
-	// TODO: implement
+	if err := r.ParseForm(); err != nil {
+		h.logger.Error("parse form", slog.Any("error", err))
+		h.render(w, r, "pages/roles/form.html", map[string]any{"Errors": formErrors{"general": "Invalid request"}}, http.StatusBadRequest)
+		return
+	}
+
+	name := r.PostFormValue("name")
+	description := r.PostFormValue("description")
+
+	_, err := h.service.CreateRole(r.Context(), name, description)
+	if err != nil {
+		h.render(w, r, "pages/roles/form.html", map[string]any{
+			"Errors": formErrors{"general": err.Error()},
+			"Role":   map[string]string{"Name": name, "Description": description},
+		}, http.StatusBadRequest)
+		return
+	}
+
 	h.redirectWithFlash(w, r, "/roles", "success", "Role created")
 }
 

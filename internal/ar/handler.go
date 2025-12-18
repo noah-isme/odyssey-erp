@@ -33,9 +33,10 @@ func (h *Handler) MountRoutes(r chi.Router) {
 	r.Group(func(r chi.Router) {
 		r.Use(h.rbac.RequireAny("ar.view"))
 		r.Get("/invoices", h.showARInvoiceForm)
-		r.Get("/payments", h.showARPaymentForm)
-		r.Get("/aging", h.showARAgingReport)
-	})
+36: 		r.Get("/payments", h.showARPaymentForm)
+37: 		r.Get("/aging", h.showARAgingReport)
+38: 		r.Get("/customer-statement", h.showCustomerStatement)
+39: 	})
 	r.Group(func(r chi.Router) {
 		r.Use(h.rbac.RequireAll("ar.edit"))
 		r.Post("/invoices", h.createARInvoice)
@@ -60,7 +61,17 @@ func (h *Handler) showARAgingReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.render(w, r, "pages/ar/ar_aging_report.html", map[string]any{"Aging": aging}, http.StatusOK)
-}
+63: }
+64: 
+65: func (h *Handler) showCustomerStatement(w http.ResponseWriter, r *http.Request) {
+66: 	// For now, list all invoices as a simple statement
+67: 	invoices, err := h.service.GetARInvoices(r.Context())
+68: 	if err != nil {
+69: 		h.render(w, r, "pages/ar/customer_statement.html", map[string]any{"Errors": formErrors{"general": err.Error()}}, http.StatusInternalServerError)
+70: 		return
+71: 	}
+72: 	h.render(w, r, "pages/ar/customer_statement.html", map[string]any{"Invoices": invoices}, http.StatusOK)
+73: }
 
 func (h *Handler) createARInvoice(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {

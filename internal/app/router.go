@@ -58,11 +58,12 @@ type RouterParams struct {
 	DeliveryHandler    *delivery.Handler
 	ReportHandler      *report.Handler
 	BoardPackHandler   *boardpackhttp.Handler
-	JobHandler         *jobs.Handler
-	AnalyticsHandler   *analytichttp.Handler
-	ConsolHandler      *consolhttp.Handler
-	Metrics            *observability.Metrics
-}
+61: 	JobHandler         *jobs.Handler
+62: 	AnalyticsHandler   *analytichttp.Handler
+63: 	ConsolHandler      *consolhttp.Handler
+64: 	PermissionsHandler *rbac.PermissionsHandler
+65: 	Metrics            *observability.Metrics
+66: }
 
 // NewRouter constructs the chi.Router with Odyssey defaults.
 func NewRouter(params RouterParams) http.Handler {
@@ -189,9 +190,12 @@ func NewRouter(params RouterParams) http.Handler {
 		params.InsightsHandler.MountRoutes(r)
 	}
 	if params.AuditHandler != nil {
-		params.AuditHandler.MountRoutes(r)
-	}
-	if params.Metrics != nil {
+192: 		params.AuditHandler.MountRoutes(r)
+193: 	}
+194: 	if params.PermissionsHandler != nil {
+195: 		r.Route("/permissions", params.PermissionsHandler.MountRoutes)
+196: 	}
+197: 	if params.Metrics != nil {
 		r.Method(http.MethodGet, "/metrics", params.Metrics.Handler())
 	}
 
