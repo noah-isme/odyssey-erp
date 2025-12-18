@@ -1,0 +1,66 @@
+{{ define "title" }}Consolidation Dashboard{{ end }}
+
+{{ define "content" }}
+<header class="page-header">
+    <div class="page-header__content">
+        <h1>Consolidation Dashboard</h1>
+        <p class="text-secondary">Financial Consolidation &amp; Reporting Hub</p>
+    </div>
+</header>
+
+<div class="grid grid-cols-3 gap-6 mb-8">
+    <div class="card hover:shadow-lg transition-shadow">
+        <div class="card__body">
+            <h3 class="text-lg font-bold mb-2">Reports</h3>
+            <p class="text-secondary mb-4 text-sm">View consolidated financial statements.</p>
+            <div class="flex flex-col gap-2">
+                <a href="/finance/consol/tb" class="btn btn--outline btn--sm w-full justification-start"> Trial Balance
+                    &rarr;</a>
+                <a href="/finance/consol/pl" class="btn btn--outline btn--sm w-full justification-start"> Profit &amp;
+                    Loss &rarr;</a>
+                <a href="/finance/consol/bs" class="btn btn--outline btn--sm w-full justification-start"> Balance Sheet
+                    &rarr;</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="card hover:shadow-lg transition-shadow">
+        <div class="card__body">
+            <h3 class="text-lg font-bold mb-2">Eliminations</h3>
+            <p class="text-secondary mb-4 text-sm">Manage intercompany eliminations.</p>
+            <div class="flex flex-col gap-2">
+                <a href="/eliminations/rules" class="btn btn--outline btn--sm w-full justification-start"> Elimination
+                    Rules &rarr;</a>
+                <a href="/eliminations/runs" class="btn btn--outline btn--sm w-full justification-start"> Processing
+                    Runs &rarr;</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="card hover:shadow-lg transition-shadow">
+        <div class="card__body">
+            <h3 class="text-lg font-bold mb-2">Variance Analysis</h3>
+            <p class="text-secondary mb-4 text-sm">Compare actuals against budgets/periods.</p>
+            <div class="flex flex-col gap-2">
+                <a href="/variance/snapshots" class="btn btn--outline btn--sm w-full justification-start"> Snapshots
+                    &rarr;</a>
+                <a href="/variance/rules" class="btn btn--outline btn--sm w-full justification-start"> Variance Rules
+                    &rarr;</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<section class="card">
+    <header class="card__header">
+        <h2 class="card__title">Recent Activity</h2>
+    </header>
+    <div class="card__body">
+        <p class="text-secondary text-sm">No recent consolidation runs found.</p>
+    </div>
+</section>
+{{ end }}
+
+{{ define "pages/finance/consol_dashboard.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}

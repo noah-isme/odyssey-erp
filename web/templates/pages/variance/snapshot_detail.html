@@ -1,62 +1,121 @@
-{{ define "pages/variance/snapshot_detail.html" }}
-{{ template "layouts/base.html" . }}
-{{ end }}
-
-{{ define "title" }}Variance Snapshot{{ end }}
+{{ define "title" }}Variance Snapshot #{{ .Data.Snapshot.ID }}{{ end }}
 
 {{ define "content" }}
 {{ $snap := .Data.Snapshot }}
-<section class="page-header">
-    <div>
-        <p class="eyebrow">Variance</p>
+<header class="page-header">
+    <div class="page-header__content">
+        <div class="flex items-center gap-2 mb-1">
+            <p class="eyebrow">Variance</p>
+            <span class="text-secondary">&rsaquo;</span>
+            <a href="/variance/snapshots" class="link text-sm">Snapshots</a>
+        </div>
         <h1>Snapshot #{{ $snap.ID }}</h1>
-        <p class="muted">Status: {{ $snap.Status }}</p>
+        <div class="flex items-center gap-2 mt-2">
+            <span class="badge 
+                {{ if eq $snap.Status " COMPLETE" }}badge--success {{ else if eq $snap.Status "FAILED" }}badge--danger
+                {{ else }}badge--info{{ end }}">
+                {{ $snap.Status }}
+            </span>
+            <span class="text-secondary text-sm">Period: {{ $snap.PeriodID }}</span>
+        </div>
     </div>
-    <div>
-        <a href="/variance/snapshots" class="secondary outline">Kembali</a>
+    <div class="page-header__actions">
+        <a href="/variance/snapshots" class="btn btn--outline">Back to List</a>
     </div>
-</section>
+</header>
 
-<section class="card">
-    <h3>Ringkasan</h3>
-    <p>Rule: {{ if $snap.Rule }}{{ $snap.Rule.Name }}{{ else }}#{{ $snap.RuleID }}{{ end }}</p>
-    <p>Periode: {{ $snap.PeriodID }}</p>
-    {{ if $snap.Error }}
-        <p class="text-danger">Error: {{ $snap.Error }}</p>
-    {{ end }}
-    <a class="secondary" href="/variance/snapshots/{{ $snap.ID }}/export">Export CSV</a>
-</section>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <section class="card col-span-1">
+        <header class="card__header">
+            <h2 class="card__title">Snapshot Info</h2>
+        </header>
+        <div class="card__body">
+            <dl class="description-list">
+                <dt>Rule Name</dt>
+                <dd>{{ if $snap.Rule }}{{ $snap.Rule.Name }}{{ else }}#{{ $snap.RuleID }}{{ end }}</dd>
 
-<section class="card">
-    <h3>Variance Rows</h3>
-    <div class="responsive-table">
-        <table class="period-table">
-            <thead>
-            <tr>
-                <th>Account</th>
-                <th>Base</th>
-                <th>Compare</th>
-                <th>Variance</th>
-                <th>%</th>
-                <th>Flag</th>
-            </tr>
-            </thead>
-            <tbody>
-            {{ if eq (len .Data.Rows) 0 }}
-                <tr><td colspan="6">Belum ada payload.</td></tr>
+                <dt>Created At</dt>
+                <dd>{{ $snap.CreatedAt.Format "02 Jan 2006 15:04" }}</dd>
+
+                <dt>Last Updated</dt>
+                <dd>{{ $snap.UpdatedAt.Format "02 Jan 2006 15:04" }}</dd>
+            </dl>
+
+            {{ if $snap.Error }}
+            <div class="alert alert--danger mt-4">
+                <strong>Error:</strong> {{ $snap.Error }}
+            </div>
             {{ end }}
-            {{ range $row := .Data.Rows }}
-                <tr>
-                    <td>{{ $row.AccountCode }} - {{ $row.AccountName }}</td>
-                    <td>{{ printf "%.2f" $row.BaseAmount }}</td>
-                    <td>{{ printf "%.2f" $row.CompareAmount }}</td>
-                    <td>{{ printf "%.2f" $row.Variance }}</td>
-                    <td>{{ printf "%.2f" $row.VariancePct }}</td>
-                    <td>{{ if $row.Flagged }}⚠️{{ else }}-{{ end }}</td>
-                </tr>
-            {{ end }}
-            </tbody>
-        </table>
-    </div>
-</section>
+
+            <div class="mt-6 border-t border-border pt-4">
+                <a class="btn btn--secondary w-full justify-center" href="/variance/snapshots/{{ $snap.ID }}/export">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="mr-2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    Export CSV
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <section class="card col-span-1 lg:col-span-2">
+        <header class="card__header">
+            <h2 class="card__title">Variance Analysis</h2>
+        </header>
+        <div class="table-wrap">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Account</th>
+                        <th class="text-right">Base Amount</th>
+                        <th class="text-right">Compare Amount</th>
+                        <th class="text-right">Variance</th>
+                        <th class="text-right">%</th>
+                        <th class="text-center">Flag</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ if eq (len .Data.Rows) 0 }}
+                    <tr>
+                        <td colspan="6" class="text-center text-secondary py-4">No data available for this snapshot.
+                        </td>
+                    </tr>
+                    {{ end }}
+                    {{ range $row := .Data.Rows }}
+                    <tr>
+                        <td>
+                            <div class="flex flex-col">
+                                <span class="font-bold">{{ $row.AccountCode }}</span>
+                                <span class="text-xs text-secondary">{{ $row.AccountName }}</span>
+                            </div>
+                        </td>
+                        <td class="text-right font-mono">{{ printf "%.2f" $row.BaseAmount }}</td>
+                        <td class="text-right font-mono">{{ printf "%.2f" $row.CompareAmount }}</td>
+                        <td
+                            class="text-right font-mono {{ if lt $row.Variance 0.0 }}text-danger{{ else }}text-success{{ end }}">
+                            {{ printf "%.2f" $row.Variance }}
+                        </td>
+                        <td class="text-right font-mono">{{ printf "%.2f" $row.VariancePct }}%</td>
+                        <td class="text-center">
+                            {{ if $row.Flagged }}
+                            <span class="badge badge--warning">⚠️ Review</span>
+                            {{ else }}
+                            <span class="text-secondary">-</span>
+                            {{ end }}
+                        </td>
+                    </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+{{ end }}
+
+{{ define "pages/variance/snapshot_detail.html" }}
+{{ template "layouts/base.html" . }}
 {{ end }}

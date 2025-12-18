@@ -1,67 +1,94 @@
-{{ define "pages/variance/rules.html" }}
-{{ template "layouts/base.html" . }}
-{{ end }}
-
 {{ define "title" }}Variance Rules{{ end }}
 
 {{ define "content" }}
-<section class="page-header">
-    <div>
-        <p class="eyebrow">Variance</p>
+<header class="page-header">
+    <div class="page-header__content">
         <h1>Variance Rules</h1>
-        <p class="muted">Definisikan perbandingan untuk analisis variance.</p>
+        <p class="text-secondary">Define comparison rules for variance analysis.</p>
     </div>
-</section>
+</header>
 
-<section class="card">
-    <h2>Buat Rule</h2>
-    <form method="post" action="/variance/rules" class="grid">
-        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
-        <label>Nama
-            <input type="text" name="name" required>
-        </label>
-        <label>Company ID
-            <input type="number" name="company_id" required>
-        </label>
-        <label>Tipe Perbandingan
-            <select name="comparison_type">
-                <option value="ACTUAL_VS_ACTUAL">Actual vs Actual</option>
-            </select>
-        </label>
-        <label>Periode Base (accounting_periods.id)
-            <input type="number" name="base_period_id" required>
-        </label>
-        <label>Periode Pembanding
-            <input type="number" name="compare_period_id">
-        </label>
-        <button type="submit">Simpan</button>
-    </form>
-</section>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <section class="card col-span-1">
+        <header class="card__header">
+            <h2 class="card__title">Create New Rule</h2>
+        </header>
+        <div class="card__body">
+            <form method="post" action="/variance/rules" class="form">
+                <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
 
-<section class="card">
-    <h2>Daftar Rules</h2>
-    <table class="period-table">
-        <thead>
-        <tr>
-            <th>Nama</th>
-            <th>Company</th>
-            <th>Base</th>
-            <th>Compare</th>
-        </tr>
-        </thead>
-        <tbody>
-        {{ if eq (len .Data.Rules) 0 }}
-            <tr><td colspan="4">Belum ada rule.</td></tr>
-        {{ end }}
-        {{ range $rule := .Data.Rules }}
-            <tr>
-                <td>{{ $rule.Name }}</td>
-                <td>{{ $rule.CompanyID }}</td>
-                <td>{{ $rule.BasePeriodID }}</td>
-                <td>{{ if $rule.ComparePeriodID }}{{ $rule.ComparePeriodID }}{{ else }}-{{ end }}</td>
-            </tr>
-        {{ end }}
-        </tbody>
-    </table>
-</section>
+                <div class="form-group">
+                    <label for="name" class="form-label">Rule Name</label>
+                    <input type="text" id="name" name="name" class="form-input" required
+                        placeholder="e.g. Budget vs Actual 2024">
+                </div>
+
+                <div class="form-group">
+                    <label for="company_id" class="form-label">Company ID</label>
+                    <input type="number" id="company_id" name="company_id" class="form-input" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="comparison_type" class="form-label">Comparison Type</label>
+                    <select id="comparison_type" name="comparison_type" class="form-select">
+                        <option value="ACTUAL_VS_ACTUAL">Actual vs Actual</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="base_period_id" class="form-label">Base Period ID</label>
+                    <input type="number" id="base_period_id" name="base_period_id" class="form-input" required
+                        placeholder="accounting_periods.id">
+                </div>
+
+                <div class="form-group">
+                    <label for="compare_period_id" class="form-label">Comparison Period ID</label>
+                    <input type="number" id="compare_period_id" name="compare_period_id" class="form-input"
+                        placeholder="Optional">
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn--primary w-full">Save Rule</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <section class="card col-span-1 lg:col-span-2">
+        <header class="card__header">
+            <h2 class="card__title">Active Rules</h2>
+        </header>
+        <div class="table-wrap">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Rule Name</th>
+                        <th>Company</th>
+                        <th>Base Period</th>
+                        <th>Compare Period</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ if eq (len .Data.Rules) 0 }}
+                    <tr>
+                        <td colspan="4" class="text-center text-secondary py-4">No rules defined.</td>
+                    </tr>
+                    {{ end }}
+                    {{ range $rule := .Data.Rules }}
+                    <tr>
+                        <td class="font-bold">{{ $rule.Name }}</td>
+                        <td>{{ $rule.CompanyID }}</td>
+                        <td>{{ $rule.BasePeriodID }}</td>
+                        <td>{{ if $rule.ComparePeriodID }}{{ $rule.ComparePeriodID }}{{ else }}-{{ end }}</td>
+                    </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+{{ end }}
+
+{{ define "pages/variance/rules.html" }}
+{{ template "layouts/base.html" . }}
 {{ end }}

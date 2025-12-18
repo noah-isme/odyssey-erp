@@ -1,63 +1,90 @@
-{{ define "pages/variance/snapshots.html" }}
-{{ template "layouts/base.html" . }}
-{{ end }}
-
 {{ define "title" }}Variance Snapshots{{ end }}
 
 {{ define "content" }}
-<section class="page-header">
-    <div>
-        <p class="eyebrow">Variance</p>
+<header class="page-header">
+    <div class="page-header__content">
         <h1>Variance Dashboard</h1>
-        <p class="muted">Trigger snapshot untuk melihat variance terbaru.</p>
+        <p class="text-secondary">Capture and analyze financial variance snapshots.</p>
     </div>
-</section>
+</header>
 
-<section class="card">
-    <h2>Trigger Snapshot</h2>
-    <form method="post" action="/variance/snapshots" class="grid">
-        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
-        <label>Rule
-            <select name="rule_id" required>
-                <option value="">-- Pilih Rule --</option>
-                {{ range $rule := .Data.Rules }}
-                    <option value="{{ $rule.ID }}">{{ $rule.Name }}</option>
-                {{ end }}
-            </select>
-        </label>
-        <label>Periode (accounting_periods.id)
-            <input type="number" name="period_id" required>
-        </label>
-        <button type="submit">Queue Snapshot</button>
-    </form>
-</section>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <section class="card col-span-1">
+        <header class="card__header">
+            <h2 class="card__title">Queue Snapshot</h2>
+        </header>
+        <div class="card__body">
+            <form method="post" action="/variance/snapshots" class="form">
+                <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
 
-<section class="card">
-    <h2>Snapshots</h2>
-    <table class="period-table">
-        <thead>
-        <tr>
-            <th>ID</th>
-            <th>Rule</th>
-            <th>Status</th>
-            <th>Diperbarui</th>
-            <th></th>
-        </tr>
-        </thead>
-        <tbody>
-        {{ if eq (len .Data.Snapshots) 0 }}
-            <tr><td colspan="5">Belum ada snapshot.</td></tr>
-        {{ end }}
-        {{ range $snap := .Data.Snapshots }}
-            <tr>
-                <td>{{ $snap.ID }}</td>
-                <td>{{ if $snap.Rule }}{{ $snap.Rule.Name }}{{ else }}#{{ $snap.RuleID }}{{ end }}</td>
-                <td>{{ $snap.Status }}</td>
-                <td>{{ $snap.UpdatedAt.Format "02 Jan 15:04" }}</td>
-                <td><a href="/variance/snapshots/{{ $snap.ID }}">Detail</a></td>
-            </tr>
-        {{ end }}
-        </tbody>
-    </table>
-</section>
+                <div class="form-group">
+                    <label for="rule_id" class="form-label">Select Rule</label>
+                    <select id="rule_id" name="rule_id" class="form-select" required>
+                        <option value="">-- Choose Rule --</option>
+                        {{ range $rule := .Data.Rules }}
+                        <option value="{{ $rule.ID }}">{{ $rule.Name }}</option>
+                        {{ end }}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="period_id" class="form-label">Accounting Period ID</label>
+                    <input type="number" id="period_id" name="period_id" class="form-input" required
+                        placeholder="e.g. 202401">
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn--primary w-full">Enqueue Generation</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <section class="card col-span-1 lg:col-span-2">
+        <header class="card__header">
+            <h2 class="card__title">Snapshots History</h2>
+        </header>
+        <div class="table-wrap">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Rule</th>
+                        <th>Status</th>
+                        <th>Last Updated</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ if eq (len .Data.Snapshots) 0 }}
+                    <tr>
+                        <td colspan="5" class="text-center text-secondary py-4">No snapshots recorded.</td>
+                    </tr>
+                    {{ end }}
+                    {{ range $snap := .Data.Snapshots }}
+                    <tr>
+                        <td class="font-mono text-sm">#{{ $snap.ID }}</td>
+                        <td>{{ if $snap.Rule }}{{ $snap.Rule.Name }}{{ else }}#{{ $snap.RuleID }}{{ end }}</td>
+                        <td>
+                            <span class="badge 
+                                {{ if eq $snap.Status " COMPLETE" }}badge--success {{ else if eq $snap.Status "FAILED"
+                                }}badge--danger {{ else }}badge--info{{ end }}">
+                                {{ $snap.Status }}
+                            </span>
+                        </td>
+                        <td class="text-secondary text-sm">{{ $snap.UpdatedAt.Format "02 Jan 15:04" }}</td>
+                        <td class="text-right">
+                            <a href="/variance/snapshots/{{ $snap.ID }}" class="btn btn--sm btn--secondary">Details</a>
+                        </td>
+                    </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+{{ end }}
+
+{{ define "pages/variance/snapshots.html" }}
+{{ template "layouts/base.html" . }}
 {{ end }}

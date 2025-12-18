@@ -234,7 +234,22 @@ func main() {
 
 	consolRepo := consol.NewRepository(dbpool)
 	consolService := consol.NewService(consolRepo)
-	consolHandler, err := consolhttp.NewHandler(logger, consolService, templates, csrfManager, sessionManager, rbacMiddleware, consolPDFClient)
+	consolBSService := consol.NewBalanceSheetService(consolRepo)
+	consolPLService := consol.NewProfitLossService(consolRepo)
+
+	consolBSHandler, err := consolhttp.NewBalanceSheetHandler(logger, consolBSService, templates, csrfManager, sessionManager, rbacMiddleware, consolPDFClient)
+	if err != nil {
+		logger.Error("init consol bs handler", slog.Any("error", err))
+		os.Exit(1)
+	}
+
+	consolPLHandler, err := consolhttp.NewProfitLossHandler(logger, consolPLService, templates, csrfManager, sessionManager, rbacMiddleware, consolPDFClient)
+	if err != nil {
+		logger.Error("init consol pl handler", slog.Any("error", err))
+		os.Exit(1)
+	}
+
+	consolHandler, err := consolhttp.NewHandler(logger, consolService, consolBSHandler, consolPLHandler, templates, csrfManager, sessionManager, rbacMiddleware, consolPDFClient)
 	if err != nil {
 		logger.Error("init consolidation handler", slog.Any("error", err))
 		os.Exit(1)

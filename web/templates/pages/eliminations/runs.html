@@ -1,74 +1,102 @@
-{{ define "pages/eliminations/runs.html" }}
-{{ template "layouts/base.html" . }}
-{{ end }}
-
 {{ define "title" }}Elimination Runs{{ end }}
 
 {{ define "content" }}
-<section class="page-header">
-    <div>
-        <p class="eyebrow">Eliminations</p>
+<header class="page-header">
+    <div class="page-header__content">
         <h1>Elimination Runs</h1>
-        <p class="muted">Jalankan simulasi dan posting jurnal eliminasi.</p>
+        <p class="text-secondary">Execute and monitor elimination simulations and runs.</p>
     </div>
-</section>
+</header>
 
-<section class="card">
-    <h2>Buat Run</h2>
-    <form method="post" action="/eliminations/runs" class="grid">
-        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
-        <label>Rule
-            <select name="rule_id" required>
-                <option value="">-- Pilih Rule --</option>
-                {{ range $rule := .Data.Rules }}
-                    <option value="{{ $rule.ID }}">{{ $rule.Name }}</option>
-                {{ end }}
-            </select>
-        </label>
-        <label>Periode
-            <select name="period_id" required>
-                <option value="">-- Pilih Periode --</option>
-                {{ range $period := .Data.Periods }}
-                    <option value="{{ $period.ID }}">{{ $period.Name }} ({{ $period.StartDate.Format "02 Jan" }} - {{ $period.EndDate.Format "02 Jan" }})</option>
-                {{ end }}
-            </select>
-        </label>
-        <button type="submit">Mulai</button>
-    </form>
-</section>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <section class="card col-span-1">
+        <header class="card__header">
+            <h2 class="card__title">Start New Run</h2>
+        </header>
+        <div class="card__body">
+            <form method="post" action="/eliminations/runs" class="form">
+                <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
 
-<section class="card">
-    <h2>Riwayat Run</h2>
-    <table class="period-table">
-        <thead>
-        <tr>
-            <th>Rule</th>
-            <th>Periode</th>
-            <th>Status</th>
-            <th>Ringkasan</th>
-            <th></th>
-        </tr>
-        </thead>
-        <tbody>
-        {{ if eq (len .Data.Runs) 0 }}
-            <tr><td colspan="5">Belum ada run.</td></tr>
-        {{ end }}
-        {{ range $run := .Data.Runs }}
-            <tr>
-                <td>{{ if $run.Rule }}{{ $run.Rule.Name }}{{ else }}Rule #{{ $run.RuleID }}{{ end }}</td>
-                <td>{{ $run.PeriodID }}</td>
-                <td>{{ $run.Status }}</td>
-                <td>
-                    {{ if $run.Summary }}
-                        Eliminated {{ printf "%.2f" $run.Summary.Eliminated }}
-                    {{ else }}
-                        -
+                <div class="form-group">
+                    <label for="rule_id" class="form-label">Select Rule</label>
+                    <select id="rule_id" name="rule_id" class="form-select" required>
+                        <option value="">-- Choose Rule --</option>
+                        {{ range $rule := .Data.Rules }}
+                        <option value="{{ $rule.ID }}">{{ $rule.Name }}</option>
+                        {{ end }}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="period_id" class="form-label">Select Period</label>
+                    <select id="period_id" name="period_id" class="form-select" required>
+                        <option value="">-- Choose Period --</option>
+                        {{ range $period := .Data.Periods }}
+                        <option value="{{ $period.ID }}">{{ $period.Name }} ({{ $period.StartDate.Format "02 Jan" }} -
+                            {{ $period.EndDate.Format "02 Jan" }})</option>
+                        {{ end }}
+                    </select>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn--primary w-full">Initialize Run</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <section class="card col-span-1 lg:col-span-2">
+        <header class="card__header">
+            <h2 class="card__title">Run History</h2>
+        </header>
+        <div class="table-wrap">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Rule</th>
+                        <th>Period</th>
+                        <th>Status</th>
+                        <th class="text-right">Eliminated</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ if eq (len .Data.Runs) 0 }}
+                    <tr>
+                        <td colspan="5" class="text-center text-secondary py-4">No runs recorded.</td>
+                    </tr>
                     {{ end }}
-                </td>
-                <td><a href="/eliminations/runs/{{ $run.ID }}">Lihat</a></td>
-            </tr>
-        {{ end }}
-        </tbody>
-    </table>
-</section>
+                    {{ range $run := .Data.Runs }}
+                    <tr>
+                        <td class="font-bold">{{ if $run.Rule }}{{ $run.Rule.Name }}{{ else }}Rule #{{ $run.RuleID }}{{
+                            end }}</td>
+                        <td>{{ $run.PeriodID }}</td>
+                        <td>
+                            <span class="badge 
+                                {{ if eq $run.Status " POSTED" }}badge--success {{ else if eq $run.Status "SIMULATED"
+                                }}badge--info {{ else }}badge--neutral{{ end }}">
+                                {{ $run.Status }}
+                            </span>
+                        </td>
+                        <td class="text-right font-mono">
+                            {{ if $run.Summary }}
+                            {{ printf "%.2f" $run.Summary.Eliminated }}
+                            {{ else }}
+                            -
+                            {{ end }}
+                        </td>
+                        <td class="text-right">
+                            <a href="/eliminations/runs/{{ $run.ID }}" class="btn btn--sm btn--secondary">Details</a>
+                        </td>
+                    </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+{{ end }}
+
+{{ define "pages/eliminations/runs.html" }}
+{{ template "layouts/base.html" . }}
 {{ end }}
