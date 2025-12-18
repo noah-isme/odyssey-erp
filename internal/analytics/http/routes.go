@@ -24,12 +24,12 @@ func (h *Handler) MountRoutes(r chi.Router) {
 	)
 
 	r.Get("/analytics", h.handleDashboard)
-27: 	r.Get("/analytics/kpi", h.handleKPI)
-28: 	r.Group(func(gr chi.Router) {
-29: 		gr.Use(limiter)
-30: 		gr.Get("/analytics/pdf", h.handlePDF)
-31: 		gr.Get("/analytics/export.csv", h.handleCSV)
-32: 	})
+	r.Get("/analytics/kpi", h.handleKPI)
+	r.Group(func(gr chi.Router) {
+		gr.Use(limiter)
+		gr.Get("/analytics/pdf", h.handlePDF)
+		gr.Get("/analytics/export.csv", h.handleCSV)
+	})
 }
 
 func rateLimitKey(r *http.Request) (string, error) {
