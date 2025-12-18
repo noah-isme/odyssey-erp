@@ -1,68 +1,100 @@
-{{ define "pages/eliminations/rules.html" }}
-{{ template "layouts/base.html" . }}
-{{ end }}
-
 {{ define "title" }}Elimination Rules{{ end }}
 
 {{ define "content" }}
-<section class="page-header">
-    <div>
-        <p class="eyebrow">Eliminations</p>
+<header class="page-header">
+    <div class="page-header__content">
         <h1>Elimination Rules</h1>
-        <p class="muted">Atur pasangan perusahaan dan akun yang akan dieliminasi.</p>
+        <p class="text-secondary">Configure intercompany elimination rules.</p>
     </div>
-</section>
+</header>
 
-<section class="card">
-    <h2>Tambah Rule</h2>
-    <form method="post" action="/eliminations/rules" class="grid">
-        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
-        <label>Nama
-            <input type="text" name="name" required>
-        </label>
-        <label>Group ID (opsional)
-            <input type="number" name="group_id" min="1">
-        </label>
-        <label>Company Sumber
-            <input type="number" name="source_company_id" required>
-        </label>
-        <label>Company Target
-            <input type="number" name="target_company_id" required>
-        </label>
-        <label>Akun Sumber (code)
-            <input type="text" name="account_src" required>
-        </label>
-        <label>Akun Target (code)
-            <input type="text" name="account_tgt" required>
-        </label>
-        <button type="submit">Simpan</button>
-    </form>
-</section>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <section class="card col-span-1">
+        <header class="card__header">
+            <h2 class="card__title">Add New Rule</h2>
+        </header>
+        <div class="card__body">
+            <form method="post" action="/eliminations/rules" class="form">
+                <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
 
-<section class="card">
-    <h2>Daftar Rules</h2>
-    <table class="period-table">
-        <thead>
-        <tr>
-            <th>Nama</th>
-            <th>Company Pair</th>
-            <th>Akun</th>
-            <th>Status</th>
-        </tr>
-        </thead>
-        <tbody>
-        {{ if eq (len .Data.Rules) 0 }}
-            <tr><td colspan="4">Belum ada rule.</td></tr>
-        {{ end }}
-        {{ range $rule := .Data.Rules }}
-            <tr>
-                <td>{{ $rule.Name }}</td>
-                <td>{{ $rule.SourceCompanyID }} → {{ $rule.TargetCompanyID }}</td>
-                <td>{{ $rule.AccountSource }} / {{ $rule.AccountTarget }}</td>
-                <td>{{ if $rule.Active }}Aktif{{ else }}Nonaktif{{ end }}</td>
-            </tr>
-        {{ end }}
-        </tbody>
-    </table>
-</section>
+                <div class="form-group">
+                    <label for="name" class="form-label">Rule Name</label>
+                    <input type="text" id="name" name="name" class="form-input" required
+                        placeholder="e.g. IC Sales Elimination">
+                </div>
+
+                <div class="form-group">
+                    <label for="group_id" class="form-label">Group ID (Optional)</label>
+                    <input type="number" id="group_id" name="group_id" class="form-input" min="1"
+                        placeholder="All Groups">
+                </div>
+
+                <div class="form-group">
+                    <label for="source_company_id" class="form-label">Source Company ID</label>
+                    <input type="number" id="source_company_id" name="source_company_id" class="form-input" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="target_company_id" class="form-label">Target Company ID</label>
+                    <input type="number" id="target_company_id" name="target_company_id" class="form-input" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="account_src" class="form-label">Source Account (Code)</label>
+                    <input type="text" id="account_src" name="account_src" class="form-input" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="account_tgt" class="form-label">Target Account (Code)</label>
+                    <input type="text" id="account_tgt" name="account_tgt" class="form-input" required>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn--primary w-full">Save Rule</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <section class="card col-span-1 lg:col-span-2">
+        <header class="card__header">
+            <h2 class="card__title">Active Rules</h2>
+        </header>
+        <div class="table-wrap">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Company Pair</th>
+                        <th>Accounts</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ if eq (len .Data.Rules) 0 }}
+                    <tr>
+                        <td colspan="4" class="text-center text-secondary py-4">No rules found.</td>
+                    </tr>
+                    {{ end }}
+                    {{ range $rule := .Data.Rules }}
+                    <tr>
+                        <td class="font-bold">{{ $rule.Name }}</td>
+                        <td>{{ $rule.SourceCompanyID }} &rarr; {{ $rule.TargetCompanyID }}</td>
+                        <td class="text-sm font-mono">{{ $rule.AccountSource }} / {{ $rule.AccountTarget }}</td>
+                        <td>
+                            <span class="badge {{ if $rule.Active }}badge--success{{ else }}badge--neutral{{ end }}">
+                                {{ if $rule.Active }}Active{{ else }}Inactive{{ end }}
+                            </span>
+                        </td>
+                    </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+{{ end }}
+
+{{ define "pages/eliminations/rules.html" }}
+{{ template "layouts/base.html" . }}
 {{ end }}

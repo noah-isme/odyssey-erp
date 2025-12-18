@@ -31,7 +31,7 @@ func NewHandler(logger *slog.Logger, service *elimination.Service, templates *vi
 // MountRoutes registers elimination routes.
 func (h *Handler) MountRoutes(r chi.Router) {
 	r.Route("/eliminations", func(r chi.Router) {
-		r.Use(h.rbac.RequireAny("finance.manage_consolidation"))
+		r.Use(h.rbac.RequireAny(shared.PermFinanceConsolManage))
 		r.Get("/rules", h.listRules)
 		r.Post("/rules", h.createRule)
 		r.Get("/runs", h.listRuns)

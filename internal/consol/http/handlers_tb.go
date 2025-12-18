@@ -23,6 +23,8 @@ import (
 type Handler struct {
 	logger      *slog.Logger
 	service     *consol.Service
+	bs          *BalanceSheetHandler
+	pl          *ProfitLossHandler
 	templates   *view.Engine
 	pdfExporter pdfExporter
 	csrf        *shared.CSRFManager
@@ -42,7 +44,7 @@ type PDFRenderClient interface {
 }
 
 // NewHandler constructs the consolidation handler.
-func NewHandler(logger *slog.Logger, service *consol.Service, templates *view.Engine, csrf *shared.CSRFManager, sessions *shared.SessionManager, rbac rbac.Middleware, pdfClient PDFRenderClient) (*Handler, error) {
+func NewHandler(logger *slog.Logger, service *consol.Service, bs *BalanceSheetHandler, pl *ProfitLossHandler, templates *view.Engine, csrf *shared.CSRFManager, sessions *shared.SessionManager, rbac rbac.Middleware, pdfClient PDFRenderClient) (*Handler, error) {
 	if templates == nil {
 		return nil, fmt.Errorf("consol handler: template engine required")
 	}
@@ -66,6 +68,8 @@ func NewHandler(logger *slog.Logger, service *consol.Service, templates *view.En
 	return &Handler{
 		logger:      logger,
 		service:     service,
+		bs:          bs,
+		pl:          pl,
 		templates:   templates,
 		pdfExporter: pdfExporter,
 		csrf:        csrf,
@@ -79,7 +83,11 @@ func NewHandler(logger *slog.Logger, service *consol.Service, templates *view.En
 func (h *Handler) MountRoutes(r chi.Router) {
 	r.Group(func(r chi.Router) {
 		r.Use(h.rbac.RequireAny(shared.PermFinanceConsolView))
+		r.Get("/finance/consol", h.handleDashboard)
 		r.Get("/finance/consol/tb", h.handleGetTB)
+	})
+	r.Get("/consol", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/finance/consol", http.StatusSeeOther)
 	})
 	r.Group(func(r chi.Router) {
 		r.Use(h.rbac.RequireAny(shared.PermFinanceConsolExport))
@@ -87,6 +95,13 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Get("/finance/consol/tb/export.csv", h.handleExportCSV)
 		r.Get("/finance/consol/tb/pdf", h.handleExportPDF)
 	})
+
+	if h.bs != nil {
+		h.bs.MountRoutes(r)
+	}
+	if h.pl != nil {
+		h.pl.MountRoutes(r)
+	}
 }
 
 func (h *Handler) handleGetTB(w http.ResponseWriter, r *http.Request) {
@@ -144,6 +159,26 @@ func (h *Handler) handleExportPDF(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.pdfExporter.Serve(w, r, h)
+}
+
+func (h *Handler) handleDashboard(w http.ResponseWriter, r *http.Request) {
+	sess := shared.SessionFromContext(r.Context())
+	csrfToken, _ := h.csrf.EnsureToken(r.Context(), sess)
+	var flash *shared.FlashMessage
+	if sess != nil {
+		flash = sess.PopFlash()
+	}
+
+	data := view.TemplateData{
+		Title:       "Consolidation Dashboard",
+		CSRFToken:   csrfToken,
+		Flash:       flash,
+		CurrentPath: r.URL.Path,
+	}
+	if err := h.templates.Render(w, "pages/finance/consol_dashboard.html", data); err != nil {
+		h.logger.Error("render consol dashboard", slog.Any("error", err))
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+	}
 }
 
 func (h *Handler) parseFilters(r *http.Request) (consol.Filters, map[string]string) {

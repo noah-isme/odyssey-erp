@@ -34,7 +34,7 @@ func NewHandler(logger *slog.Logger, service *variance.Service, templates *view.
 // MountRoutes registers routes.
 func (h *Handler) MountRoutes(r chi.Router) {
 	r.Route("/variance", func(r chi.Router) {
-		r.Use(h.rbac.RequireAny("finance.period.close"))
+		r.Use(h.rbac.RequireAny(shared.PermFinancePeriodClose))
 		r.Get("/rules", h.listRules)
 		r.Post("/rules", h.createRule)
 		r.Get("/snapshots", h.listSnapshots)

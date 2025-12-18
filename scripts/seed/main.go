@@ -79,6 +79,13 @@ func seedRBAC(ctx context.Context, pool *pgxpool.Pool) error {
 		{"sales.order.edit", "Edit sales orders"},
 		{"sales.order.confirm", "Confirm sales orders"},
 		{"sales.order.cancel", "Cancel sales orders"},
+
+		// Accounting & Consolidation
+		{"finance.view_consolidation", "View consolidated financial reports"}, // shared.PermFinanceConsolView
+		{"finance.post_elimination", "Post elimination journal entries"},      // shared.PermFinanceConsolPostElim
+		{"finance.manage_consolidation", "Manage rules and runs"},             // shared.PermFinanceConsolManage
+		{"finance.export_consolidation", "Export consolidated data"},          // shared.PermFinanceConsolExport
+		{"finance.period.close", "Manage period closing"},                     // shared.PermFinancePeriodClose
 	}
 
 	tx, err := pool.Begin(ctx)
@@ -109,6 +116,7 @@ ON CONFLICT (name) DO UPDATE SET description = EXCLUDED.description`, perm.name,
 			"sales.customer.view", "sales.customer.create", "sales.customer.edit",
 			"sales.quotation.view", "sales.quotation.create", "sales.quotation.edit", "sales.quotation.approve",
 			"sales.order.view", "sales.order.create", "sales.order.edit", "sales.order.confirm", "sales.order.cancel",
+			"finance.view_consolidation", "finance.post_elimination", "finance.manage_consolidation", "finance.export_consolidation", "finance.period.close",
 		}},
 		{"manager", "Manage operations", []string{
 			"org.view", "org.edit", "master.view", "master.edit", "master.import",

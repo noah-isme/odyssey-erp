@@ -1,46 +1,97 @@
-{{ define "pages/eliminations/run_detail.html" }}
-{{ template "layouts/base.html" . }}
-{{ end }}
-
-{{ define "title" }}Elimination Run{{ end }}
+{{ define "title" }}Elimination Run #{{ .Data.Run.ID }}{{ end }}
 
 {{ define "content" }}
 {{ $run := .Data.Run }}
-<section class="page-header">
-    <div>
-        <p class="eyebrow">Eliminations</p>
+<header class="page-header">
+    <div class="page-header__content">
+        <div class="flex items-center gap-2 mb-1">
+            <p class="eyebrow">Eliminations</p>
+            <span class="text-secondary">&rsaquo;</span>
+            <a href="/eliminations/runs" class="link text-sm">Runs</a>
+        </div>
         <h1>Run #{{ $run.ID }}</h1>
-        <p class="muted">Status: {{ $run.Status }}</p>
+        <div class="flex items-center gap-2 mt-2">
+            <span class="badge 
+                {{ if eq $run.Status " POSTED" }}badge--success {{ else if eq $run.Status "SIMULATED" }}badge--info {{
+                else }}badge--neutral{{ end }}">
+                {{ $run.Status }}
+            </span>
+            <span class="text-secondary text-sm">Period: {{ $run.PeriodID }}</span>
+        </div>
     </div>
-    <div>
-        <a href="/eliminations/runs" class="secondary outline">Kembali</a>
+    <div class="page-header__actions">
+        <a href="/eliminations/runs" class="btn btn--outline">Back to List</a>
     </div>
-</section>
+</header>
 
-<section class="card">
-    <h3>Ringkasan</h3>
-    <p>Rule: {{ if $run.Rule }}{{ $run.Rule.Name }}{{ else }}#{{ $run.RuleID }}{{ end }}</p>
-    <p>Periode ID: {{ $run.PeriodID }}</p>
-    {{ if $run.Summary }}
-        <ul>
-            <li>Saldo Sumber: {{ printf "%.2f" $run.Summary.SourceBalance }}</li>
-            <li>Saldo Target: {{ printf "%.2f" $run.Summary.TargetBalance }}</li>
-            <li>Nilai Eliminasi: {{ printf "%.2f" $run.Summary.Eliminated }}</li>
-        </ul>
-    {{ else }}
-        <p class="muted">Belum ada simulasi.</p>
-    {{ end }}
-</section>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <section class="card col-span-1">
+        <header class="card__header">
+            <h2 class="card__title">Run Configuration</h2>
+        </header>
+        <div class="card__body">
+            <dl class="description-list">
+                <dt>Rule Name</dt>
+                <dd>{{ if $run.Rule }}{{ $run.Rule.Name }}{{ else }}Rule #{{ $run.RuleID }}{{ end }}</dd>
 
-<section class="card">
-    <h3>Aksi</h3>
-    <form method="post" action="/eliminations/runs/{{ $run.ID }}/simulate" style="display:inline-block;margin-right:1rem">
-        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
-        <button type="submit">Simulate</button>
-    </form>
-    <form method="post" action="/eliminations/runs/{{ $run.ID }}/post" style="display:inline-block">
-        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
-        <button type="submit" {{ if ne $run.Status "SIMULATED" }}disabled{{ end }}>Post Journal</button>
-    </form>
-</section>
+                <dt>Rule Pair</dt>
+                <dd>{{ if $run.Rule }}{{ $run.Rule.SourceCompanyID }} &rarr; {{ $run.Rule.TargetCompanyID }}{{ else
+                    }}-{{ end }}</dd>
+
+                <dt>Accounts</dt>
+                <dd class="font-mono text-sm">{{ if $run.Rule }}{{ $run.Rule.AccountSource }} / {{
+                    $run.Rule.AccountTarget }}{{ else }}-{{ end }}</dd>
+            </dl>
+        </div>
+    </section>
+
+    <section class="card col-span-1 lg:col-span-2">
+        <header class="card__header">
+            <h2 class="card__title">Simulation Results</h2>
+        </header>
+        <div class="card__body">
+            {{ if $run.Summary }}
+            <div class="stats-grid grid-cols-3 mb-6">
+                <div class="stat-card">
+                    <span class="stat-card__label">Source Balance</span>
+                    <span class="stat-card__value font-mono">{{ printf "%.2f" $run.Summary.SourceBalance }}</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-card__label">Target Balance</span>
+                    <span class="stat-card__value font-mono">{{ printf "%.2f" $run.Summary.TargetBalance }}</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-card__label text-danger">Eliminated Amount</span>
+                    <span class="stat-card__value font-mono text-danger">({{ printf "%.2f" $run.Summary.Eliminated
+                        }})</span>
+                </div>
+            </div>
+            {{ else }}
+            <div class="empty-state py-8">
+                <p class="text-secondary">No simulation results available yet.</p>
+            </div>
+            {{ end }}
+
+            <div class="flex gap-4 border-t border-border pt-6">
+                <form method="post" action="/eliminations/runs/{{ $run.ID }}/simulate">
+                    <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+                    <button type="submit" class="btn btn--secondary">
+                        {{ if $run.Summary }}Re-Simulate{{ else }}Run Simulation{{ end }}
+                    </button>
+                </form>
+
+                <form method="post" action="/eliminations/runs/{{ $run.ID }}/post">
+                    <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+                    <button type="submit" class="btn btn--primary" {{ if ne $run.Status "SIMULATED" }}disabled{{ end }}>
+                        Post Journal
+                    </button>
+                </form>
+            </div>
+        </div>
+    </section>
+</div>
+{{ end }}
+
+{{ define "pages/eliminations/run_detail.html" }}
+{{ template "layouts/base.html" . }}
 {{ end }}
