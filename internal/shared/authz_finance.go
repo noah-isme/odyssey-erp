@@ -7,6 +7,10 @@ const (
 	PermFinancePeriodClose = "finance.period.close"
 	PermFinanceOverride    = "finance.override.lock"
 	PermFinanceBoardPack   = "finance.boardpack"
+
+	// AR permissions
+	PermFinanceARView = "finance.ar.view"
+	PermFinanceAREdit = "finance.ar.edit"
 )
 
 // FinanceScopes lists all permissions related to the finance module.
@@ -17,5 +21,7 @@ func FinanceScopes() []string {
 		PermFinancePeriodClose,
 		PermFinanceOverride,
 		PermFinanceBoardPack,
+		PermFinanceARView,
+		PermFinanceAREdit,
 	}
 }

@@ -31,14 +31,14 @@ func NewHandler(logger *slog.Logger, service *Service, templates *view.Engine, c
 // MountRoutes registers AR routes.
 func (h *Handler) MountRoutes(r chi.Router) {
 	r.Group(func(r chi.Router) {
-		r.Use(h.rbac.RequireAny("ar.view"))
+		r.Use(h.rbac.RequireAny(shared.PermFinanceARView))
 		r.Get("/invoices", h.showARInvoiceForm)
 		r.Get("/payments", h.showARPaymentForm)
 		r.Get("/aging", h.showARAgingReport)
 		r.Get("/customer-statement", h.showCustomerStatement)
 	})
 	r.Group(func(r chi.Router) {
-		r.Use(h.rbac.RequireAll("ar.edit"))
+		r.Use(h.rbac.RequireAll(shared.PermFinanceAREdit))
 		r.Post("/invoices", h.createARInvoice)
 		r.Post("/payments", h.createARPayment)
 	})
