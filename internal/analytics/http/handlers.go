@@ -93,7 +93,7 @@ func (h *Handler) WithNow(fn func() time.Time) {
 
 func (h *Handler) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	sess := shared.SessionFromContext(r.Context())
-	if err := h.authorize(r.Context(), sess, shared.PermFinanceAnalyticsView); err != nil {
+	if err := h.authorize(r.Context(), sess, shared.PermFinanceAnalyticsView, shared.PermFinanceGLView); err != nil {
 		h.respondAuthError(w, err)
 		return
 	}
@@ -151,7 +151,7 @@ func (h *Handler) handleKPI(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) handlePDF(w http.ResponseWriter, r *http.Request) {
 	sess := shared.SessionFromContext(r.Context())
-	if err := h.authorize(r.Context(), sess, shared.PermFinanceAnalyticsExport); err != nil {
+	if err := h.authorize(r.Context(), sess, shared.PermFinanceAnalyticsExport, shared.PermFinanceGLView); err != nil {
 		h.respondAuthError(w, err)
 		return
 	}
@@ -206,7 +206,7 @@ func (h *Handler) handlePDF(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) handleCSV(w http.ResponseWriter, r *http.Request) {
 	sess := shared.SessionFromContext(r.Context())
-	if err := h.authorize(r.Context(), sess, shared.PermFinanceAnalyticsExport); err != nil {
+	if err := h.authorize(r.Context(), sess, shared.PermFinanceAnalyticsExport, shared.PermFinanceGLView); err != nil {
 		h.respondAuthError(w, err)
 		return
 	}
@@ -273,7 +273,7 @@ func (h *Handler) handleCSV(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *Handler) authorize(ctx context.Context, sess *shared.Session, perm string) error {
+func (h *Handler) authorize(ctx context.Context, sess *shared.Session, requiredPerms ...string) error {
 	if h.rbac == nil {
 		return fmt.Errorf("rbac service missing")
 	}
@@ -293,10 +293,12 @@ func (h *Handler) authorize(ctx context.Context, sess *shared.Session, perm stri
 	if err != nil {
 		return err
 	}
-	required := strings.ToLower(strings.TrimSpace(perm))
-	for _, granted := range perms {
-		if strings.EqualFold(granted, required) {
-			return nil
+	for _, req := range requiredPerms {
+		required := strings.ToLower(strings.TrimSpace(req))
+		for _, granted := range perms {
+			if strings.EqualFold(granted, required) {
+				return nil
+			}
 		}
 	}
 	return errPermissionDenied

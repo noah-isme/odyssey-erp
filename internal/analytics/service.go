@@ -30,18 +30,18 @@ func NewService(repo Repository, cache *Cache) *Service {
 	return &Service{repo: repo, cache: cache}
 }
 
-func optionalBranch(branchID *int64) interface{} {
+func optionalBranch(branchID *int64) pgtype.Int8 {
 	if branchID == nil {
-		return nil
+		return pgtype.Int8{Valid: false}
 	}
 	return pgtype.Int8{Int64: *branchID, Valid: true}
 }
 
-func dateParam(t time.Time) interface{} {
+func dateParam(t time.Time) pgtype.Date {
 	if t.IsZero() {
-		return nil
+		return pgtype.Date{Valid: false}
 	}
-	return t
+	return pgtype.Date{Time: t, Valid: true}
 }
 
 func branchToken(branchID *int64) string {

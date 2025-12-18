@@ -5,7 +5,7 @@ SELECT period,
 FROM mv_pl_monthly
 WHERE period BETWEEN sqlc.arg(from_period) AND sqlc.arg(to_period)
   AND company_id = sqlc.arg(company_id)
-  AND (sqlc.narg(branch_id) IS NULL OR branch_id = sqlc.narg(branch_id))
+  AND (sqlc.narg(branch_id)::bigint IS NULL OR branch_id = sqlc.narg(branch_id)::bigint)
 GROUP BY period
 ORDER BY period;
 

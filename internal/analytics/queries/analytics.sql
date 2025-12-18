@@ -9,7 +9,7 @@ SELECT m.period,
 FROM mv_pl_monthly m
 WHERE m.period BETWEEN sqlc.arg(from_period) AND sqlc.arg(to_period)
   AND m.company_id = sqlc.arg(company_id)
-  AND (sqlc.narg(branch_id) IS NULL OR m.branch_id = sqlc.narg(branch_id))
+  AND (sqlc.narg(branch_id)::bigint IS NULL OR m.branch_id = sqlc.narg(branch_id)::bigint)
 ORDER BY m.period;
 
 -- name: MonthlyCashflow :many
@@ -21,7 +21,7 @@ SELECT m.period,
 FROM mv_cashflow_monthly m
 WHERE m.period BETWEEN sqlc.arg(from_period) AND sqlc.arg(to_period)
   AND m.company_id = sqlc.arg(company_id)
-  AND (sqlc.narg(branch_id) IS NULL OR m.branch_id = sqlc.narg(branch_id))
+  AND (sqlc.narg(branch_id)::bigint IS NULL OR m.branch_id = sqlc.narg(branch_id)::bigint)
 ORDER BY m.period;
 
 -- name: AgingAR :many
@@ -29,7 +29,7 @@ SELECT a.bucket, a.amount::double precision AS amount, a.as_of
 FROM mv_ar_aging a
 WHERE a.as_of = sqlc.arg(as_of)
   AND a.company_id = sqlc.arg(company_id)
-  AND (sqlc.narg(branch_id) IS NULL OR a.branch_id = sqlc.narg(branch_id))
+  AND (sqlc.narg(branch_id)::bigint IS NULL OR a.branch_id = sqlc.narg(branch_id)::bigint)
 ORDER BY a.bucket;
 
 -- name: AgingAP :many
@@ -37,7 +37,7 @@ SELECT a.bucket, a.amount::double precision AS amount, a.as_of
 FROM mv_ap_aging a
 WHERE a.as_of = sqlc.arg(as_of)
   AND a.company_id = sqlc.arg(company_id)
-  AND (sqlc.narg(branch_id) IS NULL OR a.branch_id = sqlc.narg(branch_id))
+  AND (sqlc.narg(branch_id)::bigint IS NULL OR a.branch_id = sqlc.narg(branch_id)::bigint)
 ORDER BY a.bucket;
 
 -- name: KpiSummary :one
@@ -50,7 +50,7 @@ WITH pl AS (
   FROM mv_pl_monthly m
   WHERE m.period = sqlc.arg(period)
     AND m.company_id = sqlc.arg(company_id)
-    AND (sqlc.narg(branch_id) IS NULL OR m.branch_id = sqlc.narg(branch_id))
+    AND (sqlc.narg(branch_id)::bigint IS NULL OR m.branch_id = sqlc.narg(branch_id)::bigint)
 ), cash AS (
   SELECT
     COALESCE(SUM(m.cash_in)::double precision, 0) AS cash_in,
@@ -58,19 +58,19 @@ WITH pl AS (
   FROM mv_cashflow_monthly m
   WHERE m.period = sqlc.arg(period)
     AND m.company_id = sqlc.arg(company_id)
-    AND (sqlc.narg(branch_id) IS NULL OR m.branch_id = sqlc.narg(branch_id))
+    AND (sqlc.narg(branch_id)::bigint IS NULL OR m.branch_id = sqlc.narg(branch_id)::bigint)
 ), ar AS (
   SELECT COALESCE(SUM(a.amount)::double precision, 0) AS outstanding
   FROM mv_ar_aging a
   WHERE a.as_of = sqlc.arg(as_of)
     AND a.company_id = sqlc.arg(company_id)
-    AND (sqlc.narg(branch_id) IS NULL OR a.branch_id = sqlc.narg(branch_id))
+    AND (sqlc.narg(branch_id)::bigint IS NULL OR a.branch_id = sqlc.narg(branch_id)::bigint)
 ), ap AS (
   SELECT COALESCE(SUM(a.amount)::double precision, 0) AS outstanding
   FROM mv_ap_aging a
   WHERE a.as_of = sqlc.arg(as_of)
     AND a.company_id = sqlc.arg(company_id)
-    AND (sqlc.narg(branch_id) IS NULL OR a.branch_id = sqlc.narg(branch_id))
+    AND (sqlc.narg(branch_id)::bigint IS NULL OR a.branch_id = sqlc.narg(branch_id)::bigint)
 )
 SELECT
   pl.net_profit,

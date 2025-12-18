@@ -25,11 +25,11 @@ func (h *Handler) MountRoutes(r chi.Router) {
 			http.Error(w, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
 		}),
 	)
-	r.Get("/finance/audit/timeline", h.handleTimeline)
+	r.Get("/audit", h.handleTimeline)
 	r.Group(func(gr chi.Router) {
 		gr.Use(limiter)
-		gr.Get("/finance/audit/timeline/export.csv", h.handleExport)
-		gr.Get("/finance/audit/timeline/pdf", h.handlePDF)
+		gr.Get("/audit/export.csv", h.handleExport)
+		gr.Get("/audit/pdf", h.handlePDF)
 	})
 }
 

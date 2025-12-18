@@ -163,7 +163,8 @@ const Navigation = {
         document.querySelectorAll('.nav-item').forEach(item => {
             const href = item.getAttribute('href');
             item.classList.remove('active');
-            if (href === currentPath || (href !== '/' && currentPath.startsWith(href))) {
+            // Exact match only - sibling routes don't inherit active state
+            if (href === currentPath) {
                 item.classList.add('active');
             }
         });
