@@ -19,13 +19,12 @@
             padding: 0;
         }
     </style>
-    <!-- Critical: Theme restore MUST be blocking, before CSS paints -->
-    <script src="/static/js/core/theme-critical.js"></script>
-    <!-- Core UI (defer to not block rendering, but guaranteed to load) -->
-    <script src="/static/js/core/ui.js" defer></script>
-    <!-- Main JS modules (defer) -->
+    <!-- Critical: ui.js contains theme restore, MUST be blocking before CSS paints -->
+    <script src="/static/js/core/ui.js"></script>
+    <!-- Main JS modules -->
     <script type="module" src="/static/js/main.js"></script>
 </head>
+
 
 <body class="app-shell">
     {{ template "partials/header.html" . }}
