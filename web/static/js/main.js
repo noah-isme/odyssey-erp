@@ -26,7 +26,7 @@ import { ComboBox } from './features/combobox/index.js';
 
 // Component modules
 import { Inspector } from './components/inspector.js';
-import { DataTable } from './components/datatable.js';
+import { DataTable } from './features/datatable/index.js';
 import { FilterBar } from './components/filterbar.js';
 import { Forms } from './components/forms.js';
 import { Export } from './components/export.js';
@@ -51,6 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
     Slideout.init();
     Form.init();
     ComboBox.init();
+    DataTable.init();
 
     // Core
     Shortcuts.init();
@@ -58,7 +59,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Components
     Inspector.init();
-    DataTable.init();
     FilterBar.init();
     Forms.init();
     Export.init();
@@ -74,6 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
     DevTools.register('tabs', Tabs);
     DevTools.register('upload', Upload);
     DevTools.register('slideout', Slideout);
+    DevTools.register('datatable', DataTable);
 
     // Expose globally for inline usage
     window.OdysseyToast = Toast;
