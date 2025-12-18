@@ -1,5 +1,5 @@
 /**
- * Slide-out Panel Feature
+ * Slide-out Panel Feature - Mount + Event Delegation
  * Drawer from right for quick edit/view
  * Following state-driven-ui architecture
  * 
@@ -19,60 +19,147 @@
  * </div>
  */
 
+import {
+    reducer,
+    selectors,
+    getState,
+    setState,
+    deleteState,
+    setActiveId,
+    getActiveIdValue
+} from './store.js';
+import { effects } from './effects.js';
+import { view } from './view.js';
+
+// Track mounted slideouts
+const mounted = new Set();
+
+// ========== DISPATCH ==========
+function dispatch(id, action) {
+    const panel = view.getPanel(id);
+    if (!panel) return;
+
+    const prevState = getState(id);
+    const nextState = reducer(prevState, action);
+
+    if (JSON.stringify(nextState) !== JSON.stringify(prevState)) {
+        setState(id, nextState);
+
+        // View updates and effects
+        switch (action.type) {
+            case 'SLIDEOUT_OPEN':
+                setActiveId(id);
+                view.renderOpen(id, true);
+                effects.lockScroll();
+                effects.setupFocusTrap(id, panel);
+                requestAnimationFrame(() => {
+                    effects.focusFirst(panel);
+                });
+                panel.dispatchEvent(new CustomEvent('slideout-open', { bubbles: true }));
+                break;
+
+            case 'SLIDEOUT_CLOSE':
+                setActiveId(null);
+                view.renderOpen(id, false);
+                effects.unlockScroll();
+                effects.removeFocusTrap(id, panel);
+                effects.restoreFocus(id);
+                effects.scheduleCloseCleanup(id, () => {
+                    view.hidePanel(id);
+                });
+                panel.dispatchEvent(new CustomEvent('slideout-close', { bubbles: true }));
+                break;
+
+            case 'SLIDEOUT_SET_LOADING':
+                view.renderLoading(id, nextState.loading);
+                break;
+
+            case 'SLIDEOUT_SET_CONTENT':
+                view.renderContent(id, nextState.content);
+                break;
+
+            case 'SLIDEOUT_SET_ERROR':
+                view.renderError(id, nextState.error);
+                break;
+        }
+    }
+}
+
+// ========== EVENT HANDLERS ==========
+function handleClick(e) {
+    // Trigger button
+    const trigger = e.target.closest('[data-slideout-trigger]');
+    if (trigger) {
+        e.preventDefault();
+        const id = trigger.dataset.slideoutTrigger;
+        effects.saveFocus(id, trigger);
+        dispatch(id, { type: 'SLIDEOUT_OPEN' });
+        return;
+    }
+
+    // Close button
+    const closeBtn = e.target.closest('[data-slideout-close]');
+    if (closeBtn) {
+        const panel = closeBtn.closest('[data-slideout]');
+        if (panel) {
+            e.preventDefault();
+            dispatch(panel.dataset.slideout, { type: 'SLIDEOUT_CLOSE' });
+        }
+        return;
+    }
+
+    // Backdrop click
+    if (e.target.matches('.slideout-backdrop')) {
+        const activeId = getActiveIdValue();
+        if (activeId) {
+            dispatch(activeId, { type: 'SLIDEOUT_CLOSE' });
+        }
+    }
+}
+
+function handleKeydown(e) {
+    if (e.key === 'Escape') {
+        const activeId = getActiveIdValue();
+        if (activeId) {
+            e.preventDefault();
+            dispatch(activeId, { type: 'SLIDEOUT_CLOSE' });
+        }
+    }
+}
+
+// ========== INIT ==========
+function init() {
+    document.querySelectorAll('[data-slideout]').forEach(panel => {
+        const id = panel.dataset.slideout;
+        if (mounted.has(id)) return;
+        mounted.add(id);
+    });
+
+    // Event delegation
+    document.addEventListener('click', handleClick);
+    document.addEventListener('keydown', handleKeydown);
+}
+
+// ========== DESTROY ==========
+function destroy() {
+    document.removeEventListener('click', handleClick);
+    document.removeEventListener('keydown', handleKeydown);
+
+    mounted.forEach(id => {
+        effects.cleanup(id);
+        deleteState(id);
+        view.clearCache(id);
+    });
+
+    effects.cleanupAll();
+    view.removeBackdrop();
+    mounted.clear();
+}
+
+// ========== PUBLIC API ==========
 const Slideout = {
-    instances: new Map(),
-    activeId: null,
-
-    /**
-     * Initialize slideout panels
-     */
-    init() {
-        document.querySelectorAll('[data-slideout]').forEach(panel => {
-            const id = panel.dataset.slideout;
-            if (this.instances.has(id)) return;
-
-            this.instances.set(id, {
-                panel,
-                isOpen: false,
-                lastFocus: null
-            });
-        });
-
-        // Event delegation
-        document.addEventListener('click', (e) => {
-            // Trigger button
-            const trigger = e.target.closest('[data-slideout-trigger]');
-            if (trigger) {
-                e.preventDefault();
-                this.open(trigger.dataset.slideoutTrigger, trigger);
-                return;
-            }
-
-            // Close button
-            const closeBtn = e.target.closest('[data-slideout-close]');
-            if (closeBtn) {
-                const panel = closeBtn.closest('[data-slideout]');
-                if (panel) {
-                    e.preventDefault();
-                    this.close(panel.dataset.slideout);
-                }
-                return;
-            }
-
-            // Click on backdrop
-            const backdrop = e.target.closest('.slideout-backdrop');
-            if (backdrop && this.activeId) {
-                this.close(this.activeId);
-            }
-        });
-
-        // Escape key
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && this.activeId) {
-                this.close(this.activeId);
-            }
-        });
-    },
+    init,
+    destroy,
 
     /**
      * Open a slideout panel
@@ -80,42 +167,10 @@ const Slideout = {
      * @param {HTMLElement} trigger - Trigger element for focus restore
      */
     open(id, trigger = null) {
-        const instance = this.instances.get(id);
-        if (!instance || instance.isOpen) return;
-
-        instance.isOpen = true;
-        instance.lastFocus = trigger || document.activeElement;
-        this.activeId = id;
-
-        // Show panel
-        instance.panel.removeAttribute('hidden');
-        instance.panel.classList.add('open');
-
-        // Add backdrop if not exists
-        let backdrop = document.querySelector('.slideout-backdrop');
-        if (!backdrop) {
-            backdrop = document.createElement('div');
-            backdrop.className = 'slideout-backdrop';
-            document.body.appendChild(backdrop);
+        if (trigger) {
+            effects.saveFocus(id, trigger);
         }
-        backdrop.classList.add('visible');
-
-        // Lock body scroll
-        document.body.style.overflow = 'hidden';
-
-        // Focus first focusable element
-        requestAnimationFrame(() => {
-            const focusable = instance.panel.querySelector(
-                'input, select, textarea, button:not([data-slideout-close]), [tabindex]:not([tabindex="-1"])'
-            );
-            if (focusable) focusable.focus();
-        });
-
-        // Focus trap
-        this.setupFocusTrap(instance.panel);
-
-        // Emit event
-        instance.panel.dispatchEvent(new CustomEvent('slideout-open', { bubbles: true }));
+        dispatch(id, { type: 'SLIDEOUT_OPEN' });
     },
 
     /**
@@ -123,38 +178,7 @@ const Slideout = {
      * @param {string} id - Panel ID
      */
     close(id) {
-        const instance = this.instances.get(id);
-        if (!instance || !instance.isOpen) return;
-
-        instance.isOpen = false;
-        this.activeId = null;
-
-        // Hide panel
-        instance.panel.classList.remove('open');
-
-        // Wait for animation
-        setTimeout(() => {
-            if (!instance.isOpen) {
-                instance.panel.setAttribute('hidden', '');
-            }
-        }, 300);
-
-        // Hide backdrop
-        const backdrop = document.querySelector('.slideout-backdrop');
-        if (backdrop) {
-            backdrop.classList.remove('visible');
-        }
-
-        // Restore body scroll
-        document.body.style.overflow = '';
-
-        // Restore focus
-        if (instance.lastFocus) {
-            instance.lastFocus.focus();
-        }
-
-        // Emit event
-        instance.panel.dispatchEvent(new CustomEvent('slideout-close', { bubbles: true }));
+        dispatch(id, { type: 'SLIDEOUT_CLOSE' });
     },
 
     /**
@@ -163,10 +187,7 @@ const Slideout = {
      * @param {HTMLElement} trigger - Trigger element
      */
     toggle(id, trigger = null) {
-        const instance = this.instances.get(id);
-        if (!instance) return;
-
-        if (instance.isOpen) {
+        if (selectors.isOpen(id)) {
             this.close(id);
         } else {
             this.open(id, trigger);
@@ -174,66 +195,31 @@ const Slideout = {
     },
 
     /**
-     * Setup focus trap within panel
-     * @param {HTMLElement} panel - Panel element
-     */
-    setupFocusTrap(panel) {
-        const focusableSelector = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
-
-        panel.addEventListener('keydown', (e) => {
-            if (e.key !== 'Tab') return;
-
-            const focusable = panel.querySelectorAll(focusableSelector);
-            const firstFocusable = focusable[0];
-            const lastFocusable = focusable[focusable.length - 1];
-
-            if (e.shiftKey) {
-                if (document.activeElement === firstFocusable) {
-                    e.preventDefault();
-                    lastFocusable.focus();
-                }
-            } else {
-                if (document.activeElement === lastFocusable) {
-                    e.preventDefault();
-                    firstFocusable.focus();
-                }
-            }
-        });
-    },
-
-    /**
-     * Load content into slideout via AJAX
+     * Load content via AJAX
      * @param {string} id - Panel ID
      * @param {string} url - Content URL
      */
     async loadContent(id, url) {
-        const instance = this.instances.get(id);
-        if (!instance) return;
-
-        const body = instance.panel.querySelector('.slideout-body');
-        if (!body) return;
-
-        body.innerHTML = '<div class="slideout-loading"><div class="loading-spinner"></div></div>';
+        dispatch(id, { type: 'SLIDEOUT_SET_LOADING', payload: true });
 
         try {
-            const response = await fetch(url);
-            if (!response.ok) throw new Error('Failed to load content');
-
-            const html = await response.text();
-            body.innerHTML = html;
+            const content = await effects.loadContent(url);
+            dispatch(id, { type: 'SLIDEOUT_SET_CONTENT', payload: content });
         } catch (error) {
-            body.innerHTML = `<div class="slideout-error">${error.message}</div>`;
+            dispatch(id, { type: 'SLIDEOUT_SET_ERROR', payload: error.message });
         }
     },
 
     /**
      * Check if a panel is open
      * @param {string} id - Panel ID
-     * @returns {boolean} Is open
+     * @returns {boolean}
      */
     isOpen(id) {
-        return this.instances.get(id)?.isOpen || false;
-    }
+        return selectors.isOpen(id);
+    },
+
+    selectors
 };
 
 export { Slideout };

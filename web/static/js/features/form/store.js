@@ -92,6 +92,8 @@ function reducer(state, action) {
         }
 
         case 'FORM_SUBMIT_START': {
+            // Idempotency guard - prevent double submit
+            if (state.submitting) return state;
             return {
                 ...state,
                 submitting: true

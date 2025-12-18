@@ -16,323 +16,277 @@
  * </div>
  */
 
-const Upload = {
-    instances: new Map(),
+import { reducer, selectors, getState, setState, deleteState, createInitialState } from './store.js';
+import { effects } from './effects.js';
+import { view } from './view.js';
 
-    /**
-     * Initialize upload zones
-     */
-    init() {
-        document.querySelectorAll('[data-upload]').forEach(zone => {
-            const id = zone.dataset.upload;
-            if (this.instances.has(id)) return;
+// Track mounted upload zones
+const mounted = new Map();
 
-            this.instances.set(id, {
-                zone,
-                files: [],
-                uploading: false
-            });
+// ========== DISPATCH ==========
+function dispatch(id, action) {
+    const prevState = getState(id);
+    const nextState = reducer(prevState, action);
 
-            this.setupDragDrop(zone);
-            this.setupInput(zone);
-        });
+    if (JSON.stringify(nextState) !== JSON.stringify(prevState)) {
+        setState(id, nextState);
 
-        // Event delegation for browse button
-        document.addEventListener('click', (e) => {
-            const browseBtn = e.target.closest('[data-upload-browse]');
-            if (browseBtn) {
-                const zone = browseBtn.closest('[data-upload]');
-                const input = zone?.querySelector('[data-upload-input]');
-                if (input) input.click();
-            }
-        });
-    },
+        // View updates
+        switch (action.type) {
+            case 'UPLOAD_ADD_FILES':
+            case 'UPLOAD_REMOVE_FILE':
+            case 'UPLOAD_FILE_PROGRESS':
+            case 'UPLOAD_FILE_DONE':
+            case 'UPLOAD_FILE_ERROR':
+            case 'UPLOAD_CLEAR':
+                view.renderFileList(id, nextState.files);
+                break;
 
-    /**
-     * Setup drag & drop events
-     * @param {HTMLElement} zone - Upload zone element
-     */
-    setupDragDrop(zone) {
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            zone.addEventListener(eventName, (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-            });
-        });
-
-        ['dragenter', 'dragover'].forEach(eventName => {
-            zone.addEventListener(eventName, () => {
-                zone.classList.add('drag-over');
-            });
-        });
-
-        ['dragleave', 'drop'].forEach(eventName => {
-            zone.addEventListener(eventName, () => {
-                zone.classList.remove('drag-over');
-            });
-        });
-
-        zone.addEventListener('drop', (e) => {
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                this.handleFiles(zone.dataset.upload, files);
-            }
-        });
-    },
-
-    /**
-     * Setup file input
-     * @param {HTMLElement} zone - Upload zone element
-     */
-    setupInput(zone) {
-        const input = zone.querySelector('[data-upload-input]');
-        if (!input) return;
-
-        // Set accept attribute
-        if (zone.dataset.accept) {
-            input.accept = zone.dataset.accept;
+            case 'UPLOAD_START':
+            case 'UPLOAD_END':
+                view.renderUploading(id, nextState.uploading);
+                break;
         }
+    }
+}
 
-        input.addEventListener('change', () => {
-            if (input.files.length > 0) {
-                this.handleFiles(zone.dataset.upload, input.files);
-                input.value = ''; // Reset for same file selection
-            }
-        });
-    },
+// ========== UPLOAD LOGIC ==========
+async function uploadAll(id) {
+    const config = mounted.get(id);
+    if (!config) return;
 
-    /**
-     * Handle selected files
-     * @param {string} id - Upload zone ID
-     * @param {FileList} fileList - Selected files
-     */
-    handleFiles(id, fileList) {
-        const instance = this.instances.get(id);
-        if (!instance) return;
+    const state = getState(id);
+    if (state.uploading) return;
 
-        const zone = instance.zone;
-        const maxSize = parseInt(zone.dataset.maxSize) || 10 * 1024 * 1024; // 10MB default
-        const accept = (zone.dataset.accept || '').split(',').map(s => s.trim().toLowerCase());
+    const endpoint = config.endpoint;
+    if (!endpoint) return;
 
-        const validFiles = [];
-        const errors = [];
+    dispatch(id, { type: 'UPLOAD_START' });
 
-        Array.from(fileList).forEach(file => {
-            // Check size
-            if (file.size > maxSize) {
-                errors.push(`${file.name}: File too large (max ${this.formatSize(maxSize)})`);
-                return;
-            }
+    const files = state.files;
+    for (let i = 0; i < files.length; i++) {
+        const item = files[i];
+        if (item.status === 'done') continue;
 
-            // Check type
-            if (accept.length > 0 && accept[0] !== '') {
-                const ext = '.' + file.name.split('.').pop().toLowerCase();
-                const mimeMatch = accept.some(a => file.type.includes(a.replace('.', '')));
-                const extMatch = accept.includes(ext);
-
-                if (!mimeMatch && !extMatch) {
-                    errors.push(`${file.name}: File type not allowed`);
-                    return;
+        try {
+            const result = await effects.uploadFile(
+                id, i, endpoint, item.file,
+                (progress) => {
+                    dispatch(id, {
+                        type: 'UPLOAD_FILE_PROGRESS',
+                        payload: { index: i, progress }
+                    });
                 }
-            }
-
-            validFiles.push(file);
-        });
-
-        // Show errors
-        errors.forEach(err => window.OdysseyToast?.warning(err));
-
-        // Add valid files to queue
-        if (validFiles.length > 0) {
-            instance.files.push(...validFiles);
-            this.renderFileList(id);
-
-            // Auto-upload if endpoint provided
-            if (zone.dataset.endpoint && zone.dataset.autoUpload !== 'false') {
-                this.uploadAll(id);
-            }
-        }
-    },
-
-    /**
-     * Render file list
-     * @param {string} id - Upload zone ID
-     */
-    renderFileList(id) {
-        const instance = this.instances.get(id);
-        if (!instance) return;
-
-        const list = instance.zone.querySelector('[data-upload-list]');
-        if (!list) return;
-
-        list.innerHTML = instance.files.map((file, index) => `
-            <div class="upload-item${file.status === 'uploading' ? ' uploading' : ''}${file.status === 'done' ? ' done' : ''}${file.status === 'error' ? ' error' : ''}" data-file-index="${index}">
-                <div class="upload-item-icon">
-                    ${this.getFileIcon(file.name)}
-                </div>
-                <div class="upload-item-info">
-                    <div class="upload-item-name">${this.escapeHtml(file.name)}</div>
-                    <div class="upload-item-meta">${this.formatSize(file.size)}${file.error ? ` - ${file.error}` : ''}</div>
-                    ${file.progress !== undefined && file.progress < 100 ? `
-                        <div class="upload-item-progress">
-                            <div class="upload-item-progress-bar" style="width: ${file.progress}%"></div>
-                        </div>
-                    ` : ''}
-                </div>
-                <button class="upload-item-remove" data-upload-remove="${index}" aria-label="Remove">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                    </svg>
-                </button>
-            </div>
-        `).join('');
-
-        // Remove button handlers
-        list.querySelectorAll('[data-upload-remove]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const index = parseInt(btn.dataset.uploadRemove);
-                instance.files.splice(index, 1);
-                this.renderFileList(id);
+            );
+            dispatch(id, {
+                type: 'UPLOAD_FILE_DONE',
+                payload: { index: i, result }
             });
-        });
-    },
-
-    /**
-     * Upload all files
-     * @param {string} id - Upload zone ID
-     */
-    async uploadAll(id) {
-        const instance = this.instances.get(id);
-        if (!instance || instance.uploading) return;
-
-        const endpoint = instance.zone.dataset.endpoint;
-        if (!endpoint) return;
-
-        instance.uploading = true;
-
-        for (let i = 0; i < instance.files.length; i++) {
-            const file = instance.files[i];
-            if (file.status === 'done') continue;
-
-            file.status = 'uploading';
-            file.progress = 0;
-            this.renderFileList(id);
-
-            try {
-                await this.uploadFile(endpoint, file, (progress) => {
-                    file.progress = progress;
-                    this.renderFileList(id);
-                });
-
-                file.status = 'done';
-                file.progress = 100;
-            } catch (error) {
-                file.status = 'error';
-                file.error = error.message;
-            }
-
-            this.renderFileList(id);
+        } catch (error) {
+            dispatch(id, {
+                type: 'UPLOAD_FILE_ERROR',
+                payload: { index: i, error: error.message }
+            });
         }
+    }
 
-        instance.uploading = false;
+    dispatch(id, { type: 'UPLOAD_END' });
 
-        // Emit event
-        instance.zone.dispatchEvent(new CustomEvent('upload-complete', {
-            detail: { files: instance.files },
+    // Emit event
+    const container = view.getContainer(id);
+    if (container) {
+        container.dispatchEvent(new CustomEvent('upload-complete', {
+            detail: { files: getState(id).files },
             bubbles: true
         }));
-    },
+    }
+}
 
-    /**
-     * Upload single file
-     * @param {string} endpoint - Upload endpoint
-     * @param {File} file - File to upload
-     * @param {Function} onProgress - Progress callback
-     * @returns {Promise} Upload promise
-     */
-    uploadFile(endpoint, file, onProgress) {
-        return new Promise((resolve, reject) => {
-            const xhr = new XMLHttpRequest();
-            const formData = new FormData();
-            formData.append('file', file);
+// ========== EVENT HANDLERS ==========
+function handleClick(e) {
+    // Browse button
+    const browseBtn = e.target.closest('[data-upload-browse]');
+    if (browseBtn) {
+        const container = browseBtn.closest('[data-upload]');
+        const input = container?.querySelector('[data-upload-input]');
+        if (input) input.click();
+        return;
+    }
 
-            xhr.upload.addEventListener('progress', (e) => {
-                if (e.lengthComputable) {
-                    onProgress(Math.round((e.loaded / e.total) * 100));
-                }
-            });
+    // Remove button
+    const removeBtn = e.target.closest('[data-upload-remove]');
+    if (removeBtn) {
+        e.preventDefault();
+        const container = removeBtn.closest('[data-upload]');
+        if (container) {
+            const id = container.dataset.upload;
+            const index = parseInt(removeBtn.dataset.uploadRemove);
+            effects.cancelUpload(id, index);
+            dispatch(id, { type: 'UPLOAD_REMOVE_FILE', payload: index });
+        }
+    }
+}
 
-            xhr.addEventListener('load', () => {
-                if (xhr.status >= 200 && xhr.status < 300) {
-                    resolve(JSON.parse(xhr.responseText));
-                } else {
-                    reject(new Error(xhr.statusText || 'Upload failed'));
-                }
-            });
+function handleDragEnter(e) {
+    e.preventDefault();
+    const container = e.target.closest('[data-upload]');
+    if (container) {
+        view.renderDragOver(container.dataset.upload, true);
+    }
+}
 
-            xhr.addEventListener('error', () => reject(new Error('Network error')));
+function handleDragLeave(e) {
+    e.preventDefault();
+    const container = e.target.closest('[data-upload]');
+    if (container && !container.contains(e.relatedTarget)) {
+        view.renderDragOver(container.dataset.upload, false);
+    }
+}
 
-            xhr.open('POST', endpoint);
-            xhr.send(formData);
-        });
-    },
+function handleDragOver(e) {
+    e.preventDefault();
+}
 
-    /**
-     * Format file size
-     * @param {number} bytes - Size in bytes
-     * @returns {string} Formatted size
-     */
-    formatSize(bytes) {
-        if (bytes < 1024) return bytes + ' B';
-        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-    },
+function handleDrop(e) {
+    e.preventDefault();
+    const container = e.target.closest('[data-upload]');
+    if (!container) return;
 
-    /**
-     * Get file icon based on extension
-     * @param {string} filename - File name
-     * @returns {string} SVG icon
-     */
-    getFileIcon(filename) {
-        const ext = filename.split('.').pop().toLowerCase();
-        const icons = {
-            pdf: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
-            default: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>'
+    const id = container.dataset.upload;
+    view.renderDragOver(id, false);
+
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+        handleFiles(id, files);
+    }
+}
+
+function handleInputChange(e) {
+    const input = e.target;
+    if (!input.matches('[data-upload-input]')) return;
+
+    const container = input.closest('[data-upload]');
+    if (!container) return;
+
+    if (input.files.length > 0) {
+        handleFiles(container.dataset.upload, input.files);
+        input.value = ''; // Reset for same file selection
+    }
+}
+
+function handleFiles(id, fileList) {
+    const config = mounted.get(id);
+    if (!config) return;
+
+    const { valid, errors } = effects.validateFiles(fileList, {
+        maxSize: config.maxSize,
+        accept: config.accept
+    });
+
+    // Show errors
+    errors.forEach(err => effects.showError(err));
+
+    // Add valid files to state
+    if (valid.length > 0) {
+        dispatch(id, { type: 'UPLOAD_ADD_FILES', payload: valid });
+
+        // Auto-upload if enabled
+        if (config.endpoint && config.autoUpload !== false) {
+            uploadAll(id);
+        }
+    }
+}
+
+// ========== INIT ==========
+function init() {
+    document.querySelectorAll('[data-upload]').forEach(container => {
+        const id = container.dataset.upload;
+        if (mounted.has(id)) return;
+
+        const config = {
+            endpoint: container.dataset.endpoint,
+            accept: container.dataset.accept || '',
+            maxSize: parseInt(container.dataset.maxSize) || 10 * 1024 * 1024,
+            autoUpload: container.dataset.autoUpload !== 'false'
         };
-        return icons[ext] || icons.default;
-    },
+
+        mounted.set(id, config);
+
+        // Set accept on input
+        const input = container.querySelector('[data-upload-input]');
+        if (input && config.accept) {
+            input.accept = config.accept;
+        }
+    });
+
+    // Event delegation
+    document.addEventListener('click', handleClick);
+    document.addEventListener('dragenter', handleDragEnter);
+    document.addEventListener('dragleave', handleDragLeave);
+    document.addEventListener('dragover', handleDragOver);
+    document.addEventListener('drop', handleDrop);
+    document.addEventListener('change', handleInputChange);
+}
+
+// ========== DESTROY ==========
+function destroy() {
+    document.removeEventListener('click', handleClick);
+    document.removeEventListener('dragenter', handleDragEnter);
+    document.removeEventListener('dragleave', handleDragLeave);
+    document.removeEventListener('dragover', handleDragOver);
+    document.removeEventListener('drop', handleDrop);
+    document.removeEventListener('change', handleInputChange);
+
+    mounted.forEach((_, id) => {
+        effects.cancelAll(id);
+        deleteState(id);
+        view.clearCache(id);
+    });
+
+    mounted.clear();
+}
+
+// ========== PUBLIC API ==========
+const Upload = {
+    init,
+    destroy,
 
     /**
-     * Escape HTML
-     * @param {string} str - String to escape
-     * @returns {string} Escaped string
-     */
-    escapeHtml(str) {
-        const div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML;
-    },
-
-    /**
-     * Get files from an upload zone
+     * Upload all pending files
      * @param {string} id - Upload zone ID
-     * @returns {Array} Files array
+     */
+    upload(id) {
+        uploadAll(id);
+    },
+
+    /**
+     * Get files from upload zone
+     * @param {string} id - Upload zone ID
+     * @returns {Array}
      */
     getFiles(id) {
-        return this.instances.get(id)?.files || [];
+        return selectors.getFiles(id);
     },
 
     /**
-     * Clear files from an upload zone
+     * Clear files from upload zone
      * @param {string} id - Upload zone ID
      */
     clear(id) {
-        const instance = this.instances.get(id);
-        if (instance) {
-            instance.files = [];
-            this.renderFileList(id);
-        }
-    }
+        effects.cancelAll(id);
+        dispatch(id, { type: 'UPLOAD_CLEAR' });
+    },
+
+    /**
+     * Check if uploading
+     * @param {string} id - Upload zone ID
+     * @returns {boolean}
+     */
+    isUploading(id) {
+        return selectors.isUploading(id);
+    },
+
+    selectors
 };
 
 export { Upload };

@@ -1,5 +1,6 @@
 /**
- * Tabs Feature - Tab Interface Component
+ * Tabs Feature - Mount + Event Delegation
+ * Tab Interface Component
  * Following state-driven-ui architecture
  * 
  * Usage:
@@ -11,159 +12,169 @@
  *   </div>
  *   <div class="tabs-content">
  *     <div data-tab-panel="info" class="tab-panel active">...</div>
- *     <div data-tab-panel="items" class="tab-panel">...</div>
- *     <div data-tab-panel="history" class="tab-panel">...</div>
+ *     <div data-tab-panel="items" class="tab-panel" hidden>...</div>
+ *     <div data-tab-panel="history" class="tab-panel" hidden>...</div>
  *   </div>
  * </div>
  */
 
-const Tabs = {
-    instances: new Map(),
+import { reducer, selectors, getState, setState, deleteState, createInitialState } from './store.js';
+import { effects } from './effects.js';
+import { view } from './view.js';
 
-    /**
-     * Initialize tabs
-     */
-    init() {
-        document.querySelectorAll('[data-tabs]').forEach(container => {
-            const id = container.dataset.tabs;
-            if (this.instances.has(id)) return;
+// Track mounted tabs
+const mounted = new Set();
 
-            this.instances.set(id, { container, activeTab: null });
+// ========== DISPATCH ==========
+function dispatch(id, action) {
+    const prevState = getState(id);
+    const nextState = reducer(prevState, action);
 
-            // Restore from URL param or localStorage
-            const activeTab = this.getInitialTab(container);
-            if (activeTab) {
-                this.activate(id, activeTab, false);
+    if (JSON.stringify(nextState) !== JSON.stringify(prevState)) {
+        setState(id, nextState);
+
+        // View updates
+        if (action.type === 'TABS_ACTIVATE') {
+            view.render(id, nextState.activeTab);
+
+            // Effects
+            if (nextState.persist) {
+                effects.persist(id, nextState.activeTab);
             }
-        });
+        }
+    }
+}
 
-        // Event delegation
-        document.addEventListener('click', (e) => {
-            const tab = e.target.closest('[data-tab]');
-            if (!tab) return;
+// ========== EVENT HANDLERS ==========
+function handleClick(e) {
+    const tab = e.target.closest('[data-tab]');
+    if (!tab) return;
 
-            const container = tab.closest('[data-tabs]');
-            if (!container) return;
+    const container = tab.closest('[data-tabs]');
+    if (!container) return;
 
-            e.preventDefault();
-            const tabId = container.dataset.tabs;
-            const tabName = tab.dataset.tab;
-            this.activate(tabId, tabName, true);
-        });
+    e.preventDefault();
+    const id = container.dataset.tabs;
+    const tabName = tab.dataset.tab;
 
-        // Keyboard navigation
-        document.addEventListener('keydown', (e) => {
-            if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+    dispatch(id, { type: 'TABS_ACTIVATE', payload: tabName });
 
-            const tab = e.target.closest('[data-tab]');
-            if (!tab) return;
+    // Update URL
+    const state = getState(id);
+    effects.updateUrl(state.paramName, tabName);
 
-            const container = tab.closest('[data-tabs]');
-            if (!container) return;
+    // Emit event
+    container.dispatchEvent(new CustomEvent('tab-change', {
+        detail: { tab: tabName },
+        bubbles: true
+    }));
+}
 
-            e.preventDefault();
-            const tabs = Array.from(container.querySelectorAll('[data-tab]'));
-            const currentIndex = tabs.indexOf(tab);
-            let newIndex;
+function handleKeydown(e) {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
 
-            switch (e.key) {
-                case 'ArrowLeft':
-                    newIndex = currentIndex > 0 ? currentIndex - 1 : tabs.length - 1;
-                    break;
-                case 'ArrowRight':
-                    newIndex = currentIndex < tabs.length - 1 ? currentIndex + 1 : 0;
-                    break;
-                case 'Home':
-                    newIndex = 0;
-                    break;
-                case 'End':
-                    newIndex = tabs.length - 1;
-                    break;
-            }
+    const tab = e.target.closest('[data-tab]');
+    if (!tab) return;
 
-            tabs[newIndex].focus();
-            this.activate(container.dataset.tabs, tabs[newIndex].dataset.tab, true);
-        });
-    },
+    const container = tab.closest('[data-tabs]');
+    if (!container) return;
 
-    /**
-     * Get initial active tab
-     * @param {HTMLElement} container - Tabs container
-     * @returns {string|null} Tab name
-     */
-    getInitialTab(container) {
+    e.preventDefault();
+    const id = container.dataset.tabs;
+    const tabs = Array.from(container.querySelectorAll('[data-tab]'));
+    const currentIndex = tabs.indexOf(tab);
+    let newIndex;
+
+    switch (e.key) {
+        case 'ArrowLeft':
+            newIndex = currentIndex > 0 ? currentIndex - 1 : tabs.length - 1;
+            break;
+        case 'ArrowRight':
+            newIndex = currentIndex < tabs.length - 1 ? currentIndex + 1 : 0;
+            break;
+        case 'Home':
+            newIndex = 0;
+            break;
+        case 'End':
+            newIndex = tabs.length - 1;
+            break;
+    }
+
+    const newTab = tabs[newIndex];
+    effects.focusTab(newTab);
+
+    dispatch(id, { type: 'TABS_ACTIVATE', payload: newTab.dataset.tab });
+
+    // Update URL
+    const state = getState(id);
+    effects.updateUrl(state.paramName, newTab.dataset.tab);
+}
+
+// ========== INIT ==========
+function init() {
+    document.querySelectorAll('[data-tabs]').forEach(container => {
         const id = container.dataset.tabs;
+        if (mounted.has(id)) return;
+
+        mounted.add(id);
+
         const persist = container.dataset.persist === 'true';
         const paramName = container.dataset.param || 'tab';
+        const tabs = view.getTabNames(id);
 
-        // Check URL param first
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.has(paramName)) {
-            return urlParams.get(paramName);
+        // Initialize state
+        dispatch(id, {
+            type: 'TABS_INIT',
+            payload: { tabs, persist, paramName }
+        });
+
+        // Get initial tab
+        let activeTab = effects.getInitialTab(id, paramName, persist);
+        if (!activeTab) {
+            activeTab = view.getDefaultTab(id);
         }
 
-        // Check localStorage
-        if (persist) {
-            const saved = localStorage.getItem(`odyssey.tabs.${id}`);
-            if (saved) return saved;
+        if (activeTab) {
+            dispatch(id, { type: 'TABS_ACTIVATE', payload: activeTab });
         }
+    });
 
-        // Default to first tab or one with .active class
-        const activeTab = container.querySelector('[data-tab].active');
-        if (activeTab) return activeTab.dataset.tab;
+    // Event delegation
+    document.addEventListener('click', handleClick);
+    document.addEventListener('keydown', handleKeydown);
+}
 
-        const firstTab = container.querySelector('[data-tab]');
-        return firstTab?.dataset.tab || null;
-    },
+// ========== DESTROY ==========
+function destroy() {
+    document.removeEventListener('click', handleClick);
+    document.removeEventListener('keydown', handleKeydown);
+
+    mounted.forEach(id => {
+        deleteState(id);
+        view.clearCache(id);
+    });
+
+    mounted.clear();
+}
+
+// ========== PUBLIC API ==========
+const Tabs = {
+    init,
+    destroy,
 
     /**
-     * Activate a tab
+     * Activate a tab programmatically
      * @param {string} tabsId - Tabs container ID
      * @param {string} tabName - Tab to activate
      * @param {boolean} updateUrl - Whether to update URL
      */
     activate(tabsId, tabName, updateUrl = true) {
-        const instance = this.instances.get(tabsId);
-        if (!instance) return;
+        dispatch(tabsId, { type: 'TABS_ACTIVATE', payload: tabName });
 
-        const { container } = instance;
-        const persist = container.dataset.persist === 'true';
-        const paramName = container.dataset.param || 'tab';
-
-        // Update tab buttons
-        container.querySelectorAll('[data-tab]').forEach(tab => {
-            const isActive = tab.dataset.tab === tabName;
-            tab.classList.toggle('active', isActive);
-            tab.setAttribute('aria-selected', isActive);
-            tab.setAttribute('tabindex', isActive ? '0' : '-1');
-        });
-
-        // Update panels
-        container.querySelectorAll('[data-tab-panel]').forEach(panel => {
-            const isActive = panel.dataset.tabPanel === tabName;
-            panel.classList.toggle('active', isActive);
-            panel.setAttribute('hidden', !isActive ? '' : null);
-        });
-
-        // Save state
-        instance.activeTab = tabName;
-
-        if (persist) {
-            localStorage.setItem(`odyssey.tabs.${tabsId}`, tabName);
-        }
-
-        // Update URL
         if (updateUrl) {
-            const url = new URL(window.location);
-            url.searchParams.set(paramName, tabName);
-            window.history.replaceState({}, '', url);
+            const state = getState(tabsId);
+            effects.updateUrl(state.paramName, tabName);
         }
-
-        // Emit event for any external listeners
-        container.dispatchEvent(new CustomEvent('tab-change', {
-            detail: { tab: tabName },
-            bubbles: true
-        }));
     },
 
     /**
@@ -172,8 +183,10 @@ const Tabs = {
      * @returns {string|null} Active tab name
      */
     getActive(tabsId) {
-        return this.instances.get(tabsId)?.activeTab || null;
-    }
+        return selectors.getActiveTab(tabsId);
+    },
+
+    selectors
 };
 
 export { Tabs };
