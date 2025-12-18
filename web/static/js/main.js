@@ -3,14 +3,17 @@
  * Initializes all modules following state-driven architecture
  */
 
-// Core modules (legacy - to be migrated)
-import { Toast, Loading } from './core/toast.js';
+// Core modules (still needed for Loading)
+import { Loading } from './core/toast.js';
 import { Shortcuts } from './core/shortcuts.js';
 
 // Feature modules (state-driven architecture)
 import { Theme } from './features/theme/index.js';
 import { Sidebar, Navigation } from './features/sidebar/index.js';
 import { Header } from './features/header/index.js';
+import { Menu } from './features/menu/index.js';
+import { Modal } from './features/modal/index.js';
+import { Toast } from './features/toast/index.js';
 import { Lookup } from './features/lookup/index.js';
 import { DateRangePicker } from './features/datepicker/index.js';
 import { TableEdit } from './features/table-edit/index.js';
@@ -19,7 +22,6 @@ import { Upload } from './features/upload/index.js';
 import { Slideout } from './features/slideout/index.js';
 
 // Component modules
-import { Modal } from './components/modal.js';
 import { Inspector } from './components/inspector.js';
 import { DataTable } from './components/datatable.js';
 import { FilterBar } from './components/filterbar.js';
@@ -35,6 +37,9 @@ document.addEventListener('DOMContentLoaded', () => {
     Sidebar.init();
     Navigation.init();
     Header.init();
+    Menu.init();
+    Modal.init();
+    Toast.init();
     Lookup.init();
     DateRangePicker.init();
     TableEdit.init();
@@ -42,13 +47,11 @@ document.addEventListener('DOMContentLoaded', () => {
     Upload.init();
     Slideout.init();
 
-    // Core (legacy)
-    Toast.init();
+    // Core
     Shortcuts.init();
     Loading.init();
 
     // Components
-    Modal.init();
     Inspector.init();
     DataTable.init();
     FilterBar.init();
@@ -61,6 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.OdysseyToast = Toast;
     window.OdysseyLoading = Loading;
     window.OdysseyModal = Modal;
+    window.OdysseyMenu = Menu;
     window.OdysseyInspector = Inspector;
     window.OdysseyDataTable = DataTable;
     window.OdysseyTheme = Theme;
