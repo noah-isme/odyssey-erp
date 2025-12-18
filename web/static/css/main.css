@@ -28,6 +28,7 @@
 @import url('./components/upload.css');
 @import url('./components/slideout.css');
 @import url('./components/progress.css');
+@import url('./components/combobox.css');
 
 /* Pages */
 @import url('./pages/dashboard.css');

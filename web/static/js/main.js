@@ -20,6 +20,8 @@ import { TableEdit } from './features/table-edit/index.js';
 import { Tabs } from './features/tabs/index.js';
 import { Upload } from './features/upload/index.js';
 import { Slideout } from './features/slideout/index.js';
+import { Form } from './features/form/index.js';
+import { ComboBox } from './features/combobox/index.js';
 
 // Component modules
 import { Inspector } from './components/inspector.js';
@@ -46,6 +48,8 @@ document.addEventListener('DOMContentLoaded', () => {
     Tabs.init();
     Upload.init();
     Slideout.init();
+    Form.init();
+    ComboBox.init();
 
     // Core
     Shortcuts.init();
@@ -79,6 +83,9 @@ document.addEventListener('DOMContentLoaded', () => {
     window.OdysseyUpload = Upload;
     window.OdysseySlideout = Slideout;
     window.OdysseyProgress = Progress;
+    window.OdysseyForm = Form;
+    window.OdysseyComboBox = ComboBox;
 
     console.log('🚀 Odyssey ERP initialized');
 });
+
