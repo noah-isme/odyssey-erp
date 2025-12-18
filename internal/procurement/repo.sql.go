@@ -3,6 +3,7 @@ package procurement
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -179,6 +180,217 @@ FROM ap_invoices WHERE status IN ('POSTED','PAID') ORDER BY due_at`)
 		return nil, err
 	}
 	return invoices, nil
+}
+
+// ListPOs returns purchase orders with supplier name and total.
+func (r *Repository) ListPOs(ctx context.Context, limit, offset int, filters ListFilters) ([]POListItem, int, error) {
+	// Count query
+	countSQL := `SELECT COUNT(*) FROM pos p WHERE 1=1`
+	args := []any{}
+	argNum := 1
+
+	if filters.Status != "" {
+		countSQL += ` AND p.status = $` + itoa(argNum)
+		args = append(args, filters.Status)
+		argNum++
+	}
+	if filters.SupplierID > 0 {
+		countSQL += ` AND p.supplier_id = $` + itoa(argNum)
+		args = append(args, filters.SupplierID)
+		argNum++
+	}
+	if filters.Search != "" {
+		countSQL += ` AND p.number ILIKE $` + itoa(argNum)
+		args = append(args, "%"+filters.Search+"%")
+		argNum++
+	}
+
+	var total int
+	if err := r.pool.QueryRow(ctx, countSQL, args...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	// Data query with JOIN
+	dataSQL := `SELECT p.id, p.number, p.supplier_id, COALESCE(s.name, '') AS supplier_name,
+		p.status, p.currency, COALESCE(p.expected_date, CURRENT_DATE), p.created_at,
+		COALESCE((SELECT SUM(qty * price) FROM po_lines WHERE po_id = p.id), 0) AS total
+	FROM pos p
+	LEFT JOIN suppliers s ON s.id = p.supplier_id
+	WHERE 1=1`
+
+	args2 := []any{}
+	argNum2 := 1
+	if filters.Status != "" {
+		dataSQL += ` AND p.status = $` + itoa(argNum2)
+		args2 = append(args2, filters.Status)
+		argNum2++
+	}
+	if filters.SupplierID > 0 {
+		dataSQL += ` AND p.supplier_id = $` + itoa(argNum2)
+		args2 = append(args2, filters.SupplierID)
+		argNum2++
+	}
+	if filters.Search != "" {
+		dataSQL += ` AND p.number ILIKE $` + itoa(argNum2)
+		args2 = append(args2, "%"+filters.Search+"%")
+		argNum2++
+	}
+
+	// ORDER BY with sorting
+	orderBy := sortOrderPO(filters.SortBy, filters.SortDir)
+	dataSQL += ` ORDER BY ` + orderBy + ` LIMIT $` + itoa(argNum2) + ` OFFSET $` + itoa(argNum2+1)
+	args2 = append(args2, limit, offset)
+
+	rows, err := r.pool.Query(ctx, dataSQL, args2...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var items []POListItem
+	for rows.Next() {
+		var item POListItem
+		if err := rows.Scan(&item.ID, &item.Number, &item.SupplierID, &item.SupplierName,
+			&item.Status, &item.Currency, &item.ExpectedDate, &item.CreatedAt, &item.Total); err != nil {
+			return nil, 0, err
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+	return items, total, nil
+}
+
+// ListGRNs returns goods receipts with supplier and warehouse names.
+func (r *Repository) ListGRNs(ctx context.Context, limit, offset int, filters ListFilters) ([]GRNListItem, int, error) {
+	// Count query
+	countSQL := `SELECT COUNT(*) FROM grns g WHERE 1=1`
+	args := []any{}
+	argNum := 1
+
+	if filters.Status != "" {
+		countSQL += ` AND g.status = $` + itoa(argNum)
+		args = append(args, filters.Status)
+		argNum++
+	}
+	if filters.SupplierID > 0 {
+		countSQL += ` AND g.supplier_id = $` + itoa(argNum)
+		args = append(args, filters.SupplierID)
+		argNum++
+	}
+	if filters.Search != "" {
+		countSQL += ` AND g.number ILIKE $` + itoa(argNum)
+		args = append(args, "%"+filters.Search+"%")
+		argNum++
+	}
+
+	var total int
+	if err := r.pool.QueryRow(ctx, countSQL, args...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	// Data query with JOINs
+	dataSQL := `SELECT g.id, g.number, COALESCE(g.po_id, 0), COALESCE(p.number, '') AS po_number,
+		g.supplier_id, COALESCE(s.name, '') AS supplier_name,
+		g.warehouse_id, COALESCE(w.name, '') AS warehouse_name,
+		g.status, g.received_at, g.created_at
+	FROM grns g
+	LEFT JOIN pos p ON p.id = g.po_id
+	LEFT JOIN suppliers s ON s.id = g.supplier_id
+	LEFT JOIN warehouses w ON w.id = g.warehouse_id
+	WHERE 1=1`
+
+	args2 := []any{}
+	argNum2 := 1
+	if filters.Status != "" {
+		dataSQL += ` AND g.status = $` + itoa(argNum2)
+		args2 = append(args2, filters.Status)
+		argNum2++
+	}
+	if filters.SupplierID > 0 {
+		dataSQL += ` AND g.supplier_id = $` + itoa(argNum2)
+		args2 = append(args2, filters.SupplierID)
+		argNum2++
+	}
+	if filters.Search != "" {
+		dataSQL += ` AND g.number ILIKE $` + itoa(argNum2)
+		args2 = append(args2, "%"+filters.Search+"%")
+		argNum2++
+	}
+
+	// ORDER BY with sorting
+	orderBy := sortOrderGRN(filters.SortBy, filters.SortDir)
+	dataSQL += ` ORDER BY ` + orderBy + ` LIMIT $` + itoa(argNum2) + ` OFFSET $` + itoa(argNum2+1)
+	args2 = append(args2, limit, offset)
+
+	rows, err := r.pool.Query(ctx, dataSQL, args2...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var items []GRNListItem
+	for rows.Next() {
+		var item GRNListItem
+		if err := rows.Scan(&item.ID, &item.Number, &item.POID, &item.PONumber,
+			&item.SupplierID, &item.SupplierName, &item.WarehouseID, &item.WarehouseName,
+			&item.Status, &item.ReceivedAt, &item.CreatedAt); err != nil {
+			return nil, 0, err
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+	return items, total, nil
+}
+
+// itoa converts int to string for dynamic query building.
+func itoa(i int) string {
+	return fmt.Sprintf("%d", i)
+}
+
+// sortOrderPO returns a safe ORDER BY clause for PO queries.
+func sortOrderPO(sortBy, sortDir string) string {
+	dir := "DESC"
+	if sortDir == "asc" {
+		dir = "ASC"
+	}
+	switch sortBy {
+	case "number":
+		return "p.number " + dir
+	case "supplier":
+		return "supplier_name " + dir
+	case "expected_date":
+		return "p.expected_date " + dir
+	case "total":
+		return "total " + dir
+	case "status":
+		return "p.status " + dir
+	default:
+		return "p.created_at DESC"
+	}
+}
+
+// sortOrderGRN returns a safe ORDER BY clause for GRN queries.
+func sortOrderGRN(sortBy, sortDir string) string {
+	dir := "DESC"
+	if sortDir == "asc" {
+		dir = "ASC"
+	}
+	switch sortBy {
+	case "number":
+		return "g.number " + dir
+	case "supplier":
+		return "supplier_name " + dir
+	case "received_at":
+		return "g.received_at " + dir
+	case "status":
+		return "g.status " + dir
+	default:
+		return "g.created_at DESC"
+	}
 }
 
 func (tx *txRepo) CreatePR(ctx context.Context, pr PurchaseRequest) (int64, error) {

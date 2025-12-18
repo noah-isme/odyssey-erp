@@ -209,6 +209,17 @@ function handleClick(e) {
     }
 
     // ===== CLOSE MENUS ON OUTSIDE CLICK =====
+    closeAllMenus();
+}
+
+// Separate function for document-level outside click handling
+function handleDocumentClick(e) {
+    // Don't close if clicking inside a table (table's own handler will manage)
+    if (e.target.closest('[data-datatable]')) return;
+    closeAllMenus();
+}
+
+function closeAllMenus() {
     mounted.forEach(id => {
         const state = getState(id);
         if (state.activeRowMenu) {
@@ -350,6 +361,9 @@ function init() {
 
         mounted.add(id);
 
+        // Attach click handler directly to table
+        table.addEventListener('click', handleClick);
+
         // Initialize selection state from pre-checked checkboxes
         const preSelected = Array.from(table.querySelectorAll('tbody input[data-row-select]:checked'))
             .map(cb => cb.closest('tr[data-row-id]')?.dataset.rowId)
@@ -363,8 +377,8 @@ function init() {
         }
     });
 
-    // Event delegation
-    document.addEventListener('click', handleClick);
+    // Document-level event delegation for closing menus on outside click
+    document.addEventListener('click', handleDocumentClick);
     document.addEventListener('keydown', handleKeydown);
     document.addEventListener('contextmenu', handleContextMenu);
     window.addEventListener('scroll', handleScroll, true); // Capture phase for nested scrolls

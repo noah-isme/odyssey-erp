@@ -20,14 +20,16 @@
             <div class="grid">
                 <div>
                     <label for="search">Search</label>
-                    <input type="text" name="search" id="search" placeholder="Search by code or name" value="{{ if .Filters.Search }}{{ .Filters.Search }}{{ end }}" class="input">
+                    <input type="text" name="search" id="search" placeholder="Search by code or name"
+                        value="{{ if .Filters.Search }}{{ .Filters.Search }}{{ end }}" class="input">
                 </div>
                 <div>
                     <label for="company_id">Company</label>
                     <select name="company_id" id="company_id" class="input">
                         <option value="">All Companies</option>
                         {{ range .Companies }}
-                        <option value="{{ .ID }}" {{ if eq .Filters.CompanyID .ID }}selected{{ end }}>{{ .Name }}</option>
+                        <option value="{{ .ID }}" {{ if eq .Filters.CompanyID .ID }}selected{{ end }}>{{ .Name }}
+                        </option>
                         {{ end }}
                     </select>
                 </div>
@@ -35,8 +37,10 @@
                     <label for="is_active">Status</label>
                     <select name="is_active" id="is_active" class="input">
                         <option value="">All</option>
-                        <option value="true" {{ if .Filters.IsActive }}{{ if .Filters.IsActive }}selected{{ end }}{{ end }}>Active</option>
-                        <option value="false" {{ if .Filters.IsActive }}{{ if not .Filters.IsActive }}selected{{ end }}{{ end }}>Inactive</option>
+                        <option value="true" {{ if .Filters.IsActive }}{{ if .Filters.IsActive }}selected{{ end }}{{ end
+                            }}>Active</option>
+                        <option value="false" {{ if .Filters.IsActive }}{{ if not .Filters.IsActive }}selected{{ end
+                            }}{{ end }}>Inactive</option>
                     </select>
                 </div>
             </div>
@@ -54,13 +58,13 @@
             <table class="table">
                 <thead>
                     <tr>
-                        <th>Code</th>
-                        <th>Name</th>
-                        <th>Company</th>
-                        <th>Address</th>
-                        <th>Phone</th>
-                        <th>Status</th>
-                        <th>Actions</th>
+                        <th scope="col">Code</th>
+                        <th scope="col">Name</th>
+                        <th scope="col">Company</th>
+                        <th scope="col">Address</th>
+                        <th scope="col">Phone</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -79,7 +83,8 @@
                             {{ end }}
                         </td>
                         <td>
-                            <a href="/masterdata/branches/{{ .ID }}" role="button" class="btn btn--secondary btn--small">View</a>
+                            <a href="/masterdata/branches/{{ .ID }}" role="button"
+                                class="btn btn--secondary btn--small">View</a>
                         </td>
                     </tr>
                     {{ end }}
@@ -94,13 +99,15 @@
             {{ $totalPages := div (add .Total (sub .Limit 1)) .Limit }}
 
             {{ if gt $currentPage 0 }}
-            <a href="?limit={{ .Limit }}&offset={{ sub .Offset .Limit }}{{ if .Filters.Search }}&search={{ .Filters.Search }}{{ end }}{{ if .Filters.CompanyID }}&company_id={{ .Filters.CompanyID }}{{ end }}{{ if .Filters.IsActive }}&is_active={{ .Filters.IsActive }}{{ end }}" role="button" class="btn btn--secondary">Previous</a>
+            <a href="?limit={{ .Limit }}&offset={{ sub .Offset .Limit }}{{ if .Filters.Search }}&search={{ .Filters.Search }}{{ end }}{{ if .Filters.CompanyID }}&company_id={{ .Filters.CompanyID }}{{ end }}{{ if .Filters.IsActive }}&is_active={{ .Filters.IsActive }}{{ end }}"
+                role="button" class="btn btn--secondary">Previous</a>
             {{ end }}
 
             <span>Page {{ add $currentPage 1 }} of {{ $totalPages }}</span>
 
             {{ if lt (add .Offset .Limit) .Total }}
-            <a href="?limit={{ .Limit }}&offset={{ add .Offset .Limit }}{{ if .Filters.Search }}&search={{ .Filters.Search }}{{ end }}{{ if .Filters.CompanyID }}&company_id={{ .Filters.CompanyID }}{{ end }}{{ if .Filters.IsActive }}&is_active={{ .Filters.IsActive }}{{ end }}" role="button" class="btn btn--secondary">Next</a>
+            <a href="?limit={{ .Limit }}&offset={{ add .Offset .Limit }}{{ if .Filters.Search }}&search={{ .Filters.Search }}{{ end }}{{ if .Filters.CompanyID }}&company_id={{ .Filters.CompanyID }}{{ end }}{{ if .Filters.IsActive }}&is_active={{ .Filters.IsActive }}{{ end }}"
+                role="button" class="btn btn--secondary">Next</a>
             {{ end }}
         </div>
         {{ end }}

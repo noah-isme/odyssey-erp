@@ -15,7 +15,7 @@ const effects = {
         const url = new URL(window.location);
         url.searchParams.set('sort', column);
         url.searchParams.set('dir', newDir);
-        window.location = url;
+        window.location.href = url.href;
     },
 
     /**
@@ -24,7 +24,7 @@ const effects = {
      */
     navigateRow(href) {
         if (href) {
-            window.location = href;
+            window.location.href = href;
         }
     },
 

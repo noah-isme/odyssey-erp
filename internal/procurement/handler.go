@@ -33,8 +33,10 @@ func (h *Handler) MountRoutes(r chi.Router) {
 	r.Group(func(r chi.Router) {
 		r.Use(h.rbac.RequireAny("procurement.view"))
 		r.Get("/prs", h.showPRForm)
-		r.Get("/pos", h.showPOForm)
-		r.Get("/grns", h.showGRNForm)
+		r.Get("/pos", h.handleListPOs)
+		r.Get("/pos/new", h.showPOForm)
+		r.Get("/grns", h.handleListGRNs)
+		r.Get("/grns/new", h.showGRNForm)
 		r.Get("/ap/invoices", h.showAPInvoiceForm)
 		r.Get("/ap/payments", h.showPaymentForm)
 	})
@@ -65,6 +67,64 @@ func (h *Handler) showPOForm(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) showGRNForm(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "pages/procurement/grn_form.html", map[string]any{"Errors": formErrors{}}, http.StatusOK)
+}
+
+func (h *Handler) handleListPOs(w http.ResponseWriter, r *http.Request) {
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit <= 0 {
+		limit = 20
+	}
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	supplierID, _ := strconv.ParseInt(r.URL.Query().Get("supplier_id"), 10, 64)
+	filters := ListFilters{
+		Status:     r.URL.Query().Get("status"),
+		SupplierID: supplierID,
+		Search:     r.URL.Query().Get("search"),
+		SortBy:     r.URL.Query().Get("sort"),
+		SortDir:    r.URL.Query().Get("dir"),
+	}
+	items, total, err := h.service.ListPOs(r.Context(), limit, offset, filters)
+	if err != nil {
+		h.logger.Error("list POs", slog.Any("error", err))
+		http.Error(w, "Failed to load purchase orders", http.StatusInternalServerError)
+		return
+	}
+	h.render(w, r, "pages/procurement/pos_list.html", map[string]any{
+		"POs":     items,
+		"Total":   total,
+		"Limit":   limit,
+		"Offset":  offset,
+		"Filters": filters,
+	}, http.StatusOK)
+}
+
+func (h *Handler) handleListGRNs(w http.ResponseWriter, r *http.Request) {
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit <= 0 {
+		limit = 20
+	}
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	supplierID, _ := strconv.ParseInt(r.URL.Query().Get("supplier_id"), 10, 64)
+	filters := ListFilters{
+		Status:     r.URL.Query().Get("status"),
+		SupplierID: supplierID,
+		Search:     r.URL.Query().Get("search"),
+		SortBy:     r.URL.Query().Get("sort"),
+		SortDir:    r.URL.Query().Get("dir"),
+	}
+	items, total, err := h.service.ListGRNs(r.Context(), limit, offset, filters)
+	if err != nil {
+		h.logger.Error("list GRNs", slog.Any("error", err))
+		http.Error(w, "Failed to load goods receipts", http.StatusInternalServerError)
+		return
+	}
+	h.render(w, r, "pages/procurement/grns_list.html", map[string]any{
+		"GRNs":    items,
+		"Total":   total,
+		"Limit":   limit,
+		"Offset":  offset,
+		"Filters": filters,
+	}, http.StatusOK)
 }
 
 func (h *Handler) showAPInvoiceForm(w http.ResponseWriter, r *http.Request) {
