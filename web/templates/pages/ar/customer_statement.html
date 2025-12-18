@@ -1,0 +1,68 @@
+{{ define "pages/ar/customer_statement.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Customer Statement{{ end }}
+
+{{ define "content" }}
+<header class="page-header">
+    <h1>Customer Statement</h1>
+    <p>Transaction history and outstanding balances for customers.</p>
+</header>
+
+<section class="card">
+    <div class="card__header">
+        <h2>Statement Details</h2>
+    </div>
+    <div class="card__body">
+        <!-- Placeholder for customer selection/details if needed in future -->
+        <p>Showing all open invoices.</p>
+    </div>
+</section>
+
+{{ if .Data.Invoices }}
+<div class="table-wrap" data-component="datatable">
+    <table class="table">
+        <caption>Account Transactions</caption>
+        <thead>
+            <tr>
+                <th scope="col">Date</th>
+                <th scope="col">Invoice Number</th>
+                <th scope="col">Sales Order</th>
+                <th scope="col" class="text-right">Amount</th>
+                <th scope="col" class="text-right">Paid</th>
+                <th scope="col" class="text-right">Balance</th>
+                <th scope="col">Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{ range .Data.Invoices }}
+            <tr>
+                <td>{{ .DueDate.Format "2006-01-02" }}</td>
+                <td><a href="/finance/ar/invoices/{{ .ID }}">{{ .Number }}</a></td>
+                <td><a href="/sales/orders/{{ .SOID }}">{{ .SONumber }}</a></td>
+                <td class="numeric text-right">{{ printf "%.2f" .Total }}</td>
+                <td class="numeric text-right">{{ printf "%.2f" .PaidAmount }}</td>
+                <td class="numeric text-right">{{ printf "%.2f" .UnpaidAmount }}</td>
+                <td>
+                    {{ if eq .Status "PAID" }}<span class="badge badge--success">Paid</span>{{ end }}
+                    {{ if eq .Status "PARTIAL" }}<span class="badge badge--warning">Partial</span>{{ end }}
+                    {{ if eq .Status "UNPAID" }}<span class="badge badge--danger">Unpaid</span>{{ end }}
+                </td>
+            </tr>
+            {{ end }}
+        </tbody>
+    </table>
+</div>
+{{ else }}
+<div class="empty-state">
+    <p>No transactions found for this period.</p>
+</div>
+{{ end }}
+
+{{ if .Data.Errors }}
+<div class="alert alert--danger" role="alert">
+    {{ index .Data.Errors "general" }}
+</div>
+{{ end }}
+{{ end }}
