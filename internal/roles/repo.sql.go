@@ -11,6 +11,12 @@ type Repository struct {
 	pool *pgxpool.Pool
 }
 
+// RepositoryPort defines the interface for role persistence operations.
+type RepositoryPort interface {
+	ListRoles(ctx context.Context) ([]Role, error)
+	CreateRole(ctx context.Context, name, description string) (Role, error)
+}
+
 // NewRepository constructs a repository.
 func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
@@ -35,4 +41,11 @@ func (r *Repository) ListRoles(ctx context.Context) ([]Role, error) {
 		return nil, err
 	}
 	return roles, nil
+}
+
+// CreateRole inserts a new role.
+func (r *Repository) CreateRole(ctx context.Context, name, description string) (Role, error) {
+	var role Role
+	err := r.pool.QueryRow(ctx, `INSERT INTO roles (name, description, created_at, updated_at) VALUES ($1, $2, NOW(), NOW()) RETURNING id, name, description, created_at, updated_at`, name, description).Scan(&role.ID, &role.Name, &role.Description, &role.CreatedAt, &role.UpdatedAt)
+	return role, err
 }
