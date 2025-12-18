@@ -1,4 +1,10 @@
 {{ define "pages/procurement/grn_form.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Goods Receipt{{ end }}
+
+{{ define "content" }}
 <h1>Goods Receipt</h1>
 <form method="post" class="grid">
     <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">

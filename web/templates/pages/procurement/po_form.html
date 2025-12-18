@@ -1,4 +1,10 @@
 {{ define "pages/procurement/po_form.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Purchase Order{{ end }}
+
+{{ define "content" }}
 <h1>Purchase Order</h1>
 <form method="post" class="grid">
     <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
@@ -20,5 +26,6 @@
     <button type="submit">Buat PO</button>
 </form>
 {{ if .Data.Errors }}<p class="error">{{ index .Data.Errors "general" }}</p>{{ end }}
-<p>Gunakan endpoint <code>/procurement/pos/&lt;id&gt;/submit</code> dan <code>/procurement/pos/&lt;id&gt;/approve</code> untuk melanjutkan workflow.</p>
+<p>Gunakan endpoint <code>/procurement/pos/&lt;id&gt;/submit</code> dan <code>/procurement/pos/&lt;id&gt;/approve</code>
+    untuk melanjutkan workflow.</p>
 {{ end }}
