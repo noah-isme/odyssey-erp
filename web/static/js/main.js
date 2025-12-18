@@ -8,7 +8,6 @@ import { Sidebar, Navigation } from './core/sidebar.js';
 import { Toast, Loading } from './core/toast.js';
 import { Dropdown } from './core/dropdown.js';
 import { Shortcuts } from './core/shortcuts.js';
-import { Theme } from './core/theme.js';
 
 // Component modules
 import { Modal } from './components/modal.js';
@@ -20,7 +19,7 @@ import { Forms } from './components/forms.js';
 // Initialize all modules on DOMContentLoaded
 document.addEventListener('DOMContentLoaded', () => {
     // Core
-    Theme.init();  // Theme first for no flash
+    // Theme handled by ui.js
     Sidebar.init();
     Navigation.init();
     Toast.init();
@@ -41,7 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.OdysseyModal = Modal;
     window.OdysseyInspector = Inspector;
     window.OdysseyDataTable = DataTable;
-    window.OdysseyTheme = Theme;
+    // window.OdysseyTheme handled by ui.js (OdysseyUI.theme)
 
     console.log('🚀 Odyssey ERP initialized');
 });

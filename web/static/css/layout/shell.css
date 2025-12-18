@@ -10,6 +10,8 @@
     grid-template-columns: var(--sidebar-w) 1fr;
     grid-template-rows: var(--header-h) 1fr;
     min-height: 100vh;
+    background-color: var(--bg-app);
+    color: var(--text-primary);
 }
 
 .app-shell.sidebar-collapsed {
@@ -20,6 +22,18 @@
     grid-area: main;
     padding: var(--space-6);
     overflow-y: auto;
+    background-color: var(--bg-app);
+}
+
+.page-container {
+    max-width: var(--app-max);
+    margin: 0 auto;
+}
+
+.page-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
 }
 
 /* Responsive */

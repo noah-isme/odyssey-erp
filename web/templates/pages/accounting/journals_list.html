@@ -12,7 +12,7 @@
             <p class="page-subtitle">Daftar Journal Entries untuk pencatatan keuangan</p>
         </div>
         <div class="page-actions">
-            <a href="/accounting/journals/new" class="btn btn-primary">
+            <a href="/accounting/journals/new" class="btn btn--primary">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="12" y1="5" x2="12" y2="19" />
                     <line x1="5" y1="12" x2="19" y2="12" />
@@ -23,9 +23,9 @@
     </div>
 
     <div class="page-content">
-        <div class="panel">
-            <div class="panel-body">
-                <table class="data-table">
+        <div class="card p-0 overflow-hidden">
+            <div class="table-wrap">
+                <table class="table">
                     <thead>
                         <tr>
                             <th>Number</th>
@@ -33,7 +33,7 @@
                             <th>Source</th>
                             <th>Memo</th>
                             <th>Status</th>
-                            <th>Actions</th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -41,20 +41,20 @@
                         <tr>
                             <td>{{ .Number }}</td>
                             <td>{{ .Date.Format "2006-01-02" }}</td>
-                            <td>{{ .SourceModule }}</td>
+                            <td><span class="badge badge--neutral">{{ .SourceModule }}</span></td>
                             <td>{{ .Memo }}</td>
                             <td>
-                                <span class="badge badge-{{ .Status | lower }}">
+                                <span class="badge badge--neutral">
                                     {{ .Status }}
                                 </span>
                             </td>
-                            <td>
-                                <a href="/accounting/journals/{{ .ID }}" class="btn btn-sm btn-secondary">View</a>
+                            <td class="text-right">
+                                <a href="/accounting/journals/{{ .ID }}" class="btn btn--secondary btn--sm">View</a>
                             </td>
                         </tr>
                         {{ else }}
                         <tr>
-                            <td colspan="6" class="text-center">No journal entries found</td>
+                            <td colspan="6" class="table-empty">No journal entries found</td>
                         </tr>
                         {{ end }}
                     </tbody>

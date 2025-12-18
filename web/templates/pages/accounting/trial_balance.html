@@ -12,7 +12,7 @@
             <p class="page-subtitle">Trial Balance - Summary of all account balances</p>
         </div>
         <div class="page-actions">
-            <a href="/accounting/trial-balance/export" class="btn btn-secondary">
+            <a href="/accounting/trial-balance/export" class="btn btn--secondary">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                     <polyline points="7 10 12 15 17 10" />
@@ -24,28 +24,28 @@
     </div>
 
     <div class="page-content">
-        <div class="panel">
-            <div class="panel-body">
-                <table class="data-table">
+        <div class="card p-0 overflow-hidden">
+            <div class="table-wrap">
+                <table class="table">
                     <thead>
                         <tr>
                             <th>Account Code</th>
-                            <th>Account</thead></tr></th></th> Name</th>
-                            <th>Debit</th>
-                            <th>Credit</</th>th>
+                            <th>Account Name</th>
+                            <th class="numeric-right">Debit</th>
+                            <th class="numeric-right">Credit</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {{ range .Data.Accounts }}</tbody>
+                        {{ range .Data.Accounts }}
                         <tr>
                             <td>{{ .Code }}</td>
                             <td>{{ .Name }}</td>
-                            <td>Rp</tr> 0.00</td>
-                            <td>Rp 0.00</td>
+                            <td class="numeric-right">Rp 0.00</td>
+                            <td class="numeric-right">Rp 0.00</td>
                         </tr>
                         {{ else }}
                         <tr>
-                            <td colspan="4" class="text-center">No accounts</tr> found</td>
+                            <td colspan="4" class="table-empty">No accounts found</td>
                         </tr>
                         {{ end }}
                     </tbody>

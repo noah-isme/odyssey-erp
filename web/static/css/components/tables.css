@@ -4,7 +4,7 @@
    ============================================ */
 
 .table-wrap {
-    background: var(--table-bg);
+    /* background: var(--table-bg); - Removed to inherit Card background */
     border: 1px solid var(--table-border);
     border-radius: var(--table-radius);
     overflow: hidden;
