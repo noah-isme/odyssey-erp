@@ -161,7 +161,27 @@ func NewHandler(inspector *asynq.Inspector, logger *slog.Logger) *Handler {
 
 // MountRoutes attaches job routes.
 func (h *Handler) MountRoutes(r chi.Router) {
+	r.Get("/", h.index)
 	r.Get("/health", h.health)
+}
+
+func (h *Handler) index(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write([]byte(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jobs</title>
+</head>
+<body>
+    <h1>Jobs Dashboard</h1>
+    <p>Background job monitoring and management.</p>
+    <ul>
+        <li><a href="/jobs/health">Health Check</a></li>
+    </ul>
+</body>
+</html>`))
 }
 
 func (h *Handler) health(w http.ResponseWriter, r *http.Request) {
