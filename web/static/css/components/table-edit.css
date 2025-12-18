@@ -1,0 +1,108 @@
+/* ============================================
+   Odyssey ERP - Table Edit Component
+   Inline editing styles
+   Uses tokens from core/tokens.css
+   ============================================ */
+
+/* Editable cell indicator */
+td.editable {
+    cursor: pointer;
+    position: relative;
+    transition: background var(--dur-1) var(--ease-standard);
+}
+
+td.editable:hover {
+    background: var(--bg-surface-muted);
+}
+
+td.editable::after {
+    content: '';
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 4px;
+    height: 4px;
+    background: var(--brand);
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity var(--dur-1) var(--ease-standard);
+}
+
+td.editable:hover::after {
+    opacity: 0.5;
+}
+
+/* Edit mode wrapper */
+.table-edit-wrap {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    margin: -4px;
+}
+
+/* Edit input */
+.table-edit-input {
+    width: 100%;
+    padding: var(--space-1) var(--space-2);
+    background: var(--bg-surface);
+    border: 2px solid var(--brand);
+    border-radius: var(--radius-1);
+    font-size: inherit;
+    font-family: inherit;
+    color: var(--text-primary);
+    outline: none;
+}
+
+.table-edit-input:focus {
+    box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.table-edit-input.error {
+    border-color: var(--error-600);
+}
+
+/* Error message */
+.table-edit-error {
+    position: absolute;
+    bottom: -20px;
+    left: 0;
+    font-size: var(--text-xs);
+    color: var(--error-600);
+    white-space: nowrap;
+}
+
+/* Loading indicator */
+.table-edit-loading {
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--border-default);
+    border-top-color: var(--brand);
+    border-radius: 50%;
+    animation: table-edit-spin 0.6s linear infinite;
+}
+
+@keyframes table-edit-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Success flash */
+td.table-edit-updated {
+    animation: table-edit-flash 1s ease;
+}
+
+@keyframes table-edit-flash {
+    0% {
+        background: var(--success-bg);
+    }
+
+    100% {
+        background: transparent;
+    }
+}
+
+/* Cell value display */
+.table-edit-value {
+    display: block;
+}

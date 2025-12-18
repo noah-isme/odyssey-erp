@@ -1,0 +1,199 @@
+/* ============================================
+   Odyssey ERP - Upload Component
+   Drag & drop file upload
+   Uses tokens from core/tokens.css
+   ============================================ */
+
+/* Upload zone */
+.upload-zone {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.upload-zone-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-3);
+    min-height: 150px;
+    padding: var(--space-6);
+    background: var(--bg-surface);
+    border: 2px dashed var(--border-default);
+    border-radius: var(--radius-3);
+    text-align: center;
+    transition: all var(--dur-2) var(--ease-standard);
+}
+
+.upload-zone-content:hover {
+    border-color: var(--brand);
+    background: var(--brand-subtle);
+}
+
+.upload-zone.drag-over .upload-zone-content {
+    border-color: var(--brand);
+    background: var(--brand-subtle);
+    transform: scale(1.01);
+}
+
+/* Upload zone icon */
+.upload-zone-content svg {
+    width: 48px;
+    height: 48px;
+    color: var(--text-muted);
+}
+
+.upload-zone.drag-over .upload-zone-content svg {
+    color: var(--brand);
+}
+
+/* Upload zone text */
+.upload-zone-content p {
+    margin: 0;
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+}
+
+.upload-zone-content [data-upload-browse] {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--brand);
+    font-weight: var(--weight-medium);
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.upload-zone-content [data-upload-browse]:hover {
+    color: var(--brand-hover);
+}
+
+/* File hint */
+.upload-hint {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+}
+
+/* Upload list */
+.upload-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+/* Upload item */
+.upload-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-2);
+}
+
+.upload-item.uploading {
+    border-color: var(--brand);
+    background: var(--brand-subtle);
+}
+
+.upload-item.done {
+    border-color: var(--success-600);
+}
+
+.upload-item.error {
+    border-color: var(--error-600);
+    background: var(--error-bg);
+}
+
+/* Item icon */
+.upload-item-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: var(--bg-surface-muted);
+    border-radius: var(--radius-2);
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.upload-item.done .upload-item-icon {
+    background: var(--success-bg);
+    color: var(--success-600);
+}
+
+/* Item info */
+.upload-item-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.upload-item-name {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.upload-item-meta {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+}
+
+.upload-item.error .upload-item-meta {
+    color: var(--error-600);
+}
+
+/* Progress bar */
+.upload-item-progress {
+    height: 4px;
+    margin-top: var(--space-2);
+    background: var(--bg-surface-muted);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+}
+
+.upload-item-progress-bar {
+    height: 100%;
+    background: var(--brand);
+    border-radius: var(--radius-full);
+    transition: width var(--dur-2) var(--ease-standard);
+}
+
+/* Remove button */
+.upload-item-remove {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-1);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all var(--dur-1) var(--ease-standard);
+}
+
+.upload-item-remove:hover {
+    background: var(--error-bg);
+    color: var(--error-600);
+}
+
+/* Compact variant */
+.upload-zone--compact .upload-zone-content {
+    flex-direction: row;
+    min-height: auto;
+    padding: var(--space-4);
+}
+
+.upload-zone--compact .upload-zone-content svg {
+    width: 24px;
+    height: 24px;
+}
