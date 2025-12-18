@@ -1,0 +1,90 @@
+/* ============================================
+   Quotation Form Styles
+   Migrated from inline styles in quotation_form.html
+   ============================================ */
+
+.quotation-form-wrapper {
+    max-width: var(--app-max);
+    margin: 0 auto;
+}
+
+.quotation-form-wrapper header {
+    margin-bottom: var(--space-6);
+}
+
+.quotation-form-wrapper header h1 {
+    margin-bottom: var(--space-2);
+}
+
+.quotation-form-wrapper header p {
+    color: var(--text-secondary);
+}
+
+/* Line items */
+.line-item {
+    padding: var(--space-4);
+    margin-bottom: var(--space-4);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-2);
+    background: var(--bg-surface);
+    transition: border-color var(--dur-2) var(--ease-standard);
+}
+
+.line-item:hover {
+    border-color: var(--brand);
+}
+
+.line-item:last-child {
+    margin-bottom: 0;
+}
+
+/* Grid layout for line items */
+.line-item .grid {
+    display: grid;
+    gap: var(--space-4);
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    margin-bottom: var(--space-4);
+}
+
+.line-item .grid:last-child {
+    margin-bottom: 0;
+}
+
+/* Flex utilities for buttons */
+.line-item .flex {
+    display: flex;
+}
+
+.line-item .items-end {
+    align-items: flex-end;
+}
+
+/* Error alert */
+.quotation-form-wrapper .error {
+    padding: var(--space-4);
+    margin-bottom: var(--space-4);
+    background: var(--error-bg);
+    border: 1px solid var(--error-600);
+    border-radius: var(--radius-2);
+    color: var(--error-600);
+}
+
+/* Section styling */
+.quotation-form-wrapper section {
+    margin-bottom: var(--space-6);
+}
+
+.quotation-form-wrapper section h2 {
+    margin-bottom: var(--space-4);
+}
+
+.quotation-form-wrapper section>p {
+    margin-bottom: var(--space-4);
+    color: var(--text-secondary);
+}
+
+/* Form actions */
+.quotation-form-wrapper [role="group"] {
+    display: flex;
+    gap: var(--space-3);
+}
