@@ -112,6 +112,7 @@ curl -X POST http://localhost:8080/auth/login \
 
 Akun `admin@odyssey.local` memiliki role `admin` dengan permissions:
 
+- ✓ Core platform (`users.view`, `users.edit`, `roles.view`, `roles.edit`, `permissions.view`)
 - ✓ Organization management (`org.view`, `org.edit`)
 - ✓ Master data (`master.view`, `master.edit`, `master.import`)
 - ✓ RBAC configuration (`rbac.view`, `rbac.edit`)
@@ -125,6 +126,8 @@ Akun `admin@odyssey.local` memiliki role `admin` dengan permissions:
 - ✓ Consolidation (`consol.*`)
 - ✓ Analytics (`analytics.*`)
 - ✓ Audit (`audit.*`)
+
+Catatan: sebagian database lama hanya memiliki permission `rbac.view` / `rbac.edit`; rute `/users`, `/roles`, dan `/permissions` tetap mengizinkan akses via permission tersebut untuk kompatibilitas.
 
 ## Create Additional Test Users
 

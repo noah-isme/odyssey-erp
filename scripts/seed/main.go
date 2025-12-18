@@ -48,6 +48,13 @@ func seedRBAC(ctx context.Context, pool *pgxpool.Pool) error {
 		name        string
 		description string
 	}{
+		// Core platform permissions (UI routes under /users, /roles, /permissions).
+		{"users.view", "View users"},
+		{"users.edit", "Manage users"},
+		{"roles.view", "View roles"},
+		{"roles.edit", "Manage roles"},
+		{"permissions.view", "View permissions"},
+
 		{"org.view", "View organization data"},
 		{"org.edit", "Manage organization data"},
 		{"master.view", "View master data"},
@@ -111,6 +118,9 @@ ON CONFLICT (name) DO UPDATE SET description = EXCLUDED.description`, perm.name,
 		permissions []string
 	}{
 		{"admin", "Full access to all modules", []string{
+			"users.view", "users.edit",
+			"roles.view", "roles.edit",
+			"permissions.view",
 			"org.view", "org.edit", "master.view", "master.edit", "master.import",
 			"rbac.view", "rbac.edit", "report.view",
 			"inventory.view", "inventory.edit",

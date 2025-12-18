@@ -1,27 +1,47 @@
 {{ define "pages/roles/list.html" }}
-<h1>Roles Management</h1>
+{{ template "layouts/base.html" . }}
+{{ end }}
 
-<table class="table">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Description</th>
-            <th>Created</th>
-        </tr>
-    </thead>
-    <tbody>
-        {{ range .Data.Roles }}
-        <tr>
-            <td>{{ .ID }}</td>
-            <td>{{ .Name }}</td>
-            <td>{{ .Description }}</td>
-            <td>{{ .CreatedAt.Format "2006-01-02" }}</td>
-        </tr>
-        {{ end }}
-    </tbody>
-</table>
+{{ define "title" }}Roles Management{{ end }}
 
-{{ if .Data.Errors }}
-<p class="error">{{ index .Data.Errors "general" }}</p>
-{{ end }} {{ end }}
+{{ define "content" }}
+<section class="container page-roles">
+    <header class="page-header">
+        <h1>Roles Management</h1>
+        <p class="text-muted">Manage system roles and permissions assignments</p>
+    </header>
+
+    {{ if .Data.Errors }}
+    <div class="alert alert--error" role="alert">
+        {{ index .Data.Errors "general" }}
+    </div>
+    {{ end }}
+
+    <div class="table-wrap" data-component="datatable">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th scope="col">ID</th>
+                    <th scope="col">Name</th>
+                    <th scope="col">Description</th>
+                    <th scope="col">Created</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{ range .Data.Roles }}
+                <tr data-id="{{ .ID }}">
+                    <td>{{ .ID }}</td>
+                    <td><code>{{ .Name }}</code></td>
+                    <td>{{ .Description }}</td>
+                    <td>{{ .CreatedAt.Format "2006-01-02" }}</td>
+                </tr>
+                {{ else }}
+                <tr>
+                    <td colspan="4" class="text-center text-muted">No roles found</td>
+                </tr>
+                {{ end }}
+            </tbody>
+        </table>
+    </div>
+</section>
+{{ end }}
