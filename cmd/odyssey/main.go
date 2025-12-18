@@ -169,6 +169,8 @@ func main() {
 	rolesService := roles.NewService(rolesRepo)
 	rolesHandler := roles.NewHandler(logger, rolesService, templates, csrfManager, sessionManager, rbacMiddleware)
 
+	permissionsHandler := rbac.NewPermissionsHandler(logger, rbacService, templates, csrfManager, sessionManager, rbacMiddleware)
+
 	arRepo := ar.NewRepository(dbpool)
 	arService := ar.NewService(arRepo)
 	arHandler := ar.NewHandler(logger, arService, templates, csrfManager, sessionManager, rbacMiddleware)
@@ -301,6 +303,7 @@ func main() {
 		AnalyticsHandler:   analyticsHandler,
 		InsightsHandler:    insightsHandler,
 		AuditHandler:       auditHandler,
+		PermissionsHandler: permissionsHandler,
 		Metrics:            metrics,
 	})
 

@@ -29,9 +29,9 @@ LEFT JOIN journal_entries je
        OR (sl.je_id = je.id)
 LEFT JOIN periods p ON p.id = je.period_id
 WHERE a.occurred_at BETWEEN $1 AND $2
-  AND ($3 IS NULL OR a.actor_id::text = $3)
-  AND ($4 IS NULL OR a.entity = $4)
-  AND ($5 IS NULL OR a.action = $5)
+  AND ($3::text IS NULL OR a.actor_id::text = $3::text)
+  AND ($4::text IS NULL OR a.entity = $4::text)
+  AND ($5::text IS NULL OR a.action = $5::text)
 ORDER BY a.occurred_at DESC
 `
 
@@ -105,9 +105,9 @@ LEFT JOIN journal_entries je
        OR (sl.je_id = je.id)
 LEFT JOIN periods p ON p.id = je.period_id
 WHERE a.occurred_at BETWEEN $1 AND $2
-  AND ($3 IS NULL OR a.actor_id::text = $3)
-  AND ($4 IS NULL OR a.entity = $4)
-  AND ($5 IS NULL OR a.action = $5)
+  AND ($3::text IS NULL OR a.actor_id::text = $3::text)
+  AND ($4::text IS NULL OR a.entity = $4::text)
+  AND ($5::text IS NULL OR a.action = $5::text)
 ORDER BY a.occurred_at DESC
 LIMIT $7 OFFSET $6
 `

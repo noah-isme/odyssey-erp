@@ -16,9 +16,9 @@ LEFT JOIN journal_entries je
        OR (sl.je_id = je.id)
 LEFT JOIN periods p ON p.id = je.period_id
 WHERE a.occurred_at BETWEEN sqlc.arg(from_at) AND sqlc.arg(to_at)
-  AND (sqlc.narg(actor) IS NULL OR a.actor_id::text = sqlc.narg(actor))
-  AND (sqlc.narg(entity) IS NULL OR a.entity = sqlc.narg(entity))
-  AND (sqlc.narg(action) IS NULL OR a.action = sqlc.narg(action))
+  AND (sqlc.narg(actor)::text IS NULL OR a.actor_id::text = sqlc.narg(actor)::text)
+  AND (sqlc.narg(entity)::text IS NULL OR a.entity = sqlc.narg(entity)::text)
+  AND (sqlc.narg(action)::text IS NULL OR a.action = sqlc.narg(action)::text)
 ORDER BY a.occurred_at DESC
 LIMIT sqlc.arg(limit_rows) OFFSET sqlc.arg(offset_rows);
 
@@ -40,7 +40,7 @@ LEFT JOIN journal_entries je
        OR (sl.je_id = je.id)
 LEFT JOIN periods p ON p.id = je.period_id
 WHERE a.occurred_at BETWEEN sqlc.arg(from_at) AND sqlc.arg(to_at)
-  AND (sqlc.narg(actor) IS NULL OR a.actor_id::text = sqlc.narg(actor))
-  AND (sqlc.narg(entity) IS NULL OR a.entity = sqlc.narg(entity))
-  AND (sqlc.narg(action) IS NULL OR a.action = sqlc.narg(action))
+  AND (sqlc.narg(actor)::text IS NULL OR a.actor_id::text = sqlc.narg(actor)::text)
+  AND (sqlc.narg(entity)::text IS NULL OR a.entity = sqlc.narg(entity)::text)
+  AND (sqlc.narg(action)::text IS NULL OR a.action = sqlc.narg(action)::text)
 ORDER BY a.occurred_at DESC;
