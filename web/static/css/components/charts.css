@@ -1,0 +1,147 @@
+/* ============================================
+   Odyssey ERP - Chart Component
+   Wrapper styles for Chart.js
+   Uses tokens from core/tokens.css
+   ============================================ */
+
+/* Chart container */
+.chart-container {
+    position: relative;
+    width: 100%;
+    height: 300px;
+    padding: var(--space-4);
+    background: var(--bg-surface);
+    border-radius: var(--radius-3);
+}
+
+.chart-container--sm {
+    height: 200px;
+}
+
+.chart-container--lg {
+    height: 400px;
+}
+
+.chart-container--full {
+    height: 100%;
+    min-height: 300px;
+}
+
+/* Chart canvas */
+.chart-container canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* Loading state */
+.chart-container.loading::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-surface);
+    border-radius: inherit;
+}
+
+.chart-container.loading::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--border-default);
+    border-top-color: var(--brand);
+    border-radius: 50%;
+    animation: chart-spin 0.8s linear infinite;
+    z-index: 1;
+}
+
+@keyframes chart-spin {
+    to {
+        transform: translate(-50%, -50%) rotate(360deg);
+    }
+}
+
+/* Empty state */
+.chart-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+}
+
+.chart-empty svg {
+    width: 48px;
+    height: 48px;
+    margin-bottom: var(--space-3);
+    opacity: 0.5;
+}
+
+/* Chart title (if not using Chart.js built-in) */
+.chart-title {
+    margin: 0 0 var(--space-3) 0;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    color: var(--text-primary);
+}
+
+/* Chart legend custom styling */
+.chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+    margin-top: var(--space-3);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--border-subtle);
+}
+
+.chart-legend-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+}
+
+.chart-legend-color {
+    width: 12px;
+    height: 12px;
+    border-radius: var(--radius-1);
+}
+
+/* KPI Cards with sparkline */
+.kpi-card .chart-container {
+    height: 60px;
+    padding: 0;
+    margin-top: var(--space-2);
+}
+
+/* Dashboard grid for charts */
+.charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: var(--space-4);
+}
+
+.charts-grid--2 {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+.charts-grid--3 {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+@media (max-width: 768px) {
+
+    .charts-grid--2,
+    .charts-grid--3 {
+        grid-template-columns: 1fr;
+    }
+}

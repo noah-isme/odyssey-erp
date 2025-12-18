@@ -20,6 +20,14 @@
 @import url('./components/modals.css');
 @import url('./components/feedback.css');
 @import url('./components/misc.css');
+@import url('./components/lookup.css');
+@import url('./components/datepicker.css');
+@import url('./components/table-edit.css');
+@import url('./components/charts.css');
+@import url('./components/tabs.css');
+@import url('./components/upload.css');
+@import url('./components/slideout.css');
+@import url('./components/progress.css');
 
 /* Pages */
 @import url('./pages/dashboard.css');

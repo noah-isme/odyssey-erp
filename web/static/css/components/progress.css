@@ -1,0 +1,191 @@
+/* ============================================
+   Odyssey ERP - Progress Bar Component
+   Upload/processing progress indicators
+   Uses tokens from core/tokens.css
+   ============================================ */
+
+/* Base progress container */
+.progress {
+    position: relative;
+    display: flex;
+    align-items: center;
+    height: 8px;
+    background: var(--bg-surface-muted);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+}
+
+/* Progress bar fill */
+.progress-bar {
+    height: 100%;
+    background: var(--brand);
+    border-radius: var(--radius-full);
+    transition: width var(--dur-2) var(--ease-standard);
+}
+
+/* Progress text */
+.progress-text {
+    position: absolute;
+    right: var(--space-2);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-medium);
+    color: var(--text-muted);
+}
+
+/* With text inside bar */
+.progress--with-text {
+    height: 20px;
+}
+
+.progress--with-text .progress-text {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    color: var(--text-primary);
+}
+
+/* Size variants */
+.progress--sm {
+    height: 4px;
+}
+
+.progress--lg {
+    height: 12px;
+}
+
+/* Striped variant */
+.progress--striped .progress-bar {
+    background-image: linear-gradient(45deg,
+            rgba(255, 255, 255, 0.15) 25%,
+            transparent 25%,
+            transparent 50%,
+            rgba(255, 255, 255, 0.15) 50%,
+            rgba(255, 255, 255, 0.15) 75%,
+            transparent 75%,
+            transparent);
+    background-size: 1rem 1rem;
+}
+
+/* Animated striped */
+.progress--animated .progress-bar {
+    background-image: linear-gradient(45deg,
+            rgba(255, 255, 255, 0.15) 25%,
+            transparent 25%,
+            transparent 50%,
+            rgba(255, 255, 255, 0.15) 50%,
+            rgba(255, 255, 255, 0.15) 75%,
+            transparent 75%,
+            transparent);
+    background-size: 1rem 1rem;
+    animation: progress-stripes 1s linear infinite;
+}
+
+@keyframes progress-stripes {
+    from {
+        background-position: 1rem 0;
+    }
+
+    to {
+        background-position: 0 0;
+    }
+}
+
+/* Indeterminate state */
+.progress.indeterminate .progress-bar {
+    width: 30% !important;
+    animation: progress-indeterminate 1.5s ease-in-out infinite;
+}
+
+@keyframes progress-indeterminate {
+    0% {
+        transform: translateX(-100%);
+    }
+
+    100% {
+        transform: translateX(400%);
+    }
+}
+
+/* Complete state */
+.progress.complete .progress-bar {
+    background: var(--success-600);
+}
+
+/* Color variants */
+.progress--success .progress-bar {
+    background: var(--success-600);
+}
+
+.progress--warning .progress-bar {
+    background: var(--warning-600);
+}
+
+.progress--error .progress-bar {
+    background: var(--error-600);
+}
+
+/* Stacked progress (multiple bars) */
+.progress-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.progress-stack-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.progress-stack-label {
+    min-width: 100px;
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+}
+
+.progress-stack-bar {
+    flex: 1;
+}
+
+.progress-stack-value {
+    min-width: 50px;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+    text-align: right;
+    color: var(--text-primary);
+}
+
+/* Circular progress (optional) */
+.progress-circle {
+    position: relative;
+    width: 60px;
+    height: 60px;
+}
+
+.progress-circle svg {
+    transform: rotate(-90deg);
+}
+
+.progress-circle-bg {
+    fill: none;
+    stroke: var(--bg-surface-muted);
+    stroke-width: 4;
+}
+
+.progress-circle-bar {
+    fill: none;
+    stroke: var(--brand);
+    stroke-width: 4;
+    stroke-linecap: round;
+    transition: stroke-dasharray var(--dur-2) var(--ease-standard);
+}
+
+.progress-circle-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    color: var(--text-primary);
+}
