@@ -3,9 +3,10 @@
  * Initializes all modules following state-driven architecture
  */
 
-// Core modules (still needed for Loading)
+// Core modules
 import { Loading } from './core/toast.js';
 import { Shortcuts } from './core/shortcuts.js';
+import { DevTools } from './core/store.js';
 
 // Feature modules (state-driven architecture)
 import { Theme } from './features/theme/index.js';
@@ -64,6 +65,16 @@ document.addEventListener('DOMContentLoaded', () => {
     Charts.init();
     Progress.init();
 
+    // Register stores with DevTools for inspection
+    DevTools.register('theme', Theme);
+    DevTools.register('modal', Modal);
+    DevTools.register('toast', Toast);
+    DevTools.register('form', Form);
+    DevTools.register('combobox', ComboBox);
+    DevTools.register('tabs', Tabs);
+    DevTools.register('upload', Upload);
+    DevTools.register('slideout', Slideout);
+
     // Expose globally for inline usage
     window.OdysseyToast = Toast;
     window.OdysseyLoading = Loading;
@@ -87,5 +98,6 @@ document.addEventListener('DOMContentLoaded', () => {
     window.OdysseyComboBox = ComboBox;
 
     console.log('🚀 Odyssey ERP initialized');
+    console.log('💡 Tip: Run OdysseyDevTools.enable() for debug mode');
 });
 
