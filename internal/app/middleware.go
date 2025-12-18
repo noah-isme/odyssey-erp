@@ -4,11 +4,13 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/httprate"
 	"github.com/unrolled/secure"
+
 
 	"github.com/odyssey-erp/odyssey-erp/internal/observability"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
@@ -140,8 +142,9 @@ func MiddlewareStack(cfg MiddlewareConfig) []func(http.Handler) http.Handler {
 			})
 		},
 		middleware.Compress(5),
-		httprate.Limit(60, time.Minute, httprate.WithKeyFuncs(httprate.KeyByIP)),
+		conditionalRateLimiter(60, time.Minute),
 		csrfMiddleware,
+
 	}
 	if cfg.Metrics != nil {
 		middlewares = append(middlewares, func(next http.Handler) http.Handler {
@@ -149,4 +152,24 @@ func MiddlewareStack(cfg MiddlewareConfig) []func(http.Handler) http.Handler {
 		})
 	}
 	return middlewares
+}
+
+// conditionalRateLimiter returns a rate limiting middleware that skips static files.
+// Static assets (JS, CSS, images, fonts) don't need rate limiting and can be safely
+// loaded multiple times without counting against the request limit.
+func conditionalRateLimiter(requestLimit int, windowLength time.Duration) func(http.Handler) http.Handler {
+	limiter := httprate.Limit(requestLimit, windowLength, httprate.WithKeyFuncs(httprate.KeyByIP))
+
+	return func(next http.Handler) http.Handler {
+		limited := limiter(next)
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Skip rate limiting for static files
+			if strings.HasPrefix(r.URL.Path, "/static") {
+				next.ServeHTTP(w, r)
+				return
+			}
+			// Apply rate limiting to all other requests
+			limited.ServeHTTP(w, r)
+		})
+	}
 }
