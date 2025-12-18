@@ -199,9 +199,23 @@ func NewRouter(params RouterParams) http.Handler {
 	if err != nil {
 		params.Logger.Error("create static sub filesystem", slog.Any("error", err))
 	} else {
+		// Static file server with Cache-Control headers
+		// Note: Static files are served without rate limiting (no session/CSRF needed)
 		fileServer := http.StripPrefix("/static/", http.FileServer(http.FS(staticFS)))
-		r.Handle("/static/*", fileServer)
+		r.Handle("/static/*", staticCacheHandler(fileServer))
 	}
 
 	return r
+}
+
+// staticCacheHandler wraps a file server with Cache-Control headers.
+// Static assets (JS, CSS, fonts, images) are cached for 1 hour in browser.
+func staticCacheHandler(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Set Cache-Control header for static assets
+		// public: can be cached by browsers and CDNs
+		// max-age=3600: cache for 1 hour (3600 seconds)
+		w.Header().Set("Cache-Control", "public, max-age=3600")
+		next.ServeHTTP(w, r)
+	})
 }

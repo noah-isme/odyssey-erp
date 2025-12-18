@@ -1,16 +1,16 @@
 /**
  * Odyssey ERP - Main JavaScript Entry Point
- * Initializes all modules
+ * Initializes all modules following state-driven architecture
  */
 
-// Core modules
-import { Sidebar, Navigation } from './core/sidebar.js';
+// Core modules (legacy - to be migrated)
 import { Toast, Loading } from './core/toast.js';
-import { Dropdown } from './core/dropdown.js';
 import { Shortcuts } from './core/shortcuts.js';
 
 // Feature modules (state-driven architecture)
 import { Theme } from './features/theme/index.js';
+import { Sidebar, Navigation } from './features/sidebar/index.js';
+import { Header } from './features/header/index.js';
 
 // Component modules
 import { Modal } from './components/modal.js';
@@ -21,14 +21,14 @@ import { Forms } from './components/forms.js';
 
 // Initialize all modules on DOMContentLoaded
 document.addEventListener('DOMContentLoaded', () => {
-    // Features (state-driven)
+    // Features (state-driven architecture)
     Theme.init();
-
-    // Core
     Sidebar.init();
     Navigation.init();
+    Header.init();
+
+    // Core (legacy)
     Toast.init();
-    Dropdown.init();
     Shortcuts.init();
     Loading.init();
 
@@ -45,7 +45,9 @@ document.addEventListener('DOMContentLoaded', () => {
     window.OdysseyModal = Modal;
     window.OdysseyInspector = Inspector;
     window.OdysseyDataTable = DataTable;
-    window.OdysseyTheme = Theme; // Expose theme for external access
+    window.OdysseyTheme = Theme;
+    window.OdysseySidebar = Sidebar;
+    window.OdysseyHeader = Header;
 
     console.log('🚀 Odyssey ERP initialized');
 });

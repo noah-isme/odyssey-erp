@@ -1,7 +1,7 @@
 {{ define "partials/header.html" }}
 <header class="app-header">
     <div class="header-left">
-        <button class="sidebar-toggle" aria-label="Toggle sidebar">
+        <button class="sidebar-toggle" data-sidebar-toggle aria-label="Toggle sidebar">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M3 12h18M3 6h18M3 18h18" />
             </svg>
@@ -26,12 +26,45 @@
     </div>
 
     <div class="header-right">
-        <button class="header-btn">
+        <!-- Create Dropdown -->
+        <button class="header-btn" data-dropdown-trigger="create" aria-expanded="false" aria-haspopup="true">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M12 5v14M5 12h14" />
             </svg>
             Create
         </button>
+        <div class="dropdown-menu" data-dropdown="create" hidden aria-hidden="true">
+            <a href="/sales/quotations/new" class="dropdown-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                </svg>
+                New Quotation
+            </a>
+            <a href="/sales/orders/new" class="dropdown-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                    <line x1="3" y1="6" x2="21" y2="6" />
+                </svg>
+                New Sales Order
+            </a>
+            <a href="/procurement/pos/new" class="dropdown-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path
+                        d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                </svg>
+                New Purchase Order
+            </a>
+            <a href="/sales/customers/new" class="dropdown-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <line x1="19" y1="8" x2="19" y2="14" />
+                    <line x1="22" y1="11" x2="16" y2="11" />
+                </svg>
+                New Customer
+            </a>
+        </div>
 
         <!-- Theme Toggle -->
         <button id="themeToggle" class="theme-toggle" data-theme-toggle aria-label="Toggle theme"
@@ -62,13 +95,25 @@
             <span class="notification-badge">3</span>
         </button>
 
-        <button class="user-menu">
+        <!-- User Dropdown -->
+        <button class="user-menu" data-dropdown-trigger="user" aria-expanded="false" aria-haspopup="true">
             <div class="user-avatar">A</div>
             <span class="user-name">Admin</span>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="m6 9 6 6 6-6" />
             </svg>
         </button>
+        <div class="dropdown-menu dropdown-menu-right" data-dropdown="user" hidden aria-hidden="true">
+            <div class="dropdown-header">
+                <strong>Admin User</strong>
+                <span class="text-muted">admin@odyssey.local</span>
+            </div>
+            <div class="dropdown-divider"></div>
+            <a href="/profile" class="dropdown-item">Profile</a>
+            <a href="/settings" class="dropdown-item">Settings</a>
+            <div class="dropdown-divider"></div>
+            <a href="/auth/logout" class="dropdown-item text-error">Logout</a>
+        </div>
     </div>
 </header>
 {{ end }}
