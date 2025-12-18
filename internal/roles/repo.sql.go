@@ -11,11 +11,6 @@ type Repository struct {
 	pool *pgxpool.Pool
 }
 
-// RepositoryPort defines the interface for role persistence operations.
-type RepositoryPort interface {
-	ListRoles(ctx context.Context) ([]Role, error)
-	CreateRole(ctx context.Context, name, description string) (Role, error)
-}
 
 // NewRepository constructs a repository.
 func NewRepository(pool *pgxpool.Pool) *Repository {
