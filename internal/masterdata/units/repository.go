@@ -3,8 +3,11 @@ package units
 import (
 	"context"
 	"strconv"
+	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/odyssey-erp/odyssey-erp/internal/masterdata/db"
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata/shared"
 )
 
@@ -17,15 +20,20 @@ type Repository interface {
 }
 
 type repository struct {
-	db *pgxpool.Pool
+	pool    *pgxpool.Pool
+	queries *masterdatadb.Queries
 }
 
-func NewRepository(db *pgxpool.Pool) Repository {
-	return &repository{db: db}
+func NewRepository(pool *pgxpool.Pool) Repository {
+	return &repository{
+		pool:    pool,
+		queries: masterdatadb.New(pool),
+	}
 }
 
+// List uses dynamic query (not sqlc) due to filter complexity
 func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Unit, int, error) {
-	query := `SELECT id, code, name FROM units WHERE 1=1`
+	query := `SELECT id, code, name, created_at, updated_at FROM units WHERE 1=1`
 	args := []interface{}{}
 	argCount := 0
 
@@ -44,7 +52,7 @@ func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Un
 	}
 
 	var total int
-	err := r.db.QueryRow(ctx, countQuery, countArgs...).Scan(&total)
+	err := r.pool.QueryRow(ctx, countQuery, countArgs...).Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -55,15 +63,17 @@ func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Un
 		argCount++
 		query += ` LIMIT $` + strconv.Itoa(argCount)
 		args = append(args, filters.Limit)
-		
+
 		argCount++
 		query += ` OFFSET $` + strconv.Itoa(argCount)
 		offset := (filters.Page - 1) * filters.Limit
-		if offset < 0 { offset = 0 }
+		if offset < 0 {
+			offset = 0
+		}
 		args = append(args, offset)
 	}
 
-	rows, err := r.db.Query(ctx, query, args...)
+	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -72,7 +82,8 @@ func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Un
 	var units []Unit
 	for rows.Next() {
 		var u Unit
-		err := rows.Scan(&u.ID, &u.Code, &u.Name)
+		var createdAt, updatedAt pgtype.Timestamptz
+		err := rows.Scan(&u.ID, &u.Code, &u.Name, &createdAt, &updatedAt)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -81,29 +92,51 @@ func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Un
 	return units, total, rows.Err()
 }
 
+// Get uses sqlc generated query
 func (r *repository) Get(ctx context.Context, id int64) (Unit, error) {
-	query := `SELECT id, code, name FROM units WHERE id = $1`
-	var u Unit
-	err := r.db.QueryRow(ctx, query, id).Scan(&u.ID, &u.Code, &u.Name)
-	return u, err
+	row, err := r.queries.GetUnit(ctx, id)
+	if err != nil {
+		return Unit{}, err
+	}
+	return Unit{
+		ID:   row.ID,
+		Code: row.Code,
+		Name: row.Name,
+	}, nil
 }
 
+// Create uses sqlc generated query
 func (r *repository) Create(ctx context.Context, unit Unit) (Unit, error) {
-	query := `INSERT INTO units (code, name) VALUES ($1, $2) RETURNING id`
-	err := r.db.QueryRow(ctx, query, unit.Code, unit.Name).Scan(&unit.ID)
-	return unit, err
+	now := time.Now()
+	row, err := r.queries.CreateUnit(ctx, masterdatadb.CreateUnitParams{
+		Code:      unit.Code,
+		Name:      unit.Name,
+		CreatedAt: pgtype.Timestamptz{Time: now, Valid: true},
+		UpdatedAt: pgtype.Timestamptz{Time: now, Valid: true},
+	})
+	if err != nil {
+		return Unit{}, err
+	}
+	return Unit{
+		ID:   row.ID,
+		Code: row.Code,
+		Name: row.Name,
+	}, nil
 }
 
+// Update uses sqlc generated query
 func (r *repository) Update(ctx context.Context, id int64, unit Unit) error {
-	query := `UPDATE units SET code = $1, name = $2 WHERE id = $3`
-	_, err := r.db.Exec(ctx, query, unit.Code, unit.Name, id)
-	return err
+	return r.queries.UpdateUnit(ctx, masterdatadb.UpdateUnitParams{
+		Code:      unit.Code,
+		Name:      unit.Name,
+		UpdatedAt: pgtype.Timestamptz{Time: time.Now(), Valid: true},
+		ID:        id,
+	})
 }
 
+// Delete uses sqlc generated query
 func (r *repository) Delete(ctx context.Context, id int64) error {
-	query := `DELETE FROM units WHERE id = $1`
-	_, err := r.db.Exec(ctx, query, id)
-	return err
+	return r.queries.DeleteUnit(ctx, id)
 }
 
 func sortOrder(sortBy, sortDir string) string {

@@ -3,8 +3,11 @@ package warehouses
 import (
 	"context"
 	"strconv"
+	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	masterdatadb "github.com/odyssey-erp/odyssey-erp/internal/masterdata/db"
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata/shared"
 )
 
@@ -17,13 +20,18 @@ type Repository interface {
 }
 
 type repository struct {
-	db *pgxpool.Pool
+	pool    *pgxpool.Pool
+	queries *masterdatadb.Queries
 }
 
-func NewRepository(db *pgxpool.Pool) Repository {
-	return &repository{db: db}
+func NewRepository(pool *pgxpool.Pool) Repository {
+	return &repository{
+		pool:    pool,
+		queries: masterdatadb.New(pool),
+	}
 }
 
+// List uses dynamic query (not sqlc) due to filter complexity
 func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Warehouse, int, error) {
 	query := `SELECT id, branch_id, code, name, address FROM warehouses WHERE 1=1`
 	args := []interface{}{}
@@ -45,7 +53,7 @@ func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Wa
 	countQuery := `SELECT COUNT(*) FROM warehouses WHERE 1=1`
 	countArgs := []interface{}{}
 	countArgCount := 0
-	
+
 	if filters.BranchID != nil {
 		countArgCount++
 		countQuery += ` AND branch_id = $` + strconv.Itoa(countArgCount)
@@ -58,7 +66,7 @@ func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Wa
 	}
 
 	var total int
-	err := r.db.QueryRow(ctx, countQuery, countArgs...).Scan(&total)
+	err := r.pool.QueryRow(ctx, countQuery, countArgs...).Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -71,15 +79,17 @@ func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Wa
 		argCount++
 		query += ` LIMIT $` + strconv.Itoa(argCount)
 		args = append(args, filters.Limit)
-		
+
 		argCount++
 		query += ` OFFSET $` + strconv.Itoa(argCount)
 		offset := (filters.Page - 1) * filters.Limit
-		if offset < 0 { offset = 0 }
+		if offset < 0 {
+			offset = 0
+		}
 		args = append(args, offset)
 	}
 
-	rows, err := r.db.Query(ctx, query, args...)
+	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -97,29 +107,59 @@ func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Wa
 	return warehouses, total, rows.Err()
 }
 
+// Get uses sqlc generated query
 func (r *repository) Get(ctx context.Context, id int64) (Warehouse, error) {
-	query := `SELECT id, branch_id, code, name, address FROM warehouses WHERE id = $1`
-	var w Warehouse
-	err := r.db.QueryRow(ctx, query, id).Scan(&w.ID, &w.BranchID, &w.Code, &w.Name, &w.Address)
-	return w, err
+	row, err := r.queries.GetWarehouse(ctx, id)
+	if err != nil {
+		return Warehouse{}, err
+	}
+	return Warehouse{
+		ID:       row.ID,
+		BranchID: row.BranchID,
+		Code:     row.Code,
+		Name:     row.Name,
+		Address:  row.Address,
+	}, nil
 }
 
+// Create uses sqlc generated query
 func (r *repository) Create(ctx context.Context, warehouse Warehouse) (Warehouse, error) {
-	query := `INSERT INTO warehouses (branch_id, code, name, address) VALUES ($1, $2, $3, $4) RETURNING id`
-	err := r.db.QueryRow(ctx, query, warehouse.BranchID, warehouse.Code, warehouse.Name, warehouse.Address).Scan(&warehouse.ID)
-	return warehouse, err
+	now := time.Now()
+	row, err := r.queries.CreateWarehouse(ctx, masterdatadb.CreateWarehouseParams{
+		BranchID:  warehouse.BranchID,
+		Code:      warehouse.Code,
+		Name:      warehouse.Name,
+		Address:   warehouse.Address,
+		CreatedAt: pgtype.Timestamptz{Time: now, Valid: true},
+		UpdatedAt: pgtype.Timestamptz{Time: now, Valid: true},
+	})
+	if err != nil {
+		return Warehouse{}, err
+	}
+	return Warehouse{
+		ID:       row.ID,
+		BranchID: row.BranchID,
+		Code:     row.Code,
+		Name:     row.Name,
+		Address:  row.Address,
+	}, nil
 }
 
+// Update uses sqlc generated query
 func (r *repository) Update(ctx context.Context, id int64, warehouse Warehouse) error {
-	query := `UPDATE warehouses SET branch_id = $1, code = $2, name = $3, address = $4 WHERE id = $5`
-	_, err := r.db.Exec(ctx, query, warehouse.BranchID, warehouse.Code, warehouse.Name, warehouse.Address, id)
-	return err
+	return r.queries.UpdateWarehouse(ctx, masterdatadb.UpdateWarehouseParams{
+		BranchID:  warehouse.BranchID,
+		Code:      warehouse.Code,
+		Name:      warehouse.Name,
+		Address:   warehouse.Address,
+		UpdatedAt: pgtype.Timestamptz{Time: time.Now(), Valid: true},
+		ID:        id,
+	})
 }
 
+// Delete uses sqlc generated query
 func (r *repository) Delete(ctx context.Context, id int64) error {
-	query := `DELETE FROM warehouses WHERE id = $1`
-	_, err := r.db.Exec(ctx, query, id)
-	return err
+	return r.queries.DeleteWarehouse(ctx, id)
 }
 
 func sortOrder(sortBy, sortDir string) string {

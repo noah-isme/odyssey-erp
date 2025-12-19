@@ -5,7 +5,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	masterdatadb "github.com/odyssey-erp/odyssey-erp/internal/masterdata/db"
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata/shared"
 )
 
@@ -18,15 +20,21 @@ type Repository interface {
 }
 
 type repository struct {
-	db *pgxpool.Pool
+	pool    *pgxpool.Pool
+	queries *masterdatadb.Queries
 }
 
-func NewRepository(db *pgxpool.Pool) Repository {
-	return &repository{db: db}
+func NewRepository(pool *pgxpool.Pool) Repository {
+	return &repository{
+		pool:    pool,
+		queries: masterdatadb.New(pool),
+	}
 }
 
+// List uses dynamic query (not sqlc) due to filter complexity
 func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Product, int, error) {
-	query := `SELECT id, code, name, category_id, unit_id, price, cost, tax_id, is_active, created_at, updated_at FROM products WHERE 1=1`
+	// Note: DB uses 'sku' column, but we map to 'code' for backward compatibility
+	query := `SELECT id, sku, name, category_id, unit_id, price, tax_id, is_active, deleted_at FROM products WHERE 1=1`
 	args := []interface{}{}
 	argCount := 0
 
@@ -38,7 +46,7 @@ func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Pr
 
 	if filters.Search != "" {
 		argCount++
-		query += ` AND (name ILIKE $` + strconv.Itoa(argCount) + ` OR code ILIKE $` + strconv.Itoa(argCount) + `)`
+		query += ` AND (name ILIKE $` + strconv.Itoa(argCount) + ` OR sku ILIKE $` + strconv.Itoa(argCount) + `)`
 		args = append(args, "%"+filters.Search+"%")
 	}
 
@@ -60,7 +68,7 @@ func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Pr
 	}
 	if filters.Search != "" {
 		countArgCount++
-		countQuery += ` AND (name ILIKE $` + strconv.Itoa(countArgCount) + ` OR code ILIKE $` + strconv.Itoa(countArgCount) + `)`
+		countQuery += ` AND (name ILIKE $` + strconv.Itoa(countArgCount) + ` OR sku ILIKE $` + strconv.Itoa(countArgCount) + `)`
 		countArgs = append(countArgs, "%"+filters.Search+"%")
 	}
 	if filters.IsActive != nil {
@@ -70,7 +78,7 @@ func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Pr
 	}
 
 	var total int
-	err := r.db.QueryRow(ctx, countQuery, countArgs...).Scan(&total)
+	err := r.pool.QueryRow(ctx, countQuery, countArgs...).Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -81,15 +89,17 @@ func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Pr
 		argCount++
 		query += ` LIMIT $` + strconv.Itoa(argCount)
 		args = append(args, filters.Limit)
-		
+
 		argCount++
 		query += ` OFFSET $` + strconv.Itoa(argCount)
 		offset := (filters.Page - 1) * filters.Limit
-		if offset < 0 { offset = 0 }
+		if offset < 0 {
+			offset = 0
+		}
 		args = append(args, offset)
 	}
 
-	rows, err := r.db.Query(ctx, query, args...)
+	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -98,44 +108,128 @@ func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Pr
 	var products []Product
 	for rows.Next() {
 		var p Product
-		err := rows.Scan(&p.ID, &p.Code, &p.Name, &p.CategoryID, &p.UnitID, &p.Price, &p.Cost, &p.TaxID, &p.IsActive, &p.CreatedAt, &p.UpdatedAt)
+		var price pgtype.Numeric
+		var taxID pgtype.Int8
+		var deletedAt pgtype.Timestamptz
+		err := rows.Scan(&p.ID, &p.Code, &p.Name, &p.CategoryID, &p.UnitID, &price, &taxID, &p.IsActive, &deletedAt)
 		if err != nil {
 			return nil, 0, err
+		}
+		if price.Valid {
+			f8, _ := price.Float64Value()
+			p.Price = f8.Float64
+		}
+		if taxID.Valid {
+			p.TaxID = taxID.Int64
+		}
+		if deletedAt.Valid {
+			t := deletedAt.Time
+			p.DeletedAt = &t
 		}
 		products = append(products, p)
 	}
 	return products, total, rows.Err()
 }
 
+// Get uses sqlc generated query
 func (r *repository) Get(ctx context.Context, id int64) (Product, error) {
-	query := `SELECT id, code, name, category_id, unit_id, price, cost, tax_id, is_active, created_at, updated_at FROM products WHERE id = $1`
-	var p Product
-	err := r.db.QueryRow(ctx, query, id).Scan(&p.ID, &p.Code, &p.Name, &p.CategoryID, &p.UnitID, &p.Price, &p.Cost, &p.TaxID, &p.IsActive, &p.CreatedAt, &p.UpdatedAt)
-	return p, err
-}
-
-func (r *repository) Create(ctx context.Context, product Product) (Product, error) {
-	query := `INSERT INTO products (code, name, category_id, unit_id, price, cost, tax_id, is_active, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`
-	now := time.Now()
-	err := r.db.QueryRow(ctx, query, product.Code, product.Name, product.CategoryID, product.UnitID, product.Price, product.Cost, product.TaxID, product.IsActive, now, now).Scan(&product.ID)
+	row, err := r.queries.GetProduct(ctx, id)
 	if err != nil {
 		return Product{}, err
 	}
-	product.CreatedAt = now
-	product.UpdatedAt = now
-	return product, nil
+	p := Product{
+		ID:         row.ID,
+		Code:       row.Sku, // map sku -> code
+		Name:       row.Name,
+		CategoryID: row.CategoryID,
+		UnitID:     row.UnitID,
+		IsActive:   row.IsActive,
+	}
+	if row.Price.Valid {
+		f8, _ := row.Price.Float64Value()
+		p.Price = f8.Float64
+	}
+	if row.TaxID.Valid {
+		p.TaxID = row.TaxID.Int64
+	}
+	if row.DeletedAt.Valid {
+		t := row.DeletedAt.Time
+		p.DeletedAt = &t
+	}
+	return p, nil
 }
 
+// Create uses sqlc generated query
+func (r *repository) Create(ctx context.Context, product Product) (Product, error) {
+	// Convert price to pgtype.Numeric
+	priceStr := strconv.FormatFloat(product.Price, 'f', 2, 64)
+	var price pgtype.Numeric
+	_ = price.Scan(priceStr)
+
+	var taxID pgtype.Int8
+	if product.TaxID > 0 {
+		taxID = pgtype.Int8{Int64: product.TaxID, Valid: true}
+	}
+
+	row, err := r.queries.CreateProduct(ctx, masterdatadb.CreateProductParams{
+		Sku:        product.Code, // map code -> sku
+		Name:       product.Name,
+		CategoryID: product.CategoryID,
+		UnitID:     product.UnitID,
+		Price:      price,
+		TaxID:      taxID,
+		IsActive:   product.IsActive,
+	})
+	if err != nil {
+		return Product{}, err
+	}
+
+	p := Product{
+		ID:         row.ID,
+		Code:       row.Sku,
+		Name:       row.Name,
+		CategoryID: row.CategoryID,
+		UnitID:     row.UnitID,
+		IsActive:   row.IsActive,
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
+	}
+	if row.Price.Valid {
+		f8, _ := row.Price.Float64Value()
+		p.Price = f8.Float64
+	}
+	if row.TaxID.Valid {
+		p.TaxID = row.TaxID.Int64
+	}
+	return p, nil
+}
+
+// Update uses sqlc generated query
 func (r *repository) Update(ctx context.Context, id int64, product Product) error {
-	query := `UPDATE products SET code = $1, name = $2, category_id = $3, unit_id = $4, price = $5, cost = $6, tax_id = $7, is_active = $8, updated_at = $9 WHERE id = $10`
-	_, err := r.db.Exec(ctx, query, product.Code, product.Name, product.CategoryID, product.UnitID, product.Price, product.Cost, product.TaxID, product.IsActive, time.Now(), id)
-	return err
+	priceStr := strconv.FormatFloat(product.Price, 'f', 2, 64)
+	var price pgtype.Numeric
+	_ = price.Scan(priceStr)
+
+	var taxID pgtype.Int8
+	if product.TaxID > 0 {
+		taxID = pgtype.Int8{Int64: product.TaxID, Valid: true}
+	}
+
+	return r.queries.UpdateProduct(ctx, masterdatadb.UpdateProductParams{
+		Sku:        product.Code, // map code -> sku
+		Name:       product.Name,
+		CategoryID: product.CategoryID,
+		UnitID:     product.UnitID,
+		Price:      price,
+		TaxID:      taxID,
+		IsActive:   product.IsActive,
+		ID:         id,
+	})
 }
 
+// Delete uses sqlc generated query
 func (r *repository) Delete(ctx context.Context, id int64) error {
-	query := `DELETE FROM products WHERE id = $1`
-	_, err := r.db.Exec(ctx, query, id)
-	return err
+	return r.queries.DeleteProduct(ctx, id)
 }
 
 func sortOrder(sortBy, sortDir string) string {
@@ -145,15 +239,11 @@ func sortOrder(sortBy, sortDir string) string {
 	}
 	switch sortBy {
 	case "code":
-		return "code " + dir
+		return "sku " + dir // map code -> sku for sorting
 	case "name":
 		return "name " + dir
 	case "price":
 		return "price " + dir
-	case "cost":
-		return "cost " + dir
-	case "created_at":
-		return "created_at " + dir
 	default:
 		return "name " + dir
 	}

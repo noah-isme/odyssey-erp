@@ -3,8 +3,11 @@ package branches
 import (
 	"context"
 	"strconv"
+	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	masterdatadb "github.com/odyssey-erp/odyssey-erp/internal/masterdata/db"
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata/shared"
 )
 
@@ -17,13 +20,18 @@ type Repository interface {
 }
 
 type repository struct {
-	db *pgxpool.Pool
+	pool    *pgxpool.Pool
+	queries *masterdatadb.Queries
 }
 
-func NewRepository(db *pgxpool.Pool) Repository {
-	return &repository{db: db}
+func NewRepository(pool *pgxpool.Pool) Repository {
+	return &repository{
+		pool:    pool,
+		queries: masterdatadb.New(pool),
+	}
 }
 
+// List uses dynamic query (not sqlc) due to filter complexity
 func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Branch, int, error) {
 	query := `SELECT id, company_id, code, name, address FROM branches WHERE 1=1`
 	args := []interface{}{}
@@ -45,7 +53,7 @@ func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Br
 	countQuery := `SELECT COUNT(*) FROM branches WHERE 1=1`
 	countArgs := []interface{}{}
 	countArgCount := 0
-	
+
 	if filters.CompanyID != nil {
 		countArgCount++
 		countQuery += ` AND company_id = $` + strconv.Itoa(countArgCount)
@@ -58,7 +66,7 @@ func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Br
 	}
 
 	var total int
-	err := r.db.QueryRow(ctx, countQuery, countArgs...).Scan(&total)
+	err := r.pool.QueryRow(ctx, countQuery, countArgs...).Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -71,15 +79,17 @@ func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Br
 		argCount++
 		query += ` LIMIT $` + strconv.Itoa(argCount)
 		args = append(args, filters.Limit)
-		
+
 		argCount++
 		query += ` OFFSET $` + strconv.Itoa(argCount)
 		offset := (filters.Page - 1) * filters.Limit
-		if offset < 0 { offset = 0 }
+		if offset < 0 {
+			offset = 0
+		}
 		args = append(args, offset)
 	}
 
-	rows, err := r.db.Query(ctx, query, args...)
+	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -97,29 +107,59 @@ func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Br
 	return branches, total, rows.Err()
 }
 
+// Get uses sqlc generated query
 func (r *repository) Get(ctx context.Context, id int64) (Branch, error) {
-	query := `SELECT id, company_id, code, name, address FROM branches WHERE id = $1`
-	var b Branch
-	err := r.db.QueryRow(ctx, query, id).Scan(&b.ID, &b.CompanyID, &b.Code, &b.Name, &b.Address)
-	return b, err
+	row, err := r.queries.GetBranch(ctx, id)
+	if err != nil {
+		return Branch{}, err
+	}
+	return Branch{
+		ID:        row.ID,
+		CompanyID: row.CompanyID,
+		Code:      row.Code,
+		Name:      row.Name,
+		Address:   row.Address,
+	}, nil
 }
 
+// Create uses sqlc generated query
 func (r *repository) Create(ctx context.Context, branch Branch) (Branch, error) {
-	query := `INSERT INTO branches (company_id, code, name, address) VALUES ($1, $2, $3, $4) RETURNING id`
-	err := r.db.QueryRow(ctx, query, branch.CompanyID, branch.Code, branch.Name, branch.Address).Scan(&branch.ID)
-	return branch, err
+	now := time.Now()
+	row, err := r.queries.CreateBranch(ctx, masterdatadb.CreateBranchParams{
+		CompanyID: branch.CompanyID,
+		Code:      branch.Code,
+		Name:      branch.Name,
+		Address:   branch.Address,
+		CreatedAt: pgtype.Timestamptz{Time: now, Valid: true},
+		UpdatedAt: pgtype.Timestamptz{Time: now, Valid: true},
+	})
+	if err != nil {
+		return Branch{}, err
+	}
+	return Branch{
+		ID:        row.ID,
+		CompanyID: row.CompanyID,
+		Code:      row.Code,
+		Name:      row.Name,
+		Address:   row.Address,
+	}, nil
 }
 
+// Update uses sqlc generated query
 func (r *repository) Update(ctx context.Context, id int64, branch Branch) error {
-	query := `UPDATE branches SET company_id = $1, code = $2, name = $3, address = $4 WHERE id = $5`
-	_, err := r.db.Exec(ctx, query, branch.CompanyID, branch.Code, branch.Name, branch.Address, id)
-	return err
+	return r.queries.UpdateBranch(ctx, masterdatadb.UpdateBranchParams{
+		CompanyID: branch.CompanyID,
+		Code:      branch.Code,
+		Name:      branch.Name,
+		Address:   branch.Address,
+		UpdatedAt: pgtype.Timestamptz{Time: time.Now(), Valid: true},
+		ID:        id,
+	})
 }
 
+// Delete uses sqlc generated query
 func (r *repository) Delete(ctx context.Context, id int64) error {
-	query := `DELETE FROM branches WHERE id = $1`
-	_, err := r.db.Exec(ctx, query, id)
-	return err
+	return r.queries.DeleteBranch(ctx, id)
 }
 
 func sortOrder(sortBy, sortDir string) string {
