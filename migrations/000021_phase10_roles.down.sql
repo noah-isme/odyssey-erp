@@ -1,0 +1,3 @@
+ALTER TABLE roles DROP COLUMN IF EXISTS updated_at;
+ALTER TABLE roles DROP COLUMN IF EXISTS created_at;
+ALTER TABLE roles DROP COLUMN IF EXISTS description;
