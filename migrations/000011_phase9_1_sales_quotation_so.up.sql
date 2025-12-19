@@ -2,9 +2,10 @@
 -- Customers, Quotations, and Sales Orders
 
 -- ============================================================================
--- CUSTOMERS
+-- CUSTOMERS (drop and recreate with extended schema)
 -- ============================================================================
 
+DROP TABLE IF EXISTS customers CASCADE;
 CREATE TABLE customers (
     id BIGSERIAL PRIMARY KEY,
     code TEXT NOT NULL,

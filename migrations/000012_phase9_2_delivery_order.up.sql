@@ -157,9 +157,9 @@ BEGIN
     SELECT COALESCE(SUM(dol.quantity_delivered), 0)
     INTO v_total_delivered
     FROM delivery_order_lines dol
-    INNER JOIN delivery_orders do ON do.id = dol.delivery_order_id
+    INNER JOIN delivery_orders do ON dord.id = dol.delivery_order_id
     WHERE dol.sales_order_line_id = NEW.sales_order_line_id
-      AND do.status IN ('CONFIRMED', 'IN_TRANSIT', 'DELIVERED');
+      AND dord.status IN ('CONFIRMED', 'IN_TRANSIT', 'DELIVERED');
 
     -- Update the SO line
     UPDATE sales_order_lines
@@ -254,46 +254,46 @@ COMMENT ON FUNCTION update_sales_order_status_from_delivery IS
 -- View: Delivery orders with enriched details
 CREATE OR REPLACE VIEW vw_delivery_orders_detail AS
 SELECT
-    do.id,
-    do.doc_number,
-    do.company_id,
-    do.sales_order_id,
+    dord.id,
+    dord.doc_number,
+    dord.company_id,
+    dord.sales_order_id,
     so.doc_number AS sales_order_number,
-    do.warehouse_id,
+    dord.warehouse_id,
     w.name AS warehouse_name,
-    do.customer_id,
+    dord.customer_id,
     c.name AS customer_name,
-    do.delivery_date,
-    do.status,
-    do.driver_name,
-    do.vehicle_number,
-    do.tracking_number,
-    do.notes,
-    do.created_by,
-    u_created.username AS created_by_name,
-    do.confirmed_by,
-    u_confirmed.username AS confirmed_by_name,
-    do.confirmed_at,
-    do.delivered_at,
-    do.created_at,
-    do.updated_at,
+    dord.delivery_date,
+    dord.status,
+    dord.driver_name,
+    dord.vehicle_number,
+    dord.tracking_number,
+    dord.notes,
+    dord.created_by,
+    u_created.email AS created_by_name,
+    dord.confirmed_by,
+    u_confirmed.email AS confirmed_by_name,
+    dord.confirmed_at,
+    dord.delivered_at,
+    dord.created_at,
+    dord.updated_at,
     -- Line counts
     COUNT(dol.id) AS line_count,
     SUM(dol.quantity_to_deliver) AS total_quantity
-FROM delivery_orders do
-INNER JOIN sales_orders so ON so.id = do.sales_order_id
-INNER JOIN warehouses w ON w.id = do.warehouse_id
-INNER JOIN customers c ON c.id = do.customer_id
-INNER JOIN users u_created ON u_created.id = do.created_by
-LEFT JOIN users u_confirmed ON u_confirmed.id = do.confirmed_by
-LEFT JOIN delivery_order_lines dol ON dol.delivery_order_id = do.id
+FROM delivery_orders dord
+INNER JOIN sales_orders so ON so.id = dord.sales_order_id
+INNER JOIN warehouses w ON w.id = dord.warehouse_id
+INNER JOIN customers c ON c.id = dord.customer_id
+INNER JOIN users u_created ON u_created.id = dord.created_by
+LEFT JOIN users u_confirmed ON u_confirmed.id = dord.confirmed_by
+LEFT JOIN delivery_order_lines dol ON dol.delivery_order_id = dord.id
 GROUP BY
-    do.id, do.doc_number, do.company_id, do.sales_order_id, so.doc_number,
-    do.warehouse_id, w.name, do.customer_id, c.name, do.delivery_date,
-    do.status, do.driver_name, do.vehicle_number, do.tracking_number,
-    do.notes, do.created_by, u_created.username, do.confirmed_by,
-    u_confirmed.username, do.confirmed_at, do.delivered_at,
-    do.created_at, do.updated_at;
+    dord.id, dord.doc_number, dord.company_id, dord.sales_order_id, so.doc_number,
+    dord.warehouse_id, w.name, dord.customer_id, c.name, dord.delivery_date,
+    dord.status, dord.driver_name, dord.vehicle_number, dord.tracking_number,
+    dord.notes, dord.created_by, u_created.email, dord.confirmed_by,
+    u_confirmed.email, dord.confirmed_at, dord.delivered_at,
+    dord.created_at, dord.updated_at;
 
 COMMENT ON VIEW vw_delivery_orders_detail IS
 'Enriched view of delivery orders with related entity details';
