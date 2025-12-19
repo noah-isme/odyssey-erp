@@ -6,168 +6,159 @@ description: Panduan modular backend dengan subdirectory per entity
 
 ## Prinsip Utama
 
-> **Handler bodoh, Service pintar, Repo fokus DB.**
+> **Handler bodoh, Service pintar, Repo fokus wrap sqlc.**
 
 ### Batas Ukuran File
 | Metrik | Batas Max | Tindakan |
 |--------|-----------|----------|
 | Lines of Code | 400 baris | Split per concern |
-| Functions per file | 15 fungsi | Grup fungsi terkait ke file baru |
+| Functions per file | 15 fungsi | Grup ke file baru |
 
 ---
 
-## Struktur Modular (Subdirectory per Entity)
+## Struktur Proyek
 
-### Target Structure
 ```
-internal/masterdata/
-├── companies/
-│   ├── handler.go      ← HTTP layer (parse request, return response)
-│   ├── routes.go       ← Mapping endpoint -> handler
-│   ├── service.go      ← Business logic, validasi rules, orchestrasi
-│   ├── repository.go   ← Query DB (CRUD, search, pagination)
-│   ├── model.go        ← Entity/domain struct (representasi data inti)
-│   ├── dto.go          ← Request/response struct (yang keluar masuk API)
-│   └── validation.go   ← Validasi input
-├── branches/
-│   ├── handler.go
-│   ├── routes.go
-│   ├── service.go
-│   ├── repository.go
-│   ├── model.go
-│   ├── dto.go
-│   └── validation.go
-├── warehouses/
-├── products/
-├── suppliers/
-├── categories/
-├── units/
-├── taxes/
-└── shared/
-    ├── errors.go       ← Custom errors
-    ├── constants.go    ← Shared constants
-    └── mapper.go       ← Shared mappers
+internal/
+  platform/
+    db/
+      postgres.go           ← Pool init
+      tx.go                 ← WithTx helper
+    cache/
+      redis.go              ← Redis client
+    httpx/
+      middleware.go         ← Logging, request-id, trace_id
+      respond.go            ← RFC7807 problem+json
+      errors.go             ← Sentinel errors + mapping
+  sqlc/                     ← Centralized generated code
+    db.go
+    models.go
+    companies.sql.go
+    branches.sql.go
+  <domain>/
+    <domain>_routes.go      ← Wire all entities
+    <entity>/
+      handler.go
+      routes.go
+      service.go
+      repository.go
+      model.go
+      dto.go
+      validation.go
+
+sql/
+  queries/
+    companies.sql           ← sqlc query definitions
+    branches.sql
+
+migrations/                 ← DDL for migration tool (goose/flyway)
+  000001_init.up.sql
+  000001_init.down.sql
 ```
 
 ### Kenapa Struktur Ini?
-1. `internal/masterdata/` jadi "kota besar", tiap entity jadi "rumah"
-2. Tim bisa kerja paralel tanpa merge conflict
-3. Kalau nanti Master Data meledak (import, bulk update, audit log), tetap rapi
+1. **Migration tool tetap happy** - `migrations/` tidak diubah
+2. **SQLC centralized** - satu package, mudah wiring tx
+3. **Platform dulu** - fondasi standar sebelum refactor domain
+4. **Repository wrap sqlc** - domain tetap bersih
 
 ---
 
-## Peran File (Biar Gak Rancu)
+## SQLC Configuration
+
+```yaml
+# sqlc.yaml
+version: "2"
+sql:
+  - engine: "postgresql"
+    schema: "migrations"       # ← Existing migrations folder
+    queries: "sql/queries"     # ← Centralized queries
+    gen:
+      go:
+        out: "internal/sqlc"
+        package: "sqlc"
+        sql_package: "pgx/v5"
+        emit_json_tags: true
+```
+
+> [!NOTE]
+> sqlc baca DDL dari `migrations/` tanpa mengganggu migration tool.
+
+---
+
+## Peran File
+
+### Platform Layer
 
 | File | Tanggung Jawab |
 |------|----------------|
-| `handler.go` | HTTP layer. Parse request, panggil service, return response |
-| `service.go` | Business logic/usecase. Validasi rules, orchestrasi, transaksi |
-| `repository.go` | Query DB (CRUD, search, pagination) |
-| `model.go` | Entity/domain struct (representasi data inti) |
-| `dto.go` | Request/response struct (yang keluar masuk API) |
-| `validation.go` | Validasi input (manual atau pakai validator) |
-| `routes.go` | Mapping endpoint -> handler |
+| `db/postgres.go` | Connection pool, health check |
+| `db/tx.go` | `WithTx()` transaction wrapper |
+| `cache/redis.go` | Redis client + helpers |
+| `httpx/respond.go` | `JSON()`, `Problem()` RFC7807 |
+| `httpx/errors.go` | Sentinel errors, `RespondError()` |
+| `httpx/middleware.go` | Logging, request-id, trace_id |
+
+### Entity Layer (7-File Pattern)
+
+| File | Tanggung Jawab |
+|------|----------------|
+| `model.go` | Domain entity struct |
+| `dto.go` | Request/response struct |
+| `validation.go` | Input validation rules |
+| `repository.go` | Interface + wrap sqlc |
+| `service.go` | Business logic, orchestrasi |
+| `handler.go` | Parse request, call service, respond |
+| `routes.go` | Endpoint → handler mapping |
 
 ---
 
 ## Contoh Implementasi
 
-### model.go
-```go
-package companies
+### sql/queries/companies.sql
+```sql
+-- name: GetCompany :one
+SELECT id, code, name, active, created_at, updated_at
+FROM companies WHERE id = $1;
 
-type Company struct {
-    ID     string
-    Code   string
-    Name   string
-    Active bool
-}
-```
+-- name: ListCompanies :many
+SELECT id, code, name, active, created_at, updated_at
+FROM companies ORDER BY name LIMIT $1 OFFSET $2;
 
-### dto.go
-```go
-package companies
-
-type CreateCompanyRequest struct {
-    Code string `json:"code"`
-    Name string `json:"name"`
-}
-
-type CompanyResponse struct {
-    ID     string `json:"id"`
-    Code   string `json:"code"`
-    Name   string `json:"name"`
-    Active bool   `json:"active"`
-}
+-- name: CreateCompany :one
+INSERT INTO companies (code, name, active)
+VALUES ($1, $2, $3)
+RETURNING *;
 ```
 
 ### repository.go
 ```go
 package companies
 
-import "context"
+import (
+    "context"
+    "odyssey/internal/sqlc"
+)
 
 type Repository interface {
     Create(ctx context.Context, c Company) (Company, error)
-    GetByID(ctx context.Context, id string) (Company, error)
-    List(ctx context.Context, limit, offset int) ([]Company, error)
+    GetByID(ctx context.Context, id int64) (Company, error)
 }
 
 type repository struct {
-    db *pgxpool.Pool
+    q *sqlc.Queries
 }
 
-func NewRepository(db *pgxpool.Pool) Repository {
-    return &repository{db: db}
+func NewRepository(q *sqlc.Queries) Repository {
+    return &repository{q: q}
 }
 
-func (r *repository) Create(ctx context.Context, c Company) (Company, error) {
-    // INSERT query...
-}
-
-func (r *repository) GetByID(ctx context.Context, id string) (Company, error) {
-    // SELECT query...
-}
-
-func (r *repository) List(ctx context.Context, limit, offset int) ([]Company, error) {
-    // SELECT with LIMIT OFFSET...
-}
-```
-
-### service.go
-```go
-package companies
-
-import (
-    "context"
-    "errors"
-    "strings"
-)
-
-type Service struct {
-    repo Repository
-}
-
-func NewService(repo Repository) *Service {
-    return &Service{repo: repo}
-}
-
-func (s *Service) Create(ctx context.Context, req CreateCompanyRequest) (Company, error) {
-    req.Code = strings.TrimSpace(req.Code)
-    req.Name = strings.TrimSpace(req.Name)
-
-    if req.Code == "" || req.Name == "" {
-        return Company{}, errors.New("code and name are required")
+func (r *repository) GetByID(ctx context.Context, id int64) (Company, error) {
+    row, err := r.q.GetCompany(ctx, id)
+    if err != nil {
+        return Company{}, err
     }
-
-    c := Company{
-        ID:     "", // biasanya di-generate repo/DB
-        Code:   req.Code,
-        Name:   req.Name,
-        Active: true,
-    }
-
-    return s.repo.Create(ctx, c)
+    return mapFromSqlc(row), nil
 }
 ```
 
@@ -176,190 +167,107 @@ func (s *Service) Create(ctx context.Context, req CreateCompanyRequest) (Company
 package companies
 
 import (
-    "encoding/json"
     "net/http"
+    "odyssey/internal/platform/httpx"
 )
 
 type Handler struct {
     svc *Service
 }
 
-func NewHandler(svc *Service) *Handler {
-    return &Handler{svc: svc}
-}
-
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
     var req CreateCompanyRequest
-    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-        http.Error(w, "invalid json", http.StatusBadRequest)
+    if err := httpx.DecodeJSON(r, &req); err != nil {
+        httpx.Problem(w, http.StatusBadRequest, "Invalid JSON", err.Error())
         return
     }
 
     company, err := h.svc.Create(r.Context(), req)
     if err != nil {
-        http.Error(w, err.Error(), http.StatusBadRequest)
+        httpx.RespondError(w, err)
         return
     }
 
-    resp := CompanyResponse{
-        ID:     company.ID,
-        Code:   company.Code,
-        Name:   company.Name,
-        Active: company.Active,
-    }
-
-    w.Header().Set("Content-Type", "application/json")
-    _ = json.NewEncoder(w).Encode(resp)
+    httpx.JSON(w, http.StatusCreated, toResponse(company))
 }
 ```
 
-### routes.go
+### masterdata_routes.go (Domain Level)
 ```go
-package companies
+package masterdata
 
-import "github.com/go-chi/chi/v5"
-
-func (h *Handler) MountRoutes(r chi.Router) {
-    r.Get("/", h.List)
-    r.Post("/", h.Create)
-    r.Get("/{id}", h.GetByID)
-    r.Put("/{id}", h.Update)
-    r.Delete("/{id}", h.Delete)
-}
-```
-
----
-
-## Transaksi & Relasi Lintas Entity
-
-Karena Branch tergantung Company, dan Warehouse tergantung Branch:
-
-### Cara 1: Inject Repo Lintas Module (Simple, OK untuk Monolith)
-```go
-// branches/service.go
-type Service struct {
-    repo        Repository
-    companyRepo companies.Repository  // inject dari luar
-}
-```
-
-### Cara 2: Port Interface Kecil (Lebih Rapi)
-```go
-// branches/service.go
-type CompanyReader interface {
-    GetByID(ctx context.Context, id string) (companies.Company, error)
-}
-
-type Service struct {
-    repo          Repository
-    companyReader CompanyReader  // implementasi di-wire saat bootstrap
-}
-```
-
----
-
-## Naming Convention
-
-| Item | Convention | Contoh |
-|------|------------|--------|
-| Folder | **plural** | `companies/`, `branches/` |
-| Package | **plural** | `package companies` |
-| Struct | **singular** | `type Company struct` |
-
-Biar kebaca natural: `companies.NewService(...)`, `companies.Company{}`
-
----
-
-## Shared Folder
-
-Untuk kode yang dipakai bersama antar entity:
-
-```
-internal/masterdata/shared/
-├── errors.go      ← ErrNotFound, ErrDuplicate, etc
-├── constants.go   ← Status codes, default limits
-├── mapper.go      ← Shared mapping utilities
-└── pagination.go  ← ListFilters, pagination helpers
-```
-
-```go
-// shared/errors.go
-package shared
-
-import "errors"
-
-var (
-    ErrNotFound   = errors.New("resource not found")
-    ErrDuplicate  = errors.New("duplicate entry")
-    ErrValidation = errors.New("validation failed")
+import (
+    "github.com/go-chi/chi/v5"
+    "odyssey/internal/sqlc"
+    "odyssey/internal/masterdata/companies"
 )
+
+func MountRoutes(r chi.Router, q *sqlc.Queries) {
+    companyRepo := companies.NewRepository(q)
+    companySvc := companies.NewService(companyRepo)
+    companyHandler := companies.NewHandler(companySvc)
+
+    r.Route("/companies", func(r chi.Router) {
+        companyHandler.MountRoutes(r)
+    })
+}
 ```
 
 ---
 
-## Langkah Refactoring
+## Urutan Refactoring
 
-### 1. Buat Struktur Folder
+### Phase 1: Platform (Fondasi)
 ```bash
-mkdir -p internal/masterdata/{companies,branches,warehouses,products,suppliers,categories,units,taxes,shared}
+mkdir -p internal/platform/{db,cache,httpx}
+mkdir -p sql/queries
+mkdir -p internal/sqlc
 ```
 
-### 2. Untuk Setiap Entity, Buat File
-```bash
-touch internal/masterdata/companies/{handler,routes,service,repository,model,dto,validation}.go
-```
+1. `httpx/respond.go` - RFC7807 problem+json
+2. `httpx/errors.go` - Sentinel errors + RespondError
+3. `db/tx.go` - Transaction helper
+4. `httpx/middleware.go` - Logging, request-id
 
-### 3. Pindahkan Kode
-1. Entity struct → `model.go`
-2. Request/Response struct → `dto.go`
-3. Repository interface + impl → `repository.go`
-4. Service logic → `service.go`
-5. Handler methods → `handler.go`
-6. Route mounting → `routes.go`
-7. Validation helper → `validation.go`
+### Phase 2: SQLC Setup
+1. Create `sql/queries/*.sql`
+2. Update `sqlc.yaml` (centralized)
+3. Run `sqlc generate`
 
-### 4. Update Imports
-Sesuaikan import path ke struktur baru.
+### Phase 3: Vertical Slice (1 Domain)
+1. Pick one domain (e.g., `masterdata`)
+2. Implement full pattern: routes → handler → service → repo
+3. Test end-to-end
 
-### 5. Verifikasi Build
-// turbo
-```bash
-go build -v ./...
-```
+### Phase 4: Copy Pattern
+1. Apply to other domains
+2. Refactor large files (> 400 LOC)
 
 ---
 
 ## Aturan Ketat
 
 ### WAJIB
-1. **Satu entity = satu folder** dengan file terpisah per concern
-2. **File < 400 LOC** kecuali ada alasan kuat
-3. **Konsisten** - semua entities ikut pola yang sama
-4. **Shared code di `shared/`** - errors, constants, mappers
+1. **SQLC centralized** di `internal/sqlc/`
+2. **Repository wrap sqlc** - jangan import sqlc di handler/service
+3. **Platform dulu** - sebelum refactor domain
+4. **Domain routes file** - `<domain>_routes.go` sebagai wiring
 
 ### JANGAN
-1. **JANGAN** campur entity di satu folder
-2. **JANGAN** campur repository dan handler di satu file
-3. **JANGAN** duplikasi helper functions (taruh di shared)
-4. **JANGAN** hardcode values (taruh di constants)
-
----
-
-## Kapan Pakai `/pkg`?
-
-- Kalau ada modul yang memang **reusable lintas project**
-- Kalau cuma dipakai internal app, taruh di `/internal` saja
-- `/pkg` sering jadi tempat "barang numpuk" kalau tidak disiplin
+1. **JANGAN** raw SQL di repository
+2. **JANGAN** import sqlc di handler atau service
+3. **JANGAN** file > 400 LOC
+4. **JANGAN** skip platform layer
 
 ---
 
 ## Quick Reference
 
-| Situasi | Tindakan |
-|---------|----------|
-| File > 400 LOC | Split per concern |
-| Multiple entities in folder | Buat subfolder per entity |
-| Shared logic | Taruh di `shared/` |
-| Cross-entity dependency | Inject via interface |
-| Request/Response types | Taruh di `dto.go` |
-| Validation rules | Taruh di `validation.go` |
+| Layer | Location | Purpose |
+|-------|----------|---------|
+| Migrations | `migrations/` | DDL for migration tool |
+| SQL Queries | `sql/queries/` | sqlc query definitions |
+| Generated | `internal/sqlc/` | Centralized sqlc output |
+| Platform | `internal/platform/` | Infrastructure |
+| Domain | `internal/<domain>/` | Business domains |
+| Entity | `internal/<domain>/<entity>/` | 7-file pattern |

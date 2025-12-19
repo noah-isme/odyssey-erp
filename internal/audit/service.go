@@ -112,7 +112,7 @@ func toPgTime(t time.Time) pgtype.Timestamptz {
 	return pgtype.Timestamptz{Time: t, Valid: true}
 }
 
-func optionalText(value string) interface{} {
+func optionalText(value string) pgtype.Text {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
 		return pgtype.Text{}

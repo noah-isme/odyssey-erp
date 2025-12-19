@@ -1,5 +1,8 @@
 version: "2"
 sql:
+  # ============================================================================
+  # EXISTING DOMAINS (per-domain output for backward compatibility)
+  # ============================================================================
   - engine: "postgresql"
     schema: "migrations"
     queries: "internal/auth/queries"
@@ -8,8 +11,8 @@ sql:
         package: "authdb"
         out: "internal/auth/db"
         sql_package: "pgx/v5"
-        emit_interface: false
         emit_json_tags: true
+
   - engine: "postgresql"
     schema: "migrations"
     queries: "internal/rbac/queries"
@@ -18,7 +21,6 @@ sql:
         package: "rbacdb"
         out: "internal/rbac/db"
         sql_package: "pgx/v5"
-        emit_interface: false
         emit_json_tags: true
 
   - engine: "postgresql"
@@ -29,8 +31,8 @@ sql:
         package: "accountingdb"
         out: "internal/accounting/db"
         sql_package: "pgx/v5"
-        emit_interface: false
         emit_json_tags: true
+
   - engine: "postgresql"
     schema: "migrations"
     queries: "internal/analytics/queries"
@@ -39,8 +41,8 @@ sql:
         package: "analyticsdb"
         out: "internal/analytics/db"
         sql_package: "pgx/v5"
-        emit_interface: false
         emit_json_tags: true
+
   - engine: "postgresql"
     schema: "migrations"
     queries: "internal/insights/queries"
@@ -49,8 +51,8 @@ sql:
         package: "insightsdb"
         out: "internal/insights/db"
         sql_package: "pgx/v5"
-        emit_interface: false
         emit_json_tags: true
+
   - engine: "postgresql"
     schema: "migrations"
     queries: "internal/audit/queries"
@@ -59,5 +61,20 @@ sql:
         package: "auditdb"
         out: "internal/audit/db"
         sql_package: "pgx/v5"
-        emit_interface: false
         emit_json_tags: true
+
+  # ============================================================================
+  # NEW CENTRALIZED QUERIES (for new domains)
+  # Add new query files to sql/queries/ and they will be generated here
+  # ============================================================================
+  # Uncomment when sql/queries has new content beyond copied files
+  # - engine: "postgresql"
+  #   schema: "migrations"
+  #   queries: "sql/queries"
+  #   gen:
+  #     go:
+  #       package: "sqlc"
+  #       out: "internal/sqlc"
+  #       sql_package: "pgx/v5"
+  #       emit_interface: true
+  #       emit_json_tags: true

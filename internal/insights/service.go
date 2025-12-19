@@ -190,7 +190,7 @@ func almostZero(v float64) bool {
 	return v > -0.0001 && v < 0.0001
 }
 
-func optionalInt(value *int64) interface{} {
+func optionalInt(value *int64) pgtype.Int8 {
 	if value == nil {
 		return pgtype.Int8{}
 	}
