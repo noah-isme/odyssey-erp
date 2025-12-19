@@ -1,4 +1,4 @@
-package accounting
+package journals
 
 import (
 	"context"
@@ -8,19 +8,28 @@ import (
 
 	"github.com/google/uuid"
 
+
+	"github.com/odyssey-erp/odyssey-erp/internal/accounting/periods"
+	"github.com/odyssey-erp/odyssey-erp/internal/accounting/shared"
 	closepkg "github.com/odyssey-erp/odyssey-erp/internal/close"
 )
 
 type stubRepo struct {
-	period Period
+	period periods.Period
 }
 
 func (r stubRepo) WithTx(ctx context.Context, fn func(context.Context, TxRepository) error) error {
+	// In test stub we ignore the wrapper type for simplicity or mock it
 	return fn(ctx, stubTx{period: r.period})
 }
 
+func (r stubRepo) List(ctx context.Context) ([]JournalEntry, error) {
+	return nil, nil
+}
+
+// Ensure stubTx implements TxRepository
 type stubTx struct {
-	period Period
+	period periods.Period
 }
 
 func (tx stubTx) InsertJournalEntry(ctx context.Context, in PostingInput) (JournalEntry, error) {
@@ -44,12 +53,12 @@ func (tx stubTx) LinkSource(ctx context.Context, module string, ref uuid.UUID, e
 	return nil
 }
 
-func (tx stubTx) GetPeriodForUpdate(ctx context.Context, periodID int64) (Period, error) {
+func (tx stubTx) GetPeriodForUpdate(ctx context.Context, periodID int64) (periods.Period, error) {
 	return tx.period, nil
 }
 
-func (tx stubTx) GetNextOpenPeriodAfter(ctx context.Context, date time.Time) (Period, error) {
-	return Period{}, errors.New("not implemented")
+func (tx stubTx) GetNextOpenPeriodAfter(ctx context.Context, date time.Time) (periods.Period, error) {
+	return periods.Period{}, errors.New("not implemented")
 }
 
 func (tx stubTx) GetJournalWithLines(ctx context.Context, entryID int64) (JournalEntry, []JournalLine, error) {
@@ -58,14 +67,6 @@ func (tx stubTx) GetJournalWithLines(ctx context.Context, entryID int64) (Journa
 
 func (tx stubTx) UpdateJournalStatus(ctx context.Context, entryID int64, status JournalStatus) error {
 	return nil
-}
-
-func (tx stubTx) ListAccounts(ctx context.Context) ([]Account, error) {
-	return nil, nil
-}
-
-func (tx stubTx) ListJournalEntries(ctx context.Context) ([]JournalEntry, error) {
-	return nil, nil
 }
 
 type stubGuard struct {
@@ -77,9 +78,9 @@ func (g stubGuard) EnsurePeriodOpenForPosting(ctx context.Context, periodID int6
 }
 
 func TestPostJournalRejectsHardClosedGuard(t *testing.T) {
-	repo := stubRepo{period: Period{
+	repo := stubRepo{period: periods.Period{
 		ID:        1,
-		Status:    PeriodStatusOpen,
+		Status:    periods.PeriodStatusOpen,
 		StartDate: time.Now().Add(-time.Hour),
 		EndDate:   time.Now().Add(time.Hour),
 	}}
@@ -96,15 +97,15 @@ func TestPostJournalRejectsHardClosedGuard(t *testing.T) {
 			{AccountID: 2, Credit: 100},
 		},
 	}
-	if _, err := service.PostJournal(context.Background(), input); !errors.Is(err, ErrPeriodLocked) {
+	if _, err := service.PostJournal(context.Background(), input); !errors.Is(err, shared.ErrPeriodLocked) {
 		t.Fatalf("expected ErrPeriodLocked, got %v", err)
 	}
 }
 
 func TestPostJournalAllowsSoftClosedPeriod(t *testing.T) {
-	repo := stubRepo{period: Period{
+	repo := stubRepo{period: periods.Period{
 		ID:        1,
-		Status:    PeriodStatusClosed,
+		Status:    periods.PeriodStatusClosed,
 		StartDate: time.Now().Add(-time.Hour),
 		EndDate:   time.Now().Add(time.Hour),
 	}}
@@ -125,3 +126,4 @@ func TestPostJournalAllowsSoftClosedPeriod(t *testing.T) {
 		t.Fatalf("expected success, got %v", err)
 	}
 }
+

@@ -6,14 +6,14 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/odyssey-erp/odyssey-erp/internal/accounting"
+	"github.com/odyssey-erp/odyssey-erp/internal/accounting/journals"
 )
 
 const sourceModule = "ELIMINATIONS"
 
 // LedgerPoster abstracts journal posting behaviour.
 type LedgerPoster interface {
-	PostJournal(ctx context.Context, input accounting.PostingInput) (accounting.JournalEntry, error)
+	PostJournal(ctx context.Context, input journals.PostingInput) (journals.JournalEntry, error)
 }
 
 // Service orchestrates elimination rules, simulations, and postings.
@@ -126,7 +126,7 @@ func (s *Service) PostRun(ctx context.Context, id int64, actorID int64) (Run, er
 		return Run{}, err
 	}
 	lines := buildLines(summary, srcAccountID, tgtAccountID, rule.SourceCompanyID, rule.TargetCompanyID)
-	posting := accounting.PostingInput{
+	posting := journals.PostingInput{
 		PeriodID:     period.LedgerID,
 		Date:         period.EndDate,
 		SourceModule: sourceModule,
@@ -178,12 +178,12 @@ func (s *Service) calculateSummary(ctx context.Context, run Run) (SimulationSumm
 	return ComputeElimination(srcBalance, tgtBalance), nil
 }
 
-func buildLines(summary SimulationSummary, srcAccountID, tgtAccountID int64, srcCompany, tgtCompany int64) []accounting.PostingLineInput {
+func buildLines(summary SimulationSummary, srcAccountID, tgtAccountID int64, srcCompany, tgtCompany int64) []journals.PostingLineInput {
 	amount := summary.Eliminated
 	companyA := srcCompany
 	companyB := tgtCompany
-	lineSrc := accounting.PostingLineInput{AccountID: srcAccountID, CompanyID: &companyA}
-	lineTgt := accounting.PostingLineInput{AccountID: tgtAccountID, CompanyID: &companyB}
+	lineSrc := journals.PostingLineInput{AccountID: srcAccountID, CompanyID: &companyA}
+	lineTgt := journals.PostingLineInput{AccountID: tgtAccountID, CompanyID: &companyB}
 	if summary.SourceBalance >= 0 {
 		lineSrc.Credit = amount
 		lineTgt.Debit = amount
@@ -191,5 +191,5 @@ func buildLines(summary SimulationSummary, srcAccountID, tgtAccountID int64, src
 		lineSrc.Debit = amount
 		lineTgt.Credit = amount
 	}
-	return []accounting.PostingLineInput{lineSrc, lineTgt}
+	return []journals.PostingLineInput{lineSrc, lineTgt}
 }
