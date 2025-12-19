@@ -16,7 +16,6 @@ import (
 	boardpackhttp "github.com/odyssey-erp/odyssey-erp/internal/boardpack/http"
 	closehttp "github.com/odyssey-erp/odyssey-erp/internal/close/http"
 	consolhttp "github.com/odyssey-erp/odyssey-erp/internal/consol/http"
-	"github.com/odyssey-erp/odyssey-erp/internal/delivery"
 	eliminationhttp "github.com/odyssey-erp/odyssey-erp/internal/elimination/http"
 	insightshhtp "github.com/odyssey-erp/odyssey-erp/internal/insights/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/inventory"
@@ -56,7 +55,7 @@ type RouterParams struct {
 	ProcurementHandler *procurement.Handler
 	SalesHandler       *sales.Handler
 	MasterDataHandler  *masterdata.Handler
-	DeliveryHandler    *delivery.Handler
+
 	ReportHandler      *report.Handler
 	BoardPackHandler   *boardpackhttp.Handler
 	JobHandler         *jobs.Handler
@@ -176,9 +175,8 @@ func NewRouter(params RouterParams) http.Handler {
 	if params.MasterDataHandler != nil {
 		r.Route("/masterdata", params.MasterDataHandler.MountRoutes)
 	}
-	if params.DeliveryHandler != nil {
-		r.Route("/delivery", params.DeliveryHandler.MountRoutes)
-	}
+	// Delivery is mounted directly via package-level MountRoutes
+	// Requires pool, templates, etc. to be passed via runtime.go
 	r.Route("/report", params.ReportHandler.MountRoutes)
 	if params.ConsolHandler != nil {
 		params.ConsolHandler.MountRoutes(r)
