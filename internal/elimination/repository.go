@@ -118,34 +118,67 @@ FROM elimination_rules WHERE id = $1`, id)
 }
 
 // ListRuns returns recent elimination runs ordered by creation date.
-func (r *Repository) ListRuns(ctx context.Context, limit int) ([]Run, error) {
+func (r *Repository) ListRuns(ctx context.Context, filters ListFilters) ([]Run, int, error) {
 	if r == nil || r.pool == nil {
-		return nil, fmt.Errorf("elimination: repository not initialised")
+		return nil, 0, fmt.Errorf("elimination: repository not initialised")
 	}
-	if limit <= 0 {
-		limit = 50
+	
+	// Defaults
+	if filters.Limit <= 0 {
+		filters.Limit = 20
 	}
-	rows, err := r.pool.Query(ctx, `
-SELECT er.id, er.period_id, er.rule_id, er.status, er.created_by, er.created_at, er.simulated_at, er.posted_at, er.journal_entry_id, er.summary,
-       ru.id, ru.group_id, ru.name, ru.source_company_id, ru.target_company_id, ru.account_src, ru.account_tgt, ru.match_criteria,
-       ru.is_active, ru.created_by, ru.created_at, ru.updated_at
-FROM elimination_runs er
-JOIN elimination_rules ru ON ru.id = er.rule_id
-ORDER BY er.created_at DESC
-LIMIT $1`, limit)
+	if filters.Page <= 0 {
+		filters.Page = 1
+	}
+	offset := (filters.Page - 1) * filters.Limit
+
+	// Count total
+	var total int
+	err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM elimination_runs`).Scan(&total)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
+	}
+
+	// Build Order By
+	orderBy := "er.created_at"
+	orderDir := "DESC"
+	if filters.SortBy != "" {
+		switch filters.SortBy {
+		case "created_at":
+			orderBy = "er.created_at"
+		case "status":
+			orderBy = "er.status"
+		case "period_id":
+			orderBy = "er.period_id"
+		}
+	}
+	if filters.SortDir == "asc" {
+		orderDir = "ASC"
+	}
+	
+	query := fmt.Sprintf(`
+		SELECT er.id, er.period_id, er.rule_id, er.status, er.created_by, er.created_at, er.simulated_at, er.posted_at, er.journal_entry_id, er.summary,
+		       ru.id, ru.group_id, ru.name, ru.source_company_id, ru.target_company_id, ru.account_src, ru.account_tgt, ru.match_criteria,
+		       ru.is_active, ru.created_by, ru.created_at, ru.updated_at
+		FROM elimination_runs er
+		JOIN elimination_rules ru ON ru.id = er.rule_id
+		ORDER BY %s %s
+		LIMIT $1 OFFSET $2`, orderBy, orderDir)
+
+	rows, err := r.pool.Query(ctx, query, filters.Limit, offset)
+	if err != nil {
+		return nil, 0, err
 	}
 	defer rows.Close()
 	var runs []Run
 	for rows.Next() {
 		run, err := scanRunWithRule(rows)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		runs = append(runs, run)
 	}
-	return runs, rows.Err()
+	return runs, total, rows.Err()
 }
 
 // InsertRun creates a new run with draft status.

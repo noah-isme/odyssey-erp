@@ -53,8 +53,8 @@ func (s *Service) TriggerSnapshot(ctx context.Context, req SnapshotRequest) (Sna
 }
 
 // ListSnapshots fetches latest snapshots.
-func (s *Service) ListSnapshots(ctx context.Context, limit int) ([]Snapshot, error) {
-	return s.repo.ListSnapshots(ctx, limit)
+func (s *Service) ListSnapshots(ctx context.Context, filters ListFilters) ([]Snapshot, int, error) {
+	return s.repo.ListSnapshots(ctx, filters)
 }
 
 // GetSnapshot returns metadata by id.

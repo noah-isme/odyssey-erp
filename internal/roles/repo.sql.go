@@ -18,8 +18,9 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 }
 
 // ListRoles returns all roles.
-func (r *Repository) ListRoles(ctx context.Context) ([]Role, error) {
-	rows, err := r.pool.Query(ctx, `SELECT id, name, description, created_at, updated_at FROM roles ORDER BY id`)
+func (r *Repository) ListRoles(ctx context.Context, filters RoleListFilters) ([]Role, error) {
+	query := `SELECT id, name, description, created_at, updated_at FROM roles ORDER BY ` + sortOrderRole(filters.SortBy, filters.SortDir)
+	rows, err := r.pool.Query(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -43,4 +44,21 @@ func (r *Repository) CreateRole(ctx context.Context, name, description string) (
 	var role Role
 	err := r.pool.QueryRow(ctx, `INSERT INTO roles (name, description, created_at, updated_at) VALUES ($1, $2, NOW(), NOW()) RETURNING id, name, description, created_at, updated_at`, name, description).Scan(&role.ID, &role.Name, &role.Description, &role.CreatedAt, &role.UpdatedAt)
 	return role, err
+}
+
+func sortOrderRole(sortBy, sortDir string) string {
+	dir := "ASC"
+	if sortDir == "desc" {
+		dir = "DESC"
+	}
+	switch sortBy {
+	case "name":
+		return "name " + dir
+	case "created_at":
+		return "created_at " + dir
+	case "id":
+		return "id " + dir
+	default:
+		return "id ASC"
+	}
 }

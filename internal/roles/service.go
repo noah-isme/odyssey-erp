@@ -6,7 +6,7 @@ import (
 
 // RepositoryPort defines data access methods for roles.
 type RepositoryPort interface {
-	ListRoles(ctx context.Context) ([]Role, error)
+	ListRoles(ctx context.Context, filters RoleListFilters) ([]Role, error)
 	CreateRole(ctx context.Context, name, description string) (Role, error)
 }
 
@@ -21,8 +21,8 @@ func NewService(repo RepositoryPort) *Service {
 }
 
 // ListRoles returns all roles.
-func (s *Service) ListRoles(ctx context.Context) ([]Role, error) {
-	return s.repo.ListRoles(ctx)
+func (s *Service) ListRoles(ctx context.Context, filters RoleListFilters) ([]Role, error) {
+	return s.repo.ListRoles(ctx, filters)
 }
 
 // CreateRole inserts a new role.

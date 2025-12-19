@@ -4,7 +4,21 @@ import (
 	"context"
 	"time"
 )
-
+ 
+// ListFilters represents standard list page filters
+type ListFilters struct {
+	Page       int
+	Limit      int
+	Search     string
+	SortBy     string
+	SortDir    string
+	IsActive   *bool
+	
+	// Entity specific filters
+	CompanyID  *int64
+	BranchID   *int64
+	CategoryID *int64
+}
 // Company represents a company entity
 type Company struct {
 	ID        int64     `json:"id"`
@@ -92,56 +106,56 @@ type Product struct {
 // Repository interface for master data operations
 type Repository interface {
 	// Company operations
-	ListCompanies(ctx context.Context) ([]Company, error)
+	ListCompanies(ctx context.Context, filters ListFilters) ([]Company, int, error)
 	GetCompany(ctx context.Context, id int64) (Company, error)
 	CreateCompany(ctx context.Context, company Company) (Company, error)
 	UpdateCompany(ctx context.Context, id int64, company Company) error
 	DeleteCompany(ctx context.Context, id int64) error
 
 	// Branch operations
-	ListBranches(ctx context.Context, companyID *int64) ([]Branch, error)
+	ListBranches(ctx context.Context, filters ListFilters) ([]Branch, int, error)
 	GetBranch(ctx context.Context, id int64) (Branch, error)
 	CreateBranch(ctx context.Context, branch Branch) (Branch, error)
 	UpdateBranch(ctx context.Context, id int64, branch Branch) error
 	DeleteBranch(ctx context.Context, id int64) error
 
 	// Warehouse operations
-	ListWarehouses(ctx context.Context, branchID *int64) ([]Warehouse, error)
+	ListWarehouses(ctx context.Context, filters ListFilters) ([]Warehouse, int, error)
 	GetWarehouse(ctx context.Context, id int64) (Warehouse, error)
 	CreateWarehouse(ctx context.Context, warehouse Warehouse) (Warehouse, error)
 	UpdateWarehouse(ctx context.Context, id int64, warehouse Warehouse) error
 	DeleteWarehouse(ctx context.Context, id int64) error
 
 	// Unit operations
-	ListUnits(ctx context.Context) ([]Unit, error)
+	ListUnits(ctx context.Context, filters ListFilters) ([]Unit, int, error)
 	GetUnit(ctx context.Context, id int64) (Unit, error)
 	CreateUnit(ctx context.Context, unit Unit) (Unit, error)
 	UpdateUnit(ctx context.Context, id int64, unit Unit) error
 	DeleteUnit(ctx context.Context, id int64) error
 
 	// Tax operations
-	ListTaxes(ctx context.Context) ([]Tax, error)
+	ListTaxes(ctx context.Context, filters ListFilters) ([]Tax, int, error)
 	GetTax(ctx context.Context, id int64) (Tax, error)
 	CreateTax(ctx context.Context, tax Tax) (Tax, error)
 	UpdateTax(ctx context.Context, id int64, tax Tax) error
 	DeleteTax(ctx context.Context, id int64) error
 
 	// Category operations
-	ListCategories(ctx context.Context) ([]Category, error)
+	ListCategories(ctx context.Context, filters ListFilters) ([]Category, int, error)
 	GetCategory(ctx context.Context, id int64) (Category, error)
 	CreateCategory(ctx context.Context, category Category) (Category, error)
 	UpdateCategory(ctx context.Context, id int64, category Category) error
 	DeleteCategory(ctx context.Context, id int64) error
 
 	// Supplier operations
-	ListSuppliers(ctx context.Context, isActive *bool) ([]Supplier, error)
+	ListSuppliers(ctx context.Context, filters ListFilters) ([]Supplier, int, error)
 	GetSupplier(ctx context.Context, id int64) (Supplier, error)
 	CreateSupplier(ctx context.Context, supplier Supplier) (Supplier, error)
 	UpdateSupplier(ctx context.Context, id int64, supplier Supplier) error
 	DeleteSupplier(ctx context.Context, id int64) error
 
 	// Product operations
-	ListProducts(ctx context.Context, categoryID *int64, isActive *bool, sortBy, sortDir string) ([]Product, error)
+	ListProducts(ctx context.Context, filters ListFilters) ([]Product, int, error)
 	GetProduct(ctx context.Context, id int64) (Product, error)
 	CreateProduct(ctx context.Context, product Product) (Product, error)
 	UpdateProduct(ctx context.Context, id int64, product Product) error
@@ -151,56 +165,56 @@ type Repository interface {
 // Service interface for master data business logic
 type Service interface {
 	// Company operations
-	ListCompanies(ctx context.Context) ([]Company, error)
+	ListCompanies(ctx context.Context, filters ListFilters) ([]Company, int, error)
 	GetCompany(ctx context.Context, id int64) (Company, error)
 	CreateCompany(ctx context.Context, company Company) (Company, error)
 	UpdateCompany(ctx context.Context, id int64, company Company) error
 	DeleteCompany(ctx context.Context, id int64) error
 
 	// Branch operations
-	ListBranches(ctx context.Context, companyID *int64) ([]Branch, error)
+	ListBranches(ctx context.Context, filters ListFilters) ([]Branch, int, error)
 	GetBranch(ctx context.Context, id int64) (Branch, error)
 	CreateBranch(ctx context.Context, branch Branch) (Branch, error)
 	UpdateBranch(ctx context.Context, id int64, branch Branch) error
 	DeleteBranch(ctx context.Context, id int64) error
 
 	// Warehouse operations
-	ListWarehouses(ctx context.Context, branchID *int64) ([]Warehouse, error)
+	ListWarehouses(ctx context.Context, filters ListFilters) ([]Warehouse, int, error)
 	GetWarehouse(ctx context.Context, id int64) (Warehouse, error)
 	CreateWarehouse(ctx context.Context, warehouse Warehouse) (Warehouse, error)
 	UpdateWarehouse(ctx context.Context, id int64, warehouse Warehouse) error
 	DeleteWarehouse(ctx context.Context, id int64) error
 
 	// Unit operations
-	ListUnits(ctx context.Context) ([]Unit, error)
+	ListUnits(ctx context.Context, filters ListFilters) ([]Unit, int, error)
 	GetUnit(ctx context.Context, id int64) (Unit, error)
 	CreateUnit(ctx context.Context, unit Unit) (Unit, error)
 	UpdateUnit(ctx context.Context, id int64, unit Unit) error
 	DeleteUnit(ctx context.Context, id int64) error
 
 	// Tax operations
-	ListTaxes(ctx context.Context) ([]Tax, error)
+	ListTaxes(ctx context.Context, filters ListFilters) ([]Tax, int, error)
 	GetTax(ctx context.Context, id int64) (Tax, error)
 	CreateTax(ctx context.Context, tax Tax) (Tax, error)
 	UpdateTax(ctx context.Context, id int64, tax Tax) error
 	DeleteTax(ctx context.Context, id int64) error
 
 	// Category operations
-	ListCategories(ctx context.Context) ([]Category, error)
+	ListCategories(ctx context.Context, filters ListFilters) ([]Category, int, error)
 	GetCategory(ctx context.Context, id int64) (Category, error)
 	CreateCategory(ctx context.Context, category Category) (Category, error)
 	UpdateCategory(ctx context.Context, id int64, category Category) error
 	DeleteCategory(ctx context.Context, id int64) error
 
 	// Supplier operations
-	ListSuppliers(ctx context.Context, isActive *bool) ([]Supplier, error)
+	ListSuppliers(ctx context.Context, filters ListFilters) ([]Supplier, int, error)
 	GetSupplier(ctx context.Context, id int64) (Supplier, error)
 	CreateSupplier(ctx context.Context, supplier Supplier) (Supplier, error)
 	UpdateSupplier(ctx context.Context, id int64, supplier Supplier) error
 	DeleteSupplier(ctx context.Context, id int64) error
 
 	// Product operations
-	ListProducts(ctx context.Context, categoryID *int64, isActive *bool, sortBy, sortDir string) ([]Product, error)
+	ListProducts(ctx context.Context, filters ListFilters) ([]Product, int, error)
 	GetProduct(ctx context.Context, id int64) (Product, error)
 	CreateProduct(ctx context.Context, product Product) (Product, error)
 	UpdateProduct(ctx context.Context, id int64, product Product) error

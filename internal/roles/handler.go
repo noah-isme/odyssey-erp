@@ -43,12 +43,20 @@ func (h *Handler) MountRoutes(r chi.Router) {
 type formErrors map[string]string
 
 func (h *Handler) listRoles(w http.ResponseWriter, r *http.Request) {
-	roles, err := h.service.ListRoles(r.Context())
+	filters := RoleListFilters{
+		SortBy:  r.URL.Query().Get("sort"),
+		SortDir: r.URL.Query().Get("dir"),
+	}
+
+	roles, err := h.service.ListRoles(r.Context(), filters)
 	if err != nil {
 		h.render(w, r, "pages/roles/list.html", map[string]any{"Errors": formErrors{"general": err.Error()}}, http.StatusInternalServerError)
 		return
 	}
-	h.render(w, r, "pages/roles/list.html", map[string]any{"Roles": roles}, http.StatusOK)
+	h.render(w, r, "pages/roles/list.html", map[string]any{
+		"Roles":   roles,
+		"Filters": filters,
+	}, http.StatusOK)
 }
 
 func (h *Handler) showCreateRoleForm(w http.ResponseWriter, r *http.Request) {

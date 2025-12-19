@@ -17,8 +17,8 @@ func NewService(repo Repository) Service {
 }
 
 // Company operations
-func (s *service) ListCompanies(ctx context.Context) ([]Company, error) {
-	return s.repo.ListCompanies(ctx)
+func (s *service) ListCompanies(ctx context.Context, filters ListFilters) ([]Company, int, error) {
+	return s.repo.ListCompanies(ctx, filters)
 }
 
 func (s *service) GetCompany(ctx context.Context, id int64) (Company, error) {
@@ -53,8 +53,8 @@ func (s *service) DeleteCompany(ctx context.Context, id int64) error {
 }
 
 // Branch operations
-func (s *service) ListBranches(ctx context.Context, companyID *int64) ([]Branch, error) {
-	return s.repo.ListBranches(ctx, companyID)
+func (s *service) ListBranches(ctx context.Context, filters ListFilters) ([]Branch, int, error) {
+	return s.repo.ListBranches(ctx, filters)
 }
 
 func (s *service) GetBranch(ctx context.Context, id int64) (Branch, error) {
@@ -89,8 +89,8 @@ func (s *service) DeleteBranch(ctx context.Context, id int64) error {
 }
 
 // Warehouse operations
-func (s *service) ListWarehouses(ctx context.Context, branchID *int64) ([]Warehouse, error) {
-	return s.repo.ListWarehouses(ctx, branchID)
+func (s *service) ListWarehouses(ctx context.Context, filters ListFilters) ([]Warehouse, int, error) {
+	return s.repo.ListWarehouses(ctx, filters)
 }
 
 func (s *service) GetWarehouse(ctx context.Context, id int64) (Warehouse, error) {
@@ -125,8 +125,8 @@ func (s *service) DeleteWarehouse(ctx context.Context, id int64) error {
 }
 
 // Unit operations
-func (s *service) ListUnits(ctx context.Context) ([]Unit, error) {
-	return s.repo.ListUnits(ctx)
+func (s *service) ListUnits(ctx context.Context, filters ListFilters) ([]Unit, int, error) {
+	return s.repo.ListUnits(ctx, filters)
 }
 
 func (s *service) GetUnit(ctx context.Context, id int64) (Unit, error) {
@@ -161,8 +161,8 @@ func (s *service) DeleteUnit(ctx context.Context, id int64) error {
 }
 
 // Tax operations
-func (s *service) ListTaxes(ctx context.Context) ([]Tax, error) {
-	return s.repo.ListTaxes(ctx)
+func (s *service) ListTaxes(ctx context.Context, filters ListFilters) ([]Tax, int, error) {
+	return s.repo.ListTaxes(ctx, filters)
 }
 
 func (s *service) GetTax(ctx context.Context, id int64) (Tax, error) {
@@ -197,8 +197,8 @@ func (s *service) DeleteTax(ctx context.Context, id int64) error {
 }
 
 // Category operations
-func (s *service) ListCategories(ctx context.Context) ([]Category, error) {
-	return s.repo.ListCategories(ctx)
+func (s *service) ListCategories(ctx context.Context, filters ListFilters) ([]Category, int, error) {
+	return s.repo.ListCategories(ctx, filters)
 }
 
 func (s *service) GetCategory(ctx context.Context, id int64) (Category, error) {
@@ -233,8 +233,8 @@ func (s *service) DeleteCategory(ctx context.Context, id int64) error {
 }
 
 // Supplier operations
-func (s *service) ListSuppliers(ctx context.Context, isActive *bool) ([]Supplier, error) {
-	return s.repo.ListSuppliers(ctx, isActive)
+func (s *service) ListSuppliers(ctx context.Context, filters ListFilters) ([]Supplier, int, error) {
+	return s.repo.ListSuppliers(ctx, filters)
 }
 
 func (s *service) GetSupplier(ctx context.Context, id int64) (Supplier, error) {
@@ -269,8 +269,8 @@ func (s *service) DeleteSupplier(ctx context.Context, id int64) error {
 }
 
 // Product operations
-func (s *service) ListProducts(ctx context.Context, categoryID *int64, isActive *bool, sortBy, sortDir string) ([]Product, error) {
-	return s.repo.ListProducts(ctx, categoryID, isActive, sortBy, sortDir)
+func (s *service) ListProducts(ctx context.Context, filters ListFilters) ([]Product, int, error) {
+	return s.repo.ListProducts(ctx, filters)
 }
 
 func (s *service) GetProduct(ctx context.Context, id int64) (Product, error) {

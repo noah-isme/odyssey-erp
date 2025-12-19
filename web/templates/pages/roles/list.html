@@ -18,13 +18,31 @@
     {{ end }}
 
     <div class="table-wrap" data-component="datatable">
-        <table class="data-table">
+        <table class="data-table" data-datatable="roles">
             <thead>
                 <tr>
-                    <th scope="col">ID</th>
-                    <th scope="col">Name</th>
+                    <th scope="col" class="sortable" data-column="id" {{ if eq .Data.Filters.SortBy "id"
+                        }}data-sort-dir="{{ .Data.Filters.SortDir }}" {{ end }}>
+                        ID
+                        {{ if eq .Data.Filters.SortBy "id" }}
+                        <span class="sort-icon">{{ if eq .Data.Filters.SortDir "asc" }}↑{{ else }}↓{{ end }}</span>
+                        {{ end }}
+                    </th>
+                    <th scope="col" class="sortable" data-column="name" {{ if eq .Data.Filters.SortBy "name"
+                        }}data-sort-dir="{{ .Data.Filters.SortDir }}" {{ end }}>
+                        Name
+                        {{ if eq .Data.Filters.SortBy "name" }}
+                        <span class="sort-icon">{{ if eq .Data.Filters.SortDir "asc" }}↑{{ else }}↓{{ end }}</span>
+                        {{ end }}
+                    </th>
                     <th scope="col">Description</th>
-                    <th scope="col">Created</th>
+                    <th scope="col" class="sortable" data-column="created_at" {{ if eq .Data.Filters.SortBy "created_at"
+                        }}data-sort-dir="{{ .Data.Filters.SortDir }}" {{ end }}>
+                        Created
+                        {{ if eq .Data.Filters.SortBy "created_at" }}
+                        <span class="sort-icon">{{ if eq .Data.Filters.SortDir "asc" }}↑{{ else }}↓{{ end }}</span>
+                        {{ end }}
+                    </th>
                 </tr>
             </thead>
             <tbody>
