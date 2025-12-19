@@ -18,6 +18,9 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting"
+	"github.com/odyssey-erp/odyssey-erp/internal/accounting/journals"
+	"github.com/odyssey-erp/odyssey-erp/internal/accounting/mappings"
+	"github.com/odyssey-erp/odyssey-erp/internal/accounting/periods"
 	"github.com/odyssey-erp/odyssey-erp/internal/analytics"
 	analyticsdb "github.com/odyssey-erp/odyssey-erp/internal/analytics/db"
 	"github.com/odyssey-erp/odyssey-erp/internal/analytics/export"
@@ -147,10 +150,13 @@ func main() {
 	closeRepo := closepkg.NewRepository(dbpool)
 	closeService := closepkg.NewService(closeRepo)
 
-	accountingRepo := accounting.NewRepository(dbpool)
-	accountingService := accounting.NewService(accountingRepo, auditLogger, closeService)
-	accountingHandler := accounting.NewHandler(logger, accountingService, templates)
-	integrationHooks := integration.NewHooks(accountingService, accountingRepo)
+	journalRepo := journals.NewRepository(dbpool)
+	periodRepo := periods.NewRepository(dbpool)
+	mappingRepo := mappings.NewRepository(dbpool)
+
+	journalService := journals.NewService(journalRepo, auditLogger, closeService)
+	accountingHandler := accounting.NewHandler(logger, dbpool, templates, auditLogger, closeService)
+	integrationHooks := integration.NewHooks(journalService, periodRepo, mappingRepo)
 
 	inventoryRepo := inventory.NewRepository(dbpool)
 	inventoryService := inventory.NewService(inventoryRepo, auditLogger, idempotencyStore, inventory.ServiceConfig{}, integrationHooks)
@@ -177,7 +183,7 @@ func main() {
 
 	closeHandler := closehttp.NewHandler(logger, closeService, templates, csrfManager, rbacMiddleware)
 	eliminationRepo := eliminationpkg.NewRepository(dbpool)
-	eliminationService := eliminationpkg.NewService(eliminationRepo, accountingService)
+	eliminationService := eliminationpkg.NewService(eliminationRepo, journalService)
 	eliminationHandler := eliminationhttp.NewHandler(logger, eliminationService, templates, csrfManager, rbacMiddleware)
 
 	analyticsRepo := analyticsdb.New(dbpool)
@@ -215,7 +221,7 @@ func main() {
 	salesService := sales.NewService(dbpool)
 	salesHandler := sales.NewHandler(logger, salesService, templates, csrfManager, sessionManager, rbacMiddleware)
 
-        masterdataHandler := masterdata.NewHandler(logger, dbpool, templates, csrfManager, sessionManager, rbacMiddleware)
+	masterdataHandler := masterdata.NewHandler(logger, dbpool, templates, csrfManager, sessionManager, rbacMiddleware)
 
 	deliveryService := delivery.NewService(dbpool)
 	// Wire up inventory integration for stock reduction on delivery

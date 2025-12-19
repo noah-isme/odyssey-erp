@@ -1,4 +1,4 @@
-package accounting
+package journals
 
 import (
 	"context"
@@ -7,47 +7,41 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-
+	"github.com/odyssey-erp/odyssey-erp/internal/accounting/periods"
 	closepkg "github.com/odyssey-erp/odyssey-erp/internal/close"
-	"github.com/odyssey-erp/odyssey-erp/internal/shared"
+	"github.com/odyssey-erp/odyssey-erp/internal/accounting/shared"
+	internalShared "github.com/odyssey-erp/odyssey-erp/internal/shared"
 )
 
-// RepositoryPort abstracts transactional repository behaviour.
-type RepositoryPort interface {
-	WithTx(ctx context.Context, fn func(context.Context, TxRepository) error) error
-}
-
-// AuditPort records ledger events for compliance.
 type AuditPort interface {
-	Record(ctx context.Context, log shared.AuditLog) error
+	Record(ctx context.Context, log internalShared.AuditLog) error
 }
 
-// PeriodGuard blocks journal postings for hard closed periods.
 type PeriodGuard interface {
 	EnsurePeriodOpenForPosting(ctx context.Context, periodID int64) error
 }
 
-// Service coordinates posting, voiding, and reversing journal entries.
 type Service struct {
-	repo  RepositoryPort
+	repo  Repository
 	audit AuditPort
 	guard PeriodGuard
 	now   func() time.Time
 }
 
-// NewService constructs the ledger service.
-func NewService(repo RepositoryPort, audit AuditPort, guard PeriodGuard) *Service {
+func NewService(repo Repository, audit AuditPort, guard PeriodGuard) *Service {
 	return &Service{repo: repo, audit: audit, guard: guard, now: time.Now}
 }
 
-// WithNow overrides the clock for testing.
 func (s *Service) WithNow(now func() time.Time) {
 	if now != nil {
 		s.now = now
 	}
 }
 
-// PostJournal validates and persists a new journal entry.
+func (s *Service) List(ctx context.Context) ([]JournalEntry, error) {
+	return s.repo.List(ctx)
+}
+
 func (s *Service) PostJournal(ctx context.Context, input PostingInput) (JournalEntry, error) {
 	if err := input.Validate(); err != nil {
 		return JournalEntry{}, err
@@ -57,7 +51,7 @@ func (s *Service) PostJournal(ctx context.Context, input PostingInput) (JournalE
 		if s.guard != nil {
 			if err := s.guard.EnsurePeriodOpenForPosting(ctx, input.PeriodID); err != nil {
 				if errors.Is(err, closepkg.ErrPeriodHardClosed) {
-					return ErrPeriodLocked
+					return shared.ErrPeriodLocked
 				}
 				return err
 			}
@@ -66,14 +60,14 @@ func (s *Service) PostJournal(ctx context.Context, input PostingInput) (JournalE
 		if err != nil {
 			return err
 		}
-		if period.Status == PeriodStatusLocked {
-			return ErrPeriodLocked
+		if period.Status == periods.PeriodStatusLocked {
+			return shared.ErrPeriodLocked
 		}
-		if period.Status != PeriodStatusOpen && period.Status != PeriodStatusClosed {
-			return ErrInvalidPeriod
+		if period.Status != periods.PeriodStatusOpen && period.Status != periods.PeriodStatusClosed {
+			return shared.ErrInvalidPeriod
 		}
 		if input.Date.Before(period.StartDate) || input.Date.After(period.EndDate) {
-			return ErrDateOutOfRange
+			return shared.ErrDateOutOfRange
 		}
 		inserted, err := tx.InsertJournalEntry(ctx, input)
 		if err != nil {
@@ -83,8 +77,8 @@ func (s *Service) PostJournal(ctx context.Context, input PostingInput) (JournalE
 			return err
 		}
 		if err := tx.LinkSource(ctx, input.SourceModule, input.SourceID, inserted.ID); err != nil {
-			if errors.Is(err, ErrSourceConflict) {
-				return ErrSourceAlreadyLinked
+			if errors.Is(err, shared.ErrSourceConflict) {
+				return shared.ErrSourceAlreadyLinked
 			}
 			return err
 		}
@@ -96,7 +90,7 @@ func (s *Service) PostJournal(ctx context.Context, input PostingInput) (JournalE
 		return JournalEntry{}, err
 	}
 	if s.audit != nil {
-		_ = s.audit.Record(ctx, shared.AuditLog{
+		_ = s.audit.Record(ctx, internalShared.AuditLog{
 			ActorID:  input.PostedBy,
 			Action:   "journal.post",
 			Entity:   "journal_entry",
@@ -112,7 +106,6 @@ func (s *Service) PostJournal(ctx context.Context, input PostingInput) (JournalE
 	return entry, nil
 }
 
-// VoidJournal marks an existing journal as VOID.
 func (s *Service) VoidJournal(ctx context.Context, input VoidInput) (JournalEntry, error) {
 	if input.EntryID == 0 {
 		return JournalEntry{}, errors.New("accounting: entry id required")
@@ -128,14 +121,14 @@ func (s *Service) VoidJournal(ctx context.Context, input VoidInput) (JournalEntr
 		if err != nil {
 			return err
 		}
-		if period.Status == PeriodStatusLocked {
-			return ErrPeriodLocked
+		if period.Status == periods.PeriodStatusLocked {
+			return shared.ErrPeriodLocked
 		}
-		if period.Status == PeriodStatusClosed {
-			return ErrInvalidPeriod
+		if period.Status == periods.PeriodStatusClosed {
+			return shared.ErrInvalidPeriod
 		}
 		if current.Status != JournalStatusPosted {
-			return ErrInvalidStatus
+			return shared.ErrInvalidStatus
 		}
 		if err := tx.UpdateJournalStatus(ctx, current.ID, JournalStatusVoid); err != nil {
 			return err
@@ -150,7 +143,7 @@ func (s *Service) VoidJournal(ctx context.Context, input VoidInput) (JournalEntr
 	}
 	entry.Lines = lines
 	if s.audit != nil {
-		_ = s.audit.Record(ctx, shared.AuditLog{
+		_ = s.audit.Record(ctx, internalShared.AuditLog{
 			ActorID:  input.ActorID,
 			Action:   "journal.void",
 			Entity:   "journal_entry",
@@ -164,7 +157,6 @@ func (s *Service) VoidJournal(ctx context.Context, input VoidInput) (JournalEntr
 	return entry, nil
 }
 
-// ReverseJournal creates a reversing journal entry.
 func (s *Service) ReverseJournal(ctx context.Context, input ReverseInput) (JournalEntry, error) {
 	if input.EntryID == 0 {
 		return JournalEntry{}, errors.New("accounting: entry id required")
@@ -176,7 +168,7 @@ func (s *Service) ReverseJournal(ctx context.Context, input ReverseInput) (Journ
 			return err
 		}
 		if original.Status != JournalStatusPosted {
-			return ErrInvalidStatus
+			return shared.ErrInvalidStatus
 		}
 		period, err := tx.GetPeriodForUpdate(ctx, original.PeriodID)
 		if err != nil {
@@ -187,9 +179,9 @@ func (s *Service) ReverseJournal(ctx context.Context, input ReverseInput) (Journ
 		if input.TargetDate != nil {
 			targetDate = *input.TargetDate
 		}
-		if period.Status != PeriodStatusOpen {
-			if period.Status == PeriodStatusLocked && !input.Override {
-				return ErrPeriodLocked
+		if period.Status != periods.PeriodStatusOpen {
+			if period.Status == periods.PeriodStatusLocked && !input.Override {
+				return shared.ErrPeriodLocked
 			}
 			next, err := tx.GetNextOpenPeriodAfter(ctx, period.EndDate.AddDate(0, 0, 1))
 			if err != nil {
@@ -199,7 +191,7 @@ func (s *Service) ReverseJournal(ctx context.Context, input ReverseInput) (Journ
 			targetDate = next.StartDate
 		}
 		if targetDate.Before(targetPeriod.StartDate) || targetDate.After(targetPeriod.EndDate) {
-			return ErrDateOutOfRange
+			return shared.ErrDateOutOfRange
 		}
 		posting := PostingInput{
 			PeriodID:     targetPeriod.ID,
@@ -228,7 +220,7 @@ func (s *Service) ReverseJournal(ctx context.Context, input ReverseInput) (Journ
 		return JournalEntry{}, err
 	}
 	if s.audit != nil {
-		_ = s.audit.Record(ctx, shared.AuditLog{
+		_ = s.audit.Record(ctx, internalShared.AuditLog{
 			ActorID:  input.ActorID,
 			Action:   "journal.reverse",
 			Entity:   "journal_entry",
@@ -282,50 +274,4 @@ func defaultReversalMemo(memo string, number int64) string {
 		return memo
 	}
 	return fmt.Sprintf("Reversal of JE %d", number)
-}
-
-// ListAccounts retrieves all chart of accounts entries.
-func (s *Service) ListAccounts(ctx context.Context) ([]Account, error) {
-	var accounts []Account
-	err := s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
-		var err error
-		accounts, err = tx.ListAccounts(ctx)
-		return err
-	})
-	return accounts, err
-}
-
-// ListJournalEntries retrieves all journal entries.
-func (s *Service) ListJournalEntries(ctx context.Context) ([]JournalEntry, error) {
-	var entries []JournalEntry
-	err := s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
-		var err error
-		entries, err = tx.ListJournalEntries(ctx)
-		return err
-	})
-	return entries, err
-}
-
-// ListGeneralLedger retrieves accounts with their balances for general ledger.
-func (s *Service) ListGeneralLedger(ctx context.Context) ([]Account, error) {
-	// For MVP, just return all accounts; full GL would include balances
-	return s.ListAccounts(ctx)
-}
-
-// ListTrialBalance retrieves accounts with their trial balance for reporting.
-func (s *Service) ListTrialBalance(ctx context.Context) ([]Account, error) {
-	// For MVP, just return all accounts; full TB would include calculated balances
-	return s.ListAccounts(ctx)
-}
-
-// ListBalanceSheet retrieves balance sheet data.
-func (s *Service) ListBalanceSheet(ctx context.Context) ([]Account, error) {
-	// For MVP, just return all accounts; full BS would include calculated balances
-	return s.ListAccounts(ctx)
-}
-
-// ListProfitLoss retrieves profit & loss data.
-func (s *Service) ListProfitLoss(ctx context.Context) ([]Account, error) {
-	// For MVP, just return all accounts; full P&L would include calculated balances
-	return s.ListAccounts(ctx)
 }

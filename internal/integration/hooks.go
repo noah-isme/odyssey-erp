@@ -8,48 +8,56 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/odyssey-erp/odyssey-erp/internal/accounting"
+	"github.com/odyssey-erp/odyssey-erp/internal/accounting/journals"
+	"github.com/odyssey-erp/odyssey-erp/internal/accounting/mappings"
+	"github.com/odyssey-erp/odyssey-erp/internal/accounting/periods"
+	"github.com/odyssey-erp/odyssey-erp/internal/accounting/shared"
 	"github.com/odyssey-erp/odyssey-erp/internal/inventory"
 	"github.com/odyssey-erp/odyssey-erp/internal/procurement"
 )
 
 // Ledger exposes journal posting operations required by integrations.
 type Ledger interface {
-	PostJournal(ctx context.Context, input accounting.PostingInput) (accounting.JournalEntry, error)
+	PostJournal(ctx context.Context, input journals.PostingInput) (journals.JournalEntry, error)
 }
 
-// Repository provides mapping and period lookups used during integration postings.
-type Repository interface {
-	FindOpenPeriodByDate(ctx context.Context, date time.Time) (accounting.Period, error)
-	GetAccountMapping(ctx context.Context, module, key string) (accounting.AccountMapping, error)
+// PeriodRepository provides period lookups.
+type PeriodRepository interface {
+	FindOpenPeriodByDate(ctx context.Context, date time.Time) (periods.Period, error)
+}
+
+// AccountMappingRepository provides mapping lookups.
+type AccountMappingRepository interface {
+	Get(ctx context.Context, module, key string) (mappings.AccountMapping, error)
 }
 
 // Hooks wires domain events from operational modules into the general ledger.
 type Hooks struct {
-	ledger Ledger
-	repo   Repository
+	ledger      Ledger
+	periodRepo  PeriodRepository
+	mappingRepo AccountMappingRepository
 }
 
 // NewHooks constructs integration hooks.
-func NewHooks(ledger Ledger, repo Repository) *Hooks {
-	return &Hooks{ledger: ledger, repo: repo}
+func NewHooks(ledger Ledger, periodRepo PeriodRepository, mappingRepo AccountMappingRepository) *Hooks {
+	return &Hooks{ledger: ledger, periodRepo: periodRepo, mappingRepo: mappingRepo}
 }
 
 func (h *Hooks) resolveAccount(ctx context.Context, module, key string) (int64, error) {
-	mapping, err := h.repo.GetAccountMapping(ctx, module, key)
+	mapping, err := h.mappingRepo.Get(ctx, module, key)
 	if err != nil {
 		return 0, err
 	}
 	return mapping.AccountID, nil
 }
 
-func (h *Hooks) post(ctx context.Context, input accounting.PostingInput) error {
+func (h *Hooks) post(ctx context.Context, input journals.PostingInput) error {
 	if input.SourceID == uuid.Nil {
 		return errors.New("integration: source id required")
 	}
 	_, err := h.ledger.PostJournal(ctx, input)
 	if err != nil {
-		if errors.Is(err, accounting.ErrSourceAlreadyLinked) {
+		if errors.Is(err, shared.ErrSourceAlreadyLinked) {
 			return nil
 		}
 	}
@@ -58,13 +66,13 @@ func (h *Hooks) post(ctx context.Context, input accounting.PostingInput) error {
 
 // HandleGRNPosted posts the accounting entry for a goods receipt.
 func (h *Hooks) HandleGRNPosted(ctx context.Context, evt procurement.GRNPostedEvent) error {
-	if h == nil || h.ledger == nil || h.repo == nil {
+	if h == nil || h.ledger == nil || h.periodRepo == nil || h.mappingRepo == nil {
 		return nil
 	}
 	if evt.ReceivedAt.IsZero() {
 		return errors.New("integration: GRN received date required")
 	}
-	period, err := h.repo.FindOpenPeriodByDate(ctx, evt.ReceivedAt)
+	period, err := h.periodRepo.FindOpenPeriodByDate(ctx, evt.ReceivedAt)
 	if err != nil {
 		return err
 	}
@@ -85,13 +93,13 @@ func (h *Hooks) HandleGRNPosted(ctx context.Context, evt procurement.GRNPostedEv
 		return nil
 	}
 	sourceID := uuid.NewSHA1(uuid.Nil, []byte(fmt.Sprintf("GRN:%d", evt.ID)))
-	input := accounting.PostingInput{
+	input := journals.PostingInput{
 		PeriodID:     period.ID,
 		Date:         evt.ReceivedAt,
 		SourceModule: "PROCUREMENT.GRN",
 		SourceID:     sourceID,
 		Memo:         fmt.Sprintf("GRN %s", evt.Number),
-		Lines: []accounting.PostingLineInput{
+		Lines: []journals.PostingLineInput{
 			{AccountID: inventoryAccount, Debit: total},
 			{AccountID: grirAccount, Credit: total},
 		},
@@ -101,7 +109,7 @@ func (h *Hooks) HandleGRNPosted(ctx context.Context, evt procurement.GRNPostedEv
 
 // HandleAPInvoicePosted posts the accounting entry for an AP invoice.
 func (h *Hooks) HandleAPInvoicePosted(ctx context.Context, evt procurement.APInvoicePostedEvent) error {
-	if h == nil || h.ledger == nil || h.repo == nil {
+	if h == nil || h.ledger == nil || h.periodRepo == nil || h.mappingRepo == nil {
 		return nil
 	}
 	if evt.PostedAt.IsZero() {
@@ -110,7 +118,7 @@ func (h *Hooks) HandleAPInvoicePosted(ctx context.Context, evt procurement.APInv
 	if evt.Total <= 0 {
 		return nil
 	}
-	period, err := h.repo.FindOpenPeriodByDate(ctx, evt.PostedAt)
+	period, err := h.periodRepo.FindOpenPeriodByDate(ctx, evt.PostedAt)
 	if err != nil {
 		return err
 	}
@@ -130,13 +138,13 @@ func (h *Hooks) HandleAPInvoicePosted(ctx context.Context, evt procurement.APInv
 	}
 	amount := round2(evt.Total)
 	sourceID := uuid.NewSHA1(uuid.Nil, []byte(fmt.Sprintf("APINV:%d", evt.ID)))
-	input := accounting.PostingInput{
+	input := journals.PostingInput{
 		PeriodID:     period.ID,
 		Date:         evt.PostedAt,
 		SourceModule: "PROCUREMENT.AP_INVOICE",
 		SourceID:     sourceID,
 		Memo:         fmt.Sprintf("AP Invoice %s", evt.Number),
-		Lines: []accounting.PostingLineInput{
+		Lines: []journals.PostingLineInput{
 			{AccountID: debitAccount, Debit: amount},
 			{AccountID: apAccount, Credit: amount},
 		},
@@ -146,7 +154,7 @@ func (h *Hooks) HandleAPInvoicePosted(ctx context.Context, evt procurement.APInv
 
 // HandleAPPaymentPosted posts the accounting entry for an AP payment.
 func (h *Hooks) HandleAPPaymentPosted(ctx context.Context, evt procurement.APPaymentPostedEvent) error {
-	if h == nil || h.ledger == nil || h.repo == nil {
+	if h == nil || h.ledger == nil || h.periodRepo == nil || h.mappingRepo == nil {
 		return nil
 	}
 	if evt.PaidAt.IsZero() {
@@ -155,7 +163,7 @@ func (h *Hooks) HandleAPPaymentPosted(ctx context.Context, evt procurement.APPay
 	if evt.Amount <= 0 {
 		return nil
 	}
-	period, err := h.repo.FindOpenPeriodByDate(ctx, evt.PaidAt)
+	period, err := h.periodRepo.FindOpenPeriodByDate(ctx, evt.PaidAt)
 	if err != nil {
 		return err
 	}
@@ -169,13 +177,13 @@ func (h *Hooks) HandleAPPaymentPosted(ctx context.Context, evt procurement.APPay
 	}
 	amount := round2(evt.Amount)
 	sourceID := uuid.NewSHA1(uuid.Nil, []byte(fmt.Sprintf("APPAY:%d", evt.ID)))
-	input := accounting.PostingInput{
+	input := journals.PostingInput{
 		PeriodID:     period.ID,
 		Date:         evt.PaidAt,
 		SourceModule: "PROCUREMENT.AP_PAYMENT",
 		SourceID:     sourceID,
 		Memo:         fmt.Sprintf("AP Payment %s", evt.Number),
-		Lines: []accounting.PostingLineInput{
+		Lines: []journals.PostingLineInput{
 			{AccountID: apAccount, Debit: amount},
 			{AccountID: cashAccount, Credit: amount},
 		},
@@ -185,7 +193,7 @@ func (h *Hooks) HandleAPPaymentPosted(ctx context.Context, evt procurement.APPay
 
 // HandleInventoryAdjustmentPosted posts the accounting entry for inventory adjustments.
 func (h *Hooks) HandleInventoryAdjustmentPosted(ctx context.Context, evt inventory.AdjustmentPostedEvent) error {
-	if h == nil || h.ledger == nil || h.repo == nil {
+	if h == nil || h.ledger == nil || h.periodRepo == nil || h.mappingRepo == nil {
 		return nil
 	}
 	if evt.PostedAt.IsZero() {
@@ -194,7 +202,7 @@ func (h *Hooks) HandleInventoryAdjustmentPosted(ctx context.Context, evt invento
 	if abs(evt.Qty) < 1e-9 {
 		return nil
 	}
-	period, err := h.repo.FindOpenPeriodByDate(ctx, evt.PostedAt)
+	period, err := h.periodRepo.FindOpenPeriodByDate(ctx, evt.PostedAt)
 	if err != nil {
 		return err
 	}
@@ -215,20 +223,20 @@ func (h *Hooks) HandleInventoryAdjustmentPosted(ctx context.Context, evt invento
 		return nil
 	}
 	sourceID := uuid.NewSHA1(uuid.Nil, []byte(fmt.Sprintf("ADJ:%s:%d", evt.Code, evt.ProductID)))
-	lines := make([]accounting.PostingLineInput, 0, 2)
+	lines := make([]journals.PostingLineInput, 0, 2)
 	memo := fmt.Sprintf("Inventory Adjustment %s", evt.Code)
 	if evt.Qty > 0 {
 		lines = append(lines,
-			accounting.PostingLineInput{AccountID: inventoryAccount, Debit: amount},
-			accounting.PostingLineInput{AccountID: gainAccount, Credit: amount},
+			journals.PostingLineInput{AccountID: inventoryAccount, Debit: amount},
+			journals.PostingLineInput{AccountID: gainAccount, Credit: amount},
 		)
 	} else {
 		lines = append(lines,
-			accounting.PostingLineInput{AccountID: lossAccount, Debit: amount},
-			accounting.PostingLineInput{AccountID: inventoryAccount, Credit: amount},
+			journals.PostingLineInput{AccountID: lossAccount, Debit: amount},
+			journals.PostingLineInput{AccountID: inventoryAccount, Credit: amount},
 		)
 	}
-	input := accounting.PostingInput{
+	input := journals.PostingInput{
 		PeriodID:     period.ID,
 		Date:         evt.PostedAt,
 		SourceModule: "INVENTORY.ADJUSTMENT",

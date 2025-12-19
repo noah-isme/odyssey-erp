@@ -5,125 +5,84 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/odyssey-erp/odyssey-erp/internal/accounting/accounts"
+	"github.com/odyssey-erp/odyssey-erp/internal/accounting/journals"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
+
 )
 
 // Handler wires finance ledger endpoints.
 type Handler struct {
-	logger    *slog.Logger
-	service   *Service
-	templates *view.Engine
+	logger         *slog.Logger
+	templates      *view.Engine
+	accountHandler *accounts.Handler
+	journalHandler *journals.Handler
+	// Future: ReportHandler
 }
 
 // NewHandler builds a Handler instance.
-func NewHandler(logger *slog.Logger, service *Service, templates *view.Engine) *Handler {
-	return &Handler{logger: logger, service: service, templates: templates}
+// Note: Dependencies like audit and guard should be injected here or created if simple.
+// For now, assuming they are passed or we create separate constructors.
+func NewHandler(logger *slog.Logger, db *pgxpool.Pool, templates *view.Engine, audit journals.AuditPort, guard journals.PeriodGuard) *Handler {
+	// Repositories
+	accountRepo := accounts.NewRepository(db)
+	journalRepo := journals.NewRepository(db)
+	// periodRepo := periods.NewRepository(db)
+	// mappingRepo := mappings.NewRepository(db)
+
+	// Services
+	accountService := accounts.NewService(accountRepo)
+	journalService := journals.NewService(journalRepo, audit, guard)
+
+	// Handlers
+	accountHandler := accounts.NewHandler(logger, accountService, templates)
+	journalHandler := journals.NewHandler(logger, journalService, templates)
+
+	return &Handler{
+		logger:         logger,
+		templates:      templates,
+		accountHandler: accountHandler,
+		journalHandler: journalHandler,
+	}
 }
 
 // MountRoutes registers HTTP routes for the ledger module.
 func (h *Handler) MountRoutes(r chi.Router) {
-	r.Get("/coa", h.handleListAccounts)
-	r.Get("/journals", h.handleListJournals)
-	r.Post("/finance/journals", h.handleNotImplemented)
-	r.Post("/finance/journals/{id}/void", h.handleNotImplemented)
-	r.Post("/finance/journals/{id}/reverse", h.handleNotImplemented)
+	r.Route("/coa", func(r chi.Router) {
+		h.accountHandler.MountRoutes(r)
+	})
+	r.Route("/journals", func(r chi.Router) {
+		h.journalHandler.MountRoutes(r)
+	})
+
+	// Legacy/Direct routes for now until Report module is fully separated
 	r.Get("/gl", h.handleGeneralLedger)
 	r.Get("/trial-balance", h.handleTrialBalance)
 	r.Get("/pnl", h.handleProfitLoss)
 	r.Get("/balance-sheet", h.handleBalanceSheet)
+
 	r.Get("/finance/reports/trial-balance/pdf", h.handleNotImplemented)
 	r.Get("/finance/reports/pl/pdf", h.handleNotImplemented)
 	r.Get("/finance/reports/bs/pdf", h.handleNotImplemented)
 }
 
-func (h *Handler) handleListAccounts(w http.ResponseWriter, r *http.Request) {
-	accounts, err := h.service.ListAccounts(r.Context())
-	if err != nil {
-		h.logger.Error("list accounts", slog.Any("error", err))
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-	data := map[string]any{"Accounts": accounts}
-	viewData := view.TemplateData{Title: "Chart of Accounts", Data: data}
-	if err := h.templates.Render(w, "pages/accounting/coa_list.html", viewData); err != nil {
-		h.logger.Error("render coa", slog.Any("error", err))
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-	}
-}
-
-func (h *Handler) handleListJournals(w http.ResponseWriter, r *http.Request) {
-	entries, err := h.service.ListJournalEntries(r.Context())
-	if err != nil {
-		h.logger.Error("list journals", slog.Any("error", err))
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-	data := map[string]any{"JournalEntries": entries}
-	viewData := view.TemplateData{Title: "Journal Entries", Data: data}
-	if err := h.templates.Render(w, "pages/accounting/journals_list.html", viewData); err != nil {
-		h.logger.Error("render journals", slog.Any("error", err))
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-	}
-}
-
 func (h *Handler) handleGeneralLedger(w http.ResponseWriter, r *http.Request) {
-	accounts, err := h.service.ListGeneralLedger(r.Context())
-	if err != nil {
-		h.logger.Error("list general ledger", slog.Any("error", err))
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-	data := map[string]any{"Accounts": accounts}
-	viewData := view.TemplateData{Title: "General Ledger", Data: data}
-	if err := h.templates.Render(w, "pages/accounting/gl.html", viewData); err != nil {
-		h.logger.Error("render gl", slog.Any("error", err))
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-	}
+	// Proxy to Account Service for List (MVP behavior)
+	h.accountHandler.List(w, r)
 }
 
 func (h *Handler) handleTrialBalance(w http.ResponseWriter, r *http.Request) {
-	accounts, err := h.service.ListTrialBalance(r.Context())
-	if err != nil {
-		h.logger.Error("list trial balance", slog.Any("error", err))
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-	data := map[string]any{"Accounts": accounts}
-	viewData := view.TemplateData{Title: "Trial Balance", Data: data}
-	if err := h.templates.Render(w, "pages/accounting/trial_balance.html", viewData); err != nil {
-		h.logger.Error("render trial balance", slog.Any("error", err))
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-	}
+	h.accountHandler.List(w, r)
 }
 
 func (h *Handler) handleBalanceSheet(w http.ResponseWriter, r *http.Request) {
-	accounts, err := h.service.ListBalanceSheet(r.Context())
-	if err != nil {
-		h.logger.Error("list balance sheet", slog.Any("error", err))
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-	data := map[string]any{"Accounts": accounts}
-	viewData := view.TemplateData{Title: "Balance Sheet", Data: data}
-	if err := h.templates.Render(w, "pages/accounting/balance_sheet.html", viewData); err != nil {
-		h.logger.Error("render balance sheet", slog.Any("error", err))
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-	}
+	h.accountHandler.List(w, r)
 }
 
 func (h *Handler) handleProfitLoss(w http.ResponseWriter, r *http.Request) {
-	accounts, err := h.service.ListProfitLoss(r.Context())
-	if err != nil {
-		h.logger.Error("list profit loss", slog.Any("error", err))
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-	data := map[string]any{"Accounts": accounts}
-	viewData := view.TemplateData{Title: "Profit & Loss", Data: data}
-	if err := h.templates.Render(w, "pages/accounting/pnl.html", viewData); err != nil {
-		h.logger.Error("render pnl", slog.Any("error", err))
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-	}
+	h.accountHandler.List(w, r)
 }
 
 func (h *Handler) handleNotImplemented(w http.ResponseWriter, _ *http.Request) {
