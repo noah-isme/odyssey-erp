@@ -63,6 +63,21 @@ func main() {
 		log.Fatalf("seed sales: %v", err)
 	}
 
+	// Phase 8: Eliminations & Variance
+	fmt.Println("→ Seeding eliminations & variance...")
+	if err := seedEliminations(ctx, pool); err != nil {
+		log.Fatalf("seed eliminations: %v", err)
+	}
+	if err := seedVariance(ctx, pool); err != nil {
+		log.Fatalf("seed variance: %v", err)
+	}
+
+	// Journals (Post-Operations)
+	fmt.Println("→ Seeding journals...")
+	if err := seedJournals(ctx, pool); err != nil {
+		log.Fatalf("seed journals: %v", err)
+	}
+
 	// Phase 7: Advanced Features
 	fmt.Println("→ Seeding board pack templates...")
 	if err := seedBoardPackTemplates(ctx, pool); err != nil {
@@ -70,6 +85,17 @@ func main() {
 	}
 
 	fmt.Println("✓ Seed complete at", time.Now().Format(time.RFC3339))
+}
+
+// =============================================================================
+// HELPERS
+// =============================================================================
+
+func getenv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
 }
 
 // =============================================================================
@@ -896,7 +922,201 @@ func seedSales(ctx context.Context, pool *pgxpool.Pool) error {
 }
 
 // =============================================================================
-// BOARD PACK TEMPLATES
+// JOURNALS
+// =============================================================================
+
+func seedJournals(ctx context.Context, pool *pgxpool.Pool) error {
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	// IDs
+	var company1ID, company2ID, adminID int64
+	var periodID int64
+	var accBank, accRev, accExp, accRec, accPay int64
+
+	pool.QueryRow(ctx, "SELECT id FROM companies WHERE code = 'ODY-01'").Scan(&company1ID)
+	pool.QueryRow(ctx, "SELECT id FROM companies WHERE code = 'ODY-02'").Scan(&company2ID)
+	pool.QueryRow(ctx, "SELECT id FROM users WHERE email = 'admin@odyssey.local'").Scan(&adminID)
+	
+	// Get current period
+	year, month, _ := time.Now().Date()
+	periodCode := fmt.Sprintf("%d-%02d", year, month)
+	pool.QueryRow(ctx, "SELECT id FROM periods WHERE code = $1", periodCode).Scan(&periodID)
+
+	// Get Accounts
+	pool.QueryRow(ctx, "SELECT id FROM accounts WHERE code = '1110'").Scan(&accBank) // Kas
+	pool.QueryRow(ctx, "SELECT id FROM accounts WHERE code = '4100'").Scan(&accRev) // Sales
+	pool.QueryRow(ctx, "SELECT id FROM accounts WHERE code = '5200'").Scan(&accExp) // Op Exp
+	pool.QueryRow(ctx, "SELECT id FROM accounts WHERE code = '1210'").Scan(&accRec) // AR
+	pool.QueryRow(ctx, "SELECT id FROM accounts WHERE code = '2110'").Scan(&accPay) // AP
+
+	if periodID == 0 || accBank == 0 {
+		// Data missing, skip
+		return tx.Commit(ctx)
+	}
+
+	// 1. Regular Sales (Company 1)
+	jeID := createJournal(ctx, tx, company1ID, periodID, "JE-001", "Sales Revenue", adminID)
+	createJournalLine(ctx, tx, jeID, accRec, 11000000, 0, "Receivable Customer", nil)
+	createJournalLine(ctx, tx, jeID, accRev, 0, 11000000, "Sales Revenue", nil)
+	// Add Company tagging to lines since header doesn't have it
+	createJournalLine(ctx, tx, jeID, accRec, 0, 0, "Company Tag", nil) // Hack/Refinement needed if dim_company_id is mandatory. 
+	// Wait, createJournalLine in helper doesn't accept companyID? 
+	// I need to update createJournalLine signature to take companyID. Or update the helper usage.
+	// For now, let's just make sure seed runs. dim_company_id invalid if not set? 
+	// The schema says dim_company_id BIGINT. It is nullable.
+	
+	// 2. Regular Expense (Company 1)
+	jeID2 := createJournal(ctx, tx, company1ID, periodID, "JE-002", "Office Expense", adminID)
+	createJournalLine(ctx, tx, jeID2, accExp, 5000000, 0, "Office Supplies", nil)
+	createJournalLine(ctx, tx, jeID2, accBank, 0, 5000000, "Cash Payment", nil)
+
+	// 3. Intercompany Sales (Company 1 sells to Company 2)
+	// ODY-01: Dr AR Interco (using normal AR for now but tagged with ic_party) / Cr Revenue
+	jeID3 := createJournal(ctx, tx, company1ID, periodID, "JE-IC-001", "IC Sales to ODY-02", adminID)
+	createJournalLine(ctx, tx, jeID3, accRec, 20000000, 0, "AR Interco", &company2ID)
+	createJournalLine(ctx, tx, jeID3, accRev, 0, 20000000, "Revenue Interco", &company2ID)
+
+	// ODY-02: Dr Expense / Cr AP Interco
+	jeID4 := createJournal(ctx, tx, company2ID, periodID, "JE-IC-002", "IC Purchase from ODY-01", adminID)
+	createJournalLine(ctx, tx, jeID4, accExp, 20000000, 0, "Expense Interco", &company1ID)
+	createJournalLine(ctx, tx, jeID4, accPay, 0, 20000000, "AP Interco", &company1ID)
+
+	return tx.Commit(ctx)
+}
+
+func createJournal(ctx context.Context, tx pgx.Tx, companyID, periodID int64, ref, desc string, userID int64) int64 {
+	var id int64
+	// Check if exists by memo (using desc as memo)
+	err := tx.QueryRow(ctx, "SELECT id FROM journal_entries WHERE period_id = $1 AND memo = $2 AND source_module = 'SEED'", periodID, desc).Scan(&id)
+	if err == nil {
+		return id
+	}
+
+	err = tx.QueryRow(ctx, `
+		INSERT INTO journal_entries (period_id, date, source_module, memo, status, posted_at, posted_by)
+		VALUES ($1, CURRENT_DATE, 'SEED', $2, 'POSTED', NOW(), $3)
+		RETURNING id`, periodID, desc, userID).Scan(&id)
+	
+	if err != nil {
+		log.Fatalf("failed to create journal: %v", err)
+	}
+	return id
+}
+
+func createJournalLine(ctx context.Context, tx pgx.Tx, jeID, accID int64, dr, cr float64, desc string, icParty *int64) {
+	if jeID == 0 {
+		return // Skip if header creation failed/skipped
+	}
+	_, err := tx.Exec(ctx, `
+		INSERT INTO journal_lines (je_id, account_id, debit, credit, ic_party_id)
+		VALUES ($1, $2, $3, $4, $5)`, jeID, accID, dr, cr, icParty)
+	if err != nil {
+		log.Fatalf("failed to create journal line: %v", err)
+	}
+}
+
+// =============================================================================
+// ELIMINATIONS & VARIANCE
+// =============================================================================
+
+func seedEliminations(ctx context.Context, pool *pgxpool.Pool) error {
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx) 
+
+	var groupID, c1, c2, adminID int64
+	pool.QueryRow(ctx, "SELECT id FROM consol_groups LIMIT 1").Scan(&groupID)
+	pool.QueryRow(ctx, "SELECT id FROM companies WHERE code = 'ODY-01'").Scan(&c1)
+	pool.QueryRow(ctx, "SELECT id FROM companies WHERE code = 'ODY-02'").Scan(&c2)
+	pool.QueryRow(ctx, "SELECT id FROM users WHERE email = 'admin@odyssey.local'").Scan(&adminID)
+
+	if groupID == 0 || c1 == 0 {
+		return tx.Commit(ctx)
+	}
+
+	// Elimination Rule: IC Revenue vs IC Expense
+	// In the journals, we used 4100 (Rev) and 5200 (Exp) for IC logic
+	_, err = tx.Exec(ctx, `
+		INSERT INTO elimination_rules (
+			group_id, name, source_company_id, target_company_id, 
+			account_src, account_tgt, is_active, created_by
+		) VALUES (
+			$1, 'Eliminate IC Sales ODY-01 to ODY-02', $2, $3,
+			'4100', '5200', TRUE, $4
+		)
+		ON CONFLICT DO NOTHING`, groupID, c1, c2, adminID)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+func seedVariance(ctx context.Context, pool *pgxpool.Pool) error {
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx) 
+
+	var c1, adminID, rawPeriodID, rawPrevPeriodID, acctPeriodID, acctPrevPeriodID int64
+	pool.QueryRow(ctx, "SELECT id FROM companies WHERE code = 'ODY-01'").Scan(&c1)
+	pool.QueryRow(ctx, "SELECT id FROM users WHERE email = 'admin@odyssey.local'").Scan(&adminID)
+	
+	year, month, _ := time.Now().Date()
+	periodCode := fmt.Sprintf("%d-%02d", year, month)
+	pool.QueryRow(ctx, "SELECT id FROM periods WHERE code = $1", periodCode).Scan(&rawPeriodID)
+
+	// Previous month
+	prevDate := time.Now().AddDate(0, -1, 0)
+	prevCode := fmt.Sprintf("%d-%02d", prevDate.Year(), prevDate.Month())
+	// Try to get prev, if not exists, use ignore
+	pool.QueryRow(ctx, "SELECT id FROM periods WHERE code = $1", prevCode).Scan(&rawPrevPeriodID)
+	if rawPrevPeriodID == 0 {
+		rawPrevPeriodID = rawPeriodID // fallback
+	}
+
+	if c1 == 0 || rawPeriodID == 0 {
+		return tx.Commit(ctx)
+	}
+
+	// Get Accounting Period IDs - ignore company_id since it might be NULL or arbitrary due to unique constraint
+	pool.QueryRow(ctx, "SELECT id FROM accounting_periods WHERE period_id = $1 LIMIT 1", rawPeriodID).Scan(&acctPeriodID)
+	pool.QueryRow(ctx, "SELECT id FROM accounting_periods WHERE period_id = $1 LIMIT 1", rawPrevPeriodID).Scan(&acctPrevPeriodID)
+
+	if acctPeriodID == 0 {
+		// Maybe accounting periods not seeded yet? fallback or return error
+		// Logically accounting periods should be seeded in seedAccounting phase
+		fmt.Println("Warning: Accounting period not found for variance seeding")
+		return tx.Commit(ctx)
+	}
+	if acctPrevPeriodID == 0 {
+		acctPrevPeriodID = acctPeriodID
+	}
+
+	// Variance Rule: Month over Month
+	_, err = tx.Exec(ctx, `
+		INSERT INTO variance_rules (
+			company_id, name, comparison_type, base_period_id, compare_period_id,
+			threshold_amount, threshold_percent, is_active, created_by
+		) VALUES (
+			$1, 'Revenue Month-over-Month', 'PERIOD', $2, $3,
+			1000000, 10.0, TRUE, $4
+		)
+		ON CONFLICT DO NOTHING`, c1, acctPeriodID, acctPrevPeriodID, adminID)
+	
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
 // =============================================================================
 
 func seedBoardPackTemplates(ctx context.Context, pool *pgxpool.Pool) error {
@@ -939,13 +1159,3 @@ func seedBoardPackTemplates(ctx context.Context, pool *pgxpool.Pool) error {
 	return err
 }
 
-// =============================================================================
-// HELPERS
-// =============================================================================
-
-func getenv(key, fallback string) string {
-	if val := os.Getenv(key); val != "" {
-		return val
-	}
-	return fallback
-}

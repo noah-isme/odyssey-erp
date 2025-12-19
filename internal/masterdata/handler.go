@@ -155,7 +155,23 @@ func (h *Handler) MountRoutes(r chi.Router) {
 // ============================================================================
 
 func (h *Handler) listCompanies(w http.ResponseWriter, r *http.Request) {
-	companies, err := h.service.ListCompanies(r.Context())
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit < 1 {
+		limit = 10
+	}
+	filters := ListFilters{
+		Page:    page,
+		Limit:   limit,
+		Search:  r.URL.Query().Get("search"),
+		SortBy:  r.URL.Query().Get("sort"),
+		SortDir: r.URL.Query().Get("dir"),
+	}
+
+	companies, total, err := h.service.ListCompanies(r.Context(), filters)
 	if err != nil {
 		h.logger.Error("list companies failed", "error", err)
 		http.Error(w, "Failed to load companies", http.StatusInternalServerError)
@@ -164,6 +180,8 @@ func (h *Handler) listCompanies(w http.ResponseWriter, r *http.Request) {
 
 	h.render(w, r, "pages/masterdata/companies_list.html", map[string]any{
 		"Companies": companies,
+		"Filters":   filters,
+		"Total":     total,
 	}, http.StatusOK)
 }
 
@@ -290,15 +308,31 @@ func (h *Handler) deleteCompany(w http.ResponseWriter, r *http.Request) {
 // ============================================================================
 
 func (h *Handler) listBranches(w http.ResponseWriter, r *http.Request) {
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit < 1 {
+		limit = 10
+	}
+
+	filters := ListFilters{
+		Page:    page,
+		Limit:   limit,
+		Search:  r.URL.Query().Get("search"),
+		SortBy:  r.URL.Query().Get("sort"),
+		SortDir: r.URL.Query().Get("dir"),
+	}
+
 	companyIDStr := r.URL.Query().Get("company_id")
-	var companyID *int64
 	if companyIDStr != "" {
 		if parsed, err := strconv.ParseInt(companyIDStr, 10, 64); err == nil {
-			companyID = &parsed
+			filters.CompanyID = &parsed
 		}
 	}
 
-	branches, err := h.service.ListBranches(r.Context(), companyID)
+	branches, total, err := h.service.ListBranches(r.Context(), filters)
 	if err != nil {
 		h.logger.Error("list branches failed", "error", err)
 		http.Error(w, "Failed to load branches", http.StatusInternalServerError)
@@ -307,6 +341,8 @@ func (h *Handler) listBranches(w http.ResponseWriter, r *http.Request) {
 
 	h.render(w, r, "pages/masterdata/branches_list.html", map[string]any{
 		"Branches": branches,
+		"Filters":  filters,
+		"Total":    total,
 	}, http.StatusOK)
 }
 
@@ -330,7 +366,7 @@ func (h *Handler) showBranch(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) showBranchForm(w http.ResponseWriter, r *http.Request) {
-	companies, err := h.service.ListCompanies(r.Context())
+	companies, _, err := h.service.ListCompanies(r.Context(), ListFilters{})
 	if err != nil {
 		h.logger.Error("list companies failed", "error", err)
 		companies = []Company{}
@@ -359,7 +395,7 @@ func (h *Handler) createBranch(w http.ResponseWriter, r *http.Request) {
 
 	created, err := h.service.CreateBranch(r.Context(), branch)
 	if err != nil {
-		companies, _ := h.service.ListCompanies(r.Context())
+		companies, _, _ := h.service.ListCompanies(r.Context(), ListFilters{})
 		h.render(w, r, "pages/masterdata/branch_form.html", map[string]any{
 			"Errors":    formErrors{"general": err.Error()},
 			"Branch":    nil,
@@ -385,7 +421,7 @@ func (h *Handler) showEditBranchForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	companies, err := h.service.ListCompanies(r.Context())
+	companies, _, err := h.service.ListCompanies(r.Context(), ListFilters{})
 	if err != nil {
 		h.logger.Error("list companies failed", "error", err)
 		companies = []Company{}
@@ -420,7 +456,7 @@ func (h *Handler) updateBranch(w http.ResponseWriter, r *http.Request) {
 
 	err = h.service.UpdateBranch(r.Context(), id, branch)
 	if err != nil {
-		companies, _ := h.service.ListCompanies(r.Context())
+		companies, _, _ := h.service.ListCompanies(r.Context(), ListFilters{})
 		h.render(w, r, "pages/masterdata/branch_form.html", map[string]any{
 			"Errors":    formErrors{"general": err.Error()},
 			"Branch":    branch,
@@ -453,15 +489,31 @@ func (h *Handler) deleteBranch(w http.ResponseWriter, r *http.Request) {
 // ============================================================================
 
 func (h *Handler) listWarehouses(w http.ResponseWriter, r *http.Request) {
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit < 1 {
+		limit = 10
+	}
+
+	filters := ListFilters{
+		Page:    page,
+		Limit:   limit,
+		Search:  r.URL.Query().Get("search"),
+		SortBy:  r.URL.Query().Get("sort"),
+		SortDir: r.URL.Query().Get("dir"),
+	}
+
 	branchIDStr := r.URL.Query().Get("branch_id")
-	var branchID *int64
 	if branchIDStr != "" {
 		if parsed, err := strconv.ParseInt(branchIDStr, 10, 64); err == nil {
-			branchID = &parsed
+			filters.BranchID = &parsed
 		}
 	}
 
-	warehouses, err := h.service.ListWarehouses(r.Context(), branchID)
+	warehouses, total, err := h.service.ListWarehouses(r.Context(), filters)
 	if err != nil {
 		h.logger.Error("list warehouses failed", "error", err)
 		http.Error(w, "Failed to load warehouses", http.StatusInternalServerError)
@@ -470,6 +522,8 @@ func (h *Handler) listWarehouses(w http.ResponseWriter, r *http.Request) {
 
 	h.render(w, r, "pages/masterdata/warehouses_list.html", map[string]any{
 		"Warehouses": warehouses,
+		"Filters":    filters,
+		"Total":      total,
 	}, http.StatusOK)
 }
 
@@ -493,7 +547,7 @@ func (h *Handler) showWarehouse(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) showWarehouseForm(w http.ResponseWriter, r *http.Request) {
-	branches, err := h.service.ListBranches(r.Context(), nil)
+	branches, _, err := h.service.ListBranches(r.Context(), ListFilters{})
 	if err != nil {
 		h.logger.Error("list branches failed", "error", err)
 		branches = []Branch{}
@@ -522,7 +576,7 @@ func (h *Handler) createWarehouse(w http.ResponseWriter, r *http.Request) {
 
 	created, err := h.service.CreateWarehouse(r.Context(), warehouse)
 	if err != nil {
-		branches, _ := h.service.ListBranches(r.Context(), nil)
+		branches, _, _ := h.service.ListBranches(r.Context(), ListFilters{})
 		h.render(w, r, "pages/masterdata/warehouse_form.html", map[string]any{
 			"Errors":    formErrors{"general": err.Error()},
 			"Warehouse": nil,
@@ -548,7 +602,7 @@ func (h *Handler) showEditWarehouseForm(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	branches, err := h.service.ListBranches(r.Context(), nil)
+	branches, _, err := h.service.ListBranches(r.Context(), ListFilters{})
 	if err != nil {
 		h.logger.Error("list branches failed", "error", err)
 		branches = []Branch{}
@@ -583,7 +637,7 @@ func (h *Handler) updateWarehouse(w http.ResponseWriter, r *http.Request) {
 
 	err = h.service.UpdateWarehouse(r.Context(), id, warehouse)
 	if err != nil {
-		branches, _ := h.service.ListBranches(r.Context(), nil)
+		branches, _, _ := h.service.ListBranches(r.Context(), ListFilters{})
 		h.render(w, r, "pages/masterdata/warehouse_form.html", map[string]any{
 			"Errors":    formErrors{"general": err.Error()},
 			"Warehouse": warehouse,
@@ -616,7 +670,24 @@ func (h *Handler) deleteWarehouse(w http.ResponseWriter, r *http.Request) {
 // ============================================================================
 
 func (h *Handler) listUnits(w http.ResponseWriter, r *http.Request) {
-	units, err := h.service.ListUnits(r.Context())
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit < 1 {
+		limit = 10
+	}
+
+	filters := ListFilters{
+		Page:    page,
+		Limit:   limit,
+		Search:  r.URL.Query().Get("search"),
+		SortBy:  r.URL.Query().Get("sort"),
+		SortDir: r.URL.Query().Get("dir"),
+	}
+
+	units, total, err := h.service.ListUnits(r.Context(), filters)
 	if err != nil {
 		h.logger.Error("list units failed", "error", err)
 		http.Error(w, "Failed to load units", http.StatusInternalServerError)
@@ -624,7 +695,9 @@ func (h *Handler) listUnits(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.render(w, r, "pages/masterdata/units_list.html", map[string]any{
-		"Units": units,
+		"Units":   units,
+		"Filters": filters,
+		"Total":   total,
 	}, http.StatusOK)
 }
 
@@ -747,7 +820,24 @@ func (h *Handler) deleteUnit(w http.ResponseWriter, r *http.Request) {
 // ============================================================================
 
 func (h *Handler) listTaxes(w http.ResponseWriter, r *http.Request) {
-	taxes, err := h.service.ListTaxes(r.Context())
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit < 1 {
+		limit = 10
+	}
+
+	filters := ListFilters{
+		Page:    page,
+		Limit:   limit,
+		Search:  r.URL.Query().Get("search"),
+		SortBy:  r.URL.Query().Get("sort"),
+		SortDir: r.URL.Query().Get("dir"),
+	}
+
+	taxes, total, err := h.service.ListTaxes(r.Context(), filters)
 	if err != nil {
 		h.logger.Error("list taxes failed", "error", err)
 		http.Error(w, "Failed to load taxes", http.StatusInternalServerError)
@@ -755,7 +845,9 @@ func (h *Handler) listTaxes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.render(w, r, "pages/masterdata/taxes_list.html", map[string]any{
-		"Taxes": taxes,
+		"Taxes":   taxes,
+		"Filters": filters,
+		"Total":   total,
 	}, http.StatusOK)
 }
 
@@ -882,7 +974,30 @@ func (h *Handler) deleteTax(w http.ResponseWriter, r *http.Request) {
 // ============================================================================
 
 func (h *Handler) listCategories(w http.ResponseWriter, r *http.Request) {
-	categories, err := h.service.ListCategories(r.Context())
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit < 1 {
+		limit = 10
+	}
+
+	filters := ListFilters{
+		Page:    page,
+		Limit:   limit,
+		Search:  r.URL.Query().Get("search"),
+		SortBy:  r.URL.Query().Get("sort"),
+		SortDir: r.URL.Query().Get("dir"),
+	}
+
+	isActiveStr := r.URL.Query().Get("is_active")
+	if isActiveStr != "" {
+		val := isActiveStr == "true"
+		filters.IsActive = &val
+	}
+
+	categories, total, err := h.service.ListCategories(r.Context(), filters)
 	if err != nil {
 		h.logger.Error("list categories failed", "error", err)
 		http.Error(w, "Failed to load categories", http.StatusInternalServerError)
@@ -891,6 +1006,8 @@ func (h *Handler) listCategories(w http.ResponseWriter, r *http.Request) {
 
 	h.render(w, r, "pages/masterdata/categories_list.html", map[string]any{
 		"Categories": categories,
+		"Filters":    filters,
+		"Total":      total,
 	}, http.StatusOK)
 }
 
@@ -914,7 +1031,7 @@ func (h *Handler) showCategory(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) showCategoryForm(w http.ResponseWriter, r *http.Request) {
-	categories, err := h.service.ListCategories(r.Context())
+	categories, _, err := h.service.ListCategories(r.Context(), ListFilters{})
 	if err != nil {
 		h.logger.Error("list categories failed", "error", err)
 		categories = []Category{}
@@ -948,7 +1065,7 @@ func (h *Handler) createCategory(w http.ResponseWriter, r *http.Request) {
 
 	created, err := h.service.CreateCategory(r.Context(), category)
 	if err != nil {
-		categories, _ := h.service.ListCategories(r.Context())
+		categories, _, _ := h.service.ListCategories(r.Context(), ListFilters{})
 		h.render(w, r, "pages/masterdata/category_form.html", map[string]any{
 			"Errors":     formErrors{"general": err.Error()},
 			"Category":   nil,
@@ -974,7 +1091,7 @@ func (h *Handler) showEditCategoryForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	categories, err := h.service.ListCategories(r.Context())
+	categories, _, err := h.service.ListCategories(r.Context(), ListFilters{})
 	if err != nil {
 		h.logger.Error("list categories failed", "error", err)
 		categories = []Category{}
@@ -1014,7 +1131,7 @@ func (h *Handler) updateCategory(w http.ResponseWriter, r *http.Request) {
 
 	err = h.service.UpdateCategory(r.Context(), id, category)
 	if err != nil {
-		categories, _ := h.service.ListCategories(r.Context())
+		categories, _, _ := h.service.ListCategories(r.Context(), ListFilters{})
 		h.render(w, r, "pages/masterdata/category_form.html", map[string]any{
 			"Errors":     formErrors{"general": err.Error()},
 			"Category":   category,
@@ -1047,14 +1164,30 @@ func (h *Handler) deleteCategory(w http.ResponseWriter, r *http.Request) {
 // ============================================================================
 
 func (h *Handler) listSuppliers(w http.ResponseWriter, r *http.Request) {
-	isActiveStr := r.URL.Query().Get("is_active")
-	var isActive *bool
-	if isActiveStr != "" {
-		val := isActiveStr == "true"
-		isActive = &val
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit < 1 {
+		limit = 10
 	}
 
-	suppliers, err := h.service.ListSuppliers(r.Context(), isActive)
+	filters := ListFilters{
+		Page:    page,
+		Limit:   limit,
+		Search:  r.URL.Query().Get("search"),
+		SortBy:  r.URL.Query().Get("sort"),
+		SortDir: r.URL.Query().Get("dir"),
+	}
+
+	isActiveStr := r.URL.Query().Get("is_active")
+	if isActiveStr != "" {
+		val := isActiveStr == "true"
+		filters.IsActive = &val
+	}
+
+	suppliers, total, err := h.service.ListSuppliers(r.Context(), filters)
 	if err != nil {
 		h.logger.Error("list suppliers failed", "error", err)
 		http.Error(w, "Failed to load suppliers", http.StatusInternalServerError)
@@ -1063,6 +1196,8 @@ func (h *Handler) listSuppliers(w http.ResponseWriter, r *http.Request) {
 
 	h.render(w, r, "pages/masterdata/suppliers_list.html", map[string]any{
 		"Suppliers": suppliers,
+		"Filters":   filters,
+		"Total":     total,
 	}, http.StatusOK)
 }
 
@@ -1193,25 +1328,37 @@ func (h *Handler) deleteSupplier(w http.ResponseWriter, r *http.Request) {
 // ============================================================================
 
 func (h *Handler) listProducts(w http.ResponseWriter, r *http.Request) {
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit < 1 {
+		limit = 10
+	}
+
+	filters := ListFilters{
+		Page:    page,
+		Limit:   limit,
+		Search:  r.URL.Query().Get("search"),
+		SortBy:  r.URL.Query().Get("sort"),
+		SortDir: r.URL.Query().Get("dir"),
+	}
+
 	categoryIDStr := r.URL.Query().Get("category_id")
-	var categoryID *int64
 	if categoryIDStr != "" {
 		if parsed, err := strconv.ParseInt(categoryIDStr, 10, 64); err == nil {
-			categoryID = &parsed
+			filters.CategoryID = &parsed
 		}
 	}
 
 	isActiveStr := r.URL.Query().Get("is_active")
-	var isActive *bool
 	if isActiveStr != "" {
 		val := isActiveStr == "true"
-		isActive = &val
+		filters.IsActive = &val
 	}
 
-	sortBy := r.URL.Query().Get("sort")
-	sortDir := r.URL.Query().Get("dir")
-
-	products, err := h.service.ListProducts(r.Context(), categoryID, isActive, sortBy, sortDir)
+	products, total, err := h.service.ListProducts(r.Context(), filters)
 	if err != nil {
 		h.logger.Error("list products failed", "error", err)
 		http.Error(w, "Failed to load products", http.StatusInternalServerError)
@@ -1220,12 +1367,8 @@ func (h *Handler) listProducts(w http.ResponseWriter, r *http.Request) {
 
 	h.render(w, r, "pages/masterdata/products_list.html", map[string]any{
 		"Products": products,
-		"Filters": map[string]any{
-			"CategoryID": categoryIDStr,
-			"IsActive":   isActiveStr,
-			"SortBy":     r.URL.Query().Get("sort"),
-			"SortDir":    r.URL.Query().Get("dir"),
-		},
+		"Filters":  filters,
+		"Total":    total,
 	}, http.StatusOK)
 }
 
@@ -1249,19 +1392,19 @@ func (h *Handler) showProduct(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) showProductForm(w http.ResponseWriter, r *http.Request) {
-	categories, err := h.service.ListCategories(r.Context())
+	categories, _, err := h.service.ListCategories(r.Context(), ListFilters{})
 	if err != nil {
 		h.logger.Error("list categories failed", "error", err)
 		categories = []Category{}
 	}
 
-	units, err := h.service.ListUnits(r.Context())
+	units, _, err := h.service.ListUnits(r.Context(), ListFilters{})
 	if err != nil {
 		h.logger.Error("list units failed", "error", err)
 		units = []Unit{}
 	}
 
-	taxes, err := h.service.ListTaxes(r.Context())
+	taxes, _, err := h.service.ListTaxes(r.Context(), ListFilters{})
 	if err != nil {
 		h.logger.Error("list taxes failed", "error", err)
 		taxes = []Tax{}
@@ -1305,9 +1448,9 @@ func (h *Handler) createProduct(w http.ResponseWriter, r *http.Request) {
 
 	created, err := h.service.CreateProduct(r.Context(), product)
 	if err != nil {
-		categories, _ := h.service.ListCategories(r.Context())
-		units, _ := h.service.ListUnits(r.Context())
-		taxes, _ := h.service.ListTaxes(r.Context())
+		categories, _, _ := h.service.ListCategories(r.Context(), ListFilters{})
+		units, _, _ := h.service.ListUnits(r.Context(), ListFilters{})
+		taxes, _, _ := h.service.ListTaxes(r.Context(), ListFilters{})
 		h.render(w, r, "pages/masterdata/product_form.html", map[string]any{
 			"Errors":     formErrors{"general": err.Error()},
 			"Product":    nil,
@@ -1335,19 +1478,19 @@ func (h *Handler) showEditProductForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	categories, err := h.service.ListCategories(r.Context())
+	categories, _, err := h.service.ListCategories(r.Context(), ListFilters{})
 	if err != nil {
 		h.logger.Error("list categories failed", "error", err)
 		categories = []Category{}
 	}
 
-	units, err := h.service.ListUnits(r.Context())
+	units, _, err := h.service.ListUnits(r.Context(), ListFilters{})
 	if err != nil {
 		h.logger.Error("list units failed", "error", err)
 		units = []Unit{}
 	}
 
-	taxes, err := h.service.ListTaxes(r.Context())
+	taxes, _, err := h.service.ListTaxes(r.Context(), ListFilters{})
 	if err != nil {
 		h.logger.Error("list taxes failed", "error", err)
 		taxes = []Tax{}
@@ -1397,9 +1540,9 @@ func (h *Handler) updateProduct(w http.ResponseWriter, r *http.Request) {
 
 	err = h.service.UpdateProduct(r.Context(), id, product)
 	if err != nil {
-		categories, _ := h.service.ListCategories(r.Context())
-		units, _ := h.service.ListUnits(r.Context())
-		taxes, _ := h.service.ListTaxes(r.Context())
+		categories, _, _ := h.service.ListCategories(r.Context(), ListFilters{})
+		units, _, _ := h.service.ListUnits(r.Context(), ListFilters{})
+		taxes, _, _ := h.service.ListTaxes(r.Context(), ListFilters{})
 		h.render(w, r, "pages/masterdata/product_form.html", map[string]any{
 			"Errors":     formErrors{"general": err.Error()},
 			"Product":    product,

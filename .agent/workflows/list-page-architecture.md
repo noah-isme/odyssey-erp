@@ -1,3 +1,7 @@
+---
+description: Panduan memeeriksa setiap fitur list halaman
+---
+
 # Workflow: Standard List Page Architecture
 
 ## Prinsip Dasar

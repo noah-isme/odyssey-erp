@@ -19,11 +19,50 @@ func NewRepository(db *pgxpool.Pool) Repository {
 }
 
 // Company operations
-func (r *repo) ListCompanies(ctx context.Context) ([]Company, error) {
-	query := `SELECT id, code, name, address, tax_id, created_at, updated_at FROM companies ORDER BY name`
-	rows, err := r.db.Query(ctx, query)
+func (r *repo) ListCompanies(ctx context.Context, filters ListFilters) ([]Company, int, error) {
+	query := `SELECT id, code, name, address, tax_id, created_at, updated_at FROM companies WHERE 1=1`
+	args := []interface{}{}
+	argCount := 0
+
+	if filters.Search != "" {
+		argCount++
+		query += ` AND (name ILIKE $` + strconv.Itoa(argCount) + ` OR code ILIKE $` + strconv.Itoa(argCount) + `)`
+		args = append(args, "%"+filters.Search+"%")
+	}
+
+	// Count query
+	countQuery := `SELECT COUNT(*) FROM companies WHERE 1=1`
+	countArgs := []interface{}{}
+	if filters.Search != "" {
+		countArgs = append(countArgs, "%"+filters.Search+"%")
+		countQuery += ` AND (name ILIKE $1 OR code ILIKE $1)`
+	}
+
+	var total int
+	err := r.db.QueryRow(ctx, countQuery, countArgs...).Scan(&total)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
+	}
+
+	// Sorting
+	query += " ORDER BY " + sortOrderCompany(filters.SortBy, filters.SortDir)
+
+	// Pagination
+	if filters.Limit > 0 {
+		argCount++
+		query += ` LIMIT $` + strconv.Itoa(argCount)
+		args = append(args, filters.Limit)
+		
+		argCount++
+		query += ` OFFSET $` + strconv.Itoa(argCount)
+		offset := (filters.Page - 1) * filters.Limit
+		if offset < 0 { offset = 0 }
+		args = append(args, offset)
+	}
+
+	rows, err := r.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, err
 	}
 	defer rows.Close()
 
@@ -32,11 +71,11 @@ func (r *repo) ListCompanies(ctx context.Context) ([]Company, error) {
 		var c Company
 		err := rows.Scan(&c.ID, &c.Code, &c.Name, &c.Address, &c.TaxID, &c.CreatedAt, &c.UpdatedAt)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		companies = append(companies, c)
 	}
-	return companies, rows.Err()
+	return companies, total, rows.Err()
 }
 
 func (r *repo) GetCompany(ctx context.Context, id int64) (Company, error) {
@@ -72,18 +111,64 @@ func (r *repo) DeleteCompany(ctx context.Context, id int64) error {
 }
 
 // Branch operations
-func (r *repo) ListBranches(ctx context.Context, companyID *int64) ([]Branch, error) {
-	query := `SELECT id, company_id, code, name, address FROM branches`
+func (r *repo) ListBranches(ctx context.Context, filters ListFilters) ([]Branch, int, error) {
+	query := `SELECT id, company_id, code, name, address FROM branches WHERE 1=1`
 	args := []interface{}{}
-	if companyID != nil {
-		query += ` WHERE company_id = $1`
-		args = append(args, *companyID)
+	argCount := 0
+
+	if filters.CompanyID != nil {
+		argCount++
+		query += ` AND company_id = $` + strconv.Itoa(argCount)
+		args = append(args, *filters.CompanyID)
 	}
-	query += ` ORDER BY name`
+
+	if filters.Search != "" {
+		argCount++
+		query += ` AND (name ILIKE $` + strconv.Itoa(argCount) + ` OR code ILIKE $` + strconv.Itoa(argCount) + `)`
+		args = append(args, "%"+filters.Search+"%")
+	}
+
+	// Count
+	countQuery := `SELECT COUNT(*) FROM branches WHERE 1=1`
+	countArgs := []interface{}{}
+	countArgCount := 0
+	
+	if filters.CompanyID != nil {
+		countArgCount++
+		countQuery += ` AND company_id = $` + strconv.Itoa(countArgCount)
+		countArgs = append(countArgs, *filters.CompanyID)
+	}
+	if filters.Search != "" {
+		countArgCount++
+		countQuery += ` AND (name ILIKE $` + strconv.Itoa(countArgCount) + ` OR code ILIKE $` + strconv.Itoa(countArgCount) + `)`
+		countArgs = append(countArgs, "%"+filters.Search+"%")
+	}
+
+	var total int
+	err := r.db.QueryRow(ctx, countQuery, countArgs...).Scan(&total)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Sorting
+	query += " ORDER BY " + sortOrderBranch(filters.SortBy, filters.SortDir)
+
+	// Pagination
+	if filters.Limit > 0 {
+		argCount++
+		query += ` LIMIT $` + strconv.Itoa(argCount)
+		args = append(args, filters.Limit)
+		
+		argCount++
+		query += ` OFFSET $` + strconv.Itoa(argCount)
+		offset := (filters.Page - 1) * filters.Limit
+		if offset < 0 { offset = 0 }
+		args = append(args, offset)
+	}
 
 	rows, err := r.db.Query(ctx, query, args...)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
@@ -92,11 +177,11 @@ func (r *repo) ListBranches(ctx context.Context, companyID *int64) ([]Branch, er
 		var b Branch
 		err := rows.Scan(&b.ID, &b.CompanyID, &b.Code, &b.Name, &b.Address)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		branches = append(branches, b)
 	}
-	return branches, rows.Err()
+	return branches, total, rows.Err()
 }
 
 func (r *repo) GetBranch(ctx context.Context, id int64) (Branch, error) {
@@ -125,18 +210,64 @@ func (r *repo) DeleteBranch(ctx context.Context, id int64) error {
 }
 
 // Warehouse operations
-func (r *repo) ListWarehouses(ctx context.Context, branchID *int64) ([]Warehouse, error) {
-	query := `SELECT id, branch_id, code, name, address FROM warehouses`
+func (r *repo) ListWarehouses(ctx context.Context, filters ListFilters) ([]Warehouse, int, error) {
+	query := `SELECT id, branch_id, code, name, address FROM warehouses WHERE 1=1`
 	args := []interface{}{}
-	if branchID != nil {
-		query += ` WHERE branch_id = $1`
-		args = append(args, *branchID)
+	argCount := 0
+
+	if filters.BranchID != nil {
+		argCount++
+		query += ` AND branch_id = $` + strconv.Itoa(argCount)
+		args = append(args, *filters.BranchID)
 	}
-	query += ` ORDER BY name`
+
+	if filters.Search != "" {
+		argCount++
+		query += ` AND (name ILIKE $` + strconv.Itoa(argCount) + ` OR code ILIKE $` + strconv.Itoa(argCount) + `)`
+		args = append(args, "%"+filters.Search+"%")
+	}
+
+	// Count
+	countQuery := `SELECT COUNT(*) FROM warehouses WHERE 1=1`
+	countArgs := []interface{}{}
+	countArgCount := 0
+	
+	if filters.BranchID != nil {
+		countArgCount++
+		countQuery += ` AND branch_id = $` + strconv.Itoa(countArgCount)
+		countArgs = append(countArgs, *filters.BranchID)
+	}
+	if filters.Search != "" {
+		countArgCount++
+		countQuery += ` AND (name ILIKE $` + strconv.Itoa(countArgCount) + ` OR code ILIKE $` + strconv.Itoa(countArgCount) + `)`
+		countArgs = append(countArgs, "%"+filters.Search+"%")
+	}
+
+	var total int
+	err := r.db.QueryRow(ctx, countQuery, countArgs...).Scan(&total)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Sorting
+	query += " ORDER BY " + sortOrderWarehouse(filters.SortBy, filters.SortDir)
+
+	// Pagination
+	if filters.Limit > 0 {
+		argCount++
+		query += ` LIMIT $` + strconv.Itoa(argCount)
+		args = append(args, filters.Limit)
+		
+		argCount++
+		query += ` OFFSET $` + strconv.Itoa(argCount)
+		offset := (filters.Page - 1) * filters.Limit
+		if offset < 0 { offset = 0 }
+		args = append(args, offset)
+	}
 
 	rows, err := r.db.Query(ctx, query, args...)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
@@ -145,11 +276,11 @@ func (r *repo) ListWarehouses(ctx context.Context, branchID *int64) ([]Warehouse
 		var w Warehouse
 		err := rows.Scan(&w.ID, &w.BranchID, &w.Code, &w.Name, &w.Address)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		warehouses = append(warehouses, w)
 	}
-	return warehouses, rows.Err()
+	return warehouses, total, rows.Err()
 }
 
 func (r *repo) GetWarehouse(ctx context.Context, id int64) (Warehouse, error) {
@@ -178,11 +309,48 @@ func (r *repo) DeleteWarehouse(ctx context.Context, id int64) error {
 }
 
 // Unit operations
-func (r *repo) ListUnits(ctx context.Context) ([]Unit, error) {
-	query := `SELECT id, code, name FROM units ORDER BY name`
-	rows, err := r.db.Query(ctx, query)
+func (r *repo) ListUnits(ctx context.Context, filters ListFilters) ([]Unit, int, error) {
+	query := `SELECT id, code, name FROM units WHERE 1=1`
+	args := []interface{}{}
+	argCount := 0
+
+	if filters.Search != "" {
+		argCount++
+		query += ` AND (name ILIKE $` + strconv.Itoa(argCount) + ` OR code ILIKE $` + strconv.Itoa(argCount) + `)`
+		args = append(args, "%"+filters.Search+"%")
+	}
+
+	// Count
+	countQuery := `SELECT COUNT(*) FROM units WHERE 1=1`
+	countArgs := []interface{}{}
+	if filters.Search != "" {
+		countArgs = append(countArgs, "%"+filters.Search+"%")
+		countQuery += ` AND (name ILIKE $1 OR code ILIKE $1)`
+	}
+
+	var total int
+	err := r.db.QueryRow(ctx, countQuery, countArgs...).Scan(&total)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
+	}
+
+	query += " ORDER BY " + sortOrderUnit(filters.SortBy, filters.SortDir)
+
+	if filters.Limit > 0 {
+		argCount++
+		query += ` LIMIT $` + strconv.Itoa(argCount)
+		args = append(args, filters.Limit)
+		
+		argCount++
+		query += ` OFFSET $` + strconv.Itoa(argCount)
+		offset := (filters.Page - 1) * filters.Limit
+		if offset < 0 { offset = 0 }
+		args = append(args, offset)
+	}
+
+	rows, err := r.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, err
 	}
 	defer rows.Close()
 
@@ -191,11 +359,11 @@ func (r *repo) ListUnits(ctx context.Context) ([]Unit, error) {
 		var u Unit
 		err := rows.Scan(&u.ID, &u.Code, &u.Name)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		units = append(units, u)
 	}
-	return units, rows.Err()
+	return units, total, rows.Err()
 }
 
 func (r *repo) GetUnit(ctx context.Context, id int64) (Unit, error) {
@@ -224,11 +392,48 @@ func (r *repo) DeleteUnit(ctx context.Context, id int64) error {
 }
 
 // Tax operations
-func (r *repo) ListTaxes(ctx context.Context) ([]Tax, error) {
-	query := `SELECT id, code, name, rate FROM taxes ORDER BY name`
-	rows, err := r.db.Query(ctx, query)
+func (r *repo) ListTaxes(ctx context.Context, filters ListFilters) ([]Tax, int, error) {
+	query := `SELECT id, code, name, rate FROM taxes WHERE 1=1`
+	args := []interface{}{}
+	argCount := 0
+
+	if filters.Search != "" {
+		argCount++
+		query += ` AND (name ILIKE $` + strconv.Itoa(argCount) + ` OR code ILIKE $` + strconv.Itoa(argCount) + `)`
+		args = append(args, "%"+filters.Search+"%")
+	}
+
+	// Count
+	countQuery := `SELECT COUNT(*) FROM taxes WHERE 1=1`
+	countArgs := []interface{}{}
+	if filters.Search != "" {
+		countArgs = append(countArgs, "%"+filters.Search+"%")
+		countQuery += ` AND (name ILIKE $1 OR code ILIKE $1)`
+	}
+
+	var total int
+	err := r.db.QueryRow(ctx, countQuery, countArgs...).Scan(&total)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
+	}
+
+	query += " ORDER BY " + sortOrderTax(filters.SortBy, filters.SortDir)
+
+	if filters.Limit > 0 {
+		argCount++
+		query += ` LIMIT $` + strconv.Itoa(argCount)
+		args = append(args, filters.Limit)
+		
+		argCount++
+		query += ` OFFSET $` + strconv.Itoa(argCount)
+		offset := (filters.Page - 1) * filters.Limit
+		if offset < 0 { offset = 0 }
+		args = append(args, offset)
+	}
+
+	rows, err := r.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, err
 	}
 	defer rows.Close()
 
@@ -237,11 +442,11 @@ func (r *repo) ListTaxes(ctx context.Context) ([]Tax, error) {
 		var t Tax
 		err := rows.Scan(&t.ID, &t.Code, &t.Name, &t.Rate)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		taxes = append(taxes, t)
 	}
-	return taxes, rows.Err()
+	return taxes, total, rows.Err()
 }
 
 func (r *repo) GetTax(ctx context.Context, id int64) (Tax, error) {
@@ -270,11 +475,48 @@ func (r *repo) DeleteTax(ctx context.Context, id int64) error {
 }
 
 // Category operations
-func (r *repo) ListCategories(ctx context.Context) ([]Category, error) {
-	query := `SELECT id, code, name, parent_id FROM categories ORDER BY name`
-	rows, err := r.db.Query(ctx, query)
+func (r *repo) ListCategories(ctx context.Context, filters ListFilters) ([]Category, int, error) {
+	query := `SELECT id, code, name, parent_id FROM categories WHERE 1=1`
+	args := []interface{}{}
+	argCount := 0
+
+	if filters.Search != "" {
+		argCount++
+		query += ` AND (name ILIKE $` + strconv.Itoa(argCount) + ` OR code ILIKE $` + strconv.Itoa(argCount) + `)`
+		args = append(args, "%"+filters.Search+"%")
+	}
+
+	// Count
+	countQuery := `SELECT COUNT(*) FROM categories WHERE 1=1`
+	countArgs := []interface{}{}
+	if filters.Search != "" {
+		countArgs = append(countArgs, "%"+filters.Search+"%")
+		countQuery += ` AND (name ILIKE $1 OR code ILIKE $1)`
+	}
+
+	var total int
+	err := r.db.QueryRow(ctx, countQuery, countArgs...).Scan(&total)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
+	}
+
+	query += " ORDER BY " + sortOrderCategory(filters.SortBy, filters.SortDir)
+
+	if filters.Limit > 0 {
+		argCount++
+		query += ` LIMIT $` + strconv.Itoa(argCount)
+		args = append(args, filters.Limit)
+		
+		argCount++
+		query += ` OFFSET $` + strconv.Itoa(argCount)
+		offset := (filters.Page - 1) * filters.Limit
+		if offset < 0 { offset = 0 }
+		args = append(args, offset)
+	}
+
+	rows, err := r.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, err
 	}
 	defer rows.Close()
 
@@ -283,11 +525,11 @@ func (r *repo) ListCategories(ctx context.Context) ([]Category, error) {
 		var c Category
 		err := rows.Scan(&c.ID, &c.Code, &c.Name, &c.ParentID)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		categories = append(categories, c)
 	}
-	return categories, rows.Err()
+	return categories, total, rows.Err()
 }
 
 func (r *repo) GetCategory(ctx context.Context, id int64) (Category, error) {
@@ -316,18 +558,62 @@ func (r *repo) DeleteCategory(ctx context.Context, id int64) error {
 }
 
 // Supplier operations
-func (r *repo) ListSuppliers(ctx context.Context, isActive *bool) ([]Supplier, error) {
-	query := `SELECT id, code, name, phone, email, address, is_active FROM suppliers`
+func (r *repo) ListSuppliers(ctx context.Context, filters ListFilters) ([]Supplier, int, error) {
+	query := `SELECT id, code, name, phone, email, address, is_active FROM suppliers WHERE 1=1`
 	args := []interface{}{}
-	if isActive != nil {
-		query += ` WHERE is_active = $1`
-		args = append(args, *isActive)
+	argCount := 0
+
+	if filters.IsActive != nil {
+		argCount++
+		query += ` AND is_active = $` + strconv.Itoa(argCount)
+		args = append(args, *filters.IsActive)
 	}
-	query += ` ORDER BY name`
+
+	if filters.Search != "" {
+		argCount++
+		query += ` AND (name ILIKE $` + strconv.Itoa(argCount) + ` OR code ILIKE $` + strconv.Itoa(argCount) + `)`
+		args = append(args, "%"+filters.Search+"%")
+	}
+
+	// Count
+	countQuery := `SELECT COUNT(*) FROM suppliers WHERE 1=1`
+	countArgs := []interface{}{}
+	countArgCount := 0
+	
+	if filters.IsActive != nil {
+		countArgCount++
+		countQuery += ` AND is_active = $` + strconv.Itoa(countArgCount)
+		countArgs = append(countArgs, *filters.IsActive)
+	}
+	if filters.Search != "" {
+		countArgCount++
+		countQuery += ` AND (name ILIKE $` + strconv.Itoa(countArgCount) + ` OR code ILIKE $` + strconv.Itoa(countArgCount) + `)`
+		countArgs = append(countArgs, "%"+filters.Search+"%")
+	}
+
+	var total int
+	err := r.db.QueryRow(ctx, countQuery, countArgs...).Scan(&total)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	query += " ORDER BY " + sortOrderSupplier(filters.SortBy, filters.SortDir)
+
+	if filters.Limit > 0 {
+		argCount++
+		query += ` LIMIT $` + strconv.Itoa(argCount)
+		args = append(args, filters.Limit)
+		
+		argCount++
+		query += ` OFFSET $` + strconv.Itoa(argCount)
+		offset := (filters.Page - 1) * filters.Limit
+		if offset < 0 { offset = 0 }
+		args = append(args, offset)
+	}
 
 	rows, err := r.db.Query(ctx, query, args...)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
@@ -336,11 +622,11 @@ func (r *repo) ListSuppliers(ctx context.Context, isActive *bool) ([]Supplier, e
 		var s Supplier
 		err := rows.Scan(&s.ID, &s.Code, &s.Name, &s.Phone, &s.Email, &s.Address, &s.IsActive)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		suppliers = append(suppliers, s)
 	}
-	return suppliers, rows.Err()
+	return suppliers, total, rows.Err()
 }
 
 func (r *repo) GetSupplier(ctx context.Context, id int64) (Supplier, error) {
@@ -369,28 +655,73 @@ func (r *repo) DeleteSupplier(ctx context.Context, id int64) error {
 }
 
 // Product operations
-func (r *repo) ListProducts(ctx context.Context, categoryID *int64, isActive *bool, sortBy, sortDir string) ([]Product, error) {
+func (r *repo) ListProducts(ctx context.Context, filters ListFilters) ([]Product, int, error) {
 	query := `SELECT id, sku, name, category_id, unit_id, price, tax_id, is_active, deleted_at FROM products WHERE deleted_at IS NULL`
 	args := []interface{}{}
 	argCount := 0
 
-	if categoryID != nil {
+	if filters.CategoryID != nil {
 		argCount++
 		query += ` AND category_id = $` + strconv.Itoa(argCount)
-		args = append(args, *categoryID)
+		args = append(args, *filters.CategoryID)
 	}
 
-	if isActive != nil {
+	if filters.IsActive != nil {
 		argCount++
 		query += ` AND is_active = $` + strconv.Itoa(argCount)
-		args = append(args, *isActive)
+		args = append(args, *filters.IsActive)
 	}
 
-	query += " ORDER BY " + sortOrderProduct(sortBy, sortDir)
+	if filters.Search != "" {
+		argCount++
+		query += ` AND (name ILIKE $` + strconv.Itoa(argCount) + ` OR sku ILIKE $` + strconv.Itoa(argCount) + `)`
+		args = append(args, "%"+filters.Search+"%")
+	}
+
+	// Count
+	countQuery := `SELECT COUNT(*) FROM products WHERE deleted_at IS NULL`
+	countArgs := []interface{}{}
+	countArgCount := 0
+	
+	if filters.CategoryID != nil {
+		countArgCount++
+		countQuery += ` AND category_id = $` + strconv.Itoa(countArgCount)
+		countArgs = append(countArgs, *filters.CategoryID)
+	}
+	if filters.IsActive != nil {
+		countArgCount++
+		countQuery += ` AND is_active = $` + strconv.Itoa(countArgCount)
+		countArgs = append(countArgs, *filters.IsActive)
+	}
+	if filters.Search != "" {
+		countArgCount++
+		countQuery += ` AND (name ILIKE $` + strconv.Itoa(countArgCount) + ` OR sku ILIKE $` + strconv.Itoa(countArgCount) + `)`
+		countArgs = append(countArgs, "%"+filters.Search+"%")
+	}
+
+	var total int
+	err := r.db.QueryRow(ctx, countQuery, countArgs...).Scan(&total)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	query += " ORDER BY " + sortOrderProduct(filters.SortBy, filters.SortDir)
+
+	if filters.Limit > 0 {
+		argCount++
+		query += ` LIMIT $` + strconv.Itoa(argCount)
+		args = append(args, filters.Limit)
+		
+		argCount++
+		query += ` OFFSET $` + strconv.Itoa(argCount)
+		offset := (filters.Page - 1) * filters.Limit
+		if offset < 0 { offset = 0 }
+		args = append(args, offset)
+	}
 
 	rows, err := r.db.Query(ctx, query, args...)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
@@ -399,11 +730,11 @@ func (r *repo) ListProducts(ctx context.Context, categoryID *int64, isActive *bo
 		var p Product
 		err := rows.Scan(&p.ID, &p.SKU, &p.Name, &p.CategoryID, &p.UnitID, &p.Price, &p.TaxID, &p.IsActive, &p.DeletedAt)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		products = append(products, p)
 	}
-	return products, rows.Err()
+	return products, total, rows.Err()
 }
 
 func (r *repo) GetProduct(ctx context.Context, id int64) (Product, error) {
@@ -431,20 +762,132 @@ func (r *repo) DeleteProduct(ctx context.Context, id int64) error {
 	return err
 }
 
-func sortOrderProduct(sortBy, sortDir string) string {
-dir := "ASC"
-if sortDir == "desc" {
-dir = "DESC"
+func sortOrderCompany(sortBy, sortDir string) string {
+	dir := "ASC"
+	if sortDir == "desc" {
+		dir = "DESC"
+	}
+	switch sortBy {
+	case "code":
+		return "code " + dir
+	case "name":
+		return "name " + dir
+	case "created_at":
+		return "created_at " + dir
+	default:
+		return "name " + dir
+	}
 }
 
-switch sortBy {
-case "sku":
-return "sku " + dir
-case "name":
-return "name " + dir
-case "price":
-return "price " + dir
-default:
-return "name " + dir
+func sortOrderBranch(sortBy, sortDir string) string {
+	dir := "ASC"
+	if sortDir == "desc" {
+		dir = "DESC"
+	}
+	switch sortBy {
+	case "code":
+		return "code " + dir
+	case "name":
+		return "name " + dir
+	default:
+		return "name " + dir
+	}
 }
+
+func sortOrderWarehouse(sortBy, sortDir string) string {
+	dir := "ASC"
+	if sortDir == "desc" {
+		dir = "DESC"
+	}
+	switch sortBy {
+	case "code":
+		return "code " + dir
+	case "name":
+		return "name " + dir
+	default:
+		return "name " + dir
+	}
+}
+
+func sortOrderUnit(sortBy, sortDir string) string {
+	dir := "ASC"
+	if sortDir == "desc" {
+		dir = "DESC"
+	}
+	switch sortBy {
+	case "code":
+		return "code " + dir
+	case "name":
+		return "name " + dir
+	default:
+		return "name " + dir
+	}
+}
+
+func sortOrderTax(sortBy, sortDir string) string {
+	dir := "ASC"
+	if sortDir == "desc" {
+		dir = "DESC"
+	}
+	switch sortBy {
+	case "code":
+		return "code " + dir
+	case "name":
+		return "name " + dir
+	case "rate":
+		return "rate " + dir
+	default:
+		return "name " + dir
+	}
+}
+
+func sortOrderCategory(sortBy, sortDir string) string {
+	dir := "ASC"
+	if sortDir == "desc" {
+		dir = "DESC"
+	}
+	switch sortBy {
+	case "code":
+		return "code " + dir
+	case "name":
+		return "name " + dir
+	default:
+		return "name " + dir
+	}
+}
+
+func sortOrderSupplier(sortBy, sortDir string) string {
+	dir := "ASC"
+	if sortDir == "desc" {
+		dir = "DESC"
+	}
+	switch sortBy {
+	case "code":
+		return "code " + dir
+	case "name":
+		return "name " + dir
+	case "email":
+		return "email " + dir
+	case "phone":
+		return "phone " + dir
+	default:
+		return "name " + dir
+	}
+}
+
+func sortOrderProduct(sortBy, sortDir string) string {
+	dir := "ASC"
+	if sortDir == "desc" {
+		dir = "DESC"
+	}
+	switch sortBy {
+	case "sku":
+		return "sku " + dir
+	case "name":
+		return "name " + dir
+	case "price":
+		return "price " + dir
+	default:
+		return "name " + dir
+	}
 }

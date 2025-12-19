@@ -45,12 +45,19 @@
             <h2 class="card__title">Snapshots History</h2>
         </header>
         <div class="table-wrap">
-            <table class="table">
+            <table class="table" data-datatable="variance_snapshots">
                 <thead>
                     <tr>
-                        <th>ID</th>
+                        <th class="sortable" data-column="created_at"
+                            data-sort-dir='{{ if eq .Data.Filters.SortBy "created_at" }}{{ .Data.Filters.SortDir }}{{ end }}'>
+                            Timestamp</th>
+                        <th class="sortable" data-column="period_id"
+                            data-sort-dir='{{ if eq .Data.Filters.SortBy "period_id" }}{{ .Data.Filters.SortDir }}{{ end }}'>
+                            ID</th>
                         <th>Rule</th>
-                        <th>Status</th>
+                        <th class="sortable" data-column="status"
+                            data-sort-dir='{{ if eq .Data.Filters.SortBy "status" }}{{ .Data.Filters.SortDir }}{{ end }}'>
+                            Status</th>
                         <th>Last Updated</th>
                         <th></th>
                     </tr>
@@ -58,11 +65,12 @@
                 <tbody>
                     {{ if eq (len .Data.Snapshots) 0 }}
                     <tr>
-                        <td colspan="5" class="text-center text-secondary py-4">No snapshots recorded.</td>
+                        <td colspan="6" class="text-center text-secondary py-4">No snapshots recorded.</td>
                     </tr>
                     {{ end }}
                     {{ range $snap := .Data.Snapshots }}
                     <tr>
+                        <td>{{ $snap.CreatedAt.Format "02 Jan 15:04" }}</td>
                         <td class="font-mono text-sm">#{{ $snap.ID }}</td>
                         <td>{{ if $snap.Rule }}{{ $snap.Rule.Name }}{{ else }}#{{ $snap.RuleID }}{{ end }}</td>
                         <td>
@@ -81,6 +89,12 @@
                 </tbody>
             </table>
         </div>
+        <footer class="card__footer">
+            <div class="pagination">
+                <span class="text-sm text-secondary">Showing {{ len .Data.Snapshots }} of {{ .Data.Total }}
+                    snapshots</span>
+            </div>
+        </footer>
     </section>
 </div>
 {{ end }}

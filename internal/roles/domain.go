@@ -10,3 +10,9 @@ type Role struct {
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
+
+// RoleListFilters contains filters for listing roles.
+type RoleListFilters struct {
+	SortBy  string
+	SortDir string
+}

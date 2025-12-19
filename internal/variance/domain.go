@@ -6,6 +6,14 @@ import (
 	"time"
 )
 
+// ListFilters captures pagination and sorting parameters.
+type ListFilters struct {
+	Page    int
+	Limit   int
+	SortBy  string
+	SortDir string
+}
+
 // SnapshotStatus enumerates async job lifecycle values.
 type SnapshotStatus string
 

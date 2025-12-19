@@ -50,12 +50,19 @@
             <h2 class="card__title">Run History</h2>
         </header>
         <div class="table-wrap">
-            <table class="table">
+            <table class="table" data-datatable="elimination_runs">
                 <thead>
                     <tr>
+                        <th class="sortable" data-column="created_at"
+                            data-sort-dir='{{ if eq .Data.Filters.SortBy "created_at" }}{{ .Data.Filters.SortDir }}{{ end }}'>
+                            Timestamp</th>
                         <th>Rule</th>
-                        <th>Period</th>
-                        <th>Status</th>
+                        <th class="sortable" data-column="period_id"
+                            data-sort-dir='{{ if eq .Data.Filters.SortBy "period_id" }}{{ .Data.Filters.SortDir }}{{ end }}'>
+                            Period</th>
+                        <th class="sortable" data-column="status"
+                            data-sort-dir='{{ if eq .Data.Filters.SortBy "status" }}{{ .Data.Filters.SortDir }}{{ end }}'>
+                            Status</th>
                         <th class="text-right">Eliminated</th>
                         <th></th>
                     </tr>
@@ -63,11 +70,12 @@
                 <tbody>
                     {{ if eq (len .Data.Runs) 0 }}
                     <tr>
-                        <td colspan="5" class="text-center text-secondary py-4">No runs recorded.</td>
+                        <td colspan="6" class="text-center text-secondary py-4">No runs recorded.</td>
                     </tr>
                     {{ end }}
                     {{ range $run := .Data.Runs }}
                     <tr>
+                        <td>{{ $run.CreatedAt.Format "02 Jan 15:04" }}</td>
                         <td class="font-bold">{{ if $run.Rule }}{{ $run.Rule.Name }}{{ else }}Rule #{{ $run.RuleID }}{{
                             end }}</td>
                         <td>{{ $run.PeriodID }}</td>
@@ -93,6 +101,11 @@
                 </tbody>
             </table>
         </div>
+        <footer class="card__footer">
+            <div class="pagination">
+                <span class="text-sm text-secondary">Showing {{ len .Data.Runs }} of {{ .Data.Total }} runs</span>
+            </div>
+        </footer>
     </section>
 </div>
 {{ end }}

@@ -80,25 +80,45 @@ func (h *Handler) createRule(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) listRuns(w http.ResponseWriter, r *http.Request) {
-	runs, err := h.service.ListRuns(r.Context(), 50)
+	page := parseInt(r.URL.Query().Get("page"), 1)
+	limit := parseInt(r.URL.Query().Get("limit"), 20)
+	sort := r.URL.Query().Get("sort")
+	dir := r.URL.Query().Get("dir")
+
+	filters := elimination.ListFilters{
+		Page:    page,
+		Limit:   limit,
+		SortBy:  sort,
+		SortDir: dir,
+	}
+
+	runs, total, err := h.service.ListRuns(r.Context(), filters)
 	if err != nil {
+		h.logger.Error("list runs", slog.Any("error", err))
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
+
+	// Fetch dependencies for creating new runs
 	rules, err := h.service.ListRules(r.Context(), 100)
 	if err != nil {
+		h.logger.Error("list rules", slog.Any("error", err))
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 	periods, err := h.service.RecentPeriods(r.Context(), 12)
 	if err != nil {
+		h.logger.Error("list periods", slog.Any("error", err))
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
+
 	h.render(w, r, "pages/eliminations/runs.html", "Elimination Runs", map[string]any{
 		"Runs":    runs,
 		"Rules":   rules,
 		"Periods": periods,
+		"Total":   total,
+		"Filters": filters,
 	}, http.StatusOK)
 }
 
@@ -205,6 +225,14 @@ func parseInt64(value string) int64 {
 	v, err := strconv.ParseInt(strings.TrimSpace(value), 10, 64)
 	if err != nil {
 		return 0
+	}
+	return v
+}
+
+func parseInt(value string, def int) int {
+	v, err := strconv.Atoi(value)
+	if err != nil || v <= 0 {
+		return def
 	}
 	return v
 }

@@ -7,6 +7,14 @@ import (
 	"time"
 )
 
+// ListFilters captures pagination and sorting parameters.
+type ListFilters struct {
+	Page    int
+	Limit   int
+	SortBy  string
+	SortDir string
+}
+
 // RunStatus captures lifecycle of an elimination run.
 type RunStatus string
 

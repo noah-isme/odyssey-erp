@@ -78,19 +78,35 @@ func (h *Handler) createRule(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) listSnapshots(w http.ResponseWriter, r *http.Request) {
-	snapshots, err := h.service.ListSnapshots(r.Context(), 50)
+	page := parseInt(r.URL.Query().Get("page"), 1)
+	limit := parseInt(r.URL.Query().Get("limit"), 20)
+	sort := r.URL.Query().Get("sort")
+	dir := r.URL.Query().Get("dir")
+
+	filters := variance.ListFilters{
+		Page:    page,
+		Limit:   limit,
+		SortBy:  sort,
+		SortDir: dir,
+	}
+
+	snapshots, total, err := h.service.ListSnapshots(r.Context(), filters)
 	if err != nil {
+		h.logger.Error("list snapshots", slog.Any("error", err))
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 	rules, err := h.service.ListRules(r.Context(), 0)
 	if err != nil {
+		h.logger.Error("list rules", slog.Any("error", err))
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 	h.render(w, r, "pages/variance/snapshots.html", "Variance Snapshots", map[string]any{
 		"Snapshots": snapshots,
 		"Rules":     rules,
+		"Total":     total,
+		"Filters":   filters,
 	}, http.StatusOK)
 }
 
@@ -205,6 +221,14 @@ func parseOptionalInt(value string) *int64 {
 		return nil
 	}
 	return &v
+}
+
+func parseInt(value string, def int) int {
+	v, err := strconv.Atoi(value)
+	if err != nil || v <= 0 {
+		return def
+	}
+	return v
 }
 
 func currentUser(r *http.Request) int64 {

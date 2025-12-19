@@ -42,8 +42,8 @@ func (s *Service) CreateRule(ctx context.Context, input CreateRuleInput) (Rule, 
 }
 
 // ListRuns fetches recent elimination runs.
-func (s *Service) ListRuns(ctx context.Context, limit int) ([]Run, error) {
-	return s.repo.ListRuns(ctx, limit)
+func (s *Service) ListRuns(ctx context.Context, filters ListFilters) ([]Run, int, error) {
+	return s.repo.ListRuns(ctx, filters)
 }
 
 // CreateRun prepares a run for the provided period and rule.

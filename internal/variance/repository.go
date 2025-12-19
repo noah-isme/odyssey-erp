@@ -133,35 +133,67 @@ RETURNING id, rule_id, period_id, status, generated_at, generated_by, error_mess
 }
 
 // ListSnapshots lists recent runs.
-func (r *Repository) ListSnapshots(ctx context.Context, limit int) ([]Snapshot, error) {
+func (r *Repository) ListSnapshots(ctx context.Context, filters ListFilters) ([]Snapshot, int, error) {
 	if r == nil || r.pool == nil {
-		return nil, fmt.Errorf("variance: repository not initialised")
+		return nil, 0, fmt.Errorf("variance: repository not initialised")
 	}
-	if limit <= 0 {
-		limit = 50
+	
+	if filters.Limit <= 0 {
+		filters.Limit = 20
 	}
-	rows, err := r.pool.Query(ctx, `
-SELECT vs.id, vs.rule_id, vs.period_id, vs.status, vs.generated_at, vs.generated_by, vs.error_message, vs.payload,
-       vs.created_at, vs.updated_at,
-       vr.id, vr.company_id, vr.name, vr.comparison_type, vr.base_period_id, vr.compare_period_id, vr.dimension_filters,
-       vr.threshold_amount, vr.threshold_percent, vr.is_active, vr.created_by, vr.created_at
-FROM variance_snapshots vs
-JOIN variance_rules vr ON vr.id = vs.rule_id
-ORDER BY vs.created_at DESC
-LIMIT $1`, limit)
+	if filters.Page <= 0 {
+		filters.Page = 1
+	}
+	offset := (filters.Page - 1) * filters.Limit
+
+	// Count total
+	var total int
+	err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM variance_snapshots`).Scan(&total)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
+	}
+
+	// Dynamic Sorting
+	orderBy := "vs.created_at"
+	orderDir := "DESC"
+	if filters.SortBy != "" {
+		switch filters.SortBy {
+		case "created_at":
+			orderBy = "vs.created_at"
+		case "status":
+			orderBy = "vs.status"
+		case "period_id":
+			orderBy = "vs.period_id"
+		}
+	}
+	if filters.SortDir == "asc" {
+		orderDir = "ASC"
+	}
+
+	query := fmt.Sprintf(`
+		SELECT vs.id, vs.rule_id, vs.period_id, vs.status, vs.generated_at, vs.generated_by, vs.error_message, vs.payload,
+		       vs.created_at, vs.updated_at,
+		       vr.id, vr.company_id, vr.name, vr.comparison_type, vr.base_period_id, vr.compare_period_id, vr.dimension_filters,
+		       vr.threshold_amount, vr.threshold_percent, vr.is_active, vr.created_by, vr.created_at
+		FROM variance_snapshots vs
+		JOIN variance_rules vr ON vr.id = vs.rule_id
+		ORDER BY %s %s
+		LIMIT $1 OFFSET $2`, orderBy, orderDir)
+
+	rows, err := r.pool.Query(ctx, query, filters.Limit, offset)
+	if err != nil {
+		return nil, 0, err
 	}
 	defer rows.Close()
 	var snapshots []Snapshot
 	for rows.Next() {
 		snap, err := scanSnapshot(rows)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		snapshots = append(snapshots, snap)
 	}
-	return snapshots, rows.Err()
+	return snapshots, total, rows.Err()
 }
 
 // GetSnapshot loads by id.
