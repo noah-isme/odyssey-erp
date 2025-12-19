@@ -4,7 +4,9 @@ import (
 	"context"
 	"strconv"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	masterdatadb "github.com/odyssey-erp/odyssey-erp/internal/masterdata/db"
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata/shared"
 )
 
@@ -17,13 +19,18 @@ type Repository interface {
 }
 
 type repository struct {
-	db *pgxpool.Pool
+	pool    *pgxpool.Pool
+	queries *masterdatadb.Queries
 }
 
-func NewRepository(db *pgxpool.Pool) Repository {
-	return &repository{db: db}
+func NewRepository(pool *pgxpool.Pool) Repository {
+	return &repository{
+		pool:    pool,
+		queries: masterdatadb.New(pool),
+	}
 }
 
+// List uses dynamic query (not sqlc) due to filter complexity
 func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Tax, int, error) {
 	query := `SELECT id, code, name, rate FROM taxes WHERE 1=1`
 	args := []interface{}{}
@@ -44,7 +51,7 @@ func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Ta
 	}
 
 	var total int
-	err := r.db.QueryRow(ctx, countQuery, countArgs...).Scan(&total)
+	err := r.pool.QueryRow(ctx, countQuery, countArgs...).Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -55,15 +62,17 @@ func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Ta
 		argCount++
 		query += ` LIMIT $` + strconv.Itoa(argCount)
 		args = append(args, filters.Limit)
-		
+
 		argCount++
 		query += ` OFFSET $` + strconv.Itoa(argCount)
 		offset := (filters.Page - 1) * filters.Limit
-		if offset < 0 { offset = 0 }
+		if offset < 0 {
+			offset = 0
+		}
 		args = append(args, offset)
 	}
 
-	rows, err := r.db.Query(ctx, query, args...)
+	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -81,29 +90,61 @@ func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Ta
 	return taxes, total, rows.Err()
 }
 
+// Get uses sqlc generated query
 func (r *repository) Get(ctx context.Context, id int64) (Tax, error) {
-	query := `SELECT id, code, name, rate FROM taxes WHERE id = $1`
-	var t Tax
-	err := r.db.QueryRow(ctx, query, id).Scan(&t.ID, &t.Code, &t.Name, &t.Rate)
-	return t, err
+	row, err := r.queries.GetTax(ctx, id)
+	if err != nil {
+		return Tax{}, err
+	}
+	var rate float64
+	if row.Rate.Valid {
+		f8, _ := row.Rate.Float64Value()
+		rate = f8.Float64
+	}
+	return Tax{
+		ID:   row.ID,
+		Code: row.Code,
+		Name: row.Name,
+		Rate: rate,
+	}, nil
 }
 
+// Create uses sqlc generated query
 func (r *repository) Create(ctx context.Context, tax Tax) (Tax, error) {
-	query := `INSERT INTO taxes (code, name, rate) VALUES ($1, $2, $3) RETURNING id`
-	err := r.db.QueryRow(ctx, query, tax.Code, tax.Name, tax.Rate).Scan(&tax.ID)
-	return tax, err
+	row, err := r.queries.CreateTax(ctx, masterdatadb.CreateTaxParams{
+		Code: tax.Code,
+		Name: tax.Name,
+		Rate: pgtype.Numeric{Valid: true},
+	})
+	if err != nil {
+		return Tax{}, err
+	}
+	var rate float64
+	if row.Rate.Valid {
+		f8, _ := row.Rate.Float64Value()
+		rate = f8.Float64
+	}
+	return Tax{
+		ID:   row.ID,
+		Code: row.Code,
+		Name: row.Name,
+		Rate: rate,
+	}, nil
 }
 
+// Update uses sqlc generated query
 func (r *repository) Update(ctx context.Context, id int64, tax Tax) error {
-	query := `UPDATE taxes SET code = $1, name = $2, rate = $3 WHERE id = $4`
-	_, err := r.db.Exec(ctx, query, tax.Code, tax.Name, tax.Rate, id)
-	return err
+	return r.queries.UpdateTax(ctx, masterdatadb.UpdateTaxParams{
+		Code: tax.Code,
+		Name: tax.Name,
+		Rate: pgtype.Numeric{Valid: true},
+		ID:   id,
+	})
 }
 
+// Delete uses sqlc generated query
 func (r *repository) Delete(ctx context.Context, id int64) error {
-	query := `DELETE FROM taxes WHERE id = $1`
-	_, err := r.db.Exec(ctx, query, id)
-	return err
+	return r.queries.DeleteTax(ctx, id)
 }
 
 func sortOrder(sortBy, sortDir string) string {

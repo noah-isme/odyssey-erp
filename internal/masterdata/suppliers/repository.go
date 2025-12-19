@@ -3,9 +3,9 @@ package suppliers
 import (
 	"context"
 	"strconv"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	masterdatadb "github.com/odyssey-erp/odyssey-erp/internal/masterdata/db"
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata/shared"
 )
 
@@ -18,15 +18,20 @@ type Repository interface {
 }
 
 type repository struct {
-	db *pgxpool.Pool
+	pool    *pgxpool.Pool
+	queries *masterdatadb.Queries
 }
 
-func NewRepository(db *pgxpool.Pool) Repository {
-	return &repository{db: db}
+func NewRepository(pool *pgxpool.Pool) Repository {
+	return &repository{
+		pool:    pool,
+		queries: masterdatadb.New(pool),
+	}
 }
 
+// List uses dynamic query (not sqlc) due to filter complexity
 func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Supplier, int, error) {
-	query := `SELECT id, code, name, address, email, phone, created_at, updated_at FROM suppliers WHERE 1=1`
+	query := `SELECT id, code, name, address, email, phone, is_active FROM suppliers WHERE 1=1`
 	args := []interface{}{}
 	argCount := 0
 
@@ -45,7 +50,7 @@ func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Su
 	}
 
 	var total int
-	err := r.db.QueryRow(ctx, countQuery, countArgs...).Scan(&total)
+	err := r.pool.QueryRow(ctx, countQuery, countArgs...).Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -56,15 +61,17 @@ func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Su
 		argCount++
 		query += ` LIMIT $` + strconv.Itoa(argCount)
 		args = append(args, filters.Limit)
-		
+
 		argCount++
 		query += ` OFFSET $` + strconv.Itoa(argCount)
 		offset := (filters.Page - 1) * filters.Limit
-		if offset < 0 { offset = 0 }
+		if offset < 0 {
+			offset = 0
+		}
 		args = append(args, offset)
 	}
 
-	rows, err := r.db.Query(ctx, query, args...)
+	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -73,7 +80,7 @@ func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Su
 	var suppliers []Supplier
 	for rows.Next() {
 		var s Supplier
-		err := rows.Scan(&s.ID, &s.Code, &s.Name, &s.Address, &s.Email, &s.Phone, &s.CreatedAt, &s.UpdatedAt)
+		err := rows.Scan(&s.ID, &s.Code, &s.Name, &s.Address, &s.Email, &s.Phone, &s.IsActive)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -82,35 +89,63 @@ func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Su
 	return suppliers, total, rows.Err()
 }
 
+// Get uses sqlc generated query
 func (r *repository) Get(ctx context.Context, id int64) (Supplier, error) {
-	query := `SELECT id, code, name, address, email, phone, created_at, updated_at FROM suppliers WHERE id = $1`
-	var s Supplier
-	err := r.db.QueryRow(ctx, query, id).Scan(&s.ID, &s.Code, &s.Name, &s.Address, &s.Email, &s.Phone, &s.CreatedAt, &s.UpdatedAt)
-	return s, err
-}
-
-func (r *repository) Create(ctx context.Context, supplier Supplier) (Supplier, error) {
-	query := `INSERT INTO suppliers (code, name, address, email, phone, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`
-	now := time.Now()
-	err := r.db.QueryRow(ctx, query, supplier.Code, supplier.Name, supplier.Address, supplier.Email, supplier.Phone, now, now).Scan(&supplier.ID)
+	row, err := r.queries.GetSupplier(ctx, id)
 	if err != nil {
 		return Supplier{}, err
 	}
-	supplier.CreatedAt = now
-	supplier.UpdatedAt = now
-	return supplier, nil
+	return Supplier{
+		ID:       row.ID,
+		Code:     row.Code,
+		Name:     row.Name,
+		Phone:    row.Phone,
+		Email:    row.Email,
+		Address:  row.Address,
+		IsActive: row.IsActive,
+	}, nil
 }
 
+// Create uses sqlc generated query
+func (r *repository) Create(ctx context.Context, supplier Supplier) (Supplier, error) {
+	row, err := r.queries.CreateSupplier(ctx, masterdatadb.CreateSupplierParams{
+		Code:     supplier.Code,
+		Name:     supplier.Name,
+		Phone:    supplier.Phone,
+		Email:    supplier.Email,
+		Address:  supplier.Address,
+		IsActive: supplier.IsActive,
+	})
+	if err != nil {
+		return Supplier{}, err
+	}
+	return Supplier{
+		ID:       row.ID,
+		Code:     row.Code,
+		Name:     row.Name,
+		Phone:    row.Phone,
+		Email:    row.Email,
+		Address:  row.Address,
+		IsActive: row.IsActive,
+	}, nil
+}
+
+// Update uses sqlc generated query
 func (r *repository) Update(ctx context.Context, id int64, supplier Supplier) error {
-	query := `UPDATE suppliers SET code = $1, name = $2, address = $3, email = $4, phone = $5, updated_at = $6 WHERE id = $7`
-	_, err := r.db.Exec(ctx, query, supplier.Code, supplier.Name, supplier.Address, supplier.Email, supplier.Phone, time.Now(), id)
-	return err
+	return r.queries.UpdateSupplier(ctx, masterdatadb.UpdateSupplierParams{
+		Code:     supplier.Code,
+		Name:     supplier.Name,
+		Phone:    supplier.Phone,
+		Email:    supplier.Email,
+		Address:  supplier.Address,
+		IsActive: supplier.IsActive,
+		ID:       id,
+	})
 }
 
+// Delete uses sqlc generated query
 func (r *repository) Delete(ctx context.Context, id int64) error {
-	query := `DELETE FROM suppliers WHERE id = $1`
-	_, err := r.db.Exec(ctx, query, id)
-	return err
+	return r.queries.DeleteSupplier(ctx, id)
 }
 
 func sortOrder(sortBy, sortDir string) string {
@@ -123,8 +158,6 @@ func sortOrder(sortBy, sortDir string) string {
 		return "code " + dir
 	case "name":
 		return "name " + dir
-	case "created_at":
-		return "created_at " + dir
 	default:
 		return "name " + dir
 	}
