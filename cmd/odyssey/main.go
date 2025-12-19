@@ -215,9 +215,7 @@ func main() {
 	salesService := sales.NewService(dbpool)
 	salesHandler := sales.NewHandler(logger, salesService, templates, csrfManager, sessionManager, rbacMiddleware)
 
-	masterdataRepo := masterdata.NewRepository(dbpool)
-	masterdataService := masterdata.NewService(masterdataRepo)
-	masterdataHandler := masterdata.NewHandler(logger, masterdataService, templates, csrfManager, sessionManager, rbacMiddleware)
+        masterdataHandler := masterdata.NewHandler(logger, dbpool, templates, csrfManager, sessionManager, rbacMiddleware)
 
 	deliveryService := delivery.NewService(dbpool)
 	// Wire up inventory integration for stock reduction on delivery
