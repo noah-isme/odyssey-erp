@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/odyssey-erp/odyssey-erp/internal/delivery/orders/db"
 )
 
 // Repository defines the interface for delivery order persistence.
@@ -51,17 +53,22 @@ type SalesOrderInfo struct {
 
 // repository implements Repository using pgxpool.
 type repository struct {
-	pool *pgxpool.Pool
+	pool    *pgxpool.Pool
+	queries *ordersdb.Queries
 }
 
 // NewRepository creates a new repository.
 func NewRepository(pool *pgxpool.Pool) Repository {
-	return &repository{pool: pool}
+	return &repository{
+		pool:    pool,
+		queries: ordersdb.New(pool),
+	}
 }
 
 // txRepository implements TxRepository.
 type txRepository struct {
-	tx pgx.Tx
+	tx      pgx.Tx
+	queries *ordersdb.Queries
 }
 
 // WithTx wraps callback in repeatable-read transaction.
@@ -70,9 +77,12 @@ func (r *repository) WithTx(ctx context.Context, fn func(context.Context, TxRepo
 	if err != nil {
 		return err
 	}
-	wrapper := &txRepository{tx: tx}
+	defer tx.Rollback(ctx)
+
+	q := r.queries.WithTx(tx)
+	wrapper := &txRepository{tx: tx, queries: q}
+
 	if err := fn(ctx, wrapper); err != nil {
-		_ = tx.Rollback(ctx)
 		return err
 	}
 	return tx.Commit(ctx)
@@ -80,21 +90,7 @@ func (r *repository) WithTx(ctx context.Context, fn func(context.Context, TxRepo
 
 // GetByID retrieves a delivery order by ID with lines.
 func (r *repository) GetByID(ctx context.Context, id int64) (*DeliveryOrder, error) {
-	query := `
-		SELECT id, doc_number, company_id, sales_order_id, warehouse_id, customer_id,
-		       delivery_date, status, driver_name, vehicle_number, tracking_number,
-		       notes, created_by, confirmed_by, confirmed_at, delivered_at,
-		       created_at, updated_at
-		FROM delivery_orders
-		WHERE id = $1
-	`
-	var do DeliveryOrder
-	err := r.pool.QueryRow(ctx, query, id).Scan(
-		&do.ID, &do.DocNumber, &do.CompanyID, &do.SalesOrderID, &do.WarehouseID,
-		&do.CustomerID, &do.DeliveryDate, &do.Status, &do.DriverName,
-		&do.VehicleNumber, &do.TrackingNumber, &do.Notes, &do.CreatedBy,
-		&do.ConfirmedBy, &do.ConfirmedAt, &do.DeliveredAt, &do.CreatedAt, &do.UpdatedAt,
-	)
+	row, err := r.queries.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
@@ -102,32 +98,60 @@ func (r *repository) GetByID(ctx context.Context, id int64) (*DeliveryOrder, err
 		return nil, err
 	}
 
-	lines, err := r.getLines(ctx, id)
+	do := &DeliveryOrder{
+		ID:             row.ID,
+		DocNumber:      row.DocNumber,
+		CompanyID:      row.CompanyID,
+		SalesOrderID:   row.SalesOrderID,
+		WarehouseID:    row.WarehouseID,
+		CustomerID:     row.CustomerID,
+		DeliveryDate:   row.DeliveryDate.Time,
+		Status:         Status(row.Status),
+		DriverName:     textToPointer(row.DriverName),
+		VehicleNumber:  textToPointer(row.VehicleNumber),
+		TrackingNumber: textToPointer(row.TrackingNumber),
+		Notes:          textToPointer(row.Notes),
+		CreatedBy:      row.CreatedBy,
+		ConfirmedBy:    int8ToPointer(row.ConfirmedBy),
+		ConfirmedAt:    timeToPointer(row.ConfirmedAt),
+		DeliveredAt:    timeToPointer(row.DeliveredAt),
+		CreatedAt:      row.CreatedAt.Time,
+		UpdatedAt:      row.UpdatedAt.Time,
+	}
+
+	linesRows, err := r.queries.GetLines(ctx, id)
 	if err != nil {
 		return nil, err
 	}
+
+	var lines []Line
+	for _, l := range linesRows {
+		lines = append(lines, Line{
+			ID:                l.ID,
+			DeliveryOrderID:   l.DeliveryOrderID,
+			SalesOrderLineID:  l.SalesOrderLineID,
+			ProductID:         l.ProductID,
+			QuantityToDeliver: numericToFloat(l.QuantityToDeliver),
+			QuantityDelivered: numericToFloat(l.QuantityDelivered),
+			UOM:               l.Uom,
+			UnitPrice:         numericToFloat(l.UnitPrice),
+			Notes:             textToPointer(l.Notes),
+			LineOrder:         int(l.LineOrder),
+			CreatedAt:         l.CreatedAt.Time,
+			UpdatedAt:         l.UpdatedAt.Time,
+		})
+	}
 	do.Lines = lines
 
-	return &do, nil
+	return do, nil
 }
 
 // GetByDocNumber retrieves a delivery order by document number.
 func (r *repository) GetByDocNumber(ctx context.Context, companyID int64, docNumber string) (*DeliveryOrder, error) {
-	query := `
-		SELECT id, doc_number, company_id, sales_order_id, warehouse_id, customer_id,
-		       delivery_date, status, driver_name, vehicle_number, tracking_number,
-		       notes, created_by, confirmed_by, confirmed_at, delivered_at,
-		       created_at, updated_at
-		FROM delivery_orders
-		WHERE company_id = $1 AND doc_number = $2
-	`
-	var do DeliveryOrder
-	err := r.pool.QueryRow(ctx, query, companyID, docNumber).Scan(
-		&do.ID, &do.DocNumber, &do.CompanyID, &do.SalesOrderID, &do.WarehouseID,
-		&do.CustomerID, &do.DeliveryDate, &do.Status, &do.DriverName,
-		&do.VehicleNumber, &do.TrackingNumber, &do.Notes, &do.CreatedBy,
-		&do.ConfirmedBy, &do.ConfirmedAt, &do.DeliveredAt, &do.CreatedAt, &do.UpdatedAt,
-	)
+	row, err := r.queries.GetByDocNumber(ctx, ordersdb.GetByDocNumberParams{
+		CompanyID: companyID,
+		DocNumber: docNumber,
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
@@ -135,86 +159,57 @@ func (r *repository) GetByDocNumber(ctx context.Context, companyID int64, docNum
 		return nil, err
 	}
 
-	lines, err := r.getLines(ctx, do.ID)
+	do := &DeliveryOrder{
+		ID:             row.ID,
+		DocNumber:      row.DocNumber,
+		CompanyID:      row.CompanyID,
+		SalesOrderID:   row.SalesOrderID,
+		WarehouseID:    row.WarehouseID,
+		CustomerID:     row.CustomerID,
+		DeliveryDate:   row.DeliveryDate.Time,
+		Status:         Status(row.Status),
+		DriverName:     textToPointer(row.DriverName),
+		VehicleNumber:  textToPointer(row.VehicleNumber),
+		TrackingNumber: textToPointer(row.TrackingNumber),
+		Notes:          textToPointer(row.Notes),
+		CreatedBy:      row.CreatedBy,
+		ConfirmedBy:    int8ToPointer(row.ConfirmedBy),
+		ConfirmedAt:    timeToPointer(row.ConfirmedAt),
+		DeliveredAt:    timeToPointer(row.DeliveredAt),
+		CreatedAt:      row.CreatedAt.Time,
+		UpdatedAt:      row.UpdatedAt.Time,
+	}
+
+	linesRows, err := r.queries.GetLines(ctx, do.ID)
 	if err != nil {
 		return nil, err
+	}
+
+	var lines []Line
+	for _, l := range linesRows {
+		lines = append(lines, Line{
+			ID:                l.ID,
+			DeliveryOrderID:   l.DeliveryOrderID,
+			SalesOrderLineID:  l.SalesOrderLineID,
+			ProductID:         l.ProductID,
+			QuantityToDeliver: numericToFloat(l.QuantityToDeliver),
+			QuantityDelivered: numericToFloat(l.QuantityDelivered),
+			UOM:               l.Uom,
+			UnitPrice:         numericToFloat(l.UnitPrice),
+			Notes:             textToPointer(l.Notes),
+			LineOrder:         int(l.LineOrder),
+			CreatedAt:         l.CreatedAt.Time,
+			UpdatedAt:         l.UpdatedAt.Time,
+		})
 	}
 	do.Lines = lines
 
-	return &do, nil
-}
-
-func (r *repository) getLines(ctx context.Context, deliveryOrderID int64) ([]Line, error) {
-	query := `
-		SELECT id, delivery_order_id, sales_order_line_id, product_id,
-		       quantity_to_deliver, quantity_delivered, uom, unit_price,
-		       notes, line_order, created_at, updated_at
-		FROM delivery_order_lines
-		WHERE delivery_order_id = $1
-		ORDER BY line_order, id
-	`
-	rows, err := r.pool.Query(ctx, query, deliveryOrderID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var lines []Line
-	for rows.Next() {
-		var line Line
-		err := rows.Scan(
-			&line.ID, &line.DeliveryOrderID, &line.SalesOrderLineID, &line.ProductID,
-			&line.QuantityToDeliver, &line.QuantityDelivered, &line.UOM, &line.UnitPrice,
-			&line.Notes, &line.LineOrder, &line.CreatedAt, &line.UpdatedAt,
-		)
-		if err != nil {
-			return nil, err
-		}
-		lines = append(lines, line)
-	}
-
-	return lines, rows.Err()
+	return do, nil
 }
 
 // GetWithDetails retrieves a delivery order with enriched details.
 func (r *repository) GetWithDetails(ctx context.Context, id int64) (*WithDetails, error) {
-	query := `
-		SELECT do.id, do.doc_number, do.company_id, do.sales_order_id, do.warehouse_id,
-		       do.customer_id, do.delivery_date, do.status, do.driver_name,
-		       do.vehicle_number, do.tracking_number, do.notes, do.created_by,
-		       do.confirmed_by, do.confirmed_at, do.delivered_at,
-		       do.created_at, do.updated_at,
-		       so.doc_number AS sales_order_number,
-		       w.name AS warehouse_name,
-		       c.name AS customer_name,
-		       u_created.email AS created_by_name,
-		       u_confirmed.email AS confirmed_by_name,
-		       COUNT(dol.id) AS line_count,
-		       COALESCE(SUM(dol.quantity_to_deliver), 0) AS total_quantity
-		FROM delivery_orders do
-		INNER JOIN sales_orders so ON so.id = do.sales_order_id
-		INNER JOIN warehouses w ON w.id = do.warehouse_id
-		INNER JOIN customers c ON c.id = do.customer_id
-		INNER JOIN users u_created ON u_created.id = do.created_by
-		LEFT JOIN users u_confirmed ON u_confirmed.id = do.confirmed_by
-		LEFT JOIN delivery_order_lines dol ON dol.delivery_order_id = do.id
-		WHERE do.id = $1
-		GROUP BY do.id, do.doc_number, do.company_id, do.sales_order_id, do.warehouse_id,
-		         do.customer_id, do.delivery_date, do.status, do.driver_name,
-		         do.vehicle_number, do.tracking_number, do.notes, do.created_by,
-		         do.confirmed_by, do.confirmed_at, do.delivered_at,
-		         do.created_at, do.updated_at, so.doc_number, w.name, c.name,
-		         u_created.email, u_confirmed.email
-	`
-	var wd WithDetails
-	err := r.pool.QueryRow(ctx, query, id).Scan(
-		&wd.ID, &wd.DocNumber, &wd.CompanyID, &wd.SalesOrderID, &wd.WarehouseID,
-		&wd.CustomerID, &wd.DeliveryDate, &wd.Status, &wd.DriverName,
-		&wd.VehicleNumber, &wd.TrackingNumber, &wd.Notes, &wd.CreatedBy,
-		&wd.ConfirmedBy, &wd.ConfirmedAt, &wd.DeliveredAt, &wd.CreatedAt,
-		&wd.UpdatedAt, &wd.SalesOrderNumber, &wd.WarehouseName, &wd.CustomerName,
-		&wd.CreatedByName, &wd.ConfirmedByName, &wd.LineCount, &wd.TotalQuantity,
-	)
+	row, err := r.queries.GetWithDetails(ctx, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
@@ -222,93 +217,114 @@ func (r *repository) GetWithDetails(ctx context.Context, id int64) (*WithDetails
 		return nil, err
 	}
 
-	return &wd, nil
+	return &WithDetails{
+		DeliveryOrder: DeliveryOrder{
+			ID:             row.ID,
+			DocNumber:      row.DocNumber,
+			CompanyID:      row.CompanyID,
+			SalesOrderID:   row.SalesOrderID,
+			WarehouseID:    row.WarehouseID,
+			CustomerID:     row.CustomerID,
+			DeliveryDate:   row.DeliveryDate.Time,
+			Status:         Status(row.Status),
+			DriverName:     textToPointer(row.DriverName),
+			VehicleNumber:  textToPointer(row.VehicleNumber),
+			TrackingNumber: textToPointer(row.TrackingNumber),
+			Notes:          textToPointer(row.Notes),
+			CreatedBy:      row.CreatedBy,
+			ConfirmedBy:    int8ToPointer(row.ConfirmedBy),
+			ConfirmedAt:    timeToPointer(row.ConfirmedAt),
+			DeliveredAt:    timeToPointer(row.DeliveredAt),
+			CreatedAt:      row.CreatedAt.Time,
+			UpdatedAt:      row.UpdatedAt.Time,
+		},
+		SalesOrderNumber: row.SalesOrderNumber,
+		WarehouseName:    row.WarehouseName,
+		CustomerName:     row.CustomerName,
+		CreatedByName:    row.CreatedByName,
+		ConfirmedByName:  textToPointer(row.ConfirmedByName),
+		LineCount:        int(row.LineCount),
+		TotalQuantity:    numericToFloat(row.TotalQuantity),
+	}, nil
 }
 
 // GetLinesWithDetails retrieves lines with product details.
 func (r *repository) GetLinesWithDetails(ctx context.Context, deliveryOrderID int64) ([]LineWithDetails, error) {
-	query := `
-		SELECT dol.id, dol.delivery_order_id, dol.sales_order_line_id, dol.product_id,
-		       dol.quantity_to_deliver, dol.quantity_delivered, dol.uom, dol.unit_price,
-		       dol.notes, dol.line_order, dol.created_at, dol.updated_at,
-		       p.sku AS product_code,
-		       p.name AS product_name,
-		       sol.quantity AS so_line_quantity,
-		       sol.quantity_delivered AS so_line_delivered,
-		       (sol.quantity - sol.quantity_delivered) AS remaining_to_deliver
-		FROM delivery_order_lines dol
-		INNER JOIN products p ON p.id = dol.product_id
-		INNER JOIN sales_order_lines sol ON sol.id = dol.sales_order_line_id
-		WHERE dol.delivery_order_id = $1
-		ORDER BY dol.line_order, dol.id
-	`
-	rows, err := r.pool.Query(ctx, query, deliveryOrderID)
+	rows, err := r.queries.GetLinesWithDetails(ctx, deliveryOrderID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
 	var lines []LineWithDetails
-	for rows.Next() {
-		var line LineWithDetails
-		err := rows.Scan(
-			&line.ID, &line.DeliveryOrderID, &line.SalesOrderLineID, &line.ProductID,
-			&line.QuantityToDeliver, &line.QuantityDelivered, &line.UOM, &line.UnitPrice,
-			&line.Notes, &line.LineOrder, &line.CreatedAt, &line.UpdatedAt,
-			&line.ProductCode, &line.ProductName, &line.SOLineQuantity,
-			&line.SOLineDelivered, &line.RemainingToDeliver,
-		)
-		if err != nil {
-			return nil, err
-		}
-		lines = append(lines, line)
+	for _, l := range rows {
+		lines = append(lines, LineWithDetails{
+			Line: Line{
+				ID:                l.ID,
+				DeliveryOrderID:   l.DeliveryOrderID,
+				SalesOrderLineID:  l.SalesOrderLineID,
+				ProductID:         l.ProductID,
+				QuantityToDeliver: numericToFloat(l.QuantityToDeliver),
+				QuantityDelivered: numericToFloat(l.QuantityDelivered),
+				UOM:               l.Uom,
+				UnitPrice:         numericToFloat(l.UnitPrice),
+				Notes:             textToPointer(l.Notes),
+				LineOrder:         int(l.LineOrder),
+				CreatedAt:         l.CreatedAt.Time,
+				UpdatedAt:         l.UpdatedAt.Time,
+			},
+			ProductCode:        l.ProductCode,
+			ProductName:        l.ProductName,
+			SOLineQuantity:     numericToFloat(l.SoLineQuantity),
+			SOLineDelivered:    numericToFloat(l.SoLineDelivered),
+			RemainingToDeliver: numericToFloat(l.RemainingToDeliver),
+		})
 	}
-
-	return lines, rows.Err()
+	return lines, nil
 }
 
 // List retrieves delivery orders with filters.
+// NOTE: Kept as raw SQL due to complex dynamic filtering not easily handled by SQLC.
 func (r *repository) List(ctx context.Context, req ListRequest) ([]WithDetails, int, error) {
 	var conditions []string
 	var args []interface{}
 	argPos := 1
 
-	conditions = append(conditions, fmt.Sprintf("do.company_id = $%d", argPos))
+	conditions = append(conditions, fmt.Sprintf("dor.company_id = $%d", argPos))
 	args = append(args, req.CompanyID)
 	argPos++
 
 	if req.SalesOrderID != nil {
-		conditions = append(conditions, fmt.Sprintf("do.sales_order_id = $%d", argPos))
+		conditions = append(conditions, fmt.Sprintf("dor.sales_order_id = $%d", argPos))
 		args = append(args, *req.SalesOrderID)
 		argPos++
 	}
 
 	if req.WarehouseID != nil {
-		conditions = append(conditions, fmt.Sprintf("do.warehouse_id = $%d", argPos))
+		conditions = append(conditions, fmt.Sprintf("dor.warehouse_id = $%d", argPos))
 		args = append(args, *req.WarehouseID)
 		argPos++
 	}
 
 	if req.CustomerID != nil {
-		conditions = append(conditions, fmt.Sprintf("do.customer_id = $%d", argPos))
+		conditions = append(conditions, fmt.Sprintf("dor.customer_id = $%d", argPos))
 		args = append(args, *req.CustomerID)
 		argPos++
 	}
 
 	if req.Status != nil {
-		conditions = append(conditions, fmt.Sprintf("do.status = $%d", argPos))
+		conditions = append(conditions, fmt.Sprintf("dor.status = $%d", argPos))
 		args = append(args, *req.Status)
 		argPos++
 	}
 
 	if req.DateFrom != nil {
-		conditions = append(conditions, fmt.Sprintf("do.delivery_date >= $%d", argPos))
+		conditions = append(conditions, fmt.Sprintf("dor.delivery_date >= $%d", argPos))
 		args = append(args, *req.DateFrom)
 		argPos++
 	}
 
 	if req.DateTo != nil {
-		conditions = append(conditions, fmt.Sprintf("do.delivery_date <= $%d", argPos))
+		conditions = append(conditions, fmt.Sprintf("dor.delivery_date <= $%d", argPos))
 		args = append(args, *req.DateTo)
 		argPos++
 	}
@@ -316,7 +332,7 @@ func (r *repository) List(ctx context.Context, req ListRequest) ([]WithDetails, 
 	if req.Search != nil && *req.Search != "" {
 		searchPattern := "%" + strings.ToLower(*req.Search) + "%"
 		conditions = append(conditions, fmt.Sprintf(
-			"(LOWER(do.doc_number) LIKE $%d OR LOWER(do.driver_name) LIKE $%d OR LOWER(do.tracking_number) LIKE $%d)",
+			"(LOWER(dor.doc_number) LIKE $%d OR LOWER(dor.driver_name) LIKE $%d OR LOWER(dor.tracking_number) LIKE $%d)",
 			argPos, argPos, argPos,
 		))
 		args = append(args, searchPattern)
@@ -329,7 +345,7 @@ func (r *repository) List(ctx context.Context, req ListRequest) ([]WithDetails, 
 	}
 
 	// Count
-	countQuery := fmt.Sprintf(`SELECT COUNT(DISTINCT do.id) FROM delivery_orders do %s`, whereClause)
+	countQuery := fmt.Sprintf(`SELECT COUNT(DISTINCT dor.id) FROM delivery_orders dor %s`, whereClause)
 	var total int
 	err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total)
 	if err != nil {
@@ -337,22 +353,22 @@ func (r *repository) List(ctx context.Context, req ListRequest) ([]WithDetails, 
 	}
 
 	// Sort
-	orderBy := "do.delivery_date DESC, do.id DESC"
+	orderBy := "dor.delivery_date DESC, dor.id DESC"
 	if req.SortBy != "" {
 		dir := "ASC"
 		if strings.ToUpper(req.SortDir) == "DESC" {
 			dir = "DESC"
 		}
-		orderBy = fmt.Sprintf("do.%s %s", req.SortBy, dir)
+		orderBy = fmt.Sprintf("dor.%s %s", req.SortBy, dir)
 	}
 
 	// Fetch
 	query := fmt.Sprintf(`
-		SELECT do.id, do.doc_number, do.company_id, do.sales_order_id, do.warehouse_id,
-		       do.customer_id, do.delivery_date, do.status, do.driver_name,
-		       do.vehicle_number, do.tracking_number, do.notes, do.created_by,
-		       do.confirmed_by, do.confirmed_at, do.delivered_at,
-		       do.created_at, do.updated_at,
+		SELECT dor.id, dor.doc_number, dor.company_id, dor.sales_order_id, dor.warehouse_id,
+		       dor.customer_id, dor.delivery_date, dor.status, dor.driver_name,
+		       dor.vehicle_number, dor.tracking_number, dor.notes, dor.created_by,
+		       dor.confirmed_by, dor.confirmed_at, dor.delivered_at,
+		       dor.created_at, dor.updated_at,
 		       so.doc_number AS sales_order_number,
 		       w.name AS warehouse_name,
 		       c.name AS customer_name,
@@ -360,19 +376,19 @@ func (r *repository) List(ctx context.Context, req ListRequest) ([]WithDetails, 
 		       u_confirmed.email AS confirmed_by_name,
 		       COUNT(dol.id) AS line_count,
 		       COALESCE(SUM(dol.quantity_to_deliver), 0) AS total_quantity
-		FROM delivery_orders do
-		INNER JOIN sales_orders so ON so.id = do.sales_order_id
-		INNER JOIN warehouses w ON w.id = do.warehouse_id
-		INNER JOIN customers c ON c.id = do.customer_id
-		INNER JOIN users u_created ON u_created.id = do.created_by
-		LEFT JOIN users u_confirmed ON u_confirmed.id = do.confirmed_by
-		LEFT JOIN delivery_order_lines dol ON dol.delivery_order_id = do.id
+		FROM delivery_orders dor
+		INNER JOIN sales_orders so ON so.id = dor.sales_order_id
+		INNER JOIN warehouses w ON w.id = dor.warehouse_id
+		INNER JOIN customers c ON c.id = dor.customer_id
+		INNER JOIN users u_created ON u_created.id = dor.created_by
+		LEFT JOIN users u_confirmed ON u_confirmed.id = dor.confirmed_by
+		LEFT JOIN delivery_order_lines dol ON dol.delivery_order_id = dor.id
 		%s
-		GROUP BY do.id, do.doc_number, do.company_id, do.sales_order_id, do.warehouse_id,
-		         do.customer_id, do.delivery_date, do.status, do.driver_name,
-		         do.vehicle_number, do.tracking_number, do.notes, do.created_by,
-		         do.confirmed_by, do.confirmed_at, do.delivered_at,
-		         do.created_at, do.updated_at, so.doc_number, w.name, c.name,
+		GROUP BY dor.id, dor.doc_number, dor.company_id, dor.sales_order_id, dor.warehouse_id,
+		         dor.customer_id, dor.delivery_date, dor.status, dor.driver_name,
+		         dor.vehicle_number, dor.tracking_number, dor.notes, dor.created_by,
+		         dor.confirmed_by, dor.confirmed_at, dor.delivered_at,
+		         dor.created_at, dor.updated_at, so.doc_number, w.name, c.name,
 		         u_created.email, u_confirmed.email
 		ORDER BY %s
 		LIMIT $%d OFFSET $%d
@@ -389,17 +405,37 @@ func (r *repository) List(ctx context.Context, req ListRequest) ([]WithDetails, 
 	var results []WithDetails
 	for rows.Next() {
 		var wd WithDetails
+		var (
+			confirmedBy pgtype.Int8
+			confirmedAt pgtype.Timestamptz
+			deliveredAt pgtype.Timestamptz
+			driverName, vehicleNumber, trackingNumber, notes pgtype.Text
+			confirmedByName pgtype.Text
+			totalQty pgtype.Numeric
+		)
+		
 		err := rows.Scan(
 			&wd.ID, &wd.DocNumber, &wd.CompanyID, &wd.SalesOrderID, &wd.WarehouseID,
-			&wd.CustomerID, &wd.DeliveryDate, &wd.Status, &wd.DriverName,
-			&wd.VehicleNumber, &wd.TrackingNumber, &wd.Notes, &wd.CreatedBy,
-			&wd.ConfirmedBy, &wd.ConfirmedAt, &wd.DeliveredAt, &wd.CreatedAt,
+			&wd.CustomerID, &wd.DeliveryDate, &wd.Status, &driverName,
+			&vehicleNumber, &trackingNumber, &notes, &wd.CreatedBy,
+			&confirmedBy, &confirmedAt, &deliveredAt, &wd.CreatedAt,
 			&wd.UpdatedAt, &wd.SalesOrderNumber, &wd.WarehouseName, &wd.CustomerName,
-			&wd.CreatedByName, &wd.ConfirmedByName, &wd.LineCount, &wd.TotalQuantity,
+			&wd.CreatedByName, &confirmedByName, &wd.LineCount, &totalQty,
 		)
 		if err != nil {
 			return nil, 0, err
 		}
+		
+		wd.DriverName = textToPointer(driverName)
+		wd.VehicleNumber = textToPointer(vehicleNumber)
+		wd.TrackingNumber = textToPointer(trackingNumber)
+		wd.Notes = textToPointer(notes)
+		wd.ConfirmedBy = int8ToPointer(confirmedBy)
+		wd.ConfirmedAt = timeToPointer(confirmedAt)
+		wd.DeliveredAt = timeToPointer(deliveredAt)
+		wd.ConfirmedByName = textToPointer(confirmedByName)
+		wd.TotalQuantity = numericToFloat(totalQty)
+		
 		results = append(results, wd)
 	}
 
@@ -408,80 +444,99 @@ func (r *repository) List(ctx context.Context, req ListRequest) ([]WithDetails, 
 
 // GetDeliverableSOLines retrieves SO lines that can still be delivered.
 func (r *repository) GetDeliverableSOLines(ctx context.Context, salesOrderID int64) ([]DeliverableSOLine, error) {
-	query := `
-		SELECT sol.id AS sales_order_line_id,
-		       sol.sales_order_id,
-		       sol.product_id,
-		       p.sku AS product_code,
-		       p.name AS product_name,
-		       sol.quantity,
-		       sol.quantity_delivered,
-		       (sol.quantity - sol.quantity_delivered) AS remaining_quantity,
-		       sol.uom,
-		       sol.unit_price,
-		       sol.line_order
-		FROM sales_order_lines sol
-		INNER JOIN products p ON p.id = sol.product_id
-		WHERE sol.sales_order_id = $1
-		  AND sol.quantity > sol.quantity_delivered
-		ORDER BY sol.line_order, sol.id
-	`
-	rows, err := r.pool.Query(ctx, query, salesOrderID)
+	rows, err := r.queries.GetDeliverableSOLines(ctx, salesOrderID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
 	var lines []DeliverableSOLine
-	for rows.Next() {
-		var line DeliverableSOLine
-		err := rows.Scan(
-			&line.SalesOrderLineID, &line.SalesOrderID, &line.ProductID,
-			&line.ProductCode, &line.ProductName, &line.Quantity,
-			&line.QuantityDelivered, &line.RemainingQuantity,
-			&line.UOM, &line.UnitPrice, &line.LineOrder,
-		)
-		if err != nil {
-			return nil, err
-		}
-		lines = append(lines, line)
+	for _, l := range rows {
+		lines = append(lines, DeliverableSOLine{
+			SalesOrderLineID:  l.SalesOrderLineID,
+			SalesOrderID:      l.SalesOrderID,
+			ProductID:         l.ProductID,
+			ProductCode:       l.ProductCode,
+			ProductName:       l.ProductName,
+			Quantity:          numericToFloat(l.Quantity),
+			QuantityDelivered: numericToFloat(l.QuantityDelivered),
+			RemainingQuantity: numericToFloat(l.RemainingQuantity),
+			UOM:               l.Uom,
+			UnitPrice:         numericToFloat(l.UnitPrice),
+			LineOrder:         int(l.LineOrder),
+		})
 	}
-
-	return lines, rows.Err()
+	return lines, nil
 }
 
 // GenerateDocNumber generates a unique DO number.
 func (r *repository) GenerateDocNumber(ctx context.Context, companyID int64, date time.Time) (string, error) {
-	query := `SELECT generate_delivery_order_number($1, $2)`
-	var docNumber string
-	err := r.pool.QueryRow(ctx, query, companyID, date).Scan(&docNumber)
-	return docNumber, err
+	return r.queries.GenerateDocNumber(ctx, ordersdb.GenerateDocNumberParams{
+		PCompanyID: companyID,
+		PDate:      pgtype.Date{Time: date, Valid: true},
+	})
 }
 
 // GetSalesOrderDetails retrieves basic sales order info.
 func (r *repository) GetSalesOrderDetails(ctx context.Context, salesOrderID int64) (*SalesOrderInfo, error) {
-	query := `
-		SELECT id, doc_number, company_id, customer_id, status
-		FROM sales_orders
-		WHERE id = $1
-	`
-	var so SalesOrderInfo
-	err := r.pool.QueryRow(ctx, query, salesOrderID).Scan(
-		&so.ID, &so.DocNumber, &so.CompanyID, &so.CustomerID, &so.Status,
-	)
+	row, err := r.queries.GetSalesOrderDetails(ctx, salesOrderID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
 		}
 		return nil, err
 	}
-	return &so, nil
+	return &SalesOrderInfo{
+		ID:         row.ID,
+		DocNumber:  row.DocNumber,
+		CompanyID:  row.CompanyID,
+		CustomerID: row.CustomerID,
+		Status:     string(row.Status),
+	}, nil
 }
 
 // CheckWarehouseExists validates warehouse existence.
 func (r *repository) CheckWarehouseExists(ctx context.Context, warehouseID int64) (bool, error) {
-	query := `SELECT EXISTS(SELECT 1 FROM warehouses WHERE id = $1)`
-	var exists bool
-	err := r.pool.QueryRow(ctx, query, warehouseID).Scan(&exists)
-	return exists, err
+	return r.queries.CheckWarehouseExists(ctx, warehouseID)
+}
+
+func numericToFloat(n pgtype.Numeric) float64 {
+	f, _ := n.Float64Value()
+	return f.Float64
+}
+
+func floatToNumeric(f float64) pgtype.Numeric {
+	var n pgtype.Numeric
+	n.Scan(fmt.Sprintf("%f", f))
+	return n
+}
+
+func textToPointer(t pgtype.Text) *string {
+	if !t.Valid {
+		return nil
+	}
+	s := t.String
+	return &s
+}
+
+func int8ToPointer(i pgtype.Int8) *int64 {
+	if !i.Valid {
+		return nil
+	}
+	v := i.Int64
+	return &v
+}
+
+func timeToPointer(t pgtype.Timestamptz) *time.Time {
+	if !t.Valid {
+		return nil
+	}
+	v := t.Time
+	return &v
+}
+
+func pointerToText(s *string) pgtype.Text {
+	if s == nil {
+		return pgtype.Text{}
+	}
+	return pgtype.Text{String: *s, Valid: true}
 }

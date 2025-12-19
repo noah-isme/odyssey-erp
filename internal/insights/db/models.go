@@ -624,6 +624,31 @@ type Approval struct {
 	At      pgtype.Timestamptz `json:"at"`
 }
 
+type ArInvoice struct {
+	ID         int64              `json:"id"`
+	Number     string             `json:"number"`
+	CustomerID int64              `json:"customer_id"`
+	SoID       pgtype.Int8        `json:"so_id"`
+	Currency   string             `json:"currency"`
+	Total      pgtype.Numeric     `json:"total"`
+	Status     string             `json:"status"`
+	DueAt      pgtype.Timestamptz `json:"due_at"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ArPayment struct {
+	ID          int64              `json:"id"`
+	Number      string             `json:"number"`
+	ArInvoiceID int64              `json:"ar_invoice_id"`
+	Amount      pgtype.Numeric     `json:"amount"`
+	PaidAt      pgtype.Timestamptz `json:"paid_at"`
+	Method      string             `json:"method"`
+	Note        string             `json:"note"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
 type AuditLog struct {
 	ID         int64              `json:"id"`
 	ActorID    int64              `json:"actor_id"`
@@ -1297,6 +1322,7 @@ type User struct {
 	IsActive     bool               `json:"is_active"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	Name         string             `json:"name"`
 }
 
 type UserRole struct {

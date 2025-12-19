@@ -7,17 +7,23 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	procurementdb "github.com/odyssey-erp/odyssey-erp/internal/procurement/db"
 )
 
 // Repository provides PostgreSQL backed persistence.
 type Repository struct {
-	pool *pgxpool.Pool
+	pool    *pgxpool.Pool
+	queries *procurementdb.Queries
 }
 
 // NewRepository constructs a repository.
 func NewRepository(pool *pgxpool.Pool) *Repository {
-	return &Repository{pool: pool}
+	return &Repository{
+		pool:    pool,
+		queries: procurementdb.New(pool),
+	}
 }
 
 // TxRepository exposes transactional operations.
@@ -38,7 +44,8 @@ type TxRepository interface {
 }
 
 type txRepo struct {
-	tx pgx.Tx
+	queries *procurementdb.Queries
+	tx      pgx.Tx
 }
 
 // WithTx wraps callback in repeatable-read transaction.
@@ -47,7 +54,10 @@ func (r *Repository) WithTx(ctx context.Context, fn func(context.Context, TxRepo
 	if err != nil {
 		return err
 	}
-	wrapper := &txRepo{tx: tx}
+	wrapper := &txRepo{
+		queries: r.queries.WithTx(tx),
+		tx:      tx,
+	}
 	if err := fn(ctx, wrapper); err != nil {
 		_ = tx.Rollback(ctx)
 		return err
@@ -59,125 +69,197 @@ func (r *Repository) WithTx(ctx context.Context, fn func(context.Context, TxRepo
 
 // GetPR returns purchase request and lines.
 func (r *Repository) GetPR(ctx context.Context, id int64) (PurchaseRequest, []PRLine, error) {
-	var pr PurchaseRequest
-	err := r.pool.QueryRow(ctx, `SELECT id, number, COALESCE(supplier_id,0), request_by, status, note FROM prs WHERE id=$1`, id).
-		Scan(&pr.ID, &pr.Number, &pr.SupplierID, &pr.RequestBy, &pr.Status, &pr.Note)
+	row, err := r.queries.GetPR(ctx, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return PurchaseRequest{}, nil, ErrNotFound
 		}
 		return PurchaseRequest{}, nil, err
 	}
-	rows, err := r.pool.Query(ctx, `SELECT id, pr_id, product_id, qty, note FROM pr_lines WHERE pr_id=$1 ORDER BY id`, id)
+	pr := PurchaseRequest{
+		ID:        row.ID,
+		Number:    row.Number,
+		RequestBy: row.RequestBy,
+		Status:    PRStatus(row.Status),
+		Note:      row.Note,
+	}
+	if row.SupplierID.Valid {
+		pr.SupplierID = row.SupplierID.Int64
+	}
+
+	lineRows, err := r.queries.GetPRLines(ctx, id)
 	if err != nil {
 		return PurchaseRequest{}, nil, err
 	}
-	defer rows.Close()
 	var lines []PRLine
-	for rows.Next() {
-		var line PRLine
-		if err := rows.Scan(&line.ID, &line.PRID, &line.ProductID, &line.Qty, &line.Note); err != nil {
-			return PurchaseRequest{}, nil, err
+	for _, l := range lineRows {
+		line := PRLine{
+			ID:        l.ID,
+			PRID:      l.PrID,
+			ProductID: l.ProductID,
+			Note:      l.Note,
+		}
+		if l.Qty.Valid {
+			f, _ := l.Qty.Float64Value()
+			line.Qty = f.Float64
 		}
 		lines = append(lines, line)
-	}
-	if err := rows.Err(); err != nil {
-		return PurchaseRequest{}, nil, err
 	}
 	return pr, lines, nil
 }
 
 // GetPO returns purchase order and lines.
 func (r *Repository) GetPO(ctx context.Context, id int64) (PurchaseOrder, []POLine, error) {
-	var po PurchaseOrder
-	err := r.pool.QueryRow(ctx, `SELECT id, number, supplier_id, status, currency, COALESCE(expected_date, CURRENT_DATE), note FROM pos WHERE id=$1`, id).
-		Scan(&po.ID, &po.Number, &po.SupplierID, &po.Status, &po.Currency, &po.ExpectedDate, &po.Note)
+	row, err := r.queries.GetPO(ctx, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return PurchaseOrder{}, nil, ErrNotFound
 		}
 		return PurchaseOrder{}, nil, err
 	}
-	rows, err := r.pool.Query(ctx, `SELECT id, po_id, product_id, qty, price, COALESCE(tax_id,0), note FROM po_lines WHERE po_id=$1 ORDER BY id`, id)
+	po := PurchaseOrder{
+		ID:         row.ID,
+		Number:     row.Number,
+		SupplierID: row.SupplierID,
+		Status:     POStatus(row.Status),
+		Currency:   row.Currency,
+		Note:       row.Note,
+	}
+	if row.ExpectedDate.Valid {
+		po.ExpectedDate = row.ExpectedDate.Time
+	}
+
+	lineRows, err := r.queries.GetPOLines(ctx, id)
 	if err != nil {
 		return PurchaseOrder{}, nil, err
 	}
-	defer rows.Close()
 	var lines []POLine
-	for rows.Next() {
-		var line POLine
-		if err := rows.Scan(&line.ID, &line.POID, &line.ProductID, &line.Qty, &line.Price, &line.TaxID, &line.Note); err != nil {
-			return PurchaseOrder{}, nil, err
+	for _, l := range lineRows {
+		line := POLine{
+			ID:        l.ID,
+			POID:      l.PoID,
+			ProductID: l.ProductID,
+			Note:      l.Note,
+		}
+		if l.Qty.Valid {
+			f, _ := l.Qty.Float64Value()
+			line.Qty = f.Float64
+		}
+		if l.Price.Valid {
+			f, _ := l.Price.Float64Value()
+			line.Price = f.Float64
+		}
+		if l.TaxID.Valid {
+			line.TaxID = l.TaxID.Int64
 		}
 		lines = append(lines, line)
-	}
-	if err := rows.Err(); err != nil {
-		return PurchaseOrder{}, nil, err
 	}
 	return po, lines, nil
 }
 
 // GetGRN returns GRN and lines.
 func (r *Repository) GetGRN(ctx context.Context, id int64) (GoodsReceipt, []GRNLine, error) {
-	var grn GoodsReceipt
-	err := r.pool.QueryRow(ctx, `SELECT id, number, COALESCE(po_id,0), supplier_id, warehouse_id, status, received_at, note FROM grns WHERE id=$1`, id).
-		Scan(&grn.ID, &grn.Number, &grn.POID, &grn.SupplierID, &grn.WarehouseID, &grn.Status, &grn.ReceivedAt, &grn.Note)
+	row, err := r.queries.GetGRN(ctx, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return GoodsReceipt{}, nil, ErrNotFound
 		}
 		return GoodsReceipt{}, nil, err
 	}
-	rows, err := r.pool.Query(ctx, `SELECT id, grn_id, product_id, qty, unit_cost FROM grn_lines WHERE grn_id=$1 ORDER BY id`, id)
+	grn := GoodsReceipt{
+		ID:          row.ID,
+		Number:      row.Number,
+		SupplierID:  row.SupplierID,
+		WarehouseID: row.WarehouseID,
+		Status:      GRNStatus(row.Status),
+		Note:        row.Note,
+	}
+	if row.PoID.Valid {
+		grn.POID = row.PoID.Int64
+	}
+	if row.ReceivedAt.Valid {
+		grn.ReceivedAt = row.ReceivedAt.Time
+	}
+
+	lineRows, err := r.queries.GetGRNLines(ctx, id)
 	if err != nil {
 		return GoodsReceipt{}, nil, err
 	}
-	defer rows.Close()
 	var lines []GRNLine
-	for rows.Next() {
-		var line GRNLine
-		if err := rows.Scan(&line.ID, &line.GRNID, &line.ProductID, &line.Qty, &line.UnitCost); err != nil {
-			return GoodsReceipt{}, nil, err
+	for _, l := range lineRows {
+		line := GRNLine{
+			ID:        l.ID,
+			GRNID:     l.GrnID,
+			ProductID: l.ProductID,
+		}
+		if l.Qty.Valid {
+			f, _ := l.Qty.Float64Value()
+			line.Qty = f.Float64
+		}
+		if l.UnitCost.Valid {
+			f, _ := l.UnitCost.Float64Value()
+			line.UnitCost = f.Float64
 		}
 		lines = append(lines, line)
-	}
-	if err := rows.Err(); err != nil {
-		return GoodsReceipt{}, nil, err
 	}
 	return grn, lines, nil
 }
 
 // GetAPInvoice fetches an AP invoice by ID.
 func (r *Repository) GetAPInvoice(ctx context.Context, id int64) (APInvoice, error) {
-	var inv APInvoice
-	err := r.pool.QueryRow(ctx, `SELECT id, number, supplier_id, COALESCE(grn_id,0), currency, total, status, COALESCE(due_at, CURRENT_DATE)
-FROM ap_invoices WHERE id=$1`, id).Scan(&inv.ID, &inv.Number, &inv.SupplierID, &inv.GRNID, &inv.Currency, &inv.Total, &inv.Status, &inv.DueAt)
+	row, err := r.queries.GetAPInvoice(ctx, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return APInvoice{}, ErrNotFound
 		}
+		return APInvoice{}, err
 	}
-	return inv, err
+	inv := APInvoice{
+		ID:         row.ID,
+		Number:     row.Number,
+		SupplierID: row.SupplierID,
+		Currency:   row.Currency,
+		Status:     APInvoiceStatus(row.Status),
+	}
+	if row.GrnID.Valid {
+		inv.GRNID = row.GrnID.Int64
+	}
+	if row.Total.Valid {
+		f, _ := row.Total.Float64Value()
+		inv.Total = f.Float64
+	}
+	if row.DueAt.Valid {
+		inv.DueAt = row.DueAt.Time
+	}
+	return inv, nil
 }
 
 // ListAPOutstanding returns posted invoices with remaining balance.
 func (r *Repository) ListAPOutstanding(ctx context.Context) ([]APInvoice, error) {
-	rows, err := r.pool.Query(ctx, `SELECT id, number, supplier_id, COALESCE(grn_id,0), currency, total, status, COALESCE(due_at, CURRENT_DATE)
-FROM ap_invoices WHERE status IN ('POSTED','PAID') ORDER BY due_at`)
+	rows, err := r.queries.ListAPOutstanding(ctx)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 	var invoices []APInvoice
-	for rows.Next() {
-		var inv APInvoice
-		if err := rows.Scan(&inv.ID, &inv.Number, &inv.SupplierID, &inv.GRNID, &inv.Currency, &inv.Total, &inv.Status, &inv.DueAt); err != nil {
-			return nil, err
+	for _, row := range rows {
+		inv := APInvoice{
+			ID:         row.ID,
+			Number:     row.Number,
+			SupplierID: row.SupplierID,
+			Currency:   row.Currency,
+			Status:     APInvoiceStatus(row.Status),
+		}
+		if row.GrnID.Valid {
+			inv.GRNID = row.GrnID.Int64
+		}
+		if row.Total.Valid {
+			f, _ := row.Total.Float64Value()
+			inv.Total = f.Float64
+		}
+		if row.DueAt.Valid {
+			inv.DueAt = row.DueAt.Time
 		}
 		invoices = append(invoices, inv)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
 	}
 	return invoices, nil
 }
@@ -394,90 +476,178 @@ func sortOrderGRN(sortBy, sortDir string) string {
 }
 
 func (tx *txRepo) CreatePR(ctx context.Context, pr PurchaseRequest) (int64, error) {
-	var id int64
-	err := tx.tx.QueryRow(ctx, `INSERT INTO prs (number, supplier_id, request_by, status, note, created_at)
-VALUES ($1,$2,$3,$4,$5,NOW()) RETURNING id`, pr.Number, nullInt(pr.SupplierID), pr.RequestBy, pr.Status, pr.Note).Scan(&id)
-	return id, err
+	var supplierID pgtype.Int8
+	if pr.SupplierID != 0 {
+		supplierID = pgtype.Int8{Int64: pr.SupplierID, Valid: true}
+	}
+	return tx.queries.CreatePR(ctx, procurementdb.CreatePRParams{
+		Number:     pr.Number,
+		SupplierID: supplierID,
+		RequestBy:  pr.RequestBy,
+		Status:     string(pr.Status),
+		Note:       pr.Note,
+	})
 }
 
 func (tx *txRepo) InsertPRLine(ctx context.Context, line PRLine) error {
-	_, err := tx.tx.Exec(ctx, `INSERT INTO pr_lines (pr_id, product_id, qty, note) VALUES ($1,$2,$3,$4)`, line.PRID, line.ProductID, line.Qty, line.Note)
-	return err
+	var qty pgtype.Numeric
+	qty.Scan(fmt.Sprintf("%f", line.Qty))
+
+	return tx.queries.InsertPRLine(ctx, procurementdb.InsertPRLineParams{
+		PrID:      line.PRID,
+		ProductID: line.ProductID,
+		Qty:       qty,
+		Note:      line.Note,
+	})
 }
 
 func (tx *txRepo) UpdatePRStatus(ctx context.Context, id int64, status PRStatus) error {
-	_, err := tx.tx.Exec(ctx, `UPDATE prs SET status=$1 WHERE id=$2`, status, id)
-	return err
+	return tx.queries.UpdatePRStatus(ctx, procurementdb.UpdatePRStatusParams{
+		Status: string(status),
+		ID:     id,
+	})
 }
 
 func (tx *txRepo) CreatePO(ctx context.Context, po PurchaseOrder) (int64, error) {
-	var id int64
-	err := tx.tx.QueryRow(ctx, `INSERT INTO pos (number, supplier_id, status, currency, expected_date, note, created_at)
-VALUES ($1,$2,$3,$4,$5,$6,NOW()) RETURNING id`, po.Number, po.SupplierID, po.Status, po.Currency, nullDate(po.ExpectedDate), po.Note).Scan(&id)
-	return id, err
+	var expectedDate pgtype.Date
+	if !po.ExpectedDate.IsZero() {
+		expectedDate = pgtype.Date{Time: po.ExpectedDate, Valid: true}
+	}
+	return tx.queries.CreatePO(ctx, procurementdb.CreatePOParams{
+		Number:       po.Number,
+		SupplierID:   po.SupplierID,
+		Status:       string(po.Status),
+		Currency:     po.Currency,
+		ExpectedDate: expectedDate,
+		Note:         po.Note,
+	})
 }
 
 func (tx *txRepo) InsertPOLine(ctx context.Context, line POLine) error {
-	_, err := tx.tx.Exec(ctx, `INSERT INTO po_lines (po_id, product_id, qty, price, tax_id, note) VALUES ($1,$2,$3,$4,$5,$6)`, line.POID, line.ProductID, line.Qty, line.Price, nullInt(line.TaxID), line.Note)
-	return err
+	var qty pgtype.Numeric
+	qty.Scan(fmt.Sprintf("%f", line.Qty))
+	var price pgtype.Numeric
+	price.Scan(fmt.Sprintf("%f", line.Price))
+	var taxID pgtype.Int8
+	if line.TaxID != 0 {
+		taxID = pgtype.Int8{Int64: line.TaxID, Valid: true}
+	}
+
+	return tx.queries.InsertPOLine(ctx, procurementdb.InsertPOLineParams{
+		PoID:      line.POID,
+		ProductID: line.ProductID,
+		Qty:       qty,
+		Price:     price,
+		TaxID:     taxID,
+		Note:      line.Note,
+	})
 }
 
 func (tx *txRepo) UpdatePOStatus(ctx context.Context, id int64, status POStatus) error {
-	_, err := tx.tx.Exec(ctx, `UPDATE pos SET status=$1 WHERE id=$2`, status, id)
-	return err
+	return tx.queries.UpdatePOStatus(ctx, procurementdb.UpdatePOStatusParams{
+		Status: string(status),
+		ID:     id,
+	})
 }
 
 func (tx *txRepo) SetPOApproval(ctx context.Context, id int64, approvedBy int64, approvedAt time.Time) error {
-	_, err := tx.tx.Exec(ctx, `UPDATE pos SET approved_by=$1, approved_at=$2 WHERE id=$3`, nullInt(approvedBy), approvedAt, id)
-	return err
+	var appBy pgtype.Int8
+	if approvedBy != 0 {
+		appBy = pgtype.Int8{Int64: approvedBy, Valid: true}
+	}
+	var appAt pgtype.Timestamptz
+	if !approvedAt.IsZero() {
+		appAt = pgtype.Timestamptz{Time: approvedAt, Valid: true}
+	}
+
+	return tx.queries.SetPOApproval(ctx, procurementdb.SetPOApprovalParams{
+		ApprovedBy: appBy,
+		ApprovedAt: appAt,
+		ID:         id,
+	})
 }
 
 func (tx *txRepo) CreateGRN(ctx context.Context, grn GoodsReceipt) (int64, error) {
-	var id int64
-	err := tx.tx.QueryRow(ctx, `INSERT INTO grns (number, po_id, supplier_id, warehouse_id, status, received_at, note, created_at)
-VALUES ($1,$2,$3,$4,$5,$6,$7,NOW()) RETURNING id`, grn.Number, nullInt(grn.POID), grn.SupplierID, grn.WarehouseID, grn.Status, grn.ReceivedAt, grn.Note).Scan(&id)
-	return id, err
+	var poID pgtype.Int8
+	if grn.POID != 0 {
+		poID = pgtype.Int8{Int64: grn.POID, Valid: true}
+	}
+	var receivedAt pgtype.Timestamptz
+	if !grn.ReceivedAt.IsZero() {
+		receivedAt = pgtype.Timestamptz{Time: grn.ReceivedAt, Valid: true}
+	}
+
+	return tx.queries.CreateGRN(ctx, procurementdb.CreateGRNParams{
+		Number:      grn.Number,
+		PoID:        poID,
+		SupplierID:  grn.SupplierID,
+		WarehouseID: grn.WarehouseID,
+		Status:      string(grn.Status),
+		ReceivedAt:  receivedAt,
+		Note:        grn.Note,
+	})
 }
 
 func (tx *txRepo) InsertGRNLine(ctx context.Context, line GRNLine) error {
-	_, err := tx.tx.Exec(ctx, `INSERT INTO grn_lines (grn_id, product_id, qty, unit_cost) VALUES ($1,$2,$3,$4)`, line.GRNID, line.ProductID, line.Qty, line.UnitCost)
-	return err
+	var qty pgtype.Numeric
+	qty.Scan(fmt.Sprintf("%f", line.Qty))
+	var cost pgtype.Numeric
+	cost.Scan(fmt.Sprintf("%f", line.UnitCost))
+
+	return tx.queries.InsertGRNLine(ctx, procurementdb.InsertGRNLineParams{
+		GrnID:     line.GRNID,
+		ProductID: line.ProductID,
+		Qty:       qty,
+		UnitCost:  cost,
+	})
 }
 
 func (tx *txRepo) UpdateGRNStatus(ctx context.Context, id int64, status GRNStatus) error {
-	_, err := tx.tx.Exec(ctx, `UPDATE grns SET status=$1 WHERE id=$2`, status, id)
-	return err
+	return tx.queries.UpdateGRNStatus(ctx, procurementdb.UpdateGRNStatusParams{
+		Status: string(status),
+		ID:     id,
+	})
 }
 
 func (tx *txRepo) CreateAPInvoice(ctx context.Context, inv APInvoice) (int64, error) {
-	var id int64
-	err := tx.tx.QueryRow(ctx, `INSERT INTO ap_invoices (number, supplier_id, grn_id, currency, total, status, issued_at, due_at, created_at)
-VALUES ($1,$2,$3,$4,$5,$6,CURRENT_DATE,$7,NOW()) RETURNING id`, inv.Number, inv.SupplierID, nullInt(inv.GRNID), inv.Currency, inv.Total, inv.Status, nullDate(inv.DueAt)).Scan(&id)
-	return id, err
+	var grnID pgtype.Int8
+	if inv.GRNID != 0 {
+		grnID = pgtype.Int8{Int64: inv.GRNID, Valid: true}
+	}
+	var total pgtype.Numeric
+	total.Scan(fmt.Sprintf("%f", inv.Total))
+	var dueAt pgtype.Date
+	if !inv.DueAt.IsZero() {
+		dueAt = pgtype.Date{Time: inv.DueAt, Valid: true}
+	}
+
+	return tx.queries.CreateAPInvoice(ctx, procurementdb.CreateAPInvoiceParams{
+		Number:     inv.Number,
+		SupplierID: inv.SupplierID,
+		GrnID:      grnID,
+		Currency:   inv.Currency,
+		Total:      total,
+		Status:     string(inv.Status),
+		DueAt:      dueAt,
+	})
 }
 
 func (tx *txRepo) UpdateAPStatus(ctx context.Context, id int64, status APInvoiceStatus) error {
-	_, err := tx.tx.Exec(ctx, `UPDATE ap_invoices SET status=$1 WHERE id=$2`, status, id)
-	return err
+	return tx.queries.UpdateAPStatus(ctx, procurementdb.UpdateAPStatusParams{
+		Status: string(status),
+		ID:     id,
+	})
 }
 
 func (tx *txRepo) CreatePayment(ctx context.Context, payment APPayment) (int64, error) {
-	var id int64
-	err := tx.tx.QueryRow(ctx, `INSERT INTO ap_payments (number, ap_invoice_id, amount, paid_at, method, note)
-VALUES ($1,$2,$3,CURRENT_DATE,'TRANSFER','') RETURNING id`, payment.Number, payment.APInvoiceID, payment.Amount).Scan(&id)
-	return id, err
+	var amount pgtype.Numeric
+	amount.Scan(fmt.Sprintf("%f", payment.Amount))
+
+	return tx.queries.CreatePayment(ctx, procurementdb.CreatePaymentParams{
+		Number:      payment.Number,
+		ApInvoiceID: payment.APInvoiceID,
+		Amount:      amount,
+	})
 }
 
-func nullInt(value int64) any {
-	if value == 0 {
-		return nil
-	}
-	return value
-}
-
-func nullDate(t time.Time) any {
-	if t.IsZero() {
-		return nil
-	}
-	return t
-}
+// nullInt, nullDate helpers are removed as we use pgtype directly
