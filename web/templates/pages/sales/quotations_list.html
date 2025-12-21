@@ -6,12 +6,12 @@
 
 {{ define "content" }}
 <div class="page-container">
-    <div class="page-header">
-        <div class="page-header-content">
-            <h1 class="page-title">Sales Quotations</h1>
-            <p class="page-subtitle">Manage customer quotations and convert to sales orders</p>
+    <header class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-title">Quotations</h1>
+            <p class="page-subtitle">Manage sales quotations and estimates</p>
         </div>
-        <div class="page-actions">
+        <div class="page-header__actions">
             <a href="/sales/quotations/new" class="btn btn--primary">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="12" y1="5" x2="12" y2="19" />
@@ -20,91 +20,113 @@
                 New Quotation
             </a>
         </div>
-    </div>
+    </header>
 
     <div class="page-content">
         <!-- Filters -->
-        <div class="filters">
-            <form method="get" action="/sales/quotations">
-                <div class="grid">
-                    <div>
-                        <label for="status">Status</label>
-                        <select name="status" id="status">
+        <section class="filters-card">
+            <form method="get" action="/sales/quotations" class="filters-form" data-component="filters">
+                <div class="filters-grid">
+                    <div class="form-group">
+                        <label for="date_from" class="form-label">Date From</label>
+                        <input type="date" name="date_from" id="date_from" class="form-input"
+                            value="{{ if .Data.Filters.DateFrom }}{{ .Data.Filters.DateFrom }}{{ end }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="date_to" class="form-label">Date To</label>
+                        <input type="date" name="date_to" id="date_to" class="form-input"
+                            value="{{ if .Data.Filters.DateTo }}{{ .Data.Filters.DateTo }}{{ end }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="status" class="form-label">Status</label>
+                        <select name="status" id="status" class="form-select">
                             <option value="">All Statuses</option>
-                            <option value="DRAFT" {{ if eq .Filters.Status "DRAFT" }}selected{{ end }}>Draft</option>
-                            <option value="SUBMITTED" {{ if eq .Filters.Status "SUBMITTED" }}selected{{ end }}>Submitted
+                            <option value="Draft" {{ if eq .Data.Filters.Status "Draft" }}selected{{ end }}>Draft
                             </option>
-                            <option value="APPROVED" {{ if eq .Filters.Status "APPROVED" }}selected{{ end }}>Approved
-                            </option>
-                            <option value="REJECTED" {{ if eq .Filters.Status "REJECTED" }}selected{{ end }}>Rejected
-                            </option>
-                            <option value="CONVERTED" {{ if eq .Filters.Status "CONVERTED" }}selected{{ end }}>Converted
-                            </option>
+                            <option value="Submitted" {{ if eq .Data.Filters.Status "Submitted" }}selected{{ end }}>
+                                Submitted</option>
+                            <option value="Approved" {{ if eq .Data.Filters.Status "Approved" }}selected{{ end }}>
+                                Approved</option>
+                            <option value="Rejected" {{ if eq .Data.Filters.Status "Rejected" }}selected{{ end }}>
+                                Rejected</option>
+                            <option value="Converted" {{ if eq .Data.Filters.Status "Converted" }}selected{{ end }}>
+                                Converted</option>
                         </select>
                     </div>
-                    <div>
-                        <label for="date_from">From Date</label>
-                        <input type="date" name="date_from" id="date_from"
-                            value="{{ if .Filters.DateFrom }}{{ .Filters.DateFrom.Format " 2006-01-02" }}{{ end }}">
-                    </div>
-                    <div>
-                        <label for="date_to">To Date</label>
-                        <input type="date" name="date_to" id="date_to"
-                            value="{{ if .Filters.DateTo }}{{ .Filters.DateTo.Format " 2006-01-02" }}{{ end }}">
-                    </div>
                 </div>
-                <div class="flex gap-2">
+                <div class="filters-actions">
                     <button type="submit" class="btn btn--primary">Filter</button>
                     <a href="/sales/quotations" class="btn btn--secondary">Clear</a>
                 </div>
             </form>
-        </div>
+        </section>
 
         <!-- Results Table -->
-        <div class="card p-0 overflow-hidden">
+        <div class="card p-0 overflow-hidden" data-component="datatable">
             <div class="table-wrap">
                 <table class="table">
                     <thead>
                         <tr>
-                            <th scope="col">Number</th>
-                            <th scope="col">Customer</th>
-                            <th scope="col">Date</th>
-                            <th scope="col">Valid Until</th>
-                            <th scope="col">Status</th>
-                            <th scope="col" class="numeric-right">Total</th>
-                            <th scope="col"></th>
+                            <th scope="col" width="15%">Number</th>
+                            <th scope="col" width="15%">Date</th>
+                            <th scope="col" width="25%">Customer</th>
+                            <th scope="col" width="15%" class="text-right">Total</th>
+                            <th scope="col" width="15%">Status</th>
+                            <th scope="col" width="15%"></th>
                         </tr>
                     </thead>
                     <tbody>
-                        {{ range .Quotations }}
+                        {{ if .Data.Quotations }}
+                        {{ range .Data.Quotations }}
                         <tr>
-                            <td><a href="/sales/quotations/{{ .ID }}" class="link font-medium">{{ .DocNumber }}</a></td>
-                            <td>{{ .CustomerName }}</td>
-                            <td><small>{{ .QuoteDate.Format "02 Jan 06" }}</small></td>
-                            <td><small>{{ .ValidUntil.Format "02 Jan 06" }}</small></td>
                             <td>
-                                {{ if eq .Status "DRAFT" }}<span class="status-badge status-draft">Draft</span>{{ end }}
-                                {{ if eq .Status "SUBMITTED" }}<span
-                                    class="status-badge status-pending">Submitted</span>{{ end }}
-                                {{ if eq .Status "APPROVED" }}<span
-                                    class="status-badge status-completed">Approved</span>{{ end }}
-                                {{ if eq .Status "REJECTED" }}<span class="status-badge status-void">Rejected</span>{{
-                                end }}
-                                {{ if eq .Status "CONVERTED" }}<span
-                                    class="status-badge status-active">Converted</span>{{ end }}
+                                <a href="/sales/quotations/{{ .ID }}" class="link font-medium">{{ .DocNumber }}</a>
                             </td>
-                            <td class="numeric-right font-medium">
-                                {{ printf "%.2f" .TotalAmount }} <span class="text-xs text-muted">{{ .Currency }}</span>
+                            <td>
+                                <div class="text-sm">{{ formatDate .QuoteDate }}</div>
+                                <div class="text-xs text-muted">Valid until: {{ formatDate .ValidUntil }}</div>
+                            </td>
+                            <td>
+                                <a href="/sales/customers/{{ .CustomerID }}" class="link text-body">{{ .CustomerName
+                                    }}</a>
+                            </td>
+                            <td class="text-right tabular-nums font-medium">
+                                {{ .Currency }} {{ formatDecimal .TotalAmount }}
+                            </td>
+                            <td>
+                                {{ if eq .Status "Draft" }}<span class="badge badge--secondary">Draft</span>{{ end }}
+                                {{ if eq .Status "Submitted" }}<span class="badge badge--warning">Submitted</span>{{ end
+                                }}
+                                {{ if eq .Status "Approved" }}<span class="badge badge--success">Approved</span>{{ end
+                                }}
+                                {{ if eq .Status "Rejected" }}<span class="badge badge--danger">Rejected</span>{{ end }}
+                                {{ if eq .Status "Converted" }}<span class="badge badge--info">Converted</span>{{ end }}
                             </td>
                             <td class="text-right">
-                                <a href="/sales/quotations/{{ .ID }}" class="btn btn--ghost btn--sm">View</a>
+                                <div class="flex justify-end gap-2">
+                                    <a href="/sales/quotations/{{ .ID }}" class="btn btn--ghost btn--sm">View</a>
+                                </div>
                             </td>
                         </tr>
+                        {{ end }}
                         {{ else }}
                         <tr>
-                            <td colspan="7" class="table-empty">
-                                No quotations found. <a href="/sales/quotations/new" class="link">Create your first
-                                    quotation</a>
+                            <td colspan="6" class="table-empty">
+                                <div class="empty-state">
+                                    <div class="empty-state__icon">
+                                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="1">
+                                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                            <polyline points="14 2 14 8 20 8"></polyline>
+                                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                                            <polyline points="10 9 9 9 8 9"></polyline>
+                                        </svg>
+                                    </div>
+                                    <h3>No quotations found</h3>
+                                    <p>Create a new quotation to get started.</p>
+                                    <a href="/sales/quotations/new" class="btn btn--primary mt-4">New Quotation</a>
+                                </div>
                             </td>
                         </tr>
                         {{ end }}
@@ -113,22 +135,28 @@
             </div>
 
             <!-- Pagination -->
-            {{ if gt .Total .Limit }}
+            {{ if gt .Data.Total .Data.Limit }}
             <div class="card__footer justify-center">
-                {{ $currentPage := div .Offset .Limit }}
-                {{ $totalPages := div (add .Total (sub .Limit 1)) .Limit }}
+                {{ $currentPage := div .Data.Offset .Data.Limit }}
+                {{ $totalPages := div (add .Data.Total (sub .Data.Limit 1)) .Data.Limit }}
 
-                {{ if gt $currentPage 0 }}
-                <a href="?limit={{ .Limit }}&offset={{ sub .Offset .Limit }}"
-                    class="btn btn--secondary btn--sm">Previous</a>
-                {{ end }}
+                <nav class="pagination" aria-label="Pagination">
+                    {{ if gt $currentPage 0 }}
+                    <a href="?limit={{ .Data.Limit }}&offset={{ sub .Data.Offset .Data.Limit }}{{ if .Data.Filters.Status }}&status={{ .Data.Filters.Status }}{{ end }}"
+                        class="btn btn--secondary btn--sm">Previous</a>
+                    {{ else }}
+                    <button class="btn btn--secondary btn--sm" disabled>Previous</button>
+                    {{ end }}
 
-                <span class="text-xs text-muted mx-4">Page {{ add $currentPage 1 }} of {{ $totalPages }}</span>
+                    <span class="pagination__info">Page {{ add $currentPage 1 }} of {{ $totalPages }}</span>
 
-                {{ if lt (add .Offset .Limit) .Total }}
-                <a href="?limit={{ .Limit }}&offset={{ add .Offset .Limit }}"
-                    class="btn btn--secondary btn--sm">Next</a>
-                {{ end }}
+                    {{ if lt (add .Data.Offset .Data.Limit) .Data.Total }}
+                    <a href="?limit={{ .Data.Limit }}&offset={{ add .Data.Offset .Data.Limit }}{{ if .Data.Filters.Status }}&status={{ .Data.Filters.Status }}{{ end }}"
+                        class="btn btn--secondary btn--sm">Next</a>
+                    {{ else }}
+                    <button class="btn btn--secondary btn--sm" disabled>Next</button>
+                    {{ end }}
+                </nav>
             </div>
             {{ end }}
         </div>

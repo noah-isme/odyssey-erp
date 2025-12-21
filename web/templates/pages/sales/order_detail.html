@@ -2,19 +2,19 @@
 {{ template "layouts/base.html" . }}
 {{ end }}
 
-{{ define "title" }}Sales Order {{ .Order.DocNumber }}{{ end }}
+{{ define "title" }}Sales Order {{ .Data.Order.DocNumber }}{{ end }}
 
 {{ define "content" }}
 <div class="order-detail-wrapper">
     <header>
-        <h1>Sales Order {{ .Order.DocNumber }}</h1>
+        <h1>Sales Order {{ .Data.Order.DocNumber }}</h1>
         <p>
             Status:
-            {{ if eq .Order.Status "DRAFT" }}<span class="badge badge-secondary">Draft</span>{{ end }}
-            {{ if eq .Order.Status "CONFIRMED" }}<span class="badge badge-info">Confirmed</span>{{ end }}
-            {{ if eq .Order.Status "PROCESSING" }}<span class="badge badge-warning">Processing</span>{{ end }}
-            {{ if eq .Order.Status "COMPLETED" }}<span class="badge badge-success">Completed</span>{{ end }}
-            {{ if eq .Order.Status "CANCELLED" }}<span class="badge badge-danger">Cancelled</span>{{ end }}
+            {{ if eq .Data.Order.Status "DRAFT" }}<span class="badge badge-secondary">Draft</span>{{ end }}
+            {{ if eq .Data.Order.Status "CONFIRMED" }}<span class="badge badge-info">Confirmed</span>{{ end }}
+            {{ if eq .Data.Order.Status "PROCESSING" }}<span class="badge badge-warning">Processing</span>{{ end }}
+            {{ if eq .Data.Order.Status "COMPLETED" }}<span class="badge badge-success">Completed</span>{{ end }}
+            {{ if eq .Data.Order.Status "CANCELLED" }}<span class="badge badge-danger">Cancelled</span>{{ end }}
         </p>
     </header>
 
@@ -23,15 +23,15 @@
         <div role="group">
             <a href="/sales/orders" role="button" class="secondary">← Back to List</a>
 
-            {{ if eq .Order.Status "DRAFT" }}
-            <a href="/sales/orders/{{ .Order.ID }}/edit" role="button" class="secondary">Edit</a>
-            <form method="post" action="/sales/orders/{{ .Order.ID }}/confirm" style="display: inline;">
+            {{ if eq .Data.Order.Status "DRAFT" }}
+            <a href="/sales/orders/{{ .Data.Order.ID }}/edit" role="button" class="secondary">Edit</a>
+            <form method="post" action="/sales/orders/{{ .Data.Order.ID }}/confirm" style="display: inline;">
                 <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
                 <button type="submit">Confirm Order</button>
             </form>
             {{ end }}
 
-            {{ if or (eq .Order.Status "DRAFT") (eq .Order.Status "CONFIRMED") (eq .Order.Status "PROCESSING") }}
+            {{ if or (eq .Data.Order.Status "DRAFT") (eq .Data.Order.Status "CONFIRMED") (eq .Data.Order.Status "PROCESSING") }}
             <button type="button" class="danger" onclick="showCancelModal()">Cancel Order</button>
             {{ end }}
         </div>
@@ -43,84 +43,84 @@
         <div class="grid">
             <div>
                 <label>Document Number</label>
-                <p><strong>{{ .Order.DocNumber }}</strong></p></p>
+                <p><strong>{{ .Data.Order.DocNumber }}</strong></p></p>
             </div>
             <div>
                 <label>Customer</label>
-                <p><strong>{{ if .Customer }}{{ .Customer.Name }}{{ else }}Unknown{{ end }}</strong></p>
+                <p><strong>{{ if .Data.Customer }}{{ .Data.Customer.Name }}{{ else }}Unknown{{ end }}</strong></p>
             </div>
             <div>
                 <label>Order Date</label>
-                <p>{{ .Order.OrderDate.Format "2006-01-02" }}</p>
+                <p>{{ .Data.Order.Data.OrderDate.Format "2006-01-02" }}</p>
             </div>
             <div>
                 <label>Expected Delivery</label>
-                <p>{{ if .Order.ExpectedDeliveryDate }}{{ .Order.ExpectedDeliveryDate.Format "2006-01-02" }}{{ else }}-{{ end }}</p>
+                <p>{{ if .Data.Order.ExpectedDeliveryDate }}{{ .Data.Order.ExpectedDeliveryDate.Format "2006-01-02" }}{{ else }}-{{ end }}</p>
             </div>
         </div>
 
         <div class="grid">
             <div>
                 <label>Currency</label>
-                <p>{{ .Order.Currency }}</p>
+                <p>{{ .Data.Order.Currency }}</p>
             </div>
             <div>
                 <label>Created By</label>
-                <p>User #{{ .Order.CreatedBy }}</p>
+                <p>User #{{ .Data.Order.CreatedBy }}</p>
             </div>
             <div>
                 <label>Created At</label>
-                <p>{{ .Order.CreatedAt.Format "2006-01-02 15:04" }}</p>
+                <p>{{ .Data.Order.CreatedAt.Format "2006-01-02 15:04" }}</p>
             </div>
             <div>
                 <label>Updated At</label>
-                <p>{{ .Order.UpdatedAt.Format "2006-01-02 15:04" }}</p>
+                <p>{{ .Data.Order.UpdatedAt.Format "2006-01-02 15:04" }}</p>
             </div>
         </div>
 
-        {{ if .Order.QuotationID }}
+        {{ if .Data.Order.Data.QuotationID }}
         <div>
             <label>Created from Quotation</label>
-            <p>{{ if .Quotation }}<a href="/sales/quotations/{{ .Quotation.ID }}">{{ .Quotation.DocNumber }}</a>{{ else }}#{{ .Order.QuotationID }}{{ end }}</p>
+            <p>{{ if .Data.Quotation }}<a href="/sales/quotations/{{ .Data.Quotation.ID }}">{{ .Data.Quotation.DocNumber }}</a>{{ else }}#{{ .Data.Order.Data.QuotationID }}{{ end }}</p>
         </div>
         {{ end }}
 
-        {{ if .Order.ConfirmedBy }}
+        {{ if .Data.Order.ConfirmedBy }}
         <div class="grid">
             <div>
                 <label>Confirmed By</label>
-                <p>User #{{ .Order.ConfirmedBy }}</p>
+                <p>User #{{ .Data.Order.ConfirmedBy }}</p>
             </div>
             <div>
                 <label>Confirmed At</label>
-                <p>{{ .Order.ConfirmedAt.Format "2006-01-02 15:04" }}</p>
+                <p>{{ .Data.Order.ConfirmedAt.Format "2006-01-02 15:04" }}</p>
             </div>
         </div>
         {{ end }}
 
-        {{ if .Order.CancelledBy }}
+        {{ if .Data.Order.CancelledBy }}
         <div class="grid">
             <div>
                 <label>Cancelled By</label>
-                <p>User #{{ .Order.CancelledBy }}</p>
+                <p>User #{{ .Data.Order.CancelledBy }}</p>
             </div>
             <div>
                 <label>Cancelled At</label>
-                <p>{{ .Order.CancelledAt.Format "2006-01-02 15:04" }}</p>
+                <p>{{ .Data.Order.CancelledAt.Format "2006-01-02 15:04" }}</p>
             </div>
         </div>
-        {{ if .Order.CancellationReason }}
+        {{ if .Data.Order.CancellationReason }}
         <div>
             <label>Cancellation Reason</label>
-            <p>{{ .Order.CancellationReason }}</p>
+            <p>{{ .Data.Order.CancellationReason }}</p>
         </div>
         {{ end }}
         {{ end }}
 
-        {{ if .Order.Notes }}
+        {{ if .Data.Order.Notes }}
         <div>
             <label>Notes</label>
-            <p>{{ .Order.Notes }}</p>
+            <p>{{ .Data.Order.Notes }}</p>
         </div>
         {{ end }}
     </section>
@@ -146,7 +146,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {{ range .Order.Lines }}
+                    {{ range .Data.Order.Lines }}
                     <tr>
                         <td>{{ .LineOrder }}</td>
                         <td>{{ .ProductID }}</td>
@@ -165,15 +165,15 @@
                 <tfoot>
                     <tr>
                         <td colspan="10" style="text-align: right;"><strong>Subtotal:</strong></td>
-                        <td><strong>{{ printf "%.2f" .Order.Subtotal }}</strong></td>
+                        <td><strong>{{ printf "%.2f" .Data.Order.Subtotal }}</strong></td>
                     </tr>
                     <tr>
                         <td colspan="10" style="text-align: right;"><strong>Tax:</strong></td>
-                        <td><strong>{{ printf "%.2f" .Order.TaxAmount }}</strong></td>
+                        <td><strong>{{ printf "%.2f" .Data.Order.TaxAmount }}</strong></td>
                     </tr>
                     <tr>
                         <td colspan="10" style="text-align: right;"><strong>Total Amount:</strong></td>
-                        <td><strong>{{ printf "%.2f" .Order.TotalAmount }} {{ .Order.Currency }}</strong></td>
+                        <td><strong>{{ printf "%.2f" .Data.Order.TotalAmount }} {{ .Data.Order.Currency }}</strong></td>
                     </tr>
                 </tfoot>
             </table>
@@ -188,7 +188,7 @@
             <button aria-label="Close" rel="prev" onclick="closeCancelModal()"></button>
             <h3>Cancel Sales Order</h3>
         </header>
-        <form method="post" action="/sales/orders/{{ .Order.ID }}/cancel">
+        <form method="post" action="/sales/orders/{{ .Data.Order.ID }}/cancel">
             <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
             <label for="reason">Cancellation Reason</label>
             <textarea name="reason" id="reason" required placeholder="Please provide a reason for cancellation"></textarea>

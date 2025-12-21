@@ -5,211 +5,183 @@
 {{ define "title" }}Delivery Orders{{ end }}
 
 {{ define "content" }}
-<div class="delivery-orders-wrapper">
-    <header>
-        <h1>Delivery Orders</h1>
-        <p>Manage product deliveries and track fulfillment status</p>
-        <div role="group" aria-label="Actions">
-            <a href="/delivery/orders/new" role="button">+ New Delivery Order</a>
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-title">Delivery Orders</h1>
+            <p class="page-subtitle">Manage product deliveries and track fulfillment status</p>
+        </div>
+        <div class="page-header__actions">
+            <a href="/delivery/orders/new" class="btn btn--primary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                New Delivery
+            </a>
         </div>
     </header>
 
-    <!-- Filters -->
-    <section class="filters">
-        <form method="get" action="/delivery/orders">
-            <div class="grid">
-                <div>
-                    <label for="status">Status</label>
-                    <select name="status" id="status">
-                        <option value="">All Statuses</option>
-                        <option value="DRAFT" {{ if eq .Data.Request.Status "DRAFT" }}selected{{ end }}>Draft</option>
-                        <option value="CONFIRMED" {{ if eq .Data.Request.Status "CONFIRMED" }}selected{{ end }}>
-                            Confirmed</option>
-                        <option value="IN_TRANSIT" {{ if eq .Data.Request.Status "IN_TRANSIT" }}selected{{ end }}>In
-                            Transit</option>
-                        <option value="DELIVERED" {{ if eq .Data.Request.Status "DELIVERED" }}selected{{ end }}>
-                            Delivered</option>
-                        <option value="CANCELLED" {{ if eq .Data.Request.Status "CANCELLED" }}selected{{ end }}>
-                            Cancelled</option>
-                    </select>
+    <div class="page-content">
+        <!-- Filters -->
+        <section class="filters-card">
+            <form method="get" action="/delivery/orders" class="filters-form" data-component="filters">
+                <div class="filters-grid">
+                    <div class="form-group">
+                        <label for="status" class="form-label">Status</label>
+                        <select name="status" id="status" class="form-select">
+                            <option value="">All Statuses</option>
+                            <option value="DRAFT" {{ if eq .Data.Request.Status "DRAFT" }}selected{{ end }}>Draft
+                            </option>
+                            <option value="CONFIRMED" {{ if eq .Data.Request.Status "CONFIRMED" }}selected{{ end }}>
+                                Confirmed</option>
+                            <option value="IN_TRANSIT" {{ if eq .Data.Request.Status "IN_TRANSIT" }}selected{{ end }}>In
+                                Transit</option>
+                            <option value="DELIVERED" {{ if eq .Data.Request.Status "DELIVERED" }}selected{{ end }}>
+                                Delivered</option>
+                            <option value="CANCELLED" {{ if eq .Data.Request.Status "CANCELLED" }}selected{{ end }}>
+                                Cancelled</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="search" class="form-label">Search</label>
+                        <input type="text" name="search" id="search" class="form-input"
+                            placeholder="Doc number, driver..."
+                            value="{{ if .Data.Request.Search }}{{ .Data.Request.Search }}{{ end }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="date_from" class="form-label">Delivery From</label>
+                        <input type="date" name="date_from" id="date_from" class="form-input"
+                            value="{{ if .Data.Request.DateFrom }}{{ .Data.Request.DateFrom.Format " 2006-01-02" }}{{
+                            end }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="date_to" class="form-label">Delivery To</label>
+                        <input type="date" name="date_to" id="date_to" class="form-input"
+                            value="{{ if .Data.Request.DateTo }}{{ .Data.Request.DateTo.Format " 2006-01-02" }}{{ end
+                            }}">
+                    </div>
                 </div>
-                <div>
-                    <label for="search">Search</label>
-                    <input type="text" name="search" id="search" placeholder="Doc number, driver..."
-                        value="{{ if .Data.Request.Search }}{{ .Data.Request.Search }}{{ end }}">
+                <div class="filters-actions">
+                    <button type="submit" class="btn btn--primary">Filter</button>
+                    <a href="/delivery/orders" class="btn btn--secondary">Clear</a>
                 </div>
-                <div>
-                    <label for="date_from">From Date</label>
-                    <input type="date" name="date_from" id="date_from"
-                        value="{{ if .Data.Request.DateFrom }}{{ .Data.Request.DateFrom.Format " 2006-01-02" }}{{ end
-                        }}">
-                </div>
-                <div>
-                    <label for="date_to">To Date</label>
-                    <input type="date" name="date_to" id="date_to"
-                        value="{{ if .Data.Request.DateTo }}{{ .Data.Request.DateTo.Format " 2006-01-02" }}{{ end }}">
-                </div>
+            </form>
+        </section>
+
+        <!-- Results Table -->
+        <div class="card p-0 overflow-hidden" data-component="datatable">
+            <div class="table-wrap">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th scope="col" width="15%">Doc Number</th>
+                            <th scope="col" width="15%">Sales Order</th>
+                            <th scope="col" width="20%">Customer</th>
+                            <th scope="col" width="15%">Delivery Date</th>
+                            <th scope="col" width="10%">Status</th>
+                            <th scope="col" width="10%">Driver</th>
+                            <th scope="col" width="10%">Tracking</th>
+                            <th scope="col" width="5%"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{ if .Data.DeliveryOrders }}
+                        {{ range .Data.DeliveryOrders }}
+                        <tr>
+                            <td>
+                                <a href="/delivery/orders/{{ .ID }}" class="link font-medium">{{ .DocNumber }}</a>
+                            </td>
+                            <td>
+                                <a href="/sales/orders/{{ .SalesOrderID }}" class="link text-body">{{ .SalesOrderNumber
+                                    }}</a>
+                            </td>
+                            <td>
+                                <div class="font-medium">{{ .CustomerName }}</div>
+                                <div class="text-xs text-muted">{{ .WarehouseName }}</div>
+                            </td>
+                            <td>
+                                {{ formatDate .DeliveryDate }}
+                            </td>
+                            <td>
+                                {{ if eq .Status "DRAFT" }}<span class="badge badge--secondary">Draft</span>{{ end }}
+                                {{ if eq .Status "CONFIRMED" }}<span class="badge badge--info">Confirmed</span>{{ end }}
+                                {{ if eq .Status "IN_TRANSIT" }}<span class="badge badge--warning">In Transit</span>{{
+                                end }}
+                                {{ if eq .Status "DELIVERED" }}<span class="badge badge--success">Delivered</span>{{ end
+                                }}
+                                {{ if eq .Status "CANCELLED" }}<span class="badge badge--danger">Cancelled</span>{{ end
+                                }}
+                            </td>
+                            <td>
+                                {{ if .DriverName }}
+                                {{ .DriverName }}
+                                {{ else }}
+                                <span class="text-muted">-</span>
+                                {{ end }}
+                            </td>
+                            <td>
+                                {{ if .TrackingNumber }}
+                                <code class="text-xs">{{ .TrackingNumber }}</code>
+                                {{ else }}
+                                <span class="text-muted">-</span>
+                                {{ end }}
+                            </td>
+                            <td class="text-right">
+                                <div class="flex justify-end gap-2">
+                                    <a href="/delivery/orders/{{ .ID }}" class="btn-icon" aria-label="View Details">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2">
+                                            <path d="M5 12h14M12 5l7 7-7 7" />
+                                        </svg>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {{ end }}
+                        {{ else }}
+                        <tr>
+                            <td colspan="8" class="table-empty">
+                                <div class="empty-state">
+                                    <div class="empty-state__icon">
+                                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="1">
+                                            <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+                                            <polyline points="13 2 13 9 20 9"></polyline>
+                                        </svg>
+                                    </div>
+                                    <h3>No delivery orders found</h3>
+                                    <p>Create a new delivery order to ship products.</p>
+                                    <a href="/delivery/orders/new" class="btn btn--primary mt-4">New Delivery</a>
+                                </div>
+                            </td>
+                        </tr>
+                        {{ end }}
+                    </tbody>
+                </table>
             </div>
-            <div class="grid">
-                <div>
-                    <label for="sales_order_id">Sales Order ID</label>
-                    <input type="number" name="sales_order_id" id="sales_order_id" placeholder="Filter by SO..."
-                        value="{{ if .Data.Request.SalesOrderID }}{{ .Data.Request.SalesOrderID }}{{ end }}">
-                </div>
-                <div>
-                    <label for="warehouse_id">Warehouse ID</label>
-                    <input type="number" name="warehouse_id" id="warehouse_id" placeholder="Filter by warehouse..."
-                        value="{{ if .Data.Request.WarehouseID }}{{ .Data.Request.WarehouseID }}{{ end }}">
-                </div>
-            </div>
-            <button type="submit">Filter</button>
-            <a href="/delivery/orders" role="button" class="secondary">Clear</a>
-        </form>
-    </section>
 
-    <!-- Flash Messages -->
-    {{ if .Flash }}
-    <article class="flash-message flash-{{ .Flash.Kind }}">
-        {{ .Flash.Message }}
-    </article>
-    {{ end }}
-
-    <!-- Results -->
-    <section>
-        <p><strong>{{ .Data.TotalCount }}</strong> delivery order(s) found</p>
-
-        {{ if .Data.DeliveryOrders }}
-        <figure>
-            <table role="grid">
-                <thead>
-                    <tr>
-                        <th>Doc Number</th>
-                        <th>Sales Order</th>
-                        <th>Customer</th>
-                        <th>Warehouse</th>
-                        <th>Delivery Date</th>
-                        <th>Status</th>
-                        <th>Driver</th>
-                        <th>Tracking</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {{ range .Data.DeliveryOrders }}
-                    <tr>
-                        <td><a href="/delivery/orders/{{ .ID }}">{{ .DocumentNumber }}</a></td>
-                        <td><a href="/sales/orders/{{ .SalesOrderID }}">{{ .SalesOrderNumber }}</a></td>
-                        <td>{{ .CustomerName }}</td>
-                        <td>{{ .WarehouseName }}</td>
-                        <td>{{ .DeliveryDate.Format "2006-01-02" }}</td>
-                        <td>
-                            {{ if eq .Status "DRAFT" }}<span class="badge badge-secondary">Draft</span>{{ end }}
-                            {{ if eq .Status "CONFIRMED" }}<span class="badge badge-info">Confirmed</span>{{ end }}
-                            {{ if eq .Status "IN_TRANSIT" }}<span class="badge badge-warning">In Transit</span>{{ end }}
-                            {{ if eq .Status "DELIVERED" }}<span class="badge badge-success">Delivered</span>{{ end }}
-                            {{ if eq .Status "CANCELLED" }}<span class="badge badge-danger">Cancelled</span>{{ end }}
-                        </td>
-                        <td>{{ if .DriverName }}{{ .DriverName }}{{ else }}-{{ end }}</td>
-                        <td>{{ if .TrackingNumber }}{{ .TrackingNumber }}{{ else }}-{{ end }}</td>
-                        <td>
-                            <a href="/delivery/orders/{{ .ID }}" role="button" class="outline secondary small">View</a>
-                        </td>
-                    </tr>
+            <!-- Pagination -->
+            {{ if gt .Data.TotalPages 1 }}
+            <div class="card__footer justify-center">
+                <nav class="pagination" aria-label="Pagination">
+                    {{ if gt .Data.CurrentPage 1 }}
+                    <a href="?page={{ sub .Data.CurrentPage 1 }}" class="btn btn--secondary btn--sm">Previous</a>
+                    {{ else }}
+                    <button class="btn btn--secondary btn--sm" disabled>Previous</button>
                     {{ end }}
-                </tbody>
-            </table>
-        </figure>
 
-        <!-- Pagination -->
-        {{ if gt .Data.TotalPages 1 }}
-        <div class="pagination">
-            {{ if gt .Data.CurrentPage 1 }}
-            <a href="?page={{ sub .Data.CurrentPage 1 }}" role="button" class="secondary">Previous</a>
-            {{ end }}
+                    <span class="pagination__info">Page {{ .Data.CurrentPage }} of {{ .Data.TotalPages }}</span>
 
-            <span>Page {{ .Data.CurrentPage }} of {{ .Data.TotalPages }}</span>
-
-            {{ if lt .Data.CurrentPage .Data.TotalPages }}
-            <a href="?page={{ add .Data.CurrentPage 1 }}" role="button" class="secondary">Next</a>
+                    {{ if lt .Data.CurrentPage .Data.TotalPages }}
+                    <a href="?page={{ add .Data.CurrentPage 1 }}" class="btn btn--secondary btn--sm">Next</a>
+                    {{ else }}
+                    <button class="btn btn--secondary btn--sm" disabled>Next</button>
+                    {{ end }}
+                </nav>
+            </div>
             {{ end }}
         </div>
-        {{ end }}
-
-        {{ else }}
-        <article>
-            <p>No delivery orders found. <a href="/delivery/orders/new">Create your first delivery order</a></p>
-        </article>
-        {{ end }}
-    </section>
+    </div>
 </div>
-
-<style>
-    .badge {
-        display: inline-block;
-        padding: 0.25em 0.6em;
-        font-size: 0.85em;
-        font-weight: 600;
-        line-height: 1;
-        text-align: center;
-        white-space: nowrap;
-        vertical-align: baseline;
-        border-radius: 0.25rem;
-    }
-
-    .badge-secondary {
-        background-color: #6c757d;
-        color: white;
-    }
-
-    .badge-info {
-        background-color: #0dcaf0;
-        color: black;
-    }
-
-    .badge-warning {
-        background-color: #ffc107;
-        color: black;
-    }
-
-    .badge-success {
-        background-color: #198754;
-        color: white;
-    }
-
-    .badge-danger {
-        background-color: #dc3545;
-        color: white;
-    }
-
-    .small {
-        font-size: 0.85em;
-        padding: 0.25rem 0.5rem;
-    }
-
-    .pagination {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        justify-content: center;
-        margin-top: 1rem;
-    }
-
-    .flash-message {
-        margin: 1rem 0;
-        padding: 1rem;
-        border-radius: 0.25rem;
-    }
-
-    .flash-success {
-        background-color: #d1e7dd;
-        color: #0f5132;
-        border: 1px solid #badbcc;
-    }
-
-    .flash-error {
-        background-color: #f8d7da;
-        color: #842029;
-        border: 1px solid #f5c2c7;
-    }
-</style>
 {{ end }}

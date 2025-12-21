@@ -109,6 +109,7 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 		req.Search = &s
 	}
 
+	h.logger.Info("List orders request", "companyID", companyID)
 	orders, total, err := h.service.List(ctx, req)
 	if err != nil {
 		h.logger.Error("list orders failed", "error", err)
@@ -378,7 +379,7 @@ func getCompanyID(r *http.Request) int64 {
 	if id, ok := r.Context().Value("company_id").(int64); ok {
 		return id
 	}
-	return 0
+	return 1 // Default to 1 (MAIN) if not set
 }
 
 func parseLines(r *http.Request) ([]CreateLineReq, map[string]string) {

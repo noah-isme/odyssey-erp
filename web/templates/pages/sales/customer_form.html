@@ -2,22 +2,22 @@
 {{ template "layouts/base.html" . }}
 {{ end }}
 
-{{ define "title" }}{{ if .Customer }}Edit Customer{{ else }}New Customer{{ end }}{{ end }}
+{{ define "title" }}{{ if .Data.Customer }}Edit Customer{{ else }}New Customer{{ end }}{{ end }}
 
 {{ define "content" }}
 <div class="customer-form-wrapper">
     <header>
-        <h1>{{ if .Customer }}Edit Customer {{ .Customer.Code }}{{ else }}New Customer{{ end }}</h1>
-        <p>{{ if .Customer }}Update customer information{{ else }}Add a new customer to the system{{ end }}</p>
+        <h1>{{ if .Data.Customer }}Edit Customer {{ .Data.Customer.Code }}{{ else }}New Customer{{ end }}</h1>
+        <p>{{ if .Data.Customer }}Update customer information{{ else }}Add a new customer to the system{{ end }}</p>
     </header>
 
-    {{ if .Errors.general }}
+    {{ if .Data.Errors.general }}
     <article class="error">
-        <p></p><strong>Error:</strong> {{ .Errors.general }}</p>
+        <p></p><strong>Error:</strong> {{ .Data.Errors.general }}</p>
     </article>
     {{ end }}
 
-    <form method="post" action="{{ if .Customer }}/sales/customers/{{ .Customer.ID }}/edit{{ else }}/sales/customers{{ end }}">
+    <form method="post" action="{{ if .Data.Customer }}/sales/customers/{{ .Data.Customer.ID }}/edit{{ else }}/sales/customers{{ end }}">
         <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
 
         <!-- Basic Information -->
@@ -27,16 +27,16 @@
                 <div>
                     <label for="code">Customer Code <span class="required">*</span></label>
                     <input type="text" name="code" id="code" required maxlength="50"
-                           value="{{ if .Customer }}{{ .Customer.Code }}{{ else }}{{ .GeneratedCode }}{{ end }}"
-                           {{ if .Customer }}readonly{{ end }}>
-                    {{ if not .Customer }}
+                           value="{{ if .Data.Customer }}{{ .Data.Customer.Code }}{{ else }}{{ .Data.GeneratedCode }}{{ end }}"
+                           {{ if .Data.Customer }}readonly{{ end }}>
+                    {{ if not .Data.Customer }}
                     <small></small>Auto-generated code, you can modify before saving</small>
                     {{ end }}
                 </div>
                 <div>
                     <label for="name">Customer Name <span class="required">*</span></label>
                     <input type="text" name="name" id="name" required maxlength="200"
-                           value="{{ if .Customer }}{{ .Customer.Name }}{{ end }}"
+                           value="{{ if .Data.Customer }}{{ .Data.Customer.Name }}{{ end }}"
                            placeholder="Company or person name">
                 </div>
             </div>
@@ -45,13 +45,13 @@
                 <div>
                     <label for="email">Email</label>
                     <input type="email" name="email" id="email" maxlength="100"
-                           value="{{ if .Customer }}{{ if .Customer.Email }}{{ .Customer.Email }}{{ end }}{{ end }}"
+                           value="{{ if .Data.Customer }}{{ if .Data.Customer.Email }}{{ .Data.Customer.Email }}{{ end }}{{ end }}"
                            placeholder="customer@example.com">
                 </div>
                 <div>
                     <label for="phone">Phone</label>
                     <input type="tel" name="phone" id="phone" maxlength="50"
-                           value="{{ if .Customer }}{{ if .Customer.Phone }}{{ .Customer.Phone }}{{ end }}{{ end }}"
+                           value="{{ if .Data.Customer }}{{ if .Data.Customer.Phone }}{{ .Data.Customer.Phone }}{{ end }}{{ end }}"
                            placeholder="+62 21 1234 5678">
                 </div>
             </div>
@@ -60,18 +60,18 @@
                 <div>
                     <label for="tax_id">Tax ID / NPWP</label>
                     <input type="text" name="tax_id" id="tax_id" maxlength="50"
-                           value="{{ if .Customer }}{{ if .Customer.TaxID }}{{ .Customer.TaxID }}{{ end }}{{ end }}"
+                           value="{{ if .Data.Customer }}{{ if .Data.Customer.TaxID }}{{ .Data.Customer.TaxID }}{{ end }}{{ end }}"
                            placeholder="12.345.678.9-012.345">
                 </div>
                 <div>
                     <label for="country">Country <span class="required">*</span></label>
                     <select name="country" id="country" required>
-                        <option value="ID" {{ if .Customer }}{{ if eq .Customer.Country "ID" }}selected{{ end }}{{ else }}selected{{ end }}>Indonesia</option>
-                        <option value="SG" {{ if .Customer }}{{ if eq .Customer.Country "SG" }}selected{{ end }}{{ end }}>Singapore</option>
-                        <option value="MY" {{ if .Customer }}{{ if eq .Customer.Country "MY" }}selected{{ end }}{{ end }}>Malaysia</option>
-                        <option value="TH" {{ if .Customer }}{{ if eq .Customer.Country "TH" }}selected{{ end }}{{ end }}>Thailand</option>
-                        <option value="US" {{ if .Customer }}{{ if eq .Customer.Country "US" }}selected{{ end }}{{ end }}>United States</option>
-                        <option value="CN" {{ if .Customer }}{{ if eq .Customer.Country "CN" }}selected{{ end }}{{ end }}>China</option>
+                        <option value="ID" {{ if .Data.Customer }}{{ if eq .Data.Customer.Country "ID" }}selected{{ end }}{{ else }}selected{{ end }}>Indonesia</option>
+                        <option value="SG" {{ if .Data.Customer }}{{ if eq .Data.Customer.Country "SG" }}selected{{ end }}{{ end }}>Singapore</option>
+                        <option value="MY" {{ if .Data.Customer }}{{ if eq .Data.Customer.Country "MY" }}selected{{ end }}{{ end }}>Malaysia</option>
+                        <option value="TH" {{ if .Data.Customer }}{{ if eq .Data.Customer.Country "TH" }}selected{{ end }}{{ end }}>Thailand</option>
+                        <option value="US" {{ if .Data.Customer }}{{ if eq .Data.Customer.Country "US" }}selected{{ end }}{{ end }}>United States</option>
+                        <option value="CN" {{ if .Data.Customer }}{{ if eq .Data.Customer.Country "CN" }}selected{{ end }}{{ end }}>China</option>
                     </select>
                 </div>
             </div>
@@ -83,32 +83,32 @@
             <div>
                 <label for="address_line1">Address Line 1</label>
                 <input type="text" name="address_line1" id="address_line1" maxlength="200"
-                       value="{{ if .Customer }}{{ if .Customer.AddressLine1 }}{{ .Customer.AddressLine1 }}{{ end }}{{ end }}"
+                       value="{{ if .Data.Customer }}{{ if .Data.Customer.AddressLine1 }}{{ .Data.Customer.AddressLine1 }}{{ end }}{{ end }}"
                        placeholder="Street address">
             </div>
             <div>
                 <label for="address_line2">Address Line 2</label>
                 <input type="text" name="address_line2" id="address_line2" maxlength="200"
-                       value="{{ if .Customer }}{{ if .Customer.AddressLine2 }}{{ .Customer.AddressLine2 }}{{ end }}{{ end }}"
+                       value="{{ if .Data.Customer }}{{ if .Data.Customer.AddressLine2 }}{{ .Data.Customer.AddressLine2 }}{{ end }}{{ end }}"
                        placeholder="Building, floor, unit">
             </div>
             <div class="grid">
                 <div>
                     <label for="city">City</label>
                     <input type="text" name="city" id="city" maxlength="100"
-                           value="{{ if .Customer }}{{ if .Customer.City }}{{ .Customer.City }}{{ end }}{{ end }}"
+                           value="{{ if .Data.Customer }}{{ if .Data.Customer.City }}{{ .Data.Customer.City }}{{ end }}{{ end }}"
                            placeholder="Jakarta">
                 </div>
                 <div>
                     <label for="state">State / Province</label>
                     <input type="text" name="state" id="state" maxlength="100"
-                           value="{{ if .Customer }}{{ if .Customer.State }}{{ .Customer.State }}{{ end }}{{ end }}"
+                           value="{{ if .Data.Customer }}{{ if .Data.Customer.State }}{{ .Data.Customer.State }}{{ end }}{{ end }}"
                            placeholder="DKI Jakarta">
                 </div>
                 <div>
                     <label for="postal_code">Postal Code</label>
                     <input type="text" name="postal_code" id="postal_code" maxlength="20"
-                           value="{{ if .Customer }}{{ if .Customer.PostalCode }}{{ .Customer.PostalCode }}{{ end }}{{ end }}"
+                           value="{{ if .Data.Customer }}{{ if .Data.Customer.PostalCode }}{{ .Data.Customer.PostalCode }}{{ end }}{{ end }}"
                            placeholder="12345">
                 </div>
             </div>
@@ -121,13 +121,13 @@
                 <div>
                     <label for="credit_limit">Credit Limit <span class="required">*</span></label>
                     <input type="number" name="credit_limit" id="credit_limit" required min="0" step="0.01"
-                           value="{{ if .Customer }}{{ printf "%.2f" .Customer.CreditLimit }}{{ else }}0.00{{ end }}">
+                           value="{{ if .Data.Customer }}{{ printf "%.2f" .Data.Customer.CreditLimit }}{{ else }}0.00{{ end }}">
                     <small>Maximum outstanding balance allowed</small>
                 </div>
                 <div>
                     <label for="payment_terms_days">Payment Terms (Days) <span class="required">*</span></label>
                     <input type="number" name="payment_terms_days" id="payment_terms_days" required min="0" max="365"
-                           value="{{ if .Customer }}{{ .Customer.PaymentTermsDays }}{{ else }}30{{ end }}">
+                           value="{{ if .Data.Customer }}{{ .Data.Customer.PaymentTermsDays }}{{ else }}30{{ end }}">
                     <small>Default payment due date (0-365 days)</small>
                 </div>
             </div>
@@ -136,11 +136,11 @@
         <!-- Additional Information -->
         <section>
             <h2>Additional Information</h2>
-            {{ if .Customer }}
+            {{ if .Data.Customer }}
             <div></div>
                 <label for="is_active">Status</label>
                 <label></label>
-                    <input type="checkbox" name="is_active" id="is_active" value="true" {{ if .Customer.IsActive }}checked{{ end }}>
+                    <input type="checkbox" name="is_active" id="is_active" value="true" {{ if .Data.Customer.IsActive }}checked{{ end }}>
                     Active
                 </label>
                 <small>Inactive customers cannot</small> be selected in new transactions</small>
@@ -148,15 +148,15 @@
             {{ end }}
             <div>
                 <label for="notes">Notes</label>
-                <textarea name="notes" id="notes" rows="4" placeholder="Internal notes about this customer">{{ if .Customer }}{{ if .Customer.Notes }}{{ .Customer.Notes }}{{ end }}{{ end }}</textarea>
+                <textarea name="notes" id="notes" rows="4" placeholder="Internal notes about this customer">{{ if .Data.Customer }}{{ if .Data.Customer.Notes }}{{ .Data.Customer.Notes }}{{ end }}{{ end }}</textarea>
             </div>
         </section>
 
         <!-- Actions -->
         <section>
             <div role="group">
-                <a href="{{ if .Customer }}/sales/customers/{{ .Customer.ID }}{{ else }}/sales/customers{{ end }}" role="button" class="secondary">Cancel</a>
-                <button type="submit">{{ if .Customer }}Update Customer{{ else }}Create Customer{{ end }}</button>
+                <a href="{{ if .Data.Customer }}/sales/customers/{{ .Data.Customer.ID }}{{ else }}/sales/customers{{ end }}" role="button" class="secondary">Cancel</a>
+                <button type="submit">{{ if .Data.Customer }}Update Customer{{ else }}Create Customer{{ end }}</button>
             </div>
         </section>
     </form>

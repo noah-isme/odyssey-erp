@@ -66,6 +66,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	h.logger.Info("List customers request", "companyID", companyID)
 	customers, total, err := h.service.List(r.Context(), ListCustomersRequest{
 		CompanyID: companyID,
 		IsActive:  isActive,
@@ -335,11 +336,9 @@ func (h *Handler) getCurrentUserID(r *http.Request) int64 {
 
 func (h *Handler) getCurrentCompanyID(r *http.Request) int64 {
 	sess := shared.SessionFromContext(r.Context())
-	if sess != nil {
-		if companyIDStr := sess.Get("company_id"); companyIDStr != "" {
-			if companyID, err := strconv.ParseInt(companyIDStr, 10, 64); err == nil {
-				return companyID
-			}
+	if sess != nil && sess.Get("company_id") != "" {
+		if id, err := strconv.ParseInt(sess.Get("company_id"), 10, 64); err == nil && id > 0 {
+			return id
 		}
 	}
 	return 1 // Default company for development

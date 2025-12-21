@@ -2,23 +2,23 @@
 {{ template "layouts/base.html" . }}
 {{ end }}
 
-{{ define "title" }}{{ if .Quotation }}Edit Quotation{{ else }}New Quotation{{ end }}{{ end }}
+{{ define "title" }}{{ if .Data.Quotation }}Edit Quotation{{ else }}New Quotation{{ end }}{{ end }}
 
 {{ define "content" }}
 <div class="quotation-form-wrapper">
     <header>
-        <h1>{{ if .Quotation }}Edit Quotation {{ .Quotation.DocNumber }}{{ else }}New Quotation{{ end }}</h1>
-        <p>{{ if .Quotation }}Update quotation details and line items{{ else }}Create a new sales quotation{{ end }}</p>
+        <h1>{{ if .Data.Quotation }}Edit Quotation {{ .Data.Quotation.DocNumber }}{{ else }}New Quotation{{ end }}</h1>
+        <p>{{ if .Data.Quotation }}Update quotation details and line items{{ else }}Create a new sales quotation{{ end }}</p>
     </header>
 
-    {{ if .Errors.general }}
+    {{ if .Data.Errors.general }}
     <article class="error">
-        <p><strong>Error</p>:</strong> {{ .Errors.general }}</p>
+        <p><strong>Error</p>:</strong> {{ .Data.Errors.general }}</p>
     </article>
     {{ end }}
 
     <form method="post"
-        action="{{ if .Quotation }}/sales/quotations/{{ .Quotation.ID }}/edit{{ else }}/sales/quotations{{ end }}">
+        action="{{ if .Data.Quotation }}/sales/quotations/{{ .Data.Quotation.ID }}/edit{{ else }}/sales/quotations{{ end }}">
         <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
 
         <!-- Header Information -->
@@ -27,27 +27,27 @@
             <div class="grid">
                 <div>
                     <label for="customer_id">Customer <span class="required">*</span></label>
-                    <select name="customer_id" id="customer_id" required {{ if .Quotation }}disabled{{ end }}>
+                    <select name="customer_id" id="customer_id" required {{ if .Data.Quotation }}disabled{{ end }}>
                         <option value="">Select customer...</option>
-                        {{ range .Customers }}
-                        <option value="{{ .ID }}" {{ if $.Quotation }}{{ if eq $.Quotation.CustomerID .ID }}selected{{
+                        {{ range .Data.Customers }}
+                        <option value="{{ .ID }}" {{ if $.Data.Quotation }}{{ if eq $.Data.Quotation.Data.CustomerID .ID }}selected{{
                             end }}{{ end }}>
                             {{ .Code }} - {{ .Name }}
                         </option>
                         {{ end }}
                     </select>
-                    {{ if .Quotation }}
-                    <input type="hidden" name="customer_id" value="{{ .Quotation.CustomerID }}">
+                    {{ if .Data.Quotation }}
+                    <input type="hidden" name="customer_id" value="{{ .Data.Quotation.Data.CustomerID }}">
                     {{ end }}
                 </div>
                 <div>
                     <label for="currency">Currency <span class="required">*</span></label>
                     <select name="currency" id="currency" required>
-                        <option value="IDR" {{ if .Quotation }}{{ if eq .Quotation.Currency "IDR" }}selected{{ end }}{{
+                        <option value="IDR" {{ if .Data.Quotation }}{{ if eq .Data.Quotation.Currency "IDR" }}selected{{ end }}{{
                             else }}selected{{ end }}>IDR</option>
-                        <option value="USD" {{ if .Quotation }}{{ if eq .Quotation.Currency "USD" }}selected{{ end }}{{
+                        <option value="USD" {{ if .Data.Quotation }}{{ if eq .Data.Quotation.Currency "USD" }}selected{{ end }}{{
                             end }}>USD</option>
-                        <option value="EUR" {{ if .Quotation }}{{ if eq .Quotation.Currency "EUR" }}selected{{ end }}{{
+                        <option value="EUR" {{ if .Data.Quotation }}{{ if eq .Data.Quotation.Currency "EUR" }}selected{{ end }}{{
                             end }}>EUR</option>
                     </select>
                 </div>
@@ -57,19 +57,19 @@
                 <div>
                     <label for="quote_date">Quote Date <span class="required">*</span></label>
                     <input type="date" name="quote_date" id="quote_date" required
-                        value="{{ if .Quotation }}{{ .Quotation.QuoteDate.Format " 2006-01-02" }}{{ end }}">
+                        value="{{ if .Data.Quotation }}{{ .Data.Quotation.QuoteDate.Format " 2006-01-02" }}{{ end }}">
                 </div>
                 <div>
                     <label for="valid_until">Valid Until <span class="required">*</span></label>
                     <input type="date" name="valid_until" id="valid_until" required
-                        value="{{ if .Quotation }}{{ .Quotation.ValidUntil.Format " 2006-01-02" }}{{ end }}">
+                        value="{{ if .Data.Quotation }}{{ .Data.Quotation.ValidUntil.Format " 2006-01-02" }}{{ end }}">
                 </div>
             </div>
 
             <div>
                 <label for="notes">Notes</label>
                 <textarea name="notes" id="notes" rows="3"
-                    placeholder="Additional notes or terms">{{ if .Quotation }}{{ .Quotation.Notes }}{{ end }}</textarea>
+                    placeholder="Additional notes or terms">{{ if .Data.Quotation }}{{ .Data.Quotation.Notes }}{{ end }}</textarea>
             </div>
         </section>
 
@@ -79,8 +79,8 @@
             <p><small>Add products and quantities to this quotation</p></small></p>
 
             <div id="line-items-container">
-                {{ if .Quotation }}
-                {{ range $index, $line := .Quotation.Lines }}
+                {{ if .Data.Quotation }}
+                {{ range $index, $line := .Data.Quotation.Lines }}
                 <div class="line-item" data-index="{{ $index }}">
                     <div class="grid">
                         <div>
@@ -170,9 +170,9 @@
         <!-- Actions -->
         <section>
             <div role="group">
-                <a href="{{ if .Quotation }}/sales/quotations/{{ .Quotation.ID }}{{ else }}/sales/quotations{{ end }}"
+                <a href="{{ if .Data.Quotation }}/sales/quotations/{{ .Data.Quotation.ID }}{{ else }}/sales/quotations{{ end }}"
                     role="button" class="secondary">Cancel</a>
-                <button type="submit">{{ if .Quotation }}Update Quotation{{ else }}Create Quotation{{ end }}</button>
+                <button type="submit">{{ if .Data.Quotation }}Update Quotation{{ else }}Create Quotation{{ end }}</button>
             </div>
         </section>
     </form>

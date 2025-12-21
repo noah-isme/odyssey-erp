@@ -363,7 +363,9 @@ func (h *Handler) getCurrentUserID(r *http.Request) int64 {
 func (h *Handler) getCurrentCompanyID(r *http.Request) int64 {
 	sess := shared.SessionFromContext(r.Context())
 	if sess != nil && sess.Get("company_id") != "" {
-		if id, err := strconv.ParseInt(sess.Get("company_id"), 10, 64); err == nil { return id }
+		if id, err := strconv.ParseInt(sess.Get("company_id"), 10, 64); err == nil && id > 0 {
+			return id
+		}
 	}
 	return 1
 }

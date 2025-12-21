@@ -206,7 +206,7 @@ func (q *Queries) ListChecklistItems(ctx context.Context, periodCloseRunID int64
 const listPeriods = `-- name: ListPeriods :many
 SELECT ap.id, ap.period_id, COALESCE(ap.company_id, 0), ap.name, ap.start_date, ap.end_date, ap.status,
        ap.soft_closed_by, ap.soft_closed_at, ap.closed_by, ap.closed_at, ap.metadata, ap.created_at, ap.updated_at,
-       lr.id AS latest_run_id
+       COALESCE(lr.id, 0) AS latest_run_id
 FROM accounting_periods ap
 LEFT JOIN LATERAL (
     SELECT id
@@ -347,7 +347,7 @@ func (q *Queries) LoadCloseRunForUpdate(ctx context.Context, id int64) (LoadClos
 const loadPeriod = `-- name: LoadPeriod :one
 SELECT ap.id, ap.period_id, COALESCE(ap.company_id, 0), ap.name, ap.start_date, ap.end_date, ap.status,
        ap.soft_closed_by, ap.soft_closed_at, ap.closed_by, ap.closed_at, ap.metadata, ap.created_at, ap.updated_at,
-       lr.id AS latest_run_id
+       COALESCE(lr.id, 0) AS latest_run_id
 FROM accounting_periods ap
 LEFT JOIN LATERAL (
     SELECT id
@@ -403,7 +403,7 @@ func (q *Queries) LoadPeriod(ctx context.Context, id int64) (LoadPeriodRow, erro
 const loadPeriodByLedgerID = `-- name: LoadPeriodByLedgerID :one
 SELECT ap.id, ap.period_id, COALESCE(ap.company_id, 0), ap.name, ap.start_date, ap.end_date, ap.status,
        ap.soft_closed_by, ap.soft_closed_at, ap.closed_by, ap.closed_at, ap.metadata, ap.created_at, ap.updated_at,
-       lr.id AS latest_run_id
+       COALESCE(lr.id, 0) AS latest_run_id
 FROM accounting_periods ap
 LEFT JOIN LATERAL (
     SELECT id
@@ -459,7 +459,7 @@ func (q *Queries) LoadPeriodByLedgerID(ctx context.Context, periodID int64) (Loa
 const loadPeriodForUpdate = `-- name: LoadPeriodForUpdate :one
 SELECT ap.id, ap.period_id, COALESCE(ap.company_id, 0), ap.name, ap.start_date, ap.end_date, ap.status,
        ap.soft_closed_by, ap.soft_closed_at, ap.closed_by, ap.closed_at, ap.metadata, ap.created_at, ap.updated_at,
-       lr.id AS latest_run_id
+       COALESCE(lr.id, 0) AS latest_run_id
 FROM accounting_periods ap
 LEFT JOIN LATERAL (
     SELECT id

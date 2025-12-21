@@ -505,6 +505,11 @@ func (s *Service) ListPOs(ctx context.Context, limit, offset int, filters ListFi
 	return s.repo.ListPOs(ctx, limit, offset, filters)
 }
 
+// ListAPOutstanding returns posted invoices with remaining balance.
+func (s *Service) ListAPOutstanding(ctx context.Context) ([]APInvoice, error) {
+	return s.repo.ListAPOutstanding(ctx)
+}
+
 // ListGRNs returns paginated goods receipts.
 func (s *Service) ListGRNs(ctx context.Context, limit, offset int, filters ListFilters) ([]GRNListItem, int, error) {
 	if limit <= 0 {

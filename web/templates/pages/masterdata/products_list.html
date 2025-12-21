@@ -53,10 +53,10 @@
                 <table class="table data-table" data-datatable="products">
                     <thead>
                         <tr>
-                            <th scope="col" class="sortable" data-column="sku" {{ if eq .Data.Filters.SortBy "sku"
+                            <th scope="col" class="sortable" data-column="code" {{ if eq .Data.Filters.SortBy "code"
                                 }}data-sort-dir="{{ .Data.Filters.SortDir }}" {{ end }}>
-                                SKU
-                                {{ if eq .Data.Filters.SortBy "sku" }}
+                                Code
+                                {{ if eq .Data.Filters.SortBy "code" }}
                                 {{ if eq .Data.Filters.SortDir "asc" }}<span class="sort-icon">↑</span>{{ else }}<span
                                     class="sort-icon">↓</span>{{ end }}
                                 {{ end }}
@@ -84,7 +84,7 @@
                         {{ range .Data.Products }}
                         <tr data-row-id="{{ .ID }}" data-href="/masterdata/products/{{ .ID }}"
                             data-edit-href="/masterdata/products/{{ .ID }}/edit">
-                            <td>{{ .SKU }}</td>
+                            <td>{{ .Code }}</td>
                             <td>{{ .Name }}</td>
                             <td class="numeric-right font-medium">{{ printf "%.2f" .Price }}</td>
                             <td>

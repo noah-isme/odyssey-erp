@@ -33,7 +33,7 @@ func NewRepository(pool *pgxpool.Pool) Repository {
 
 // List uses dynamic query (not sqlc) due to filter complexity
 func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Unit, int, error) {
-	query := `SELECT id, code, name, created_at, updated_at FROM units WHERE 1=1`
+	query := `SELECT id, code, name FROM units WHERE 1=1`
 	args := []interface{}{}
 	argCount := 0
 
@@ -82,8 +82,7 @@ func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Un
 	var units []Unit
 	for rows.Next() {
 		var u Unit
-		var createdAt, updatedAt pgtype.Timestamptz
-		err := rows.Scan(&u.ID, &u.Code, &u.Name, &createdAt, &updatedAt)
+		err := rows.Scan(&u.ID, &u.Code, &u.Name)
 		if err != nil {
 			return nil, 0, err
 		}

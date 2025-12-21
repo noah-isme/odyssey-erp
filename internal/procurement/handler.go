@@ -37,7 +37,8 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Get("/pos/new", h.showPOForm)
 		r.Get("/grns", h.handleListGRNs)
 		r.Get("/grns/new", h.showGRNForm)
-		r.Get("/ap/invoices", h.showAPInvoiceForm)
+		r.Get("/ap/invoices", h.handleListAPInvoices)
+		r.Get("/ap/invoices/new", h.showAPInvoiceForm)
 		r.Get("/ap/payments", h.showPaymentForm)
 	})
 	r.Group(func(r chi.Router) {
@@ -124,6 +125,19 @@ func (h *Handler) handleListGRNs(w http.ResponseWriter, r *http.Request) {
 		"Limit":   limit,
 		"Offset":  offset,
 		"Filters": filters,
+	}, http.StatusOK)
+}
+
+func (h *Handler) handleListAPInvoices(w http.ResponseWriter, r *http.Request) {
+	invoices, err := h.service.ListAPOutstanding(r.Context())
+	if err != nil {
+		h.logger.Error("list AP invoices", slog.Any("error", err))
+		http.Error(w, "Failed to load AP invoices", http.StatusInternalServerError)
+		return
+	}
+	h.render(w, r, "pages/procurement/ap_invoices_list.html", map[string]any{
+		"APInvoices": invoices,
+		"Total":      len(invoices),
 	}, http.StatusOK)
 }
 

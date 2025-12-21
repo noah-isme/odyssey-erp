@@ -6,12 +6,12 @@
 
 {{ define "content" }}
 <div class="page-container">
-    <div class="page-header">
-        <div class="page-header-content">
+    <header class="page-header">
+        <div class="page-header__content">
             <h1 class="page-title">Sales Orders</h1>
-            <p class="page-subtitle">Manage customer orders and track delivery status</p>
+            <p class="page-subtitle">Track and manage customer orders and fulfillment</p>
         </div>
-        <div class="page-actions">
+        <div class="page-header__actions">
             <a href="/sales/orders/new" class="btn btn--primary">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="12" y1="5" x2="12" y2="19" />
@@ -20,92 +20,127 @@
                 New Order
             </a>
         </div>
-    </div>
+    </header>
 
     <div class="page-content">
         <!-- Filters -->
-        <div class="filters">
-            <form method="get" action="/sales/orders">
-                <div class="grid">
-                    <div>
-                        <label for="status">Status</label>
-                        <select name="status" id="status">
+        <section class="filters-card">
+            <form method="get" action="/sales/orders" class="filters-form" data-component="filters">
+                <div class="filters-grid">
+                    <div class="form-group">
+                        <label for="date_from" class="form-label">Date From</label>
+                        <input type="date" name="date_from" id="date_from" class="form-input"
+                            value="{{ if .Data.Filters.DateFrom }}{{ .Data.Filters.DateFrom }}{{ end }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="date_to" class="form-label">Date To</label>
+                        <input type="date" name="date_to" id="date_to" class="form-input"
+                            value="{{ if .Data.Filters.DateTo }}{{ .Data.Filters.DateTo }}{{ end }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="status" class="form-label">Status</label>
+                        <select name="status" id="status" class="form-select">
                             <option value="">All Statuses</option>
-                            <option value="DRAFT" {{ if eq .Filters.Status "DRAFT" }}selected{{ end }}>Draft</option>
-                            <option value="CONFIRMED" {{ if eq .Filters.Status "CONFIRMED" }}selected{{ end }}>Confirmed
+                            <option value="Draft" {{ if eq .Data.Filters.Status "Draft" }}selected{{ end }}>Draft
                             </option>
-                            <option value="PROCESSING" {{ if eq .Filters.Status "PROCESSING" }}selected{{ end }}>
+                            <option value="Confirmed" {{ if eq .Data.Filters.Status "Confirmed" }}selected{{ end }}>
+                                Confirmed</option>
+                            <option value="Processing" {{ if eq .Data.Filters.Status "Processing" }}selected{{ end }}>
                                 Processing</option>
-                            <option value="COMPLETED" {{ if eq .Filters.Status "COMPLETED" }}selected{{ end }}>Completed
+                            <option value="Shipped" {{ if eq .Data.Filters.Status "Shipped" }}selected{{ end }}>Shipped
                             </option>
-                            <option value="CANCELLED" {{ if eq .Filters.Status "CANCELLED" }}selected{{ end }}>Cancelled
-                            </option>
+                            <option value="Invoiced" {{ if eq .Data.Filters.Status "Invoiced" }}selected{{ end }}>
+                                Invoiced</option>
+                            <option value="Completed" {{ if eq .Data.Filters.Status "Completed" }}selected{{ end }}>
+                                Completed</option>
+                            <option value="Cancelled" {{ if eq .Data.Filters.Status "Cancelled" }}selected{{ end }}>
+                                Cancelled</option>
                         </select>
                     </div>
-                    <div>
-                        <label for="date_from">From Date</label>
-                        <input type="date" name="date_from" id="date_from"
-                            value="{{ if .Filters.DateFrom }}{{ .Filters.DateFrom.Format " 2006-01-02" }}{{ end }}">
-                    </div>
-                    <div>
-                        <label for="date_to">To Date</label>
-                        <input type="date" name="date_to" id="date_to"
-                            value="{{ if .Filters.DateTo }}{{ .Filters.DateTo.Format " 2006-01-02" }}{{ end }}">
-                    </div>
                 </div>
-                <div class="flex gap-2">
+                <div class="filters-actions">
                     <button type="submit" class="btn btn--primary">Filter</button>
                     <a href="/sales/orders" class="btn btn--secondary">Clear</a>
                 </div>
             </form>
-        </div>
+        </section>
 
         <!-- Results Table -->
-        <div class="card p-0 overflow-hidden">
+        <div class="card p-0 overflow-hidden" data-component="datatable">
             <div class="table-wrap">
                 <table class="table">
                     <thead>
                         <tr>
-                            <th>Number</th>
-                            <th>Customer</th>
-                            <th>Order Date</th>
-                            <th>Delivery</th>
-                            <th>Status</th>
-                            <th class="numeric-right">Total</th>
-                            <th></th>
+                            <th scope="col" width="15%">Order #</th>
+                            <th scope="col" width="15%">Date</th>
+                            <th scope="col" width="20%">Customer</th>
+                            <th scope="col" width="15%" class="text-right">Total</th>
+                            <th scope="col" width="15%">Delivery Date</th>
+                            <th scope="col" width="15%">Status</th>
+                            <th scope="col" width="5%"></th>
                         </tr>
                     </thead>
                     <tbody>
-                        {{ range .Orders }}
+                        {{ if .Data.Orders }}
+                        {{ range .Data.Orders }}
                         <tr>
-                            <td><a href="/sales/orders/{{ .ID }}" class="link font-medium">{{ .DocNumber }}</a></td>
-                            <td>{{ .CustomerName }}</td>
-                            <td><small>{{ .OrderDate.Format "02 Jan 06" }}</small></td>
-                            <td><small>{{ if .ExpectedDeliveryDate }}{{ .ExpectedDeliveryDate.Format "02 Jan 06" }}{{
-                                    else }}-{{ end }}</small></td>
                             <td>
-                                {{ if eq .Status "DRAFT" }}<span class="status-badge status-draft">Draft</span>{{ end }}
-                                {{ if eq .Status "CONFIRMED" }}<span
-                                    class="status-badge status-pending">Confirmed</span>{{ end }}
-                                {{ if eq .Status "PROCESSING" }}<span
-                                    class="status-badge status-processing">Processing</span>{{ end }}
-                                {{ if eq .Status "COMPLETED" }}<span
-                                    class="status-badge status-completed">Completed</span>{{ end }}
-                                {{ if eq .Status "CANCELLED" }}<span class="status-badge status-void">Cancelled</span>{{
-                                end }}
+                                <a href="/sales/orders/{{ .ID }}" class="link font-medium">{{ .DocNumber }}</a>
                             </td>
-                            <td class="numeric-right font-medium">
-                                {{ printf "%.2f" .TotalAmount }} <span class="text-xs text-muted">{{ .Currency }}</span>
+                            <td>
+                                <div class="text-sm font-medium">{{ formatDate .OrderDate }}</div>
+                                <div class="text-xs text-muted">{{ if .QuotationID }}Quote Linked{{ end }}</div>
+                            </td>
+                            <td>
+                                <a href="/sales/customers/{{ .CustomerID }}" class="link text-body">{{ .CustomerName
+                                    }}</a>
+                            </td>
+                            <td class="text-right tabular-nums font-medium">
+                                {{ .Currency }} {{ formatDecimal .TotalAmount }}
+                            </td>
+                            <td>
+                                {{ if .ExpectedDeliveryDate }}
+                                <span class="text-sm">{{ formatDate .ExpectedDeliveryDate }}</span>
+                                {{ else }}
+                                <span class="text-muted">-</span>
+                                {{ end }}
+                            </td>
+                            <td>
+                                {{ if eq .Status "Draft" }}<span class="badge badge--secondary">Draft</span>{{ end }}
+                                {{ if eq .Status "Confirmed" }}<span class="badge badge--primary">Confirmed</span>{{ end
+                                }}
+                                {{ if eq .Status "Processing" }}<span class="badge badge--info">Processing</span>{{ end
+                                }}
+                                {{ if eq .Status "Shipped" }}<span class="badge badge--warning">Shipped</span>{{ end }}
+                                {{ if eq .Status "Invoiced" }}<span class="badge badge--purple">Invoiced</span>{{ end }}
+                                {{ if eq .Status "Completed" }}<span class="badge badge--success">Completed</span>{{ end
+                                }}
+                                {{ if eq .Status "Cancelled" }}<span class="badge badge--danger">Cancelled</span>{{ end
+                                }}
                             </td>
                             <td class="text-right">
-                                <a href="/sales/orders/{{ .ID }}" class="btn btn--ghost btn--sm">View</a>
+                                <div class="flex justify-end gap-2">
+                                    <a href="/sales/orders/{{ .ID }}" class="btn btn--ghost btn--sm">View</a>
+                                </div>
                             </td>
                         </tr>
+                        {{ end }}
                         {{ else }}
                         <tr>
                             <td colspan="7" class="table-empty">
-                                No sales orders found. <a href="/sales/orders/new" class="link">Create your first sales
-                                    order</a>
+                                <div class="empty-state">
+                                    <div class="empty-state__icon">
+                                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="1">
+                                            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+                                            <line x1="3" y1="6" x2="21" y2="6"></line>
+                                            <path d="M16 10a4 4 0 0 1-8 0"></path>
+                                        </svg>
+                                    </div>
+                                    <h3>No sales orders found</h3>
+                                    <p>Create a new order to track sales.</p>
+                                    <a href="/sales/orders/new" class="btn btn--primary mt-4">New Order</a>
+                                </div>
                             </td>
                         </tr>
                         {{ end }}
@@ -114,22 +149,28 @@
             </div>
 
             <!-- Pagination -->
-            {{ if gt .Total .Limit }}
+            {{ if gt .Data.Total .Data.Limit }}
             <div class="card__footer justify-center">
-                {{ $currentPage := div .Offset .Limit }}
-                {{ $totalPages := div (add .Total (sub .Limit 1)) .Limit }}
+                {{ $currentPage := div .Data.Offset .Data.Limit }}
+                {{ $totalPages := div (add .Data.Total (sub .Data.Limit 1)) .Data.Limit }}
 
-                {{ if gt $currentPage 0 }}
-                <a href="?limit={{ .Limit }}&offset={{ sub .Offset .Limit }}"
-                    class="btn btn--secondary btn--sm">Previous</a>
-                {{ end }}
+                <nav class="pagination" aria-label="Pagination">
+                    {{ if gt $currentPage 0 }}
+                    <a href="?limit={{ .Data.Limit }}&offset={{ sub .Data.Offset .Data.Limit }}{{ if .Data.Filters.Status }}&status={{ .Data.Filters.Status }}{{ end }}"
+                        class="btn btn--secondary btn--sm">Previous</a>
+                    {{ else }}
+                    <button class="btn btn--secondary btn--sm" disabled>Previous</button>
+                    {{ end }}
 
-                <span class="text-xs text-muted mx-4">Page {{ add $currentPage 1 }} of {{ $totalPages }}</span>
+                    <span class="pagination__info">Page {{ add $currentPage 1 }} of {{ $totalPages }}</span>
 
-                {{ if lt (add .Offset .Limit) .Total }}
-                <a href="?limit={{ .Limit }}&offset={{ add .Offset .Limit }}"
-                    class="btn btn--secondary btn--sm">Next</a>
-                {{ end }}
+                    {{ if lt (add .Data.Offset .Data.Limit) .Data.Total }}
+                    <a href="?limit={{ .Data.Limit }}&offset={{ add .Data.Offset .Data.Limit }}{{ if .Data.Filters.Status }}&status={{ .Data.Filters.Status }}{{ end }}"
+                        class="btn btn--secondary btn--sm">Next</a>
+                    {{ else }}
+                    <button class="btn btn--secondary btn--sm" disabled>Next</button>
+                    {{ end }}
+                </nav>
             </div>
             {{ end }}
         </div>

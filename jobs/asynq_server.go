@@ -152,11 +152,22 @@ func (c *Client) Close() error {
 type Handler struct {
 	inspector *asynq.Inspector
 	logger    *slog.Logger
+	templates TemplateRenderer
+}
+
+// TemplateRenderer abstracts template rendering.
+type TemplateRenderer interface {
+	Render(w http.ResponseWriter, name string, data any) error
 }
 
 // NewHandler constructs an HTTP handler for jobs endpoints.
-func NewHandler(inspector *asynq.Inspector, logger *slog.Logger) *Handler {
-	return &Handler{inspector: inspector, logger: logger}
+// Templates parameter is optional - if nil, falls back to inline HTML.
+func NewHandler(inspector *asynq.Inspector, logger *slog.Logger, templates ...TemplateRenderer) *Handler {
+	var t TemplateRenderer
+	if len(templates) > 0 {
+		t = templates[0]
+	}
+	return &Handler{inspector: inspector, logger: logger, templates: t}
 }
 
 // MountRoutes attaches job routes.
@@ -166,22 +177,116 @@ func (h *Handler) MountRoutes(r chi.Router) {
 }
 
 func (h *Handler) index(w http.ResponseWriter, r *http.Request) {
+	var pending, active, completed int
+	queueName := QueueDefault
+
+	if h.inspector != nil {
+		info, _ := h.inspector.GetQueueInfo(QueueDefault)
+		if info != nil {
+			queueName = info.Queue
+			pending = int(info.Pending)
+			active = int(info.Active)
+			completed = int(info.Completed)
+		}
+	}
+
+	data := map[string]any{
+		"Queue":     queueName,
+		"Pending":   pending,
+		"Active":    active,
+		"Completed": completed,
+	}
+
+	if h.templates != nil {
+		viewData := struct {
+			Title       string
+			CurrentPath string
+			Data        any
+		}{
+			Title:       "Jobs Dashboard",
+			CurrentPath: r.URL.Path,
+			Data:        data,
+		}
+		if err := h.templates.Render(w, "pages/jobs/index.html", viewData); err != nil {
+			h.logger.Error("render jobs template", slog.Any("error", err))
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Fallback for when templates not configured - render styled HTML using main.css
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write([]byte(`<!DOCTYPE html>
-<html lang="en">
+	html := `<!DOCTYPE html>
+<html lang="id" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jobs</title>
+    <title>Jobs Dashboard - Odyssey ERP</title>
+    <link rel="stylesheet" href="/static/css/main.css">
 </head>
-<body>
-    <h1>Jobs Dashboard</h1>
-    <p>Background job monitoring and management.</p>
-    <ul>
-        <li><a href="/jobs/health">Health Check</a></li>
-    </ul>
+<body style="background: var(--bg-app); min-height: 100vh;">
+    <main class="jobs-page">
+        <a href="/" class="jobs-back">← Back to Dashboard</a>
+        
+        <header class="jobs-header">
+            <h1 class="jobs-header__title">Jobs Dashboard</h1>
+            <p class="jobs-header__subtitle">Background job monitoring and management</p>
+        </header>
+
+        <section class="jobs-stats">
+            <article class="jobs-stat">
+                <div class="jobs-stat__label">Queue</div>
+                <div class="jobs-stat__value">` + queueName + `</div>
+            </article>
+            <article class="jobs-stat">
+                <div class="jobs-stat__label">Pending</div>
+                <div class="jobs-stat__value">` + itoa(pending) + `</div>
+            </article>
+            <article class="jobs-stat">
+                <div class="jobs-stat__label">Active</div>
+                <div class="jobs-stat__value">` + itoa(active) + `</div>
+            </article>
+            <article class="jobs-stat">
+                <div class="jobs-stat__label">Completed</div>
+                <div class="jobs-stat__value">` + itoa(completed) + `</div>
+            </article>
+        </section>
+
+        <section class="jobs-section">
+            <header class="jobs-section__header">
+                <h2 class="jobs-section__title">Quick Actions</h2>
+            </header>
+            <div class="jobs-section__body">
+                <a href="/jobs/health" class="jobs-action">
+                    <div>
+                        <div class="jobs-action__title">Health Check</div>
+                        <div class="jobs-action__desc">View queue health status (JSON)</div>
+                    </div>
+                </a>
+            </div>
+        </section>
+
+        <section class="jobs-section">
+            <header class="jobs-section__header">
+                <h2 class="jobs-section__title">Registered Task Types</h2>
+            </header>
+            <div class="jobs-section__body">
+                <ul class="jobs-tasks">
+                    <li class="jobs-tasks__item"><code class="jobs-tasks__code">task:send_email</code> Send email notifications</li>
+                    <li class="jobs-tasks__item"><code class="jobs-tasks__code">task:inventory_revaluation</code> Recalculate inventory costs</li>
+                    <li class="jobs-tasks__item"><code class="jobs-tasks__code">task:procurement_reindex</code> Reindex procurement data</li>
+                    <li class="jobs-tasks__item"><code class="jobs-tasks__code">task:variance_snapshot</code> Generate variance snapshots</li>
+                    <li class="jobs-tasks__item"><code class="jobs-tasks__code">task:board_pack</code> Generate board pack reports</li>
+                    <li class="jobs-tasks__item"><code class="jobs-tasks__code">task:insights_warmup</code> Warm up insights cache</li>
+                    <li class="jobs-tasks__item"><code class="jobs-tasks__code">task:consolidate_refresh</code> Refresh consolidation data</li>
+                    <li class="jobs-tasks__item"><code class="jobs-tasks__code">task:anomaly_scan</code> Scan for anomalies</li>
+                </ul>
+            </div>
+        </section>
+    </main>
 </body>
-</html>`))
+</html>`
+	_, _ = w.Write([]byte(html))
 }
 
 func (h *Handler) health(w http.ResponseWriter, r *http.Request) {
