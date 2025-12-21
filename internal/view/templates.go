@@ -59,6 +59,9 @@ func NewEngine() (*Engine, error) {
 		"add": func(a, b int) int {
 			return a + b
 		},
+		"addf": func(a, b float64) float64 {
+			return a + b
+		},
 		"mul": func(a, b int) int {
 			return a * b
 		},

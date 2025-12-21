@@ -200,7 +200,8 @@ func NewRouter(params RouterParams) http.Handler {
 		r.Route("/permissions", params.PermissionsHandler.MountRoutes)
 	}
 	if params.Metrics != nil {
-		r.Method(http.MethodGet, "/metrics", params.Metrics.Handler())
+		r.Get("/metrics", params.Metrics.HTMLHandler().ServeHTTP)
+		r.Method(http.MethodGet, "/metrics/prometheus", params.Metrics.Handler())
 	}
 
 	staticFS, err := fs.Sub(web.Static, "static")

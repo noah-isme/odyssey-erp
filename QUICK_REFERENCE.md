@@ -17,18 +17,44 @@ make seed
 **Login:** `admin@odyssey.local` / `admin123`
 
 ## 📂 Project Structure
-
 ```
 odyssey-erp/
 ├── documentation/     All docs (START HERE!)
-├── tools/
-│   ├── scripts/      Run/stop/status commands
-│   └── db-setup/     Database initialization
-├── cmd/              Application entry points
-├── internal/         Business logic
-├── web/              Frontend assets
-└── migrations/       Database migrations
+├── tools/             Scripts & DB setup
+├── cmd/               Entry points (odyssey, worker)
+├── internal/
+│   ├── platform/      Infrastructure (DB, Cache, HTTP)
+│   ├── sqlc/          Generated database code
+│   └── <domain>/      Business logic (e.g., sales, accounting)
+├── web/               Frontend assets
+└── migrations/        Database migrations
 ```
+
+## 🏗️ Architecture Reference
+
+### 1. Modular Monolith
+- **Domain Isolation:** Each package in `internal/` is a self-contained domain.
+- **Dependency Rule:** Domains should not depend on each other directly (use public interfaces or events).
+- **Platform Layer:** `internal/platform` handles all infrastructure (DB, Redis, Logging).
+
+### 2. The 7-File Pattern (Per Entity)
+Each entity (e.g., `internal/sales/customers`) follows this structure:
+
+| File | Purpose |
+|------|---------|
+| `model.go` | Domain entity struct |
+| `dto.go` | Request/Response structs |
+| `repository.go` | Interface + SQLC wrapper |
+| `service.go` | Business logic & validation |
+| `handler.go` | HTTP handlers (parse -> interact -> respond) |
+| `routes.go` | Route definitions (`MountRoutes`) |
+| `validation.go` | Input validation rules |
+
+### 3. Database Access (SQLC)
+- **Queries:** Defined in `sql/queries/<domain>.sql`.
+- **Generation:** Run `sqlc generate` to create code in `internal/sqlc`.
+- **Usage:** Repositories import `internal/sqlc` and wrap usage.
+- **Transactions:** Use `repo.WithTx(ctx, fn)`.
 
 ## 🔧 Common Commands
 
@@ -62,6 +88,12 @@ make build                        # Build binaries
 make test                         # Run tests
 make lint                         # Run linter
 ```
+
+### Coding Standards
+- **Imports:** Group stdlib, 3rd party, and internal imports.
+- **Errors:** Use `httpx.RespondError` in handlers.
+- **Config:** Use type-safe config in `cmd/odyssey/main.go`.
+- **Commits:** Follow conventional commits (e.g., `feat(sales): add order creation`).
 
 ## 📖 Documentation
 

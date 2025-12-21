@@ -1,4 +1,81 @@
 {{ define "pages/procurement/ap_invoices_list.html" }}
-<h1>Daftar AP Invoice</h1>
-<p>Konten akan tersedia setelah integrasi penuh.</p>
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}AP Invoices{{ end }}
+
+{{ define "content" }}
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-title">AP Invoices</h1>
+            <p class="page-subtitle">Manage accounts payable invoices</p>
+        </div>
+        <div class="page-header__actions">
+            <a href="/procurement/ap/invoices/new" class="btn btn--primary">
+                + New Invoice
+            </a>
+        </div>
+    </header>
+
+    <div class="page-content">
+        <!-- Results Table -->
+        <div class="card p-0 overflow-hidden" data-component="datatable">
+            <div class="table-wrap">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Number</th>
+                            <th scope="col">Supplier</th>
+                            <th scope="col">Currency</th>
+                            <th scope="col" class="text-right">Total</th>
+                            <th scope="col">Due Date</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{ if .Data.APInvoices }}
+                        {{ range .Data.APInvoices }}
+                        <tr data-id="{{ .ID }}">
+                            <td><code class="text-xs">{{ .Number }}</code></td>
+                            <td>{{ .SupplierID }}</td>
+                            <td>{{ .Currency }}</td>
+                            <td class="text-right tabular-nums">{{ formatDecimal .Total }}</td>
+                            <td>{{ formatDate .DueAt }}</td>
+                            <td>
+                                {{ if eq .Status "DRAFT" }}<span class="badge badge--warning">Draft</span>{{ end }}
+                                {{ if eq .Status "POSTED" }}<span class="badge badge--success">Posted</span>{{ end }}
+                                {{ if eq .Status "PAID" }}<span class="badge badge--info">Paid</span>{{ end }}
+                            </td>
+                            <td>
+                                <a href="/procurement/ap/invoices/{{ .ID }}" class="btn btn--sm btn--secondary">View</a>
+                            </td>
+                        </tr>
+                        {{ end }}
+                        {{ else }}
+                        <tr>
+                            <td colspan="7" class="table-empty">
+                                <div class="empty-state">
+                                    <div class="empty-state__icon">
+                                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="1">
+                                            <rect x="2" y="3" width="20" height="18" rx="2" />
+                                            <line x1="8" y1="9" x2="16" y2="9" />
+                                            <line x1="8" y1="13" x2="14" y2="13" />
+                                        </svg>
+                                    </div>
+                                    <h3>No invoices found</h3>
+                                    <p>Create your first AP invoice to get started.</p>
+                                    <a href="/procurement/ap/invoices/new" class="btn btn--primary">Create Invoice</a>
+                                </div>
+                            </td>
+                        </tr>
+                        {{ end }}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
 {{ end }}

@@ -47,7 +47,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	units, total, err := h.service.List(r.Context(), filters)
 	if err != nil {
 		h.logger.Error("list units failed", "error", err)
-		http.Error(w, "Failed to load units", http.StatusInternalServerError)
+		http.Error(w, "Failed to load units: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 

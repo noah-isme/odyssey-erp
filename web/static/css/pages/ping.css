@@ -1,0 +1,149 @@
+/* ==========================================================================
+   PING PAGE STYLES (Report Service Status)
+   Uses semantic tokens from core/tokens.css
+   ========================================================================== */
+
+.ping-page {
+    padding: var(--space-6);
+    max-width: var(--app-max);
+    margin: 0 auto;
+}
+
+/* Header */
+.ping-header {
+    margin-bottom: var(--space-8);
+}
+
+.ping-header__title {
+    font-size: var(--text-2xl);
+    font-weight: var(--weight-semibold);
+    color: var(--text-primary);
+    margin: 0 0 var(--space-1) 0;
+}
+
+.ping-header__subtitle {
+    font-size: var(--text-md);
+    color: var(--text-muted);
+    margin: 0;
+}
+
+/* Section Card */
+.ping-section {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--card-radius);
+    margin-bottom: var(--space-6);
+    overflow: hidden;
+}
+
+.ping-section__header {
+    padding: var(--space-4) var(--space-5);
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.ping-section__title {
+    font-size: var(--text-lg);
+    font-weight: var(--weight-semibold);
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.ping-section__body {
+    padding: var(--space-5);
+}
+
+/* Status Table */
+.ping-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.ping-table th,
+.ping-table td {
+    padding: var(--space-3) var(--space-4);
+    text-align: left;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.ping-table th {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+    color: var(--text-muted);
+    background: var(--bg-surface-muted);
+}
+
+.ping-table tr:last-child td {
+    border-bottom: none;
+}
+
+.ping-table__name {
+    font-weight: var(--weight-medium);
+    color: var(--text-primary);
+}
+
+.ping-table__latency {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+}
+
+.ping-table__error {
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+}
+
+/* Status Badge */
+.ping-status {
+    display: inline-block;
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--badge-radius);
+    font-size: var(--badge-font);
+    font-weight: var(--weight-medium);
+}
+
+.ping-status--ok {
+    background: var(--success-bg);
+    color: var(--success-600);
+}
+
+.ping-status--error {
+    background: var(--error-bg);
+    color: var(--error-600);
+}
+
+/* Info */
+.ping-info {
+    color: var(--text-secondary);
+    margin-bottom: var(--space-4);
+}
+
+.ping-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.ping-list li {
+    padding: var(--space-2) 0;
+    color: var(--text-secondary);
+}
+
+.ping-list strong {
+    color: var(--text-primary);
+}
+
+/* Back Link */
+.ping-back {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-sm);
+    color: var(--link);
+    text-decoration: none;
+    margin-bottom: var(--space-6);
+}
+
+.ping-back:hover {
+    color: var(--link-hover);
+    text-decoration: underline;
+}

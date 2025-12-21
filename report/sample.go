@@ -59,13 +59,86 @@ func (h *Handler) MountRoutes(r chi.Router) {
 }
 
 func (h *Handler) ping(w http.ResponseWriter, r *http.Request) {
-	if err := h.client.Ping(r.Context()); err != nil {
-		h.logger.Warn("gotenberg ping failed", slog.Any("error", err))
-		http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
-		return
+	// Check Gotenberg service
+	status := "ok"
+	statusErr := "-"
+	latency := "-"
+	statusClass := "ping-status--ok"
+
+	if h.client != nil {
+		start := time.Now()
+		if err := h.client.Ping(r.Context()); err != nil {
+			status = "error"
+			statusErr = err.Error()
+			statusClass = "ping-status--error"
+			h.logger.Warn("gotenberg ping failed", slog.Any("error", err))
+		}
+		latency = time.Since(start).Round(time.Millisecond).String()
+	} else {
+		status = "error"
+		statusErr = "Not configured"
+		statusClass = "ping-status--error"
 	}
-	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write([]byte(`{"status":"ok"}`))
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	html := `<!DOCTYPE html>
+<html lang="id" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Report Ping - Odyssey ERP</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body style="background: var(--bg-app); min-height: 100vh;">
+    <main class="ping-page">
+        <a href="/" class="ping-back">← Back to Dashboard</a>
+        
+        <header class="ping-header">
+            <h1 class="ping-header__title">Service Status</h1>
+            <p class="ping-header__subtitle">Connection health check for report services</p>
+        </header>
+
+        <section class="ping-section">
+            <header class="ping-section__header">
+                <h2 class="ping-section__title">Services</h2>
+            </header>
+            <div class="ping-section__body">
+                <table class="ping-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Service</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Latency</th>
+                            <th scope="col">Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="ping-table__name">Gotenberg (PDF)</td>
+                            <td><span class="ping-status ` + statusClass + `">` + status + `</span></td>
+                            <td class="ping-table__latency">` + latency + `</td>
+                            <td class="ping-table__error">` + statusErr + `</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="ping-section">
+            <header class="ping-section__header">
+                <h2 class="ping-section__title">About</h2>
+            </header>
+            <div class="ping-section__body">
+                <p class="ping-info">This page checks connectivity to services used by the reporting system.</p>
+                <ul class="ping-list">
+                    <li><strong>Gotenberg</strong> - PDF generation engine for report exports</li>
+                </ul>
+            </div>
+        </section>
+    </main>
+</body>
+</html>`
+	_, _ = w.Write([]byte(html))
 }
 
 func (h *Handler) sample(w http.ResponseWriter, r *http.Request) {

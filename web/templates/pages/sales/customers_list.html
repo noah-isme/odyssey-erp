@@ -6,12 +6,12 @@
 
 {{ define "content" }}
 <div class="page-container">
-    <div class="page-header">
-        <div class="page-header-content">
+    <header class="page-header">
+        <div class="page-header__content">
             <h1 class="page-title">Customers</h1>
             <p class="page-subtitle">Manage customer information and accounts</p>
         </div>
-        <div class="page-actions">
+        <div class="page-header__actions">
             <a href="/sales/customers/new" class="btn btn--primary">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="12" y1="5" x2="12" y2="19" />
@@ -20,77 +20,106 @@
                 New Customer
             </a>
         </div>
-    </div>
+    </header>
 
     <div class="page-content">
         <!-- Filters -->
-        <div class="filters">
-            <form method="get" action="/sales/customers">
-                <div class="grid">
-                    <div>
-                        <label for="search">Search</label>
-                        <input type="text" name="search" id="search" placeholder="Code, name, or email"
-                            value="{{ if .Filters.Search }}{{ .Filters.Search }}{{ end }}">
+        <section class="filters-card">
+            <form method="get" action="/sales/customers" class="filters-form" data-component="filters">
+                <div class="filters-grid">
+                    <div class="form-group">
+                        <label for="search" class="form-label">Search</label>
+                        <input type="text" name="search" id="search" class="form-input"
+                            placeholder="Code, name, or email"
+                            value="{{ if .Data.Filters.Search }}{{ .Data.Filters.Search }}{{ end }}">
                     </div>
-                    <div>
-                        <label for="is_active">Status</label>
-                        <select name="is_active" id="is_active">
-                            <option value="">All</option>
-                            <option value="true" {{ if .Filters.IsActive }}{{ if .Filters.IsActive }}selected{{ end }}{{
-                                end }}>Active</option>
-                            <option value="false" {{ if .Filters.IsActive }}{{ if not .Filters.IsActive }}selected{{ end
-                                }}{{ end }}>Inactive</option>
+                    <div class="form-group">
+                        <label for="is_active" class="form-label">Status</label>
+                        <select name="is_active" id="is_active" class="form-select">
+                            <option value="">All Statuses</option>
+                            <option value="true" {{ if .Data.Filters.IsActive }}{{ if .Data.Filters.IsActive
+                                }}selected{{ end }}{{ end }}>Active</option>
+                            <option value="false" {{ if .Data.Filters.IsActive }}{{ if not .Data.Filters.IsActive
+                                }}selected{{ end }}{{ end }}>Inactive</option>
                         </select>
                     </div>
                 </div>
-                <div class="flex gap-2">
+                <div class="filters-actions">
                     <button type="submit" class="btn btn--primary">Filter</button>
                     <a href="/sales/customers" class="btn btn--secondary">Clear</a>
                 </div>
             </form>
-        </div>
+        </section>
 
         <!-- Results Table -->
-        <div class="card p-0 overflow-hidden">
+        <div class="card p-0 overflow-hidden" data-component="datatable">
             <div class="table-wrap">
                 <table class="table">
                     <thead>
                         <tr>
-                            <th scope="col">Code</th>
-                            <th scope="col">Name</th>
-                            <th scope="col">Email</th>
-                            <th scope="col">Phone</th>
-                            <th scope="col" class="numeric-right">Credit Limit</th>
-                            <th scope="col">Terms</th>
-                            <th scope="col">Status</th>
-                            <th scope="col"></th>
+                            <th scope="col" width="15%">Code</th>
+                            <th scope="col" width="25%">Name</th>
+                            <th scope="col" width="20%">Contact</th>
+                            <th scope="col" width="15%" class="text-right">Credit Limit</th>
+                            <th scope="col" width="10%">Terms</th>
+                            <th scope="col" width="10%">Status</th>
+                            <th scope="col" width="5%"></th>
                         </tr>
                     </thead>
                     <tbody>
-                        {{ range .Customers }}
+                        {{ if .Data.Customers }}
+                        {{ range .Data.Customers }}
                         <tr>
-                            <td><a href="/sales/customers/{{ .ID }}" class="link font-medium">{{ .Code }}</a></td>
-                            <td>{{ .Name }}</td>
-                            <td><small>{{ if .Email }}{{ .Email }}{{ else }}-{{ end }}</small></td>
-                            <td><small>{{ if .Phone }}{{ .Phone }}{{ else }}-{{ end }}</small></td>
-                            <td class="numeric-right">{{ printf "%.2f" .CreditLimit }}</td>
-                            <td>{{ .PaymentTermsDays }}d</td>
+                            <td>
+                                <a href="/sales/customers/{{ .ID }}" class="link font-medium">{{ .Code }}</a>
+                            </td>
+                            <td>
+                                <div class="font-medium">{{ .Name }}</div>
+                                {{ if .TaxID }}<div class="text-xs text-muted">{{ .TaxID }}</div>{{ end }}
+                            </td>
+                            <td>
+                                {{ if .Email }}<div class="text-sm">{{ .Email }}</div>{{ end }}
+                                {{ if .Phone }}<div class="text-xs text-muted">{{ .Phone }}</div>{{ end }}
+                                {{ if and (not .Email) (not .Phone) }}<span class="text-muted">-</span>{{ end }}
+                            </td>
+                            <td class="text-right tabular-nums">
+                                {{ formatDecimal .CreditLimit }}
+                            </td>
+                            <td>{{ .PaymentTermsDays }} Days</td>
                             <td>
                                 {{ if .IsActive }}
-                                <span class="status-badge status-completed">Active</span>
+                                <span class="badge badge--success">Active</span>
                                 {{ else }}
-                                <span class="status-badge status-draft">Inactive</span>
+                                <span class="badge badge--secondary">Inactive</span>
                                 {{ end }}
                             </td>
                             <td class="text-right">
-                                <a href="/sales/customers/{{ .ID }}" class="btn btn--ghost btn--sm">View</a>
+                                <a href="/sales/customers/{{ .ID }}" class="btn-icon" aria-label="View Details">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2">
+                                        <path d="M5 12h14M12 5l7 7-7 7" />
+                                    </svg>
+                                </a>
                             </td>
                         </tr>
+                        {{ end }}
                         {{ else }}
                         <tr>
-                            <td colspan="8" class="table-empty">
-                                No customers found. <a href="/sales/customers/new" class="link">Create your first
-                                    customer</a>
+                            <td colspan="7" class="table-empty">
+                                <div class="empty-state">
+                                    <div class="empty-state__icon">
+                                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="1">
+                                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                            <circle cx="9" cy="7" r="4"></circle>
+                                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                                        </svg>
+                                    </div>
+                                    <h3>No customers found</h3>
+                                    <p>Get started by adding your first customer.</p>
+                                    <a href="/sales/customers/new" class="btn btn--primary mt-4">Create Customer</a>
+                                </div>
                             </td>
                         </tr>
                         {{ end }}
@@ -99,22 +128,28 @@
             </div>
 
             <!-- Pagination -->
-            {{ if gt .Total .Limit }}
+            {{ if gt .Data.Total .Data.Limit }}
             <div class="card__footer justify-center">
-                {{ $currentPage := div .Offset .Limit }}
-                {{ $totalPages := div (add .Total (sub .Limit 1)) .Limit }}
+                {{ $currentPage := div .Data.Offset .Data.Limit }}
+                {{ $totalPages := div (add .Data.Total (sub .Data.Limit 1)) .Data.Limit }}
 
-                {{ if gt $currentPage 0 }}
-                <a href="?limit={{ .Limit }}&offset={{ sub .Offset .Limit }}{{ if .Filters.Search }}&search={{ .Filters.Search }}{{ end }}{{ if .Filters.IsActive }}&is_active={{ .Filters.IsActive }}{{ end }}"
-                    class="btn btn--secondary btn--sm">Previous</a>
-                {{ end }}
+                <nav class="pagination" aria-label="Pagination">
+                    {{ if gt $currentPage 0 }}
+                    <a href="?limit={{ .Data.Limit }}&offset={{ sub .Data.Offset .Data.Limit }}{{ if .Data.Filters.Search }}&search={{ .Data.Filters.Search }}{{ end }}{{ if .Data.Filters.IsActive }}&is_active={{ .Data.Filters.IsActive }}{{ end }}"
+                        class="btn btn--secondary btn--sm">Previous</a>
+                    {{ else }}
+                    <button class="btn btn--secondary btn--sm" disabled>Previous</button>
+                    {{ end }}
 
-                <span class="text-xs text-muted mx-4">Page {{ add $currentPage 1 }} of {{ $totalPages }}</span>
+                    <span class="pagination__info">Page {{ add $currentPage 1 }} of {{ $totalPages }}</span>
 
-                {{ if lt (add .Offset .Limit) .Total }}
-                <a href="?limit={{ .Limit }}&offset={{ add .Offset .Limit }}{{ if .Filters.Search }}&search={{ .Filters.Search }}{{ end }}{{ if .Filters.IsActive }}&is_active={{ .Filters.IsActive }}{{ end }}"
-                    class="btn btn--secondary btn--sm">Next</a>
-                {{ end }}
+                    {{ if lt (add .Data.Offset .Data.Limit) .Data.Total }}
+                    <a href="?limit={{ .Data.Limit }}&offset={{ add .Data.Offset .Data.Limit }}{{ if .Data.Filters.Search }}&search={{ .Data.Filters.Search }}{{ end }}{{ if .Data.Filters.IsActive }}&is_active={{ .Data.Filters.IsActive }}{{ end }}"
+                        class="btn btn--secondary btn--sm">Next</a>
+                    {{ else }}
+                    <button class="btn btn--secondary btn--sm" disabled>Next</button>
+                    {{ end }}
+                </nav>
             </div>
             {{ end }}
         </div>

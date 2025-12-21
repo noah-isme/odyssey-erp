@@ -2,16 +2,16 @@
 {{ template "layouts/base.html" . }}
 {{ end }}
 
-{{ define "title" }}Customer {{ .Customer.Code }}{{ end }}
+{{ define "title" }}Customer {{ .Data.Customer.Code }}{{ end }}
 
 {{ define "content" }}
 <div class="customer-detail-wrapper">
     <header>
-        <h1>Customer: {{ .Customer.Name }}</h1>
+        <h1>Customer: {{ .Data.Customer.Name }}</h1>
         <p>
-            Code: <strong>{{ .Customer.Code }}</p></strong> |
+            Code: <strong>{{ .Data.Customer.Code }}</p></strong> |
             Status:
-            {{ if .Customer.IsActive }}
+            {{ if .Data.Customer.IsActive }}
             <span class="badge badge-success">Active</span>
             {{ else }}
             <span class="badge badge-secondary">Inactive</span>
@@ -23,9 +23,9 @@
     <section class="actions">
         <div role="group">
             <a href="/sales/customers" role="button" class="secondary">← Back to List</a>
-            <a href="/sales/customers/{{ .Customer.ID }}/edit" role="button">Edit Customer</a>
-            <a href="/sales/quotations/new?customer_id={{ .Customer.ID }}" role="button" class="secondary">+ New Quotation</a>
-            <a href="/sales/orders/new?customer_id={{ .Customer.ID }}" role="button" class="secondary">+ New Order</a>
+            <a href="/sales/customers/{{ .Data.Customer.ID }}/edit" role="button">Edit Customer</a>
+            <a href="/sales/quotations/new?customer_id={{ .Data.Customer.ID }}" role="button" class="secondary">+ New Quotation</a>
+            <a href="/sales/orders/new?customer_id={{ .Data.Customer.ID }}" role="button" class="secondary">+ New Order</a>
         </div>
     </section>
 
@@ -35,20 +35,20 @@
         <div class="grid">
             <div>
                 <label>Customer Code</label>
-                <p><strong>{{ .Customer.Code }}</strong></p>
+                <p><strong>{{ .Data.Customer.Code }}</strong></p>
             </div>
             <div>
                 <label>Customer Name</label>
-                <p><strong>{{ .Customer.Name }}</strong></p>
+                <p><strong>{{ .Data.Customer.Name }}</strong></p>
             </div>
             <div>
                 <label>Country</label>
-                <p>{{ .Customer.Country }}</p>
+                <p>{{ .Data.Customer.Country }}</p>
             </div>
             <div>
                 <label>Status</label>
                 <p>
-                    {{ if .Customer.IsActive }}
+                    {{ if .Data.Customer.IsActive }}
                     <span class="badge badge-success">Active</span>
                     {{ else }}
                     <span class="badge badge-secondary">Inactive</span>
@@ -60,15 +60,15 @@
         <div class="grid">
             <div>
                 <label>Email</label>
-                <p>{{ if .Customer.Email }}{{ .Customer.Email }}{{ else }}-{{ end }}</p>
+                <p>{{ if .Data.Customer.Email }}{{ .Data.Customer.Email }}{{ else }}-{{ end }}</p>
             </div>
             <div>
                 <label>Phone</label>
-                <p>{{ if .Customer.Phone }}{{ .Customer.Phone }}{{ else }}-{{ end }}</p>
+                <p>{{ if .Data.Customer.Phone }}{{ .Data.Customer.Phone }}{{ else }}-{{ end }}</p>
             </div>
             <div>
                 <label>Tax ID / NPWP</label>
-                <p>{{ if .Customer.TaxID }}{{ .Customer.TaxID }}{{ else }}-{{ end }}</p>
+                <p>{{ if .Data.Customer.TaxID }}{{ .Data.Customer.TaxID }}{{ else }}-{{ end }}</p>
             </div>
         </div>
     </section>
@@ -80,20 +80,20 @@
             <div>
                 <label>Street Address</label>
                 <p>
-                    {{ if .Customer.AddressLine1 }}{{ .Customer.AddressLine1 }}{{ else }}-{{ end }}<br>
-                    {{ if .Customer.AddressLine2 }}{{ .Customer.AddressLine2 }}{{ end }}
+                    {{ if .Data.Customer.AddressLine1 }}{{ .Data.Customer.AddressLine1 }}{{ else }}-{{ end }}<br>
+                    {{ if .Data.Customer.AddressLine2 }}{{ .Data.Customer.AddressLine2 }}{{ end }}
                 </p>
             </div>
             <div>
                 <label>City / State</label>
                 <p>
-                    {{ if .Customer.City }}{{ .Customer.City }}{{ else }}-{{ end }}
-                    {{ if .Customer.State }}, {{ .Customer.State }}{{ end }}
+                    {{ if .Data.Customer.City }}{{ .Data.Customer.City }}{{ else }}-{{ end }}
+                    {{ if .Data.Customer.State }}, {{ .Data.Customer.State }}{{ end }}
                 </p>
             </div>
             <div>
                 <label>Postal Code</label>
-                <p>{{ if .Customer.PostalCode }}{{ .Customer.PostalCode }}{{ else }}-{{ end }}</p>
+                <p>{{ if .Data.Customer.PostalCode }}{{ .Data.Customer.PostalCode }}{{ else }}-{{ end }}</p>
             </div>
         </div>
     </section>
@@ -104,11 +104,11 @@
         <div class="grid">
             <div>
                 <label>Credit Limit</label>
-                <p><strong>{{ printf "%.2f" .Customer.CreditLimit }}</strong></p>
+                <p><strong>{{ printf "%.2f" .Data.Customer.CreditLimit }}</strong></p>
             </div>
             <div>
                 <label>Payment Terms</label>
-                <p><strong>{{ .Customer.PaymentTermsDays }} days</strong></p>
+                <p><strong>{{ .Data.Customer.PaymentTermsDays }} days</strong></p>
             </div>
             <div>
                 <label>Current Outstanding</label>
@@ -127,22 +127,22 @@
         <div class="grid">
             <div>
                 <label>Created By</label>
-                <p>User #{{ .Customer.CreatedBy }}</p>
+                <p>User #{{ .Data.Customer.CreatedBy }}</p>
             </div>
             <div>
                 <label>Created At</label>
-                <p>{{ .Customer.CreatedAt.Format "2006-01-02 15:04:05" }}</p>
+                <p>{{ .Data.Customer.CreatedAt.Format "2006-01-02 15:04:05" }}</p>
             </div>
             <div>
                 <label>Updated At</label>
-                <p>{{ .Customer.UpdatedAt.Format "2006-01-02 15:04:05" }}</p>
+                <p>{{ .Data.Customer.UpdatedAt.Format "2006-01-02 15:04:05" }}</p>
             </div>
         </div>
 
-        {{ if .Customer.Notes }}
+        {{ if .Data.Customer.Notes }}
         <div>
             <label>Notes</label>
-            <p style="white-space: pre-wrap;">{{ .Customer.Notes }}</p>
+            <p style="white-space: pre-wrap;">{{ .Data.Customer.Notes }}</p>
         </div>
         {{ end }}
     </section>

@@ -2,22 +2,22 @@
 {{ template "layouts/base.html" . }}
 {{ end }}
 
-{{ define "title" }}{{ if .Order }}Edit Sales Order{{ else }}New Sales Order{{ end }}{{ end }}
+{{ define "title" }}{{ if .Data.Order }}Edit Sales Order{{ else }}New Sales Order{{ end }}{{ end }}
 
 {{ define "content" }}
 <div class="order-form-wrapper">
     <header>
-        <h1>{{ if .Order }}Edit Sales Order {{ .Order.DocNumber }}{{ else }}New Sales Order{{ end }}</h1>
-        <p>{{ if .Order }}Update order details and line items{{ else }}Create a new sales order{{ end }}</p>
+        <h1>{{ if .Data.Order }}Edit Sales Order {{ .Data.Order.DocNumber }}{{ else }}New Sales Order{{ end }}</h1>
+        <p>{{ if .Data.Order }}Update order details and line items{{ else }}Create a new sales order{{ end }}</p>
     </header>
 
-    {{ if .Errors.general }}
+    {{ if .Data.Errors.general }}
     <article class="error">
-        <p><strong>Error</p>:</strong> {{ .Errors.general }}</p>
+        <p><strong>Error</p>:</strong> {{ .Data.Errors.general }}</p>
     </article>
     {{ end }}
 
-    <form method="post" action="{{ if .Order }}/sales/orders/{{ .Order.ID }}/edit{{ else }}/sales/orders{{ end }}">
+    <form method="post" action="{{ if .Data.Order }}/sales/orders/{{ .Data.Order.ID }}/edit{{ else }}/sales/orders{{ end }}">
         <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
 
         <!-- Header Information -->
@@ -26,24 +26,24 @@
             <div class="grid">
                 <div>
                     <label for="customer_id">Customer <span class="required">*</span></label>
-                    <select name="customer_id" id="customer_id" required {{ if .Order }}disabled{{ end }}>
+                    <select name="customer_id" id="customer_id" required {{ if .Data.Order }}disabled{{ end }}>
                         <option value="">Select customer...</option>
-                        {{ range .Customers }}
-                        <option value="{{ .ID }}" {{ if $.Order }}{{ if eq $.Order.CustomerID .ID }}selected{{ end }}{{ end }}>
+                        {{ range .Data.Customers }}
+                        <option value="{{ .ID }}" {{ if $.Data.Order }}{{ if eq $.Data.Order.Data.CustomerID .ID }}selected{{ end }}{{ end }}>
                             {{ .Code }} - {{ .Name }}
                         </option>
                         {{ end }}
                     </select>
-                    {{ if .Order }}
-                    <input type="hidden" name="customer_id" value="{{ .Order.CustomerID }}">
+                    {{ if .Data.Order }}
+                    <input type="hidden" name="customer_id" value="{{ .Data.Order.Data.CustomerID }}">
                     {{ end }}
                 </div>
                 <div>
                     <label for="currency">Currency <span class="required">*</span></label>
                     <select name="currency" id="currency" required>
-                        <option value="IDR" {{ if .Order }}{{ if eq .Order.Currency "IDR" }}selected{{ end }}{{ else }}selected{{ end }}>IDR</option>
-                        <option value="USD" {{ if .Order }}{{ if eq .Order.Currency "USD" }}selected{{ end }}{{ end }}>USD</option>
-                        <option value="EUR" {{ if .Order }}{{ if eq .Order.Currency "EUR" }}selected{{ end }}{{ end }}>EUR</option>
+                        <option value="IDR" {{ if .Data.Order }}{{ if eq .Data.Order.Currency "IDR" }}selected{{ end }}{{ else }}selected{{ end }}>IDR</option>
+                        <option value="USD" {{ if .Data.Order }}{{ if eq .Data.Order.Currency "USD" }}selected{{ end }}{{ end }}>USD</option>
+                        <option value="EUR" {{ if .Data.Order }}{{ if eq .Data.Order.Currency "EUR" }}selected{{ end }}{{ end }}>EUR</option>
                     </select>
                 </div>
             </div>
@@ -52,18 +52,18 @@
                 <div>
                     <label for="order_date">Order Date <span class="required">*</span></label>
                     <input type="date" name="order_date" id="order_date" required
-                           value="{{ if .Order }}{{ .Order.OrderDate.Format "2006-01-02" }}{{ end }}">
+                           value="{{ if .Data.Order }}{{ .Data.Order.Data.OrderDate.Format "2006-01-02" }}{{ end }}">
                 </div>
                 <div>
                     <label for="expected_delivery_date">Expected Delivery Date</label>
                     <input type="date" name="expected_delivery_date" id="expected_delivery_date"
-                           value="{{ if .Order }}{{ if .Order.ExpectedDeliveryDate }}{{ .Order.ExpectedDeliveryDate.Format "2006-01-02" }}{{ end }}{{ end }}">
+                           value="{{ if .Data.Order }}{{ if .Data.Order.ExpectedDeliveryDate }}{{ .Data.Order.ExpectedDeliveryDate.Format "2006-01-02" }}{{ end }}{{ end }}">
                 </div>
             </div>
 
             <div>
                 <label for="notes">Notes</label>
-                <textarea name="notes" id="notes" rows="3" placeholder="Additional notes or terms">{{ if .Order }}{{ .Order.Notes }}{{ end }}</textarea>
+                <textarea name="notes" id="notes" rows="3" placeholder="Additional notes or terms">{{ if .Data.Order }}{{ .Data.Order.Notes }}{{ end }}</textarea>
             </div>
         </section>
 
@@ -73,8 +73,8 @@
             <p><small>Add products and quantities to this order</small></p>
 
             <div id="line-items-container">
-                {{ if .Order }}
-                {{ range $index, $line := .Order.Lines }}
+                {{ if .Data.Order }}
+                {{ range $index, $line := .Data.Order.Lines }}
                 <div class="line-item" data-index="{{ $index }}">
                     <div class="grid">
                         <div>
@@ -152,8 +152,8 @@
         <!-- Actions -->
         <section>
             <div role="group">
-                <a href="{{ if .Order }}/sales/orders/{{ .Order.ID }}{{ else }}/sales/orders{{ end }}" role="button" class="secondary">Cancel</a>
-                <button type="submit">{{ if .Order }}Update Sales Order{{ else }}Create Sales Order{{ end }}</button>
+                <a href="{{ if .Data.Order }}/sales/orders/{{ .Data.Order.ID }}{{ else }}/sales/orders{{ end }}" role="button" class="secondary">Cancel</a>
+                <button type="submit">{{ if .Data.Order }}Update Sales Order{{ else }}Create Sales Order{{ end }}</button>
             </div>
         </section>
     </form>
@@ -185,7 +185,7 @@
 </style>
 
 <script>
-let lineCounter = {{ if .Order }}{{ len .Order.Lines }}{{ else }}1{{ end }};
+let lineCounter = {{ if .Data.Order }}{{ len .Data.Order.Lines }}{{ else }}1{{ end }};
 
 function addLine() {
     const container = document.getElementById('line-items-container');

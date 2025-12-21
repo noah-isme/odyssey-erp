@@ -50,6 +50,7 @@ type stockCardPageData struct {
 	To          string
 	Entries     []StockCardEntry
 	Errors      map[string]string
+	AppEnv      string
 }
 
 type adjustmentForm struct {
@@ -105,16 +106,28 @@ func (h *Handler) handleStockCard(w http.ResponseWriter, r *http.Request) {
 			toTime, err = time.Parse("2006-01-02", data.To)
 			if err != nil {
 				data.Errors["to"] = "Tanggal akhir tidak valid"
+			} else {
+				// Set to end of day
+				toTime = toTime.Add(24*time.Hour - 1*time.Nanosecond)
 			}
 		}
 		if len(data.Errors) == 0 {
 			entries, err := h.service.GetStockCard(r.Context(), StockCardFilter{WarehouseID: data.WarehouseID, ProductID: data.ProductID, From: fromTime, To: toTime, Limit: 500})
 			if err != nil {
 				data.Errors["general"] = err.Error()
+				h.logger.Error("failed to get stock card", slog.Any("error", err))
 			} else {
 				data.Entries = entries
+				h.logger.Info("got stock card", 
+					slog.Int("count", len(entries)), 
+					slog.Int64("warehouse_id", data.WarehouseID), 
+					slog.Int64("product_id", data.ProductID))
 			}
 		}
+	} else {
+		h.logger.Info("stock card missing filters", 
+			slog.Int64("warehouse_id", data.WarehouseID), 
+			slog.Int64("product_id", data.ProductID))
 	}
 	var flash *shared.FlashMessage
 	if sess != nil {

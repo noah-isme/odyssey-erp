@@ -200,7 +200,7 @@
         <!-- Finance -->
         <div class="sidebar-section">
             <div class="sidebar-section-title">Finance</div>
-            <a href="/procurement/ap-invoices" class="nav-item">
+            <a href="/procurement/ap/invoices" class="nav-item">
                 <span class="nav-item-icon">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <rect x="2" y="3" width="20" height="18" rx="2" />
@@ -513,13 +513,7 @@
 
         <!-- Sidebar Footer -->
         <div class="sidebar-footer">
-            {{ if .Data.AppEnv }}
-            <span class="env-badge {{ if eq .Data.AppEnv " production" }}production{{ end }}">
-                {{ .Data.AppEnv }}
-            </span>
-            {{ else }}
             <span class="env-badge">dev</span>
-            {{ end }}
             <div class="version-text">Odyssey ERP v1.0</div>
         </div>
     </div>

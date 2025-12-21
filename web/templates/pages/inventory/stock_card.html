@@ -2,54 +2,147 @@
 {{ template "layouts/base.html" . }}
 {{ end }}
 
-{{ define "title" }}Kartu Stok{{ end }}
+{{ define "title" }}Stock Card{{ end }}
 
 {{ define "content" }}
-<h1>Kartu Stok</h1>
-<form method="get" class="grid">
-    <label>Gudang
-        <input type="number" name="warehouse_id" value="{{ .Data.WarehouseID }}" required>
-    </label>
-    <label>Produk
-        <input type="number" name="product_id" value="{{ .Data.ProductID }}" required>
-    </label>
-    <label>Periode Mulai
-        <input type="date" name="from" value="{{ .Data.From }}">
-    </label>
-    <label>Periode Akhir
-        <input type="date" name="to" value="{{ .Data.To }}">
-    </label>
-    <button type="submit">Tampilkan</button>
-</form>
-{{ if .Data.Errors.general }}<p class="error">{{ index .Data.Errors "general" }}</p>{{ end }}
-<table>
-    <thead>
-        <tr>
-            <th>Tanggal</th>
-            <th>Kode</th>
-            <th>Jenis</th>
-            <th>Masuk</th>
-            <th>Keluar</th>
-            <th>Saldo</th>
-            <th>Harga</th>
-        </tr>
-    </thead>
-    <tbody>
-        {{ range .Data.Entries }}
-        <tr>
-            <td>{{ formatDate .PostedAt }}</td>
-            <td>{{ .TxCode }}</td>
-            <td>{{ .TxType }}</td>
-            <td>{{ printf "%.4f" .QtyIn }}</td>
-            <td>{{ printf "%.4f" .QtyOut }}</td>
-            <td>{{ printf "%.4f" .BalanceQty }}</td>
-            <td>{{ printf "%.2f" .UnitCost }}</td>
-        </tr>
-        {{ else }}
-        <tr>
-            <td colspan="7">Belum ada data.</td>
-        </tr>
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-title">Stock Card</h1>
+            <p class="page-subtitle">Track detailed inventory movements and balances</p>
+        </div>
+        <div class="page-header__actions">
+            <!-- Optional actions could go here -->
+        </div>
+    </header>
+
+    <div class="page-content">
+        <!-- Filters -->
+        <section class="filters-card">
+            <form method="get" action="/inventory/stock-card" class="filters-form" data-component="filters">
+                <div class="filters-grid">
+                    <div class="form-group">
+                        <label for="warehouse_id" class="form-label">Warehouse ID <span
+                                class="text-danger">*</span></label>
+                        <input type="number" name="warehouse_id" id="warehouse_id" class="form-input"
+                            placeholder="e.g. 1" value="{{ if .Data.WarehouseID }}{{ .Data.WarehouseID }}{{ end }}"
+                            required>
+                        <span class="text-xs text-muted">
+                            <a href="/masterdata/warehouses" target="_blank" class="link">Find ID</a>
+                        </span>
+                    </div>
+                    <div class="form-group">
+                        <label for="product_id" class="form-label">Product ID <span class="text-danger">*</span></label>
+                        <input type="number" name="product_id" id="product_id" class="form-input" placeholder="e.g. 101"
+                            value="{{ if .Data.ProductID }}{{ .Data.ProductID }}{{ end }}" required>
+                        <span class="text-xs text-muted">
+                            <a href="/masterdata/products" target="_blank" class="link">Find ID</a>
+                        </span>
+                    </div>
+                    <div class="form-group">
+                        <label for="from" class="form-label">From Date</label>
+                        <input type="date" name="from" id="from" class="form-input" value="{{ .Data.From }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="to" class="form-label">To Date</label>
+                        <input type="date" name="to" id="to" class="form-input" value="{{ .Data.To }}">
+                    </div>
+                </div>
+                <div class="filters-actions">
+                    <button type="submit" class="btn btn--primary">Show Card</button>
+                    <a href="/inventory/stock-card" class="btn btn--secondary">Reset</a>
+                </div>
+            </form>
+        </section>
+
+        <!-- Debug Info -->
+        <div class="alert alert--info mb-4">
+            <h4 class="alert__title">Debug Info</h4>
+            <p>WarehouseID: {{ .Data.WarehouseID }}</p>
+            <p>ProductID: {{ .Data.ProductID }}</p>
+            <p>Entries Count: {{ len .Data.Entries }}</p>
+            <p>Errors: {{ .Data.Errors }}</p>
+        </div>
+
+        <!-- Flash Messages -->
+        {{ if .Data.Errors.general }}
+        <div class="alert alert--danger mb-4">
+            {{ index .Data.Errors "general" }}
+        </div>
         {{ end }}
-    </tbody>
-</table>
+
+        <!-- Results Table -->
+        <div class="card p-0 overflow-hidden" data-component="datatable">
+            <div class="table-wrap">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th scope="col" width="15%">Date</th>
+                            <th scope="col" width="15%">Tx Code</th>
+                            <th scope="col" width="10%">Type</th>
+                            <th scope="col" width="10%" class="text-right">In</th>
+                            <th scope="col" width="10%" class="text-right">Out</th>
+                            <th scope="col" width="10%" class="text-right">Balance</th>
+                            <th scope="col" width="10%" class="text-right">Unit Cost</th>
+                            <th scope="col" width="20%">Note</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{ if .Data.Entries }}
+                        {{ range .Data.Entries }}
+                        <tr>
+                            <td>{{ formatDate .PostedAt }}</td>
+                            <td><code class="text-xs">{{ .TxCode }}</code></td>
+                            <td>
+                                {{ if eq .TxType "IN" }}<span class="badge badge--success">IN</span>{{ end }}
+                                {{ if eq .TxType "OUT" }}<span class="badge badge--danger">OUT</span>{{ end }}
+                                {{ if eq .TxType "ADJUST" }}<span class="badge badge--warning">ADJ</span>{{ end }}
+                                {{ if eq .TxType "TRANSFER" }}<span class="badge badge--info">TRF</span>{{ end }}
+                            </td>
+                            <td class="text-right tabular-nums text-success">
+                                {{ if gt .QtyIn 0.0 }}+{{ formatDecimal .QtyIn }}{{ else }}-{{ end }}
+                            </td>
+                            <td class="text-right tabular-nums text-danger">
+                                {{ if gt .QtyOut 0.0 }}-{{ formatDecimal .QtyOut }}{{ else }}-{{ end }}
+                            </td>
+                            <td class="text-right tabular-nums font-bold">
+                                {{ formatDecimal .BalanceQty }}
+                            </td>
+                            <td class="text-right tabular-nums">
+                                {{ formatDecimal .UnitCost }}
+                            </td>
+                            <td class="text-sm text-muted trunc-text" title="{{ .Note }}">
+                                {{ .Note }}
+                            </td>
+                        </tr>
+                        {{ end }}
+                        {{ else }}
+                        <tr>
+                            <td colspan="8" class="table-empty">
+                                <div class="empty-state">
+                                    <div class="empty-state__icon">
+                                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="1">
+                                            <path
+                                                d="M7 21h10a2 2 0 0 0 2-2V9.414a1 1 0 0 0-.293-.707l-5.414-5.414A1 1 0 0 0 12.586 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2z">
+                                            </path>
+                                        </svg>
+                                    </div>
+                                    {{ if or .Data.WarehouseID .Data.ProductID }}
+                                    <h3>No transactions found</h3>
+                                    <p>There are no movements for this items in the selected period.</p>
+                                    {{ else }}
+                                    <h3>Select Item to View</h3>
+                                    <p>Please enter a Warehouse ID and Product ID to view the stock card.</p>
+                                    {{ end }}
+                                </div>
+                            </td>
+                        </tr>
+                        {{ end }}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
 {{ end }}

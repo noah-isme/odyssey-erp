@@ -1,0 +1,88 @@
+{{ define "pages/jobs/index.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Jobs Dashboard{{ end }}
+
+{{ define "content" }}
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-title">Jobs Dashboard</h1>
+            <p class="page-subtitle">Background job monitoring and management</p>
+        </div>
+    </header>
+
+    <div class="page-content">
+        <!-- Queue Overview -->
+        <section class="card">
+            <header class="card__header">
+                <h2 class="card__title">Queue Status</h2>
+            </header>
+            <div class="card__body">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-card__label">Queue</div>
+                        <div class="stat-card__value">{{ if .Data.Queue }}{{ .Data.Queue }}{{ else }}default{{ end }}
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card__label">Pending Jobs</div>
+                        <div class="stat-card__value tabular-nums">{{ .Data.Pending }}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card__label">Active Jobs</div>
+                        <div class="stat-card__value tabular-nums">{{ .Data.Active }}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card__label">Completed</div>
+                        <div class="stat-card__value tabular-nums">{{ .Data.Completed }}</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Quick Actions -->
+        <section class="card">
+            <header class="card__header">
+                <h2 class="card__title">Quick Actions</h2>
+            </header>
+            <div class="card__body">
+                <nav class="action-list">
+                    <a href="/jobs/health" class="action-item">
+                        <span class="action-item__icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                            </svg>
+                        </span>
+                        <span class="action-item__text">
+                            <strong>Health Check</strong>
+                            <small>View queue health status (JSON)</small>
+                        </span>
+                    </a>
+                </nav>
+            </div>
+        </section>
+
+        <!-- Registered Tasks -->
+        <section class="card">
+            <header class="card__header">
+                <h2 class="card__title">Registered Task Types</h2>
+            </header>
+            <div class="card__body">
+                <ul class="list-simple">
+                    <li><code>task:send_email</code> - Send email notifications</li>
+                    <li><code>task:inventory_revaluation</code> - Recalculate inventory costs</li>
+                    <li><code>task:procurement_reindex</code> - Reindex procurement data</li>
+                    <li><code>task:variance_snapshot</code> - Generate variance snapshots</li>
+                    <li><code>task:board_pack</code> - Generate board pack reports</li>
+                    <li><code>task:insights_warmup</code> - Warm up insights cache</li>
+                    <li><code>task:consolidate_refresh</code> - Refresh consolidation data</li>
+                    <li><code>task:anomaly_scan</code> - Scan for anomalies</li>
+                </ul>
+            </div>
+        </section>
+    </div>
+</div>
+{{ end }}

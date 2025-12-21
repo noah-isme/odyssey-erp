@@ -78,7 +78,13 @@ func main() {
 		log.Fatalf("seed journals: %v", err)
 	}
 
-	// Phase 7: Advanced Features
+	// Phase 7: Inventory
+	fmt.Println("→ Seeding inventory...")
+	if err := seedInventory(ctx, pool); err != nil {
+		log.Fatalf("seed inventory: %v", err)
+	}
+
+	// Phase 8: Advanced Features
 	fmt.Println("→ Seeding board pack templates...")
 	if err := seedBoardPackTemplates(ctx, pool); err != nil {
 		log.Fatalf("seed board pack templates: %v", err)
@@ -182,6 +188,14 @@ func seedRBAC(ctx context.Context, pool *pgxpool.Pool) error {
 		{"finance.manage_consolidation", "Manage rules and runs"},
 		{"finance.export_consolidation", "Export consolidated data"},
 		{"finance.period.close", "Manage period closing"},
+		// Delivery
+		{"delivery.order.view", "View delivery orders"},
+		{"delivery.order.create", "Create delivery orders"},
+		{"delivery.order.edit", "Edit delivery orders"},
+		{"delivery.order.confirm", "Confirm delivery orders"},
+		{"delivery.order.ship", "Ship delivery orders"},
+		{"delivery.order.complete", "Complete delivery orders"},
+		{"delivery.order.cancel", "Cancel delivery orders"},
 	}
 
 	tx, err := pool.Begin(ctx)
@@ -215,6 +229,7 @@ func seedRBAC(ctx context.Context, pool *pgxpool.Pool) error {
 			"sales.customer.view", "sales.customer.create", "sales.customer.edit",
 			"sales.quotation.view", "sales.quotation.create", "sales.quotation.edit", "sales.quotation.approve",
 			"sales.order.view", "sales.order.create", "sales.order.edit", "sales.order.confirm", "sales.order.cancel",
+			"delivery.order.view", "delivery.order.create", "delivery.order.edit", "delivery.order.confirm", "delivery.order.ship", "delivery.order.complete", "delivery.order.cancel",
 			"finance.view_consolidation", "finance.post_elimination", "finance.manage_consolidation", "finance.export_consolidation", "finance.period.close",
 		}},
 		{"manager", "Manage operations", []string{
@@ -327,6 +342,7 @@ func seedMasterData(ctx context.Context, pool *pgxpool.Pool) error {
 		{"ODY-01", "BR-SBY", "Cabang Surabaya", "Jl. Pemuda No. 45, Surabaya"},
 		{"ODY-02", "BR-BDG", "Kantor Bandung", "Jl. Asia Afrika No. 50, Bandung"},
 		{"ODY-02", "BR-SMG", "Cabang Semarang", "Jl. Pandanaran No. 20, Semarang"},
+		{"MAIN", "HQ-MAIN", "Kantor Pusat Demo", "Jl. Demo No. 1, Jakarta"},
 	}
 	for _, b := range branches {
 		_, err := tx.Exec(ctx, `
@@ -349,6 +365,7 @@ func seedMasterData(ctx context.Context, pool *pgxpool.Pool) error {
 		{"BR-SBY", "WH-SBY-01", "Gudang Surabaya", "Jl. Margomulyo No. 10, Surabaya"},
 		{"BR-BDG", "WH-BDG-01", "Gudang Bandung", "Jl. Soekarno Hatta No. 88, Bandung"},
 		{"BR-SMG", "WH-SMG-01", "Gudang Semarang", "Jl. Siliwangi No. 55, Semarang"},
+		{"HQ-MAIN", "WH-MAIN-01", "Gudang Utama Demo", "Jl. Demo Gudang No. 1, Jakarta"},
 	}
 	for _, w := range warehouses {
 		_, err := tx.Exec(ctx, `
@@ -777,7 +794,7 @@ func seedSales(ctx context.Context, pool *pgxpool.Pool) error {
 		}
 		return err
 	}
-	err = tx.QueryRow(ctx, `SELECT id FROM companies WHERE code = 'ODY-01' LIMIT 1`).Scan(&companyID)
+	err = tx.QueryRow(ctx, `SELECT id FROM companies ORDER BY id ASC LIMIT 1`).Scan(&companyID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return tx.Commit(ctx)
@@ -840,7 +857,7 @@ func seedSales(ctx context.Context, pool *pgxpool.Pool) error {
 		err := tx.QueryRow(ctx, `
 			INSERT INTO quotations (doc_number, company_id, customer_id, quote_date, valid_until, status, currency, notes, created_by)
 			VALUES ($1, $2, $3, CURRENT_DATE, CURRENT_DATE + 30, $4::quotation_status, 'IDR', $5, $6)
-			ON CONFLICT (doc_number) DO UPDATE SET doc_number = EXCLUDED.doc_number
+			ON CONFLICT (doc_number) DO UPDATE SET company_id = EXCLUDED.company_id, customer_id = EXCLUDED.customer_id
 			RETURNING id`, q.docNumber, companyID, customerID, q.status, q.notes, adminID).Scan(&quoID)
 		if err != nil {
 			return err
@@ -871,7 +888,7 @@ func seedSales(ctx context.Context, pool *pgxpool.Pool) error {
 		err := tx.QueryRow(ctx, `
 			INSERT INTO sales_orders (doc_number, company_id, customer_id, order_date, expected_delivery_date, status, currency, notes, created_by)
 			VALUES ($1, $2, $3, CURRENT_DATE, CURRENT_DATE + 7, $4::sales_order_status, 'IDR', $5, $6)
-			ON CONFLICT (doc_number) DO UPDATE SET doc_number = EXCLUDED.doc_number
+			ON CONFLICT (doc_number) DO UPDATE SET company_id = EXCLUDED.company_id, customer_id = EXCLUDED.customer_id
 			RETURNING id`, so.docNumber, companyID, customerID, so.status, so.notes, adminID).Scan(&soID)
 		if err != nil {
 			return err
@@ -891,13 +908,17 @@ func seedSales(ctx context.Context, pool *pgxpool.Pool) error {
 	var confirmedSOID, warehouseID int64
 	err = tx.QueryRow(ctx, `SELECT id FROM sales_orders WHERE doc_number = 'SO-202412-0002' LIMIT 1`).Scan(&confirmedSOID)
 	if err == nil {
-		err = tx.QueryRow(ctx, `SELECT id FROM warehouses WHERE code = 'WH-JKT-01' LIMIT 1`).Scan(&warehouseID)
+		// Get a warehouse for this company
+		err = tx.QueryRow(ctx, `
+			SELECT w.id FROM warehouses w 
+			JOIN branches b ON w.branch_id = b.id 
+			WHERE b.company_id = $1 LIMIT 1`, companyID).Scan(&warehouseID)
 		if err == nil {
 			var doID int64
 			err = tx.QueryRow(ctx, `
 				INSERT INTO delivery_orders (doc_number, company_id, sales_order_id, warehouse_id, customer_id, delivery_date, status, driver_name, vehicle_number, notes, created_by)
 				VALUES ('DO-202412-00001', $1, $2, $3, $4, CURRENT_DATE, 'DRAFT'::delivery_order_status, 'Budi Santoso', 'B 1234 ABC', 'Pengiriman ke Jakarta', $5)
-				ON CONFLICT (doc_number) DO UPDATE SET doc_number = EXCLUDED.doc_number
+				ON CONFLICT (doc_number) DO UPDATE SET company_id = EXCLUDED.company_id, sales_order_id = EXCLUDED.sales_order_id, warehouse_id = EXCLUDED.warehouse_id, customer_id = EXCLUDED.customer_id
 				RETURNING id`, companyID, confirmedSOID, warehouseID, customerID, adminID).Scan(&doID)
 			if err != nil {
 				return err
@@ -1157,5 +1178,76 @@ func seedBoardPackTemplates(ctx context.Context, pool *pgxpool.Pool) error {
 		INSERT INTO board_pack_templates (name, description, sections, is_default, is_active, created_by)
 		VALUES ($1,$2,$3,TRUE,TRUE,$4)`, name, "Default sections covering summary, PL, BS, cashflow, dan variance.", payload, createdBy)
 	return err
+}
+
+// =============================================================================
+// INVENTORY
+// =============================================================================
+
+func seedInventory(ctx context.Context, pool *pgxpool.Pool) error {
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	// Get Warehouse and Product for seeding
+	var warehouseID, productID int64
+	err = tx.QueryRow(ctx, `SELECT id FROM warehouses WHERE code = 'WH-JKT-01' LIMIT 1`).Scan(&warehouseID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return tx.Commit(ctx)
+		}
+		return err
+	}
+	err = tx.QueryRow(ctx, `SELECT id FROM products WHERE sku = 'PRD-001' LIMIT 1`).Scan(&productID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return tx.Commit(ctx)
+		}
+		return err
+	}
+
+	// Create a dummy transaction
+	now := time.Now()
+	var txID int64
+	err = tx.QueryRow(ctx, `
+		INSERT INTO inventory_tx (code, tx_type, warehouse_id, posted_at, created_at)
+		VALUES ('INV-SEED-001', 'IN', $1, $2, $2)
+		ON CONFLICT (code) DO UPDATE SET posted_at = EXCLUDED.posted_at
+		RETURNING id`, warehouseID, now).Scan(&txID)
+	if err != nil {
+		return err
+	}
+
+	// Create Stock Card Entry
+	_, err = tx.Exec(ctx, `
+		INSERT INTO inventory_cards (
+			warehouse_id, product_id, tx_id, tx_code, tx_type, 
+			qty_in, qty_out, balance_qty, unit_cost, balance_cost, 
+			posted_at, note
+		) VALUES (
+			$1, $2, $3, 'INV-SEED-001', 'IN', 
+			100, 0, 100, 8500000, 8500000, 
+			$4, 'Initial Seed Stock'
+		)
+		ON CONFLICT DO NOTHING`, 
+		warehouseID, productID, txID, now)
+	if err != nil {
+		return err
+	}
+
+	// Create Balance
+	_, err = tx.Exec(ctx, `
+		INSERT INTO inventory_balances (warehouse_id, product_id, qty, avg_cost, updated_at)
+		VALUES ($1, $2, 100, 8500000, $3)
+		ON CONFLICT (warehouse_id, product_id) 
+		DO UPDATE SET qty = EXCLUDED.qty, avg_cost = EXCLUDED.avg_cost`, 
+		warehouseID, productID, now)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
 }
 

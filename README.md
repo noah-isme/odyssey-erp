@@ -26,13 +26,15 @@ open http://localhost:8080
 ```
 odyssey-erp/
 ├── cmd/                    # Application entry points
-├── internal/              # Internal packages
+├── internal/              # Modular Monolith Architecture
+│   ├── platform/          # Infrastructure (DB, Cache, HTTP)
+│   ├── sqlc/              # Generated Database Code
+│   ├── <domain>/          # Business Domains (e.g., sales, accounting)
+│   └── app/               # Application Assembly
 ├── web/                   # Web assets (templates, CSS, JS)
 ├── migrations/            # Database migrations
 ├── scripts/               # Build and seed scripts
 ├── tools/                 # Utility tools
-│   ├── scripts/          # Runtime management scripts
-│   └── db-setup/         # Database setup scripts
 ├── documentation/         # Project documentation
 ├── deploy/               # Deployment configurations
 ├── docker-compose.yml    # Docker services
@@ -118,6 +120,7 @@ All services use Alpine Linux for minimal footprint and security.
 
 ## 🏗️ Tech Stack
 
+- **Architecture:** Modular Monolith (Clean Architecture)
 - **Backend:** Go 1.24+
 - **Database:** PostgreSQL 15
 - **Cache:** Redis 7

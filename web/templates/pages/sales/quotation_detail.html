@@ -2,19 +2,19 @@
 {{ template "layouts/base.html" . }}
 {{ end }}
 
-{{ define "title" }}Quotation {{ .Quotation.DocNumber }}{{ end }}
+{{ define "title" }}Quotation {{ .Data.Quotation.DocNumber }}{{ end }}
 
 {{ define "content" }}
 <div class="quotation-detail-wrapper">
     <header>
-        <h1>Quotation {{ .Quotation.DocNumber }}</h1>
+        <h1>Quotation {{ .Data.Quotation.DocNumber }}</h1>
         <p>
             Status:
-            {{ if eq .Quotation.Status "DRAFT" }}<span class="badge badge-secondary">Draft</span>{{ end }}
-            {{ if eq .Quotation.Status "SUBMITTED" }}<span class="badge badge-info">Submitted</span>{{ end }}
-            {{ if eq .Quotation.Status "APPROVED" }}<span class="badge badge-success">Approved</span>{{ end }}
-            {{ if eq .Quotation.Status "REJECTED" }}<span class="badge badge-danger">Rejected</span>{{ end }}
-            {{ if eq .Quotation.Status "CONVERTED" }}<span class="badge badge-primary">Converted</span>{{ end }}
+            {{ if eq .Data.Quotation.Status "DRAFT" }}<span class="badge badge-secondary">Draft</span>{{ end }}
+            {{ if eq .Data.Quotation.Status "SUBMITTED" }}<span class="badge badge-info">Submitted</span>{{ end }}
+            {{ if eq .Data.Quotation.Status "APPROVED" }}<span class="badge badge-success">Approved</span>{{ end }}
+            {{ if eq .Data.Quotation.Status "REJECTED" }}<span class="badge badge-danger">Rejected</span>{{ end }}
+            {{ if eq .Data.Quotation.Status "CONVERTED" }}<span class="badge badge-primary">Converted</span>{{ end }}
         </p>
     </header>
 
@@ -23,23 +23,23 @@
         <div role="group">
             <a href="/sales/quotations" role="button" class="secondary">← Back to List</a>
 
-            {{ if eq .Quotation.Status "DRAFT" }}
-            <a href="/sales/quotations/{{ .Quotation.ID }}/edit" role="button" class="secondary">Edit</a>
-            <form method="post" action="/sales/quotations/{{ .Quotation.ID }}/submit" style="display: inline;">
+            {{ if eq .Data.Quotation.Status "DRAFT" }}
+            <a href="/sales/quotations/{{ .Data.Quotation.ID }}/edit" role="button" class="secondary">Edit</a>
+            <form method="post" action="/sales/quotations/{{ .Data.Quotation.ID }}/submit" style="display: inline;">
                 <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
                 <button type="submit">Submit for Approval</button>
             </form>
             {{ end }}
 
-            {{ if eq .Quotation.Status "SUBMITTED" }}
-            <form method="post" action="/sales/quotations/{{ .Quotation.ID }}/approve" style="display: inline;">
+            {{ if eq .Data.Quotation.Status "SUBMITTED" }}
+            <form method="post" action="/sales/quotations/{{ .Data.Quotation.ID }}/approve" style="display: inline;">
                 <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
                 <button type="submit" class="success">Approve</button>
             </form>
             <button type="button" class="danger" onclick="showRejectModal()">Reject</button>
             {{ end }}
 
-            {{ if eq .Quotation.Status "APPROVED" }}
+            {{ if eq .Data.Quotation.Status "APPROVED" }}
             <button type="button" onclick="showConvertModal()">Convert to Sales Order</button>
             {{ end }}
         </div>
@@ -51,77 +51,77 @@
         <div class="grid">
             <div>
                 <label>Document Number</label>
-                <p><strong>{{ .Quotation.DocNumber }}</strong></p>
+                <p><strong>{{ .Data.Quotation.DocNumber }}</strong></p>
             </div>
             <div>
                 <label>Customer</label>
-                <p><strong>{{ if .Customer }}{{ .Customer.Name }}{{ else }}Unknown{{ end }}</strong></p>
+                <p><strong>{{ if .Data.Customer }}{{ .Data.Customer.Name }}{{ else }}Unknown{{ end }}</strong></p>
             </div>
             <div>
                 <label>Quote Date</label>
-                <p>{{ .Quotation.QuoteDate.Format "2006-01-02" }}</p>
+                <p>{{ .Data.Quotation.QuoteDate.Format "2006-01-02" }}</p>
             </div>
             <div>
                 <label>Valid Until</label>
-                <p>{{ .Quotation.ValidUntil.Format "2006-01-02" }}</p>
+                <p>{{ .Data.Quotation.ValidUntil.Format "2006-01-02" }}</p>
             </div>
         </div>
 
         <div class="grid">
             <div>
                 <label>Currency</label>
-                <p>{{ .Quotation.Currency }}</p>
+                <p>{{ .Data.Quotation.Currency }}</p>
             </div>
             <div>
                 <label>Created By</label>
-                <p>User #{{ .Quotation.CreatedBy }}</p>
+                <p>User #{{ .Data.Quotation.CreatedBy }}</p>
             </div>
             <div>
                 <label>Created At</label>
-                <p>{{ .Quotation.CreatedAt.Format "2006-01-02 15:04" }}</p>
+                <p>{{ .Data.Quotation.CreatedAt.Format "2006-01-02 15:04" }}</p>
             </div>
             <div>
                 <label>Updated At</label>
-                <p>{{ .Quotation.UpdatedAt.Format "2006-01-02 15:04" }}</p>
+                <p>{{ .Data.Quotation.UpdatedAt.Format "2006-01-02 15:04" }}</p>
             </div>
         </div>
 
-        {{ if .Quotation.ApprovedBy }}
+        {{ if .Data.Quotation.ApprovedBy }}
         <div class="grid">
             <div>
                 <label>Approved By</label>
-                <p>User #{{ .Quotation.ApprovedBy }}</p>
+                <p>User #{{ .Data.Quotation.ApprovedBy }}</p>
             </div>
             <div>
                 <label>Approved At</label>
-                <p>{{ .Quotation.ApprovedAt.Format "2006-01-02 15:04" }}</p>
+                <p>{{ .Data.Quotation.ApprovedAt.Format "2006-01-02 15:04" }}</p>
             </div>
         </div>
         {{ end }}
 
-        {{ if .Quotation.RejectedBy }}
+        {{ if .Data.Quotation.RejectedBy }}
         <div class="grid">
             <div>
                 <label>Rejected By</label>
-                <p>User #{{ .Quotation.RejectedBy }}</p>
+                <p>User #{{ .Data.Quotation.RejectedBy }}</p>
             </div>
             <div>
                 <label>Rejected At</label>
-                <p>{{ .Quotation.RejectedAt.Format "2006-01-02 15:04" }}</p>
+                <p>{{ .Data.Quotation.RejectedAt.Format "2006-01-02 15:04" }}</p>
             </div>
         </div>
-        {{ if .Quotation.RejectionReason }}
+        {{ if .Data.Quotation.RejectionReason }}
         <div>
             <label>Rejection Reason</label>
-            <p>{{ .Quotation.RejectionReason }}</p>
+            <p>{{ .Data.Quotation.RejectionReason }}</p>
         </div>
         {{ end }}
         {{ end }}
 
-        {{ if .Quotation.Notes }}
+        {{ if .Data.Quotation.Notes }}
         <div>
             <label>Notes</label>
-            <p>{{ .Quotation.Notes }}</p>
+            <p>{{ .Data.Quotation.Notes }}</p>
         </div>
         {{ end }}
     </section>
@@ -147,7 +147,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {{ range .Quotation.Lines }}
+                    {{ range .Data.Quotation.Lines }}
                     <tr>
                         <td>{{ .LineOrder }}</td>
                         <td>{{ .ProductID }}</td>
@@ -166,15 +166,15 @@
                 <tfoot>
                     <tr>
                         <td colspan="10" style="text-align: right;"><strong>Subtotal:</strong></td>
-                        <td><strong>{{ printf "%.2f" .Quotation.Subtotal }}</strong></td>
+                        <td><strong>{{ printf "%.2f" .Data.Quotation.Subtotal }}</strong></td>
                     </tr>
                     <tr>
                         <td colspan="10" style="text-align: right;"><strong>Tax:</strong></td>
-                        <td><strong>{{ printf "%.2f" .Quotation.TaxAmount }}</strong></td>
+                        <td><strong>{{ printf "%.2f" .Data.Quotation.TaxAmount }}</strong></td>
                     </tr>
                     <tr>
                         <td colspan="10" style="text-align: right;"><strong>Total Amount:</strong></td>
-                        <td><strong>{{ printf "%.2f" .Quotation.TotalAmount }} {{ .Quotation.Currency }}</strong></td>
+                        <td><strong>{{ printf "%.2f" .Data.Quotation.TotalAmount }} {{ .Data.Quotation.Currency }}</strong></td>
                     </tr>
                 </tfoot>
             </table>
@@ -189,7 +189,7 @@
             <button aria-label="Close" rel="prev" onclick="closeRejectModal()"></button>
             <h3>Reject Quotation</h3>
         </header>
-        <form method="post" action="/sales/quotations/{{ .Quotation.ID }}/reject">
+        <form method="post" action="/sales/quotations/{{ .Data.Quotation.ID }}/reject">
             <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
             <label for="reason">Rejection Reason</label>
             <textarea name="reason" id="reason" required placeholder="Please provide a reason for rejection"></textarea>
@@ -208,10 +208,10 @@
             <button aria-label="Close" rel="prev" onclick="closeConvertModal()"></button>
             <h3>Convert to Sales Order</h3>
         </header>
-        <form method="post" action="/sales/quotations/{{ .Quotation.ID }}/convert">
+        <form method="post" action="/sales/quotations/{{ .Data.Quotation.ID }}/convert">
             <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
             <label for="order_date">Order Date</label>
-            <input type="date" name="order_date" id="order_date" value="{{ .Quotation.QuoteDate.Format "2006-01-02" }}" required>
+            <input type="date" name="order_date" id="order_date" value="{{ .Data.Quotation.QuoteDate.Format "2006-01-02" }}" required>
             <p><small>This will create a new sales order from this quotation and mark it as converted.</small></p>
             <footer>
                 <button type="button" class="secondary" onclick="closeConvertModal()">Cancel</button>

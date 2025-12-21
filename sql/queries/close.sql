@@ -1,7 +1,7 @@
 -- name: ListPeriods :many
 SELECT ap.id, ap.period_id, COALESCE(ap.company_id, 0), ap.name, ap.start_date, ap.end_date, ap.status,
        ap.soft_closed_by, ap.soft_closed_at, ap.closed_by, ap.closed_at, ap.metadata, ap.created_at, ap.updated_at,
-       lr.id AS latest_run_id
+       COALESCE(lr.id, 0) AS latest_run_id
 FROM accounting_periods ap
 LEFT JOIN LATERAL (
     SELECT id
@@ -17,7 +17,7 @@ LIMIT $2 OFFSET $3;
 -- name: LoadPeriod :one
 SELECT ap.id, ap.period_id, COALESCE(ap.company_id, 0), ap.name, ap.start_date, ap.end_date, ap.status,
        ap.soft_closed_by, ap.soft_closed_at, ap.closed_by, ap.closed_at, ap.metadata, ap.created_at, ap.updated_at,
-       lr.id AS latest_run_id
+       COALESCE(lr.id, 0) AS latest_run_id
 FROM accounting_periods ap
 LEFT JOIN LATERAL (
     SELECT id
@@ -31,7 +31,7 @@ WHERE ap.id = $1;
 -- name: LoadPeriodByLedgerID :one
 SELECT ap.id, ap.period_id, COALESCE(ap.company_id, 0), ap.name, ap.start_date, ap.end_date, ap.status,
        ap.soft_closed_by, ap.soft_closed_at, ap.closed_by, ap.closed_at, ap.metadata, ap.created_at, ap.updated_at,
-       lr.id AS latest_run_id
+       COALESCE(lr.id, 0) AS latest_run_id
 FROM accounting_periods ap
 LEFT JOIN LATERAL (
     SELECT id
@@ -45,7 +45,7 @@ WHERE ap.period_id = $1;
 -- name: LoadPeriodForUpdate :one
 SELECT ap.id, ap.period_id, COALESCE(ap.company_id, 0), ap.name, ap.start_date, ap.end_date, ap.status,
        ap.soft_closed_by, ap.soft_closed_at, ap.closed_by, ap.closed_at, ap.metadata, ap.created_at, ap.updated_at,
-       lr.id AS latest_run_id
+       COALESCE(lr.id, 0) AS latest_run_id
 FROM accounting_periods ap
 LEFT JOIN LATERAL (
     SELECT id
