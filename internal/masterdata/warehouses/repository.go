@@ -7,8 +7,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
-	masterdatadb "github.com/odyssey-erp/odyssey-erp/internal/masterdata/db"
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata/shared"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 type Repository interface {
@@ -21,13 +21,13 @@ type Repository interface {
 
 type repository struct {
 	pool    *pgxpool.Pool
-	queries *masterdatadb.Queries
+	queries *sqlc.Queries
 }
 
 func NewRepository(pool *pgxpool.Pool) Repository {
 	return &repository{
 		pool:    pool,
-		queries: masterdatadb.New(pool),
+		queries: sqlc.New(pool),
 	}
 }
 
@@ -125,7 +125,7 @@ func (r *repository) Get(ctx context.Context, id int64) (Warehouse, error) {
 // Create uses sqlc generated query
 func (r *repository) Create(ctx context.Context, warehouse Warehouse) (Warehouse, error) {
 	now := time.Now()
-	row, err := r.queries.CreateWarehouse(ctx, masterdatadb.CreateWarehouseParams{
+	row, err := r.queries.CreateWarehouse(ctx, sqlc.CreateWarehouseParams{
 		BranchID:  warehouse.BranchID,
 		Code:      warehouse.Code,
 		Name:      warehouse.Name,
@@ -147,7 +147,7 @@ func (r *repository) Create(ctx context.Context, warehouse Warehouse) (Warehouse
 
 // Update uses sqlc generated query
 func (r *repository) Update(ctx context.Context, id int64, warehouse Warehouse) error {
-	return r.queries.UpdateWarehouse(ctx, masterdatadb.UpdateWarehouseParams{
+	return r.queries.UpdateWarehouse(ctx, sqlc.UpdateWarehouseParams{
 		BranchID:  warehouse.BranchID,
 		Code:      warehouse.Code,
 		Name:      warehouse.Name,

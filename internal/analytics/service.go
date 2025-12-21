@@ -7,16 +7,16 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/odyssey-erp/odyssey-erp/internal/analytics/db"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 // Repository exposes the generated sqlc queries we rely on.
 type Repository interface {
-	KpiSummary(ctx context.Context, arg analyticsdb.KpiSummaryParams) (analyticsdb.KpiSummaryRow, error)
-	MonthlyPL(ctx context.Context, arg analyticsdb.MonthlyPLParams) ([]analyticsdb.MonthlyPLRow, error)
-	MonthlyCashflow(ctx context.Context, arg analyticsdb.MonthlyCashflowParams) ([]analyticsdb.MonthlyCashflowRow, error)
-	AgingAR(ctx context.Context, arg analyticsdb.AgingARParams) ([]analyticsdb.AgingARRow, error)
-	AgingAP(ctx context.Context, arg analyticsdb.AgingAPParams) ([]analyticsdb.AgingAPRow, error)
+	KpiSummary(ctx context.Context, arg sqlc.KpiSummaryParams) (sqlc.KpiSummaryRow, error)
+	MonthlyPL(ctx context.Context, arg sqlc.MonthlyPLParams) ([]sqlc.MonthlyPLRow, error)
+	MonthlyCashflow(ctx context.Context, arg sqlc.MonthlyCashflowParams) ([]sqlc.MonthlyCashflowRow, error)
+	AgingAR(ctx context.Context, arg sqlc.AgingARParams) ([]sqlc.AgingARRow, error)
+	AgingAP(ctx context.Context, arg sqlc.AgingAPParams) ([]sqlc.AgingAPRow, error)
 }
 
 // Service coordinates analytics query execution with the cache layer.

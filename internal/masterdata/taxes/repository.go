@@ -6,8 +6,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
-	masterdatadb "github.com/odyssey-erp/odyssey-erp/internal/masterdata/db"
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata/shared"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 type Repository interface {
@@ -20,13 +20,13 @@ type Repository interface {
 
 type repository struct {
 	pool    *pgxpool.Pool
-	queries *masterdatadb.Queries
+	queries *sqlc.Queries
 }
 
 func NewRepository(pool *pgxpool.Pool) Repository {
 	return &repository{
 		pool:    pool,
-		queries: masterdatadb.New(pool),
+		queries: sqlc.New(pool),
 	}
 }
 
@@ -111,7 +111,7 @@ func (r *repository) Get(ctx context.Context, id int64) (Tax, error) {
 
 // Create uses sqlc generated query
 func (r *repository) Create(ctx context.Context, tax Tax) (Tax, error) {
-	row, err := r.queries.CreateTax(ctx, masterdatadb.CreateTaxParams{
+	row, err := r.queries.CreateTax(ctx, sqlc.CreateTaxParams{
 		Code: tax.Code,
 		Name: tax.Name,
 		Rate: pgtype.Numeric{Valid: true},
@@ -134,7 +134,7 @@ func (r *repository) Create(ctx context.Context, tax Tax) (Tax, error) {
 
 // Update uses sqlc generated query
 func (r *repository) Update(ctx context.Context, id int64, tax Tax) error {
-	return r.queries.UpdateTax(ctx, masterdatadb.UpdateTaxParams{
+	return r.queries.UpdateTax(ctx, sqlc.UpdateTaxParams{
 		Code: tax.Code,
 		Name: tax.Name,
 		Rate: pgtype.Numeric{Valid: true},

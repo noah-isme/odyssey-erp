@@ -4,20 +4,20 @@ import (
 	"context"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/odyssey-erp/odyssey-erp/internal/users/db"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 // Repository provides PostgreSQL backed persistence.
 type Repository struct {
 	pool    *pgxpool.Pool
-	queries *usersdb.Queries
+	queries *sqlc.Queries
 }
 
 // NewRepository constructs a repository.
 func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{
 		pool:    pool,
-		queries: usersdb.New(pool),
+		queries: sqlc.New(pool),
 	}
 }
 

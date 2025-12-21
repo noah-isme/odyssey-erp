@@ -7,8 +7,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
-	masterdatadb "github.com/odyssey-erp/odyssey-erp/internal/masterdata/db"
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata/shared"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 type Repository interface {
@@ -21,13 +21,13 @@ type Repository interface {
 
 type repository struct {
 	pool    *pgxpool.Pool
-	queries *masterdatadb.Queries
+	queries *sqlc.Queries
 }
 
 func NewRepository(pool *pgxpool.Pool) Repository {
 	return &repository{
 		pool:    pool,
-		queries: masterdatadb.New(pool),
+		queries: sqlc.New(pool),
 	}
 }
 
@@ -107,7 +107,7 @@ func (r *repository) Get(ctx context.Context, id int64) (Category, error) {
 // Create uses sqlc generated query
 func (r *repository) Create(ctx context.Context, category Category) (Category, error) {
 	now := time.Now()
-	row, err := r.queries.CreateCategory(ctx, masterdatadb.CreateCategoryParams{
+	row, err := r.queries.CreateCategory(ctx, sqlc.CreateCategoryParams{
 		Code:      category.Code,
 		Name:      category.Name,
 		CreatedAt: pgtype.Timestamptz{Time: now, Valid: true},
@@ -125,7 +125,7 @@ func (r *repository) Create(ctx context.Context, category Category) (Category, e
 
 // Update uses sqlc generated query
 func (r *repository) Update(ctx context.Context, id int64, category Category) error {
-	return r.queries.UpdateCategory(ctx, masterdatadb.UpdateCategoryParams{
+	return r.queries.UpdateCategory(ctx, sqlc.UpdateCategoryParams{
 		Code:      category.Code,
 		Name:      category.Name,
 		UpdatedAt: pgtype.Timestamptz{Time: time.Now(), Valid: true},

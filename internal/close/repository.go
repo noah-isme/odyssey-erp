@@ -10,20 +10,20 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/odyssey-erp/odyssey-erp/internal/close/db"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 // Repository persists period close state.
 type Repository struct {
 	pool    *pgxpool.Pool
-	queries *closedb.Queries
+	queries *sqlc.Queries
 }
 
 // NewRepository constructs a Repository using the provided pool.
 func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{
 		pool:    pool,
-		queries: closedb.New(pool),
+		queries: sqlc.New(pool),
 	}
 }
 
@@ -50,7 +50,7 @@ func (r *Repository) WithTx(ctx context.Context, fn func(context.Context, pgx.Tx
 
 // ListPeriods returns paginated periods for a company.
 func (r *Repository) ListPeriods(ctx context.Context, companyID int64, limit, offset int) ([]Period, error) {
-	rows, err := r.queries.ListPeriods(ctx, closedb.ListPeriodsParams{
+	rows, err := r.queries.ListPeriods(ctx, sqlc.ListPeriodsParams{
 		Column1: companyID,
 		Limit:   int32(limit),
 		Offset:  int32(offset),
@@ -109,7 +109,7 @@ func (r *Repository) LoadPeriodByLedgerID(ctx context.Context, periodID int64) (
 // LoadPeriodForUpdate locks a period row.
 // Explicit tx usage requires we use q.WithTx(tx) or create new queries from tx.
 func (r *Repository) LoadPeriodForUpdate(ctx context.Context, tx pgx.Tx, id int64) (Period, error) {
-	q := closedb.New(tx)
+	q := sqlc.New(tx)
 	row, err := q.LoadPeriodForUpdate(ctx, id)
 	if err != nil {
 		return Period{}, err
@@ -119,15 +119,15 @@ func (r *Repository) LoadPeriodForUpdate(ctx context.Context, tx pgx.Tx, id int6
 
 // InsertPeriod creates a new period row in both periods and accounting_periods tables.
 func (r *Repository) InsertPeriod(ctx context.Context, tx pgx.Tx, in CreatePeriodInput, status PeriodStatus) (Period, error) {
-	q := closedb.New(tx)
+	q := sqlc.New(tx)
 
 	// Insert Legacy
 	legacyStatus := legacyStatusFromAccounting(status)
-	legacyRow, err := q.InsertPeriodLegacy(ctx, closedb.InsertPeriodLegacyParams{
+	legacyRow, err := q.InsertPeriodLegacy(ctx, sqlc.InsertPeriodLegacyParams{
 		Code:      in.Name,
 		StartDate: pgtype.Date{Time: in.StartDate, Valid: true},
 		EndDate:   pgtype.Date{Time: in.EndDate, Valid: true},
-		Status:    closedb.PeriodStatus(legacyStatus),
+		Status:    sqlc.PeriodStatus(legacyStatus),
 	})
 	if err != nil {
 		return Period{}, err
@@ -136,13 +136,13 @@ func (r *Repository) InsertPeriod(ctx context.Context, tx pgx.Tx, in CreatePerio
 	metaBytes, _ := json.Marshal(in.Metadata)
 
 	// Insert Accounting
-	accountingID, err := q.InsertAccountingPeriod(ctx, closedb.InsertAccountingPeriodParams{
+	accountingID, err := q.InsertAccountingPeriod(ctx, sqlc.InsertAccountingPeriodParams{
 		PeriodID:  legacyRow.ID,
 		CompanyID: int8FromInt64(in.CompanyID),
 		Name:      in.Name,
 		StartDate: pgtype.Date{Time: in.StartDate, Valid: true},
 		EndDate:   pgtype.Date{Time: in.EndDate, Valid: true},
-		Status:    closedb.AccountingPeriodStatus(status),
+		Status:    sqlc.AccountingPeriodStatus(status),
 		Metadata:  metaBytes,
 		CreatedAt: pgtype.Timestamptz{Time: time.Now(), Valid: true},
 		UpdatedAt: pgtype.Timestamptz{Time: time.Now(), Valid: true},
@@ -167,26 +167,26 @@ func (r *Repository) InsertPeriod(ctx context.Context, tx pgx.Tx, in CreatePerio
 
 // UpdatePeriodStatus mutates the period status in both tables.
 func (r *Repository) UpdatePeriodStatus(ctx context.Context, tx pgx.Tx, periodID int64, status PeriodStatus, actorID int64) error {
-	q := closedb.New(tx)
+	q := sqlc.New(tx)
 
-	err := q.UpdateAccountingPeriodStatus(ctx, closedb.UpdateAccountingPeriodStatusParams{
+	err := q.UpdateAccountingPeriodStatus(ctx, sqlc.UpdateAccountingPeriodStatusParams{
 		ID:           periodID,
-		Status:       closedb.AccountingPeriodStatus(status),
+		Status:       sqlc.AccountingPeriodStatus(status),
 		SoftClosedBy: int8FromInt64(actorID),
 	})
 	if err != nil {
 		return err
 	}
 
-	return q.UpdateLegacyPeriodStatus(ctx, closedb.UpdateLegacyPeriodStatusParams{
+	return q.UpdateLegacyPeriodStatus(ctx, sqlc.UpdateLegacyPeriodStatusParams{
 		ID:     periodID,
-		Status: closedb.PeriodStatus(legacyStatusFromAccounting(status)),
+		Status: sqlc.PeriodStatus(legacyStatusFromAccounting(status)),
 	})
 }
 
 // PeriodRangeConflict reports whether a company already has a period overlapping the provided range.
 func (r *Repository) PeriodRangeConflict(ctx context.Context, companyID int64, startDate, endDate time.Time) (bool, error) {
-	_, err := r.queries.PeriodRangeConflict(ctx, closedb.PeriodRangeConflictParams{
+	_, err := r.queries.PeriodRangeConflict(ctx, sqlc.PeriodRangeConflictParams{
 		CompanyID: int8FromInt64(companyID),
 		Daterange: pgtype.Date{Time: startDate, Valid: true},
 		Daterange_2: pgtype.Date{Time: endDate, Valid: true},
@@ -202,7 +202,7 @@ func (r *Repository) PeriodRangeConflict(ctx context.Context, companyID int64, s
 
 // PeriodHasActiveRun returns true when a period already has an in-progress run.
 func (r *Repository) PeriodHasActiveRun(ctx context.Context, tx pgx.Tx, periodID int64) (bool, error) {
-	q := closedb.New(tx)
+	q := sqlc.New(tx)
 	_, err := q.PeriodHasActiveRun(ctx, periodID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -215,8 +215,8 @@ func (r *Repository) PeriodHasActiveRun(ctx context.Context, tx pgx.Tx, periodID
 
 // InsertCloseRun creates a new close run row.
 func (r *Repository) InsertCloseRun(ctx context.Context, tx pgx.Tx, in StartCloseRunInput) (CloseRun, error) {
-	q := closedb.New(tx)
-	row, err := q.InsertCloseRun(ctx, closedb.InsertCloseRunParams{
+	q := sqlc.New(tx)
+	row, err := q.InsertCloseRun(ctx, sqlc.InsertCloseRunParams{
 		CompanyID: in.CompanyID,
 		PeriodID:  in.PeriodID,
 		CreatedBy: in.ActorID,
@@ -240,10 +240,10 @@ func (r *Repository) InsertCloseRun(ctx context.Context, tx pgx.Tx, in StartClos
 
 // InsertChecklistItems seeds checklist entries for a run.
 func (r *Repository) InsertChecklistItems(ctx context.Context, tx pgx.Tx, runID int64, defs []ChecklistDefinition) ([]ChecklistItem, error) {
-	q := closedb.New(tx)
+	q := sqlc.New(tx)
 	var items []ChecklistItem
 	for _, def := range defs {
-		row, err := q.InsertChecklistItem(ctx, closedb.InsertChecklistItemParams{
+		row, err := q.InsertChecklistItem(ctx, sqlc.InsertChecklistItemParams{
 			PeriodCloseRunID: runID,
 			Code:             def.Code,
 			Label:            def.Label,
@@ -267,7 +267,7 @@ func (r *Repository) LoadCloseRun(ctx context.Context, id int64) (CloseRun, erro
 
 // LoadCloseRunForUpdate locks the run row for state transitions.
 func (r *Repository) LoadCloseRunForUpdate(ctx context.Context, tx pgx.Tx, id int64) (CloseRun, error) {
-	q := closedb.New(tx)
+	q := sqlc.New(tx)
 	row, err := q.LoadCloseRunForUpdate(ctx, id)
 	if err != nil {
 		return CloseRun{}, err
@@ -297,10 +297,10 @@ func (r *Repository) LoadCloseRunWithChecklist(ctx context.Context, id int64) (C
 
 // UpdateChecklistStatus updates a checklist item state.
 func (r *Repository) UpdateChecklistStatus(ctx context.Context, tx pgx.Tx, in ChecklistUpdateInput) (ChecklistItem, error) {
-	q := closedb.New(tx)
-	row, err := q.UpdateChecklistStatus(ctx, closedb.UpdateChecklistStatusParams{
+	q := sqlc.New(tx)
+	row, err := q.UpdateChecklistStatus(ctx, sqlc.UpdateChecklistStatusParams{
 		ID:      in.ItemID,
-		Status:  closedb.PeriodCloseChecklistStatus(in.Status),
+		Status:  sqlc.PeriodCloseChecklistStatus(in.Status),
 		Column3: in.Comment,
 	})
 	if err != nil {
@@ -311,13 +311,13 @@ func (r *Repository) UpdateChecklistStatus(ctx context.Context, tx pgx.Tx, in Ch
 
 // LockChecklistItemRun returns the owning run id while locking the checklist row.
 func (r *Repository) LockChecklistItemRun(ctx context.Context, tx pgx.Tx, itemID int64) (int64, error) {
-	q := closedb.New(tx)
+	q := sqlc.New(tx)
 	return q.LockChecklistItemRun(ctx, itemID)
 }
 
 // ChecklistCompletionState returns whether all checklist tasks are in a terminal state.
 func (r *Repository) ChecklistCompletionState(ctx context.Context, tx pgx.Tx, runID int64) (bool, error) {
-	q := closedb.New(tx)
+	q := sqlc.New(tx)
 	pending, err := q.CountPendingChecklistItems(ctx, runID)
 	if err != nil {
 		return false, err
@@ -327,10 +327,10 @@ func (r *Repository) ChecklistCompletionState(ctx context.Context, tx pgx.Tx, ru
 
 // UpdateRunStatus sets the run status and completion timestamp.
 func (r *Repository) UpdateRunStatus(ctx context.Context, tx pgx.Tx, runID int64, status RunStatus) error {
-	q := closedb.New(tx)
-	return q.UpdateRunStatus(ctx, closedb.UpdateRunStatusParams{
+	q := sqlc.New(tx)
+	return q.UpdateRunStatus(ctx, sqlc.UpdateRunStatusParams{
 		ID:     runID,
-		Status: closedb.PeriodCloseRunStatus(status),
+		Status: sqlc.PeriodCloseRunStatus(status),
 	})
 }
 
@@ -347,7 +347,7 @@ func legacyStatusFromAccounting(status PeriodStatus) string {
 
 // Mappers
 
-func mapPeriod(row closedb.LoadPeriodRow) Period {
+func mapPeriod(row sqlc.LoadPeriodRow) Period {
 	p := Period{
 		ID:           row.ID,
 		PeriodID:     row.PeriodID,
@@ -370,7 +370,7 @@ func mapPeriod(row closedb.LoadPeriodRow) Period {
 	return p
 }
 
-func mapPeriodByLedger(row closedb.LoadPeriodByLedgerIDRow) Period {
+func mapPeriodByLedger(row sqlc.LoadPeriodByLedgerIDRow) Period {
 	p := Period{
 		ID:           row.ID,
 		PeriodID:     row.PeriodID,
@@ -393,7 +393,7 @@ func mapPeriodByLedger(row closedb.LoadPeriodByLedgerIDRow) Period {
 	return p
 }
 
-func mapPeriodForUpdate(row closedb.LoadPeriodForUpdateRow) Period {
+func mapPeriodForUpdate(row sqlc.LoadPeriodForUpdateRow) Period {
 	p := Period{
 		ID:           row.ID,
 		PeriodID:     row.PeriodID,
@@ -416,7 +416,7 @@ func mapPeriodForUpdate(row closedb.LoadPeriodForUpdateRow) Period {
 	return p
 }
 
-func mapRun(row closedb.LoadCloseRunRow) CloseRun {
+func mapRun(row sqlc.LoadCloseRunRow) CloseRun {
 	return CloseRun{
 		ID:          row.ID,
 		CompanyID:   row.CompanyID,
@@ -429,7 +429,7 @@ func mapRun(row closedb.LoadCloseRunRow) CloseRun {
 	}
 }
 
-func mapRunForUpdate(row closedb.LoadCloseRunForUpdateRow) CloseRun {
+func mapRunForUpdate(row sqlc.LoadCloseRunForUpdateRow) CloseRun {
 	return CloseRun{
 		ID:          row.ID,
 		CompanyID:   row.CompanyID,
@@ -442,7 +442,7 @@ func mapRunForUpdate(row closedb.LoadCloseRunForUpdateRow) CloseRun {
 	}
 }
 
-func mapChecklistItem(row closedb.PeriodCloseChecklistItem) ChecklistItem {
+func mapChecklistItem(row sqlc.PeriodCloseChecklistItem) ChecklistItem {
 	return ChecklistItem{
 		ID:          row.ID,
 		RunID:       row.PeriodCloseRunID,

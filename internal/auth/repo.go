@@ -8,8 +8,8 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	authdb "github.com/odyssey-erp/odyssey-erp/internal/auth/db"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 // Repository defines persistence operations for auth module.
@@ -21,17 +21,17 @@ type Repository interface {
 
 // PGRepository implements Repository using PostgreSQL.
 type PGRepository struct {
-	queries *authdb.Queries
+	queries *sqlc.Queries
 }
 
 // NewRepository constructs a PostgreSQL repository.
 func NewRepository(pool *pgxpool.Pool) *PGRepository {
-	return &PGRepository{queries: authdb.New(pool)}
+	return &PGRepository{queries: sqlc.New(pool)}
 }
 
 // FindByEmail fetches a user by email.
 func (r *PGRepository) FindByEmail(ctx context.Context, email string) (*User, error) {
-	record, err := r.queries.GetUserByEmail(ctx, email)
+	record, err := r.queries.AuthGetUserByEmail(ctx, email)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, shared.ErrNotFound
@@ -52,7 +52,7 @@ func (r *PGRepository) FindByEmail(ctx context.Context, email string) (*User, er
 // CreateSession persists a new login session in the database for auditing.
 func (r *PGRepository) CreateSession(ctx context.Context, id string, userID int64, expiresAt time.Time, ip, ua string) error {
 	now := time.Now().UTC()
-	return r.queries.CreateSession(ctx, authdb.CreateSessionParams{
+	return r.queries.CreateSession(ctx, sqlc.CreateSessionParams{
 		ID:        id,
 		UserID:    userID,
 		CreatedAt: pgtype.Timestamptz{Time: now, Valid: true},

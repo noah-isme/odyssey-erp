@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
-	salesdb "github.com/odyssey-erp/odyssey-erp/internal/sales/db"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 var (
@@ -21,14 +21,14 @@ var (
 // Repository provides PostgreSQL backed persistence for sales operations.
 type Repository struct {
 	pool    *pgxpool.Pool
-	queries *salesdb.Queries
+	queries *sqlc.Queries
 }
 
 // NewRepository constructs a repository.
 func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{
 		pool:    pool,
-		queries: salesdb.New(pool),
+		queries: sqlc.New(pool),
 	}
 }
 
@@ -53,7 +53,7 @@ type TxRepository interface {
 }
 
 type txRepo struct {
-	queries *salesdb.Queries
+	queries *sqlc.Queries
 	tx      pgx.Tx
 }
 
@@ -142,7 +142,7 @@ func (r *Repository) GetCustomer(ctx context.Context, id int64) (*Customer, erro
 }
 
 func (r *Repository) GetCustomerByCode(ctx context.Context, companyID int64, code string) (*Customer, error) {
-	row, err := r.queries.GetCustomerByCode(ctx, salesdb.GetCustomerByCodeParams{
+	row, err := r.queries.GetCustomerByCode(ctx, sqlc.GetCustomerByCodeParams{
 		CompanyID: companyID,
 		Code:      code,
 	})
@@ -287,7 +287,7 @@ func (t *txRepo) CreateCustomer(ctx context.Context, customer Customer) (int64, 
 	var creditLimit pgtype.Numeric
 	creditLimit.Scan(fmt.Sprintf("%f", customer.CreditLimit))
 	
-	return t.queries.CreateCustomer(ctx, salesdb.CreateCustomerParams{
+	return t.queries.CreateCustomer(ctx, sqlc.CreateCustomerParams{
 		Code:             customer.Code,
 		Name:             customer.Name,
 		CompanyID:        customer.CompanyID,
@@ -313,7 +313,7 @@ func (t *txRepo) UpdateCustomer(ctx context.Context, id int64, updates map[strin
 		return nil
 	}
 
-	params := salesdb.UpdateCustomerParams{ID: id}
+	params := sqlc.UpdateCustomerParams{ID: id}
 	
 	if v, ok := updates["name"].(string); ok {
 		params.Name = pgtype.Text{String: v, Valid: true}
@@ -706,13 +706,13 @@ func (t *txRepo) CreateQuotation(ctx context.Context, q Quotation) (int64, error
 	taxAmount.Scan(fmt.Sprintf("%f", q.TaxAmount))
 	totalAmount.Scan(fmt.Sprintf("%f", q.TotalAmount))
 
-	return t.queries.CreateQuotation(ctx, salesdb.CreateQuotationParams{
+	return t.queries.CreateQuotation(ctx, sqlc.CreateQuotationParams{
 		DocNumber:   q.DocNumber,
 		CompanyID:   q.CompanyID,
 		CustomerID:  q.CustomerID,
 		QuoteDate:   quoteDate,
 		ValidUntil:  validUntil,
-		Status:      salesdb.QuotationStatus(q.Status),
+		Status:      sqlc.QuotationStatus(q.Status),
 		Currency:    q.Currency,
 		Subtotal:    subtotal,
 		TaxAmount:   taxAmount,
@@ -732,7 +732,7 @@ func (t *txRepo) InsertQuotationLine(ctx context.Context, line QuotationLine) (i
 	taxAmount.Scan(fmt.Sprintf("%f", line.TaxAmount))
 	lineTotal.Scan(fmt.Sprintf("%f", line.LineTotal))
 	
-	return t.queries.InsertQuotationLine(ctx, salesdb.InsertQuotationLineParams{
+	return t.queries.InsertQuotationLine(ctx, sqlc.InsertQuotationLineParams{
 		QuotationID:     line.QuotationID,
 		ProductID:       line.ProductID,
 		Description:     pgtype.Text{String: getString(line.Description), Valid: line.Description != nil},
@@ -765,8 +765,8 @@ func (t *txRepo) UpdateQuotationStatus(ctx context.Context, id int64, status Quo
 		}
 	}
 
-	return t.queries.UpdateQuotationStatus(ctx, salesdb.UpdateQuotationStatusParams{
-		Status:          salesdb.QuotationStatus(status),
+	return t.queries.UpdateQuotationStatus(ctx, sqlc.UpdateQuotationStatusParams{
+		Status:          sqlc.QuotationStatus(status),
 		ID:              id,
 		ApprovedBy:      approvedBy,
 		ApprovedAt:      approvedAt,
@@ -1160,14 +1160,14 @@ func (t *txRepo) CreateSalesOrder(ctx context.Context, order SalesOrder) (int64,
 	taxAmount.Scan(fmt.Sprintf("%f", order.TaxAmount))
 	totalAmount.Scan(fmt.Sprintf("%f", order.TotalAmount))
 
-	return t.queries.CreateSalesOrder(ctx, salesdb.CreateSalesOrderParams{
+	return t.queries.CreateSalesOrder(ctx, sqlc.CreateSalesOrderParams{
 		DocNumber:          order.DocNumber,
 		CompanyID:          order.CompanyID,
 		CustomerID:         order.CustomerID,
 		QuotationID:        quotationID,
 		OrderDate:          orderDate,
 		ExpectedDeliveryDate: expectedDeliveryDate,
-		Status:             salesdb.SalesOrderStatus(order.Status),
+		Status:             sqlc.SalesOrderStatus(order.Status),
 		Currency:           order.Currency,
 		Subtotal:           subtotal,
 		TaxAmount:          taxAmount,
@@ -1189,7 +1189,7 @@ func (t *txRepo) InsertSalesOrderLine(ctx context.Context, line SalesOrderLine) 
 	taxAmount.Scan(fmt.Sprintf("%f", line.TaxAmount))
 	lineTotal.Scan(fmt.Sprintf("%f", line.LineTotal))
 
-	return t.queries.InsertSalesOrderLine(ctx, salesdb.InsertSalesOrderLineParams{
+	return t.queries.InsertSalesOrderLine(ctx, sqlc.InsertSalesOrderLineParams{
 		SalesOrderID:      line.SalesOrderID,
 		ProductID:         line.ProductID,
 		Description:       pgtype.Text{String: getString(line.Description), Valid: line.Description != nil},
@@ -1224,8 +1224,8 @@ func (t *txRepo) UpdateSalesOrderStatus(ctx context.Context, id int64, status Sa
 		}
 	}
 
-	return t.queries.UpdateSalesOrderStatus(ctx, salesdb.UpdateSalesOrderStatusParams{
-		Status:           salesdb.SalesOrderStatus(status),
+	return t.queries.UpdateSalesOrderStatus(ctx, sqlc.UpdateSalesOrderStatusParams{
+		Status:           sqlc.SalesOrderStatus(status),
 		ID:               id,
 		ConfirmedBy:      confirmedBy,
 		ConfirmedAt:      confirmedAt,
@@ -1243,7 +1243,7 @@ func (t *txRepo) UpdateSalesOrderLineDelivered(ctx context.Context, id int64, de
 	var qty pgtype.Numeric
 	qty.Scan(fmt.Sprintf("%f", delivered))
 
-	return t.queries.UpdateSalesOrderLineDelivered(ctx, salesdb.UpdateSalesOrderLineDeliveredParams{
+	return t.queries.UpdateSalesOrderLineDelivered(ctx, sqlc.UpdateSalesOrderLineDeliveredParams{
 		QuantityDelivered: qty,
 		ID:                id,
 	})

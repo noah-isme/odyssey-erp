@@ -26,8 +26,8 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/consol"
 	"github.com/odyssey-erp/odyssey-erp/internal/consol/fx"
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
-	rbacdb "github.com/odyssey-erp/odyssey-erp/internal/rbac/db"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
 )
 
@@ -321,7 +321,7 @@ func (r *stubRow) Scan(dest ...interface{}) error {
 
 func newRBACMiddleware(perms map[int64][]string) rbac.Middleware {
 	svc := &rbac.Service{}
-	queries := rbacdb.New(&stubDB{perms: perms})
+	queries := sqlc.New(&stubDB{perms: perms})
 	field := reflect.ValueOf(svc).Elem().FieldByName("queries")
 	reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem().Set(reflect.ValueOf(queries))
 	return rbac.Middleware{Service: svc}

@@ -7,8 +7,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
-	masterdatadb "github.com/odyssey-erp/odyssey-erp/internal/masterdata/db"
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata/shared"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 type Repository interface {
@@ -21,13 +21,13 @@ type Repository interface {
 
 type repository struct {
 	pool    *pgxpool.Pool
-	queries *masterdatadb.Queries
+	queries *sqlc.Queries
 }
 
 func NewRepository(pool *pgxpool.Pool) Repository {
 	return &repository{
 		pool:    pool,
-		queries: masterdatadb.New(pool),
+		queries: sqlc.New(pool),
 	}
 }
 
@@ -102,7 +102,7 @@ func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Co
 
 // Get uses sqlc generated query
 func (r *repository) Get(ctx context.Context, id int64) (Company, error) {
-	row, err := r.queries.GetCompany(ctx, id)
+	row, err := r.queries.MdGetCompany(ctx, id)
 	if err != nil {
 		return Company{}, err
 	}
@@ -125,7 +125,7 @@ func (r *repository) Get(ctx context.Context, id int64) (Company, error) {
 // Create uses sqlc generated query
 func (r *repository) Create(ctx context.Context, company Company) (Company, error) {
 	now := time.Now()
-	row, err := r.queries.CreateCompany(ctx, masterdatadb.CreateCompanyParams{
+	row, err := r.queries.CreateCompany(ctx, sqlc.CreateCompanyParams{
 		Code:      company.Code,
 		Name:      company.Name,
 		Address:   company.Address,
@@ -149,7 +149,7 @@ func (r *repository) Create(ctx context.Context, company Company) (Company, erro
 
 // Update uses sqlc generated query
 func (r *repository) Update(ctx context.Context, id int64, company Company) error {
-	return r.queries.UpdateCompany(ctx, masterdatadb.UpdateCompanyParams{
+	return r.queries.UpdateCompany(ctx, sqlc.UpdateCompanyParams{
 		Code:      company.Code,
 		Name:      company.Name,
 		Address:   company.Address,

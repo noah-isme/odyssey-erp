@@ -9,26 +9,26 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/odyssey-erp/odyssey-erp/internal/variance/db"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 // Repository persists variance configuration and snapshots.
 type Repository struct {
 	pool    *pgxpool.Pool
-	queries *variancedb.Queries
+	queries *sqlc.Queries
 }
 
 // NewRepository constructs a repo.
 func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{
 		pool:    pool,
-		queries: variancedb.New(pool),
+		queries: sqlc.New(pool),
 	}
 }
 
 // InsertRule stores a new variance rule.
 func (r *Repository) InsertRule(ctx context.Context, input CreateRuleInput) (Rule, error) {
-	row, err := r.queries.InsertRule(ctx, variancedb.InsertRuleParams{
+	row, err := r.queries.VarInsertRule(ctx, sqlc.VarInsertRuleParams{
 		CompanyID:       input.CompanyID,
 		Name:            input.Name,
 		ComparisonType:  string(input.ComparisonType),
@@ -44,7 +44,7 @@ func (r *Repository) InsertRule(ctx context.Context, input CreateRuleInput) (Rul
 
 // ListRules returns rules for a company.
 func (r *Repository) ListRules(ctx context.Context, companyID int64) ([]Rule, error) {
-	rows, err := r.queries.ListRules(ctx, companyID)
+	rows, err := r.queries.VarListRules(ctx, companyID)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +57,7 @@ func (r *Repository) ListRules(ctx context.Context, companyID int64) ([]Rule, er
 
 // GetRule fetches by id.
 func (r *Repository) GetRule(ctx context.Context, id int64) (Rule, error) {
-	row, err := r.queries.GetRule(ctx, id)
+	row, err := r.queries.VarGetRule(ctx, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Rule{}, ErrRuleNotFound
@@ -69,7 +69,7 @@ func (r *Repository) GetRule(ctx context.Context, id int64) (Rule, error) {
 
 // InsertSnapshot enqueues a snapshot record.
 func (r *Repository) InsertSnapshot(ctx context.Context, req SnapshotRequest) (Snapshot, error) {
-	row, err := r.queries.InsertSnapshot(ctx, variancedb.InsertSnapshotParams{
+	row, err := r.queries.InsertSnapshot(ctx, sqlc.InsertSnapshotParams{
 		RuleID:      req.RuleID,
 		PeriodID:    req.PeriodID,
 		GeneratedBy: int8FromInt64(req.ActorID),
@@ -97,7 +97,7 @@ func (r *Repository) ListSnapshots(ctx context.Context, filters ListFilters) ([]
 		return nil, 0, err
 	}
 
-	rows, err := r.queries.ListSnapshots(ctx, variancedb.ListSnapshotsParams{
+	rows, err := r.queries.ListSnapshots(ctx, sqlc.ListSnapshotsParams{
 		Limit:   int32(filters.Limit),
 		Offset:  int32(offset),
 		SortBy:  filters.SortBy,
@@ -128,9 +128,9 @@ func (r *Repository) GetSnapshot(ctx context.Context, id int64) (Snapshot, error
 
 // UpdateStatus transitions snapshot state.
 func (r *Repository) UpdateStatus(ctx context.Context, id int64, status SnapshotStatus) error {
-	return r.queries.UpdateStatus(ctx, variancedb.UpdateStatusParams{
+	return r.queries.VarUpdateStatus(ctx, sqlc.VarUpdateStatusParams{
 		ID:     id,
-		Status: variancedb.VarianceSnapshotStatus(status),
+		Status: sqlc.VarianceSnapshotStatus(status),
 	})
 }
 
@@ -140,7 +140,7 @@ func (r *Repository) SavePayload(ctx context.Context, id int64, rows []VarianceR
 	if err != nil {
 		return err
 	}
-	return r.queries.SavePayload(ctx, variancedb.SavePayloadParams{
+	return r.queries.SavePayload(ctx, sqlc.SavePayloadParams{
 		ID:           id,
 		Payload:      payload,
 		ErrorMessage: pgtype.Text{String: errMsg, Valid: errMsg != ""},
@@ -168,7 +168,7 @@ func (r *Repository) LoadPayload(ctx context.Context, id int64) ([]VarianceRow, 
 
 // AggregateBalances summarises account balances for company/period.
 func (r *Repository) AggregateBalances(ctx context.Context, accountingPeriodID, companyID int64) (map[string]AccountBalance, error) {
-	rows, err := r.queries.AggregateBalances(ctx, variancedb.AggregateBalancesParams{
+	rows, err := r.queries.AggregateBalances(ctx, sqlc.AggregateBalancesParams{
 		ID:           accountingPeriodID,
 		DimCompanyID: int8FromInt64(companyID),
 	})
@@ -184,7 +184,7 @@ func (r *Repository) AggregateBalances(ctx context.Context, accountingPeriodID, 
 
 // LoadAccountingPeriod resolves ledger period id.
 func (r *Repository) LoadAccountingPeriod(ctx context.Context, id int64) (PeriodView, error) {
-	row, err := r.queries.LoadAccountingPeriod(ctx, id)
+	row, err := r.queries.VarLoadAccountingPeriod(ctx, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return PeriodView{}, ErrSnapshotNotFound
@@ -254,7 +254,7 @@ func float64Ref(v float64) *float64 {
 
 // Mappers
 
-func mapRuleFromInsert(row variancedb.InsertRuleRow) Rule {
+func mapRuleFromInsert(row sqlc.VarInsertRuleRow) Rule {
 	r := Rule{
 		ID:              row.ID,
 		CompanyID:       row.CompanyID,
@@ -276,7 +276,7 @@ func mapRuleFromInsert(row variancedb.InsertRuleRow) Rule {
 	return r
 }
 
-func mapRuleFromList(row variancedb.ListRulesRow) Rule {
+func mapRuleFromList(row sqlc.VarListRulesRow) Rule {
 	r := Rule{
 		ID:              row.ID,
 		CompanyID:       row.CompanyID,
@@ -298,7 +298,7 @@ func mapRuleFromList(row variancedb.ListRulesRow) Rule {
 	return r
 }
 
-func mapRuleFromGet(row variancedb.GetRuleRow) Rule {
+func mapRuleFromGet(row sqlc.VarGetRuleRow) Rule {
 	r := Rule{
 		ID:              row.ID,
 		CompanyID:       row.CompanyID,
@@ -320,7 +320,7 @@ func mapRuleFromGet(row variancedb.GetRuleRow) Rule {
 	return r
 }
 
-func mapSnapshotSimple(row variancedb.VarianceSnapshot) Snapshot {
+func mapSnapshotSimple(row sqlc.VarianceSnapshot) Snapshot {
 	snap := Snapshot{
 		ID:          row.ID,
 		RuleID:      row.RuleID,
@@ -338,7 +338,7 @@ func mapSnapshotSimple(row variancedb.VarianceSnapshot) Snapshot {
 	return snap
 }
 
-func mapSnapshotFromList(row variancedb.ListSnapshotsRow) Snapshot {
+func mapSnapshotFromList(row sqlc.ListSnapshotsRow) Snapshot {
 	snap := Snapshot{
 		ID:          row.ID,
 		RuleID:      row.RuleID,
@@ -378,7 +378,7 @@ func mapSnapshotFromList(row variancedb.ListSnapshotsRow) Snapshot {
 	return snap
 }
 
-func mapSnapshotFromGet(row variancedb.GetSnapshotRow) Snapshot {
+func mapSnapshotFromGet(row sqlc.GetSnapshotRow) Snapshot {
 	snap := Snapshot{
 		ID:          row.ID,
 		RuleID:      row.RuleID,

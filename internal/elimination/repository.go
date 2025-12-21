@@ -9,20 +9,20 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/odyssey-erp/odyssey-erp/internal/elimination/db"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 // Repository persists elimination rules and runs.
 type Repository struct {
 	pool    *pgxpool.Pool
-	queries *eliminationdb.Queries
+	queries *sqlc.Queries
 }
 
 // NewRepository constructs a Repository instance.
 func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{
 		pool:    pool,
-		queries: eliminationdb.New(pool),
+		queries: sqlc.New(pool),
 	}
 }
 
@@ -31,7 +31,7 @@ func (r *Repository) ListRules(ctx context.Context, limit int) ([]Rule, error) {
 	if limit <= 0 {
 		limit = 50
 	}
-	rows, err := r.queries.ListRules(ctx, int32(limit))
+	rows, err := r.queries.ElimListRules(ctx, int32(limit))
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +49,7 @@ func (r *Repository) InsertRule(ctx context.Context, input CreateRuleInput) (Rul
 		return Rule{}, err
 	}
 	
-	row, err := r.queries.InsertRule(ctx, eliminationdb.InsertRuleParams{
+	row, err := r.queries.ElimInsertRule(ctx, sqlc.ElimInsertRuleParams{
 		GroupID:         int8ToPointerInt8Original(input.GroupID),
 		Name:            input.Name,
 		SourceCompanyID: input.SourceCompanyID,
@@ -67,7 +67,7 @@ func (r *Repository) InsertRule(ctx context.Context, input CreateRuleInput) (Rul
 
 // GetRule loads a rule by id.
 func (r *Repository) GetRule(ctx context.Context, id int64) (Rule, error) {
-	row, err := r.queries.GetRule(ctx, id)
+	row, err := r.queries.ElimGetRule(ctx, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Rule{}, ErrRuleNotFound
@@ -95,7 +95,7 @@ func (r *Repository) ListRuns(ctx context.Context, filters ListFilters) ([]Run, 
 	}
 
 	// Fetch runs
-	rows, err := r.queries.ListRuns(ctx, eliminationdb.ListRunsParams{
+	rows, err := r.queries.ListRuns(ctx, sqlc.ListRunsParams{
 		Limit:   int32(filters.Limit),
 		Offset:  int32(offset),
 		SortBy:  filters.SortBy,
@@ -114,7 +114,7 @@ func (r *Repository) ListRuns(ctx context.Context, filters ListFilters) ([]Run, 
 
 // InsertRun creates a new run with draft status.
 func (r *Repository) InsertRun(ctx context.Context, input CreateRunInput) (Run, error) {
-	row, err := r.queries.InsertRun(ctx, eliminationdb.InsertRunParams{
+	row, err := r.queries.InsertRun(ctx, sqlc.InsertRunParams{
 		PeriodID:  input.PeriodID,
 		RuleID:    input.RuleID,
 		CreatedBy: input.ActorID,
@@ -155,9 +155,9 @@ func (r *Repository) SaveRunSimulation(ctx context.Context, id int64, summary Si
 	if err != nil {
 		return err
 	}
-	err = r.queries.SaveRunSimulation(ctx, eliminationdb.SaveRunSimulationParams{
+	err = r.queries.SaveRunSimulation(ctx, sqlc.SaveRunSimulationParams{
 		ID:          id,
-		Status:      eliminationdb.EliminationRunStatus(status),
+		Status:      sqlc.EliminationRunStatus(status),
 		SimulatedAt: pgtype.Timestamptz{Time: simulatedAt, Valid: true},
 		Summary:     payload,
 	})
@@ -166,7 +166,7 @@ func (r *Repository) SaveRunSimulation(ctx context.Context, id int64, summary Si
 
 // MarkRunPosted stores posting metadata for a run.
 func (r *Repository) MarkRunPosted(ctx context.Context, id int64, journalID int64, postedAt time.Time) error {
-	return r.queries.MarkRunPosted(ctx, eliminationdb.MarkRunPostedParams{
+	return r.queries.MarkRunPosted(ctx, sqlc.MarkRunPostedParams{
 		ID:             id,
 		PostedAt:       pgtype.Timestamptz{Time: postedAt, Valid: true},
 		JournalEntryID: int8FromInt64(journalID),
@@ -175,7 +175,7 @@ func (r *Repository) MarkRunPosted(ctx context.Context, id int64, journalID int6
 
 // SumAccountBalance aggregates net balance for company+account in a period.
 func (r *Repository) SumAccountBalance(ctx context.Context, accountingPeriodID, companyID int64, accountCode string) (float64, error) {
-	val, err := r.queries.SumAccountBalance(ctx, eliminationdb.SumAccountBalanceParams{
+	val, err := r.queries.SumAccountBalance(ctx, sqlc.SumAccountBalanceParams{
 		ID:           accountingPeriodID,
 		Code:         accountCode,
 		DimCompanyID: int8FromInt64(companyID),
@@ -200,7 +200,7 @@ func (r *Repository) LookupAccountID(ctx context.Context, code string) (int64, e
 
 // LoadAccountingPeriod returns ledger metadata for run posting.
 func (r *Repository) LoadAccountingPeriod(ctx context.Context, id int64) (PeriodView, error) {
-	row, err := r.queries.LoadAccountingPeriod(ctx, id)
+	row, err := r.queries.ElimLoadAccountingPeriod(ctx, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return PeriodView{}, ErrPeriodNotFound
@@ -221,7 +221,7 @@ func (r *Repository) ListRecentPeriods(ctx context.Context, limit int) ([]Period
 	if limit <= 0 {
 		limit = 12
 	}
-	rows, err := r.queries.ListRecentPeriods(ctx, int32(limit))
+	rows, err := r.queries.ElimListRecentPeriods(ctx, int32(limit))
 	if err != nil {
 		return nil, err
 	}
@@ -272,7 +272,7 @@ func timeToPointer(t pgtype.Timestamptz) *time.Time {
 
 // Mappers
 
-func mapRule(row eliminationdb.EliminationRule) Rule {
+func mapRule(row sqlc.EliminationRule) Rule {
 	r := Rule{
 		ID:              row.ID,
 		GroupID:         int8ToPointer(row.GroupID),
@@ -294,7 +294,7 @@ func mapRule(row eliminationdb.EliminationRule) Rule {
 	return r
 }
 
-func mapRunFromList(row eliminationdb.ListRunsRow) Run {
+func mapRunFromList(row sqlc.ListRunsRow) Run {
 	run := Run{
 		ID:           row.ID,
 		PeriodID:     row.PeriodID,
@@ -335,7 +335,7 @@ func mapRunFromList(row eliminationdb.ListRunsRow) Run {
 	return run
 }
 
-func mapRunFromGet(row eliminationdb.GetRunRow) Run {
+func mapRunFromGet(row sqlc.GetRunRow) Run {
 	run := Run{
 		ID:           row.ID,
 		PeriodID:     row.PeriodID,

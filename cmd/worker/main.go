@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -13,7 +14,6 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/analytics"
-	analyticsdb "github.com/odyssey-erp/odyssey-erp/internal/analytics/db"
 	"github.com/odyssey-erp/odyssey-erp/internal/app"
 	"github.com/odyssey-erp/odyssey-erp/internal/boardpack"
 	"github.com/odyssey-erp/odyssey-erp/internal/consol"
@@ -56,7 +56,7 @@ func main() {
 		logger.Warn("redis ping", slog.Any("error", err))
 	}
 
-	analyticsRepo := analyticsdb.New(pool)
+	analyticsRepo := sqlc.New(pool)
 	analyticsCache := analytics.NewCache(redisClient, 10*time.Minute)
 	analyticsService := analytics.NewService(analyticsRepo, analyticsCache)
 

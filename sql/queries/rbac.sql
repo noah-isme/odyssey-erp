@@ -1,4 +1,4 @@
--- name: ListRoles :many
+-- name: RbacListRoles :many
 SELECT id, name, description, created_at, updated_at
 FROM roles
 ORDER BY name;
@@ -8,7 +8,7 @@ SELECT id, name, description, created_at, updated_at
 FROM roles
 WHERE id = $1;
 
--- name: CreateRole :one
+-- name: RbacCreateRole :one
 INSERT INTO roles (name, description)
 VALUES ($1, $2)
 RETURNING id, name, description, created_at, updated_at;

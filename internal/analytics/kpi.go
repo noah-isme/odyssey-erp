@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/odyssey-erp/odyssey-erp/internal/analytics/db"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 // KPIFilter defines the scope for KPI aggregation.
@@ -30,7 +30,7 @@ type KPISummary struct {
 // GetKPISummary resolves the KPI card using cache-aware lookups.
 func (s *Service) GetKPISummary(ctx context.Context, filter KPIFilter) (KPISummary, error) {
 	loader := func(ctx context.Context) (interface{}, error) {
-		row, err := s.repo.KpiSummary(ctx, analyticsdb.KpiSummaryParams{
+		row, err := s.repo.KpiSummary(ctx, sqlc.KpiSummaryParams{
 			Period:    filter.Period,
 			CompanyID: filter.CompanyID,
 			BranchID:  optionalBranch(filter.BranchID),

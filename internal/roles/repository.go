@@ -4,26 +4,26 @@ import (
 	"context"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/odyssey-erp/odyssey-erp/internal/roles/db"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 // Repository provides PostgreSQL backed persistence.
 type Repository struct {
 	pool    *pgxpool.Pool
-	queries *rolesdb.Queries
+	queries *sqlc.Queries
 }
 
 // NewRepository constructs a repository.
 func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{
 		pool:    pool,
-		queries: rolesdb.New(pool),
+		queries: sqlc.New(pool),
 	}
 }
 
 // ListRoles returns all roles.
 func (r *Repository) ListRoles(ctx context.Context, filters RoleListFilters) ([]Role, error) {
-	rows, err := r.queries.ListRoles(ctx, rolesdb.ListRolesParams{
+	rows, err := r.queries.RolesListRoles(ctx, sqlc.RolesListRolesParams{
 		SortBy:  filters.SortBy,
 		SortDir: filters.SortDir,
 	})
@@ -46,7 +46,7 @@ func (r *Repository) ListRoles(ctx context.Context, filters RoleListFilters) ([]
 
 // CreateRole inserts a new role.
 func (r *Repository) CreateRole(ctx context.Context, name, description string) (Role, error) {
-	row, err := r.queries.CreateRole(ctx, rolesdb.CreateRoleParams{
+	row, err := r.queries.RolesCreateRole(ctx, sqlc.RolesCreateRoleParams{
 		Name:        name,
 		Description: description,
 	})

@@ -7,8 +7,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
-	masterdatadb "github.com/odyssey-erp/odyssey-erp/internal/masterdata/db"
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata/shared"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 type Repository interface {
@@ -21,13 +21,13 @@ type Repository interface {
 
 type repository struct {
 	pool    *pgxpool.Pool
-	queries *masterdatadb.Queries
+	queries *sqlc.Queries
 }
 
 func NewRepository(pool *pgxpool.Pool) Repository {
 	return &repository{
 		pool:    pool,
-		queries: masterdatadb.New(pool),
+		queries: sqlc.New(pool),
 	}
 }
 
@@ -125,7 +125,7 @@ func (r *repository) Get(ctx context.Context, id int64) (Branch, error) {
 // Create uses sqlc generated query
 func (r *repository) Create(ctx context.Context, branch Branch) (Branch, error) {
 	now := time.Now()
-	row, err := r.queries.CreateBranch(ctx, masterdatadb.CreateBranchParams{
+	row, err := r.queries.CreateBranch(ctx, sqlc.CreateBranchParams{
 		CompanyID: branch.CompanyID,
 		Code:      branch.Code,
 		Name:      branch.Name,
@@ -147,7 +147,7 @@ func (r *repository) Create(ctx context.Context, branch Branch) (Branch, error) 
 
 // Update uses sqlc generated query
 func (r *repository) Update(ctx context.Context, id int64, branch Branch) error {
-	return r.queries.UpdateBranch(ctx, masterdatadb.UpdateBranchParams{
+	return r.queries.UpdateBranch(ctx, sqlc.UpdateBranchParams{
 		CompanyID: branch.CompanyID,
 		Code:      branch.Code,
 		Name:      branch.Name,

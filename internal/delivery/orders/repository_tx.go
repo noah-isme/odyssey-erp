@@ -7,19 +7,19 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/odyssey-erp/odyssey-erp/internal/delivery/orders/db"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 // CreateDeliveryOrder creates a new delivery order.
 func (t *txRepository) CreateDeliveryOrder(ctx context.Context, do DeliveryOrder) (int64, error) {
-	return t.queries.CreateDeliveryOrder(ctx, ordersdb.CreateDeliveryOrderParams{
+	return t.queries.CreateDeliveryOrder(ctx, sqlc.CreateDeliveryOrderParams{
 		DocNumber:      do.DocNumber,
 		CompanyID:      do.CompanyID,
 		SalesOrderID:   do.SalesOrderID,
 		WarehouseID:    do.WarehouseID,
 		CustomerID:     do.CustomerID,
 		DeliveryDate:   pgtype.Date{Time: do.DeliveryDate, Valid: true},
-		Status:         ordersdb.DeliveryOrderStatus(do.Status),
+		Status:         sqlc.DeliveryOrderStatus(do.Status),
 		DriverName:     pointerToText(do.DriverName),
 		VehicleNumber:  pointerToText(do.VehicleNumber),
 		TrackingNumber: pointerToText(do.TrackingNumber),
@@ -30,7 +30,7 @@ func (t *txRepository) CreateDeliveryOrder(ctx context.Context, do DeliveryOrder
 
 // InsertLine inserts a delivery order line.
 func (t *txRepository) InsertLine(ctx context.Context, line Line) (int64, error) {
-	return t.queries.InsertLine(ctx, ordersdb.InsertLineParams{
+	return t.queries.InsertLine(ctx, sqlc.InsertLineParams{
 		DeliveryOrderID:   line.DeliveryOrderID,
 		SalesOrderLineID:  line.SalesOrderLineID,
 		ProductID:         line.ProductID,
@@ -98,7 +98,7 @@ func (t *txRepository) DeleteLines(ctx context.Context, deliveryOrderID int64) e
 
 // UpdateLineQuantity updates delivered quantity on a line.
 func (t *txRepository) UpdateLineQuantity(ctx context.Context, lineID int64, quantityDelivered float64) error {
-	return t.queries.UpdateLineQuantity(ctx, ordersdb.UpdateLineQuantityParams{
+	return t.queries.UpdateLineQuantity(ctx, sqlc.UpdateLineQuantityParams{
 		QuantityDelivered: floatToNumeric(quantityDelivered),
 		UpdatedAt:         pgtype.Timestamptz{Time: time.Now(), Valid: true},
 		ID:                lineID,

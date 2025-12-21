@@ -12,21 +12,21 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/odyssey-erp/odyssey-erp/internal/consol/db"
 	"github.com/odyssey-erp/odyssey-erp/internal/consol/fx"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 // Repository provides persistence helpers for consolidation workloads.
 type Repository struct {
 	pool    *pgxpool.Pool
-	queries *consoldb.Queries
+	queries *sqlc.Queries
 }
 
 // NewRepository constructs a consolidation repository.
 func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{
 		pool:    pool,
-		queries: consoldb.New(pool),
+		queries: sqlc.New(pool),
 	}
 }
 
@@ -149,14 +149,14 @@ func (r *Repository) RebuildConsolidation(ctx context.Context, groupID, periodID
 	
 	qtx := r.queries.WithTx(tx)
 	
-	if err = qtx.DeleteConsolBalances(ctx, consoldb.DeleteConsolBalancesParams{
+	if err = qtx.DeleteConsolBalances(ctx, sqlc.DeleteConsolBalancesParams{
 		PeriodID: periodID,
 		GroupID:  groupID,
 	}); err != nil {
 		return err
 	}
 	
-	if err = qtx.CalculateConsolBalances(ctx, consoldb.CalculateConsolBalancesParams{
+	if err = qtx.CalculateConsolBalances(ctx, sqlc.CalculateConsolBalancesParams{
 		PeriodID: periodID,
 		GroupID:  groupID,
 	}); err != nil {
@@ -185,7 +185,7 @@ func (r *Repository) ActiveConsolidationPeriod(ctx context.Context) (string, err
 
 // Balances retrieves consolidated balances for the given scope.
 func (r *Repository) Balances(ctx context.Context, groupID, periodID int64) ([]BalanceRow, error) {
-	rows, err := r.queries.Balances(ctx, consoldb.BalancesParams{
+	rows, err := r.queries.Balances(ctx, sqlc.BalancesParams{
 		GroupID:  groupID,
 		PeriodID: periodID,
 	})
@@ -230,7 +230,7 @@ func (r *Repository) ConsolBalancesByType(ctx context.Context, groupID int64, pe
 		return nil, err
 	}
 
-	rows, err := r.queries.ConsolBalancesByType(ctx, consoldb.ConsolBalancesByTypeParams{
+	rows, err := r.queries.ConsolBalancesByType(ctx, sqlc.ConsolBalancesByTypeParams{
 		GroupID:  groupID,
 		PeriodID: periodID,
 	})
@@ -289,7 +289,7 @@ func (r *Repository) FxRateForPeriod(ctx context.Context, asOf time.Time, pair s
 	}
 	asOf = time.Date(asOf.Year(), asOf.Month(), 1, 0, 0, 0, 0, time.UTC)
 	
-	row, err := r.queries.FxRateForPeriod(ctx, consoldb.FxRateForPeriodParams{
+	row, err := r.queries.FxRateForPeriod(ctx, sqlc.FxRateForPeriodParams{
 		AsOfDate: pgtype.Date{Time: asOf, Valid: true},
 		Pair:     pair,
 	})
@@ -340,7 +340,7 @@ func (r *Repository) UpsertFxRates(ctx context.Context, rows []FxRateInput) erro
 		}
 		asOf := time.Date(row.AsOf.Year(), row.AsOf.Month(), 1, 0, 0, 0, 0, time.UTC)
 		
-		err := qtx.UpsertFxRate(ctx, consoldb.UpsertFxRateParams{
+		err := qtx.UpsertFxRate(ctx, sqlc.UpsertFxRateParams{
 			AsOfDate:    pgtype.Date{Time: asOf, Valid: true},
 			Pair:        pair,
 			AverageRate: float64ToNumeric(row.Average),

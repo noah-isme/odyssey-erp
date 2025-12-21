@@ -7,8 +7,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/odyssey-erp/odyssey-erp/internal/masterdata/db"
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata/shared"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 type Repository interface {
@@ -21,13 +21,13 @@ type Repository interface {
 
 type repository struct {
 	pool    *pgxpool.Pool
-	queries *masterdatadb.Queries
+	queries *sqlc.Queries
 }
 
 func NewRepository(pool *pgxpool.Pool) Repository {
 	return &repository{
 		pool:    pool,
-		queries: masterdatadb.New(pool),
+		queries: sqlc.New(pool),
 	}
 }
 
@@ -108,7 +108,7 @@ func (r *repository) Get(ctx context.Context, id int64) (Unit, error) {
 // Create uses sqlc generated query
 func (r *repository) Create(ctx context.Context, unit Unit) (Unit, error) {
 	now := time.Now()
-	row, err := r.queries.CreateUnit(ctx, masterdatadb.CreateUnitParams{
+	row, err := r.queries.CreateUnit(ctx, sqlc.CreateUnitParams{
 		Code:      unit.Code,
 		Name:      unit.Name,
 		CreatedAt: pgtype.Timestamptz{Time: now, Valid: true},
@@ -126,7 +126,7 @@ func (r *repository) Create(ctx context.Context, unit Unit) (Unit, error) {
 
 // Update uses sqlc generated query
 func (r *repository) Update(ctx context.Context, id int64, unit Unit) error {
-	return r.queries.UpdateUnit(ctx, masterdatadb.UpdateUnitParams{
+	return r.queries.UpdateUnit(ctx, sqlc.UpdateUnitParams{
 		Code:      unit.Code,
 		Name:      unit.Name,
 		UpdatedAt: pgtype.Timestamptz{Time: time.Now(), Valid: true},

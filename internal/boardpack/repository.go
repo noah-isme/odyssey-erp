@@ -13,20 +13,20 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/reports"
-	"github.com/odyssey-erp/odyssey-erp/internal/boardpack/db"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 // Repository persists board pack templates, requests, and supporting metadata.
 type Repository struct {
 	pool    *pgxpool.Pool
-	queries *boardpackdb.Queries
+	queries *sqlc.Queries
 }
 
 // NewRepository constructs a repository wrapper.
 func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{
 		pool:    pool,
-		queries: boardpackdb.New(pool),
+		queries: sqlc.New(pool),
 	}
 }
 
@@ -64,7 +64,7 @@ func (r *Repository) InsertBoardPack(ctx context.Context, req CreateRequest) (Bo
 		return BoardPack{}, err
 	}
 	
-	id, err := r.queries.InsertBoardPack(ctx, boardpackdb.InsertBoardPackParams{
+	id, err := r.queries.InsertBoardPack(ctx, sqlc.InsertBoardPackParams{
 		CompanyID:          req.CompanyID,
 		PeriodID:           req.PeriodID,
 		TemplateID:         req.TemplateID,
@@ -101,7 +101,7 @@ func (r *Repository) ListBoardPacks(ctx context.Context, filter ListFilter) ([]B
 		offset = 0
 	}
 	
-	rows, err := r.queries.ListBoardPacks(ctx, boardpackdb.ListBoardPacksParams{
+	rows, err := r.queries.ListBoardPacks(ctx, sqlc.ListBoardPacksParams{
 		Column1: filter.CompanyID, 
 		Column2: filter.PeriodID,  
 		Column3: string(filter.Status),
@@ -132,7 +132,7 @@ func (r *Repository) MarkReady(ctx context.Context, id int64, filePath string, f
 		return err
 	}
 	
-	return r.queries.MarkReady(ctx, boardpackdb.MarkReadyParams{
+	return r.queries.MarkReady(ctx, sqlc.MarkReadyParams{
 		ID:          id,
 		FilePath:    pgtype.Text{String: filePath, Valid: true},
 		FileSize:    int8FromInt64(fileSize),
@@ -144,7 +144,7 @@ func (r *Repository) MarkReady(ctx context.Context, id int64, filePath string, f
 
 // MarkFailed captures the error message and switches the status to failed.
 func (r *Repository) MarkFailed(ctx context.Context, id int64, msg string) error {
-	return r.queries.MarkFailed(ctx, boardpackdb.MarkFailedParams{
+	return r.queries.MarkFailed(ctx, sqlc.MarkFailedParams{
 		ID:           id,
 		ErrorMessage: pgtype.Text{String: truncateError(msg), Valid: true},
 	})
@@ -207,7 +207,7 @@ func (r *Repository) ListRecentPeriods(ctx context.Context, companyID int64, lim
 	if limit <= 0 || limit > 200 {
 		limit = 36
 	}
-	rows, err := r.queries.ListRecentPeriods(ctx, boardpackdb.ListRecentPeriodsParams{
+	rows, err := r.queries.ListRecentPeriods(ctx, sqlc.ListRecentPeriodsParams{
 		Column1: companyID,
 		Limit:   int32(limit),
 	})
@@ -233,7 +233,7 @@ func (r *Repository) ListVarianceSnapshots(ctx context.Context, companyID int64,
 	if limit <= 0 || limit > 100 {
 		limit = 20
 	}
-	rows, err := r.queries.ListVarianceSnapshots(ctx, boardpackdb.ListVarianceSnapshotsParams{
+	rows, err := r.queries.ListVarianceSnapshots(ctx, sqlc.ListVarianceSnapshotsParams{
 		Column1: companyID,
 		Limit:   int32(limit),
 	})
@@ -273,7 +273,7 @@ func (r *Repository) GetVarianceSnapshot(ctx context.Context, id int64) (Varianc
 
 // AggregateAccountBalances returns per-account balances scoped to company and period.
 func (r *Repository) AggregateAccountBalances(ctx context.Context, companyID, periodID int64) ([]reports.AccountBalance, error) {
-	rows, err := r.queries.AggregateAccountBalances(ctx, boardpackdb.AggregateAccountBalancesParams{
+	rows, err := r.queries.AggregateAccountBalances(ctx, sqlc.AggregateAccountBalancesParams{
 		DimCompanyID: int8FromInt64(companyID),
 		ID:           periodID, // Target period ID
 	})
@@ -360,7 +360,7 @@ func timeToPointer(t pgtype.Timestamptz) *time.Time {
 
 // Mappers
 
-func mapTemplateFromList(row boardpackdb.ListTemplatesRow) Template {
+func mapTemplateFromList(row sqlc.ListTemplatesRow) Template {
 	t := Template{
 		ID:          row.ID,
 		Name:        row.Name,
@@ -377,7 +377,7 @@ func mapTemplateFromList(row boardpackdb.ListTemplatesRow) Template {
 	return t
 }
 
-func mapTemplateFromGet(row boardpackdb.GetTemplateRow) Template {
+func mapTemplateFromGet(row sqlc.GetTemplateRow) Template {
 	t := Template{
 		ID:          row.ID,
 		Name:        row.Name,
@@ -394,7 +394,7 @@ func mapTemplateFromGet(row boardpackdb.GetTemplateRow) Template {
 	return t
 }
 
-func mapBoardPackFromGet(row boardpackdb.GetBoardPackRow) BoardPack {
+func mapBoardPackFromGet(row sqlc.GetBoardPackRow) BoardPack {
 	bp := BoardPack{
 		ID:                 row.ID,
 		CompanyID:          row.CompanyID,
@@ -444,7 +444,7 @@ func mapBoardPackFromGet(row boardpackdb.GetBoardPackRow) BoardPack {
 	return bp
 }
 
-func mapBoardPackFromList(row boardpackdb.ListBoardPacksRow) BoardPack {
+func mapBoardPackFromList(row sqlc.ListBoardPacksRow) BoardPack {
 	bp := BoardPack{
 		ID:                 row.ID,
 		CompanyID:          row.CompanyID,
