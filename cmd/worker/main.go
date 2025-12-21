@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+"github.com/odyssey-erp/odyssey-erp/internal/platform/cache"
+"github.com/odyssey-erp/odyssey-erp/internal/platform/db"
 "github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 	"log/slog"
 	"os"
@@ -10,8 +12,6 @@ import (
 	"time"
 
 	"github.com/hibiken/asynq"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/redis/go-redis/v9"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/analytics"
 	"github.com/odyssey-erp/odyssey-erp/internal/app"
@@ -39,14 +39,18 @@ func main() {
 
 	logger := app.NewLogger(cfg)
 
-	pool, err := pgxpool.New(ctx, cfg.PGDSN)
+	pool, err := db.New(ctx, cfg.PGDSN)
 	if err != nil {
 		logger.Error("connect database", slog.Any("error", err))
 		os.Exit(1)
 	}
 	defer pool.Close()
 
-	redisClient := redis.NewClient(&redis.Options{Addr: cfg.RedisAddr})
+	redisClient, err := cache.New(ctx, cfg.RedisAddr)
+	if err != nil {
+		logger.Error("connect redis", slog.Any("error", err))
+		os.Exit(1)
+	}
 	defer func() {
 		if err := redisClient.Close(); err != nil {
 			logger.Warn("redis close", slog.Any("error", err))
