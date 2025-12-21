@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 	"errors"
 	"fmt"
 	"html/template"
@@ -22,14 +23,12 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/mappings"
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/periods"
 	"github.com/odyssey-erp/odyssey-erp/internal/analytics"
-	analyticsdb "github.com/odyssey-erp/odyssey-erp/internal/analytics/db"
 	"github.com/odyssey-erp/odyssey-erp/internal/analytics/export"
 	analytichttp "github.com/odyssey-erp/odyssey-erp/internal/analytics/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/analytics/svg"
 	"github.com/odyssey-erp/odyssey-erp/internal/app"
 	"github.com/odyssey-erp/odyssey-erp/internal/ar"
 	"github.com/odyssey-erp/odyssey-erp/internal/audit"
-	auditdb "github.com/odyssey-erp/odyssey-erp/internal/audit/db"
 	audithttp "github.com/odyssey-erp/odyssey-erp/internal/audit/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/auth"
 	boardpacksvc "github.com/odyssey-erp/odyssey-erp/internal/boardpack"
@@ -41,7 +40,6 @@ import (
 	eliminationpkg "github.com/odyssey-erp/odyssey-erp/internal/elimination"
 	eliminationhttp "github.com/odyssey-erp/odyssey-erp/internal/elimination/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/insights"
-	insightsdb "github.com/odyssey-erp/odyssey-erp/internal/insights/db"
 	insightshhtp "github.com/odyssey-erp/odyssey-erp/internal/insights/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/integration"
 	"github.com/odyssey-erp/odyssey-erp/internal/inventory"
@@ -185,7 +183,7 @@ func main() {
 	eliminationService := eliminationpkg.NewService(eliminationRepo, journalService)
 	eliminationHandler := eliminationhttp.NewHandler(logger, eliminationService, templates, csrfManager, rbacMiddleware)
 
-	analyticsRepo := analyticsdb.New(dbpool)
+	analyticsRepo := sqlc.New(dbpool)
 	analyticsCache := analytics.NewCache(redisClient, 10*time.Minute)
 	analyticsService := analytics.NewService(analyticsRepo, analyticsCache)
 	pdfExporter := &export.PDFExporter{Endpoint: cfg.GotenbergURL, Client: http.DefaultClient}
@@ -201,10 +199,10 @@ func main() {
 		analyticsValidator,
 	)
 
-	insightsRepo := insightsdb.New(dbpool)
+	insightsRepo := sqlc.New(dbpool)
 	insightsService := insights.NewService(insightsRepo)
 	insightsHandler := insightshhtp.NewHandler(logger, insightsService, templates, rbacService)
-	auditRepo := auditdb.New(dbpool)
+	auditRepo := sqlc.New(dbpool)
 	auditService := audit.NewService(auditRepo)
 	auditExporter := audit.NewExporter(templates)
 	auditHandler := audithttp.NewHandler(logger, auditService, templates, auditExporter, rbacService)

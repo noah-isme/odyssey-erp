@@ -3,7 +3,7 @@ package analytics
 import (
 	"context"
 
-	"github.com/odyssey-erp/odyssey-erp/internal/analytics/db"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 // TrendFilter controls the date range for monthly trend queries.
@@ -26,7 +26,7 @@ type PLTrendPoint struct {
 // GetPLTrend returns aggregated monthly P&L movements respecting cache constraints.
 func (s *Service) GetPLTrend(ctx context.Context, filter TrendFilter) ([]PLTrendPoint, error) {
 	loader := func(ctx context.Context) (interface{}, error) {
-		rows, err := s.repo.MonthlyPL(ctx, analyticsdb.MonthlyPLParams{
+		rows, err := s.repo.MonthlyPL(ctx, sqlc.MonthlyPLParams{
 			FromPeriod: filter.From,
 			ToPeriod:   filter.To,
 			CompanyID:  filter.CompanyID,

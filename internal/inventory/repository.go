@@ -9,20 +9,20 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/odyssey-erp/odyssey-erp/internal/inventory/db"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 // Repository persists inventory data in PostgreSQL.
 type Repository struct {
 	pool    *pgxpool.Pool
-	queries *inventorydb.Queries
+	queries *sqlc.Queries
 }
 
 // NewRepository constructs Repository.
 func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{
 		pool:    pool,
-		queries: inventorydb.New(pool),
+		queries: sqlc.New(pool),
 	}
 }
 
@@ -36,7 +36,7 @@ type TxRepository interface {
 }
 
 type txRepo struct {
-	queries *inventorydb.Queries
+	queries *sqlc.Queries
 }
 
 // ErrBalanceNotFound indicates missing balance row.
@@ -61,7 +61,7 @@ func (r *Repository) WithTx(ctx context.Context, fn func(context.Context, TxRepo
 }
 
 func (r *Repository) GetStockCard(ctx context.Context, filter StockCardFilter) ([]StockCardEntry, error) {
-	arg := inventorydb.GetStockCardParams{
+	arg := sqlc.GetStockCardParams{
 		WarehouseID: filter.WarehouseID,
 		ProductID:   filter.ProductID,
 		FromDate:    pgtype.Timestamptz{Time: filter.From, Valid: !filter.From.IsZero()},
@@ -96,7 +96,7 @@ func (r *Repository) GetStockCard(ctx context.Context, filter StockCardFilter) (
 }
 
 func (r *txRepo) InsertTransaction(ctx context.Context, tx Transaction) (int64, error) {
-	return r.queries.InsertTransaction(ctx, inventorydb.InsertTransactionParams{
+	return r.queries.InsertTransaction(ctx, sqlc.InsertTransactionParams{
 		Code:        tx.Code,
 		TxType:      string(tx.Type),
 		WarehouseID: pgtype.Int8{Int64: tx.WarehouseID, Valid: tx.WarehouseID != 0},
@@ -110,7 +110,7 @@ func (r *txRepo) InsertTransaction(ctx context.Context, tx Transaction) (int64, 
 
 func (r *txRepo) InsertTransactionLines(ctx context.Context, txID int64, lines []TransactionLine) error {
 	for _, line := range lines {
-		err := r.queries.InsertTransactionLine(ctx, inventorydb.InsertTransactionLineParams{
+		err := r.queries.InsertTransactionLine(ctx, sqlc.InsertTransactionLineParams{
 			TxID:           txID,
 			ProductID:      line.ProductID,
 			Qty:            floatToNumeric(line.Qty),
@@ -126,7 +126,7 @@ func (r *txRepo) InsertTransactionLines(ctx context.Context, txID int64, lines [
 }
 
 func (r *txRepo) GetBalanceForUpdate(ctx context.Context, warehouseID, productID int64) (Balance, error) {
-	row, err := r.queries.GetBalanceForUpdate(ctx, inventorydb.GetBalanceForUpdateParams{
+	row, err := r.queries.GetBalanceForUpdate(ctx, sqlc.GetBalanceForUpdateParams{
 		WarehouseID: warehouseID,
 		ProductID:   productID,
 	})
@@ -146,7 +146,7 @@ func (r *txRepo) GetBalanceForUpdate(ctx context.Context, warehouseID, productID
 }
 
 func (r *txRepo) UpsertBalance(ctx context.Context, balance Balance) error {
-	return r.queries.UpsertBalance(ctx, inventorydb.UpsertBalanceParams{
+	return r.queries.UpsertBalance(ctx, sqlc.UpsertBalanceParams{
 		WarehouseID: balance.WarehouseID,
 		ProductID:   balance.ProductID,
 		Qty:         floatToNumeric(balance.Qty),
@@ -155,7 +155,7 @@ func (r *txRepo) UpsertBalance(ctx context.Context, balance Balance) error {
 }
 
 func (r *txRepo) InsertCardEntry(ctx context.Context, card StockCardEntry, warehouseID, productID int64, txID int64) error {
-	return r.queries.InsertCardEntry(ctx, inventorydb.InsertCardEntryParams{
+	return r.queries.InsertCardEntry(ctx, sqlc.InsertCardEntryParams{
 		WarehouseID: warehouseID,
 		ProductID:   productID,
 		TxID:        txID,

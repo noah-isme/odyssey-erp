@@ -9,20 +9,20 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
-	procurementdb "github.com/odyssey-erp/odyssey-erp/internal/procurement/db"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 // Repository provides PostgreSQL backed persistence.
 type Repository struct {
 	pool    *pgxpool.Pool
-	queries *procurementdb.Queries
+	queries *sqlc.Queries
 }
 
 // NewRepository constructs a repository.
 func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{
 		pool:    pool,
-		queries: procurementdb.New(pool),
+		queries: sqlc.New(pool),
 	}
 }
 
@@ -44,7 +44,7 @@ type TxRepository interface {
 }
 
 type txRepo struct {
-	queries *procurementdb.Queries
+	queries *sqlc.Queries
 	tx      pgx.Tx
 }
 
@@ -480,7 +480,7 @@ func (tx *txRepo) CreatePR(ctx context.Context, pr PurchaseRequest) (int64, erro
 	if pr.SupplierID != 0 {
 		supplierID = pgtype.Int8{Int64: pr.SupplierID, Valid: true}
 	}
-	return tx.queries.CreatePR(ctx, procurementdb.CreatePRParams{
+	return tx.queries.CreatePR(ctx, sqlc.CreatePRParams{
 		Number:     pr.Number,
 		SupplierID: supplierID,
 		RequestBy:  pr.RequestBy,
@@ -493,7 +493,7 @@ func (tx *txRepo) InsertPRLine(ctx context.Context, line PRLine) error {
 	var qty pgtype.Numeric
 	qty.Scan(fmt.Sprintf("%f", line.Qty))
 
-	return tx.queries.InsertPRLine(ctx, procurementdb.InsertPRLineParams{
+	return tx.queries.InsertPRLine(ctx, sqlc.InsertPRLineParams{
 		PrID:      line.PRID,
 		ProductID: line.ProductID,
 		Qty:       qty,
@@ -502,7 +502,7 @@ func (tx *txRepo) InsertPRLine(ctx context.Context, line PRLine) error {
 }
 
 func (tx *txRepo) UpdatePRStatus(ctx context.Context, id int64, status PRStatus) error {
-	return tx.queries.UpdatePRStatus(ctx, procurementdb.UpdatePRStatusParams{
+	return tx.queries.UpdatePRStatus(ctx, sqlc.UpdatePRStatusParams{
 		Status: string(status),
 		ID:     id,
 	})
@@ -513,7 +513,7 @@ func (tx *txRepo) CreatePO(ctx context.Context, po PurchaseOrder) (int64, error)
 	if !po.ExpectedDate.IsZero() {
 		expectedDate = pgtype.Date{Time: po.ExpectedDate, Valid: true}
 	}
-	return tx.queries.CreatePO(ctx, procurementdb.CreatePOParams{
+	return tx.queries.CreatePO(ctx, sqlc.CreatePOParams{
 		Number:       po.Number,
 		SupplierID:   po.SupplierID,
 		Status:       string(po.Status),
@@ -533,7 +533,7 @@ func (tx *txRepo) InsertPOLine(ctx context.Context, line POLine) error {
 		taxID = pgtype.Int8{Int64: line.TaxID, Valid: true}
 	}
 
-	return tx.queries.InsertPOLine(ctx, procurementdb.InsertPOLineParams{
+	return tx.queries.InsertPOLine(ctx, sqlc.InsertPOLineParams{
 		PoID:      line.POID,
 		ProductID: line.ProductID,
 		Qty:       qty,
@@ -544,7 +544,7 @@ func (tx *txRepo) InsertPOLine(ctx context.Context, line POLine) error {
 }
 
 func (tx *txRepo) UpdatePOStatus(ctx context.Context, id int64, status POStatus) error {
-	return tx.queries.UpdatePOStatus(ctx, procurementdb.UpdatePOStatusParams{
+	return tx.queries.UpdatePOStatus(ctx, sqlc.UpdatePOStatusParams{
 		Status: string(status),
 		ID:     id,
 	})
@@ -560,7 +560,7 @@ func (tx *txRepo) SetPOApproval(ctx context.Context, id int64, approvedBy int64,
 		appAt = pgtype.Timestamptz{Time: approvedAt, Valid: true}
 	}
 
-	return tx.queries.SetPOApproval(ctx, procurementdb.SetPOApprovalParams{
+	return tx.queries.SetPOApproval(ctx, sqlc.SetPOApprovalParams{
 		ApprovedBy: appBy,
 		ApprovedAt: appAt,
 		ID:         id,
@@ -577,7 +577,7 @@ func (tx *txRepo) CreateGRN(ctx context.Context, grn GoodsReceipt) (int64, error
 		receivedAt = pgtype.Timestamptz{Time: grn.ReceivedAt, Valid: true}
 	}
 
-	return tx.queries.CreateGRN(ctx, procurementdb.CreateGRNParams{
+	return tx.queries.CreateGRN(ctx, sqlc.CreateGRNParams{
 		Number:      grn.Number,
 		PoID:        poID,
 		SupplierID:  grn.SupplierID,
@@ -594,7 +594,7 @@ func (tx *txRepo) InsertGRNLine(ctx context.Context, line GRNLine) error {
 	var cost pgtype.Numeric
 	cost.Scan(fmt.Sprintf("%f", line.UnitCost))
 
-	return tx.queries.InsertGRNLine(ctx, procurementdb.InsertGRNLineParams{
+	return tx.queries.InsertGRNLine(ctx, sqlc.InsertGRNLineParams{
 		GrnID:     line.GRNID,
 		ProductID: line.ProductID,
 		Qty:       qty,
@@ -603,7 +603,7 @@ func (tx *txRepo) InsertGRNLine(ctx context.Context, line GRNLine) error {
 }
 
 func (tx *txRepo) UpdateGRNStatus(ctx context.Context, id int64, status GRNStatus) error {
-	return tx.queries.UpdateGRNStatus(ctx, procurementdb.UpdateGRNStatusParams{
+	return tx.queries.UpdateGRNStatus(ctx, sqlc.UpdateGRNStatusParams{
 		Status: string(status),
 		ID:     id,
 	})
@@ -621,7 +621,7 @@ func (tx *txRepo) CreateAPInvoice(ctx context.Context, inv APInvoice) (int64, er
 		dueAt = pgtype.Date{Time: inv.DueAt, Valid: true}
 	}
 
-	return tx.queries.CreateAPInvoice(ctx, procurementdb.CreateAPInvoiceParams{
+	return tx.queries.CreateAPInvoice(ctx, sqlc.CreateAPInvoiceParams{
 		Number:     inv.Number,
 		SupplierID: inv.SupplierID,
 		GrnID:      grnID,
@@ -633,7 +633,7 @@ func (tx *txRepo) CreateAPInvoice(ctx context.Context, inv APInvoice) (int64, er
 }
 
 func (tx *txRepo) UpdateAPStatus(ctx context.Context, id int64, status APInvoiceStatus) error {
-	return tx.queries.UpdateAPStatus(ctx, procurementdb.UpdateAPStatusParams{
+	return tx.queries.UpdateAPStatus(ctx, sqlc.UpdateAPStatusParams{
 		Status: string(status),
 		ID:     id,
 	})
@@ -643,7 +643,7 @@ func (tx *txRepo) CreatePayment(ctx context.Context, payment APPayment) (int64, 
 	var amount pgtype.Numeric
 	amount.Scan(fmt.Sprintf("%f", payment.Amount))
 
-	return tx.queries.CreatePayment(ctx, procurementdb.CreatePaymentParams{
+	return tx.queries.CreatePayment(ctx, sqlc.CreatePaymentParams{
 		Number:      payment.Number,
 		ApInvoiceID: payment.APInvoiceID,
 		Amount:      amount,

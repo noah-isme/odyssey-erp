@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/odyssey-erp/odyssey-erp/internal/delivery/orders/db"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 // Repository defines the interface for delivery order persistence.
@@ -54,21 +54,21 @@ type SalesOrderInfo struct {
 // repository implements Repository using pgxpool.
 type repository struct {
 	pool    *pgxpool.Pool
-	queries *ordersdb.Queries
+	queries *sqlc.Queries
 }
 
 // NewRepository creates a new repository.
 func NewRepository(pool *pgxpool.Pool) Repository {
 	return &repository{
 		pool:    pool,
-		queries: ordersdb.New(pool),
+		queries: sqlc.New(pool),
 	}
 }
 
 // txRepository implements TxRepository.
 type txRepository struct {
 	tx      pgx.Tx
-	queries *ordersdb.Queries
+	queries *sqlc.Queries
 }
 
 // WithTx wraps callback in repeatable-read transaction.
@@ -148,7 +148,7 @@ func (r *repository) GetByID(ctx context.Context, id int64) (*DeliveryOrder, err
 
 // GetByDocNumber retrieves a delivery order by document number.
 func (r *repository) GetByDocNumber(ctx context.Context, companyID int64, docNumber string) (*DeliveryOrder, error) {
-	row, err := r.queries.GetByDocNumber(ctx, ordersdb.GetByDocNumberParams{
+	row, err := r.queries.GetByDocNumber(ctx, sqlc.GetByDocNumberParams{
 		CompanyID: companyID,
 		DocNumber: docNumber,
 	})
@@ -470,7 +470,7 @@ func (r *repository) GetDeliverableSOLines(ctx context.Context, salesOrderID int
 
 // GenerateDocNumber generates a unique DO number.
 func (r *repository) GenerateDocNumber(ctx context.Context, companyID int64, date time.Time) (string, error) {
-	return r.queries.GenerateDocNumber(ctx, ordersdb.GenerateDocNumberParams{
+	return r.queries.GenerateDocNumber(ctx, sqlc.GenerateDocNumberParams{
 		PCompanyID: companyID,
 		PDate:      pgtype.Date{Time: date, Valid: true},
 	})

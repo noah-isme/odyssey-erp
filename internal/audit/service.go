@@ -9,13 +9,13 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
-	auditdb "github.com/odyssey-erp/odyssey-erp/internal/audit/db"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 // Repository menyediakan akses ke query sqlc yang dibutuhkan.
 type Repository interface {
-	AuditTimelineWindow(ctx context.Context, arg auditdb.AuditTimelineWindowParams) ([]auditdb.AuditTimelineWindowRow, error)
-	AuditTimelineAll(ctx context.Context, arg auditdb.AuditTimelineAllParams) ([]auditdb.AuditTimelineAllRow, error)
+	AuditTimelineWindow(ctx context.Context, arg sqlc.AuditTimelineWindowParams) ([]sqlc.AuditTimelineWindowRow, error)
+	AuditTimelineAll(ctx context.Context, arg sqlc.AuditTimelineAllParams) ([]sqlc.AuditTimelineAllRow, error)
 }
 
 // Result membungkus hasil timeline dengan informasi paging.
@@ -51,7 +51,7 @@ func (s *Service) Timeline(ctx context.Context, filters TimelineFilters) (Result
 		page = 1
 	}
 	offset := (page - 1) * pageSize
-	params := auditdb.AuditTimelineWindowParams{
+	params := sqlc.AuditTimelineWindowParams{
 		FromAt:     toPgTime(filters.From),
 		ToAt:       toPgTime(filters.To),
 		Actor:      optionalText(filters.Actor),
@@ -87,7 +87,7 @@ func (s *Service) Export(ctx context.Context, filters TimelineFilters) ([]Timeli
 	if s.repo == nil {
 		return nil, fmt.Errorf("audit: repository not configured")
 	}
-	params := auditdb.AuditTimelineAllParams{
+	params := sqlc.AuditTimelineAllParams{
 		FromAt: toPgTime(filters.From),
 		ToAt:   toPgTime(filters.To),
 		Actor:  optionalText(filters.Actor),

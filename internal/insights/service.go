@@ -8,13 +8,13 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
-	insightsdb "github.com/odyssey-erp/odyssey-erp/internal/insights/db"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 // Repository exposes the subset of sqlc queries required by the service.
 type Repository interface {
-	CompareMonthlyNetRevenue(ctx context.Context, arg insightsdb.CompareMonthlyNetRevenueParams) ([]insightsdb.CompareMonthlyNetRevenueRow, error)
-	ContributionByBranch(ctx context.Context, arg insightsdb.ContributionByBranchParams) ([]insightsdb.ContributionByBranchRow, error)
+	CompareMonthlyNetRevenue(ctx context.Context, arg sqlc.CompareMonthlyNetRevenueParams) ([]sqlc.CompareMonthlyNetRevenueRow, error)
+	ContributionByBranch(ctx context.Context, arg sqlc.ContributionByBranchParams) ([]sqlc.ContributionByBranchRow, error)
 }
 
 // Result aggregates all datasets required by the insights view.
@@ -57,7 +57,7 @@ func (s *Service) Load(ctx context.Context, filters CompareFilters) (Result, err
 		queryFrom = yoyBaseline
 	}
 
-	rows, err := s.repo.CompareMonthlyNetRevenue(ctx, insightsdb.CompareMonthlyNetRevenueParams{
+	rows, err := s.repo.CompareMonthlyNetRevenue(ctx, sqlc.CompareMonthlyNetRevenueParams{
 		FromPeriod: formatMonth(queryFrom),
 		ToPeriod:   formatMonth(toTime),
 		CompanyID:  valueOrDefault(filters.CompanyID, 1),
@@ -68,7 +68,7 @@ func (s *Service) Load(ctx context.Context, filters CompareFilters) (Result, err
 	}
 	series, lookup := normalizeSeries(rows, fromTime, toTime)
 
-	contributions, err := s.repo.ContributionByBranch(ctx, insightsdb.ContributionByBranchParams{
+	contributions, err := s.repo.ContributionByBranch(ctx, sqlc.ContributionByBranchParams{
 		Period:    formatMonth(toTime),
 		CompanyID: valueOrDefault(filters.CompanyID, 1),
 	})
@@ -82,8 +82,8 @@ func (s *Service) Load(ctx context.Context, filters CompareFilters) (Result, err
 	return Result{Series: series, Variance: variance, Contribution: contribVM}, nil
 }
 
-func normalizeSeries(rows []insightsdb.CompareMonthlyNetRevenueRow, from, to time.Time) ([]MonthlySeries, map[string]insightsdb.CompareMonthlyNetRevenueRow) {
-	lookup := make(map[string]insightsdb.CompareMonthlyNetRevenueRow, len(rows))
+func normalizeSeries(rows []sqlc.CompareMonthlyNetRevenueRow, from, to time.Time) ([]MonthlySeries, map[string]sqlc.CompareMonthlyNetRevenueRow) {
+	lookup := make(map[string]sqlc.CompareMonthlyNetRevenueRow, len(rows))
 	for _, row := range rows {
 		lookup[row.Period] = row
 	}
@@ -114,7 +114,7 @@ func enumerateMonths(from, to time.Time) []time.Time {
 	return months
 }
 
-func computeVariance(lookup map[string]insightsdb.CompareMonthlyNetRevenueRow, current time.Time) []VarianceMetric {
+func computeVariance(lookup map[string]sqlc.CompareMonthlyNetRevenueRow, current time.Time) []VarianceMetric {
 	latestKey := formatMonth(current)
 	prevKey := formatMonth(current.AddDate(0, -1, 0))
 	yoyKey := formatMonth(current.AddDate(-1, 0, 0))
@@ -147,7 +147,7 @@ func variancePercent(base, current float64) float64 {
 	return (current - base) / base * 100
 }
 
-func computeContribution(rows []insightsdb.ContributionByBranchRow) []ContributionShare {
+func computeContribution(rows []sqlc.ContributionByBranchRow) []ContributionShare {
 	if len(rows) == 0 {
 		return nil
 	}

@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/odyssey-erp/odyssey-erp/internal/rbac/db"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 // ErrNotFound indicates that the requested record does not exist.
@@ -17,17 +17,17 @@ var ErrNotFound = errors.New("rbac: not found")
 
 // Service orchestrates RBAC operations.
 type Service struct {
-	queries *rbacdb.Queries
+	queries *sqlc.Queries
 }
 
 // NewService constructs a Service backed by the provided pool.
 func NewService(pool *pgxpool.Pool) *Service {
-	return &Service{queries: rbacdb.New(pool)}
+	return &Service{queries: sqlc.New(pool)}
 }
 
 // ListRoles returns all roles ordered by name.
 func (s *Service) ListRoles(ctx context.Context) ([]Role, error) {
-	rows, err := s.queries.ListRoles(ctx)
+	rows, err := s.queries.RbacListRoles(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +56,7 @@ func (s *Service) CreateRole(ctx context.Context, name, description string) (Rol
 	if name == "" {
 		return Role{}, errors.New("rbac: role name required")
 	}
-	row, err := s.queries.CreateRole(ctx, rbacdb.CreateRoleParams{
+	row, err := s.queries.RbacCreateRole(ctx, sqlc.RbacCreateRoleParams{
 		Name:        name,
 		Description: strings.TrimSpace(description),
 	})
@@ -72,7 +72,7 @@ func (s *Service) UpdateRole(ctx context.Context, id int64, name, description st
 	if name == "" {
 		return Role{}, errors.New("rbac: role name required")
 	}
-	row, err := s.queries.UpdateRole(ctx, rbacdb.UpdateRoleParams{
+	row, err := s.queries.UpdateRole(ctx, sqlc.UpdateRoleParams{
 		ID:          id,
 		Name:        name,
 		Description: strings.TrimSpace(description),
@@ -117,7 +117,7 @@ func (s *Service) ListPermissions(ctx context.Context) ([]Permission, error) {
 
 // EnsurePermission upserts a permission ensuring description is stored.
 func (s *Service) EnsurePermission(ctx context.Context, name, description string) (Permission, error) {
-	row, err := s.queries.CreatePermission(ctx, rbacdb.CreatePermissionParams{
+	row, err := s.queries.CreatePermission(ctx, sqlc.CreatePermissionParams{
 		Name:        strings.TrimSpace(name),
 		Description: strings.TrimSpace(description),
 	})
@@ -143,14 +143,14 @@ func (s *Service) SetRolePermissions(ctx context.Context, roleID int64, permissi
 	for _, id := range permissionIDs {
 		keep[id] = struct{}{}
 		if _, ok := existing[id]; !ok {
-			if err := s.queries.AttachPermissionToRole(ctx, rbacdb.AttachPermissionToRoleParams{RoleID: roleID, PermissionID: id}); err != nil {
+			if err := s.queries.AttachPermissionToRole(ctx, sqlc.AttachPermissionToRoleParams{RoleID: roleID, PermissionID: id}); err != nil {
 				return err
 			}
 		}
 	}
 	for id := range existing {
 		if _, ok := keep[id]; !ok {
-			if err := s.queries.DetachPermissionFromRole(ctx, rbacdb.DetachPermissionFromRoleParams{RoleID: roleID, PermissionID: id}); err != nil {
+			if err := s.queries.DetachPermissionFromRole(ctx, sqlc.DetachPermissionFromRoleParams{RoleID: roleID, PermissionID: id}); err != nil {
 				return err
 			}
 		}
@@ -160,7 +160,7 @@ func (s *Service) SetRolePermissions(ctx context.Context, roleID int64, permissi
 
 // AssignRole assigns a role to the given user.
 func (s *Service) AssignRole(ctx context.Context, userID, roleID int64) error {
-	return s.queries.AssignRoleToUser(ctx, rbacdb.AssignRoleToUserParams{
+	return s.queries.AssignRoleToUser(ctx, sqlc.AssignRoleToUserParams{
 		UserID: userID,
 		RoleID: roleID,
 	})
@@ -168,7 +168,7 @@ func (s *Service) AssignRole(ctx context.Context, userID, roleID int64) error {
 
 // RemoveRole removes a role from a user.
 func (s *Service) RemoveRole(ctx context.Context, userID, roleID int64) error {
-	return s.queries.RemoveRoleFromUser(ctx, rbacdb.RemoveRoleFromUserParams{
+	return s.queries.RemoveRoleFromUser(ctx, sqlc.RemoveRoleFromUserParams{
 		UserID: userID,
 		RoleID: roleID,
 	})
@@ -185,7 +185,7 @@ func (s *Service) EffectivePermissions(ctx context.Context, userID int64) ([]str
 	return perms, nil
 }
 
-func toDomainRole(row rbacdb.Role) Role {
+func toDomainRole(row sqlc.Role) Role {
 	return Role{
 		ID:          row.ID,
 		Name:        row.Name,

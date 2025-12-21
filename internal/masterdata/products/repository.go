@@ -3,12 +3,11 @@ package products
 import (
 	"context"
 	"strconv"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
-	masterdatadb "github.com/odyssey-erp/odyssey-erp/internal/masterdata/db"
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata/shared"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 type Repository interface {
@@ -21,13 +20,13 @@ type Repository interface {
 
 type repository struct {
 	pool    *pgxpool.Pool
-	queries *masterdatadb.Queries
+	queries *sqlc.Queries
 }
 
 func NewRepository(pool *pgxpool.Pool) Repository {
 	return &repository{
 		pool:    pool,
-		queries: masterdatadb.New(pool),
+		queries: sqlc.New(pool),
 	}
 }
 
@@ -171,7 +170,7 @@ func (r *repository) Create(ctx context.Context, product Product) (Product, erro
 		taxID = pgtype.Int8{Int64: product.TaxID, Valid: true}
 	}
 
-	row, err := r.queries.CreateProduct(ctx, masterdatadb.CreateProductParams{
+	row, err := r.queries.CreateProduct(ctx, sqlc.CreateProductParams{
 		Sku:        product.Code, // map code -> sku
 		Name:       product.Name,
 		CategoryID: product.CategoryID,
@@ -184,24 +183,8 @@ func (r *repository) Create(ctx context.Context, product Product) (Product, erro
 		return Product{}, err
 	}
 
-	p := Product{
-		ID:         row.ID,
-		Code:       row.Sku,
-		Name:       row.Name,
-		CategoryID: row.CategoryID,
-		UnitID:     row.UnitID,
-		IsActive:   row.IsActive,
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
-	}
-	if row.Price.Valid {
-		f8, _ := row.Price.Float64Value()
-		p.Price = f8.Float64
-	}
-	if row.TaxID.Valid {
-		p.TaxID = row.TaxID.Int64
-	}
-	return p, nil
+	product.ID = row.ID
+	return product, nil
 }
 
 // Update uses sqlc generated query
@@ -215,7 +198,7 @@ func (r *repository) Update(ctx context.Context, id int64, product Product) erro
 		taxID = pgtype.Int8{Int64: product.TaxID, Valid: true}
 	}
 
-	return r.queries.UpdateProduct(ctx, masterdatadb.UpdateProductParams{
+	return r.queries.UpdateProduct(ctx, sqlc.UpdateProductParams{
 		Sku:        product.Code, // map code -> sku
 		Name:       product.Name,
 		CategoryID: product.CategoryID,

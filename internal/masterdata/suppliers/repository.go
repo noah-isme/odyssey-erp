@@ -5,8 +5,8 @@ import (
 	"strconv"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	masterdatadb "github.com/odyssey-erp/odyssey-erp/internal/masterdata/db"
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata/shared"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 type Repository interface {
@@ -19,13 +19,13 @@ type Repository interface {
 
 type repository struct {
 	pool    *pgxpool.Pool
-	queries *masterdatadb.Queries
+	queries *sqlc.Queries
 }
 
 func NewRepository(pool *pgxpool.Pool) Repository {
 	return &repository{
 		pool:    pool,
-		queries: masterdatadb.New(pool),
+		queries: sqlc.New(pool),
 	}
 }
 
@@ -108,7 +108,7 @@ func (r *repository) Get(ctx context.Context, id int64) (Supplier, error) {
 
 // Create uses sqlc generated query
 func (r *repository) Create(ctx context.Context, supplier Supplier) (Supplier, error) {
-	row, err := r.queries.CreateSupplier(ctx, masterdatadb.CreateSupplierParams{
+	row, err := r.queries.CreateSupplier(ctx, sqlc.CreateSupplierParams{
 		Code:     supplier.Code,
 		Name:     supplier.Name,
 		Phone:    supplier.Phone,
@@ -119,20 +119,14 @@ func (r *repository) Create(ctx context.Context, supplier Supplier) (Supplier, e
 	if err != nil {
 		return Supplier{}, err
 	}
-	return Supplier{
-		ID:       row.ID,
-		Code:     row.Code,
-		Name:     row.Name,
-		Phone:    row.Phone,
-		Email:    row.Email,
-		Address:  row.Address,
-		IsActive: row.IsActive,
-	}, nil
+	supplier.ID = row.ID
+	// timestamps not available
+	return supplier, nil
 }
 
 // Update uses sqlc generated query
 func (r *repository) Update(ctx context.Context, id int64, supplier Supplier) error {
-	return r.queries.UpdateSupplier(ctx, masterdatadb.UpdateSupplierParams{
+	return r.queries.UpdateSupplier(ctx, sqlc.UpdateSupplierParams{
 		Code:     supplier.Code,
 		Name:     supplier.Name,
 		Phone:    supplier.Phone,

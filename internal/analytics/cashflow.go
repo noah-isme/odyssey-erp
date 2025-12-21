@@ -3,7 +3,7 @@ package analytics
 import (
 	"context"
 
-	"github.com/odyssey-erp/odyssey-erp/internal/analytics/db"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 // CashflowTrendPoint captures monthly cash inflow and outflow.
@@ -16,7 +16,7 @@ type CashflowTrendPoint struct {
 // GetCashflowTrend computes cash movement per month across the selected range.
 func (s *Service) GetCashflowTrend(ctx context.Context, filter TrendFilter) ([]CashflowTrendPoint, error) {
 	loader := func(ctx context.Context) (interface{}, error) {
-		rows, err := s.repo.MonthlyCashflow(ctx, analyticsdb.MonthlyCashflowParams{
+		rows, err := s.repo.MonthlyCashflow(ctx, sqlc.MonthlyCashflowParams{
 			FromPeriod: filter.From,
 			ToPeriod:   filter.To,
 			CompanyID:  filter.CompanyID,

@@ -8,20 +8,20 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/odyssey-erp/odyssey-erp/internal/ar/db"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 // Repository provides PostgreSQL backed persistence.
 type Repository struct {
 	pool    *pgxpool.Pool
-	queries *ardb.Queries
+	queries *sqlc.Queries
 }
 
 // NewRepository constructs a repository.
 func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{
 		pool:    pool,
-		queries: ardb.New(pool),
+		queries: sqlc.New(pool),
 	}
 }
 
@@ -36,7 +36,7 @@ type TxRepository interface {
 }
 
 type txRepo struct {
-	queries *ardb.Queries
+	queries *sqlc.Queries
 }
 
 // WithTx wraps callback in repeatable-read transaction.
@@ -71,7 +71,7 @@ func (r *Repository) ListAROutstanding(ctx context.Context) ([]ARInvoice, error)
 
 // CreateARInvoice creates a new AR invoice.
 func (r *Repository) CreateARInvoice(ctx context.Context, input ARInvoiceInput) (*ARInvoice, error) {
-	id, err := r.queries.CreateARInvoice(ctx, ardb.CreateARInvoiceParams{
+	id, err := r.queries.CreateARInvoice(ctx, sqlc.CreateARInvoiceParams{
 		Number:     input.Number,
 		CustomerID: input.CustomerID,
 		SoID:       int8FromInt64(input.SOID),
@@ -102,7 +102,7 @@ func (r *Repository) CreateARInvoice(ctx context.Context, input ARInvoiceInput) 
 
 // CreateARPayment creates a new AR payment.
 func (r *Repository) CreateARPayment(ctx context.Context, input ARPaymentInput) (*ARPayment, error) {
-	id, err := r.queries.CreateARPayment(ctx, ardb.CreateARPaymentParams{
+	id, err := r.queries.CreateARPayment(ctx, sqlc.CreateARPaymentParams{
 		Number:      input.Number,
 		ArInvoiceID: input.ARInvoiceID,
 		Amount:      float64ToNumeric(input.Amount),
@@ -157,7 +157,7 @@ func (r *Repository) ListARPayments(ctx context.Context) ([]ARPayment, error) {
 // Transactional methods used within WithTx closure
 
 func (tx *txRepo) CreateARInvoice(ctx context.Context, input ARInvoiceInput) (int64, error) {
-	return tx.queries.CreateARInvoice(ctx, ardb.CreateARInvoiceParams{
+	return tx.queries.CreateARInvoice(ctx, sqlc.CreateARInvoiceParams{
 		Number:     input.Number,
 		CustomerID: input.CustomerID,
 		SoID:       int8FromInt64(input.SOID),
@@ -171,14 +171,14 @@ func (tx *txRepo) CreateARInvoice(ctx context.Context, input ARInvoiceInput) (in
 }
 
 func (tx *txRepo) UpdateARStatus(ctx context.Context, id int64, status ARInvoiceStatus) error {
-	return tx.queries.UpdateARStatus(ctx, ardb.UpdateARStatusParams{
+	return tx.queries.UpdateARStatus(ctx, sqlc.UpdateARStatusParams{
 		ID:     id,
 		Status: string(status),
 	})
 }
 
 func (tx *txRepo) CreateARPayment(ctx context.Context, input ARPaymentInput) (int64, error) {
-	return tx.queries.CreateARPayment(ctx, ardb.CreateARPaymentParams{
+	return tx.queries.CreateARPayment(ctx, sqlc.CreateARPaymentParams{
 		Number:      input.Number,
 		ArInvoiceID: input.ARInvoiceID,
 		Amount:      float64ToNumeric(input.Amount),
@@ -213,7 +213,7 @@ func numericToFloat64(n pgtype.Numeric) float64 {
 
 // Mappers
 
-func mapARInvoice(row ardb.ArInvoice) ARInvoice {
+func mapARInvoice(row sqlc.ArInvoice) ARInvoice {
 	return ARInvoice{
 		ID:         row.ID,
 		Number:     row.Number,
@@ -228,7 +228,7 @@ func mapARInvoice(row ardb.ArInvoice) ARInvoice {
 	}
 }
 
-func mapARPayment(row ardb.ArPayment) ARPayment {
+func mapARPayment(row sqlc.ArPayment) ARPayment {
 	return ARPayment{
 		ID:          row.ID,
 		Number:      row.Number,
