@@ -1,4 +1,4 @@
-package variancehttp
+package variance
 
 import (
 	"encoding/csv"
@@ -11,7 +11,6 @@ import (
 
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
-	"github.com/odyssey-erp/odyssey-erp/internal/variance"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
 	"github.com/odyssey-erp/odyssey-erp/jobs"
 )
@@ -19,7 +18,7 @@ import (
 // Handler wires variance SSR endpoints.
 type Handler struct {
 	logger    *slog.Logger
-	service   *variance.Service
+	service   *Service
 	templates *view.Engine
 	csrf      *shared.CSRFManager
 	rbac      rbac.Middleware
@@ -27,7 +26,7 @@ type Handler struct {
 }
 
 // NewHandler constructs handler.
-func NewHandler(logger *slog.Logger, service *variance.Service, templates *view.Engine, csrf *shared.CSRFManager, rbac rbac.Middleware, jobsClient *jobs.Client) *Handler {
+func NewHandler(logger *slog.Logger, service *Service, templates *view.Engine, csrf *shared.CSRFManager, rbac rbac.Middleware, jobsClient *jobs.Client) *Handler {
 	return &Handler{logger: logger, service: service, templates: templates, csrf: csrf, rbac: rbac, jobs: jobsClient}
 }
 
@@ -62,10 +61,10 @@ func (h *Handler) createRule(w http.ResponseWriter, r *http.Request) {
 	}
 	actor := currentUser(r)
 	compare := parseOptionalInt(r.PostFormValue("compare_period_id"))
-	input := variance.CreateRuleInput{
+	input := CreateRuleInput{
 		CompanyID:       parseInt64(r.PostFormValue("company_id")),
 		Name:            strings.TrimSpace(r.PostFormValue("name")),
-		ComparisonType:  variance.RuleComparison(strings.ToUpper(strings.TrimSpace(r.PostFormValue("comparison_type")))),
+		ComparisonType:  RuleComparison(strings.ToUpper(strings.TrimSpace(r.PostFormValue("comparison_type")))),
 		BasePeriodID:    parseInt64(r.PostFormValue("base_period_id")),
 		ComparePeriodID: compare,
 		ActorID:         actor,
@@ -83,7 +82,7 @@ func (h *Handler) listSnapshots(w http.ResponseWriter, r *http.Request) {
 	sort := r.URL.Query().Get("sort")
 	dir := r.URL.Query().Get("dir")
 
-	filters := variance.ListFilters{
+	filters := ListFilters{
 		Page:    page,
 		Limit:   limit,
 		SortBy:  sort,
@@ -115,7 +114,7 @@ func (h *Handler) triggerSnapshot(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
-	req := variance.SnapshotRequest{
+	req := SnapshotRequest{
 		RuleID:   parseInt64(r.PostFormValue("rule_id")),
 		PeriodID: parseInt64(r.PostFormValue("period_id")),
 		ActorID:  currentUser(r),
@@ -137,7 +136,7 @@ func (h *Handler) showSnapshot(w http.ResponseWriter, r *http.Request) {
 	id := parseInt64(chi.URLParam(r, "id"))
 	snapshot, err := h.service.GetSnapshot(r.Context(), id)
 	if err != nil {
-		if err == variance.ErrSnapshotNotFound {
+		if err == ErrSnapshotNotFound {
 			http.NotFound(w, r)
 			return
 		}
@@ -169,7 +168,7 @@ func (h *Handler) exportSnapshot(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/csv")
 	w.Header().Set("Content-Disposition", "attachment; filename=variance_snapshot.csv")
 	writer := csv.NewWriter(w)
-	for _, row := range variance.ExportRows(rows) {
+	for _, row := range ExportRows(rows) {
 		if err := writer.Write(row); err != nil {
 			break
 		}

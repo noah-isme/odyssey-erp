@@ -29,7 +29,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/sales"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 	"github.com/odyssey-erp/odyssey-erp/internal/users"
-	variancehttp "github.com/odyssey-erp/odyssey-erp/internal/variance/http"
+	"github.com/odyssey-erp/odyssey-erp/internal/variance"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
 	"github.com/odyssey-erp/odyssey-erp/jobs"
 	"github.com/odyssey-erp/odyssey-erp/report"
@@ -50,7 +50,7 @@ type RouterParams struct {
 	UsersHandler       *users.Handler
 	CloseHandler       *closehttp.Handler
 	EliminationHandler *eliminationhttp.Handler
-	VarianceHandler    *variancehttp.Handler
+	VarianceHandler    *variance.Handler
 	InsightsHandler    *insightshhtp.Handler
 	AuditHandler       *audithttp.Handler
 	InventoryHandler   *inventory.Handler

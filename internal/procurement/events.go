@@ -1,6 +1,10 @@
 package procurement
 
-import "time"
+import (
+	"context"
+	"time"
+)
+
 
 // GRNLineEvent describes individual line values for integration mapping.
 type GRNLineEvent struct {
@@ -36,4 +40,11 @@ type APPaymentPostedEvent struct {
 	APInvoiceID int64
 	Amount      float64
 	PaidAt      time.Time
+}
+
+// IntegrationHandler receives procurement domain events for ledger integration.
+type IntegrationHandler interface {
+	HandleGRNPosted(ctx context.Context, evt GRNPostedEvent) error
+	HandleAPInvoicePosted(ctx context.Context, evt APInvoicePostedEvent) error
+	HandleAPPaymentPosted(ctx context.Context, evt APPaymentPostedEvent) error
 }

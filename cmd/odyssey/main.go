@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+"github.com/odyssey-erp/odyssey-erp/internal/platform/cache"
+"github.com/odyssey-erp/odyssey-erp/internal/platform/db"
 "github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 	"errors"
 	"fmt"
@@ -16,7 +18,6 @@ import (
 	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/redis/go-redis/v9"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting"
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/journals"
@@ -53,7 +54,6 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 	"github.com/odyssey-erp/odyssey-erp/internal/users"
 	variancepkg "github.com/odyssey-erp/odyssey-erp/internal/variance"
-	variancehttp "github.com/odyssey-erp/odyssey-erp/internal/variance/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
 	"github.com/odyssey-erp/odyssey-erp/jobs"
 	"github.com/odyssey-erp/odyssey-erp/report"
@@ -111,14 +111,18 @@ func main() {
 
 	logger := app.NewLogger(cfg)
 
-	dbpool, err := pgxpool.New(ctx, cfg.PGDSN)
+	dbpool, err := db.New(ctx, cfg.PGDSN)
 	if err != nil {
 		logger.Error("connect postgres", slog.Any("error", err))
 		os.Exit(1)
 	}
 	defer dbpool.Close()
 
-	redisClient := redis.NewClient(&redis.Options{Addr: cfg.RedisAddr})
+	redisClient, err := cache.New(ctx, cfg.RedisAddr)
+	if err != nil {
+		logger.Error("connect redis", slog.Any("error", err))
+		os.Exit(1)
+	}
 	if err := redisClient.Ping(ctx).Err(); err != nil {
 		logger.Warn("redis ping", slog.Any("error", err))
 	}
@@ -262,7 +266,7 @@ func main() {
 		os.Exit(1)
 	}
 	defer jobClient.Close()
-	varianceHandler := variancehttp.NewHandler(logger, varianceService, templates, csrfManager, rbacMiddleware, jobClient)
+	varianceHandler := variancepkg.NewHandler(logger, varianceService, templates, csrfManager, rbacMiddleware, jobClient)
 	boardpackHandler := boardpackhttp.NewHandler(logger, boardpackService, templates, csrfManager, rbacMiddleware, jobClient)
 
 	inspector := asynq.NewInspector(asynq.RedisClientOpt{Addr: cfg.RedisAddr})
