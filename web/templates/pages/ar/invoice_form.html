@@ -1,0 +1,66 @@
+{{template "layouts/base.html" .}}
+
+{{define "title"}}New AR Invoice{{end}}
+
+{{define "content"}}
+<main class="container">
+    <header>
+        <nav aria-label="breadcrumb">
+            <ul>
+                <li><a href="/finance/ar">AR</a></li>
+                <li><a href="/finance/ar/invoices">Invoices</a></li>
+                <li>New Invoice</li>
+            </ul>
+        </nav>
+        <h1>Create AR Invoice</h1>
+    </header>
+
+    {{if .Data.Errors.general}}
+    <article class="error">
+        <p>{{.Data.Errors.general}}</p>
+    </article>
+    {{end}}
+
+    <form method="post" action="/finance/ar/invoices">
+        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+
+        <div class="grid">
+            <label>
+                Customer ID *
+                <input type="number" name="customer_id" required placeholder="Enter customer ID">
+                {{if .Data.Errors.customer_id}}<small class="error">{{.Data.Errors.customer_id}}</small>{{end}}
+            </label>
+            <label>
+                Sales Order ID
+                <input type="number" name="so_id" placeholder="Optional - link to SO">
+            </label>
+        </div>
+
+        <div class="grid">
+            <label>
+                Currency
+                <select name="currency">
+                    <option value="IDR" selected>IDR - Indonesian Rupiah</option>
+                    <option value="USD">USD - US Dollar</option>
+                    <option value="SGD">SGD - Singapore Dollar</option>
+                </select>
+            </label>
+            <label>
+                Total Amount *
+                <input type="number" name="total" step="0.01" required placeholder="0.00">
+                {{if .Data.Errors.total}}<small class="error">{{.Data.Errors.total}}</small>{{end}}
+            </label>
+        </div>
+
+        <label>
+            Due Date *
+            <input type="date" name="due_date" required>
+        </label>
+
+        <footer>
+            <button type="submit" class="primary">Create Invoice</button>
+            <a href="/finance/ar/invoices" role="button" class="secondary outline">Cancel</a>
+        </footer>
+    </form>
+</main>
+{{end}}

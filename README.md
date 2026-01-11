@@ -2,13 +2,13 @@
 
 Modern ERP system built with Go, PostgreSQL, and Alpine Linux.
 
-## 🚀 Quick Start (Docker)
+## 🚀 Quick Start
 
 ```bash
 # Start all services
 docker-compose up -d
 
-# Run migrations and seed test account
+# Run migrations and seed
 export PG_DSN='postgres://odyssey:odyssey@localhost:5432/odyssey?sslmode=disable'
 make migrate-up
 make seed
@@ -17,114 +17,50 @@ make seed
 open http://localhost:8080
 ```
 
-**Default credentials:**
-- Email: `admin@odyssey.local`
-- Password: `admin123`
-
-## 📁 Project Structure
-
-```
-odyssey-erp/
-├── cmd/                    # Application entry points
-├── internal/              # Modular Monolith Architecture
-│   ├── platform/          # Infrastructure (DB, Cache, HTTP)
-│   ├── sqlc/              # Generated Database Code
-│   ├── <domain>/          # Business Domains (e.g., sales, accounting)
-│   └── app/               # Application Assembly
-├── web/                   # Web assets (templates, CSS, JS)
-├── migrations/            # Database migrations
-├── scripts/               # Build and seed scripts
-├── tools/                 # Utility tools
-├── documentation/         # Project documentation
-├── deploy/               # Deployment configurations
-├── docker-compose.yml    # Docker services
-└── Dockerfile           # Application container
-```
+**Login:** `admin@odyssey.local` / `admin123`
 
 ## 📖 Documentation
 
-- [Getting Started](documentation/GETTING_STARTED.md) - Quick start guide
-- [Setup Database](documentation/SETUP_DATABASE.md) - Database setup
-- [Run Without Docker](documentation/RUN_WITHOUT_DOCKER.md) - Native setup
-- [Scripts Usage](documentation/SCRIPTS_USAGE.txt) - Available scripts
+All documentation is in [`docs/`](docs/README.md):
+
+| Section | Description |
+|---------|-------------|
+| [Getting Started](docs/getting-started/quick-start.md) | Setup & installation |
+| [Architecture](docs/architecture/arsitektur.md) | System design |
+| [Guides](docs/guides/) | How-to guides & runbooks |
+| [Reference](docs/reference/) | Technical reference |
+| [ADRs](docs/decisions/) | Architecture decisions |
 
 ## 🔧 Development
 
 ```bash
-# Run without Docker
-./tools/scripts/run.sh
-
-# Run in background
-./tools/scripts/run-background.sh
-
-# Check status
-./tools/scripts/status.sh
-
-# Stop application
-./tools/scripts/stop.sh
-```
-
-## 🔥 Hot Reload (Recommended for Development)
-
-Use [Air](https://github.com/air-verse/air) for automatic rebuild on file changes (~3s vs ~80s Docker rebuild).
-
-### Setup
-
-```bash
-# Install Air
-go install github.com/air-verse/air@latest
-
-# Copy environment file
-cp .env.example .env
-
-# Edit .env - change hostnames from Docker to localhost:
-# PG_DSN=postgres://odyssey:odyssey@localhost:5432/odyssey?sslmode=disable
-# REDIS_ADDR=localhost:6379
-# GOTENBERG_URL=http://localhost:3000
-# ODYSSEY_TEST_MODE=0  # Required!
-```
-
-### Run with Hot Reload
-
-```bash
-# Start supporting services (keep Docker for database, redis, etc)
-docker-compose up -d postgres redis gotenberg mailpit
-docker-compose stop app
-
-# Load environment and start Air
-set -a && source .env && set +a
+# Hot reload (recommended)
 ~/go/bin/air
 
-# Or run in background
-nohup ~/go/bin/air > /tmp/air.log 2>&1 &
-tail -f /tmp/air.log
-```
-
-### Stop Hot Reload
-
-```bash
-pkill -f "air"
-# To return to Docker:
-docker-compose start app
+# Or run scripts
+./tools/scripts/run.sh            # Foreground
+./tools/scripts/run-background.sh # Background
+./tools/scripts/status.sh         # Check status
+./tools/scripts/stop.sh           # Stop
 ```
 
 ## 🐳 Docker Services
 
-- **App** - Odyssey ERP (Port 8080)
-- **PostgreSQL** - Database (Port 5432)
-- **Redis** - Cache (Port 6379)
-- **Mailpit** - Email testing (Port 8025)
-- **Gotenberg** - PDF generator (Port 3000)
-
-All services use Alpine Linux for minimal footprint and security.
+| Service | Port | Description |
+|---------|------|-------------|
+| App | 8080 | Odyssey ERP |
+| PostgreSQL | 5432 | Database |
+| Redis | 6379 | Cache |
+| Mailpit | 8025 | Email testing |
+| Gotenberg | 3000 | PDF generator |
 
 ## 🏗️ Tech Stack
 
 - **Architecture:** Modular Monolith (Clean Architecture)
-- **Backend:** Go 1.24+
-- **Database:** PostgreSQL 15
+- **Backend:** Go 1.24+, Chi router
+- **Database:** PostgreSQL 15, sqlc
 - **Cache:** Redis 7
-- **Frontend:** HTML, Pico CSS
+- **Frontend:** HTML, Pico CSS (SSR)
 - **Container:** Docker with Alpine Linux
 
 ## 📝 License
