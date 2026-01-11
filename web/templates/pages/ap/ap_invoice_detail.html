@@ -1,0 +1,196 @@
+{{ define "pages/ap/ap_invoice_detail.html" }}
+{{template "layouts/base.html" .}}
+{{ end }}
+
+{{define "title"}}Invoice {{.Data.Invoice.Number}}{{end}}
+
+{{define "content"}}
+<main class="container">
+    <header>
+        <nav aria-label="breadcrumb">
+            <ul>
+                <li><a href="/finance/ap/invoices">AP Invoices</a></li>
+                <li>{{.Data.Invoice.Number}}</li>
+            </ul>
+        </nav>
+    </header>
+
+    {{$inv := .Data.Invoice}}
+
+    <!-- Header Card -->
+    <article>
+        <header>
+            <div class="grid">
+                <div>
+                    <h2>{{$inv.Number}}</h2>
+                    <p>
+                        {{if eq $inv.Status "DRAFT"}}
+                        <mark class="secondary">Draft</mark>
+                        {{else if eq $inv.Status "POSTED"}}
+                        <mark class="primary">Posted</mark>
+                        {{else if eq $inv.Status "PAID"}}
+                        <mark>Paid</mark>
+                        {{else if eq $inv.Status "VOID"}}
+                        <mark class="contrast">Void</mark>
+                        {{end}}
+                    </p>
+                </div>
+                <div style="text-align: right;">
+                    <p><strong>Total:</strong> {{$inv.Currency}} {{printf "%.2f" $inv.Total}}</p>
+                    <p><strong>Balance:</strong> {{$inv.Currency}} {{printf "%.2f" $inv.Balance}}</p>
+                </div>
+            </div>
+        </header>
+
+        <div class="grid">
+            <div>
+                <p><strong>Supplier:</strong> {{$inv.SupplierID}}</p> <!-- Name if available -->
+                {{if $inv.GRNID}}
+                <p><strong>GRN:</strong> <a href="/procurement/grns/{{$inv.GRNID}}">{{$inv.GRNID}}</a></p>
+                {{end}}
+                <p><strong>Due Date:</strong> {{$inv.DueAt.Format "2006-01-02"}}</p>
+            </div>
+            <div>
+                <p><strong>Created:</strong> {{$inv.CreatedAt.Format "2006-01-02"}}</p>
+                {{if $inv.PostedAt}}
+                <p><strong>Posted:</strong> {{$inv.PostedAt.Format "2006-01-02"}}</p>
+                {{end}}
+                {{if $inv.VoidedAt}}
+                <p><strong>Voided:</strong> {{$inv.VoidedAt.Format "2006-01-02"}}</p>
+                <p><strong>Reason:</strong> {{$inv.VoidReason}}</p>
+                {{end}}
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <footer>
+            {{if eq $inv.Status "DRAFT"}}
+            <form method="post" action="/finance/ap/invoices/{{$inv.ID}}/post" style="display: inline;">
+                <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                <button type="submit" class="primary">Post Invoice</button>
+            </form>
+            <button type="button" class="secondary"
+                onclick="document.getElementById('void-modal').showModal()">Void</button>
+            {{else if eq $inv.Status "POSTED"}}
+            <a href="/finance/ap/payments/new?ap_invoice_id={{$inv.ID}}" role="button" class="primary">Record
+                Payment</a>
+            <button type="button" class="secondary"
+                onclick="document.getElementById('void-modal').showModal()">Void</button>
+            {{end}}
+            <a href="/finance/ap/invoices" role="button" class="outline">Back to List</a>
+        </footer>
+    </article>
+
+    <!-- Line Items -->
+    {{if $inv.Lines}}
+    <article>
+        <header>
+            <h3>Line Items</h3>
+        </header>
+        <figure>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Description</th>
+                        <th>Qty</th>
+                        <th>Unit Price</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range $inv.Lines}}
+                    <tr>
+                        <td>{{.ProductID}}</td>
+                        <td>{{.Description}}</td>
+                        <td>{{printf "%.2f" .Quantity}}</td>
+                        <td>{{printf "%.2f" .UnitPrice}}</td>
+                        <td>{{printf "%.2f" .Total}}</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="3"></td>
+                        <td><strong>Subtotal</strong></td>
+                        <td>{{printf "%.2f" $inv.Subtotal}}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="3"></td>
+                        <td><strong>Tax</strong></td>
+                        <td>{{printf "%.2f" $inv.TaxAmount}}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="3"></td>
+                        <td><strong>Total</strong></td>
+                        <td><strong>{{printf "%.2f" $inv.Total}}</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </figure>
+    </article>
+    {{end}}
+
+    <!-- Payment History -->
+    {{if $inv.Payments}}
+    <article>
+        <header>
+            <h3>Payment History</h3>
+        </header>
+        <figure>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Number</th>
+                        <th>Date</th>
+                        <th>Method</th>
+                        <th>Amount</th>
+                        <th>Note</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range $inv.Payments}}
+                    <tr>
+                        <td>{{.Number}}</td>
+                        <td>{{.PaidAt.Format "2006-01-02"}}</td>
+                        <td>{{.Method}}</td>
+                        <td>{{printf "%.2f" .Amount}}</td>
+                        <td>{{.Note}}</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="2"></td>
+                        <td><strong>Total Paid</strong></td>
+                        <td><strong>{{printf "%.2f" $inv.PaidAmount}}</strong></td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </figure>
+    </article>
+    {{end}}
+
+    <!-- Void Modal -->
+    <dialog id="void-modal">
+        <article>
+            <header>
+                <button aria-label="Close" rel="prev" onclick="this.closest('dialog').close()"></button>
+                <h3>Void Invoice</h3>
+            </header>
+            <form method="post" action="/finance/ap/invoices/{{$inv.ID}}/void">
+                <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                <label>
+                    Void Reason
+                    <textarea name="reason" required placeholder="Enter reason for voiding this invoice..."></textarea>
+                </label>
+                <footer>
+                    <button type="button" class="secondary" onclick="this.closest('dialog').close()">Cancel</button>
+                    <button type="submit" class="contrast">Void Invoice</button>
+                </footer>
+            </form>
+        </article>
+    </dialog>
+</main>
+{{end}}

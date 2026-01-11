@@ -11,32 +11,51 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countARInvoicesByDelivery = `-- name: CountARInvoicesByDelivery :one
+SELECT COUNT(*) FROM ar_invoices WHERE delivery_order_id = $1
+`
+
+func (q *Queries) CountARInvoicesByDelivery(ctx context.Context, deliveryOrderID pgtype.Int8) (int64, error) {
+	row := q.db.QueryRow(ctx, countARInvoicesByDelivery, deliveryOrderID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createARInvoice = `-- name: CreateARInvoice :one
 INSERT INTO ar_invoices (
     number, 
     customer_id, 
     so_id, 
+    delivery_order_id,
     currency, 
+    subtotal,
+    tax_amount,
     total, 
     status, 
-    due_at, 
+    due_at,
+    created_by,
     created_at, 
     updated_at
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
 ) RETURNING id
 `
 
 type CreateARInvoiceParams struct {
-	Number     string             `json:"number"`
-	CustomerID int64              `json:"customer_id"`
-	SoID       pgtype.Int8        `json:"so_id"`
-	Currency   string             `json:"currency"`
-	Total      pgtype.Numeric     `json:"total"`
-	Status     string             `json:"status"`
-	DueAt      pgtype.Timestamptz `json:"due_at"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	Number          string             `json:"number"`
+	CustomerID      int64              `json:"customer_id"`
+	SoID            pgtype.Int8        `json:"so_id"`
+	DeliveryOrderID pgtype.Int8        `json:"delivery_order_id"`
+	Currency        string             `json:"currency"`
+	Subtotal        pgtype.Numeric     `json:"subtotal"`
+	TaxAmount       pgtype.Numeric     `json:"tax_amount"`
+	Total           pgtype.Numeric     `json:"total"`
+	Status          string             `json:"status"`
+	DueAt           pgtype.Timestamptz `json:"due_at"`
+	CreatedBy       pgtype.Int8        `json:"created_by"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 }
 
 func (q *Queries) CreateARInvoice(ctx context.Context, arg CreateARInvoiceParams) (int64, error) {
@@ -44,12 +63,68 @@ func (q *Queries) CreateARInvoice(ctx context.Context, arg CreateARInvoiceParams
 		arg.Number,
 		arg.CustomerID,
 		arg.SoID,
+		arg.DeliveryOrderID,
 		arg.Currency,
+		arg.Subtotal,
+		arg.TaxAmount,
 		arg.Total,
 		arg.Status,
 		arg.DueAt,
+		arg.CreatedBy,
 		arg.CreatedAt,
 		arg.UpdatedAt,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const createARInvoiceLine = `-- name: CreateARInvoiceLine :one
+INSERT INTO ar_invoice_lines (
+    ar_invoice_id,
+    delivery_order_line_id,
+    product_id,
+    description,
+    quantity,
+    unit_price,
+    discount_pct,
+    tax_pct,
+    subtotal,
+    tax_amount,
+    total,
+    created_at
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW()
+) RETURNING id
+`
+
+type CreateARInvoiceLineParams struct {
+	ArInvoiceID         int64          `json:"ar_invoice_id"`
+	DeliveryOrderLineID pgtype.Int8    `json:"delivery_order_line_id"`
+	ProductID           int64          `json:"product_id"`
+	Description         string         `json:"description"`
+	Quantity            pgtype.Numeric `json:"quantity"`
+	UnitPrice           pgtype.Numeric `json:"unit_price"`
+	DiscountPct         pgtype.Numeric `json:"discount_pct"`
+	TaxPct              pgtype.Numeric `json:"tax_pct"`
+	Subtotal            pgtype.Numeric `json:"subtotal"`
+	TaxAmount           pgtype.Numeric `json:"tax_amount"`
+	Total               pgtype.Numeric `json:"total"`
+}
+
+func (q *Queries) CreateARInvoiceLine(ctx context.Context, arg CreateARInvoiceLineParams) (int64, error) {
+	row := q.db.QueryRow(ctx, createARInvoiceLine,
+		arg.ArInvoiceID,
+		arg.DeliveryOrderLineID,
+		arg.ProductID,
+		arg.Description,
+		arg.Quantity,
+		arg.UnitPrice,
+		arg.DiscountPct,
+		arg.TaxPct,
+		arg.Subtotal,
+		arg.TaxAmount,
+		arg.Total,
 	)
 	var id int64
 	err := row.Scan(&id)
@@ -63,11 +138,12 @@ INSERT INTO ar_payments (
     amount, 
     paid_at, 
     method, 
-    note, 
+    note,
+    created_by,
     created_at, 
     updated_at
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8
+    $1, $2, $3, $4, $5, $6, $7, $8, $9
 ) RETURNING id
 `
 
@@ -78,6 +154,7 @@ type CreateARPaymentParams struct {
 	PaidAt      pgtype.Timestamptz `json:"paid_at"`
 	Method      string             `json:"method"`
 	Note        string             `json:"note"`
+	CreatedBy   pgtype.Int8        `json:"created_by"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
@@ -90,6 +167,7 @@ func (q *Queries) CreateARPayment(ctx context.Context, arg CreateARPaymentParams
 		arg.PaidAt,
 		arg.Method,
 		arg.Note,
+		arg.CreatedBy,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -98,40 +176,439 @@ func (q *Queries) CreateARPayment(ctx context.Context, arg CreateARPaymentParams
 	return id, err
 }
 
-const listARInvoices = `-- name: ListARInvoices :many
+const createPaymentAllocation = `-- name: CreatePaymentAllocation :one
+INSERT INTO ar_payment_allocations (
+    ar_payment_id, ar_invoice_id, amount, created_at
+) VALUES ($1, $2, $3, NOW())
+RETURNING id
+`
+
+type CreatePaymentAllocationParams struct {
+	ArPaymentID int64          `json:"ar_payment_id"`
+	ArInvoiceID int64          `json:"ar_invoice_id"`
+	Amount      pgtype.Numeric `json:"amount"`
+}
+
+func (q *Queries) CreatePaymentAllocation(ctx context.Context, arg CreatePaymentAllocationParams) (int64, error) {
+	row := q.db.QueryRow(ctx, createPaymentAllocation, arg.ArPaymentID, arg.ArInvoiceID, arg.Amount)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const generateARInvoiceNumber = `-- name: GenerateARInvoiceNumber :one
+SELECT generate_ar_invoice_number()
+`
+
+func (q *Queries) GenerateARInvoiceNumber(ctx context.Context) (string, error) {
+	row := q.db.QueryRow(ctx, generateARInvoiceNumber)
+	var generate_ar_invoice_number string
+	err := row.Scan(&generate_ar_invoice_number)
+	return generate_ar_invoice_number, err
+}
+
+const generateARPaymentNumber = `-- name: GenerateARPaymentNumber :one
+SELECT generate_ar_payment_number()
+`
+
+func (q *Queries) GenerateARPaymentNumber(ctx context.Context) (string, error) {
+	row := q.db.QueryRow(ctx, generateARPaymentNumber)
+	var generate_ar_payment_number string
+	err := row.Scan(&generate_ar_payment_number)
+	return generate_ar_payment_number, err
+}
+
+const getARInvoice = `-- name: GetARInvoice :one
 SELECT 
-    id, 
-    number, 
-    customer_id, 
-    so_id, 
-    currency, 
-    total, 
-    status, 
-    due_at, 
-    created_at, 
-    updated_at 
+    id, number, customer_id, so_id, delivery_order_id, currency, 
+    subtotal, tax_amount, total, status, due_at, 
+    posted_at, posted_by, voided_at, voided_by, void_reason,
+    created_by, created_at, updated_at 
 FROM ar_invoices 
+WHERE id = $1
+`
+
+type GetARInvoiceRow struct {
+	ID              int64              `json:"id"`
+	Number          string             `json:"number"`
+	CustomerID      int64              `json:"customer_id"`
+	SoID            pgtype.Int8        `json:"so_id"`
+	DeliveryOrderID pgtype.Int8        `json:"delivery_order_id"`
+	Currency        string             `json:"currency"`
+	Subtotal        pgtype.Numeric     `json:"subtotal"`
+	TaxAmount       pgtype.Numeric     `json:"tax_amount"`
+	Total           pgtype.Numeric     `json:"total"`
+	Status          string             `json:"status"`
+	DueAt           pgtype.Timestamptz `json:"due_at"`
+	PostedAt        pgtype.Timestamptz `json:"posted_at"`
+	PostedBy        pgtype.Int8        `json:"posted_by"`
+	VoidedAt        pgtype.Timestamptz `json:"voided_at"`
+	VoidedBy        pgtype.Int8        `json:"voided_by"`
+	VoidReason      pgtype.Text        `json:"void_reason"`
+	CreatedBy       pgtype.Int8        `json:"created_by"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetARInvoice(ctx context.Context, id int64) (GetARInvoiceRow, error) {
+	row := q.db.QueryRow(ctx, getARInvoice, id)
+	var i GetARInvoiceRow
+	err := row.Scan(
+		&i.ID,
+		&i.Number,
+		&i.CustomerID,
+		&i.SoID,
+		&i.DeliveryOrderID,
+		&i.Currency,
+		&i.Subtotal,
+		&i.TaxAmount,
+		&i.Total,
+		&i.Status,
+		&i.DueAt,
+		&i.PostedAt,
+		&i.PostedBy,
+		&i.VoidedAt,
+		&i.VoidedBy,
+		&i.VoidReason,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getARInvoiceByNumber = `-- name: GetARInvoiceByNumber :one
+SELECT 
+    id, number, customer_id, so_id, delivery_order_id, currency, 
+    subtotal, tax_amount, total, status, due_at, 
+    posted_at, posted_by, voided_at, voided_by, void_reason,
+    created_by, created_at, updated_at 
+FROM ar_invoices 
+WHERE number = $1
+`
+
+type GetARInvoiceByNumberRow struct {
+	ID              int64              `json:"id"`
+	Number          string             `json:"number"`
+	CustomerID      int64              `json:"customer_id"`
+	SoID            pgtype.Int8        `json:"so_id"`
+	DeliveryOrderID pgtype.Int8        `json:"delivery_order_id"`
+	Currency        string             `json:"currency"`
+	Subtotal        pgtype.Numeric     `json:"subtotal"`
+	TaxAmount       pgtype.Numeric     `json:"tax_amount"`
+	Total           pgtype.Numeric     `json:"total"`
+	Status          string             `json:"status"`
+	DueAt           pgtype.Timestamptz `json:"due_at"`
+	PostedAt        pgtype.Timestamptz `json:"posted_at"`
+	PostedBy        pgtype.Int8        `json:"posted_by"`
+	VoidedAt        pgtype.Timestamptz `json:"voided_at"`
+	VoidedBy        pgtype.Int8        `json:"voided_by"`
+	VoidReason      pgtype.Text        `json:"void_reason"`
+	CreatedBy       pgtype.Int8        `json:"created_by"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetARInvoiceByNumber(ctx context.Context, number string) (GetARInvoiceByNumberRow, error) {
+	row := q.db.QueryRow(ctx, getARInvoiceByNumber, number)
+	var i GetARInvoiceByNumberRow
+	err := row.Scan(
+		&i.ID,
+		&i.Number,
+		&i.CustomerID,
+		&i.SoID,
+		&i.DeliveryOrderID,
+		&i.Currency,
+		&i.Subtotal,
+		&i.TaxAmount,
+		&i.Total,
+		&i.Status,
+		&i.DueAt,
+		&i.PostedAt,
+		&i.PostedBy,
+		&i.VoidedAt,
+		&i.VoidedBy,
+		&i.VoidReason,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getInvoiceBalance = `-- name: GetInvoiceBalance :one
+SELECT 
+    i.total,
+    COALESCE(SUM(pa.amount), 0)::NUMERIC AS paid_amount,
+    (i.total - COALESCE(SUM(pa.amount), 0))::NUMERIC AS balance
+FROM ar_invoices i
+LEFT JOIN ar_payment_allocations pa ON pa.ar_invoice_id = i.id
+WHERE i.id = $1
+GROUP BY i.id
+`
+
+type GetInvoiceBalanceRow struct {
+	Total      pgtype.Numeric `json:"total"`
+	PaidAmount pgtype.Numeric `json:"paid_amount"`
+	Balance    pgtype.Numeric `json:"balance"`
+}
+
+func (q *Queries) GetInvoiceBalance(ctx context.Context, id int64) (GetInvoiceBalanceRow, error) {
+	row := q.db.QueryRow(ctx, getInvoiceBalance, id)
+	var i GetInvoiceBalanceRow
+	err := row.Scan(&i.Total, &i.PaidAmount, &i.Balance)
+	return i, err
+}
+
+const listARInvoiceLines = `-- name: ListARInvoiceLines :many
+SELECT 
+    id, ar_invoice_id, delivery_order_line_id, product_id,
+    description, quantity, unit_price, discount_pct, tax_pct,
+    subtotal, tax_amount, total, created_at
+FROM ar_invoice_lines
+WHERE ar_invoice_id = $1
 ORDER BY id
 `
 
-func (q *Queries) ListARInvoices(ctx context.Context) ([]ArInvoice, error) {
+func (q *Queries) ListARInvoiceLines(ctx context.Context, arInvoiceID int64) ([]ArInvoiceLine, error) {
+	rows, err := q.db.Query(ctx, listARInvoiceLines, arInvoiceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ArInvoiceLine
+	for rows.Next() {
+		var i ArInvoiceLine
+		if err := rows.Scan(
+			&i.ID,
+			&i.ArInvoiceID,
+			&i.DeliveryOrderLineID,
+			&i.ProductID,
+			&i.Description,
+			&i.Quantity,
+			&i.UnitPrice,
+			&i.DiscountPct,
+			&i.TaxPct,
+			&i.Subtotal,
+			&i.TaxAmount,
+			&i.Total,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listARInvoices = `-- name: ListARInvoices :many
+SELECT 
+    id, number, customer_id, so_id, delivery_order_id, currency, 
+    subtotal, tax_amount, total, status, due_at, 
+    posted_at, posted_by, voided_at, voided_by, void_reason,
+    created_by, created_at, updated_at 
+FROM ar_invoices 
+ORDER BY created_at DESC
+`
+
+type ListARInvoicesRow struct {
+	ID              int64              `json:"id"`
+	Number          string             `json:"number"`
+	CustomerID      int64              `json:"customer_id"`
+	SoID            pgtype.Int8        `json:"so_id"`
+	DeliveryOrderID pgtype.Int8        `json:"delivery_order_id"`
+	Currency        string             `json:"currency"`
+	Subtotal        pgtype.Numeric     `json:"subtotal"`
+	TaxAmount       pgtype.Numeric     `json:"tax_amount"`
+	Total           pgtype.Numeric     `json:"total"`
+	Status          string             `json:"status"`
+	DueAt           pgtype.Timestamptz `json:"due_at"`
+	PostedAt        pgtype.Timestamptz `json:"posted_at"`
+	PostedBy        pgtype.Int8        `json:"posted_by"`
+	VoidedAt        pgtype.Timestamptz `json:"voided_at"`
+	VoidedBy        pgtype.Int8        `json:"voided_by"`
+	VoidReason      pgtype.Text        `json:"void_reason"`
+	CreatedBy       pgtype.Int8        `json:"created_by"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) ListARInvoices(ctx context.Context) ([]ListARInvoicesRow, error) {
 	rows, err := q.db.Query(ctx, listARInvoices)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ArInvoice
+	var items []ListARInvoicesRow
 	for rows.Next() {
-		var i ArInvoice
+		var i ListARInvoicesRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Number,
 			&i.CustomerID,
 			&i.SoID,
+			&i.DeliveryOrderID,
 			&i.Currency,
+			&i.Subtotal,
+			&i.TaxAmount,
 			&i.Total,
 			&i.Status,
 			&i.DueAt,
+			&i.PostedAt,
+			&i.PostedBy,
+			&i.VoidedAt,
+			&i.VoidedBy,
+			&i.VoidReason,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listARInvoicesByCustomer = `-- name: ListARInvoicesByCustomer :many
+SELECT 
+    id, number, customer_id, so_id, delivery_order_id, currency, 
+    subtotal, tax_amount, total, status, due_at, 
+    posted_at, posted_by, voided_at, voided_by, void_reason,
+    created_by, created_at, updated_at 
+FROM ar_invoices 
+WHERE customer_id = $1
+ORDER BY created_at DESC
+`
+
+type ListARInvoicesByCustomerRow struct {
+	ID              int64              `json:"id"`
+	Number          string             `json:"number"`
+	CustomerID      int64              `json:"customer_id"`
+	SoID            pgtype.Int8        `json:"so_id"`
+	DeliveryOrderID pgtype.Int8        `json:"delivery_order_id"`
+	Currency        string             `json:"currency"`
+	Subtotal        pgtype.Numeric     `json:"subtotal"`
+	TaxAmount       pgtype.Numeric     `json:"tax_amount"`
+	Total           pgtype.Numeric     `json:"total"`
+	Status          string             `json:"status"`
+	DueAt           pgtype.Timestamptz `json:"due_at"`
+	PostedAt        pgtype.Timestamptz `json:"posted_at"`
+	PostedBy        pgtype.Int8        `json:"posted_by"`
+	VoidedAt        pgtype.Timestamptz `json:"voided_at"`
+	VoidedBy        pgtype.Int8        `json:"voided_by"`
+	VoidReason      pgtype.Text        `json:"void_reason"`
+	CreatedBy       pgtype.Int8        `json:"created_by"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) ListARInvoicesByCustomer(ctx context.Context, customerID int64) ([]ListARInvoicesByCustomerRow, error) {
+	rows, err := q.db.Query(ctx, listARInvoicesByCustomer, customerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListARInvoicesByCustomerRow
+	for rows.Next() {
+		var i ListARInvoicesByCustomerRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Number,
+			&i.CustomerID,
+			&i.SoID,
+			&i.DeliveryOrderID,
+			&i.Currency,
+			&i.Subtotal,
+			&i.TaxAmount,
+			&i.Total,
+			&i.Status,
+			&i.DueAt,
+			&i.PostedAt,
+			&i.PostedBy,
+			&i.VoidedAt,
+			&i.VoidedBy,
+			&i.VoidReason,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listARInvoicesByStatus = `-- name: ListARInvoicesByStatus :many
+SELECT 
+    id, number, customer_id, so_id, delivery_order_id, currency, 
+    subtotal, tax_amount, total, status, due_at, 
+    posted_at, posted_by, voided_at, voided_by, void_reason,
+    created_by, created_at, updated_at 
+FROM ar_invoices 
+WHERE status = $1
+ORDER BY created_at DESC
+`
+
+type ListARInvoicesByStatusRow struct {
+	ID              int64              `json:"id"`
+	Number          string             `json:"number"`
+	CustomerID      int64              `json:"customer_id"`
+	SoID            pgtype.Int8        `json:"so_id"`
+	DeliveryOrderID pgtype.Int8        `json:"delivery_order_id"`
+	Currency        string             `json:"currency"`
+	Subtotal        pgtype.Numeric     `json:"subtotal"`
+	TaxAmount       pgtype.Numeric     `json:"tax_amount"`
+	Total           pgtype.Numeric     `json:"total"`
+	Status          string             `json:"status"`
+	DueAt           pgtype.Timestamptz `json:"due_at"`
+	PostedAt        pgtype.Timestamptz `json:"posted_at"`
+	PostedBy        pgtype.Int8        `json:"posted_by"`
+	VoidedAt        pgtype.Timestamptz `json:"voided_at"`
+	VoidedBy        pgtype.Int8        `json:"voided_by"`
+	VoidReason      pgtype.Text        `json:"void_reason"`
+	CreatedBy       pgtype.Int8        `json:"created_by"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) ListARInvoicesByStatus(ctx context.Context, status string) ([]ListARInvoicesByStatusRow, error) {
+	rows, err := q.db.Query(ctx, listARInvoicesByStatus, status)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListARInvoicesByStatusRow
+	for rows.Next() {
+		var i ListARInvoicesByStatusRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Number,
+			&i.CustomerID,
+			&i.SoID,
+			&i.DeliveryOrderID,
+			&i.Currency,
+			&i.Subtotal,
+			&i.TaxAmount,
+			&i.Total,
+			&i.Status,
+			&i.DueAt,
+			&i.PostedAt,
+			&i.PostedBy,
+			&i.VoidedAt,
+			&i.VoidedBy,
+			&i.VoidReason,
+			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -147,39 +624,64 @@ func (q *Queries) ListARInvoices(ctx context.Context) ([]ArInvoice, error) {
 
 const listAROutstanding = `-- name: ListAROutstanding :many
 SELECT 
-    id, 
-    number, 
-    customer_id, 
-    so_id, 
-    currency, 
-    total, 
-    status, 
-    due_at, 
-    created_at, 
-    updated_at 
+    id, number, customer_id, so_id, delivery_order_id, currency, 
+    subtotal, tax_amount, total, status, due_at, 
+    posted_at, posted_by, voided_at, voided_by, void_reason,
+    created_by, created_at, updated_at 
 FROM ar_invoices 
-WHERE status IN ('POSTED','PAID') 
+WHERE status = 'POSTED'
 ORDER BY due_at
 `
 
-func (q *Queries) ListAROutstanding(ctx context.Context) ([]ArInvoice, error) {
+type ListAROutstandingRow struct {
+	ID              int64              `json:"id"`
+	Number          string             `json:"number"`
+	CustomerID      int64              `json:"customer_id"`
+	SoID            pgtype.Int8        `json:"so_id"`
+	DeliveryOrderID pgtype.Int8        `json:"delivery_order_id"`
+	Currency        string             `json:"currency"`
+	Subtotal        pgtype.Numeric     `json:"subtotal"`
+	TaxAmount       pgtype.Numeric     `json:"tax_amount"`
+	Total           pgtype.Numeric     `json:"total"`
+	Status          string             `json:"status"`
+	DueAt           pgtype.Timestamptz `json:"due_at"`
+	PostedAt        pgtype.Timestamptz `json:"posted_at"`
+	PostedBy        pgtype.Int8        `json:"posted_by"`
+	VoidedAt        pgtype.Timestamptz `json:"voided_at"`
+	VoidedBy        pgtype.Int8        `json:"voided_by"`
+	VoidReason      pgtype.Text        `json:"void_reason"`
+	CreatedBy       pgtype.Int8        `json:"created_by"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) ListAROutstanding(ctx context.Context) ([]ListAROutstandingRow, error) {
 	rows, err := q.db.Query(ctx, listAROutstanding)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ArInvoice
+	var items []ListAROutstandingRow
 	for rows.Next() {
-		var i ArInvoice
+		var i ListAROutstandingRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Number,
 			&i.CustomerID,
 			&i.SoID,
+			&i.DeliveryOrderID,
 			&i.Currency,
+			&i.Subtotal,
+			&i.TaxAmount,
 			&i.Total,
 			&i.Status,
 			&i.DueAt,
+			&i.PostedAt,
+			&i.PostedBy,
+			&i.VoidedAt,
+			&i.VoidedBy,
+			&i.VoidReason,
+			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -195,28 +697,34 @@ func (q *Queries) ListAROutstanding(ctx context.Context) ([]ArInvoice, error) {
 
 const listARPayments = `-- name: ListARPayments :many
 SELECT 
-    id, 
-    number, 
-    ar_invoice_id, 
-    amount, 
-    paid_at, 
-    method, 
-    note, 
-    created_at, 
-    updated_at 
+    id, number, ar_invoice_id, amount, paid_at, method, note, 
+    created_by, created_at, updated_at 
 FROM ar_payments 
-ORDER BY id
+ORDER BY paid_at DESC
 `
 
-func (q *Queries) ListARPayments(ctx context.Context) ([]ArPayment, error) {
+type ListARPaymentsRow struct {
+	ID          int64              `json:"id"`
+	Number      string             `json:"number"`
+	ArInvoiceID int64              `json:"ar_invoice_id"`
+	Amount      pgtype.Numeric     `json:"amount"`
+	PaidAt      pgtype.Timestamptz `json:"paid_at"`
+	Method      string             `json:"method"`
+	Note        string             `json:"note"`
+	CreatedBy   pgtype.Int8        `json:"created_by"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) ListARPayments(ctx context.Context) ([]ListARPaymentsRow, error) {
 	rows, err := q.db.Query(ctx, listARPayments)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ArPayment
+	var items []ListARPaymentsRow
 	for rows.Next() {
-		var i ArPayment
+		var i ListARPaymentsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Number,
@@ -225,6 +733,7 @@ func (q *Queries) ListARPayments(ctx context.Context) ([]ArPayment, error) {
 			&i.PaidAt,
 			&i.Method,
 			&i.Note,
+			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -238,18 +747,132 @@ func (q *Queries) ListARPayments(ctx context.Context) ([]ArPayment, error) {
 	return items, nil
 }
 
+const listInvoicePayments = `-- name: ListInvoicePayments :many
+SELECT 
+    p.id, p.number, p.amount, p.paid_at, p.method, p.note,
+    pa.amount AS allocated_amount
+FROM ar_payments p
+JOIN ar_payment_allocations pa ON pa.ar_payment_id = p.id
+WHERE pa.ar_invoice_id = $1
+ORDER BY p.paid_at
+`
+
+type ListInvoicePaymentsRow struct {
+	ID              int64              `json:"id"`
+	Number          string             `json:"number"`
+	Amount          pgtype.Numeric     `json:"amount"`
+	PaidAt          pgtype.Timestamptz `json:"paid_at"`
+	Method          string             `json:"method"`
+	Note            string             `json:"note"`
+	AllocatedAmount pgtype.Numeric     `json:"allocated_amount"`
+}
+
+func (q *Queries) ListInvoicePayments(ctx context.Context, arInvoiceID int64) ([]ListInvoicePaymentsRow, error) {
+	rows, err := q.db.Query(ctx, listInvoicePayments, arInvoiceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListInvoicePaymentsRow
+	for rows.Next() {
+		var i ListInvoicePaymentsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Number,
+			&i.Amount,
+			&i.PaidAt,
+			&i.Method,
+			&i.Note,
+			&i.AllocatedAmount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPaymentAllocations = `-- name: ListPaymentAllocations :many
+SELECT id, ar_payment_id, ar_invoice_id, amount, created_at
+FROM ar_payment_allocations
+WHERE ar_payment_id = $1
+ORDER BY id
+`
+
+func (q *Queries) ListPaymentAllocations(ctx context.Context, arPaymentID int64) ([]ArPaymentAllocation, error) {
+	rows, err := q.db.Query(ctx, listPaymentAllocations, arPaymentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ArPaymentAllocation
+	for rows.Next() {
+		var i ArPaymentAllocation
+		if err := rows.Scan(
+			&i.ID,
+			&i.ArPaymentID,
+			&i.ArInvoiceID,
+			&i.Amount,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const postARInvoice = `-- name: PostARInvoice :exec
+UPDATE ar_invoices 
+SET status = 'POSTED', posted_at = NOW(), posted_by = $2, updated_at = NOW()
+WHERE id = $1 AND status = 'DRAFT'
+`
+
+type PostARInvoiceParams struct {
+	ID       int64       `json:"id"`
+	PostedBy pgtype.Int8 `json:"posted_by"`
+}
+
+func (q *Queries) PostARInvoice(ctx context.Context, arg PostARInvoiceParams) error {
+	_, err := q.db.Exec(ctx, postARInvoice, arg.ID, arg.PostedBy)
+	return err
+}
+
 const updateARStatus = `-- name: UpdateARStatus :exec
 UPDATE ar_invoices 
-SET status = $1 
-WHERE id = $2
+SET status = $2, updated_at = NOW()
+WHERE id = $1
 `
 
 type UpdateARStatusParams struct {
-	Status string `json:"status"`
 	ID     int64  `json:"id"`
+	Status string `json:"status"`
 }
 
 func (q *Queries) UpdateARStatus(ctx context.Context, arg UpdateARStatusParams) error {
-	_, err := q.db.Exec(ctx, updateARStatus, arg.Status, arg.ID)
+	_, err := q.db.Exec(ctx, updateARStatus, arg.ID, arg.Status)
+	return err
+}
+
+const voidARInvoice = `-- name: VoidARInvoice :exec
+UPDATE ar_invoices 
+SET status = 'VOID', voided_at = NOW(), voided_by = $2, void_reason = $3, updated_at = NOW()
+WHERE id = $1 AND status IN ('DRAFT', 'POSTED')
+`
+
+type VoidARInvoiceParams struct {
+	ID         int64       `json:"id"`
+	VoidedBy   pgtype.Int8 `json:"voided_by"`
+	VoidReason pgtype.Text `json:"void_reason"`
+}
+
+func (q *Queries) VoidARInvoice(ctx context.Context, arg VoidARInvoiceParams) error {
+	_, err := q.db.Exec(ctx, voidARInvoice, arg.ID, arg.VoidedBy, arg.VoidReason)
 	return err
 }

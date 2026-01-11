@@ -277,6 +277,17 @@ func (s *Service) RegisterARPayment(ctx context.Context, input CreateARPaymentIn
 		}
 		totalAllocated += alloc.Amount
 
+		invoice, err := s.repo.GetARInvoice(ctx, alloc.ARInvoiceID)
+		if err != nil {
+			return nil, err
+		}
+		if invoice == nil {
+			return nil, ErrInvoiceNotFound
+		}
+		if invoice.Status != ARStatusPosted {
+			return nil, ErrInvalidStatus
+		}
+
 		// Check invoice balance
 		_, _, balance, err := s.repo.GetInvoiceBalance(ctx, alloc.ARInvoiceID)
 		if err != nil {

@@ -40,6 +40,9 @@ func (s *Service) Create(ctx context.Context, req CreateSalesOrderRequest, creat
 		if err != nil {
 			return nil, fmt.Errorf("verify quotation: %w", err)
 		}
+		if q.Status == quotations.QuotationStatusConverted {
+			return nil, errors.New("quotation already converted to sales order")
+		}
 		if q.Status != quotations.QuotationStatusApproved {
 			return nil, errors.New("quotation must be approved to create sales order")
 		}
@@ -121,15 +124,12 @@ func (s *Service) Create(ctx context.Context, req CreateSalesOrderRequest, creat
 				return fmt.Errorf("insert order line: %w", err)
 			}
 		}
-		
-		// If linked to quotation, update status to converted?
-		// Cross-repo transaction update is complex if `quoteRepo` is not part of same tx.
-		// `DB.WithTx` takes a pool. 
-		// If `quoteRepo` uses same pool, we can't share `tx` unless we pass it explicitly or wrap generic `RunInTx`.
-		// For now, I will NOT update quotation status atomically to keep it simple, or I assume separate update.
-		// In monolithic, it was all same repo.
-		// Modular approach: `orders` shouldn't touch `quotations` table optionally?
-		// We'll leave it for now.
+
+		if req.QuotationID != nil {
+			if err := repo.UpdateQuotationStatus(ctx, *req.QuotationID, quotations.QuotationStatusConverted); err != nil {
+				return fmt.Errorf("update quotation status: %w", err)
+			}
+		}
 		return nil
 	})
 	if err != nil {

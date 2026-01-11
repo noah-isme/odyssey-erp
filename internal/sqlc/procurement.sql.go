@@ -11,41 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const createAPInvoice = `-- name: CreateAPInvoice :one
-
-INSERT INTO ap_invoices (number, supplier_id, grn_id, currency, total, status, issued_at, due_at, created_at)
-VALUES ($1, $2, $3, $4, $5, $6, CURRENT_DATE, $7, NOW())
-RETURNING id
-`
-
-type CreateAPInvoiceParams struct {
-	Number     string         `json:"number"`
-	SupplierID int64          `json:"supplier_id"`
-	GrnID      pgtype.Int8    `json:"grn_id"`
-	Currency   string         `json:"currency"`
-	Total      pgtype.Numeric `json:"total"`
-	Status     string         `json:"status"`
-	DueAt      pgtype.Date    `json:"due_at"`
-}
-
-// =============================================================================
-// AP INVOICES
-// =============================================================================
-func (q *Queries) CreateAPInvoice(ctx context.Context, arg CreateAPInvoiceParams) (int64, error) {
-	row := q.db.QueryRow(ctx, createAPInvoice,
-		arg.Number,
-		arg.SupplierID,
-		arg.GrnID,
-		arg.Currency,
-		arg.Total,
-		arg.Status,
-		arg.DueAt,
-	)
-	var id int64
-	err := row.Scan(&id)
-	return id, err
-}
-
 const createGRN = `-- name: CreateGRN :one
 
 INSERT INTO grns (number, po_id, supplier_id, warehouse_id, status, received_at, note, created_at)
@@ -143,57 +108,6 @@ func (q *Queries) CreatePR(ctx context.Context, arg CreatePRParams) (int64, erro
 	var id int64
 	err := row.Scan(&id)
 	return id, err
-}
-
-const createPayment = `-- name: CreatePayment :one
-INSERT INTO ap_payments (number, ap_invoice_id, amount, paid_at, method, note)
-VALUES ($1, $2, $3, CURRENT_DATE, 'TRANSFER', '')
-RETURNING id
-`
-
-type CreatePaymentParams struct {
-	Number      string         `json:"number"`
-	ApInvoiceID int64          `json:"ap_invoice_id"`
-	Amount      pgtype.Numeric `json:"amount"`
-}
-
-func (q *Queries) CreatePayment(ctx context.Context, arg CreatePaymentParams) (int64, error) {
-	row := q.db.QueryRow(ctx, createPayment, arg.Number, arg.ApInvoiceID, arg.Amount)
-	var id int64
-	err := row.Scan(&id)
-	return id, err
-}
-
-const getAPInvoice = `-- name: GetAPInvoice :one
-SELECT id, number, supplier_id, grn_id, currency, total, status, due_at
-FROM ap_invoices WHERE id = $1
-`
-
-type GetAPInvoiceRow struct {
-	ID         int64          `json:"id"`
-	Number     string         `json:"number"`
-	SupplierID int64          `json:"supplier_id"`
-	GrnID      pgtype.Int8    `json:"grn_id"`
-	Currency   string         `json:"currency"`
-	Total      pgtype.Numeric `json:"total"`
-	Status     string         `json:"status"`
-	DueAt      pgtype.Date    `json:"due_at"`
-}
-
-func (q *Queries) GetAPInvoice(ctx context.Context, id int64) (GetAPInvoiceRow, error) {
-	row := q.db.QueryRow(ctx, getAPInvoice, id)
-	var i GetAPInvoiceRow
-	err := row.Scan(
-		&i.ID,
-		&i.Number,
-		&i.SupplierID,
-		&i.GrnID,
-		&i.Currency,
-		&i.Total,
-		&i.Status,
-		&i.DueAt,
-	)
-	return i, err
 }
 
 const getGRN = `-- name: GetGRN :one
@@ -451,53 +365,6 @@ func (q *Queries) InsertPRLine(ctx context.Context, arg InsertPRLineParams) erro
 	return err
 }
 
-const listAPOutstanding = `-- name: ListAPOutstanding :many
-SELECT id, number, supplier_id, grn_id, currency, total, status, due_at
-FROM ap_invoices 
-WHERE status IN ('POSTED','PAID') 
-ORDER BY due_at
-`
-
-type ListAPOutstandingRow struct {
-	ID         int64          `json:"id"`
-	Number     string         `json:"number"`
-	SupplierID int64          `json:"supplier_id"`
-	GrnID      pgtype.Int8    `json:"grn_id"`
-	Currency   string         `json:"currency"`
-	Total      pgtype.Numeric `json:"total"`
-	Status     string         `json:"status"`
-	DueAt      pgtype.Date    `json:"due_at"`
-}
-
-func (q *Queries) ListAPOutstanding(ctx context.Context) ([]ListAPOutstandingRow, error) {
-	rows, err := q.db.Query(ctx, listAPOutstanding)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListAPOutstandingRow
-	for rows.Next() {
-		var i ListAPOutstandingRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Number,
-			&i.SupplierID,
-			&i.GrnID,
-			&i.Currency,
-			&i.Total,
-			&i.Status,
-			&i.DueAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const setPOApproval = `-- name: SetPOApproval :exec
 UPDATE pos SET approved_by = $1, approved_at = $2 WHERE id = $3
 `
@@ -510,20 +377,6 @@ type SetPOApprovalParams struct {
 
 func (q *Queries) SetPOApproval(ctx context.Context, arg SetPOApprovalParams) error {
 	_, err := q.db.Exec(ctx, setPOApproval, arg.ApprovedBy, arg.ApprovedAt, arg.ID)
-	return err
-}
-
-const updateAPStatus = `-- name: UpdateAPStatus :exec
-UPDATE ap_invoices SET status = $1 WHERE id = $2
-`
-
-type UpdateAPStatusParams struct {
-	Status string `json:"status"`
-	ID     int64  `json:"id"`
-}
-
-func (q *Queries) UpdateAPStatus(ctx context.Context, arg UpdateAPStatusParams) error {
-	_, err := q.db.Exec(ctx, updateAPStatus, arg.Status, arg.ID)
 	return err
 }
 

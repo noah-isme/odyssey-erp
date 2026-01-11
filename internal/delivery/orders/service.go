@@ -258,12 +258,6 @@ func (s *Service) Confirm(ctx context.Context, id int64, confirmedBy int64) (*De
 			return err
 		}
 
-		for _, line := range existing.Lines {
-			if err := tx.UpdateLineQuantity(ctx, line.ID, line.QuantityToDeliver); err != nil {
-				return fmt.Errorf("update line %d: %w", line.ID, err)
-			}
-		}
-
 		return nil
 	})
 

@@ -1,0 +1,65 @@
+{{ define "pages/ap/ap_payment_list.html" }}
+{{template "layouts/base.html" .}}
+{{ end }}
+
+{{define "title"}}AP Payments{{end}}
+
+{{define "content"}}
+<main class="container">
+    <header>
+        <hgroup>
+            <h1>AP Payments</h1>
+            <p>Track payments made to suppliers</p>
+        </hgroup>
+    </header>
+
+    <nav>
+        <ul>
+            <li><a href="/finance/ap/payments/new" role="button">+ Record Payment</a></li>
+        </ul>
+        <ul>
+            <li><a href="/finance/ap/invoices">Invoices</a></li>
+            <li><a href="/finance/ap/aging">Aging Report</a></li>
+        </ul>
+    </nav>
+
+    {{if .Data.Payments}}
+    <figure>
+        <table role="grid">
+            <thead>
+                <tr>
+                    <th>Number</th>
+                    <th>Invoice</th>
+                    <th>Amount</th>
+                    <th>Method</th>
+                    <th>Date</th>
+                    <th>Note</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Data.Payments}}
+                <tr>
+                    <td>{{.Number}}</td>
+                    <td>
+                        {{if .APInvoiceID}}
+                        <a href="/finance/ap/invoices/{{.APInvoiceID}}">Invoice #{{.APInvoiceID}}</a>
+                        {{else}}
+                        -
+                        {{end}}
+                    </td>
+                    <td>{{printf "%.2f" .Amount}}</td>
+                    <td>{{.Method}}</td>
+                    <td>{{.PaidAt.Format "2006-01-02"}}</td>
+                    <td>{{.Note}}</td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </figure>
+    {{else}}
+    <article>
+        <p>No payments recorded yet. <a href="/finance/ap/payments/new">Record your first payment</a>.</p>
+    </article>
+    {{end}}
+</main>
+{{end}}

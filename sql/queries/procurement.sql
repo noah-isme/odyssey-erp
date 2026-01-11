@@ -73,29 +73,3 @@ FROM grn_lines WHERE grn_id = $1 ORDER BY id;
 -- name: UpdateGRNStatus :exec
 UPDATE grns SET status = $1 WHERE id = $2;
 
--- =============================================================================
--- AP INVOICES
--- =============================================================================
-
--- name: CreateAPInvoice :one
-INSERT INTO ap_invoices (number, supplier_id, grn_id, currency, total, status, issued_at, due_at, created_at)
-VALUES ($1, $2, $3, $4, $5, $6, CURRENT_DATE, $7, NOW())
-RETURNING id;
-
--- name: UpdateAPStatus :exec
-UPDATE ap_invoices SET status = $1 WHERE id = $2;
-
--- name: GetAPInvoice :one
-SELECT id, number, supplier_id, grn_id, currency, total, status, due_at
-FROM ap_invoices WHERE id = $1;
-
--- name: ListAPOutstanding :many
-SELECT id, number, supplier_id, grn_id, currency, total, status, due_at
-FROM ap_invoices 
-WHERE status IN ('POSTED','PAID') 
-ORDER BY due_at;
-
--- name: CreatePayment :one
-INSERT INTO ap_payments (number, ap_invoice_id, amount, paid_at, method, note)
-VALUES ($1, $2, $3, CURRENT_DATE, 'TRANSFER', '')
-RETURNING id;

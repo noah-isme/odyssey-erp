@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
+
 	"time"
 
 	"github.com/google/uuid"
@@ -19,8 +19,6 @@ type RepositoryPort interface {
 	GetPR(ctx context.Context, id int64) (PurchaseRequest, []PRLine, error)
 	GetPO(ctx context.Context, id int64) (PurchaseOrder, []POLine, error)
 	GetGRN(ctx context.Context, id int64) (GoodsReceipt, []GRNLine, error)
-	GetAPInvoice(ctx context.Context, id int64) (APInvoice, error)
-	ListAPOutstanding(ctx context.Context) ([]APInvoice, error)
 	ListPOs(ctx context.Context, limit, offset int, filters ListFilters) ([]POListItem, int, error)
 	ListGRNs(ctx context.Context, limit, offset int, filters ListFilters) ([]GRNListItem, int, error)
 }
@@ -93,19 +91,7 @@ type GRNLineInput struct {
 	UnitCost  float64
 }
 
-// APInvoiceInput for invoice creation.
-type APInvoiceInput struct {
-	GRNID   int64
-	Number  string
-	DueDate time.Time
-}
 
-// PaymentInput describes payment info.
-type PaymentInput struct {
-	APInvoiceID int64
-	Number      string
-	Amount      float64
-}
 
 // CreatePurchaseRequest persists PR header and lines.
 func (s *Service) CreatePurchaseRequest(ctx context.Context, input CreatePRInput) (PurchaseRequest, error) {
@@ -164,7 +150,7 @@ func (s *Service) CreatePOFromPR(ctx context.Context, input CreatePOInput) (Purc
 	if err != nil {
 		return PurchaseOrder{}, err
 	}
-	if pr.Status == PRStatusClosed {
+	if pr.Status != PRStatusSubmitted {
 		return PurchaseOrder{}, ErrInvalidState
 	}
 	if input.Number == "" {
@@ -180,6 +166,9 @@ func (s *Service) CreatePOFromPR(ctx context.Context, input CreatePOInput) (Purc
 			if err := tx.InsertPOLine(ctx, POLine{POID: poID, ProductID: line.ProductID, Qty: line.Qty, Price: 0, Note: line.Note}); err != nil {
 				return err
 			}
+		}
+		if err := tx.UpdatePRStatus(ctx, pr.ID, PRStatusClosed); err != nil {
+			return err
 		}
 		created := PurchaseOrder{ID: poID, Number: po.Number, SupplierID: po.SupplierID, Status: po.Status, Currency: po.Currency, ExpectedDate: po.ExpectedDate, Note: po.Note}
 		po = created
@@ -243,18 +232,21 @@ func (s *Service) CreateGoodsReceipt(ctx context.Context, input CreateGRNInput) 
 	if input.Number == "" {
 		input.Number = generateNumber("GRN")
 	}
+	po, _, err := s.repo.GetPO(ctx, input.POID)
+	if err != nil {
+		return GoodsReceipt{}, err
+	}
+	if po.Status != POStatusApproved {
+		return GoodsReceipt{}, ErrInvalidState
+	}
 	if input.SupplierID == 0 {
-		po, _, err := s.repo.GetPO(ctx, input.POID)
-		if err != nil {
-			return GoodsReceipt{}, err
-		}
 		input.SupplierID = po.SupplierID
 	}
 	if len(input.Lines) == 0 {
 		return GoodsReceipt{}, ErrValidation
 	}
 	grn := GoodsReceipt{Number: input.Number, POID: input.POID, SupplierID: input.SupplierID, WarehouseID: input.WarehouseID, Status: GRNStatusDraft, ReceivedAt: defaultTime(input.ReceivedAt), Note: input.Note}
-	err := s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
+	err = s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
 		grnID, err := tx.CreateGRN(ctx, grn)
 		if err != nil {
 			return err
@@ -346,155 +338,9 @@ func (s *Service) PostGoodsReceipt(ctx context.Context, grnID int64) error {
 	return nil
 }
 
-// CreateAPInvoiceFromGRN sums GRN lines into AP invoice.
-func (s *Service) CreateAPInvoiceFromGRN(ctx context.Context, input APInvoiceInput) (APInvoice, error) {
-	grn, lines, err := s.repo.GetGRN(ctx, input.GRNID)
-	if err != nil {
-		return APInvoice{}, err
-	}
-	if grn.Status != GRNStatusPosted {
-		return APInvoice{}, ErrInvalidState
-	}
-	var total float64
-	for _, line := range lines {
-		total += line.Qty * line.UnitCost
-	}
-	if total < 0 {
-		total = 0
-	}
-	inv := APInvoice{Number: input.Number, SupplierID: grn.SupplierID, GRNID: grn.ID, Currency: "IDR", Total: math.Round(total*100) / 100, Status: APStatusDraft, DueAt: input.DueDate}
-	if inv.Number == "" {
-		inv.Number = generateNumber("AP")
-	}
-	err = s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
-		id, err := tx.CreateAPInvoice(ctx, inv)
-		if err != nil {
-			return err
-		}
-		inv.ID = id
-		return nil
-	})
-	if err != nil {
-		return APInvoice{}, err
-	}
-	s.recordAudit(ctx, "AP_CREATE", inv.ID, map[string]any{"number": inv.Number, "total": inv.Total})
-	return inv, nil
-}
-
-// PostAPInvoice changes status to POSTED.
-func (s *Service) PostAPInvoice(ctx context.Context, invoiceID int64) error {
-	inv, err := s.repo.GetAPInvoice(ctx, invoiceID)
-	if err != nil {
-		return err
-	}
-	if inv.Status != APStatusDraft {
-		return ErrInvalidState
-	}
-	postedAt := time.Now()
-	if err := s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
-		return tx.UpdateAPStatus(ctx, invoiceID, APStatusPosted)
-	}); err != nil {
-		return err
-	}
-	if s.integration != nil {
-		evt := APInvoicePostedEvent{
-			ID:         inv.ID,
-			Number:     inv.Number,
-			SupplierID: inv.SupplierID,
-			GRNID:      inv.GRNID,
-			Total:      inv.Total,
-			PostedAt:   postedAt,
-		}
-		if err := s.integration.HandleAPInvoicePosted(ctx, evt); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// RegisterPayment records payment and marks invoice paid if fully settled.
-func (s *Service) RegisterPayment(ctx context.Context, input PaymentInput) error {
-	if input.Amount <= 0 {
-		return ErrValidation
-	}
-	target, err := s.repo.GetAPInvoice(ctx, input.APInvoiceID)
-	if err != nil {
-		return err
-	}
-	paidAt := time.Now()
-	var payment APPayment
-	if err := s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
-		if input.Number == "" {
-			input.Number = generateNumber("PAY")
-		}
-		payment = APPayment{Number: input.Number, APInvoiceID: input.APInvoiceID, Amount: input.Amount}
-		id, err := tx.CreatePayment(ctx, payment)
-		if err != nil {
-			return err
-		}
-		payment.ID = id
-		if input.Amount >= target.Total {
-			if err := tx.UpdateAPStatus(ctx, input.APInvoiceID, APStatusPaid); err != nil {
-				return err
-			}
-		}
-		return nil
-	}); err != nil {
-		return err
-	}
-	if s.integration != nil {
-		evt := APPaymentPostedEvent{
-			ID:          payment.ID,
-			Number:      payment.Number,
-			APInvoiceID: payment.APInvoiceID,
-			Amount:      payment.Amount,
-			PaidAt:      paidAt,
-		}
-		if err := s.integration.HandleAPPaymentPosted(ctx, evt); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// APAgingBucket summarises totals.
-type APAgingBucket struct {
-	Current   float64
-	Bucket30  float64
-	Bucket60  float64
-	Bucket90  float64
-	Bucket120 float64
-}
-
-// CalculateAPAging groups invoices by due date buckets.
-func (s *Service) CalculateAPAging(ctx context.Context, asOf time.Time) (APAgingBucket, error) {
-	invoices, err := s.repo.ListAPOutstanding(ctx)
-	if err != nil {
-		return APAgingBucket{}, err
-	}
-	if asOf.IsZero() {
-		asOf = time.Now()
-	}
-	var bucket APAgingBucket
-	for _, inv := range invoices {
-		if inv.Status == APStatusPaid {
-			continue
-		}
-		days := int(asOf.Sub(inv.DueAt).Hours() / 24)
-		switch {
-		case days <= 0:
-			bucket.Current += inv.Total
-		case days <= 30:
-			bucket.Bucket30 += inv.Total
-		case days <= 60:
-			bucket.Bucket60 += inv.Total
-		case days <= 90:
-			bucket.Bucket90 += inv.Total
-		default:
-			bucket.Bucket120 += inv.Total
-		}
-	}
-	return bucket, nil
+// GetGRNWithLines exposes GRN details for other modules (e.g. AP)
+func (s *Service) GetGRNWithLines(ctx context.Context, id int64) (GoodsReceipt, []GRNLine, error) {
+	return s.repo.GetGRN(ctx, id)
 }
 
 // ListPOs returns paginated purchase orders.
@@ -505,10 +351,7 @@ func (s *Service) ListPOs(ctx context.Context, limit, offset int, filters ListFi
 	return s.repo.ListPOs(ctx, limit, offset, filters)
 }
 
-// ListAPOutstanding returns posted invoices with remaining balance.
-func (s *Service) ListAPOutstanding(ctx context.Context) ([]APInvoice, error) {
-	return s.repo.ListAPOutstanding(ctx)
-}
+
 
 // ListGRNs returns paginated goods receipts.
 func (s *Service) ListGRNs(ctx context.Context, limit, offset int, filters ListFilters) ([]GRNListItem, int, error) {

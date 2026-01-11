@@ -27,13 +27,15 @@ type Querier interface {
 	CompareMonthlyNetRevenue(ctx context.Context, arg CompareMonthlyNetRevenueParams) ([]CompareMonthlyNetRevenueRow, error)
 	ConsolBalancesByType(ctx context.Context, arg ConsolBalancesByTypeParams) ([]ConsolBalancesByTypeRow, error)
 	ContributionByBranch(ctx context.Context, arg ContributionByBranchParams) ([]ContributionByBranchRow, error)
+	CountARInvoicesByDelivery(ctx context.Context, deliveryOrderID pgtype.Int8) (int64, error)
 	CountPendingChecklistItems(ctx context.Context, periodCloseRunID int64) (int64, error)
 	CountRuns(ctx context.Context) (int64, error)
-	// =============================================================================
-	// AP INVOICES
-	// =============================================================================
 	CreateAPInvoice(ctx context.Context, arg CreateAPInvoiceParams) (int64, error)
+	CreateAPInvoiceLine(ctx context.Context, arg CreateAPInvoiceLineParams) (int64, error)
+	CreateAPPayment(ctx context.Context, arg CreateAPPaymentParams) (int64, error)
+	CreateAPPaymentAllocation(ctx context.Context, arg CreateAPPaymentAllocationParams) (int64, error)
 	CreateARInvoice(ctx context.Context, arg CreateARInvoiceParams) (int64, error)
+	CreateARInvoiceLine(ctx context.Context, arg CreateARInvoiceLineParams) (int64, error)
 	CreateARPayment(ctx context.Context, arg CreateARPaymentParams) (int64, error)
 	CreateBranch(ctx context.Context, arg CreateBranchParams) (Branch, error)
 	CreateCategory(ctx context.Context, arg CreateCategoryParams) (CreateCategoryRow, error)
@@ -52,7 +54,7 @@ type Querier interface {
 	// PURCHASE REQUESTS (PR)
 	// =============================================================================
 	CreatePR(ctx context.Context, arg CreatePRParams) (int64, error)
-	CreatePayment(ctx context.Context, arg CreatePaymentParams) (int64, error)
+	CreatePaymentAllocation(ctx context.Context, arg CreatePaymentAllocationParams) (int64, error)
 	CreatePermission(ctx context.Context, arg CreatePermissionParams) (Permission, error)
 	CreateProduct(ctx context.Context, arg CreateProductParams) (Product, error)
 	CreateQuotation(ctx context.Context, arg CreateQuotationParams) (int64, error)
@@ -84,8 +86,16 @@ type Querier interface {
 	ElimLoadAccountingPeriod(ctx context.Context, id int64) (ElimLoadAccountingPeriodRow, error)
 	FindPeriodID(ctx context.Context, code string) (int64, error)
 	FxRateForPeriod(ctx context.Context, arg FxRateForPeriodParams) (FxRateForPeriodRow, error)
+	GenerateAPInvoiceNumber(ctx context.Context) (interface{}, error)
+	GenerateAPPaymentNumber(ctx context.Context) (interface{}, error)
+	GenerateARInvoiceNumber(ctx context.Context) (string, error)
+	GenerateARPaymentNumber(ctx context.Context) (string, error)
 	GenerateDocNumber(ctx context.Context, arg GenerateDocNumberParams) (string, error)
 	GetAPInvoice(ctx context.Context, id int64) (GetAPInvoiceRow, error)
+	GetAPInvoiceBalance(ctx context.Context, id int64) (GetAPInvoiceBalanceRow, error)
+	GetAPInvoiceByNumber(ctx context.Context, number string) (GetAPInvoiceByNumberRow, error)
+	GetARInvoice(ctx context.Context, id int64) (GetARInvoiceRow, error)
+	GetARInvoiceByNumber(ctx context.Context, number string) (GetARInvoiceByNumberRow, error)
 	GetAccounts(ctx context.Context) ([]GetAccountsRow, error)
 	GetBalanceForUpdate(ctx context.Context, arg GetBalanceForUpdateParams) (InventoryBalance, error)
 	GetBoardPack(ctx context.Context, id int64) (GetBoardPackRow, error)
@@ -109,6 +119,7 @@ type Querier interface {
 	GetGRN(ctx context.Context, id int64) (GetGRNRow, error)
 	GetGRNLines(ctx context.Context, grnID int64) ([]GrnLine, error)
 	GetGroup(ctx context.Context, id int64) (GetGroupRow, error)
+	GetInvoiceBalance(ctx context.Context, id int64) (GetInvoiceBalanceRow, error)
 	GetLines(ctx context.Context, deliveryOrderID int64) ([]DeliveryOrderLine, error)
 	GetLinesWithDetails(ctx context.Context, deliveryOrderID int64) ([]GetLinesWithDetailsRow, error)
 	GetOpenPeriodByDate(ctx context.Context, startDate pgtype.Date) (Period, error)
@@ -175,14 +186,24 @@ type Querier interface {
 	InsertTransaction(ctx context.Context, arg InsertTransactionParams) (int64, error)
 	InsertTransactionLine(ctx context.Context, arg InsertTransactionLineParams) error
 	KpiSummary(ctx context.Context, arg KpiSummaryParams) (KpiSummaryRow, error)
-	ListAPOutstanding(ctx context.Context) ([]ListAPOutstandingRow, error)
-	ListARInvoices(ctx context.Context) ([]ArInvoice, error)
-	ListAROutstanding(ctx context.Context) ([]ArInvoice, error)
-	ListARPayments(ctx context.Context) ([]ArPayment, error)
+	ListAPInvoiceLines(ctx context.Context, apInvoiceID int64) ([]ApInvoiceLine, error)
+	ListAPInvoicePayments(ctx context.Context, apInvoiceID int64) ([]ListAPInvoicePaymentsRow, error)
+	ListAPInvoices(ctx context.Context) ([]ListAPInvoicesRow, error)
+	ListAPInvoicesByStatus(ctx context.Context, status string) ([]ListAPInvoicesByStatusRow, error)
+	ListAPInvoicesBySupplier(ctx context.Context, supplierID int64) ([]ListAPInvoicesBySupplierRow, error)
+	ListAPPayments(ctx context.Context) ([]ApPayment, error)
+	ListARInvoiceLines(ctx context.Context, arInvoiceID int64) ([]ArInvoiceLine, error)
+	ListARInvoices(ctx context.Context) ([]ListARInvoicesRow, error)
+	ListARInvoicesByCustomer(ctx context.Context, customerID int64) ([]ListARInvoicesByCustomerRow, error)
+	ListARInvoicesByStatus(ctx context.Context, status string) ([]ListARInvoicesByStatusRow, error)
+	ListAROutstanding(ctx context.Context) ([]ListAROutstandingRow, error)
+	ListARPayments(ctx context.Context) ([]ListARPaymentsRow, error)
 	ListBoardPacks(ctx context.Context, arg ListBoardPacksParams) ([]ListBoardPacksRow, error)
 	ListChecklistItems(ctx context.Context, periodCloseRunID int64) ([]PeriodCloseChecklistItem, error)
 	ListCompanies(ctx context.Context) ([]ListCompaniesRow, error)
 	ListGroupIDs(ctx context.Context) ([]int64, error)
+	ListInvoicePayments(ctx context.Context, arInvoiceID int64) ([]ListInvoicePaymentsRow, error)
+	ListPaymentAllocations(ctx context.Context, arPaymentID int64) ([]ArPaymentAllocation, error)
 	ListPeriods(ctx context.Context, arg ListPeriodsParams) ([]ListPeriodsRow, error)
 	ListPermissions(ctx context.Context) ([]Permission, error)
 	ListRecentPeriods(ctx context.Context, arg ListRecentPeriodsParams) ([]ListRecentPeriodsRow, error)
@@ -214,6 +235,8 @@ type Querier interface {
 	MonthlyPL(ctx context.Context, arg MonthlyPLParams) ([]MonthlyPLRow, error)
 	PeriodHasActiveRun(ctx context.Context, periodID int64) (int32, error)
 	PeriodRangeConflict(ctx context.Context, arg PeriodRangeConflictParams) (int32, error)
+	PostAPInvoice(ctx context.Context, arg PostAPInvoiceParams) error
+	PostARInvoice(ctx context.Context, arg PostARInvoiceParams) error
 	RbacCreateRole(ctx context.Context, arg RbacCreateRoleParams) (Role, error)
 	RbacListRoles(ctx context.Context) ([]Role, error)
 	RemoveRoleFromUser(ctx context.Context, arg RemoveRoleFromUserParams) error
@@ -257,6 +280,8 @@ type Querier interface {
 	VarListRules(ctx context.Context, companyID int64) ([]VarListRulesRow, error)
 	VarLoadAccountingPeriod(ctx context.Context, id int64) (VarLoadAccountingPeriodRow, error)
 	VarUpdateStatus(ctx context.Context, arg VarUpdateStatusParams) error
+	VoidAPInvoice(ctx context.Context, arg VoidAPInvoiceParams) error
+	VoidARInvoice(ctx context.Context, arg VoidARInvoiceParams) error
 }
 
 var _ Querier = (*Queries)(nil)

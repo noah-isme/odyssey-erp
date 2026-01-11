@@ -602,16 +602,52 @@ type ApInvoice struct {
 	DueAt      pgtype.Date        `json:"due_at"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 	CompanyID  pgtype.Int8        `json:"company_id"`
+	Subtotal   pgtype.Numeric     `json:"subtotal"`
+	TaxAmount  pgtype.Numeric     `json:"tax_amount"`
+	PostedAt   pgtype.Timestamptz `json:"posted_at"`
+	PostedBy   pgtype.Int8        `json:"posted_by"`
+	VoidedAt   pgtype.Timestamptz `json:"voided_at"`
+	VoidedBy   pgtype.Int8        `json:"voided_by"`
+	VoidReason pgtype.Text        `json:"void_reason"`
+	CreatedBy  pgtype.Int8        `json:"created_by"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ApInvoiceLine struct {
+	ID          int64              `json:"id"`
+	ApInvoiceID int64              `json:"ap_invoice_id"`
+	GrnLineID   pgtype.Int8        `json:"grn_line_id"`
+	ProductID   int64              `json:"product_id"`
+	Description string             `json:"description"`
+	Quantity    pgtype.Numeric     `json:"quantity"`
+	UnitPrice   pgtype.Numeric     `json:"unit_price"`
+	DiscountPct pgtype.Numeric     `json:"discount_pct"`
+	TaxPct      pgtype.Numeric     `json:"tax_pct"`
+	Subtotal    pgtype.Numeric     `json:"subtotal"`
+	TaxAmount   pgtype.Numeric     `json:"tax_amount"`
+	Total       pgtype.Numeric     `json:"total"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
 type ApPayment struct {
-	ID          int64          `json:"id"`
-	Number      string         `json:"number"`
-	ApInvoiceID int64          `json:"ap_invoice_id"`
-	Amount      pgtype.Numeric `json:"amount"`
-	PaidAt      pgtype.Date    `json:"paid_at"`
-	Method      string         `json:"method"`
-	Note        string         `json:"note"`
+	ID          int64              `json:"id"`
+	Number      string             `json:"number"`
+	ApInvoiceID int64              `json:"ap_invoice_id"`
+	Amount      pgtype.Numeric     `json:"amount"`
+	PaidAt      pgtype.Date        `json:"paid_at"`
+	Method      string             `json:"method"`
+	Note        string             `json:"note"`
+	CreatedBy   pgtype.Int8        `json:"created_by"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ApPaymentAllocation struct {
+	ID          int64              `json:"id"`
+	ApPaymentID int64              `json:"ap_payment_id"`
+	ApInvoiceID int64              `json:"ap_invoice_id"`
+	Amount      pgtype.Numeric     `json:"amount"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
 type Approval struct {
@@ -625,16 +661,41 @@ type Approval struct {
 }
 
 type ArInvoice struct {
-	ID         int64              `json:"id"`
-	Number     string             `json:"number"`
-	CustomerID int64              `json:"customer_id"`
-	SoID       pgtype.Int8        `json:"so_id"`
-	Currency   string             `json:"currency"`
-	Total      pgtype.Numeric     `json:"total"`
-	Status     string             `json:"status"`
-	DueAt      pgtype.Timestamptz `json:"due_at"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	ID              int64              `json:"id"`
+	Number          string             `json:"number"`
+	CustomerID      int64              `json:"customer_id"`
+	SoID            pgtype.Int8        `json:"so_id"`
+	Currency        string             `json:"currency"`
+	Total           pgtype.Numeric     `json:"total"`
+	Status          string             `json:"status"`
+	DueAt           pgtype.Timestamptz `json:"due_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	DeliveryOrderID pgtype.Int8        `json:"delivery_order_id"`
+	Subtotal        pgtype.Numeric     `json:"subtotal"`
+	TaxAmount       pgtype.Numeric     `json:"tax_amount"`
+	PostedAt        pgtype.Timestamptz `json:"posted_at"`
+	PostedBy        pgtype.Int8        `json:"posted_by"`
+	VoidedAt        pgtype.Timestamptz `json:"voided_at"`
+	VoidedBy        pgtype.Int8        `json:"voided_by"`
+	VoidReason      pgtype.Text        `json:"void_reason"`
+	CreatedBy       pgtype.Int8        `json:"created_by"`
+}
+
+type ArInvoiceLine struct {
+	ID                  int64              `json:"id"`
+	ArInvoiceID         int64              `json:"ar_invoice_id"`
+	DeliveryOrderLineID pgtype.Int8        `json:"delivery_order_line_id"`
+	ProductID           int64              `json:"product_id"`
+	Description         string             `json:"description"`
+	Quantity            pgtype.Numeric     `json:"quantity"`
+	UnitPrice           pgtype.Numeric     `json:"unit_price"`
+	DiscountPct         pgtype.Numeric     `json:"discount_pct"`
+	TaxPct              pgtype.Numeric     `json:"tax_pct"`
+	Subtotal            pgtype.Numeric     `json:"subtotal"`
+	TaxAmount           pgtype.Numeric     `json:"tax_amount"`
+	Total               pgtype.Numeric     `json:"total"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 }
 
 type ArPayment struct {
@@ -647,6 +708,15 @@ type ArPayment struct {
 	Note        string             `json:"note"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	CreatedBy   pgtype.Int8        `json:"created_by"`
+}
+
+type ArPaymentAllocation struct {
+	ID          int64              `json:"id"`
+	ArPaymentID int64              `json:"ar_payment_id"`
+	ArInvoiceID int64              `json:"ar_invoice_id"`
+	Amount      pgtype.Numeric     `json:"amount"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
 type AuditLog struct {
@@ -1329,6 +1399,23 @@ type UserRole struct {
 	UserID    int64              `json:"user_id"`
 	RoleID    int64              `json:"role_id"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type VArInvoiceBalance struct {
+	ID              int64              `json:"id"`
+	Number          string             `json:"number"`
+	CustomerID      int64              `json:"customer_id"`
+	CustomerName    pgtype.Text        `json:"customer_name"`
+	DeliveryOrderID pgtype.Int8        `json:"delivery_order_id"`
+	Subtotal        pgtype.Numeric     `json:"subtotal"`
+	TaxAmount       pgtype.Numeric     `json:"tax_amount"`
+	Total           pgtype.Numeric     `json:"total"`
+	PaidAmount      interface{}        `json:"paid_amount"`
+	Balance         int32              `json:"balance"`
+	Status          string             `json:"status"`
+	DueAt           pgtype.Timestamptz `json:"due_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	DaysOverdue     int32              `json:"days_overdue"`
 }
 
 // Shows all sales and delivery permission assignments by role for easy verification

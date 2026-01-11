@@ -347,13 +347,19 @@ func (r *repository) DeleteLines(ctx context.Context, quotationID int64) error {
 
 func (r *repository) GenerateNumber(ctx context.Context, companyID int64, date time.Time) (string, error) {
 	// QT-{YY}{MM}-{SEQ}
-	// Count for company
-	var count int64
-	err := r.db.QueryRow(ctx, "SELECT count(*) FROM quotations WHERE company_id = $1", companyID).Scan(&count)
+	var seq int64
+	period := date.Format("200601")
+	err := r.db.QueryRow(ctx, `
+		INSERT INTO document_sequences (company_id, doc_type, period, seq)
+		VALUES ($1, $2, $3, 1)
+		ON CONFLICT (company_id, doc_type, period)
+		DO UPDATE SET seq = document_sequences.seq + 1
+		RETURNING seq
+	`, companyID, "QT", period).Scan(&seq)
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("QT-%s-%04d", date.Format("0601"), count+1), nil
+	return fmt.Sprintf("QT-%s-%04d", date.Format("0601"), seq), nil
 }
 
 func mapQuotationFromSqlc(row sqlc.Quotation) Quotation {

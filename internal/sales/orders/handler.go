@@ -259,6 +259,81 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	h.redirectWithFlash(w, r, "/sales/orders/"+strconv.FormatInt(order.ID, 10), "success", "Sales order updated successfully")
 }
 
+func (h *Handler) ConvertFromQuotation(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid quotation ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+
+	quotation, err := h.quotationService.Get(r.Context(), id)
+	if err != nil {
+		h.redirectWithFlash(w, r, "/sales/quotations/"+strconv.FormatInt(id, 10), "error", "Quotation not found")
+		return
+	}
+	if quotation.Status != quotations.QuotationStatusApproved {
+		h.redirectWithFlash(w, r, "/sales/quotations/"+strconv.FormatInt(id, 10), "error", "Quotation must be approved before conversion")
+		return
+	}
+	if len(quotation.Lines) == 0 {
+		h.redirectWithFlash(w, r, "/sales/quotations/"+strconv.FormatInt(id, 10), "error", "Quotation has no line items")
+		return
+	}
+
+	orderDate := time.Now()
+	if d := r.PostFormValue("order_date"); d != "" {
+		if t, err := time.Parse("2006-01-02", d); err == nil {
+			orderDate = t
+		}
+	}
+
+	var expectedDeliveryDate *time.Time
+	if d := r.PostFormValue("expected_delivery_date"); d != "" {
+		if t, err := time.Parse("2006-01-02", d); err == nil {
+			expectedDeliveryDate = &t
+		}
+	}
+
+	lines := make([]CreateSalesOrderLineReq, 0, len(quotation.Lines))
+	for _, line := range quotation.Lines {
+		lines = append(lines, CreateSalesOrderLineReq{
+			ProductID:       line.ProductID,
+			Description:     line.Description,
+			Quantity:        line.Quantity,
+			UOM:             line.UOM,
+			UnitPrice:       line.UnitPrice,
+			DiscountPercent: line.DiscountPercent,
+			TaxPercent:      line.TaxPercent,
+			LineOrder:       line.LineOrder,
+			Notes:           line.Notes,
+		})
+	}
+
+	req := CreateSalesOrderRequest{
+		CompanyID:            quotation.CompanyID,
+		CustomerID:           quotation.CustomerID,
+		QuotationID:          &quotation.ID,
+		OrderDate:            orderDate,
+		ExpectedDeliveryDate: expectedDeliveryDate,
+		Currency:             quotation.Currency,
+		Lines:                lines,
+		Notes:                quotation.Notes,
+	}
+
+	order, err := h.service.Create(r.Context(), req, h.getCurrentUserID(r))
+	if err != nil {
+		h.redirectWithFlash(w, r, "/sales/quotations/"+strconv.FormatInt(id, 10), "error", err.Error())
+		return
+	}
+
+	h.redirectWithFlash(w, r, "/sales/orders/"+strconv.FormatInt(order.ID, 10), "success", "Sales order created from quotation")
+}
+
 func (h *Handler) Confirm(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	userID := h.getCurrentUserID(r)

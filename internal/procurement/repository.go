@@ -38,9 +38,6 @@ type TxRepository interface {
 	CreateGRN(ctx context.Context, grn GoodsReceipt) (int64, error)
 	InsertGRNLine(ctx context.Context, line GRNLine) error
 	UpdateGRNStatus(ctx context.Context, id int64, status GRNStatus) error
-	CreateAPInvoice(ctx context.Context, inv APInvoice) (int64, error)
-	UpdateAPStatus(ctx context.Context, id int64, status APInvoiceStatus) error
-	CreatePayment(ctx context.Context, payment APPayment) (int64, error)
 }
 
 type txRepo struct {
@@ -205,64 +202,7 @@ func (r *Repository) GetGRN(ctx context.Context, id int64) (GoodsReceipt, []GRNL
 	return grn, lines, nil
 }
 
-// GetAPInvoice fetches an AP invoice by ID.
-func (r *Repository) GetAPInvoice(ctx context.Context, id int64) (APInvoice, error) {
-	row, err := r.queries.GetAPInvoice(ctx, id)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return APInvoice{}, ErrNotFound
-		}
-		return APInvoice{}, err
-	}
-	inv := APInvoice{
-		ID:         row.ID,
-		Number:     row.Number,
-		SupplierID: row.SupplierID,
-		Currency:   row.Currency,
-		Status:     APInvoiceStatus(row.Status),
-	}
-	if row.GrnID.Valid {
-		inv.GRNID = row.GrnID.Int64
-	}
-	if row.Total.Valid {
-		f, _ := row.Total.Float64Value()
-		inv.Total = f.Float64
-	}
-	if row.DueAt.Valid {
-		inv.DueAt = row.DueAt.Time
-	}
-	return inv, nil
-}
 
-// ListAPOutstanding returns posted invoices with remaining balance.
-func (r *Repository) ListAPOutstanding(ctx context.Context) ([]APInvoice, error) {
-	rows, err := r.queries.ListAPOutstanding(ctx)
-	if err != nil {
-		return nil, err
-	}
-	var invoices []APInvoice
-	for _, row := range rows {
-		inv := APInvoice{
-			ID:         row.ID,
-			Number:     row.Number,
-			SupplierID: row.SupplierID,
-			Currency:   row.Currency,
-			Status:     APInvoiceStatus(row.Status),
-		}
-		if row.GrnID.Valid {
-			inv.GRNID = row.GrnID.Int64
-		}
-		if row.Total.Valid {
-			f, _ := row.Total.Float64Value()
-			inv.Total = f.Float64
-		}
-		if row.DueAt.Valid {
-			inv.DueAt = row.DueAt.Time
-		}
-		invoices = append(invoices, inv)
-	}
-	return invoices, nil
-}
 
 // ListPOs returns purchase orders with supplier name and total.
 func (r *Repository) ListPOs(ctx context.Context, limit, offset int, filters ListFilters) ([]POListItem, int, error) {
@@ -609,45 +549,6 @@ func (tx *txRepo) UpdateGRNStatus(ctx context.Context, id int64, status GRNStatu
 	})
 }
 
-func (tx *txRepo) CreateAPInvoice(ctx context.Context, inv APInvoice) (int64, error) {
-	var grnID pgtype.Int8
-	if inv.GRNID != 0 {
-		grnID = pgtype.Int8{Int64: inv.GRNID, Valid: true}
-	}
-	var total pgtype.Numeric
-	total.Scan(fmt.Sprintf("%f", inv.Total))
-	var dueAt pgtype.Date
-	if !inv.DueAt.IsZero() {
-		dueAt = pgtype.Date{Time: inv.DueAt, Valid: true}
-	}
 
-	return tx.queries.CreateAPInvoice(ctx, sqlc.CreateAPInvoiceParams{
-		Number:     inv.Number,
-		SupplierID: inv.SupplierID,
-		GrnID:      grnID,
-		Currency:   inv.Currency,
-		Total:      total,
-		Status:     string(inv.Status),
-		DueAt:      dueAt,
-	})
-}
-
-func (tx *txRepo) UpdateAPStatus(ctx context.Context, id int64, status APInvoiceStatus) error {
-	return tx.queries.UpdateAPStatus(ctx, sqlc.UpdateAPStatusParams{
-		Status: string(status),
-		ID:     id,
-	})
-}
-
-func (tx *txRepo) CreatePayment(ctx context.Context, payment APPayment) (int64, error) {
-	var amount pgtype.Numeric
-	amount.Scan(fmt.Sprintf("%f", payment.Amount))
-
-	return tx.queries.CreatePayment(ctx, sqlc.CreatePaymentParams{
-		Number:      payment.Number,
-		ApInvoiceID: payment.APInvoiceID,
-		Amount:      amount,
-	})
-}
 
 // nullInt, nullDate helpers are removed as we use pgtype directly
