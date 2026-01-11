@@ -1,0 +1,94 @@
+{{ define "pages/ap/ap_invoice_list.html" }}
+{{template "layouts/base.html" .}}
+{{ end }}
+
+{{define "title"}}AP Invoices{{end}}
+
+{{define "content"}}
+<main class="container">
+    <header>
+        <hgroup>
+            <h1>Accounts Payable - Invoices</h1>
+            <p>Manage AP invoices and bills</p>
+        </hgroup>
+    </header>
+
+    <!-- Filters -->
+    <form method="get" action="/finance/ap/invoices" class="grid">
+        <label>
+            Status
+            <select name="status">
+                <option value="">All</option>
+                <option value="DRAFT" {{if eq .Data.StatusFilter "DRAFT" }}selected{{end}}>Draft</option>
+                <option value="POSTED" {{if eq .Data.StatusFilter "POSTED" }}selected{{end}}>Posted</option>
+                <option value="PAID" {{if eq .Data.StatusFilter "PAID" }}selected{{end}}>Paid</option>
+                <option value="VOID" {{if eq .Data.StatusFilter "VOID" }}selected{{end}}>Void</option>
+            </select>
+        </label>
+        <label>
+            <br>
+            <button type="submit" class="secondary">Filter</button>
+        </label>
+    </form>
+
+    <!-- Actions -->
+    <nav>
+        <ul>
+            <li><a href="/finance/ap/invoices/new" role="button">+ New Invoice</a></li>
+        </ul>
+        <ul>
+            <li><a href="/finance/ap/aging">Aging Report</a></li>
+            <li><a href="/finance/ap/payments">Payments</a></li>
+        </ul>
+    </nav>
+
+    <!-- Invoice List -->
+    {{if .Data.Invoices}}
+    <figure>
+        <table role="grid">
+            <thead>
+                <tr>
+                    <th>Number</th>
+                    <th>Supplier</th>
+                    <th>Total</th>
+                    <th>Status</th>
+                    <th>Due Date</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Data.Invoices}}
+                <tr>
+                    <td><a href="/finance/ap/invoices/{{.ID}}">{{.Number}}</a></td>
+                    <td>{{.SupplierID}}</td>
+                    <!-- TODO: Resolve Supplier Name if possible, currently just ID -->
+                    <td>{{printf "%.2f" .Total}} {{.Currency}}</td>
+                    <td>
+                        {{if eq .Status "DRAFT"}}
+                        <mark class="secondary">Draft</mark>
+                        {{else if eq .Status "POSTED"}}
+                        <mark class="primary">Posted</mark>
+                        {{else if eq .Status "PAID"}}
+                        <mark>Paid</mark>
+                        {{else if eq .Status "VOID"}}
+                        <mark class="contrast">Void</mark>
+                        {{end}}
+                    </td>
+                    <td>{{.DueAt.Format "2006-01-02"}}</td>
+                    <td>{{.CreatedAt.Format "2006-01-02"}}</td>
+                    <td>
+                        <a href="/finance/ap/invoices/{{.ID}}" role="button" class="outline small">View</a>
+                    </td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </figure>
+    {{else}}
+    <article>
+        <p>No invoices found. <a href="/finance/ap/invoices/new">Create your first invoice</a>.</p>
+    </article>
+    {{end}}
+</main>
+{{end}}

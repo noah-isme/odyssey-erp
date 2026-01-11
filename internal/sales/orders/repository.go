@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/odyssey-erp/odyssey-erp/internal/platform/db"
+	"github.com/odyssey-erp/odyssey-erp/internal/sales/quotations"
 	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
@@ -27,6 +28,7 @@ type Repository interface {
 	Update(ctx context.Context, id int64, updates map[string]interface{}) error
 	InsertLine(ctx context.Context, line SalesOrderLine) (int64, error)
 	UpdateStatus(ctx context.Context, id int64, status SalesOrderStatus, userID int64, reason *string) error
+	UpdateQuotationStatus(ctx context.Context, quotationID int64, status quotations.QuotationStatus) error
 	DeleteLines(ctx context.Context, orderID int64) error
 	GenerateNumber(ctx context.Context, companyID int64, date time.Time) (string, error)
 }
@@ -347,18 +349,40 @@ func (r *repository) UpdateStatus(ctx context.Context, id int64, status SalesOrd
 	})
 }
 
+func (r *repository) UpdateQuotationStatus(ctx context.Context, quotationID int64, status quotations.QuotationStatus) error {
+	cmdTag, err := r.db.Exec(ctx, `
+		UPDATE quotations
+		SET status = $1, updated_at = NOW()
+		WHERE id = $2 AND status = 'APPROVED'
+	`, status, quotationID)
+	if err != nil {
+		return err
+	}
+	if cmdTag.RowsAffected() == 0 {
+		return errors.New("quotation not approved or already converted")
+	}
+	return nil
+}
+
 func (r *repository) DeleteLines(ctx context.Context, orderID int64) error {
 	return r.queries.DeleteSalesOrderLines(ctx, orderID)
 }
 
 func (r *repository) GenerateNumber(ctx context.Context, companyID int64, date time.Time) (string, error) {
 	// SO-{YY}{MM}-{SEQ}
-	var count int64
-	err := r.db.QueryRow(ctx, "SELECT count(*) FROM sales_orders WHERE company_id = $1", companyID).Scan(&count)
+	var seq int64
+	period := date.Format("200601")
+	err := r.db.QueryRow(ctx, `
+		INSERT INTO document_sequences (company_id, doc_type, period, seq)
+		VALUES ($1, $2, $3, 1)
+		ON CONFLICT (company_id, doc_type, period)
+		DO UPDATE SET seq = document_sequences.seq + 1
+		RETURNING seq
+	`, companyID, "SO", period).Scan(&seq)
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("SO-%s-%04d", date.Format("0601"), count+1), nil
+	return fmt.Sprintf("SO-%s-%04d", date.Format("0601"), seq), nil
 }
 
 func mapOrderFromSqlc(row sqlc.SalesOrder) SalesOrder {

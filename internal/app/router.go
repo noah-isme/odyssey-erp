@@ -11,6 +11,7 @@ import (
 
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting"
 	analytichttp "github.com/odyssey-erp/odyssey-erp/internal/analytics/http"
+	"github.com/odyssey-erp/odyssey-erp/internal/ap"
 	"github.com/odyssey-erp/odyssey-erp/internal/ar"
 	audithttp "github.com/odyssey-erp/odyssey-erp/internal/audit/http"
 	auth "github.com/odyssey-erp/odyssey-erp/internal/auth"
@@ -57,6 +58,7 @@ type RouterParams struct {
 	ProcurementHandler *procurement.Handler
 	SalesHandler       *sales.Handler
 	MasterDataHandler  *masterdata.Handler
+	APHandler          *ap.Handler
 	Pool               *pgxpool.Pool
 	RBACMiddleware     rbac.Middleware
 
@@ -147,6 +149,11 @@ func NewRouter(params RouterParams) http.Handler {
 	if params.ARHandler != nil {
 		r.Route("/finance/ar", func(r chi.Router) {
 			params.ARHandler.MountRoutes(r)
+		})
+	}
+	if params.APHandler != nil {
+		r.Route("/finance/ap", func(r chi.Router) {
+			params.APHandler.MountRoutes(r)
 		})
 	}
 	if params.RolesHandler != nil {

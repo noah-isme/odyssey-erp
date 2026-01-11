@@ -37,9 +37,7 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Get("/pos/new", h.showPOForm)
 		r.Get("/grns", h.handleListGRNs)
 		r.Get("/grns/new", h.showGRNForm)
-		r.Get("/ap/invoices", h.handleListAPInvoices)
-		r.Get("/ap/invoices/new", h.showAPInvoiceForm)
-		r.Get("/ap/payments", h.showPaymentForm)
+
 	})
 	r.Group(func(r chi.Router) {
 		r.Use(h.rbac.RequireAll("procurement.edit"))
@@ -50,9 +48,7 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Post("/pos/{id}/approve", h.approvePO)
 		r.Post("/grns", h.createGRN)
 		r.Post("/grns/{id}/post", h.postGRN)
-		r.Post("/ap/invoices", h.createAPInvoice)
-		r.Post("/ap/invoices/{id}/post", h.postAPInvoice)
-		r.Post("/ap/payments", h.createPayment)
+
 	})
 }
 
@@ -128,26 +124,9 @@ func (h *Handler) handleListGRNs(w http.ResponseWriter, r *http.Request) {
 	}, http.StatusOK)
 }
 
-func (h *Handler) handleListAPInvoices(w http.ResponseWriter, r *http.Request) {
-	invoices, err := h.service.ListAPOutstanding(r.Context())
-	if err != nil {
-		h.logger.Error("list AP invoices", slog.Any("error", err))
-		http.Error(w, "Failed to load AP invoices", http.StatusInternalServerError)
-		return
-	}
-	h.render(w, r, "pages/procurement/ap_invoices_list.html", map[string]any{
-		"APInvoices": invoices,
-		"Total":      len(invoices),
-	}, http.StatusOK)
-}
 
-func (h *Handler) showAPInvoiceForm(w http.ResponseWriter, r *http.Request) {
-	h.render(w, r, "pages/procurement/ap_invoice_form.html", map[string]any{"Errors": formErrors{}}, http.StatusOK)
-}
 
-func (h *Handler) showPaymentForm(w http.ResponseWriter, r *http.Request) {
-	h.render(w, r, "pages/procurement/ap_payment_form.html", map[string]any{"Errors": formErrors{}}, http.StatusOK)
-}
+
 
 func (h *Handler) createPR(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
@@ -276,43 +255,7 @@ func (h *Handler) postGRN(w http.ResponseWriter, r *http.Request) {
 	h.redirectWithFlash(w, r, "/procurement/grns", "success", "GRN diposting")
 }
 
-func (h *Handler) createAPInvoice(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-		return
-	}
-	grnID, _ := strconv.ParseInt(r.PostFormValue("grn_id"), 10, 64)
-	dueDate, _ := time.Parse("2006-01-02", r.PostFormValue("due_date"))
-	_, err := h.service.CreateAPInvoiceFromGRN(r.Context(), APInvoiceInput{GRNID: grnID, Number: r.PostFormValue("number"), DueDate: dueDate})
-	if err != nil {
-		h.render(w, r, "pages/procurement/ap_invoice_form.html", map[string]any{"Errors": formErrors{"general": err.Error()}}, http.StatusBadRequest)
-		return
-	}
-	h.redirectWithFlash(w, r, "/procurement/ap/invoices", "success", "Invoice AP dibuat")
-}
 
-func (h *Handler) postAPInvoice(w http.ResponseWriter, r *http.Request) {
-	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
-	if err := h.service.PostAPInvoice(r.Context(), id); err != nil {
-		h.render(w, r, "pages/procurement/ap_invoice_form.html", map[string]any{"Errors": formErrors{"general": err.Error()}}, http.StatusBadRequest)
-		return
-	}
-	h.redirectWithFlash(w, r, "/procurement/ap/invoices", "success", "Invoice diposting")
-}
-
-func (h *Handler) createPayment(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-		return
-	}
-	invoiceID, _ := strconv.ParseInt(r.PostFormValue("invoice_id"), 10, 64)
-	amount, _ := strconv.ParseFloat(r.PostFormValue("amount"), 64)
-	if err := h.service.RegisterPayment(r.Context(), PaymentInput{APInvoiceID: invoiceID, Number: r.PostFormValue("number"), Amount: amount}); err != nil {
-		h.render(w, r, "pages/procurement/ap_payment_form.html", map[string]any{"Errors": formErrors{"general": err.Error()}}, http.StatusBadRequest)
-		return
-	}
-	h.redirectWithFlash(w, r, "/procurement/ap/payments", "success", "Pembayaran dicatat")
-}
 
 func (h *Handler) render(w http.ResponseWriter, r *http.Request, template string, data map[string]any, status int) {
 	sess := shared.SessionFromContext(r.Context())

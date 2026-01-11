@@ -1,0 +1,83 @@
+{{ define "pages/ap/ap_payment_form.html" }}
+{{template "layouts/base.html" .}}
+{{ end }}
+
+{{define "title"}}Record Payment{{end}}
+
+{{define "content"}}
+<main class="container">
+    <header>
+        <nav aria-label="breadcrumb">
+            <ul>
+                <li><a href="/finance/ap/invoices">AP</a></li>
+                <li><a href="/finance/ap/payments">Payments</a></li>
+                <li>Record Payment</li>
+            </ul>
+        </nav>
+        <h1>Record AP Payment</h1>
+    </header>
+
+    {{if .Data.Errors.general}}
+    <article class="error">
+        <p>{{.Data.Errors.general}}</p>
+    </article>
+    {{end}}
+
+    <form method="post" action="/finance/ap/payments">
+        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+        <input type="hidden" name="supplier_id" id="supplier_id_input">
+
+        <label>
+            Select Invoice *
+            <select name="ap_invoice_id" required onchange="updateSupplier(this)">
+                <option value="">-- Select Invoice --</option>
+                {{range .Data.Invoices}}
+                <option value="{{.ID}}" data-supplier-id="{{.SupplierID}}">
+                    {{.Number}} - Supplier #{{.SupplierID}} - {{printf "%.2f" .Total}}
+                </option>
+                {{end}}
+            </select>
+        </label>
+
+        <div class="grid">
+            <label>
+                Amount *
+                <input type="number" name="amount" step="0.01" required placeholder="0.00">
+            </label>
+            <label>
+                Payment Date *
+                <input type="date" name="paid_at" required>
+            </label>
+        </div>
+
+        <label>
+            Payment Method
+            <select name="method">
+                <option value="TRANSFER" selected>Bank Transfer</option>
+                <option value="CASH">Cash</option>
+                <option value="CHECK">Check</option>
+                <option value="CREDIT_CARD">Credit Card</option>
+                <option value="OTHER">Other</option>
+            </select>
+        </label>
+
+        <label>
+            Note
+            <textarea name="note" placeholder="Optional payment notes..."></textarea>
+        </label>
+
+        <footer>
+            <button type="submit" class="primary">Record Payment</button>
+            <a href="/finance/ap/payments" role="button" class="secondary outline">Cancel</a>
+        </footer>
+    </form>
+
+    <script>
+        function updateSupplier(select) {
+            const option = select.options[select.selectedIndex];
+            const supplierID = option.getAttribute('data-supplier-id');
+            document.getElementById('supplier_id_input').value = supplierID || '';
+        }
+    </script>
+</main>
+{{end}}

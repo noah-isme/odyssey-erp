@@ -14,6 +14,7 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Use(h.rbac.RequireAll("sales.order.create"))
 		r.Get("/orders/new", h.ShowForm)
 		r.Post("/orders", h.Create)
+		r.Post("/quotations/{id}/convert", h.ConvertFromQuotation)
 	})
 	r.Group(func(r chi.Router) {
 		r.Use(h.rbac.RequireAll("sales.order.edit"))

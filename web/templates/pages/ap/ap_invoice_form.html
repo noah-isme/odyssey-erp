@@ -1,0 +1,47 @@
+{{ define "pages/ap/ap_invoice_form.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}New AP Invoice{{ end }}
+
+{{ define "content" }}
+<header class="page-header">
+    <h1>New AP Invoice from GRN</h1>
+    <p>Create an AP invoice from a posted Goods Receipt Note.</p>
+</header>
+
+<form method="post" action="/finance/ap/invoices" class="form" data-component="form" data-validate="true">
+    <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+
+    <div class="form-group">
+        <label for="number">Invoice Number (Optional)</label>
+        <input type="text" id="number" name="number" placeholder="Leave blank to auto-generate"
+            aria-describedby="number-hint">
+        <span id="number-hint" class="field-hint">External invoice number</span>
+    </div>
+
+    <div class="form-grid">
+        <div class="form-group">
+            <label for="grn_id">GRN ID</label>
+            <input type="number" id="grn_id" name="grn_id" required placeholder="ID of posted GRN">
+            <!-- Ideally this would be a search/select of un-invoiced GRNs -->
+        </div>
+
+        <div class="form-group">
+            <label for="due_date">Due Date</label>
+            <input type="date" id="due_date" name="due_date" required>
+        </div>
+    </div>
+
+    {{ if .Data.Errors }}
+    <div class="alert alert--danger" role="alert">
+        {{ index .Data.Errors "general" }}
+    </div>
+    {{ end }}
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn--primary">Create Invoice</button>
+        <a href="/finance/ap/invoices" class="btn btn--secondary">Cancel</a>
+    </div>
+</form>
+{{ end }}

@@ -1,0 +1,58 @@
+{{ define "pages/ap/ap_aging_report.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}AP Aging Report{{ end }}
+
+{{ define "content" }}
+<header class="page-header">
+    <h1>AP Aging Report</h1>
+    <p>Outstanding payables aged by due date as of {{ now.Format "2006-01-02" }}</p>
+</header>
+
+<div class="table-wrap" data-component="datatable">
+    <table class="table">
+        <caption>Accounts Payable Aging Summary</caption>
+        <thead>
+            <tr>
+                <th scope="col">Aging Period</th>
+                <th scope="col" class="text-right">Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Current (0-30 days)</td>
+                <td class="numeric text-right">{{ printf "%.2f" .Data.Aging.Current }}</td>
+            </tr>
+            <tr>
+                <td>31-60 days</td>
+                <td class="numeric text-right">{{ printf "%.2f" .Data.Aging.Bucket30 }}</td>
+            </tr>
+            <tr>
+                <td>61-90 days</td>
+                <td class="numeric text-right">{{ printf "%.2f" .Data.Aging.Bucket60 }}</td>
+            </tr>
+            <tr>
+                <td>91-120 days</td>
+                <td class="numeric text-right">{{ printf "%.2f" .Data.Aging.Bucket90 }}</td>
+            </tr>
+            <tr>
+                <td>Over 120 days</td>
+                <td class="numeric text-right">{{ printf "%.2f" .Data.Aging.Bucket120 }}</td>
+            </tr>
+        </tbody>
+        <tfoot>
+            <tr class="table-summary">
+                <th scope="row">Total Outstanding</th>
+                <td class="text-right font-bold">{{ printf "%.2f" .Data.Total }}</td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+
+{{ if .Data.Errors }}
+<div class="alert alert--danger" role="alert">
+    {{ index .Data.Errors "general" }}
+</div>
+{{ end }}
+{{ end }}

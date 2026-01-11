@@ -762,12 +762,43 @@ func seedProcurement(ctx context.Context, pool *pgxpool.Pool) error {
 		}
 
 		// AP Invoice
-		_, err = tx.Exec(ctx, `
-			INSERT INTO ap_invoices (number, supplier_id, grn_id, currency, total, status, issued_at, due_at)
-			VALUES ('INV-AP-202412-0001', $1, $2, 'IDR', 88800000, 'POSTED', CURRENT_DATE, CURRENT_DATE + 30)
-			ON CONFLICT (number) DO NOTHING`, supplierID, grnID)
+		var invoiceID int64
+		err = tx.QueryRow(ctx, `
+			INSERT INTO ap_invoices (number, supplier_id, grn_id, currency, subtotal, tax_amount, total, status, issued_at, due_at, created_by)
+			VALUES ('INV-AP-202412-0001', $1, $2, 'IDR', 80000000, 8800000, 88800000, 'POSTED', CURRENT_DATE, CURRENT_DATE + 30, 1)
+			ON CONFLICT (number) DO UPDATE SET number = EXCLUDED.number
+			RETURNING id`, supplierID, grnID).Scan(&invoiceID)
 		if err != nil {
 			return err
+		}
+
+		// AP Invoice Lines
+		_, err = tx.Exec(ctx, `
+			INSERT INTO ap_invoice_lines (ap_invoice_id, grn_line_id, product_id, description, quantity, unit_price, discount_pct, tax_pct, subtotal, tax_amount, total)
+			SELECT $1, gl.id, gl.product_id, 'Item Seeded', gl.qty, gl.unit_cost, 0, 11, (gl.qty * gl.unit_cost), ((gl.qty * gl.unit_cost) * 0.11), ((gl.qty * gl.unit_cost) * 1.11)
+			FROM grn_lines gl WHERE gl.grn_id = $2
+			ON CONFLICT DO NOTHING`, invoiceID, grnID)
+		if err != nil {
+			return err
+		}
+
+		// AP Payment (Partial)
+		var paymentID int64
+		err = tx.QueryRow(ctx, `
+			INSERT INTO ap_payments (number, ap_invoice_id, amount, paid_at, method, note, created_by)
+			VALUES ('PAY-AP-202412-0001', $1, 40000000, CURRENT_DATE, 'TRANSFER', 'Partial Payment Seed', 1)
+			RETURNING id`, invoiceID).Scan(&paymentID)
+		if err != nil {
+			// Ignore error if payment already exists (simple approach for seed)
+			// in real scenario we'd handle upsert better but ap_payments uses serial ID usually
+		} else {
+			// Allocation
+			_, err = tx.Exec(ctx, `
+				INSERT INTO ap_payment_allocations (ap_payment_id, ap_invoice_id, amount)
+				VALUES ($1, $2, 40000000)`, paymentID, invoiceID)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
