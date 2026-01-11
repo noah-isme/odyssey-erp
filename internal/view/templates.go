@@ -65,7 +65,16 @@ func NewEngine() (*Engine, error) {
 		"mul": func(a, b int) int {
 			return a * b
 		},
+		"mulf": func(a, b float64) float64 {
+			return a * b
+		},
 		"div": func(a, b int) int {
+			if b == 0 {
+				return 0
+			}
+			return a / b
+		},
+		"divf": func(a, b float64) float64 {
 			if b == 0 {
 				return 0
 			}

@@ -1,0 +1,57 @@
+{{template "layouts/base.html" .}}
+
+{{define "title"}}AR Payments{{end}}
+
+{{define "content"}}
+<main class="container">
+    <header>
+        <hgroup>
+            <h1>AR Payments</h1>
+            <p>Record and track customer payments</p>
+        </hgroup>
+    </header>
+
+    <nav>
+        <ul>
+            <li><a href="/finance/ar/payments/new" role="button">+ Record Payment</a></li>
+        </ul>
+        <ul>
+            <li><a href="/finance/ar/invoices">Invoices</a></li>
+            <li><a href="/finance/ar/aging">Aging Report</a></li>
+        </ul>
+    </nav>
+
+    {{if .Data.Payments}}
+    <figure>
+        <table role="grid">
+            <thead>
+                <tr>
+                    <th>Number</th>
+                    <th>Invoice</th>
+                    <th>Amount</th>
+                    <th>Method</th>
+                    <th>Date</th>
+                    <th>Note</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Data.Payments}}
+                <tr>
+                    <td>{{.Number}}</td>
+                    <td><a href="/finance/ar/invoices/{{.ARInvoiceID}}">Invoice #{{.ARInvoiceID}}</a></td>
+                    <td>{{printf "%.2f" .Amount}}</td>
+                    <td>{{.Method}}</td>
+                    <td>{{.PaidAt.Format "2006-01-02"}}</td>
+                    <td>{{.Note}}</td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </figure>
+    {{else}}
+    <article>
+        <p>No payments recorded yet. <a href="/finance/ar/payments/new">Record your first payment</a>.</p>
+    </article>
+    {{end}}
+</main>
+{{end}}

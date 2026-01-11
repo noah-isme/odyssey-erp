@@ -1,0 +1,137 @@
+{{template "layouts/base.html" .}}
+
+{{define "title"}}AR Aging Report{{end}}
+
+{{define "content"}}
+<main class="container">
+    <header>
+        <hgroup>
+            <h1>Accounts Receivable Aging Report</h1>
+            <p>Outstanding invoice balances by aging period</p>
+        </hgroup>
+    </header>
+
+    <nav>
+        <ul>
+            <li><a href="/finance/ar/invoices">Invoices</a></li>
+            <li><a href="/finance/ar/payments">Payments</a></li>
+        </ul>
+    </nav>
+
+    {{if .Data.Errors.general}}
+    <article class="error">
+        <p>{{.Data.Errors.general}}</p>
+    </article>
+    {{else}}
+
+    {{$aging := .Data.Aging}}
+    {{$total := .Data.Total}}
+
+    <!-- Summary Cards -->
+    <div class="grid">
+        <article>
+            <header>Current</header>
+            <p style="font-size: 1.5em; font-weight: bold; color: var(--pico-primary);">
+                {{printf "%.2f" $aging.Current}}
+            </p>
+            <footer>Not yet due</footer>
+        </article>
+        <article>
+            <header>1-30 Days</header>
+            <p style="font-size: 1.5em; font-weight: bold; color: var(--pico-secondary);">
+                {{printf "%.2f" $aging.Bucket30}}
+            </p>
+            <footer>Slightly overdue</footer>
+        </article>
+        <article>
+            <header>31-60 Days</header>
+            <p style="font-size: 1.5em; font-weight: bold; color: orange;">
+                {{printf "%.2f" $aging.Bucket60}}
+            </p>
+            <footer>Follow up needed</footer>
+        </article>
+        <article>
+            <header>61-90 Days</header>
+            <p style="font-size: 1.5em; font-weight: bold; color: var(--pico-color-red-500);">
+                {{printf "%.2f" $aging.Bucket90}}
+            </p>
+            <footer>Urgent attention</footer>
+        </article>
+        <article>
+            <header>90+ Days</header>
+            <p style="font-size: 1.5em; font-weight: bold; color: var(--pico-color-red-700);">
+                {{printf "%.2f" $aging.Bucket120}}
+            </p>
+            <footer>Critical - may need collection</footer>
+        </article>
+    </div>
+
+    <!-- Summary Table -->
+    <article>
+        <header>
+            <h3>Aging Summary</h3>
+        </header>
+        <figure>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Period</th>
+                        <th style="text-align: right;">Amount</th>
+                        <th style="text-align: right;">% of Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Current (Not Due)</td>
+                        <td style="text-align: right;">{{printf "%.2f" $aging.Current}}</td>
+                        <td style="text-align: right;">
+                            {{if gt $total 0.0}}{{printf "%.1f" (divf (mulf $aging.Current 100)
+                            $total)}}%{{else}}0%{{end}}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>1-30 Days Overdue</td>
+                        <td style="text-align: right;">{{printf "%.2f" $aging.Bucket30}}</td>
+                        <td style="text-align: right;">
+                            {{if gt $total 0.0}}{{printf "%.1f" (divf (mulf $aging.Bucket30 100)
+                            $total)}}%{{else}}0%{{end}}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>31-60 Days Overdue</td>
+                        <td style="text-align: right;">{{printf "%.2f" $aging.Bucket60}}</td>
+                        <td style="text-align: right;">
+                            {{if gt $total 0.0}}{{printf "%.1f" (divf (mulf $aging.Bucket60 100)
+                            $total)}}%{{else}}0%{{end}}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>61-90 Days Overdue</td>
+                        <td style="text-align: right;">{{printf "%.2f" $aging.Bucket90}}</td>
+                        <td style="text-align: right;">
+                            {{if gt $total 0.0}}{{printf "%.1f" (divf (mulf $aging.Bucket90 100)
+                            $total)}}%{{else}}0%{{end}}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>90+ Days Overdue</td>
+                        <td style="text-align: right;">{{printf "%.2f" $aging.Bucket120}}</td>
+                        <td style="text-align: right;">
+                            {{if gt $total 0.0}}{{printf "%.1f" (divf (mulf $aging.Bucket120 100)
+                            $total)}}%{{else}}0%{{end}}
+                        </td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td><strong>Total Outstanding</strong></td>
+                        <td style="text-align: right;"><strong>{{printf "%.2f" $total}}</strong></td>
+                        <td style="text-align: right;"><strong>100%</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </figure>
+    </article>
+    {{end}}
+</main>
+{{end}}
