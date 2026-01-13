@@ -47,7 +47,8 @@ func (p *productionPDFExporter) Serve(w http.ResponseWriter, r *http.Request, h 
 	}
 	tb, err := h.service.GetConsolidatedTB(r.Context(), filter)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		p.logger.Error("get consol tb pdf", slog.Any("error", err))
+		http.Error(w, "Failed to generate report", http.StatusBadRequest)
 		return
 	}
 	vm := FromDomain(tb)

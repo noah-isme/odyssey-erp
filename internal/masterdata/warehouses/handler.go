@@ -116,9 +116,10 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 
 	created, err := h.service.Create(r.Context(), warehouse)
 	if err != nil {
+		h.logger.Error("create warehouse failed", "error", err)
 		branchesList, _, _ := h.branchService.List(r.Context(), shared.ListFilters{})
 		h.render(w, r, "pages/masterdata/warehouse_form.html", map[string]any{
-			"Errors":    map[string]string{"general": err.Error()},
+			"Errors":    map[string]string{"general": internalShared.UserSafeMessage(err)},
 			"Warehouse": nil,
 			"Branches":  branchesList,
 		}, http.StatusBadRequest)
@@ -177,9 +178,10 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 
 	err = h.service.Update(r.Context(), id, warehouse)
 	if err != nil {
+		h.logger.Error("update warehouse failed", "error", err, "id", id)
 		branchesList, _, _ := h.branchService.List(r.Context(), shared.ListFilters{})
 		h.render(w, r, "pages/masterdata/warehouse_form.html", map[string]any{
-			"Errors":    map[string]string{"general": err.Error()},
+			"Errors":    map[string]string{"general": internalShared.UserSafeMessage(err)},
 			"Warehouse": warehouse,
 			"Branches":  branchesList,
 		}, http.StatusBadRequest)
@@ -198,7 +200,8 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 
 	err = h.service.Delete(r.Context(), id)
 	if err != nil {
-		h.redirectWithFlash(w, r, "/masterdata/warehouses", "error", err.Error())
+		h.logger.Error("delete warehouse failed", "error", err, "id", id)
+		h.redirectWithFlash(w, r, "/masterdata/warehouses", "error", internalShared.UserSafeMessage(err))
 		return
 	}
 

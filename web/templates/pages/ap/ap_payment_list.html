@@ -29,6 +29,7 @@
             <thead>
                 <tr>
                     <th>Number</th>
+                    <th>Supplier</th>
                     <th>Invoice</th>
                     <th>Amount</th>
                     <th>Method</th>
@@ -39,7 +40,8 @@
             <tbody>
                 {{range .Data.Payments}}
                 <tr>
-                    <td>{{.Number}}</td>
+                    <td><a href="/finance/ap/payments/{{.ID}}">{{.Number}}</a></td>
+                    <td>{{if .SupplierName}}{{.SupplierName}}{{else if .SupplierID}}Supplier #{{.SupplierID}}{{else}}-{{end}}</td>
                     <td>
                         {{if .APInvoiceID}}
                         <a href="/finance/ap/invoices/{{.APInvoiceID}}">Invoice #{{.APInvoiceID}}</a>

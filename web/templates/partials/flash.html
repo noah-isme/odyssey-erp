@@ -1,7 +1,9 @@
 {{ define "partials/flash.html" }}
 {{ if .Flash }}
-<article class="{{ .Flash.Kind }}">
-    {{ .Flash.Message }}
-</article>
+<div id="server-flash" 
+     data-flash-kind="{{ .Flash.Kind }}" 
+     data-flash-message="{{ .Flash.Message }}"
+     style="display:none;"
+     aria-hidden="true"></div>
 {{ end }}
 {{ end }}

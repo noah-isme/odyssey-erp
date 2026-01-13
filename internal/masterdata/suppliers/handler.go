@@ -100,8 +100,9 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 
 	created, err := h.service.Create(r.Context(), supplier)
 	if err != nil {
+		h.logger.Error("create supplier failed", "error", err)
 		h.render(w, r, "pages/masterdata/supplier_form.html", map[string]any{
-			"Errors":   map[string]string{"general": err.Error()},
+			"Errors":   map[string]string{"general": internalShared.UserSafeMessage(err)},
 			"Supplier": nil,
 		}, http.StatusBadRequest)
 		return
@@ -152,8 +153,9 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 
 	err = h.service.Update(r.Context(), id, supplier)
 	if err != nil {
+		h.logger.Error("update supplier failed", "error", err, "id", id)
 		h.render(w, r, "pages/masterdata/supplier_form.html", map[string]any{
-			"Errors":   map[string]string{"general": err.Error()},
+			"Errors":   map[string]string{"general": internalShared.UserSafeMessage(err)},
 			"Supplier": supplier,
 		}, http.StatusBadRequest)
 		return
@@ -171,7 +173,8 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 
 	err = h.service.Delete(r.Context(), id)
 	if err != nil {
-		h.redirectWithFlash(w, r, "/masterdata/suppliers", "error", err.Error())
+		h.logger.Error("delete supplier failed", "error", err, "id", id)
+		h.redirectWithFlash(w, r, "/masterdata/suppliers", "error", internalShared.UserSafeMessage(err))
 		return
 	}
 

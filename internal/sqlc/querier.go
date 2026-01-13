@@ -191,7 +191,7 @@ type Querier interface {
 	ListAPInvoices(ctx context.Context) ([]ListAPInvoicesRow, error)
 	ListAPInvoicesByStatus(ctx context.Context, status string) ([]ListAPInvoicesByStatusRow, error)
 	ListAPInvoicesBySupplier(ctx context.Context, supplierID int64) ([]ListAPInvoicesBySupplierRow, error)
-	ListAPPayments(ctx context.Context) ([]ApPayment, error)
+	ListAPPayments(ctx context.Context) ([]ListAPPaymentsRow, error)
 	ListARInvoiceLines(ctx context.Context, arInvoiceID int64) ([]ArInvoiceLine, error)
 	ListARInvoices(ctx context.Context) ([]ListARInvoicesRow, error)
 	ListARInvoicesByCustomer(ctx context.Context, customerID int64) ([]ListARInvoicesByCustomerRow, error)

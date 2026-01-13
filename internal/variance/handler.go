@@ -70,7 +70,8 @@ func (h *Handler) createRule(w http.ResponseWriter, r *http.Request) {
 		ActorID:         actor,
 	}
 	if _, err := h.service.CreateRule(r.Context(), input); err != nil {
-		h.redirectWithFlash(w, r, "/variance/rules", "danger", err.Error())
+		h.logger.Warn("create variance rule", slog.Any("error", err))
+		h.redirectWithFlash(w, r, "/variance/rules", "danger", shared.UserSafeMessage(err))
 		return
 	}
 	h.redirectWithFlash(w, r, "/variance/rules", "success", "Rule created")
@@ -121,7 +122,8 @@ func (h *Handler) triggerSnapshot(w http.ResponseWriter, r *http.Request) {
 	}
 	snapshot, err := h.service.TriggerSnapshot(r.Context(), req)
 	if err != nil {
-		h.redirectWithFlash(w, r, "/variance/snapshots", "danger", err.Error())
+		h.logger.Warn("trigger variance snapshot", slog.Any("error", err))
+		h.redirectWithFlash(w, r, "/variance/snapshots", "danger", shared.UserSafeMessage(err))
 		return
 	}
 	if h.jobs != nil {

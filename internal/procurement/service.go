@@ -91,8 +91,6 @@ type GRNLineInput struct {
 	UnitCost  float64
 }
 
-
-
 // CreatePurchaseRequest persists PR header and lines.
 func (s *Service) CreatePurchaseRequest(ctx context.Context, input CreatePRInput) (PurchaseRequest, error) {
 	if len(input.Lines) == 0 {
@@ -343,6 +341,11 @@ func (s *Service) GetGRNWithLines(ctx context.Context, id int64) (GoodsReceipt, 
 	return s.repo.GetGRN(ctx, id)
 }
 
+// GetPOWithLines exposes PO details for other modules (e.g. AP)
+func (s *Service) GetPOWithLines(ctx context.Context, id int64) (PurchaseOrder, []POLine, error) {
+	return s.repo.GetPO(ctx, id)
+}
+
 // ListPOs returns paginated purchase orders.
 func (s *Service) ListPOs(ctx context.Context, limit, offset int, filters ListFilters) ([]POListItem, int, error) {
 	if limit <= 0 {
@@ -350,8 +353,6 @@ func (s *Service) ListPOs(ctx context.Context, limit, offset int, filters ListFi
 	}
 	return s.repo.ListPOs(ctx, limit, offset, filters)
 }
-
-
 
 // ListGRNs returns paginated goods receipts.
 func (s *Service) ListGRNs(ctx context.Context, limit, offset int, filters ListFilters) ([]GRNListItem, int, error) {

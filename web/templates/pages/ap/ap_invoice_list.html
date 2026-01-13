@@ -50,6 +50,7 @@
                 <tr>
                     <th>Number</th>
                     <th>Supplier</th>
+                    <th>PO</th>
                     <th>Total</th>
                     <th>Status</th>
                     <th>Due Date</th>
@@ -61,8 +62,8 @@
                 {{range .Data.Invoices}}
                 <tr>
                     <td><a href="/finance/ap/invoices/{{.ID}}">{{.Number}}</a></td>
-                    <td>{{.SupplierID}}</td>
-                    <!-- TODO: Resolve Supplier Name if possible, currently just ID -->
+                    <td>{{if .SupplierName}}{{.SupplierName}}{{else}}Supplier #{{.SupplierID}}{{end}}</td>
+                    <td>{{if .POID}}{{.POID}}{{else}}-{{end}}</td>
                     <td>{{printf "%.2f" .Total}} {{.Currency}}</td>
                     <td>
                         {{if eq .Status "DRAFT"}}

@@ -73,7 +73,8 @@ func (h *Handler) createRule(w http.ResponseWriter, r *http.Request) {
 		ActorID:         actor,
 	}
 	if _, err := h.service.CreateRule(r.Context(), input); err != nil {
-		h.redirectWithFlash(w, r, "/eliminations/rules", "danger", err.Error())
+		h.logger.Warn("create elimination rule", slog.Any("error", err))
+		h.redirectWithFlash(w, r, "/eliminations/rules", "danger", shared.UserSafeMessage(err))
 		return
 	}
 	h.redirectWithFlash(w, r, "/eliminations/rules", "success", "Rule created")
@@ -134,7 +135,8 @@ func (h *Handler) createRun(w http.ResponseWriter, r *http.Request) {
 		ActorID:  actor,
 	}
 	if _, err := h.service.CreateRun(r.Context(), input); err != nil {
-		h.redirectWithFlash(w, r, "/eliminations/runs", "danger", err.Error())
+		h.logger.Warn("create elimination run", slog.Any("error", err))
+		h.redirectWithFlash(w, r, "/eliminations/runs", "danger", shared.UserSafeMessage(err))
 		return
 	}
 	h.redirectWithFlash(w, r, "/eliminations/runs", "success", "Run created")
@@ -163,7 +165,8 @@ func (h *Handler) simulateRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, _, err := h.service.SimulateRun(r.Context(), id); err != nil {
-		h.redirectWithFlash(w, r, "/eliminations/runs/"+strconv.FormatInt(id, 10), "danger", err.Error())
+		h.logger.Warn("simulate elimination run", slog.Any("error", err), slog.Int64("id", id))
+		h.redirectWithFlash(w, r, "/eliminations/runs/"+strconv.FormatInt(id, 10), "danger", shared.UserSafeMessage(err))
 		return
 	}
 	h.redirectWithFlash(w, r, "/eliminations/runs/"+strconv.FormatInt(id, 10), "success", "Simulation updated")
@@ -177,7 +180,8 @@ func (h *Handler) postRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, err := h.service.PostRun(r.Context(), id, actor); err != nil {
-		h.redirectWithFlash(w, r, "/eliminations/runs/"+strconv.FormatInt(id, 10), "danger", err.Error())
+		h.logger.Warn("post elimination run", slog.Any("error", err), slog.Int64("id", id))
+		h.redirectWithFlash(w, r, "/eliminations/runs/"+strconv.FormatInt(id, 10), "danger", shared.UserSafeMessage(err))
 		return
 	}
 	h.redirectWithFlash(w, r, "/eliminations/runs/"+strconv.FormatInt(id, 10), "success", "Journal posted")

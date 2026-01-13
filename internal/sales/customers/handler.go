@@ -183,7 +183,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Error("create customer failed", "error", err)
 		h.render(w, r, "pages/sales/customer_form.html", map[string]any{
-			"Errors":        formErrors{"general": err.Error()},
+			"Errors":        formErrors{"general": shared.UserSafeMessage(err)},
 			"GeneratedCode": req.Code,
 			"Customer":      nil,
 		}, http.StatusBadRequest)
@@ -280,7 +280,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Error("update customer failed", "error", err, "id", id)
 		h.render(w, r, "pages/sales/customer_form.html", map[string]any{
-			"Errors":   formErrors{"general": err.Error()},
+			"Errors":   formErrors{"general": shared.UserSafeMessage(err)},
 			"Customer": customer,
 		}, http.StatusBadRequest)
 		return

@@ -97,8 +97,9 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 
 	created, err := h.service.Create(r.Context(), category)
 	if err != nil {
+		h.logger.Error("create category failed", "error", err)
 		h.render(w, r, "pages/masterdata/category_form.html", map[string]any{
-			"Errors":   map[string]string{"general": err.Error()},
+			"Errors":   map[string]string{"general": internalShared.UserSafeMessage(err)},
 			"Category": nil,
 		}, http.StatusBadRequest)
 		return
@@ -146,8 +147,9 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 
 	err = h.service.Update(r.Context(), id, category)
 	if err != nil {
+		h.logger.Error("update category failed", "error", err, "id", id)
 		h.render(w, r, "pages/masterdata/category_form.html", map[string]any{
-			"Errors":   map[string]string{"general": err.Error()},
+			"Errors":   map[string]string{"general": internalShared.UserSafeMessage(err)},
 			"Category": category,
 		}, http.StatusBadRequest)
 		return
@@ -165,7 +167,8 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 
 	err = h.service.Delete(r.Context(), id)
 	if err != nil {
-		h.redirectWithFlash(w, r, "/masterdata/categories", "error", err.Error())
+		h.logger.Error("delete category failed", "error", err, "id", id)
+		h.redirectWithFlash(w, r, "/masterdata/categories", "error", internalShared.UserSafeMessage(err))
 		return
 	}
 

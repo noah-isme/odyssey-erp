@@ -15,13 +15,13 @@ import (
 )
 
 type Handler struct {
-	logger        *slog.Logger
-	service       *Service
+	logger         *slog.Logger
+	service        *Service
 	companyService *companies.Service
-	templates     *view.Engine
-	csrf          *internalShared.CSRFManager
-	sessions      *internalShared.SessionManager
-	rbac          rbac.Middleware
+	templates      *view.Engine
+	csrf           *internalShared.CSRFManager
+	sessions       *internalShared.SessionManager
+	rbac           rbac.Middleware
 }
 
 func NewHandler(logger *slog.Logger, service *Service, companyService *companies.Service, templates *view.Engine, csrf *internalShared.CSRFManager, sessions *internalShared.SessionManager, rbac rbac.Middleware) *Handler {
@@ -116,9 +116,10 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 
 	created, err := h.service.Create(r.Context(), branch)
 	if err != nil {
+		h.logger.Error("create branch failed", "error", err)
 		companiesList, _, _ := h.companyService.List(r.Context(), shared.ListFilters{})
 		h.render(w, r, "pages/masterdata/branch_form.html", map[string]any{
-			"Errors":    map[string]string{"general": err.Error()},
+			"Errors":    map[string]string{"general": internalShared.UserSafeMessage(err)},
 			"Branch":    nil,
 			"Companies": companiesList,
 		}, http.StatusBadRequest)
@@ -177,9 +178,10 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 
 	err = h.service.Update(r.Context(), id, branch)
 	if err != nil {
+		h.logger.Error("update branch failed", "error", err, "id", id)
 		companiesList, _, _ := h.companyService.List(r.Context(), shared.ListFilters{})
 		h.render(w, r, "pages/masterdata/branch_form.html", map[string]any{
-			"Errors":    map[string]string{"general": err.Error()},
+			"Errors":    map[string]string{"general": internalShared.UserSafeMessage(err)},
 			"Branch":    branch,
 			"Companies": companiesList,
 		}, http.StatusBadRequest)
@@ -198,7 +200,8 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 
 	err = h.service.Delete(r.Context(), id)
 	if err != nil {
-		h.redirectWithFlash(w, r, "/masterdata/branches", "error", err.Error())
+		h.logger.Error("delete branch failed", "error", err, "id", id)
+		h.redirectWithFlash(w, r, "/masterdata/branches", "error", internalShared.UserSafeMessage(err))
 		return
 	}
 

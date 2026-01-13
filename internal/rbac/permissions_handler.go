@@ -39,7 +39,8 @@ type formErrors map[string]string
 func (h *PermissionsHandler) listPermissions(w http.ResponseWriter, r *http.Request) {
 	perms, err := h.service.ListPermissions(r.Context())
 	if err != nil {
-		h.render(w, r, "pages/permissions/list.html", map[string]any{"Errors": formErrors{"general": err.Error()}}, http.StatusInternalServerError)
+		h.logger.Error("list permissions failed", slog.Any("error", err))
+		h.render(w, r, "pages/permissions/list.html", map[string]any{"Errors": formErrors{"general": shared.UserSafeMessage(err)}}, http.StatusInternalServerError)
 		return
 	}
 	h.render(w, r, "pages/permissions/list.html", map[string]any{"Permissions": perms}, http.StatusOK)

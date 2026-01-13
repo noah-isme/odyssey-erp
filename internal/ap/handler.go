@@ -1,6 +1,7 @@
 package ap
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -12,7 +13,6 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
-
 )
 
 // Handler manages AP endpoints.
@@ -34,31 +34,26 @@ func NewHandler(logger *slog.Logger, service *Service, templates *view.Engine, c
 func (h *Handler) MountRoutes(r chi.Router) {
 	// View routes
 	r.Group(func(r chi.Router) {
-		// Permissions placeholder, assuming 'finance.ap.view' exists or using broader permission
-		// r.Use(h.rbac.RequireAny(shared.PermFinanceAPView)) 
-		// Since shared.PermFinanceAPView might not exist in Go constants yet, use string literal or define it.
-		// For now, assume generic finance access or define string.
-		// h.rbac.RequireAny("finance.ap.view") if RequireAny accepts string. 
-		// shared.PermFinanceARView is a string constant.
-		// I'll skip strict permission check logic or use a known one for now, or assume "finance.view"
-		
+		r.Use(h.rbac.RequireAny("finance.ap.view"))
+
 		r.Get("/", h.listInvoices)
 		r.Get("/invoices", h.listInvoices)
 		r.Get("/invoices/new", h.showCreateInvoiceForm)
 		r.Get("/invoices/{id}", h.showInvoiceDetail)
 		r.Get("/payments", h.listPayments)
 		r.Get("/payments/new", h.showCreatePaymentForm)
+		r.Get("/payments/{id}", h.showPaymentDetail)
 		r.Get("/aging", h.showAPAgingReport)
 	})
 
 	// Create/Action routes
 	r.Group(func(r chi.Router) {
-		// r.Use(h.rbac.RequireAll(shared.PermFinanceAPEdit))
-		r.Post("/invoices", h.createAPInvoice)
-		r.Post("/invoices/from-grn/{grnID}", h.createInvoiceFromGRN)
-		r.Post("/invoices/{id}/post", h.postInvoice)
-		r.Post("/invoices/{id}/void", h.voidInvoice)
-		r.Post("/payments", h.createAPPayment)
+		r.With(h.rbac.RequireAny("finance.ap.create")).Post("/invoices", h.createAPInvoice)
+		r.With(h.rbac.RequireAny("finance.ap.create")).Post("/invoices/from-grn/{grnID}", h.createInvoiceFromGRN)
+		r.With(h.rbac.RequireAny("finance.ap.create")).Post("/invoices/from-po/{poID}", h.createInvoiceFromPO)
+		r.With(h.rbac.RequireAny("finance.ap.post")).Post("/invoices/{id}/post", h.postInvoice)
+		r.With(h.rbac.RequireAny("finance.ap.void")).Post("/invoices/{id}/void", h.voidInvoice)
+		r.With(h.rbac.RequireAny("finance.ap.payment")).Post("/payments", h.createAPPayment)
 	})
 }
 
@@ -79,8 +74,9 @@ func (h *Handler) listInvoices(w http.ResponseWriter, r *http.Request) {
 		Limit:      100,
 	})
 	if err != nil {
+		h.logger.Error("list AP invoices", slog.Any("error", err))
 		h.render(w, r, "pages/ap/ap_invoice_list.html", map[string]any{
-			"Errors": formErrors{"general": err.Error()},
+			"Errors": formErrors{"general": shared.UserSafeMessage(err)},
 		}, http.StatusInternalServerError)
 		return
 	}
@@ -103,8 +99,9 @@ func (h *Handler) showInvoiceDetail(w http.ResponseWriter, r *http.Request) {
 
 	invoice, err := h.service.GetAPInvoiceWithDetails(r.Context(), id)
 	if err != nil {
+		h.logger.Error("get AP invoice", slog.Any("error", err), slog.Int64("id", id))
 		h.render(w, r, "pages/ap/ap_invoice_form.html", map[string]any{
-			"Errors": formErrors{"general": err.Error()},
+			"Errors": formErrors{"general": shared.UserSafeMessage(err)},
 		}, http.StatusNotFound)
 		return
 	}
@@ -127,40 +124,65 @@ func (h *Handler) createAPInvoice(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
-	
-	supplierID, _ := strconv.ParseInt(r.PostFormValue("supplier_id"), 10, 64)
-	total, _ := strconv.ParseFloat(r.PostFormValue("total"), 64)
+
+	sourceType := r.PostFormValue("source_type")
+	sourceIDStr := r.PostFormValue("source_id")
+	if sourceType == "" {
+		if r.PostFormValue("grn_id") != "" {
+			sourceType = "grn"
+			sourceIDStr = r.PostFormValue("grn_id")
+		} else if r.PostFormValue("po_id") != "" {
+			sourceType = "po"
+			sourceIDStr = r.PostFormValue("po_id")
+		}
+	}
+	if sourceIDStr == "" {
+		h.render(w, r, "pages/ap/ap_invoice_form.html", map[string]any{
+			"Errors": formErrors{"general": "Source ID is required"},
+		}, http.StatusBadRequest)
+		return
+	}
+	sourceID, err := strconv.ParseInt(sourceIDStr, 10, 64)
+	if err != nil {
+		h.render(w, r, "pages/ap/ap_invoice_form.html", map[string]any{
+			"Errors": formErrors{"general": "Invalid source ID"},
+		}, http.StatusBadRequest)
+		return
+	}
+
 	dueDate, _ := time.Parse("2006-01-02", r.PostFormValue("due_date"))
+	if dueDate.IsZero() {
+		dueDate = time.Now().AddDate(0, 0, 30)
+	}
 
 	sess := shared.SessionFromContext(r.Context())
 	userID := getUserID(sess)
+	number := r.PostFormValue("number")
 
-	invoice, err := h.service.CreateAPInvoice(r.Context(), CreateAPInvoiceInput{
-		SupplierID: supplierID,
-		Currency:   r.PostFormValue("currency"),
-		Total:      total,
-		// Subtotal and Tax logic implies lines, but pure manual entry might just set totals here?
-		// My service logic calculates from lines.
-		// If manual entry without lines is allowed, I need to adjust service.
-		// Assuming for now simple manual entry = header only? No, service expects lines.
-		// I will create one dummy line for the total amount.
-		Lines: []CreateAPInvoiceLineInput{
-			{
-				Description: r.PostFormValue("description"), // assumes form has it
-				Quantity:    1,
-				UnitPrice:   total,
-				ProductID:   1, // Dummy product ID? Or required?
-				// To handle this properly, form needs line items or service needs to allow header-only.
-				// For now, I'll assume header-only entry is NOT supported or hacks it.
-			},
-		},
-		DueDate:    dueDate,
-		CreatedBy:  userID,
-	})
-	
+	var invoice APInvoice
+	switch sourceType {
+	case "grn":
+		invoice, err = h.service.CreateAPInvoiceFromGRN(r.Context(), CreateAPInvoiceFromGRNInput{
+			GRNID:     sourceID,
+			DueDate:   dueDate,
+			CreatedBy: userID,
+			Number:    number,
+		})
+	case "po":
+		invoice, err = h.service.CreateAPInvoiceFromPO(r.Context(), CreateAPInvoiceFromPOInput{
+			POID:      sourceID,
+			DueDate:   dueDate,
+			CreatedBy: userID,
+			Number:    number,
+		})
+	default:
+		err = fmt.Errorf("unsupported source type")
+	}
+
 	if err != nil {
+		h.logger.Error("create AP invoice", slog.Any("error", err))
 		h.render(w, r, "pages/ap/ap_invoice_form.html", map[string]any{
-			"Errors": formErrors{"general": err.Error()},
+			"Errors": formErrors{"general": shared.UserSafeMessage(err)},
 		}, http.StatusBadRequest)
 		return
 	}
@@ -186,6 +208,7 @@ func (h *Handler) createInvoiceFromGRN(w http.ResponseWriter, r *http.Request) {
 	if dueDate.IsZero() {
 		dueDate = time.Now().AddDate(0, 0, 30) // Default 30 days
 	}
+	number := r.PostFormValue("number")
 
 	sess := shared.SessionFromContext(r.Context())
 	userID := getUserID(sess)
@@ -194,13 +217,53 @@ func (h *Handler) createInvoiceFromGRN(w http.ResponseWriter, r *http.Request) {
 		GRNID:     grnID,
 		DueDate:   dueDate,
 		CreatedBy: userID,
+		Number:    number,
 	})
 	if err != nil {
-		h.redirectWithFlash(w, r, fmt.Sprintf("/procurement/grn/%d", grnID), "error", "Failed to create invoice: "+err.Error())
+		h.logger.Error("create invoice from GRN", slog.Any("error", err), slog.Int64("grn_id", grnID))
+		h.redirectWithFlash(w, r, "/procurement/grns", "error", shared.UserSafeMessage(err))
 		return
 	}
 
 	h.redirectWithFlash(w, r, "/finance/ap/invoices/"+strconv.FormatInt(invoice.ID, 10), "success", "Invoice created from GRN")
+}
+
+// createInvoiceFromPO creates invoice from purchase order.
+func (h *Handler) createInvoiceFromPO(w http.ResponseWriter, r *http.Request) {
+	poIDStr := chi.URLParam(r, "poID")
+	poID, err := strconv.ParseInt(poIDStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid PO ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+
+	dueDate, _ := time.Parse("2006-01-02", r.PostFormValue("due_date"))
+	if dueDate.IsZero() {
+		dueDate = time.Now().AddDate(0, 0, 30)
+	}
+	number := r.PostFormValue("number")
+
+	sess := shared.SessionFromContext(r.Context())
+	userID := getUserID(sess)
+
+	invoice, err := h.service.CreateAPInvoiceFromPO(r.Context(), CreateAPInvoiceFromPOInput{
+		POID:      poID,
+		DueDate:   dueDate,
+		CreatedBy: userID,
+		Number:    number,
+	})
+	if err != nil {
+		h.logger.Error("create invoice from PO", slog.Any("error", err), slog.Int64("po_id", poID))
+		h.redirectWithFlash(w, r, "/procurement/pos", "error", shared.UserSafeMessage(err))
+		return
+	}
+
+	h.redirectWithFlash(w, r, "/finance/ap/invoices/"+strconv.FormatInt(invoice.ID, 10), "success", "Invoice created from PO")
 }
 
 func (h *Handler) postInvoice(w http.ResponseWriter, r *http.Request) {
@@ -218,7 +281,8 @@ func (h *Handler) postInvoice(w http.ResponseWriter, r *http.Request) {
 		InvoiceID: id,
 		PostedBy:  userID,
 	}); err != nil {
-		h.redirectWithFlash(w, r, "/finance/ap/invoices/"+idStr, "error", "Failed to post invoice: "+err.Error())
+		h.logger.Error("post AP invoice", slog.Any("error", err), slog.Int64("id", id))
+		h.redirectWithFlash(w, r, "/finance/ap/invoices/"+idStr, "error", shared.UserSafeMessage(err))
 		return
 	}
 
@@ -247,7 +311,8 @@ func (h *Handler) voidInvoice(w http.ResponseWriter, r *http.Request) {
 		VoidedBy:   userID,
 		VoidReason: reason,
 	}); err != nil {
-		h.redirectWithFlash(w, r, "/finance/ap/invoices/"+idStr, "error", "Failed to void invoice: "+err.Error())
+		h.logger.Error("void AP invoice", slog.Any("error", err), slog.Int64("id", id))
+		h.redirectWithFlash(w, r, "/finance/ap/invoices/"+idStr, "error", shared.UserSafeMessage(err))
 		return
 	}
 
@@ -257,8 +322,9 @@ func (h *Handler) voidInvoice(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) listPayments(w http.ResponseWriter, r *http.Request) {
 	payments, err := h.service.ListAPPayments(r.Context())
 	if err != nil {
+		h.logger.Error("list AP payments", slog.Any("error", err))
 		h.render(w, r, "pages/ap/ap_payment_list.html", map[string]any{
-			"Errors": formErrors{"general": err.Error()},
+			"Errors": formErrors{"general": shared.UserSafeMessage(err)},
 		}, http.StatusInternalServerError)
 		return
 	}
@@ -273,10 +339,34 @@ func (h *Handler) showCreatePaymentForm(w http.ResponseWriter, r *http.Request) 
 		Status: APStatusPosted,
 		Limit:  100,
 	})
+	selectedID, _ := strconv.ParseInt(r.URL.Query().Get("ap_invoice_id"), 10, 64)
 
 	h.render(w, r, "pages/ap/ap_payment_form.html", map[string]any{
-		"Errors":   formErrors{},
-		"Invoices": invoices,
+		"Errors":            formErrors{},
+		"Invoices":          invoices,
+		"SelectedInvoiceID": selectedID,
+	}, http.StatusOK)
+}
+
+func (h *Handler) showPaymentDetail(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid payment ID", http.StatusBadRequest)
+		return
+	}
+
+	payment, err := h.service.GetAPPaymentWithDetails(r.Context(), id)
+	if err != nil {
+		h.logger.Error("get AP payment", slog.Any("error", err), slog.Int64("id", id))
+		h.render(w, r, "pages/ap/ap_payment_list.html", map[string]any{
+			"Errors": formErrors{"general": shared.UserSafeMessage(err)},
+		}, http.StatusNotFound)
+		return
+	}
+
+	h.render(w, r, "pages/ap/ap_payment_detail.html", map[string]any{
+		"Payment": payment,
 	}, http.StatusOK)
 }
 
@@ -287,7 +377,6 @@ func (h *Handler) createAPPayment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	supplierID, _ := strconv.ParseInt(r.PostFormValue("supplier_id"), 10, 64)
-	invoiceID, _ := strconv.ParseInt(r.PostFormValue("ap_invoice_id"), 10, 64)
 	amount, _ := strconv.ParseFloat(r.PostFormValue("amount"), 64)
 	paidAt, _ := time.Parse("2006-01-02", r.PostFormValue("paid_at"))
 	if paidAt.IsZero() {
@@ -297,32 +386,64 @@ func (h *Handler) createAPPayment(w http.ResponseWriter, r *http.Request) {
 	sess := shared.SessionFromContext(r.Context())
 	userID := getUserID(sess)
 
-	_, err := h.service.RegisterAPPayment(r.Context(), CreateAPPaymentInput{
-		SupplierID: supplierID,
-		Amount:    amount,
-		PaidAt:    paidAt,
-		Method:    r.PostFormValue("method"),
-		Note:      r.PostFormValue("note"),
-		CreatedBy: userID,
-		Allocations: []PaymentAllocationInput{
-			{APInvoiceID: invoiceID, Amount: amount},
-		},
+	var allocations []PaymentAllocationInput
+	invoiceIDs := r.PostForm["ap_invoice_id"]
+	allocationAmounts := r.PostForm["allocation_amount"]
+	for i := 0; i < len(invoiceIDs) && i < len(allocationAmounts); i++ {
+		invoiceID, err := strconv.ParseInt(invoiceIDs[i], 10, 64)
+		if err != nil || invoiceID == 0 {
+			continue
+		}
+		allocAmount, err := strconv.ParseFloat(allocationAmounts[i], 64)
+		if err != nil || allocAmount <= 0 {
+			continue
+		}
+		allocations = append(allocations, PaymentAllocationInput{
+			APInvoiceID: invoiceID,
+			Amount:      allocAmount,
+		})
+	}
+
+	payment, err := h.service.RegisterAPPayment(r.Context(), CreateAPPaymentInput{
+		SupplierID:  supplierID,
+		Amount:      amount,
+		PaidAt:      paidAt,
+		Method:      r.PostFormValue("method"),
+		Note:        r.PostFormValue("note"),
+		CreatedBy:   userID,
+		Allocations: allocations,
 	})
 	if err != nil {
+		var ledgerErr *LedgerPostError
+		if errors.As(err, &ledgerErr) && payment.ID != 0 {
+			message := ledgerErr.Error()
+			if ledgerErr.Retryable {
+				message = message + ". Retry posting after updating ledger period/mapping."
+			}
+			h.redirectWithFlash(w, r, "/finance/ap/payments/"+strconv.FormatInt(payment.ID, 10), "warning", message)
+			return
+		}
+		h.logger.Error("create AP payment", slog.Any("error", err))
+		invoices, _ := h.service.ListAPInvoices(r.Context(), ListAPInvoicesRequest{
+			Status: APStatusPosted,
+			Limit:  100,
+		})
 		h.render(w, r, "pages/ap/ap_payment_form.html", map[string]any{
-			"Errors": formErrors{"general": err.Error()},
+			"Errors":   formErrors{"general": shared.UserSafeMessage(err)},
+			"Invoices": invoices,
 		}, http.StatusBadRequest)
 		return
 	}
 
-	h.redirectWithFlash(w, r, "/finance/ap/payments", "success", "Payment recorded")
+	h.redirectWithFlash(w, r, "/finance/ap/payments/"+strconv.FormatInt(payment.ID, 10), "success", "Payment recorded")
 }
 
 func (h *Handler) showAPAgingReport(w http.ResponseWriter, r *http.Request) {
 	aging, err := h.service.CalculateAPAging(r.Context(), time.Now())
 	if err != nil {
+		h.logger.Error("calculate AP aging", slog.Any("error", err))
 		h.render(w, r, "pages/ap/ap_aging_report.html", map[string]any{
-			"Errors": formErrors{"general": err.Error()},
+			"Errors": formErrors{"general": shared.UserSafeMessage(err)},
 		}, http.StatusInternalServerError)
 		return
 	}

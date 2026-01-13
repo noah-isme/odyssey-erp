@@ -114,19 +114,19 @@ func (h *Handler) handleStockCard(w http.ResponseWriter, r *http.Request) {
 		if len(data.Errors) == 0 {
 			entries, err := h.service.GetStockCard(r.Context(), StockCardFilter{WarehouseID: data.WarehouseID, ProductID: data.ProductID, From: fromTime, To: toTime, Limit: 500})
 			if err != nil {
-				data.Errors["general"] = err.Error()
+				data.Errors["general"] = shared.UserSafeMessage(err)
 				h.logger.Error("failed to get stock card", slog.Any("error", err))
 			} else {
 				data.Entries = entries
-				h.logger.Info("got stock card", 
-					slog.Int("count", len(entries)), 
-					slog.Int64("warehouse_id", data.WarehouseID), 
+				h.logger.Info("got stock card",
+					slog.Int("count", len(entries)),
+					slog.Int64("warehouse_id", data.WarehouseID),
 					slog.Int64("product_id", data.ProductID))
 			}
 		}
 	} else {
-		h.logger.Info("stock card missing filters", 
-			slog.Int64("warehouse_id", data.WarehouseID), 
+		h.logger.Info("stock card missing filters",
+			slog.Int64("warehouse_id", data.WarehouseID),
 			slog.Int64("product_id", data.ProductID))
 	}
 	var flash *shared.FlashMessage
@@ -163,7 +163,8 @@ func (h *Handler) handleAdjustment(w http.ResponseWriter, r *http.Request) {
 			RefModule:   "INVENTORY",
 		})
 		if err != nil {
-			errors["general"] = err.Error()
+			h.logger.Error("post adjustment failed", slog.Any("error", err))
+			errors["general"] = shared.UserSafeMessage(err)
 		} else {
 			if sess != nil {
 				sess.AddFlash(shared.FlashMessage{Kind: "success", Message: "Penyesuaian stok berhasil diposting"})
@@ -199,7 +200,8 @@ func (h *Handler) handleTransfer(w http.ResponseWriter, r *http.Request) {
 			RefModule:    "INVENTORY",
 		})
 		if err != nil {
-			errors["general"] = err.Error()
+			h.logger.Error("post transfer failed", slog.Any("error", err))
+			errors["general"] = shared.UserSafeMessage(err)
 		} else {
 			if sess != nil {
 				sess.AddFlash(shared.FlashMessage{Kind: "success", Message: "Transfer stok berhasil"})

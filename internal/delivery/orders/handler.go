@@ -198,7 +198,7 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 	order, err := h.service.Create(ctx, req, userID)
 	if err != nil {
 		h.logger.Error("create order failed", "error", err)
-		h.renderFormError(w, r, map[string]string{"_form": err.Error()})
+		h.renderFormError(w, r, map[string]string{"_form": shared.UserSafeMessage(err)})
 		return
 	}
 
@@ -245,7 +245,7 @@ func (h *Handler) update(w http.ResponseWriter, r *http.Request) {
 
 	if _, err := h.service.Update(ctx, id, req); err != nil {
 		h.logger.Error("update failed", "error", err, "id", id)
-		h.renderFormError(w, r, map[string]string{"_form": err.Error()})
+		h.renderFormError(w, r, map[string]string{"_form": shared.UserSafeMessage(err)})
 		return
 	}
 
@@ -259,7 +259,8 @@ func (h *Handler) confirm(w http.ResponseWriter, r *http.Request) {
 	userID := getUserID(r)
 
 	if _, err := h.service.Confirm(ctx, id, userID); err != nil {
-		h.redirect(w, r, "/delivery/orders/"+strconv.FormatInt(id, 10), "Failed: "+err.Error())
+		h.logger.Error("confirm failed", "error", err, "id", id)
+		h.redirect(w, r, "/delivery/orders/"+strconv.FormatInt(id, 10), shared.UserSafeMessage(err))
 		return
 	}
 
@@ -278,7 +279,8 @@ func (h *Handler) ship(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if _, err := h.service.MarkInTransit(ctx, id, req); err != nil {
-		h.redirect(w, r, "/delivery/orders/"+strconv.FormatInt(id, 10), "Failed: "+err.Error())
+		h.logger.Error("ship failed", "error", err, "id", id)
+		h.redirect(w, r, "/delivery/orders/"+strconv.FormatInt(id, 10), shared.UserSafeMessage(err))
 		return
 	}
 
@@ -302,7 +304,8 @@ func (h *Handler) complete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if _, err := h.service.MarkDelivered(ctx, id, req); err != nil {
-		h.redirect(w, r, "/delivery/orders/"+strconv.FormatInt(id, 10), "Failed: "+err.Error())
+		h.logger.Error("complete failed", "error", err, "id", id)
+		h.redirect(w, r, "/delivery/orders/"+strconv.FormatInt(id, 10), shared.UserSafeMessage(err))
 		return
 	}
 
@@ -324,7 +327,8 @@ func (h *Handler) cancel(w http.ResponseWriter, r *http.Request) {
 	req := CancelRequest{Reason: reason, CancelledBy: userID}
 
 	if _, err := h.service.Cancel(ctx, id, req); err != nil {
-		h.redirect(w, r, "/delivery/orders/"+strconv.FormatInt(id, 10), "Failed: "+err.Error())
+		h.logger.Error("cancel failed", "error", err, "id", id)
+		h.redirect(w, r, "/delivery/orders/"+strconv.FormatInt(id, 10), shared.UserSafeMessage(err))
 		return
 	}
 

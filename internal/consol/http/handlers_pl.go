@@ -121,7 +121,7 @@ func (h *ProfitLossHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 				return vm, nil
 			})
 			if err != nil {
-				errors["general"] = err.Error()
+				errors["general"] = shared.UserSafeMessage(err)
 			} else if result != nil {
 				if builtVM, ok := result.(ConsolPLViewModel); ok {
 					vm = builtVM
@@ -152,7 +152,8 @@ func (h *ProfitLossHandler) HandleExportCSV(w http.ResponseWriter, r *http.Reque
 	}
 	report, warnings, err := h.service.Build(r.Context(), filters)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		h.logger.Error("build consol pl csv", slog.Any("error", err))
+		http.Error(w, shared.UserSafeMessage(err), http.StatusBadRequest)
 		return
 	}
 	vm := NewConsolPLViewModel(report, warnings)

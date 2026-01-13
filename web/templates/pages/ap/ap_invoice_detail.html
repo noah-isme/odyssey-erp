@@ -44,9 +44,12 @@
 
         <div class="grid">
             <div>
-                <p><strong>Supplier:</strong> {{$inv.SupplierID}}</p> <!-- Name if available -->
+                <p><strong>Supplier:</strong> {{if $inv.SupplierName}}{{$inv.SupplierName}}{{else}}Supplier #{{$inv.SupplierID}}{{end}}</p>
                 {{if $inv.GRNID}}
                 <p><strong>GRN:</strong> <a href="/procurement/grns/{{$inv.GRNID}}">{{$inv.GRNID}}</a></p>
+                {{end}}
+                {{if $inv.POID}}
+                <p><strong>PO:</strong> {{$inv.POID}}</p>
                 {{end}}
                 <p><strong>Due Date:</strong> {{$inv.DueAt.Format "2006-01-02"}}</p>
             </div>

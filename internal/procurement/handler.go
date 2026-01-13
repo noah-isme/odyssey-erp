@@ -124,10 +124,6 @@ func (h *Handler) handleListGRNs(w http.ResponseWriter, r *http.Request) {
 	}, http.StatusOK)
 }
 
-
-
-
-
 func (h *Handler) createPR(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
@@ -154,7 +150,8 @@ func (h *Handler) createPR(w http.ResponseWriter, r *http.Request) {
 		Lines:      lines,
 	})
 	if err != nil {
-		h.render(w, r, "pages/procurement/pr_form.html", map[string]any{"Errors": formErrors{"general": err.Error()}}, http.StatusBadRequest)
+		h.logger.Error("create PR", slog.Any("error", err))
+		h.render(w, r, "pages/procurement/pr_form.html", map[string]any{"Errors": formErrors{"general": shared.UserSafeMessage(err)}}, http.StatusBadRequest)
 		return
 	}
 	h.redirectWithFlash(w, r, "/procurement/prs", "success", "PR berhasil dibuat")
@@ -163,7 +160,8 @@ func (h *Handler) createPR(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) submitPR(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err := h.service.SubmitPurchaseRequest(r.Context(), id, currentUser(r)); err != nil {
-		h.render(w, r, "pages/procurement/pr_form.html", map[string]any{"Errors": formErrors{"general": err.Error()}}, http.StatusBadRequest)
+		h.logger.Error("submit PR", slog.Any("error", err), slog.Int64("id", id))
+		h.render(w, r, "pages/procurement/pr_form.html", map[string]any{"Errors": formErrors{"general": shared.UserSafeMessage(err)}}, http.StatusBadRequest)
 		return
 	}
 	h.redirectWithFlash(w, r, "/procurement/prs", "success", "PR dikirim untuk approval")
@@ -184,7 +182,8 @@ func (h *Handler) createPO(w http.ResponseWriter, r *http.Request) {
 		Note:         r.PostFormValue("note"),
 	})
 	if err != nil {
-		h.render(w, r, "pages/procurement/po_form.html", map[string]any{"Errors": formErrors{"general": err.Error()}}, http.StatusBadRequest)
+		h.logger.Error("create PO", slog.Any("error", err))
+		h.render(w, r, "pages/procurement/po_form.html", map[string]any{"Errors": formErrors{"general": shared.UserSafeMessage(err)}}, http.StatusBadRequest)
 		return
 	}
 	h.redirectWithFlash(w, r, "/procurement/pos", "success", "PO berhasil dibuat")
@@ -193,7 +192,8 @@ func (h *Handler) createPO(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) submitPO(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err := h.service.SubmitPurchaseOrder(r.Context(), id, currentUser(r)); err != nil {
-		h.render(w, r, "pages/procurement/po_form.html", map[string]any{"Errors": formErrors{"general": err.Error()}}, http.StatusBadRequest)
+		h.logger.Error("submit PO", slog.Any("error", err), slog.Int64("id", id))
+		h.render(w, r, "pages/procurement/po_form.html", map[string]any{"Errors": formErrors{"general": shared.UserSafeMessage(err)}}, http.StatusBadRequest)
 		return
 	}
 	h.redirectWithFlash(w, r, "/procurement/pos", "success", "PO diajukan")
@@ -202,7 +202,8 @@ func (h *Handler) submitPO(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) approvePO(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err := h.service.ApprovePurchaseOrder(r.Context(), id, currentUser(r)); err != nil {
-		h.render(w, r, "pages/procurement/po_form.html", map[string]any{"Errors": formErrors{"general": err.Error()}}, http.StatusBadRequest)
+		h.logger.Error("approve PO", slog.Any("error", err), slog.Int64("id", id))
+		h.render(w, r, "pages/procurement/po_form.html", map[string]any{"Errors": formErrors{"general": shared.UserSafeMessage(err)}}, http.StatusBadRequest)
 		return
 	}
 	h.redirectWithFlash(w, r, "/procurement/pos", "success", "PO disetujui")
@@ -240,7 +241,8 @@ func (h *Handler) createGRN(w http.ResponseWriter, r *http.Request) {
 		Lines:       lines,
 	})
 	if err != nil {
-		h.render(w, r, "pages/procurement/grn_form.html", map[string]any{"Errors": formErrors{"general": err.Error()}}, http.StatusBadRequest)
+		h.logger.Error("create GRN", slog.Any("error", err))
+		h.render(w, r, "pages/procurement/grn_form.html", map[string]any{"Errors": formErrors{"general": shared.UserSafeMessage(err)}}, http.StatusBadRequest)
 		return
 	}
 	h.redirectWithFlash(w, r, "/procurement/grns", "success", "GRN dibuat")
@@ -249,13 +251,12 @@ func (h *Handler) createGRN(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) postGRN(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err := h.service.PostGoodsReceipt(r.Context(), id); err != nil {
-		h.render(w, r, "pages/procurement/grn_form.html", map[string]any{"Errors": formErrors{"general": err.Error()}}, http.StatusBadRequest)
+		h.logger.Error("post GRN", slog.Any("error", err), slog.Int64("id", id))
+		h.render(w, r, "pages/procurement/grn_form.html", map[string]any{"Errors": formErrors{"general": shared.UserSafeMessage(err)}}, http.StatusBadRequest)
 		return
 	}
 	h.redirectWithFlash(w, r, "/procurement/grns", "success", "GRN diposting")
 }
-
-
 
 func (h *Handler) render(w http.ResponseWriter, r *http.Request, template string, data map[string]any, status int) {
 	sess := shared.SessionFromContext(r.Context())

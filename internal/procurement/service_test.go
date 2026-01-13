@@ -69,6 +69,14 @@ func (r *memoryProcRepo) GetGRN(ctx context.Context, id int64) (GoodsReceipt, []
 	return grn, append([]GRNLine(nil), r.grnLines[id]...), nil
 }
 
+func (r *memoryProcRepo) ListPOs(ctx context.Context, limit, offset int, filters ListFilters) ([]POListItem, int, error) {
+	return nil, 0, nil
+}
+
+func (r *memoryProcRepo) ListGRNs(ctx context.Context, limit, offset int, filters ListFilters) ([]GRNListItem, int, error) {
+	return nil, 0, nil
+}
+
 func (r *memoryProcRepo) GetAPInvoice(ctx context.Context, id int64) (APInvoice, error) {
 	inv, ok := r.invoices[id]
 	if !ok {
@@ -222,16 +230,4 @@ func TestProcurementFlow(t *testing.T) {
 	require.NoError(t, svc.PostGoodsReceipt(ctx, grn.ID))
 	require.Len(t, inv.records, 1)
 	require.Equal(t, 5.0, inv.records[0].Qty)
-
-	invoice, err := svc.CreateAPInvoiceFromGRN(ctx, APInvoiceInput{GRNID: grn.ID, DueDate: time.Now().AddDate(0, 0, 14)})
-	require.NoError(t, err)
-	require.NotZero(t, invoice.ID)
-
-	require.NoError(t, svc.PostAPInvoice(ctx, invoice.ID))
-
-	require.NoError(t, svc.RegisterPayment(ctx, PaymentInput{APInvoiceID: invoice.ID, Amount: invoice.Total}))
-
-	aging, err := svc.CalculateAPAging(ctx, time.Now())
-	require.NoError(t, err)
-	require.InDelta(t, 0, aging.Current+aging.Bucket30+aging.Bucket60+aging.Bucket90+aging.Bucket120, 0.001)
 }

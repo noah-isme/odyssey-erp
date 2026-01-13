@@ -45,7 +45,8 @@ type formErrors map[string]string
 func (h *Handler) listUsers(w http.ResponseWriter, r *http.Request) {
 	users, err := h.service.ListUsers(r.Context())
 	if err != nil {
-		h.render(w, r, "pages/users/list.html", map[string]any{"Errors": formErrors{"general": err.Error()}}, http.StatusInternalServerError)
+		h.logger.Error("list users failed", slog.Any("error", err))
+		h.render(w, r, "pages/users/list.html", map[string]any{"Errors": formErrors{"general": shared.UserSafeMessage(err)}}, http.StatusInternalServerError)
 		return
 	}
 	h.render(w, r, "pages/users/list.html", map[string]any{"Users": users}, http.StatusOK)

@@ -16,24 +16,26 @@ const (
 
 // APInvoice model.
 type APInvoice struct {
-	ID         int64
-	Number     string
-	SupplierID int64
-	GRNID      *int64
-	Currency   string
-	Subtotal   float64
-	TaxAmount  float64
-	Total      float64
-	Status     APInvoiceStatus
-	DueAt      time.Time
-	PostedAt   *time.Time
-	PostedBy   *int64
-	VoidedAt   *time.Time
-	VoidedBy   *int64
-	VoidReason *string
-	CreatedBy  int64
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
+	ID           int64
+	Number       string
+	SupplierID   int64
+	SupplierName string
+	GRNID        *int64
+	POID         *int64
+	Currency     string
+	Subtotal     float64
+	TaxAmount    float64
+	Total        float64
+	Status       APInvoiceStatus
+	DueAt        time.Time
+	PostedAt     *time.Time
+	PostedBy     *int64
+	VoidedAt     *time.Time
+	VoidedBy     *int64
+	VoidReason   *string
+	CreatedBy    int64
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
 
 // APInvoiceLine represents a line item on an AP invoice.
@@ -65,17 +67,18 @@ type APInvoiceWithDetails struct {
 
 // APPayment model.
 type APPayment struct {
-	ID          int64
-	Number      string
-	APInvoiceID *int64 // Optional direct link
-	SupplierID  int64
-	Amount      float64
-	PaidAt      time.Time
-	Method      string
-	Note        string
-	CreatedBy   int64
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID           int64
+	Number       string
+	APInvoiceID  *int64 // Optional direct link
+	SupplierID   int64
+	SupplierName string
+	Amount       float64
+	PaidAt       time.Time
+	Method       string
+	Note         string
+	CreatedBy    int64
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
 
 // APPaymentSummary for display in invoice detail.
@@ -96,6 +99,28 @@ type APPaymentAllocation struct {
 	APInvoiceID int64
 	Amount      float64
 	CreatedAt   time.Time
+}
+
+// APPaymentAllocationDetail includes invoice context for a payment allocation.
+type APPaymentAllocationDetail struct {
+	ID            int64
+	APPaymentID   int64
+	APInvoiceID   int64
+	InvoiceNumber string
+	POID          *int64
+	InvoiceStatus APInvoiceStatus
+	InvoiceTotal  float64
+	DueAt         time.Time
+	Amount        float64
+}
+
+// APPaymentWithDetails includes payment with allocation breakdown and ledger status.
+type APPaymentWithDetails struct {
+	APPayment
+	Allocations    []APPaymentAllocationDetail
+	TotalAllocated float64
+	Unallocated    float64
+	LedgerPosted   bool
 }
 
 // APAgingBucket summarises totals by aging periods.
@@ -125,6 +150,7 @@ type APAgingDetail struct {
 type CreateAPInvoiceInput struct {
 	SupplierID int64
 	GRNID      *int64
+	POID       *int64
 	Number     string
 	Currency   string
 	Subtotal   float64
@@ -151,6 +177,15 @@ type CreateAPInvoiceFromGRNInput struct {
 	GRNID     int64
 	DueDate   time.Time
 	CreatedBy int64
+	Number    string
+}
+
+// CreateAPInvoiceFromPOInput creates invoice from purchase order.
+type CreateAPInvoiceFromPOInput struct {
+	POID      int64
+	DueDate   time.Time
+	CreatedBy int64
+	Number    string
 }
 
 // PostAPInvoiceInput for posting an invoice.
