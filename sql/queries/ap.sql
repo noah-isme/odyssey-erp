@@ -1,12 +1,12 @@
 -- name: CreateAPInvoice :one
 INSERT INTO ap_invoices (
-    number, supplier_id, grn_id, currency, 
+    number, supplier_id, grn_id, po_id, currency, 
     subtotal, tax_amount, total, status, 
     due_at, created_by, created_at, updated_at
 ) VALUES (
-    $1, $2, $3, $4, 
-    $5, $6, $7, $8, 
-    $9, $10, NOW(), NOW()
+    $1, $2, $3, $4, $5, 
+    $6, $7, $8, $9, 
+    $10, $11, NOW(), NOW()
 ) RETURNING id;
 
 -- name: UpdateAPStatus :exec
@@ -26,21 +26,23 @@ WHERE id = $1 AND status IN ('DRAFT', 'POSTED');
 
 -- name: GetAPInvoice :one
 SELECT 
-    id, number, supplier_id, grn_id, currency, 
+    i.id, i.number, i.supplier_id, s.name AS supplier_name, i.grn_id, i.po_id, i.currency, 
     subtotal, tax_amount, total, status, due_at, 
     posted_at, posted_by, voided_at, voided_by, void_reason,
     created_by, created_at, updated_at 
-FROM ap_invoices 
-WHERE id = $1;
+FROM ap_invoices i
+JOIN suppliers s ON s.id = i.supplier_id
+WHERE i.id = $1;
 
 -- name: GetAPInvoiceByNumber :one
 SELECT 
-    id, number, supplier_id, grn_id, currency, 
+    i.id, i.number, i.supplier_id, s.name AS supplier_name, i.grn_id, i.po_id, i.currency, 
     subtotal, tax_amount, total, status, due_at, 
     posted_at, posted_by, voided_at, voided_by, void_reason,
     created_by, created_at, updated_at 
-FROM ap_invoices 
-WHERE number = $1;
+FROM ap_invoices i
+JOIN suppliers s ON s.id = i.supplier_id
+WHERE i.number = $1;
 
 -- name: CreateAPInvoiceLine :one
 INSERT INTO ap_invoice_lines (
@@ -62,39 +64,42 @@ ORDER BY id;
 
 -- name: ListAPInvoices :many
 SELECT 
-    id, number, supplier_id, grn_id, currency, 
+    i.id, i.number, i.supplier_id, s.name AS supplier_name, i.grn_id, i.po_id, i.currency, 
     subtotal, tax_amount, total, status, due_at, 
     posted_at, posted_by, voided_at, voided_by, void_reason,
     created_by, created_at, updated_at 
-FROM ap_invoices 
-ORDER BY created_at DESC;
+FROM ap_invoices i
+JOIN suppliers s ON s.id = i.supplier_id
+ORDER BY i.created_at DESC;
 
 -- name: ListAPInvoicesByStatus :many
 SELECT 
-    id, number, supplier_id, grn_id, currency, 
+    i.id, i.number, i.supplier_id, s.name AS supplier_name, i.grn_id, i.po_id, i.currency, 
     subtotal, tax_amount, total, status, due_at, 
     posted_at, posted_by, voided_at, voided_by, void_reason,
     created_by, created_at, updated_at 
-FROM ap_invoices 
-WHERE status = $1
-ORDER BY created_at DESC;
+FROM ap_invoices i
+JOIN suppliers s ON s.id = i.supplier_id
+WHERE i.status = $1
+ORDER BY i.created_at DESC;
 
 -- name: ListAPInvoicesBySupplier :many
 SELECT 
-    id, number, supplier_id, grn_id, currency, 
+    i.id, i.number, i.supplier_id, s.name AS supplier_name, i.grn_id, i.po_id, i.currency, 
     subtotal, tax_amount, total, status, due_at, 
     posted_at, posted_by, voided_at, voided_by, void_reason,
     created_by, created_at, updated_at 
-FROM ap_invoices 
-WHERE supplier_id = $1
-ORDER BY created_at DESC;
+FROM ap_invoices i
+JOIN suppliers s ON s.id = i.supplier_id
+WHERE i.supplier_id = $1
+ORDER BY i.created_at DESC;
 
 -- name: CreateAPPayment :one
 INSERT INTO ap_payments (
-    number, ap_invoice_id, amount, paid_at, method, note, 
+    number, ap_invoice_id, supplier_id, amount, paid_at, method, note, 
     created_by, created_at, updated_at
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, NOW(), NOW()
+    $1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW()
 ) RETURNING id;
 
 -- name: CreateAPPaymentAllocation :one
@@ -105,10 +110,19 @@ RETURNING id;
 
 -- name: ListAPPayments :many
 SELECT 
-    id, number, ap_invoice_id, amount, paid_at, method, note, 
-    created_by, created_at, updated_at 
-FROM ap_payments 
-ORDER BY paid_at DESC;
+    p.id, p.number, p.ap_invoice_id, p.supplier_id, COALESCE(s.name, '') AS supplier_name, p.amount, p.paid_at, p.method, p.note, 
+    p.created_by, p.created_at, p.updated_at 
+FROM ap_payments p
+LEFT JOIN suppliers s ON s.id = p.supplier_id
+ORDER BY p.paid_at DESC;
+
+-- name: GetAPPayment :one
+SELECT 
+    p.id, p.number, p.ap_invoice_id, p.supplier_id, COALESCE(s.name, '') AS supplier_name, p.amount, p.paid_at, p.method, p.note, 
+    p.created_by, p.created_at, p.updated_at
+FROM ap_payments p
+LEFT JOIN suppliers s ON s.id = p.supplier_id
+WHERE p.id = $1;
 
 -- name: ListAPInvoicePayments :many
 SELECT 
@@ -118,6 +132,22 @@ FROM ap_payments p
 JOIN ap_payment_allocations pa ON pa.ap_payment_id = p.id
 WHERE pa.ap_invoice_id = $1
 ORDER BY p.paid_at;
+
+-- name: ListAPPaymentAllocations :many
+SELECT
+    pa.id, pa.ap_payment_id, pa.ap_invoice_id, pa.amount,
+    i.number AS invoice_number, i.po_id, i.total, i.status, i.due_at
+FROM ap_payment_allocations pa
+JOIN ap_invoices i ON i.id = pa.ap_invoice_id
+WHERE pa.ap_payment_id = $1
+ORDER BY i.number;
+
+-- name: IsAPPaymentPosted :one
+SELECT EXISTS (
+    SELECT 1
+    FROM journal_entries
+    WHERE source_module = $1 AND source_id = $2 AND status = 'POSTED'
+);
 
 -- name: GetAPInvoiceBalance :one
 SELECT 

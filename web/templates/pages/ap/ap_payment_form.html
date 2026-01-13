@@ -25,23 +25,40 @@
 
     <form method="post" action="/finance/ap/payments">
         <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-        <input type="hidden" name="supplier_id" id="supplier_id_input">
 
-        <label>
-            Select Invoice *
-            <select name="ap_invoice_id" required onchange="updateSupplier(this)">
-                <option value="">-- Select Invoice --</option>
-                {{range .Data.Invoices}}
-                <option value="{{.ID}}" data-supplier-id="{{.SupplierID}}">
-                    {{.Number}} - Supplier #{{.SupplierID}} - {{printf "%.2f" .Total}}
-                </option>
-                {{end}}
-            </select>
-        </label>
+        <section>
+            <h2>Allocations</h2>
+            <p>Split payment across multiple invoices if needed.</p>
+
+            <div id="allocation-rows">
+                <div class="grid allocation-row">
+                    <label>
+                        Invoice *
+                        <select name="ap_invoice_id" required>
+                            <option value="">-- Select Invoice --</option>
+                            {{range .Data.Invoices}}
+                            <option value="{{.ID}}" {{if eq $.Data.SelectedInvoiceID .ID}}selected{{end}}>
+                                {{.Number}} - Supplier #{{.SupplierID}} - {{printf "%.2f" .Total}}
+                            </option>
+                            {{end}}
+                        </select>
+                    </label>
+                    <label>
+                        Allocation Amount *
+                        <input type="number" name="allocation_amount" step="0.01" required placeholder="0.00">
+                    </label>
+                    <label>
+                        &nbsp;
+                        <button type="button" class="secondary outline" onclick="removeAllocation(this)">Remove</button>
+                    </label>
+                </div>
+            </div>
+            <button type="button" class="secondary" onclick="addAllocation()">+ Add Allocation</button>
+        </section>
 
         <div class="grid">
             <label>
-                Amount *
+                Payment Amount *
                 <input type="number" name="amount" step="0.01" required placeholder="0.00">
             </label>
             <label>
@@ -73,10 +90,27 @@
     </form>
 
     <script>
-        function updateSupplier(select) {
-            const option = select.options[select.selectedIndex];
-            const supplierID = option.getAttribute('data-supplier-id');
-            document.getElementById('supplier_id_input').value = supplierID || '';
+        function addAllocation() {
+            const container = document.getElementById('allocation-rows');
+            const firstRow = container.querySelector('.allocation-row');
+            if (!firstRow) return;
+            const clone = firstRow.cloneNode(true);
+            clone.querySelectorAll('select, input').forEach((el) => {
+                el.value = '';
+            });
+            container.appendChild(clone);
+        }
+
+        function removeAllocation(button) {
+            const container = document.getElementById('allocation-rows');
+            const rows = container.querySelectorAll('.allocation-row');
+            if (rows.length <= 1) {
+                return;
+            }
+            const row = button.closest('.allocation-row');
+            if (row) {
+                row.remove();
+            }
         }
     </script>
 </main>

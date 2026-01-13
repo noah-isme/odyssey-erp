@@ -116,7 +116,7 @@ func (h *Handler) handleGetTB(w http.ResponseWriter, r *http.Request) {
 	if len(errors) == 0 {
 		tb, err := h.service.GetConsolidatedTB(r.Context(), filter)
 		if err != nil {
-			errors["general"] = err.Error()
+			errors["general"] = shared.UserSafeMessage(err)
 		} else {
 			vm = FromDomain(tb)
 			vm.Errors = errors
@@ -143,7 +143,8 @@ func (h *Handler) handleExportCSV(w http.ResponseWriter, r *http.Request) {
 	}
 	tb, err := h.service.GetConsolidatedTB(r.Context(), filter)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		h.logger.Error("get consol tb csv", slog.Any("error", err))
+		http.Error(w, shared.UserSafeMessage(err), http.StatusBadRequest)
 		return
 	}
 	w.Header().Set("Content-Type", "text/csv")

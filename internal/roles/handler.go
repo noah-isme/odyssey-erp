@@ -50,7 +50,8 @@ func (h *Handler) listRoles(w http.ResponseWriter, r *http.Request) {
 
 	roles, err := h.service.ListRoles(r.Context(), filters)
 	if err != nil {
-		h.render(w, r, "pages/roles/list.html", map[string]any{"Errors": formErrors{"general": err.Error()}}, http.StatusInternalServerError)
+		h.logger.Error("list roles failed", slog.Any("error", err))
+		h.render(w, r, "pages/roles/list.html", map[string]any{"Errors": formErrors{"general": shared.UserSafeMessage(err)}}, http.StatusInternalServerError)
 		return
 	}
 	h.render(w, r, "pages/roles/list.html", map[string]any{
@@ -75,8 +76,9 @@ func (h *Handler) createRole(w http.ResponseWriter, r *http.Request) {
 
 	_, err := h.service.CreateRole(r.Context(), name, description)
 	if err != nil {
+		h.logger.Error("create role failed", slog.Any("error", err))
 		h.render(w, r, "pages/roles/form.html", map[string]any{
-			"Errors": formErrors{"general": err.Error()},
+			"Errors": formErrors{"general": shared.UserSafeMessage(err)},
 			"Role":   map[string]string{"Name": name, "Description": description},
 		}, http.StatusBadRequest)
 		return

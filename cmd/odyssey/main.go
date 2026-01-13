@@ -2,11 +2,11 @@ package main
 
 import (
 	"context"
-"github.com/odyssey-erp/odyssey-erp/internal/platform/cache"
-"github.com/odyssey-erp/odyssey-erp/internal/platform/db"
-"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 	"errors"
 	"fmt"
+	"github.com/odyssey-erp/odyssey-erp/internal/platform/cache"
+	"github.com/odyssey-erp/odyssey-erp/internal/platform/db"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 	"html/template"
 	"log/slog"
 	"net/http"
@@ -27,8 +27,8 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/analytics/export"
 	analytichttp "github.com/odyssey-erp/odyssey-erp/internal/analytics/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/analytics/svg"
-	"github.com/odyssey-erp/odyssey-erp/internal/app"
 	"github.com/odyssey-erp/odyssey-erp/internal/ap"
+	"github.com/odyssey-erp/odyssey-erp/internal/app"
 	"github.com/odyssey-erp/odyssey-erp/internal/ar"
 	"github.com/odyssey-erp/odyssey-erp/internal/audit"
 	audithttp "github.com/odyssey-erp/odyssey-erp/internal/audit/http"
@@ -187,6 +187,7 @@ func main() {
 
 	apRepo := ap.NewRepository(dbpool)
 	apService := ap.NewService(apRepo, procurementService)
+	apService.SetIntegrationHandler(integrationHooks)
 	apHandler := ap.NewHandler(logger, apService, templates, csrfManager, sessionManager, rbacMiddleware)
 
 	closeHandler := closehttp.NewHandler(logger, closeService, templates, csrfManager, rbacMiddleware)
@@ -230,7 +231,6 @@ func main() {
 	salesHandler := sales.NewHandler(logger, salesService, templates, csrfManager, sessionManager, rbacMiddleware)
 
 	masterdataHandler := masterdata.NewHandler(logger, dbpool, templates, csrfManager, sessionManager, rbacMiddleware)
-
 
 	reportClient := report.NewClient(cfg.GotenbergURL)
 	reportHandler := report.NewHandler(reportClient, logger)

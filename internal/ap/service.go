@@ -17,19 +17,28 @@ var (
 )
 
 type Service struct {
-	repo            Repository
-	procurementService *procurement.Service 
+	repo               Repository
+	procurementService *procurement.Service
+	integration        procurement.IntegrationHandler
 }
 
 func NewService(repo Repository, procService *procurement.Service) *Service {
 	return &Service{
-		repo:            repo,
+		repo:               repo,
 		procurementService: procService,
 	}
 }
 
+// SetIntegrationHandler injects the accounting integration hooks.
+func (s *Service) SetIntegrationHandler(handler procurement.IntegrationHandler) {
+	s.integration = handler
+}
+
 // CreateAPInvoice creates a new AP invoice manually.
 func (s *Service) CreateAPInvoice(ctx context.Context, input CreateAPInvoiceInput) (APInvoice, error) {
+	if len(input.Lines) == 0 {
+		return APInvoice{}, errors.New("at least one line is required")
+	}
 	var invoiceID int64
 	err := s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
 		// Generate number if not provided
@@ -44,15 +53,12 @@ func (s *Service) CreateAPInvoice(ctx context.Context, input CreateAPInvoiceInpu
 		// Calculate totals from lines
 		var subtotal, taxAmount float64
 		for _, line := range input.Lines {
-			lineTotal := line.Quantity * line.UnitPrice
-			subtotal += lineTotal
-			// Simple tax calc for now, assuming inclusive or exclusive logic handled in frontend/input
-			// If taxPct provided:
-			if line.TaxPct > 0 {
-				taxAmount += lineTotal * (line.TaxPct / 100)
-			}
+			lineSubtotal := line.Quantity * line.UnitPrice * (1 - (line.DiscountPct / 100))
+			lineTax := lineSubtotal * (line.TaxPct / 100)
+			subtotal += lineSubtotal
+			taxAmount += lineTax
 		}
-		
+
 		input.Subtotal = subtotal
 		input.TaxAmount = taxAmount
 		input.Total = subtotal + taxAmount
@@ -87,6 +93,9 @@ func (s *Service) CreateAPInvoiceFromGRN(ctx context.Context, input CreateAPInvo
 	if count > 0 {
 		return APInvoice{}, ErrAlreadyInvoiced
 	}
+	if input.DueDate.IsZero() {
+		input.DueDate = time.Now().AddDate(0, 0, 30)
+	}
 
 	// 1. Get GRN details
 	grn, lines, err := s.procurementService.GetGRNWithLines(ctx, input.GRNID)
@@ -95,16 +104,37 @@ func (s *Service) CreateAPInvoiceFromGRN(ctx context.Context, input CreateAPInvo
 	}
 
 	if grn.Status != procurement.GRNStatusPosted {
-		return APInvoice{}, errors.New("GRN must be posted to create invoice")
+		return APInvoice{}, errors.New("GRN must be posted before invoicing")
 	}
 
 	// 2. Prepare Invoice Input
+	currency := "IDR"
 	invInput := CreateAPInvoiceInput{
 		SupplierID: grn.SupplierID,
 		GRNID:      &grn.ID,
+		POID:       nil,
 		DueDate:    input.DueDate,
 		CreatedBy:  input.CreatedBy,
-		Currency:   "IDR", // Default or fetch from PO
+		Currency:   currency,
+		Number:     input.Number,
+	}
+	if grn.POID != 0 {
+		po, _, err := s.procurementService.GetPOWithLines(ctx, grn.POID)
+		if err != nil {
+			return APInvoice{}, fmt.Errorf("failed to load PO for GRN: %w", err)
+		}
+		if po.SupplierID != grn.SupplierID {
+			return APInvoice{}, errors.New("GRN supplier does not match PO supplier")
+		}
+		if po.Status != procurement.POStatusApproved && po.Status != procurement.POStatusClosed {
+			return APInvoice{}, errors.New("PO must be approved before invoicing GRN")
+		}
+		if po.Currency != "" {
+			currency = po.Currency
+			invInput.Currency = currency
+		}
+		poID := grn.POID
+		invInput.POID = &poID
 	}
 
 	// 3. Map Lines
@@ -119,8 +149,57 @@ func (s *Service) CreateAPInvoiceFromGRN(ctx context.Context, input CreateAPInvo
 			TaxPct:      0, // Need logic to fetch tax from PO
 		})
 	}
-	
+
 	// 4. Create Invoice
+	return s.CreateAPInvoice(ctx, invInput)
+}
+
+// CreateAPInvoiceFromPO creates an invoice from an approved PO.
+func (s *Service) CreateAPInvoiceFromPO(ctx context.Context, input CreateAPInvoiceFromPOInput) (APInvoice, error) {
+	po, lines, err := s.procurementService.GetPOWithLines(ctx, input.POID)
+	if err != nil {
+		return APInvoice{}, fmt.Errorf("failed to get PO: %w", err)
+	}
+	if input.DueDate.IsZero() {
+		input.DueDate = time.Now().AddDate(0, 0, 30)
+	}
+
+	if po.Status != procurement.POStatusApproved && po.Status != procurement.POStatusClosed {
+		return APInvoice{}, errors.New("PO must be approved before invoicing")
+	}
+	if po.SupplierID == 0 {
+		return APInvoice{}, errors.New("PO supplier must be set before invoicing")
+	}
+
+	currency := po.Currency
+	if currency == "" {
+		currency = "IDR"
+	}
+
+	invInput := CreateAPInvoiceInput{
+		SupplierID: po.SupplierID,
+		Currency:   currency,
+		DueDate:    input.DueDate,
+		CreatedBy:  input.CreatedBy,
+		Number:     input.Number,
+		POID:       &input.POID,
+	}
+
+	for _, l := range lines {
+		desc := l.Note
+		if desc == "" {
+			desc = fmt.Sprintf("Product %d", l.ProductID)
+		}
+		invInput.Lines = append(invInput.Lines, CreateAPInvoiceLineInput{
+			ProductID:   l.ProductID,
+			Description: desc,
+			Quantity:    l.Qty,
+			UnitPrice:   l.Price,
+			DiscountPct: 0,
+			TaxPct:      0,
+		})
+	}
+
 	return s.CreateAPInvoice(ctx, invInput)
 }
 
@@ -133,9 +212,38 @@ func (s *Service) PostAPInvoice(ctx context.Context, input PostAPInvoiceInput) e
 	if inv.Status != APStatusDraft {
 		return ErrInvalidStatus
 	}
-	return s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
+	if err := s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
 		return tx.PostAPInvoice(ctx, input)
-	})
+	}); err != nil {
+		return err
+	}
+
+	if s.integration != nil {
+		invoice, err := s.repo.GetAPInvoice(ctx, input.InvoiceID)
+		if err != nil {
+			return err
+		}
+		var grnID int64
+		if invoice.GRNID != nil {
+			grnID = *invoice.GRNID
+		}
+		postedAt := invoice.PostedAt
+		if postedAt == nil {
+			now := time.Now()
+			postedAt = &now
+		}
+		if err := s.integration.HandleAPInvoicePosted(ctx, procurement.APInvoicePostedEvent{
+			ID:         invoice.ID,
+			Number:     invoice.Number,
+			SupplierID: invoice.SupplierID,
+			GRNID:      grnID,
+			Total:      invoice.Total,
+			PostedAt:   *postedAt,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // VoidAPInvoice voids an invoice.
@@ -162,35 +270,58 @@ func (s *Service) RegisterAPPayment(ctx context.Context, input CreateAPPaymentIn
 	}
 
 	totalAllocated := 0.0
-	uniqueInvoices := make(map[int64]struct{})
+	invoiceTotals := make(map[int64]float64)
 	for _, alloc := range input.Allocations {
 		if alloc.Amount <= 0 {
 			return APPayment{}, errors.New("allocation amount must be positive")
 		}
 		totalAllocated += alloc.Amount
-		uniqueInvoices[alloc.APInvoiceID] = struct{}{}
-
-		inv, err := s.repo.GetAPInvoice(ctx, alloc.APInvoiceID)
+		invoiceTotals[alloc.APInvoiceID] += alloc.Amount
+	}
+	var supplierID int64
+	for invoiceID, allocTotal := range invoiceTotals {
+		inv, err := s.repo.GetAPInvoice(ctx, invoiceID)
 		if err != nil {
 			return APPayment{}, err
+		}
+		if supplierID == 0 {
+			supplierID = inv.SupplierID
+		} else if inv.SupplierID != supplierID {
+			return APPayment{}, errors.New("allocations must reference invoices from the same supplier")
+		}
+		if input.SupplierID != 0 && inv.SupplierID != input.SupplierID {
+			return APPayment{}, errors.New("payment supplier does not match invoice supplier")
 		}
 		if inv.Status != APStatusPosted {
-			return APPayment{}, ErrInvalidStatus
+			return APPayment{}, fmt.Errorf("invoice %s must be posted before payment allocation", inv.Number)
+		}
+		if inv.POID != nil {
+			po, _, err := s.procurementService.GetPOWithLines(ctx, *inv.POID)
+			if err != nil {
+				return APPayment{}, fmt.Errorf("failed to load PO for invoice %s: %w", inv.Number, err)
+			}
+			if po.SupplierID != inv.SupplierID {
+				return APPayment{}, fmt.Errorf("invoice %s supplier does not match PO supplier", inv.Number)
+			}
 		}
 
-		detail, err := s.repo.GetAPInvoiceWithDetails(ctx, alloc.APInvoiceID)
+		detail, err := s.repo.GetAPInvoiceWithDetails(ctx, invoiceID)
 		if err != nil {
 			return APPayment{}, err
 		}
-		if alloc.Amount > detail.Balance {
-			return APPayment{}, errors.New("allocation exceeds invoice balance")
+		if allocTotal > detail.Balance {
+			return APPayment{}, fmt.Errorf("allocation exceeds invoice %s balance", inv.Number)
 		}
+	}
+	if input.SupplierID == 0 && supplierID != 0 {
+		input.SupplierID = supplierID
 	}
 	if totalAllocated > input.Amount {
 		return APPayment{}, errors.New("total allocation exceeds payment amount")
 	}
 
 	var paymentID int64
+	var allocationInvoiceID int64
 	err := s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
 		if input.Number == "" {
 			num, err := tx.GenerateAPPaymentNumber(ctx)
@@ -198,6 +329,10 @@ func (s *Service) RegisterAPPayment(ctx context.Context, input CreateAPPaymentIn
 				return err
 			}
 			input.Number = num
+		}
+
+		if len(input.Allocations) == 1 {
+			allocationInvoiceID = input.Allocations[0].APInvoiceID
 		}
 
 		id, err := tx.CreateAPPayment(ctx, input)
@@ -213,12 +348,12 @@ func (s *Service) RegisterAPPayment(ctx context.Context, input CreateAPPaymentIn
 		}
 		return nil
 	})
-	
+
 	if err != nil {
 		return APPayment{}, err
 	}
 
-	for invoiceID := range uniqueInvoices {
+	for invoiceID := range invoiceTotals {
 		detail, err := s.repo.GetAPInvoiceWithDetails(ctx, invoiceID)
 		if err != nil {
 			return APPayment{}, err
@@ -232,8 +367,42 @@ func (s *Service) RegisterAPPayment(ctx context.Context, input CreateAPPaymentIn
 		}
 	}
 
+	var apInvoiceIDPtr *int64
+	if allocationInvoiceID != 0 {
+		apInvoiceIDPtr = &allocationInvoiceID
+	}
+	payment := APPayment{
+		ID:          paymentID,
+		Number:      input.Number,
+		APInvoiceID: apInvoiceIDPtr,
+		SupplierID:  input.SupplierID,
+		Amount:      input.Amount,
+		PaidAt:      input.PaidAt,
+		Method:      input.Method,
+		Note:        input.Note,
+	}
+
+	if s.integration != nil {
+		apInvoiceID := allocationInvoiceID
+		if apInvoiceID == 0 {
+			for invoiceID := range invoiceTotals {
+				apInvoiceID = invoiceID
+				break
+			}
+		}
+		if err := s.integration.HandleAPPaymentPosted(ctx, procurement.APPaymentPostedEvent{
+			ID:          paymentID,
+			Number:      input.Number,
+			APInvoiceID: apInvoiceID,
+			Amount:      input.Amount,
+			PaidAt:      input.PaidAt,
+		}); err != nil {
+			return payment, wrapLedgerPostError(err)
+		}
+	}
+
 	// Return the payment (simple struct, no query for ID yet in repo, assumes success)
-	return APPayment{ID: paymentID, Number: input.Number, Amount: input.Amount, PaidAt: input.PaidAt}, nil
+	return payment, nil
 }
 
 // CalculateAPAging returns aging summary.
@@ -250,12 +419,12 @@ func (s *Service) CalculateAPAging(ctx context.Context, asOf time.Time) (APAging
 		// Calculate balance (need to fetch balance for each? Expensive LOOP query!)
 		// Optimization: ListAPInvoices should ideally return balance or fetching all allocations.
 		// For MVP, loop might be acceptable if volume low, OR fetch details.
-		// Better: Add "GetBalance" logic in the List query? 
+		// Better: Add "GetBalance" logic in the List query?
 		// For now simple approach:
-		
+
 		detail, err := s.repo.GetAPInvoiceWithDetails(ctx, inv.ID)
 		if err != nil {
-			continue 
+			continue
 		}
 		balance := detail.Balance
 		if balance <= 0 {
@@ -289,4 +458,8 @@ func (s *Service) GetAPInvoiceWithDetails(ctx context.Context, id int64) (APInvo
 
 func (s *Service) ListAPPayments(ctx context.Context) ([]APPayment, error) {
 	return s.repo.ListAPPayments(ctx)
+}
+
+func (s *Service) GetAPPaymentWithDetails(ctx context.Context, id int64) (APPaymentWithDetails, error) {
+	return s.repo.GetAPPaymentWithDetails(ctx, id)
 }

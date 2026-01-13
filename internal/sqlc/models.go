@@ -611,6 +611,7 @@ type ApInvoice struct {
 	VoidReason pgtype.Text        `json:"void_reason"`
 	CreatedBy  pgtype.Int8        `json:"created_by"`
 	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	PoID       pgtype.Int8        `json:"po_id"`
 }
 
 type ApInvoiceLine struct {
@@ -632,7 +633,7 @@ type ApInvoiceLine struct {
 type ApPayment struct {
 	ID          int64              `json:"id"`
 	Number      string             `json:"number"`
-	ApInvoiceID int64              `json:"ap_invoice_id"`
+	ApInvoiceID pgtype.Int8        `json:"ap_invoice_id"`
 	Amount      pgtype.Numeric     `json:"amount"`
 	PaidAt      pgtype.Date        `json:"paid_at"`
 	Method      string             `json:"method"`
@@ -640,6 +641,7 @@ type ApPayment struct {
 	CreatedBy   pgtype.Int8        `json:"created_by"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	SupplierID  pgtype.Int8        `json:"supplier_id"`
 }
 
 type ApPaymentAllocation struct {
@@ -883,6 +885,13 @@ type DeliveryOrderLine struct {
 	LineOrder         int32              `json:"line_order"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type DocumentSequence struct {
+	CompanyID int64  `json:"company_id"`
+	DocType   string `json:"doc_type"`
+	Period    string `json:"period"`
+	Seq       int64  `json:"seq"`
 }
 
 type EliminationJournalHeader struct {

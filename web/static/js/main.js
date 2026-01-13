@@ -34,6 +34,43 @@ import { Export } from './components/export.js';
 import { Charts } from './components/charts.js';
 import { Progress } from './components/progress.js';
 
+const FLASH_KIND_TO_TOAST_VARIANT = {
+    'success': 'success',
+    'error': 'error',
+    'danger': 'error',
+    'warning': 'warning',
+    'info': 'info',
+    'neutral': 'info'
+};
+
+function bridgeServerFlashToToast() {
+    const flashEl = document.getElementById('server-flash');
+    if (!flashEl) return;
+
+    const message = flashEl.dataset.flashMessage;
+    const kind = flashEl.dataset.flashKind;
+    
+    if (!message) return;
+
+    const variant = FLASH_KIND_TO_TOAST_VARIANT[kind] || 'info';
+    
+    switch (variant) {
+        case 'success':
+            Toast.success(message);
+            break;
+        case 'error':
+            Toast.error(message);
+            break;
+        case 'warning':
+            Toast.warning(message);
+            break;
+        default:
+            Toast.info(message);
+    }
+    
+    flashEl.remove();
+}
+
 // Initialize all modules on DOMContentLoaded
 document.addEventListener('DOMContentLoaded', () => {
     // Features (state-driven architecture)
@@ -66,6 +103,8 @@ document.addEventListener('DOMContentLoaded', () => {
     Export.init();
     Charts.init();
     Progress.init();
+    
+    bridgeServerFlashToToast();
 
     // Register stores with DevTools for inspection
     DevTools.register('theme', Theme);

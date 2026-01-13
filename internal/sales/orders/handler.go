@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/odyssey-erp/odyssey-erp/internal/masterdata/products"
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
 	"github.com/odyssey-erp/odyssey-erp/internal/sales/customers"
 	"github.com/odyssey-erp/odyssey-erp/internal/sales/quotations"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
-	"github.com/odyssey-erp/odyssey-erp/internal/masterdata/products"
 )
 
 type Handler struct {
@@ -65,7 +65,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 
 	limit := 50
 	offset := 0
-	
+
 	orders, total, err := h.service.List(r.Context(), ListSalesOrdersRequest{
 		CompanyID: companyID,
 		Status:    statusPtr,
@@ -81,8 +81,8 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.render(w, r, "pages/sales/orders_list.html", map[string]any{
-		"Orders":  orders,
-		"Total":   total,
+		"Orders": orders,
+		"Total":  total,
 		"Filters": map[string]any{
 			"Status":   status,
 			"DateFrom": r.URL.Query().Get("date_from"),
@@ -106,7 +106,7 @@ func (h *Handler) Show(w http.ResponseWriter, r *http.Request) {
 	}
 
 	customer, _ := h.customerService.Get(r.Context(), order.CustomerID)
-	
+
 	var quotation *quotations.Quotation
 	if order.QuotationID != nil {
 		quotation, _ = h.quotationService.Get(r.Context(), *order.QuotationID)
@@ -144,7 +144,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 
 	customerID, _ := strconv.ParseInt(r.PostFormValue("customer_id"), 10, 64)
 	orderDate, _ := time.Parse("2006-01-02", r.PostFormValue("order_date"))
-	
+
 	var quotationID *int64
 	if qID := r.PostFormValue("quotation_id"); qID != "" {
 		if id, err := strconv.ParseInt(qID, 10, 64); err == nil {
@@ -154,17 +154,17 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 
 	lines, err := h.parseSalesOrderLines(r)
 	if err != nil {
-		h.renderFormError(w, r, err.Error(), nil)
+		h.renderFormError(w, r, shared.UserSafeMessage(err), nil)
 		return
 	}
 
 	req := CreateSalesOrderRequest{
-		CompanyID:  companyID,
-		CustomerID: customerID,
+		CompanyID:   companyID,
+		CustomerID:  customerID,
 		QuotationID: quotationID,
-		OrderDate:  orderDate,
-		Currency:   r.PostFormValue("currency"),
-		Lines:      lines,
+		OrderDate:   orderDate,
+		Currency:    r.PostFormValue("currency"),
+		Lines:       lines,
 	}
 	if d := r.PostFormValue("expected_delivery_date"); d != "" {
 		if t, err := time.Parse("2006-01-02", d); err == nil {
@@ -178,7 +178,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	order, err := h.service.Create(r.Context(), req, userID)
 	if err != nil {
 		h.logger.Error("create order failed", "error", err)
-		h.renderFormError(w, r, err.Error(), nil)
+		h.renderFormError(w, r, shared.UserSafeMessage(err), nil)
 		return
 	}
 
@@ -242,7 +242,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	if len(r.PostForm["product_id"]) > 0 {
 		lines, err := h.parseSalesOrderLines(r)
 		if err != nil {
-			h.renderFormError(w, r, err.Error(), nil)
+			h.renderFormError(w, r, shared.UserSafeMessage(err), nil)
 			return
 		}
 		req.Lines = &lines
@@ -251,8 +251,8 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	order, err := h.service.Update(r.Context(), id, req)
 	if err != nil {
 		h.logger.Error("update order failed", "error", err)
-		o, _ := h.service.Get(r.Context(), id) // fetch existing for rendering
-		h.renderFormError(w, r, err.Error(), o)
+		o, _ := h.service.Get(r.Context(), id)
+		h.renderFormError(w, r, shared.UserSafeMessage(err), o)
 		return
 	}
 
@@ -327,7 +327,8 @@ func (h *Handler) ConvertFromQuotation(w http.ResponseWriter, r *http.Request) {
 
 	order, err := h.service.Create(r.Context(), req, h.getCurrentUserID(r))
 	if err != nil {
-		h.redirectWithFlash(w, r, "/sales/quotations/"+strconv.FormatInt(id, 10), "error", err.Error())
+		h.logger.Error("convert quotation to order failed", "error", err, "quotation_id", id)
+		h.redirectWithFlash(w, r, "/sales/quotations/"+strconv.FormatInt(id, 10), "error", shared.UserSafeMessage(err))
 		return
 	}
 
@@ -340,7 +341,8 @@ func (h *Handler) Confirm(w http.ResponseWriter, r *http.Request) {
 
 	_, err := h.service.Confirm(r.Context(), id, userID)
 	if err != nil {
-		h.redirectWithFlash(w, r, "/sales/orders/"+strconv.FormatInt(id, 10), "error", err.Error())
+		h.logger.Error("confirm order failed", "error", err, "id", id)
+		h.redirectWithFlash(w, r, "/sales/orders/"+strconv.FormatInt(id, 10), "error", shared.UserSafeMessage(err))
 		return
 	}
 	h.redirectWithFlash(w, r, "/sales/orders/"+strconv.FormatInt(id, 10), "success", "Sales order confirmed")
@@ -353,7 +355,8 @@ func (h *Handler) Cancel(w http.ResponseWriter, r *http.Request) {
 
 	_, err := h.service.Cancel(r.Context(), id, userID, reason)
 	if err != nil {
-		h.redirectWithFlash(w, r, "/sales/orders/"+strconv.FormatInt(id, 10), "error", err.Error())
+		h.logger.Error("cancel order failed", "error", err, "id", id)
+		h.redirectWithFlash(w, r, "/sales/orders/"+strconv.FormatInt(id, 10), "error", shared.UserSafeMessage(err))
 		return
 	}
 	h.redirectWithFlash(w, r, "/sales/orders/"+strconv.FormatInt(id, 10), "success", "Sales order cancelled")
@@ -379,7 +382,7 @@ func (h *Handler) parseSalesOrderLines(r *http.Request) ([]CreateSalesOrderLineR
 		price, _ := strconv.ParseFloat(unitPrices[i], 64)
 		dist, _ := strconv.ParseFloat(discountPercents[i], 64)
 		tax, _ := strconv.ParseFloat(taxPercents[i], 64)
-		
+
 		lines = append(lines, CreateSalesOrderLineReq{
 			ProductID:       pid,
 			Quantity:        qty,
@@ -396,7 +399,7 @@ func (h *Handler) parseSalesOrderLines(r *http.Request) ([]CreateSalesOrderLineR
 func (h *Handler) renderFormError(w http.ResponseWriter, r *http.Request, msg string, o *SalesOrder) {
 	companyID := h.getCurrentCompanyID(r)
 	customers, _, _ := h.customerService.List(r.Context(), customers.ListCustomersRequest{CompanyID: companyID, Limit: 1000})
-	
+
 	h.render(w, r, "pages/sales/order_form.html", map[string]any{
 		"Errors":    formErrors{"general": msg},
 		"Order":     o,
@@ -408,14 +411,16 @@ func (h *Handler) render(w http.ResponseWriter, r *http.Request, tmpl string, da
 	sess := shared.SessionFromContext(r.Context())
 	csrfToken, _ := h.csrf.EnsureToken(r.Context(), sess)
 	var flash *shared.FlashMessage
-	if sess != nil { flash = sess.PopFlash() }
-	
+	if sess != nil {
+		flash = sess.PopFlash()
+	}
+
 	viewData := view.TemplateData{
-		Title: "Sales",
-		CSRFToken: csrfToken,
-		Flash: flash,
+		Title:       "Sales",
+		CSRFToken:   csrfToken,
+		Flash:       flash,
 		CurrentPath: r.URL.Path,
-		Data: data,
+		Data:        data,
 	}
 	w.WriteHeader(status)
 	h.templates.Render(w, tmpl, viewData)
@@ -423,14 +428,18 @@ func (h *Handler) render(w http.ResponseWriter, r *http.Request, tmpl string, da
 
 func (h *Handler) redirectWithFlash(w http.ResponseWriter, r *http.Request, url, flashType, message string) {
 	sess := shared.SessionFromContext(r.Context())
-	if sess != nil { sess.AddFlash(shared.FlashMessage{Kind: flashType, Message: message}) }
+	if sess != nil {
+		sess.AddFlash(shared.FlashMessage{Kind: flashType, Message: message})
+	}
 	http.Redirect(w, r, url, http.StatusSeeOther)
 }
 
 func (h *Handler) getCurrentUserID(r *http.Request) int64 {
 	sess := shared.SessionFromContext(r.Context())
 	if sess != nil && sess.User() != "" {
-		if id, err := strconv.ParseInt(sess.User(), 10, 64); err == nil { return id }
+		if id, err := strconv.ParseInt(sess.User(), 10, 64); err == nil {
+			return id
+		}
 	}
 	return 1
 }
@@ -446,8 +455,12 @@ func (h *Handler) getCurrentCompanyID(r *http.Request) int64 {
 }
 
 func (h *Handler) parseDate(s string) *time.Time {
-	if s == "" { return nil }
+	if s == "" {
+		return nil
+	}
 	t, err := time.Parse("2006-01-02", s)
-	if err != nil { return nil }
+	if err != nil {
+		return nil
+	}
 	return &t
 }

@@ -194,7 +194,7 @@ func (h *Handler) createPeriod(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, err := h.service.CreatePeriod(r.Context(), input); err != nil {
 		h.logger.Warn("create period", slog.Any("error", err))
-		h.redirectWithFlash(w, r, "/accounting/periods", "danger", err.Error())
+		h.redirectWithFlash(w, r, "/accounting/periods", "danger", shared.UserSafeMessage(err))
 		return
 	}
 	h.redirectWithFlash(w, r, "/accounting/periods", "success", "Periode berhasil dibuat")
@@ -215,7 +215,7 @@ func (h *Handler) startCloseRun(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		h.logger.Warn("start close run", slog.Any("error", err))
-		h.redirectWithFlash(w, r, "/accounting/periods", "danger", err.Error())
+		h.redirectWithFlash(w, r, "/accounting/periods", "danger", shared.UserSafeMessage(err))
 		return
 	}
 	h.redirectWithFlash(w, r, "/close-runs/"+strconv.FormatInt(run.ID, 10), "success", "Close run dimulai")
@@ -278,7 +278,7 @@ func (h *Handler) updateChecklist(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		h.logger.Warn("update checklist", slog.Any("error", err))
-		h.redirectWithFlash(w, r, "/close-runs/"+strconv.FormatInt(runID, 10), "danger", err.Error())
+		h.redirectWithFlash(w, r, "/close-runs/"+strconv.FormatInt(runID, 10), "danger", shared.UserSafeMessage(err))
 		return
 	}
 	h.redirectWithFlash(w, r, "/close-runs/"+strconv.FormatInt(runID, 10), "success", "Checklist diperbarui")
@@ -292,7 +292,7 @@ func (h *Handler) softClose(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, err := h.service.SoftClose(r.Context(), runID, currentUser(r)); err != nil {
 		h.logger.Warn("soft close", slog.Any("error", err))
-		h.redirectWithFlash(w, r, "/close-runs/"+strconv.FormatInt(runID, 10), "danger", err.Error())
+		h.redirectWithFlash(w, r, "/close-runs/"+strconv.FormatInt(runID, 10), "danger", shared.UserSafeMessage(err))
 		return
 	}
 	h.redirectWithFlash(w, r, "/close-runs/"+strconv.FormatInt(runID, 10), "success", "Periode disoft-close")
@@ -306,7 +306,7 @@ func (h *Handler) hardClose(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, err := h.service.HardClose(r.Context(), runID, currentUser(r)); err != nil {
 		h.logger.Warn("hard close", slog.Any("error", err))
-		h.redirectWithFlash(w, r, "/close-runs/"+strconv.FormatInt(runID, 10), "danger", err.Error())
+		h.redirectWithFlash(w, r, "/close-runs/"+strconv.FormatInt(runID, 10), "danger", shared.UserSafeMessage(err))
 		return
 	}
 	h.redirectWithFlash(w, r, "/close-runs/"+strconv.FormatInt(runID, 10), "success", "Periode di-hard-close")

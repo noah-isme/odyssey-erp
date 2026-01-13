@@ -153,11 +153,12 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 
 	created, err := h.service.Create(r.Context(), product)
 	if err != nil {
+		h.logger.Error("create product failed", "error", err)
 		cats, _, _ := h.categoryService.List(r.Context(), shared.ListFilters{})
 		us, _, _ := h.unitService.List(r.Context(), shared.ListFilters{})
 		ts, _, _ := h.taxService.List(r.Context(), shared.ListFilters{})
 		h.render(w, r, "pages/masterdata/product_form.html", map[string]any{
-			"Errors":     map[string]string{"general": err.Error()},
+			"Errors":     map[string]string{"general": internalShared.UserSafeMessage(err)},
 			"Product":    nil,
 			"Categories": cats,
 			"Units":      us,
@@ -228,11 +229,12 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 
 	err = h.service.Update(r.Context(), id, product)
 	if err != nil {
+		h.logger.Error("update product failed", "error", err, "id", id)
 		cats, _, _ := h.categoryService.List(r.Context(), shared.ListFilters{})
 		us, _, _ := h.unitService.List(r.Context(), shared.ListFilters{})
 		ts, _, _ := h.taxService.List(r.Context(), shared.ListFilters{})
 		h.render(w, r, "pages/masterdata/product_form.html", map[string]any{
-			"Errors":     map[string]string{"general": err.Error()},
+			"Errors":     map[string]string{"general": internalShared.UserSafeMessage(err)},
 			"Product":    product,
 			"Categories": cats,
 			"Units":      us,
@@ -253,7 +255,8 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 
 	err = h.service.Delete(r.Context(), id)
 	if err != nil {
-		h.redirectWithFlash(w, r, "/masterdata/products", "error", err.Error())
+		h.logger.Error("delete product failed", "error", err, "id", id)
+		h.redirectWithFlash(w, r, "/masterdata/products", "error", internalShared.UserSafeMessage(err))
 		return
 	}
 

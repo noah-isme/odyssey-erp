@@ -47,7 +47,8 @@ func (p *plPDFRenderer) Serve(w http.ResponseWriter, r *http.Request, h *ProfitL
 	}
 	report, warnings, err := h.service.Build(r.Context(), filters)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		p.logger.Error("build consol pl pdf", slog.Any("error", err))
+		http.Error(w, "Failed to generate report", http.StatusBadRequest)
 		return
 	}
 	vm := NewConsolPLViewModel(report, warnings)

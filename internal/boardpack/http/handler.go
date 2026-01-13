@@ -138,7 +138,7 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 	pack, err := h.service.Create(r.Context(), req)
 	if err != nil {
 		h.logger.Warn("create board pack", slog.Any("error", err))
-		h.redirectWithFlash(w, r, "/board-packs/new", "danger", err.Error())
+		h.redirectWithFlash(w, r, "/board-packs/new", "danger", shared.UserSafeMessage(err))
 		return
 	}
 	if h.jobs != nil {

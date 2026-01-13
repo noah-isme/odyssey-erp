@@ -47,7 +47,8 @@ func (p *bsPDFRenderer) Serve(w http.ResponseWriter, r *http.Request, h *Balance
 	}
 	report, warnings, err := h.service.Build(r.Context(), filters)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		p.logger.Error("build consol bs pdf", slog.Any("error", err))
+		http.Error(w, "Failed to generate report", http.StatusBadRequest)
 		return
 	}
 	extraWarnings := append([]string(nil), warnings...)

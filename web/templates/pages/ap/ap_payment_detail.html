@@ -1,0 +1,101 @@
+{{ define "pages/ap/ap_payment_detail.html" }}
+{{template "layouts/base.html" .}}
+{{ end }}
+
+{{define "title"}}Payment {{.Data.Payment.Number}}{{end}}
+
+{{define "content"}}
+<main class="container">
+    <header>
+        <nav aria-label="breadcrumb">
+            <ul>
+                <li><a href="/finance/ap/payments">AP Payments</a></li>
+                <li>{{.Data.Payment.Number}}</li>
+            </ul>
+        </nav>
+    </header>
+
+    {{$pay := .Data.Payment}}
+
+    <article>
+        <header>
+            <div class="grid">
+                <div>
+                    <h2>{{$pay.Number}}</h2>
+                    <p>
+                        {{if $pay.LedgerPosted}}
+                        <mark class="primary">Posted</mark>
+                        {{else}}
+                        <mark class="secondary">Unposted</mark>
+                        {{end}}
+                    </p>
+                </div>
+                <div style="text-align: right;">
+                    <p><strong>Amount:</strong> {{printf "%.2f" $pay.Amount}}</p>
+                    <p><strong>Allocated:</strong> {{printf "%.2f" $pay.TotalAllocated}}</p>
+                    {{if gt $pay.Unallocated 0.0}}
+                    <p><strong>Unallocated:</strong> {{printf "%.2f" $pay.Unallocated}}</p>
+                    {{end}}
+                </div>
+            </div>
+        </header>
+
+        <div class="grid">
+            <div>
+                <p><strong>Supplier:</strong> {{if $pay.SupplierName}}{{$pay.SupplierName}}{{else if $pay.SupplierID}}Supplier #{{$pay.SupplierID}}{{else}}-{{end}}</p>
+                <p><strong>Paid At:</strong> {{$pay.PaidAt.Format "2006-01-02"}}</p>
+                <p><strong>Method:</strong> {{$pay.Method}}</p>
+            </div>
+            <div>
+                <p><strong>Note:</strong> {{$pay.Note}}</p>
+                <p><strong>Created:</strong> {{$pay.CreatedAt.Format "2006-01-02"}}</p>
+            </div>
+        </div>
+
+        <footer>
+            <a href="/finance/ap/payments" role="button" class="outline">Back to List</a>
+        </footer>
+    </article>
+
+    {{if $pay.Allocations}}
+    <article>
+        <header>
+            <h3>Allocations</h3>
+        </header>
+        <figure>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Invoice</th>
+                        <th>PO</th>
+                        <th>Status</th>
+                        <th>Due Date</th>
+                        <th>Allocated</th>
+                        <th>Invoice Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range $pay.Allocations}}
+                    <tr>
+                        <td><a href="/finance/ap/invoices/{{.APInvoiceID}}">{{.InvoiceNumber}}</a></td>
+                        <td>{{if .POID}}{{.POID}}{{else}}-{{end}}</td>
+                        <td>{{.InvoiceStatus}}</td>
+                        <td>{{.DueAt.Format "2006-01-02"}}</td>
+                        <td>{{printf "%.2f" .Amount}}</td>
+                        <td>{{printf "%.2f" .InvoiceTotal}}</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="4"></td>
+                        <td><strong>Total</strong></td>
+                        <td><strong>{{printf "%.2f" $pay.TotalAllocated}}</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </figure>
+    </article>
+    {{end}}
+</main>
+{{end}}

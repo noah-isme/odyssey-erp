@@ -125,7 +125,7 @@ func (h *BalanceSheetHandler) HandleGet(w http.ResponseWriter, r *http.Request) 
 				return vm, nil
 			})
 			if err != nil {
-				errors["general"] = err.Error()
+				errors["general"] = shared.UserSafeMessage(err)
 			} else if result != nil {
 				if builtVM, ok := result.(ConsolBSViewModel); ok {
 					vm = builtVM
@@ -156,7 +156,8 @@ func (h *BalanceSheetHandler) HandleExportCSV(w http.ResponseWriter, r *http.Req
 	}
 	report, warnings, err := h.service.Build(r.Context(), filters)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		h.logger.Error("build consol bs csv", slog.Any("error", err))
+		http.Error(w, shared.UserSafeMessage(err), http.StatusBadRequest)
 		return
 	}
 	exportWarnings := append([]string(nil), warnings...)

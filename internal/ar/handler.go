@@ -76,8 +76,9 @@ func (h *Handler) listInvoices(w http.ResponseWriter, r *http.Request) {
 		Limit:      100,
 	})
 	if err != nil {
+		h.logger.Error("list AR invoices", slog.Any("error", err))
 		h.render(w, r, "pages/ar/ar_invoice_form.html", map[string]any{
-			"Errors": formErrors{"general": err.Error()},
+			"Errors": formErrors{"general": shared.UserSafeMessage(err)},
 		}, http.StatusInternalServerError)
 		return
 	}
@@ -100,8 +101,9 @@ func (h *Handler) showInvoiceDetail(w http.ResponseWriter, r *http.Request) {
 
 	invoice, err := h.service.GetARInvoiceWithDetails(r.Context(), id)
 	if err != nil {
+		h.logger.Error("get AR invoice", slog.Any("error", err), slog.Int64("id", id))
 		h.render(w, r, "pages/ar/ar_invoice_form.html", map[string]any{
-			"Errors": formErrors{"general": err.Error()},
+			"Errors": formErrors{"general": shared.UserSafeMessage(err)},
 		}, http.StatusNotFound)
 		return
 	}
@@ -142,8 +144,9 @@ func (h *Handler) createARInvoice(w http.ResponseWriter, r *http.Request) {
 		CreatedBy:  userID,
 	})
 	if err != nil {
+		h.logger.Error("create AR invoice", slog.Any("error", err))
 		h.render(w, r, "pages/ar/ar_invoice_form.html", map[string]any{
-			"Errors": formErrors{"general": err.Error()},
+			"Errors": formErrors{"general": shared.UserSafeMessage(err)},
 		}, http.StatusBadRequest)
 		return
 	}
@@ -179,7 +182,8 @@ func (h *Handler) createInvoiceFromDelivery(w http.ResponseWriter, r *http.Reque
 		CreatedBy:       userID,
 	})
 	if err != nil {
-		h.redirectWithFlash(w, r, "/delivery/orders/"+doIDStr, "error", "Failed to create invoice: "+err.Error())
+		h.logger.Error("create invoice from delivery", slog.Any("error", err), slog.Int64("do_id", doID))
+		h.redirectWithFlash(w, r, "/delivery/orders/"+doIDStr, "error", shared.UserSafeMessage(err))
 		return
 	}
 
@@ -202,7 +206,8 @@ func (h *Handler) postInvoice(w http.ResponseWriter, r *http.Request) {
 		InvoiceID: id,
 		PostedBy:  userID,
 	}); err != nil {
-		h.redirectWithFlash(w, r, "/finance/ar/invoices/"+idStr, "error", "Failed to post invoice: "+err.Error())
+		h.logger.Error("post AR invoice", slog.Any("error", err), slog.Int64("id", id))
+		h.redirectWithFlash(w, r, "/finance/ar/invoices/"+idStr, "error", shared.UserSafeMessage(err))
 		return
 	}
 
@@ -232,7 +237,8 @@ func (h *Handler) voidInvoice(w http.ResponseWriter, r *http.Request) {
 		VoidedBy:   userID,
 		VoidReason: reason,
 	}); err != nil {
-		h.redirectWithFlash(w, r, "/finance/ar/invoices/"+idStr, "error", "Failed to void invoice: "+err.Error())
+		h.logger.Error("void AR invoice", slog.Any("error", err), slog.Int64("id", id))
+		h.redirectWithFlash(w, r, "/finance/ar/invoices/"+idStr, "error", shared.UserSafeMessage(err))
 		return
 	}
 
@@ -243,8 +249,9 @@ func (h *Handler) voidInvoice(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) listPayments(w http.ResponseWriter, r *http.Request) {
 	payments, err := h.service.GetARPayments(r.Context())
 	if err != nil {
+		h.logger.Error("list AR payments", slog.Any("error", err))
 		h.render(w, r, "pages/ar/ar_payment_form.html", map[string]any{
-			"Errors": formErrors{"general": err.Error()},
+			"Errors": formErrors{"general": shared.UserSafeMessage(err)},
 		}, http.StatusInternalServerError)
 		return
 	}
@@ -296,8 +303,9 @@ func (h *Handler) createARPayment(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 	if err != nil {
+		h.logger.Error("create AR payment", slog.Any("error", err))
 		h.render(w, r, "pages/ar/ar_payment_form.html", map[string]any{
-			"Errors": formErrors{"general": err.Error()},
+			"Errors": formErrors{"general": shared.UserSafeMessage(err)},
 		}, http.StatusBadRequest)
 		return
 	}
@@ -309,8 +317,9 @@ func (h *Handler) createARPayment(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) showARAgingReport(w http.ResponseWriter, r *http.Request) {
 	aging, err := h.service.CalculateARAging(r.Context(), time.Now())
 	if err != nil {
+		h.logger.Error("calculate AR aging", slog.Any("error", err))
 		h.render(w, r, "pages/ar/ar_aging_report.html", map[string]any{
-			"Errors": formErrors{"general": err.Error()},
+			"Errors": formErrors{"general": shared.UserSafeMessage(err)},
 		}, http.StatusInternalServerError)
 		return
 	}
@@ -327,8 +336,9 @@ func (h *Handler) showARAgingReport(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) showCustomerStatement(w http.ResponseWriter, r *http.Request) {
 	invoices, err := h.service.GetARInvoices(r.Context())
 	if err != nil {
+		h.logger.Error("get customer statement", slog.Any("error", err))
 		h.render(w, r, "pages/ar/customer_statement.html", map[string]any{
-			"Errors": formErrors{"general": err.Error()},
+			"Errors": formErrors{"general": shared.UserSafeMessage(err)},
 		}, http.StatusInternalServerError)
 		return
 	}
