@@ -155,6 +155,30 @@ func (r *memoryAPRepo) GetAPPaymentWithDetails(ctx context.Context, id int64) (A
 	}, nil
 }
 
+func (r *memoryAPRepo) GetAPInvoiceBalancesBatch(ctx context.Context) ([]APInvoiceBalance, error) {
+	var balances []APInvoiceBalance
+	for id, inv := range r.invoices {
+		if inv.Status != APStatusPosted {
+			continue
+		}
+		var paid float64
+		for _, alloc := range r.allocations[id] {
+			paid += alloc.Amount
+		}
+		balance := inv.Total - paid
+		if balance > 0 {
+			balances = append(balances, APInvoiceBalance{
+				ID:         inv.ID,
+				DueAt:      inv.DueAt,
+				Total:      inv.Total,
+				PaidAmount: paid,
+				Balance:    balance,
+			})
+		}
+	}
+	return balances, nil
+}
+
 func (tx *memoryAPTx) CreateAPInvoice(ctx context.Context, input CreateAPInvoiceInput) (int64, error) {
 	tx.repo.nextID++
 	id := tx.repo.nextID

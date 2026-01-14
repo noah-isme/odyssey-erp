@@ -1,0 +1,309 @@
+{{ define "reports/packing_list_pdf.html" }}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Packing List - {{ .Data.DocNumber }}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Arial', 'Helvetica', sans-serif;
+            font-size: 11pt;
+            line-height: 1.4;
+            color: #333;
+            padding: 20px;
+        }
+        .header {
+            margin-bottom: 24px;
+            border-bottom: 3px solid #2c3e50;
+            padding-bottom: 16px;
+        }
+        .header h1 {
+            font-size: 24pt;
+            color: #2c3e50;
+            margin-bottom: 4px;
+        }
+        .header .subtitle {
+            font-size: 10pt;
+            color: #7f8c8d;
+        }
+        .info-section {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            gap: 20px;
+        }
+        .info-box {
+            flex: 1;
+            border: 1px solid #ddd;
+            padding: 12px;
+            background-color: #f8f9fa;
+        }
+        .info-box h3 {
+            font-size: 12pt;
+            color: #2c3e50;
+            margin-bottom: 8px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 4px;
+        }
+        .info-row {
+            margin-bottom: 4px;
+            font-size: 10pt;
+        }
+        .info-label {
+            font-weight: bold;
+            display: inline-block;
+            width: 120px;
+            color: #555;
+        }
+        .info-value {
+            display: inline;
+            color: #333;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 9pt;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status-draft { background-color: #95a5a6; color: white; }
+        .status-confirmed { background-color: #3498db; color: white; }
+        .status-in-transit { background-color: #f39c12; color: white; }
+        .status-delivered { background-color: #27ae60; color: white; }
+        .status-cancelled { background-color: #e74c3c; color: white; }
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        .items-table thead {
+            background-color: #34495e;
+            color: white;
+        }
+        .items-table th {
+            padding: 10px 8px;
+            text-align: left;
+            font-size: 10pt;
+            font-weight: bold;
+        }
+        .items-table th.text-right,
+        .items-table td.text-right {
+            text-align: right;
+        }
+        .items-table th.text-center,
+        .items-table td.text-center {
+            text-align: center;
+        }
+        .items-table tbody tr {
+            border-bottom: 1px solid #ddd;
+        }
+        .items-table tbody tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        .items-table td {
+            padding: 8px;
+            font-size: 10pt;
+        }
+        .items-table tbody tr:hover {
+            background-color: #e8f4f8;
+        }
+        .notes-section {
+            margin-top: 20px;
+            padding: 12px;
+            border: 1px solid #ddd;
+            background-color: #fffef0;
+        }
+        .notes-section h3 {
+            font-size: 11pt;
+            margin-bottom: 8px;
+            color: #2c3e50;
+        }
+        .notes-content {
+            font-size: 10pt;
+            color: #555;
+            white-space: pre-wrap;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 16px;
+            border-top: 2px solid #ddd;
+            font-size: 9pt;
+            color: #7f8c8d;
+        }
+        .signature-area {
+            margin-top: 40px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .signature-box {
+            flex: 1;
+            text-align: center;
+            padding: 20px;
+        }
+        .signature-line {
+            border-top: 1px solid #333;
+            margin-top: 50px;
+            padding-top: 8px;
+            font-size: 10pt;
+            color: #555;
+        }
+        @media print {
+            body { padding: 0; }
+            .items-table { page-break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>PACKING LIST</h1>
+        <div class="subtitle">Delivery Order Document</div>
+    </div>
+
+    <div class="info-section">
+        <div class="info-box">
+            <h3>Document Information</h3>
+            <div class="info-row">
+                <span class="info-label">Document No:</span>
+                <span class="info-value">{{ .Data.DocNumber }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Sales Order:</span>
+                <span class="info-value">{{ .Data.SalesOrderNumber }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Status:</span>
+                <span class="info-value">{{ template "status_badge" .Data.Status }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Planned Date:</span>
+                <span class="info-value">{{ formatDate .Data.PlannedDate }}</span>
+            </div>
+            {{ if .Data.ActualShipDate }}
+            <div class="info-row">
+                <span class="info-label">Ship Date:</span>
+                <span class="info-value">{{ formatDatePtr .Data.ActualShipDate }}</span>
+            </div>
+            {{ end }}
+        </div>
+
+        <div class="info-box">
+            <h3>Customer Information</h3>
+            <div class="info-row">
+                <span class="info-label">Customer:</span>
+                <span class="info-value">{{ .Data.CustomerName }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Ship To:</span>
+                <span class="info-value" style="white-space: pre-wrap;">{{ .Data.ShippingAddress }}</span>
+            </div>
+        </div>
+
+        <div class="info-box">
+            <h3>Shipping Information</h3>
+            <div class="info-row">
+                <span class="info-label">Warehouse:</span>
+                <span class="info-value">{{ .Data.WarehouseName }}</span>
+            </div>
+            {{ if and .Data.Carrier (ne (deref .Data.Carrier) "") }}
+            <div class="info-row">
+                <span class="info-label">Carrier:</span>
+                <span class="info-value">{{ deref .Data.Carrier }}</span>
+            </div>
+            {{ end }}
+            {{ if and .Data.TrackingNumber (ne (deref .Data.TrackingNumber) "") }}
+            <div class="info-row">
+                <span class="info-label">Tracking:</span>
+                <span class="info-value">{{ deref .Data.TrackingNumber }}</span>
+            </div>
+            {{ end }}
+        </div>
+    </div>
+
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th class="text-center" style="width: 40px;">#</th>
+                <th style="width: 120px;">Product Code</th>
+                <th>Product Name</th>
+                <th class="text-right" style="width: 80px;">Quantity</th>
+                <th class="text-center" style="width: 60px;">UOM</th>
+                <th style="width: 120px;">Batch/Serial</th>
+            </tr>
+        </thead>
+        <tbody>
+        {{ range .Data.Lines }}
+            <tr>
+                <td class="text-center">{{ .LineNumber }}</td>
+                <td>{{ .ProductCode }}</td>
+                <td>
+                    <strong>{{ .ProductName }}</strong>
+                    {{ if .Description }}<br><span style="font-size: 9pt; color: #666;">{{ .Description }}</span>{{ end }}
+                </td>
+                <td class="text-right"><strong>{{ formatQty .Quantity }}</strong></td>
+                <td class="text-center">{{ .UOM }}</td>
+                <td>
+                    {{ if and .BatchNumber (ne (deref .BatchNumber) "") }}
+                    <div style="font-size: 9pt;">Batch: {{ deref .BatchNumber }}</div>
+                    {{ end }}
+                    {{ if and .SerialNumber (ne (deref .SerialNumber) "") }}
+                    <div style="font-size: 9pt;">Serial: {{ deref .SerialNumber }}</div>
+                    {{ end }}
+                </td>
+            </tr>
+        {{ else }}
+            <tr><td colspan="6">No items.</td></tr>
+        {{ end }}
+        </tbody>
+    </table>
+
+    {{ if and .Data.ShippingNotes (ne (deref .Data.ShippingNotes) "") }}
+    <div class="notes-section">
+        <h3>Shipping Notes</h3>
+        <div class="notes-content">{{ deref .Data.ShippingNotes }}</div>
+    </div>
+    {{ end }}
+
+    {{ if and .Data.DeliveryNotes (ne (deref .Data.DeliveryNotes) "") }}
+    <div class="notes-section">
+        <h3>Delivery Notes</h3>
+        <div class="notes-content">{{ deref .Data.DeliveryNotes }}</div>
+    </div>
+    {{ end }}
+
+    <div class="signature-area">
+        <div class="signature-box">
+            <div>Prepared By</div>
+            <div class="signature-line">{{ .Data.CreatedBy }}</div>
+            <div style="font-size: 9pt; color: #999; margin-top: 4px;">{{ formatDateTime .Data.CreatedAt }}</div>
+        </div>
+        <div class="signature-box">
+            <div>Received By</div>
+            <div class="signature-line">{{ if and .Data.ReceivedBy (ne (deref .Data.ReceivedBy) "") }}{{ deref .Data.ReceivedBy }}{{ else }}&nbsp;{{ end }}</div>
+            <div style="font-size: 9pt; color: #999; margin-top: 4px;">Signature &amp; Date</div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>This is a computer-generated packing list. Please verify all items upon receipt.</p>
+        <p>For questions or discrepancies, contact customer service immediately.</p>
+        <p style="margin-top: 8px;">Generated: {{ now }}</p>
+    </div>
+
+</body>
+</html>
+{{ end }}
+
+{{ define "status_badge" }}
+{{- $status := . -}}
+{{- $class := "status-draft" -}}
+{{- $display := replace $status "_" " " -}}
+{{- if eq (lower $status) "draft" -}}{{- $class = "status-draft" -}}{{- end -}}
+{{- if eq (lower $status) "confirmed" -}}{{- $class = "status-confirmed" -}}{{- end -}}
+{{- if eq (lower $status) "in_transit" -}}{{- $class = "status-in-transit" -}}{{- end -}}
+{{- if eq (lower $status) "delivered" -}}{{- $class = "status-delivered" -}}{{- end -}}
+{{- if eq (lower $status) "cancelled" -}}{{- $class = "status-cancelled" -}}{{- end -}}
+<span class="status-badge {{ $class }}">{{ $display }}</span>
+{{- end }}

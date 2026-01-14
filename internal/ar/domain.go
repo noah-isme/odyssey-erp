@@ -193,27 +193,3 @@ type ListARInvoicesRequest struct {
 	Limit      int
 	Offset     int
 }
-
-// Deprecated: ARInvoiceInput kept for backward compatibility.
-type ARInvoiceInput struct {
-	CustomerID int64
-	SOID       int64
-	Number     string
-	Currency   string
-	Total      float64
-	DueDate    time.Time
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
-}
-
-// Deprecated: ARPaymentInput kept for backward compatibility.
-type ARPaymentInput struct {
-	ARInvoiceID int64
-	Number      string
-	Amount      float64
-	PaidAt      time.Time
-	Method      string
-	Note        string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-}

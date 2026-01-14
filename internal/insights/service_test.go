@@ -5,31 +5,31 @@ import (
 	"math"
 	"testing"
 
-	insightsdb "github.com/odyssey-erp/odyssey-erp/internal/insights/db"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 type stubRepo struct {
-	compareRows []insightsdb.CompareMonthlyNetRevenueRow
-	contribRows []insightsdb.ContributionByBranchRow
+	compareRows []sqlc.CompareMonthlyNetRevenueRow
+	contribRows []sqlc.ContributionByBranchRow
 }
 
-func (s stubRepo) CompareMonthlyNetRevenue(context.Context, insightsdb.CompareMonthlyNetRevenueParams) ([]insightsdb.CompareMonthlyNetRevenueRow, error) {
+func (s stubRepo) CompareMonthlyNetRevenue(context.Context, sqlc.CompareMonthlyNetRevenueParams) ([]sqlc.CompareMonthlyNetRevenueRow, error) {
 	return s.compareRows, nil
 }
 
-func (s stubRepo) ContributionByBranch(context.Context, insightsdb.ContributionByBranchParams) ([]insightsdb.ContributionByBranchRow, error) {
+func (s stubRepo) ContributionByBranch(context.Context, sqlc.ContributionByBranchParams) ([]sqlc.ContributionByBranchRow, error) {
 	return s.contribRows, nil
 }
 
 func TestServiceLoadAggregatesData(t *testing.T) {
 	repo := stubRepo{
-		compareRows: []insightsdb.CompareMonthlyNetRevenueRow{
+		compareRows: []sqlc.CompareMonthlyNetRevenueRow{
 			{Period: "2023-03", Net: 90, Revenue: 210},
 			{Period: "2024-01", Net: 100, Revenue: 200},
 			{Period: "2024-02", Net: 150, Revenue: 250},
 			{Period: "2024-03", Net: 120, Revenue: 300},
 		},
-		contribRows: []insightsdb.ContributionByBranchRow{
+		contribRows: []sqlc.ContributionByBranchRow{
 			{BranchID: 1, Net: 70, Revenue: 200},
 			{BranchID: 2, Net: 50, Revenue: 100},
 		},

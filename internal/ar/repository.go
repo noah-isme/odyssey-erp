@@ -584,34 +584,6 @@ func (r *Repository) ListAROutstanding(ctx context.Context) ([]ARInvoice, error)
 	})
 }
 
-// --- Legacy Compatibility ---
-
-// CreateARInvoiceLegacy creates an invoice using the legacy input format.
-func (r *Repository) CreateARInvoiceLegacy(ctx context.Context, input ARInvoiceInput) (*ARInvoice, error) {
-	return r.CreateARInvoice(ctx, CreateARInvoiceInput{
-		CustomerID: input.CustomerID,
-		SOID:       input.SOID,
-		Number:     input.Number,
-		Currency:   input.Currency,
-		Total:      input.Total,
-		DueDate:    input.DueDate,
-	})
-}
-
-// CreateARPaymentLegacy creates a payment using the legacy input format.
-func (r *Repository) CreateARPaymentLegacy(ctx context.Context, input ARPaymentInput) (*ARPayment, error) {
-	return r.CreateARPayment(ctx, CreateARPaymentInput{
-		Number:  input.Number,
-		Amount:  input.Amount,
-		PaidAt:  input.PaidAt,
-		Method:  input.Method,
-		Note:    input.Note,
-		Allocations: []PaymentAllocationInput{
-			{ARInvoiceID: input.ARInvoiceID, Amount: input.Amount},
-		},
-	})
-}
-
 // --- Helpers ---
 
 func numericToFloat64(n pgtype.Numeric) float64 {

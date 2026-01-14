@@ -334,7 +334,7 @@ func (h *Handler) showARAgingReport(w http.ResponseWriter, r *http.Request) {
 
 // showCustomerStatement shows customer statement.
 func (h *Handler) showCustomerStatement(w http.ResponseWriter, r *http.Request) {
-	invoices, err := h.service.GetARInvoices(r.Context())
+	invoices, err := h.service.ListARInvoices(r.Context(), ListARInvoicesRequest{Limit: 1000})
 	if err != nil {
 		h.logger.Error("get customer statement", slog.Any("error", err))
 		h.render(w, r, "pages/ar/customer_statement.html", map[string]any{

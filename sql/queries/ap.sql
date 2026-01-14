@@ -164,3 +164,16 @@ SELECT 'INV-' || TO_CHAR(NOW(), 'YYYYMMDD') || '-' || LPAD(NEXTVAL('ap_invoices_
 
 -- name: GenerateAPPaymentNumber :one
 SELECT 'PAY-' || TO_CHAR(NOW(), 'YYYYMMDD') || '-' || LPAD(NEXTVAL('ap_payments_id_seq')::TEXT, 4, '0');
+
+-- name: GetAPInvoiceBalancesBatch :many
+SELECT 
+    i.id,
+    i.due_at,
+    i.total,
+    COALESCE(SUM(pa.amount), 0)::NUMERIC AS paid_amount,
+    (i.total - COALESCE(SUM(pa.amount), 0))::NUMERIC AS balance
+FROM ap_invoices i
+LEFT JOIN ap_payment_allocations pa ON pa.ap_invoice_id = i.id
+WHERE i.status = 'POSTED'
+GROUP BY i.id, i.due_at, i.total
+HAVING (i.total - COALESCE(SUM(pa.amount), 0)) > 0;

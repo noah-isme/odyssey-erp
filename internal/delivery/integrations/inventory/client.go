@@ -59,6 +59,8 @@ func (c *Client) Reduce(ctx context.Context, items []Item) error {
 
 // Reserve reserves inventory (for future use).
 func (c *Client) Reserve(ctx context.Context, items []Item) error {
-	// TODO: Implement reservation logic when needed
+	if len(items) > 0 {
+		return fmt.Errorf("inventory reservation not yet implemented")
+	}
 	return nil
 }

@@ -26,15 +26,13 @@ func NewHandler(logger *slog.Logger, service *Service, templates *view.Engine, c
 	return &Handler{logger: logger, service: service, templates: templates, csrf: csrf, sessions: sessions, rbac: rbac}
 }
 
-// MountRoutes registers role routes.
 func (h *Handler) MountRoutes(r chi.Router) {
 	r.Group(func(r chi.Router) {
-		// Backwards-compatible: older seeds use `rbac.view`/`rbac.edit` while the UI uses `roles.*`.
-		r.Use(h.rbac.RequireAny(shared.PermRolesView, "rbac.view"))
+		r.Use(h.rbac.RequireAny(shared.PermRolesView))
 		r.Get("/", h.listRoles)
 	})
 	r.Group(func(r chi.Router) {
-		r.Use(h.rbac.RequireAny(shared.PermRolesEdit, "rbac.edit"))
+		r.Use(h.rbac.RequireAny(shared.PermRolesEdit))
 		r.Get("/new", h.showCreateRoleForm)
 		r.Post("/", h.createRole)
 	})
