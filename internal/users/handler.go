@@ -26,15 +26,13 @@ func NewHandler(logger *slog.Logger, service *Service, templates *view.Engine, c
 	return &Handler{logger: logger, service: service, templates: templates, csrf: csrf, sessions: sessions, rbac: rbac}
 }
 
-// MountRoutes registers user routes.
 func (h *Handler) MountRoutes(r chi.Router) {
 	r.Group(func(r chi.Router) {
-		// Backwards-compatible: older seeds use `rbac.view`/`rbac.edit` while the UI uses `users.*`.
-		r.Use(h.rbac.RequireAny(shared.PermUsersView, "rbac.view"))
+		r.Use(h.rbac.RequireAny(shared.PermUsersView))
 		r.Get("/", h.listUsers)
 	})
 	r.Group(func(r chi.Router) {
-		r.Use(h.rbac.RequireAny(shared.PermUsersEdit, "rbac.edit"))
+		r.Use(h.rbac.RequireAny(shared.PermUsersEdit))
 		r.Get("/new", h.showCreateUserForm)
 		r.Post("/", h.createUser)
 	})
@@ -57,8 +55,10 @@ func (h *Handler) showCreateUserForm(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) createUser(w http.ResponseWriter, r *http.Request) {
-	// TODO: implement
-	h.redirectWithFlash(w, r, "/users", "success", "User created")
+	// User creation is not yet implemented - return an honest error
+	h.render(w, r, "pages/users/form.html", map[string]any{
+		"Errors": formErrors{"general": "User creation is not yet implemented. Please contact your administrator."},
+	}, http.StatusNotImplemented)
 }
 
 func (h *Handler) render(w http.ResponseWriter, r *http.Request, template string, data map[string]any, status int) {

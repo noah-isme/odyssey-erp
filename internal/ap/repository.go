@@ -19,6 +19,7 @@ type Repository interface {
 	GetAPInvoiceWithDetails(ctx context.Context, id int64) (APInvoiceWithDetails, error)
 	ListAPInvoices(ctx context.Context, req ListAPInvoicesRequest) ([]APInvoice, error)
 	CountInvoicesByGRN(ctx context.Context, grnID int64) (int, error)
+	GetAPInvoiceBalancesBatch(ctx context.Context) ([]APInvoiceBalance, error)
 
 	ListAPPayments(ctx context.Context) ([]APPayment, error)
 	GetAPPaymentWithDetails(ctx context.Context, id int64) (APPaymentWithDetails, error)
@@ -108,6 +109,24 @@ func (r *pgRepository) CountInvoicesByGRN(ctx context.Context, grnID int64) (int
 		return 0, err
 	}
 	return count, nil
+}
+
+func (r *pgRepository) GetAPInvoiceBalancesBatch(ctx context.Context) ([]APInvoiceBalance, error) {
+	rows, err := r.q.GetAPInvoiceBalancesBatch(ctx)
+	if err != nil {
+		return nil, err
+	}
+	balances := make([]APInvoiceBalance, len(rows))
+	for i, row := range rows {
+		balances[i] = APInvoiceBalance{
+			ID:         row.ID,
+			DueAt:      dateToTime(row.DueAt),
+			Total:      numericToFloat(row.Total),
+			PaidAmount: numericToFloat(row.PaidAmount),
+			Balance:    numericToFloat(row.Balance),
+		}
+	}
+	return balances, nil
 }
 
 func (r *pgRepository) GetAPInvoiceWithDetails(ctx context.Context, id int64) (APInvoiceWithDetails, error) {

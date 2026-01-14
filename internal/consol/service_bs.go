@@ -12,7 +12,6 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/consol/fx"
 )
 
-// BalanceSheetFilters controls the consolidated balance sheet aggregation request.
 type BalanceSheetFilters struct {
 	GroupID  int64
 	Period   string
@@ -20,7 +19,6 @@ type BalanceSheetFilters struct {
 	FxOn     bool
 }
 
-// BalanceSheetLine represents a single balance sheet account.
 type BalanceSheetLine struct {
 	AccountCode string
 	AccountName string
@@ -29,7 +27,6 @@ type BalanceSheetLine struct {
 	Section     string
 }
 
-// BalanceSheetTotals contains the aggregated totals for the statement.
 type BalanceSheetTotals struct {
 	Assets     float64
 	LiabEquity float64
@@ -37,14 +34,12 @@ type BalanceSheetTotals struct {
 	DeltaFX    float64
 }
 
-// BalanceSheetContribution reflects an entity contribution for the balance sheet.
 type BalanceSheetContribution struct {
 	EntityName  string
 	GroupAmount float64
 	Percent     float64
 }
 
-// BalanceSheetReport is the domain output for the balance sheet service.
 type BalanceSheetReport struct {
 	Filters       BalanceSheetFilters
 	Assets        []BalanceSheetLine
@@ -53,7 +48,6 @@ type BalanceSheetReport struct {
 	Contributions []BalanceSheetContribution
 }
 
-// BalanceSheetRepository abstracts the persistence needs for the balance sheet service.
 type BalanceSheetRepository interface {
 	ConsolBalancesByType(ctx context.Context, groupID int64, periodCode string, entities []int64) ([]ConsolBalanceByTypeQueryRow, error)
 	GroupReportingCurrency(ctx context.Context, groupID int64) (string, error)
@@ -61,29 +55,17 @@ type BalanceSheetRepository interface {
 	FxRateForPeriod(ctx context.Context, asOf time.Time, pair string) (fx.Quote, error)
 }
 
-// BalanceSheetService builds consolidated balance sheet view models.
 type BalanceSheetService struct {
 	repo BalanceSheetRepository
 }
 
-// NewBalanceSheetService constructs a balance sheet service instance.
 func NewBalanceSheetService(repo BalanceSheetRepository) *BalanceSheetService {
 	return &BalanceSheetService{repo: repo}
 }
 
-// Build assembles the consolidated balance sheet.
 func (s *BalanceSheetService) Build(ctx context.Context, filters BalanceSheetFilters) (BalanceSheetReport, []string, error) {
-	if s == nil || s.repo == nil {
-		return BalanceSheetReport{}, nil, errors.New("consol: balance sheet service not initialised")
-	}
-	if filters.GroupID <= 0 {
-		return BalanceSheetReport{}, nil, fmt.Errorf("group id wajib diisi")
-	}
-	if strings.TrimSpace(filters.Period) == "" {
-		return BalanceSheetReport{}, nil, fmt.Errorf("periode wajib diisi")
-	}
-	if _, err := time.Parse("2006-01", filters.Period); err != nil {
-		return BalanceSheetReport{}, nil, fmt.Errorf("format periode tidak valid")
+	if err := s.validateFilters(filters); err != nil {
+		return BalanceSheetReport{}, nil, err
 	}
 
 	rows, err := s.repo.ConsolBalancesByType(ctx, filters.GroupID, filters.Period, filters.Entities)
@@ -91,160 +73,97 @@ func (s *BalanceSheetService) Build(ctx context.Context, filters BalanceSheetFil
 		return BalanceSheetReport{}, nil, err
 	}
 
+	included := buildIncludedMap(filters.Entities)
 	includeAll := len(filters.Entities) == 0
-	included := make(map[int64]struct{}, len(filters.Entities))
-	for _, id := range filters.Entities {
-		included[id] = struct{}{}
-	}
 
-	fxApplied := false
+	var fxResult fxSetupResult
 	warnings := make([]string, 0)
-	var converter *fx.Converter
-	var reportingCurrency string
-	var memberCurrencies map[int64]string
-
 	if filters.FxOn {
-		reportingCurrency, err = s.repo.GroupReportingCurrency(ctx, filters.GroupID)
+		fxResult, err = setupFXConverter(ctx, s.repo, filters.GroupID, filters.Period, included, includeAll, func(q fx.Quote) bool {
+			return q.Closing > 0
+		})
 		if err != nil {
 			return BalanceSheetReport{}, nil, err
 		}
-		reportingCurrency = strings.ToUpper(strings.TrimSpace(reportingCurrency))
-		memberCurrencies, err = s.repo.MemberCurrencies(ctx, filters.GroupID)
-		if err != nil {
-			return BalanceSheetReport{}, nil, err
-		}
-		asOf, _ := time.Parse("2006-01", filters.Period)
-		asOf = time.Date(asOf.Year(), asOf.Month(), 1, 0, 0, 0, 0, time.UTC)
-		requiredCurrencies := make(map[string]struct{})
-		if includeAll {
-			for id, cur := range memberCurrencies {
-				_ = id
-				cur = strings.ToUpper(strings.TrimSpace(cur))
-				if cur == "" || cur == reportingCurrency {
-					continue
-				}
-				requiredCurrencies[cur] = struct{}{}
-			}
-		} else {
-			for id := range included {
-				cur := strings.ToUpper(strings.TrimSpace(memberCurrencies[id]))
-				if cur == "" || cur == reportingCurrency {
-					continue
-				}
-				requiredCurrencies[cur] = struct{}{}
-			}
-		}
-		quotes := make(map[string]fx.Quote, len(requiredCurrencies))
-		missing := make([]string, 0)
-		for cur := range requiredCurrencies {
-			pair := cur + reportingCurrency
-			quote, err := s.repo.FxRateForPeriod(ctx, asOf, pair)
-			if err != nil {
-				missing = append(missing, pair)
-				continue
-			}
-			if quote.Closing <= 0 {
-				missing = append(missing, pair)
-				continue
-			}
-			quotes[pair] = quote
-		}
-		if len(missing) > 0 {
-			for _, pair := range missing {
-				warnings = append(warnings, fmt.Sprintf("FX rate missing for %s at %s", pair, filters.Period))
-			}
-		} else {
-			policy := fx.Policy{ReportingCurrency: reportingCurrency, ProfitLossMethod: fx.MethodAverage, BalanceSheetMethod: fx.MethodClosing}
-			converter = fx.NewConverter(policy, quotes)
-			fxApplied = true
-		}
+		warnings = fxResult.warnings
 	}
 
+	assets, liabEq, contributions, totals := s.processRows(rows, included, includeAll, fxResult, filters.Period, &warnings)
+
+	sortLines(assets)
+	sortLines(liabEq)
+	contributionList := buildContributionList(contributions, totals.contributionBasis)
+
+	report := BalanceSheetReport{
+		Filters:       filters,
+		Assets:        assets,
+		LiabilitiesEq: liabEq,
+		Totals: BalanceSheetTotals{
+			Assets:     totals.totalAssets,
+			LiabEquity: totals.totalLiabEq,
+			Balanced:   math.Abs(totals.totalAssets-totals.totalLiabEq) <= 0.01,
+			DeltaFX:    totals.deltaFX,
+		},
+		Contributions: contributionList,
+	}
+	report.Filters.FxOn = fxResult.applied && fxResult.converter != nil
+
+	return report, warnings, nil
+}
+
+func (s *BalanceSheetService) validateFilters(filters BalanceSheetFilters) error {
+	if s == nil || s.repo == nil {
+		return errors.New("consol: balance sheet service not initialised")
+	}
+	if filters.GroupID <= 0 {
+		return fmt.Errorf("group id wajib diisi")
+	}
+	if strings.TrimSpace(filters.Period) == "" {
+		return fmt.Errorf("periode wajib diisi")
+	}
+	if _, err := time.Parse("2006-01", filters.Period); err != nil {
+		return fmt.Errorf("format periode tidak valid")
+	}
+	return nil
+}
+
+type bsTotals struct {
+	totalAssets       float64
+	totalLiabEq       float64
+	deltaFX           float64
+	contributionBasis float64
+}
+
+func (s *BalanceSheetService) processRows(
+	rows []ConsolBalanceByTypeQueryRow,
+	included map[int64]struct{},
+	includeAll bool,
+	fxResult fxSetupResult,
+	period string,
+	warnings *[]string,
+) ([]BalanceSheetLine, []BalanceSheetLine, map[int64]BalanceSheetContribution, bsTotals) {
 	assets := make([]BalanceSheetLine, 0, len(rows))
 	liabEq := make([]BalanceSheetLine, 0, len(rows))
 	contributions := make(map[int64]BalanceSheetContribution)
-	var contributionBasis float64
-	var totalAssets float64
-	var totalLiabEq float64
-	var deltaFX float64
+	var totals bsTotals
 
 	for _, row := range rows {
 		members, err := ParseMembers(row.MembersJSON)
 		if err != nil {
-			return BalanceSheetReport{}, nil, err
-		}
-		filtered := members[:0]
-		var localTotal float64
-		var absTotal float64
-		for _, m := range members {
-			if !includeAll {
-				if _, ok := included[m.CompanyID]; !ok {
-					continue
-				}
-			}
-			filtered = append(filtered, m)
-			localTotal += m.LocalAmount
-			absTotal += math.Abs(m.LocalAmount)
-		}
-		if len(filtered) == 0 {
 			continue
 		}
 
-		convertedGroup := scaleAmount(row.GroupAmount, row.LocalAmount, localTotal)
-
-		if fxApplied && converter != nil {
-			currencyTotals := make(map[string]float64)
-			for _, member := range filtered {
-				currency := reportingCurrency
-				if memberCurrencies != nil {
-					if cur, ok := memberCurrencies[member.CompanyID]; ok {
-						if trimmed := strings.ToUpper(strings.TrimSpace(cur)); trimmed != "" {
-							currency = trimmed
-						}
-					}
-				}
-				currencyTotals[currency] += member.LocalAmount
-			}
-			fxInput := make([]fx.Line, 0, len(currencyTotals))
-			for currency, amount := range currencyTotals {
-				var share float64
-				if localTotal == 0 {
-					share = 0
-				} else {
-					share = convertedGroup * (amount / localTotal)
-				}
-				fxInput = append(fxInput, fx.Line{
-					AccountCode:   row.GroupAccountCode,
-					LocalCurrency: currency,
-					LocalAmount:   amount,
-					GroupAmount:   share,
-				})
-			}
-			if len(fxInput) > 0 {
-				convertedLines, delta, err := converter.ConvertBalanceSheet(fxInput)
-				if err != nil {
-					if missingErr, ok := err.(*fx.MissingRateError); ok {
-						for _, pair := range missingErr.Pairs {
-							warnings = append(warnings, fmt.Sprintf("FX rate missing for %s at %s", pair, filters.Period))
-						}
-						fxApplied = false
-						converter = nil
-					} else {
-						return BalanceSheetReport{}, nil, err
-					}
-				} else {
-					var convertedTotal float64
-					for _, line := range convertedLines {
-						convertedTotal += line.GroupAmount
-					}
-					deltaFX += delta
-					convertedGroup = convertedTotal
-				}
-			}
+		mb := filterMembers(members, included, includeAll)
+		if len(mb.members) == 0 {
+			continue
 		}
 
+		convertedGroup := scaleAmount(row.GroupAmount, row.LocalAmount, mb.localTotal)
+		convertedGroup, delta := s.applyFXConversion(row, mb, fxResult, convertedGroup, period, warnings)
+		totals.deltaFX += delta
+
 		section := strings.ToUpper(row.AccountType)
-		displayLocal := math.Abs(localTotal)
+		displayLocal := math.Abs(mb.localTotal)
 		displayGroup := math.Abs(convertedGroup)
 
 		line := BalanceSheetLine{
@@ -257,64 +176,97 @@ func (s *BalanceSheetService) Build(ctx context.Context, filters BalanceSheetFil
 
 		if section == "ASSET" {
 			assets = append(assets, line)
-			totalAssets += displayGroup
+			totals.totalAssets += displayGroup
 		} else {
 			liabEq = append(liabEq, line)
-			totalLiabEq += displayGroup
+			totals.totalLiabEq += displayGroup
 		}
 
-		for _, member := range filtered {
-			var weight float64
-			if absTotal == 0 {
-				if len(filtered) == 0 {
-					weight = 0
-				} else {
-					weight = 1 / float64(len(filtered))
-				}
-			} else {
-				weight = math.Abs(member.LocalAmount) / absTotal
-			}
-			share := displayGroup * weight
-			contrib := contributions[member.CompanyID]
-			if contrib.EntityName == "" {
-				contrib.EntityName = member.CompanyName
-			}
-			contrib.GroupAmount += share
-			contributions[member.CompanyID] = contrib
-		}
-		contributionBasis += displayGroup
+		s.updateContributions(mb, displayGroup, contributions)
+		totals.contributionBasis += displayGroup
 	}
 
-	sort.SliceStable(assets, func(i, j int) bool {
-		return assets[i].AccountCode < assets[j].AccountCode
-	})
-	sort.SliceStable(liabEq, func(i, j int) bool {
-		return liabEq[i].AccountCode < liabEq[j].AccountCode
-	})
+	return assets, liabEq, contributions, totals
+}
 
-	contributionList := make([]BalanceSheetContribution, 0, len(contributions))
+func (s *BalanceSheetService) applyFXConversion(
+	row ConsolBalanceByTypeQueryRow,
+	mb memberBalance,
+	fxResult fxSetupResult,
+	convertedGroup float64,
+	period string,
+	warnings *[]string,
+) (float64, float64) {
+	if !fxResult.applied || fxResult.converter == nil {
+		return convertedGroup, 0
+	}
+
+	currencyTotals := buildCurrencyTotals(mb.members, fxResult.memberCurrencies, fxResult.reportingCurrency)
+	fxInput := buildFXLines(row.GroupAccountCode, currencyTotals, convertedGroup, mb.localTotal)
+
+	if len(fxInput) == 0 {
+		return convertedGroup, 0
+	}
+
+	convertedLines, delta, err := fxResult.converter.ConvertBalanceSheet(fxInput)
+	if err != nil {
+		if missingErr, ok := err.(*fx.MissingRateError); ok {
+			for _, pair := range missingErr.Pairs {
+				*warnings = append(*warnings, fmt.Sprintf("FX rate missing for %s at %s", pair, period))
+			}
+		}
+		return convertedGroup, 0
+	}
+
+	var convertedTotal float64
+	for _, line := range convertedLines {
+		convertedTotal += line.GroupAmount
+	}
+	return convertedTotal, delta
+}
+
+func (s *BalanceSheetService) updateContributions(
+	mb memberBalance,
+	displayGroup float64,
+	contributions map[int64]BalanceSheetContribution,
+) {
+	for _, member := range mb.members {
+		weight := calculateContributionWeight(mb.absTotal, member.LocalAmount, len(mb.members))
+		share := displayGroup * weight
+
+		contrib := contributions[member.CompanyID]
+		if contrib.EntityName == "" {
+			contrib.EntityName = member.CompanyName
+		}
+		contrib.GroupAmount += share
+		contributions[member.CompanyID] = contrib
+	}
+}
+
+func buildIncludedMap(entities []int64) map[int64]struct{} {
+	included := make(map[int64]struct{}, len(entities))
+	for _, id := range entities {
+		included[id] = struct{}{}
+	}
+	return included
+}
+
+func sortLines(lines []BalanceSheetLine) {
+	sort.SliceStable(lines, func(i, j int) bool {
+		return lines[i].AccountCode < lines[j].AccountCode
+	})
+}
+
+func buildContributionList(contributions map[int64]BalanceSheetContribution, basis float64) []BalanceSheetContribution {
+	list := make([]BalanceSheetContribution, 0, len(contributions))
 	for _, contrib := range contributions {
-		if contributionBasis != 0 {
-			contrib.Percent = (contrib.GroupAmount / contributionBasis) * 100
+		if basis != 0 {
+			contrib.Percent = (contrib.GroupAmount / basis) * 100
 		}
-		contributionList = append(contributionList, contrib)
+		list = append(list, contrib)
 	}
-	sort.SliceStable(contributionList, func(i, j int) bool {
-		return contributionList[i].GroupAmount > contributionList[j].GroupAmount
+	sort.SliceStable(list, func(i, j int) bool {
+		return list[i].GroupAmount > list[j].GroupAmount
 	})
-
-	report := BalanceSheetReport{
-		Filters:       filters,
-		Assets:        assets,
-		LiabilitiesEq: liabEq,
-		Totals: BalanceSheetTotals{
-			Assets:     totalAssets,
-			LiabEquity: totalLiabEq,
-			Balanced:   math.Abs(totalAssets-totalLiabEq) <= 0.01,
-			DeltaFX:    deltaFX,
-		},
-		Contributions: contributionList,
-	}
-	report.Filters.FxOn = fxApplied && converter != nil
-	return report, warnings, nil
+	return list
 }

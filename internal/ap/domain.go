@@ -144,6 +144,15 @@ type APAgingDetail struct {
 	Total        float64
 }
 
+// APInvoiceBalance represents an invoice balance for batch aging calculations.
+type APInvoiceBalance struct {
+	ID         int64
+	DueAt      time.Time
+	Total      float64
+	PaidAmount float64
+	Balance    float64
+}
+
 // --- Input DTOs ---
 
 // CreateAPInvoiceInput for creating AP invoices.

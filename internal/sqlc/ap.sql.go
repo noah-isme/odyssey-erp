@@ -263,6 +263,54 @@ func (q *Queries) GetAPInvoiceBalance(ctx context.Context, id int64) (GetAPInvoi
 	return i, err
 }
 
+const getAPInvoiceBalancesBatch = `-- name: GetAPInvoiceBalancesBatch :many
+SELECT 
+    i.id,
+    i.due_at,
+    i.total,
+    COALESCE(SUM(pa.amount), 0)::NUMERIC AS paid_amount,
+    (i.total - COALESCE(SUM(pa.amount), 0))::NUMERIC AS balance
+FROM ap_invoices i
+LEFT JOIN ap_payment_allocations pa ON pa.ap_invoice_id = i.id
+WHERE i.status = 'POSTED'
+GROUP BY i.id, i.due_at, i.total
+HAVING (i.total - COALESCE(SUM(pa.amount), 0)) > 0
+`
+
+type GetAPInvoiceBalancesBatchRow struct {
+	ID         int64          `json:"id"`
+	DueAt      pgtype.Date    `json:"due_at"`
+	Total      pgtype.Numeric `json:"total"`
+	PaidAmount pgtype.Numeric `json:"paid_amount"`
+	Balance    pgtype.Numeric `json:"balance"`
+}
+
+func (q *Queries) GetAPInvoiceBalancesBatch(ctx context.Context) ([]GetAPInvoiceBalancesBatchRow, error) {
+	rows, err := q.db.Query(ctx, getAPInvoiceBalancesBatch)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetAPInvoiceBalancesBatchRow
+	for rows.Next() {
+		var i GetAPInvoiceBalancesBatchRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.DueAt,
+			&i.Total,
+			&i.PaidAmount,
+			&i.Balance,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getAPInvoiceByNumber = `-- name: GetAPInvoiceByNumber :one
 SELECT 
     i.id, i.number, i.supplier_id, s.name AS supplier_name, i.grn_id, i.po_id, i.currency, 
@@ -323,6 +371,70 @@ func (q *Queries) GetAPInvoiceByNumber(ctx context.Context, number string) (GetA
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const getAPPayment = `-- name: GetAPPayment :one
+SELECT 
+    p.id, p.number, p.ap_invoice_id, p.supplier_id, COALESCE(s.name, '') AS supplier_name, p.amount, p.paid_at, p.method, p.note, 
+    p.created_by, p.created_at, p.updated_at
+FROM ap_payments p
+LEFT JOIN suppliers s ON s.id = p.supplier_id
+WHERE p.id = $1
+`
+
+type GetAPPaymentRow struct {
+	ID           int64              `json:"id"`
+	Number       string             `json:"number"`
+	ApInvoiceID  pgtype.Int8        `json:"ap_invoice_id"`
+	SupplierID   pgtype.Int8        `json:"supplier_id"`
+	SupplierName string             `json:"supplier_name"`
+	Amount       pgtype.Numeric     `json:"amount"`
+	PaidAt       pgtype.Date        `json:"paid_at"`
+	Method       string             `json:"method"`
+	Note         string             `json:"note"`
+	CreatedBy    pgtype.Int8        `json:"created_by"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetAPPayment(ctx context.Context, id int64) (GetAPPaymentRow, error) {
+	row := q.db.QueryRow(ctx, getAPPayment, id)
+	var i GetAPPaymentRow
+	err := row.Scan(
+		&i.ID,
+		&i.Number,
+		&i.ApInvoiceID,
+		&i.SupplierID,
+		&i.SupplierName,
+		&i.Amount,
+		&i.PaidAt,
+		&i.Method,
+		&i.Note,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const isAPPaymentPosted = `-- name: IsAPPaymentPosted :one
+SELECT EXISTS (
+    SELECT 1
+    FROM journal_entries
+    WHERE source_module = $1 AND source_id = $2 AND status = 'POSTED'
+)
+`
+
+type IsAPPaymentPostedParams struct {
+	SourceModule string      `json:"source_module"`
+	SourceID     pgtype.UUID `json:"source_id"`
+}
+
+func (q *Queries) IsAPPaymentPosted(ctx context.Context, arg IsAPPaymentPostedParams) (bool, error) {
+	row := q.db.QueryRow(ctx, isAPPaymentPosted, arg.SourceModule, arg.SourceID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }
 
 const listAPInvoiceLines = `-- name: ListAPInvoiceLines :many
@@ -633,6 +745,58 @@ func (q *Queries) ListAPInvoicesBySupplier(ctx context.Context, supplierID int64
 			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAPPaymentAllocations = `-- name: ListAPPaymentAllocations :many
+SELECT
+    pa.id, pa.ap_payment_id, pa.ap_invoice_id, pa.amount,
+    i.number AS invoice_number, i.po_id, i.total, i.status, i.due_at
+FROM ap_payment_allocations pa
+JOIN ap_invoices i ON i.id = pa.ap_invoice_id
+WHERE pa.ap_payment_id = $1
+ORDER BY i.number
+`
+
+type ListAPPaymentAllocationsRow struct {
+	ID            int64          `json:"id"`
+	ApPaymentID   int64          `json:"ap_payment_id"`
+	ApInvoiceID   int64          `json:"ap_invoice_id"`
+	Amount        pgtype.Numeric `json:"amount"`
+	InvoiceNumber string         `json:"invoice_number"`
+	PoID          pgtype.Int8    `json:"po_id"`
+	Total         pgtype.Numeric `json:"total"`
+	Status        string         `json:"status"`
+	DueAt         pgtype.Date    `json:"due_at"`
+}
+
+func (q *Queries) ListAPPaymentAllocations(ctx context.Context, apPaymentID int64) ([]ListAPPaymentAllocationsRow, error) {
+	rows, err := q.db.Query(ctx, listAPPaymentAllocations, apPaymentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAPPaymentAllocationsRow
+	for rows.Next() {
+		var i ListAPPaymentAllocationsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ApPaymentID,
+			&i.ApInvoiceID,
+			&i.Amount,
+			&i.InvoiceNumber,
+			&i.PoID,
+			&i.Total,
+			&i.Status,
+			&i.DueAt,
 		); err != nil {
 			return nil, err
 		}

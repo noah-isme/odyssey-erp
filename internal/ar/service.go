@@ -38,10 +38,6 @@ type RepositoryPort interface {
 
 	// Aging operations
 	ListAROutstanding(ctx context.Context) ([]ARInvoice, error)
-
-	// Legacy compatibility
-	CreateARInvoiceLegacy(ctx context.Context, input ARInvoiceInput) (*ARInvoice, error)
-	CreateARPaymentLegacy(ctx context.Context, input ARPaymentInput) (*ARPayment, error)
 }
 
 // DeliveryServicePort for fetching delivery order details.
@@ -368,28 +364,4 @@ func (s *Service) CalculateARAging(ctx context.Context, asOf time.Time) (ARAging
 		}
 	}
 	return bucket, nil
-}
-
-// --- Legacy methods for backward compatibility ---
-
-// CreateARInvoiceFromSO creates an AR invoice from a sales order (legacy).
-func (s *Service) CreateARInvoiceFromSO(ctx context.Context, input ARInvoiceInput) (*ARInvoice, error) {
-	if input.CustomerID == 0 {
-		return nil, errors.New("customer ID required")
-	}
-	if input.SOID == 0 {
-		return nil, errors.New("sales order ID required")
-	}
-	if input.Total <= 0 {
-		return nil, errors.New("total must be positive")
-	}
-	now := time.Now()
-	input.CreatedAt = now
-	input.UpdatedAt = now
-	return s.repo.CreateARInvoiceLegacy(ctx, input)
-}
-
-// GetARInvoices returns all AR invoices (legacy).
-func (s *Service) GetARInvoices(ctx context.Context) ([]ARInvoice, error) {
-	return s.repo.ListARInvoices(ctx, ListARInvoicesRequest{Limit: 1000})
 }

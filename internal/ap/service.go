@@ -407,42 +407,30 @@ func (s *Service) RegisterAPPayment(ctx context.Context, input CreateAPPaymentIn
 
 // CalculateAPAging returns aging summary.
 func (s *Service) CalculateAPAging(ctx context.Context, asOf time.Time) (APAgingBucket, error) {
-	// Fetch all outstanding posted invoices
-	invoices, err := s.repo.ListAPInvoices(ctx, ListAPInvoicesRequest{Status: APStatusPosted})
+	balances, err := s.repo.GetAPInvoiceBalancesBatch(ctx)
 	if err != nil {
 		return APAgingBucket{}, err
 	}
 
 	bucket := APAgingBucket{}
 
-	for _, inv := range invoices {
-		// Calculate balance (need to fetch balance for each? Expensive LOOP query!)
-		// Optimization: ListAPInvoices should ideally return balance or fetching all allocations.
-		// For MVP, loop might be acceptable if volume low, OR fetch details.
-		// Better: Add "GetBalance" logic in the List query?
-		// For now simple approach:
-
-		detail, err := s.repo.GetAPInvoiceWithDetails(ctx, inv.ID)
-		if err != nil {
-			continue
-		}
-		balance := detail.Balance
-		if balance <= 0 {
+	for _, inv := range balances {
+		if inv.Balance <= 0 {
 			continue
 		}
 
 		daysOverdue := int(asOf.Sub(inv.DueAt).Hours() / 24)
 
 		if daysOverdue <= 0 {
-			bucket.Current += balance
+			bucket.Current += inv.Balance
 		} else if daysOverdue <= 30 {
-			bucket.Bucket30 += balance
+			bucket.Bucket30 += inv.Balance
 		} else if daysOverdue <= 60 {
-			bucket.Bucket60 += balance
+			bucket.Bucket60 += inv.Balance
 		} else if daysOverdue <= 90 {
-			bucket.Bucket90 += balance
+			bucket.Bucket90 += inv.Balance
 		} else {
-			bucket.Bucket120 += balance
+			bucket.Bucket120 += inv.Balance
 		}
 	}
 	return bucket, nil
