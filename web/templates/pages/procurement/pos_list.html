@@ -12,6 +12,14 @@
             <p class="page-subtitle">Manage purchase orders</p>
         </div>
         <div class="page-actions">
+            <button class="btn btn--secondary" data-export="csv" data-export-target="#pos-table">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                Export CSV
+            </button>
             <a href="/procurement/pos/new" class="btn btn--primary">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="12" y1="5" x2="12" y2="19" />
@@ -52,10 +60,22 @@
 
         <!-- Results Table -->
         <div class="table-container">
+            <!-- Bulk Actions Toolbar -->
+            <div class="bulk-actions" data-state="hidden">
+                <div class="bulk-actions__content">
+                    <span class="bulk-count">0 selected</span>
+                    <div class="bulk-separator"></div>
+                    <button class="btn btn--sm btn--secondary" data-bulk-action="status:draf">Set Draft</button>
+                    <button class="btn btn--sm btn--secondary" data-bulk-action="status:approved">Approve</button>
+                    <button class="btn btn--sm btn--danger" data-bulk-action="delete">Delete</button>
+                </div>
+            </div>
+
             <div class="table-wrap">
-                <table class="table data-table" data-datatable="pos">
+                <table class="table data-table" data-datatable="pos" id="pos-table">
                     <thead>
                         <tr>
+                            <th width="40"><input type="checkbox" data-select-all></th>
                             <th scope="col" class="sortable" data-column="number" {{ if eq .Data.Filters.SortBy "number"
                                 }}data-sort-dir="{{ .Data.Filters.SortDir }}" {{ end }}>
                                 Number
@@ -95,6 +115,7 @@
                     <tbody>
                         {{ range .Data.POs }}
                         <tr data-row-id="{{ .ID }}" data-href="/procurement/pos/{{ .ID }}">
+                            <td><input type="checkbox" data-row-select></td>
                             <td>{{ .Number }}</td>
                             <td>{{ if .SupplierName }}{{ .SupplierName }}{{ else }}-{{ end }}</td>
                             <td>

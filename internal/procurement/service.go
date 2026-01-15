@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"time"
 
@@ -21,6 +22,7 @@ type RepositoryPort interface {
 	GetGRN(ctx context.Context, id int64) (GoodsReceipt, []GRNLine, error)
 	ListPOs(ctx context.Context, limit, offset int, filters ListFilters) ([]POListItem, int, error)
 	ListGRNs(ctx context.Context, limit, offset int, filters ListFilters) ([]GRNListItem, int, error)
+	POExistsByNumber(ctx context.Context, number string) (bool, error)
 }
 
 // InventoryPort exposes required inventory integration.
@@ -35,6 +37,7 @@ type AuditPort interface {
 
 // Service orchestrates procurement flows.
 type Service struct {
+	logger      *slog.Logger
 	repo        RepositoryPort
 	inventory   InventoryPort
 	approvals   *shared.ApprovalRecorder
@@ -44,8 +47,8 @@ type Service struct {
 }
 
 // NewService constructs procurement service.
-func NewService(repo RepositoryPort, inventory InventoryPort, approvals *shared.ApprovalRecorder, audit AuditPort, idem *shared.IdempotencyStore, integration IntegrationHandler) *Service {
-	return &Service{repo: repo, inventory: inventory, approvals: approvals, audit: audit, idempotency: idem, integration: integration}
+func NewService(logger *slog.Logger, repo RepositoryPort, inventory InventoryPort, approvals *shared.ApprovalRecorder, audit AuditPort, idem *shared.IdempotencyStore, integration IntegrationHandler) *Service {
+	return &Service{logger: logger, repo: repo, inventory: inventory, approvals: approvals, audit: audit, idempotency: idem, integration: integration}
 }
 
 // CreatePRInput describes creation payload.
@@ -122,6 +125,9 @@ func (s *Service) CreatePurchaseRequest(ctx context.Context, input CreatePRInput
 		return PurchaseRequest{}, err
 	}
 	s.recordAudit(ctx, "PR_CREATE", created.ID, map[string]any{"number": created.Number})
+	if s.logger != nil {
+		s.logger.Info("created pr", slog.String("number", created.Number), slog.Int64("id", created.ID))
+	}
 	return created, nil
 }
 
@@ -154,6 +160,15 @@ func (s *Service) CreatePOFromPR(ctx context.Context, input CreatePOInput) (Purc
 	if input.Number == "" {
 		input.Number = generateNumber("PO")
 	}
+
+	exists, err := s.repo.POExistsByNumber(ctx, input.Number)
+	if err != nil {
+		return PurchaseOrder{}, err
+	}
+	if exists {
+		return PurchaseOrder{}, fmt.Errorf("PO number %s already exists", input.Number)
+	}
+
 	po := PurchaseOrder{Number: input.Number, SupplierID: pr.SupplierID, Status: POStatusDraft, Currency: defaultString(input.Currency, "IDR"), ExpectedDate: input.ExpectedDate, Note: input.Note}
 	err = s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
 		poID, err := tx.CreatePO(ctx, po)
@@ -176,6 +191,9 @@ func (s *Service) CreatePOFromPR(ctx context.Context, input CreatePOInput) (Purc
 		return PurchaseOrder{}, err
 	}
 	s.recordAudit(ctx, "PO_CREATE", po.ID, map[string]any{"number": po.Number, "from_pr": input.PRID})
+	if s.logger != nil {
+		s.logger.Info("created po from pr", slog.String("number", po.Number), slog.Int64("id", po.ID), slog.Int64("pr_id", input.PRID))
+	}
 	return po, nil
 }
 

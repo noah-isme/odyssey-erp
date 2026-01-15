@@ -93,6 +93,15 @@ func (r *memoryProcRepo) ListAPOutstanding(ctx context.Context) ([]APInvoice, er
 	return invoices, nil
 }
 
+func (r *memoryProcRepo) POExistsByNumber(ctx context.Context, number string) (bool, error) {
+	for _, po := range r.pos {
+		if po.Number == number {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func (tx *memoryProcTx) nextID() int64 {
 	tx.repo.nextID++
 	return tx.repo.nextID
@@ -198,7 +207,7 @@ func (s *stubInventory) PostInbound(ctx context.Context, input inventory.Inbound
 func TestProcurementFlow(t *testing.T) {
 	repo := newMemoryProcRepo()
 	inv := &stubInventory{}
-	svc := NewService(repo, inv, nil, nil, nil, nil)
+	svc := NewService(nil, repo, inv, nil, nil, nil, nil)
 	ctx := context.Background()
 
 	pr, err := svc.CreatePurchaseRequest(ctx, CreatePRInput{

@@ -39,11 +39,11 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.22.x'
+          go-version: '1.24.x'
 
       - name: Install tools
         run: |
-          go install github.com/kyleconroy/sqlc/cmd/sqlc@latest
+          go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
           go install github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 
       - name: Go mod download

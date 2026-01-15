@@ -20,16 +20,48 @@ const Shortcuts = {
             // g + key navigation
             if (e.key === 'g') {
                 this.waitForSecondKey((key) => {
-                    if (key === 'h') window.location = '/';
-                    if (key === 'c') window.location = '/sales/customers';
-                    if (key === 'o') window.location = '/sales/orders';
-                    if (key === 'q') window.location = '/sales/quotations';
+                    const routes = {
+                        'h': '/',
+                        'c': '/sales/customers',
+                        'o': '/sales/orders',
+                        'q': '/sales/quotations',
+                        'p': '/procurement/pos',
+                        'i': '/inventory/stock-card',
+                        'd': '/delivery/orders',
+                        'a': '/accounting/coa',
+                        'r': '/finance/ar/invoices',
+                        'b': '/finance/ap/invoices',
+                        's': '/masterdata/suppliers',
+                        'u': '/users',
+                        'j': '/jobs',
+                    };
+                    if (routes[key]) window.location = routes[key];
+                });
+            }
+
+            // n + key for new entity
+            if (e.key === 'n') {
+                this.waitForSecondKey((key) => {
+                    const routes = {
+                        'o': '/sales/orders/new',
+                        'q': '/sales/quotations/new',
+                        'c': '/sales/customers/new',
+                        'p': '/procurement/pos/new',
+                        's': '/masterdata/suppliers/new',
+                    };
+                    if (routes[key]) window.location = routes[key];
                 });
             }
 
             // ? = Show shortcuts
             if (e.key === '?') {
                 this.showHelp();
+            }
+
+            // Escape = Close modal/dropdown
+            if (e.key === 'Escape') {
+                const modal = document.querySelector('.shortcuts-modal');
+                if (modal) modal.remove();
             }
         });
     },
@@ -60,16 +92,29 @@ const Shortcuts = {
         </div>
         <div class="shortcuts-body">
           <div class="shortcut-group">
-            <h4>Navigation</h4>
-            <div class="shortcut"><kbd>g</kbd> then <kbd>h</kbd> <span>Go to Home</span></div>
-            <div class="shortcut"><kbd>g</kbd> then <kbd>c</kbd> <span>Go to Customers</span></div>
-            <div class="shortcut"><kbd>g</kbd> then <kbd>o</kbd> <span>Go to Orders</span></div>
-            <div class="shortcut"><kbd>g</kbd> then <kbd>q</kbd> <span>Go to Quotations</span></div>
+            <h4>Navigation (g + key)</h4>
+            <div class="shortcut"><kbd>g</kbd> <kbd>h</kbd> <span>Home</span></div>
+            <div class="shortcut"><kbd>g</kbd> <kbd>c</kbd> <span>Customers</span></div>
+            <div class="shortcut"><kbd>g</kbd> <kbd>o</kbd> <span>Sales Orders</span></div>
+            <div class="shortcut"><kbd>g</kbd> <kbd>q</kbd> <span>Quotations</span></div>
+            <div class="shortcut"><kbd>g</kbd> <kbd>p</kbd> <span>Purchase Orders</span></div>
+            <div class="shortcut"><kbd>g</kbd> <kbd>d</kbd> <span>Deliveries</span></div>
+            <div class="shortcut"><kbd>g</kbd> <kbd>i</kbd> <span>Inventory</span></div>
+            <div class="shortcut"><kbd>g</kbd> <kbd>r</kbd> <span>AR Invoices</span></div>
+            <div class="shortcut"><kbd>g</kbd> <kbd>b</kbd> <span>AP Invoices</span></div>
+            <div class="shortcut"><kbd>g</kbd> <kbd>a</kbd> <span>Chart of Accounts</span></div>
+          </div>
+          <div class="shortcut-group">
+            <h4>Create New (n + key)</h4>
+            <div class="shortcut"><kbd>n</kbd> <kbd>o</kbd> <span>New Sales Order</span></div>
+            <div class="shortcut"><kbd>n</kbd> <kbd>q</kbd> <span>New Quotation</span></div>
+            <div class="shortcut"><kbd>n</kbd> <kbd>c</kbd> <span>New Customer</span></div>
+            <div class="shortcut"><kbd>n</kbd> <kbd>p</kbd> <span>New PO</span></div>
           </div>
           <div class="shortcut-group">
             <h4>Actions</h4>
             <div class="shortcut"><kbd>⌘</kbd> <kbd>K</kbd> <span>Global Search</span></div>
-            <div class="shortcut"><kbd>Esc</kbd> <span>Close modal/dropdown</span></div>
+            <div class="shortcut"><kbd>Esc</kbd> <span>Close modal</span></div>
             <div class="shortcut"><kbd>?</kbd> <span>Show this help</span></div>
           </div>
         </div>

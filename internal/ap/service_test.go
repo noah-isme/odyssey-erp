@@ -363,6 +363,10 @@ func (s *stubProcRepo) ListGRNs(ctx context.Context, limit, offset int, filters 
 	return nil, 0, nil
 }
 
+func (s *stubProcRepo) POExistsByNumber(ctx context.Context, number string) (bool, error) {
+	return false, nil
+}
+
 func TestCreateAPInvoiceFromGRN(t *testing.T) {
 	ctx := context.Background()
 	apRepo := newMemoryAPRepo()
@@ -383,7 +387,7 @@ func TestCreateAPInvoiceFromGRN(t *testing.T) {
 		Status:     procurement.POStatusApproved,
 		Currency:   "USD",
 	}
-	procSvc := procurement.NewService(procRepo, nil, nil, nil, nil, nil)
+	procSvc := procurement.NewService(nil, procRepo, nil, nil, nil, nil, nil)
 	svc := NewService(apRepo, procSvc)
 
 	dueDate := time.Date(2026, 1, 20, 0, 0, 0, 0, time.UTC)
@@ -417,7 +421,7 @@ func TestCreateAPInvoiceFromPO(t *testing.T) {
 	procRepo.poLines[10] = []procurement.POLine{
 		{ID: 1, ProductID: 500, Qty: 3, Price: 40, Note: "Test line"},
 	}
-	procSvc := procurement.NewService(procRepo, nil, nil, nil, nil, nil)
+	procSvc := procurement.NewService(nil, procRepo, nil, nil, nil, nil, nil)
 	svc := NewService(apRepo, procSvc)
 
 	inv, err := svc.CreateAPInvoiceFromPO(ctx, CreateAPInvoiceFromPOInput{
@@ -439,7 +443,7 @@ func TestRegisterAPPaymentMultiAllocation(t *testing.T) {
 	ctx := context.Background()
 	apRepo := newMemoryAPRepo()
 	procRepo := newStubProcRepo()
-	procSvc := procurement.NewService(procRepo, nil, nil, nil, nil, nil)
+	procSvc := procurement.NewService(nil, procRepo, nil, nil, nil, nil, nil)
 	svc := NewService(apRepo, procSvc)
 
 	apRepo.invoices[1] = APInvoice{ID: 1, SupplierID: 10, Total: 100, Status: APStatusPosted}

@@ -165,7 +165,7 @@ func main() {
 	inventoryService := inventory.NewService(inventoryRepo, auditLogger, idempotencyStore, inventory.ServiceConfig{}, integrationHooks)
 
 	procurementRepo := procurement.NewRepository(dbpool)
-	procurementService := procurement.NewService(procurementRepo, inventoryService, approvalRecorder, auditLogger, idempotencyStore, integrationHooks)
+	procurementService := procurement.NewService(logger, procurementRepo, inventoryService, approvalRecorder, auditLogger, idempotencyStore, integrationHooks)
 
 	rbacService := rbac.NewService(dbpool)
 	rbacMiddleware := rbac.Middleware{Service: rbacService, Logger: logger}

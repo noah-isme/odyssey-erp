@@ -1,0 +1,4 @@
+./domain.go
+./middleware.go
+./permissions_handler.go
+./service.go
