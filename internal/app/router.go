@@ -18,6 +18,7 @@ import (
 	boardpackhttp "github.com/odyssey-erp/odyssey-erp/internal/boardpack/http"
 	closehttp "github.com/odyssey-erp/odyssey-erp/internal/close/http"
 	consolhttp "github.com/odyssey-erp/odyssey-erp/internal/consol/http"
+	"github.com/odyssey-erp/odyssey-erp/internal/dashboard"
 	"github.com/odyssey-erp/odyssey-erp/internal/delivery"
 	eliminationhttp "github.com/odyssey-erp/odyssey-erp/internal/elimination/http"
 	insightshhtp "github.com/odyssey-erp/odyssey-erp/internal/insights/http"
@@ -28,6 +29,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
 	"github.com/odyssey-erp/odyssey-erp/internal/roles"
 	"github.com/odyssey-erp/odyssey-erp/internal/sales"
+	"github.com/odyssey-erp/odyssey-erp/internal/search"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 	"github.com/odyssey-erp/odyssey-erp/internal/users"
 	"github.com/odyssey-erp/odyssey-erp/internal/variance"
@@ -69,6 +71,8 @@ type RouterParams struct {
 	ConsolHandler      *consolhttp.Handler
 	PermissionsHandler *rbac.PermissionsHandler
 	Metrics            *observability.Metrics
+	DashboardHandler   *dashboard.Handler
+	SearchHandler      *search.Handler
 }
 
 // NewRouter constructs the chi.Router with Odyssey defaults.
@@ -209,6 +213,12 @@ func NewRouter(params RouterParams) http.Handler {
 	if params.Metrics != nil {
 		r.Get("/metrics", params.Metrics.HTMLHandler().ServeHTTP)
 		r.Method(http.MethodGet, "/metrics/prometheus", params.Metrics.Handler())
+	}
+	if params.DashboardHandler != nil {
+		params.DashboardHandler.MountRoutes(r)
+	}
+	if params.SearchHandler != nil {
+		params.SearchHandler.MountRoutes(r)
 	}
 
 	staticFS, err := fs.Sub(web.Static, "static")

@@ -202,7 +202,10 @@ func (r *Repository) GetGRN(ctx context.Context, id int64) (GoodsReceipt, []GRNL
 	return grn, lines, nil
 }
 
-
+// POExistsByNumber checks if a PO with the given number already exists.
+func (r *Repository) POExistsByNumber(ctx context.Context, number string) (bool, error) {
+	return r.queries.POExistsByNumber(ctx, number)
+}
 
 // ListPOs returns purchase orders with supplier name and total.
 func (r *Repository) ListPOs(ctx context.Context, limit, offset int, filters ListFilters) ([]POListItem, int, error) {
@@ -548,7 +551,5 @@ func (tx *txRepo) UpdateGRNStatus(ctx context.Context, id int64, status GRNStatu
 		ID:     id,
 	})
 }
-
-
 
 // nullInt, nullDate helpers are removed as we use pgtype directly

@@ -24,6 +24,7 @@ import { Slideout } from './features/slideout/index.js';
 import { Form } from './features/form/index.js';
 import { ComboBox } from './features/combobox/index.js';
 import * as QuotationForm from './features/quotation-form/index.js';
+import { GlobalSearch } from './features/global-search/index.js';
 
 // Component modules
 import { Inspector } from './components/inspector.js';

@@ -110,6 +110,17 @@ func (q *Queries) CreatePR(ctx context.Context, arg CreatePRParams) (int64, erro
 	return id, err
 }
 
+const gRNExistsByNumber = `-- name: GRNExistsByNumber :one
+SELECT EXISTS(SELECT 1 FROM grns WHERE number = $1) AS exists
+`
+
+func (q *Queries) GRNExistsByNumber(ctx context.Context, number string) (bool, error) {
+	row := q.db.QueryRow(ctx, gRNExistsByNumber, number)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const getGRN = `-- name: GetGRN :one
 SELECT id, number, po_id, supplier_id, warehouse_id, status, received_at, note
 FROM grns WHERE id = $1
@@ -363,6 +374,28 @@ func (q *Queries) InsertPRLine(ctx context.Context, arg InsertPRLineParams) erro
 		arg.Note,
 	)
 	return err
+}
+
+const pOExistsByNumber = `-- name: POExistsByNumber :one
+SELECT EXISTS(SELECT 1 FROM pos WHERE number = $1) AS exists
+`
+
+func (q *Queries) POExistsByNumber(ctx context.Context, number string) (bool, error) {
+	row := q.db.QueryRow(ctx, pOExistsByNumber, number)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const pRExistsByNumber = `-- name: PRExistsByNumber :one
+SELECT EXISTS(SELECT 1 FROM prs WHERE number = $1) AS exists
+`
+
+func (q *Queries) PRExistsByNumber(ctx context.Context, number string) (bool, error) {
+	row := q.db.QueryRow(ctx, pRExistsByNumber, number)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }
 
 const setPOApproval = `-- name: SetPOApproval :exec

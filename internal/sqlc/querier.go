@@ -86,6 +86,7 @@ type Querier interface {
 	ElimLoadAccountingPeriod(ctx context.Context, id int64) (ElimLoadAccountingPeriodRow, error)
 	FindPeriodID(ctx context.Context, code string) (int64, error)
 	FxRateForPeriod(ctx context.Context, arg FxRateForPeriodParams) (FxRateForPeriodRow, error)
+	GRNExistsByNumber(ctx context.Context, number string) (bool, error)
 	GenerateAPInvoiceNumber(ctx context.Context) (interface{}, error)
 	GenerateAPPaymentNumber(ctx context.Context) (interface{}, error)
 	GenerateARInvoiceNumber(ctx context.Context) (string, error)
@@ -237,6 +238,8 @@ type Querier interface {
 	Members(ctx context.Context, groupID int64) ([]MembersRow, error)
 	MonthlyCashflow(ctx context.Context, arg MonthlyCashflowParams) ([]MonthlyCashflowRow, error)
 	MonthlyPL(ctx context.Context, arg MonthlyPLParams) ([]MonthlyPLRow, error)
+	POExistsByNumber(ctx context.Context, number string) (bool, error)
+	PRExistsByNumber(ctx context.Context, number string) (bool, error)
 	PeriodHasActiveRun(ctx context.Context, periodID int64) (int32, error)
 	PeriodRangeConflict(ctx context.Context, arg PeriodRangeConflictParams) (int32, error)
 	PostAPInvoice(ctx context.Context, arg PostAPInvoiceParams) error

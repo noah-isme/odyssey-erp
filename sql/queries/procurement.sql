@@ -73,3 +73,12 @@ FROM grn_lines WHERE grn_id = $1 ORDER BY id;
 -- name: UpdateGRNStatus :exec
 UPDATE grns SET status = $1 WHERE id = $2;
 
+-- name: POExistsByNumber :one
+SELECT EXISTS(SELECT 1 FROM pos WHERE number = $1) AS exists;
+
+-- name: PRExistsByNumber :one
+SELECT EXISTS(SELECT 1 FROM prs WHERE number = $1) AS exists;
+
+-- name: GRNExistsByNumber :one
+SELECT EXISTS(SELECT 1 FROM grns WHERE number = $1) AS exists;
+
