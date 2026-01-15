@@ -1,0 +1,112 @@
+{{ define "pages/finance/banking/list.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Bank Accounts{{ end }}
+
+{{ define "content" }}
+<div class="page-container">
+    <div class="page-header">
+        <div class="page-header-content">
+            <h1 class="page-title">Bank Accounts</h1>
+            <p class="page-subtitle">Manage company bank accounts and cash flow</p>
+        </div>
+        <div class="page-actions">
+            <button class="btn btn--primary" onclick="document.getElementById('new-account-modal').showModal()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                New Account
+            </button>
+        </div>
+    </div>
+
+    <div class="page-content">
+        <div class="grid grid-cols-3 gap-4">
+            {{ range .Data.Accounts }}
+            <a href="/finance/banking/accounts/{{ .ID }}" class="card card--interactive">
+                <div class="card__header">
+                    <div class="flex items-center justify-between">
+                        <h3 class="card__title">{{ .Name }}</h3>
+                        <span class="badge badge--primary">{{ .Currency }}</span>
+                    </div>
+                    <p class="text-sm text-muted mt-1">{{ .AccountNumber }}</p>
+                </div>
+                <div class="card__body mt-4">
+                    <div class="text-sm text-muted">Current Balance</div>
+                    <div class="text-2xl font-bold tabular-nums">
+                        {{ formatCurrency .InitialBalance .Currency }}
+                        <!-- TODO: Calculate real balance including transactions -->
+                    </div>
+                </div>
+            </a>
+            {{ else }}
+            <div class="col-span-3 empty-state">
+                <div class="empty-state__icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                        <rect x="2" y="5" width="20" height="14" rx="2" />
+                        <line x1="2" y1="10" x2="22" y2="10" />
+                    </svg>
+                </div>
+                <h3>No bank accounts found</h3>
+                <p>Add your first bank account to start tracking cash flow.</p>
+            </div>
+            {{ end }}
+        </div>
+    </div>
+</div>
+
+<!-- New Account Modal -->
+<dialog id="new-account-modal" class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg mb-4">Add Bank Account</h3>
+        <form method="post" action="/finance/banking/accounts">
+            <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+            
+            <div class="form-group mb-3">
+                <label class="form-label">Bank Name</label>
+                <input type="text" name="name" class="form-input" placeholder="e.g. BCA Main" required>
+            </div>
+            
+            <div class="form-group mb-3">
+                <label class="form-label">Account Number</label>
+                <input type="text" name="account_number" class="form-input" required>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 mb-3">
+                <div class="form-group">
+                    <label class="form-label">Currency</label>
+                    <select name="currency" class="form-select">
+                        <option value="IDR">IDR</option>
+                        <option value="USD">USD</option>
+                        <option value="SGD">SGD</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Initial Balance</label>
+                    <input type="number" name="initial_balance" class="form-input" value="0" step="0.01">
+                </div>
+            </div>
+
+            <div class="form-group mb-4">
+                <label class="form-label">GL Account (Asset)</label>
+                <div class="lookup-input" data-lookup="coa" data-target="gl_account_id">
+                    <input type="text" class="form-input" placeholder="Search account..." readonly>
+                    <input type="hidden" name="gl_account_id" id="gl_account_id" required>
+                    <button type="button" class="btn btn--secondary">Select</button>
+                </div>
+                <p class="text-xs text-muted mt-1">Select the Asset account representing this bank.</p>
+            </div>
+
+            <div class="modal-action flex justify-end gap-2">
+                <button type="button" class="btn btn--ghost" onclick="this.closest('dialog').close()">Cancel</button>
+                <button type="submit" class="btn btn--primary">Create Account</button>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+{{ end }}

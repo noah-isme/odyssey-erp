@@ -37,6 +37,8 @@ type Querier interface {
 	CreateARInvoice(ctx context.Context, arg CreateARInvoiceParams) (int64, error)
 	CreateARInvoiceLine(ctx context.Context, arg CreateARInvoiceLineParams) (int64, error)
 	CreateARPayment(ctx context.Context, arg CreateARPaymentParams) (int64, error)
+	CreateBankAccount(ctx context.Context, arg CreateBankAccountParams) (BankAccount, error)
+	CreateBankTransaction(ctx context.Context, arg CreateBankTransactionParams) (BankTransaction, error)
 	CreateBranch(ctx context.Context, arg CreateBranchParams) (Branch, error)
 	CreateCategory(ctx context.Context, arg CreateCategoryParams) (CreateCategoryRow, error)
 	CreateCompany(ctx context.Context, arg CreateCompanyParams) (Company, error)
@@ -101,6 +103,8 @@ type Querier interface {
 	GetARInvoiceByNumber(ctx context.Context, number string) (GetARInvoiceByNumberRow, error)
 	GetAccounts(ctx context.Context) ([]GetAccountsRow, error)
 	GetBalanceForUpdate(ctx context.Context, arg GetBalanceForUpdateParams) (InventoryBalance, error)
+	GetBankAccount(ctx context.Context, id int64) (BankAccount, error)
+	GetBankTransaction(ctx context.Context, id pgtype.UUID) (BankTransaction, error)
 	GetBoardPack(ctx context.Context, id int64) (GetBoardPackRow, error)
 	// =============================================================================
 	// BRANCHES (id, company_id, code, name, address, created_at, updated_at)
@@ -203,6 +207,8 @@ type Querier interface {
 	ListARInvoicesByStatus(ctx context.Context, status string) ([]ListARInvoicesByStatusRow, error)
 	ListAROutstanding(ctx context.Context) ([]ListAROutstandingRow, error)
 	ListARPayments(ctx context.Context) ([]ListARPaymentsRow, error)
+	ListBankAccounts(ctx context.Context, companyID int64) ([]BankAccount, error)
+	ListBankTransactions(ctx context.Context, bankAccountID int64) ([]BankTransaction, error)
 	ListBoardPacks(ctx context.Context, arg ListBoardPacksParams) ([]ListBoardPacksRow, error)
 	ListChecklistItems(ctx context.Context, periodCloseRunID int64) ([]PeriodCloseChecklistItem, error)
 	ListCompanies(ctx context.Context) ([]ListCompaniesRow, error)
@@ -257,6 +263,8 @@ type Querier interface {
 	UpdateAPStatus(ctx context.Context, arg UpdateAPStatusParams) error
 	UpdateARStatus(ctx context.Context, arg UpdateARStatusParams) error
 	UpdateAccountingPeriodStatus(ctx context.Context, arg UpdateAccountingPeriodStatusParams) error
+	UpdateBankAccount(ctx context.Context, arg UpdateBankAccountParams) error
+	UpdateBankTransactionStatus(ctx context.Context, arg UpdateBankTransactionStatusParams) error
 	UpdateBranch(ctx context.Context, arg UpdateBranchParams) error
 	UpdateCategory(ctx context.Context, arg UpdateCategoryParams) error
 	UpdateChecklistStatus(ctx context.Context, arg UpdateChecklistStatusParams) (PeriodCloseChecklistItem, error)
