@@ -21,6 +21,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/dashboard"
 	"github.com/odyssey-erp/odyssey-erp/internal/delivery"
 	eliminationhttp "github.com/odyssey-erp/odyssey-erp/internal/elimination/http"
+	"github.com/odyssey-erp/odyssey-erp/internal/finance/banking"
 	insightshhtp "github.com/odyssey-erp/odyssey-erp/internal/insights/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/inventory"
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata"
@@ -73,6 +74,7 @@ type RouterParams struct {
 	Metrics            *observability.Metrics
 	DashboardHandler   *dashboard.Handler
 	SearchHandler      *search.Handler
+	BankingHandler     *banking.Handler
 }
 
 // NewRouter constructs the chi.Router with Odyssey defaults.
@@ -196,6 +198,9 @@ func NewRouter(params RouterParams) http.Handler {
 	r.Route("/report", params.ReportHandler.MountRoutes)
 	if params.ConsolHandler != nil {
 		params.ConsolHandler.MountRoutes(r)
+	}
+	if params.BankingHandler != nil {
+		r.Route("/finance/banking", params.BankingHandler.MountRoutes)
 	}
 	r.Route("/jobs", params.JobHandler.MountRoutes)
 	if params.AnalyticsHandler != nil {

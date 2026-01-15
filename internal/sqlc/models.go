@@ -731,6 +731,32 @@ type AuditLog struct {
 	OccurredAt pgtype.Timestamptz `json:"occurred_at"`
 }
 
+type BankAccount struct {
+	ID             int64              `json:"id"`
+	CompanyID      int64              `json:"company_id"`
+	Name           string             `json:"name"`
+	AccountNumber  string             `json:"account_number"`
+	Currency       string             `json:"currency"`
+	GlAccountID    int64              `json:"gl_account_id"`
+	InitialBalance pgtype.Numeric     `json:"initial_balance"`
+	IsActive       bool               `json:"is_active"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type BankTransaction struct {
+	ID            pgtype.UUID        `json:"id"`
+	BankAccountID int64              `json:"bank_account_id"`
+	Date          pgtype.Date        `json:"date"`
+	Amount        pgtype.Numeric     `json:"amount"`
+	Description   string             `json:"description"`
+	Reference     pgtype.Text        `json:"reference"`
+	Status        string             `json:"status"`
+	GlJournalID   pgtype.Int8        `json:"gl_journal_id"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
 type BoardPack struct {
 	ID                 int64              `json:"id"`
 	CompanyID          int64              `json:"company_id"`

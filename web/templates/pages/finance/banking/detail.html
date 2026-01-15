@@ -1,0 +1,151 @@
+{{ define "pages/finance/banking/detail.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Bank Account - {{ .Data.Account.Name }}{{ end }}
+
+{{ define "content" }}
+<div class="page-container">
+    <!-- Header -->
+    <div class="page-header">
+        <div class="page-header-content">
+            <div class="flex items-center gap-2 mb-1">
+                <a href="/finance/banking/accounts" class="text-muted hover:text-primary">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 12H5M12 19l-7-7 7-7"/>
+                    </svg>
+                </a>
+                <h1 class="page-title">{{ .Data.Account.Name }}</h1>
+                <span class="badge badge--primary">{{ .Data.Account.Currency }}</span>
+            </div>
+            <p class="page-subtitle">{{ .Data.Account.AccountNumber }}</p>
+        </div>
+        <div class="page-actions">
+            <button class="btn btn--primary" onclick="document.getElementById('new-txn-modal').showModal()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                Add Transaction
+            </button>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-4 gap-4 mb-6">
+        <div class="card p-4">
+            <div class="text-sm text-muted">Ledger Balance</div>
+            <div class="text-2xl font-bold mt-1">
+                {{ formatCurrency .Data.Account.InitialBalance .Data.Account.Currency }}
+                <!-- TODO: Calculate real balance -->
+            </div>
+        </div>
+        <div class="card p-4">
+            <div class="text-sm text-muted">GL Account</div>
+            <div class="text-lg font-medium mt-1">
+                <a href="/accounting/coa/{{ .Data.Account.GlAccountID }}" class="link">View Account</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Transactions Table -->
+    <div class="card p-0 overflow-hidden">
+        <div class="table-wrap">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th width="15%">Date</th>
+                        <th width="15%">Reference</th>
+                        <th width="30%">Description</th>
+                        <th width="10%">Status</th>
+                        <th width="15%" class="text-right">Amount</th>
+                        <th width="15%" class="text-right">Running Balance</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ if .Data.Transactions }}
+                    {{ range .Data.Transactions }}
+                    <tr>
+                        <td>{{ formatDate .Date }}</td>
+                        <td>{{ if .Reference.Valid }}{{ .Reference.String }}{{ else }}-{{ end }}</td>
+                        <td>{{ .Description }}</td>
+                        <td>
+                            {{ if eq .Status "CLEARED" }}<span class="badge badge--success">Cleared</span>{{ end }}
+                            {{ if eq .Status "PENDING" }}<span class="badge badge--warning">Pending</span>{{ end }}
+                            {{ if eq .Status "RECONCILED" }}<span class="badge badge--info">Reconciled</span>{{ end }}
+                        </td>
+                        <td class="text-right font-medium {{ if lt (formatDecimal .Amount) "0" }}text-danger{{ else }}text-success{{ end }}">
+                            {{ formatDecimal .Amount }}
+                        </td>
+                        <td class="text-right text-muted">-</td> <!-- Running balance requires calculation logic -->
+                    </tr>
+                    {{ end }}
+                    {{ else }}
+                    <tr>
+                        <td colspan="6" class="table-empty">
+                            <div class="empty-state">
+                                <p>No transactions recorded yet.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- New Transaction Modal -->
+<dialog id="new-txn-modal" class="modal">
+    <div class="modal-box w-11/12 max-w-2xl">
+        <h3 class="font-bold text-lg mb-4">Record Transaction</h3>
+        <form method="post" action="/finance/banking/accounts/{{ .Data.Account.ID }}/transactions">
+            <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+            
+            <div class="grid grid-cols-2 gap-4 mb-3">
+                <div class="form-group">
+                    <label class="form-label">Date</label>
+                    <input type="date" name="date" class="form-input" required value="{{ now | formatDateInput }}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Reference</label>
+                    <input type="text" name="reference" class="form-input" placeholder="e.g. TRF-001">
+                </div>
+            </div>
+
+            <div class="form-group mb-3">
+                <label class="form-label">Description</label>
+                <input type="text" name="description" class="form-input" placeholder="e.g. Payment to Supplier" required>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 mb-3">
+                <div class="form-group">
+                    <label class="form-label">Amount</label>
+                    <div class="input-group">
+                        <span class="input-addon">{{ .Data.Account.Currency }}</span>
+                        <input type="number" name="amount" class="form-input" step="0.01" required placeholder="Positive = Deposit, Negative = Withdrawal">
+                    </div>
+                    <p class="text-xs text-muted mt-1">Use negative value for money out.</p>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Contra Account</label>
+                    <div class="lookup-input" data-lookup="coa" data-target="contra_account_id">
+                        <input type="text" class="form-input" placeholder="Search GL account..." readonly>
+                        <input type="hidden" name="contra_account_id" id="contra_account_id" required>
+                        <button type="button" class="btn btn--secondary">Select</button>
+                    </div>
+                    <p class="text-xs text-muted mt-1">The other side of the entry (e.g. Expense).</p>
+                </div>
+            </div>
+
+            <div class="modal-action flex justify-end gap-2">
+                <button type="button" class="btn btn--ghost" onclick="this.closest('dialog').close()">Cancel</button>
+                <button type="submit" class="btn btn--primary">Record</button>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+{{ end }}

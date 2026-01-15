@@ -42,6 +42,7 @@ import (
 	deliveryorders "github.com/odyssey-erp/odyssey-erp/internal/delivery/orders"
 	eliminationpkg "github.com/odyssey-erp/odyssey-erp/internal/elimination"
 	eliminationhttp "github.com/odyssey-erp/odyssey-erp/internal/elimination/http"
+	"github.com/odyssey-erp/odyssey-erp/internal/finance/banking"
 	"github.com/odyssey-erp/odyssey-erp/internal/insights"
 	insightshhtp "github.com/odyssey-erp/odyssey-erp/internal/insights/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/integration"
@@ -160,6 +161,10 @@ func main() {
 	journalService := journals.NewService(journalRepo, auditLogger, closeService)
 	accountingHandler := accounting.NewHandler(logger, dbpool, templates, auditLogger, closeService)
 	integrationHooks := integration.NewHooks(journalService, periodRepo, mappingRepo)
+
+	bankingRepo := banking.NewRepository(dbpool)
+	bankingService := banking.NewService(bankingRepo, logger, journalService)
+	bankingHandler := banking.NewHandler(logger, bankingService, templates)
 
 	inventoryRepo := inventory.NewRepository(dbpool)
 	inventoryService := inventory.NewService(inventoryRepo, auditLogger, idempotencyStore, inventory.ServiceConfig{}, integrationHooks)
@@ -313,6 +318,7 @@ func main() {
 		InsightsHandler:    insightsHandler,
 		AuditHandler:       auditHandler,
 		PermissionsHandler: permissionsHandler,
+		BankingHandler:     bankingHandler,
 		Metrics:            metrics,
 	})
 
