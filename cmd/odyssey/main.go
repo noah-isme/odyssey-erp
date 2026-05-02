@@ -164,7 +164,7 @@ func main() {
 
 	bankingRepo := banking.NewRepository(dbpool)
 	bankingService := banking.NewService(bankingRepo, logger, journalService)
-	bankingHandler := banking.NewHandler(logger, bankingService, templates)
+	bankingHandler := banking.NewHandler(logger, bankingService, templates, csrfManager)
 
 	inventoryRepo := inventory.NewRepository(dbpool)
 	inventoryService := inventory.NewService(inventoryRepo, auditLogger, idempotencyStore, inventory.ServiceConfig{}, integrationHooks)
@@ -319,6 +319,7 @@ func main() {
 		AuditHandler:       auditHandler,
 		PermissionsHandler: permissionsHandler,
 		BankingHandler:     bankingHandler,
+		InventoryService:   inventoryService,
 		Metrics:            metrics,
 	})
 

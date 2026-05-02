@@ -70,11 +70,25 @@
                         <td>{{ if .Reference.Valid }}{{ .Reference.String }}{{ else }}-{{ end }}</td>
                         <td>{{ .Description }}</td>
                         <td>
-                            {{ if eq .Status "CLEARED" }}<span class="badge badge--success">Cleared</span>{{ end }}
-                            {{ if eq .Status "PENDING" }}<span class="badge badge--warning">Pending</span>{{ end }}
-                            {{ if eq .Status "RECONCILED" }}<span class="badge badge--info">Reconciled</span>{{ end }}
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    {{ if eq .Status "CLEARED" }}<span class="badge badge--success">Cleared</span>{{ end }}
+                                    {{ if eq .Status "PENDING" }}<span class="badge badge--warning">Pending</span>{{ end }}
+                                    {{ if eq .Status "RECONCILED" }}<span class="badge badge--info">Reconciled</span>{{ end }}
+                                </div>
+                                {{ if ne .Status "RECONCILED" }}
+                                <form method="post" action="/finance/banking/transactions/{{ .ID | formatUUID }}/reconcile" class="inline">
+                                    <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
+                                    <button type="submit" class="btn btn--xs btn--outline" title="Mark as Reconciled">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <polyline points="20 6 9 17 4 12" />
+                                        </svg>
+                                    </button>
+                                </form>
+                                {{ end }}
+                            </div>
                         </td>
-                        <td class="text-right font-medium {{ if lt (formatDecimal .Amount) "0" }}text-danger{{ else }}text-success{{ end }}">
+                        <td class="text-right font-medium {{ if isNegative .Amount }}text-danger{{ else }}text-success{{ end }}">
                             {{ formatDecimal .Amount }}
                         </td>
                         <td class="text-right text-muted">-</td> <!-- Running balance requires calculation logic -->

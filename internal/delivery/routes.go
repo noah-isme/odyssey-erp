@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/delivery/orders"
+	"github.com/odyssey-erp/odyssey-erp/internal/inventory"
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
@@ -21,10 +22,14 @@ func MountRoutes(
 	templates *view.Engine,
 	csrf *shared.CSRFManager,
 	rbacMW rbac.Middleware,
+	inventorySvc *inventory.Service,
 ) {
 	// Orders entity
 	ordersRepo := orders.NewRepository(pool)
 	ordersSvc := orders.NewService(ordersRepo)
+	if inventorySvc != nil {
+		ordersSvc.SetInventory(orders.NewInventoryAdapter(inventorySvc))
+	}
 	ordersHandler := orders.NewHandler(logger, ordersSvc, templates, csrf, rbacMW)
 
 	r.Route("/orders", func(r chi.Router) {

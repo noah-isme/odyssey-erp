@@ -191,6 +191,105 @@ func (s *Service) CreateBankTransaction(ctx context.Context, input CreateTransac
 	return txn, nil
 }
 
+// UpdateBankTransactionStatus updates the status of a transaction.
+func (s *Service) ReconcileTransaction(ctx context.Context, id uuid.UUID) error {
+	arg := sqlc.UpdateBankTransactionStatusParams{
+		ID:     pgtype.UUID{Bytes: id, Valid: true},
+		Status: "RECONCILED",
+	}
+	return s.repo.UpdateBankTransactionStatus(ctx, arg)
+}
+
+// TransferInput defines payload for bank transfer.
+type TransferInput struct {
+	FromAccountID int64
+	ToAccountID   int64
+	Amount        float64
+	Date          time.Time
+	Description   string
+	Reference     string
+	PeriodID      int64
+	CreatedBy     int64
+}
+
+// TransferFunds records a transfer between two bank accounts with a single GL entry.
+func (s *Service) TransferFunds(ctx context.Context, input TransferInput) error {
+	if input.FromAccountID == input.ToAccountID {
+		return fmt.Errorf("source and destination accounts must be different")
+	}
+	if input.Amount <= 0 {
+		return fmt.Errorf("transfer amount must be positive")
+	}
+
+	// 1. Get Accounts
+	fromAcct, err := s.repo.GetBankAccount(ctx, input.FromAccountID)
+	if err != nil {
+		return fmt.Errorf("source account not found: %w", err)
+	}
+	toAcct, err := s.repo.GetBankAccount(ctx, input.ToAccountID)
+	if err != nil {
+		return fmt.Errorf("destination account not found: %w", err)
+	}
+
+	// 2. Prepare GL Posting
+	// Logic: Debit Destination Bank GL, Credit Source Bank GL
+	glInput := journals.PostingInput{
+		PeriodID:     input.PeriodID,
+		Date:         input.Date,
+		SourceModule: "FINANCE.BANKING.TRANSFER",
+		Memo:         input.Description,
+		PostedBy:     input.CreatedBy,
+		Lines: []journals.PostingLineInput{
+			{AccountID: toAcct.GlAccountID, Debit: input.Amount},
+			{AccountID: fromAcct.GlAccountID, Credit: input.Amount},
+		},
+	}
+
+	journal, err := s.poster.PostJournal(ctx, glInput)
+	if err != nil {
+		return fmt.Errorf("failed to post GL entry for transfer: %w", err)
+	}
+
+	// 3. Create Bank Transactions
+	// Withdrawal from source
+	fromTxnID := uuid.New()
+	var fromAmt pgtype.Numeric
+	fromAmt.Scan(fmt.Sprintf("%f", -input.Amount))
+	_, err = s.repo.CreateBankTransaction(ctx, sqlc.CreateBankTransactionParams{
+		ID:            pgtype.UUID{Bytes: fromTxnID, Valid: true},
+		BankAccountID: input.FromAccountID,
+		Date:          pgtype.Date{Time: input.Date, Valid: true},
+		Amount:        fromAmt,
+		Description:   fmt.Sprintf("Transfer to %s: %s", toAcct.Name, input.Description),
+		Reference:     pgtype.Text{String: input.Reference, Valid: input.Reference != ""},
+		Status:        "CLEARED",
+		GlJournalID:   pgtype.Int8{Int64: journal.ID, Valid: true},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to record withdrawal: %w", err)
+	}
+
+	// Deposit to destination
+	toTxnID := uuid.New()
+	var toAmt pgtype.Numeric
+	toAmt.Scan(fmt.Sprintf("%f", input.Amount))
+	_, err = s.repo.CreateBankTransaction(ctx, sqlc.CreateBankTransactionParams{
+		ID:            pgtype.UUID{Bytes: toTxnID, Valid: true},
+		BankAccountID: input.ToAccountID,
+		Date:          pgtype.Date{Time: input.Date, Valid: true},
+		Amount:        toAmt,
+		Description:   fmt.Sprintf("Transfer from %s: %s", fromAcct.Name, input.Description),
+		Reference:     pgtype.Text{String: input.Reference, Valid: input.Reference != ""},
+		Status:        "CLEARED",
+		GlJournalID:   pgtype.Int8{Int64: journal.ID, Valid: true},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to record deposit: %w", err)
+	}
+
+	return nil
+}
+
 // ListBankAccounts returns all accounts for a company.
 func (s *Service) ListBankAccounts(ctx context.Context, companyID int64) ([]sqlc.BankAccount, error) {
 	return s.repo.ListBankAccounts(ctx, companyID)

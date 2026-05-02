@@ -75,6 +75,7 @@ type RouterParams struct {
 	DashboardHandler   *dashboard.Handler
 	SearchHandler      *search.Handler
 	BankingHandler     *banking.Handler
+	InventoryService   *inventory.Service
 }
 
 // NewRouter constructs the chi.Router with Odyssey defaults.
@@ -193,7 +194,7 @@ func NewRouter(params RouterParams) http.Handler {
 		r.Route("/masterdata", params.MasterDataHandler.MountRoutes)
 	}
 	r.Route("/delivery", func(r chi.Router) {
-		delivery.MountRoutes(r, params.Pool, params.Logger, params.Templates, params.CSRFManager, params.RBACMiddleware)
+		delivery.MountRoutes(r, params.Pool, params.Logger, params.Templates, params.CSRFManager, params.RBACMiddleware, params.InventoryService)
 	})
 	r.Route("/report", params.ReportHandler.MountRoutes)
 	if params.ConsolHandler != nil {

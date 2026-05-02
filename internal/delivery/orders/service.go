@@ -232,7 +232,7 @@ func (s *Service) Update(ctx context.Context, id int64, req UpdateRequest) (*Del
 	return s.repo.GetByID(ctx, id)
 }
 
-// Confirm confirms a delivery order.
+// Confirm confirms a delivery order and reduces inventory.
 func (s *Service) Confirm(ctx context.Context, id int64, confirmedBy int64) (*DeliveryOrder, error) {
 	existing, err := s.repo.GetByID(ctx, id)
 	if err != nil {
@@ -263,6 +263,29 @@ func (s *Service) Confirm(ctx context.Context, id int64, confirmedBy int64) (*De
 
 	if err != nil {
 		return nil, err
+	}
+
+	// Inventory reduction
+	if s.inventory != nil {
+		items := make([]InventoryItem, 0, len(existing.Lines))
+		for _, line := range existing.Lines {
+			items = append(items, InventoryItem{
+				WarehouseID: existing.WarehouseID,
+				ProductID:   line.ProductID,
+				Quantity:    line.QuantityToDeliver,
+				UnitCost:    line.UnitPrice,
+				Code:        fmt.Sprintf("DO-%s-C", existing.DocNumber),
+				Note:        fmt.Sprintf("Delivery %s Confirmed", existing.DocNumber),
+				ActorID:     confirmedBy,
+				RefModule:   "DELIVERY",
+				RefID:       fmt.Sprintf("%d", id),
+			})
+		}
+		if err := s.inventory.Reduce(ctx, items); err != nil {
+			// Rollback status? In this simple impl we return error. 
+			// Ideally this should be inside repo.WithTx if inventory supports it.
+			return nil, fmt.Errorf("reduce inventory: %w", err)
+		}
 	}
 
 	return s.repo.GetByID(ctx, id)
@@ -328,31 +351,10 @@ func (s *Service) MarkDelivered(ctx context.Context, id int64, req MarkDelivered
 		return nil, err
 	}
 
-	// Inventory reduction
-	if s.inventory != nil {
-		items := make([]InventoryItem, 0, len(existing.Lines))
-		for _, line := range existing.Lines {
-			items = append(items, InventoryItem{
-				WarehouseID: existing.WarehouseID,
-				ProductID:   line.ProductID,
-				Quantity:    line.QuantityToDeliver,
-				UnitCost:    line.UnitPrice,
-				Code:        fmt.Sprintf("DO-%s-L%d", existing.DocNumber, line.ID),
-				Note:        fmt.Sprintf("Delivery %s Line %d", existing.DocNumber, line.LineOrder),
-				ActorID:     req.UpdatedBy,
-				RefModule:   "DELIVERY",
-				RefID:       fmt.Sprintf("%d", id),
-			})
-		}
-		if err := s.inventory.Reduce(ctx, items); err != nil {
-			return nil, fmt.Errorf("reduce inventory: %w", err)
-		}
-	}
-
 	return s.repo.GetByID(ctx, id)
 }
 
-// Cancel cancels a delivery order.
+// Cancel cancels a delivery order and restores inventory if it was confirmed.
 func (s *Service) Cancel(ctx context.Context, id int64, req CancelRequest) (*DeliveryOrder, error) {
 	existing, err := s.repo.GetByID(ctx, id)
 	if err != nil {
@@ -363,8 +365,10 @@ func (s *Service) Cancel(ctx context.Context, id int64, req CancelRequest) (*Del
 		return nil, fmt.Errorf("%w: %s", ErrCannotCancel, existing.Status)
 	}
 
+	wasConfirmed := existing.Status == StatusConfirmed || existing.Status == StatusInTransit
+
 	err = s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
-		if existing.Status == StatusConfirmed {
+		if existing.Status == StatusConfirmed || existing.Status == StatusInTransit {
 			for _, line := range existing.Lines {
 				if err := tx.UpdateLineQuantity(ctx, line.ID, 0); err != nil {
 					return fmt.Errorf("reset line %d: %w", line.ID, err)
@@ -380,6 +384,27 @@ func (s *Service) Cancel(ctx context.Context, id int64, req CancelRequest) (*Del
 
 	if err != nil {
 		return nil, err
+	}
+
+	// Inventory restoration
+	if wasConfirmed && s.inventory != nil {
+		items := make([]InventoryItem, 0, len(existing.Lines))
+		for _, line := range existing.Lines {
+			items = append(items, InventoryItem{
+				WarehouseID: existing.WarehouseID,
+				ProductID:   line.ProductID,
+				Quantity:    -line.QuantityToDeliver, // Restore (negative of reduction = positive)
+				UnitCost:    line.UnitPrice,
+				Code:        fmt.Sprintf("DO-%s-X", existing.DocNumber),
+				Note:        fmt.Sprintf("Delivery %s Cancelled", existing.DocNumber),
+				ActorID:     req.CancelledBy,
+				RefModule:   "DELIVERY",
+				RefID:       fmt.Sprintf("%d", id),
+			})
+		}
+		if err := s.inventory.Reduce(ctx, items); err != nil {
+			return nil, fmt.Errorf("restore inventory: %w", err)
+		}
 	}
 
 	return s.repo.GetByID(ctx, id)
