@@ -11,7 +11,16 @@
             <h1 class="page-title">Bank Accounts</h1>
             <p class="page-subtitle">Manage company bank accounts and cash flow</p>
         </div>
-        <div class="page-actions">
+        <div class="page-actions flex gap-2">
+            <button class="btn btn--outline" onclick="document.getElementById('transfer-modal').showModal()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="17 1 21 5 17 9" />
+                    <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+                    <polyline points="7 23 3 19 7 15" />
+                    <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+                </svg>
+                Transfer Funds
+            </button>
             <button class="btn btn--primary" onclick="document.getElementById('new-account-modal').showModal()">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="12" y1="5" x2="12" y2="19" />
@@ -102,6 +111,66 @@
             <div class="modal-action flex justify-end gap-2">
                 <button type="button" class="btn btn--ghost" onclick="this.closest('dialog').close()">Cancel</button>
                 <button type="submit" class="btn btn--primary">Create Account</button>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
+<!-- Transfer Modal -->
+<dialog id="transfer-modal" class="modal">
+    <div class="modal-box w-11/12 max-w-2xl">
+        <h3 class="font-bold text-lg mb-4">Transfer Funds</h3>
+        <form method="post" action="/finance/banking/transfer">
+            <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+            
+            <div class="grid grid-cols-2 gap-4 mb-3">
+                <div class="form-group">
+                    <label class="form-label">From Account</label>
+                    <select name="from_account_id" class="form-select" required>
+                        <option value="">Select source...</option>
+                        {{ range .Data.Accounts }}
+                        <option value="{{ .ID }}">{{ .Name }} ({{ .Currency }})</option>
+                        {{ end }}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">To Account</label>
+                    <select name="to_account_id" class="form-select" required>
+                        <option value="">Select destination...</option>
+                        {{ range .Data.Accounts }}
+                        <option value="{{ .ID }}">{{ .Name }} ({{ .Currency }})</option>
+                        {{ end }}
+                    </select>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4 mb-3">
+                <div class="form-group">
+                    <label class="form-label">Date</label>
+                    <input type="date" name="date" class="form-input" required value="{{ now | formatDateInput }}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Amount</label>
+                    <input type="number" name="amount" class="form-input" step="0.01" required min="0.01">
+                </div>
+            </div>
+
+            <div class="form-group mb-3">
+                <label class="form-label">Description</label>
+                <input type="text" name="description" class="form-input" placeholder="e.g. Weekly top-up" required>
+            </div>
+            
+            <div class="form-group mb-4">
+                <label class="form-label">Reference</label>
+                <input type="text" name="reference" class="form-input" placeholder="e.g. TRF-123">
+            </div>
+
+            <div class="modal-action flex justify-end gap-2">
+                <button type="button" class="btn btn--ghost" onclick="this.closest('dialog').close()">Cancel</button>
+                <button type="submit" class="btn btn--primary">Transfer</button>
             </div>
         </form>
     </div>
