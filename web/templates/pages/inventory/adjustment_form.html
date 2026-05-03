@@ -2,12 +2,14 @@
 {{ template "layouts/base.html" . }}
 {{ end }}
 
+{{ define "title" }}Buat Penyesuaian Stok{{ end }}
+
 {{ define "content" }}
 <div class="container container-narrow">
     <header class="page-header">
         <div class="header-main">
-            <h1>Penyesuaian Stok</h1>
-            <p class="text-muted">Sesuaikan stok sistem secara manual untuk koreksi.</p>
+            <h1>Buat Penyesuaian</h1>
+            <p class="text-muted">Mulai dokumen penyesuaian stok baru.</p>
         </div>
     </header>
 
@@ -20,54 +22,25 @@
                 <select name="warehouse_id" id="warehouse_id" class="form-control" required>
                     <option value="">Pilih Gudang...</option>
                     {{ range .Data.Warehouses }}
-                    <option value="{{ .ID }}" {{ if eq .ID $.Data.Form.WarehouseID }}selected{{ end }}>{{ .Name }}</option>
+                    <option value="{{ .ID }}">{{ .Name }}</option>
                     {{ end }}
                 </select>
-                {{ if .Data.Errors.warehouse_id }}<p class="form-error">{{ .Data.Errors.warehouse_id }}</p>{{ end }}
             </div>
 
             <div class="form-group">
-                <label for="product_id">Produk</label>
-                <select name="product_id" id="product_id" class="form-control" required>
-                    <option value="">Pilih Produk...</option>
-                    {{ range .Data.Products }}
-                    <option value="{{ .ID }}" {{ if eq .ID $.Data.Form.ProductID }}selected{{ end }}>{{ .Name }} ({{ .SKU }})</option>
-                    {{ end }}
-                </select>
-                {{ if .Data.Errors.product_id }}<p class="form-error">{{ .Data.Errors.product_id }}</p>{{ end }}
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="form-group">
-                    <label for="qty">Jumlah (Koreksi)</label>
-                    <input type="number" step="any" name="qty" id="qty" class="form-control" value="{{ .Data.Form.Qty }}" placeholder="Contoh: -5 atau 10" required>
-                    <p class="text-xs text-muted mt-1">Gunakan angka negatif untuk mengurangi stok.</p>
-                    {{ if .Data.Errors.qty }}<p class="form-error">{{ .Data.Errors.qty }}</p>{{ end }}
-                </div>
-
-                <div class="form-group">
-                    <label for="unit_cost">Biaya per Unit (Opsional)</label>
-                    <input type="number" step="any" name="unit_cost" id="unit_cost" class="form-control" value="{{ .Data.Form.UnitCost }}" placeholder="0.00">
-                    {{ if .Data.Errors.unit_cost }}<p class="form-error">{{ .Data.Errors.unit_cost }}</p>{{ end }}
-                </div>
+                <label for="adjustment_at">Tanggal Penyesuaian</label>
+                <input type="date" name="adjustment_at" id="adjustment_at" class="form-control" value="{{ now | formatDateInput }}" required>
             </div>
 
             <div class="form-group">
-                <label for="note">Alasan Penyesuaian</label>
-                <textarea name="note" id="note" class="form-control" rows="3" required placeholder="Contoh: Barang rusak atau salah input">{{ .Data.Form.Note }}</textarea>
-                {{ if .Data.Errors.note }}<p class="form-error">{{ .Data.Errors.note }}</p>{{ end }}
+                <label for="note">Catatan / Alasan</label>
+                <textarea name="note" id="note" class="form-control" rows="3" placeholder="Contoh: Koreksi barang rusak saat bongkar muat"></textarea>
             </div>
 
             <div class="form-footer">
-                <a href="/inventory/dashboard" class="button ghost">Batal</a>
-                <button type="submit" class="button primary">Simpan Penyesuaian</button>
+                <a href="/inventory/adjustments" class="button ghost">Batal</a>
+                <button type="submit" class="button primary">Lanjut ke Item</button>
             </div>
-            
-            {{ if .Data.Errors.general }}
-            <div class="alert alert-danger mt-4">
-                {{ .Data.Errors.general }}
-            </div>
-            {{ end }}
         </form>
     </div>
 </div>

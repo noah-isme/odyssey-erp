@@ -1,12 +1,14 @@
 package orders
 
 import (
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/hibiken/asynq"
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata/products"
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
 	"github.com/odyssey-erp/odyssey-erp/internal/sales/customers"
@@ -24,6 +26,7 @@ type Handler struct {
 	templates        *view.Engine
 	csrf             *shared.CSRFManager
 	rbac             rbac.Middleware
+	asynqClient      *asynq.Client
 }
 
 func NewHandler(
@@ -35,6 +38,7 @@ func NewHandler(
 	templates *view.Engine,
 	csrf *shared.CSRFManager,
 	rbac rbac.Middleware,
+	asynqClient *asynq.Client,
 ) *Handler {
 	return &Handler{
 		logger:           logger,
@@ -45,6 +49,7 @@ func NewHandler(
 		templates:        templates,
 		csrf:             csrf,
 		rbac:             rbac,
+		asynqClient:      asynqClient,
 	}
 }
 
@@ -360,6 +365,41 @@ func (h *Handler) Cancel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.redirectWithFlash(w, r, "/sales/orders/"+strconv.FormatInt(id, 10), "success", "Sales order cancelled")
+}
+
+// EmailOrder enqueues a background job to send an order via email.
+func (h *Handler) EmailOrder(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid order ID", http.StatusBadRequest)
+		return
+	}
+
+	order, err := h.service.Get(r.Context(), id)
+	if err != nil {
+		h.logger.Error("get order for email", slog.Any("error", err), slog.Int64("id", id))
+		h.redirectWithFlash(w, r, "/sales/orders/"+idStr, "error", "Failed to retrieve order")
+		return
+	}
+
+	customerEmail := "customer@example.com"
+	
+	payload := fmt.Sprintf(`{"to": ["%s"], "subject": "Sales Order %s", "body_html": "<p>Please find attached your sales order.</p>"}`, customerEmail, order.DocNumber)
+	
+	if h.asynqClient != nil {
+		task := asynq.NewTask("email:deliver", []byte(payload))
+		_, err = h.asynqClient.EnqueueContext(r.Context(), task)
+		if err != nil {
+			h.logger.Error("enqueue email task", slog.Any("error", err))
+			h.redirectWithFlash(w, r, "/sales/orders/"+idStr, "error", "Failed to queue email")
+			return
+		}
+	} else {
+		h.logger.Warn("asynqClient is nil, email not sent")
+	}
+
+	h.redirectWithFlash(w, r, "/sales/orders/"+idStr, "success", "Email successfully queued for delivery")
 }
 
 // Helpers

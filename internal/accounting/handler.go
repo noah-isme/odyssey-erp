@@ -8,9 +8,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/accounts"
+	"github.com/odyssey-erp/odyssey-erp/internal/accounting/banks"
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/journals"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
-
 )
 
 // Handler wires finance ledger endpoints.
@@ -19,32 +19,31 @@ type Handler struct {
 	templates      *view.Engine
 	accountHandler *accounts.Handler
 	journalHandler *journals.Handler
-	// Future: ReportHandler
+	banksHandler   *banks.Handler
 }
 
 // NewHandler builds a Handler instance.
-// Note: Dependencies like audit and guard should be injected here or created if simple.
-// For now, assuming they are passed or we create separate constructors.
 func NewHandler(logger *slog.Logger, db *pgxpool.Pool, templates *view.Engine, audit journals.AuditPort, guard journals.PeriodGuard) *Handler {
 	// Repositories
 	accountRepo := accounts.NewRepository(db)
 	journalRepo := journals.NewRepository(db)
-	// periodRepo := periods.NewRepository(db)
-	// mappingRepo := mappings.NewRepository(db)
 
 	// Services
 	accountService := accounts.NewService(accountRepo)
 	journalService := journals.NewService(journalRepo, audit, guard)
+	bankService := banks.NewService(db)
 
 	// Handlers
 	accountHandler := accounts.NewHandler(logger, accountService, templates)
 	journalHandler := journals.NewHandler(logger, journalService, templates)
+	banksHandler := banks.NewHandler(logger, bankService, templates)
 
 	return &Handler{
 		logger:         logger,
 		templates:      templates,
 		accountHandler: accountHandler,
 		journalHandler: journalHandler,
+		banksHandler:   banksHandler,
 	}
 }
 
@@ -56,12 +55,15 @@ func (h *Handler) MountRoutes(r chi.Router) {
 	r.Route("/journals", func(r chi.Router) {
 		h.journalHandler.MountRoutes(r)
 	})
-
-	// Legacy/Direct routes for now until Report module is fully separated
+	r.Route("/banks", func(r chi.Router) {
+		h.banksHandler.MountRoutes(r)
+	})
 	r.Get("/gl", h.handleGeneralLedger)
 	r.Get("/trial-balance", h.handleTrialBalance)
 	r.Get("/pnl", h.handleProfitLoss)
 	r.Get("/balance-sheet", h.handleBalanceSheet)
+	r.Get("/cash-flow", h.handleCashFlow)
+	r.Get("/budget", h.handleBudget)
 
 	r.Get("/finance/reports/trial-balance/pdf", h.handleNotImplemented)
 	r.Get("/finance/reports/pl/pdf", h.handleNotImplemented)
@@ -88,4 +90,20 @@ func (h *Handler) handleProfitLoss(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) handleNotImplemented(w http.ResponseWriter, _ *http.Request) {
 	h.logger.Info("ledger handler invoked", slog.String("path", "finance"))
 	http.Error(w, http.StatusText(http.StatusNotImplemented), http.StatusNotImplemented)
+}
+
+func (h *Handler) handleCashFlow(w http.ResponseWriter, _ *http.Request) {
+	viewData := view.TemplateData{Title: "Cash Flow"}
+	if err := h.templates.Render(w, "pages/finance/cashflow.html", viewData); err != nil {
+		h.logger.Error("render cash flow", slog.Any("error", err))
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+	}
+}
+
+func (h *Handler) handleBudget(w http.ResponseWriter, _ *http.Request) {
+	viewData := view.TemplateData{Title: "Budget vs Actual"}
+	if err := h.templates.Render(w, "pages/finance/budget.html", viewData); err != nil {
+		h.logger.Error("render budget", slog.Any("error", err))
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+	}
 }

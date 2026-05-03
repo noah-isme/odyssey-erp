@@ -36,3 +36,8 @@ func (a *InventoryAdapter) Reduce(ctx context.Context, items []InventoryItem) er
 	}
 	return nil
 }
+
+// CheckAvailability implements the InventoryClient interface.
+func (a *InventoryAdapter) CheckAvailability(ctx context.Context, warehouseID, productID int64) (float64, error) {
+	return a.svc.CheckAvailability(ctx, warehouseID, productID)
+}

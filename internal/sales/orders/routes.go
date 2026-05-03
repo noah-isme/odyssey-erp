@@ -22,5 +22,6 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Post("/orders/{id}/edit", h.Update)
 		r.Post("/orders/{id}/confirm", h.Confirm)
 		r.Post("/orders/{id}/cancel", h.Cancel)
+		r.Post("/orders/{id}/email", h.EmailOrder)
 	})
 }

@@ -115,6 +115,43 @@ type StockCardFilter struct {
 	Limit       int
 }
 
+// StockAdjustmentStatus defines the state of an adjustment document.
+type StockAdjustmentStatus string
+
+const (
+	StockAdjustmentStatusDraft     StockAdjustmentStatus = "DRAFT"
+	StockAdjustmentStatusPosted    StockAdjustmentStatus = "POSTED"
+	StockAdjustmentStatusCancelled StockAdjustmentStatus = "CANCELLED"
+)
+
+// StockAdjustment represents a manual inventory adjustment document.
+type StockAdjustment struct {
+	ID            int64
+	UUID          string
+	Number        string
+	WarehouseID   int64
+	Status        StockAdjustmentStatus
+	Note          string
+	AdjustmentAt  time.Time
+	CreatedBy     int64
+	PostedBy      int64
+	PostedAt      time.Time
+	CreatedAt     time.Time
+	CreatorEmail  string
+	WarehouseName string
+	Lines         []StockAdjustmentLine
+}
+
+// StockAdjustmentLine represents a single item change in an adjustment.
+type StockAdjustmentLine struct {
+	ID           int64
+	AdjustmentID int64
+	ProductID    int64
+	ProductName  string
+	Qty          float64
+	Note         string
+}
+
 // StockTakeStatus defines the state of a stock take session.
 type StockTakeStatus string
 

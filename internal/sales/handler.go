@@ -4,6 +4,7 @@ import (
 	"log/slog"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/hibiken/asynq"
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
 	"github.com/odyssey-erp/odyssey-erp/internal/sales/customers"
 	"github.com/odyssey-erp/odyssey-erp/internal/sales/orders"
@@ -25,6 +26,7 @@ func NewHandler(
 	csrf *shared.CSRFManager,
 	sessions *shared.SessionManager,
 	rbac rbac.Middleware,
+	asynqClient *asynq.Client,
 ) *Handler {
 	// Initializing sub-handlers
 	// Note: sessions manager is not passed to sub-handlers as they use request context,
@@ -56,6 +58,7 @@ func NewHandler(
 			templates,
 			csrf,
 			rbac,
+			asynqClient,
 		),
 	}
 	return h

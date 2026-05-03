@@ -9,7 +9,7 @@
     <header class="page-header">
         <div class="header-main">
             <h1>Valuasi Stok</h1>
-            <p class="text-muted">Nilai inventaris berdasarkan Moving Average Cost.</p>
+            <p class="text-muted">Nilai inventaris berdasarkan metode {{ if eq .Data.Method "FIFO" }}FIFO{{ else }}Moving Average{{ end }}.</p>
         </div>
     </header>
 
@@ -24,6 +24,13 @@
                     {{ end }}
                 </select>
             </div>
+            <div class="form-group mb-0">
+                <label for="method">Metode Valuasi</label>
+                <select name="method" id="method" class="form-control">
+                    <option value="AVG" {{ if eq .Data.Method "AVG" }}selected{{ end }}>Moving Average</option>
+                    <option value="FIFO" {{ if eq .Data.Method "FIFO" }}selected{{ end }}>FIFO</option>
+                </select>
+            </div>
             <button type="submit" class="button secondary">Filter</button>
         </form>
     </div>
@@ -36,7 +43,7 @@
                     <th scope="col">Produk</th>
                     <th scope="col">SKU</th>
                     <th scope="col" class="text-right">Qty</th>
-                    <th scope="col" class="text-right">Avg Cost</th>
+                    <th scope="col" class="text-right">Unit Cost</th>
                     <th scope="col" class="text-right">Total Value</th>
                 </tr>
             </thead>
@@ -60,7 +67,7 @@
             <tfoot>
                 <tr class="bg-muted font-bold">
                     <td colspan="5" class="text-right py-4">GRAND TOTAL</td>
-                    <td class="text-right py-4 text-lg text-primary">{{ .Data.TotalValue | formatCurrency "IDR" }}</td>
+                    <td class="text-right py-4 text-lg text-primary">{{ .Data.TotalValuation | formatCurrency "IDR" }}</td>
                 </tr>
             </tfoot>
             {{ end }}

@@ -99,6 +99,91 @@ func (ns NullAccountingPeriodStatus) Value() (driver.Value, error) {
 	return string(ns.AccountingPeriodStatus), nil
 }
 
+type BankLineStatus string
+
+const (
+	BankLineStatusUNMATCHED BankLineStatus = "UNMATCHED"
+	BankLineStatusSUGGESTED BankLineStatus = "SUGGESTED"
+	BankLineStatusMATCHED   BankLineStatus = "MATCHED"
+)
+
+func (e *BankLineStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = BankLineStatus(s)
+	case string:
+		*e = BankLineStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for BankLineStatus: %T", src)
+	}
+	return nil
+}
+
+type NullBankLineStatus struct {
+	BankLineStatus BankLineStatus `json:"bank_line_status"`
+	Valid          bool           `json:"valid"` // Valid is true if BankLineStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullBankLineStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.BankLineStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.BankLineStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullBankLineStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.BankLineStatus), nil
+}
+
+type BankStatementStatus string
+
+const (
+	BankStatementStatusDRAFT      BankStatementStatus = "DRAFT"
+	BankStatementStatusRECONCILED BankStatementStatus = "RECONCILED"
+)
+
+func (e *BankStatementStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = BankStatementStatus(s)
+	case string:
+		*e = BankStatementStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for BankStatementStatus: %T", src)
+	}
+	return nil
+}
+
+type NullBankStatementStatus struct {
+	BankStatementStatus BankStatementStatus `json:"bank_statement_status"`
+	Valid               bool                `json:"valid"` // Valid is true if BankStatementStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullBankStatementStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.BankStatementStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.BankStatementStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullBankStatementStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.BankStatementStatus), nil
+}
+
 type BoardPackStatus string
 
 const (
@@ -573,6 +658,16 @@ type AccountMapping struct {
 	CompanyID pgtype.Int8        `json:"company_id"`
 }
 
+type AccountingBudget struct {
+	ID          int64              `json:"id"`
+	AccountID   int64              `json:"account_id"`
+	PeriodYear  int32              `json:"period_year"`
+	PeriodMonth int32              `json:"period_month"`
+	Amount      pgtype.Numeric     `json:"amount"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
 type AccountingPeriod struct {
 	ID           int64                  `json:"id"`
 	PeriodID     int64                  `json:"period_id"`
@@ -742,6 +837,32 @@ type BankAccount struct {
 	IsActive       bool               `json:"is_active"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type BankStatement struct {
+	ID              int64               `json:"id"`
+	BankAccountID   int64               `json:"bank_account_id"`
+	StatementDate   pgtype.Date         `json:"statement_date"`
+	StartingBalance pgtype.Numeric      `json:"starting_balance"`
+	EndingBalance   pgtype.Numeric      `json:"ending_balance"`
+	Status          BankStatementStatus `json:"status"`
+	ImportedAt      pgtype.Timestamptz  `json:"imported_at"`
+	CreatedAt       pgtype.Timestamptz  `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz  `json:"updated_at"`
+}
+
+type BankStatementLine struct {
+	ID              int64              `json:"id"`
+	StatementID     int64              `json:"statement_id"`
+	TrxDate         pgtype.Date        `json:"trx_date"`
+	Description     string             `json:"description"`
+	Amount          pgtype.Numeric     `json:"amount"`
+	ReferenceNumber pgtype.Text        `json:"reference_number"`
+	Status          BankLineStatus     `json:"status"`
+	MatchedDocType  pgtype.Text        `json:"matched_doc_type"`
+	MatchedDocID    pgtype.Int8        `json:"matched_doc_id"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 }
 
 type BankTransaction struct {
@@ -1050,6 +1171,28 @@ type IdempotencyKey struct {
 	Module    string             `json:"module"`
 	RefID     pgtype.UUID        `json:"ref_id"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type InventoryAdjustment struct {
+	ID           int64              `json:"id"`
+	Uuid         pgtype.UUID        `json:"uuid"`
+	Number       string             `json:"number"`
+	WarehouseID  int32              `json:"warehouse_id"`
+	Status       string             `json:"status"`
+	Note         string             `json:"note"`
+	AdjustmentAt pgtype.Timestamptz `json:"adjustment_at"`
+	CreatedBy    int64              `json:"created_by"`
+	PostedBy     pgtype.Int8        `json:"posted_by"`
+	PostedAt     pgtype.Timestamptz `json:"posted_at"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type InventoryAdjustmentLine struct {
+	ID           int64          `json:"id"`
+	AdjustmentID int64          `json:"adjustment_id"`
+	ProductID    int32          `json:"product_id"`
+	Qty          pgtype.Numeric `json:"qty"`
+	Note         string         `json:"note"`
 }
 
 type InventoryBalance struct {

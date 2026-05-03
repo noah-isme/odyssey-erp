@@ -35,6 +35,12 @@ type TxRepository interface {
 	InsertCardEntry(ctx context.Context, card StockCardEntry, warehouseID, productID int64, txID int64) error
 	InsertStockTake(ctx context.Context, arg sqlc.InsertStockTakeParams) (int64, error)
 	InsertStockTakeLine(ctx context.Context, arg sqlc.InsertStockTakeLineParams) error
+
+	// Stock Adjustments
+	InsertAdjustment(ctx context.Context, arg sqlc.InsertAdjustmentParams) (int64, error)
+	GetAdjustment(ctx context.Context, id int64) (StockAdjustment, error)
+	InsertAdjustmentLine(ctx context.Context, arg sqlc.InsertAdjustmentLineParams) error
+	UpdateAdjustmentStatus(ctx context.Context, arg sqlc.UpdateAdjustmentStatusParams) error
 }
 
 type txRepo struct {
@@ -147,6 +153,10 @@ func (r *Repository) GetValuation(ctx context.Context, warehouseID int64) ([]Val
 		})
 	}
 	return res, nil
+}
+
+func (r *Repository) GetStockBalance(ctx context.Context, arg sqlc.GetStockBalanceParams) (sqlc.InventoryBalance, error) {
+	return r.queries.GetStockBalance(ctx, arg)
 }
 
 func (r *Repository) GetReorderAlerts(ctx context.Context) ([]ReorderAlert, error) {
@@ -286,6 +296,131 @@ func (r *txRepo) InsertStockTake(ctx context.Context, arg sqlc.InsertStockTakePa
 
 func (r *txRepo) InsertStockTakeLine(ctx context.Context, arg sqlc.InsertStockTakeLineParams) error {
 	return r.queries.InsertStockTakeLine(ctx, arg)
+}
+
+// --- Stock Adjustments (Transactional) ---
+
+func (r *txRepo) InsertAdjustment(ctx context.Context, arg sqlc.InsertAdjustmentParams) (int64, error) {
+	return r.queries.InsertAdjustment(ctx, arg)
+}
+
+func (r *txRepo) GetAdjustment(ctx context.Context, id int64) (StockAdjustment, error) {
+	row, err := r.queries.GetAdjustment(ctx, id)
+	if err != nil {
+		return StockAdjustment{}, err
+	}
+	return mapRowToAdjustment(row), nil
+}
+
+func (r *txRepo) InsertAdjustmentLine(ctx context.Context, arg sqlc.InsertAdjustmentLineParams) error {
+	return r.queries.InsertAdjustmentLine(ctx, arg)
+}
+
+func (r *txRepo) UpdateAdjustmentStatus(ctx context.Context, arg sqlc.UpdateAdjustmentStatusParams) error {
+	return r.queries.UpdateAdjustmentStatus(ctx, arg)
+}
+
+// --- Stock Adjustments (Main) ---
+
+func (r *Repository) InsertAdjustment(ctx context.Context, arg sqlc.InsertAdjustmentParams) (int64, error) {
+	return r.queries.InsertAdjustment(ctx, arg)
+}
+
+func (r *Repository) GetAdjustment(ctx context.Context, id int64) (StockAdjustment, error) {
+	row, err := r.queries.GetAdjustment(ctx, id)
+	if err != nil {
+		return StockAdjustment{}, err
+	}
+	adj := mapRowToAdjustment(row)
+	lines, err := r.queries.GetAdjustmentLines(ctx, id)
+	if err == nil {
+		for _, l := range lines {
+			adj.Lines = append(adj.Lines, StockAdjustmentLine{
+				ID:           l.ID,
+				AdjustmentID: l.AdjustmentID,
+				ProductID:    int64(l.ProductID),
+				ProductName:  l.ProductName,
+				Qty:          numericToFloat(l.Qty),
+				Note:         l.Note,
+			})
+		}
+	}
+	return adj, nil
+}
+
+func (r *Repository) ListAdjustments(ctx context.Context) ([]StockAdjustment, error) {
+	rows, err := r.queries.ListAdjustments(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var res []StockAdjustment
+	for _, row := range rows {
+		res = append(res, StockAdjustment{
+			ID:            row.ID,
+			UUID:          uuid.UUID(row.Uuid.Bytes).String(),
+			Number:        row.Number,
+			WarehouseID:   int64(row.WarehouseID),
+			Status:        StockAdjustmentStatus(row.Status),
+			Note:          row.Note,
+			AdjustmentAt:  row.AdjustmentAt.Time,
+			CreatedBy:     row.CreatedBy,
+			CreatedAt:     row.CreatedAt.Time,
+			WarehouseName: row.WarehouseName,
+		})
+	}
+	return res, nil
+}
+
+func (r *Repository) InsertAdjustmentLine(ctx context.Context, arg sqlc.InsertAdjustmentLineParams) error {
+	return r.queries.InsertAdjustmentLine(ctx, arg)
+}
+
+func (r *Repository) GetAdjustmentLines(ctx context.Context, adjustmentID int64) ([]StockAdjustmentLine, error) {
+	rows, err := r.queries.GetAdjustmentLines(ctx, adjustmentID)
+	if err != nil {
+		return nil, err
+	}
+	var res []StockAdjustmentLine
+	for _, l := range rows {
+		res = append(res, StockAdjustmentLine{
+			ID:           l.ID,
+			AdjustmentID: l.AdjustmentID,
+			ProductID:    int64(l.ProductID),
+			ProductName:  l.ProductName,
+			Qty:          numericToFloat(l.Qty),
+			Note:         l.Note,
+		})
+	}
+	return res, nil
+}
+
+func (r *Repository) UpdateAdjustmentStatus(ctx context.Context, arg sqlc.UpdateAdjustmentStatusParams) error {
+	return r.queries.UpdateAdjustmentStatus(ctx, arg)
+}
+
+func (r *Repository) GetInboundHistory(ctx context.Context, productID int64, warehouseID int64) ([]sqlc.GetInboundHistoryRow, error) {
+	return r.queries.GetInboundHistory(ctx, sqlc.GetInboundHistoryParams{
+		ProductID:      productID,
+		DstWarehouseID: pgtype.Int8{Int64: warehouseID, Valid: true},
+	})
+}
+
+func mapRowToAdjustment(row sqlc.GetAdjustmentRow) StockAdjustment {
+	return StockAdjustment{
+		ID:            row.ID,
+		UUID:          uuid.UUID(row.Uuid.Bytes).String(),
+		Number:        row.Number,
+		WarehouseID:   int64(row.WarehouseID),
+		Status:        StockAdjustmentStatus(row.Status),
+		Note:          row.Note,
+		AdjustmentAt:  row.AdjustmentAt.Time,
+		CreatedBy:     row.CreatedBy,
+		PostedBy:      row.PostedBy.Int64,
+		PostedAt:      row.PostedAt.Time,
+		CreatedAt:     row.CreatedAt.Time,
+		CreatorEmail:  row.CreatorEmail,
+		WarehouseName: row.WarehouseName,
+	}
 }
 
 func parseUUID(s string) [16]byte {

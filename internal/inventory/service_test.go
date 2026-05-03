@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/require"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
@@ -75,6 +76,50 @@ func (r *memoryRepo) GetReorderAlerts(ctx context.Context) ([]ReorderAlert, erro
 	return nil, nil
 }
 
+func (r *memoryRepo) InsertAdjustment(ctx context.Context, arg sqlc.InsertAdjustmentParams) (int64, error) {
+	return 1, nil
+}
+
+func (r *memoryRepo) GetAdjustment(ctx context.Context, id int64) (StockAdjustment, error) {
+	return StockAdjustment{}, nil
+}
+
+func (r *memoryRepo) ListAdjustments(ctx context.Context) ([]StockAdjustment, error) {
+	return nil, nil
+}
+
+func (r *memoryRepo) InsertAdjustmentLine(ctx context.Context, arg sqlc.InsertAdjustmentLineParams) error {
+	return nil
+}
+
+func (r *memoryRepo) GetAdjustmentLines(ctx context.Context, adjustmentID int64) ([]StockAdjustmentLine, error) {
+	return nil, nil
+}
+
+func (r *memoryRepo) UpdateAdjustmentStatus(ctx context.Context, arg sqlc.UpdateAdjustmentStatusParams) error {
+	return nil
+}
+
+func (r *memoryRepo) GetInboundHistory(ctx context.Context, productID int64, warehouseID int64) ([]sqlc.GetInboundHistoryRow, error) {
+	return nil, nil
+}
+func (r *memoryRepo) GetStockBalance(ctx context.Context, arg sqlc.GetStockBalanceParams) (sqlc.InventoryBalance, error) {
+	b, ok := r.balances[key(arg.WarehouseID, arg.ProductID)]
+	if !ok {
+		return sqlc.InventoryBalance{}, nil
+	}
+	var qty pgtype.Numeric
+	if err := qty.Scan(fmt.Sprintf("%g", b.Qty)); err != nil {
+		qty = pgtype.Numeric{} // fallback to zero
+	}
+	return sqlc.InventoryBalance{
+		WarehouseID: b.WarehouseID,
+		ProductID:   b.ProductID,
+		Qty:         qty,
+	}, nil
+}
+
+
 func (tx *memoryTx) InsertTransaction(ctx context.Context, _ Transaction) (int64, error) {
 	tx.repo.nextID++
 	return tx.repo.nextID, nil
@@ -122,6 +167,22 @@ func (tx *memoryTx) InsertStockTakeLine(ctx context.Context, arg sqlc.InsertStoc
 		PhysicalQty: numericToFloat(arg.PhysicalQty),
 	})
 	tx.repo.takes[arg.StockTakeID] = take
+	return nil
+}
+
+func (tx *memoryTx) InsertAdjustment(ctx context.Context, arg sqlc.InsertAdjustmentParams) (int64, error) {
+	return 1, nil
+}
+
+func (tx *memoryTx) GetAdjustment(ctx context.Context, id int64) (StockAdjustment, error) {
+	return StockAdjustment{}, nil
+}
+
+func (tx *memoryTx) InsertAdjustmentLine(ctx context.Context, arg sqlc.InsertAdjustmentLineParams) error {
+	return nil
+}
+
+func (tx *memoryTx) UpdateAdjustmentStatus(ctx context.Context, arg sqlc.UpdateAdjustmentStatusParams) error {
 	return nil
 }
 

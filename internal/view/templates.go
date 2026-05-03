@@ -165,6 +165,7 @@ func NewEngine() (*Engine, error) {
 	patterns := []string{
 		"templates/pages/*.html",
 		"templates/pages/*/*.html",
+		"templates/pages/*/*/*.html",
 	}
 
 	templates := make(map[string]*template.Template)

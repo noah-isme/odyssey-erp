@@ -185,10 +185,17 @@ func main() {
 
 	permissionsHandler := rbac.NewPermissionsHandler(logger, rbacService, templates, csrfManager, sessionManager, rbacMiddleware)
 
+	jobClient, err := jobs.NewClient(asynq.RedisClientOpt{Addr: cfg.RedisAddr})
+	if err != nil {
+		logger.Error("init job client", slog.Any("error", err))
+		os.Exit(1)
+	}
+	defer jobClient.Close()
+
 	arRepo := ar.NewRepository(dbpool)
 	arService := ar.NewService(arRepo)
 	arService.SetDeliveryService(deliveryorders.NewInvoicingAdapter(dbpool))
-	arHandler := ar.NewHandler(logger, arService, templates, csrfManager, sessionManager, rbacMiddleware)
+	arHandler := ar.NewHandler(logger, arService, templates, csrfManager, sessionManager, rbacMiddleware, jobClient.AsynqClient())
 
 	apRepo := ap.NewRepository(dbpool)
 	apService := ap.NewService(apRepo, procurementService)
@@ -230,10 +237,10 @@ func main() {
 	}
 
 	inventoryHandler := inventory.NewHandler(logger, inventoryService, templates, csrfManager, sessionManager, rbacMiddleware, dbpool)
-	procurementHandler := procurement.NewHandler(logger, procurementService, templates, csrfManager, sessionManager, rbacMiddleware)
+	procurementHandler := procurement.NewHandler(logger, procurementService, templates, csrfManager, sessionManager, rbacMiddleware, jobClient.AsynqClient())
 
 	salesService := sales.NewService(dbpool)
-	salesHandler := sales.NewHandler(logger, salesService, templates, csrfManager, sessionManager, rbacMiddleware)
+	salesHandler := sales.NewHandler(logger, salesService, templates, csrfManager, sessionManager, rbacMiddleware, jobClient.AsynqClient())
 
 	masterdataHandler := masterdata.NewHandler(logger, dbpool, templates, csrfManager, sessionManager, rbacMiddleware)
 
@@ -272,12 +279,7 @@ func main() {
 	varianceService := variancepkg.NewService(varianceRepo)
 	boardpackRepo := boardpacksvc.NewRepository(dbpool)
 	boardpackService := boardpacksvc.NewService(boardpackRepo)
-	jobClient, err := jobs.NewClient(asynq.RedisClientOpt{Addr: cfg.RedisAddr})
-	if err != nil {
-		logger.Error("init job client", slog.Any("error", err))
-		os.Exit(1)
-	}
-	defer jobClient.Close()
+	
 	varianceHandler := variancepkg.NewHandler(logger, varianceService, templates, csrfManager, rbacMiddleware, jobClient)
 	boardpackHandler := boardpackhttp.NewHandler(logger, boardpackService, templates, csrfManager, rbacMiddleware, jobClient)
 
