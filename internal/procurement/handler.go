@@ -1,12 +1,14 @@
 package procurement
 
 import (
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/hibiken/asynq"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
@@ -15,17 +17,18 @@ import (
 
 // Handler manages procurement endpoints.
 type Handler struct {
-	logger    *slog.Logger
-	service   *Service
-	templates *view.Engine
-	csrf      *shared.CSRFManager
-	sessions  *shared.SessionManager
-	rbac      rbac.Middleware
+	logger      *slog.Logger
+	service     *Service
+	templates   *view.Engine
+	csrf        *shared.CSRFManager
+	sessions    *shared.SessionManager
+	rbac        rbac.Middleware
+	asynqClient *asynq.Client
 }
 
 // NewHandler builds Handler instance.
-func NewHandler(logger *slog.Logger, service *Service, templates *view.Engine, csrf *shared.CSRFManager, sessions *shared.SessionManager, rbac rbac.Middleware) *Handler {
-	return &Handler{logger: logger, service: service, templates: templates, csrf: csrf, sessions: sessions, rbac: rbac}
+func NewHandler(logger *slog.Logger, service *Service, templates *view.Engine, csrf *shared.CSRFManager, sessions *shared.SessionManager, rbac rbac.Middleware, asynqClient *asynq.Client) *Handler {
+	return &Handler{logger: logger, service: service, templates: templates, csrf: csrf, sessions: sessions, rbac: rbac, asynqClient: asynqClient}
 }
 
 // MountRoutes registers procurement routes.
@@ -46,6 +49,7 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Post("/pos", h.createPO)
 		r.Post("/pos/{id}/submit", h.submitPO)
 		r.Post("/pos/{id}/approve", h.approvePO)
+		r.Post("/pos/{id}/email", h.emailPO)
 		r.Post("/grns", h.createGRN)
 		r.Post("/grns/{id}/post", h.postGRN)
 
@@ -55,7 +59,14 @@ func (h *Handler) MountRoutes(r chi.Router) {
 type formErrors map[string]string
 
 func (h *Handler) showPRForm(w http.ResponseWriter, r *http.Request) {
-	h.render(w, r, "pages/procurement/pr_form.html", map[string]any{"Errors": formErrors{}}, http.StatusOK)
+	productID, _ := strconv.ParseInt(r.URL.Query().Get("product_id"), 10, 64)
+	qty, _ := strconv.ParseFloat(r.URL.Query().Get("qty"), 64)
+
+	h.render(w, r, "pages/procurement/pr_form.html", map[string]any{
+		"Errors":    formErrors{},
+		"ProductID": productID,
+		"Qty":       qty,
+	}, http.StatusOK)
 }
 
 func (h *Handler) showPOForm(w http.ResponseWriter, r *http.Request) {
@@ -207,6 +218,41 @@ func (h *Handler) approvePO(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.redirectWithFlash(w, r, "/procurement/pos", "success", "PO disetujui")
+}
+
+// emailPO enqueues a background job to send a PO via email.
+func (h *Handler) emailPO(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid PO ID", http.StatusBadRequest)
+		return
+	}
+
+	po, _, err := h.service.GetPOWithLines(r.Context(), id)
+	if err != nil {
+		h.logger.Error("get PO for email", slog.Any("error", err), slog.Int64("id", id))
+		h.redirectWithFlash(w, r, "/procurement/pos", "error", "Failed to retrieve PO")
+		return
+	}
+
+	supplierEmail := "supplier@example.com"
+	
+	payload := fmt.Sprintf(`{"to": ["%s"], "subject": "Purchase Order %s", "body_html": "<p>Please find attached our purchase order.</p>"}`, supplierEmail, po.Number)
+	
+	if h.asynqClient != nil {
+		task := asynq.NewTask("email:deliver", []byte(payload))
+		_, err = h.asynqClient.EnqueueContext(r.Context(), task)
+		if err != nil {
+			h.logger.Error("enqueue email task", slog.Any("error", err))
+			h.redirectWithFlash(w, r, "/procurement/pos", "error", "Failed to queue email")
+			return
+		}
+	} else {
+		h.logger.Warn("asynqClient is nil, email not sent")
+	}
+
+	h.redirectWithFlash(w, r, "/procurement/pos", "success", "Email successfully queued for delivery")
 }
 
 func (h *Handler) createGRN(w http.ResponseWriter, r *http.Request) {

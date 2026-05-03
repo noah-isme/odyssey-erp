@@ -40,8 +40,12 @@ func (h *Handler) MountRoutes(r chi.Router) {
 	})
 	r.Group(func(r chi.Router) {
 		r.Use(h.rbac.RequireAll("inventory.edit"))
-		r.Get("/adjustments", h.showAdjustmentForm)
-		r.Post("/adjustments", h.handleAdjustment)
+		r.Get("/adjustments", h.handleListAdjustments)
+		r.Get("/adjustments/new", h.showAdjustmentForm)
+		r.Post("/adjustments", h.handleCreateAdjustment)
+		r.Get("/adjustments/{id}", h.handleShowAdjustment)
+		r.Post("/adjustments/{id}/lines", h.handleAddAdjustmentLine)
+		r.Post("/adjustments/{id}/post", h.handlePostAdjustment)
 		r.Get("/transfers", h.showTransferForm)
 		r.Post("/transfers", h.handleTransfer)
 
@@ -152,40 +156,125 @@ func (h *Handler) handleStockCard(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *Handler) showAdjustmentForm(w http.ResponseWriter, r *http.Request) {
-	h.renderAdjustment(w, r, adjustmentForm{}, map[string]string{}, http.StatusOK)
+func (h *Handler) handleListAdjustments(w http.ResponseWriter, r *http.Request) {
+	items, err := h.service.ListAdjustments(r.Context())
+	if err != nil {
+		h.logger.Error("list adjustments", slog.Any("error", err))
+		http.Error(w, "Gagal memuat daftar penyesuaian", http.StatusInternalServerError)
+		return
+	}
+	h.render(w, r, "pages/inventory/adjustment_list.html", map[string]any{
+		"Adjustments": items,
+	}, http.StatusOK)
 }
 
-func (h *Handler) handleAdjustment(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) showAdjustmentForm(w http.ResponseWriter, r *http.Request) {
+	warehouses, err := h.getWarehouses(r.Context())
+	if err != nil {
+		h.logger.Error("get warehouses", slog.Any("error", err))
+		http.Error(w, "Gagal memuat gudang", http.StatusInternalServerError)
+		return
+	}
+	h.render(w, r, "pages/inventory/adjustment_form.html", map[string]any{
+		"Warehouses": warehouses,
+	}, http.StatusOK)
+}
+
+func (h *Handler) handleCreateAdjustment(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
-	sess := shared.SessionFromContext(r.Context())
-	form, errors := parseAdjustmentForm(r)
-	if len(errors) == 0 {
-		_, err := h.service.PostAdjustment(r.Context(), AdjustmentInput{
-			Code:        form.Code,
-			WarehouseID: form.WarehouseID,
-			ProductID:   form.ProductID,
-			Qty:         form.Qty,
-			UnitCost:    form.UnitCost,
-			Note:        form.Note,
-			ActorID:     currentUserID(sess),
-			RefModule:   "INVENTORY",
-		})
-		if err != nil {
-			h.logger.Error("post adjustment failed", slog.Any("error", err))
-			errors["general"] = shared.UserSafeMessage(err)
-		} else {
-			if sess != nil {
-				sess.AddFlash(shared.FlashMessage{Kind: "success", Message: "Penyesuaian stok berhasil diposting"})
-			}
-			http.Redirect(w, r, "/inventory/adjustments", http.StatusSeeOther)
-			return
-		}
+	warehouseID, _ := strconv.ParseInt(r.PostFormValue("warehouse_id"), 10, 64)
+	adjustmentAt, _ := time.Parse("2006-01-02", r.PostFormValue("adjustment_at"))
+	if adjustmentAt.IsZero() {
+		adjustmentAt = time.Now()
 	}
-	h.renderAdjustment(w, r, form, errors, http.StatusBadRequest)
+
+	sess := shared.SessionFromContext(r.Context())
+
+	id, err := h.service.CreateAdjustment(r.Context(), CreateAdjustmentInput{
+		WarehouseID:  warehouseID,
+		AdjustmentAt: adjustmentAt,
+		Note:         r.PostFormValue("note"),
+	}, currentUserID(sess))
+
+	if err != nil {
+		h.logger.Error("create adjustment", slog.Any("error", err))
+		if sess != nil {
+			sess.AddFlash(shared.FlashMessage{Kind: "error", Message: shared.UserSafeMessage(err)})
+		}
+		http.Redirect(w, r, "/inventory/adjustments/new", http.StatusSeeOther)
+		return
+	}
+	if sess != nil {
+		sess.AddFlash(shared.FlashMessage{Kind: "success", Message: "Dokumen penyesuaian dibuat"})
+	}
+	http.Redirect(w, r, "/inventory/adjustments/"+strconv.FormatInt(id, 10), http.StatusSeeOther)
+}
+
+func (h *Handler) handleShowAdjustment(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	adj, err := h.service.GetAdjustment(r.Context(), id)
+	if err != nil {
+		h.logger.Error("get adjustment", slog.Any("error", err), slog.Int64("id", id))
+		http.Error(w, "Penyesuaian tidak ditemukan", http.StatusNotFound)
+		return
+	}
+	products, _ := h.getProducts(r.Context())
+
+	h.render(w, r, "pages/inventory/adjustment_detail.html", map[string]any{
+		"Adjustment": adj,
+		"Products":   products,
+	}, http.StatusOK)
+}
+
+func (h *Handler) handleAddAdjustmentLine(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+	productID, _ := strconv.ParseInt(r.PostFormValue("product_id"), 10, 64)
+	qty, _ := strconv.ParseFloat(r.PostFormValue("qty"), 64)
+
+	sess := shared.SessionFromContext(r.Context())
+	err := h.service.AddAdjustmentLine(r.Context(), id, AddAdjustmentLineInput{
+		ProductID: productID,
+		Qty:       qty,
+		Note:      r.PostFormValue("note"),
+	})
+	if err != nil {
+		h.logger.Error("add adjustment line", slog.Any("error", err))
+		if sess != nil {
+			sess.AddFlash(shared.FlashMessage{Kind: "error", Message: shared.UserSafeMessage(err)})
+		}
+		http.Redirect(w, r, "/inventory/adjustments/"+strconv.FormatInt(id, 10), http.StatusSeeOther)
+		return
+	}
+	if sess != nil {
+		sess.AddFlash(shared.FlashMessage{Kind: "success", Message: "Item ditambahkan"})
+	}
+	http.Redirect(w, r, "/inventory/adjustments/"+strconv.FormatInt(id, 10), http.StatusSeeOther)
+}
+
+func (h *Handler) handlePostAdjustment(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	sess := shared.SessionFromContext(r.Context())
+	userID := currentUserID(sess)
+
+	if err := h.service.PostAdjustmentDocument(r.Context(), id, userID); err != nil {
+		h.logger.Error("post adjustment", slog.Any("error", err), slog.Int64("id", id))
+		if sess != nil {
+			sess.AddFlash(shared.FlashMessage{Kind: "error", Message: shared.UserSafeMessage(err)})
+		}
+		http.Redirect(w, r, "/inventory/adjustments/"+strconv.FormatInt(id, 10), http.StatusSeeOther)
+		return
+	}
+	if sess != nil {
+		sess.AddFlash(shared.FlashMessage{Kind: "success", Message: "Penyesuaian stok berhasil diposting"})
+	}
+	http.Redirect(w, r, "/inventory/adjustments/"+strconv.FormatInt(id, 10), http.StatusSeeOther)
 }
 
 func (h *Handler) showTransferForm(w http.ResponseWriter, r *http.Request) {
@@ -471,11 +560,25 @@ func (h *Handler) handleDashboard(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) handleValuation(w http.ResponseWriter, r *http.Request) {
-	warehouseID, _ := strconv.ParseInt(r.URL.Query().Get("warehouse_id"), 10, 64)
-	entries, err := h.service.GetValuation(r.Context(), warehouseID)
+	q := r.URL.Query()
+	warehouseID, _ := strconv.ParseInt(q.Get("warehouse_id"), 10, 64)
+	method := q.Get("method") // "AVG" or "FIFO"
+	if method == "" {
+		method = "AVG"
+	}
+
+	var entries []ValuationEntry
+	var err error
+
+	if method == "FIFO" {
+		entries, err = h.service.GetFIFOValuation(r.Context(), warehouseID)
+	} else {
+		entries, err = h.service.GetValuation(r.Context(), warehouseID)
+	}
+
 	if err != nil {
-		h.logger.Error("valuation failed", slog.Any("error", err))
-		http.Error(w, "Internal Error", http.StatusInternalServerError)
+		h.logger.Error("valuation failed", slog.Any("error", err), slog.String("method", method))
+		http.Error(w, "Gagal memuat laporan valuasi", http.StatusInternalServerError)
 		return
 	}
 
@@ -491,6 +594,7 @@ func (h *Handler) handleValuation(w http.ResponseWriter, r *http.Request) {
 		"Warehouses":     warehouses,
 		"WarehouseID":    warehouseID,
 		"TotalValuation": totalValuation,
+		"Method":         method,
 	}, http.StatusOK)
 }
 

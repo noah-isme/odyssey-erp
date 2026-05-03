@@ -38,6 +38,7 @@
                         <th scope="col" class="text-right">Stok Saat Ini</th>
                         <th scope="col" class="text-right">Stok Minimum</th>
                         <th scope="col" class="text-right">Selisih</th>
+                        <th scope="col" class="text-right">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -50,6 +51,11 @@
                         <td class="text-right">{{ .MinStock | formatDecimal }}</td>
                         <td class="text-right text-muted italic">
                             {{ printf "%.2f" (subf .MinStock .CurrentQty) }} unit lagi
+                        </td>
+                        <td class="text-right">
+                            <a href="/procurement/prs?product_id={{ .ProductID }}&qty={{ subf .MinStock .CurrentQty }}" class="button small secondary">
+                                <i class="lucide-shopping-cart"></i> Reorder
+                            </a>
                         </td>
                     </tr>
                     {{ else }}

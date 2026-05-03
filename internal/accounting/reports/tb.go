@@ -7,6 +7,7 @@ import (
 
 // AccountBalance models a general ledger account with aggregated balances.
 type AccountBalance struct {
+	ID      int64
 	Code    string
 	Name    string
 	Type    string

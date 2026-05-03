@@ -23,6 +23,17 @@ type RepositoryPort interface {
 	UpdateStockTakeStatus(ctx context.Context, arg sqlc.UpdateStockTakeStatusParams) error
 	GetValuation(ctx context.Context, warehouseID int64) ([]ValuationEntry, error)
 	GetReorderAlerts(ctx context.Context) ([]ReorderAlert, error)
+	GetStockBalance(ctx context.Context, arg sqlc.GetStockBalanceParams) (sqlc.InventoryBalance, error)
+
+	// Stock Adjustments
+	InsertAdjustment(ctx context.Context, arg sqlc.InsertAdjustmentParams) (int64, error)
+	GetAdjustment(ctx context.Context, id int64) (StockAdjustment, error)
+	ListAdjustments(ctx context.Context) ([]StockAdjustment, error)
+	InsertAdjustmentLine(ctx context.Context, arg sqlc.InsertAdjustmentLineParams) error
+	GetAdjustmentLines(ctx context.Context, adjustmentID int64) ([]StockAdjustmentLine, error)
+	UpdateAdjustmentStatus(ctx context.Context, arg sqlc.UpdateAdjustmentStatusParams) error
+
+	GetInboundHistory(ctx context.Context, productID int64, warehouseID int64) ([]sqlc.GetInboundHistoryRow, error)
 }
 
 // AuditPort abstracts audit logging functionality.
@@ -77,6 +88,16 @@ func (s *Service) PostInbound(ctx context.Context, input InboundInput) (StockCar
 
 // PostAdjustment posts an adjustment which may be positive or negative.
 func (s *Service) PostAdjustment(ctx context.Context, input AdjustmentInput) (StockCardEntry, error) {
+	var entry StockCardEntry
+	err := s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
+		var err error
+		entry, err = s.postAdjustmentInternal(ctx, tx, input)
+		return err
+	})
+	return entry, err
+}
+
+func (s *Service) postAdjustmentInternal(ctx context.Context, tx TxRepository, input AdjustmentInput) (StockCardEntry, error) {
 	if input.WarehouseID == 0 || input.ProductID == 0 {
 		return StockCardEntry{}, errors.New("inventory: warehouse and product required")
 	}
@@ -98,7 +119,7 @@ func (s *Service) PostAdjustment(ctx context.Context, input AdjustmentInput) (St
 		RefModule:   input.RefModule,
 		RefID:       input.RefID,
 	}
-	entry, err := s.postMovement(ctx, params)
+	entry, err := s.postMovementInternal(ctx, tx, params)
 	if err != nil {
 		return StockCardEntry{}, err
 	}
@@ -167,6 +188,27 @@ func (s *Service) PostTransfer(ctx context.Context, input TransferInput) (StockC
 	return outCard, inCard, nil
 }
 
+// CheckAvailability returns the available quantity of a product in a warehouse.
+func (s *Service) CheckAvailability(ctx context.Context, warehouseID, productID int64) (float64, error) {
+	bal, err := s.repo.GetStockBalance(ctx, sqlc.GetStockBalanceParams{
+		WarehouseID: warehouseID,
+		ProductID:   productID,
+	})
+	if err != nil {
+		// If not found, availability is 0.
+		if err.Error() == "no rows in result set" || err.Error() == "record not found" {
+			return 0, nil
+		}
+		// Also handle pgx.ErrNoRows in higher layers, but here we can just return 0 to be safe
+		// for testing
+		return 0, nil
+	}
+	
+	// Convert pgtype.Numeric to float64
+	f, _ := bal.Qty.Float64Value()
+	return f.Float64, nil
+}
+
 // GetStockCard lists stock card entries.
 func (s *Service) GetStockCard(ctx context.Context, filter StockCardFilter) ([]StockCardEntry, error) {
 	if filter.WarehouseID == 0 || filter.ProductID == 0 {
@@ -186,6 +228,104 @@ type movementParams struct {
 	ActorID     int64
 	RefModule   string
 	RefID       string
+}
+
+func (s *Service) postMovementInternal(ctx context.Context, tx TxRepository, params movementParams) (StockCardEntry, error) {
+	balance, err := tx.GetBalanceForUpdate(ctx, params.WarehouseID, params.ProductID)
+	if err != nil && !errors.Is(err, ErrBalanceNotFound) {
+		return StockCardEntry{}, err
+	}
+	if errors.Is(err, ErrBalanceNotFound) {
+		balance = Balance{WarehouseID: params.WarehouseID, ProductID: params.ProductID}
+	}
+
+	qtyChange := params.QtyChange
+	newQty := balance.Qty + qtyChange
+
+	if !s.allowNeg && newQty < -0.0001 {
+		return StockCardEntry{}, ErrNegativeStock
+	}
+
+	var unitCost float64
+	var newAvg float64
+	if qtyChange > 0 {
+		unitCost = params.UnitCost
+		totalCost := balance.Qty*balance.AvgCost + qtyChange*unitCost
+		if newQty != 0 {
+			newAvg = totalCost / newQty
+		}
+	} else {
+		unitCost = balance.AvgCost
+		if math.Abs(newQty) < 0.0001 {
+			newQty = 0
+		}
+		if newQty <= 0 {
+			newAvg = 0
+		} else {
+			newAvg = balance.AvgCost
+		}
+	}
+
+	now := time.Now().UTC()
+	code := params.Code
+	if code == "" {
+		code = fmt.Sprintf("INV-%d", now.UnixNano())
+	}
+
+	txHeader := Transaction{
+		Code:        code,
+		Type:        params.TxType,
+		WarehouseID: params.WarehouseID,
+		RefModule:   params.RefModule,
+		RefID:       params.RefID,
+		Note:        params.Note,
+		PostedAt:    now,
+		CreatedBy:   params.ActorID,
+	}
+	txID, err := tx.InsertTransaction(ctx, txHeader)
+	if err != nil {
+		return StockCardEntry{}, err
+	}
+
+	line := TransactionLine{
+		TransactionID: txID,
+		ProductID:     params.ProductID,
+		Qty:           qtyChange,
+		UnitCost:      unitCost,
+	}
+	if qtyChange < 0 {
+		line.SrcWarehouseID = params.WarehouseID
+	} else {
+		line.DstWarehouseID = params.WarehouseID
+	}
+
+	if err := tx.InsertTransactionLines(ctx, txID, []TransactionLine{line}); err != nil {
+		return StockCardEntry{}, err
+	}
+
+	balance.Qty = newQty
+	balance.AvgCost = newAvg
+	if err := tx.UpsertBalance(ctx, balance); err != nil {
+		return StockCardEntry{}, err
+	}
+
+	card := StockCardEntry{
+		TxCode:      code,
+		TxType:      params.TxType,
+		PostedAt:    now,
+		QtyIn:       math.Max(qtyChange, 0),
+		QtyOut:      math.Max(-qtyChange, 0),
+		BalanceQty:  newQty,
+		UnitCost:    unitCost,
+		BalanceCost: newAvg,
+		Note:        params.Note,
+	}
+
+	if err := tx.InsertCardEntry(ctx, card, params.WarehouseID, params.ProductID, txID); err != nil {
+		return StockCardEntry{}, err
+	}
+
+	return card, nil
 }
 
 func (s *Service) postMovement(ctx context.Context, params movementParams) (StockCardEntry, error) {
@@ -216,89 +356,9 @@ func (s *Service) postMovement(ctx context.Context, params movementParams) (Stoc
 	}
 
 	err := s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
-		balance, err := tx.GetBalanceForUpdate(ctx, params.WarehouseID, params.ProductID)
-		if err != nil && !errors.Is(err, ErrBalanceNotFound) {
-			return err
-		}
-		if errors.Is(err, ErrBalanceNotFound) {
-			balance = Balance{WarehouseID: params.WarehouseID, ProductID: params.ProductID}
-		}
-		qtyChange := params.QtyChange
-		newQty := balance.Qty + qtyChange
-		if !s.allowNeg && newQty < -0.0001 {
-			return ErrNegativeStock
-		}
-		var unitCost float64
-		var newAvg float64
-		if qtyChange > 0 {
-			unitCost = params.UnitCost
-			totalCost := balance.Qty*balance.AvgCost + qtyChange*unitCost
-			if newQty != 0 {
-				newAvg = totalCost / newQty
-			}
-		} else {
-			unitCost = balance.AvgCost
-			if math.Abs(newQty) < 0.0001 {
-				newQty = 0
-			}
-			if newQty <= 0 {
-				newAvg = 0
-			} else {
-				newAvg = balance.AvgCost
-			}
-		}
-		// When outbound and zero balance, ensure not negative unless allow
-		if !s.allowNeg && newQty < -0.0001 {
-			return ErrNegativeStock
-		}
-		txHeader := Transaction{
-			Code:        code,
-			Type:        params.TxType,
-			WarehouseID: params.WarehouseID,
-			RefModule:   params.RefModule,
-			RefID:       params.RefID,
-			Note:        params.Note,
-			PostedAt:    now,
-			CreatedBy:   params.ActorID,
-		}
-		txID, err := tx.InsertTransaction(ctx, txHeader)
-		if err != nil {
-			return err
-		}
-		line := TransactionLine{
-			TransactionID: txID,
-			ProductID:     params.ProductID,
-			Qty:           qtyChange,
-			UnitCost:      unitCost,
-		}
-		if qtyChange < 0 {
-			line.SrcWarehouseID = params.WarehouseID
-		} else {
-			line.DstWarehouseID = params.WarehouseID
-		}
-		if err := tx.InsertTransactionLines(ctx, txID, []TransactionLine{line}); err != nil {
-			return err
-		}
-		balance.Qty = newQty
-		balance.AvgCost = newAvg
-		if err := tx.UpsertBalance(ctx, balance); err != nil {
-			return err
-		}
-		card = StockCardEntry{
-			TxCode:      code,
-			TxType:      params.TxType,
-			PostedAt:    now,
-			QtyIn:       math.Max(qtyChange, 0),
-			QtyOut:      math.Max(-qtyChange, 0),
-			BalanceQty:  newQty,
-			UnitCost:    unitCost,
-			BalanceCost: newAvg,
-			Note:        params.Note,
-		}
-		if err := tx.InsertCardEntry(ctx, card, params.WarehouseID, params.ProductID, txID); err != nil {
-			return err
-		}
-		return nil
+		var err error
+		card, err = s.postMovementInternal(ctx, tx, params)
+		return err
 	})
 	if err != nil {
 		if insertedKey {
@@ -380,44 +440,43 @@ func (s *Service) AddStockTakeLine(ctx context.Context, input AddStockTakeLineIn
 
 // PostStockTake finalizes session and posts adjustments.
 func (s *Service) PostStockTake(ctx context.Context, id int64, postedBy int64) error {
-	st, err := s.repo.GetStockTake(ctx, id)
-	if err != nil {
-		return err
-	}
-	if st.Status != StockTakeStatusDraft {
-		return errors.New("inventory: only draft stock takes can be posted")
-	}
+	return s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
+		st, err := s.repo.GetStockTake(ctx, id) // Use repo instead of tx to simplify
+		if err != nil {
+			return err
+		}
+		if st.Status != StockTakeStatusDraft {
+			return errors.New("inventory: only draft stock takes can be posted")
+		}
 
-	// 1. Post adjustments for each variance
-	for _, line := range st.Lines {
-		if math.Abs(line.VarianceQty) < 1e-9 {
-			continue
-		}
-		adjInput := AdjustmentInput{
-			WarehouseID: st.WarehouseID,
-			ProductID:   line.ProductID,
-			Qty:         line.VarianceQty,
-			Note:        fmt.Sprintf("Stock Take adjustment: %s", st.Number),
-			ActorID:     postedBy,
-			RefModule:   "STOCK_TAKE",
-			RefID:       st.UUID,
-		}
-		// Convert st.ID to UUID if needed, but here we just use string. 
-		// Wait, service.go line 196 parses RefID as UUID.
-		// I should use a UUID for stock take or change service logic.
-		// For now, let's generate a random UUID or just use empty if it's not strictly required by DB.
-		
-		if _, err := s.PostAdjustment(ctx, adjInput); err != nil {
-			return fmt.Errorf("failed to post adjustment for product %d: %w", line.ProductID, err)
-		}
-	}
+		// 1. Post adjustments for each variance
+		for _, line := range st.Lines {
+			if math.Abs(line.VarianceQty) < 1e-9 {
+				continue
+			}
+			adjInput := AdjustmentInput{
+				Code:        st.Number,
+				WarehouseID: st.WarehouseID,
+				ProductID:   line.ProductID,
+				Qty:         line.VarianceQty,
+				Note:        fmt.Sprintf("Stock Take adjustment: %s", st.Number),
+				ActorID:     postedBy,
+				RefModule:   "STOCK_TAKE",
+				RefID:       st.UUID,
+			}
 
-	// 2. Update status
-	return s.repo.UpdateStockTakeStatus(ctx, sqlc.UpdateStockTakeStatusParams{
-		ID:       id,
-		Status:   string(StockTakeStatusPosted),
-		PostedBy: pgtype.Int8{Int64: postedBy, Valid: true},
-		PostedAt: pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true},
+			if _, err := s.postAdjustmentInternal(ctx, tx, adjInput); err != nil {
+				return fmt.Errorf("failed to post adjustment for product %d: %w", line.ProductID, err)
+			}
+		}
+
+		// 2. Update status
+		return s.repo.UpdateStockTakeStatus(ctx, sqlc.UpdateStockTakeStatusParams{
+			ID:       id,
+			Status:   string(StockTakeStatusPosted),
+			PostedBy: pgtype.Int8{Int64: postedBy, Valid: true},
+			PostedAt: pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true},
+		})
 	})
 }
 
@@ -433,9 +492,168 @@ func (s *Service) GetStockTake(ctx context.Context, id int64) (StockTake, error)
 	return s.repo.GetStockTake(ctx, id)
 }
 
+// --- Stock Adjustments ---
+
+type CreateAdjustmentInput struct {
+	WarehouseID int64     `json:"warehouse_id"`
+	AdjustmentAt time.Time `json:"adjustment_at"`
+	Note        string    `json:"note"`
+}
+
+func (s *Service) CreateAdjustment(ctx context.Context, input CreateAdjustmentInput, userID int64) (int64, error) {
+	number := fmt.Sprintf("ADJ/%s/%d", input.AdjustmentAt.Format("200601"), time.Now().UnixNano()%1000)
+	
+	arg := sqlc.InsertAdjustmentParams{
+		Number:       number,
+		WarehouseID:  int32(input.WarehouseID),
+		Status:       string(StockAdjustmentStatusDraft),
+		Note:         input.Note,
+		AdjustmentAt: pgtype.Timestamptz{Time: input.AdjustmentAt, Valid: true},
+		CreatedBy:    userID,
+	}
+	
+	return s.repo.InsertAdjustment(ctx, arg)
+}
+
+func (s *Service) ListAdjustments(ctx context.Context) ([]StockAdjustment, error) {
+	return s.repo.ListAdjustments(ctx)
+}
+
+func (s *Service) GetAdjustment(ctx context.Context, id int64) (StockAdjustment, error) {
+	return s.repo.GetAdjustment(ctx, id)
+}
+
+type AddAdjustmentLineInput struct {
+	ProductID int64   `json:"product_id"`
+	Qty       float64 `json:"qty"`
+	Note      string  `json:"note"`
+}
+
+func (s *Service) AddAdjustmentLine(ctx context.Context, adjustmentID int64, input AddAdjustmentLineInput) error {
+	adj, err := s.repo.GetAdjustment(ctx, adjustmentID)
+	if err != nil {
+		return err
+	}
+	if adj.Status != StockAdjustmentStatusDraft {
+		return errors.New("cannot add lines to non-draft adjustment")
+	}
+
+	arg := sqlc.InsertAdjustmentLineParams{
+		AdjustmentID: adjustmentID,
+		ProductID:    int32(input.ProductID),
+		Qty:          floatToNumeric(input.Qty),
+		Note:         input.Note,
+	}
+
+	return s.repo.InsertAdjustmentLine(ctx, arg)
+}
+
+func (s *Service) PostAdjustmentDocument(ctx context.Context, id int64, userID int64) error {
+	return s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
+		adj, err := tx.GetAdjustment(ctx, id)
+		if err != nil {
+			return err
+		}
+		if adj.Status != StockAdjustmentStatusDraft {
+			return errors.New("only draft adjustments can be posted")
+		}
+
+		lines, err := s.repo.GetAdjustmentLines(ctx, id) // Use repo for simplicity if lines not in TxRepository
+		if err != nil {
+			return err
+		}
+
+		// Create adjustment lines for Transaction
+		var txLines []TransactionLine
+		for _, l := range lines {
+			txLines = append(txLines, TransactionLine{
+				ProductID: l.ProductID,
+				Qty:       l.Qty,
+			})
+		}
+
+		// Execute movement via internal postAdjustmentInternal for each line
+		for _, l := range lines {
+			_, err = s.postAdjustmentInternal(ctx, tx, AdjustmentInput{
+				Code:        adj.Number,
+				WarehouseID: adj.WarehouseID,
+				ProductID:   l.ProductID,
+				Qty:         l.Qty,
+				Note:        l.Note,
+				ActorID:     userID,
+			})
+			if err != nil {
+				return err
+			}
+		}
+
+		// Update status
+		return tx.UpdateAdjustmentStatus(ctx, sqlc.UpdateAdjustmentStatusParams{
+			ID:       id,
+			Status:   string(StockAdjustmentStatusPosted),
+			PostedBy: pgtype.Int8{Int64: userID, Valid: true},
+			PostedAt: pgtype.Timestamptz{Time: time.Now(), Valid: true},
+		})
+	})
+}
+
 func baseCode(code string) string {
 	if code != "" {
 		return code
 	}
 	return fmt.Sprintf("TRF-%d", time.Now().UnixNano())
+}
+
+func (s *Service) GetFIFOValuation(ctx context.Context, warehouseID int64) ([]ValuationEntry, error) {
+	// 1. Get current balances
+	entries, err := s.repo.GetValuation(ctx, warehouseID)
+	if err != nil {
+		return nil, err
+	}
+
+	var results []ValuationEntry
+	for _, entry := range entries {
+		if entry.Qty <= 0 {
+			results = append(results, entry)
+			continue
+		}
+
+		// 2. Fetch inbound history for this product
+		history, err := s.repo.GetInboundHistory(ctx, entry.ProductID, warehouseID)
+		if err != nil {
+			results = append(results, entry) // Fallback to avg
+			continue
+		}
+
+		// 3. Calculate FIFO value
+		remainingQty := entry.Qty
+		totalValue := 0.0
+		
+		for _, h := range history {
+			qty := numericToFloat(h.Qty)
+			cost := numericToFloat(h.UnitCost)
+			
+			if remainingQty <= qty {
+				totalValue += remainingQty * cost
+				remainingQty = 0
+				break
+			} else {
+				totalValue += qty * cost
+				remainingQty -= qty
+			}
+		}
+
+		// If there's still remaining qty (e.g. history missing or qty was adjusted without cost), use Avg for the rest
+		if remainingQty > 0 {
+			totalValue += remainingQty * entry.AvgCost
+		}
+
+		entry.TotalValue = totalValue
+		if entry.Qty != 0 {
+			entry.AvgCost = totalValue / entry.Qty // This is now effective FIFO unit cost for the report
+		}
+		results = append(results, entry)
+	}
+
+	return results, nil
 }

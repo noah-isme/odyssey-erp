@@ -36,3 +36,11 @@ Odyssey is a Go modular monolith. Key paths:
 ## Security & Configuration Tips
 - Keep secrets out of git; configure via env vars like `PG_DSN`, `REDIS_ADDR`, and `GOTENBERG_URL`.
 - Default credentials in `README.md` are for local development only.
+
+## AI & Token Limit Guidelines
+To prevent "The model's generation exceeded the maximum output token limit" errors, the AI must strictly adhere to the following rules:
+- **Use Artifacts for Long Outputs**: Always use `write_to_file` with `IsArtifact: true` for long documents, walkthroughs, or plans. Never output full code files or large blocks directly in the chat.
+- **Concise Code References**: Do not use "Print full file" commands. Use line numbers and specific ranges (e.g., `file.go:10-50`) instead of dumping entire files in the chat.
+- **Incremental Steps**: Break down massive tasks (e.g., full feature creation) into sequential steps with check-ins. Request user approval when a natural pausing point is reached to clear the token buffer.
+- **Efficient Logging**: Never dump huge terminal logs (like `npm install` or full test outputs) into the chat. Pipe outputs to a file or limit characters read. Use `view_file` instead of `cat` via bash.
+- **Concise Reporting**: Keep responses short and focus only on actionable updates. Avoid narrating previously written code.

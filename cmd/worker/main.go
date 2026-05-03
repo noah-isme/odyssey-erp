@@ -106,6 +106,9 @@ func main() {
 		os.Exit(1)
 	}
 
+	asynqClient := asynq.NewClient(asynq.RedisClientOpt{Addr: cfg.RedisAddr})
+	defer asynqClient.Close()
+
 	worker, err := jobs.NewWorker(jobs.WorkerConfig{
 		RedisOpts: asynq.RedisClientOpt{Addr: cfg.RedisAddr},
 		Logger:    logger,
@@ -115,11 +118,15 @@ func main() {
 			{Type: jobs.TaskConsolidateRefresh, Handler: consolidator.Handle},
 			{Type: jobs.TaskVarianceSnapshotProcess, Handler: varianceJob.Handle},
 			{Type: jobs.TaskBoardPackGenerate, Handler: boardpackJob.Handle},
+			{Type: jobs.TypeEmailDelivery, Handler: jobs.HandleEmailDeliveryTask(logger)},
+			{Type: jobs.TypeOverdueInvoicesScan, Handler: jobs.HandleOverdueInvoicesScanTask(logger, pool, asynqClient)},
 		},
 		Cron: []jobs.CronRegistration{
 			{Spec: "15 1 * * *", Task: warmupTask, Options: []asynq.Option{asynq.MaxRetry(3)}},
 			{Spec: "30 1 * * *", Task: anomalyTask, Options: []asynq.Option{asynq.MaxRetry(3)}},
 			{Spec: "0 2 * * *", Task: consolidateTask, Options: []asynq.Option{asynq.MaxRetry(3)}},
+			// Run overdue invoice scan every day at 8:00 AM
+			{Spec: "0 8 * * *", Task: asynq.NewTask(jobs.TypeOverdueInvoicesScan, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
 		},
 	})
 	if err != nil {

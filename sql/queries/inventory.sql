@@ -28,6 +28,11 @@ FROM inventory_balances
 WHERE warehouse_id = $1 AND product_id = $2 
 FOR UPDATE;
 
+-- name: GetStockBalance :one
+SELECT warehouse_id, product_id, qty, avg_cost, updated_at 
+FROM inventory_balances 
+WHERE warehouse_id = $1 AND product_id = $2;
+
 -- name: UpsertBalance :exec
 INSERT INTO inventory_balances (
     warehouse_id, product_id, qty, avg_cost, updated_at

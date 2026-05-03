@@ -1,0 +1,71 @@
+{{define "content"}}
+<div class="px-4 sm:px-6 lg:px-8">
+    <div class="sm:flex sm:items-center">
+        <div class="sm:flex-auto">
+            <h1 class="text-base font-semibold leading-6 text-gray-900">Bank Reconciliation</h1>
+            <p class="mt-2 text-sm text-gray-700">Statement Date: {{.Statement.StatementDate.Time.Format "Jan 02, 2006"}} | Closing Balance: {{.Statement.EndingBalance}}</p>
+        </div>
+        <div class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
+            {{if ne .Statement.Status "RECONCILED"}}
+            <form action="/accounting/banks/statements/{{.Statement.ID}}/confirm" method="post">
+                {{ .CSRFField }}
+                <button type="submit" class="block rounded-md bg-indigo-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">Confirm Statement</button>
+            </form>
+            {{else}}
+            <span class="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">Reconciled</span>
+            {{end}}
+        </div>
+    </div>
+    
+    <div class="mt-8 flow-root">
+        <div class="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+            <div class="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
+                <div class="overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
+                    <table class="min-w-full divide-y divide-gray-300">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Date</th>
+                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Description</th>
+                                <th scope="col" class="px-3 py-3.5 text-right text-sm font-semibold text-gray-900">Amount</th>
+                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Reference</th>
+                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Match Status</th>
+                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Matched Doc</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200 bg-white">
+                            {{range .Lines}}
+                            <tr>
+                                <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm text-gray-500">{{.TrxDate.Time.Format "Jan 02, 2006"}}</td>
+                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-900">{{.Description}}</td>
+                                <td class="whitespace-nowrap px-3 py-4 text-sm text-right font-medium {{if gt .Amount.Int.Int64 0}}text-green-600{{else}}text-red-600{{end}}">{{.Amount}}</td>
+                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{{.ReferenceNumber.String}}</td>
+                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                    {{if eq .Status "MATCHED"}}
+                                    <span class="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">Matched</span>
+                                    {{else if eq .Status "SUGGESTED"}}
+                                    <span class="inline-flex items-center rounded-md bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-800 ring-1 ring-inset ring-yellow-600/20">Suggested</span>
+                                    {{else}}
+                                    <span class="inline-flex items-center rounded-md bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-500/10">Unmatched</span>
+                                    {{end}}
+                                </td>
+                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                    {{if .MatchedDocType.Valid}}
+                                    <span class="font-medium text-indigo-600">{{.MatchedDocType.String}} #{{.MatchedDocID.Int64}}</span>
+                                    {{else}}
+                                    -
+                                    {{end}}
+                                </td>
+                            </tr>
+                            {{else}}
+                            <tr>
+                                <td colspan="6" class="px-3 py-8 text-center text-sm text-gray-500">No transactions in this statement.</td>
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}

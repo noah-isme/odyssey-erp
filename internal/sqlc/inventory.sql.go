@@ -36,6 +36,30 @@ func (q *Queries) GetBalanceForUpdate(ctx context.Context, arg GetBalanceForUpda
 	return i, err
 }
 
+const getStockBalance = `-- name: GetStockBalance :one
+SELECT warehouse_id, product_id, qty, avg_cost, updated_at 
+FROM inventory_balances 
+WHERE warehouse_id = $1 AND product_id = $2
+`
+
+type GetStockBalanceParams struct {
+	WarehouseID int64 `json:"warehouse_id"`
+	ProductID   int64 `json:"product_id"`
+}
+
+func (q *Queries) GetStockBalance(ctx context.Context, arg GetStockBalanceParams) (InventoryBalance, error) {
+	row := q.db.QueryRow(ctx, getStockBalance, arg.WarehouseID, arg.ProductID)
+	var i InventoryBalance
+	err := row.Scan(
+		&i.WarehouseID,
+		&i.ProductID,
+		&i.Qty,
+		&i.AvgCost,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getStockCard = `-- name: GetStockCard :many
 SELECT tx_code, tx_type, posted_at, qty_in, qty_out, balance_qty, unit_cost, balance_cost, note
 FROM inventory_cards

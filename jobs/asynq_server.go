@@ -116,6 +116,11 @@ func NewClient(redisOpts asynq.RedisClientOpt) (*Client, error) {
 	return &Client{client: client}, nil
 }
 
+// AsynqClient returns the underlying asynq client.
+func (c *Client) AsynqClient() *asynq.Client {
+	return c.client
+}
+
 // EnqueueSendEmail enqueues a send-email task.
 func (c *Client) EnqueueSendEmail(ctx context.Context, payload SendEmailPayload) (*asynq.TaskInfo, error) {
 	task, err := NewSendEmailTask(payload)

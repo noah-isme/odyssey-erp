@@ -32,3 +32,25 @@ type BalanceSheetViewModel struct {
 	FilterCompany string
 	Report        BalanceSheet
 }
+
+// CashFlowViewModel contains data for the cash flow report.
+type CashFlowViewModel struct {
+	CompanyName   string
+	PeriodLabel   string
+	BranchName    string
+	FilterPeriod  string
+	FilterBranch  string
+	FilterCompany string
+	Report        CashFlow
+}
+
+// BudgetVsActualViewModel contains data for the budget comparison report.
+type BudgetVsActualViewModel struct {
+	CompanyName   string
+	PeriodLabel   string
+	BranchName    string
+	FilterPeriod  string
+	FilterBranch  string
+	FilterCompany string
+	Report        BudgetVsActual
+}

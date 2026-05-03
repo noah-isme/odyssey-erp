@@ -23,6 +23,7 @@ type InventoryItem struct {
 // InventoryClient provides inventory operations.
 type InventoryClient interface {
 	Reduce(ctx context.Context, items []InventoryItem) error
+	CheckAvailability(ctx context.Context, warehouseID, productID int64) (float64, error)
 }
 
 // Service provides business logic for delivery orders.
@@ -92,6 +93,17 @@ func (s *Service) Create(ctx context.Context, req CreateRequest, createdBy int64
 		}
 		if reqLine.ProductID != deliverable.ProductID {
 			return nil, fmt.Errorf("product ID mismatch for line %d", reqLine.SalesOrderLineID)
+		}
+
+		// Check stock availability if inventory client is set
+		if s.inventory != nil {
+			avail, err := s.inventory.CheckAvailability(ctx, req.WarehouseID, reqLine.ProductID)
+			if err != nil {
+				return nil, fmt.Errorf("check stock availability: %w", err)
+			}
+			if avail < reqLine.QuantityToDeliver {
+				return nil, fmt.Errorf("insufficient stock for product %d: requested %.2f, available %.2f", reqLine.ProductID, reqLine.QuantityToDeliver, avail)
+			}
 		}
 	}
 
@@ -245,6 +257,19 @@ func (s *Service) Confirm(ctx context.Context, id int64, confirmedBy int64) (*De
 
 	if len(existing.Lines) == 0 {
 		return nil, fmt.Errorf("cannot confirm without lines")
+	}
+
+	// Check stock availability if inventory client is set
+	if s.inventory != nil {
+		for _, line := range existing.Lines {
+			avail, err := s.inventory.CheckAvailability(ctx, existing.WarehouseID, line.ProductID)
+			if err != nil {
+				return nil, fmt.Errorf("check stock availability: %w", err)
+			}
+			if avail < line.QuantityToDeliver {
+				return nil, fmt.Errorf("insufficient stock for product %d: requested %.2f, available %.2f", line.ProductID, line.QuantityToDeliver, avail)
+			}
+		}
 	}
 
 	confirmedAt := time.Now()
