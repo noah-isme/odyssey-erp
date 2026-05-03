@@ -1077,6 +1077,30 @@ type InventoryCard struct {
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
+type InventoryStockTake struct {
+	ID          int64              `json:"id"`
+	Uuid        pgtype.UUID        `json:"uuid"`
+	Number      string             `json:"number"`
+	WarehouseID int32              `json:"warehouse_id"`
+	Status      string             `json:"status"`
+	Note        string             `json:"note"`
+	TakenAt     pgtype.Timestamptz `json:"taken_at"`
+	CreatedBy   int64              `json:"created_by"`
+	PostedBy    pgtype.Int8        `json:"posted_by"`
+	PostedAt    pgtype.Timestamptz `json:"posted_at"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type InventoryStockTakeLine struct {
+	ID          int64          `json:"id"`
+	StockTakeID int64          `json:"stock_take_id"`
+	ProductID   int32          `json:"product_id"`
+	SystemQty   pgtype.Numeric `json:"system_qty"`
+	PhysicalQty pgtype.Numeric `json:"physical_qty"`
+	VarianceQty pgtype.Numeric `json:"variance_qty"`
+	Note        string         `json:"note"`
+}
+
 type InventoryTx struct {
 	ID          int64              `json:"id"`
 	Code        string             `json:"code"`
@@ -1271,7 +1295,8 @@ type Product struct {
 	IsActive   bool               `json:"is_active"`
 	DeletedAt  pgtype.Timestamptz `json:"deleted_at"`
 	// Tenant isolation: company that owns this product
-	CompanyID pgtype.Int8 `json:"company_id"`
+	CompanyID pgtype.Int8    `json:"company_id"`
+	MinStock  pgtype.Numeric `json:"min_stock"`
 }
 
 type Quotation struct {

@@ -33,6 +33,8 @@ type TxRepository interface {
 	GetBalanceForUpdate(ctx context.Context, warehouseID, productID int64) (Balance, error)
 	UpsertBalance(ctx context.Context, balance Balance) error
 	InsertCardEntry(ctx context.Context, card StockCardEntry, warehouseID, productID int64, txID int64) error
+	InsertStockTake(ctx context.Context, arg sqlc.InsertStockTakeParams) (int64, error)
+	InsertStockTakeLine(ctx context.Context, arg sqlc.InsertStockTakeLineParams) error
 }
 
 type txRepo struct {
@@ -58,6 +60,113 @@ func (r *Repository) WithTx(ctx context.Context, fn func(context.Context, TxRepo
 	}
 
 	return tx.Commit(ctx)
+}
+
+func (r *Repository) GetStockTake(ctx context.Context, id int64) (StockTake, error) {
+	row, err := r.queries.GetStockTake(ctx, id)
+	if err != nil {
+		return StockTake{}, err
+	}
+	st := StockTake{
+		ID:          row.ID,
+		UUID:        uuid.UUID(row.Uuid.Bytes).String(),
+		Number:      row.Number,
+		WarehouseID: int64(row.WarehouseID),
+		Status:      StockTakeStatus(row.Status),
+		Note:        row.Note,
+		TakenAt:     row.TakenAt.Time,
+		CreatedBy:   row.CreatedBy,
+		PostedBy:    row.PostedBy.Int64,
+		PostedAt:     row.PostedAt.Time,
+		CreatedAt:    row.CreatedAt.Time,
+		CreatorEmail: row.CreatorEmail,
+		WarehouseName: row.WarehouseName,
+	}
+	lines, err := r.queries.GetStockTakeLines(ctx, id)
+	if err != nil {
+		return st, err
+	}
+	for _, l := range lines {
+		st.Lines = append(st.Lines, StockTakeLine{
+			ID:          l.ID,
+			StockTakeID: l.StockTakeID,
+			ProductID:   int64(l.ProductID),
+			ProductName: l.ProductName,
+			SystemQty:   numericToFloat(l.SystemQty),
+			PhysicalQty: numericToFloat(l.PhysicalQty),
+			VarianceQty: numericToFloat(l.VarianceQty),
+			Note:        l.Note,
+		})
+	}
+	return st, nil
+}
+
+func (r *Repository) ListStockTakes(ctx context.Context) ([]StockTake, error) {
+	rows, err := r.queries.ListStockTakes(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var res []StockTake
+	for _, row := range rows {
+		res = append(res, StockTake{
+			ID:          row.ID,
+			UUID:        uuid.UUID(row.Uuid.Bytes).String(),
+			Number:      row.Number,
+			WarehouseID: int64(row.WarehouseID),
+			Status:      StockTakeStatus(row.Status),
+			Note:        row.Note,
+			TakenAt:       row.TakenAt.Time,
+			CreatedBy:     row.CreatedBy,
+			CreatedAt:     row.CreatedAt.Time,
+			WarehouseName: row.WarehouseName,
+		})
+	}
+	return res, nil
+}
+
+func (r *Repository) UpdateStockTakeStatus(ctx context.Context, arg sqlc.UpdateStockTakeStatusParams) error {
+	return r.queries.UpdateStockTakeStatus(ctx, arg)
+}
+
+func (r *Repository) GetValuation(ctx context.Context, warehouseID int64) ([]ValuationEntry, error) {
+	rows, err := r.queries.GetStockValuation(ctx, warehouseID)
+	if err != nil {
+		return nil, err
+	}
+	var res []ValuationEntry
+	for _, row := range rows {
+		res = append(res, ValuationEntry{
+			WarehouseID:   int64(row.WarehouseID),
+			WarehouseName: row.WarehouseName,
+			ProductID:     int64(row.ProductID),
+			ProductName:   row.ProductName,
+			SKU:           row.Sku,
+			Qty:           numericToFloat(row.Qty),
+			AvgCost:       numericToFloat(row.AvgCost),
+			TotalValue:    numericToFloat(row.TotalValue),
+		})
+	}
+	return res, nil
+}
+
+func (r *Repository) GetReorderAlerts(ctx context.Context) ([]ReorderAlert, error) {
+	rows, err := r.queries.GetReorderAlerts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var res []ReorderAlert
+	for _, row := range rows {
+		res = append(res, ReorderAlert{
+			ProductID:     int64(row.ID),
+			ProductName:   row.Name,
+			SKU:           row.Sku,
+			MinStock:      numericToFloat(row.MinStock),
+			WarehouseID:   int64(row.WarehouseID),
+			WarehouseName: row.WarehouseName,
+			CurrentQty:    numericToFloat(row.Qty),
+		})
+	}
+	return res, nil
 }
 
 func (r *Repository) GetStockCard(ctx context.Context, filter StockCardFilter) ([]StockCardEntry, error) {
@@ -169,6 +278,14 @@ func (r *txRepo) InsertCardEntry(ctx context.Context, card StockCardEntry, wareh
 		PostedAt:    pgtype.Timestamptz{Time: card.PostedAt, Valid: true},
 		Note:        card.Note,
 	})
+}
+
+func (r *txRepo) InsertStockTake(ctx context.Context, arg sqlc.InsertStockTakeParams) (int64, error) {
+	return r.queries.InsertStockTake(ctx, arg)
+}
+
+func (r *txRepo) InsertStockTakeLine(ctx context.Context, arg sqlc.InsertStockTakeLineParams) error {
+	return r.queries.InsertStockTakeLine(ctx, arg)
 }
 
 func parseUUID(s string) [16]byte {

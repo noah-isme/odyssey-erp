@@ -2,87 +2,85 @@
 {{ template "layouts/base.html" . }}
 {{ end }}
 
-{{ define "title" }}Stock Transfers{{ end }}
-
 {{ define "content" }}
-<div class="transfers-wrapper">
-    <header>
-        <h1>Stock Transfers</h1>
-        <p>Transfer stock between warehouses</p>
+<div class="container container-narrow">
+    <header class="page-header">
+        <div class="header-main">
+            <h1>Transfer Stok</h1>
+            <p class="text-muted">Pindahkan stok antar gudang.</p>
+        </div>
     </header>
 
-    <form method="post" action="/inventory/transfers">
-        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
-
-        <section>
-            <fieldset>
-                <legend>Transfer Details</legend>
-                <div class="grid">
-                    <div>
-                        <label for="code">Code (optional)</label>
-                        <input type="text" name="code" id="code" value="{{ .Data.Form.Code }}" class="input">
-                    </div>
-                    <div>
-                        <label for="src_warehouse">Source Warehouse *</label>
-                        <select name="src_warehouse" id="src_warehouse" class="input" required>
-                            <option value="">Select Source Warehouse</option>
-                            <!-- Warehouses would be populated here -->
-                        </select>
-                        {{ if .Data.Errors.src_warehouse }}
-                        <small class="error">{{ .Data.Errors.src_warehouse }}</small>
+    <div class="card">
+        <form action="/inventory/transfers" method="POST" class="form">
+            <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="form-group">
+                    <label for="src_warehouse">Gudang Asal</label>
+                    <select name="src_warehouse" id="src_warehouse" class="form-control" required>
+                        <option value="">Pilih Asal...</option>
+                        {{ range .Data.Warehouses }}
+                        <option value="{{ .ID }}" {{ if eq .ID $.Data.Form.SrcWarehouse }}selected{{ end }}>{{ .Name }}</option>
                         {{ end }}
-                    </div>
-                    <div>
-                        <label for="dst_warehouse">Destination Warehouse *</label>
-                        <select name="dst_warehouse" id="dst_warehouse" class="input" required>
-                            <option value="">Select Destination Warehouse</option>
-                            <!-- Warehouses would be populated here -->
-                        </select>
-                        {{ if .Data.Errors.dst_warehouse }}
-                        <small class="error">{{ .Data.Errors.dst_warehouse }}</small>
-                        {{ end }}
-                    </div>
-                    <div>
-                        <label for="product_id">Product *</label>
-                        <select name="product_id" id="product_id" class="input" required>
-                            <option value="">Select Product</option>
-                            <!-- Products would be populated here -->
-                        </select>
-                        {{ if .Data.Errors.product_id }}
-                        <small class="error">{{ .Data.Errors.product_id }}</small>
-                        {{ end }}
-                    </div>
-                    <div>
-                        <label for="qty">Quantity *</label>
-                        <input type="number" name="qty" id="qty" step="0.01" value="{{ .Data.Form.Qty }}" class="input" required>
-                        {{ if .Data.Errors.qty }}
-                        <small class="error">{{ .Data.Errors.qty }}</small>
-                        {{ end }}
-                    </div>
-                    <div>
-                        <label for="unit_cost">Unit Cost *</label>
-                        <input type="number" name="unit_cost" id="unit_cost" step="0.01" value="{{ .Data.Form.UnitCost }}" class="input" required>
-                        {{ if .Data.Errors.unit_cost }}
-                        <small class="error">{{ .Data.Errors.unit_cost }}</small>
-                        {{ end }}
-                    </div>
-                    <div>
-                        <label for="note">Note</label>
-                        <textarea name="note" id="note" class="input">{{ .Data.Form.Note }}</textarea>
-                    </div>
+                    </select>
+                    {{ if .Data.Errors.src_warehouse }}<p class="form-error">{{ .Data.Errors.src_warehouse }}</p>{{ end }}
                 </div>
-            </fieldset>
-        </section>
 
-        <section>
-            <div role="group">
-                <button type="submit" class="btn btn--primary">Transfer Stock</button>
-                <a href="/inventory/transfers" role="button" class="btn btn--secondary">Cancel</a>
+                <div class="form-group">
+                    <label for="dst_warehouse">Gudang Tujuan</label>
+                    <select name="dst_warehouse" id="dst_warehouse" class="form-control" required>
+                        <option value="">Pilih Tujuan...</option>
+                        {{ range .Data.Warehouses }}
+                        <option value="{{ .ID }}" {{ if eq .ID $.Data.Form.DstWarehouse }}selected{{ end }}>{{ .Name }}</option>
+                        {{ end }}
+                    </select>
+                    {{ if .Data.Errors.dst_warehouse }}<p class="form-error">{{ .Data.Errors.dst_warehouse }}</p>{{ end }}
+                </div>
             </div>
+
+            <div class="form-group">
+                <label for="product_id">Produk</label>
+                <select name="product_id" id="product_id" class="form-control" required>
+                    <option value="">Pilih Produk...</option>
+                    {{ range .Data.Products }}
+                    <option value="{{ .ID }}" {{ if eq .ID $.Data.Form.ProductID }}selected{{ end }}>{{ .Name }} ({{ .SKU }})</option>
+                    {{ end }}
+                </select>
+                {{ if .Data.Errors.product_id }}<p class="form-error">{{ .Data.Errors.product_id }}</p>{{ end }}
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="form-group">
+                    <label for="qty">Jumlah Transfer</label>
+                    <input type="number" step="any" name="qty" id="qty" class="form-control" value="{{ .Data.Form.Qty }}" placeholder="0.00" required>
+                    {{ if .Data.Errors.qty }}<p class="form-error">{{ .Data.Errors.qty }}</p>{{ end }}
+                </div>
+
+                <div class="form-group">
+                    <label for="unit_cost">Biaya per Unit (Opsional)</label>
+                    <input type="number" step="any" name="unit_cost" id="unit_cost" class="form-control" value="{{ .Data.Form.UnitCost }}" placeholder="0.00">
+                    {{ if .Data.Errors.unit_cost }}<p class="form-error">{{ .Data.Errors.unit_cost }}</p>{{ end }}
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="note">Catatan Transfer</label>
+                <textarea name="note" id="note" class="form-control" rows="3" placeholder="Contoh: Mutasi stok reguler">{{ .Data.Form.Note }}</textarea>
+                {{ if .Data.Errors.note }}<p class="form-error">{{ .Data.Errors.note }}</p>{{ end }}
+            </div>
+
+            <div class="form-footer">
+                <a href="/inventory/dashboard" class="button ghost">Batal</a>
+                <button type="submit" class="button primary">Proses Transfer</button>
+            </div>
+            
             {{ if .Data.Errors.general }}
-            <p class="error">{{ .Data.Errors.general }}</p>
+            <div class="alert alert-danger mt-4">
+                {{ .Data.Errors.general }}
+            </div>
             {{ end }}
-        </section>
-    </form>
+        </form>
+    </div>
 </div>
 {{ end }}

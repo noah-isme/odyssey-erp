@@ -58,7 +58,7 @@ type Querier interface {
 	CreatePR(ctx context.Context, arg CreatePRParams) (int64, error)
 	CreatePaymentAllocation(ctx context.Context, arg CreatePaymentAllocationParams) (int64, error)
 	CreatePermission(ctx context.Context, arg CreatePermissionParams) (Permission, error)
-	CreateProduct(ctx context.Context, arg CreateProductParams) (Product, error)
+	CreateProduct(ctx context.Context, arg CreateProductParams) (CreateProductRow, error)
 	CreateQuotation(ctx context.Context, arg CreateQuotationParams) (int64, error)
 	CreateSalesOrder(ctx context.Context, arg CreateSalesOrderParams) (int64, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) error
@@ -139,13 +139,14 @@ type Querier interface {
 	// PRODUCTS (id, sku, name, category_id, unit_id, price, tax_id, is_active, deleted_at)
 	// Note: uses 'sku' instead of 'code', no 'cost', no created/updated_at
 	// =============================================================================
-	GetProduct(ctx context.Context, id int64) (Product, error)
+	GetProduct(ctx context.Context, id int64) (GetProductRow, error)
 	// =============================================================================
 	// QUOTATIONS
 	// =============================================================================
 	GetQuotation(ctx context.Context, id int64) (Quotation, error)
 	GetQuotationByDocNumber(ctx context.Context, docNumber string) (Quotation, error)
 	GetQuotationLines(ctx context.Context, quotationID int64) ([]QuotationLine, error)
+	GetReorderAlerts(ctx context.Context) ([]GetReorderAlertsRow, error)
 	GetRole(ctx context.Context, id int64) (Role, error)
 	GetRun(ctx context.Context, id int64) (GetRunRow, error)
 	// =============================================================================
@@ -157,6 +158,9 @@ type Querier interface {
 	GetSalesOrderLines(ctx context.Context, salesOrderID int64) ([]SalesOrderLine, error)
 	GetSnapshot(ctx context.Context, id int64) (GetSnapshotRow, error)
 	GetStockCard(ctx context.Context, arg GetStockCardParams) ([]GetStockCardRow, error)
+	GetStockTake(ctx context.Context, id int64) (GetStockTakeRow, error)
+	GetStockTakeLines(ctx context.Context, stockTakeID int64) ([]GetStockTakeLinesRow, error)
+	GetStockValuation(ctx context.Context, warehouseID int64) ([]GetStockValuationRow, error)
 	// =============================================================================
 	// SUPPLIERS (id, code, name, phone, email, address, is_active) - no timestamps
 	// =============================================================================
@@ -190,6 +194,8 @@ type Querier interface {
 	InsertRun(ctx context.Context, arg InsertRunParams) (EliminationRun, error)
 	InsertSalesOrderLine(ctx context.Context, arg InsertSalesOrderLineParams) (int64, error)
 	InsertSnapshot(ctx context.Context, arg InsertSnapshotParams) (VarianceSnapshot, error)
+	InsertStockTake(ctx context.Context, arg InsertStockTakeParams) (int64, error)
+	InsertStockTakeLine(ctx context.Context, arg InsertStockTakeLineParams) error
 	InsertTransaction(ctx context.Context, arg InsertTransactionParams) (int64, error)
 	InsertTransactionLine(ctx context.Context, arg InsertTransactionLineParams) error
 	IsAPPaymentPosted(ctx context.Context, arg IsAPPaymentPostedParams) (bool, error)
@@ -221,6 +227,7 @@ type Querier interface {
 	ListRolePermissions(ctx context.Context, roleID int64) ([]Permission, error)
 	ListRuns(ctx context.Context, arg ListRunsParams) ([]ListRunsRow, error)
 	ListSnapshots(ctx context.Context, arg ListSnapshotsParams) ([]ListSnapshotsRow, error)
+	ListStockTakes(ctx context.Context) ([]ListStockTakesRow, error)
 	ListTemplates(ctx context.Context, dollar_1 bool) ([]ListTemplatesRow, error)
 	ListUsers(ctx context.Context) ([]ListUsersRow, error)
 	ListVarianceSnapshots(ctx context.Context, arg ListVarianceSnapshotsParams) ([]ListVarianceSnapshotsRow, error)
@@ -283,6 +290,7 @@ type Querier interface {
 	UpdateSalesOrderStatus(ctx context.Context, arg UpdateSalesOrderStatusParams) error
 	UpdateStatus(ctx context.Context, arg UpdateStatusParams) error
 	UpdateStatusConfirmed(ctx context.Context, arg UpdateStatusConfirmedParams) error
+	UpdateStockTakeStatus(ctx context.Context, arg UpdateStockTakeStatusParams) error
 	UpdateSupplier(ctx context.Context, arg UpdateSupplierParams) error
 	UpdateTax(ctx context.Context, arg UpdateTaxParams) error
 	UpdateUnit(ctx context.Context, arg UpdateUnitParams) error

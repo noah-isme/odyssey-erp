@@ -35,7 +35,15 @@ type TemplateData struct {
 func NewEngine() (*Engine, error) {
 	printer := message.NewPrinter(language.Indonesian)
 	funcMap := template.FuncMap{
-		"formatDate": func(t time.Time) string {
+		"formatDate": func(v any) string {
+			var t time.Time
+			if tv, ok := v.(time.Time); ok {
+				t = tv
+			} else if ts, ok := v.(pgtype.Timestamptz); ok {
+				if ts.Valid {
+					t = ts.Time
+				}
+			}
 			if t.IsZero() {
 				return ""
 			}
@@ -67,7 +75,18 @@ func NewEngine() (*Engine, error) {
 			}
 			return fmt.Sprintf("%v", u)
 		},
-		"formatDateInput": func(t time.Time) string {
+		"formatDateInput": func(v any) string {
+			var t time.Time
+			if tv, ok := v.(time.Time); ok {
+				t = tv
+			} else if ts, ok := v.(pgtype.Timestamptz); ok {
+				if ts.Valid {
+					t = ts.Time
+				}
+			}
+			if t.IsZero() {
+				return ""
+			}
 			return t.Format("2006-01-02")
 		},
 		"isNegative": func(v any) bool {
@@ -97,6 +116,9 @@ func NewEngine() (*Engine, error) {
 		"sub": func(a, b int) int {
 			return a - b
 		},
+		"subf": func(a, b float64) float64 {
+			return a - b
+		},
 		"add": func(a, b int) int {
 			return a + b
 		},
@@ -123,6 +145,12 @@ func NewEngine() (*Engine, error) {
 		},
 		"lower": strings.ToLower,
 		"upper": strings.ToUpper,
+		"default": func(val, def string) string {
+			if strings.TrimSpace(val) == "" {
+				return def
+			}
+			return val
+		},
 	}
 
 	base, err := template.New("root").Funcs(funcMap).ParseFS(web.Templates,

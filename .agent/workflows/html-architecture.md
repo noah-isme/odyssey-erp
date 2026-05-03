@@ -205,25 +205,28 @@ Urutan sehat:
 ### Page Layout
 ```html
 <!DOCTYPE html>
-<html lang="id" data-theme="light">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{{ .Title }} - Odyssey ERP</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ block "title" . }}{{ .Title }} · Odyssey ERP{{ end }}</title>
+    {{ block "head" . }}{{ end }}
+    <link rel="stylesheet" href="/static/css/main.css">
 </head>
-<body>
-  <div class="app-shell">
-    <header class="app-header">...</header>
-    <nav class="app-sidebar">...</nav>
+<body class="app-shell">
+    {{ template "partials/header.html" . }}
+    {{ template "partials/sidebar.html" . }}
+
     <main class="app-main">
-      <div class="page-container">
-        {{ template "content" . }}
-      </div>
+        {{ template "partials/flash.html" . }}
+        <section>
+            {{ block "content" . }}{{ end }}
+        </section>
     </main>
-  </div>
 </body>
 </html>
 ```
+> **Penting:** Gunakan `layouts/base.html` sebagai layout utama, bukan `main.html`.
 
 ### Form Pattern
 ```html

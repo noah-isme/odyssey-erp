@@ -8,14 +8,21 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 // RepositoryPort abstracts repository usage for service.
 type RepositoryPort interface {
 	WithTx(ctx context.Context, fn func(context.Context, TxRepository) error) error
 	GetStockCard(ctx context.Context, filter StockCardFilter) ([]StockCardEntry, error)
+	GetStockTake(ctx context.Context, id int64) (StockTake, error)
+	ListStockTakes(ctx context.Context) ([]StockTake, error)
+	UpdateStockTakeStatus(ctx context.Context, arg sqlc.UpdateStockTakeStatusParams) error
+	GetValuation(ctx context.Context, warehouseID int64) ([]ValuationEntry, error)
+	GetReorderAlerts(ctx context.Context) ([]ReorderAlert, error)
 }
 
 // AuditPort abstracts audit logging functionality.
@@ -314,6 +321,116 @@ func (s *Service) postMovement(ctx context.Context, params movementParams) (Stoc
 		})
 	}
 	return card, nil
+}
+
+// CreateStockTake starts a new stock take session.
+func (s *Service) CreateStockTake(ctx context.Context, input CreateStockTakeInput) (int64, error) {
+	if input.WarehouseID == 0 {
+		return 0, errors.New("inventory: warehouse required for stock take")
+	}
+	now := time.Now().UTC()
+	number := fmt.Sprintf("ST-%d", now.UnixNano())
+
+	var id int64
+	err := s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
+		var err error
+		id, err = tx.InsertStockTake(ctx, sqlc.InsertStockTakeParams{
+			Number:      number,
+			WarehouseID: int32(input.WarehouseID),
+			Status:      string(StockTakeStatusDraft),
+			Note:        input.Note,
+			TakenAt:     pgtype.Timestamptz{Time: input.TakenAt, Valid: true},
+			CreatedBy:   input.CreatedBy,
+		})
+		return err
+	})
+	return id, err
+}
+
+// AddStockTakeLine adds a count entry to a session.
+func (s *Service) AddStockTakeLine(ctx context.Context, input AddStockTakeLineInput) error {
+	st, err := s.repo.GetStockTake(ctx, input.StockTakeID)
+	if err != nil {
+		return err
+	}
+	if st.Status != StockTakeStatusDraft {
+		return errors.New("inventory: cannot add lines to non-draft stock take")
+	}
+
+	return s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
+		// Get current system balance
+		bal, err := tx.GetBalanceForUpdate(ctx, st.WarehouseID, input.ProductID)
+		if err != nil && !errors.Is(err, ErrBalanceNotFound) {
+			return err
+		}
+		systemQty := 0.0
+		if err == nil {
+			systemQty = bal.Qty
+		}
+
+		return tx.InsertStockTakeLine(ctx, sqlc.InsertStockTakeLineParams{
+			StockTakeID: input.StockTakeID,
+			ProductID:   int32(input.ProductID),
+			SystemQty:   floatToNumeric(systemQty),
+			PhysicalQty: floatToNumeric(input.PhysicalQty),
+			Note:        input.Note,
+		})
+	})
+}
+
+// PostStockTake finalizes session and posts adjustments.
+func (s *Service) PostStockTake(ctx context.Context, id int64, postedBy int64) error {
+	st, err := s.repo.GetStockTake(ctx, id)
+	if err != nil {
+		return err
+	}
+	if st.Status != StockTakeStatusDraft {
+		return errors.New("inventory: only draft stock takes can be posted")
+	}
+
+	// 1. Post adjustments for each variance
+	for _, line := range st.Lines {
+		if math.Abs(line.VarianceQty) < 1e-9 {
+			continue
+		}
+		adjInput := AdjustmentInput{
+			WarehouseID: st.WarehouseID,
+			ProductID:   line.ProductID,
+			Qty:         line.VarianceQty,
+			Note:        fmt.Sprintf("Stock Take adjustment: %s", st.Number),
+			ActorID:     postedBy,
+			RefModule:   "STOCK_TAKE",
+			RefID:       st.UUID,
+		}
+		// Convert st.ID to UUID if needed, but here we just use string. 
+		// Wait, service.go line 196 parses RefID as UUID.
+		// I should use a UUID for stock take or change service logic.
+		// For now, let's generate a random UUID or just use empty if it's not strictly required by DB.
+		
+		if _, err := s.PostAdjustment(ctx, adjInput); err != nil {
+			return fmt.Errorf("failed to post adjustment for product %d: %w", line.ProductID, err)
+		}
+	}
+
+	// 2. Update status
+	return s.repo.UpdateStockTakeStatus(ctx, sqlc.UpdateStockTakeStatusParams{
+		ID:       id,
+		Status:   string(StockTakeStatusPosted),
+		PostedBy: pgtype.Int8{Int64: postedBy, Valid: true},
+		PostedAt: pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true},
+	})
+}
+
+func (s *Service) GetValuation(ctx context.Context, warehouseID int64) ([]ValuationEntry, error) {
+	return s.repo.GetValuation(ctx, warehouseID)
+}
+
+func (s *Service) GetReorderAlerts(ctx context.Context) ([]ReorderAlert, error) {
+	return s.repo.GetReorderAlerts(ctx)
+}
+
+func (s *Service) GetStockTake(ctx context.Context, id int64) (StockTake, error) {
+	return s.repo.GetStockTake(ctx, id)
 }
 
 func baseCode(code string) string {

@@ -144,7 +144,20 @@ type CreateProductParams struct {
 	IsActive   bool           `json:"is_active"`
 }
 
-func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (Product, error) {
+type CreateProductRow struct {
+	ID         int64              `json:"id"`
+	Sku        string             `json:"sku"`
+	Name       string             `json:"name"`
+	CategoryID int64              `json:"category_id"`
+	UnitID     int64              `json:"unit_id"`
+	Price      pgtype.Numeric     `json:"price"`
+	TaxID      pgtype.Int8        `json:"tax_id"`
+	IsActive   bool               `json:"is_active"`
+	DeletedAt  pgtype.Timestamptz `json:"deleted_at"`
+	CompanyID  pgtype.Int8        `json:"company_id"`
+}
+
+func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (CreateProductRow, error) {
 	row := q.db.QueryRow(ctx, createProduct,
 		arg.Sku,
 		arg.Name,
@@ -154,7 +167,7 @@ func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (P
 		arg.TaxID,
 		arg.IsActive,
 	)
-	var i Product
+	var i CreateProductRow
 	err := row.Scan(
 		&i.ID,
 		&i.Sku,
@@ -433,13 +446,26 @@ SELECT id, sku, name, category_id, unit_id, price, tax_id, is_active, deleted_at
 FROM products WHERE id = $1
 `
 
+type GetProductRow struct {
+	ID         int64              `json:"id"`
+	Sku        string             `json:"sku"`
+	Name       string             `json:"name"`
+	CategoryID int64              `json:"category_id"`
+	UnitID     int64              `json:"unit_id"`
+	Price      pgtype.Numeric     `json:"price"`
+	TaxID      pgtype.Int8        `json:"tax_id"`
+	IsActive   bool               `json:"is_active"`
+	DeletedAt  pgtype.Timestamptz `json:"deleted_at"`
+	CompanyID  pgtype.Int8        `json:"company_id"`
+}
+
 // =============================================================================
 // PRODUCTS (id, sku, name, category_id, unit_id, price, tax_id, is_active, deleted_at)
 // Note: uses 'sku' instead of 'code', no 'cost', no created/updated_at
 // =============================================================================
-func (q *Queries) GetProduct(ctx context.Context, id int64) (Product, error) {
+func (q *Queries) GetProduct(ctx context.Context, id int64) (GetProductRow, error) {
 	row := q.db.QueryRow(ctx, getProduct, id)
-	var i Product
+	var i GetProductRow
 	err := row.Scan(
 		&i.ID,
 		&i.Sku,

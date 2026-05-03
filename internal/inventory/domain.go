@@ -115,6 +115,84 @@ type StockCardFilter struct {
 	Limit       int
 }
 
+// StockTakeStatus defines the state of a stock take session.
+type StockTakeStatus string
+
+const (
+	StockTakeStatusDraft     StockTakeStatus = "DRAFT"
+	StockTakeStatusPosted    StockTakeStatus = "POSTED"
+	StockTakeStatusCancelled StockTakeStatus = "CANCELLED"
+)
+
+// StockTake represents a physical inventory count session.
+type StockTake struct {
+	ID          int64
+	UUID        string
+	Number      string
+	WarehouseID int64
+	Status      StockTakeStatus
+	Note        string
+	TakenAt     time.Time
+	CreatedBy   int64
+	PostedBy    int64
+	PostedAt    time.Time
+	CreatedAt    time.Time
+	CreatorEmail string
+	WarehouseName string
+	Lines        []StockTakeLine
+}
+
+// StockTakeLine represents a count for a specific product.
+type StockTakeLine struct {
+	ID          int64
+	StockTakeID int64
+	ProductID   int64
+	ProductName string
+	SystemQty   float64
+	PhysicalQty float64
+	VarianceQty float64
+	Note        string
+}
+
+// ValuationEntry for stock valuation reports.
+type ValuationEntry struct {
+	WarehouseID   int64
+	WarehouseName string
+	ProductID     int64
+	ProductName   string
+	SKU           string
+	Qty           float64
+	AvgCost       float64
+	TotalValue    float64
+}
+
+// ReorderAlert models products below min stock.
+type ReorderAlert struct {
+	ProductID     int64
+	ProductName   string
+	SKU           string
+	MinStock      float64
+	WarehouseID   int64
+	WarehouseName string
+	CurrentQty    float64
+}
+
+// CreateStockTakeInput for new session.
+type CreateStockTakeInput struct {
+	WarehouseID int64
+	Note        string
+	TakenAt     time.Time
+	CreatedBy   int64
+}
+
+// AddStockTakeLineInput for session items.
+type AddStockTakeLineInput struct {
+	StockTakeID int64
+	ProductID   int64
+	PhysicalQty float64
+	Note        string
+}
+
 // ErrNegativeStock triggered when movement would result negative qty.
 var ErrNegativeStock = errors.New("inventory: negative stock not allowed")
 
