@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 	_ "github.com/odyssey-erp/odyssey-erp/testing"
 )
 
@@ -14,6 +15,7 @@ type memoryRepo struct {
 	balances map[string]Balance
 	cards    []StockCardEntry
 	nextID   int64
+	takes    map[int64]StockTake
 }
 
 type memoryTx struct {
@@ -21,7 +23,10 @@ type memoryTx struct {
 }
 
 func newMemoryRepo() *memoryRepo {
-	return &memoryRepo{balances: make(map[string]Balance)}
+	return &memoryRepo{
+		balances: make(map[string]Balance),
+		takes:    make(map[int64]StockTake),
+	}
 }
 
 func (r *memoryRepo) balanceKey(warehouseID, productID int64) string {
@@ -41,6 +46,33 @@ func (r *memoryRepo) GetStockCard(ctx context.Context, filter StockCardFilter) (
 	result := make([]StockCardEntry, len(r.cards))
 	copy(result, r.cards)
 	return result, nil
+}
+
+func (r *memoryRepo) GetStockTake(ctx context.Context, id int64) (StockTake, error) {
+	return r.takes[id], nil
+}
+
+func (r *memoryRepo) ListStockTakes(ctx context.Context) ([]StockTake, error) {
+	var res []StockTake
+	for _, t := range r.takes {
+		res = append(res, t)
+	}
+	return res, nil
+}
+
+func (r *memoryRepo) UpdateStockTakeStatus(ctx context.Context, arg sqlc.UpdateStockTakeStatusParams) error {
+	take := r.takes[arg.ID]
+	take.Status = StockTakeStatus(arg.Status)
+	r.takes[arg.ID] = take
+	return nil
+}
+
+func (r *memoryRepo) GetValuation(ctx context.Context, warehouseID int64) ([]ValuationEntry, error) {
+	return nil, nil
+}
+
+func (r *memoryRepo) GetReorderAlerts(ctx context.Context) ([]ReorderAlert, error) {
+	return nil, nil
 }
 
 func (tx *memoryTx) InsertTransaction(ctx context.Context, _ Transaction) (int64, error) {
@@ -68,6 +100,28 @@ func (tx *memoryTx) UpsertBalance(ctx context.Context, balance Balance) error {
 
 func (tx *memoryTx) InsertCardEntry(ctx context.Context, card StockCardEntry, warehouseID, productID int64, txID int64) error {
 	tx.repo.cards = append(tx.repo.cards, card)
+	return nil
+}
+
+func (tx *memoryTx) InsertStockTake(ctx context.Context, arg sqlc.InsertStockTakeParams) (int64, error) {
+	tx.repo.nextID++
+	tx.repo.takes[tx.repo.nextID] = StockTake{
+		ID:          tx.repo.nextID,
+		Number:      arg.Number,
+		WarehouseID: int64(arg.WarehouseID),
+		Status:      StockTakeStatus(arg.Status),
+	}
+	return tx.repo.nextID, nil
+}
+
+func (tx *memoryTx) InsertStockTakeLine(ctx context.Context, arg sqlc.InsertStockTakeLineParams) error {
+	take := tx.repo.takes[arg.StockTakeID]
+	take.Lines = append(take.Lines, StockTakeLine{
+		ProductID:   int64(arg.ProductID),
+		SystemQty:   numericToFloat(arg.SystemQty),
+		PhysicalQty: numericToFloat(arg.PhysicalQty),
+	})
+	tx.repo.takes[arg.StockTakeID] = take
 	return nil
 }
 

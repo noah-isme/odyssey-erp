@@ -1,0 +1,67 @@
+{{ define "pages/inventory/dashboard.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Inventory Dashboard{{ end }}
+
+{{ define "content" }}
+<div class="container">
+    <header class="page-header">
+        <div class="header-main">
+            <h1>Inventory Dashboard</h1>
+            <p class="text-muted">Ringkasan status stok dan peringatan reorder.</p>
+        </div>
+    </header>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="card bg-primary text-primary-foreground p-6">
+            <div class="text-sm font-medium opacity-80">Total Alerts</div>
+            <div class="text-3xl font-bold">{{ len .Data.Alerts }}</div>
+            <div class="text-xs mt-2">Produk di bawah stok minimum</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header flex justify-between items-center">
+            <h2 class="card-title text-danger flex items-center gap-2">
+                <i class="lucide-alert-triangle"></i> Reorder Point Alerts
+            </h2>
+            <a href="/procurement/prs/new" class="button small secondary">Buat PR Baru</a>
+        </div>
+        <div class="card-table">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th scope="col">Gudang</th>
+                        <th scope="col">Produk</th>
+                        <th scope="col">SKU</th>
+                        <th scope="col" class="text-right">Stok Saat Ini</th>
+                        <th scope="col" class="text-right">Stok Minimum</th>
+                        <th scope="col" class="text-right">Selisih</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ range .Data.Alerts }}
+                    <tr>
+                        <td>{{ .WarehouseName }}</td>
+                        <td class="font-medium">{{ .ProductName }}</td>
+                        <td>{{ .SKU }}</td>
+                        <td class="text-right font-bold text-danger">{{ .CurrentQty | formatDecimal }}</td>
+                        <td class="text-right">{{ .MinStock | formatDecimal }}</td>
+                        <td class="text-right text-muted italic">
+                            {{ printf "%.2f" (subf .MinStock .CurrentQty) }} unit lagi
+                        </td>
+                    </tr>
+                    {{ else }}
+                    <tr>
+                        <td colspan="6" class="text-center py-8 text-muted">
+                            <i class="lucide-check-circle text-success inline-block mr-2"></i> Semua stok aman di atas batas minimum.
+                        </td>
+                    </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{{ end }}

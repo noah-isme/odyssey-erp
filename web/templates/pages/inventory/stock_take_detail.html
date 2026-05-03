@@ -1,0 +1,130 @@
+{{ define "pages/inventory/stock_take_detail.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Detail Opname - {{ .Data.StockTake.Number }}{{ end }}
+
+{{ define "content" }}
+<div class="container">
+    <header class="page-header">
+        <div class="header-main">
+            <div class="flex items-center gap-2">
+                <h1>{{ .Data.StockTake.Number }}</h1>
+                <span class="badge {{ if eq .Data.StockTake.Status "POSTED" }}badge-success{{ else if eq .Data.StockTake.Status "CANCELLED" }}badge-danger{{ else }}badge-warning{{ end }}">
+                    {{ .Data.StockTake.Status }}
+                </span>
+            </div>
+            <p class="text-muted">Gudang: {{ .Data.StockTake.WarehouseName }} | Tanggal: {{ .Data.StockTake.TakenAt | formatDate }}</p>
+        </div>
+        <div class="header-actions">
+            {{ if eq .Data.StockTake.Status "DRAFT" }}
+            <form action="/inventory/stock-takes/{{ .Data.StockTake.ID }}/post" method="POST" onsubmit="return confirm('Posting akan menyesuaikan stok sistem dengan hasil fisik. Lanjutkan?')">
+                <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+                <button type="submit" class="button success">
+                    <i class="lucide-check-circle"></i> Posting Hasil
+                </button>
+            </form>
+            {{ end }}
+        </div>
+    </header>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="md:col-span-2">
+            <div class="card card-table">
+                <div class="card-header">
+                    <h2 class="card-title">Item Perhitungan</h2>
+                </div>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Produk</th>
+                            <th scope="col" class="text-right">Sistem</th>
+                            <th scope="col" class="text-right">Fisik</th>
+                            <th scope="col" class="text-right">Selisih</th>
+                            <th scope="col">Catatan</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{ range .Data.StockTake.Lines }}
+                        <tr>
+                            <td class="font-medium">{{ .ProductName }}</td>
+                            <td class="text-right">{{ .SystemQty | formatDecimal }}</td>
+                            <td class="text-right">{{ .PhysicalQty | formatDecimal }}</td>
+                            <td class="text-right font-medium {{ if lt .VarianceQty 0.0 }}text-danger{{ else if gt .VarianceQty 0.0 }}text-success{{ end }}">
+                                {{ if gt .VarianceQty 0.0 }}+{{ end }}{{ .VarianceQty | formatDecimal }}
+                            </td>
+                            <td class="text-muted text-sm">{{ .Note }}</td>
+                        </tr>
+                        {{ else }}
+                        <tr>
+                            <td colspan="5" class="text-center py-8 text-muted">Belum ada item yang ditambahkan.</td>
+                        </tr>
+                        {{ end }}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="md:col-span-1">
+            {{ if eq .Data.StockTake.Status "DRAFT" }}
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Tambah Item</h2>
+                </div>
+                <form action="/inventory/stock-takes/{{ .Data.StockTake.ID }}/lines" method="POST" class="form" data-feature="stock-take-line-form">
+                    <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+                    
+                    <div class="form-group">
+                        <label for="product_id">Produk</label>
+                        <select name="product_id" id="product_id" class="form-control" required>
+                            <option value="">Pilih Produk...</option>
+                            {{ range .Data.Products }}
+                            <option value="{{ .ID }}">{{ .Name }} ({{ .SKU }})</option>
+                            {{ end }}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="physical_qty">Jumlah Fisik</label>
+                        <input type="number" step="any" name="physical_qty" id="physical_qty" class="form-control" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="note">Catatan Item</label>
+                        <input type="text" name="note" id="note" class="form-control" placeholder="Contoh: Rusak 2 unit">
+                    </div>
+
+                    <button type="submit" class="button primary block full-width">Tambah ke Sesi</button>
+                </form>
+            </div>
+            {{ end }}
+
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Ringkasan Sesi</h2>
+                </div>
+                <div class="list-group">
+                    <div class="list-item">
+                        <div class="text-muted">Dibuat Oleh</div>
+                        <div>{{ .Data.StockTake.CreatorEmail }}</div>
+                    </div>
+                    <div class="list-item">
+                        <div class="text-muted">Dibuat Pada</div>
+                        <div>{{ .Data.StockTake.CreatedAt | formatDate }}</div>
+                    </div>
+                    {{ if .Data.StockTake.PostedAt.IsZero | not }}
+                    <div class="list-item">
+                        <div class="text-muted">Diposting Pada</div>
+                        <div>{{ .Data.StockTake.PostedAt | formatDate }}</div>
+                    </div>
+                    {{ end }}
+                    <div class="list-item">
+                        <div class="text-muted">Catatan Sesi</div>
+                        <div class="text-sm italic">{{ .Data.StockTake.Note | default "Tidak ada catatan" }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}

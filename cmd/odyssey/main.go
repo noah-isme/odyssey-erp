@@ -229,7 +229,7 @@ func main() {
 		logger.Warn("register consol cache metrics", slog.Any("error", err))
 	}
 
-	inventoryHandler := inventory.NewHandler(logger, inventoryService, templates, csrfManager, sessionManager, rbacMiddleware)
+	inventoryHandler := inventory.NewHandler(logger, inventoryService, templates, csrfManager, sessionManager, rbacMiddleware, dbpool)
 	procurementHandler := procurement.NewHandler(logger, procurementService, templates, csrfManager, sessionManager, rbacMiddleware)
 
 	salesService := sales.NewService(dbpool)

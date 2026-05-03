@@ -1,0 +1,70 @@
+{{ define "pages/inventory/valuation.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Laporan Valuasi Stok{{ end }}
+
+{{ define "content" }}
+<div class="container">
+    <header class="page-header">
+        <div class="header-main">
+            <h1>Valuasi Stok</h1>
+            <p class="text-muted">Nilai inventaris berdasarkan Moving Average Cost.</p>
+        </div>
+    </header>
+
+    <div class="card mb-6">
+        <form method="GET" action="/inventory/valuation" class="flex items-end gap-4 p-4">
+            <div class="form-group mb-0">
+                <label for="warehouse_id">Filter Gudang</label>
+                <select name="warehouse_id" id="warehouse_id" class="form-control">
+                    <option value="0">Semua Gudang</option>
+                    {{ range .Data.Warehouses }}
+                    <option value="{{ .ID }}" {{ if eq .ID $.Data.WarehouseID }}selected{{ end }}>{{ .Name }}</option>
+                    {{ end }}
+                </select>
+            </div>
+            <button type="submit" class="button secondary">Filter</button>
+        </form>
+    </div>
+
+    <div class="card card-table">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th scope="col">Gudang</th>
+                    <th scope="col">Produk</th>
+                    <th scope="col">SKU</th>
+                    <th scope="col" class="text-right">Qty</th>
+                    <th scope="col" class="text-right">Avg Cost</th>
+                    <th scope="col" class="text-right">Total Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{ range .Data.Entries }}
+                <tr>
+                    <td>{{ .WarehouseName }}</td>
+                    <td class="font-medium">{{ .ProductName }}</td>
+                    <td>{{ .SKU }}</td>
+                    <td class="text-right">{{ .Qty | formatDecimal }}</td>
+                    <td class="text-right">{{ .AvgCost | formatCurrency "IDR" }}</td>
+                    <td class="text-right font-bold">{{ .TotalValue | formatCurrency "IDR" }}</td>
+                </tr>
+                {{ else }}
+                <tr>
+                    <td colspan="6" class="text-center py-8 text-muted">Data tidak ditemukan.</td>
+                </tr>
+                {{ end }}
+            </tbody>
+            {{ if .Data.Entries }}
+            <tfoot>
+                <tr class="bg-muted font-bold">
+                    <td colspan="5" class="text-right py-4">GRAND TOTAL</td>
+                    <td class="text-right py-4 text-lg text-primary">{{ .Data.TotalValue | formatCurrency "IDR" }}</td>
+                </tr>
+            </tfoot>
+            {{ end }}
+        </table>
+    </div>
+</div>
+{{ end }}

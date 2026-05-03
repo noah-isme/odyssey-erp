@@ -1,12 +1,14 @@
 package inventory
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
@@ -21,11 +23,12 @@ type Handler struct {
 	csrf      *shared.CSRFManager
 	sessions  *shared.SessionManager
 	rbac      rbac.Middleware
+	pool      *pgxpool.Pool
 }
 
 // NewHandler constructs inventory handler.
-func NewHandler(logger *slog.Logger, service *Service, templates *view.Engine, csrf *shared.CSRFManager, sessions *shared.SessionManager, rbac rbac.Middleware) *Handler {
-	return &Handler{logger: logger, service: service, templates: templates, csrf: csrf, sessions: sessions, rbac: rbac}
+func NewHandler(logger *slog.Logger, service *Service, templates *view.Engine, csrf *shared.CSRFManager, sessions *shared.SessionManager, rbac rbac.Middleware, pool *pgxpool.Pool) *Handler {
+	return &Handler{logger: logger, service: service, templates: templates, csrf: csrf, sessions: sessions, rbac: rbac, pool: pool}
 }
 
 // MountRoutes registers inventory routes.
@@ -33,6 +36,7 @@ func (h *Handler) MountRoutes(r chi.Router) {
 	r.Group(func(r chi.Router) {
 		r.Use(h.rbac.RequireAny("inventory.view"))
 		r.Get("/stock-card", h.handleStockCard)
+		r.Get("/dashboard", h.handleDashboard)
 	})
 	r.Group(func(r chi.Router) {
 		r.Use(h.rbac.RequireAll("inventory.edit"))
@@ -40,6 +44,14 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Post("/adjustments", h.handleAdjustment)
 		r.Get("/transfers", h.showTransferForm)
 		r.Post("/transfers", h.handleTransfer)
+
+		r.Get("/stock-takes", h.handleListStockTakes)
+		r.Get("/stock-takes/new", h.showCreateStockTakeForm)
+		r.Post("/stock-takes", h.handleCreateStockTake)
+		r.Get("/stock-takes/{id}", h.handleShowStockTake)
+		r.Post("/stock-takes/{id}/lines", h.handleAddStockTakeLine)
+		r.Post("/stock-takes/{id}/post", h.handlePostStockTake)
+		r.Get("/valuation", h.handleValuation)
 	})
 }
 
@@ -220,7 +232,22 @@ func (h *Handler) renderAdjustment(w http.ResponseWriter, r *http.Request, form 
 	if sess != nil {
 		flash = sess.PopFlash()
 	}
-	viewData := view.TemplateData{Title: "Penyesuaian Stok", CSRFToken: csrfToken, Flash: flash, CurrentPath: r.URL.Path, Data: map[string]any{"Form": form, "Errors": errors}}
+
+	warehouses, _ := h.getWarehouses(r.Context())
+	products, _ := h.getProducts(r.Context())
+
+	viewData := view.TemplateData{
+		Title:       "Penyesuaian Stok",
+		CSRFToken:   csrfToken,
+		Flash:       flash,
+		CurrentPath: r.URL.Path,
+		Data: map[string]any{
+			"Form":       form,
+			"Errors":     errors,
+			"Warehouses": warehouses,
+			"Products":   products,
+		},
+	}
 	w.WriteHeader(status)
 	if err := h.templates.Render(w, "pages/inventory/adjustment_form.html", viewData); err != nil {
 		h.logger.Error("render adjustment", slog.Any("error", err))
@@ -234,7 +261,22 @@ func (h *Handler) renderTransfer(w http.ResponseWriter, r *http.Request, form tr
 	if sess != nil {
 		flash = sess.PopFlash()
 	}
-	viewData := view.TemplateData{Title: "Transfer Stok", CSRFToken: csrfToken, Flash: flash, CurrentPath: r.URL.Path, Data: map[string]any{"Form": form, "Errors": errors}}
+
+	warehouses, _ := h.getWarehouses(r.Context())
+	products, _ := h.getProducts(r.Context())
+
+	viewData := view.TemplateData{
+		Title:       "Transfer Stok",
+		CSRFToken:   csrfToken,
+		Flash:       flash,
+		CurrentPath: r.URL.Path,
+		Data: map[string]any{
+			"Form":       form,
+			"Errors":     errors,
+			"Warehouses": warehouses,
+			"Products":   products,
+		},
+	}
 	w.WriteHeader(status)
 	if err := h.templates.Render(w, "pages/inventory/transfer_form.html", viewData); err != nil {
 		h.logger.Error("render transfer", slog.Any("error", err))
@@ -306,4 +348,204 @@ func currentUserID(sess *shared.Session) int64 {
 	}
 	id, _ := strconv.ParseInt(sess.User(), 10, 64)
 	return id
+}
+
+func (h *Handler) handleListStockTakes(w http.ResponseWriter, r *http.Request) {
+	st, err := h.service.repo.ListStockTakes(r.Context())
+	if err != nil {
+		h.logger.Error("list stock takes failed", slog.Any("error", err))
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	h.render(w, r, "pages/inventory/stock_take_list.html", map[string]any{
+		"StockTakes": st,
+	}, http.StatusOK)
+}
+
+func (h *Handler) showCreateStockTakeForm(w http.ResponseWriter, r *http.Request) {
+	warehouses, _ := h.getWarehouses(r.Context())
+	h.render(w, r, "pages/inventory/stock_take_form.html", map[string]any{
+		"Warehouses": warehouses,
+	}, http.StatusOK)
+}
+
+func (h *Handler) handleCreateStockTake(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+
+	warehouseID, _ := strconv.ParseInt(r.FormValue("warehouse_id"), 10, 64)
+	note := r.FormValue("note")
+	takenAt, _ := time.Parse("2006-01-02", r.FormValue("taken_at"))
+	if takenAt.IsZero() {
+		takenAt = time.Now()
+	}
+
+	sess := shared.SessionFromContext(r.Context())
+	id, err := h.service.CreateStockTake(r.Context(), CreateStockTakeInput{
+		WarehouseID: warehouseID,
+		Note:        note,
+		TakenAt:     takenAt,
+		CreatedBy:   currentUserID(sess),
+	})
+
+	if err != nil {
+		h.logger.Error("create stock take failed", slog.Any("error", err))
+		// render with error...
+		http.Error(w, "Failed: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	http.Redirect(w, r, "/inventory/stock-takes/"+strconv.FormatInt(id, 10), http.StatusSeeOther)
+}
+
+func (h *Handler) handleShowStockTake(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	st, err := h.service.repo.GetStockTake(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Stock Take not found", http.StatusNotFound)
+		return
+	}
+
+	products, _ := h.getProducts(r.Context())
+
+	h.render(w, r, "pages/inventory/stock_take_detail.html", map[string]any{
+		"StockTake": st,
+		"Products":  products,
+	}, http.StatusOK)
+}
+
+func (h *Handler) handleAddStockTakeLine(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+
+	productID, _ := strconv.ParseInt(r.FormValue("product_id"), 10, 64)
+	physicalQty, _ := strconv.ParseFloat(r.FormValue("physical_qty"), 64)
+	note := r.FormValue("note")
+
+	err := h.service.AddStockTakeLine(r.Context(), AddStockTakeLineInput{
+		StockTakeID: id,
+		ProductID:   productID,
+		PhysicalQty: physicalQty,
+		Note:        note,
+	})
+
+	if err != nil {
+		h.logger.Error("add line failed", slog.Any("error", err))
+		// flash error and redirect
+	}
+
+	http.Redirect(w, r, "/inventory/stock-takes/"+strconv.FormatInt(id, 10), http.StatusSeeOther)
+}
+
+func (h *Handler) handlePostStockTake(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	sess := shared.SessionFromContext(r.Context())
+
+	if err := h.service.PostStockTake(r.Context(), id, currentUserID(sess)); err != nil {
+		h.logger.Error("post stock take failed", slog.Any("error", err))
+		// flash error
+	} else {
+		if sess != nil {
+			sess.AddFlash(shared.FlashMessage{Kind: "success", Message: "Stock Take posted successfully"})
+		}
+	}
+
+	http.Redirect(w, r, "/inventory/stock-takes/"+strconv.FormatInt(id, 10), http.StatusSeeOther)
+}
+
+func (h *Handler) handleDashboard(w http.ResponseWriter, r *http.Request) {
+	alerts, err := h.service.GetReorderAlerts(r.Context())
+	if err != nil {
+		h.logger.Error("failed to get reorder alerts", slog.Any("error", err))
+	}
+
+	h.render(w, r, "pages/inventory/dashboard.html", map[string]any{
+		"Alerts": alerts,
+	}, http.StatusOK)
+}
+
+func (h *Handler) handleValuation(w http.ResponseWriter, r *http.Request) {
+	warehouseID, _ := strconv.ParseInt(r.URL.Query().Get("warehouse_id"), 10, 64)
+	entries, err := h.service.GetValuation(r.Context(), warehouseID)
+	if err != nil {
+		h.logger.Error("valuation failed", slog.Any("error", err))
+		http.Error(w, "Internal Error", http.StatusInternalServerError)
+		return
+	}
+
+	warehouses, _ := h.getWarehouses(r.Context())
+
+	var totalValuation float64
+	for _, e := range entries {
+		totalValuation += e.TotalValue
+	}
+
+	h.render(w, r, "pages/inventory/valuation.html", map[string]any{
+		"Entries":        entries,
+		"Warehouses":     warehouses,
+		"WarehouseID":    warehouseID,
+		"TotalValuation": totalValuation,
+	}, http.StatusOK)
+}
+
+func (h *Handler) render(w http.ResponseWriter, r *http.Request, template string, data map[string]any, status int) {
+	sess := shared.SessionFromContext(r.Context())
+	csrfToken, _ := h.csrf.EnsureToken(r.Context(), sess)
+	var flash *shared.FlashMessage
+	if sess != nil {
+		flash = sess.PopFlash()
+	}
+	viewData := view.TemplateData{
+		Title:       "Inventory",
+		CSRFToken:   csrfToken,
+		Flash:       flash,
+		CurrentPath: r.URL.Path,
+		Data:        data,
+	}
+	w.WriteHeader(status)
+	if err := h.templates.Render(w, template, viewData); err != nil {
+		h.logger.Error("render template", slog.Any("error", err), slog.String("template", template))
+	}
+}
+
+func (h *Handler) getWarehouses(ctx context.Context) ([]map[string]any, error) {
+	rows, err := h.pool.Query(ctx, "SELECT id, name FROM warehouses ORDER BY name")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var res []map[string]any
+	for rows.Next() {
+		var id int64
+		var name string
+		if err := rows.Scan(&id, &name); err != nil {
+			return nil, err
+		}
+		res = append(res, map[string]any{"ID": id, "Name": name})
+	}
+	return res, nil
+}
+
+func (h *Handler) getProducts(ctx context.Context) ([]map[string]any, error) {
+	rows, err := h.pool.Query(ctx, "SELECT id, name, sku FROM products WHERE is_active = true ORDER BY name")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var res []map[string]any
+	for rows.Next() {
+		var id int64
+		var name, sku string
+		if err := rows.Scan(&id, &name, &sku); err != nil {
+			return nil, err
+		}
+		res = append(res, map[string]any{"ID": id, "Name": name, "SKU": sku})
+	}
+	return res, nil
 }

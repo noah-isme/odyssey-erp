@@ -1,0 +1,58 @@
+{{ define "pages/inventory/stock_take_list.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Daftar Opname Stok{{ end }}
+
+{{ define "content" }}
+<div class="container">
+    <header class="page-header">
+        <div class="header-main">
+            <h1>Opname Stok</h1>
+            <p class="text-muted">Kelola sesi penghitungan fisik stok inventaris.</p>
+        </div>
+        <div class="header-actions">
+            <a href="/inventory/stock-takes/new" class="button primary">
+                <i class="lucide-plus"></i> Sesi Baru
+            </a>
+        </div>
+    </header>
+
+    <div class="card card-table">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th scope="col">Nomor</th>
+                    <th scope="col">Gudang</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Tanggal</th>
+                    <th scope="col">Catatan</th>
+                    <th scope="col" class="text-right">Aksi</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{ range .Data }}
+                <tr>
+                    <td class="font-medium">{{ .Number }}</td>
+                    <td>{{ .WarehouseName }}</td>
+                    <td>
+                        <span class="badge {{ if eq .Status "POSTED" }}badge-success{{ else if eq .Status "CANCELLED" }}badge-danger{{ else }}badge-warning{{ end }}">
+                            {{ .Status }}
+                        </span>
+                    </td>
+                    <td>{{ .TakenAt | formatDate }}</td>
+                    <td class="text-muted">{{ .Note | default "-" }}</td>
+                    <td class="text-right">
+                        <a href="/inventory/stock-takes/{{ .ID }}" class="button small ghost">Detail</a>
+                    </td>
+                </tr>
+                {{ else }}
+                <tr>
+                    <td colspan="6" class="text-center py-8 text-muted">Belum ada sesi opname stok.</td>
+                </tr>
+                {{ end }}
+            </tbody>
+        </table>
+    </div>
+</div>
+{{ end }}

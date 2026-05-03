@@ -177,14 +177,12 @@ width = content + padding + border
 
 ```
 web/static/css/
-├── base/
+├── core/
 │   ├── reset.css      # CSS reset + box-sizing
 │   └── typography.css # Font system
-├── tokens/
-│   └── design-tokens.css # CSS custom properties
 ├── components/
 │   └── [component].css   # Component-specific styles
-├── layouts/
+├── layout/
 │   └── [layout].css      # Page layouts
 └── main.css              # Entry point, @import semua
 ```

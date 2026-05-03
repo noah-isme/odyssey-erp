@@ -25,6 +25,7 @@ import { Form } from './features/form/index.js';
 import { ComboBox } from './features/combobox/index.js';
 import * as QuotationForm from './features/quotation-form/index.js';
 import { GlobalSearch } from './features/global-search/index.js';
+import { StockTake } from './features/inventory/stock-take.js';
 
 // Component modules
 import { Inspector } from './components/inspector.js';
@@ -92,6 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ComboBox.init();
     DataTable.init();
     QuotationForm.init();
+    StockTake.init();
 
     // Core
     Shortcuts.init();

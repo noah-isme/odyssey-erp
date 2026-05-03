@@ -1,0 +1,48 @@
+{{ define "pages/inventory/stock_take_form.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Mulai Sesi Opname Baru{{ end }}
+
+{{ define "content" }}
+<div class="container container-narrow">
+    <header class="page-header">
+        <div class="header-main">
+            <h1>Mulai Sesi Opname</h1>
+            <p class="text-muted">Buat sesi baru untuk penghitungan fisik stok.</p>
+        </div>
+    </header>
+
+    <div class="card">
+        <form action="/inventory/stock-takes" method="POST" class="form">
+            <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+            
+            <div class="form-group">
+                <label for="warehouse_id">Pilih Gudang</label>
+                <select name="warehouse_id" id="warehouse_id" class="form-control" required>
+                    <option value="">Pilih Gudang...</option>
+                    {{ range .Data.Warehouses }}
+                    <option value="{{ .ID }}">{{ .Name }}</option>
+                    {{ end }}
+                </select>
+                <p class="text-xs text-muted mt-1">Satu sesi opname hanya berlaku untuk satu gudang.</p>
+            </div>
+
+            <div class="form-group">
+                <label for="taken_at">Tanggal Perhitungan</label>
+                <input type="date" name="taken_at" id="taken_at" class="form-control" value="{{ now | formatDateInput }}" required>
+            </div>
+
+            <div class="form-group">
+                <label for="note">Catatan Sesi</label>
+                <textarea name="note" id="note" class="form-control" rows="3" placeholder="Contoh: Opname Akhir Bulan Mei 2024"></textarea>
+            </div>
+
+            <div class="form-footer">
+                <a href="/inventory/stock-takes" class="button ghost">Batal</a>
+                <button type="submit" class="button primary">Buat Sesi Baru</button>
+            </div>
+        </form>
+    </div>
+</div>
+{{ end }}
