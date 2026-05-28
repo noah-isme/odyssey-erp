@@ -1,3 +1,7 @@
+---
+description: Panduan arsitektur Javascript
+---
+
 # Arsitektur JavaScript untuk Odyssey ERP
 
 > **Mental Model Utama:**  

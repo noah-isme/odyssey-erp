@@ -1,5 +1,13 @@
 # Changelog
 
+## Release v0.9.1 — Enterprise UI/UX Overhaul (2026-05-28)
+
+### Added
+- **Form Standardization** — Rebuilt all data-entry forms in Sales, Procurement, and Inventory modules (Customer, Quotation, Order, Delivery, AP Invoice, Stock Adjustment, etc.) to use a standardized responsive grid system (`.form-grid`, `.form-group`, `.form-input`, `.form-select`, `.form-label`).
+- **Unified Filter Grid Layout** — Added `.filters-card`, `.filters-grid`, and `.filters-actions` classes in `forms.css` to fix stacked list filters on all list views, aligning them in a single responsive row on desktop.
+- **Sticky Table Headers** — Added `.table--sticky` on data tables so headers lock at the top of the viewport during scrolls.
+- **Visual Parity** — Standardized numeric data with monospaced, right-aligned formatting (`.numeric.text-right`) and added Row Hover indicators across all modules.
+
 ## Phase 9 – Sales & Accounts Receivable (In Progress)
 
 ### Scope

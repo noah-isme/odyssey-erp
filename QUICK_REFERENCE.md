@@ -5,11 +5,12 @@ Command cheatsheet untuk development dan operations.
 ## 🐳 Docker
 
 ```bash
-docker-compose up -d              # Start all services
-docker-compose down               # Stop all services
-docker-compose logs -f app        # View app logs
-docker-compose ps                 # Check status
-docker-compose restart app        # Restart app only
+docker-compose up -d                   # Start all services
+docker-compose up -d --build app       # Start all services and rebuild
+docker-compose down                    # Stop all services
+docker-compose logs -f app             # View app logs
+docker-compose ps                      # Check status
+docker-compose restart app             # Restart app only
 ```
 
 ## 🔧 Native Scripts
