@@ -1,7 +1,7 @@
 # Odyssey ERP — Future Roadmap & Recommendations
 
 **Prepared:** 2026-01-11  
-**Current Version:** v0.9.0
+**Current Version:** v0.9.1
 
 ## Executive Summary
 
