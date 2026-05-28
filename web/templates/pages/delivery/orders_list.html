@@ -31,35 +31,28 @@
                         <label for="status" class="form-label">Status</label>
                         <select name="status" id="status" class="form-select">
                             <option value="">All Statuses</option>
-                            <option value="DRAFT" {{ if eq .Data.Request.Status "DRAFT" }}selected{{ end }}>Draft
-                            </option>
-                            <option value="CONFIRMED" {{ if eq .Data.Request.Status "CONFIRMED" }}selected{{ end }}>
-                                Confirmed</option>
-                            <option value="IN_TRANSIT" {{ if eq .Data.Request.Status "IN_TRANSIT" }}selected{{ end }}>In
-                                Transit</option>
-                            <option value="DELIVERED" {{ if eq .Data.Request.Status "DELIVERED" }}selected{{ end }}>
-                                Delivered</option>
-                            <option value="CANCELLED" {{ if eq .Data.Request.Status "CANCELLED" }}selected{{ end }}>
-                                Cancelled</option>
+                            <option value="DRAFT" {{ if eq .Data.Filters.Status "DRAFT" }}selected{{ end }}>Draft</option>
+                            <option value="CONFIRMED" {{ if eq .Data.Filters.Status "CONFIRMED" }}selected{{ end }}>Confirmed</option>
+                            <option value="IN_TRANSIT" {{ if eq .Data.Filters.Status "IN_TRANSIT" }}selected{{ end }}>In Transit</option>
+                            <option value="DELIVERED" {{ if eq .Data.Filters.Status "DELIVERED" }}selected{{ end }}>Delivered</option>
+                            <option value="CANCELLED" {{ if eq .Data.Filters.Status "CANCELLED" }}selected{{ end }}>Cancelled</option>
                         </select>
                     </div>
                     <div class="form-group">
                         <label for="search" class="form-label">Search</label>
                         <input type="text" name="search" id="search" class="form-input"
                             placeholder="Doc number, driver..."
-                            value="{{ if .Data.Request.Search }}{{ .Data.Request.Search }}{{ end }}">
+                            value="{{ if .Data.Filters.Search }}{{ .Data.Filters.Search }}{{ end }}">
                     </div>
                     <div class="form-group">
                         <label for="date_from" class="form-label">Delivery From</label>
                         <input type="date" name="date_from" id="date_from" class="form-input"
-                            value="{{ if .Data.Request.DateFrom }}{{ .Data.Request.DateFrom.Format " 2006-01-02" }}{{
-                            end }}">
+                            value="{{ if .Data.Filters.DateFrom }}{{ .Data.Filters.DateFrom }}{{ end }}">
                     </div>
                     <div class="form-group">
                         <label for="date_to" class="form-label">Delivery To</label>
                         <input type="date" name="date_to" id="date_to" class="form-input"
-                            value="{{ if .Data.Request.DateTo }}{{ .Data.Request.DateTo.Format " 2006-01-02" }}{{ end
-                            }}">
+                            value="{{ if .Data.Filters.DateTo }}{{ .Data.Filters.DateTo }}{{ end }}">
                     </div>
                 </div>
                 <div class="filters-actions">
@@ -72,15 +65,25 @@
         <!-- Results Table -->
         <div class="card p-0 overflow-hidden" data-component="datatable">
             <div class="table-wrap">
-                <table class="table">
+                <table class="table table--sticky" data-datatable="delivery-orders">
                     <thead>
                         <tr>
-                            <th scope="col" width="15%">Doc Number</th>
+                            <th scope="col" width="15%" class="sortable" data-column="doc_number" {{ if eq .Data.Filters.SortBy "doc_number" }}data-sort-dir="{{ .Data.Filters.SortDir }}"{{ end }}>
+                                Doc Number
+                            </th>
                             <th scope="col" width="15%">Sales Order</th>
-                            <th scope="col" width="20%">Customer</th>
-                            <th scope="col" width="15%">Delivery Date</th>
-                            <th scope="col" width="10%">Status</th>
-                            <th scope="col" width="10%">Driver</th>
+                            <th scope="col" width="20%" class="sortable" data-column="customer_name" {{ if eq .Data.Filters.SortBy "customer_name" }}data-sort-dir="{{ .Data.Filters.SortDir }}"{{ end }}>
+                                Customer
+                            </th>
+                            <th scope="col" width="15%" class="sortable" data-column="delivery_date" {{ if eq .Data.Filters.SortBy "delivery_date" }}data-sort-dir="{{ .Data.Filters.SortDir }}"{{ end }}>
+                                Delivery Date
+                            </th>
+                            <th scope="col" width="10%" class="sortable" data-column="status" {{ if eq .Data.Filters.SortBy "status" }}data-sort-dir="{{ .Data.Filters.SortDir }}"{{ end }}>
+                                Status
+                            </th>
+                            <th scope="col" width="10%" class="sortable" data-column="driver_name" {{ if eq .Data.Filters.SortBy "driver_name" }}data-sort-dir="{{ .Data.Filters.SortDir }}"{{ end }}>
+                                Driver
+                            </th>
                             <th scope="col" width="10%">Tracking</th>
                             <th scope="col" width="5%"></th>
                         </tr>
@@ -166,7 +169,7 @@
             <div class="card__footer justify-center">
                 <nav class="pagination" aria-label="Pagination">
                     {{ if gt .Data.CurrentPage 1 }}
-                    <a href="?page={{ sub .Data.CurrentPage 1 }}" class="btn btn--secondary btn--sm">Previous</a>
+                    <a href="?page={{ sub .Data.CurrentPage 1 }}{{ if .Data.Filters.Status }}&status={{ .Data.Filters.Status }}{{ end }}{{ if .Data.Filters.Search }}&search={{ .Data.Filters.Search }}{{ end }}{{ if .Data.Filters.SortBy }}&sort={{ .Data.Filters.SortBy }}{{ end }}{{ if .Data.Filters.SortDir }}&dir={{ .Data.Filters.SortDir }}{{ end }}" class="btn btn--secondary btn--sm">Previous</a>
                     {{ else }}
                     <button class="btn btn--secondary btn--sm" disabled>Previous</button>
                     {{ end }}
@@ -174,7 +177,7 @@
                     <span class="pagination__info">Page {{ .Data.CurrentPage }} of {{ .Data.TotalPages }}</span>
 
                     {{ if lt .Data.CurrentPage .Data.TotalPages }}
-                    <a href="?page={{ add .Data.CurrentPage 1 }}" class="btn btn--secondary btn--sm">Next</a>
+                    <a href="?page={{ add .Data.CurrentPage 1 }}{{ if .Data.Filters.Status }}&status={{ .Data.Filters.Status }}{{ end }}{{ if .Data.Filters.Search }}&search={{ .Data.Filters.Search }}{{ end }}{{ if .Data.Filters.SortBy }}&sort={{ .Data.Filters.SortBy }}{{ end }}{{ if .Data.Filters.SortDir }}&dir={{ .Data.Filters.SortDir }}{{ end }}" class="btn btn--secondary btn--sm">Next</a>
                     {{ else }}
                     <button class="btn btn--secondary btn--sm" disabled>Next</button>
                     {{ end }}
