@@ -488,6 +488,12 @@ small {
     color: var(--text-muted);
 }
 
+.text-body {
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
+    line-height: var(--leading-normal);
+}
+
 .text-success {
     color: var(--success-600);
 }
@@ -787,6 +793,28 @@ small {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* Max Width for readability (ch) */
+.max-w-prose {
+    max-width: 65ch;
+}
+
+.max-w-prose-lg {
+    max-width: 75ch;
+}
+
+/* Line Height */
+.leading-tight {
+    line-height: var(--leading-tight);
+}
+
+.leading-normal {
+    line-height: var(--leading-normal);
+}
+
+.leading-relaxed {
+    line-height: 1.625;
 }
 
 /* Border */
