@@ -142,6 +142,9 @@ func (r *repository) List(ctx context.Context, req ListSalesOrdersRequest) ([]Sa
 		return nil, 0, err
 	}
 
+	// Sort
+	orderBy := sortOrderSalesOrders(req.SortBy, req.SortDir)
+	
 	query := fmt.Sprintf(`
 		SELECT so.id, so.doc_number, so.company_id, so.customer_id, so.quotation_id,
 		       so.order_date, so.expected_delivery_date, so.status, so.currency,
@@ -159,9 +162,9 @@ func (r *repository) List(ctx context.Context, req ListSalesOrdersRequest) ([]Sa
 		LEFT JOIN users u2 ON so.confirmed_by = u2.id
 		LEFT JOIN users u3 ON so.cancelled_by = u3.id
 		%s
-		ORDER BY so.order_date DESC, so.id DESC
+		ORDER BY %s
 		LIMIT $%d OFFSET $%d
-	`, whereClause, argPos, argPos+1)
+	`, whereClause, orderBy, argPos, argPos+1)
 
 	args = append(args, req.Limit, req.Offset)
 	rows, err := r.db.Query(ctx, query, args...)
@@ -503,4 +506,28 @@ func getString(s *string) string {
 		return ""
 	}
 	return *s
+}
+
+func sortOrderSalesOrders(sortBy, sortDir string) string {
+	dir := "ASC"
+	if sortDir == "desc" {
+		dir = "DESC"
+	}
+
+	switch sortBy {
+	case "doc_number":
+		return "so.doc_number " + dir
+	case "customer_name":
+		return "c.name " + dir
+	case "order_date":
+		return "so.order_date " + dir
+	case "expected_delivery_date":
+		return "so.expected_delivery_date " + dir
+	case "total_amount":
+		return "so.total_amount " + dir
+	case "status":
+		return "so.status " + dir
+	default:
+		return "so.order_date DESC, so.id DESC" // Default fallback
+	}
 }

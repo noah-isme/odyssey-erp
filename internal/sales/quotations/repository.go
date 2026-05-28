@@ -143,6 +143,9 @@ func (r *repository) List(ctx context.Context, req ListQuotationsRequest) ([]Quo
 		return nil, 0, err
 	}
 
+	// Sort
+	orderBy := sortOrderQuotations(req.SortBy, req.SortDir)
+	
 	// Fetch records
 	query := fmt.Sprintf(`
 		SELECT q.id, q.doc_number, q.company_id, q.customer_id, q.quote_date, q.valid_until,
@@ -159,9 +162,9 @@ func (r *repository) List(ctx context.Context, req ListQuotationsRequest) ([]Quo
 		LEFT JOIN users u2 ON q.approved_by = u2.id
 		LEFT JOIN users u3 ON q.rejected_by = u3.id
 		%s
-		ORDER BY q.quote_date DESC, q.id DESC
+		ORDER BY %s
 		LIMIT $%d OFFSET $%d
-	`, whereClause, argPos, argPos+1)
+	`, whereClause, orderBy, argPos, argPos+1)
 
 	args = append(args, req.Limit, req.Offset)
 
@@ -475,4 +478,28 @@ func getString(s *string) string {
 		return ""
 	}
 	return *s
+}
+
+func sortOrderQuotations(sortBy, sortDir string) string {
+	dir := "ASC"
+	if sortDir == "desc" {
+		dir = "DESC"
+	}
+
+	switch sortBy {
+	case "doc_number":
+		return "q.doc_number " + dir
+	case "customer_name":
+		return "c.name " + dir
+	case "quote_date":
+		return "q.quote_date " + dir
+	case "valid_until":
+		return "q.valid_until " + dir
+	case "total_amount":
+		return "q.total_amount " + dir
+	case "status":
+		return "q.status " + dir
+	default:
+		return "q.quote_date DESC, q.id DESC" // Default fallback
+	}
 }

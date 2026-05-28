@@ -5,259 +5,290 @@
 {{ define "title" }}Quotation {{ .Data.Quotation.DocNumber }}{{ end }}
 
 {{ define "content" }}
-<div class="quotation-detail-wrapper">
-    <header>
-        <h1>Quotation {{ .Data.Quotation.DocNumber }}</h1>
-        <p>
-            Status:
-            {{ if eq .Data.Quotation.Status "DRAFT" }}<span class="badge badge-secondary">Draft</span>{{ end }}
-            {{ if eq .Data.Quotation.Status "SUBMITTED" }}<span class="badge badge-info">Submitted</span>{{ end }}
-            {{ if eq .Data.Quotation.Status "APPROVED" }}<span class="badge badge-success">Approved</span>{{ end }}
-            {{ if eq .Data.Quotation.Status "REJECTED" }}<span class="badge badge-danger">Rejected</span>{{ end }}
-            {{ if eq .Data.Quotation.Status "CONVERTED" }}<span class="badge badge-primary">Converted</span>{{ end }}
-        </p>
-    </header>
-
-    <!-- Action Buttons -->
-    <section class="actions">
-        <div role="group">
-            <a href="/sales/quotations" role="button" class="secondary">← Back to List</a>
-
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <div class="flex items-center gap-3 mb-2">
+                <span class="eyebrow">Sales Quotation</span>
+                {{ if eq .Data.Quotation.Status "DRAFT" }}<span class="badge badge--secondary">Draft</span>{{ end }}
+                {{ if eq .Data.Quotation.Status "SUBMITTED" }}<span class="badge badge--info">Submitted</span>{{ end }}
+                {{ if eq .Data.Quotation.Status "APPROVED" }}<span class="badge badge--success">Approved</span>{{ end }}
+                {{ if eq .Data.Quotation.Status "REJECTED" }}<span class="badge badge--danger">Rejected</span>{{ end }}
+                {{ if eq .Data.Quotation.Status "CONVERTED" }}<span class="badge badge--primary">Converted</span>{{ end }}
+            </div>
+            <h1 class="page-title">{{ .Data.Quotation.DocNumber }}</h1>
+            <p class="page-subtitle">Customer: <a href="/sales/customers/{{ .Data.Quotation.Data.CustomerID }}" class="link font-medium">{{ if .Data.Customer }}{{ .Data.Customer.Name }}{{ else }}Unknown{{ end }}</a></p>
+        </div>
+        <div class="page-header__actions">
+            <a href="/sales/quotations" class="btn btn--secondary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 12H5M12 19l-7-7 7-7" />
+                </svg>
+                Back to List
+            </a>
+            
             {{ if eq .Data.Quotation.Status "DRAFT" }}
-            <a href="/sales/quotations/{{ .Data.Quotation.ID }}/edit" role="button" class="secondary">Edit</a>
-            <form method="post" action="/sales/quotations/{{ .Data.Quotation.ID }}/submit" style="display: inline;">
+            <a href="/sales/quotations/{{ .Data.Quotation.ID }}/edit" class="btn btn--secondary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
+                Edit
+            </a>
+            <form method="post" action="/sales/quotations/{{ .Data.Quotation.ID }}/submit" class="inline-flex">
                 <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
-                <button type="submit">Submit for Approval</button>
+                <button type="submit" class="btn btn--primary">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="22 2 15 22 11 13 2 9 22 2" />
+                        <line x1="22" y1="2" x2="11" y2="13" />
+                    </svg>
+                    Submit for Approval
+                </button>
             </form>
             {{ end }}
 
             {{ if eq .Data.Quotation.Status "SUBMITTED" }}
-            <form method="post" action="/sales/quotations/{{ .Data.Quotation.ID }}/approve" style="display: inline;">
+            <form method="post" action="/sales/quotations/{{ .Data.Quotation.ID }}/approve" class="inline-flex">
                 <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
-                <button type="submit" class="success">Approve</button>
+                <button type="submit" class="btn btn--success">Approve</button>
             </form>
-            <button type="button" class="danger" onclick="showRejectModal()">Reject</button>
+            <button type="button" class="btn btn--danger" data-action="show-reject-modal">Reject</button>
             {{ end }}
 
             {{ if eq .Data.Quotation.Status "APPROVED" }}
-            <button type="button" onclick="showConvertModal()">Convert to Sales Order</button>
+            <button type="button" class="btn btn--primary" data-action="show-convert-modal">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="20 6 9 17 4 12" />
+                </svg>
+                Convert to Sales Order
+            </button>
             {{ end }}
         </div>
-    </section>
+    </header>
 
-    <!-- Quotation Information -->
-    <section>
-        <h2>Quotation Information</h2>
-        <div class="grid">
-            <div>
-                <label>Document Number</label>
-                <p><strong>{{ .Data.Quotation.DocNumber }}</strong></p>
+    <div class="page-content">
+        <div class="grid grid-cols-3 gap-6">
+            <div class="col-span-2 flex flex-col gap-6">
+                <!-- Info Card -->
+                <div class="card">
+                    <div class="card__header">
+                        <h2 class="text-lg font-semibold">Quotation Details</h2>
+                    </div>
+                    <div class="card__body p-6">
+                        <div class="grid grid-cols-2 gap-6">
+                            <div>
+                                <span class="label mb-1">Quote Date</span>
+                                <p class="text-primary font-medium">{{ .Data.Quotation.QuoteDate.Format "02 Jan 2006" }}</p>
+                            </div>
+                            <div>
+                                <span class="label mb-1">Valid Until</span>
+                                <p class="text-primary font-medium">{{ .Data.Quotation.ValidUntil.Format "02 Jan 2006" }}</p>
+                            </div>
+                            <div>
+                                <span class="label mb-1">Currency</span>
+                                <p class="text-primary font-medium">{{ .Data.Quotation.Currency }}</p>
+                            </div>
+                            <div>
+                                <span class="label mb-1">Total Amount</span>
+                                <p class="text-xl font-bold text-primary">{{ .Data.Quotation.Currency }} {{ formatDecimal .Data.Quotation.TotalAmount }}</p>
+                            </div>
+                        </div>
+
+                        {{ if .Data.Quotation.Notes }}
+                        <hr>
+                        <div>
+                            <span class="label mb-2">Internal Notes</span>
+                            <div class="p-4 bg-surface-muted border rounded-md text-sm whitespace-pre-wrap">
+                                {{ .Data.Quotation.Notes }}
+                            </div>
+                        </div>
+                        {{ end }}
+
+                        {{ if .Data.Quotation.RejectionReason }}
+                        <div class="mt-6 feedback feedback--error">
+                            <div class="feedback__content">
+                                <p class="text-xs uppercase font-bold mb-1">Rejection Reason</p>
+                                <p>{{ .Data.Quotation.RejectionReason }}</p>
+                                <p class="text-xs mt-2 opacity-80">Rejected by User #{{ .Data.Quotation.RejectedBy }} on {{ .Data.Quotation.RejectedAt.Format "02 Jan 2006 15:04" }}</p>
+                            </div>
+                        </div>
+                        {{ end }}
+                    </div>
+                </div>
+
+                <!-- Line Items Table -->
+                <div class="card overflow-hidden">
+                    <div class="card__header">
+                        <h2 class="text-lg font-semibold">Items</h2>
+                    </div>
+                    <div class="table-wrap">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th width="50">#</th>
+                                    <th>Product</th>
+                                    <th class="text-right">Qty</th>
+                                    <th>UOM</th>
+                                    <th class="text-right">Unit Price</th>
+                                    <th class="text-right">Discount</th>
+                                    <th class="text-right">Tax</th>
+                                    <th class="text-right">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {{ range .Data.Quotation.Lines }}
+                                <tr>
+                                    <td class="text-muted">{{ .LineOrder }}</td>
+                                    <td>
+                                        <div class="font-medium text-primary">ID: {{ .ProductID }}</div>
+                                        <div class="text-xs text-muted">{{ .Description }}</div>
+                                    </td>
+                                    <td class="text-right numeric">{{ formatDecimal .Quantity }}</td>
+                                    <td>{{ .UOM }}</td>
+                                    <td class="text-right numeric">{{ formatDecimal .UnitPrice }}</td>
+                                    <td class="text-right">
+                                        <div class="numeric">{{ formatDecimal .DiscountAmount }}</div>
+                                        <div class="text-xs text-muted">{{ formatDecimal .DiscountPercent }}%</div>
+                                    </td>
+                                    <td class="text-right">
+                                        <div class="numeric">{{ formatDecimal .TaxAmount }}</div>
+                                        <div class="text-xs text-muted">{{ formatDecimal .TaxPercent }}%</div>
+                                    </td>
+                                    <td class="text-right font-semibold numeric">{{ formatDecimal .LineTotal }}</td>
+                                </tr>
+                                {{ end }}
+                            </tbody>
+                            <tfoot class="bg-surface-muted">
+                                <tr>
+                                    <td colspan="7" class="text-right font-medium">Subtotal</td>
+                                    <td class="text-right numeric font-medium">{{ formatDecimal .Data.Quotation.Subtotal }}</td>
+                                </tr>
+                                <tr>
+                                    <td colspan="7" class="text-right font-medium">Tax Amount</td>
+                                    <td class="text-right numeric font-medium">{{ formatDecimal .Data.Quotation.TaxAmount }}</td>
+                                </tr>
+                                <tr class="border-t border-strong">
+                                    <td colspan="7" class="text-right font-bold text-lg">Grand Total</td>
+                                    <td class="text-right numeric font-bold text-lg">{{ .Data.Quotation.Currency }} {{ formatDecimal .Data.Quotation.TotalAmount }}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
             </div>
-            <div>
-                <label>Customer</label>
-                <p><strong>{{ if .Data.Customer }}{{ .Data.Customer.Name }}{{ else }}Unknown{{ end }}</strong></p>
-            </div>
-            <div>
-                <label>Quote Date</label>
-                <p>{{ .Data.Quotation.QuoteDate.Format "2006-01-02" }}</p>
-            </div>
-            <div>
-                <label>Valid Until</label>
-                <p>{{ .Data.Quotation.ValidUntil.Format "2006-01-02" }}</p>
+
+            <div class="flex flex-col gap-6">
+                <!-- Status & Workflow Card -->
+                <div class="card">
+                    <div class="card__header">
+                        <h2 class="text-md font-semibold">Workflow Status</h2>
+                    </div>
+                    <div class="card__body p-5 flex flex-col gap-4">
+                        <div class="flex flex-col">
+                            <span class="text-xs text-muted uppercase font-medium mb-1">Current State</span>
+                            <div class="mt-1">
+                                {{ if eq .Data.Quotation.Status "DRAFT" }}<span class="badge badge--secondary">Draft</span>{{ end }}
+                                {{ if eq .Data.Quotation.Status "SUBMITTED" }}<span class="badge badge--info">Submitted</span>{{ end }}
+                                {{ if eq .Data.Quotation.Status "APPROVED" }}<span class="badge badge--success">Approved</span>{{ end }}
+                                {{ if eq .Data.Quotation.Status "REJECTED" }}<span class="badge badge--danger">Rejected</span>{{ end }}
+                                {{ if eq .Data.Quotation.Status "CONVERTED" }}<span class="badge badge--primary">Converted</span>{{ end }}
+                            </div>
+                        </div>
+
+                        {{ if .Data.Quotation.ApprovedBy }}
+                        <div class="flex flex-col">
+                            <span class="text-xs text-muted uppercase font-medium mb-1">Approval Info</span>
+                            <p class="text-sm">By User #{{ .Data.Quotation.ApprovedBy }}</p>
+                            <p class="text-xs text-muted">{{ .Data.Quotation.ApprovedAt.Format "02 Jan 2006 15:04" }}</p>
+                        </div>
+                        {{ end }}
+
+                        <hr>
+
+                        <div class="flex flex-col gap-2">
+                            <span class="text-xs text-muted uppercase font-medium">History</span>
+                            <div class="text-xs text-secondary flex flex-col gap-2 mt-1">
+                                <div class="flex gap-2">
+                                    <div class="w-1.5 h-1.5 rounded-full bg-border-strong mt-1"></div>
+                                    <div>
+                                        <p class="font-medium">Created</p>
+                                        <p class="opacity-70">{{ .Data.Quotation.CreatedAt.Format "02 Jan 2006 15:04" }}</p>
+                                    </div>
+                                </div>
+                                <div class="flex gap-2">
+                                    <div class="w-1.5 h-1.5 rounded-full bg-border-strong mt-1"></div>
+                                    <div>
+                                        <p class="font-medium">Last Updated</p>
+                                        <p class="opacity-70">{{ .Data.Quotation.UpdatedAt.Format "02 Jan 2006 15:04" }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-
-        <div class="grid">
-            <div>
-                <label>Currency</label>
-                <p>{{ .Data.Quotation.Currency }}</p>
-            </div>
-            <div>
-                <label>Created By</label>
-                <p>User #{{ .Data.Quotation.CreatedBy }}</p>
-            </div>
-            <div>
-                <label>Created At</label>
-                <p>{{ .Data.Quotation.CreatedAt.Format "2006-01-02 15:04" }}</p>
-            </div>
-            <div>
-                <label>Updated At</label>
-                <p>{{ .Data.Quotation.UpdatedAt.Format "2006-01-02 15:04" }}</p>
-            </div>
-        </div>
-
-        {{ if .Data.Quotation.ApprovedBy }}
-        <div class="grid">
-            <div>
-                <label>Approved By</label>
-                <p>User #{{ .Data.Quotation.ApprovedBy }}</p>
-            </div>
-            <div>
-                <label>Approved At</label>
-                <p>{{ .Data.Quotation.ApprovedAt.Format "2006-01-02 15:04" }}</p>
-            </div>
-        </div>
-        {{ end }}
-
-        {{ if .Data.Quotation.RejectedBy }}
-        <div class="grid">
-            <div>
-                <label>Rejected By</label>
-                <p>User #{{ .Data.Quotation.RejectedBy }}</p>
-            </div>
-            <div>
-                <label>Rejected At</label>
-                <p>{{ .Data.Quotation.RejectedAt.Format "2006-01-02 15:04" }}</p>
-            </div>
-        </div>
-        {{ if .Data.Quotation.RejectionReason }}
-        <div>
-            <label>Rejection Reason</label>
-            <p>{{ .Data.Quotation.RejectionReason }}</p>
-        </div>
-        {{ end }}
-        {{ end }}
-
-        {{ if .Data.Quotation.Notes }}
-        <div>
-            <label>Notes</label>
-            <p>{{ .Data.Quotation.Notes }}</p>
-        </div>
-        {{ end }}
-    </section>
-
-    <!-- Line Items -->
-    <section>
-        <h2>Line Items</h2>
-        <figure>
-            <table role="grid">
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Product ID</th>
-                        <th>Description</th>
-                        <th>Quantity</th>
-                        <th>UOM</th>
-                        <th>Unit Price</th>
-                        <th>Discount %</th>
-                        <th>Discount Amt</th>
-                        <th>Tax %</th>
-                        <th>Tax Amount</th>
-                        <th>Line Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {{ range .Data.Quotation.Lines }}
-                    <tr>
-                        <td>{{ .LineOrder }}</td>
-                        <td>{{ .ProductID }}</td>
-                        <td>{{ if .Description }}{{ .Description }}{{ else }}-{{ end }}</td>
-                        <td>{{ printf "%.2f" .Quantity }}</td>
-                        <td>{{ .UOM }}</td>
-                        <td>{{ printf "%.2f" .UnitPrice }}</td>
-                        <td>{{ printf "%.2f" .DiscountPercent }}%</td>
-                        <td>{{ printf "%.2f" .DiscountAmount }}</td>
-                        <td>{{ printf "%.2f" .TaxPercent }}%</td>
-                        <td>{{ printf "%.2f" .TaxAmount }}</td>
-                        <td><strong>{{ printf "%.2f" .LineTotal }}</strong></td>
-                    </tr>
-                    {{ end }}
-                </tbody>
-                <tfoot>
-                    <tr>
-                        <td colspan="10" style="text-align: right;"><strong>Subtotal:</strong></td>
-                        <td><strong>{{ printf "%.2f" .Data.Quotation.Subtotal }}</strong></td>
-                    </tr>
-                    <tr>
-                        <td colspan="10" style="text-align: right;"><strong>Tax:</strong></td>
-                        <td><strong>{{ printf "%.2f" .Data.Quotation.TaxAmount }}</strong></td>
-                    </tr>
-                    <tr>
-                        <td colspan="10" style="text-align: right;"><strong>Total Amount:</strong></td>
-                        <td><strong>{{ printf "%.2f" .Data.Quotation.TotalAmount }} {{ .Data.Quotation.Currency }}</strong></td>
-                    </tr>
-                </tfoot>
-            </table>
-        </figure>
-    </section>
+    </div>
 </div>
 
 <!-- Reject Modal -->
-<dialog id="rejectModal">
-    <article>
-        <header>
-            <button aria-label="Close" rel="prev" onclick="closeRejectModal()"></button>
-            <h3>Reject Quotation</h3>
+<dialog id="rejectModal" class="modal">
+    <div class="modal__content">
+        <header class="modal__header">
+            <h3 class="modal__title">Reject Quotation</h3>
+            <button class="btn-icon" data-action="close-modal" aria-label="Close">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+            </button>
         </header>
         <form method="post" action="/sales/quotations/{{ .Data.Quotation.ID }}/reject">
-            <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
-            <label for="reason">Rejection Reason</label>
-            <textarea name="reason" id="reason" required placeholder="Please provide a reason for rejection"></textarea>
-            <footer>
-                <button type="button" class="secondary" onclick="closeRejectModal()">Cancel</button>
-                <button type="submit" class="danger">Reject Quotation</button>
+            <div class="modal__body p-6">
+                <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+                <div class="field">
+                    <label for="reason" class="label">Rejection Reason <span class="text-error">*</span></label>
+                    <textarea name="reason" id="reason" class="textarea" required placeholder="Please provide a clear reason for rejection"></textarea>
+                </div>
+            </div>
+            <footer class="modal__footer p-4 border-t bg-surface-muted flex justify-end gap-3">
+                <button type="button" class="btn btn--secondary" data-action="close-modal">Cancel</button>
+                <button type="submit" class="btn btn--danger">Reject Quotation</button>
             </footer>
         </form>
-    </article>
+    </div>
 </dialog>
 
 <!-- Convert to SO Modal -->
-<dialog id="convertModal">
-    <article>
-        <header>
-            <button aria-label="Close" rel="prev" onclick="closeConvertModal()"></button>
-            <h3>Convert to Sales Order</h3>
+<dialog id="convertModal" class="modal">
+    <div class="modal__content">
+        <header class="modal__header">
+            <h3 class="modal__title">Convert to Sales Order</h3>
+            <button class="btn-icon" data-action="close-modal" aria-label="Close">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+            </button>
         </header>
         <form method="post" action="/sales/quotations/{{ .Data.Quotation.ID }}/convert">
-            <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
-            <label for="order_date">Order Date</label>
-            <input type="date" name="order_date" id="order_date" value="{{ .Data.Quotation.QuoteDate.Format "2006-01-02" }}" required>
-            <p><small>This will create a new sales order from this quotation and mark it as converted.</small></p>
-            <footer>
-                <button type="button" class="secondary" onclick="closeConvertModal()">Cancel</button>
-                <button type="submit"></p>Create Sales Order</button>
+            <div class="modal__body p-6">
+                <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+                <div class="field">
+                    <label for="order_date" class="label">Order Date <span class="text-error">*</span></label>
+                    <input type="date" name="order_date" id="order_date" class="input" value="{{ .Data.Quotation.QuoteDate.Format "2006-01-02" }}" required>
+                </div>
+                <div class="feedback feedback--info mt-4">
+                    <div class="feedback__content">
+                        <p class="text-xs">This will create a new Sales Order and mark this Quotation as converted.</p>
+                    </div>
+                </div>
+            </div>
+            <footer class="modal__footer p-4 border-t bg-surface-muted flex justify-end gap-3">
+                <button type="button" class="btn btn--secondary" data-action="close-modal">Cancel</button>
+                <button type="submit" class="btn btn--primary">Create Sales Order</button>
             </footer>
         </form>
-    </article>
+    </div>
 </dialog>
-
-<style>
-.badge {
-    display: inline-block;
-    padding: 0.25em 0.6em;
-    font-size: 0.85em;
-    font-weight: 600;
-    line-height: 1;
-    text-align: center;
-    white-space: nowrap;
-    vertical-align: baseline;
-    border-radius: 0.25rem;
-}
-.badge-secondary { background-color: #6c757d; color: white; }
-.badge-info { background-color: #0dcaf0; color: black; }
-.badge-success { background-color: #198754; color: white; }
-.badge-danger { background-color: #dc3545; color: white; }
-.badge-primary { background-color: #0d6efd; color: white; }
-.actions { margin: 1rem 0; }
-button.success { background-color: #198754; }
-button.danger { background-color: #dc3545; }
-</style>
-
-<script>
-function showRejectModal() {
-    document.getElementById('rejectModal').showModal();
-}
-
-function closeRejectModal() {
-    document.getElementById('rejectModal').close();
-}
-
-function showConvertModal() {
-    document.getElementById('convertModal').showModal();
-}
-
-function closeConvertModal() {
-    document.getElementById('convertModal').close();
-}
-</script>
 {{ end }}

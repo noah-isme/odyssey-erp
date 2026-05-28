@@ -71,6 +71,8 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		CompanyID: companyID,
 		IsActive:  isActive,
 		Search:    searchPtr,
+		SortBy:    r.URL.Query().Get("sort"),
+		SortDir:   r.URL.Query().Get("dir"),
 		Limit:     limit,
 		Offset:    offset,
 	})
@@ -88,6 +90,8 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		"Filters": map[string]any{
 			"IsActive": isActive,
 			"Search":   searchPtr,
+			"SortBy":   r.URL.Query().Get("sort"),
+			"SortDir":  r.URL.Query().Get("dir"),
 		},
 	}, http.StatusOK)
 }

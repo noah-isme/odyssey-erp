@@ -5,241 +5,219 @@
 {{ define "title" }}{{ if .Data.Order }}Edit Sales Order{{ else }}New Sales Order{{ end }}{{ end }}
 
 {{ define "content" }}
-<div class="order-form-wrapper">
-    <header>
-        <h1>{{ if .Data.Order }}Edit Sales Order {{ .Data.Order.DocNumber }}{{ else }}New Sales Order{{ end }}</h1>
-        <p>{{ if .Data.Order }}Update order details and line items{{ else }}Create a new sales order{{ end }}</p>
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-title">{{ if .Data.Order }}Edit Sales Order {{ .Data.Order.DocNumber }}{{ else }}New Sales Order{{ end }}</h1>
+            <p class="page-subtitle">{{ if .Data.Order }}Update order details and line items{{ else }}Create a new sales order{{ end }}</p>
+        </div>
+        <div class="page-header__actions">
+            <a href="{{ if .Data.Order }}/sales/orders/{{ .Data.Order.ID }}{{ else }}/sales/orders{{ end }}" class="btn btn--secondary">Cancel</a>
+        </div>
     </header>
 
-    {{ if .Data.Errors.general }}
-    <article class="error">
-        <p><strong>Error</p>:</strong> {{ .Data.Errors.general }}</p>
-    </article>
-    {{ end }}
-
-    <form method="post" action="{{ if .Data.Order }}/sales/orders/{{ .Data.Order.ID }}/edit{{ else }}/sales/orders{{ end }}">
-        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
-
-        <!-- Header Information -->
-        <section>
-            <h2>Order Information</h2>
-            <div class="grid">
-                <div>
-                    <label for="customer_id">Customer <span class="required">*</span></label>
-                    <select name="customer_id" id="customer_id" required {{ if .Data.Order }}disabled{{ end }}>
-                        <option value="">Select customer...</option>
-                        {{ range .Data.Customers }}
-                        <option value="{{ .ID }}" {{ if $.Data.Order }}{{ if eq $.Data.Order.Data.CustomerID .ID }}selected{{ end }}{{ end }}>
-                            {{ .Code }} - {{ .Name }}
-                        </option>
-                        {{ end }}
-                    </select>
-                    {{ if .Data.Order }}
-                    <input type="hidden" name="customer_id" value="{{ .Data.Order.Data.CustomerID }}">
-                    {{ end }}
-                </div>
-                <div>
-                    <label for="currency">Currency <span class="required">*</span></label>
-                    <select name="currency" id="currency" required>
-                        <option value="IDR" {{ if .Data.Order }}{{ if eq .Data.Order.Currency "IDR" }}selected{{ end }}{{ else }}selected{{ end }}>IDR</option>
-                        <option value="USD" {{ if .Data.Order }}{{ if eq .Data.Order.Currency "USD" }}selected{{ end }}{{ end }}>USD</option>
-                        <option value="EUR" {{ if .Data.Order }}{{ if eq .Data.Order.Currency "EUR" }}selected{{ end }}{{ end }}>EUR</option>
-                    </select>
-                </div>
+    <div class="page-content">
+        {{ if .Data.Errors.general }}
+        <div class="feedback feedback--error mb-6">
+            <div class="feedback__icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
             </div>
-
-            <div class="grid">
-                <div>
-                    <label for="order_date">Order Date <span class="required">*</span></label>
-                    <input type="date" name="order_date" id="order_date" required
-                           value="{{ if .Data.Order }}{{ .Data.Order.Data.OrderDate.Format "2006-01-02" }}{{ end }}">
-                </div>
-                <div>
-                    <label for="expected_delivery_date">Expected Delivery Date</label>
-                    <input type="date" name="expected_delivery_date" id="expected_delivery_date"
-                           value="{{ if .Data.Order }}{{ if .Data.Order.ExpectedDeliveryDate }}{{ .Data.Order.ExpectedDeliveryDate.Format "2006-01-02" }}{{ end }}{{ end }}">
-                </div>
+            <div class="feedback__content">
+                <strong>Error:</strong> {{ .Data.Errors.general }}
             </div>
+        </div>
+        {{ end }}
 
-            <div>
-                <label for="notes">Notes</label>
-                <textarea name="notes" id="notes" rows="3" placeholder="Additional notes or terms">{{ if .Data.Order }}{{ .Data.Order.Notes }}{{ end }}</textarea>
-            </div>
-        </section>
+        <form method="post" action="{{ if .Data.Order }}/sales/orders/{{ .Data.Order.ID }}/edit{{ else }}/sales/orders{{ end }}" data-component="form">
+            <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
 
-        <!-- Line Items -->
-        <section>
-            <h2>Line Items</h2>
-            <p><small>Add products and quantities to this order</small></p>
-
-            <div id="line-items-container">
-                {{ if .Data.Order }}
-                {{ range $index, $line := .Data.Order.Lines }}
-                <div class="line-item" data-index="{{ $index }}">
-                    <div class="grid">
-                        <div>
-                            <label for="product_id_{{ $index }}">Product ID <span class="required">*</span></label>
-                            <input type="number" name="product_id" id="product_id_{{ $index }}" required min="1" value="{{ $line.ProductID }}">
+            <div class="grid grid-cols-3 gap-6 items-start">
+                <div class="col-span-2 flex flex-col gap-6">
+                    <!-- Header Information -->
+                    <div class="card">
+                        <div class="card__header">
+                            <h2 class="text-lg font-semibold">Order Information</h2>
                         </div>
-                        <div>
-                            <label for="quantity_{{ $index }}">Quantity <span class="required">*</span></label>
-                            <input type="number" name="quantity" id="quantity_{{ $index }}" required min="0.01" step="0.01" value="{{ printf "%.2f" $line.Quantity }}">
-                        </div>
-                        <div>
-                            <label for="uom_{{ $index }}">UOM <span class="required">*</span></label>
-                            <input type="text" name="uom" id="uom_{{ $index }}" required value="{{ $line.UOM }}" placeholder="PCS">
+                        <div class="card__body p-6">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="customer_id" class="form-label">Customer <span class="text-danger">*</span></label>
+                                    <select name="customer_id" id="customer_id" class="form-select" required {{ if .Data.Order }}disabled{{ end }}>
+                                        <option value="">Select customer...</option>
+                                        {{ range .Data.Customers }}
+                                        <option value="{{ .ID }}" {{ if $.Data.Order }}{{ if eq $.Data.Order.Data.CustomerID .ID }}selected{{ end }}{{ end }}>
+                                            {{ .Code }} - {{ .Name }}
+                                        </option>
+                                        {{ end }}
+                                    </select>
+                                    {{ if .Data.Order }}
+                                    <input type="hidden" name="customer_id" value="{{ .Data.Order.Data.CustomerID }}">
+                                    {{ end }}
+                                </div>
+                                <div class="form-group">
+                                    <label for="currency" class="form-label">Currency <span class="text-danger">*</span></label>
+                                    <select name="currency" id="currency" class="form-select" required>
+                                        <option value="IDR" {{ if .Data.Order }}{{ if eq .Data.Order.Currency "IDR" }}selected{{ end }}{{ else }}selected{{ end }}>IDR</option>
+                                        <option value="USD" {{ if .Data.Order }}{{ if eq .Data.Order.Currency "USD" }}selected{{ end }}{{ end }}>USD</option>
+                                        <option value="EUR" {{ if .Data.Order }}{{ if eq .Data.Order.Currency "EUR" }}selected{{ end }}{{ end }}>EUR</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-grid mt-6">
+                                <div class="form-group">
+                                    <label for="order_date" class="form-label">Order Date <span class="text-danger">*</span></label>
+                                    <input type="date" name="order_date" id="order_date" class="form-input" required
+                                           value="{{ if .Data.Order }}{{ .Data.Order.Data.OrderDate.Format "2006-01-02" }}{{ end }}">
+                                </div>
+                                <div class="form-group">
+                                    <label for="expected_delivery_date" class="form-label">Expected Delivery Date</label>
+                                    <input type="date" name="expected_delivery_date" id="expected_delivery_date" class="form-input"
+                                           value="{{ if .Data.Order }}{{ if .Data.Order.ExpectedDeliveryDate }}{{ .Data.Order.ExpectedDeliveryDate.Format "2006-01-02" }}{{ end }}{{ end }}">
+                                </div>
+                            </div>
+
+                            <div class="form-group mt-6">
+                                <label for="notes" class="form-label">Notes</label>
+                                <textarea name="notes" id="notes" class="form-input" rows="3" placeholder="Additional notes or terms">{{ if .Data.Order }}{{ .Data.Order.Notes }}{{ end }}</textarea>
+                            </div>
                         </div>
                     </div>
-                    <div class="grid">
-                        <div>
-                            <label for="unit_price_{{ $index }}">Unit Price <span class="required">*</span></label>
-                            <input type="number" name="unit_price" id="unit_price_{{ $index }}" required min="0" step="0.01" value="{{ printf "%.2f" $line.UnitPrice }}">
+
+                    <!-- Line Items -->
+                    <div class="card">
+                        <div class="card__header flex justify-between items-center">
+                            <h2 class="text-lg font-semibold">Line Items</h2>
+                            <button type="button" class="btn btn--secondary btn--sm" data-action="add-line">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="12" y1="5" x2="12" y2="19" />
+                                    <line x1="5" y1="12" x2="19" y2="12" />
+                                </svg>
+                                Add Item
+                            </button>
                         </div>
-                        <div>
-                            <label for="discount_percent_{{ $index }}">Discount %</label>
-                            <input type="number" name="discount_percent" id="discount_percent_{{ $index }}" min="0" max="100" step="0.01" value="{{ printf "%.2f" $line.DiscountPercent }}">
-                        </div>
-                        <div>
-                            <label for="tax_percent_{{ $index }}">Tax %</label>
-                            <input type="number" name="tax_percent" id="tax_percent_{{ $index }}" min="0" max="100" step="0.01" value="{{ printf "%.2f" $line.TaxPercent }}">
-                        </div>
-                        <div style="display: flex; align-items: end;">
-                            <button type="button" class="secondary small" onclick="removeLine(this)">Remove</button>
+                        <div class="card__body p-6">
+                            <div id="line-items-container" class="flex flex-col gap-4">
+                                {{ if .Data.Order }}
+                                {{ range $index, $line := .Data.Order.Lines }}
+                                <div class="line-item" data-index="{{ $index }}">
+                                    <div class="grid grid-cols-3 gap-4">
+                                        <div class="form-group">
+                                            <label for="product_id_{{ $index }}" class="form-label">Product <span class="text-danger">*</span></label>
+                                            <input type="number" name="product_id" id="product_id_{{ $index }}" class="form-input" required min="1" value="{{ $line.ProductID }}">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="quantity_{{ $index }}" class="form-label">Quantity <span class="text-danger">*</span></label>
+                                            <input type="number" name="quantity" id="quantity_{{ $index }}" class="form-input" required min="0.01" step="0.01" value="{{ printf "%.2f" $line.Quantity }}">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="uom_{{ $index }}" class="form-label">UOM <span class="text-danger">*</span></label>
+                                            <input type="text" name="uom" id="uom_{{ $index }}" class="form-input" required value="{{ $line.UOM }}" placeholder="PCS">
+                                        </div>
+                                    </div>
+                                    <div class="form-grid mt-4">
+                                        <div class="form-group">
+                                            <label for="unit_price_{{ $index }}" class="form-label">Unit Price <span class="text-danger">*</span></label>
+                                            <input type="number" name="unit_price" id="unit_price_{{ $index }}" class="form-input" required min="0" step="0.01" value="{{ printf "%.2f" $line.UnitPrice }}">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="discount_percent_{{ $index }}" class="form-label">Discount %</label>
+                                            <input type="number" name="discount_percent" id="discount_percent_{{ $index }}" class="form-input" min="0" max="100" step="0.01" value="{{ printf "%.2f" $line.DiscountPercent }}">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="tax_percent_{{ $index }}" class="form-label">Tax %</label>
+                                            <input type="number" name="tax_percent" id="tax_percent_{{ $index }}" class="form-input" min="0" max="100" step="0.01" value="{{ printf "%.2f" $line.TaxPercent }}">
+                                        </div>
+                                        <div class="flex items-end">
+                                            <button type="button" class="btn btn--ghost btn--sm text-error" data-action="remove-line">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <polyline points="3 6 5 6 21 6" />
+                                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                                </svg>
+                                                Remove
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                {{ end }}
+                                {{ else }}
+                                <div class="line-item" data-index="0">
+                                    <div class="grid grid-cols-3 gap-4">
+                                        <div class="form-group">
+                                            <label for="product_id_0" class="form-label">Product <span class="text-danger">*</span></label>
+                                            <input type="number" name="product_id" id="product_id_0" class="form-input" required min="1">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="quantity_0" class="form-label">Quantity <span class="text-danger">*</span></label>
+                                            <input type="number" name="quantity" id="quantity_0" class="form-input" required min="0.01" step="0.01" value="1.00">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="uom_0" class="form-label">UOM <span class="text-danger">*</span></label>
+                                            <input type="text" name="uom" id="uom_0" class="form-input" required value="PCS">
+                                        </div>
+                                    </div>
+                                    <div class="form-grid mt-4">
+                                        <div class="form-group">
+                                            <label for="unit_price_0" class="form-label">Unit Price <span class="text-danger">*</span></label>
+                                            <input type="number" name="unit_price" id="unit_price_0" class="form-input" required min="0" step="0.01" value="0.00">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="discount_percent_0" class="form-label">Discount %</label>
+                                            <input type="number" name="discount_percent" id="discount_percent_0" class="form-input" min="0" max="100" step="0.01" value="0.00">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="tax_percent_0" class="form-label">Tax %</label>
+                                            <input type="number" name="tax_percent" id="tax_percent_0" class="form-input" min="0" max="100" step="0.01" value="11.00">
+                                        </div>
+                                        <div class="flex items-end">
+                                            <button type="button" class="btn btn--ghost btn--sm text-error" data-action="remove-line">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <polyline points="3 6 5 6 21 6" />
+                                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                                </svg>
+                                                Remove
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                {{ end }}
+                            </div>
                         </div>
                     </div>
                 </div>
-                {{ end }}
-                {{ else }}
-                <div class="line-item" data-index="0">
-                    <div class="grid">
-                        <div>
-                            <label for="product_id_0">Product ID <span class="required">*</span></label>
-                            <input type="number" name="product_id" id="product_id_0" required min="1">
+
+                <div class="flex flex-col gap-6">
+                    <!-- Actions Card -->
+                    <div class="card">
+                        <div class="card__header">
+                            <h2 class="text-md font-semibold">Order Actions</h2>
                         </div>
-                        <div>
-                            <label for="quantity_0">Quantity <span class="required">*</span></label>
-                            <input type="number" name="quantity" id="quantity_0" required min="0.01" step="0.01" value="1.00">
-                        </div>
-                        <div>
-                            <label for="uom_0">UOM <span class="required">*</span></label>
-                            <input type="text" name="uom" id="uom_0" required value="PCS">
+                        <div class="card__body p-5 flex flex-col gap-3">
+                            <button type="submit" class="btn btn--primary w-full">
+                                {{ if .Data.Order }}Update Sales Order{{ else }}Create Sales Order{{ end }}
+                            </button>
+                            <a href="{{ if .Data.Order }}/sales/orders/{{ .Data.Order.ID }}{{ else }}/sales/orders{{ end }}" class="btn btn--secondary w-full">
+                                Cancel
+                            </a>
                         </div>
                     </div>
-                    <div class="grid">
-                        <div>
-                            <label for="unit_price_0">Unit Price <span class="required">*</span></label>
-                            <input type="number" name="unit_price" id="unit_price_0" required min="0" step="0.01" value="0.00">
-                        </div>
-                        <div>
-                            <label for="discount_percent_0">Discount %</label>
-                            <input type="number" name="discount_percent" id="discount_percent_0" min="0" max="100" step="0.01" value="0.00">
-                        </div>
-                        <div>
-                            <label for="tax_percent_0">Tax %</label>
-                            <input type="number" name="tax_percent" id="tax_percent_0" min="0" max="100" step="0.01" value="11.00">
-                        </div>
-                        <div style="display: flex; align-items: end;">
-                            <button type="button" class="secondary small" onclick="removeLine(this)">Remove</button>
+
+                    <!-- Summary Info -->
+                    <div class="card">
+                        <div class="card__body p-5">
+                            <p class="text-xs text-muted leading-relaxed">
+                                Prices and taxes are calculated on the server.
+                                Expected delivery date is optional but recommended.
+                            </p>
                         </div>
                     </div>
                 </div>
-                {{ end }}
             </div>
-
-            <button type="button" class="secondary" onclick="addLine()">+ Add Line Item</button>
-        </section>
-
-        <!-- Actions -->
-        <section>
-            <div role="group">
-                <a href="{{ if .Data.Order }}/sales/orders/{{ .Data.Order.ID }}{{ else }}/sales/orders{{ end }}" role="button" class="secondary">Cancel</a>
-                <button type="submit">{{ if .Data.Order }}Update Sales Order{{ else }}Create Sales Order{{ end }}</button>
-            </div>
-        </section>
-    </form>
+        </form>
+    </div>
 </div>
-
-<style>
-.line-item {
-    padding: 1rem;
-    margin-bottom: 1rem;
-    border: 1px solid var(--form-element-border-color);
-    border-radius: 0.5rem;
-    background-color: var(--card-background-color);
-}
-.line-item:hover {
-    border-color: var(--primary);
-}
-.required {
-    color: #dc3545;
-}
-.small {
-    font-size: 0.85em;
-    padding: 0.25rem 0.5rem;
-}
-.error {
-    background-color: #f8d7da;
-    border-color: #f5c2c7;
-    color: #842029;
-}
-</style>
-
-<script>
-let lineCounter = {{ if .Data.Order }}{{ len .Data.Order.Lines }}{{ else }}1{{ end }};
-
-function addLine() {
-    const container = document.getElementById('line-items-container');
-    const newLine = document.createElement('div');
-    newLine.className = 'line-item';
-    newLine.setAttribute('data-index', lineCounter);
-
-    newLine.innerHTML = `
-        <div class="grid">
-            <div>
-                <label for="product_id_${lineCounter}">Product ID <span class="required">*</span></label>
-                <input type="number" name="product_id" id="product_id_${lineCounter}" required min="1">
-            </div>
-            <div>
-                <label for="quantity_${lineCounter}">Quantity <span class="required">*</span></label>
-                <input type="number" name="quantity" id="quantity_${lineCounter}" required min="0.01" step="0.01" value="1.00">
-            </div>
-            <div>
-                <label for="uom_${lineCounter}">UOM <span class="required">*</span></label>
-                <input type="text" name="uom" id="uom_${lineCounter}" required value="PCS">
-            </div>
-        </div>
-        <div class="grid">
-            <div>
-                <label for="unit_price_${lineCounter}">Unit Price <span class="required">*</span></label>
-                <input type="number" name="unit_price" id="unit_price_${lineCounter}" required min="0" step="0.01" value="0.00">
-            </div>
-            <div>
-                <label for="discount_percent_${lineCounter}">Discount %</label>
-                <input type="number" name="discount_percent" id="discount_percent_${lineCounter}" min="0" max="100" step="0.01" value="0.00">
-            </div>
-            <div>
-                <label for="tax_percent_${lineCounter}">Tax %</label>
-                <input type="number" name="tax_percent" id="tax_percent_${lineCounter}" min="0" max="100" step="0.01" value="11.00">
-            </div>
-            <div style="display: flex; align-items: end;">
-                <button type="button" class="secondary small" onclick="removeLine(this)">Remove</button>
-            </div>
-        </div>
-    `;
-
-    container.appendChild(newLine);
-    lineCounter++;
-}
-
-function removeLine(button) {
-    const container = document.getElementById('line-items-container');
-    const lineItems = container.getElementsByClassName('line-item');
-
-    if (lineItems.length > 1) {
-        button.closest('.line-item').remove();
-    } else {
-        alert('At least one line item is required.');
-    }
-}
-</script>
 {{ end }}
