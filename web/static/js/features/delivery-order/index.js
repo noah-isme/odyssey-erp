@@ -1,33 +1,29 @@
 /**
- * Quotation Form - Main Entry
+ * Delivery Order Form - Main Entry
  */
 import * as Store from './store.js';
 import { view } from './view.js';
 
-const CONTAINER_ID = 'line-items-container';
+const CONTAINER_ID = 'lineItemsContainer';
 
 export function init() {
     const container = document.getElementById(CONTAINER_ID);
     if (!container) return;
 
-    // 1. Initialize State from DOM if exists
+    // Initialize from DOM
     const existingLines = Array.from(container.querySelectorAll('.line-item')).map(el => ({
         id: Date.now() + Math.random(),
-        product_id: el.querySelector('[name="product_id"]')?.value || '',
-        quantity: el.querySelector('[name="quantity"]')?.value || '1.00',
-        uom: el.querySelector('[name="uom"]')?.value || 'PCS',
-        unit_price: el.querySelector('[name="unit_price"]')?.value || '0.00',
-        discount_percent: el.querySelector('[name="discount_percent"]')?.value || '0.00',
-        tax_percent: el.querySelector('[name="tax_percent"]')?.value || '11.00'
+        so_line_id: el.querySelector('[name="so_line_id[]"]')?.value || '',
+        product_id: el.querySelector('[name="product_id[]"]')?.value || '',
+        quantity: el.querySelector('[name="quantity[]"]')?.value || '1.00',
+        notes: el.querySelector('[name="line_notes[]"]')?.value || ''
     }));
 
     Store.setState(CONTAINER_ID, Store.createInitialState(CONTAINER_ID, existingLines));
 
-    // 2. Event Delegation
     document.addEventListener('click', handleClick);
     document.addEventListener('input', handleInput);
 
-    // 3. Initial Render
     render();
 }
 
@@ -68,10 +64,17 @@ function handleInput(e) {
     const field = e.target.name;
     const value = e.target.value;
 
-    // Use a lighter weight dispatch that doesn't re-render everything to avoid losing focus
-    // In a full framework we'd use VDOM. Here we update state and manually update the state object
-    // but maybe we don't need to re-render on every keystroke if we only care about the structure.
     const state = Store.getState(CONTAINER_ID);
-    state.lines[index][field] = value;
-    state.dirty = true;
+    if (state.lines[index]) {
+        // Map form names to state fields
+        const fieldMap = {
+            'so_line_id[]': 'so_line_id',
+            'product_id[]': 'product_id',
+            'quantity[]': 'quantity',
+            'line_notes[]': 'notes'
+        };
+        const stateField = fieldMap[field] || field;
+        state.lines[index][stateField] = value;
+        state.dirty = true;
+    }
 }
