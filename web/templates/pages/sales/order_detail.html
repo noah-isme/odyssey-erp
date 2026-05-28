@@ -5,229 +5,247 @@
 {{ define "title" }}Sales Order {{ .Data.Order.DocNumber }}{{ end }}
 
 {{ define "content" }}
-<div class="order-detail-wrapper">
-    <header>
-        <h1>Sales Order {{ .Data.Order.DocNumber }}</h1>
-        <p>
-            Status:
-            {{ if eq .Data.Order.Status "DRAFT" }}<span class="badge badge-secondary">Draft</span>{{ end }}
-            {{ if eq .Data.Order.Status "CONFIRMED" }}<span class="badge badge-info">Confirmed</span>{{ end }}
-            {{ if eq .Data.Order.Status "PROCESSING" }}<span class="badge badge-warning">Processing</span>{{ end }}
-            {{ if eq .Data.Order.Status "COMPLETED" }}<span class="badge badge-success">Completed</span>{{ end }}
-            {{ if eq .Data.Order.Status "CANCELLED" }}<span class="badge badge-danger">Cancelled</span>{{ end }}
-        </p>
-    </header>
-
-    <!-- Action Buttons -->
-    <section class="actions">
-        <div role="group">
-            <a href="/sales/orders" role="button" class="secondary">← Back to List</a>
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <div class="flex items-center gap-3 mb-2">
+                <span class="eyebrow">Sales Order</span>
+                {{ if eq .Data.Order.Status "DRAFT" }}<span class="badge badge--secondary">Draft</span>{{ end }}
+                {{ if eq .Data.Order.Status "CONFIRMED" }}<span class="badge badge--info">Confirmed</span>{{ end }}
+                {{ if eq .Data.Order.Status "PROCESSING" }}<span class="badge badge--warning">Processing</span>{{ end }}
+                {{ if eq .Data.Order.Status "COMPLETED" }}<span class="badge badge--success">Completed</span>{{ end }}
+                {{ if eq .Data.Order.Status "CANCELLED" }}<span class="badge badge--danger">Cancelled</span>{{ end }}
+            </div>
+            <h1 class="page-title">{{ .Data.Order.DocNumber }}</h1>
+            <p class="page-subtitle">Customer: <a href="/sales/customers/{{ .Data.Order.Data.CustomerID }}" class="link font-medium">{{ if .Data.Customer }}{{ .Data.Customer.Name }}{{ else }}Unknown{{ end }}</a></p>
+        </div>
+        <div class="page-header__actions">
+            <a href="/sales/orders" class="btn btn--secondary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 12H5M12 19l-7-7 7-7" />
+                </svg>
+                Back to List
+            </a>
 
             {{ if eq .Data.Order.Status "DRAFT" }}
-            <a href="/sales/orders/{{ .Data.Order.ID }}/edit" role="button" class="secondary">Edit</a>
-            <form method="post" action="/sales/orders/{{ .Data.Order.ID }}/confirm" style="display: inline;">
+            <a href="/sales/orders/{{ .Data.Order.ID }}/edit" class="btn btn--secondary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
+                Edit
+            </a>
+            <form method="post" action="/sales/orders/{{ .Data.Order.ID }}/confirm" class="inline-flex">
                 <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
-                <button type="submit">Confirm Order</button>
+                <button type="submit" class="btn btn--primary">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                    Confirm Order
+                </button>
             </form>
             {{ end }}
 
             {{ if or (eq .Data.Order.Status "DRAFT") (eq .Data.Order.Status "CONFIRMED") (eq .Data.Order.Status "PROCESSING") }}
-            <button type="button" class="danger" onclick="showCancelModal()">Cancel Order</button>
+            <button type="button" class="btn btn--danger" data-action="show-cancel-modal">Cancel Order</button>
             {{ end }}
         </div>
-    </section>
+    </header>
 
-    <!-- Order Information -->
-    <section>
-        <h2>Order Information</h2>
-        <div class="grid">
-            <div>
-                <label>Document Number</label>
-                <p><strong>{{ .Data.Order.DocNumber }}</strong></p></p>
+    <div class="page-content">
+        <div class="grid grid-cols-3 gap-6">
+            <div class="col-span-2 flex flex-col gap-6">
+                <!-- Order Info Card -->
+                <div class="card">
+                    <div class="card__header">
+                        <h2 class="text-lg font-semibold">Order Details</h2>
+                    </div>
+                    <div class="card__body p-6">
+                        <div class="grid grid-cols-2 gap-6">
+                            <div>
+                                <span class="label mb-1">Order Date</span>
+                                <p class="text-primary font-medium">{{ .Data.Order.Data.OrderDate.Format "02 Jan 2006" }}</p>
+                            </div>
+                            <div>
+                                <span class="label mb-1">Expected Delivery</span>
+                                <p class="text-primary font-medium">{{ if .Data.Order.ExpectedDeliveryDate }}{{ .Data.Order.ExpectedDeliveryDate.Format "02 Jan 2006" }}{{ else }}<span class="text-muted">Not scheduled</span>{{ end }}</p>
+                            </div>
+                            <div>
+                                <span class="label mb-1">Currency</span>
+                                <p class="text-primary font-medium">{{ .Data.Order.Currency }}</p>
+                            </div>
+                            <div>
+                                <span class="label mb-1">Total Amount</span>
+                                <p class="text-xl font-bold text-primary">{{ .Data.Order.Currency }} {{ formatDecimal .Data.Order.TotalAmount }}</p>
+                            </div>
+                        </div>
+
+                        {{ if .Data.Order.Data.QuotationID }}
+                        <hr>
+                        <div>
+                            <span class="label mb-1">Source Quotation</span>
+                            <p class="text-sm">
+                                {{ if .Data.Quotation }}
+                                <a href="/sales/quotations/{{ .Data.Quotation.ID }}" class="link font-medium">{{ .Data.Quotation.DocNumber }}</a>
+                                {{ else }}
+                                <span class="text-muted">#{{ .Data.Order.Data.QuotationID }}</span>
+                                {{ end }}
+                            </p>
+                        </div>
+                        {{ end }}
+
+                        {{ if .Data.Order.Notes }}
+                        <hr>
+                        <div>
+                            <span class="label mb-2">Internal Notes</span>
+                            <div class="p-4 bg-surface-muted border rounded-md text-sm whitespace-pre-wrap">
+                                {{ .Data.Order.Notes }}
+                            </div>
+                        </div>
+                        {{ end }}
+
+                        {{ if .Data.Order.CancellationReason }}
+                        <div class="mt-6 feedback feedback--error">
+                            <div class="feedback__content">
+                                <p class="text-xs uppercase font-bold mb-1">Cancellation Reason</p>
+                                <p>{{ .Data.Order.CancellationReason }}</p>
+                                <p class="text-xs mt-2 opacity-80">Cancelled by User #{{ .Data.Order.CancelledBy }} on {{ .Data.Order.CancelledAt.Format "02 Jan 2006 15:04" }}</p>
+                            </div>
+                        </div>
+                        {{ end }}
+                    </div>
+                </div>
+
+                <!-- Line Items Table -->
+                <div class="card overflow-hidden">
+                    <div class="card__header">
+                        <h2 class="text-lg font-semibold">Items</h2>
+                    </div>
+                    <div class="table-wrap">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th width="50">#</th>
+                                    <th>Product</th>
+                                    <th class="text-right">Qty</th>
+                                    <th class="text-right">Delivered</th>
+                                    <th class="text-right">Invoiced</th>
+                                    <th>UOM</th>
+                                    <th class="text-right">Unit Price</th>
+                                    <th class="text-right">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {{ range .Data.Order.Lines }}
+                                <tr>
+                                    <td class="text-muted">{{ .LineOrder }}</td>
+                                    <td>
+                                        <div class="font-medium text-primary">ID: {{ .ProductID }}</div>
+                                        <div class="text-xs text-muted">{{ .Description }}</div>
+                                    </td>
+                                    <td class="text-right numeric font-medium">{{ formatDecimal .Quantity }}</td>
+                                    <td class="text-right numeric text-secondary">{{ formatDecimal .QuantityDelivered }}</td>
+                                    <td class="text-right numeric text-secondary">{{ formatDecimal .QuantityInvoiced }}</td>
+                                    <td>{{ .UOM }}</td>
+                                    <td class="text-right numeric">{{ formatDecimal .UnitPrice }}</td>
+                                    <td class="text-right font-semibold numeric text-primary">{{ formatDecimal .LineTotal }}</td>
+                                </tr>
+                                {{ end }}
+                            </tbody>
+                            <tfoot class="bg-surface-muted">
+                                <tr>
+                                    <td colspan="7" class="text-right font-medium">Subtotal</td>
+                                    <td class="text-right numeric font-medium">{{ formatDecimal .Data.Order.Subtotal }}</td>
+                                </tr>
+                                <tr>
+                                    <td colspan="7" class="text-right font-medium">Tax Amount</td>
+                                    <td class="text-right numeric font-medium">{{ formatDecimal .Data.Order.TaxAmount }}</td>
+                                </tr>
+                                <tr class="border-t border-strong">
+                                    <td colspan="7" class="text-right font-bold text-lg">Grand Total</td>
+                                    <td class="text-right numeric font-bold text-lg">{{ .Data.Order.Currency }} {{ formatDecimal .Data.Order.TotalAmount }}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
             </div>
-            <div>
-                <label>Customer</label>
-                <p><strong>{{ if .Data.Customer }}{{ .Data.Customer.Name }}{{ else }}Unknown{{ end }}</strong></p>
-            </div>
-            <div>
-                <label>Order Date</label>
-                <p>{{ .Data.Order.Data.OrderDate.Format "2006-01-02" }}</p>
-            </div>
-            <div>
-                <label>Expected Delivery</label>
-                <p>{{ if .Data.Order.ExpectedDeliveryDate }}{{ .Data.Order.ExpectedDeliveryDate.Format "2006-01-02" }}{{ else }}-{{ end }}</p>
+
+            <div class="flex flex-col gap-6">
+                <!-- Status & Workflow Card -->
+                <div class="card">
+                    <div class="card__header">
+                        <h2 class="text-md font-semibold">Order Status</h2>
+                    </div>
+                    <div class="card__body p-5 flex flex-col gap-4">
+                        <div class="flex flex-col">
+                            <span class="text-xs text-muted uppercase font-medium mb-1">Fulfillment State</span>
+                            <div class="mt-1">
+                                {{ if eq .Data.Order.Status "DRAFT" }}<span class="badge badge--secondary">Draft</span>{{ end }}
+                                {{ if eq .Data.Order.Status "CONFIRMED" }}<span class="badge badge--info">Confirmed</span>{{ end }}
+                                {{ if eq .Data.Order.Status "PROCESSING" }}<span class="badge badge--warning">Processing</span>{{ end }}
+                                {{ if eq .Data.Order.Status "COMPLETED" }}<span class="badge badge--success">Completed</span>{{ end }}
+                                {{ if eq .Data.Order.Status "CANCELLED" }}<span class="badge badge--danger">Cancelled</span>{{ end }}
+                            </div>
+                        </div>
+
+                        {{ if .Data.Order.ConfirmedBy }}
+                        <div class="flex flex-col">
+                            <span class="text-xs text-muted uppercase font-medium mb-1">Confirmation Info</span>
+                            <p class="text-sm">By User #{{ .Data.Order.ConfirmedBy }}</p>
+                            <p class="text-xs text-muted">{{ .Data.Order.ConfirmedAt.Format "02 Jan 2006 15:04" }}</p>
+                        </div>
+                        {{ end }}
+
+                        <hr>
+
+                        <div class="flex flex-col gap-3">
+                            <span class="text-xs text-muted uppercase font-medium">Timeline</span>
+                            <div class="flex flex-col gap-4 relative pl-4 border-l border-subtle">
+                                <div class="relative">
+                                    <div class="absolute -left-[1.35rem] top-1.5 w-3 h-3 rounded-full bg-brand"></div>
+                                    <p class="text-xs font-bold text-primary">Created</p>
+                                    <p class="text-[10px] text-muted">{{ .Data.Order.CreatedAt.Format "02 Jan 2006 15:04" }}</p>
+                                </div>
+                                <div class="relative">
+                                    <div class="absolute -left-[1.35rem] top-1.5 w-3 h-3 rounded-full {{ if .Data.Order.UpdatedAt }}bg-brand{{ else }}bg-border-strong{{ end }}"></div>
+                                    <p class="text-xs font-bold {{ if .Data.Order.UpdatedAt }}text-primary{{ else }}text-muted{{ end }}">Last Update</p>
+                                    <p class="text-[10px] text-muted">{{ .Data.Order.UpdatedAt.Format "02 Jan 2006 15:04" }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-
-        <div class="grid">
-            <div>
-                <label>Currency</label>
-                <p>{{ .Data.Order.Currency }}</p>
-            </div>
-            <div>
-                <label>Created By</label>
-                <p>User #{{ .Data.Order.CreatedBy }}</p>
-            </div>
-            <div>
-                <label>Created At</label>
-                <p>{{ .Data.Order.CreatedAt.Format "2006-01-02 15:04" }}</p>
-            </div>
-            <div>
-                <label>Updated At</label>
-                <p>{{ .Data.Order.UpdatedAt.Format "2006-01-02 15:04" }}</p>
-            </div>
-        </div>
-
-        {{ if .Data.Order.Data.QuotationID }}
-        <div>
-            <label>Created from Quotation</label>
-            <p>{{ if .Data.Quotation }}<a href="/sales/quotations/{{ .Data.Quotation.ID }}">{{ .Data.Quotation.DocNumber }}</a>{{ else }}#{{ .Data.Order.Data.QuotationID }}{{ end }}</p>
-        </div>
-        {{ end }}
-
-        {{ if .Data.Order.ConfirmedBy }}
-        <div class="grid">
-            <div>
-                <label>Confirmed By</label>
-                <p>User #{{ .Data.Order.ConfirmedBy }}</p>
-            </div>
-            <div>
-                <label>Confirmed At</label>
-                <p>{{ .Data.Order.ConfirmedAt.Format "2006-01-02 15:04" }}</p>
-            </div>
-        </div>
-        {{ end }}
-
-        {{ if .Data.Order.CancelledBy }}
-        <div class="grid">
-            <div>
-                <label>Cancelled By</label>
-                <p>User #{{ .Data.Order.CancelledBy }}</p>
-            </div>
-            <div>
-                <label>Cancelled At</label>
-                <p>{{ .Data.Order.CancelledAt.Format "2006-01-02 15:04" }}</p>
-            </div>
-        </div>
-        {{ if .Data.Order.CancellationReason }}
-        <div>
-            <label>Cancellation Reason</label>
-            <p>{{ .Data.Order.CancellationReason }}</p>
-        </div>
-        {{ end }}
-        {{ end }}
-
-        {{ if .Data.Order.Notes }}
-        <div>
-            <label>Notes</label>
-            <p>{{ .Data.Order.Notes }}</p>
-        </div>
-        {{ end }}
-    </section>
-
-    <!-- Line Items -->
-    <section>
-        <h2>Line Items</h2>
-        <figure>
-            <table role="grid">
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Product ID</th>
-                        <th>Description</th>
-                        <th>Quantity</th>
-                        <th>Delivered</th>
-                        <th></th>Invoiced</th>
-                        <th>UOM</th>
-                        <th>Unit Price</th>
-                        <th>Discount</th>
-                        <th>Tax</th>
-                        <th>Line Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {{ range .Data.Order.Lines }}
-                    <tr>
-                        <td>{{ .LineOrder }}</td>
-                        <td>{{ .ProductID }}</td>
-                        <td>{{ if .Description }}{{ .Description }}{{ else }}-{{ end }}</td>
-                        <td>{{ printf "%.2f" .Quantity }}</td>
-                        <td>{{ printf "%.2f" .QuantityDelivered }}</td>
-                        <td>{{ printf "%.2f" .QuantityInvoiced }}</td>
-                        <td>{{ .UOM }}</td>
-                        <td>{{ printf "%.2f" .UnitPrice }}</td>
-                        <td>{{ printf "%.2f" .DiscountAmount }}</td>
-                        <td>{{ printf "%.2f" .TaxAmount }}</td>
-                        <td><strong>{{ printf "%.2f" .LineTotal }}</strong></td>
-                    </tr>
-                    {{ end }}
-                </tbody>
-                <tfoot>
-                    <tr>
-                        <td colspan="10" style="text-align: right;"><strong>Subtotal:</strong></td>
-                        <td><strong>{{ printf "%.2f" .Data.Order.Subtotal }}</strong></td>
-                    </tr>
-                    <tr>
-                        <td colspan="10" style="text-align: right;"><strong>Tax:</strong></td>
-                        <td><strong>{{ printf "%.2f" .Data.Order.TaxAmount }}</strong></td>
-                    </tr>
-                    <tr>
-                        <td colspan="10" style="text-align: right;"><strong>Total Amount:</strong></td>
-                        <td><strong>{{ printf "%.2f" .Data.Order.TotalAmount }} {{ .Data.Order.Currency }}</strong></td>
-                    </tr>
-                </tfoot>
-            </table>
-        </figure>
-    </section>
+    </div>
 </div>
 
 <!-- Cancel Modal -->
-<dialog id="cancelModal">
-    <article>
-        <header>
-            <button aria-label="Close" rel="prev" onclick="closeCancelModal()"></button>
-            <h3>Cancel Sales Order</h3>
+<dialog id="cancelModal" class="modal">
+    <div class="modal__content">
+        <header class="modal__header">
+            <h3 class="modal__title">Cancel Sales Order</h3>
+            <button class="btn-icon" data-action="close-modal" aria-label="Close">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+            </button>
         </header>
         <form method="post" action="/sales/orders/{{ .Data.Order.ID }}/cancel">
-            <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
-            <label for="reason">Cancellation Reason</label>
-            <textarea name="reason" id="reason" required placeholder="Please provide a reason for cancellation"></textarea>
-            <footer>
-                <button type="button" class="secondary" onclick="closeCancelModal()">Close</button>
-                <button type="submit" class="danger">Cancel Order</button>
+            <div class="modal__body p-6">
+                <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+                <div class="field">
+                    <label for="reason" class="label">Cancellation Reason <span class="text-error">*</span></label>
+                    <textarea name="reason" id="reason" class="textarea" required placeholder="Reason for cancelling this order"></textarea>
+                </div>
+            </div>
+            <footer class="modal__footer p-4 border-t bg-surface-muted flex justify-end gap-3">
+                <button type="button" class="btn btn--secondary" data-action="close-modal">Close</button>
+                <button type="submit" class="btn btn--danger">Cancel Order</button>
             </footer>
         </form>
-    </article>
+    </div>
 </dialog>
-
-<style>
-.badge {
-    display: inline-block;
-    padding: 0.25em 0.6em;
-    font-size: 0.85em;
-    font-weight: 600;
-    line-height: 1;
-    text-align: center;
-    white-space: nowrap;
-    vertical-align: baseline;
-    border-radius: 0.25rem;
-}
-.badge-secondary { background-color: #6c757d; color: white; }
-.badge-info { background-color: #0dcaf0; color: black; }
-.badge-warning { background-color: #ffc107; color: black; }
-.badge-success { background-color: #198754; color: white; }
-.badge-danger { background-color: #dc3545; color: white; }
-.actions { margin: 1rem 0; }
-button.danger { background-color: #dc3545; }
-</style>
-
-<script>
-function showCancelModal() {
-    document.getElementById('cancelModal').showModal();
-}
-
-function closeCancelModal() {
-    document.getElementById('cancelModal').close();
-}
-</script>
 {{ end }}

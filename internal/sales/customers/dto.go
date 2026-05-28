@@ -39,6 +39,8 @@ type ListCustomersRequest struct {
 	CompanyID int64   `json:"company_id" validate:"required,gt=0"`
 	IsActive  *bool   `json:"is_active,omitempty"`
 	Search    *string `json:"search,omitempty"`
+	SortBy    string  `json:"sort_by,omitempty"`
+	SortDir   string  `json:"sort_dir,omitempty"`
 	Limit     int     `json:"limit" validate:"gte=0,lte=1000"`
 	Offset    int     `json:"offset" validate:"gte=0"`
 }

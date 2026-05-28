@@ -38,6 +38,8 @@ type ListSalesOrdersRequest struct {
 	Status     *SalesOrderStatus `json:"status,omitempty"`
 	DateFrom   *time.Time        `json:"date_from,omitempty"`
 	DateTo     *time.Time        `json:"date_to,omitempty"`
+	SortBy     string            `json:"sort_by,omitempty"`
+	SortDir    string            `json:"sort_dir,omitempty"`
 	Limit      int               `json:"limit" validate:"gte=0,lte=1000"`
 	Offset     int               `json:"offset" validate:"gte=0"`
 }

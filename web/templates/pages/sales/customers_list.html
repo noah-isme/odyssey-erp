@@ -62,14 +62,22 @@
         <!-- Results Table -->
         <div class="card p-0 overflow-hidden" data-component="datatable">
             <div class="table-wrap">
-                <table class="table" id="customers-table">
+                <table class="table table--sticky" id="customers-table" data-datatable="customers">
                     <thead>
                         <tr>
-                            <th scope="col" width="15%">Code</th>
-                            <th scope="col" width="25%">Name</th>
+                            <th scope="col" width="15%" class="sortable" data-column="code" {{ if eq .Data.Filters.SortBy "code" }}data-sort-dir="{{ .Data.Filters.SortDir }}"{{ end }}>
+                                Code
+                            </th>
+                            <th scope="col" width="25%" class="sortable" data-column="name" {{ if eq .Data.Filters.SortBy "name" }}data-sort-dir="{{ .Data.Filters.SortDir }}"{{ end }}>
+                                Name
+                            </th>
                             <th scope="col" width="20%">Contact</th>
-                            <th scope="col" width="15%" class="text-right">Credit Limit</th>
-                            <th scope="col" width="10%">Terms</th>
+                            <th scope="col" width="15%" class="text-right sortable" data-column="credit_limit" {{ if eq .Data.Filters.SortBy "credit_limit" }}data-sort-dir="{{ .Data.Filters.SortDir }}"{{ end }}>
+                                Credit Limit
+                            </th>
+                            <th scope="col" width="10%" class="sortable" data-column="payment_terms_days" {{ if eq .Data.Filters.SortBy "payment_terms_days" }}data-sort-dir="{{ .Data.Filters.SortDir }}"{{ end }}>
+                                Terms
+                            </th>
                             <th scope="col" width="10%">Status</th>
                             <th scope="col" width="5%"></th>
                         </tr>
@@ -90,7 +98,7 @@
                                 {{ if .Phone }}<div class="text-xs text-muted">{{ .Phone }}</div>{{ end }}
                                 {{ if and (not .Email) (not .Phone) }}<span class="text-muted">-</span>{{ end }}
                             </td>
-                            <td class="text-right tabular-nums">
+                            <td class="text-right numeric">
                                 {{ formatDecimal .CreditLimit }}
                             </td>
                             <td>{{ .PaymentTermsDays }} Days</td>
@@ -143,7 +151,7 @@
 
                 <nav class="pagination" aria-label="Pagination">
                     {{ if gt $currentPage 0 }}
-                    <a href="?limit={{ .Data.Limit }}&offset={{ sub .Data.Offset .Data.Limit }}{{ if .Data.Filters.Search }}&search={{ .Data.Filters.Search }}{{ end }}{{ if .Data.Filters.IsActive }}&is_active={{ .Data.Filters.IsActive }}{{ end }}"
+                    <a href="?limit={{ .Data.Limit }}&offset={{ sub .Data.Offset .Data.Limit }}{{ if .Data.Filters.Search }}&search={{ .Data.Filters.Search }}{{ end }}{{ if .Data.Filters.IsActive }}&is_active={{ .Data.Filters.IsActive }}{{ end }}{{ if .Data.Filters.SortBy }}&sort={{ .Data.Filters.SortBy }}{{ end }}{{ if .Data.Filters.SortDir }}&dir={{ .Data.Filters.SortDir }}{{ end }}"
                         class="btn btn--secondary btn--sm">Previous</a>
                     {{ else }}
                     <button class="btn btn--secondary btn--sm" disabled>Previous</button>
@@ -152,7 +160,7 @@
                     <span class="pagination__info">Page {{ add $currentPage 1 }} of {{ $totalPages }}</span>
 
                     {{ if lt (add .Data.Offset .Data.Limit) .Data.Total }}
-                    <a href="?limit={{ .Data.Limit }}&offset={{ add .Data.Offset .Data.Limit }}{{ if .Data.Filters.Search }}&search={{ .Data.Filters.Search }}{{ end }}{{ if .Data.Filters.IsActive }}&is_active={{ .Data.Filters.IsActive }}{{ end }}"
+                    <a href="?limit={{ .Data.Limit }}&offset={{ add .Data.Offset .Data.Limit }}{{ if .Data.Filters.Search }}&search={{ .Data.Filters.Search }}{{ end }}{{ if .Data.Filters.IsActive }}&is_active={{ .Data.Filters.IsActive }}{{ end }}{{ if .Data.Filters.SortBy }}&sort={{ .Data.Filters.SortBy }}{{ end }}{{ if .Data.Filters.SortDir }}&dir={{ .Data.Filters.SortDir }}{{ end }}"
                         class="btn btn--secondary btn--sm">Next</a>
                     {{ else }}
                     <button class="btn btn--secondary btn--sm" disabled>Next</button>

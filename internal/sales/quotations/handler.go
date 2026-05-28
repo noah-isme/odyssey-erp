@@ -68,6 +68,8 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		Status:    statusPtr,
 		DateFrom:  dateFrom,
 		DateTo:    dateTo,
+		SortBy:    r.URL.Query().Get("sort"),
+		SortDir:   r.URL.Query().Get("dir"),
 		Limit:     limit,
 		Offset:    offset,
 	})
@@ -84,6 +86,8 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 			"Status":   status,
 			"DateFrom": r.URL.Query().Get("date_from"),
 			"DateTo":   r.URL.Query().Get("date_to"),
+			"SortBy":   r.URL.Query().Get("sort"),
+			"SortDir":  r.URL.Query().Get("dir"),
 		},
 	}, http.StatusOK)
 }

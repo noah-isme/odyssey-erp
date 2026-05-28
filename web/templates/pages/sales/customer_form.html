@@ -5,179 +5,187 @@
 {{ define "title" }}{{ if .Data.Customer }}Edit Customer{{ else }}New Customer{{ end }}{{ end }}
 
 {{ define "content" }}
-<div class="customer-form-wrapper">
-    <header>
-        <h1>{{ if .Data.Customer }}Edit Customer {{ .Data.Customer.Code }}{{ else }}New Customer{{ end }}</h1>
-        <p>{{ if .Data.Customer }}Update customer information{{ else }}Add a new customer to the system{{ end }}</p>
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-title">{{ if .Data.Customer }}Edit Customer {{ .Data.Customer.Code }}{{ else }}New Customer{{ end }}</h1>
+            <p class="page-subtitle">{{ if .Data.Customer }}Update customer information and settings{{ else }}Add a new customer to the system{{ end }}</p>
+        </div>
+        <div class="page-header__actions">
+            <a href="{{ if .Data.Customer }}/sales/customers/{{ .Data.Customer.ID }}{{ else }}/sales/customers{{ end }}" class="btn btn--secondary">Cancel</a>
+        </div>
     </header>
 
-    {{ if .Data.Errors.general }}
-    <article class="error">
-        <p></p><strong>Error:</strong> {{ .Data.Errors.general }}</p>
-    </article>
-    {{ end }}
+    <div class="page-content">
+        {{ if .Data.Errors.general }}
+        <div class="feedback feedback--error mb-6">
+            <div class="feedback__icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+            </div>
+            <div class="feedback__content">
+                <strong>Error:</strong> {{ .Data.Errors.general }}
+            </div>
+        </div>
+        {{ end }}
 
-    <form method="post" action="{{ if .Data.Customer }}/sales/customers/{{ .Data.Customer.ID }}/edit{{ else }}/sales/customers{{ end }}">
-        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+        <div class="card">
+            <form method="post" action="{{ if .Data.Customer }}/sales/customers/{{ .Data.Customer.ID }}/edit{{ else }}/sales/customers{{ end }}" data-component="form">
+                <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
 
-        <!-- Basic Information -->
-        <section></section>
-            <h2>Basic Information</h2>
-            <div class="grid">
-                <div>
-                    <label for="code">Customer Code <span class="required">*</span></label>
-                    <input type="text" name="code" id="code" required maxlength="50"
-                           value="{{ if .Data.Customer }}{{ .Data.Customer.Code }}{{ else }}{{ .Data.GeneratedCode }}{{ end }}"
-                           {{ if .Data.Customer }}readonly{{ end }}>
-                    {{ if not .Data.Customer }}
-                    <small></small>Auto-generated code, you can modify before saving</small>
+                <!-- Basic Information -->
+                <section class="form-section">
+                    <h2 class="form-section__title">Basic Information</h2>
+                    <div class="form-grid">
+                        <div class="form-group {{ if .Data.Errors.code }}is-invalid{{ end }}">
+                            <label for="code" class="form-label">Customer Code <span class="text-danger">*</span></label>
+                            <input type="text" name="code" id="code" class="form-input" required maxlength="50"
+                                value="{{ if .Data.Customer }}{{ .Data.Customer.Code }}{{ else }}{{ .Data.GeneratedCode }}{{ end }}"
+                                {{ if .Data.Customer }}readonly{{ end }}>
+                            {{ if .Data.Errors.code }}
+                            <span class="error-text">{{ .Data.Errors.code }}</span>
+                            {{ else if not .Data.Customer }}
+                            <span class="help">Auto-generated code, you can modify before saving</span>
+                            {{ end }}
+                        </div>
+                        <div class="form-group {{ if .Data.Errors.name }}is-invalid{{ end }}">
+                            <label for="name" class="form-label">Customer Name <span class="text-danger">*</span></label>
+                            <input type="text" name="name" id="name" class="form-input" required maxlength="200"
+                                value="{{ if .Data.Customer }}{{ .Data.Customer.Name }}{{ end }}"
+                                placeholder="Company or person name">
+                            {{ if .Data.Errors.name }}
+                            <span class="error-text">{{ .Data.Errors.name }}</span>
+                            {{ end }}
+                        </div>
+                    </div>
+
+                    <div class="form-grid mt-6">
+                        <div class="form-group">
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" name="email" id="email" class="form-input" maxlength="100"
+                                value="{{ if .Data.Customer }}{{ if .Data.Customer.Email }}{{ .Data.Customer.Email }}{{ end }}{{ end }}"
+                                placeholder="customer@example.com">
+                        </div>
+                        <div class="form-group">
+                            <label for="phone" class="form-label">Phone</label>
+                            <input type="tel" name="phone" id="phone" class="form-input" maxlength="50"
+                                value="{{ if .Data.Customer }}{{ if .Data.Customer.Phone }}{{ .Data.Customer.Phone }}{{ end }}{{ end }}"
+                                placeholder="+62 21 1234 5678">
+                        </div>
+                    </div>
+
+                    <div class="form-grid mt-6">
+                        <div class="form-group">
+                            <label for="tax_id" class="form-label">Tax ID / NPWP</label>
+                            <input type="text" name="tax_id" id="tax_id" class="form-input" maxlength="50"
+                                value="{{ if .Data.Customer }}{{ if .Data.Customer.TaxID }}{{ .Data.Customer.TaxID }}{{ end }}{{ end }}"
+                                placeholder="12.345.678.9-012.345">
+                        </div>
+                        <div class="form-group">
+                            <label for="country" class="form-label">Country <span class="text-danger">*</span></label>
+                            <select name="country" id="country" class="form-select" required>
+                                <option value="ID" {{ if .Data.Customer }}{{ if eq .Data.Customer.Country "ID" }}selected{{ end }}{{ else }}selected{{ end }}>Indonesia</option>
+                                <option value="SG" {{ if .Data.Customer }}{{ if eq .Data.Customer.Country "SG" }}selected{{ end }}{{ end }}>Singapore</option>
+                                <option value="MY" {{ if .Data.Customer }}{{ if eq .Data.Customer.Country "MY" }}selected{{ end }}{{ end }}>Malaysia</option>
+                                <option value="TH" {{ if .Data.Customer }}{{ if eq .Data.Customer.Country "TH" }}selected{{ end }}{{ end }}>Thailand</option>
+                                <option value="US" {{ if .Data.Customer }}{{ if eq .Data.Customer.Country "US" }}selected{{ end }}{{ end }}>United States</option>
+                                <option value="CN" {{ if .Data.Customer }}{{ if eq .Data.Customer.Country "CN" }}selected{{ end }}{{ end }}>China</option>
+                            </select>
+                        </div>
+                    </div>
+                </section>
+
+                <hr>
+
+                <!-- Address -->
+                <section class="form-section">
+                    <h2 class="form-section__title">Address</h2>
+                    <div class="form-group mb-6">
+                        <label for="address_line1" class="form-label">Address Line 1</label>
+                        <input type="text" name="address_line1" id="address_line1" class="form-input" maxlength="200"
+                            value="{{ if .Data.Customer }}{{ if .Data.Customer.AddressLine1 }}{{ .Data.Customer.AddressLine1 }}{{ end }}{{ end }}"
+                            placeholder="Street address">
+                    </div>
+                    <div class="form-group mb-6">
+                        <label for="address_line2" class="form-label">Address Line 2</label>
+                        <input type="text" name="address_line2" id="address_line2" class="form-input" maxlength="200"
+                            value="{{ if .Data.Customer }}{{ if .Data.Customer.AddressLine2 }}{{ .Data.Customer.AddressLine2 }}{{ end }}{{ end }}"
+                            placeholder="Building, floor, unit">
+                    </div>
+                    <div class="form-grid form-grid--3">
+                        <div class="form-group">
+                            <label for="city" class="form-label">City</label>
+                            <input type="text" name="city" id="city" class="form-input" maxlength="100"
+                                value="{{ if .Data.Customer }}{{ if .Data.Customer.City }}{{ .Data.Customer.City }}{{ end }}{{ end }}"
+                                placeholder="Jakarta">
+                        </div>
+                        <div class="form-group">
+                            <label for="state" class="form-label">State / Province</label>
+                            <input type="text" name="state" id="state" class="form-input" maxlength="100"
+                                value="{{ if .Data.Customer }}{{ if .Data.Customer.State }}{{ .Data.Customer.State }}{{ end }}{{ end }}"
+                                placeholder="DKI Jakarta">
+                        </div>
+                        <div class="form-group">
+                            <label for="postal_code" class="form-label">Postal Code</label>
+                            <input type="text" name="postal_code" id="postal_code" class="form-input" maxlength="20"
+                                value="{{ if .Data.Customer }}{{ if .Data.Customer.PostalCode }}{{ .Data.Customer.PostalCode }}{{ end }}{{ end }}"
+                                placeholder="12345">
+                        </div>
+                    </div>
+                </section>
+
+                <hr>
+
+                <!-- Financial Settings -->
+                <section class="form-section">
+                    <h2 class="form-section__title">Financial Settings</h2>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="credit_limit" class="form-label">Credit Limit <span class="text-danger">*</span></label>
+                            <input type="number" name="credit_limit" id="credit_limit" class="form-input" required min="0" step="0.01"
+                                value="{{ if .Data.Customer }}{{ printf "%.2f" .Data.Customer.CreditLimit }}{{ else }}0.00{{ end }}">
+                            <span class="help">Maximum outstanding balance allowed</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="payment_terms_days" class="form-label">Payment Terms (Days) <span class="text-danger">*</span></label>
+                            <input type="number" name="payment_terms_days" id="payment_terms_days" class="form-input" required min="0" max="365"
+                                value="{{ if .Data.Customer }}{{ .Data.Customer.PaymentTermsDays }}{{ else }}30{{ end }}">
+                            <span class="help">Default payment due date (0-365 days)</span>
+                        </div>
+                    </div>
+                </section>
+
+                <hr>
+
+                <!-- Additional Information -->
+                <section class="form-section">
+                    <h2 class="form-section__title">Additional Information</h2>
+                    {{ if .Data.Customer }}
+                    <div class="form-group mb-6">
+                        <label class="check">
+                            <input type="checkbox" name="is_active" id="is_active" value="true" {{ if .Data.Customer.IsActive }}checked{{ end }}>
+                            <span>Customer is active</span>
+                        </label>
+                        <span class="help">Inactive customers cannot be selected in new transactions</span>
+                    </div>
                     {{ end }}
-                </div>
-                <div>
-                    <label for="name">Customer Name <span class="required">*</span></label>
-                    <input type="text" name="name" id="name" required maxlength="200"
-                           value="{{ if .Data.Customer }}{{ .Data.Customer.Name }}{{ end }}"
-                           placeholder="Company or person name">
-                </div>
-            </div>
+                    <div class="form-group">
+                        <label for="notes" class="form-label">Notes</label>
+                        <textarea name="notes" id="notes" class="form-input" rows="4" placeholder="Internal notes about this customer">{{ if .Data.Customer }}{{ if .Data.Customer.Notes }}{{ .Data.Customer.Notes }}{{ end }}{{ end }}</textarea>
+                    </div>
+                </section>
 
-            <div class="grid">
-                <div>
-                    <label for="email">Email</label>
-                    <input type="email" name="email" id="email" maxlength="100"
-                           value="{{ if .Data.Customer }}{{ if .Data.Customer.Email }}{{ .Data.Customer.Email }}{{ end }}{{ end }}"
-                           placeholder="customer@example.com">
+                <div class="form-actions mt-8">
+                    <button type="submit" class="btn btn--primary">
+                        {{ if .Data.Customer }}Update Customer{{ else }}Create Customer{{ end }}
+                    </button>
+                    <a href="{{ if .Data.Customer }}/sales/customers/{{ .Data.Customer.ID }}{{ else }}/sales/customers{{ end }}" class="btn btn--secondary">Cancel</a>
                 </div>
-                <div>
-                    <label for="phone">Phone</label>
-                    <input type="tel" name="phone" id="phone" maxlength="50"
-                           value="{{ if .Data.Customer }}{{ if .Data.Customer.Phone }}{{ .Data.Customer.Phone }}{{ end }}{{ end }}"
-                           placeholder="+62 21 1234 5678">
-                </div>
-            </div>
-
-            <div class="grid">
-                <div>
-                    <label for="tax_id">Tax ID / NPWP</label>
-                    <input type="text" name="tax_id" id="tax_id" maxlength="50"
-                           value="{{ if .Data.Customer }}{{ if .Data.Customer.TaxID }}{{ .Data.Customer.TaxID }}{{ end }}{{ end }}"
-                           placeholder="12.345.678.9-012.345">
-                </div>
-                <div>
-                    <label for="country">Country <span class="required">*</span></label>
-                    <select name="country" id="country" required>
-                        <option value="ID" {{ if .Data.Customer }}{{ if eq .Data.Customer.Country "ID" }}selected{{ end }}{{ else }}selected{{ end }}>Indonesia</option>
-                        <option value="SG" {{ if .Data.Customer }}{{ if eq .Data.Customer.Country "SG" }}selected{{ end }}{{ end }}>Singapore</option>
-                        <option value="MY" {{ if .Data.Customer }}{{ if eq .Data.Customer.Country "MY" }}selected{{ end }}{{ end }}>Malaysia</option>
-                        <option value="TH" {{ if .Data.Customer }}{{ if eq .Data.Customer.Country "TH" }}selected{{ end }}{{ end }}>Thailand</option>
-                        <option value="US" {{ if .Data.Customer }}{{ if eq .Data.Customer.Country "US" }}selected{{ end }}{{ end }}>United States</option>
-                        <option value="CN" {{ if .Data.Customer }}{{ if eq .Data.Customer.Country "CN" }}selected{{ end }}{{ end }}>China</option>
-                    </select>
-                </div>
-            </div>
-        </section>
-
-        <!-- Address -->
-        <section>
-            <h2>Address</h2>
-            <div>
-                <label for="address_line1">Address Line 1</label>
-                <input type="text" name="address_line1" id="address_line1" maxlength="200"
-                       value="{{ if .Data.Customer }}{{ if .Data.Customer.AddressLine1 }}{{ .Data.Customer.AddressLine1 }}{{ end }}{{ end }}"
-                       placeholder="Street address">
-            </div>
-            <div>
-                <label for="address_line2">Address Line 2</label>
-                <input type="text" name="address_line2" id="address_line2" maxlength="200"
-                       value="{{ if .Data.Customer }}{{ if .Data.Customer.AddressLine2 }}{{ .Data.Customer.AddressLine2 }}{{ end }}{{ end }}"
-                       placeholder="Building, floor, unit">
-            </div>
-            <div class="grid">
-                <div>
-                    <label for="city">City</label>
-                    <input type="text" name="city" id="city" maxlength="100"
-                           value="{{ if .Data.Customer }}{{ if .Data.Customer.City }}{{ .Data.Customer.City }}{{ end }}{{ end }}"
-                           placeholder="Jakarta">
-                </div>
-                <div>
-                    <label for="state">State / Province</label>
-                    <input type="text" name="state" id="state" maxlength="100"
-                           value="{{ if .Data.Customer }}{{ if .Data.Customer.State }}{{ .Data.Customer.State }}{{ end }}{{ end }}"
-                           placeholder="DKI Jakarta">
-                </div>
-                <div>
-                    <label for="postal_code">Postal Code</label>
-                    <input type="text" name="postal_code" id="postal_code" maxlength="20"
-                           value="{{ if .Data.Customer }}{{ if .Data.Customer.PostalCode }}{{ .Data.Customer.PostalCode }}{{ end }}{{ end }}"
-                           placeholder="12345">
-                </div>
-            </div>
-        </section>
-
-        <!-- Financial Settings -->
-        <section>
-            <h2>Financial Settings</h2>
-            <div class="grid">
-                <div>
-                    <label for="credit_limit">Credit Limit <span class="required">*</span></label>
-                    <input type="number" name="credit_limit" id="credit_limit" required min="0" step="0.01"
-                           value="{{ if .Data.Customer }}{{ printf "%.2f" .Data.Customer.CreditLimit }}{{ else }}0.00{{ end }}">
-                    <small>Maximum outstanding balance allowed</small>
-                </div>
-                <div>
-                    <label for="payment_terms_days">Payment Terms (Days) <span class="required">*</span></label>
-                    <input type="number" name="payment_terms_days" id="payment_terms_days" required min="0" max="365"
-                           value="{{ if .Data.Customer }}{{ .Data.Customer.PaymentTermsDays }}{{ else }}30{{ end }}">
-                    <small>Default payment due date (0-365 days)</small>
-                </div>
-            </div>
-        </section>
-
-        <!-- Additional Information -->
-        <section>
-            <h2>Additional Information</h2>
-            {{ if .Data.Customer }}
-            <div></div>
-                <label for="is_active">Status</label>
-                <label></label>
-                    <input type="checkbox" name="is_active" id="is_active" value="true" {{ if .Data.Customer.IsActive }}checked{{ end }}>
-                    Active
-                </label>
-                <small>Inactive customers cannot</small> be selected in new transactions</small>
-            </div>
-            {{ end }}
-            <div>
-                <label for="notes">Notes</label>
-                <textarea name="notes" id="notes" rows="4" placeholder="Internal notes about this customer">{{ if .Data.Customer }}{{ if .Data.Customer.Notes }}{{ .Data.Customer.Notes }}{{ end }}{{ end }}</textarea>
-            </div>
-        </section>
-
-        <!-- Actions -->
-        <section>
-            <div role="group">
-                <a href="{{ if .Data.Customer }}/sales/customers/{{ .Data.Customer.ID }}{{ else }}/sales/customers{{ end }}" role="button" class="secondary">Cancel</a>
-                <button type="submit">{{ if .Data.Customer }}Update Customer{{ else }}Create Customer{{ end }}</button>
-            </div>
-        </section>
-    </form>
+            </form>
+        </div>
+    </div>
 </div>
-
-<style>
-.required {
-    color: #dc3545;
-}
-.error {
-    background-color: #f8d7da;
-    border-color: #f5c2c7;
-    color: #842029;
-}
-section {
-    margin-bottom: 2rem;
-}
-section h2 {
-    margin-bottom: 1rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid var(--form-element-border-color);
-}
-</style>
 {{ end }}

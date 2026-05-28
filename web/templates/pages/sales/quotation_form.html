@@ -5,176 +5,232 @@
 {{ define "title" }}{{ if .Data.Quotation }}Edit Quotation{{ else }}New Quotation{{ end }}{{ end }}
 
 {{ define "content" }}
-<div class="quotation-form-wrapper">
-    <header>
-        <h1>{{ if .Data.Quotation }}Edit Quotation {{ .Data.Quotation.DocNumber }}{{ else }}New Quotation{{ end }}</h1>
-        <p>{{ if .Data.Quotation }}Update quotation details and line items{{ else }}Create a new sales quotation{{ end }}</p>
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-title">{{ if .Data.Quotation }}Edit Quotation {{ .Data.Quotation.DocNumber }}{{ else }}New Quotation{{ end }}</h1>
+            <p class="page-subtitle">{{ if .Data.Quotation }}Update quotation details and line items{{ else }}Create a new sales quotation{{ end }}</p>
+        </div>
+        <div class="page-header__actions">
+            <a href="{{ if .Data.Quotation }}/sales/quotations/{{ .Data.Quotation.ID }}{{ else }}/sales/quotations{{ end }}" class="btn btn--secondary">Cancel</a>
+        </div>
     </header>
 
-    {{ if .Data.Errors.general }}
-    <article class="error">
-        <p><strong>Error</p>:</strong> {{ .Data.Errors.general }}</p>
-    </article>
-    {{ end }}
-
-    <form method="post"
-        action="{{ if .Data.Quotation }}/sales/quotations/{{ .Data.Quotation.ID }}/edit{{ else }}/sales/quotations{{ end }}">
-        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
-
-        <!-- Header Information -->
-        <section>
-            <h2>Quotation Information</h2>
-            <div class="grid">
-                <div>
-                    <label for="customer_id">Customer <span class="required">*</span></label>
-                    <select name="customer_id" id="customer_id" required {{ if .Data.Quotation }}disabled{{ end }}>
-                        <option value="">Select customer...</option>
-                        {{ range .Data.Customers }}
-                        <option value="{{ .ID }}" {{ if $.Data.Quotation }}{{ if eq $.Data.Quotation.Data.CustomerID .ID }}selected{{
-                            end }}{{ end }}>
-                            {{ .Code }} - {{ .Name }}
-                        </option>
-                        {{ end }}
-                    </select>
-                    {{ if .Data.Quotation }}
-                    <input type="hidden" name="customer_id" value="{{ .Data.Quotation.Data.CustomerID }}">
-                    {{ end }}
-                </div>
-                <div>
-                    <label for="currency">Currency <span class="required">*</span></label>
-                    <select name="currency" id="currency" required>
-                        <option value="IDR" {{ if .Data.Quotation }}{{ if eq .Data.Quotation.Currency "IDR" }}selected{{ end }}{{
-                            else }}selected{{ end }}>IDR</option>
-                        <option value="USD" {{ if .Data.Quotation }}{{ if eq .Data.Quotation.Currency "USD" }}selected{{ end }}{{
-                            end }}>USD</option>
-                        <option value="EUR" {{ if .Data.Quotation }}{{ if eq .Data.Quotation.Currency "EUR" }}selected{{ end }}{{
-                            end }}>EUR</option>
-                    </select>
-                </div>
+    <div class="page-content">
+        {{ if .Data.Errors.general }}
+        <div class="feedback feedback--error mb-6">
+            <div class="feedback__icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
             </div>
-
-            <div class="grid">
-                <div>
-                    <label for="quote_date">Quote Date <span class="required">*</span></label>
-                    <input type="date" name="quote_date" id="quote_date" required
-                        value="{{ if .Data.Quotation }}{{ .Data.Quotation.QuoteDate.Format " 2006-01-02" }}{{ end }}">
-                </div>
-                <div>
-                    <label for="valid_until">Valid Until <span class="required">*</span></label>
-                    <input type="date" name="valid_until" id="valid_until" required
-                        value="{{ if .Data.Quotation }}{{ .Data.Quotation.ValidUntil.Format " 2006-01-02" }}{{ end }}">
-                </div>
+            <div class="feedback__content">
+                <strong>Error:</strong> {{ .Data.Errors.general }}
             </div>
+        </div>
+        {{ end }}
 
-            <div>
-                <label for="notes">Notes</label>
-                <textarea name="notes" id="notes" rows="3"
-                    placeholder="Additional notes or terms">{{ if .Data.Quotation }}{{ .Data.Quotation.Notes }}{{ end }}</textarea>
-            </div>
-        </section>
+        <form method="post" action="{{ if .Data.Quotation }}/sales/quotations/{{ .Data.Quotation.ID }}/edit{{ else }}/sales/quotations{{ end }}" data-component="form">
+            <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
 
-        <!-- Line Items -->
-        <section>
-            <h2>Line Items</h2>
-            <p><small>Add products and quantities to this quotation</p></small></p>
-
-            <div id="line-items-container">
-                {{ if .Data.Quotation }}
-                {{ range $index, $line := .Data.Quotation.Lines }}
-                <div class="line-item" data-index="{{ $index }}">
-                    <div class="grid">
-                        <div>
-                            <label for="product_id_{{ $index }}">Product ID <span class="required">*</span></label>
-                            <input type="number" name="product_id" id="product_id_{{ $index }}" required min="1"
-                                value="{{ $line.ProductID }}">
+            <div class="grid grid-cols-3 gap-6 items-start">
+                <div class="col-span-2 flex flex-col gap-6">
+                    <!-- Header Information -->
+                    <div class="card">
+                        <div class="card__header">
+                            <h2 class="text-lg font-semibold">General Information</h2>
                         </div>
-                        <div>
-                            <label for="quantity_{{ $index }}">Quantity <span class="required">*</span></label>
-                            <input type="number" name="quantity" id="quantity_{{ $index }}" required min="0.01"
-                                step="0.01" value="{{ printf " %.2f" $line.Quantity }}">
-                        </div>
-                        <div>
-                            <label for="uom_{{ $index }}">UOM <span class="required">*</span></label>
-                            <input type="text" name="uom" id="uom_{{ $index }}" required value="{{ $line.UOM }}"
-                                placeholder="PCS">
+                        <div class="card__body p-6">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="customer_id" class="form-label">Customer <span class="text-danger">*</span></label>
+                                    <select name="customer_id" id="customer_id" class="form-select" required {{ if .Data.Quotation }}disabled{{ end }}>
+                                        <option value="">Select customer...</option>
+                                        {{ range .Data.Customers }}
+                                        <option value="{{ .ID }}" {{ if $.Data.Quotation }}{{ if eq $.Data.Quotation.Data.CustomerID .ID }}selected{{ end }}{{ end }}>
+                                            {{ .Code }} - {{ .Name }}
+                                        </option>
+                                        {{ end }}
+                                    </select>
+                                    {{ if .Data.Quotation }}
+                                    <input type="hidden" name="customer_id" value="{{ .Data.Quotation.Data.CustomerID }}">
+                                    {{ end }}
+                                </div>
+                                <div class="form-group">
+                                    <label for="currency" class="form-label">Currency <span class="text-danger">*</span></label>
+                                    <select name="currency" id="currency" class="form-select" required>
+                                        <option value="IDR" {{ if .Data.Quotation }}{{ if eq .Data.Quotation.Currency "IDR" }}selected{{ end }}{{ else }}selected{{ end }}>IDR</option>
+                                        <option value="USD" {{ if .Data.Quotation }}{{ if eq .Data.Quotation.Currency "USD" }}selected{{ end }}{{ end }}>USD</option>
+                                        <option value="EUR" {{ if .Data.Quotation }}{{ if eq .Data.Quotation.Currency "EUR" }}selected{{ end }}{{ end }}>EUR</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-grid mt-6">
+                                <div class="form-group">
+                                    <label for="quote_date" class="form-label">Quote Date <span class="text-danger">*</span></label>
+                                    <input type="date" name="quote_date" id="quote_date" class="form-input" required
+                                        value="{{ if .Data.Quotation }}{{ .Data.Quotation.QuoteDate.Format "2006-01-02" }}{{ end }}">
+                                </div>
+                                <div class="form-group">
+                                    <label for="valid_until" class="form-label">Valid Until <span class="text-danger">*</span></label>
+                                    <input type="date" name="valid_until" id="valid_until" class="form-input" required
+                                        value="{{ if .Data.Quotation }}{{ .Data.Quotation.ValidUntil.Format "2006-01-02" }}{{ end }}">
+                                </div>
+                            </div>
+
+                            <div class="form-group mt-6">
+                                <label for="notes" class="form-label">Notes</label>
+                                <textarea name="notes" id="notes" class="form-input" rows="3"
+                                    placeholder="Additional notes or terms">{{ if .Data.Quotation }}{{ .Data.Quotation.Notes }}{{ end }}</textarea>
+                            </div>
                         </div>
                     </div>
-                    <div class="grid">
-                        <div>
-                            <label for="unit_price_{{ $index }}">Unit Price <span class="required">*</span></label>
-                            <input type="number" name="unit_price" id="unit_price_{{ $index }}" required min="0"
-                                step="0.01" value="{{ printf " %.2f" $line.UnitPrice }}">
+
+                    <!-- Line Items -->
+                    <div class="card">
+                        <div class="card__header flex justify-between items-center">
+                            <h2 class="text-lg font-semibold">Line Items</h2>
+                            <button type="button" class="btn btn--secondary btn--sm" data-action="add-line">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="12" y1="5" x2="12" y2="19" />
+                                    <line x1="5" y1="12" x2="19" y2="12" />
+                                </svg>
+                                Add Item
+                            </button>
                         </div>
-                        <div>
-                            <label for="discount_percent_{{ $index }}">Discount %</label>
-                            <input type="number" name="discount_percent" id="discount_percent_{{ $index }}" min="0"
-                                max="100" step="0.01" value="{{ printf " %.2f" $line.DiscountPercent }}">
-                        </div>
-                        <div>
-                            <label for="tax_percent_{{ $index }}">Tax %</label>
-                            <input type="number" name="tax_percent" id="tax_percent_{{ $index }}" min="0" max="100"
-                                step="0.01" value="{{ printf " %.2f" $line.TaxPercent }}">
-                        </div>
-                        <div class="flex items-end">
-                            <button type="button" class="btn btn--ghost btn--sm"
-                                data-action="remove-line">Remove</button>
+                        <div class="card__body p-6">
+                            <div id="line-items-container" class="flex flex-col gap-4">
+                                {{ if .Data.Quotation }}
+                                {{ range $index, $line := .Data.Quotation.Lines }}
+                                <div class="line-item" data-index="{{ $index }}">
+                                    <div class="grid grid-cols-3 gap-4">
+                                        <div class="form-group">
+                                            <label for="product_id_{{ $index }}" class="form-label">Product <span class="text-danger">*</span></label>
+                                            <input type="number" name="product_id" id="product_id_{{ $index }}" class="form-input" required min="1"
+                                                value="{{ $line.ProductID }}">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="quantity_{{ $index }}" class="form-label">Quantity <span class="text-danger">*</span></label>
+                                            <input type="number" name="quantity" id="quantity_{{ $index }}" class="form-input" required min="0.01"
+                                                step="0.01" value="{{ printf "%.2f" $line.Quantity }}">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="uom_{{ $index }}" class="form-label">UOM <span class="text-danger">*</span></label>
+                                            <input type="text" name="uom" id="uom_{{ $index }}" class="form-input" required value="{{ $line.UOM }}"
+                                                placeholder="PCS">
+                                        </div>
+                                    </div>
+                                    <div class="form-grid mt-4">
+                                        <div class="form-group">
+                                            <label for="unit_price_{{ $index }}" class="form-label">Unit Price <span class="text-danger">*</span></label>
+                                            <input type="number" name="unit_price" id="unit_price_{{ $index }}" class="form-input" required min="0"
+                                                step="0.01" value="{{ printf "%.2f" $line.UnitPrice }}">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="discount_percent_{{ $index }}" class="form-label">Discount %</label>
+                                            <input type="number" name="discount_percent" id="discount_percent_{{ $index }}" class="form-input" min="0"
+                                                max="100" step="0.01" value="{{ printf "%.2f" $line.DiscountPercent }}">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="tax_percent_{{ $index }}" class="form-label">Tax %</label>
+                                            <input type="number" name="tax_percent" id="tax_percent_{{ $index }}" class="form-input" min="0" max="100"
+                                                step="0.01" value="{{ printf "%.2f" $line.TaxPercent }}">
+                                        </div>
+                                        <div class="flex items-end">
+                                            <button type="button" class="btn btn--ghost btn--sm text-error"
+                                                data-action="remove-line">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <polyline points="3 6 5 6 21 6" />
+                                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                                </svg>
+                                                Remove
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                {{ end }}
+                                {{ else }}
+                                <div class="line-item" data-index="0">
+                                    <div class="grid grid-cols-3 gap-4">
+                                        <div class="form-group">
+                                            <label for="product_id_0" class="form-label">Product <span class="text-danger">*</span></label>
+                                            <input type="number" name="product_id" id="product_id_0" class="form-input" required min="1">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="quantity_0" class="form-label">Quantity <span class="text-danger">*</span></label>
+                                            <input type="number" name="quantity" id="quantity_0" class="form-input" required min="0.01" step="0.01"
+                                                value="1.00">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="uom_0" class="form-label">UOM <span class="text-danger">*</span></label>
+                                            <input type="text" name="uom" id="uom_0" class="form-input" required value="PCS">
+                                        </div>
+                                    </div>
+                                    <div class="form-grid mt-4">
+                                        <div class="form-group">
+                                            <label for="unit_price_0" class="form-label">Unit Price <span class="text-danger">*</span></label>
+                                            <input type="number" name="unit_price" id="unit_price_0" class="form-input" required min="0" step="0.01"
+                                                value="0.00">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="discount_percent_0" class="form-label">Discount %</label>
+                                            <input type="number" name="discount_percent" id="discount_percent_0" class="form-input" min="0" max="100"
+                                                step="0.01" value="0.00">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="tax_percent_0" class="form-label">Tax %</label>
+                                            <input type="number" name="tax_percent" id="tax_percent_0" class="form-input" min="0" max="100" step="0.01"
+                                                value="11.00">
+                                        </div>
+                                        <div class="flex items-end">
+                                            <button type="button" class="btn btn--ghost btn--sm text-error"
+                                                data-action="remove-line">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <polyline points="3 6 5 6 21 6" />
+                                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                                </svg>
+                                                Remove
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                {{ end }}
+                            </div>
                         </div>
                     </div>
                 </div>
-                {{ end }}
-                {{ else }}
-                <div class="line-item" data-index="0">
-                    <div class="grid">
-                        <div>
-                            <label for="product_id_0">Product ID <span class="required">*</span></label>
-                            <input type="number" name="product_id" id="product_id_0" required min="1">
+
+                <div class="flex flex-col gap-6">
+                    <!-- Actions Card -->
+                    <div class="card">
+                        <div class="card__header">
+                            <h2 class="text-md font-semibold">Form Actions</h2>
                         </div>
-                        <div>
-                            <label for="quantity_0">Quantity <span class="required">*</span></label>
-                            <input type="number" name="quantity" id="quantity_0" required min="0.01" step="0.01"
-                                value="1.00">
-                        </div>
-                        <div>
-                            <label for="uom_0">UOM <span class="required">*</span></label>
-                            <input type="text" name="uom" id="uom_0" required value="PCS">
+                        <div class="card__body p-5 flex flex-col gap-3">
+                            <button type="submit" class="btn btn--primary w-full">
+                                {{ if .Data.Quotation }}Update Quotation{{ else }}Create Quotation{{ end }}
+                            </button>
+                            <a href="{{ if .Data.Quotation }}/sales/quotations/{{ .Data.Quotation.ID }}{{ else }}/sales/quotations{{ end }}" class="btn btn--secondary w-full">
+                                Cancel
+                            </a>
                         </div>
                     </div>
-                    <div class="grid">
-                        <div>
-                            <label for="unit_price_0">Unit Price <span class="required">*</span></label>
-                            <input type="number" name="unit_price" id="unit_price_0" required min="0" step="0.01"
-                                value="0.00">
-                        </div>
-                        <div>
-                            <label for="discount_percent_0">Discount %</label>
-                            <input type="number" name="discount_percent" id="discount_percent_0" min="0" max="100"
-                                step="0.01" value="0.00">
-                        </div>
-                        <div>
-                            <label for="tax_percent_0">Tax %</label>
-                            <input type="number" name="tax_percent" id="tax_percent_0" min="0" max="100" step="0.01"
-                                value="11.00">
-                        </div>
-                        <div class="flex items-end">
-                            <button type="button" class="btn btn--ghost btn--sm"
-                                data-action="remove-line">Remove</button>
+
+                    <!-- Summary Info (Read-only) -->
+                    <div class="card">
+                        <div class="card__body p-5">
+                            <p class="text-xs text-muted leading-relaxed">
+                                Values are calculated automatically on the server after submission.
+                                Please ensure all required fields are filled correctly.
+                            </p>
                         </div>
                     </div>
                 </div>
-                {{ end }}
             </div>
-
-            <button type="button" class="btn btn--secondary" data-action="add-line">+ Add Line Item</button>
-        </section>
-
-        <!-- Actions -->
-        <section>
-            <div role="group">
-                <a href="{{ if .Data.Quotation }}/sales/quotations/{{ .Data.Quotation.ID }}{{ else }}/sales/quotations{{ end }}"
-                    role="button" class="secondary">Cancel</a>
-                <button type="submit">{{ if .Data.Quotation }}Update Quotation{{ else }}Create Quotation{{ end }}</button>
-            </div>
-        </section>
-    </form>
+        </form>
+    </div>
 </div>
 {{ end }}

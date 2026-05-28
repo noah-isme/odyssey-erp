@@ -125,6 +125,9 @@ func (r *repository) List(ctx context.Context, req ListCustomersRequest) ([]Cust
 		return nil, 0, err
 	}
 
+	// Sort
+	orderBy := sortOrderCustomers(req.SortBy, req.SortDir)
+	
 	// Fetch records
 	query := fmt.Sprintf(`
 		SELECT id, code, name, company_id, email, phone, tax_id,
@@ -133,9 +136,9 @@ func (r *repository) List(ctx context.Context, req ListCustomersRequest) ([]Cust
 		       created_by, created_at, updated_at
 		FROM customers
 		%s
-		ORDER BY code
+		ORDER BY %s
 		LIMIT $%d OFFSET $%d
-	`, whereClause, argPos, argPos+1)
+	`, whereClause, orderBy, argPos, argPos+1)
 
 	args = append(args, req.Limit, req.Offset)
 
@@ -369,4 +372,26 @@ func getString(s *string) string {
 		return ""
 	}
 	return *s
+}
+
+func sortOrderCustomers(sortBy, sortDir string) string {
+	dir := "ASC"
+	if sortDir == "desc" {
+		dir = "DESC"
+	}
+
+	switch sortBy {
+	case "code":
+		return "code " + dir
+	case "name":
+		return "name " + dir
+	case "credit_limit":
+		return "credit_limit " + dir
+	case "payment_terms_days":
+		return "payment_terms_days " + dir
+	case "created_at":
+		return "created_at " + dir
+	default:
+		return "code ASC" // Default fallback
+	}
 }
