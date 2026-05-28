@@ -353,14 +353,8 @@ func (r *repository) List(ctx context.Context, req ListRequest) ([]WithDetails, 
 	}
 
 	// Sort
-	orderBy := "dor.delivery_date DESC, dor.id DESC"
-	if req.SortBy != "" {
-		dir := "ASC"
-		if strings.ToUpper(req.SortDir) == "DESC" {
-			dir = "DESC"
-		}
-		orderBy = fmt.Sprintf("dor.%s %s", req.SortBy, dir)
-	}
+	orderBy := sortOrderDeliveryOrders(req.SortBy, req.SortDir)
+
 
 	// Fetch
 	query := fmt.Sprintf(`
@@ -497,6 +491,30 @@ func (r *repository) GetSalesOrderDetails(ctx context.Context, salesOrderID int6
 // CheckWarehouseExists validates warehouse existence.
 func (r *repository) CheckWarehouseExists(ctx context.Context, warehouseID int64) (bool, error) {
 	return r.queries.CheckWarehouseExists(ctx, warehouseID)
+}
+
+func sortOrderDeliveryOrders(sortBy, sortDir string) string {
+	dir := "ASC"
+	if strings.ToUpper(sortDir) == "DESC" {
+		dir = "DESC"
+	}
+
+	switch sortBy {
+	case "doc_number":
+		return "dor.doc_number " + dir
+	case "delivery_date":
+		return "dor.delivery_date " + dir
+	case "customer_name":
+		return "c.name " + dir
+	case "warehouse_name":
+		return "w.name " + dir
+	case "status":
+		return "dor.status " + dir
+	case "driver_name":
+		return "dor.driver_name " + dir
+	default:
+		return "dor.delivery_date DESC, dor.id DESC" // Default fallback
+	}
 }
 
 func numericToFloat(n pgtype.Numeric) float64 {

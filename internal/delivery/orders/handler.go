@@ -122,6 +122,14 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 		"CurrentPage":    page,
 		"TotalPages":     (total + limit - 1) / limit,
 		"TotalCount":     total,
+		"Filters": map[string]interface{}{
+			"Status":   r.URL.Query().Get("status"),
+			"Search":   r.URL.Query().Get("search"),
+			"DateFrom": r.URL.Query().Get("date_from"),
+			"DateTo":   r.URL.Query().Get("date_to"),
+			"SortBy":   r.URL.Query().Get("sort"),
+			"SortDir":  r.URL.Query().Get("dir"),
+		},
 	})
 }
 
