@@ -39,6 +39,7 @@ import (
 	closehttp "github.com/odyssey-erp/odyssey-erp/internal/close/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/consol"
 	consolhttp "github.com/odyssey-erp/odyssey-erp/internal/consol/http"
+	"github.com/odyssey-erp/odyssey-erp/internal/dashboard"
 	deliveryorders "github.com/odyssey-erp/odyssey-erp/internal/delivery/orders"
 	eliminationpkg "github.com/odyssey-erp/odyssey-erp/internal/elimination"
 	eliminationhttp "github.com/odyssey-erp/odyssey-erp/internal/elimination/http"
@@ -290,6 +291,8 @@ func main() {
 		}
 	}()
 	jobHandler := jobs.NewHandler(inspector, logger)
+	dashboardService := dashboard.NewService(dbpool)
+	dashboardHandler := dashboard.NewHandler(logger, dashboardService, templates, csrfManager)
 
 	router := app.NewRouter(app.RouterParams{
 		Logger:             logger,
@@ -323,6 +326,7 @@ func main() {
 		BankingHandler:     bankingHandler,
 		InventoryService:   inventoryService,
 		Metrics:            metrics,
+		DashboardHandler:   dashboardHandler,
 	})
 
 	server := &http.Server{

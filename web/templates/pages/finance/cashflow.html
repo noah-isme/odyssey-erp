@@ -2,18 +2,71 @@
 {{ template "layouts/base.html" . }}
 {{ end }}
 
-{{ define "title" }}Laporan Arus Kas{{ end }}
+{{ define "title" }}Cash Flow Statement{{ end }}
 
 {{ define "content" }}
 <div class="container">
     <header class="page-header">
-        <h1>Laporan Arus Kas</h1>
-        <p>Ringkasan arus kas berdasarkan periode terpilih.</p>
+        <div class="header-main">
+            <h1>Cash Flow Statement</h1>
+            <p class="text-muted">Summary of cash movements by activity.</p>
+        </div>
     </header>
 
-    <div class="card p-6">
-        <h2 class="text-xl font-bold mb-4">Under Construction</h2>
-        <p>Fitur laporan arus kas otomatis sedang dalam pengembangan. Tabel rincian akan segera hadir setelah integrasi modul perbankan selesai secara penuh.</p>
+    <div class="card card-table">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Activity / Account</th>
+                    <th class="numeric-right">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Operating Activities -->
+                <tr class="bg-muted font-bold">
+                    <td>{{ .Data.Report.Operating.Label }}</td>
+                    <td class="numeric-right">{{ .Data.Report.Operating.Total | formatCurrency "IDR" }}</td>
+                </tr>
+                {{ range .Data.Report.Operating.Lines }}
+                <tr>
+                    <td style="padding-left: var(--space-8);">{{ .AccountCode }} - {{ .AccountName }}</td>
+                    <td class="numeric-right">{{ .Amount | formatCurrency "IDR" }}</td>
+                </tr>
+                {{ end }}
+
+                <!-- Investing Activities -->
+                <tr class="bg-muted font-bold">
+                    <td>{{ .Data.Report.Investing.Label }}</td>
+                    <td class="numeric-right">{{ .Data.Report.Investing.Total | formatCurrency "IDR" }}</td>
+                </tr>
+                {{ range .Data.Report.Investing.Lines }}
+                <tr>
+                    <td style="padding-left: var(--space-8);">{{ .AccountCode }} - {{ .AccountName }}</td>
+                    <td class="numeric-right">{{ .Amount | formatCurrency "IDR" }}</td>
+                </tr>
+                {{ end }}
+
+                <!-- Financing Activities -->
+                <tr class="bg-muted font-bold">
+                    <td>{{ .Data.Report.Financing.Label }}</td>
+                    <td class="numeric-right">{{ .Data.Report.Financing.Total | formatCurrency "IDR" }}</td>
+                </tr>
+                {{ range .Data.Report.Financing.Lines }}
+                <tr>
+                    <td style="padding-left: var(--space-8);">{{ .AccountCode }} - {{ .AccountName }}</td>
+                    <td class="numeric-right">{{ .Amount | formatCurrency "IDR" }}</td>
+                </tr>
+                {{ end }}
+            </tbody>
+            <tfoot>
+                <tr class="font-bold text-lg">
+                    <td>Net Change in Cash</td>
+                    <td class="numeric-right {{ if gt .Data.Report.NetChange 0.0 }}text-success{{ else }}text-danger{{ end }}">
+                        {{ .Data.Report.NetChange | formatCurrency "IDR" }}
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
     </div>
 </div>
 {{ end }}
