@@ -7,13 +7,65 @@
 {{ define "content" }}
 <div class="container">
     <header class="page-header">
-        <h1>Budget vs Actual</h1>
-        <p>Perbandingan anggaran dengan realisasi pada akun-akun beban dan pendapatan.</p>
+        <div class="header-main">
+            <h1>Budget vs Actual</h1>
+            <p class="text-muted">Comparison of budgeted vs actual performance for Revenue and Expenses.</p>
+        </div>
     </header>
 
-    <div class="card p-6">
-        <h2 class="text-xl font-bold mb-4">Under Construction</h2>
-        <p>Fitur perbandingan anggaran dengan realisasi aktual sedang dalam tahap awal pengembangan.</p>
+    <div class="card card-table">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Account</th>
+                    <th class="numeric-right">Budget</th>
+                    <th class="numeric-right">Actual</th>
+                    <th class="numeric-right">Variance</th>
+                    <th class="numeric-right">%</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Revenue -->
+                <tr class="bg-muted font-bold">
+                    <td colspan="5">REVENUE</td>
+                </tr>
+                {{ range .Data.Report.Revenue }}
+                <tr>
+                    <td style="padding-left: var(--space-8);">{{ .AccountCode }} - {{ .AccountName }}</td>
+                    <td class="numeric-right">{{ .Budget | formatCurrency "IDR" }}</td>
+                    <td class="numeric-right">{{ .Actual | formatCurrency "IDR" }}</td>
+                    <td class="numeric-right {{ if gt .Variance 0.0 }}text-success{{ else }}text-danger{{ end }}">
+                        {{ .Variance | formatCurrency "IDR" }}
+                    </td>
+                    <td class="numeric-right">{{ .VariancePct | formatDecimal }}%</td>
+                </tr>
+                {{ else }}
+                <tr>
+                    <td colspan="5" class="table-empty">No revenue data.</td>
+                </tr>
+                {{ end }}
+
+                <!-- Expense -->
+                <tr class="bg-muted font-bold">
+                    <td colspan="5">EXPENSES</td>
+                </tr>
+                {{ range .Data.Report.Expense }}
+                <tr>
+                    <td style="padding-left: var(--space-8);">{{ .AccountCode }} - {{ .AccountName }}</td>
+                    <td class="numeric-right">{{ .Budget | formatCurrency "IDR" }}</td>
+                    <td class="numeric-right">{{ .Actual | formatCurrency "IDR" }}</td>
+                    <td class="numeric-right {{ if lt .Variance 0.0 }}text-success{{ else }}text-danger{{ end }}">
+                        {{ .Variance | formatCurrency "IDR" }}
+                    </td>
+                    <td class="numeric-right">{{ .VariancePct | formatDecimal }}%</td>
+                </tr>
+                {{ else }}
+                <tr>
+                    <td colspan="5" class="table-empty">No expense data.</td>
+                </tr>
+                {{ end }}
+            </tbody>
+        </table>
     </div>
 </div>
 {{ end }}

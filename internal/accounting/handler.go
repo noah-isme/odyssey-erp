@@ -10,6 +10,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/accounts"
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/banks"
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/journals"
+	"github.com/odyssey-erp/odyssey-erp/internal/accounting/reports"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
 )
 
@@ -18,6 +19,7 @@ type Handler struct {
 	logger         *slog.Logger
 	templates      *view.Engine
 	accountHandler *accounts.Handler
+	accountService *accounts.Service
 	journalHandler *journals.Handler
 	banksHandler   *banks.Handler
 }
@@ -42,6 +44,7 @@ func NewHandler(logger *slog.Logger, db *pgxpool.Pool, templates *view.Engine, a
 		logger:         logger,
 		templates:      templates,
 		accountHandler: accountHandler,
+		accountService: accountService,
 		journalHandler: journalHandler,
 		banksHandler:   banksHandler,
 	}
@@ -92,18 +95,49 @@ func (h *Handler) handleNotImplemented(w http.ResponseWriter, _ *http.Request) {
 	http.Error(w, http.StatusText(http.StatusNotImplemented), http.StatusNotImplemented)
 }
 
-func (h *Handler) handleCashFlow(w http.ResponseWriter, _ *http.Request) {
-	viewData := view.TemplateData{Title: "Cash Flow"}
+func (h *Handler) handleCashFlow(w http.ResponseWriter, r *http.Request) {
+	balances, err := h.accountService.ListBalances(r.Context())
+	if err != nil {
+		h.logger.Error("list balances for cash flow", slog.Any("error", err))
+		http.Error(w, "Failed to load report data", http.StatusInternalServerError)
+		return
+	}
+
+	cf := reports.BuildCashFlow(balances)
+	viewData := view.TemplateData{
+		Title: "Cash Flow",
+		Data: map[string]any{
+			"Report": cf,
+		},
+	}
 	if err := h.templates.Render(w, "pages/finance/cashflow.html", viewData); err != nil {
 		h.logger.Error("render cash flow", slog.Any("error", err))
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }
 
-func (h *Handler) handleBudget(w http.ResponseWriter, _ *http.Request) {
-	viewData := view.TemplateData{Title: "Budget vs Actual"}
+func (h *Handler) handleBudget(w http.ResponseWriter, r *http.Request) {
+	balances, err := h.accountService.ListBalances(r.Context())
+	if err != nil {
+		h.logger.Error("list balances for budget", slog.Any("error", err))
+		http.Error(w, "Failed to load report data", http.StatusInternalServerError)
+		return
+	}
+
+	// For MVP, empty budget data. In a real app, fetch from accounting_budgets table.
+	budgetData := reports.BudgetData{}
+	bva := reports.BuildBudgetVsActual(balances, budgetData)
+
+	viewData := view.TemplateData{
+		Title: "Budget vs Actual",
+		Data: map[string]any{
+			"Report": bva,
+		},
+	}
 	if err := h.templates.Render(w, "pages/finance/budget.html", viewData); err != nil {
 		h.logger.Error("render budget", slog.Any("error", err))
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }
+
+

@@ -1,71 +1,76 @@
-{{define "content"}}
-<div class="px-4 sm:px-6 lg:px-8">
-    <div class="sm:flex sm:items-center">
-        <div class="sm:flex-auto">
-            <h1 class="text-base font-semibold leading-6 text-gray-900">Bank Reconciliation</h1>
-            <p class="mt-2 text-sm text-gray-700">Statement Date: {{.Statement.StatementDate.Time.Format "Jan 02, 2006"}} | Closing Balance: {{.Statement.EndingBalance}}</p>
+{{ define "pages/accounting/bank_reconciliation.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Bank Reconciliation{{ end }}
+
+{{ define "content" }}
+<div class="container">
+    <header class="dashboard-header">
+        <div class="dashboard-header-content">
+            <h1 class="dashboard-title">Bank Reconciliation</h1>
+            <p class="dashboard-subtitle">
+                Statement Date: {{ .Data.Statement.StatementDate.Time.Format "02 Jan 2006" }} | 
+                Closing Balance: {{ .Data.Statement.EndingBalance | formatCurrency "IDR" }}
+            </p>
         </div>
-        <div class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
-            {{if ne .Statement.Status "RECONCILED"}}
-            <form action="/accounting/banks/statements/{{.Statement.ID}}/confirm" method="post">
-                {{ .CSRFField }}
-                <button type="submit" class="block rounded-md bg-indigo-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">Confirm Statement</button>
+        <div class="dashboard-actions">
+            {{ if ne .Data.Statement.Status "RECONCILED" }}
+            <form action="/accounting/banks/statements/{{ .Data.Statement.ID }}/confirm" method="post">
+                <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+                <button type="submit" class="button primary">Confirm Statement</button>
             </form>
-            {{else}}
-            <span class="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">Reconciled</span>
-            {{end}}
+            {{ else }}
+            <span class="badge badge-success">Reconciled</span>
+            {{ end }}
         </div>
-    </div>
-    
-    <div class="mt-8 flow-root">
-        <div class="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
-            <div class="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
-                <div class="overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
-                    <table class="min-w-full divide-y divide-gray-300">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Date</th>
-                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Description</th>
-                                <th scope="col" class="px-3 py-3.5 text-right text-sm font-semibold text-gray-900">Amount</th>
-                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Reference</th>
-                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Match Status</th>
-                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Matched Doc</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-200 bg-white">
-                            {{range .Lines}}
-                            <tr>
-                                <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm text-gray-500">{{.TrxDate.Time.Format "Jan 02, 2006"}}</td>
-                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-900">{{.Description}}</td>
-                                <td class="whitespace-nowrap px-3 py-4 text-sm text-right font-medium {{if gt .Amount.Int.Int64 0}}text-green-600{{else}}text-red-600{{end}}">{{.Amount}}</td>
-                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{{.ReferenceNumber.String}}</td>
-                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                                    {{if eq .Status "MATCHED"}}
-                                    <span class="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">Matched</span>
-                                    {{else if eq .Status "SUGGESTED"}}
-                                    <span class="inline-flex items-center rounded-md bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-800 ring-1 ring-inset ring-yellow-600/20">Suggested</span>
-                                    {{else}}
-                                    <span class="inline-flex items-center rounded-md bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-500/10">Unmatched</span>
-                                    {{end}}
-                                </td>
-                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                                    {{if .MatchedDocType.Valid}}
-                                    <span class="font-medium text-indigo-600">{{.MatchedDocType.String}} #{{.MatchedDocID.Int64}}</span>
-                                    {{else}}
-                                    -
-                                    {{end}}
-                                </td>
-                            </tr>
-                            {{else}}
-                            <tr>
-                                <td colspan="6" class="px-3 py-8 text-center text-sm text-gray-500">No transactions in this statement.</td>
-                            </tr>
-                            {{end}}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
+    </header>
+
+    <div class="card card-table mt-6">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Description</th>
+                    <th class="numeric-right">Amount</th>
+                    <th>Reference</th>
+                    <th>Match Status</th>
+                    <th>Matched Doc</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{ range .Data.Lines }}
+                <tr>
+                    <td>{{ .TrxDate.Time.Format "02 Jan 2006" }}</td>
+                    <td>{{ .Description }}</td>
+                    <td class="numeric-right {{ if gt (.Amount | toFloat) 0.0 }}text-success{{ else }}text-danger{{ end }}">
+                        {{ .Amount | formatCurrency "IDR" }}
+                    </td>
+                    <td>{{ .ReferenceNumber.String }}</td>
+                    <td>
+                        {{ if eq .Status "MATCHED" }}
+                        <span class="badge badge-success">Matched</span>
+                        {{ else if eq .Status "SUGGESTED" }}
+                        <span class="badge badge-warning">Suggested</span>
+                        {{ else }}
+                        <span class="badge badge-muted">Unmatched</span>
+                        {{ end }}
+                    </td>
+                    <td>
+                        {{ if .MatchedDocType.Valid }}
+                        <span class="text-primary font-medium">{{ .MatchedDocType.String }} #{{ .MatchedDocID.Int64 }}</span>
+                        {{ else }}
+                        <span class="text-muted">-</span>
+                        {{ end }}
+                    </td>
+                </tr>
+                {{ else }}
+                <tr>
+                    <td colspan="6" class="table-empty">No transactions in this statement.</td>
+                </tr>
+                {{ end }}
+            </tbody>
+        </table>
     </div>
 </div>
-{{end}}
+{{ end }}

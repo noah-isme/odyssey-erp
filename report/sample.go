@@ -6,9 +6,11 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
 	"github.com/odyssey-erp/odyssey-erp/web"
@@ -24,7 +26,20 @@ type Handler struct {
 // NewHandler creates a report handler.
 func NewHandler(client *Client, logger *slog.Logger) *Handler {
 	funcMap := template.FuncMap{
-		"formatDate": func(t time.Time) string {
+		"formatDate": func(v any) string {
+			var t time.Time
+			switch tv := v.(type) {
+			case time.Time:
+				t = tv
+			case pgtype.Date:
+				if tv.Valid {
+					t = tv.Time
+				}
+			case pgtype.Timestamptz:
+				if tv.Valid {
+					t = tv.Time
+				}
+			}
 			if t.IsZero() {
 				return ""
 			}
@@ -41,6 +56,36 @@ func NewHandler(client *Client, logger *slog.Logger) *Handler {
 				return -v
 			}
 			return v
+		},
+		"formatDatePtr": func(t *time.Time) string {
+			if t == nil || t.IsZero() {
+				return ""
+			}
+			return t.Format("02 Jan 2006")
+		},
+		"deref": func(s *string) string {
+			if s == nil {
+				return ""
+			}
+			return *s
+		},
+		"formatQty": func(v float64) string {
+			return strconv.FormatFloat(v, 'f', -1, 64)
+		},
+		"formatDateTime": func(t time.Time) string {
+			if t.IsZero() {
+				return ""
+			}
+			return t.Format("02 Jan 2006 15:04")
+		},
+		"now": func() time.Time {
+			return time.Now()
+		},
+		"replace": func(s, old, new string) string {
+			return strings.ReplaceAll(s, old, new)
+		},
+		"lower": func(s string) string {
+			return strings.ToLower(s)
 		},
 	}
 	tpl, err := template.New("reports").Funcs(funcMap).ParseFS(web.Templates, "templates/reports/*.html")

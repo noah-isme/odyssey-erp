@@ -56,15 +56,29 @@ func NewEngine() (*Engine, error) {
 			}
 			return printer.Sprintf("%.2f", v)
 		},
-		"formatCurrency": func(v any, currency string) string {
+		"formatCurrency": func(currency string, v any) string {
 			var val float64
 			if n, ok := v.(pgtype.Numeric); ok {
 				f, _ := n.Float64Value()
 				val = f.Float64
 			} else if f, ok := v.(float64); ok {
 				val = f
+			} else if i, ok := v.(int64); ok {
+				val = float64(i)
+			} else if i, ok := v.(int); ok {
+				val = float64(i)
 			}
 			return printer.Sprintf("%s %.2f", currency, val)
+		},
+		"toFloat": func(v any) float64 {
+			if n, ok := v.(pgtype.Numeric); ok {
+				f, _ := n.Float64Value()
+				return f.Float64
+			}
+			if f, ok := v.(float64); ok {
+				return f
+			}
+			return 0
 		},
 		"formatUUID": func(u any) string {
 			if uid, ok := u.(pgtype.UUID); ok {
@@ -88,6 +102,24 @@ func NewEngine() (*Engine, error) {
 				return ""
 			}
 			return t.Format("2006-01-02")
+		},
+		"formatDatePtr": func(v any) string {
+			var t time.Time
+			if tv, ok := v.(*time.Time); ok && tv != nil {
+				t = *tv
+			} else if tv, ok := v.(time.Time); ok {
+				t = tv
+			}
+			if t.IsZero() {
+				return ""
+			}
+			return t.Format("02 Jan 2006")
+		},
+		"deref": func(s *string) string {
+			if s == nil {
+				return ""
+			}
+			return *s
 		},
 		"isNegative": func(v any) bool {
 			if n, ok := v.(pgtype.Numeric); ok {
