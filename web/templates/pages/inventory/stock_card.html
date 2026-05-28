@@ -74,7 +74,7 @@
         <!-- Results Table -->
         <div class="card p-0 overflow-hidden" data-component="datatable">
             <div class="table-wrap">
-                <table class="table">
+                <table class="table table--sticky">
                     <thead>
                         <tr>
                             <th scope="col" width="15%">Date</th>
@@ -99,19 +99,19 @@
                                 {{ if eq .TxType "ADJUST" }}<span class="badge badge--warning">ADJ</span>{{ end }}
                                 {{ if eq .TxType "TRANSFER" }}<span class="badge badge--info">TRF</span>{{ end }}
                             </td>
-                            <td class="text-right tabular-nums text-success">
+                            <td class="text-right numeric text-success">
                                 {{ if gt .QtyIn 0.0 }}+{{ formatDecimal .QtyIn }}{{ else }}-{{ end }}
                             </td>
-                            <td class="text-right tabular-nums text-danger">
+                            <td class="text-right numeric text-danger">
                                 {{ if gt .QtyOut 0.0 }}-{{ formatDecimal .QtyOut }}{{ else }}-{{ end }}
                             </td>
-                            <td class="text-right tabular-nums font-bold">
+                            <td class="text-right numeric font-bold">
                                 {{ formatDecimal .BalanceQty }}
                             </td>
-                            <td class="text-right tabular-nums">
+                            <td class="text-right numeric">
                                 {{ formatDecimal .UnitCost }}
                             </td>
-                            <td class="text-sm text-muted trunc-text" title="{{ .Note }}">
+                            <td class="text-sm text-muted truncate max-w-prose" title="{{ .Note }}">
                                 {{ .Note }}
                             </td>
                         </tr>

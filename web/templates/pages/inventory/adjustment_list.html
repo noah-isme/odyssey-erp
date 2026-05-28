@@ -5,22 +5,27 @@
 {{ define "title" }}Daftar Penyesuaian Stok{{ end }}
 
 {{ define "content" }}
-<div class="container">
+<div class="page-container">
     <header class="page-header">
-        <div class="header-main">
-            <h1>Penyesuaian Stok</h1>
-            <p class="text-muted">Koreksi stok manual (rusak, hilang, hibah, dll).</p>
+        <div class="page-header__content">
+            <h1 class="page-title">Penyesuaian Stok</h1>
+            <p class="page-subtitle">Koreksi stok manual (rusak, hilang, hibah, dll).</p>
         </div>
-        <div class="header-actions">
-            <a href="/inventory/adjustments/new" class="button primary">
-                <i class="lucide-plus"></i> Buat Penyesuaian
+        <div class="page-header__actions">
+            <a href="/inventory/adjustments/new" class="btn btn--primary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                Buat Penyesuaian
             </a>
         </div>
     </header>
 
-    <div class="card card-table">
-        <table class="table">
-            <thead>
+    <div class="card p-0 overflow-hidden" data-component="datatable">
+        <div class="table-wrap">
+            <table class="table table--sticky">
+                <thead>
                 <tr>
                     <th scope="col">Nomor</th>
                     <th scope="col">Gudang</th>
@@ -37,22 +42,34 @@
                     <td>{{ .WarehouseName }}</td>
                     <td>{{ .AdjustmentAt | formatDate }}</td>
                     <td>
-                        <span class="badge {{ if eq .Status "POSTED" }}badge-success{{ else if eq .Status "CANCELLED" }}badge-danger{{ else }}badge-warning{{ end }}">
+                        <span class="badge {{ if eq .Status "POSTED" }}badge--success{{ else if eq .Status "CANCELLED" }}badge--danger{{ else }}badge--warning{{ end }}">
                             {{ .Status }}
                         </span>
                     </td>
                     <td class="text-muted text-sm">{{ .Note }}</td>
                     <td class="text-right">
-                        <a href="/inventory/adjustments/{{ .ID }}" class="button small ghost">Detail</a>
+                        <a href="/inventory/adjustments/{{ .ID }}" class="btn btn--sm btn--ghost">Detail</a>
                     </td>
                 </tr>
                 {{ else }}
                 <tr>
-                    <td colspan="6" class="text-center py-8 text-muted">Belum ada data penyesuaian.</td>
+                    <td colspan="6" class="table-empty">
+                        <div class="empty-state">
+                            <div class="empty-state__icon">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                                </svg>
+                            </div>
+                            <h3>Belum ada data penyesuaian</h3>
+                            <p>Buat penyesuaian stok baru jika ada ketidaksesuaian.</p>
+                            <a href="/inventory/adjustments/new" class="btn btn--primary mt-4">Buat Penyesuaian</a>
+                        </div>
+                    </td>
                 </tr>
                 {{ end }}
             </tbody>
         </table>
+        </div>
     </div>
 </div>
 {{ end }}

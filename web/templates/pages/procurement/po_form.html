@@ -25,7 +25,7 @@
     </label>
     <button type="submit">Buat PO</button>
 </form>
-{{ if .Data.Errors }}<p class="error">{{ index .Data.Errors "general" }}</p>{{ end }}
+{{ if .Data.Errors }}<p class="error-text">{{ index .Data.Errors "general" }}</p>{{ end }}
 <p>Gunakan endpoint <code>/procurement/pos/&lt;id&gt;/submit</code> dan <code>/procurement/pos/&lt;id&gt;/approve</code>
     untuk melanjutkan workflow.</p>
 {{ end }}
