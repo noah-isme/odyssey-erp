@@ -30,6 +30,6 @@
     </label>
     <button type="submit">Simpan</button>
 </form>
-{{ if .Data.Errors }}<p class="error">{{ index .Data.Errors "general" }}</p>{{ end }}
+{{ if .Data.Errors }}<p class="error-text">{{ index .Data.Errors "general" }}</p>{{ end }}
 <p>Gunakan tombol Submit di daftar PR untuk mengajukan dokumen.</p>
 {{ end }}

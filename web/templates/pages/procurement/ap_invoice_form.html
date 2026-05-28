@@ -13,5 +13,5 @@
     </label>
     <button type="submit">Buat Invoice</button>
 </form>
-{{ if .Data.Errors }}<p class="error">{{ index .Data.Errors "general" }}</p>{{ end }}
+{{ if .Data.Errors }}<p class="error-text">{{ index .Data.Errors "general" }}</p>{{ end }}
 {{ end }}
