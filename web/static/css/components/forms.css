@@ -4,13 +4,52 @@
    ============================================ */
 
 /* Field container */
-.field {
+.form-group {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--space-2);
 }
 
-.label {
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: var(--space-6);
+}
+
+.form-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+    padding: var(--space-6);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+}
+
+.form-section__header {
+    margin-bottom: var(--space-4);
+}
+
+.form-section__title {
+    font-size: var(--text-base);
+    font-weight: var(--weight-semibold);
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.form-section__desc {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    margin-top: var(--space-1);
+}
+
+.form-label {
     font-size: var(--text-xs);
     color: var(--text-secondary);
     font-weight: var(--weight-medium);
@@ -23,7 +62,7 @@
 }
 
 /* Input base */
-.input {
+.form-input {
     width: 100%;
     height: var(--input-h);
     padding: 0 var(--input-pad-x);
@@ -38,22 +77,22 @@
         background-color var(--dur-2) var(--ease-standard);
 }
 
-.input::placeholder {
+.form-input::placeholder {
     color: var(--input-placeholder);
 }
 
 /* Hover/focus */
-.input:hover {
+.form-input:hover {
     border-color: var(--input-border-hover);
 }
 
-.input:focus-visible {
+.form-input:focus-visible {
     border-color: var(--input-border-focus);
     box-shadow: var(--focus-ring);
 }
 
 /* With leading icon */
-.input.has-icon {
+.form-input.has-icon {
     padding-left: 40px;
 }
 
@@ -72,27 +111,34 @@
     font-size: var(--text-xs);
     color: var(--text-muted);
     line-height: var(--leading-normal);
+    margin-top: 2px;
 }
 
-.error {
+.error-text {
     font-size: var(--text-xs);
     color: var(--error-600);
     line-height: var(--leading-normal);
+    margin-top: 4px;
+    display: none;
+}
+
+.form-group.is-invalid .error-text {
+    display: block;
 }
 
 /* Invalid state */
-.field.is-invalid .input {
+.form-group.is-invalid .form-input {
     border-color: rgba(180, 35, 24, 0.58);
     box-shadow: 0 0 0 3px rgba(180, 35, 24, 0.12);
 }
 
-:root[data-theme="dark"] .field.is-invalid .input {
+:root[data-theme="dark"] .form-group.is-invalid .form-input {
     border-color: rgba(241, 106, 94, 0.60);
     box-shadow: 0 0 0 3px rgba(241, 106, 94, 0.16);
 }
 
 /* Disabled input */
-.input:disabled {
+.form-input:disabled {
     opacity: 0.7;
     cursor: not-allowed;
     background: var(--bg-surface-muted);
@@ -114,7 +160,7 @@
 }
 
 /* Select */
-.select {
+.form-select {
     width: 100%;
     height: var(--input-h);
     padding: 0 var(--input-pad-x);
@@ -132,17 +178,17 @@
         box-shadow var(--dur-2) var(--ease-standard);
 }
 
-.select:hover {
+.form-select:hover {
     border-color: var(--input-border-hover);
 }
 
-.select:focus-visible {
+.form-select:focus-visible {
     border-color: var(--input-border-focus);
     box-shadow: var(--focus-ring);
 }
 
 /* Textarea */
-.textarea {
+.form-textarea {
     width: 100%;
     min-height: 100px;
     padding: var(--space-3) var(--input-pad-x);
@@ -155,11 +201,37 @@
         box-shadow var(--dur-2) var(--ease-standard);
 }
 
-.textarea:hover {
+.form-textarea:hover {
     border-color: var(--input-border-hover);
 }
 
-.textarea:focus-visible {
+.form-textarea:focus-visible {
     border-color: var(--input-border-focus);
     box-shadow: var(--focus-ring);
+}
+
+/* ============================================
+   Filters UI
+   ============================================ */
+.filters-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    margin-bottom: var(--space-4);
+    box-shadow: var(--shadow-sm);
+}
+
+.filters-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--space-4);
+    align-items: end;
+}
+
+.filters-actions {
+    display: flex;
+    gap: var(--space-3);
+    margin-top: var(--space-4);
+    align-items: center;
 }
