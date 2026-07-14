@@ -4,15 +4,15 @@ import "time"
 
 // CreateRequest represents request to create a delivery order.
 type CreateRequest struct {
-	CompanyID      int64            `json:"company_id" validate:"required,gt=0"`
-	SalesOrderID   int64            `json:"sales_order_id" validate:"required,gt=0"`
-	WarehouseID    int64            `json:"warehouse_id" validate:"required,gt=0"`
-	DeliveryDate   time.Time        `json:"delivery_date" validate:"required"`
-	DriverName     *string          `json:"driver_name,omitempty" validate:"omitempty,max=200"`
-	VehicleNumber  *string          `json:"vehicle_number,omitempty" validate:"omitempty,max=50"`
-	TrackingNumber *string          `json:"tracking_number,omitempty" validate:"omitempty,max=100"`
-	Notes          *string          `json:"notes,omitempty"`
-	Lines          []CreateLineReq  `json:"lines" validate:"required,min=1,dive"`
+	CompanyID      int64           `json:"company_id" validate:"required,gt=0"`
+	SalesOrderID   int64           `json:"sales_order_id" validate:"required,gt=0"`
+	WarehouseID    int64           `json:"warehouse_id" validate:"required,gt=0"`
+	DeliveryDate   time.Time       `json:"delivery_date" validate:"required"`
+	DriverName     *string         `json:"driver_name,omitempty" validate:"omitempty,max=200"`
+	VehicleNumber  *string         `json:"vehicle_number,omitempty" validate:"omitempty,max=50"`
+	TrackingNumber *string         `json:"tracking_number,omitempty" validate:"omitempty,max=100"`
+	Notes          *string         `json:"notes,omitempty"`
+	Lines          []CreateLineReq `json:"lines" validate:"required,min=1,dive"`
 }
 
 // CreateLineReq represents a line item in create request.
@@ -59,18 +59,18 @@ type CancelRequest struct {
 
 // ListRequest represents filters for listing delivery orders.
 type ListRequest struct {
-	CompanyID    int64   `json:"company_id" validate:"required,gt=0"`
-	SalesOrderID *int64  `json:"sales_order_id,omitempty"`
-	WarehouseID  *int64  `json:"warehouse_id,omitempty"`
-	CustomerID   *int64  `json:"customer_id,omitempty"`
-	Status       *Status `json:"status,omitempty"`
+	CompanyID    int64      `json:"company_id" validate:"required,gt=0"`
+	SalesOrderID *int64     `json:"sales_order_id,omitempty"`
+	WarehouseID  *int64     `json:"warehouse_id,omitempty"`
+	CustomerID   *int64     `json:"customer_id,omitempty"`
+	Status       *Status    `json:"status,omitempty"`
 	DateFrom     *time.Time `json:"date_from,omitempty"`
 	DateTo       *time.Time `json:"date_to,omitempty"`
-	Search       *string `json:"search,omitempty"`
-	SortBy       string  `json:"sort_by,omitempty"`
-	SortDir      string  `json:"sort_dir,omitempty"`
-	Limit        int     `json:"limit" validate:"gte=0,lte=1000"`
-	Offset       int     `json:"offset" validate:"gte=0"`
+	Search       *string    `json:"search,omitempty"`
+	SortBy       string     `json:"sort_by,omitempty"`
+	SortDir      string     `json:"sort_dir,omitempty"`
+	Limit        int        `json:"limit" validate:"gte=0,lte=1000"`
+	Offset       int        `json:"offset" validate:"gte=0"`
 }
 
 // ListResponse represents API response for list.

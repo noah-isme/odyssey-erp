@@ -188,7 +188,11 @@ func (h *Handler) download(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil && h.logger != nil {
+			h.logger.Warn("close board pack", slog.Any("error", err))
+		}
+	}()
 	w.Header().Set("Content-Type", "application/pdf")
 	w.Header().Set("Content-Disposition", "attachment; filename=board-pack-"+strconv.FormatInt(pack.ID, 10)+".pdf")
 	if _, err := io.Copy(w, file); err != nil && h.logger != nil {

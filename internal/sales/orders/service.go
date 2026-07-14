@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-
 	"github.com/odyssey-erp/odyssey-erp/internal/sales/customers"
 	"github.com/odyssey-erp/odyssey-erp/internal/sales/quotations"
 	"github.com/odyssey-erp/odyssey-erp/internal/sales/shared"
@@ -46,7 +45,7 @@ func (s *Service) Create(ctx context.Context, req CreateSalesOrderRequest, creat
 		if q.Status != quotations.QuotationStatusApproved {
 			return nil, errors.New("quotation must be approved to create sales order")
 		}
-		// logic to check if already converted? 
+		// logic to check if already converted?
 		// For now simplifying.
 	}
 

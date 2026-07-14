@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	ErrNotFound      = errors.New("record not found")
+	ErrNotFound = errors.New("record not found")
 )
 
 type Repository interface {
@@ -56,7 +56,7 @@ func (r *repository) WithTx(ctx context.Context, fn func(context.Context, Reposi
 		repoTx := &repository{
 			db:      tx,
 			queries: r.queries.WithTx(tx),
-			pool:    r.pool, 
+			pool:    r.pool,
 		}
 		return fn(ctx, repoTx)
 	})
@@ -145,7 +145,7 @@ func (r *repository) List(ctx context.Context, req ListQuotationsRequest) ([]Quo
 
 	// Sort
 	orderBy := sortOrderQuotations(req.SortBy, req.SortDir)
-	
+
 	// Fetch records
 	query := fmt.Sprintf(`
 		SELECT q.id, q.doc_number, q.company_id, q.customer_id, q.quote_date, q.valid_until,
@@ -177,7 +177,7 @@ func (r *repository) List(ctx context.Context, req ListQuotationsRequest) ([]Quo
 	var quotations []QuotationWithDetails
 	for rows.Next() {
 		var q QuotationWithDetails
-		var quoteDatePG, validUntilPG pgtype.Date 
+		var quoteDatePG, validUntilPG pgtype.Date
 		var subtotal, taxAmount, totalAmount pgtype.Numeric
 		var approvedBy, rejectedBy pgtype.Int8
 		var approvedAt, rejectedAt pgtype.Timestamptz
@@ -195,22 +195,55 @@ func (r *repository) List(ctx context.Context, req ListQuotationsRequest) ([]Quo
 			return nil, 0, err
 		}
 
-		if quoteDatePG.Valid { q.QuoteDate = quoteDatePG.Time }
-		if validUntilPG.Valid { q.ValidUntil = validUntilPG.Time }
-		if subtotal.Valid { f, _ := subtotal.Float64Value(); q.Subtotal = f.Float64 }
-		if taxAmount.Valid { f, _ := taxAmount.Float64Value(); q.TaxAmount = f.Float64 }
-		if totalAmount.Valid { f, _ := totalAmount.Float64Value(); q.TotalAmount = f.Float64 }
-		if notes.Valid { q.Notes = &notes.String }
-		if approvedBy.Valid { q.ApprovedBy = &approvedBy.Int64 }
-		if approvedAt.Valid { q.ApprovedAt = &approvedAt.Time }
-		if rejectedBy.Valid { q.RejectedBy = &rejectedBy.Int64 }
-		if rejectedAt.Valid { q.RejectedAt = &rejectedAt.Time }
-		if rejectionReason.Valid { q.RejectionReason = &rejectionReason.String }
-		if createdAt.Valid { q.CreatedAt = createdAt.Time }
-		if updatedAt.Valid { q.UpdatedAt = updatedAt.Time }
-		if approvedByName.Valid { q.ApprovedByName = &approvedByName.String }
-		if rejectedByName.Valid { q.RejectedByName = &rejectedByName.String }
-		
+		if quoteDatePG.Valid {
+			q.QuoteDate = quoteDatePG.Time
+		}
+		if validUntilPG.Valid {
+			q.ValidUntil = validUntilPG.Time
+		}
+		if subtotal.Valid {
+			f, _ := subtotal.Float64Value()
+			q.Subtotal = f.Float64
+		}
+		if taxAmount.Valid {
+			f, _ := taxAmount.Float64Value()
+			q.TaxAmount = f.Float64
+		}
+		if totalAmount.Valid {
+			f, _ := totalAmount.Float64Value()
+			q.TotalAmount = f.Float64
+		}
+		if notes.Valid {
+			q.Notes = &notes.String
+		}
+		if approvedBy.Valid {
+			q.ApprovedBy = &approvedBy.Int64
+		}
+		if approvedAt.Valid {
+			q.ApprovedAt = &approvedAt.Time
+		}
+		if rejectedBy.Valid {
+			q.RejectedBy = &rejectedBy.Int64
+		}
+		if rejectedAt.Valid {
+			q.RejectedAt = &rejectedAt.Time
+		}
+		if rejectionReason.Valid {
+			q.RejectionReason = &rejectionReason.String
+		}
+		if createdAt.Valid {
+			q.CreatedAt = createdAt.Time
+		}
+		if updatedAt.Valid {
+			q.UpdatedAt = updatedAt.Time
+		}
+		if approvedByName.Valid {
+			q.ApprovedByName = &approvedByName.String
+		}
+		if rejectedByName.Valid {
+			q.RejectedByName = &rejectedByName.String
+		}
+
 		quotations = append(quotations, q)
 	}
 
@@ -225,11 +258,11 @@ func (r *repository) Create(ctx context.Context, q Quotation) (int64, error) {
 	if !q.ValidUntil.IsZero() {
 		validUntil = pgtype.Date{Time: q.ValidUntil, Valid: true}
 	}
-	
+
 	var subtotal, taxAmount, totalAmount pgtype.Numeric
-	subtotal.Scan(fmt.Sprintf("%f", q.Subtotal))
-	taxAmount.Scan(fmt.Sprintf("%f", q.TaxAmount))
-	totalAmount.Scan(fmt.Sprintf("%f", q.TotalAmount))
+	subtotal = numericOf(q.Subtotal)
+	taxAmount = numericOf(q.TaxAmount)
+	totalAmount = numericOf(q.TotalAmount)
 
 	return r.queries.CreateQuotation(ctx, sqlc.CreateQuotationParams{
 		DocNumber:   q.DocNumber,
@@ -251,7 +284,7 @@ func (r *repository) Update(ctx context.Context, id int64, updates map[string]in
 	query := "UPDATE quotations SET updated_at = NOW()"
 	var args []interface{}
 	argPos := 1
-	
+
 	if v, ok := updates["quote_date"]; ok {
 		query += fmt.Sprintf(", quote_date = $%d", argPos)
 		args = append(args, v)
@@ -282,24 +315,24 @@ func (r *repository) Update(ctx context.Context, id int64, updates map[string]in
 		args = append(args, v)
 		argPos++
 	}
-	
+
 	query += fmt.Sprintf(" WHERE id = $%d", argPos)
 	args = append(args, id)
-	
+
 	_, err := r.db.Exec(ctx, query, args...)
 	return err
 }
 
 func (r *repository) InsertLine(ctx context.Context, line QuotationLine) (int64, error) {
 	var quantity, unitPrice, discountPercent, discountAmount, taxPercent, taxAmount, lineTotal pgtype.Numeric
-	quantity.Scan(fmt.Sprintf("%f", line.Quantity))
-	unitPrice.Scan(fmt.Sprintf("%f", line.UnitPrice))
-	discountPercent.Scan(fmt.Sprintf("%f", line.DiscountPercent))
-	discountAmount.Scan(fmt.Sprintf("%f", line.DiscountAmount))
-	taxPercent.Scan(fmt.Sprintf("%f", line.TaxPercent))
-	taxAmount.Scan(fmt.Sprintf("%f", line.TaxAmount))
-	lineTotal.Scan(fmt.Sprintf("%f", line.LineTotal))
-	
+	quantity = numericOf(line.Quantity)
+	unitPrice = numericOf(line.UnitPrice)
+	discountPercent = numericOf(line.DiscountPercent)
+	discountAmount = numericOf(line.DiscountAmount)
+	taxPercent = numericOf(line.TaxPercent)
+	taxAmount = numericOf(line.TaxAmount)
+	lineTotal = numericOf(line.LineTotal)
+
 	return r.queries.InsertQuotationLine(ctx, sqlc.InsertQuotationLineParams{
 		QuotationID:     line.QuotationID,
 		ProductID:       line.ProductID,
@@ -367,15 +400,15 @@ func (r *repository) GenerateNumber(ctx context.Context, companyID int64, date t
 
 func mapQuotationFromSqlc(row sqlc.Quotation) Quotation {
 	q := Quotation{
-		ID:          row.ID,
-		DocNumber:   row.DocNumber,
-		CompanyID:   row.CompanyID,
-		CustomerID:  row.CustomerID,
-		Status:      QuotationStatus(row.Status),
-		Currency:    row.Currency,
-		CreatedBy:   row.CreatedBy,
-		CreatedAt:   row.CreatedAt.Time,
-		UpdatedAt:   row.UpdatedAt.Time,
+		ID:         row.ID,
+		DocNumber:  row.DocNumber,
+		CompanyID:  row.CompanyID,
+		CustomerID: row.CustomerID,
+		Status:     QuotationStatus(row.Status),
+		Currency:   row.Currency,
+		CreatedBy:  row.CreatedBy,
+		CreatedAt:  row.CreatedAt.Time,
+		UpdatedAt:  row.UpdatedAt.Time,
 	}
 	if row.QuoteDate.Valid {
 		q.QuoteDate = row.QuoteDate.Time
@@ -426,11 +459,11 @@ func mapLinesFromSqlc(rows []sqlc.QuotationLine) []QuotationLine {
 	var lines []QuotationLine
 	for _, l := range rows {
 		line := QuotationLine{
-			ID:              l.ID,
-			QuotationID:     l.QuotationID,
-			ProductID:       l.ProductID,
-			UOM:             l.Uom,
-			LineOrder:       int(l.LineOrder),
+			ID:          l.ID,
+			QuotationID: l.QuotationID,
+			ProductID:   l.ProductID,
+			UOM:         l.Uom,
+			LineOrder:   int(l.LineOrder),
 		}
 		if l.Description.Valid {
 			val := l.Description.String
@@ -478,6 +511,14 @@ func getString(s *string) string {
 		return ""
 	}
 	return *s
+}
+
+// numericOf converts a float64 into a pgtype.Numeric. Scanning a formatted
+// finite float cannot fail, so the (impossible) error is deliberately ignored.
+func numericOf(f float64) pgtype.Numeric {
+	var n pgtype.Numeric
+	_ = n.Scan(fmt.Sprintf("%f", f))
+	return n
 }
 
 func sortOrderQuotations(sortBy, sortDir string) string {

@@ -8,10 +8,10 @@ import (
 
 // Sentinel errors for domain layer.
 var (
-	ErrNotFound    = errors.New("resource not found")
-	ErrDuplicate   = errors.New("duplicate entry")
-	ErrValidation  = errors.New("validation failed")
-	ErrForbidden   = errors.New("forbidden")
+	ErrNotFound     = errors.New("resource not found")
+	ErrDuplicate    = errors.New("duplicate entry")
+	ErrValidation   = errors.New("validation failed")
+	ErrForbidden    = errors.New("forbidden")
 	ErrUnauthorized = errors.New("unauthorized")
 )
 

@@ -267,15 +267,15 @@ func (h *Handler) emailInvoice(w http.ResponseWriter, r *http.Request) {
 
 	// Ideally, fetch customer email from DB. Hardcoding for MVP fallback or using dummy.
 	customerEmail := "customer@example.com"
-	
+
 	// Create email task payload
 	// Since we import 'github.com/odyssey-erp/odyssey-erp/internal/jobs' we can use jobs.NewEmailDeliveryTask
 	// But wait, importing jobs here creates a circular dependency if jobs imports ar.
 	// So we'll use a direct asynq task construction or put the payload in shared.
 	// For simplicity, we just use asynq directly.
-	
+
 	payload := fmt.Sprintf(`{"to": ["%s"], "subject": "Invoice %s", "body_html": "<p>Please find attached your invoice.</p>"}`, customerEmail, invoice.Number)
-	
+
 	if h.asynqClient != nil {
 		task := asynq.NewTask("email:deliver", []byte(payload))
 		_, err = h.asynqClient.EnqueueContext(r.Context(), task)

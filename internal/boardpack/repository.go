@@ -63,7 +63,7 @@ func (r *Repository) InsertBoardPack(ctx context.Context, req CreateRequest) (Bo
 	if err != nil {
 		return BoardPack{}, err
 	}
-	
+
 	id, err := r.queries.InsertBoardPack(ctx, sqlc.InsertBoardPackParams{
 		CompanyID:          req.CompanyID,
 		PeriodID:           req.PeriodID,
@@ -100,10 +100,10 @@ func (r *Repository) ListBoardPacks(ctx context.Context, filter ListFilter) ([]B
 	if offset < 0 {
 		offset = 0
 	}
-	
+
 	rows, err := r.queries.ListBoardPacks(ctx, sqlc.ListBoardPacksParams{
-		Column1: filter.CompanyID, 
-		Column2: filter.PeriodID,  
+		Column1: filter.CompanyID,
+		Column2: filter.PeriodID,
 		Column3: string(filter.Status),
 		Limit:   int32(limit),
 		Offset:  int32(offset),
@@ -111,7 +111,7 @@ func (r *Repository) ListBoardPacks(ctx context.Context, filter ListFilter) ([]B
 	if err != nil {
 		return nil, err
 	}
-	
+
 	packs := make([]BoardPack, len(rows))
 	for i, row := range rows {
 		packs[i] = mapBoardPackFromList(row)
@@ -131,7 +131,7 @@ func (r *Repository) MarkReady(ctx context.Context, id int64, filePath string, f
 	if err != nil {
 		return err
 	}
-	
+
 	return r.queries.MarkReady(ctx, sqlc.MarkReadyParams{
 		ID:          id,
 		FilePath:    pgtype.Text{String: filePath, Valid: true},
@@ -325,7 +325,7 @@ func int8ToPointerInt8Original(i *int64) pgtype.Int8 {
 }
 
 func int8FromInt64(i int64) pgtype.Int8 {
-    return pgtype.Int8{Int64: i, Valid: true}
+	return pgtype.Int8{Int64: i, Valid: true}
 }
 
 func intFromIntPointer(i *int) pgtype.Int4 {

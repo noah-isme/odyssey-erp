@@ -77,7 +77,7 @@ func (r *repository) WithTx(ctx context.Context, fn func(context.Context, TxRepo
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	q := r.queries.WithTx(tx)
 	wrapper := &txRepository{tx: tx, queries: q}
@@ -355,7 +355,6 @@ func (r *repository) List(ctx context.Context, req ListRequest) ([]WithDetails, 
 	// Sort
 	orderBy := sortOrderDeliveryOrders(req.SortBy, req.SortDir)
 
-
 	// Fetch
 	query := fmt.Sprintf(`
 		SELECT dor.id, dor.doc_number, dor.company_id, dor.sales_order_id, dor.warehouse_id,
@@ -400,14 +399,14 @@ func (r *repository) List(ctx context.Context, req ListRequest) ([]WithDetails, 
 	for rows.Next() {
 		var wd WithDetails
 		var (
-			confirmedBy pgtype.Int8
-			confirmedAt pgtype.Timestamptz
-			deliveredAt pgtype.Timestamptz
+			confirmedBy                                      pgtype.Int8
+			confirmedAt                                      pgtype.Timestamptz
+			deliveredAt                                      pgtype.Timestamptz
 			driverName, vehicleNumber, trackingNumber, notes pgtype.Text
-			confirmedByName pgtype.Text
-			totalQty pgtype.Numeric
+			confirmedByName                                  pgtype.Text
+			totalQty                                         pgtype.Numeric
 		)
-		
+
 		err := rows.Scan(
 			&wd.ID, &wd.DocNumber, &wd.CompanyID, &wd.SalesOrderID, &wd.WarehouseID,
 			&wd.CustomerID, &wd.DeliveryDate, &wd.Status, &driverName,
@@ -419,7 +418,7 @@ func (r *repository) List(ctx context.Context, req ListRequest) ([]WithDetails, 
 		if err != nil {
 			return nil, 0, err
 		}
-		
+
 		wd.DriverName = textToPointer(driverName)
 		wd.VehicleNumber = textToPointer(vehicleNumber)
 		wd.TrackingNumber = textToPointer(trackingNumber)
@@ -429,7 +428,7 @@ func (r *repository) List(ctx context.Context, req ListRequest) ([]WithDetails, 
 		wd.DeliveredAt = timeToPointer(deliveredAt)
 		wd.ConfirmedByName = textToPointer(confirmedByName)
 		wd.TotalQuantity = numericToFloat(totalQty)
-		
+
 		results = append(results, wd)
 	}
 
@@ -524,7 +523,7 @@ func numericToFloat(n pgtype.Numeric) float64 {
 
 func floatToNumeric(f float64) pgtype.Numeric {
 	var n pgtype.Numeric
-	n.Scan(fmt.Sprintf("%f", f))
+	_ = n.Scan(fmt.Sprintf("%f", f))
 	return n
 }
 

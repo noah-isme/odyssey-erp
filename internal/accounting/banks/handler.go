@@ -117,7 +117,9 @@ func (h *Handler) listStatements(w http.ResponseWriter, r *http.Request) {
 			"Statements": statements,
 		},
 	}
-	h.renderer.Render(w, "pages/accounting/bank_statements.html", data)
+	if err := h.renderer.Render(w, "pages/accounting/bank_statements.html", data); err != nil {
+		h.logger.Error("render bank statements", slog.Any("error", err))
+	}
 }
 
 func (h *Handler) importStatement(w http.ResponseWriter, r *http.Request) {
@@ -132,7 +134,11 @@ func (h *Handler) importStatement(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "CSV file is required", http.StatusBadRequest)
 		return
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			h.logger.Warn("close statement upload", slog.Any("error", err))
+		}
+	}()
 
 	// Hardcode account ID and date for MVP, ideally comes from form
 	var accountID int64 = 1
@@ -187,5 +193,7 @@ func (h *Handler) viewStatement(w http.ResponseWriter, r *http.Request) {
 			"Lines":     lines,
 		},
 	}
-	h.renderer.Render(w, "pages/accounting/bank_reconciliation.html", data)
+	if err := h.renderer.Render(w, "pages/accounting/bank_reconciliation.html", data); err != nil {
+		h.logger.Error("render bank reconciliation", slog.Any("error", err))
+	}
 }

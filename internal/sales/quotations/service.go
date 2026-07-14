@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-
 	"github.com/odyssey-erp/odyssey-erp/internal/sales/customers"
 	"github.com/odyssey-erp/odyssey-erp/internal/sales/shared"
 )
@@ -166,7 +165,7 @@ func (s *Service) Update(ctx context.Context, id int64, req UpdateQuotationReque
 			linesToInsert = append(linesToInsert, line)
 		}
 	} else {
-		// Keep existing totals if lines not changed? 
+		// Keep existing totals if lines not changed?
 		// Or if lines not provided, we assume checking only header update.
 		// Use existing totals.
 		subtotal = existing.Subtotal

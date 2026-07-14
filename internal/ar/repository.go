@@ -611,7 +611,7 @@ func (r *Repository) WithTx(ctx context.Context, fn func(context.Context, TxRepo
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	wrapper := &txRepo{tx: tx}
 

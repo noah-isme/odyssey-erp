@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
-"github.com/odyssey-erp/odyssey-erp/internal/platform/cache"
-"github.com/odyssey-erp/odyssey-erp/internal/platform/db"
-"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
+	"github.com/odyssey-erp/odyssey-erp/internal/platform/cache"
+	"github.com/odyssey-erp/odyssey-erp/internal/platform/db"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -107,7 +107,11 @@ func main() {
 	}
 
 	asynqClient := asynq.NewClient(asynq.RedisClientOpt{Addr: cfg.RedisAddr})
-	defer asynqClient.Close()
+	defer func() {
+		if err := asynqClient.Close(); err != nil {
+			logger.Warn("close asynq client", slog.Any("error", err))
+		}
+	}()
 
 	worker, err := jobs.NewWorker(jobs.WorkerConfig{
 		RedisOpts: asynq.RedisClientOpt{Addr: cfg.RedisAddr},

@@ -227,7 +227,6 @@ func (r *Repository) ListPOs(ctx context.Context, limit, offset int, filters Lis
 	if filters.Search != "" {
 		countSQL += ` AND p.number ILIKE $` + itoa(argNum)
 		args = append(args, "%"+filters.Search+"%")
-		argNum++
 	}
 
 	var total int
@@ -307,7 +306,6 @@ func (r *Repository) ListGRNs(ctx context.Context, limit, offset int, filters Li
 	if filters.Search != "" {
 		countSQL += ` AND g.number ILIKE $` + itoa(argNum)
 		args = append(args, "%"+filters.Search+"%")
-		argNum++
 	}
 
 	var total int
@@ -376,6 +374,14 @@ func itoa(i int) string {
 	return fmt.Sprintf("%d", i)
 }
 
+// numericOf converts a float64 into a pgtype.Numeric. Scanning a formatted
+// finite float cannot fail, so the (impossible) error is deliberately ignored.
+func numericOf(f float64) pgtype.Numeric {
+	var n pgtype.Numeric
+	_ = n.Scan(fmt.Sprintf("%f", f))
+	return n
+}
+
 // sortOrderPO returns a safe ORDER BY clause for PO queries.
 func sortOrderPO(sortBy, sortDir string) string {
 	dir := "DESC"
@@ -433,8 +439,7 @@ func (tx *txRepo) CreatePR(ctx context.Context, pr PurchaseRequest) (int64, erro
 }
 
 func (tx *txRepo) InsertPRLine(ctx context.Context, line PRLine) error {
-	var qty pgtype.Numeric
-	qty.Scan(fmt.Sprintf("%f", line.Qty))
+	qty := numericOf(line.Qty)
 
 	return tx.queries.InsertPRLine(ctx, sqlc.InsertPRLineParams{
 		PrID:      line.PRID,
@@ -467,10 +472,8 @@ func (tx *txRepo) CreatePO(ctx context.Context, po PurchaseOrder) (int64, error)
 }
 
 func (tx *txRepo) InsertPOLine(ctx context.Context, line POLine) error {
-	var qty pgtype.Numeric
-	qty.Scan(fmt.Sprintf("%f", line.Qty))
-	var price pgtype.Numeric
-	price.Scan(fmt.Sprintf("%f", line.Price))
+	qty := numericOf(line.Qty)
+	price := numericOf(line.Price)
 	var taxID pgtype.Int8
 	if line.TaxID != 0 {
 		taxID = pgtype.Int8{Int64: line.TaxID, Valid: true}
@@ -532,10 +535,8 @@ func (tx *txRepo) CreateGRN(ctx context.Context, grn GoodsReceipt) (int64, error
 }
 
 func (tx *txRepo) InsertGRNLine(ctx context.Context, line GRNLine) error {
-	var qty pgtype.Numeric
-	qty.Scan(fmt.Sprintf("%f", line.Qty))
-	var cost pgtype.Numeric
-	cost.Scan(fmt.Sprintf("%f", line.UnitCost))
+	qty := numericOf(line.Qty)
+	cost := numericOf(line.UnitCost)
 
 	return tx.queries.InsertGRNLine(ctx, sqlc.InsertGRNLineParams{
 		GrnID:     line.GRNID,

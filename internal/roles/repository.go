@@ -30,7 +30,7 @@ func (r *Repository) ListRoles(ctx context.Context, filters RoleListFilters) ([]
 	if err != nil {
 		return nil, err
 	}
-	
+
 	roles := make([]Role, len(rows))
 	for i, row := range rows {
 		roles[i] = Role{
@@ -53,7 +53,7 @@ func (r *Repository) CreateRole(ctx context.Context, name, description string) (
 	if err != nil {
 		return Role{}, err
 	}
-	
+
 	return Role{
 		ID:          row.ID,
 		Name:        row.Name,
