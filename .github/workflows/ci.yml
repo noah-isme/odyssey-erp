@@ -44,7 +44,7 @@ jobs:
       - name: Install tools
         run: |
           go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
-          go install github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+          go install -tags postgres github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 
       - name: Go mod download
         run: go mod download
