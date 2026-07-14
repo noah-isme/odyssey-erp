@@ -1,4 +1,3 @@
-version: "3.9"
 
 services:
   postgres:
@@ -55,6 +54,7 @@ services:
     environment:
       PG_DSN: postgres://odyssey:odyssey@postgres:5432/odyssey?sslmode=disable
       REDIS_ADDR: redis:6379
+      ODYSSEY_TEST_MODE: "0"
     depends_on:
       - redis
 

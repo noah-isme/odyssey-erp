@@ -61,7 +61,10 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 
 | Version | Notes |
 |---------|-------|
-| [v0.7.0](releases/v0.7.0.md) | Current release |
+| [v0.9.1](releases/v0.9.1.md) | **Current** — Enterprise UI/UX overhaul (2026-05-28) |
+| [v0.9.0](releases/v0.9.0.md) | Phase 9 — Sales & AR complete |
+| [v0.8.0](releases/v0.8.0.md) | Phase 8 — Board Pack |
+| [v0.7.0](releases/v0.7.0.md) | Phase 7 |
 
 ## 📁 Archive
 

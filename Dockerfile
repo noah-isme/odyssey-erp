@@ -14,8 +14,8 @@ RUN go mod download
 COPY . .
 
 # Build application
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o /app/odyssey ./cmd/odyssey
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o /app/worker ./cmd/worker
+RUN CGO_ENABLED=0 GOOS=linux go build -tags production -a -installsuffix cgo -o /app/odyssey ./cmd/odyssey
+RUN CGO_ENABLED=0 GOOS=linux go build -tags production -a -installsuffix cgo -o /app/worker ./cmd/worker
 
 # Runtime stage
 FROM alpine:latest
