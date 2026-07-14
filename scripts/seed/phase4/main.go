@@ -51,7 +51,7 @@ func seedChartOfAccounts(ctx context.Context, pool *pgxpool.Pool) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx) // nolint:errcheck
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	codeToID := make(map[string]int64)
 	for idx, row := range rows[1:] {
@@ -103,7 +103,7 @@ func seedMappings(ctx context.Context, pool *pgxpool.Pool) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx) // nolint:errcheck
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	for key, code := range mappings {
 		parts := strings.SplitN(key, ".", 2)
