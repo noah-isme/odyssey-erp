@@ -187,8 +187,8 @@ func (r *Repository) UpdatePeriodStatus(ctx context.Context, tx pgx.Tx, periodID
 // PeriodRangeConflict reports whether a company already has a period overlapping the provided range.
 func (r *Repository) PeriodRangeConflict(ctx context.Context, companyID int64, startDate, endDate time.Time) (bool, error) {
 	_, err := r.queries.PeriodRangeConflict(ctx, sqlc.PeriodRangeConflictParams{
-		CompanyID: int8FromInt64(companyID),
-		Daterange: pgtype.Date{Time: startDate, Valid: true},
+		CompanyID:   int8FromInt64(companyID),
+		Daterange:   pgtype.Date{Time: startDate, Valid: true},
 		Daterange_2: pgtype.Date{Time: endDate, Valid: true},
 	})
 	if err != nil {

@@ -70,8 +70,7 @@ func (s *Service) CreateBankAccount(ctx context.Context, input CreateAccountInpu
 		IsActive:      true,
 	}
 	// Handle InitialBalance conversion to Numeric
-	var bal pgtype.Numeric
-	bal.Scan(fmt.Sprintf("%f", input.InitialBalance))
+	bal := numericOf(input.InitialBalance)
 	arg.InitialBalance = bal
 
 	account, err := s.repo.CreateBankAccount(ctx, arg)
@@ -109,8 +108,7 @@ func (s *Service) CreateBankTransaction(ctx context.Context, input CreateTransac
 
 	// 2. Prepare Transaction Record
 	txnID := uuid.New()
-	var amount pgtype.Numeric
-	amount.Scan(fmt.Sprintf("%f", input.Amount))
+	amount := numericOf(input.Amount)
 
 	arg := sqlc.CreateBankTransactionParams{
 		ID:            pgtype.UUID{Bytes: txnID, Valid: true},
@@ -253,8 +251,7 @@ func (s *Service) TransferFunds(ctx context.Context, input TransferInput) error 
 	// 3. Create Bank Transactions
 	// Withdrawal from source
 	fromTxnID := uuid.New()
-	var fromAmt pgtype.Numeric
-	fromAmt.Scan(fmt.Sprintf("%f", -input.Amount))
+	fromAmt := numericOf(-input.Amount)
 	_, err = s.repo.CreateBankTransaction(ctx, sqlc.CreateBankTransactionParams{
 		ID:            pgtype.UUID{Bytes: fromTxnID, Valid: true},
 		BankAccountID: input.FromAccountID,
@@ -271,8 +268,7 @@ func (s *Service) TransferFunds(ctx context.Context, input TransferInput) error 
 
 	// Deposit to destination
 	toTxnID := uuid.New()
-	var toAmt pgtype.Numeric
-	toAmt.Scan(fmt.Sprintf("%f", input.Amount))
+	toAmt := numericOf(input.Amount)
 	_, err = s.repo.CreateBankTransaction(ctx, sqlc.CreateBankTransactionParams{
 		ID:            pgtype.UUID{Bytes: toTxnID, Valid: true},
 		BankAccountID: input.ToAccountID,
@@ -298,4 +294,12 @@ func (s *Service) ListBankAccounts(ctx context.Context, companyID int64) ([]sqlc
 // ListBankTransactions returns transactions for an account.
 func (s *Service) ListBankTransactions(ctx context.Context, bankAccountID int64) ([]sqlc.BankTransaction, error) {
 	return s.repo.ListBankTransactions(ctx, bankAccountID)
+}
+
+// numericOf converts a float64 into a pgtype.Numeric. Scanning a formatted
+// finite float cannot fail, so the (impossible) error is deliberately ignored.
+func numericOf(f float64) pgtype.Numeric {
+	var n pgtype.Numeric
+	_ = n.Scan(fmt.Sprintf("%f", f))
+	return n
 }

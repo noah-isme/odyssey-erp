@@ -3,6 +3,7 @@ package ar
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"time"
 )
 
@@ -229,8 +230,9 @@ func (s *Service) PostARInvoice(ctx context.Context, input PostARInvoiceInput) e
 	if s.accounting != nil {
 		invoice.Status = ARStatusPosted
 		if err := s.accounting.CreateARPostingJournal(ctx, invoice); err != nil {
-			// Log but don't fail - journal can be created manually
-			// In production, this should use a saga/outbox pattern
+			// Log but don't fail — the journal can be created manually.
+			// In production, this should use a saga/outbox pattern.
+			slog.Error("create AR posting journal", slog.Any("error", err), slog.Int64("invoice_id", input.InvoiceID))
 		}
 	}
 

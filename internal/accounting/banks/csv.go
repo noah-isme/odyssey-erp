@@ -20,7 +20,7 @@ type ParsedStatementLine struct {
 // Expected format: Date (YYYY-MM-DD), Description, Amount (positive/negative), Reference
 func ParseCSV(r io.Reader) ([]ParsedStatementLine, error) {
 	reader := csv.NewReader(r)
-	
+
 	// Read header
 	if _, err := reader.Read(); err != nil {
 		if err == io.EOF {
@@ -57,7 +57,7 @@ func ParseCSV(r io.Reader) ([]ParsedStatementLine, error) {
 		desc := strings.TrimSpace(record[1])
 		amountStr := strings.TrimSpace(record[2])
 		amountStr = strings.ReplaceAll(amountStr, ",", "") // Remove commas
-		
+
 		amount, err := strconv.ParseFloat(amountStr, 64)
 		if err != nil {
 			return nil, fmt.Errorf("invalid amount %q: %w", amountStr, err)

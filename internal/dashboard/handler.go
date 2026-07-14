@@ -49,7 +49,9 @@ func (h *Handler) handleGetKPIs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(kpis)
+	if err := json.NewEncoder(w).Encode(kpis); err != nil {
+		h.logger.Error("encode kpis", slog.Any("error", err))
+	}
 }
 
 // handleGetActivity returns recent activity as JSON.
@@ -64,5 +66,7 @@ func (h *Handler) handleGetActivity(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(activities)
+	if err := json.NewEncoder(w).Encode(activities); err != nil {
+		h.logger.Error("encode activities", slog.Any("error", err))
+	}
 }

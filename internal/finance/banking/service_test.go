@@ -174,7 +174,7 @@ func TestCreateBankTransaction(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "CLEARED", txn.Status)
 	require.True(t, txn.GlJournalID.Valid)
-	
+
 	// Verify repo state
 	uid := uuid.UUID(txn.ID.Bytes).String()
 	require.Equal(t, "CLEARED", repo.transactions[uid].Status)
@@ -241,7 +241,7 @@ func TestTransferFunds(t *testing.T) {
 	require.Equal(t, acct1.ID, withdrawal.BankAccountID)
 	// Amount is stored as Numeric, we can check by converting back or just seeing if it's there
 	// In our mock we store it as provided in arg.Amount
-	
+
 	require.Equal(t, acct2.ID, deposit.BankAccountID)
 	require.Equal(t, "CLEARED", withdrawal.Status)
 	require.Equal(t, "CLEARED", deposit.Status)

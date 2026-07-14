@@ -74,10 +74,3 @@ func (h *Handler) render(w http.ResponseWriter, r *http.Request, template string
 		h.logger.Error("render template", slog.Any("error", err))
 	}
 }
-
-func (h *Handler) redirectWithFlash(w http.ResponseWriter, r *http.Request, location, kind, message string) {
-	if sess := shared.SessionFromContext(r.Context()); sess != nil {
-		sess.AddFlash(shared.FlashMessage{Kind: kind, Message: message})
-	}
-	http.Redirect(w, r, location, http.StatusSeeOther)
-}

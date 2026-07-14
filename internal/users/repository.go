@@ -27,7 +27,7 @@ func (r *Repository) ListUsers(ctx context.Context) ([]User, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	users := make([]User, len(rows))
 	for i, row := range rows {
 		users[i] = User{

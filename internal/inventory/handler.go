@@ -69,15 +69,6 @@ type stockCardPageData struct {
 	AppEnv      string
 }
 
-type adjustmentForm struct {
-	WarehouseID int64
-	ProductID   int64
-	Qty         float64
-	UnitCost    float64
-	Note        string
-	Code        string
-}
-
 type transferForm struct {
 	SrcWarehouse int64
 	DstWarehouse int64
@@ -314,35 +305,6 @@ func (h *Handler) handleTransfer(w http.ResponseWriter, r *http.Request) {
 	h.renderTransfer(w, r, form, errors, http.StatusBadRequest)
 }
 
-func (h *Handler) renderAdjustment(w http.ResponseWriter, r *http.Request, form adjustmentForm, errors map[string]string, status int) {
-	sess := shared.SessionFromContext(r.Context())
-	csrfToken, _ := h.csrf.EnsureToken(r.Context(), sess)
-	var flash *shared.FlashMessage
-	if sess != nil {
-		flash = sess.PopFlash()
-	}
-
-	warehouses, _ := h.getWarehouses(r.Context())
-	products, _ := h.getProducts(r.Context())
-
-	viewData := view.TemplateData{
-		Title:       "Penyesuaian Stok",
-		CSRFToken:   csrfToken,
-		Flash:       flash,
-		CurrentPath: r.URL.Path,
-		Data: map[string]any{
-			"Form":       form,
-			"Errors":     errors,
-			"Warehouses": warehouses,
-			"Products":   products,
-		},
-	}
-	w.WriteHeader(status)
-	if err := h.templates.Render(w, "pages/inventory/adjustment_form.html", viewData); err != nil {
-		h.logger.Error("render adjustment", slog.Any("error", err))
-	}
-}
-
 func (h *Handler) renderTransfer(w http.ResponseWriter, r *http.Request, form transferForm, errors map[string]string, status int) {
 	sess := shared.SessionFromContext(r.Context())
 	csrfToken, _ := h.csrf.EnsureToken(r.Context(), sess)
@@ -370,34 +332,6 @@ func (h *Handler) renderTransfer(w http.ResponseWriter, r *http.Request, form tr
 	if err := h.templates.Render(w, "pages/inventory/transfer_form.html", viewData); err != nil {
 		h.logger.Error("render transfer", slog.Any("error", err))
 	}
-}
-
-func parseAdjustmentForm(r *http.Request) (adjustmentForm, map[string]string) {
-	errors := make(map[string]string)
-	form := adjustmentForm{Note: r.PostFormValue("note"), Code: r.PostFormValue("code")}
-	if warehouseID, err := strconv.ParseInt(r.PostFormValue("warehouse_id"), 10, 64); err == nil {
-		form.WarehouseID = warehouseID
-	} else {
-		errors["warehouse_id"] = "Warehouse wajib diisi"
-	}
-	if productID, err := strconv.ParseInt(r.PostFormValue("product_id"), 10, 64); err == nil {
-		form.ProductID = productID
-	} else {
-		errors["product_id"] = "Produk wajib diisi"
-	}
-	if qty, err := strconv.ParseFloat(r.PostFormValue("qty"), 64); err == nil {
-		form.Qty = qty
-	} else {
-		errors["qty"] = "Qty tidak valid"
-	}
-	if costStr := r.PostFormValue("unit_cost"); costStr != "" {
-		if cost, err := strconv.ParseFloat(costStr, 64); err == nil {
-			form.UnitCost = cost
-		} else {
-			errors["unit_cost"] = "Biaya tidak valid"
-		}
-	}
-	return form, errors
 }
 
 func parseTransferForm(r *http.Request) (transferForm, map[string]string) {

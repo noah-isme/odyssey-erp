@@ -28,7 +28,7 @@ func TestPDFExporter_RenderPackingList_Success(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to get files: %v", err)
 		}
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 
 		htmlContent, err := io.ReadAll(file)
 		if err != nil {

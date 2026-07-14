@@ -11,7 +11,6 @@ import (
 	"github.com/go-chi/httprate"
 	"github.com/unrolled/secure"
 
-
 	"github.com/odyssey-erp/odyssey-erp/internal/observability"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 )
@@ -82,7 +81,7 @@ func MiddlewareStack(cfg MiddlewareConfig) []func(http.Handler) http.Handler {
 				return
 			}
 			ctx = shared.ContextWithSession(ctx, sess)
-			
+
 			// Wrap to intercept WriteHeader
 			wrapped := &responseWriterWithCommit{
 				ResponseWriter: w,
@@ -91,7 +90,7 @@ func MiddlewareStack(cfg MiddlewareConfig) []func(http.Handler) http.Handler {
 				ctx:            ctx,
 				req:            r.WithContext(ctx),
 			}
-			
+
 			next.ServeHTTP(wrapped, r.WithContext(ctx))
 		})
 	}
@@ -144,7 +143,6 @@ func MiddlewareStack(cfg MiddlewareConfig) []func(http.Handler) http.Handler {
 		middleware.Compress(5),
 		conditionalRateLimiter(60, time.Minute),
 		csrfMiddleware,
-
 	}
 	if cfg.Metrics != nil {
 		middlewares = append(middlewares, func(next http.Handler) http.Handler {

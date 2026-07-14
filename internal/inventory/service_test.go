@@ -119,7 +119,6 @@ func (r *memoryRepo) GetStockBalance(ctx context.Context, arg sqlc.GetStockBalan
 	}, nil
 }
 
-
 func (tx *memoryTx) InsertTransaction(ctx context.Context, _ Transaction) (int64, error) {
 	tx.repo.nextID++
 	return tx.repo.nextID, nil

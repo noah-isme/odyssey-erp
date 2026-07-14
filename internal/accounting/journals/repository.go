@@ -29,7 +29,7 @@ type TxRepository interface {
 	LinkSource(ctx context.Context, module string, ref uuid.UUID, entryID int64) error
 	GetJournalWithLines(ctx context.Context, entryID int64) (JournalEntry, []JournalLine, error)
 	UpdateJournalStatus(ctx context.Context, entryID int64, status JournalStatus) error
-	
+
 	// Period operations needed within journal transactions
 	GetPeriodForUpdate(ctx context.Context, periodID int64) (periods.Period, error)
 	GetNextOpenPeriodAfter(ctx context.Context, date time.Time) (periods.Period, error)

@@ -28,7 +28,7 @@ func (s *Service) ImportStatement(ctx context.Context, accountID int64, statemen
 	if err != nil {
 		return 0, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	qtx := s.queries.WithTx(tx)
 
@@ -103,7 +103,7 @@ func (s *Service) ConfirmStatement(ctx context.Context, id int64) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	qtx := s.queries.WithTx(tx)
 

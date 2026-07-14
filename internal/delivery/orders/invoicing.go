@@ -70,8 +70,8 @@ func (a *InvoicingAdapter) GetDeliveryOrderForInvoicing(ctx context.Context, id 
 
 	for rows.Next() {
 		var (
-			line                     ar.DeliveryLineInfo
-			qty, unitPrice           pgtype.Numeric
+			line                        ar.DeliveryLineInfo
+			qty, unitPrice              pgtype.Numeric
 			discountPercent, taxPercent pgtype.Numeric
 		)
 		if err := rows.Scan(

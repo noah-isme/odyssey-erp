@@ -48,7 +48,7 @@ func (r *Repository) InsertRule(ctx context.Context, input CreateRuleInput) (Rul
 	if err != nil {
 		return Rule{}, err
 	}
-	
+
 	row, err := r.queries.ElimInsertRule(ctx, sqlc.ElimInsertRuleParams{
 		GroupID:         int8ToPointerInt8Original(input.GroupID),
 		Name:            input.Name,
@@ -122,18 +122,18 @@ func (r *Repository) InsertRun(ctx context.Context, input CreateRunInput) (Run, 
 	if err != nil {
 		return Run{}, err
 	}
-	
+
 	return Run{
-		ID:          row.ID,
-		PeriodID:    row.PeriodID,
-		RuleID:      row.RuleID,
-		Status:      RunStatus(row.Status),
-		CreatedBy:   row.CreatedBy,
-		CreatedAt:   row.CreatedAt.Time,
-		SimulatedAt: timeToPointer(row.SimulatedAt),
-		PostedAt:    timeToPointer(row.PostedAt),
+		ID:           row.ID,
+		PeriodID:     row.PeriodID,
+		RuleID:       row.RuleID,
+		Status:       RunStatus(row.Status),
+		CreatedBy:    row.CreatedBy,
+		CreatedAt:    row.CreatedAt.Time,
+		SimulatedAt:  timeToPointer(row.SimulatedAt),
+		PostedAt:     timeToPointer(row.PostedAt),
 		JournalEntry: int8ToPointer(row.JournalEntryID),
-		Summary:      nil, 
+		Summary:      nil,
 	}, nil
 }
 
@@ -248,10 +248,10 @@ func int8ToPointerInt8Original(i *int64) pgtype.Int8 {
 }
 
 func int8FromInt64(i int64) pgtype.Int8 {
-    if i == 0 {
-        return pgtype.Int8{}
-    }
-    return pgtype.Int8{Int64: i, Valid: true}
+	if i == 0 {
+		return pgtype.Int8{}
+	}
+	return pgtype.Int8{Int64: i, Valid: true}
 }
 
 func int8ToPointer(i pgtype.Int8) *int64 {

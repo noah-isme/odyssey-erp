@@ -203,7 +203,7 @@ func (s *Service) CheckAvailability(ctx context.Context, warehouseID, productID 
 		// for testing
 		return 0, nil
 	}
-	
+
 	// Convert pgtype.Numeric to float64
 	f, _ := bal.Qty.Float64Value()
 	return f.Float64, nil
@@ -495,14 +495,14 @@ func (s *Service) GetStockTake(ctx context.Context, id int64) (StockTake, error)
 // --- Stock Adjustments ---
 
 type CreateAdjustmentInput struct {
-	WarehouseID int64     `json:"warehouse_id"`
+	WarehouseID  int64     `json:"warehouse_id"`
 	AdjustmentAt time.Time `json:"adjustment_at"`
-	Note        string    `json:"note"`
+	Note         string    `json:"note"`
 }
 
 func (s *Service) CreateAdjustment(ctx context.Context, input CreateAdjustmentInput, userID int64) (int64, error) {
 	number := fmt.Sprintf("ADJ/%s/%d", input.AdjustmentAt.Format("200601"), time.Now().UnixNano()%1000)
-	
+
 	arg := sqlc.InsertAdjustmentParams{
 		Number:       number,
 		WarehouseID:  int32(input.WarehouseID),
@@ -511,7 +511,7 @@ func (s *Service) CreateAdjustment(ctx context.Context, input CreateAdjustmentIn
 		AdjustmentAt: pgtype.Timestamptz{Time: input.AdjustmentAt, Valid: true},
 		CreatedBy:    userID,
 	}
-	
+
 	return s.repo.InsertAdjustment(ctx, arg)
 }
 
@@ -561,15 +561,6 @@ func (s *Service) PostAdjustmentDocument(ctx context.Context, id int64, userID i
 		lines, err := s.repo.GetAdjustmentLines(ctx, id) // Use repo for simplicity if lines not in TxRepository
 		if err != nil {
 			return err
-		}
-
-		// Create adjustment lines for Transaction
-		var txLines []TransactionLine
-		for _, l := range lines {
-			txLines = append(txLines, TransactionLine{
-				ProductID: l.ProductID,
-				Qty:       l.Qty,
-			})
 		}
 
 		// Execute movement via internal postAdjustmentInternal for each line
@@ -628,11 +619,11 @@ func (s *Service) GetFIFOValuation(ctx context.Context, warehouseID int64) ([]Va
 		// 3. Calculate FIFO value
 		remainingQty := entry.Qty
 		totalValue := 0.0
-		
+
 		for _, h := range history {
 			qty := numericToFloat(h.Qty)
 			cost := numericToFloat(h.UnitCost)
-			
+
 			if remainingQty <= qty {
 				totalValue += remainingQty * cost
 				remainingQty = 0

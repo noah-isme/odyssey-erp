@@ -388,9 +388,9 @@ func (h *Handler) EmailOrder(w http.ResponseWriter, r *http.Request) {
 	}
 
 	customerEmail := "customer@example.com"
-	
+
 	payload := fmt.Sprintf(`{"to": ["%s"], "subject": "Sales Order %s", "body_html": "<p>Please find attached your sales order.</p>"}`, customerEmail, order.DocNumber)
-	
+
 	if h.asynqClient != nil {
 		task := asynq.NewTask("email:deliver", []byte(payload))
 		_, err = h.asynqClient.EnqueueContext(r.Context(), task)
@@ -467,7 +467,9 @@ func (h *Handler) render(w http.ResponseWriter, r *http.Request, tmpl string, da
 		Data:        data,
 	}
 	w.WriteHeader(status)
-	h.templates.Render(w, tmpl, viewData)
+	if err := h.templates.Render(w, tmpl, viewData); err != nil {
+		h.logger.Error("render template", slog.Any("error", err), slog.String("template", tmpl))
+	}
 }
 
 func (h *Handler) redirectWithFlash(w http.ResponseWriter, r *http.Request, url, flashType, message string) {

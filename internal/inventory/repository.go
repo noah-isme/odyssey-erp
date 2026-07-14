@@ -56,7 +56,7 @@ func (r *Repository) WithTx(ctx context.Context, fn func(context.Context, TxRepo
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	q := r.queries.WithTx(tx)
 	wrapper := &txRepo{queries: q}
@@ -74,18 +74,18 @@ func (r *Repository) GetStockTake(ctx context.Context, id int64) (StockTake, err
 		return StockTake{}, err
 	}
 	st := StockTake{
-		ID:          row.ID,
-		UUID:        uuid.UUID(row.Uuid.Bytes).String(),
-		Number:      row.Number,
-		WarehouseID: int64(row.WarehouseID),
-		Status:      StockTakeStatus(row.Status),
-		Note:        row.Note,
-		TakenAt:     row.TakenAt.Time,
-		CreatedBy:   row.CreatedBy,
-		PostedBy:    row.PostedBy.Int64,
-		PostedAt:     row.PostedAt.Time,
-		CreatedAt:    row.CreatedAt.Time,
-		CreatorEmail: row.CreatorEmail,
+		ID:            row.ID,
+		UUID:          uuid.UUID(row.Uuid.Bytes).String(),
+		Number:        row.Number,
+		WarehouseID:   int64(row.WarehouseID),
+		Status:        StockTakeStatus(row.Status),
+		Note:          row.Note,
+		TakenAt:       row.TakenAt.Time,
+		CreatedBy:     row.CreatedBy,
+		PostedBy:      row.PostedBy.Int64,
+		PostedAt:      row.PostedAt.Time,
+		CreatedAt:     row.CreatedAt.Time,
+		CreatorEmail:  row.CreatorEmail,
 		WarehouseName: row.WarehouseName,
 	}
 	lines, err := r.queries.GetStockTakeLines(ctx, id)
@@ -115,12 +115,12 @@ func (r *Repository) ListStockTakes(ctx context.Context) ([]StockTake, error) {
 	var res []StockTake
 	for _, row := range rows {
 		res = append(res, StockTake{
-			ID:          row.ID,
-			UUID:        uuid.UUID(row.Uuid.Bytes).String(),
-			Number:      row.Number,
-			WarehouseID: int64(row.WarehouseID),
-			Status:      StockTakeStatus(row.Status),
-			Note:        row.Note,
+			ID:            row.ID,
+			UUID:          uuid.UUID(row.Uuid.Bytes).String(),
+			Number:        row.Number,
+			WarehouseID:   int64(row.WarehouseID),
+			Status:        StockTakeStatus(row.Status),
+			Note:          row.Note,
 			TakenAt:       row.TakenAt.Time,
 			CreatedBy:     row.CreatedBy,
 			CreatedAt:     row.CreatedAt.Time,
@@ -441,6 +441,6 @@ func numericToFloat(n pgtype.Numeric) float64 {
 
 func floatToNumeric(f float64) pgtype.Numeric {
 	var n pgtype.Numeric
-	n.Scan(fmt.Sprintf("%f", f))
+	_ = n.Scan(fmt.Sprintf("%f", f))
 	return n
 }
