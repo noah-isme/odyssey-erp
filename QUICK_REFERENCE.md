@@ -58,7 +58,7 @@ go test -cover ./...              # With coverage
 
 ```bash
 export PG_DSN='postgres://odyssey:odyssey@localhost:5432/odyssey?sslmode=disable'
-export REDIS_ADDR=localhost:6379
+export REDIS_ADDR=localhost:6380
 export GOTENBERG_URL=http://localhost:3000
 ```
 
