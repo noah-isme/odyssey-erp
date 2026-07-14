@@ -36,7 +36,7 @@
         <div class="card p-4">
             <div class="text-sm text-muted">Ledger Balance</div>
             <div class="text-2xl font-bold mt-1">
-                {{ formatCurrency .Data.Account.InitialBalance .Data.Account.Currency }}
+                {{ formatCurrency .Data.Account.Currency .Data.Account.InitialBalance }}
                 <!-- TODO: Calculate real balance -->
             </div>
         </div>
