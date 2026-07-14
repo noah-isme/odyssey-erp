@@ -5,27 +5,55 @@
 {{ define "title" }}Purchase Order{{ end }}
 
 {{ define "content" }}
-<h1>Purchase Order</h1>
-<form method="post" class="grid">
-    <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
-    <label>Nomor
-        <input type="text" name="number">
-    </label>
-    <label>PR ID
-        <input type="number" name="pr_id" required>
-    </label>
-    <label>Mata Uang
-        <input type="text" name="currency" value="IDR">
-    </label>
-    <label>Tanggal Estimasi
-        <input type="date" name="expected_date">
-    </label>
-    <label>Catatan
-        <textarea name="note"></textarea>
-    </label>
-    <button type="submit">Buat PO</button>
-</form>
-{{ if .Data.Errors }}<p class="error-text">{{ index .Data.Errors "general" }}</p>{{ end }}
-<p>Gunakan endpoint <code>/procurement/pos/&lt;id&gt;/submit</code> dan <code>/procurement/pos/&lt;id&gt;/approve</code>
-    untuk melanjutkan workflow.</p>
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-title">New Purchase Order</h1>
+            <p class="page-subtitle">Create a purchase order from an approved purchase request</p>
+        </div>
+        <div class="page-header__actions">
+            <a href="/procurement/pos" class="btn btn--secondary">Back to list</a>
+        </div>
+    </header>
+
+    <div class="page-content">
+        <div class="card">
+            {{ if .Data.Errors }}{{ with index .Data.Errors "general" }}
+            <div class="alert alert-error">{{ . }}</div>
+            {{ end }}{{ end }}
+            <form method="post" action="/procurement/pos" class="form-grid">
+                <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+                <div class="form-group">
+                    <label for="number" class="form-label">Number</label>
+                    <input type="text" id="number" name="number" class="form-input" placeholder="Auto-generated if empty">
+                </div>
+                <div class="form-group">
+                    <label for="pr_id" class="form-label">Purchase Request ID</label>
+                    <input type="number" id="pr_id" name="pr_id" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label for="currency" class="form-label">Currency</label>
+                    <input type="text" id="currency" name="currency" class="form-input" value="IDR">
+                </div>
+                <div class="form-group">
+                    <label for="expected_date" class="form-label">Expected Date</label>
+                    <input type="date" id="expected_date" name="expected_date" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label for="note" class="form-label">Note</label>
+                    <textarea id="note" name="note" class="form-textarea"></textarea>
+                </div>
+                <div class="form-group flex gap-2">
+                    <button type="submit" class="btn btn--primary">Create PO</button>
+                    <a href="/procurement/pos" class="btn btn--secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+        <p class="text-sm text-muted mt-4">
+            After creating the PO it starts as <strong>Draft</strong>. Use the
+            <strong>Submit</strong> and <strong>Approve</strong> actions in the
+            <a href="/procurement/pos" class="link">purchase orders list</a> to move it through the approval workflow.
+        </p>
+    </div>
+</div>
 {{ end }}

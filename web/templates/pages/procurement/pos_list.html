@@ -78,6 +78,7 @@
                             <th scope="col" class="text-right sortable" data-column="total" {{ if eq .Data.Filters.SortBy "total" }}data-sort-dir="{{ .Data.Filters.SortDir }}" {{ end }}>
                                 Total
                             </th>
+                            <th scope="col" class="text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -102,11 +103,28 @@
                             <td class="text-right numeric font-medium">
                                 {{ formatDecimal .Total }} <span class="text-xs text-muted">{{ .Currency }}</span>
                             </td>
+                            <td class="text-right">
+                                <div class="flex gap-2 justify-end">
+                                    {{ if eq .Status "DRAFT" }}
+                                    <form method="post" action="/procurement/pos/{{ .ID }}/submit" class="inline-form">
+                                        <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
+                                        <button type="submit" class="btn btn--sm btn--secondary">Submit</button>
+                                    </form>
+                                    {{ else if eq .Status "APPROVAL" }}
+                                    <form method="post" action="/procurement/pos/{{ .ID }}/approve" class="inline-form">
+                                        <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
+                                        <button type="submit" class="btn btn--sm btn--primary">Approve</button>
+                                    </form>
+                                    {{ else }}
+                                    <span class="text-xs text-muted">—</span>
+                                    {{ end }}
+                                </div>
+                            </td>
                         </tr>
                         {{ end }}
                         {{ else }}
                         <tr>
-                            <td colspan="6" class="table-empty">
+                            <td colspan="7" class="table-empty">
                                 <div class="empty-state">
                                     <div class="empty-state__icon">
                                         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
