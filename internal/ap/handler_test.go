@@ -15,7 +15,7 @@ import (
 func TestAPHandler_MountRoutes(t *testing.T) {
 	logger := slog.Default()
 	r := chi.NewRouter()
-	
+
 	// Create handler with nil service/templates for route testing only
 	handler := NewHandler(logger, nil, nil, nil, nil, rbac.Middleware{})
 	handler.MountRoutes(r)
@@ -23,7 +23,7 @@ func TestAPHandler_MountRoutes(t *testing.T) {
 	// Test if routes are properly mounted by checking a GET request
 	// We expect a panic or a template error because templates are nil,
 	// but the route itself should exist and not return 404.
-	
+
 	req := httptest.NewRequest(http.MethodGet, "/invoices", nil)
 	w := httptest.NewRecorder()
 
@@ -38,4 +38,3 @@ func TestAPHandler_MountRoutes(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 }
-

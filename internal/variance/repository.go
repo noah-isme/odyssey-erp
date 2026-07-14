@@ -152,7 +152,7 @@ func (r *Repository) LoadPayload(ctx context.Context, id int64) ([]VarianceRow, 
 	payload, err := r.queries.LoadPayload(ctx, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil 
+			return nil, nil
 		}
 		return nil, err
 	}
@@ -219,10 +219,10 @@ func int8ToPointerInt8Original(i *int64) pgtype.Int8 {
 }
 
 func int8FromInt64(i int64) pgtype.Int8 {
-    if i == 0 {
-        return pgtype.Int8{}
-    }
-    return pgtype.Int8{Int64: i, Valid: true}
+	if i == 0 {
+		return pgtype.Int8{}
+	}
+	return pgtype.Int8{Int64: i, Valid: true}
 }
 
 func int8ToPointer(i pgtype.Int8) *int64 {
@@ -242,30 +242,30 @@ func timeToPointer(t pgtype.Timestamptz) *time.Time {
 }
 
 func float64Ref(v float64) *float64 {
-    // If we assume 0 means nil/unset for threshold, we handle it here.
-    // Or if valid, we return ptr.
-    // Original code had NullFloat64.
-    // If SQLC returns float64, we can't detect NULL vs 0.0 easily unless relying on value.
-    // For thresholds, 0.0 might be valid (0% threshold).
-    // But since I cast it, I lose null info.
-    // I'll return pointer to value.
-    return &v
+	// If we assume 0 means nil/unset for threshold, we handle it here.
+	// Or if valid, we return ptr.
+	// Original code had NullFloat64.
+	// If SQLC returns float64, we can't detect NULL vs 0.0 easily unless relying on value.
+	// For thresholds, 0.0 might be valid (0% threshold).
+	// But since I cast it, I lose null info.
+	// I'll return pointer to value.
+	return &v
 }
 
 // Mappers
 
 func mapRuleFromInsert(row sqlc.VarInsertRuleRow) Rule {
 	r := Rule{
-		ID:              row.ID,
-		CompanyID:       row.CompanyID,
-		Name:            row.Name,
-		ComparisonType:  RuleComparison(row.ComparisonType),
-		BasePeriodID:    row.BasePeriodID,
-		ComparePeriodID: int8ToPointer(row.ComparePeriodID),
-		Active:          row.IsActive,
-		CreatedBy:       row.CreatedBy,
-		CreatedAt:       row.CreatedAt.Time,
-		ThresholdAmount: float64Ref(row.ThresholdAmount),
+		ID:               row.ID,
+		CompanyID:        row.CompanyID,
+		Name:             row.Name,
+		ComparisonType:   RuleComparison(row.ComparisonType),
+		BasePeriodID:     row.BasePeriodID,
+		ComparePeriodID:  int8ToPointer(row.ComparePeriodID),
+		Active:           row.IsActive,
+		CreatedBy:        row.CreatedBy,
+		CreatedAt:        row.CreatedAt.Time,
+		ThresholdAmount:  float64Ref(row.ThresholdAmount),
 		ThresholdPercent: float64Ref(row.ThresholdPercent),
 	}
 	if len(row.DimensionFilters) > 0 {
@@ -278,16 +278,16 @@ func mapRuleFromInsert(row sqlc.VarInsertRuleRow) Rule {
 
 func mapRuleFromList(row sqlc.VarListRulesRow) Rule {
 	r := Rule{
-		ID:              row.ID,
-		CompanyID:       row.CompanyID,
-		Name:            row.Name,
-		ComparisonType:  RuleComparison(row.ComparisonType),
-		BasePeriodID:    row.BasePeriodID,
-		ComparePeriodID: int8ToPointer(row.ComparePeriodID),
-		Active:          row.IsActive,
-		CreatedBy:       row.CreatedBy,
-		CreatedAt:       row.CreatedAt.Time,
-		ThresholdAmount: float64Ref(row.ThresholdAmount),
+		ID:               row.ID,
+		CompanyID:        row.CompanyID,
+		Name:             row.Name,
+		ComparisonType:   RuleComparison(row.ComparisonType),
+		BasePeriodID:     row.BasePeriodID,
+		ComparePeriodID:  int8ToPointer(row.ComparePeriodID),
+		Active:           row.IsActive,
+		CreatedBy:        row.CreatedBy,
+		CreatedAt:        row.CreatedAt.Time,
+		ThresholdAmount:  float64Ref(row.ThresholdAmount),
 		ThresholdPercent: float64Ref(row.ThresholdPercent),
 	}
 	if len(row.DimensionFilters) > 0 {
@@ -300,16 +300,16 @@ func mapRuleFromList(row sqlc.VarListRulesRow) Rule {
 
 func mapRuleFromGet(row sqlc.VarGetRuleRow) Rule {
 	r := Rule{
-		ID:              row.ID,
-		CompanyID:       row.CompanyID,
-		Name:            row.Name,
-		ComparisonType:  RuleComparison(row.ComparisonType),
-		BasePeriodID:    row.BasePeriodID,
-		ComparePeriodID: int8ToPointer(row.ComparePeriodID),
-		Active:          row.IsActive,
-		CreatedBy:       row.CreatedBy,
-		CreatedAt:       row.CreatedAt.Time,
-		ThresholdAmount: float64Ref(row.ThresholdAmount),
+		ID:               row.ID,
+		CompanyID:        row.CompanyID,
+		Name:             row.Name,
+		ComparisonType:   RuleComparison(row.ComparisonType),
+		BasePeriodID:     row.BasePeriodID,
+		ComparePeriodID:  int8ToPointer(row.ComparePeriodID),
+		Active:           row.IsActive,
+		CreatedBy:        row.CreatedBy,
+		CreatedAt:        row.CreatedAt.Time,
+		ThresholdAmount:  float64Ref(row.ThresholdAmount),
 		ThresholdPercent: float64Ref(row.ThresholdPercent),
 	}
 	if len(row.DimensionFilters) > 0 {
@@ -353,18 +353,18 @@ func mapSnapshotFromList(row sqlc.ListSnapshotsRow) Snapshot {
 	if len(row.Payload) > 0 {
 		_ = json.Unmarshal(row.Payload, &snap.Payload)
 	}
-	
+
 	r := Rule{
-		ID:              row.ID_2,
-		CompanyID:       row.CompanyID,
-		Name:            row.Name,
-		ComparisonType:  RuleComparison(row.ComparisonType),
-		BasePeriodID:    row.BasePeriodID,
-		ComparePeriodID: int8ToPointer(row.ComparePeriodID),
-		Active:          row.IsActive,
-		CreatedBy:       row.CreatedBy,
-		CreatedAt:       row.CreatedAt_2.Time,
-		ThresholdAmount: float64Ref(row.VrThresholdAmount),
+		ID:               row.ID_2,
+		CompanyID:        row.CompanyID,
+		Name:             row.Name,
+		ComparisonType:   RuleComparison(row.ComparisonType),
+		BasePeriodID:     row.BasePeriodID,
+		ComparePeriodID:  int8ToPointer(row.ComparePeriodID),
+		Active:           row.IsActive,
+		CreatedBy:        row.CreatedBy,
+		CreatedAt:        row.CreatedAt_2.Time,
+		ThresholdAmount:  float64Ref(row.VrThresholdAmount),
 		ThresholdPercent: float64Ref(row.VrThresholdPercent),
 	}
 
@@ -373,7 +373,7 @@ func mapSnapshotFromList(row sqlc.ListSnapshotsRow) Snapshot {
 	} else {
 		r.DimensionFilter = map[string]any{}
 	}
-	
+
 	snap.Rule = &r
 	return snap
 }
@@ -393,18 +393,18 @@ func mapSnapshotFromGet(row sqlc.GetSnapshotRow) Snapshot {
 	if len(row.Payload) > 0 {
 		_ = json.Unmarshal(row.Payload, &snap.Payload)
 	}
-	
+
 	r := Rule{
-		ID:              row.ID_2,
-		CompanyID:       row.CompanyID,
-		Name:            row.Name,
-		ComparisonType:  RuleComparison(row.ComparisonType),
-		BasePeriodID:    row.BasePeriodID,
-		ComparePeriodID: int8ToPointer(row.ComparePeriodID),
-		Active:          row.IsActive,
-		CreatedBy:       row.CreatedBy,
-		CreatedAt:       row.CreatedAt_2.Time,
-		ThresholdAmount: float64Ref(row.VrThresholdAmount),
+		ID:               row.ID_2,
+		CompanyID:        row.CompanyID,
+		Name:             row.Name,
+		ComparisonType:   RuleComparison(row.ComparisonType),
+		BasePeriodID:     row.BasePeriodID,
+		ComparePeriodID:  int8ToPointer(row.ComparePeriodID),
+		Active:           row.IsActive,
+		CreatedBy:        row.CreatedBy,
+		CreatedAt:        row.CreatedAt_2.Time,
+		ThresholdAmount:  float64Ref(row.VrThresholdAmount),
 		ThresholdPercent: float64Ref(row.VrThresholdPercent),
 	}
 
@@ -413,7 +413,7 @@ func mapSnapshotFromGet(row sqlc.GetSnapshotRow) Snapshot {
 	} else {
 		r.DimensionFilter = map[string]any{}
 	}
-	
+
 	snap.Rule = &r
 	return snap
 }

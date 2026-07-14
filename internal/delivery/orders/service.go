@@ -307,7 +307,7 @@ func (s *Service) Confirm(ctx context.Context, id int64, confirmedBy int64) (*De
 			})
 		}
 		if err := s.inventory.Reduce(ctx, items); err != nil {
-			// Rollback status? In this simple impl we return error. 
+			// Rollback status? In this simple impl we return error.
 			// Ideally this should be inside repo.WithTx if inventory supports it.
 			return nil, fmt.Errorf("reduce inventory: %w", err)
 		}

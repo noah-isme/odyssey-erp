@@ -35,7 +35,7 @@ func (s *Service) PerformTransfer(ctx context.Context, req TransferRequest) erro
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	qtx := s.queries.WithTx(tx)
 
@@ -55,26 +55,26 @@ func (s *Service) PerformTransfer(ctx context.Context, req TransferRequest) erro
 
 	// Create Bank Transactions (the history log for bank_accounts)
 	_, err = qtx.CreateBankTransaction(ctx, sqlc.CreateBankTransactionParams{
-		ID:              pgtype.UUID{Bytes: uuid.New(), Valid: true},
-		BankAccountID:   req.FromBankAccountID,
-		Date:            pgtype.Date{Time: req.TransferDate, Valid: true},
-		Amount:          floatToNumeric(-req.Amount), // Negative for withdrawal
-		Description:     req.Notes,
-		Reference:       pgtype.Text{String: req.Reference, Valid: req.Reference != ""},
-		Status:          "CLEARED", // Transfers are auto-cleared in this MVP
+		ID:            pgtype.UUID{Bytes: uuid.New(), Valid: true},
+		BankAccountID: req.FromBankAccountID,
+		Date:          pgtype.Date{Time: req.TransferDate, Valid: true},
+		Amount:        floatToNumeric(-req.Amount), // Negative for withdrawal
+		Description:   req.Notes,
+		Reference:     pgtype.Text{String: req.Reference, Valid: req.Reference != ""},
+		Status:        "CLEARED", // Transfers are auto-cleared in this MVP
 	})
 	if err != nil {
 		return fmt.Errorf("create from bank transaction: %w", err)
 	}
 
 	_, err = qtx.CreateBankTransaction(ctx, sqlc.CreateBankTransactionParams{
-		ID:              pgtype.UUID{Bytes: uuid.New(), Valid: true},
-		BankAccountID:   req.ToBankAccountID,
-		Date:            pgtype.Date{Time: req.TransferDate, Valid: true},
-		Amount:          floatToNumeric(req.Amount), // Positive for deposit
-		Description:     req.Notes,
-		Reference:       pgtype.Text{String: req.Reference, Valid: req.Reference != ""},
-		Status:          "CLEARED",
+		ID:            pgtype.UUID{Bytes: uuid.New(), Valid: true},
+		BankAccountID: req.ToBankAccountID,
+		Date:          pgtype.Date{Time: req.TransferDate, Valid: true},
+		Amount:        floatToNumeric(req.Amount), // Positive for deposit
+		Description:   req.Notes,
+		Reference:     pgtype.Text{String: req.Reference, Valid: req.Reference != ""},
+		Status:        "CLEARED",
 	})
 	if err != nil {
 		return fmt.Errorf("create to bank transaction: %w", err)

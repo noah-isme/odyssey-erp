@@ -202,7 +202,7 @@ func seedRBAC(ctx context.Context, pool *pgxpool.Pool) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	for _, perm := range perms {
 		if _, err := tx.Exec(ctx, `
@@ -309,7 +309,7 @@ func seedMasterData(ctx context.Context, pool *pgxpool.Pool) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	// Companies
 	companies := []struct {
@@ -510,7 +510,7 @@ func seedAccounting(ctx context.Context, pool *pgxpool.Pool) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	// Chart of Accounts
 	accounts := []struct {
@@ -605,7 +605,7 @@ func seedConsolidation(ctx context.Context, pool *pgxpool.Pool) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	// Consol Group
 	var groupID int64
@@ -675,7 +675,7 @@ func seedProcurement(ctx context.Context, pool *pgxpool.Pool) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	// Get references
 	var supplierID, warehouseID, productID, taxID int64
@@ -814,7 +814,7 @@ func seedSales(ctx context.Context, pool *pgxpool.Pool) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	// Get admin user and first company
 	var adminID, companyID int64
@@ -982,28 +982,28 @@ func seedJournals(ctx context.Context, pool *pgxpool.Pool) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	// IDs
 	var company1ID, company2ID, adminID int64
 	var periodID int64
 	var accBank, accRev, accExp, accRec, accPay int64
 
-	pool.QueryRow(ctx, "SELECT id FROM companies WHERE code = 'ODY-01'").Scan(&company1ID)
-	pool.QueryRow(ctx, "SELECT id FROM companies WHERE code = 'ODY-02'").Scan(&company2ID)
-	pool.QueryRow(ctx, "SELECT id FROM users WHERE email = 'admin@odyssey.local'").Scan(&adminID)
-	
+	_ = pool.QueryRow(ctx, "SELECT id FROM companies WHERE code = 'ODY-01'").Scan(&company1ID)
+	_ = pool.QueryRow(ctx, "SELECT id FROM companies WHERE code = 'ODY-02'").Scan(&company2ID)
+	_ = pool.QueryRow(ctx, "SELECT id FROM users WHERE email = 'admin@odyssey.local'").Scan(&adminID)
+
 	// Get current period
 	year, month, _ := time.Now().Date()
 	periodCode := fmt.Sprintf("%d-%02d", year, month)
-	pool.QueryRow(ctx, "SELECT id FROM periods WHERE code = $1", periodCode).Scan(&periodID)
+	_ = pool.QueryRow(ctx, "SELECT id FROM periods WHERE code = $1", periodCode).Scan(&periodID)
 
 	// Get Accounts
-	pool.QueryRow(ctx, "SELECT id FROM accounts WHERE code = '1110'").Scan(&accBank) // Kas
-	pool.QueryRow(ctx, "SELECT id FROM accounts WHERE code = '4100'").Scan(&accRev) // Sales
-	pool.QueryRow(ctx, "SELECT id FROM accounts WHERE code = '5200'").Scan(&accExp) // Op Exp
-	pool.QueryRow(ctx, "SELECT id FROM accounts WHERE code = '1210'").Scan(&accRec) // AR
-	pool.QueryRow(ctx, "SELECT id FROM accounts WHERE code = '2110'").Scan(&accPay) // AP
+	_ = pool.QueryRow(ctx, "SELECT id FROM accounts WHERE code = '1110'").Scan(&accBank) // Kas
+	_ = pool.QueryRow(ctx, "SELECT id FROM accounts WHERE code = '4100'").Scan(&accRev)  // Sales
+	_ = pool.QueryRow(ctx, "SELECT id FROM accounts WHERE code = '5200'").Scan(&accExp)  // Op Exp
+	_ = pool.QueryRow(ctx, "SELECT id FROM accounts WHERE code = '1210'").Scan(&accRec)  // AR
+	_ = pool.QueryRow(ctx, "SELECT id FROM accounts WHERE code = '2110'").Scan(&accPay)  // AP
 
 	if periodID == 0 || accBank == 0 {
 		// Data missing, skip
@@ -1015,12 +1015,12 @@ func seedJournals(ctx context.Context, pool *pgxpool.Pool) error {
 	createJournalLine(ctx, tx, jeID, accRec, 11000000, 0, "Receivable Customer", nil)
 	createJournalLine(ctx, tx, jeID, accRev, 0, 11000000, "Sales Revenue", nil)
 	// Add Company tagging to lines since header doesn't have it
-	createJournalLine(ctx, tx, jeID, accRec, 0, 0, "Company Tag", nil) // Hack/Refinement needed if dim_company_id is mandatory. 
-	// Wait, createJournalLine in helper doesn't accept companyID? 
+	createJournalLine(ctx, tx, jeID, accRec, 0, 0, "Company Tag", nil) // Hack/Refinement needed if dim_company_id is mandatory.
+	// Wait, createJournalLine in helper doesn't accept companyID?
 	// I need to update createJournalLine signature to take companyID. Or update the helper usage.
-	// For now, let's just make sure seed runs. dim_company_id invalid if not set? 
+	// For now, let's just make sure seed runs. dim_company_id invalid if not set?
 	// The schema says dim_company_id BIGINT. It is nullable.
-	
+
 	// 2. Regular Expense (Company 1)
 	jeID2 := createJournal(ctx, tx, company1ID, periodID, "JE-002", "Office Expense", adminID)
 	createJournalLine(ctx, tx, jeID2, accExp, 5000000, 0, "Office Supplies", nil)
@@ -1052,7 +1052,7 @@ func createJournal(ctx context.Context, tx pgx.Tx, companyID, periodID int64, re
 		INSERT INTO journal_entries (period_id, date, source_module, memo, status, posted_at, posted_by)
 		VALUES ($1, CURRENT_DATE, 'SEED', $2, 'POSTED', NOW(), $3)
 		RETURNING id`, periodID, desc, userID).Scan(&id)
-	
+
 	if err != nil {
 		log.Fatalf("failed to create journal: %v", err)
 	}
@@ -1080,13 +1080,12 @@ func seedEliminations(ctx context.Context, pool *pgxpool.Pool) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx) 
-
+	defer func() { _ = tx.Rollback(ctx) }()
 	var groupID, c1, c2, adminID int64
-	pool.QueryRow(ctx, "SELECT id FROM consol_groups LIMIT 1").Scan(&groupID)
-	pool.QueryRow(ctx, "SELECT id FROM companies WHERE code = 'ODY-01'").Scan(&c1)
-	pool.QueryRow(ctx, "SELECT id FROM companies WHERE code = 'ODY-02'").Scan(&c2)
-	pool.QueryRow(ctx, "SELECT id FROM users WHERE email = 'admin@odyssey.local'").Scan(&adminID)
+	_ = pool.QueryRow(ctx, "SELECT id FROM consol_groups LIMIT 1").Scan(&groupID)
+	_ = pool.QueryRow(ctx, "SELECT id FROM companies WHERE code = 'ODY-01'").Scan(&c1)
+	_ = pool.QueryRow(ctx, "SELECT id FROM companies WHERE code = 'ODY-02'").Scan(&c2)
+	_ = pool.QueryRow(ctx, "SELECT id FROM users WHERE email = 'admin@odyssey.local'").Scan(&adminID)
 
 	if groupID == 0 || c1 == 0 {
 		return tx.Commit(ctx)
@@ -1115,21 +1114,20 @@ func seedVariance(ctx context.Context, pool *pgxpool.Pool) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx) 
-
+	defer func() { _ = tx.Rollback(ctx) }()
 	var c1, adminID, rawPeriodID, rawPrevPeriodID, acctPeriodID, acctPrevPeriodID int64
-	pool.QueryRow(ctx, "SELECT id FROM companies WHERE code = 'ODY-01'").Scan(&c1)
-	pool.QueryRow(ctx, "SELECT id FROM users WHERE email = 'admin@odyssey.local'").Scan(&adminID)
-	
+	_ = pool.QueryRow(ctx, "SELECT id FROM companies WHERE code = 'ODY-01'").Scan(&c1)
+	_ = pool.QueryRow(ctx, "SELECT id FROM users WHERE email = 'admin@odyssey.local'").Scan(&adminID)
+
 	year, month, _ := time.Now().Date()
 	periodCode := fmt.Sprintf("%d-%02d", year, month)
-	pool.QueryRow(ctx, "SELECT id FROM periods WHERE code = $1", periodCode).Scan(&rawPeriodID)
+	_ = pool.QueryRow(ctx, "SELECT id FROM periods WHERE code = $1", periodCode).Scan(&rawPeriodID)
 
 	// Previous month
 	prevDate := time.Now().AddDate(0, -1, 0)
 	prevCode := fmt.Sprintf("%d-%02d", prevDate.Year(), prevDate.Month())
 	// Try to get prev, if not exists, use ignore
-	pool.QueryRow(ctx, "SELECT id FROM periods WHERE code = $1", prevCode).Scan(&rawPrevPeriodID)
+	_ = pool.QueryRow(ctx, "SELECT id FROM periods WHERE code = $1", prevCode).Scan(&rawPrevPeriodID)
 	if rawPrevPeriodID == 0 {
 		rawPrevPeriodID = rawPeriodID // fallback
 	}
@@ -1139,8 +1137,8 @@ func seedVariance(ctx context.Context, pool *pgxpool.Pool) error {
 	}
 
 	// Get Accounting Period IDs - ignore company_id since it might be NULL or arbitrary due to unique constraint
-	pool.QueryRow(ctx, "SELECT id FROM accounting_periods WHERE period_id = $1 LIMIT 1", rawPeriodID).Scan(&acctPeriodID)
-	pool.QueryRow(ctx, "SELECT id FROM accounting_periods WHERE period_id = $1 LIMIT 1", rawPrevPeriodID).Scan(&acctPrevPeriodID)
+	_ = pool.QueryRow(ctx, "SELECT id FROM accounting_periods WHERE period_id = $1 LIMIT 1", rawPeriodID).Scan(&acctPeriodID)
+	_ = pool.QueryRow(ctx, "SELECT id FROM accounting_periods WHERE period_id = $1 LIMIT 1", rawPrevPeriodID).Scan(&acctPrevPeriodID)
 
 	if acctPeriodID == 0 {
 		// Maybe accounting periods not seeded yet? fallback or return error
@@ -1162,13 +1160,14 @@ func seedVariance(ctx context.Context, pool *pgxpool.Pool) error {
 			1000000, 10.0, TRUE, $4
 		)
 		ON CONFLICT DO NOTHING`, c1, acctPeriodID, acctPrevPeriodID, adminID)
-	
+
 	if err != nil {
 		return err
 	}
 
 	return tx.Commit(ctx)
 }
+
 // =============================================================================
 
 func seedBoardPackTemplates(ctx context.Context, pool *pgxpool.Pool) error {
@@ -1220,7 +1219,7 @@ func seedInventory(ctx context.Context, pool *pgxpool.Pool) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	// Get Warehouse and Product for seeding
 	var warehouseID, productID int64
@@ -1262,7 +1261,7 @@ func seedInventory(ctx context.Context, pool *pgxpool.Pool) error {
 			100, 0, 100, 8500000, 8500000, 
 			$4, 'Initial Seed Stock'
 		)
-		ON CONFLICT DO NOTHING`, 
+		ON CONFLICT DO NOTHING`,
 		warehouseID, productID, txID, now)
 	if err != nil {
 		return err
@@ -1273,7 +1272,7 @@ func seedInventory(ctx context.Context, pool *pgxpool.Pool) error {
 		INSERT INTO inventory_balances (warehouse_id, product_id, qty, avg_cost, updated_at)
 		VALUES ($1, $2, 100, 8500000, $3)
 		ON CONFLICT (warehouse_id, product_id) 
-		DO UPDATE SET qty = EXCLUDED.qty, avg_cost = EXCLUDED.avg_cost`, 
+		DO UPDATE SET qty = EXCLUDED.qty, avg_cost = EXCLUDED.avg_cost`,
 		warehouseID, productID, now)
 	if err != nil {
 		return err
@@ -1281,4 +1280,3 @@ func seedInventory(ctx context.Context, pool *pgxpool.Pool) error {
 
 	return tx.Commit(ctx)
 }
-

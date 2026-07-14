@@ -21,15 +21,15 @@ import (
 
 // Handler manages master data endpoints.
 type Handler struct {
-	logger           *slog.Logger
-	companiesHandler *companies.Handler
-	branchesHandler  *branches.Handler
+	logger            *slog.Logger
+	companiesHandler  *companies.Handler
+	branchesHandler   *branches.Handler
 	warehousesHandler *warehouses.Handler
-	unitsHandler     *units.Handler
-	taxesHandler     *taxes.Handler
+	unitsHandler      *units.Handler
+	taxesHandler      *taxes.Handler
 	categoriesHandler *categories.Handler
-	suppliersHandler *suppliers.Handler
-	productsHandler  *products.Handler
+	suppliersHandler  *suppliers.Handler
+	productsHandler   *products.Handler
 }
 
 // NewHandler builds Handler instance.
@@ -59,24 +59,24 @@ func NewHandler(logger *slog.Logger, db *pgxpool.Pool, templates *view.Engine, c
 	branchesHandler := branches.NewHandler(logger, branchService, companyService, templates, csrf, sessions, rbac)
 	warehousesHandler := warehouses.NewHandler(logger, warehouseService, branchService, templates, csrf, sessions, rbac)
 	// (Note: warehouse handler needs branchService for list options)
-	
+
 	unitsHandler := units.NewHandler(logger, unitService, templates, csrf, sessions, rbac)
 	taxesHandler := taxes.NewHandler(logger, taxService, templates, csrf, sessions, rbac)
 	categoriesHandler := categories.NewHandler(logger, categoryService, templates, csrf, sessions, rbac)
 	suppliersHandler := suppliers.NewHandler(logger, supplierService, templates, csrf, sessions, rbac)
-	
+
 	productsHandler := products.NewHandler(logger, productService, categoryService, unitService, taxService, templates, csrf, sessions, rbac)
 
 	return &Handler{
-		logger:           logger,
-		companiesHandler: companiesHandler,
-		branchesHandler:  branchesHandler,
+		logger:            logger,
+		companiesHandler:  companiesHandler,
+		branchesHandler:   branchesHandler,
 		warehousesHandler: warehousesHandler,
-		unitsHandler:     unitsHandler,
-		taxesHandler:     taxesHandler,
+		unitsHandler:      unitsHandler,
+		taxesHandler:      taxesHandler,
 		categoriesHandler: categoriesHandler,
-		suppliersHandler: suppliersHandler,
-		productsHandler:  productsHandler,
+		suppliersHandler:  suppliersHandler,
+		productsHandler:   productsHandler,
 	}
 }
 

@@ -146,16 +146,16 @@ func (r *Repository) RebuildConsolidation(ctx context.Context, groupID, periodID
 			_ = tx.Rollback(ctx)
 		}
 	}()
-	
+
 	qtx := r.queries.WithTx(tx)
-	
+
 	if err = qtx.DeleteConsolBalances(ctx, sqlc.DeleteConsolBalancesParams{
 		PeriodID: periodID,
 		GroupID:  groupID,
 	}); err != nil {
 		return err
 	}
-	
+
 	if err = qtx.CalculateConsolBalances(ctx, sqlc.CalculateConsolBalancesParams{
 		PeriodID: periodID,
 		GroupID:  groupID,
@@ -176,7 +176,7 @@ func (r *Repository) ActiveConsolidationPeriod(ctx context.Context) (string, err
 	code, err := r.queries.ActiveConsolidationPeriod(ctx)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return "", nil 
+			return "", nil
 		}
 		return "", err
 	}
@@ -198,7 +198,7 @@ func (r *Repository) Balances(ctx context.Context, groupID, periodID int64) ([]B
 			GroupAccountID:   row.GroupAccountID,
 			GroupAccountCode: row.Code,
 			GroupAccountName: row.Name,
-			LocalAmount:      float64(row.LocalCcyAmt), 
+			LocalAmount:      float64(row.LocalCcyAmt),
 			// Wait, SQLC generated int64 for Amounts because SUM returns bigint if input is integer?
 			// But amounts should be numeric/decimal.
 			// Let's check schema. `journal_lines` `debit`/`credit` are usually numeric.
@@ -209,8 +209,8 @@ func (r *Repository) Balances(ctx context.Context, groupID, periodID int64) ([]B
 			// Ah, `repo.sql.go` line 242 used `float64`.
 			// Generated code showed `LocalCcyAmt int64`.
 			// Let me double check generated code.
-			GroupAmount:      float64(row.GroupCcyAmt),
-			MembersJSON:      row.Members,
+			GroupAmount: float64(row.GroupCcyAmt),
+			MembersJSON: row.Members,
 		}
 	}
 	return balances, nil
@@ -288,7 +288,7 @@ func (r *Repository) FxRateForPeriod(ctx context.Context, asOf time.Time, pair s
 		return zero, fmt.Errorf("as of date required")
 	}
 	asOf = time.Date(asOf.Year(), asOf.Month(), 1, 0, 0, 0, 0, time.UTC)
-	
+
 	row, err := r.queries.FxRateForPeriod(ctx, sqlc.FxRateForPeriodParams{
 		AsOfDate: pgtype.Date{Time: asOf, Valid: true},
 		Pair:     pair,
@@ -299,10 +299,10 @@ func (r *Repository) FxRateForPeriod(ctx context.Context, asOf time.Time, pair s
 		}
 		return zero, err
 	}
-	
+
 	avg, _ := row.AverageRate.Float64Value()
 	cls, _ := row.ClosingRate.Float64Value()
-	
+
 	return fx.Quote{
 		Average: avg.Float64,
 		Closing: cls.Float64,
@@ -314,19 +314,19 @@ func (r *Repository) UpsertFxRates(ctx context.Context, rows []FxRateInput) erro
 	if len(rows) == 0 {
 		return nil
 	}
-	
+
 	// Process sequentially for simplicity with SQLC
 	// Or use Batch. SQLC doesn't generate Batch methods automatically in basic mode.
 	// But we can iterate. Transactional if needed, but not critical for multi-row upsert correctness per se, though good for atomicity.
-	
+
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
-	
+	defer func() { _ = tx.Rollback(ctx) }()
+
 	qtx := r.queries.WithTx(tx)
-	
+
 	for _, row := range rows {
 		pair := strings.ToUpper(strings.TrimSpace(row.Pair))
 		if pair == "" {
@@ -339,7 +339,7 @@ func (r *Repository) UpsertFxRates(ctx context.Context, rows []FxRateInput) erro
 			return fmt.Errorf("fx rates must be positive for %s %s", pair, row.AsOf.Format("2006-01"))
 		}
 		asOf := time.Date(row.AsOf.Year(), row.AsOf.Month(), 1, 0, 0, 0, 0, time.UTC)
-		
+
 		err := qtx.UpsertFxRate(ctx, sqlc.UpsertFxRateParams{
 			AsOfDate:    pgtype.Date{Time: asOf, Valid: true},
 			Pair:        pair,
@@ -350,7 +350,7 @@ func (r *Repository) UpsertFxRates(ctx context.Context, rows []FxRateInput) erro
 			return err
 		}
 	}
-	
+
 	return tx.Commit(ctx)
 }
 
@@ -358,6 +358,6 @@ func (r *Repository) UpsertFxRates(ctx context.Context, rows []FxRateInput) erro
 
 func float64ToNumeric(f float64) pgtype.Numeric {
 	var n pgtype.Numeric
-	n.Scan(fmt.Sprintf("%f", f))
+	_ = n.Scan(fmt.Sprintf("%f", f))
 	return n
 }

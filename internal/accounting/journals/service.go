@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/periods"
-	closepkg "github.com/odyssey-erp/odyssey-erp/internal/close"
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/shared"
+	closepkg "github.com/odyssey-erp/odyssey-erp/internal/close"
 	internalShared "github.com/odyssey-erp/odyssey-erp/internal/shared"
 )
 

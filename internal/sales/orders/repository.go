@@ -73,13 +73,13 @@ func (r *repository) Get(ctx context.Context, id int64) (*SalesOrder, error) {
 		return nil, err
 	}
 	o := mapOrderFromSqlc(row)
-	
+
 	lineRows, err := r.queries.GetSalesOrderLines(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 	o.Lines = mapLinesFromSqlc(lineRows)
-	
+
 	return &o, nil
 }
 
@@ -144,7 +144,7 @@ func (r *repository) List(ctx context.Context, req ListSalesOrdersRequest) ([]Sa
 
 	// Sort
 	orderBy := sortOrderSalesOrders(req.SortBy, req.SortDir)
-	
+
 	query := fmt.Sprintf(`
 		SELECT so.id, so.doc_number, so.company_id, so.customer_id, so.quotation_id,
 		       so.order_date, so.expected_delivery_date, so.status, so.currency,
@@ -196,22 +196,57 @@ func (r *repository) List(ctx context.Context, req ListSalesOrdersRequest) ([]Sa
 			return nil, 0, err
 		}
 
-		if quotationID.Valid { o.QuotationID = &quotationID.Int64 }
-		if orderDatePG.Valid { o.OrderDate = orderDatePG.Time }
-		if expectedDelivery.Valid { o.ExpectedDeliveryDate = &expectedDelivery.Time }
-		if subtotal.Valid { f, _ := subtotal.Float64Value(); o.Subtotal = f.Float64 }
-		if taxAmount.Valid { f, _ := taxAmount.Float64Value(); o.TaxAmount = f.Float64 }
-		if totalAmount.Valid { f, _ := totalAmount.Float64Value(); o.TotalAmount = f.Float64 }
-		if notes.Valid { o.Notes = &notes.String }
-		if confirmedBy.Valid { o.ConfirmedBy = &confirmedBy.Int64 }
-		if confirmedAt.Valid { o.ConfirmedAt = &confirmedAt.Time }
-		if cancelledBy.Valid { o.CancelledBy = &cancelledBy.Int64 }
-		if cancelledAt.Valid { o.CancelledAt = &cancelledAt.Time }
-		if cancellationReason.Valid { o.CancellationReason = &cancellationReason.String }
-		if createdAt.Valid { o.CreatedAt = createdAt.Time }
-		if updatedAt.Valid { o.UpdatedAt = updatedAt.Time }
-		if confirmedByName.Valid { o.ConfirmedByName = &confirmedByName.String }
-		if cancelledByName.Valid { o.CancelledByName = &cancelledByName.String }
+		if quotationID.Valid {
+			o.QuotationID = &quotationID.Int64
+		}
+		if orderDatePG.Valid {
+			o.OrderDate = orderDatePG.Time
+		}
+		if expectedDelivery.Valid {
+			o.ExpectedDeliveryDate = &expectedDelivery.Time
+		}
+		if subtotal.Valid {
+			f, _ := subtotal.Float64Value()
+			o.Subtotal = f.Float64
+		}
+		if taxAmount.Valid {
+			f, _ := taxAmount.Float64Value()
+			o.TaxAmount = f.Float64
+		}
+		if totalAmount.Valid {
+			f, _ := totalAmount.Float64Value()
+			o.TotalAmount = f.Float64
+		}
+		if notes.Valid {
+			o.Notes = &notes.String
+		}
+		if confirmedBy.Valid {
+			o.ConfirmedBy = &confirmedBy.Int64
+		}
+		if confirmedAt.Valid {
+			o.ConfirmedAt = &confirmedAt.Time
+		}
+		if cancelledBy.Valid {
+			o.CancelledBy = &cancelledBy.Int64
+		}
+		if cancelledAt.Valid {
+			o.CancelledAt = &cancelledAt.Time
+		}
+		if cancellationReason.Valid {
+			o.CancellationReason = &cancellationReason.String
+		}
+		if createdAt.Valid {
+			o.CreatedAt = createdAt.Time
+		}
+		if updatedAt.Valid {
+			o.UpdatedAt = updatedAt.Time
+		}
+		if confirmedByName.Valid {
+			o.ConfirmedByName = &confirmedByName.String
+		}
+		if cancelledByName.Valid {
+			o.CancelledByName = &cancelledByName.String
+		}
 
 		orders = append(orders, o)
 	}
@@ -229,9 +264,9 @@ func (r *repository) Create(ctx context.Context, o SalesOrder) (int64, error) {
 		expectedDelivery = pgtype.Date{Time: *o.ExpectedDeliveryDate, Valid: true}
 	}
 	var subtotal, taxAmount, totalAmount pgtype.Numeric
-	subtotal.Scan(fmt.Sprintf("%f", o.Subtotal))
-	taxAmount.Scan(fmt.Sprintf("%f", o.TaxAmount))
-	totalAmount.Scan(fmt.Sprintf("%f", o.TotalAmount))
+	subtotal = numericOf(o.Subtotal)
+	taxAmount = numericOf(o.TaxAmount)
+	totalAmount = numericOf(o.TotalAmount)
 
 	var orderDate pgtype.Date
 	if !o.OrderDate.IsZero() {
@@ -259,7 +294,7 @@ func (r *repository) Update(ctx context.Context, id int64, updates map[string]in
 	query := "UPDATE sales_orders SET updated_at = NOW()"
 	var args []interface{}
 	argPos := 1
-	
+
 	if v, ok := updates["order_date"]; ok {
 		query += fmt.Sprintf(", order_date = $%d", argPos)
 		args = append(args, v)
@@ -290,24 +325,24 @@ func (r *repository) Update(ctx context.Context, id int64, updates map[string]in
 		args = append(args, v)
 		argPos++
 	}
-	
+
 	query += fmt.Sprintf(" WHERE id = $%d", argPos)
 	args = append(args, id)
-	
+
 	_, err := r.db.Exec(ctx, query, args...)
 	return err
 }
 
 func (r *repository) InsertLine(ctx context.Context, line SalesOrderLine) (int64, error) {
 	var quantity, unitPrice, discountPercent, discountAmount, taxPercent, taxAmount, lineTotal pgtype.Numeric
-	quantity.Scan(fmt.Sprintf("%f", line.Quantity))
-	unitPrice.Scan(fmt.Sprintf("%f", line.UnitPrice))
-	discountPercent.Scan(fmt.Sprintf("%f", line.DiscountPercent))
-	discountAmount.Scan(fmt.Sprintf("%f", line.DiscountAmount))
-	taxPercent.Scan(fmt.Sprintf("%f", line.TaxPercent))
-	taxAmount.Scan(fmt.Sprintf("%f", line.TaxAmount))
-	lineTotal.Scan(fmt.Sprintf("%f", line.LineTotal))
-	
+	quantity = numericOf(line.Quantity)
+	unitPrice = numericOf(line.UnitPrice)
+	discountPercent = numericOf(line.DiscountPercent)
+	discountAmount = numericOf(line.DiscountAmount)
+	taxPercent = numericOf(line.TaxPercent)
+	taxAmount = numericOf(line.TaxAmount)
+	lineTotal = numericOf(line.LineTotal)
+
 	return r.queries.InsertSalesOrderLine(ctx, sqlc.InsertSalesOrderLineParams{
 		SalesOrderID:    line.SalesOrderID,
 		ProductID:       line.ProductID,
@@ -390,15 +425,15 @@ func (r *repository) GenerateNumber(ctx context.Context, companyID int64, date t
 
 func mapOrderFromSqlc(row sqlc.SalesOrder) SalesOrder {
 	o := SalesOrder{
-		ID:          row.ID,
-		DocNumber:   row.DocNumber,
-		CompanyID:   row.CompanyID,
-		CustomerID:  row.CustomerID,
-		Status:      SalesOrderStatus(row.Status),
-		Currency:    row.Currency,
-		CreatedBy:   row.CreatedBy,
-		CreatedAt:   row.CreatedAt.Time,
-		UpdatedAt:   row.UpdatedAt.Time,
+		ID:         row.ID,
+		DocNumber:  row.DocNumber,
+		CompanyID:  row.CompanyID,
+		CustomerID: row.CustomerID,
+		Status:     SalesOrderStatus(row.Status),
+		Currency:   row.Currency,
+		CreatedBy:  row.CreatedBy,
+		CreatedAt:  row.CreatedAt.Time,
+		UpdatedAt:  row.UpdatedAt.Time,
 	}
 	if row.QuotationID.Valid {
 		val := row.QuotationID.Int64
@@ -454,11 +489,11 @@ func mapLinesFromSqlc(rows []sqlc.SalesOrderLine) []SalesOrderLine {
 	var lines []SalesOrderLine
 	for _, l := range rows {
 		line := SalesOrderLine{
-			ID:              l.ID,
-			SalesOrderID:    l.SalesOrderID,
-			ProductID:       l.ProductID,
-			UOM:             l.Uom,
-			LineOrder:       int(l.LineOrder),
+			ID:           l.ID,
+			SalesOrderID: l.SalesOrderID,
+			ProductID:    l.ProductID,
+			UOM:          l.Uom,
+			LineOrder:    int(l.LineOrder),
 		}
 		if l.Description.Valid {
 			val := l.Description.String
@@ -506,6 +541,14 @@ func getString(s *string) string {
 		return ""
 	}
 	return *s
+}
+
+// numericOf converts a float64 into a pgtype.Numeric. Scanning a formatted
+// finite float cannot fail, so the (impossible) error is deliberately ignored.
+func numericOf(f float64) pgtype.Numeric {
+	var n pgtype.Numeric
+	_ = n.Scan(fmt.Sprintf("%f", f))
+	return n
 }
 
 func sortOrderSalesOrders(sortBy, sortDir string) string {

@@ -349,7 +349,9 @@ func (h *Handler) render(w http.ResponseWriter, r *http.Request, tmpl string, da
 		Data:        data,
 	}
 	w.WriteHeader(status)
-	h.templates.Render(w, tmpl, viewData)
+	if err := h.templates.Render(w, tmpl, viewData); err != nil {
+		h.logger.Error("render template", slog.Any("error", err), slog.String("template", tmpl))
+	}
 }
 
 func (h *Handler) redirectWithFlash(w http.ResponseWriter, r *http.Request, url, flashType, message string) {
