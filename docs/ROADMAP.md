@@ -1,18 +1,45 @@
 # Odyssey ERP — Future Roadmap & Recommendations
 
-**Prepared:** 2026-01-11  
+**Prepared:** 2026-01-11
+**Revised:** 2026-07-14 (synced to actual codebase at v0.9.1)
 **Current Version:** v0.9.1
 
 ## Executive Summary
 
-Odyssey ERP telah menyelesaikan Phase 9 (Sales & AR). Dokumen ini berisi rekomendasi fitur untuk pengembangan selanjutnya, diprioritaskan berdasarkan business value dan technical foundation.
+Odyssey ERP has moved well beyond Phase 9. Since this roadmap was first drafted,
+**Phase 10 (Accounts Payable)** and **Phase 11 (Bank & Cash Management)** have been
+built and are user-facing, and **Phase 12 (Inventory Enhancements)** is largely
+complete. This document has been revised to reflect what is actually implemented and
+to re-prioritise the genuinely remaining work.
 
 ---
 
-## Phase 10: Accounts Payable (AP)
+## Implementation Status (verified against code, 2026-07-14)
 
-**Priority:** 🔴 High  
-**Estimated Effort:** 3-4 weeks
+| Area | Status | Evidence |
+|------|--------|----------|
+| Phase 10 — Accounts Payable | ✅ Implemented | `internal/ap/`, migrations 000023/000025, route `/finance/ap` |
+| Phase 11 — Bank accounts & transactions | ✅ Implemented | `internal/finance/banking/`, migration 000026, route `/finance/banking` |
+| Phase 11 — Bank reconciliation | ✅ Implemented | `internal/accounting/banks/`, migration 000030, route `/accounting/banks` |
+| Phase 11 — Cash flow report | ✅ Implemented | `internal/accounting/reports/cf.go` |
+| Phase 12 — Stock take & adjustment | ✅ Implemented | migrations 000027/000028, `/inventory/.../stock-takes`, `/adjustments` |
+| Phase 12 — Stock valuation | 🟡 Partial | Average + FIFO in `internal/inventory/service.go`; **no LIFO**, no `cost_method` column |
+| Phase 15 — Budget vs Actual | 🟡 Scaffold only | `reports/budget.go` + migration 000029 exist, but the handler serves **empty hardcoded data** — `accounting_budgets` is not yet wired |
+| Phase 13 — Fixed Assets | ❌ Not started | no `fixed_assets` table or module |
+| Phase 14 — Transaction-level multi-currency | ❌ Not started | FX exists only for consolidation (`internal/consol/fx/`), not realized/unrealized gain on AR/AP |
+| Phase 15 — Department reporting, Excel export | ❌ Not started | CSV export only; no `excelize` |
+
+The phase descriptions below are retained for reference. **Completed phases (10, 11, and
+most of 12) are kept for historical context; focus new work on the "Remaining Priorities"
+section near the end.**
+
+---
+
+## Phase 10: Accounts Payable (AP) — ✅ DONE
+
+**Status:** Implemented (`internal/ap/`, route `/finance/ap`).
+**Priority:** ~~🔴 High~~
+**Estimated Effort:** ~~3-4 weeks~~
 
 ### Features
 | Feature | Description | Priority |
@@ -31,10 +58,13 @@ Odyssey ERP telah menyelesaikan Phase 9 (Sales & AR). Dokumen ini berisi rekomen
 
 ---
 
-## Phase 11: Bank & Cash Management
+## Phase 11: Bank & Cash Management — ✅ DONE (auto bank feed pending)
 
-**Priority:** 🔴 High  
-**Estimated Effort:** 2-3 weeks
+**Status:** Bank accounts, transactions, transfers, reconciliation, and cash flow report
+are implemented (`internal/finance/banking/`, `internal/accounting/banks/`). Only the
+**auto bank feed (CSV/OFX import)** remains outstanding.
+**Priority:** ~~🔴 High~~
+**Estimated Effort:** ~~2-3 weeks~~
 
 ### Features
 | Feature | Description | Priority |
@@ -52,10 +82,13 @@ Odyssey ERP telah menyelesaikan Phase 9 (Sales & AR). Dokumen ini berisi rekomen
 
 ---
 
-## Phase 12: Inventory Enhancements
+## Phase 12: Inventory Enhancements — 🟡 MOSTLY DONE
 
-**Priority:** 🟡 Medium  
-**Estimated Effort:** 3-4 weeks
+**Status:** Stock take, stock adjustment (with audit trail), and valuation (Average + FIFO)
+are implemented. Remaining: **LIFO costing** (and a `cost_method` column), stock reorder
+automation, batch/lot tracking, and serial numbers.
+**Priority:** 🟡 Medium
+**Estimated Effort:** remaining items ~1-2 weeks
 
 ### Features
 | Feature | Description | Priority |
@@ -115,24 +148,30 @@ Odyssey ERP telah menyelesaikan Phase 9 (Sales & AR). Dokumen ini berisi rekomen
 
 ---
 
-## Phase 15: Reporting & Analytics
+## Phase 15: Reporting & Analytics — 🟡 PARTIAL
 
-**Priority:** 🟡 Medium  
+**Priority:** 🟡 Medium
 **Estimated Effort:** 3-4 weeks
 
+> **Status note:** Analytics and Insights modules exist. **Budget vs Actual is
+> scaffolded but not functional** — `internal/accounting/reports/budget.go` and the
+> `accounting_budgets` table (migration 000029) exist, but the handler currently serves
+> empty hardcoded data instead of reading the table. Wiring this up is the top follow-up
+> item. Department reporting and native Excel export are not started (CSV export only).
+
 ### Features
-| Feature | Description | Priority |
-|---------|-------------|----------|
-| Custom Reports | Build reports with drag-drop | Low |
-| Dashboard Widgets | Customizable dashboard | Medium |
-| Budget vs Actual | Compare to budget | High |
-| Department Reporting | P&L by department/cost center | Medium |
-| Export to Excel | Native Excel export | High |
-| Scheduled Reports | Email reports on schedule | Medium |
+| Feature | Description | Priority | Status |
+|---------|-------------|----------|--------|
+| Custom Reports | Build reports with drag-drop | Low | Not started |
+| Dashboard Widgets | Customizable dashboard | Medium | Not started |
+| Budget vs Actual | Compare to budget | High | 🟡 Scaffold (data not wired) |
+| Department Reporting | P&L by department/cost center | Medium | Not started |
+| Export to Excel | Native Excel export | High | Not started (CSV only) |
+| Scheduled Reports | Email reports on schedule | Medium | Not started |
 
 ### Technical Notes
 - Consider Go templating or external BI tool
-- `budgets` table with period, account, amount
+- `accounting_budgets` table already exists (migration 000029) — wire the handler to it
 - Add `department_id` to transactions
 
 ---
@@ -186,10 +225,12 @@ These can be implemented in 1-2 days each:
 
 ## Technical Debt & Improvements
 
+> Checklist reviewed against code on 2026-07-14. Items marked ✅ are verified resolved.
+
 ### Code Quality
-- [ ] Fix template embedding issue (new templates not embedded)
-- [ ] Add comprehensive unit tests for AR module
-- [ ] Add integration tests for AR workflows
+- [x] ✅ Fix template embedding issue — templates now embedded via `go:embed` (`web/embed.go`, `internal/view/templates.go`)
+- [x] ✅ Add comprehensive unit tests for AR module — `internal/ar/service_test.go` exists
+- [ ] Add integration tests for AR workflows — `internal/integration/` dir exists but is **empty**
 - [ ] Refactor handler error responses to be consistent
 
 ### Performance
@@ -198,40 +239,42 @@ These can be implemented in 1-2 days each:
 - [ ] Optimize aging report query
 
 ### Security
-- [ ] Add rate limiting on login
+- [ ] Add rate limiting on login — a global limiter exists (`httprate`), but `POST /login` is **not** specifically throttled
 - [ ] Implement password complexity rules
 - [ ] Add 2FA support
 - [ ] Session timeout configuration
 
 ### DevOps
-- [ ] Add CI/CD pipeline
+- [x] ✅ Add CI/CD pipeline — `.github/workflows/ci.yml` (build + Postgres/Redis services)
 - [ ] Add staging environment
 - [ ] Implement blue-green deployment
-- [ ] Add automated database backups
+- [ ] Add automated database backups — no `pg_dump`/backup script in `tools/`
 
 ---
 
 ## Recommended Next Steps
 
-1. **Immediate (Next 2 weeks)**
-   - Fix template embedding issue
-   - Add AR unit tests
-   - Start Phase 10 (AP) planning
+1. **Immediate (highest value, low effort)**
+   - Wire **Budget vs Actual** handler to the `accounting_budgets` table (currently serves empty hardcoded data — the feature looks live but returns nothing)
+   - Add login-specific rate limiting to `POST /login` (brute-force protection; `httprate` already available)
+   - Add tests for `users` / `roles` / `rbac` — the access-control surface currently has **zero** test coverage
 
 2. **Short-term (1 month)**
-   - Complete Phase 10 (AP)
-   - Implement Bank Management basics
-   - Add PDF invoice email
+   - Automated DB backup script (`pg_dump`) in `tools/`
+   - Finish Phase 12: decide on LIFO costing / `cost_method`; stock reorder automation
+   - Bank auto-feed (CSV/OFX import) to close out Phase 11
 
 3. **Medium-term (3 months)**
-   - Complete Bank Reconciliation
-   - Implement Stock Valuation
-   - Add Budget tracking
+   - Choose the next major module: **Fixed Assets (Phase 13)** or **transaction-level
+     multi-currency with realized/unrealized gain (Phase 14)**, driven by business need
+   - Department reporting and native Excel export (Phase 15)
 
 ---
 
 ## Conclusion
 
-Prioritas utama adalah menyelesaikan **Accounts Payable (Phase 10)** untuk melengkapi siklus finance dasar. Setelah itu, **Bank Management** dan **Inventory Enhancements** akan memberikan nilai bisnis tertinggi.
-
-Quick wins seperti PDF email dan dashboard KPIs dapat diimplementasikan secara paralel untuk meningkatkan user experience.
+The core finance cycle (GL, AR, **AP**, and **Banking with reconciliation**) is complete
+and user-facing, and Inventory is largely enhanced. The highest-leverage work now is
+**finishing what is half-built** — wiring up Budget vs Actual, hardening login rate
+limiting, and covering the RBAC/users/roles surface with tests — before starting the next
+major module (**Fixed Assets** or **transaction-level multi-currency**).

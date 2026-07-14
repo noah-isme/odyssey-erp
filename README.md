@@ -2,6 +2,19 @@
 
 Modern ERP system built with Go, PostgreSQL, and Alpine Linux.
 
+**Current version:** v0.9.1 — see [CHANGELOG](docs/CHANGELOG.md) and [releases](docs/releases/).
+
+## 📦 Modules
+
+Finance & accounting: General Ledger, Accounts Receivable (AR), Accounts Payable (AP),
+Banking (accounts, transactions, reconciliation, cash flow), Period Close, Consolidation
+(FX, intercompany, elimination), Variance, Board Pack.
+
+Operations: Master Data, Procurement (PR → PO → GRN), Sales (quotations & orders),
+Delivery, Inventory (valuation, stock takes, adjustments).
+
+Platform: Auth, RBAC, Users & Roles, Analytics, Insights, Dashboard, Global Search, Audit log.
+
 ## 🚀 Quick Start
 
 ```bash
@@ -50,7 +63,7 @@ All documentation is in [`docs/`](docs/README.md):
 |---------|------|-------------|
 | App | 8080 | Odyssey ERP |
 | PostgreSQL | 5432 | Database |
-| Redis | 6379 | Cache |
+| Redis | 6380 | Cache (host 6380 → container 6379) |
 | Mailpit | 8025 | Email testing |
 | Gotenberg | 3000 | PDF generator |
 
@@ -60,7 +73,9 @@ All documentation is in [`docs/`](docs/README.md):
 - **Backend:** Go 1.24+, Chi router
 - **Database:** PostgreSQL 15, sqlc
 - **Cache:** Redis 7
-- **Frontend:** HTML, Pico CSS (SSR)
+- **Background jobs:** Asynq
+- **Frontend:** Server-side rendered HTML with a custom component CSS design system (`web/static/css`)
+- **PDF:** Gotenberg
 - **Container:** Docker with Alpine Linux
 
 ## 📝 License

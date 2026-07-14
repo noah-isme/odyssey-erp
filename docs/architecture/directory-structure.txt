@@ -1,16 +1,62 @@
+Odyssey ERP — Directory Structure
+Regenerated: 2026-07-14 (reflects codebase at v0.9.1)
+
 /cmd
-  /odyssey         # HTTP server entrypoint
-  /worker          # Asynq worker entrypoint
-/internal
-  /app             # config, router, middleware
-  /auth            # domain auth (handler, service, repo, sqlc)
-  /shared          # session, csrf, respond, errors
-  /view            # template engine helper
-/jobs              # asynq client/server + HTTP observability
-/report            # gotenberg client + handler
-/migrations        # SQL schema changes
+  /odyssey            # HTTP server entrypoint
+  /worker             # Asynq background-worker entrypoint
+
+/internal             # Application modules (modular monolith, clean architecture)
+  /app                # Config, router wiring, middleware
+  /auth               # Authentication (login/session)
+  /rbac               # Role-based access control middleware & checks
+  /roles              # Role management
+  /users              # User management
+
+  /masterdata         # Companies, branches, warehouses, products, categories,
+                      #   suppliers, customers, units, taxes
+  /accounting         # GL: accounts, journals, periods, mappings, reports,
+                      #   banks (reconciliation), shared
+  /ar                 # Accounts Receivable (invoices, payments, aging)
+  /ap                 # Accounts Payable (invoices, payments, allocations)
+  /finance            # /banking — bank accounts, transactions, transfers
+  /procurement        # Purchase Request -> PO -> Goods Receipt (GRN)
+  /sales              # Quotations, sales orders, customers
+  /delivery           # Delivery orders, fulfilment, integrations, export
+  /inventory          # Stock levels, valuation, stock takes, adjustments
+
+  /consol             # Consolidation: fx, intercompany (ic), http
+  /elimination        # Consolidation elimination entries
+  /variance           # Variance analysis
+  /close              # Period close workflow
+  /boardpack          # Board pack generation
+  /analytics          # Analytics: export, http, svg, ui
+  /insights           # Insights: http, svg
+  /dashboard          # Landing dashboard
+  /search             # Global search
+  /audit              # Audit log
+
+  /jobs               # In-process job definitions
+  /observability      # Metrics / logging helpers
+  /perf               # Performance helpers
+  /platform           # cache, db, httpx infrastructure
+  /shared             # Session, CSRF, respond, errors (cross-module)
+  /view               # HTML template engine + helpers
+  /sqlc               # Generated sqlc query code
+  /testing            # Test helpers (incl. guard)
+  /e2e                # End-to-end tests
+  /integration        # Integration test harness (currently empty)
+
+/jobs                 # Asynq client/server + HTTP observability (top-level)
+/report               # Gotenberg PDF client + handler
+/migrations           # SQL schema migrations (000001 .. 000030)
+/sql                  # sqlc queries & schema sources
 /web
-  /static          # CSS placeholder
-  /templates       # layout, partials, pages SSR
-/docs              # arsitektur & struktur
-/sqlc.yaml         # sqlc config
+  /static             # CSS (custom component design system) + JS
+  /templates          # layouts, partials, pages (SSR), reports
+/tools                # scripts/ (run, status, stop), db-setup/
+/scripts              # Auxiliary scripts
+/deploy               # Deployment assets
+/samples              # Sample data / fixtures
+/testing              # Top-level test assets
+/docs                 # Documentation (this tree)
+/sqlc.yaml            # sqlc config
