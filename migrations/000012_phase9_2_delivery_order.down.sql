@@ -23,6 +23,7 @@ DROP TRIGGER IF EXISTS trg_delivery_orders_updated_at ON delivery_orders;
 DROP FUNCTION IF EXISTS update_sales_order_status_from_delivery();
 DROP FUNCTION IF EXISTS update_so_line_quantity_delivered();
 DROP FUNCTION IF EXISTS generate_delivery_order_number(BIGINT, DATE);
+DROP FUNCTION IF EXISTS update_updated_at_column();
 
 -- ============================================================================
 -- DROP INDEXES

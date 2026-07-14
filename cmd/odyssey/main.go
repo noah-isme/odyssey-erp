@@ -191,7 +191,11 @@ func main() {
 		logger.Error("init job client", slog.Any("error", err))
 		os.Exit(1)
 	}
-	defer jobClient.Close()
+	defer func() {
+		if err := jobClient.Close(); err != nil {
+			logger.Warn("close job client", slog.Any("error", err))
+		}
+	}()
 
 	arRepo := ar.NewRepository(dbpool)
 	arService := ar.NewService(arRepo)
@@ -280,7 +284,7 @@ func main() {
 	varianceService := variancepkg.NewService(varianceRepo)
 	boardpackRepo := boardpacksvc.NewRepository(dbpool)
 	boardpackService := boardpacksvc.NewService(boardpackRepo)
-	
+
 	varianceHandler := variancepkg.NewHandler(logger, varianceService, templates, csrfManager, rbacMiddleware, jobClient)
 	boardpackHandler := boardpackhttp.NewHandler(logger, boardpackService, templates, csrfManager, rbacMiddleware, jobClient)
 

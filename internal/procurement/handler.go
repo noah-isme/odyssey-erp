@@ -237,9 +237,9 @@ func (h *Handler) emailPO(w http.ResponseWriter, r *http.Request) {
 	}
 
 	supplierEmail := "supplier@example.com"
-	
+
 	payload := fmt.Sprintf(`{"to": ["%s"], "subject": "Purchase Order %s", "body_html": "<p>Please find attached our purchase order.</p>"}`, supplierEmail, po.Number)
-	
+
 	if h.asynqClient != nil {
 		task := asynq.NewTask("email:deliver", []byte(payload))
 		_, err = h.asynqClient.EnqueueContext(r.Context(), task)

@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/uuid"
 
-
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/periods"
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/shared"
 	closepkg "github.com/odyssey-erp/odyssey-erp/internal/close"
@@ -20,7 +19,7 @@ type stubRepo struct {
 
 func (r stubRepo) WithTx(ctx context.Context, fn func(context.Context, TxRepository) error) error {
 	// In test stub we ignore the wrapper type for simplicity or mock it
-	return fn(ctx, stubTx{period: r.period})
+	return fn(ctx, stubTx(r))
 }
 
 func (r stubRepo) List(ctx context.Context) ([]JournalEntry, error) {
@@ -126,4 +125,3 @@ func TestPostJournalAllowsSoftClosedPeriod(t *testing.T) {
 		t.Fatalf("expected success, got %v", err)
 	}
 }
-

@@ -5,7 +5,6 @@ import (
 	"time"
 )
 
-
 // GRNLineEvent describes individual line values for integration mapping.
 type GRNLineEvent struct {
 	ProductID int64

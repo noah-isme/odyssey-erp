@@ -163,20 +163,20 @@ const (
 
 // StockTake represents a physical inventory count session.
 type StockTake struct {
-	ID          int64
-	UUID        string
-	Number      string
-	WarehouseID int64
-	Status      StockTakeStatus
-	Note        string
-	TakenAt     time.Time
-	CreatedBy   int64
-	PostedBy    int64
-	PostedAt    time.Time
-	CreatedAt    time.Time
-	CreatorEmail string
+	ID            int64
+	UUID          string
+	Number        string
+	WarehouseID   int64
+	Status        StockTakeStatus
+	Note          string
+	TakenAt       time.Time
+	CreatedBy     int64
+	PostedBy      int64
+	PostedAt      time.Time
+	CreatedAt     time.Time
+	CreatorEmail  string
 	WarehouseName string
-	Lines        []StockTakeLine
+	Lines         []StockTakeLine
 }
 
 // StockTakeLine represents a count for a specific product.

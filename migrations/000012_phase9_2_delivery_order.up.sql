@@ -131,6 +131,14 @@ COMMENT ON FUNCTION generate_delivery_order_number IS
 -- TRIGGERS
 -- ============================================================================
 
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 -- Trigger: Auto-update updated_at timestamp on delivery_orders
 CREATE TRIGGER trg_delivery_orders_updated_at
     BEFORE UPDATE ON delivery_orders
@@ -157,7 +165,7 @@ BEGIN
     SELECT COALESCE(SUM(dol.quantity_delivered), 0)
     INTO v_total_delivered
     FROM delivery_order_lines dol
-    INNER JOIN delivery_orders do ON dord.id = dol.delivery_order_id
+    INNER JOIN delivery_orders dord ON dord.id = dol.delivery_order_id
     WHERE dol.sales_order_line_id = NEW.sales_order_line_id
       AND dord.status IN ('CONFIRMED', 'IN_TRANSIT', 'DELIVERED');
 

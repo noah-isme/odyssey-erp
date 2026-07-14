@@ -31,7 +31,7 @@ func NewHandler(
 	// Initializing sub-handlers
 	// Note: sessions manager is not passed to sub-handlers as they use request context,
 	// but kept in signature to match main.go
-	
+
 	h := &Handler{
 		customers: customers.NewHandler(
 			logger,

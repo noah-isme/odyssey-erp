@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -127,7 +126,7 @@ func (r *repository) List(ctx context.Context, req ListCustomersRequest) ([]Cust
 
 	// Sort
 	orderBy := sortOrderCustomers(req.SortBy, req.SortDir)
-	
+
 	// Fetch records
 	query := fmt.Sprintf(`
 		SELECT id, code, name, company_id, email, phone, tax_id,
@@ -165,21 +164,43 @@ func (r *repository) List(ctx context.Context, req ListCustomersRequest) ([]Cust
 			return nil, 0, err
 		}
 
-		if email.Valid { c.Email = &email.String }
-		if phone.Valid { c.Phone = &phone.String }
-		if taxID.Valid { c.TaxID = &taxID.String }
+		if email.Valid {
+			c.Email = &email.String
+		}
+		if phone.Valid {
+			c.Phone = &phone.String
+		}
+		if taxID.Valid {
+			c.TaxID = &taxID.String
+		}
 		if creditLimit.Valid {
 			f, _ := creditLimit.Float64Value()
 			c.CreditLimit = f.Float64
 		}
-		if addr1.Valid { c.AddressLine1 = &addr1.String }
-		if addr2.Valid { c.AddressLine2 = &addr2.String }
-		if city.Valid { c.City = &city.String }
-		if state.Valid { c.State = &state.String }
-		if postal.Valid { c.PostalCode = &postal.String }
-		if notes.Valid { c.Notes = &notes.String }
-		if createdAt.Valid { c.CreatedAt = createdAt.Time }
-		if updatedAt.Valid { c.UpdatedAt = updatedAt.Time }
+		if addr1.Valid {
+			c.AddressLine1 = &addr1.String
+		}
+		if addr2.Valid {
+			c.AddressLine2 = &addr2.String
+		}
+		if city.Valid {
+			c.City = &city.String
+		}
+		if state.Valid {
+			c.State = &state.String
+		}
+		if postal.Valid {
+			c.PostalCode = &postal.String
+		}
+		if notes.Valid {
+			c.Notes = &notes.String
+		}
+		if createdAt.Valid {
+			c.CreatedAt = createdAt.Time
+		}
+		if updatedAt.Valid {
+			c.UpdatedAt = updatedAt.Time
+		}
 
 		customers = append(customers, c)
 	}
@@ -189,8 +210,8 @@ func (r *repository) List(ctx context.Context, req ListCustomersRequest) ([]Cust
 
 func (r *repository) Create(ctx context.Context, customer Customer) (int64, error) {
 	var creditLimit pgtype.Numeric
-	creditLimit.Scan(fmt.Sprintf("%f", customer.CreditLimit))
-	
+	_ = creditLimit.Scan(fmt.Sprintf("%f", customer.CreditLimit))
+
 	return r.queries.CreateCustomer(ctx, sqlc.CreateCustomerParams{
 		Code:             customer.Code,
 		Name:             customer.Name,
@@ -216,7 +237,7 @@ func (r *repository) Update(ctx context.Context, id int64, updates map[string]in
 	query := "UPDATE customers SET updated_at = NOW()"
 	var args []interface{}
 	argPos := 1
-	
+
 	if v, ok := updates["name"]; ok {
 		query += fmt.Sprintf(", name = $%d", argPos)
 		args = append(args, v)
@@ -287,10 +308,10 @@ func (r *repository) Update(ctx context.Context, id int64, updates map[string]in
 		args = append(args, v)
 		argPos++
 	}
-	
+
 	query += fmt.Sprintf(" WHERE id = $%d", argPos)
 	args = append(args, id)
-	
+
 	_, err := r.db.Exec(ctx, query, args...)
 	return err
 }
