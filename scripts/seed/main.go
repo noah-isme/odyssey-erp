@@ -202,7 +202,7 @@ func seedRBAC(ctx context.Context, pool *pgxpool.Pool) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	for _, perm := range perms {
 		if _, err := tx.Exec(ctx, `
@@ -309,7 +309,7 @@ func seedMasterData(ctx context.Context, pool *pgxpool.Pool) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	// Companies
 	companies := []struct {
@@ -510,7 +510,7 @@ func seedAccounting(ctx context.Context, pool *pgxpool.Pool) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	// Chart of Accounts
 	accounts := []struct {
@@ -605,7 +605,7 @@ func seedConsolidation(ctx context.Context, pool *pgxpool.Pool) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	// Consol Group
 	var groupID int64
@@ -675,7 +675,7 @@ func seedProcurement(ctx context.Context, pool *pgxpool.Pool) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	// Get references
 	var supplierID, warehouseID, productID, taxID int64
@@ -814,7 +814,7 @@ func seedSales(ctx context.Context, pool *pgxpool.Pool) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	// Get admin user and first company
 	var adminID, companyID int64
@@ -982,7 +982,7 @@ func seedJournals(ctx context.Context, pool *pgxpool.Pool) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	// IDs
 	var company1ID, company2ID, adminID int64
@@ -1114,7 +1114,7 @@ func seedVariance(ctx context.Context, pool *pgxpool.Pool) error {
 	if err != nil {
 		return err
 	}
-	_ = tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	var c1, adminID, rawPeriodID, rawPrevPeriodID, acctPeriodID, acctPrevPeriodID int64
 	_ = pool.QueryRow(ctx, "SELECT id FROM companies WHERE code = 'ODY-01'").Scan(&c1)
 	_ = pool.QueryRow(ctx, "SELECT id FROM users WHERE email = 'admin@odyssey.local'").Scan(&adminID)
@@ -1219,7 +1219,7 @@ func seedInventory(ctx context.Context, pool *pgxpool.Pool) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	// Get Warehouse and Product for seeding
 	var warehouseID, productID int64
