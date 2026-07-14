@@ -1,6 +1,9 @@
 -- Migration 016: Schema Standardization
 -- Fix type inconsistencies and add missing timestamps
 
+-- This view depends on warehouses.id, whose type is widened below.
+DROP VIEW IF EXISTS vw_delivery_orders_detail;
+
 -- ============================================================================
 -- ADD MISSING TIMESTAMPS
 -- ============================================================================
@@ -128,3 +131,48 @@ ALTER TABLE delivery_order_lines ALTER COLUMN product_id TYPE BIGINT;
 COMMENT ON COLUMN companies.id IS 'Primary key (BIGINT for consistency)';
 COMMENT ON COLUMN branches.id IS 'Primary key (BIGINT for consistency)';
 COMMENT ON COLUMN warehouses.id IS 'Primary key (BIGINT for consistency)';
+
+CREATE VIEW vw_delivery_orders_detail AS
+SELECT
+    dord.id,
+    dord.doc_number,
+    dord.company_id,
+    dord.sales_order_id,
+    so.doc_number AS sales_order_number,
+    dord.warehouse_id,
+    w.name AS warehouse_name,
+    dord.customer_id,
+    c.name AS customer_name,
+    dord.delivery_date,
+    dord.status,
+    dord.driver_name,
+    dord.vehicle_number,
+    dord.tracking_number,
+    dord.notes,
+    dord.created_by,
+    u_created.email AS created_by_name,
+    dord.confirmed_by,
+    u_confirmed.email AS confirmed_by_name,
+    dord.confirmed_at,
+    dord.delivered_at,
+    dord.created_at,
+    dord.updated_at,
+    COUNT(dol.id) AS line_count,
+    SUM(dol.quantity_to_deliver) AS total_quantity
+FROM delivery_orders dord
+INNER JOIN sales_orders so ON so.id = dord.sales_order_id
+INNER JOIN warehouses w ON w.id = dord.warehouse_id
+INNER JOIN customers c ON c.id = dord.customer_id
+INNER JOIN users u_created ON u_created.id = dord.created_by
+LEFT JOIN users u_confirmed ON u_confirmed.id = dord.confirmed_by
+LEFT JOIN delivery_order_lines dol ON dol.delivery_order_id = dord.id
+GROUP BY
+    dord.id, dord.doc_number, dord.company_id, dord.sales_order_id, so.doc_number,
+    dord.warehouse_id, w.name, dord.customer_id, c.name, dord.delivery_date,
+    dord.status, dord.driver_name, dord.vehicle_number, dord.tracking_number,
+    dord.notes, dord.created_by, u_created.email, dord.confirmed_by,
+    u_confirmed.email, dord.confirmed_at, dord.delivered_at,
+    dord.created_at, dord.updated_at;
+
+COMMENT ON VIEW vw_delivery_orders_detail IS
+'Enriched view of delivery orders with related entity details';
