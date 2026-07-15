@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
@@ -31,6 +32,15 @@ type Config struct {
 
 	GotenbergURL        string `envconfig:"GOTENBERG_URL" default:"http://127.0.0.1:3000"`
 	BoardPackStorageDir string `envconfig:"BOARD_PACK_STORAGE" default:"./var/boardpacks"`
+
+	BoardPackStorageDriver     string `envconfig:"BOARD_PACK_STORAGE_DRIVER" default:"local"`
+	BoardPackS3Endpoint        string `envconfig:"BOARD_PACK_S3_ENDPOINT"`
+	BoardPackS3Region          string `envconfig:"BOARD_PACK_S3_REGION" default:"us-east-1"`
+	BoardPackS3Bucket          string `envconfig:"BOARD_PACK_S3_BUCKET" default:"odyssey-boardpacks"`
+	BoardPackS3AccessKeyID     string `envconfig:"BOARD_PACK_S3_ACCESS_KEY_ID"`
+	BoardPackS3SecretAccessKey string `envconfig:"BOARD_PACK_S3_SECRET_ACCESS_KEY"`
+	BoardPackS3UsePathStyle    bool   `envconfig:"BOARD_PACK_S3_USE_PATH_STYLE" default:"true"`
+	BoardPackS3AutoCreate      bool   `envconfig:"BOARD_PACK_S3_AUTO_CREATE_BUCKET" default:"false"`
 }
 
 // LoadConfig reads configuration from environment variables.
@@ -44,6 +54,9 @@ func LoadConfig() (*Config, error) {
 	}
 	if cfg.CSRFSecret == "" {
 		return nil, errors.New("csrf secret must be provided")
+	}
+	if cfg.GotenbergURL != "" && !strings.Contains(cfg.GotenbergURL, "://") {
+		cfg.GotenbergURL = "http://" + cfg.GotenbergURL
 	}
 	return &cfg, nil
 }

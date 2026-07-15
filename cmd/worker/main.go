@@ -59,6 +59,11 @@ func main() {
 	if err := redisClient.Ping(ctx).Err(); err != nil {
 		logger.Warn("redis ping", slog.Any("error", err))
 	}
+	redisOpts, err := cache.AsynqOptions(cfg.RedisAddr)
+	if err != nil {
+		logger.Error("parse redis configuration", slog.Any("error", err))
+		os.Exit(1)
+	}
 
 	analyticsRepo := sqlc.New(pool)
 	analyticsCache := analytics.NewCache(redisClient, 10*time.Minute)
@@ -82,12 +87,27 @@ func main() {
 		logger.Error("init board pack renderer", slog.Any("error", err))
 		os.Exit(1)
 	}
+	boardpackStorage, err := boardpack.NewStorage(ctx, boardpack.StorageConfig{
+		Driver:          cfg.BoardPackStorageDriver,
+		LocalDir:        cfg.BoardPackStorageDir,
+		Endpoint:        cfg.BoardPackS3Endpoint,
+		Region:          cfg.BoardPackS3Region,
+		Bucket:          cfg.BoardPackS3Bucket,
+		AccessKeyID:     cfg.BoardPackS3AccessKeyID,
+		SecretAccessKey: cfg.BoardPackS3SecretAccessKey,
+		UsePathStyle:    cfg.BoardPackS3UsePathStyle,
+		AutoCreate:      cfg.BoardPackS3AutoCreate,
+	})
+	if err != nil {
+		logger.Error("init board pack storage", slog.Any("error", err))
+		os.Exit(1)
+	}
 	boardpackJob := boardpack.NewJob(boardpack.JobConfig{
-		Service:    boardpackService,
-		Builder:    boardpackBuilder,
-		Renderer:   boardpackRenderer,
-		StorageDir: cfg.BoardPackStorageDir,
-		Logger:     logger,
+		Service:  boardpackService,
+		Builder:  boardpackBuilder,
+		Renderer: boardpackRenderer,
+		Storage:  boardpackStorage,
+		Logger:   logger,
 	})
 
 	warmupTask, err := jobs.NewInsightsWarmupTask("active")
@@ -106,7 +126,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	asynqClient := asynq.NewClient(asynq.RedisClientOpt{Addr: cfg.RedisAddr})
+	asynqClient := asynq.NewClient(redisOpts)
 	defer func() {
 		if err := asynqClient.Close(); err != nil {
 			logger.Warn("close asynq client", slog.Any("error", err))
@@ -114,7 +134,7 @@ func main() {
 	}()
 
 	worker, err := jobs.NewWorker(jobs.WorkerConfig{
-		RedisOpts: asynq.RedisClientOpt{Addr: cfg.RedisAddr},
+		RedisOpts: redisOpts,
 		Logger:    logger,
 		Handlers: []jobs.TaskHandler{
 			{Type: jobs.TaskAnalyticsInsightsWarmup, Handler: warmupJob.Handle},

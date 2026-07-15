@@ -5,7 +5,6 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 
@@ -26,11 +25,12 @@ type Handler struct {
 	csrf      *shared.CSRFManager
 	rbac      rbac.Middleware
 	jobs      *jobs.Client
+	storage   boardpack.Storage
 }
 
 // NewHandler constructs a Handler value.
-func NewHandler(logger *slog.Logger, service *boardpack.Service, templates *view.Engine, csrf *shared.CSRFManager, rbac rbac.Middleware, jobsClient *jobs.Client) *Handler {
-	return &Handler{logger: logger, service: service, templates: templates, csrf: csrf, rbac: rbac, jobs: jobsClient}
+func NewHandler(logger *slog.Logger, service *boardpack.Service, templates *view.Engine, csrf *shared.CSRFManager, rbac rbac.Middleware, jobsClient *jobs.Client, storage boardpack.Storage) *Handler {
+	return &Handler{logger: logger, service: service, templates: templates, csrf: csrf, rbac: rbac, jobs: jobsClient, storage: storage}
 }
 
 // MountRoutes registers HTTP routes.
@@ -182,7 +182,7 @@ func (h *Handler) download(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "file belum siap", http.StatusBadRequest)
 		return
 	}
-	file, err := os.Open(pack.FilePath)
+	file, err := h.storage.Open(r.Context(), pack.FilePath)
 	if err != nil {
 		h.logger.Error("open board pack", slog.Any("error", err), slog.String("path", pack.FilePath))
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
