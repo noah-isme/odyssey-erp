@@ -1,0 +1,17 @@
+{{ define "pages/masterdata/branch_form.html" }}{{ template "layouts/base.html" . }}{{ end }}
+{{ define "title" }}{{ if .Data.Branch }}Edit Branch{{ else }}New Branch{{ end }}{{ end }}
+{{ define "content" }}{{ template "partials/masterdata/form.html" . }}{{ end }}
+{{ define "masterdata-form-heading" }}{{ if .Data.Branch }}Edit Branch{{ else }}New Branch{{ end }}{{ end }}
+{{ define "ui-page-header-title" }}{{ template "masterdata-form-heading" . }}{{ end }}
+{{ define "ui-page-header-subtitle" }}Complete the required information, then save the record.{{ end }}
+{{ define "ui-page-header-actions" }}<a class="btn btn--secondary" href="{{ template "masterdata-form-cancel-url" . }}">Cancel</a>{{ end }}
+{{ define "masterdata-form-action" }}{{ if .Data.Branch }}/masterdata/branches/{{ .Data.Branch.ID }}/edit{{ else }}/masterdata/branches{{ end }}{{ end }}
+{{ define "masterdata-form-cancel-url" }}{{ if .Data.Branch }}/masterdata/branches/{{ .Data.Branch.ID }}{{ else }}/masterdata/branches{{ end }}{{ end }}
+{{ define "masterdata-form-fields" }}
+<div class="form-grid">
+    <div class="form-group"><label class="form-label" for="company_id">Company</label><select class="form-select" id="company_id" name="company_id" required><option value="">Select company</option>{{ $branch := .Data.Branch }}{{ range .Data.Companies }}<option value="{{ .ID }}" {{ if $branch }}{{ if eq .ID $branch.CompanyID }}selected{{ end }}{{ end }}>{{ .Code }} — {{ .Name }}</option>{{ end }}</select></div>
+    <div class="form-group"><label class="form-label" for="code">Code</label><input class="form-input" id="code" name="code" required maxlength="50" value="{{ with .Data.Branch }}{{ .Code }}{{ end }}"></div>
+    <div class="form-group"><label class="form-label" for="name">Name</label><input class="form-input" id="name" name="name" required maxlength="200" value="{{ with .Data.Branch }}{{ .Name }}{{ end }}"></div>
+</div>
+<div class="form-group mt-6"><label class="form-label" for="address">Address</label><textarea class="form-textarea" id="address" name="address" maxlength="500">{{ with .Data.Branch }}{{ .Address }}{{ end }}</textarea></div>
+{{ end }}

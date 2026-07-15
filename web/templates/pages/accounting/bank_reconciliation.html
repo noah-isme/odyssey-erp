@@ -5,29 +5,29 @@
 {{ define "title" }}Bank Reconciliation{{ end }}
 
 {{ define "content" }}
-<div class="container">
-    <header class="dashboard-header">
-        <div class="dashboard-header-content">
-            <h1 class="dashboard-title">Bank Reconciliation</h1>
-            <p class="dashboard-subtitle">
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-title">Bank Reconciliation</h1>
+            <p class="page-subtitle">
                 Statement Date: {{ .Data.Statement.StatementDate.Time.Format "02 Jan 2006" }} | 
                 Closing Balance: {{ .Data.Statement.EndingBalance | formatCurrency "IDR" }}
             </p>
         </div>
-        <div class="dashboard-actions">
+        <div class="page-header__actions">
             {{ if ne .Data.Statement.Status "RECONCILED" }}
             <form action="/accounting/banks/statements/{{ .Data.Statement.ID }}/confirm" method="post">
                 <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
-                <button type="submit" class="button primary">Confirm Statement</button>
+                <button type="submit" class="btn btn--primary">Confirm Statement</button>
             </form>
             {{ else }}
-            <span class="badge badge-success">Reconciled</span>
+            {{ template "partials/ui/status_badge.html" "RECONCILED" }}
             {{ end }}
         </div>
     </header>
 
-    <div class="card card-table mt-6">
-        <table class="table">
+    <div class="card card-table table-responsive mt-6">
+        <table class="table" aria-label="Bank reconciliation entries">
             <thead>
                 <tr>
                     <th>Date</th>
@@ -49,9 +49,9 @@
                     <td>{{ .ReferenceNumber.String }}</td>
                     <td>
                         {{ if eq .Status "MATCHED" }}
-                        <span class="badge badge-success">Matched</span>
+                        {{ template "partials/ui/status_badge.html" "MATCHED" }}
                         {{ else if eq .Status "SUGGESTED" }}
-                        <span class="badge badge-warning">Suggested</span>
+                        {{ template "partials/ui/status_badge.html" "SUGGESTED" }}
                         {{ else }}
                         <span class="badge badge-muted">Unmatched</span>
                         {{ end }}

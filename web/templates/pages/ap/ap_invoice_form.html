@@ -5,39 +5,40 @@
 {{ define "title" }}New AP Invoice{{ end }}
 
 {{ define "content" }}
+<div class="page-container">
 <header class="page-header">
-    <h1>New AP Invoice</h1>
-    <p>Create an AP invoice from a posted GRN or approved PO.</p>
+    <div class="page-header__content"><h1 class="page-title">New AP Invoice</h1><p class="page-subtitle">Create an AP invoice from a posted GRN or approved PO.</p></div>
+    <div class="page-header__actions"><a href="/finance/ap/invoices" class="btn btn--secondary">Cancel</a></div>
 </header>
 
-<form method="post" action="/finance/ap/invoices" class="form" data-component="form" data-validate="true">
+<div class="page-content"><form method="post" action="/finance/ap/invoices" class="card form-section" data-component="form" data-validate="true">
     <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
 
     <div class="form-group">
-        <label for="number">Invoice Number (Optional)</label>
-        <input type="text" id="number" name="number" placeholder="Leave blank to auto-generate"
+        <label class="form-label" for="number">Invoice Number (Optional)</label>
+        <input class="form-input" type="text" id="number" name="number" placeholder="Leave blank to auto-generate"
             aria-describedby="number-hint">
         <span id="number-hint" class="field-hint">External invoice number</span>
     </div>
 
     <div class="form-grid">
         <div class="form-group">
-            <label for="source_type">Source Type</label>
-            <select id="source_type" name="source_type" required>
+            <label class="form-label" for="source_type">Source Type</label>
+            <select class="form-select" id="source_type" name="source_type" required>
                 <option value="grn" selected>GRN (Goods Receipt)</option>
                 <option value="po">PO (Purchase Order)</option>
             </select>
         </div>
 
         <div class="form-group">
-            <label for="source_id">Source ID</label>
-            <input type="number" id="source_id" name="source_id" required placeholder="Enter GRN/PO ID">
+            <label class="form-label" for="source_id">Source ID</label>
+            <input class="form-input" type="number" id="source_id" name="source_id" required placeholder="Enter GRN/PO ID">
             <span class="field-hint">Use posted GRN or approved PO</span>
         </div>
 
         <div class="form-group">
-            <label for="due_date">Due Date</label>
-            <input type="date" id="due_date" name="due_date" required>
+            <label class="form-label" for="due_date">Due Date</label>
+            <input class="form-input" type="date" id="due_date" name="due_date" required>
         </div>
     </div>
 
@@ -51,5 +52,5 @@
         <button type="submit" class="btn btn--primary">Create Invoice</button>
         <a href="/finance/ap/invoices" class="btn btn--secondary">Cancel</a>
     </div>
-</form>
+</form></div></div>
 {{ end }}

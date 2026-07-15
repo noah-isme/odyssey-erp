@@ -5,11 +5,11 @@
 {{ define "title" }}Laporan Valuasi Stok{{ end }}
 
 {{ define "content" }}
-<div class="container">
+<div class="page-container">
     <header class="page-header">
-        <div class="header-main">
-            <h1>Valuasi Stok</h1>
-            <p class="text-muted">Nilai inventaris berdasarkan metode {{ if eq .Data.Method "FIFO" }}FIFO{{ else }}Moving Average{{ end }}.</p>
+        <div class="page-header__content">
+            <h1 class="page-title">Valuasi Stok</h1>
+            <p class="page-subtitle">Nilai inventaris berdasarkan metode {{ if eq .Data.Method "FIFO" }}FIFO{{ else }}Moving Average{{ end }}.</p>
         </div>
     </header>
 
@@ -17,7 +17,7 @@
         <form method="GET" action="/inventory/valuation" class="flex items-end gap-4 p-4">
             <div class="form-group mb-0">
                 <label for="warehouse_id">Filter Gudang</label>
-                <select name="warehouse_id" id="warehouse_id" class="form-control">
+                <select name="warehouse_id" id="warehouse_id" class="form-select">
                     <option value="0">Semua Gudang</option>
                     {{ range .Data.Warehouses }}
                     <option value="{{ .ID }}" {{ if eq .ID $.Data.WarehouseID }}selected{{ end }}>{{ .Name }}</option>
@@ -26,17 +26,17 @@
             </div>
             <div class="form-group mb-0">
                 <label for="method">Metode Valuasi</label>
-                <select name="method" id="method" class="form-control">
+                <select name="method" id="method" class="form-select">
                     <option value="AVG" {{ if eq .Data.Method "AVG" }}selected{{ end }}>Moving Average</option>
                     <option value="FIFO" {{ if eq .Data.Method "FIFO" }}selected{{ end }}>FIFO</option>
                 </select>
             </div>
-            <button type="submit" class="button secondary">Filter</button>
+            <button type="submit" class="btn btn--secondary">Filter</button>
         </form>
     </div>
 
-    <div class="card card-table">
-        <table class="table">
+    <div class="card card-table table-responsive">
+        <table class="table" aria-label="Inventory valuation report">
             <thead>
                 <tr>
                     <th scope="col">Gudang</th>

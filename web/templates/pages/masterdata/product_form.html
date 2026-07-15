@@ -1,0 +1,22 @@
+{{ define "pages/masterdata/product_form.html" }}{{ template "layouts/base.html" . }}{{ end }}
+{{ define "title" }}{{ if .Data.Product }}Edit Product{{ else }}New Product{{ end }}{{ end }}
+{{ define "content" }}{{ template "partials/masterdata/form.html" . }}{{ end }}
+{{ define "masterdata-form-heading" }}{{ if .Data.Product }}Edit Product{{ else }}New Product{{ end }}{{ end }}
+{{ define "ui-page-header-title" }}{{ template "masterdata-form-heading" . }}{{ end }}
+{{ define "ui-page-header-subtitle" }}Complete the required information, then save the record.{{ end }}
+{{ define "ui-page-header-actions" }}<a class="btn btn--secondary" href="{{ template "masterdata-form-cancel-url" . }}">Cancel</a>{{ end }}
+{{ define "masterdata-form-action" }}{{ if .Data.Product }}/masterdata/products/{{ .Data.Product.ID }}/edit{{ else }}/masterdata/products{{ end }}{{ end }}
+{{ define "masterdata-form-cancel-url" }}{{ if .Data.Product }}/masterdata/products/{{ .Data.Product.ID }}{{ else }}/masterdata/products{{ end }}{{ end }}
+{{ define "masterdata-form-fields" }}
+{{ $product := .Data.Product }}
+<div class="form-grid">
+    <div class="form-group"><label class="form-label" for="code">Code / SKU</label><input class="form-input" id="code" name="code" required maxlength="100" value="{{ with $product }}{{ .Code }}{{ end }}"></div>
+    <div class="form-group"><label class="form-label" for="name">Name</label><input class="form-input" id="name" name="name" required maxlength="200" value="{{ with $product }}{{ .Name }}{{ end }}"></div>
+    <div class="form-group"><label class="form-label" for="category_id">Category</label><select class="form-select" id="category_id" name="category_id" required><option value="">Select category</option>{{ range .Data.Categories }}<option value="{{ .ID }}" {{ if $product }}{{ if eq .ID $product.CategoryID }}selected{{ end }}{{ end }}>{{ .Code }} — {{ .Name }}</option>{{ end }}</select></div>
+    <div class="form-group"><label class="form-label" for="unit_id">Unit</label><select class="form-select" id="unit_id" name="unit_id" required><option value="">Select unit</option>{{ range .Data.Units }}<option value="{{ .ID }}" {{ if $product }}{{ if eq .ID $product.UnitID }}selected{{ end }}{{ end }}>{{ .Code }} — {{ .Name }}</option>{{ end }}</select></div>
+    <div class="form-group"><label class="form-label" for="tax_id">Tax</label><select class="form-select" id="tax_id" name="tax_id" required><option value="">Select tax</option>{{ range .Data.Taxes }}<option value="{{ .ID }}" {{ if $product }}{{ if eq .ID $product.TaxID }}selected{{ end }}{{ end }}>{{ .Code }} — {{ .Name }}</option>{{ end }}</select></div>
+    <div class="form-group"><label class="form-label" for="price">Price</label><input class="form-input" type="number" id="price" name="price" required min="0" step="0.01" value="{{ with $product }}{{ printf "%.2f" .Price }}{{ else }}0.00{{ end }}"></div>
+    <div class="form-group"><label class="form-label" for="cost">Cost</label><input class="form-input" type="number" id="cost" name="cost" required min="0" step="0.01" value="{{ with $product }}{{ printf "%.2f" .Cost }}{{ else }}0.00{{ end }}"></div>
+</div>
+<label class="check mt-6"><input class="check__input" type="checkbox" name="is_active" {{ if $product }}{{ if $product.IsActive }}checked{{ end }}{{ else }}checked{{ end }}> Active</label>
+{{ end }}

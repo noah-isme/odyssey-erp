@@ -1,0 +1,17 @@
+{{ define "pages/masterdata/warehouse_form.html" }}{{ template "layouts/base.html" . }}{{ end }}
+{{ define "title" }}{{ if .Data.Warehouse }}Edit Warehouse{{ else }}New Warehouse{{ end }}{{ end }}
+{{ define "content" }}{{ template "partials/masterdata/form.html" . }}{{ end }}
+{{ define "masterdata-form-heading" }}{{ if .Data.Warehouse }}Edit Warehouse{{ else }}New Warehouse{{ end }}{{ end }}
+{{ define "ui-page-header-title" }}{{ template "masterdata-form-heading" . }}{{ end }}
+{{ define "ui-page-header-subtitle" }}Complete the required information, then save the record.{{ end }}
+{{ define "ui-page-header-actions" }}<a class="btn btn--secondary" href="{{ template "masterdata-form-cancel-url" . }}">Cancel</a>{{ end }}
+{{ define "masterdata-form-action" }}{{ if .Data.Warehouse }}/masterdata/warehouses/{{ .Data.Warehouse.ID }}/edit{{ else }}/masterdata/warehouses{{ end }}{{ end }}
+{{ define "masterdata-form-cancel-url" }}{{ if .Data.Warehouse }}/masterdata/warehouses/{{ .Data.Warehouse.ID }}{{ else }}/masterdata/warehouses{{ end }}{{ end }}
+{{ define "masterdata-form-fields" }}
+<div class="form-grid">
+    <div class="form-group"><label class="form-label" for="branch_id">Branch</label><select class="form-select" id="branch_id" name="branch_id" required><option value="">Select branch</option>{{ $warehouse := .Data.Warehouse }}{{ range .Data.Branches }}<option value="{{ .ID }}" {{ if $warehouse }}{{ if eq .ID $warehouse.BranchID }}selected{{ end }}{{ end }}>{{ .Code }} — {{ .Name }}</option>{{ end }}</select></div>
+    <div class="form-group"><label class="form-label" for="code">Code</label><input class="form-input" id="code" name="code" required maxlength="50" value="{{ with .Data.Warehouse }}{{ .Code }}{{ end }}"></div>
+    <div class="form-group"><label class="form-label" for="name">Name</label><input class="form-input" id="name" name="name" required maxlength="200" value="{{ with .Data.Warehouse }}{{ .Name }}{{ end }}"></div>
+</div>
+<div class="form-group mt-6"><label class="form-label" for="address">Address</label><textarea class="form-textarea" id="address" name="address" maxlength="500">{{ with .Data.Warehouse }}{{ .Address }}{{ end }}</textarea></div>
+{{ end }}

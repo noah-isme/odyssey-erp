@@ -5,10 +5,13 @@
 {{ define "title" }}Customer Statement{{ end }}
 
 {{ define "content" }}
+<div class="page-container">
 <header class="page-header">
-    <h1>Customer Statement</h1>
-    <p>Transaction history and outstanding balances for customers.</p>
+    <div class="page-header__content"><h1 class="page-title">Customer Statement</h1><p class="page-subtitle">Transaction history and outstanding balances for customers.</p></div>
+    <div class="page-header__actions"><a href="/finance/ar/invoices" class="btn btn--secondary">Back to Invoices</a></div>
 </header>
+
+<div class="page-content">
 
 <section class="card">
     <div class="card__header">
@@ -45,9 +48,7 @@
                 <td class="numeric text-right">{{ printf "%.2f" .PaidAmount }}</td>
                 <td class="numeric text-right">{{ printf "%.2f" .UnpaidAmount }}</td>
                 <td>
-                    {{ if eq .Status "PAID" }}<span class="badge badge--success">Paid</span>{{ end }}
-                    {{ if eq .Status "PARTIAL" }}<span class="badge badge--warning">Partial</span>{{ end }}
-                    {{ if eq .Status "UNPAID" }}<span class="badge badge--danger">Unpaid</span>{{ end }}
+                    {{ template "partials/ui/status_badge.html" .Status }}
                 </td>
             </tr>
             {{ end }}
@@ -55,9 +56,7 @@
     </table>
 </div>
 {{ else }}
-<div class="empty-state">
-    <p>No transactions found for this period.</p>
-</div>
+{{ template "partials/ui/empty_state.html" . }}
 {{ end }}
 
 {{ if .Data.Errors }}
@@ -65,4 +64,10 @@
     {{ index .Data.Errors "general" }}
 </div>
 {{ end }}
+</div></div>
 {{ end }}
+
+{{ define "ui-empty-state-icon" }}<span aria-hidden="true">—</span>{{ end }}
+{{ define "ui-empty-state-title" }}No transactions found{{ end }}
+{{ define "ui-empty-state-description" }}There are no customer transactions for this period.{{ end }}
+{{ define "ui-empty-state-action" }}<a href="/finance/ar/invoices/new" class="btn btn--primary">Create Invoice</a>{{ end }}

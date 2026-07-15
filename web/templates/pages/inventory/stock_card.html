@@ -95,7 +95,7 @@
                             <td><code class="text-xs">{{ .TxCode }}</code></td>
                             <td>
                                 {{ if eq .TxType "IN" }}<span class="badge badge--success">IN</span>{{ end }}
-                                {{ if eq .TxType "OUT" }}<span class="badge badge--danger">OUT</span>{{ end }}
+                                {{ if eq .TxType "OUT" }}<span class="badge badge--error">OUT</span>{{ end }}
                                 {{ if eq .TxType "ADJUST" }}<span class="badge badge--warning">ADJ</span>{{ end }}
                                 {{ if eq .TxType "TRANSFER" }}<span class="badge badge--info">TRF</span>{{ end }}
                             </td>

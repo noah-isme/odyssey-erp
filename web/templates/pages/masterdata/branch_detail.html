@@ -1,0 +1,18 @@
+{{ define "pages/masterdata/branch_detail.html" }}{{ template "layouts/base.html" . }}{{ end }}
+{{ define "title" }}Branch Detail{{ end }}
+{{ define "content" }}{{ template "partials/masterdata/detail.html" . }}{{ end }}
+{{ define "masterdata-detail-heading" }}{{ .Data.Branch.Name }}{{ end }}
+{{ define "ui-page-header-title" }}{{ template "masterdata-detail-heading" . }}{{ end }}
+{{ define "ui-page-header-subtitle" }}View record information and maintenance actions.{{ end }}
+{{ define "ui-page-header-actions" }}<a class="btn btn--secondary" href="{{ template "masterdata-detail-list-url" . }}">Back to List</a><a class="btn btn--primary" href="{{ template "masterdata-detail-edit-url" . }}">Edit</a>{{ end }}
+{{ define "masterdata-detail-list-url" }}/masterdata/branches{{ end }}
+{{ define "masterdata-detail-edit-url" }}/masterdata/branches/{{ .Data.Branch.ID }}/edit{{ end }}
+{{ define "masterdata-detail-delete-url" }}/masterdata/branches/{{ .Data.Branch.ID }}/delete{{ end }}
+{{ define "masterdata-detail-fields" }}
+<div><dt class="form-label">Code</dt><dd>{{ .Data.Branch.Code }}</dd></div>
+<div><dt class="form-label">Name</dt><dd>{{ .Data.Branch.Name }}</dd></div>
+<div><dt class="form-label">Company ID</dt><dd>{{ .Data.Branch.CompanyID }}</dd></div>
+<div><dt class="form-label">Address</dt><dd>{{ if .Data.Branch.Address }}{{ .Data.Branch.Address }}{{ else }}<span class="text-muted">Not provided</span>{{ end }}</dd></div>
+<div><dt class="form-label">Created</dt><dd>{{ formatDate .Data.Branch.CreatedAt }}</dd></div>
+<div><dt class="form-label">Updated</dt><dd>{{ formatDate .Data.Branch.UpdatedAt }}</dd></div>
+{{ end }}

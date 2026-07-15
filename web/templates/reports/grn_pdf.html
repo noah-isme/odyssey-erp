@@ -11,9 +11,9 @@
     </style>
 </head>
 <body>
-<h1>GRN {{ .Data.Number }}</h1>
+<h1 id="grn-report-title">GRN {{ .Data.Number }}</h1>
 <p>Supplier: {{ .Data.SupplierID }} · Warehouse: {{ .Data.WarehouseID }} · Received: {{ formatDate .Data.ReceivedAt }}</p>
-<table>
+<table class="table" aria-labelledby="grn-report-title">
     <thead>
     <tr><th>Product</th><th>Qty</th><th>Unit Cost</th></tr>
     </thead>

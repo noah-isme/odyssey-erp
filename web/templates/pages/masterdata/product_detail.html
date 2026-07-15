@@ -1,0 +1,20 @@
+{{ define "pages/masterdata/product_detail.html" }}{{ template "layouts/base.html" . }}{{ end }}
+{{ define "title" }}Product Detail{{ end }}
+{{ define "content" }}{{ template "partials/masterdata/detail.html" . }}{{ end }}
+{{ define "masterdata-detail-heading" }}{{ .Data.Product.Name }}{{ end }}
+{{ define "ui-page-header-title" }}{{ template "masterdata-detail-heading" . }}{{ end }}
+{{ define "ui-page-header-subtitle" }}View record information and maintenance actions.{{ end }}
+{{ define "ui-page-header-actions" }}<a class="btn btn--secondary" href="{{ template "masterdata-detail-list-url" . }}">Back to List</a><a class="btn btn--primary" href="{{ template "masterdata-detail-edit-url" . }}">Edit</a>{{ end }}
+{{ define "masterdata-detail-list-url" }}/masterdata/products{{ end }}
+{{ define "masterdata-detail-edit-url" }}/masterdata/products/{{ .Data.Product.ID }}/edit{{ end }}
+{{ define "masterdata-detail-delete-url" }}/masterdata/products/{{ .Data.Product.ID }}/delete{{ end }}
+{{ define "masterdata-detail-fields" }}
+<div><dt class="form-label">Code / SKU</dt><dd>{{ .Data.Product.Code }}</dd></div>
+<div><dt class="form-label">Name</dt><dd>{{ .Data.Product.Name }}</dd></div>
+<div><dt class="form-label">Category ID</dt><dd>{{ .Data.Product.CategoryID }}</dd></div>
+<div><dt class="form-label">Unit ID</dt><dd>{{ .Data.Product.UnitID }}</dd></div>
+<div><dt class="form-label">Tax ID</dt><dd>{{ .Data.Product.TaxID }}</dd></div>
+<div><dt class="form-label">Price</dt><dd class="numeric">{{ printf "%.2f" .Data.Product.Price }}</dd></div>
+<div><dt class="form-label">Cost</dt><dd class="numeric">{{ printf "%.2f" .Data.Product.Cost }}</dd></div>
+<div><dt class="form-label">Status</dt><dd>{{ if .Data.Product.IsActive }}<span class="badge badge--success">Active</span>{{ else }}<span class="badge badge--neutral">Inactive</span>{{ end }}</dd></div>
+{{ end }}

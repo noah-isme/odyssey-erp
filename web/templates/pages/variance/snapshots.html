@@ -8,8 +8,8 @@
     </div>
 </header>
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <section class="card col-span-1">
+<div class="responsive-grid responsive-grid--wide">
+    <section class="card">
         <header class="card__header">
             <h2 class="card__title">Queue Snapshot</h2>
         </header>
@@ -40,7 +40,7 @@
         </div>
     </section>
 
-    <section class="card col-span-1 lg:col-span-2">
+    <section class="card responsive-grid__span-2">
         <header class="card__header">
             <h2 class="card__title">Snapshots History</h2>
         </header>
@@ -74,11 +74,7 @@
                         <td class="font-mono text-sm">#{{ $snap.ID }}</td>
                         <td>{{ if $snap.Rule }}{{ $snap.Rule.Name }}{{ else }}#{{ $snap.RuleID }}{{ end }}</td>
                         <td>
-                            <span class="badge 
-                                {{ if eq $snap.Status " COMPLETE" }}badge--success {{ else if eq $snap.Status "FAILED"
-                                }}badge--danger {{ else }}badge--info{{ end }}">
-                                {{ $snap.Status }}
-                            </span>
+                            {{ template "partials/ui/status_badge.html" $snap.Status }}
                         </td>
                         <td class="text-secondary text-sm">{{ $snap.UpdatedAt.Format "02 Jan 15:04" }}</td>
                         <td class="text-right">

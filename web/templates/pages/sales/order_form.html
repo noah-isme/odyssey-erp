@@ -35,8 +35,8 @@
         <form method="post" action="{{ if .Data.Order }}/sales/orders/{{ .Data.Order.ID }}/edit{{ else }}/sales/orders{{ end }}" data-component="form">
             <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
 
-            <div class="grid grid-cols-3 gap-6 items-start">
-                <div class="col-span-2 flex flex-col gap-6">
+            <div class="responsive-grid responsive-grid--wide gap-6 items-start">
+                <div class="responsive-grid__span-2 flex flex-col gap-6">
                     <!-- Header Information -->
                     <div class="card">
                         <div class="card__header">
@@ -83,7 +83,7 @@
 
                             <div class="form-group mt-6">
                                 <label for="notes" class="form-label">Notes</label>
-                                <textarea name="notes" id="notes" class="form-input" rows="3" placeholder="Additional notes or terms">{{ if .Data.Order }}{{ .Data.Order.Notes }}{{ end }}</textarea>
+                                <textarea name="notes" id="notes" class="form-textarea" rows="3" placeholder="Additional notes or terms">{{ if .Data.Order }}{{ .Data.Order.Notes }}{{ end }}</textarea>
                             </div>
                         </div>
                     </div>
@@ -105,7 +105,7 @@
                                 {{ if .Data.Order }}
                                 {{ range $index, $line := .Data.Order.Lines }}
                                 <div class="line-item" data-index="{{ $index }}">
-                                    <div class="grid grid-cols-3 gap-4">
+                                    <div class="responsive-grid responsive-grid--compact gap-4">
                                         <div class="form-group">
                                             <label for="product_id_{{ $index }}" class="form-label">Product <span class="text-danger">*</span></label>
                                             <input type="number" name="product_id" id="product_id_{{ $index }}" class="form-input" required min="1" value="{{ $line.ProductID }}">
@@ -146,7 +146,7 @@
                                 {{ end }}
                                 {{ else }}
                                 <div class="line-item" data-index="0">
-                                    <div class="grid grid-cols-3 gap-4">
+                                    <div class="responsive-grid responsive-grid--compact gap-4">
                                         <div class="form-group">
                                             <label for="product_id_0" class="form-label">Product <span class="text-danger">*</span></label>
                                             <input type="number" name="product_id" id="product_id_0" class="form-input" required min="1">

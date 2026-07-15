@@ -5,44 +5,26 @@
 {{define "title"}}Invoice {{.Data.Invoice.Number}}{{end}}
 
 {{define "content"}}
-<main class="container">
-    <header>
-        <nav aria-label="breadcrumb">
-            <ul>
-                <li><a href="/finance/ap/invoices">AP Invoices</a></li>
-                <li>{{.Data.Invoice.Number}}</li>
-            </ul>
-        </nav>
-    </header>
-
+<div class="page-container">
     {{$inv := .Data.Invoice}}
+    <header class="page-header">
+        <div class="page-header__content"><div class="flex items-center gap-3"><h1 class="page-title">{{$inv.Number}}</h1>{{ template "partials/ui/status_badge.html" $inv.Status }}</div><p class="page-subtitle">Supplier invoice, posting, and payment details</p></div>
+        <div class="page-header__actions"><a href="/finance/ap/invoices" class="btn btn--secondary">Back to Invoices</a>{{if eq $inv.Status "DRAFT"}}<form method="post" action="/finance/ap/invoices/{{$inv.ID}}/post" class="inline-form"><input type="hidden" name="csrf_token" value="{{$.CSRFToken}}"><button type="submit" class="btn btn--primary">Post Invoice</button></form><button type="button" class="btn btn--danger" data-dialog-open="void-modal">Void</button>{{else if eq $inv.Status "POSTED"}}<a href="/finance/ap/payments/new?ap_invoice_id={{$inv.ID}}" class="btn btn--primary">Record Payment</a><button type="button" class="btn btn--danger" data-dialog-open="void-modal">Void</button>{{end}}</div>
+    </header>
+    <div class="page-content">
 
-    <!-- Header Card -->
-    <article>
-        <header>
-            <div class="grid">
+    <section class="card">
+        <div class="card__body responsive-grid responsive-grid--wide">
                 <div>
-                    <h2>{{$inv.Number}}</h2>
-                    <p>
-                        {{if eq $inv.Status "DRAFT"}}
-                        <mark class="secondary">Draft</mark>
-                        {{else if eq $inv.Status "POSTED"}}
-                        <mark class="primary">Posted</mark>
-                        {{else if eq $inv.Status "PAID"}}
-                        <mark>Paid</mark>
-                        {{else if eq $inv.Status "VOID"}}
-                        <mark class="contrast">Void</mark>
-                        {{end}}
-                    </p>
+                    <h2 class="card__title">Invoice Summary</h2>
                 </div>
-                <div style="text-align: right;">
+                <div class="text-right">
                     <p><strong>Total:</strong> {{$inv.Currency}} {{printf "%.2f" $inv.Total}}</p>
                     <p><strong>Balance:</strong> {{$inv.Currency}} {{printf "%.2f" $inv.Balance}}</p>
                 </div>
-            </div>
-        </header>
+        </div>
 
-        <div class="grid">
+        <div class="card__body responsive-grid responsive-grid--wide">
             <div>
                 <p><strong>Supplier:</strong> {{if $inv.SupplierName}}{{$inv.SupplierName}}{{else}}Supplier #{{$inv.SupplierID}}{{end}}</p>
                 {{if $inv.GRNID}}
@@ -65,33 +47,17 @@
             </div>
         </div>
 
-        <!-- Actions -->
-        <footer>
-            {{if eq $inv.Status "DRAFT"}}
-            <form method="post" action="/finance/ap/invoices/{{$inv.ID}}/post" style="display: inline;">
-                <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-                <button type="submit" class="primary">Post Invoice</button>
-            </form>
-            <button type="button" class="secondary"
-                onclick="document.getElementById('void-modal').showModal()">Void</button>
-            {{else if eq $inv.Status "POSTED"}}
-            <a href="/finance/ap/payments/new?ap_invoice_id={{$inv.ID}}" role="button" class="primary">Record
-                Payment</a>
-            <button type="button" class="secondary"
-                onclick="document.getElementById('void-modal').showModal()">Void</button>
-            {{end}}
-            <a href="/finance/ap/invoices" role="button" class="outline">Back to List</a>
-        </footer>
-    </article>
+        </div>
+    </section>
 
     <!-- Line Items -->
     {{if $inv.Lines}}
-    <article>
-        <header>
-            <h3>Line Items</h3>
+    <section class="card">
+        <header class="card__header">
+            <h3 id="ap-invoice-lines-title">Line Items</h3>
         </header>
-        <figure>
-            <table>
+        <div class="table-wrap">
+            <table class="table" aria-labelledby="ap-invoice-lines-title">
                 <thead>
                     <tr>
                         <th>Product</th>
@@ -130,18 +96,18 @@
                     </tr>
                 </tfoot>
             </table>
-        </figure>
-    </article>
+        </div>
+    </section>
     {{end}}
 
     <!-- Payment History -->
     {{if $inv.Payments}}
-    <article>
-        <header>
-            <h3>Payment History</h3>
+    <section class="card">
+        <header class="card__header">
+            <h3 id="ap-invoice-payments-title">Payment History</h3>
         </header>
-        <figure>
-            <table>
+        <div class="table-wrap">
+            <table class="table" aria-labelledby="ap-invoice-payments-title">
                 <thead>
                     <tr>
                         <th>Number</th>
@@ -171,29 +137,29 @@
                     </tr>
                 </tfoot>
             </table>
-        </figure>
-    </article>
+        </div>
+    </section>
     {{end}}
 
     <!-- Void Modal -->
-    <dialog id="void-modal">
-        <article>
-            <header>
-                <button aria-label="Close" rel="prev" onclick="this.closest('dialog').close()"></button>
-                <h3>Void Invoice</h3>
+    <dialog id="void-modal" class="native-dialog" data-dialog aria-labelledby="void-invoice-modal-title">
+        <div class="native-dialog__content">
+            <header class="native-dialog__header">
+                <h3 id="void-invoice-modal-title" class="native-dialog__title">Void Invoice</h3>
+                <button type="button" class="btn btn--icon btn--ghost btn--sm" aria-label="Close" data-dialog-close>×</button>
             </header>
             <form method="post" action="/finance/ap/invoices/{{$inv.ID}}/void">
                 <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-                <label>
-                    Void Reason
-                    <textarea name="reason" required placeholder="Enter reason for voiding this invoice..."></textarea>
-                </label>
-                <footer>
-                    <button type="button" class="secondary" onclick="this.closest('dialog').close()">Cancel</button>
-                    <button type="submit" class="contrast">Void Invoice</button>
+                <div class="form-group">
+                    <label class="form-label" for="void-reason">Void Reason</label>
+                    <textarea class="form-textarea" id="void-reason" name="reason" required placeholder="Enter reason for voiding this invoice..."></textarea>
+                </div>
+                <footer class="native-dialog__footer">
+                    <button type="button" class="btn btn--secondary" data-dialog-close>Cancel</button>
+                    <button type="submit" class="btn btn--danger">Void Invoice</button>
                 </footer>
             </form>
-        </article>
+        </div>
     </dialog>
-</main>
+</div></div>
 {{end}}

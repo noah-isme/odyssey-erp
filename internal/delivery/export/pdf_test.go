@@ -197,7 +197,7 @@ func TestBuildPackingListHTML_LineItems(t *testing.T) {
 	html, err := exporter.buildPackingListHTML(payload)
 	require.NoError(t, err)
 
-	assert.Contains(t, html, "<table class=\"items-table\">")
+	assert.Contains(t, html, "<table class=\"table items-table\"")
 	assert.Contains(t, html, "<thead>")
 	assert.Contains(t, html, "<tbody>")
 
@@ -341,7 +341,7 @@ func TestBuildPackingListHTML_EmptyLines(t *testing.T) {
 	html, err := exporter.buildPackingListHTML(payload)
 	require.NoError(t, err)
 
-	assert.Contains(t, html, "<table class=\"items-table\">")
+	assert.Contains(t, html, "<table class=\"table items-table\"")
 	assert.Contains(t, html, "<thead>")
 	assert.Contains(t, html, "<tbody>")
 	assert.Contains(t, html, "</tbody>")

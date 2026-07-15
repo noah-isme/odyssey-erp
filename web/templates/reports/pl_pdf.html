@@ -18,12 +18,12 @@
 <body>
     {{ $data := .Data }}
     <header>
-        <h1>{{ $data.CompanyName }}</h1>
+        <h1 id="profit-loss-report-title">{{ $data.CompanyName }}</h1>
         <p>Profit &amp; Loss · Period {{ $data.PeriodLabel }} · Branch {{ $data.BranchName }}</p>
     </header>
     <section>
         <h2>Revenue</h2>
-        <table>
+        <table class="table" aria-labelledby="profit-loss-report-title">
             <tbody>
             {{ range $row := $data.Report.Revenue.Accounts }}
                 <tr>
@@ -42,7 +42,7 @@
     </section>
     <section>
         <h2>Expense</h2>
-        <table>
+        <table class="table" aria-labelledby="profit-loss-report-title">
             <tbody>
             {{ range $row := $data.Report.Expense.Accounts }}
                 <tr>

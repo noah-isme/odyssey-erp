@@ -42,9 +42,7 @@
                     <td>{{ .WarehouseName }}</td>
                     <td>{{ .AdjustmentAt | formatDate }}</td>
                     <td>
-                        <span class="badge {{ if eq .Status "POSTED" }}badge--success{{ else if eq .Status "CANCELLED" }}badge--danger{{ else }}badge--warning{{ end }}">
-                            {{ .Status }}
-                        </span>
+                        {{ template "partials/ui/status_badge.html" .Status }}
                     </td>
                     <td class="text-muted text-sm">{{ .Note }}</td>
                     <td class="text-right">

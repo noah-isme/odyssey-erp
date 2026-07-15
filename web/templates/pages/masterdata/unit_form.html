@@ -1,0 +1,15 @@
+{{ define "pages/masterdata/unit_form.html" }}{{ template "layouts/base.html" . }}{{ end }}
+{{ define "title" }}{{ if .Data.Unit }}Edit Unit{{ else }}New Unit{{ end }}{{ end }}
+{{ define "content" }}{{ template "partials/masterdata/form.html" . }}{{ end }}
+{{ define "masterdata-form-heading" }}{{ if .Data.Unit }}Edit Unit{{ else }}New Unit{{ end }}{{ end }}
+{{ define "ui-page-header-title" }}{{ template "masterdata-form-heading" . }}{{ end }}
+{{ define "ui-page-header-subtitle" }}Complete the required information, then save the record.{{ end }}
+{{ define "ui-page-header-actions" }}<a class="btn btn--secondary" href="{{ template "masterdata-form-cancel-url" . }}">Cancel</a>{{ end }}
+{{ define "masterdata-form-action" }}{{ if .Data.Unit }}/masterdata/units/{{ .Data.Unit.ID }}/edit{{ else }}/masterdata/units{{ end }}{{ end }}
+{{ define "masterdata-form-cancel-url" }}{{ if .Data.Unit }}/masterdata/units/{{ .Data.Unit.ID }}{{ else }}/masterdata/units{{ end }}{{ end }}
+{{ define "masterdata-form-fields" }}
+<div class="form-grid">
+    <div class="form-group"><label class="form-label" for="code">Code</label><input class="form-input" id="code" name="code" required maxlength="50" value="{{ with .Data.Unit }}{{ .Code }}{{ end }}"></div>
+    <div class="form-group"><label class="form-label" for="name">Name</label><input class="form-input" id="name" name="name" required maxlength="200" value="{{ with .Data.Unit }}{{ .Name }}{{ end }}"></div>
+</div>
+{{ end }}

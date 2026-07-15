@@ -1,130 +1,20 @@
-{{ define "pages/masterdata/products_list.html" }}
-{{ template "layouts/base.html" . }}
-{{ end }}
-
+{{ define "pages/masterdata/products_list.html" }}{{ template "layouts/base.html" . }}{{ end }}
 {{ define "title" }}Products{{ end }}
+{{ define "content" }}{{ template "partials/masterdata/list.html" . }}{{ end }}
 
-{{ define "content" }}
-<div class="page-container">
-    <div class="page-header">
-        <div class="page-header-content">
-            <h1 class="page-title">Products</h1>
-            <p class="page-subtitle">Manage product information</p>
-        </div>
-        <div class="page-actions">
-            <a href="/masterdata/products/new" class="btn btn--primary">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="12" y1="5" x2="12" y2="19" />
-                    <line x1="5" y1="12" x2="19" y2="12" />
-                </svg>
-                New Product
-            </a>
-        </div>
-    </div>
-
-    <div class="page-content">
-        <!-- Filters -->
-        <div class="card mb-4">
-            <form method="get" action="/masterdata/products" class="filters-form">
-                <div class="filters-row">
-                    <div class="filter-group">
-                        <label for="search">Search</label>
-                        <input type="text" name="search" id="search" placeholder="SKU or name" class="input">
-                    </div>
-                    <div class="filter-group">
-                        <label for="is_active">Status</label>
-                        <select name="is_active" id="is_active" class="input">
-                            <option value="">All</option>
-                            <option value="true">Active</option>
-                            <option value="false">Inactive</option>
-                        </select>
-                    </div>
-                    <div class="filter-actions">
-                        <button type="submit" class="btn btn--primary">Filter</button>
-                        <a href="/masterdata/products" class="btn btn--ghost">Clear</a>
-                    </div>
-                </div>
-            </form>
-        </div>
-
-        <!-- Results Table -->
-        <div class="table-container">
-            <div class="table-wrap">
-                <table class="table data-table" data-datatable="products">
-                    <thead>
-                        <tr>
-                            <th scope="col" class="sortable" data-column="code" {{ if eq .Data.Filters.SortBy "code"
-                                }}data-sort-dir="{{ .Data.Filters.SortDir }}" {{ end }}>
-                                Code
-                                {{ if eq .Data.Filters.SortBy "code" }}
-                                {{ if eq .Data.Filters.SortDir "asc" }}<span class="sort-icon">↑</span>{{ else }}<span
-                                    class="sort-icon">↓</span>{{ end }}
-                                {{ end }}
-                            </th>
-                            <th scope="col" class="sortable" data-column="name" {{ if eq .Data.Filters.SortBy "name"
-                                }}data-sort-dir="{{ .Data.Filters.SortDir }}" {{ end }}>
-                                Name
-                                {{ if eq .Data.Filters.SortBy "name" }}
-                                {{ if eq .Data.Filters.SortDir "asc" }}<span class="sort-icon">↑</span>{{ else }}<span
-                                    class="sort-icon">↓</span>{{ end }}
-                                {{ end }}
-                            </th>
-                            <th scope="col" class="sortable numeric-right" data-column="price" {{ if eq
-                                .Data.Filters.SortBy "price" }}data-sort-dir="{{ .Data.Filters.SortDir }}" {{ end }}>
-                                Price
-                                {{ if eq .Data.Filters.SortBy "price" }}
-                                {{ if eq .Data.Filters.SortDir "asc" }}<span class="sort-icon">↑</span>{{ else }}<span
-                                    class="sort-icon">↓</span>{{ end }}
-                                {{ end }}
-                            </th>
-                            <th scope="col">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {{ range .Data.Products }}
-                        <tr data-row-id="{{ .ID }}" data-href="/masterdata/products/{{ .ID }}"
-                            data-edit-href="/masterdata/products/{{ .ID }}/edit">
-                            <td>{{ .Code }}</td>
-                            <td>{{ .Name }}</td>
-                            <td class="numeric-right font-medium">{{ printf "%.2f" .Price }}</td>
-                            <td>
-                                {{ if .IsActive }}
-                                <span class="status-badge status-active">Active</span>
-                                {{ else }}
-                                <span class="status-badge status-draft">Inactive</span>
-                                {{ end }}
-                            </td>
-                        </tr>
-                        {{ else }}
-                        <tr>
-                            <td colspan="4" class="table-empty">
-                                No products found. <a href="/masterdata/products/new" class="link">Create your first
-                                    product</a>
-                            </td>
-                        </tr>
-                        {{ end }}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Context Menu Template -->
-<div class="context-menu" data-context-menu="products" style="display: none;">
-    <button class="context-menu__item" data-context-action="view">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-            <circle cx="12" cy="12" r="3"></circle>
-        </svg>
-        View
-    </button>
-    <button class="context-menu__item" data-context-action="edit">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-        </svg>
-        Edit
-    </button>
-</div>
+{{ define "ui-page-header-title" }}Products{{ end }}
+{{ define "ui-page-header-subtitle" }}Manage product information{{ end }}
+{{ define "ui-page-header-actions" }}<a href="/masterdata/products/new" class="btn btn--primary">New Product</a>{{ end }}
+{{ define "ui-filter-action" }}/masterdata/products{{ end }}
+{{ define "ui-filter-fields" }}
+<div class="form-group"><label class="form-label" for="search">Search</label><input class="form-input" type="search" name="search" id="search" placeholder="SKU or name" value="{{ .Data.Filters.Search }}"></div>
+<div class="form-group"><label class="form-label" for="is_active">Status</label><select class="form-select" name="is_active" id="is_active"><option value="">All</option><option value="true" {{ with .Data.Filters.IsActive }}{{ if . }}selected{{ end }}{{ end }}>Active</option><option value="false" {{ with .Data.Filters.IsActive }}{{ if not . }}selected{{ end }}{{ end }}>Inactive</option></select></div>
+{{ end }}
+{{ define "ui-filter-actions" }}<button type="submit" class="btn btn--primary">Filter</button><a href="/masterdata/products" class="btn btn--ghost">Clear</a>{{ end }}
+{{ define "masterdata-list-key" }}products{{ end }}
+{{ define "masterdata-list-head" }}<th scope="col" class="sortable" data-column="code">Code</th><th scope="col" class="sortable" data-column="name">Name</th><th scope="col" class="sortable numeric-right" data-column="price">Price</th><th scope="col">Status</th>{{ end }}
+{{ define "masterdata-list-rows" }}
+{{ range .Data.Products }}
+<tr data-row-id="{{ .ID }}" data-href="/masterdata/products/{{ .ID }}" data-edit-href="/masterdata/products/{{ .ID }}/edit"><td>{{ .Code }}</td><td>{{ .Name }}</td><td class="numeric-right font-medium">{{ printf "%.2f" .Price }}</td><td>{{ if .IsActive }}{{ template "partials/ui/status_badge.html" "ACTIVE" }}{{ else }}{{ template "partials/ui/status_badge.html" "INACTIVE" }}{{ end }}</td></tr>
+{{ else }}<tr><td colspan="4" class="table-empty">No products found. <a href="/masterdata/products/new" class="link">Create your first product</a></td></tr>{{ end }}
 {{ end }}

@@ -5,48 +5,49 @@
 {{ define "title" }}New AR Invoice{{ end }}
 
 {{ define "content" }}
+<div class="page-container">
 <header class="page-header">
-    <h1>New AR Invoice</h1>
-    <p>Create a new accounts receivable invoice for a customer.</p>
+    <div class="page-header__content"><h1 class="page-title">New AR Invoice</h1><p class="page-subtitle">Create a new accounts receivable invoice for a customer.</p></div>
+    <div class="page-header__actions"><a href="/finance/ar/invoices" class="btn btn--secondary">Cancel</a></div>
 </header>
 
-<form method="post" class="form" data-component="form" data-validate="true">
+<div class="page-content"><form method="post" class="card form-section" data-component="form" data-validate="true">
     <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
 
     <div class="form-group">
-        <label for="number">Invoice Number</label>
-        <input type="text" id="number" name="number" required placeholder="e.g. INV-2023-001"
+        <label class="form-label" for="number">Invoice Number</label>
+        <input class="form-input" type="text" id="number" name="number" required placeholder="e.g. INV-2023-001"
             aria-describedby="number-hint">
         <span id="number-hint" class="field-hint">Unique invoice identifier</span>
     </div>
 
     <div class="form-grid">
         <div class="form-group">
-            <label for="customer_id">Customer ID</label>
-            <input type="number" id="customer_id" name="customer_id" required>
+            <label class="form-label" for="customer_id">Customer ID</label>
+            <input class="form-input" type="number" id="customer_id" name="customer_id" required>
         </div>
 
         <div class="form-group">
-            <label for="so_id">Sales Order ID</label>
-            <input type="number" id="so_id" name="so_id" required>
+            <label class="form-label" for="so_id">Sales Order ID</label>
+            <input class="form-input" type="number" id="so_id" name="so_id" required>
         </div>
     </div>
 
     <div class="form-grid">
         <div class="form-group">
-            <label for="currency">Currency</label>
-            <input type="text" id="currency" name="currency" value="IDR" required>
+            <label class="form-label" for="currency">Currency</label>
+            <input class="form-input" type="text" id="currency" name="currency" value="IDR" required>
         </div>
 
         <div class="form-group">
-            <label for="total">Total Amount</label>
-            <input type="number" step="0.01" id="total" name="total" required>
+            <label class="form-label" for="total">Total Amount</label>
+            <input class="form-input" type="number" step="0.01" id="total" name="total" required>
         </div>
     </div>
 
     <div class="form-group">
-        <label for="due_date">Due Date</label>
-        <input type="date" id="due_date" name="due_date" required>
+        <label class="form-label" for="due_date">Due Date</label>
+        <input class="form-input" type="date" id="due_date" name="due_date" required>
     </div>
 
     {{ if .Data.Errors }}
@@ -59,5 +60,5 @@
         <button type="submit" class="btn btn--primary">Create Invoice</button>
         <a href="/finance/ar/invoices" class="btn btn--secondary">Cancel</a>
     </div>
-</form>
+</form></div></div>
 {{ end }}

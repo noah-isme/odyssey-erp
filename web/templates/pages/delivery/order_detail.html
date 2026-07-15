@@ -10,11 +10,7 @@
         <div class="page-header__content">
             <div class="flex items-center gap-3 mb-2">
                 <span class="eyebrow">Delivery Order</span>
-                {{ if eq .Data.DeliveryOrder.Status "DRAFT" }}<span class="badge badge--secondary">Draft</span>{{ end }}
-                {{ if eq .Data.DeliveryOrder.Status "CONFIRMED" }}<span class="badge badge--info">Confirmed</span>{{ end }}
-                {{ if eq .Data.DeliveryOrder.Status "IN_TRANSIT" }}<span class="badge badge--warning">In Transit</span>{{ end }}
-                {{ if eq .Data.DeliveryOrder.Status "DELIVERED" }}<span class="badge badge--success">Delivered</span>{{ end }}
-                {{ if eq .Data.DeliveryOrder.Status "CANCELLED" }}<span class="badge badge--danger">Cancelled</span>{{ end }}
+                {{ template "partials/ui/status_badge.html" .Data.DeliveryOrder.Status }}
             </div>
             <h1 class="page-title">{{ .Data.DeliveryOrder.DocumentNumber }}</h1>
             <p class="page-subtitle">Customer: <span class="font-medium text-primary">{{ .Data.DeliveryOrder.CustomerName }}</span></p>
@@ -36,15 +32,15 @@
             {{ end }}
 
             {{ if eq .Data.DeliveryOrder.Status "CONFIRMED" }}
-            <button type="button" class="btn btn--primary" data-action="show-ship-modal">Mark as Shipped</button>
+            <button type="button" class="btn btn--primary" data-dialog-open="shipModal">Mark as Shipped</button>
             {{ end }}
 
             {{ if eq .Data.DeliveryOrder.Status "IN_TRANSIT" }}
-            <button type="button" class="btn btn--success" data-action="show-deliver-modal">Mark as Delivered</button>
+            <button type="button" class="btn btn--primary" data-dialog-open="deliverModal">Mark as Delivered</button>
             {{ end }}
 
             {{ if or (eq .Data.DeliveryOrder.Status "DRAFT") (eq .Data.DeliveryOrder.Status "CONFIRMED") (eq .Data.DeliveryOrder.Status "IN_TRANSIT") }}
-            <button type="button" class="btn btn--danger" data-action="show-cancel-modal">Cancel Order</button>
+            <button type="button" class="btn btn--danger" data-dialog-open="cancelModal">Cancel Order</button>
             {{ end }}
         </div>
     </header>
@@ -59,8 +55,8 @@
         </div>
         {{ end }}
 
-        <div class="grid grid-cols-3 gap-6">
-            <div class="col-span-2 flex flex-col gap-6">
+        <div class="responsive-grid responsive-grid--wide gap-6">
+            <div class="responsive-grid__span-2 flex flex-col gap-6">
                 <!-- Info Card -->
                 <div class="card">
                     <div class="card__header">
@@ -162,11 +158,7 @@
                         <div class="flex flex-col">
                             <span class="text-xs text-muted uppercase font-medium mb-1">State</span>
                             <div class="mt-1">
-                                {{ if eq .Data.DeliveryOrder.Status "DRAFT" }}<span class="badge badge--secondary">Draft</span>{{ end }}
-                                {{ if eq .Data.DeliveryOrder.Status "CONFIRMED" }}<span class="badge badge--info">Confirmed</span>{{ end }}
-                                {{ if eq .Data.DeliveryOrder.Status "IN_TRANSIT" }}<span class="badge badge--warning">In Transit</span>{{ end }}
-                                {{ if eq .Data.DeliveryOrder.Status "DELIVERED" }}<span class="badge badge--success">Delivered</span>{{ end }}
-                                {{ if eq .Data.DeliveryOrder.Status "CANCELLED" }}<span class="badge badge--danger">Cancelled</span>{{ end }}
+                                {{ template "partials/ui/status_badge.html" .Data.DeliveryOrder.Status }}
                             </div>
                         </div>
 
@@ -206,11 +198,11 @@
 </div>
 
 <!-- Ship Modal -->
-<dialog id="shipModal" class="modal">
-    <div class="modal__content">
-        <header class="modal__header">
-            <h3 class="modal__title">Mark as Shipped</h3>
-            <button class="btn-icon" data-action="close-modal" aria-label="Close">
+<dialog id="shipModal" class="native-dialog" data-dialog aria-labelledby="ship-modal-title">
+    <div class="native-dialog__content">
+        <header class="native-dialog__header">
+            <h3 id="ship-modal-title" class="native-dialog__title">Mark as Shipped</h3>
+            <button type="button" class="btn btn--icon btn--ghost btn--sm" data-dialog-close aria-label="Close">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="18" y1="6" x2="6" y2="18" />
                     <line x1="6" y1="6" x2="18" y2="18" />
@@ -218,15 +210,15 @@
             </button>
         </header>
         <form method="post" action="/delivery/orders/{{ .Data.DeliveryOrder.ID }}/ship">
-            <div class="modal__body p-6">
+            <div class="native-dialog__body p-6">
                 <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
                 <div class="field">
                     <label for="tracking_number" class="label">Tracking Number (optional)</label>
-                    <input type="text" name="tracking_number" id="tracking_number" class="input" placeholder="Enter carrier tracking number" value="{{ if .Data.DeliveryOrder.TrackingNumber }}{{ .Data.DeliveryOrder.TrackingNumber }}{{ end }}">
+                    <input type="text" name="tracking_number" id="tracking_number" class="form-input" placeholder="Enter carrier tracking number" value="{{ if .Data.DeliveryOrder.TrackingNumber }}{{ .Data.DeliveryOrder.TrackingNumber }}{{ end }}">
                 </div>
             </div>
-            <footer class="modal__footer p-4 border-t bg-surface-muted flex justify-end gap-3">
-                <button type="button" class="btn btn--secondary" data-action="close-modal">Close</button>
+            <footer class="native-dialog__footer p-4 border-t bg-surface-muted flex justify-end gap-3">
+                <button type="button" class="btn btn--secondary" data-dialog-close>Close</button>
                 <button type="submit" class="btn btn--primary">Confirm Shipment</button>
             </footer>
         </form>
@@ -234,11 +226,11 @@
 </dialog>
 
 <!-- Deliver Modal -->
-<dialog id="deliverModal" class="modal">
-    <div class="modal__content">
-        <header class="modal__header">
-            <h3 class="modal__title">Mark as Delivered</h3>
-            <button class="btn-icon" data-action="close-modal" aria-label="Close">
+<dialog id="deliverModal" class="native-dialog" data-dialog aria-labelledby="deliver-modal-title">
+    <div class="native-dialog__content">
+        <header class="native-dialog__header">
+            <h3 id="deliver-modal-title" class="native-dialog__title">Mark as Delivered</h3>
+            <button type="button" class="btn btn--icon btn--ghost btn--sm" data-dialog-close aria-label="Close">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="18" y1="6" x2="6" y2="18" />
                     <line x1="6" y1="6" x2="18" y2="18" />
@@ -246,27 +238,27 @@
             </button>
         </header>
         <form method="post" action="/delivery/orders/{{ .Data.DeliveryOrder.ID }}/complete">
-            <div class="modal__body p-6">
+            <div class="native-dialog__body p-6">
                 <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
                 <div class="field">
                     <label for="delivered_at" class="label">Actual Delivery Date <span class="text-error">*</span></label>
-                    <input type="date" name="delivered_at" id="delivered_at" class="input" required value="{{ now.Format "2006-01-02" }}">
+                    <input type="date" name="delivered_at" id="delivered_at" class="form-input" required value="{{ now.Format "2006-01-02" }}">
                 </div>
             </div>
-            <footer class="modal__footer p-4 border-t bg-surface-muted flex justify-end gap-3">
-                <button type="button" class="btn btn--secondary" data-action="close-modal">Close</button>
-                <button type="submit" class="btn btn--success">Confirm Delivery</button>
+            <footer class="native-dialog__footer p-4 border-t bg-surface-muted flex justify-end gap-3">
+                <button type="button" class="btn btn--secondary" data-dialog-close>Close</button>
+                <button type="submit" class="btn btn--primary">Confirm Delivery</button>
             </footer>
         </form>
     </div>
 </dialog>
 
 <!-- Cancel Modal -->
-<dialog id="cancelModal" class="modal">
-    <div class="modal__content">
-        <header class="modal__header">
-            <h3 class="modal__title">Cancel Delivery Order</h3>
-            <button class="btn-icon" data-action="close-modal" aria-label="Close">
+<dialog id="cancelModal" class="native-dialog" data-dialog aria-labelledby="cancel-delivery-modal-title">
+    <div class="native-dialog__content">
+        <header class="native-dialog__header">
+            <h3 id="cancel-delivery-modal-title" class="native-dialog__title">Cancel Delivery Order</h3>
+            <button type="button" class="btn btn--icon btn--ghost btn--sm" data-dialog-close aria-label="Close">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="18" y1="6" x2="6" y2="18" />
                     <line x1="6" y1="6" x2="18" y2="18" />
@@ -274,15 +266,15 @@
             </button>
         </header>
         <form method="post" action="/delivery/orders/{{ .Data.DeliveryOrder.ID }}/cancel">
-            <div class="modal__body p-6">
+            <div class="native-dialog__body p-6">
                 <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
                 <div class="field">
                     <label for="cancellation_reason" class="label">Cancellation Reason <span class="text-error">*</span></label>
-                    <textarea name="cancellation_reason" id="cancellation_reason" class="textarea" required placeholder="Reason for cancelling this delivery" rows="4"></textarea>
+                    <textarea name="cancellation_reason" id="cancellation_reason" class="form-textarea" required placeholder="Reason for cancelling this delivery" rows="4"></textarea>
                 </div>
             </div>
-            <footer class="modal__footer p-4 border-t bg-surface-muted flex justify-end gap-3">
-                <button type="button" class="btn btn--secondary" data-action="close-modal">Close</button>
+            <footer class="native-dialog__footer p-4 border-t bg-surface-muted flex justify-end gap-3">
+                <button type="button" class="btn btn--secondary" data-dialog-close>Close</button>
                 <button type="submit" class="btn btn--danger">Cancel Order</button>
             </footer>
         </form>

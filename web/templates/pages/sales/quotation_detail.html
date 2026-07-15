@@ -10,11 +10,7 @@
         <div class="page-header__content">
             <div class="flex items-center gap-3 mb-2">
                 <span class="eyebrow">Sales Quotation</span>
-                {{ if eq .Data.Quotation.Status "DRAFT" }}<span class="badge badge--secondary">Draft</span>{{ end }}
-                {{ if eq .Data.Quotation.Status "SUBMITTED" }}<span class="badge badge--info">Submitted</span>{{ end }}
-                {{ if eq .Data.Quotation.Status "APPROVED" }}<span class="badge badge--success">Approved</span>{{ end }}
-                {{ if eq .Data.Quotation.Status "REJECTED" }}<span class="badge badge--danger">Rejected</span>{{ end }}
-                {{ if eq .Data.Quotation.Status "CONVERTED" }}<span class="badge badge--primary">Converted</span>{{ end }}
+                {{ template "partials/ui/status_badge.html" .Data.Quotation.Status }}
             </div>
             <h1 class="page-title">{{ .Data.Quotation.DocNumber }}</h1>
             <p class="page-subtitle">Customer: <a href="/sales/customers/{{ .Data.Quotation.Data.CustomerID }}" class="link font-medium">{{ if .Data.Customer }}{{ .Data.Customer.Name }}{{ else }}Unknown{{ end }}</a></p>
@@ -52,11 +48,11 @@
                 <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
                 <button type="submit" class="btn btn--success">Approve</button>
             </form>
-            <button type="button" class="btn btn--danger" data-action="show-reject-modal">Reject</button>
+            <button type="button" class="btn btn--danger" data-dialog-open="rejectModal">Reject</button>
             {{ end }}
 
             {{ if eq .Data.Quotation.Status "APPROVED" }}
-            <button type="button" class="btn btn--primary" data-action="show-convert-modal">
+            <button type="button" class="btn btn--primary" data-dialog-open="convertModal">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="20 6 9 17 4 12" />
                 </svg>
@@ -67,15 +63,15 @@
     </header>
 
     <div class="page-content">
-        <div class="grid grid-cols-3 gap-6">
-            <div class="col-span-2 flex flex-col gap-6">
+        <div class="responsive-grid responsive-grid--wide gap-6">
+            <div class="responsive-grid__span-2 flex flex-col gap-6">
                 <!-- Info Card -->
                 <div class="card">
                     <div class="card__header">
                         <h2 class="text-lg font-semibold">Quotation Details</h2>
                     </div>
                     <div class="card__body p-6">
-                        <div class="grid grid-cols-2 gap-6">
+                        <div class="responsive-grid responsive-grid--wide gap-6">
                             <div>
                                 <span class="label mb-1">Quote Date</span>
                                 <p class="text-primary font-medium">{{ .Data.Quotation.QuoteDate.Format "02 Jan 2006" }}</p>
@@ -187,11 +183,7 @@
                         <div class="flex flex-col">
                             <span class="text-xs text-muted uppercase font-medium mb-1">Current State</span>
                             <div class="mt-1">
-                                {{ if eq .Data.Quotation.Status "DRAFT" }}<span class="badge badge--secondary">Draft</span>{{ end }}
-                                {{ if eq .Data.Quotation.Status "SUBMITTED" }}<span class="badge badge--info">Submitted</span>{{ end }}
-                                {{ if eq .Data.Quotation.Status "APPROVED" }}<span class="badge badge--success">Approved</span>{{ end }}
-                                {{ if eq .Data.Quotation.Status "REJECTED" }}<span class="badge badge--danger">Rejected</span>{{ end }}
-                                {{ if eq .Data.Quotation.Status "CONVERTED" }}<span class="badge badge--primary">Converted</span>{{ end }}
+                                {{ template "partials/ui/status_badge.html" .Data.Quotation.Status }}
                             </div>
                         </div>
 
@@ -232,11 +224,11 @@
 </div>
 
 <!-- Reject Modal -->
-<dialog id="rejectModal" class="modal">
-    <div class="modal__content">
-        <header class="modal__header">
-            <h3 class="modal__title">Reject Quotation</h3>
-            <button class="btn-icon" data-action="close-modal" aria-label="Close">
+<dialog id="rejectModal" class="native-dialog" data-dialog aria-labelledby="reject-modal-title">
+    <div class="native-dialog__content">
+        <header class="native-dialog__header">
+            <h3 id="reject-modal-title" class="native-dialog__title">Reject Quotation</h3>
+            <button type="button" class="btn btn--icon btn--ghost btn--sm" data-dialog-close aria-label="Close">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="18" y1="6" x2="6" y2="18" />
                     <line x1="6" y1="6" x2="18" y2="18" />
@@ -244,15 +236,15 @@
             </button>
         </header>
         <form method="post" action="/sales/quotations/{{ .Data.Quotation.ID }}/reject">
-            <div class="modal__body p-6">
+            <div class="native-dialog__body p-6">
                 <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
                 <div class="field">
                     <label for="reason" class="label">Rejection Reason <span class="text-error">*</span></label>
-                    <textarea name="reason" id="reason" class="textarea" required placeholder="Please provide a clear reason for rejection"></textarea>
+                    <textarea name="reason" id="reason" class="form-textarea" required placeholder="Please provide a clear reason for rejection"></textarea>
                 </div>
             </div>
-            <footer class="modal__footer p-4 border-t bg-surface-muted flex justify-end gap-3">
-                <button type="button" class="btn btn--secondary" data-action="close-modal">Cancel</button>
+            <footer class="native-dialog__footer p-4 border-t bg-surface-muted flex justify-end gap-3">
+                <button type="button" class="btn btn--secondary" data-dialog-close>Cancel</button>
                 <button type="submit" class="btn btn--danger">Reject Quotation</button>
             </footer>
         </form>
@@ -260,11 +252,11 @@
 </dialog>
 
 <!-- Convert to SO Modal -->
-<dialog id="convertModal" class="modal">
-    <div class="modal__content">
-        <header class="modal__header">
-            <h3 class="modal__title">Convert to Sales Order</h3>
-            <button class="btn-icon" data-action="close-modal" aria-label="Close">
+<dialog id="convertModal" class="native-dialog" data-dialog aria-labelledby="convert-modal-title">
+    <div class="native-dialog__content">
+        <header class="native-dialog__header">
+            <h3 id="convert-modal-title" class="native-dialog__title">Convert to Sales Order</h3>
+            <button type="button" class="btn btn--icon btn--ghost btn--sm" data-dialog-close aria-label="Close">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="18" y1="6" x2="6" y2="18" />
                     <line x1="6" y1="6" x2="18" y2="18" />
@@ -272,11 +264,11 @@
             </button>
         </header>
         <form method="post" action="/sales/quotations/{{ .Data.Quotation.ID }}/convert">
-            <div class="modal__body p-6">
+            <div class="native-dialog__body p-6">
                 <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
                 <div class="field">
                     <label for="order_date" class="label">Order Date <span class="text-error">*</span></label>
-                    <input type="date" name="order_date" id="order_date" class="input" value="{{ .Data.Quotation.QuoteDate.Format "2006-01-02" }}" required>
+                    <input type="date" name="order_date" id="order_date" class="form-input" value="{{ .Data.Quotation.QuoteDate.Format "2006-01-02" }}" required>
                 </div>
                 <div class="feedback feedback--info mt-4">
                     <div class="feedback__content">
@@ -284,8 +276,8 @@
                     </div>
                 </div>
             </div>
-            <footer class="modal__footer p-4 border-t bg-surface-muted flex justify-end gap-3">
-                <button type="button" class="btn btn--secondary" data-action="close-modal">Cancel</button>
+            <footer class="native-dialog__footer p-4 border-t bg-surface-muted flex justify-end gap-3">
+                <button type="button" class="btn btn--secondary" data-dialog-close>Cancel</button>
                 <button type="submit" class="btn btn--primary">Create Sales Order</button>
             </footer>
         </form>

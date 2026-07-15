@@ -5,15 +5,15 @@
 {{ define "title" }}Inventory Dashboard{{ end }}
 
 {{ define "content" }}
-<div class="container">
+<div class="page-container">
     <header class="page-header">
-        <div class="header-main">
-            <h1>Inventory Dashboard</h1>
-            <p class="text-muted">Ringkasan status stok dan peringatan reorder.</p>
+        <div class="page-header__content">
+            <h1 class="page-title">Inventory Dashboard</h1>
+            <p class="page-subtitle">Ringkasan status stok dan peringatan reorder.</p>
         </div>
     </header>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div class="responsive-grid responsive-grid--compact gap-6 mb-8">
         <div class="card bg-primary text-primary-foreground p-6">
             <div class="text-sm font-medium opacity-80">Total Alerts</div>
             <div class="text-3xl font-bold">{{ len .Data.Alerts }}</div>
@@ -26,10 +26,10 @@
             <h2 class="card-title text-danger flex items-center gap-2">
                 <i class="lucide-alert-triangle"></i> Reorder Point Alerts
             </h2>
-            <a href="/procurement/prs/new" class="button small secondary">Buat PR Baru</a>
+            <a href="/procurement/prs/new" class="btn btn--secondary btn--sm">Buat PR Baru</a>
         </div>
-        <div class="card-table">
-            <table class="table">
+        <div class="card-table table-responsive">
+            <table class="table" aria-label="Low stock inventory">
                 <thead>
                     <tr>
                         <th scope="col">Gudang</th>
@@ -53,7 +53,7 @@
                             {{ printf "%.2f" (subf .MinStock .CurrentQty) }} unit lagi
                         </td>
                         <td class="text-right">
-                            <a href="/procurement/prs?product_id={{ .ProductID }}&qty={{ subf .MinStock .CurrentQty }}" class="button small secondary">
+                            <a href="/procurement/prs?product_id={{ .ProductID }}&qty={{ subf .MinStock .CurrentQty }}" class="btn btn--secondary btn--sm">
                                 <i class="lucide-shopping-cart"></i> Reorder
                             </a>
                         </td>

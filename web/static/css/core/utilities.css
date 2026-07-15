@@ -73,42 +73,13 @@ a {
     text-decoration: none;
 }
 
-:focus {
-    outline: none;
-}
-
 :focus-visible {
-    outline: none;
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
 }
 
 html {
     scrollbar-gutter: stable;
-}
-
-/* Base Table Styling (replaces Pico) */
-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: var(--text-sm);
-    color: var(--text-primary);
-}
-
-th,
-td {
-    padding: 10px 12px;
-    text-align: left;
-    border-bottom: 1px solid var(--border-subtle);
-}
-
-th {
-    font-weight: var(--weight-medium);
-    font-size: var(--text-xs);
-    color: var(--text-secondary);
-    background: var(--bg-surface-muted);
-}
-
-tbody tr:hover {
-    background: var(--bg-surface-muted);
 }
 
 /* Base Heading Styling (replaces Pico) */
@@ -153,90 +124,6 @@ p {
     line-height: var(--leading-normal);
 }
 
-/* Base Button Styling (replaces Pico) */
-button:not([class]) {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    height: var(--btn-h);
-    padding: 0 var(--btn-pad-x);
-    font-size: var(--btn-font);
-    font-weight: var(--btn-weight);
-    color: var(--btn-primary-fg);
-    background: var(--btn-primary-bg);
-    border: none;
-    border-radius: var(--btn-radius);
-    cursor: pointer;
-    transition: background-color var(--dur-2) var(--ease-standard);
-}
-
-button:not([class]):hover {
-    background: var(--btn-primary-hover-bg);
-}
-
-/* Base Input Styling (replaces Pico) */
-input:not([type="checkbox"]):not([type="radio"]):not([class]),
-input[type="text"]:not([class]),
-input[type="email"]:not([class]),
-input[type="password"]:not([class]),
-input[type="search"]:not([class]),
-input[type="number"]:not([class]) {
-    width: 100%;
-    height: var(--input-h);
-    padding: 0 var(--input-pad-x);
-    font-size: var(--text-sm);
-    color: var(--input-fg);
-    background: var(--input-bg);
-    border: 1px solid var(--input-border);
-    border-radius: var(--input-radius);
-    transition: border-color var(--dur-2) var(--ease-standard),
-        box-shadow var(--dur-2) var(--ease-standard);
-}
-
-input:not([type="checkbox"]):not([type="radio"]):not([class]):hover {
-    border-color: var(--input-border-hover);
-}
-
-input:not([type="checkbox"]):not([type="radio"]):not([class]):focus {
-    border-color: var(--input-border-focus);
-    box-shadow: var(--focus-ring);
-    outline: none;
-}
-
-input::placeholder {
-    color: var(--input-placeholder);
-}
-
-/* Base Select Styling (replaces Pico) */
-select:not([class]) {
-    width: 100%;
-    height: var(--input-h);
-    padding: 0 var(--input-pad-x);
-    padding-right: 36px;
-    font-size: var(--text-sm);
-    color: var(--input-fg);
-    background: var(--input-bg);
-    border: 1px solid var(--input-border);
-    border-radius: var(--input-radius);
-    appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235B6168' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 12px center;
-    cursor: pointer;
-    transition: border-color var(--dur-2) var(--ease-standard);
-}
-
-select:not([class]):hover {
-    border-color: var(--input-border-hover);
-}
-
-select:not([class]):focus {
-    border-color: var(--input-border-focus);
-    box-shadow: var(--focus-ring);
-    outline: none;
-}
-
 /* Base Label Styling */
 label {
     display: block;
@@ -244,55 +131,6 @@ label {
     font-size: var(--text-sm);
     font-weight: var(--weight-medium);
     color: var(--text-secondary);
-}
-
-/* Link styled as button (role="button") - Pico pattern */
-a[role="button"] {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    height: var(--btn-h);
-    padding: 0 var(--btn-pad-x);
-    font-size: var(--btn-font);
-    font-weight: var(--btn-weight);
-    color: var(--btn-primary-fg);
-    background: var(--btn-primary-bg);
-    border: none;
-    border-radius: var(--btn-radius);
-    text-decoration: none;
-    cursor: pointer;
-    transition: background-color var(--dur-2) var(--ease-standard);
-}
-
-a[role="button"]:hover {
-    background: var(--btn-primary-hover-bg);
-}
-
-/* Secondary button variant */
-a[role="button"].secondary,
-button.secondary {
-    background: var(--btn-secondary-bg);
-    color: var(--btn-secondary-fg);
-    border: 1px solid var(--btn-secondary-border);
-}
-
-a[role="button"].secondary:hover,
-button.secondary:hover {
-    background: var(--btn-secondary-hover-bg);
-}
-
-/* Outline button variant */
-a[role="button"].outline,
-button.outline {
-    background: transparent;
-    color: var(--text-primary);
-    border: 1px solid var(--border-strong);
-}
-
-a[role="button"].outline:hover,
-button.outline:hover {
-    background: var(--bg-surface-muted);
 }
 
 /* Base anchor/link styling */
@@ -312,6 +150,41 @@ a:not([role]):not([class]):hover {
     display: grid;
     gap: var(--space-4);
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+/* Responsive layout primitive for page/card grids. */
+.responsive-grid {
+    --responsive-grid-min: 16rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--responsive-grid-min)), 1fr));
+    gap: var(--space-6);
+}
+
+.responsive-grid--compact {
+    --responsive-grid-min: 12rem;
+}
+
+.responsive-grid--wide {
+    --responsive-grid-min: 22rem;
+}
+
+.responsive-grid__span-2,
+.responsive-grid__span-3 {
+    min-width: 0;
+}
+
+@media (min-width: 900px) {
+    .responsive-grid__span-2 {
+        grid-column: span 2;
+    }
+
+    .responsive-grid__span-3 {
+        grid-column: span 3;
+    }
+}
+
+.table-cell--indented {
+    padding-left: var(--space-8);
 }
 
 /* Filters section styling */

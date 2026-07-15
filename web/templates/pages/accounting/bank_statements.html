@@ -5,24 +5,24 @@
 {{ define "title" }}Bank Statements{{ end }}
 
 {{ define "content" }}
-<div class="container">
-    <header class="dashboard-header">
-        <div class="dashboard-header-content">
-            <h1 class="dashboard-title">Bank Statements</h1>
-            <p class="dashboard-subtitle">Import and review bank statements for reconciliation.</p>
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-title">Bank Statements</h1>
+            <p class="page-subtitle">Import and review bank statements for reconciliation.</p>
         </div>
-        <div class="dashboard-actions">
+        <div class="page-header__actions">
             <form action="/accounting/banks/statements/import" method="post" enctype="multipart/form-data" class="flex items-center gap-2">
                 <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
-                <input type="date" name="statement_date" required class="input" style="width: auto; height: var(--btn-h);">
-                <input type="file" name="statement_csv" accept=".csv" required class="input" style="width: auto; height: var(--btn-h); padding-top: 6px;">
-                <button type="submit" class="button primary">Import CSV</button>
+                <input type="date" name="statement_date" required class="form-input form-input--auto">
+                <input type="file" name="statement_csv" accept=".csv" required class="form-input form-input--auto form-input--file">
+                <button type="submit" class="btn btn--primary">Import CSV</button>
             </form>
         </div>
     </header>
 
-    <div class="card card-table mt-6">
-        <table class="table">
+    <div class="card card-table table-responsive mt-6">
+        <table class="table" aria-label="Bank statement imports">
             <thead>
                 <tr>
                     <th>Date</th>
@@ -42,13 +42,13 @@
                     <td class="numeric-right">{{ .EndingBalance | formatCurrency "IDR" }}</td>
                     <td>
                         {{ if eq .Status "RECONCILED" }}
-                        <span class="badge badge-success">Reconciled</span>
+                        {{ template "partials/ui/status_badge.html" "RECONCILED" }}
                         {{ else }}
-                        <span class="badge badge-warning">Draft</span>
+                        {{ template "partials/ui/status_badge.html" "DRAFT" }}
                         {{ end }}
                     </td>
                     <td class="text-right">
-                        <a href="/accounting/banks/statements/{{ .ID }}" class="button small ghost">Review</a>
+                        <a href="/accounting/banks/statements/{{ .ID }}" class="btn btn--ghost btn--sm">Review</a>
                     </td>
                 </tr>
                 {{ else }}

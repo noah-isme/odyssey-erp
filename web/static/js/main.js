@@ -24,13 +24,12 @@ import { Slideout } from './features/slideout/index.js';
 import { Form } from './features/form/index.js';
 import { ComboBox } from './features/combobox/index.js';
 import * as QuotationForm from './features/quotation-form/index.js';
-import * as QuotationDetail from './features/quotation-detail/index.js';
 import * as SalesOrder from './features/sales-order/index.js';
-import * as SalesOrderDetail from './features/sales-order-detail/index.js';
 import * as DeliveryOrder from './features/delivery-order/index.js';
-import * as DeliveryOrderDetail from './features/delivery-order-detail/index.js';
 import { GlobalSearch } from './features/global-search/index.js';
 import { StockTake } from './features/inventory/stock-take.js';
+import { Confirm } from './features/confirm/index.js';
+import { APPaymentAllocation } from './features/ap-payment-allocation/index.js';
 
 // Component modules
 import { Inspector } from './components/inspector.js';
@@ -98,12 +97,11 @@ document.addEventListener('DOMContentLoaded', () => {
     ComboBox.init();
     DataTable.init();
     QuotationForm.init();
-    QuotationDetail.init();
     SalesOrder.init();
-    SalesOrderDetail.init();
     DeliveryOrder.init();
-    DeliveryOrderDetail.init();
     StockTake.init();
+    Confirm.init();
+    APPaymentAllocation.init();
 
     // Core
     Shortcuts.init();
@@ -155,4 +153,3 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('🚀 Odyssey ERP initialized');
     console.log('💡 Tip: Run OdysseyDevTools.enable() for debug mode');
 });
-

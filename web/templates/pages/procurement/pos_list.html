@@ -64,7 +64,7 @@
                 <table class="table table--sticky" data-datatable="pos" id="pos-table">
                     <thead>
                         <tr>
-                            <th width="40"><input type="checkbox" data-select-all></th>
+                            <th width="40"><input class="check__input" type="checkbox" data-select-all aria-label="Select all purchase orders"></th>
                             <th scope="col" class="sortable" data-column="number" {{ if eq .Data.Filters.SortBy "number" }}data-sort-dir="{{ .Data.Filters.SortDir }}" {{ end }}>
                                 Number
                             </th>
@@ -85,7 +85,7 @@
                         {{ if .Data.POs }}
                         {{ range .Data.POs }}
                         <tr>
-                            <td><input type="checkbox" data-row-select></td>
+                            <td><input class="check__input" type="checkbox" data-row-select aria-label="Select purchase order {{ .Number }}"></td>
                             <td>
                                 <a href="/procurement/pos/{{ .ID }}" class="link font-medium">{{ .Number }}</a>
                             </td>
@@ -149,7 +149,7 @@
 
 <!-- Context Menu Template -->
 <div class="context-menu" data-context-menu="pos" style="display: none;">
-    <button class="context-menu__item" data-context-action="view">
+    <button class="btn btn--menu context-menu__item" data-context-action="view">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
             <circle cx="12" cy="12" r="3"></circle>

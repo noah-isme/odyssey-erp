@@ -104,13 +104,7 @@
                                 {{ .Currency }} {{ formatDecimal .TotalAmount }}
                             </td>
                             <td>
-                                {{ if eq .Status "Draft" }}<span class="badge badge--secondary">Draft</span>{{ end }}
-                                {{ if eq .Status "Submitted" }}<span class="badge badge--warning">Submitted</span>{{ end
-                                }}
-                                {{ if eq .Status "Approved" }}<span class="badge badge--success">Approved</span>{{ end
-                                }}
-                                {{ if eq .Status "Rejected" }}<span class="badge badge--danger">Rejected</span>{{ end }}
-                                {{ if eq .Status "Converted" }}<span class="badge badge--info">Converted</span>{{ end }}
+                                {{ template "partials/ui/status_badge.html" .Status }}
                             </td>
                             <td class="text-right">
                                 <div class="flex justify-end gap-2">

@@ -1,0 +1,17 @@
+{{ define "pages/masterdata/company_form.html" }}{{ template "layouts/base.html" . }}{{ end }}
+{{ define "title" }}{{ if .Data.Company }}Edit Company{{ else }}New Company{{ end }}{{ end }}
+{{ define "content" }}{{ template "partials/masterdata/form.html" . }}{{ end }}
+{{ define "masterdata-form-heading" }}{{ if .Data.Company }}Edit Company{{ else }}New Company{{ end }}{{ end }}
+{{ define "ui-page-header-title" }}{{ template "masterdata-form-heading" . }}{{ end }}
+{{ define "ui-page-header-subtitle" }}Complete the required information, then save the record.{{ end }}
+{{ define "ui-page-header-actions" }}<a class="btn btn--secondary" href="{{ template "masterdata-form-cancel-url" . }}">Cancel</a>{{ end }}
+{{ define "masterdata-form-action" }}{{ if .Data.Company }}/masterdata/companies/{{ .Data.Company.ID }}/edit{{ else }}/masterdata/companies{{ end }}{{ end }}
+{{ define "masterdata-form-cancel-url" }}{{ if .Data.Company }}/masterdata/companies/{{ .Data.Company.ID }}{{ else }}/masterdata/companies{{ end }}{{ end }}
+{{ define "masterdata-form-fields" }}
+<div class="form-grid">
+    <div class="form-group"><label class="form-label" for="code">Code</label><input class="form-input" id="code" name="code" required maxlength="50" value="{{ with .Data.Company }}{{ .Code }}{{ end }}"></div>
+    <div class="form-group"><label class="form-label" for="name">Name</label><input class="form-input" id="name" name="name" required maxlength="200" value="{{ with .Data.Company }}{{ .Name }}{{ end }}"></div>
+    <div class="form-group"><label class="form-label" for="tax_id">Tax ID</label><input class="form-input" id="tax_id" name="tax_id" maxlength="100" value="{{ with .Data.Company }}{{ .TaxID }}{{ end }}"></div>
+</div>
+<div class="form-group mt-6"><label class="form-label" for="address">Address</label><textarea class="form-textarea" id="address" name="address" maxlength="500">{{ with .Data.Company }}{{ .Address }}{{ end }}</textarea></div>
+{{ end }}

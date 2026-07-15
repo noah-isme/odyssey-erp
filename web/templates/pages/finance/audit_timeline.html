@@ -5,57 +5,60 @@
 {{ define "title" }}Audit Timeline{{ end }}
 
 {{ define "content" }}
-<section class="container audit-timeline">
-    <header>
-        <h1>Audit Timeline</h1>
-        <p>Jejak perubahan finansial dengan filter aktor, entitas, dan aksi.</p>
+<section class="page-container audit-timeline">
+    <header class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-title">Audit Timeline</h1>
+            <p class="page-subtitle">Jejak perubahan finansial dengan filter aktor, entitas, dan aksi.</p>
+        </div>
     </header>
     {{ $filters := .Data.Filters }}
     {{ $from := $filters.From.Format "2006-01-02" }}
     {{ $to := $filters.To.Format "2006-01-02" }}
-    <form class="filters-form" method="get" action="/audit" role="search" aria-label="Filter audit timeline">
+    <form class="filters-card filters-form" method="get" action="/audit" role="search" aria-label="Filter audit timeline">
         <fieldset>
             <legend>Filter</legend>
-            <div class="filter-grid">
-                <label>
+            <div class="filters-grid">
+                <label class="form-group form-label">
                     <span>Dari</span>
-                    <input type="date" name="from" value="{{ $from }}" aria-label="Tanggal awal">
+                    <input class="form-input" type="date" name="from" value="{{ $from }}" aria-label="Tanggal awal">
                 </label>
-                <label>
+                <label class="form-group form-label">
                     <span>Sampai</span>
-                    <input type="date" name="to" value="{{ $to }}" aria-label="Tanggal akhir">
+                    <input class="form-input" type="date" name="to" value="{{ $to }}" aria-label="Tanggal akhir">
                 </label>
-                <label>
+                <label class="form-group form-label">
                     <span>Aktor</span>
-                    <input type="text" name="actor" value="{{ $filters.Actor }}" aria-label="Filter aktor">
+                    <input class="form-input" type="text" name="actor" value="{{ $filters.Actor }}" aria-label="Filter aktor">
                 </label>
-                <label>
+                <label class="form-group form-label">
                     <span>Entitas</span>
-                    <input type="text" name="entity" value="{{ $filters.Entity }}" aria-label="Filter entitas">
+                    <input class="form-input" type="text" name="entity" value="{{ $filters.Entity }}" aria-label="Filter entitas">
                 </label>
-                <label>
+                <label class="form-group form-label">
                     <span>Aksi</span>
-                    <input type="text" name="action" value="{{ $filters.Action }}" aria-label="Filter aksi">
+                    <input class="form-input" type="text" name="action" value="{{ $filters.Action }}" aria-label="Filter aksi">
                 </label>
             </div>
         </fieldset>
         <input type="hidden" name="page" value="1">
         <input type="hidden" name="page_size" value="{{ .Data.Paging.PageSize }}">
-        <div>
-            <button type="submit">Terapkan</button>
+        <div class="filters-actions">
+            <button type="submit" class="btn btn--primary">Terapkan</button>
         </div>
     </form>
 
     {{ if .Data.Rows }}
     <div class="export-links" role="group" aria-label="Ekspor timeline">
-        <a class="secondary"
+        <a class="btn btn--secondary"
             href="/audit/export.csv?from={{ $from }}&amp;to={{ $to }}{{ with $filters.Actor }}&amp;actor={{ urlquery . }}{{ end }}{{ with $filters.Entity }}&amp;entity={{ urlquery . }}{{ end }}{{ with $filters.Action }}&amp;action={{ urlquery . }}{{ end }}">Unduh
             CSV</a>
-        <a class="secondary"
+        <a class="btn btn--secondary"
             href="/audit/pdf?from={{ $from }}&amp;to={{ $to }}{{ with $filters.Actor }}&amp;actor={{ urlquery . }}{{ end }}{{ with $filters.Entity }}&amp;entity={{ urlquery . }}{{ end }}{{ with $filters.Action }}&amp;action={{ urlquery . }}{{ end }}">Unduh
             PDF</a>
     </div>
-    <table class="data-table">
+    <h2 id="audit-timeline-results" class="sr-only">Audit timeline results</h2>
+    <div class="table-responsive"><table class="table data-table" aria-labelledby="audit-timeline-results">
         <thead>
             <tr>
                 <th scope="col">Timestamp</th>
@@ -80,7 +83,7 @@
             </tr>
             {{ end }}
         </tbody>
-    </table>
+    </table></div>
     <nav class="pagination" aria-label="Navigasi halaman">
         <span>Halaman {{ .Data.Paging.Page }}</span>
         <div>

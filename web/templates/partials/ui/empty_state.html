@@ -1,0 +1,8 @@
+{{ define "partials/ui/empty_state.html" }}
+<div class="empty-state">
+    <div class="empty-state__icon" aria-hidden="true">{{ template "ui-empty-state-icon" . }}</div>
+    <h3>{{ template "ui-empty-state-title" . }}</h3>
+    <p>{{ template "ui-empty-state-description" . }}</p>
+    <div>{{ template "ui-empty-state-action" . }}</div>
+</div>
+{{ end }}

@@ -1,0 +1,44 @@
+{{ define "pages/users/form.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}New User{{ end }}
+
+{{ define "content" }}
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-title">New User</h1>
+            <p class="page-subtitle">User provisioning is not available from the web interface yet.</p>
+        </div>
+        <div class="page-header__actions">
+            <a href="/users" class="btn btn--secondary">Back to Users</a>
+        </div>
+    </header>
+
+    <div class="page-content">
+        {{ with index .Data.Errors "general" }}
+        <div class="feedback feedback--warning" role="alert"><div class="feedback__content">{{ . }}</div></div>
+        {{ else }}
+        <div class="feedback feedback--info" role="status">
+            <div class="feedback__content">Use the production bootstrap command for the first administrator. Additional user provisioning will be enabled in a future release.</div>
+        </div>
+        {{ end }}
+
+        <section class="card">
+            <div class="card__body p-6">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label" for="email">Email</label>
+                        <input class="form-input" id="email" type="email" disabled placeholder="user@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="role">Role</label>
+                        <input class="form-input" id="role" disabled placeholder="Role assignment unavailable">
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+{{ end }}

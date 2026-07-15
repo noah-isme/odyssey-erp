@@ -43,53 +43,53 @@
         <form method="post" action="/delivery/orders/{{ .Data.DeliveryOrder.ID }}/edit" id="deliveryOrderEditForm" data-component="form">
             <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
 
-            <div class="grid grid-cols-3 gap-6 items-start">
-                <div class="col-span-2 flex flex-col gap-6">
+            <div class="responsive-grid responsive-grid--wide gap-6 items-start">
+                <div class="responsive-grid__span-2 flex flex-col gap-6">
                     <!-- Header Information -->
                     <div class="card">
                         <div class="card__header">
                             <h2 class="text-lg font-semibold">Delivery Information</h2>
                         </div>
                         <div class="card__body p-6">
-                            <div class="grid grid-cols-2 gap-6">
+                            <div class="responsive-grid responsive-grid--wide gap-6">
                                 <div class="field">
                                     <label class="label">Sales Order</label>
-                                    <input type="text" class="input" disabled
+                                    <input type="text" class="form-input" disabled
                                         value="{{ .Data.DeliveryOrder.SalesOrderNumber }} (ID: {{ .Data.DeliveryOrder.SalesOrderID }})">
                                     <span class="help">Sales order cannot be changed</span>
                                 </div>
                                 <div class="field">
                                     <label class="label">Warehouse</label>
-                                    <input type="text" class="input" disabled
+                                    <input type="text" class="form-input" disabled
                                         value="{{ .Data.DeliveryOrder.WarehouseName }}">
                                     <span class="help">Warehouse cannot be changed</span>
                                 </div>
                             </div>
 
-                            <div class="grid grid-cols-2 gap-6 mt-6">
+                            <div class="responsive-grid responsive-grid--wide gap-6 mt-6">
                                 <div class="field">
                                     <label for="delivery_date" class="label">Scheduled Delivery Date <span class="text-error">*</span></label>
-                                    <input type="date" name="delivery_date" id="delivery_date" class="input" required
+                                    <input type="date" name="delivery_date" id="delivery_date" class="form-input" required
                                         value="{{ .Data.DeliveryOrder.DeliveryDate.Format "2006-01-02" }}">
                                 </div>
                                 <div class="field">
                                     <label for="driver_name" class="label">Driver Name</label>
-                                    <input type="text" name="driver_name" id="driver_name" class="input"
+                                    <input type="text" name="driver_name" id="driver_name" class="form-input"
                                         placeholder="Driver name"
                                         value="{{ if .Data.DeliveryOrder.DriverName }}{{ .Data.DeliveryOrder.DriverName }}{{ end }}">
                                 </div>
                             </div>
 
-                            <div class="grid grid-cols-2 gap-6 mt-6">
+                            <div class="responsive-grid responsive-grid--wide gap-6 mt-6">
                                 <div class="field">
                                     <label for="vehicle_number" class="label">Vehicle Number</label>
-                                    <input type="text" name="vehicle_number" id="vehicle_number" class="input"
+                                    <input type="text" name="vehicle_number" id="vehicle_number" class="form-input"
                                         placeholder="Vehicle registration"
                                         value="{{ if .Data.DeliveryOrder.VehicleNumber }}{{ .Data.DeliveryOrder.VehicleNumber }}{{ end }}">
                                 </div>
                                 <div class="field">
                                     <label for="tracking_number" class="label">Tracking Number</label>
-                                    <input type="text" name="tracking_number" id="tracking_number" class="input"
+                                    <input type="text" name="tracking_number" id="tracking_number" class="form-input"
                                         placeholder="Shipment tracking number"
                                         value="{{ if .Data.DeliveryOrder.TrackingNumber }}{{ .Data.DeliveryOrder.TrackingNumber }}{{ end }}">
                                 </div>
@@ -97,7 +97,7 @@
 
                             <div class="field mt-6">
                                 <label for="notes" class="label">Notes</label>
-                                <textarea name="notes" id="notes" class="textarea" rows="3"
+                                <textarea name="notes" id="notes" class="form-textarea" rows="3"
                                     placeholder="Additional notes">{{ if .Data.DeliveryOrder.Notes }}{{ .Data.DeliveryOrder.Notes }}{{ end }}</textarea>
                             </div>
                         </div>
@@ -119,24 +119,24 @@
                             <div id="lineItemsContainer" class="flex flex-col gap-4">
                                 {{ range $index, $line := .Data.DeliveryOrder.Lines }}
                                 <div class="line-item p-4 bg-surface-muted border rounded-md" data-index="{{ $index }}">
-                                    <div class="grid grid-cols-4 gap-4">
+                                    <div class="responsive-grid responsive-grid--compact gap-4">
                                         <div class="field">
                                             <label class="label">SO Line ID</label>
-                                            <input type="number" name="so_line_id[]" class="input" required value="{{ $line.SalesOrderLineID }}" readonly>
+                                            <input type="number" name="so_line_id[]" class="form-input" required value="{{ $line.SalesOrderLineID }}" readonly>
                                         </div>
                                         <div class="field">
                                             <label class="label">Product</label>
-                                            <input type="text" class="input" value="{{ if $line.ProductName }}{{ $line.ProductName }}{{ else }}Product #{{ $line.ProductID }}{{ end }}" disabled>
+                                            <input type="text" class="form-input" value="{{ if $line.ProductName }}{{ $line.ProductName }}{{ else }}Product #{{ $line.ProductID }}{{ end }}" disabled>
                                             <input type="hidden" name="product_id[]" value="{{ $line.ProductID }}">
                                         </div>
                                         <div class="field">
                                             <label class="label">Quantity <span class="text-error">*</span></label>
-                                            <input type="number" name="quantity[]" class="input" step="0.01" min="0.01" required value="{{ printf "%.2f" $line.Quantity }}">
+                                            <input type="number" name="quantity[]" class="form-input" step="0.01" min="0.01" required value="{{ printf "%.2f" $line.Quantity }}">
                                         </div>
                                         <div class="field">
                                             <label class="label">Notes</label>
                                             <div class="flex gap-2">
-                                                <input type="text" name="line_notes[]" class="input flex-1" value="{{ if $line.Notes }}{{ $line.Notes }}{{ end }}">
+                                                <input type="text" name="line_notes[]" class="form-input flex-1" value="{{ if $line.Notes }}{{ $line.Notes }}{{ end }}">
                                                 <button type="button" class="btn btn--ghost btn--sm text-error" data-action="remove-line" aria-label="Remove item">
                                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                                         <polyline points="3 6 5 6 21 6" />

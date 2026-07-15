@@ -10,10 +10,8 @@
     gap: var(--space-2);
 }
 
-.form-group {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
+.form-group--actions {
+    justify-content: flex-end;
 }
 
 .form-grid {
@@ -81,6 +79,10 @@
     color: var(--input-placeholder);
 }
 
+.form-textarea::placeholder {
+    color: var(--input-placeholder);
+}
+
 /* Hover/focus */
 .form-input:hover {
     border-color: var(--input-border-hover);
@@ -144,6 +146,16 @@
     background: var(--bg-surface-muted);
 }
 
+.form-input--auto {
+    width: auto;
+    min-width: 10rem;
+}
+
+.form-input--file {
+    height: var(--btn-h);
+    padding-top: 6px;
+}
+
 /* Checkbox / radio */
 .check {
     display: inline-flex;
@@ -153,7 +165,7 @@
     color: var(--text-secondary);
 }
 
-.check input {
+.check__input {
     width: 16px;
     height: 16px;
     accent-color: var(--brand);
