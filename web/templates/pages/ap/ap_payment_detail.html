@@ -5,42 +5,29 @@
 {{define "title"}}Payment {{.Data.Payment.Number}}{{end}}
 
 {{define "content"}}
-<main class="container">
-    <header>
-        <nav aria-label="breadcrumb">
-            <ul>
-                <li><a href="/finance/ap/payments">AP Payments</a></li>
-                <li>{{.Data.Payment.Number}}</li>
-            </ul>
-        </nav>
-    </header>
-
+<div class="page-container">
     {{$pay := .Data.Payment}}
+    <header class="page-header">
+        <div class="page-header__content"><div class="flex items-center gap-3"><h1 class="page-title">{{$pay.Number}}</h1>{{if $pay.LedgerPosted}}{{ template "partials/ui/status_badge.html" "POSTED" }}{{else}}{{ template "partials/ui/status_badge.html" "UNPOSTED" }}{{end}}</div><p class="page-subtitle">Supplier payment allocation and ledger details</p></div>
+        <div class="page-header__actions"><a href="/finance/ap/payments" class="btn btn--secondary">Back to Payments</a></div>
+    </header>
+    <div class="page-content">
 
-    <article>
-        <header>
-            <div class="grid">
+    <section class="card">
+        <div class="card__body responsive-grid responsive-grid--wide">
                 <div>
-                    <h2>{{$pay.Number}}</h2>
-                    <p>
-                        {{if $pay.LedgerPosted}}
-                        <mark class="primary">Posted</mark>
-                        {{else}}
-                        <mark class="secondary">Unposted</mark>
-                        {{end}}
-                    </p>
+                    <h2 class="card__title">Payment Summary</h2>
                 </div>
-                <div style="text-align: right;">
+                <div class="text-right">
                     <p><strong>Amount:</strong> {{printf "%.2f" $pay.Amount}}</p>
                     <p><strong>Allocated:</strong> {{printf "%.2f" $pay.TotalAllocated}}</p>
                     {{if gt $pay.Unallocated 0.0}}
                     <p><strong>Unallocated:</strong> {{printf "%.2f" $pay.Unallocated}}</p>
                     {{end}}
                 </div>
-            </div>
-        </header>
+        </div>
 
-        <div class="grid">
+        <div class="card__body responsive-grid responsive-grid--wide">
             <div>
                 <p><strong>Supplier:</strong> {{if $pay.SupplierName}}{{$pay.SupplierName}}{{else if $pay.SupplierID}}Supplier #{{$pay.SupplierID}}{{else}}-{{end}}</p>
                 <p><strong>Paid At:</strong> {{$pay.PaidAt.Format "2006-01-02"}}</p>
@@ -52,17 +39,15 @@
             </div>
         </div>
 
-        <footer>
-            <a href="/finance/ap/payments" class="btn btn--secondary">Back to List</a>
-        </footer>
-    </article>
+        </div>
+    </section>
 
     {{if $pay.Allocations}}
-    <article>
-        <header>
+    <section class="card">
+        <header class="card__header">
             <h3 id="ap-payment-allocations-title">Allocations</h3>
         </header>
-        <figure class="table-responsive">
+        <div class="table-wrap">
             <table class="table" aria-labelledby="ap-payment-allocations-title">
                 <thead>
                     <tr>
@@ -79,7 +64,7 @@
                     <tr>
                         <td><a href="/finance/ap/invoices/{{.APInvoiceID}}">{{.InvoiceNumber}}</a></td>
                         <td>{{if .POID}}{{.POID}}{{else}}-{{end}}</td>
-                        <td>{{.InvoiceStatus}}</td>
+                        <td>{{ template "partials/ui/status_badge.html" .InvoiceStatus }}</td>
                         <td>{{.DueAt.Format "2006-01-02"}}</td>
                         <td>{{printf "%.2f" .Amount}}</td>
                         <td>{{printf "%.2f" .InvoiceTotal}}</td>
@@ -94,8 +79,8 @@
                     </tr>
                 </tfoot>
             </table>
-        </figure>
-    </article>
+        </div>
+    </section>
     {{end}}
-</main>
+</div></div>
 {{end}}

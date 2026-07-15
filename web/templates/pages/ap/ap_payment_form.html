@@ -5,25 +5,20 @@
 {{define "title"}}Record Payment{{end}}
 
 {{define "content"}}
-<main class="container">
-    <header>
-        <nav aria-label="breadcrumb">
-            <ul>
-                <li><a href="/finance/ap/invoices">AP</a></li>
-                <li><a href="/finance/ap/payments">Payments</a></li>
-                <li>Record Payment</li>
-            </ul>
-        </nav>
-        <h1>Record AP Payment</h1>
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content"><h1 class="page-title">Record AP Payment</h1><p class="page-subtitle">Allocate a supplier payment across one or more invoices.</p></div>
+        <div class="page-header__actions"><a href="/finance/ap/payments" class="btn btn--secondary">Cancel</a></div>
     </header>
+    <div class="page-content">
 
     {{if .Data.Errors.general}}
-    <article class="error">
+    <div class="feedback feedback--error" role="alert">
         <p>{{.Data.Errors.general}}</p>
-    </article>
+    </div>
     {{end}}
 
-    <form method="post" action="/finance/ap/payments">
+    <form method="post" action="/finance/ap/payments" class="card form-section" data-ap-payment-form>
         <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
 
         <section>
@@ -31,7 +26,7 @@
             <p>Split payment across multiple invoices if needed.</p>
 
             <div id="allocation-rows">
-                <div class="grid allocation-row">
+                <div class="responsive-grid responsive-grid--wide allocation-row">
                     <label class="form-label">
                         Invoice *
                         <select class="form-select" name="ap_invoice_id" required>
@@ -47,16 +42,16 @@
                         Allocation Amount *
                         <input class="form-input" type="number" name="allocation_amount" step="0.01" required placeholder="0.00">
                     </label>
-                    <label>
+                    <label class="form-label">
                         &nbsp;
-                        <button type="button" class="btn btn--ghost" onclick="removeAllocation(this)">Remove</button>
+                        <button type="button" class="btn btn--ghost" data-allocation-remove>Remove</button>
                     </label>
                 </div>
             </div>
-            <button type="button" class="btn btn--secondary" onclick="addAllocation()">+ Add Allocation</button>
+            <button type="button" class="btn btn--secondary" data-allocation-add>+ Add Allocation</button>
         </section>
 
-        <div class="grid">
+        <div class="responsive-grid responsive-grid--wide">
             <label class="form-label">
                 Payment Amount *
                 <input class="form-input" type="number" name="amount" step="0.01" required placeholder="0.00">
@@ -83,35 +78,10 @@
             <textarea class="form-textarea" name="note" placeholder="Optional payment notes..."></textarea>
         </label>
 
-        <footer>
+        <footer class="form-actions">
             <button type="submit" class="btn btn--primary">Record Payment</button>
             <a href="/finance/ap/payments" class="btn btn--secondary">Cancel</a>
         </footer>
     </form>
-
-    <script>
-        function addAllocation() {
-            const container = document.getElementById('allocation-rows');
-            const firstRow = container.querySelector('.allocation-row');
-            if (!firstRow) return;
-            const clone = firstRow.cloneNode(true);
-            clone.querySelectorAll('select, input').forEach((el) => {
-                el.value = '';
-            });
-            container.appendChild(clone);
-        }
-
-        function removeAllocation(button) {
-            const container = document.getElementById('allocation-rows');
-            const rows = container.querySelectorAll('.allocation-row');
-            if (rows.length <= 1) {
-                return;
-            }
-            const row = button.closest('.allocation-row');
-            if (row) {
-                row.remove();
-            }
-        }
-    </script>
-</main>
+</div></div>
 {{end}}

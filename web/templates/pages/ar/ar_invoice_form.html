@@ -5,12 +5,13 @@
 {{ define "title" }}New AR Invoice{{ end }}
 
 {{ define "content" }}
+<div class="page-container">
 <header class="page-header">
-    <h1>New AR Invoice</h1>
-    <p>Create a new accounts receivable invoice for a customer.</p>
+    <div class="page-header__content"><h1 class="page-title">New AR Invoice</h1><p class="page-subtitle">Create a new accounts receivable invoice for a customer.</p></div>
+    <div class="page-header__actions"><a href="/finance/ar/invoices" class="btn btn--secondary">Cancel</a></div>
 </header>
 
-<form method="post" class="form" data-component="form" data-validate="true">
+<div class="page-content"><form method="post" class="card form-section" data-component="form" data-validate="true">
     <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
 
     <div class="form-group">
@@ -59,5 +60,5 @@
         <button type="submit" class="btn btn--primary">Create Invoice</button>
         <a href="/finance/ar/invoices" class="btn btn--secondary">Cancel</a>
     </div>
-</form>
+</form></div></div>
 {{ end }}

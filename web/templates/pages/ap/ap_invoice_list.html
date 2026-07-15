@@ -5,16 +5,14 @@
 {{define "title"}}AP Invoices{{end}}
 
 {{define "content"}}
-<main class="container">
-    <header>
-        <hgroup>
-            <h1>Accounts Payable - Invoices</h1>
-            <p>Manage AP invoices and bills</p>
-        </hgroup>
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content"><h1 class="page-title">Accounts Payable Invoices</h1><p class="page-subtitle">Manage supplier invoices and bills</p></div>
+        <div class="page-header__actions"><a href="/finance/ap/aging" class="btn btn--secondary">Aging Report</a><a href="/finance/ap/payments" class="btn btn--secondary">Payments</a><a href="/finance/ap/invoices/new" class="btn btn--primary">New Invoice</a></div>
     </header>
 
-    <!-- Filters -->
-    <form method="get" action="/finance/ap/invoices" class="grid">
+    <div class="page-content">
+    <section class="filters-card"><form method="get" action="/finance/ap/invoices" class="filters-form"><div class="filters-grid">
         <div class="form-group">
             <label class="form-label" for="ap-invoice-status">Status</label>
             <select class="form-select" id="ap-invoice-status" name="status">
@@ -26,24 +24,13 @@
             </select>
         </div>
         <div class="form-group form-group--actions">
-            <button type="submit" class="btn btn--secondary">Filter</button>
+            <button type="submit" class="btn btn--primary">Filter</button>
         </div>
-    </form>
-
-    <!-- Actions -->
-    <nav>
-        <ul>
-            <li><a href="/finance/ap/invoices/new" class="btn btn--primary">+ New Invoice</a></li>
-        </ul>
-        <ul>
-            <li><a href="/finance/ap/aging">Aging Report</a></li>
-            <li><a href="/finance/ap/payments">Payments</a></li>
-        </ul>
-    </nav>
+    </div></form></section>
 
     <!-- Invoice List -->
     {{if .Data.Invoices}}
-    <figure class="table-responsive">
+    <div class="card table-wrap">
         <table class="table" aria-label="Accounts payable invoices">
             <thead>
                 <tr>
@@ -74,11 +61,14 @@
                 {{end}}
             </tbody>
         </table>
-    </figure>
+    </div>
     {{else}}
-    <article>
-        <p>No invoices found. <a href="/finance/ap/invoices/new">Create your first invoice</a>.</p>
-    </article>
+    {{ template "partials/ui/empty_state.html" . }}
     {{end}}
-</main>
+</div></div>
 {{end}}
+
+{{ define "ui-empty-state-icon" }}<span aria-hidden="true">—</span>{{ end }}
+{{ define "ui-empty-state-title" }}No invoices found{{ end }}
+{{ define "ui-empty-state-description" }}Create an AP invoice to begin tracking supplier liabilities.{{ end }}
+{{ define "ui-empty-state-action" }}<a href="/finance/ap/invoices/new" class="btn btn--primary">New Invoice</a>{{ end }}
