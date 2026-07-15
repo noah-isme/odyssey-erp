@@ -15,7 +15,7 @@
 
     <nav>
         <ul>
-            <li><a href="/finance/ap/payments/new" role="button">+ Record Payment</a></li>
+            <li><a href="/finance/ap/payments/new" class="btn btn--primary">+ Record Payment</a></li>
         </ul>
         <ul>
             <li><a href="/finance/ap/invoices">Invoices</a></li>
@@ -24,8 +24,8 @@
     </nav>
 
     {{if .Data.Payments}}
-    <figure>
-        <table role="grid">
+    <figure class="table-responsive">
+        <table class="table" aria-label="Accounts payable payments">
             <thead>
                 <tr>
                     <th>Number</th>

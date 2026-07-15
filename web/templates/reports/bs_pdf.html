@@ -18,12 +18,12 @@
 <body>
     {{ $data := .Data }}
     <header>
-        <h1>{{ $data.CompanyName }}</h1>
+        <h1 id="balance-sheet-report-title">{{ $data.CompanyName }}</h1>
         <p>Balance Sheet · Period {{ $data.PeriodLabel }} · Branch {{ $data.BranchName }}</p>
     </header>
     <section>
         <h2>Assets</h2>
-        <table>
+        <table class="table" aria-labelledby="balance-sheet-report-title">
             <tbody>
             {{ range $row := $data.Report.Assets.Accounts }}
                 <tr>
@@ -42,7 +42,7 @@
     </section>
     <section>
         <h2>Liabilities</h2>
-        <table>
+        <table class="table" aria-labelledby="balance-sheet-report-title">
             <tbody>
             {{ range $row := $data.Report.Liabilities.Accounts }}
                 <tr>
@@ -61,7 +61,7 @@
     </section>
     <section>
         <h2>Equity</h2>
-        <table>
+        <table class="table" aria-labelledby="balance-sheet-report-title">
             <tbody>
             {{ range $row := $data.Report.Equity.Accounts }}
                 <tr>

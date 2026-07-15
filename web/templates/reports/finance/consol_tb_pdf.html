@@ -14,14 +14,14 @@
     </style>
 </head>
 <body>
-    <h1>Consolidated Trial Balance</h1>
+    <h1 id="consol-tb-report-title">Consolidated Trial Balance</h1>
     <p>Group: {{ .GroupName }} | Reporting CCY: {{ .ReportingCCY }} | Period: {{ .Filters.Period }}</p>
     <section class="totals">
         <p><strong>Local Amount:</strong> {{ formatDecimal .Totals.Local }}</p>
         <p><strong>Group Amount:</strong> {{ formatDecimal .Totals.Group }}</p>
         <p><strong>Status:</strong> {{ if .Totals.Balanced }}Balanced{{ else }}Unbalanced{{ end }}</p>
     </section>
-    <table>
+    <table class="table" aria-labelledby="consol-tb-report-title">
         <thead>
             <tr>
                 <th>Group Account</th>
@@ -48,7 +48,7 @@
         </tbody>
     </table>
     <h2>Entity Contribution</h2>
-    <table>
+    <table class="table" aria-labelledby="consol-tb-report-title">
         <thead>
             <tr>
                 <th>Entity</th>

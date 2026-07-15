@@ -13,7 +13,7 @@
     </div>
     <div>
         {{ if and (eq .Data.Pack.Status "READY") (.Data.Pack.FilePath) }}
-            <a class="button" href="/board-packs/{{ .Data.Pack.ID }}/download">Download PDF</a>
+            <a class="btn btn--primary" href="/board-packs/{{ .Data.Pack.ID }}/download">Download PDF</a>
         {{ end }}
     </div>
 </section>

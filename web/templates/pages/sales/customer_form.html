@@ -166,7 +166,7 @@
                     {{ if .Data.Customer }}
                     <div class="form-group mb-6">
                         <label class="check">
-                            <input type="checkbox" name="is_active" id="is_active" value="true" {{ if .Data.Customer.IsActive }}checked{{ end }}>
+                            <input class="check__input" type="checkbox" name="is_active" id="is_active" value="true" {{ if .Data.Customer.IsActive }}checked{{ end }}>
                             <span>Customer is active</span>
                         </label>
                         <span class="help">Inactive customers cannot be selected in new transactions</span>
@@ -174,7 +174,7 @@
                     {{ end }}
                     <div class="form-group">
                         <label for="notes" class="form-label">Notes</label>
-                        <textarea name="notes" id="notes" class="form-input" rows="4" placeholder="Internal notes about this customer">{{ if .Data.Customer }}{{ if .Data.Customer.Notes }}{{ .Data.Customer.Notes }}{{ end }}{{ end }}</textarea>
+                        <textarea name="notes" id="notes" class="form-textarea" rows="4" placeholder="Internal notes about this customer">{{ if .Data.Customer }}{{ if .Data.Customer.Notes }}{{ .Data.Customer.Notes }}{{ end }}{{ end }}</textarea>
                     </div>
                 </section>
 

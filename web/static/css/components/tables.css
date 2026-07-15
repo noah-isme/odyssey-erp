@@ -4,18 +4,29 @@
    ============================================ */
 
 .table-wrap {
-    /* background: var(--table-bg); - Removed to inherit Card background */
+    width: 100%;
     border: 1px solid var(--table-border);
     border-radius: var(--table-radius);
-    overflow: hidden;
+    overflow-x: auto;
+}
+
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
 }
 
 .table {
     width: 100%;
+    min-width: 640px;
     border-collapse: separate;
     border-spacing: 0;
     font-size: var(--text-sm);
     color: var(--text-primary);
+}
+
+.table--compact {
+    min-width: 480px;
 }
 
 .table thead th {
@@ -43,6 +54,13 @@
     padding: var(--table-cell-pad-y) var(--table-cell-pad-x);
     border-bottom: 1px solid var(--table-border);
     vertical-align: middle;
+}
+
+.table tfoot th,
+.table tfoot td {
+    padding: var(--table-cell-pad-y) var(--table-cell-pad-x);
+    border-top: 1px solid var(--table-border);
+    text-align: left;
 }
 
 .table tbody tr:hover {

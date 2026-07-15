@@ -20,7 +20,7 @@
             {{ if eq .Data.Adjustment.Status "DRAFT" }}
             <form action="/inventory/adjustments/{{ .Data.Adjustment.ID }}/post" method="POST" onsubmit="return confirm('Posting akan merubah saldo stok secara permanen. Lanjutkan?')">
                 <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
-                <button type="submit" class="button success">
+                <button type="submit" class="btn btn--primary">
                     <i class="lucide-check-circle"></i> Posting Penyesuaian
                 </button>
             </form>
@@ -30,11 +30,11 @@
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div class="md:col-span-2">
-            <div class="card card-table">
+            <div class="card card-table table-responsive">
                 <div class="card-header">
                     <h2 class="card-title">Item Penyesuaian</h2>
                 </div>
-                <table class="table">
+                <table class="table" aria-label="Inventory adjustment items">
                     <thead>
                         <tr>
                             <th scope="col">Produk</th>
@@ -72,7 +72,7 @@
                     
                     <div class="form-group">
                         <label for="product_id">Produk</label>
-                        <select name="product_id" id="product_id" class="form-control" required>
+                        <select name="product_id" id="product_id" class="form-select" required>
                             <option value="">Pilih Produk...</option>
                             {{ range .Data.Products }}
                             <option value="{{ .ID }}">{{ .Name }} ({{ .SKU }})</option>
@@ -82,15 +82,15 @@
 
                     <div class="form-group">
                         <label for="qty">Kuantitas (Gunakan negatif untuk pengurangan)</label>
-                        <input type="number" step="any" name="qty" id="qty" class="form-control" placeholder="Misal: -5 untuk rusak" required>
+                        <input type="number" step="any" name="qty" id="qty" class="form-input" placeholder="Misal: -5 untuk rusak" required>
                     </div>
 
                     <div class="form-group">
                         <label for="note">Keterangan Item</label>
-                        <input type="text" name="note" id="note" class="form-control" placeholder="Contoh: Barang cacat pabrik">
+                        <input type="text" name="note" id="note" class="form-input" placeholder="Contoh: Barang cacat pabrik">
                     </div>
 
-                    <button type="submit" class="button primary block full-width">Tambah Item</button>
+                    <button type="submit" class="btn btn--primary block full-width">Tambah Item</button>
                 </form>
             </div>
             {{ end }}

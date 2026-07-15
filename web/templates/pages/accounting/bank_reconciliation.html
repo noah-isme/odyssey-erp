@@ -18,7 +18,7 @@
             {{ if ne .Data.Statement.Status "RECONCILED" }}
             <form action="/accounting/banks/statements/{{ .Data.Statement.ID }}/confirm" method="post">
                 <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
-                <button type="submit" class="button primary">Confirm Statement</button>
+                <button type="submit" class="btn btn--primary">Confirm Statement</button>
             </form>
             {{ else }}
             <span class="badge badge-success">Reconciled</span>
@@ -26,8 +26,8 @@
         </div>
     </header>
 
-    <div class="card card-table mt-6">
-        <table class="table">
+    <div class="card card-table table-responsive mt-6">
+        <table class="table" aria-label="Bank reconciliation entries">
             <thead>
                 <tr>
                     <th>Date</th>

@@ -14,8 +14,8 @@
         <h1>Dashboard Keuangan</h1>
         <p>Ringkasan KPI, tren P&amp;L, cashflow, dan aging untuk periode {{ .Data.Filters.Period }}.</p>
         <div role="group" aria-label="Ekspor dashboard">
-            <a class="secondary" href="/finance/analytics/pdf?period={{ .Data.Filters.Period }}&amp;company_id={{ .Data.Filters.CompanyID }}{{ with .Data.Filters.BranchID }}&amp;branch_id={{ . }}{{ end }}">Unduh PDF</a>
-            <a class="secondary" href="/finance/analytics/export.csv?period={{ .Data.Filters.Period }}&amp;company_id={{ .Data.Filters.CompanyID }}{{ with .Data.Filters.BranchID }}&amp;branch_id={{ . }}{{ end }}">Unduh CSV</a>
+            <a class="btn btn--secondary" href="/finance/analytics/pdf?period={{ .Data.Filters.Period }}&amp;company_id={{ .Data.Filters.CompanyID }}{{ with .Data.Filters.BranchID }}&amp;branch_id={{ . }}{{ end }}">Unduh PDF</a>
+            <a class="btn btn--secondary" href="/finance/analytics/export.csv?period={{ .Data.Filters.Period }}&amp;company_id={{ .Data.Filters.CompanyID }}{{ with .Data.Filters.BranchID }}&amp;branch_id={{ . }}{{ end }}">Unduh CSV</a>
         </div>
     </header>
     <section class="dashboard-section">

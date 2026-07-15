@@ -14,15 +14,15 @@
         <div class="dashboard-actions">
             <form action="/accounting/banks/statements/import" method="post" enctype="multipart/form-data" class="flex items-center gap-2">
                 <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
-                <input type="date" name="statement_date" required class="input" style="width: auto; height: var(--btn-h);">
-                <input type="file" name="statement_csv" accept=".csv" required class="input" style="width: auto; height: var(--btn-h); padding-top: 6px;">
-                <button type="submit" class="button primary">Import CSV</button>
+                <input type="date" name="statement_date" required class="form-input" style="width: auto; height: var(--btn-h);">
+                <input type="file" name="statement_csv" accept=".csv" required class="form-input" style="width: auto; height: var(--btn-h); padding-top: 6px;">
+                <button type="submit" class="btn btn--primary">Import CSV</button>
             </form>
         </div>
     </header>
 
-    <div class="card card-table mt-6">
-        <table class="table">
+    <div class="card card-table table-responsive mt-6">
+        <table class="table" aria-label="Bank statement imports">
             <thead>
                 <tr>
                     <th>Date</th>
@@ -48,7 +48,7 @@
                         {{ end }}
                     </td>
                     <td class="text-right">
-                        <a href="/accounting/banks/statements/{{ .ID }}" class="button small ghost">Review</a>
+                        <a href="/accounting/banks/statements/{{ .ID }}" class="btn btn--ghost btn--sm">Review</a>
                     </td>
                 </tr>
                 {{ else }}

@@ -53,17 +53,17 @@
         </div>
 
         <footer>
-            <a href="/finance/ap/payments" role="button" class="outline">Back to List</a>
+            <a href="/finance/ap/payments" class="btn btn--secondary">Back to List</a>
         </footer>
     </article>
 
     {{if $pay.Allocations}}
     <article>
         <header>
-            <h3>Allocations</h3>
+            <h3 id="ap-payment-allocations-title">Allocations</h3>
         </header>
-        <figure>
-            <table>
+        <figure class="table-responsive">
+            <table class="table" aria-labelledby="ap-payment-allocations-title">
                 <thead>
                     <tr>
                         <th>Invoice</th>
