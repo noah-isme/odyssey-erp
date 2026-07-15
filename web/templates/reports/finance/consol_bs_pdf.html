@@ -16,7 +16,7 @@
     </style>
 </head>
 <body>
-    <h1>Consolidated Balance Sheet</h1>
+    <h1 id="consol-bs-report-title">Consolidated Balance Sheet</h1>
     <div class="meta">
         <p>Group ID {{ .Filters.GroupID }} &mdash; Period {{ .Filters.Period }} &mdash; FX {{ if .Filters.FxOn }}On{{ else }}Off{{ end }}</p>
     </div>
@@ -29,7 +29,7 @@
     </div>
     {{ end }}
     <h2>Totals</h2>
-    <table class="totals">
+    <table class="table totals" aria-labelledby="consol-bs-report-title">
         <tbody>
             <tr><td>Assets</td><td class="num">{{ formatDecimal .Totals.Assets }}</td></tr>
             <tr><td>Liabilities + Equity</td><td class="num">{{ formatDecimal .Totals.LiabEquity }}</td></tr>
@@ -38,7 +38,7 @@
         </tbody>
     </table>
     <h2>Assets</h2>
-    <table>
+    <table class="table" aria-labelledby="consol-bs-report-title">
         <thead>
             <tr>
                 <th>Account Code</th>
@@ -59,7 +59,7 @@
         </tbody>
     </table>
     <h2>Liabilities &amp; Equity</h2>
-    <table>
+    <table class="table" aria-labelledby="consol-bs-report-title">
         <thead>
             <tr>
                 <th>Account Code</th>
@@ -80,7 +80,7 @@
         </tbody>
     </table>
     <h2>Entity Contribution</h2>
-    <table>
+    <table class="table" aria-labelledby="consol-bs-report-title">
         <thead>
             <tr>
                 <th>Entity</th>

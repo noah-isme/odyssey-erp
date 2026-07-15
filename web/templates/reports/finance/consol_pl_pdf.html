@@ -16,7 +16,7 @@
     </style>
 </head>
 <body>
-    <h1>Consolidated Profit &amp; Loss</h1>
+    <h1 id="consol-pl-report-title">Consolidated Profit &amp; Loss</h1>
     <div class="meta">
         <p>Group ID {{ .Filters.GroupID }} &mdash; Period {{ .Filters.Period }} &mdash; FX {{ if .Filters.FxOn }}On{{ else }}Off{{ end }}</p>
     </div>
@@ -29,7 +29,7 @@
     </div>
     {{ end }}
     <h2>Totals</h2>
-    <table class="totals">
+    <table class="table totals" aria-labelledby="consol-pl-report-title">
         <tbody>
             <tr><td>Revenue</td><td class="num">{{ formatDecimal .Totals.Revenue }}</td></tr>
             <tr><td>COGS</td><td class="num">{{ formatDecimal .Totals.COGS }}</td></tr>
@@ -40,7 +40,7 @@
         </tbody>
     </table>
     <h2>Statement</h2>
-    <table>
+    <table class="table" aria-labelledby="consol-pl-report-title">
         <thead>
             <tr>
                 <th>Section</th>
@@ -63,7 +63,7 @@
         </tbody>
     </table>
     <h2>Entity Contribution</h2>
-    <table>
+    <table class="table" aria-labelledby="consol-pl-report-title">
         <thead>
             <tr>
                 <th>Entity</th>

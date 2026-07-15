@@ -5,20 +5,20 @@
         <div class="filter-grid">
             <label>
                 <span>Periode (YYYY-MM)</span>
-                <input type="month" name="period" value="{{ .Filters.Period }}" aria-label="Pilih periode">
+                <input class="form-input" type="month" name="period" value="{{ .Filters.Period }}" aria-label="Pilih periode">
             </label>
             <label>
                 <span>ID Perusahaan</span>
-                <input type="number" name="company_id" min="1" value="{{ .Filters.CompanyID }}" aria-label="Pilih perusahaan">
+                <input class="form-input" type="number" name="company_id" min="1" value="{{ .Filters.CompanyID }}" aria-label="Pilih perusahaan">
             </label>
             <label>
                 <span>ID Cabang</span>
-                <input type="number" name="branch_id" min="1" value="{{ with .Filters.BranchID }}{{ . }}{{ end }}" aria-label="Pilih cabang opsional">
+                <input class="form-input" type="number" name="branch_id" min="1" value="{{ with .Filters.BranchID }}{{ . }}{{ end }}" aria-label="Pilih cabang opsional">
             </label>
         </div>
     </fieldset>
     <div>
-        <button type="submit">Terapkan</button>
+        <button type="submit" class="btn btn--primary">Terapkan</button>
     </div>
 </form>
 {{ end }}

@@ -22,7 +22,7 @@
 </head>
 <body>
 <header>
-    <h1>Board Pack – {{ .Company.Name }}</h1>
+    <h1 id="boardpack-report-title">Board Pack – {{ .Company.Name }}</h1>
     <p class="muted">Periode {{ .Period.Name }} · {{ formatDate .Period.StartDate }} – {{ formatDate .Period.EndDate }}</p>
     <p class="muted">Dihasilkan {{ formatDate .GeneratedAt }}</p>
 </header>
@@ -57,7 +57,7 @@
                 <p>{{ if .Exec.RequestedBy }}User #{{ .Exec.RequestedBy }}{{ else }}System{{ end }}</p>
             </div>
         </div>
-        <table>
+        <table class="table" aria-labelledby="boardpack-report-title">
             <thead><tr><th>Metric</th><th>Nilai</th></tr></thead>
             <tbody>
                 <tr><td>Revenue</td><td>{{ formatDecimal .Exec.KPISummary.Revenue }}</td></tr>
@@ -72,7 +72,7 @@
     {{ else if eq .Type "PL_SUMMARY" }}
         {{ $pl := .Payload }}
         {{ if $pl }}
-        <table>
+        <table class="table" aria-labelledby="boardpack-report-title">
             <thead><tr><th>Kategori</th><th>Akun</th><th>Nilai</th></tr></thead>
             <tbody>
             {{ range $pl.Revenue.Accounts }}
@@ -88,7 +88,7 @@
     {{ else if eq .Type "BS_SUMMARY" }}
         {{ $bs := .Payload }}
         {{ if $bs }}
-        <table>
+        <table class="table" aria-labelledby="boardpack-report-title">
             <thead><tr><th>Klasifikasi</th><th>Nilai</th></tr></thead>
             <tbody>
                 <tr><td>Assets</td><td>{{ formatDecimal $bs.Assets.Total }}</td></tr>
@@ -100,7 +100,7 @@
         {{ else }}<p class="muted">Belum ada data neraca.</p>{{ end }}
     {{ else if eq .Type "CASHFLOW_SUMMARY" }}
         {{ if .Cashflow }}
-        <table>
+        <table class="table" aria-labelledby="boardpack-report-title">
             <thead><tr><th>Cash In</th><th>Cash Out</th><th>Net</th></tr></thead>
             <tbody>
                 <tr><td>{{ formatDecimal .Cashflow.CashIn }}</td><td>{{ formatDecimal .Cashflow.CashOut }}</td><td>{{ formatDecimal .Cashflow.Net }}</td></tr>
@@ -110,7 +110,7 @@
     {{ else if eq .Type "TOP_VARIANCES" }}
         {{ $rows := .Payload }}
         {{ if $rows }}
-        <table>
+        <table class="table" aria-labelledby="boardpack-report-title">
             <thead><tr><th>Account</th><th>Base</th><th>Compare</th><th>Variance</th><th>Variance %</th></tr></thead>
             <tbody>
                 {{ range $rows }}

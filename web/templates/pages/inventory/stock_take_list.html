@@ -12,14 +12,14 @@
             <p class="text-muted">Kelola sesi penghitungan fisik stok inventaris.</p>
         </div>
         <div class="header-actions">
-            <a href="/inventory/stock-takes/new" class="button primary">
+            <a href="/inventory/stock-takes/new" class="btn btn--primary">
                 <i class="lucide-plus"></i> Sesi Baru
             </a>
         </div>
     </header>
 
-    <div class="card card-table">
-        <table class="table">
+    <div class="card card-table table-responsive">
+        <table class="table" aria-label="Stock takes">
             <thead>
                 <tr>
                     <th scope="col">Nomor</th>
@@ -43,7 +43,7 @@
                     <td>{{ .TakenAt | formatDate }}</td>
                     <td class="text-muted">{{ .Note | default "-" }}</td>
                     <td class="text-right">
-                        <a href="/inventory/stock-takes/{{ .ID }}" class="button small ghost">Detail</a>
+                        <a href="/inventory/stock-takes/{{ .ID }}" class="btn btn--ghost btn--sm">Detail</a>
                     </td>
                 </tr>
                 {{ else }}

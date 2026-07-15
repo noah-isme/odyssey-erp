@@ -26,10 +26,10 @@
             <h2 class="card-title text-danger flex items-center gap-2">
                 <i class="lucide-alert-triangle"></i> Reorder Point Alerts
             </h2>
-            <a href="/procurement/prs/new" class="button small secondary">Buat PR Baru</a>
+            <a href="/procurement/prs/new" class="btn btn--secondary btn--sm">Buat PR Baru</a>
         </div>
-        <div class="card-table">
-            <table class="table">
+        <div class="card-table table-responsive">
+            <table class="table" aria-label="Low stock inventory">
                 <thead>
                     <tr>
                         <th scope="col">Gudang</th>
@@ -53,7 +53,7 @@
                             {{ printf "%.2f" (subf .MinStock .CurrentQty) }} unit lagi
                         </td>
                         <td class="text-right">
-                            <a href="/procurement/prs?product_id={{ .ProductID }}&qty={{ subf .MinStock .CurrentQty }}" class="button small secondary">
+                            <a href="/procurement/prs?product_id={{ .ProductID }}&qty={{ subf .MinStock .CurrentQty }}" class="btn btn--secondary btn--sm">
                                 <i class="lucide-shopping-cart"></i> Reorder
                             </a>
                         </td>

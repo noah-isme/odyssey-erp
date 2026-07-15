@@ -24,7 +24,7 @@
         {{ if $run.Notes }}<p class="note">Catatan: {{ $run.Notes }}</p>{{ end }}
     </div>
     <div>
-        <a class="secondary outline" href="/accounting/periods?company_id={{ $period.CompanyID }}">Kembali ke daftar</a>
+        <a class="btn btn--secondary" href="/accounting/periods?company_id={{ $period.CompanyID }}">Kembali ke daftar</a>
     </div>
 </section>
 
@@ -50,8 +50,8 @@
     <header class="card-heading">
         <h2>Checklist Close</h2>
     </header>
-    <div class="responsive-table">
-        <table class="checklist-table">
+    <div class="responsive-table table-responsive">
+        <table class="table checklist-table" aria-label="Period close checklist">
             <thead>
             <tr>
                 <th>Langkah</th>
@@ -75,13 +75,13 @@
                     <td>
                         <form method="post" action="/close-runs/{{ $run.ID }}/checklist/{{ $item.Item.ID }}" class="checklist-form">
                             <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
-                            <select name="status">
+                            <select class="form-select" name="status">
                                 {{ range $option := $data.ChecklistStatuses }}
                                     <option value="{{ $option.Value }}" {{ if eq $option.Value $item.Item.Status }}selected{{ end }}>{{ $option.Label }}</option>
                                 {{ end }}
                             </select>
-                            <textarea name="comment" rows="2" placeholder="Catatan">{{ $item.Item.Comment }}</textarea>
-                            <button type="submit">Update</button>
+                            <textarea class="form-textarea" name="comment" rows="2" placeholder="Catatan">{{ $item.Item.Comment }}</textarea>
+                            <button type="submit" class="btn btn--primary">Update</button>
                         </form>
                     </td>
                 </tr>
@@ -96,12 +96,12 @@
     <div class="close-actions">
         <form method="post" action="/close-runs/{{ $run.ID }}/soft-close">
             <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
-            <button type="submit" class="secondary" {{ if not $data.SoftClose.Enabled }}disabled{{ end }}>Soft Close</button>
+            <button type="submit" class="btn btn--secondary" {{ if not $data.SoftClose.Enabled }}disabled{{ end }}>Soft Close</button>
             {{ if and (not $data.SoftClose.Enabled) $data.SoftClose.Message }}<small class="muted">{{ $data.SoftClose.Message }}</small>{{ end }}
         </form>
         <form method="post" action="/close-runs/{{ $run.ID }}/hard-close">
             <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
-            <button type="submit" class="contrast" {{ if not $data.HardClose.Enabled }}disabled{{ end }}>Hard Close</button>
+            <button type="submit" class="btn btn--danger" {{ if not $data.HardClose.Enabled }}disabled{{ end }}>Hard Close</button>
             {{ if and (not $data.HardClose.Enabled) $data.HardClose.Message }}<small class="muted">{{ $data.HardClose.Message }}</small>{{ end }}
         </form>
     </div>

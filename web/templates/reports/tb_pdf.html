@@ -19,10 +19,10 @@
 <body>
     {{ $data := .Data }}
     <header>
-        <h1>{{ $data.CompanyName }}</h1>
+        <h1 id="trial-balance-report-title">{{ $data.CompanyName }}</h1>
         <p>Trial Balance · Period {{ $data.PeriodLabel }} · Branch {{ $data.BranchName }}</p>
     </header>
-    <table>
+    <table class="table" aria-labelledby="trial-balance-report-title">
         <thead>
             <tr>
                 <th>Account</th>

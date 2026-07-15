@@ -18,7 +18,7 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="form-group">
                     <label for="src_warehouse">Gudang Asal</label>
-                    <select name="src_warehouse" id="src_warehouse" class="form-control" required>
+                    <select name="src_warehouse" id="src_warehouse" class="form-select" required>
                         <option value="">Pilih Asal...</option>
                         {{ range .Data.Warehouses }}
                         <option value="{{ .ID }}" {{ if eq .ID $.Data.Form.SrcWarehouse }}selected{{ end }}>{{ .Name }}</option>
@@ -29,7 +29,7 @@
 
                 <div class="form-group">
                     <label for="dst_warehouse">Gudang Tujuan</label>
-                    <select name="dst_warehouse" id="dst_warehouse" class="form-control" required>
+                    <select name="dst_warehouse" id="dst_warehouse" class="form-select" required>
                         <option value="">Pilih Tujuan...</option>
                         {{ range .Data.Warehouses }}
                         <option value="{{ .ID }}" {{ if eq .ID $.Data.Form.DstWarehouse }}selected{{ end }}>{{ .Name }}</option>
@@ -41,7 +41,7 @@
 
             <div class="form-group">
                 <label for="product_id">Produk</label>
-                <select name="product_id" id="product_id" class="form-control" required>
+                <select name="product_id" id="product_id" class="form-select" required>
                     <option value="">Pilih Produk...</option>
                     {{ range .Data.Products }}
                     <option value="{{ .ID }}" {{ if eq .ID $.Data.Form.ProductID }}selected{{ end }}>{{ .Name }} ({{ .SKU }})</option>
@@ -53,26 +53,26 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="form-group">
                     <label for="qty">Jumlah Transfer</label>
-                    <input type="number" step="any" name="qty" id="qty" class="form-control" value="{{ .Data.Form.Qty }}" placeholder="0.00" required>
+                    <input type="number" step="any" name="qty" id="qty" class="form-input" value="{{ .Data.Form.Qty }}" placeholder="0.00" required>
                     {{ if .Data.Errors.qty }}<p class="form-error">{{ .Data.Errors.qty }}</p>{{ end }}
                 </div>
 
                 <div class="form-group">
                     <label for="unit_cost">Biaya per Unit (Opsional)</label>
-                    <input type="number" step="any" name="unit_cost" id="unit_cost" class="form-control" value="{{ .Data.Form.UnitCost }}" placeholder="0.00">
+                    <input type="number" step="any" name="unit_cost" id="unit_cost" class="form-input" value="{{ .Data.Form.UnitCost }}" placeholder="0.00">
                     {{ if .Data.Errors.unit_cost }}<p class="form-error">{{ .Data.Errors.unit_cost }}</p>{{ end }}
                 </div>
             </div>
 
             <div class="form-group">
                 <label for="note">Catatan Transfer</label>
-                <textarea name="note" id="note" class="form-control" rows="3" placeholder="Contoh: Mutasi stok reguler">{{ .Data.Form.Note }}</textarea>
+                <textarea name="note" id="note" class="form-textarea" rows="3" placeholder="Contoh: Mutasi stok reguler">{{ .Data.Form.Note }}</textarea>
                 {{ if .Data.Errors.note }}<p class="form-error">{{ .Data.Errors.note }}</p>{{ end }}
             </div>
 
             <div class="form-footer">
-                <a href="/inventory/dashboard" class="button ghost">Batal</a>
-                <button type="submit" class="button primary">Proses Transfer</button>
+                <a href="/inventory/dashboard" class="btn btn--ghost">Batal</a>
+                <button type="submit" class="btn btn--primary">Proses Transfer</button>
             </div>
             
             {{ if .Data.Errors.general }}

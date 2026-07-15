@@ -8,27 +8,27 @@
 <h1>Purchase Request</h1>
 <form method="post" class="grid">
     <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
-    <label>Nomor
-        <input type="text" name="number">
+    <label class="form-label">Nomor
+        <input class="form-input" type="text" name="number">
     </label>
-    <label>Supplier ID
-        <input type="number" name="supplier_id">
+    <label class="form-label">Supplier ID
+        <input class="form-input" type="number" name="supplier_id">
     </label>
-    <label>Request By (User ID)
-        <input type="number" name="request_by" required>
+    <label class="form-label">Request By (User ID)
+        <input class="form-input" type="number" name="request_by" required>
     </label>
     <div class="grid">
-        <label>Produk ID
-            <input type="number" name="product_id" value="{{ if .Data.ProductID }}{{ .Data.ProductID }}{{ end }}" required>
+        <label class="form-label">Produk ID
+            <input class="form-input" type="number" name="product_id" value="{{ if .Data.ProductID }}{{ .Data.ProductID }}{{ end }}" required>
         </label>
-        <label>Kuantitas
-            <input type="number" step="0.0001" name="qty" value="{{ if .Data.Qty }}{{ .Data.Qty }}{{ end }}" required>
+        <label class="form-label">Kuantitas
+            <input class="form-input" type="number" step="0.0001" name="qty" value="{{ if .Data.Qty }}{{ .Data.Qty }}{{ end }}" required>
         </label>
     </div>
-    <label>Catatan
-        <textarea name="note"></textarea>
+    <label class="form-label">Catatan
+        <textarea class="form-textarea" name="note"></textarea>
     </label>
-    <button type="submit">Simpan</button>
+    <button type="submit" class="btn btn--primary">Simpan</button>
 </form>
 {{ if .Data.Errors }}<p class="error-text">{{ index .Data.Errors "general" }}</p>{{ end }}
 <p>Gunakan tombol Submit di daftar PR untuk mengajukan dokumen.</p>
