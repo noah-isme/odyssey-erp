@@ -1,0 +1,14 @@
+{{ define "partials/ui/status_badge.html" }}
+{{ $status := lower . }}
+{{ if or (eq $status "approved") (eq $status "active") (eq $status "completed") (eq $status "delivered") (eq $status "paid") (eq $status "posted") (eq $status "reconciled") }}
+<span class="badge badge--success">{{ . }}</span>
+{{ else if or (eq $status "pending") (eq $status "open") (eq $status "processing") (eq $status "confirmed") (eq $status "shipped") }}
+<span class="badge badge--info">{{ . }}</span>
+{{ else if or (eq $status "overdue") (eq $status "warning") (eq $status "soft_closed") }}
+<span class="badge badge--warning">{{ . }}</span>
+{{ else if or (eq $status "cancelled") (eq $status "canceled") (eq $status "rejected") (eq $status "void") (eq $status "voided") (eq $status "inactive") (eq $status "failed") }}
+<span class="badge badge--error">{{ . }}</span>
+{{ else }}
+<span class="badge badge--neutral">{{ . }}</span>
+{{ end }}
+{{ end }}

@@ -70,17 +70,15 @@
             {{if eq $inv.Status "DRAFT"}}
             <form method="post" action="/finance/ap/invoices/{{$inv.ID}}/post" style="display: inline;">
                 <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-                <button type="submit" class="primary">Post Invoice</button>
+                <button type="submit" class="btn btn--primary">Post Invoice</button>
             </form>
-            <button type="button" class="secondary"
-                onclick="document.getElementById('void-modal').showModal()">Void</button>
+            <button type="button" class="btn btn--danger" data-dialog-open="void-modal">Void</button>
             {{else if eq $inv.Status "POSTED"}}
-            <a href="/finance/ap/payments/new?ap_invoice_id={{$inv.ID}}" role="button" class="primary">Record
+            <a href="/finance/ap/payments/new?ap_invoice_id={{$inv.ID}}" class="btn btn--primary">Record
                 Payment</a>
-            <button type="button" class="secondary"
-                onclick="document.getElementById('void-modal').showModal()">Void</button>
+            <button type="button" class="btn btn--danger" data-dialog-open="void-modal">Void</button>
             {{end}}
-            <a href="/finance/ap/invoices" role="button" class="outline">Back to List</a>
+            <a href="/finance/ap/invoices" class="btn btn--secondary">Back to List</a>
         </footer>
     </article>
 
@@ -88,10 +86,10 @@
     {{if $inv.Lines}}
     <article>
         <header>
-            <h3>Line Items</h3>
+            <h3 id="ap-invoice-lines-title">Line Items</h3>
         </header>
-        <figure>
-            <table>
+        <figure class="table-responsive">
+            <table class="table" aria-labelledby="ap-invoice-lines-title">
                 <thead>
                     <tr>
                         <th>Product</th>
@@ -138,10 +136,10 @@
     {{if $inv.Payments}}
     <article>
         <header>
-            <h3>Payment History</h3>
+            <h3 id="ap-invoice-payments-title">Payment History</h3>
         </header>
-        <figure>
-            <table>
+        <figure class="table-responsive">
+            <table class="table" aria-labelledby="ap-invoice-payments-title">
                 <thead>
                     <tr>
                         <th>Number</th>
@@ -176,21 +174,21 @@
     {{end}}
 
     <!-- Void Modal -->
-    <dialog id="void-modal">
-        <article>
-            <header>
-                <button aria-label="Close" rel="prev" onclick="this.closest('dialog').close()"></button>
-                <h3>Void Invoice</h3>
+    <dialog id="void-modal" class="native-dialog" data-dialog aria-labelledby="void-invoice-modal-title">
+        <article class="native-dialog__content">
+            <header class="native-dialog__header">
+                <h3 id="void-invoice-modal-title" class="native-dialog__title">Void Invoice</h3>
+                <button type="button" class="btn btn--icon btn--ghost btn--sm" aria-label="Close" data-dialog-close>×</button>
             </header>
             <form method="post" action="/finance/ap/invoices/{{$inv.ID}}/void">
                 <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-                <label>
-                    Void Reason
-                    <textarea name="reason" required placeholder="Enter reason for voiding this invoice..."></textarea>
-                </label>
-                <footer>
-                    <button type="button" class="secondary" onclick="this.closest('dialog').close()">Cancel</button>
-                    <button type="submit" class="contrast">Void Invoice</button>
+                <div class="form-group">
+                    <label class="form-label" for="void-reason">Void Reason</label>
+                    <textarea class="form-textarea" id="void-reason" name="reason" required placeholder="Enter reason for voiding this invoice..."></textarea>
+                </div>
+                <footer class="native-dialog__footer">
+                    <button type="button" class="btn btn--secondary" data-dialog-close>Cancel</button>
+                    <button type="submit" class="btn btn--danger">Void Invoice</button>
                 </footer>
             </form>
         </article>

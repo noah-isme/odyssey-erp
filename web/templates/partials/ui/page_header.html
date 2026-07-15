@@ -1,0 +1,11 @@
+{{ define "partials/ui/page_header.html" }}
+<header class="page-header">
+    <div class="page-header__content">
+        <h1 class="page-title">{{ template "ui-page-header-title" . }}</h1>
+        <p class="page-subtitle">{{ template "ui-page-header-subtitle" . }}</p>
+    </div>
+    <div class="page-header__actions">
+        {{ template "ui-page-header-actions" . }}
+    </div>
+</header>
+{{ end }}

@@ -1,0 +1,14 @@
+{{ define "pages/masterdata/unit_detail.html" }}{{ template "layouts/base.html" . }}{{ end }}
+{{ define "title" }}Unit Detail{{ end }}
+{{ define "content" }}{{ template "partials/masterdata/detail.html" . }}{{ end }}
+{{ define "masterdata-detail-heading" }}{{ .Data.Unit.Name }}{{ end }}
+{{ define "ui-page-header-title" }}{{ template "masterdata-detail-heading" . }}{{ end }}
+{{ define "ui-page-header-subtitle" }}View record information and maintenance actions.{{ end }}
+{{ define "ui-page-header-actions" }}<a class="btn btn--secondary" href="{{ template "masterdata-detail-list-url" . }}">Back to List</a><a class="btn btn--primary" href="{{ template "masterdata-detail-edit-url" . }}">Edit</a>{{ end }}
+{{ define "masterdata-detail-list-url" }}/masterdata/units{{ end }}
+{{ define "masterdata-detail-edit-url" }}/masterdata/units/{{ .Data.Unit.ID }}/edit{{ end }}
+{{ define "masterdata-detail-delete-url" }}/masterdata/units/{{ .Data.Unit.ID }}/delete{{ end }}
+{{ define "masterdata-detail-fields" }}
+<div><dt class="form-label">Code</dt><dd>{{ .Data.Unit.Code }}</dd></div>
+<div><dt class="form-label">Name</dt><dd>{{ .Data.Unit.Name }}</dd></div>
+{{ end }}

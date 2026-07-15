@@ -47,7 +47,7 @@
             {{ end }}
 
             {{ if or (eq .Data.Order.Status "DRAFT") (eq .Data.Order.Status "CONFIRMED") (eq .Data.Order.Status "PROCESSING") }}
-            <button type="button" class="btn btn--danger" data-action="show-cancel-modal">Cancel Order</button>
+            <button type="button" class="btn btn--danger" data-dialog-open="cancelModal">Cancel Order</button>
             {{ end }}
         </div>
     </header>
@@ -222,11 +222,11 @@
 </div>
 
 <!-- Cancel Modal -->
-<dialog id="cancelModal" class="modal">
-    <div class="modal__content">
-        <header class="modal__header">
-            <h3 class="modal__title">Cancel Sales Order</h3>
-            <button class="btn-icon" data-action="close-modal" aria-label="Close">
+<dialog id="cancelModal" class="native-dialog" data-dialog aria-labelledby="cancel-order-modal-title">
+    <div class="native-dialog__content">
+        <header class="native-dialog__header">
+            <h3 id="cancel-order-modal-title" class="native-dialog__title">Cancel Sales Order</h3>
+            <button type="button" class="btn btn--icon btn--ghost btn--sm" data-dialog-close aria-label="Close">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="18" y1="6" x2="6" y2="18" />
                     <line x1="6" y1="6" x2="18" y2="18" />
@@ -234,15 +234,15 @@
             </button>
         </header>
         <form method="post" action="/sales/orders/{{ .Data.Order.ID }}/cancel">
-            <div class="modal__body p-6">
+            <div class="native-dialog__body p-6">
                 <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
                 <div class="field">
                     <label for="reason" class="label">Cancellation Reason <span class="text-error">*</span></label>
-                    <textarea name="reason" id="reason" class="textarea" required placeholder="Reason for cancelling this order"></textarea>
+                    <textarea name="reason" id="reason" class="form-textarea" required placeholder="Reason for cancelling this order"></textarea>
                 </div>
             </div>
-            <footer class="modal__footer p-4 border-t bg-surface-muted flex justify-end gap-3">
-                <button type="button" class="btn btn--secondary" data-action="close-modal">Close</button>
+            <footer class="native-dialog__footer p-4 border-t bg-surface-muted flex justify-end gap-3">
+                <button type="button" class="btn btn--secondary" data-dialog-close>Close</button>
                 <button type="submit" class="btn btn--danger">Cancel Order</button>
             </footer>
         </form>
