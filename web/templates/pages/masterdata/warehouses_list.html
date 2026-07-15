@@ -1,110 +1,17 @@
-{{ define "pages/masterdata/warehouses_list.html" }}
-{{ template "layouts/base.html" . }}
-{{ end }}
-
+{{ define "pages/masterdata/warehouses_list.html" }}{{ template "layouts/base.html" . }}{{ end }}
 {{ define "title" }}Warehouses{{ end }}
+{{ define "content" }}{{ template "partials/masterdata/list.html" . }}{{ end }}
 
-{{ define "content" }}
-<div class="page-container">
-    <div class="page-header">
-        <div class="page-header-content">
-            <h1 class="page-title">Warehouses</h1>
-            <p class="page-subtitle">Manage warehouse information</p>
-        </div>
-        <div class="page-actions">
-            <a href="/masterdata/warehouses/new" class="btn btn--primary">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="12" y1="5" x2="12" y2="19" />
-                    <line x1="5" y1="12" x2="19" y2="12" />
-                </svg>
-                New Warehouse
-            </a>
-        </div>
-    </div>
-
-    <div class="page-content">
-        <!-- Filters -->
-        <div class="card mb-4">
-            <form method="get" action="/masterdata/warehouses" class="filters-form">
-                <div class="filters-row">
-                    <div class="filter-group">
-                        <label for="search">Search</label>
-                        <input type="text" name="search" id="search" placeholder="Search by name or code"
-                            value="{{ if .Data.Filters.Search }}{{ .Data.Filters.Search }}{{ end }}" class="form-input">
-                    </div>
-                    <div class="filter-actions">
-                        <button type="submit" class="btn btn--primary">Filter</button>
-                        <a href="/masterdata/warehouses" class="btn btn--ghost">Clear</a>
-                    </div>
-                </div>
-            </form>
-        </div>
-
-        <!-- Results Table -->
-        <div class="table-container">
-            <div class="table-wrap">
-                <table class="table data-table" data-datatable="warehouses">
-                    <thead>
-                        <tr>
-                            <th scope="col" class="sortable" data-column="code" {{ if eq .Data.Filters.SortBy "code"
-                                }}data-sort-dir="{{ .Data.Filters.SortDir }}" {{ end }}>
-                                Code
-                                {{ if eq .Data.Filters.SortBy "code" }}
-                                {{ if eq .Data.Filters.SortDir "asc" }}<span class="sort-icon">↑</span>{{ else }}<span
-                                    class="sort-icon">↓</span>{{ end }}
-                                {{ end }}
-                            </th>
-                            <th scope="col" class="sortable" data-column="name" {{ if eq .Data.Filters.SortBy "name"
-                                }}data-sort-dir="{{ .Data.Filters.SortDir }}" {{ end }}>
-                                Name
-                                {{ if eq .Data.Filters.SortBy "name" }}
-                                {{ if eq .Data.Filters.SortDir "asc" }}<span class="sort-icon">↑</span>{{ else }}<span
-                                    class="sort-icon">↓</span>{{ end }}
-                                {{ end }}
-                            </th>
-                            <th scope="col">Branch ID</th>
-                            <th scope="col">Address</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {{ range .Data.Warehouses }}
-                        <tr data-row-id="{{ .ID }}" data-href="/masterdata/warehouses/{{ .ID }}"
-                            data-edit-href="/masterdata/warehouses/{{ .ID }}/edit">
-                            <td>{{ .Code }}</td>
-                            <td>{{ .Name }}</td>
-                            <td>{{ .BranchID }}</td>
-                            <td>{{ .Address }}</td>
-                        </tr>
-                        {{ else }}
-                        <tr>
-                            <td colspan="4" class="table-empty">
-                                No warehouses found. <a href="/masterdata/warehouses/new" class="link">Create your first
-                                    warehouse</a>
-                            </td>
-                        </tr>
-                        {{ end }}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Context Menu Template -->
-<div class="context-menu" data-context-menu="warehouses" style="display: none;">
-    <button class="btn btn--menu context-menu__item" data-context-action="view">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-            <circle cx="12" cy="12" r="3"></circle>
-        </svg>
-        View
-    </button>
-    <button class="btn btn--menu context-menu__item" data-context-action="edit">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-        </svg>
-        Edit
-    </button>
-</div>
+{{ define "ui-page-header-title" }}Warehouses{{ end }}
+{{ define "ui-page-header-subtitle" }}Manage warehouse information{{ end }}
+{{ define "ui-page-header-actions" }}<a href="/masterdata/warehouses/new" class="btn btn--primary">New Warehouse</a>{{ end }}
+{{ define "ui-filter-action" }}/masterdata/warehouses{{ end }}
+{{ define "ui-filter-fields" }}<div class="form-group"><label class="form-label" for="search">Search</label><input class="form-input" type="search" name="search" id="search" placeholder="Search by name or code" value="{{ .Data.Filters.Search }}"></div>{{ end }}
+{{ define "ui-filter-actions" }}<button type="submit" class="btn btn--primary">Filter</button><a href="/masterdata/warehouses" class="btn btn--ghost">Clear</a>{{ end }}
+{{ define "masterdata-list-key" }}warehouses{{ end }}
+{{ define "masterdata-list-head" }}<th scope="col" class="sortable" data-column="code">Code</th><th scope="col" class="sortable" data-column="name">Name</th><th scope="col">Branch ID</th><th scope="col">Address</th>{{ end }}
+{{ define "masterdata-list-rows" }}
+{{ range .Data.Warehouses }}
+<tr data-row-id="{{ .ID }}" data-href="/masterdata/warehouses/{{ .ID }}" data-edit-href="/masterdata/warehouses/{{ .ID }}/edit"><td>{{ .Code }}</td><td>{{ .Name }}</td><td>{{ .BranchID }}</td><td>{{ .Address }}</td></tr>
+{{ else }}<tr><td colspan="4" class="table-empty">No warehouses found. <a href="/masterdata/warehouses/new" class="link">Create your first warehouse</a></td></tr>{{ end }}
 {{ end }}

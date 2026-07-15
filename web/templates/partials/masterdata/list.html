@@ -1,0 +1,23 @@
+{{ define "partials/masterdata/list.html" }}
+<div class="page-container">
+    {{ template "partials/ui/page_header.html" . }}
+
+    <div class="page-content">
+        {{ template "partials/ui/filter_bar.html" . }}
+
+        <div class="table-container">
+            <div class="table-wrap">
+                <table class="table table--sticky" data-datatable="{{ template "masterdata-list-key" . }}">
+                    <thead><tr>{{ template "masterdata-list-head" . }}</tr></thead>
+                    <tbody>{{ template "masterdata-list-rows" . }}</tbody>
+                </table>
+            </div>
+
+            <div class="context-menu" data-context-menu="{{ template "masterdata-list-key" . }}" role="menu" aria-label="Row actions" hidden>
+                <button type="button" class="btn btn--menu context-menu__item" data-context-action="view" role="menuitem">View</button>
+                <button type="button" class="btn btn--menu context-menu__item" data-context-action="edit" role="menuitem">Edit</button>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}

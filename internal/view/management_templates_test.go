@@ -11,6 +11,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata/categories"
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata/companies"
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata/products"
+	masterdatashared "github.com/odyssey-erp/odyssey-erp/internal/masterdata/shared"
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata/suppliers"
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata/taxes"
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata/units"
@@ -54,6 +55,14 @@ func TestManagementTemplatesRender(t *testing.T) {
 		{"pages/masterdata/warehouse_form.html", map[string]any{"Warehouse": warehouse, "Branches": []branches.Branch{branch}, "Errors": map[string]string{}}},
 		{"pages/roles/form.html", map[string]any{"Role": map[string]string{"Name": "Manager", "Description": "Manager role"}, "Errors": map[string]string{}}},
 		{"pages/users/form.html", map[string]any{"Errors": map[string]string{}}},
+		{"pages/masterdata/branches_list.html", map[string]any{"Branches": []branches.Branch{}, "Filters": masterdatashared.ListFilters{}}},
+		{"pages/masterdata/categories_list.html", map[string]any{"Categories": []categories.Category{}, "Filters": masterdatashared.ListFilters{}}},
+		{"pages/masterdata/companies_list.html", map[string]any{"Companies": []companies.Company{}, "Filters": masterdatashared.ListFilters{}}},
+		{"pages/masterdata/products_list.html", map[string]any{"Products": []products.Product{}, "Filters": masterdatashared.ListFilters{}}},
+		{"pages/masterdata/suppliers_list.html", map[string]any{"Suppliers": []suppliers.Supplier{}, "Filters": masterdatashared.ListFilters{}}},
+		{"pages/masterdata/taxes_list.html", map[string]any{"Taxes": []taxes.Tax{}, "Filters": masterdatashared.ListFilters{}}},
+		{"pages/masterdata/units_list.html", map[string]any{"Units": []units.Unit{}, "Filters": masterdatashared.ListFilters{}}},
+		{"pages/masterdata/warehouses_list.html", map[string]any{"Warehouses": []warehouses.Warehouse{}, "Filters": masterdatashared.ListFilters{}}},
 	}
 
 	for _, test := range tests {
