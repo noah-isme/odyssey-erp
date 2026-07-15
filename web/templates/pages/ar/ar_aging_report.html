@@ -5,14 +5,14 @@
 {{ define "title" }}AR Aging Report{{ end }}
 
 {{ define "content" }}
+<div class="page-container">
 <header class="page-header">
-    <h1>AR Aging Report</h1>
-    <p>Outstanding receivables aged by invoice date as of {{ now.Format "2006-01-02" }}</p>
+    <div class="page-header__content"><h1 class="page-title">AR Aging Report</h1><p class="page-subtitle">Outstanding receivables aged by invoice date as of {{ now.Format "2006-01-02" }}</p></div>
+    <div class="page-header__actions"><a href="/finance/ar/invoices" class="btn btn--secondary">Back to Invoices</a></div>
 </header>
 
-<div class="table-wrap" data-component="datatable">
+<div class="page-content"><div class="card table-wrap" data-component="datatable">
     <table class="table">
-        <caption class="sr-only">Accounts receivable aging report</caption>
         <caption>Accounts Receivable Aging Summary</caption>
         <thead>
             <tr>
@@ -57,4 +57,5 @@
     {{ index .Data.Errors "general" }}
 </div>
 {{ end }}
+</div></div>
 {{ end }}

@@ -5,26 +5,15 @@
 {{define "title"}}AP Payments{{end}}
 
 {{define "content"}}
-<main class="container">
-    <header>
-        <hgroup>
-            <h1>AP Payments</h1>
-            <p>Track payments made to suppliers</p>
-        </hgroup>
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content"><h1 class="page-title">AP Payments</h1><p class="page-subtitle">Track payments made to suppliers</p></div>
+        <div class="page-header__actions"><a href="/finance/ap/invoices" class="btn btn--secondary">Invoices</a><a href="/finance/ap/aging" class="btn btn--secondary">Aging Report</a><a href="/finance/ap/payments/new" class="btn btn--primary">Record Payment</a></div>
     </header>
-
-    <nav>
-        <ul>
-            <li><a href="/finance/ap/payments/new" class="btn btn--primary">+ Record Payment</a></li>
-        </ul>
-        <ul>
-            <li><a href="/finance/ap/invoices">Invoices</a></li>
-            <li><a href="/finance/ap/aging">Aging Report</a></li>
-        </ul>
-    </nav>
+    <div class="page-content">
 
     {{if .Data.Payments}}
-    <figure class="table-responsive">
+    <div class="card table-wrap">
         <table class="table" aria-label="Accounts payable payments">
             <thead>
                 <tr>
@@ -57,11 +46,14 @@
                 {{end}}
             </tbody>
         </table>
-    </figure>
+    </div>
     {{else}}
-    <article>
-        <p>No payments recorded yet. <a href="/finance/ap/payments/new">Record your first payment</a>.</p>
-    </article>
+    {{ template "partials/ui/empty_state.html" . }}
     {{end}}
-</main>
+</div></div>
 {{end}}
+
+{{ define "ui-empty-state-icon" }}<span aria-hidden="true">—</span>{{ end }}
+{{ define "ui-empty-state-title" }}No payments recorded{{ end }}
+{{ define "ui-empty-state-description" }}Record a supplier payment to populate this ledger.{{ end }}
+{{ define "ui-empty-state-action" }}<a href="/finance/ap/payments/new" class="btn btn--primary">Record Payment</a>{{ end }}

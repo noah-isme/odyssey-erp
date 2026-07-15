@@ -5,14 +5,14 @@
 {{ define "title" }}AP Aging Report{{ end }}
 
 {{ define "content" }}
+<div class="page-container">
 <header class="page-header">
-    <h1>AP Aging Report</h1>
-    <p>Outstanding payables aged by due date as of {{ now.Format "2006-01-02" }}</p>
+    <div class="page-header__content"><h1 class="page-title">AP Aging Report</h1><p class="page-subtitle">Outstanding payables aged by due date as of {{ now.Format "2006-01-02" }}</p></div>
+    <div class="page-header__actions"><a href="/finance/ap/invoices" class="btn btn--secondary">Back to Invoices</a></div>
 </header>
 
-<div class="table-wrap" data-component="datatable">
+<div class="page-content"><div class="card table-wrap" data-component="datatable">
     <table class="table">
-        <caption class="sr-only">Accounts payable aging report</caption>
         <caption>Accounts Payable Aging Summary</caption>
         <thead>
             <tr>
@@ -56,4 +56,5 @@
     {{ index .Data.Errors "general" }}
 </div>
 {{ end }}
+</div></div>
 {{ end }}

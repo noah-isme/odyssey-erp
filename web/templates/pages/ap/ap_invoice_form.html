@@ -5,12 +5,13 @@
 {{ define "title" }}New AP Invoice{{ end }}
 
 {{ define "content" }}
+<div class="page-container">
 <header class="page-header">
-    <h1>New AP Invoice</h1>
-    <p>Create an AP invoice from a posted GRN or approved PO.</p>
+    <div class="page-header__content"><h1 class="page-title">New AP Invoice</h1><p class="page-subtitle">Create an AP invoice from a posted GRN or approved PO.</p></div>
+    <div class="page-header__actions"><a href="/finance/ap/invoices" class="btn btn--secondary">Cancel</a></div>
 </header>
 
-<form method="post" action="/finance/ap/invoices" class="form" data-component="form" data-validate="true">
+<div class="page-content"><form method="post" action="/finance/ap/invoices" class="card form-section" data-component="form" data-validate="true">
     <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
 
     <div class="form-group">
@@ -51,5 +52,5 @@
         <button type="submit" class="btn btn--primary">Create Invoice</button>
         <a href="/finance/ap/invoices" class="btn btn--secondary">Cancel</a>
     </div>
-</form>
+</form></div></div>
 {{ end }}
