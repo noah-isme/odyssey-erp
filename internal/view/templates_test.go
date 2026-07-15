@@ -1,6 +1,10 @@
 package view
 
 import (
+	"io/fs"
+	"os"
+	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -11,6 +15,31 @@ func TestNewEngine(t *testing.T) {
 	engine, err := NewEngine()
 	assert.NoError(t, err, "Templates should parse without error")
 	assert.NotNil(t, engine)
+}
+
+func TestHandlerTemplateReferencesExist(t *testing.T) {
+	engine, err := NewEngine()
+	require.NoError(t, err)
+
+	templateRef := regexp.MustCompile(`pages/[a-zA-Z0-9_/-]+\.html`)
+	references := make(map[string]struct{})
+	repository := os.DirFS("../..")
+	err = fs.WalkDir(repository, "internal", func(path string, entry fs.DirEntry, walkErr error) error {
+		require.NoError(t, walkErr)
+		if entry.IsDir() || !strings.HasSuffix(path, ".go") {
+			return nil
+		}
+		source, readErr := fs.ReadFile(repository, path)
+		require.NoError(t, readErr)
+		for _, name := range templateRef.FindAllString(string(source), -1) {
+			references[name] = struct{}{}
+		}
+		return nil
+	})
+	require.NoError(t, err)
+	for name := range references {
+		assert.Contains(t, engine.templates, name)
+	}
 }
 
 func TestManagementRouteTemplatesExist(t *testing.T) {
