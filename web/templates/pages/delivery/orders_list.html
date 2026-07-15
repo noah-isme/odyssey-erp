@@ -107,14 +107,7 @@
                                 {{ formatDate .DeliveryDate }}
                             </td>
                             <td>
-                                {{ if eq .Status "DRAFT" }}<span class="badge badge--secondary">Draft</span>{{ end }}
-                                {{ if eq .Status "CONFIRMED" }}<span class="badge badge--info">Confirmed</span>{{ end }}
-                                {{ if eq .Status "IN_TRANSIT" }}<span class="badge badge--warning">In Transit</span>{{
-                                end }}
-                                {{ if eq .Status "DELIVERED" }}<span class="badge badge--success">Delivered</span>{{ end
-                                }}
-                                {{ if eq .Status "CANCELLED" }}<span class="badge badge--danger">Cancelled</span>{{ end
-                                }}
+                                {{ template "partials/ui/status_badge.html" .Status }}
                             </td>
                             <td>
                                 {{ if .DriverName }}

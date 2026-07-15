@@ -28,6 +28,7 @@ import * as SalesOrder from './features/sales-order/index.js';
 import * as DeliveryOrder from './features/delivery-order/index.js';
 import { GlobalSearch } from './features/global-search/index.js';
 import { StockTake } from './features/inventory/stock-take.js';
+import { Confirm } from './features/confirm/index.js';
 
 // Component modules
 import { Inspector } from './components/inspector.js';
@@ -98,6 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
     SalesOrder.init();
     DeliveryOrder.init();
     StockTake.init();
+    Confirm.init();
 
     // Core
     Shortcuts.init();

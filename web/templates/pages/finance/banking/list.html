@@ -6,13 +6,13 @@
 
 {{ define "content" }}
 <div class="page-container">
-    <div class="page-header">
-        <div class="page-header-content">
+    <header class="page-header">
+        <div class="page-header__content">
             <h1 class="page-title">Bank Accounts</h1>
             <p class="page-subtitle">Manage company bank accounts and cash flow</p>
         </div>
-        <div class="page-actions flex gap-2">
-            <button class="btn btn--outline" data-dialog-open="transfer-modal">
+        <div class="page-header__actions flex gap-2">
+            <button class="btn btn--secondary" data-dialog-open="transfer-modal">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="17 1 21 5 17 9" />
                     <path d="M3 11V9a4 4 0 0 1 4-4h14" />
@@ -29,16 +29,16 @@
                 New Account
             </button>
         </div>
-    </div>
+    </header>
 
     <div class="page-content">
-        <div class="grid grid-cols-3 gap-4">
+        <div class="responsive-grid responsive-grid--wide gap-4">
             {{ range .Data.Accounts }}
             <a href="/finance/banking/accounts/{{ .ID }}" class="card card--interactive">
                 <div class="card__header">
                     <div class="flex items-center justify-between">
                         <h3 class="card__title">{{ .Name }}</h3>
-                        <span class="badge badge--primary">{{ .Currency }}</span>
+                        <span class="badge badge--info">{{ .Currency }}</span>
                     </div>
                     <p class="text-sm text-muted mt-1">{{ .AccountNumber }}</p>
                 </div>
@@ -51,7 +51,7 @@
                 </div>
             </a>
             {{ else }}
-            <div class="col-span-3">{{ template "partials/ui/empty_state.html" . }}</div>
+            <div class="responsive-grid__span-3">{{ template "partials/ui/empty_state.html" . }}</div>
             {{ end }}
         </div>
     </div>
@@ -74,7 +74,7 @@
                 <input type="text" name="account_number" class="form-input" required>
             </div>
 
-            <div class="grid grid-cols-2 gap-4 mb-3">
+            <div class="responsive-grid responsive-grid--wide gap-4 mb-3">
                 <div class="form-group">
                     <label class="form-label">Currency</label>
                     <select name="currency" class="form-select">
@@ -114,7 +114,7 @@
         <form method="post" action="/finance/banking/transfer">
             <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
             
-            <div class="grid grid-cols-2 gap-4 mb-3">
+            <div class="responsive-grid responsive-grid--wide gap-4 mb-3">
                 <div class="form-group">
                     <label class="form-label">From Account</label>
                     <select name="from_account_id" class="form-select" required>
@@ -135,7 +135,7 @@
                 </div>
             </div>
             
-            <div class="grid grid-cols-2 gap-4 mb-3">
+            <div class="responsive-grid responsive-grid--wide gap-4 mb-3">
                 <div class="form-group">
                     <label class="form-label">Date</label>
                     <input type="date" name="date" class="form-input" required value="{{ now | formatDateInput }}">

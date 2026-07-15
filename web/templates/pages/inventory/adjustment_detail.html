@@ -5,20 +5,18 @@
 {{ define "title" }}Detail Penyesuaian - {{ .Data.Adjustment.Number }}{{ end }}
 
 {{ define "content" }}
-<div class="container">
+<div class="page-container">
     <header class="page-header">
-        <div class="header-main">
+        <div class="page-header__content">
             <div class="flex items-center gap-2">
-                <h1>{{ .Data.Adjustment.Number }}</h1>
-                <span class="badge {{ if eq .Data.Adjustment.Status "POSTED" }}badge-success{{ else if eq .Data.Adjustment.Status "CANCELLED" }}badge-danger{{ else }}badge-warning{{ end }}">
-                    {{ .Data.Adjustment.Status }}
-                </span>
+                <h1 class="page-title">{{ .Data.Adjustment.Number }}</h1>
+                {{ template "partials/ui/status_badge.html" .Data.Adjustment.Status }}
             </div>
-            <p class="text-muted">Gudang: {{ .Data.Adjustment.WarehouseName }} | Tanggal: {{ .Data.Adjustment.AdjustmentAt | formatDate }}</p>
+            <p class="page-subtitle">Gudang: {{ .Data.Adjustment.WarehouseName }} | Tanggal: {{ .Data.Adjustment.AdjustmentAt | formatDate }}</p>
         </div>
-        <div class="header-actions">
+        <div class="page-header__actions">
             {{ if eq .Data.Adjustment.Status "DRAFT" }}
-            <form action="/inventory/adjustments/{{ .Data.Adjustment.ID }}/post" method="POST" onsubmit="return confirm('Posting akan merubah saldo stok secara permanen. Lanjutkan?')">
+            <form action="/inventory/adjustments/{{ .Data.Adjustment.ID }}/post" method="POST" data-confirm="Posting akan mengubah saldo stok secara permanen. Lanjutkan?">
                 <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
                 <button type="submit" class="btn btn--primary">
                     <i class="lucide-check-circle"></i> Posting Penyesuaian
@@ -28,8 +26,8 @@
         </div>
     </header>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div class="md:col-span-2">
+    <div class="responsive-grid responsive-grid--wide gap-6">
+        <div class="responsive-grid__span-2">
             <div class="card card-table table-responsive">
                 <div class="card-header">
                     <h2 class="card-title">Item Penyesuaian</h2>

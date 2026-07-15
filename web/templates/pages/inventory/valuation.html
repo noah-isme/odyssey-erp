@@ -5,11 +5,11 @@
 {{ define "title" }}Laporan Valuasi Stok{{ end }}
 
 {{ define "content" }}
-<div class="container">
+<div class="page-container">
     <header class="page-header">
-        <div class="header-main">
-            <h1>Valuasi Stok</h1>
-            <p class="text-muted">Nilai inventaris berdasarkan metode {{ if eq .Data.Method "FIFO" }}FIFO{{ else }}Moving Average{{ end }}.</p>
+        <div class="page-header__content">
+            <h1 class="page-title">Valuasi Stok</h1>
+            <p class="page-subtitle">Nilai inventaris berdasarkan metode {{ if eq .Data.Method "FIFO" }}FIFO{{ else }}Moving Average{{ end }}.</p>
         </div>
     </header>
 

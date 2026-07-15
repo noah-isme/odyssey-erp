@@ -146,6 +146,16 @@
     background: var(--bg-surface-muted);
 }
 
+.form-input--auto {
+    width: auto;
+    min-width: 10rem;
+}
+
+.form-input--file {
+    height: var(--btn-h);
+    padding-top: 6px;
+}
+
 /* Checkbox / radio */
 .check {
     display: inline-flex;
