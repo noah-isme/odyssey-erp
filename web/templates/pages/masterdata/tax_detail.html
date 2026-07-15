@@ -1,0 +1,15 @@
+{{ define "pages/masterdata/tax_detail.html" }}{{ template "layouts/base.html" . }}{{ end }}
+{{ define "title" }}Tax Detail{{ end }}
+{{ define "content" }}{{ template "partials/masterdata/detail.html" . }}{{ end }}
+{{ define "masterdata-detail-heading" }}{{ .Data.Tax.Name }}{{ end }}
+{{ define "ui-page-header-title" }}{{ template "masterdata-detail-heading" . }}{{ end }}
+{{ define "ui-page-header-subtitle" }}View record information and maintenance actions.{{ end }}
+{{ define "ui-page-header-actions" }}<a class="btn btn--secondary" href="{{ template "masterdata-detail-list-url" . }}">Back to List</a><a class="btn btn--primary" href="{{ template "masterdata-detail-edit-url" . }}">Edit</a>{{ end }}
+{{ define "masterdata-detail-list-url" }}/masterdata/taxes{{ end }}
+{{ define "masterdata-detail-edit-url" }}/masterdata/taxes/{{ .Data.Tax.ID }}/edit{{ end }}
+{{ define "masterdata-detail-delete-url" }}/masterdata/taxes/{{ .Data.Tax.ID }}/delete{{ end }}
+{{ define "masterdata-detail-fields" }}
+<div><dt class="form-label">Code</dt><dd>{{ .Data.Tax.Code }}</dd></div>
+<div><dt class="form-label">Name</dt><dd>{{ .Data.Tax.Name }}</dd></div>
+<div><dt class="form-label">Rate</dt><dd class="numeric">{{ printf "%.2f" .Data.Tax.Rate }}%</dd></div>
+{{ end }}

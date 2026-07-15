@@ -10,34 +10,7 @@
         <h1>Finance Insights</h1>
         <p>Analisis Net Profit dan Revenue 12 bulan terakhir, lengkap dengan variansi serta kontribusi per cabang.</p>
     </header>
-    <form class="filters-form" method="get" action="/insights" role="search" aria-label="Filter insights">
-        <fieldset>
-            <legend>Rentang Analisis</legend>
-            <div class="filter-grid">
-                <label>
-                    <span>Dari (YYYY-MM)</span>
-                    <input type="month" name="from" value="{{ .Data.Filters.From }}" aria-label="Periode awal">
-                </label>
-                <label>
-                    <span>Sampai (YYYY-MM)</span>
-                    <input type="month" name="to" value="{{ .Data.Filters.To }}" aria-label="Periode akhir">
-                </label>
-                <label>
-                    <span>ID Perusahaan</span>
-                    <input type="number" name="company_id" min="1"
-                        value="{{ with .Data.Filters.CompanyID }}{{ . }}{{ end }}" aria-label="Perusahaan">
-                </label>
-                <label>
-                    <span>ID Cabang</span>
-                    <input type="number" name="branch_id" min="1"
-                        value="{{ with .Data.Filters.BranchID }}{{ . }}{{ end }}" aria-label="Cabang opsional">
-                </label>
-            </div>
-        </fieldset>
-        <div>
-            <button type="submit">Terapkan</button>
-        </div>
-    </form>
+    {{ template "partials/ui/filter_bar.html" . }}
 
     {{ if .Data.Ready }}
     <section class="insights-section" aria-labelledby="insights-trend">
@@ -45,7 +18,7 @@
         <div class="chart-wrapper">
             {{ .Data.Chart }}
         </div>
-        <table class="data-table">
+        <div class="table-responsive"><table class="table data-table" aria-labelledby="insights-trend">
             <thead>
                 <tr>
                     <th scope="col">Bulan</th>
@@ -62,12 +35,12 @@
                 </tr>
                 {{ end }}
             </tbody>
-        </table>
+        </table></div>
     </section>
 
     <section class="insights-section" aria-labelledby="insights-variance">
         <h2 id="insights-variance">Variansi MoM &amp; YoY</h2>
-        <table class="data-table">
+        <div class="table-responsive"><table class="table data-table" aria-labelledby="insights-variance">
             <thead>
                 <tr>
                     <th scope="col">Metrik</th>
@@ -84,12 +57,12 @@
                 </tr>
                 {{ end }}
             </tbody>
-        </table>
+        </table></div>
     </section>
 
     <section class="insights-section" aria-labelledby="insights-contrib">
         <h2 id="insights-contrib">Kontribusi per Cabang ({{ .Data.Filters.To }})</h2>
-        <table class="data-table">
+        <div class="table-responsive"><table class="table data-table" aria-labelledby="insights-contrib">
             <thead>
                 <tr>
                     <th scope="col">Cabang</th>
@@ -106,10 +79,31 @@
                 </tr>
                 {{ end }}
             </tbody>
-        </table>
+        </table></div>
     </section>
     {{ else }}
     <p>Data belum tersedia untuk filter yang dipilih.</p>
     {{ end }}
 </section>
 {{ end }}
+
+{{ define "ui-filter-action" }}/insights{{ end }}
+{{ define "ui-filter-fields" }}
+<div class="form-group">
+    <label class="form-label" for="insights-from">Dari (YYYY-MM)</label>
+    <input class="form-input" id="insights-from" type="month" name="from" value="{{ .Data.Filters.From }}">
+</div>
+<div class="form-group">
+    <label class="form-label" for="insights-to">Sampai (YYYY-MM)</label>
+    <input class="form-input" id="insights-to" type="month" name="to" value="{{ .Data.Filters.To }}">
+</div>
+<div class="form-group">
+    <label class="form-label" for="insights-company">ID Perusahaan</label>
+    <input class="form-input" id="insights-company" type="number" name="company_id" min="1" value="{{ with .Data.Filters.CompanyID }}{{ . }}{{ end }}">
+</div>
+<div class="form-group">
+    <label class="form-label" for="insights-branch">ID Cabang</label>
+    <input class="form-input" id="insights-branch" type="number" name="branch_id" min="1" value="{{ with .Data.Filters.BranchID }}{{ . }}{{ end }}">
+</div>
+{{ end }}
+{{ define "ui-filter-actions" }}<button type="submit" class="btn btn--primary">Terapkan</button>{{ end }}

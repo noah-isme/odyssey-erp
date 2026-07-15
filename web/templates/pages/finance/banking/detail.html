@@ -21,7 +21,7 @@
             <p class="page-subtitle">{{ .Data.Account.AccountNumber }}</p>
         </div>
         <div class="page-actions">
-            <button class="btn btn--primary" onclick="document.getElementById('new-txn-modal').showModal()">
+            <button class="btn btn--primary" data-dialog-open="new-txn-modal">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="12" y1="5" x2="12" y2="19" />
                     <line x1="5" y1="12" x2="19" y2="12" />
@@ -110,9 +110,9 @@
 </div>
 
 <!-- New Transaction Modal -->
-<dialog id="new-txn-modal" class="modal">
-    <div class="modal-box w-11/12 max-w-2xl">
-        <h3 class="font-bold text-lg mb-4">Record Transaction</h3>
+<dialog id="new-txn-modal" class="native-dialog native-dialog--lg" data-dialog aria-labelledby="new-txn-modal-title">
+    <div class="native-dialog__content native-dialog__content--padded">
+        <h3 id="new-txn-modal-title" class="font-bold text-lg mb-4">Record Transaction</h3>
         <form method="post" action="/finance/banking/accounts/{{ .Data.Account.ID }}/transactions">
             <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
             
@@ -152,14 +152,11 @@
                 </div>
             </div>
 
-            <div class="modal-action flex justify-end gap-2">
-                <button type="button" class="btn btn--ghost" onclick="this.closest('dialog').close()">Cancel</button>
+            <div class="native-dialog__actions flex justify-end gap-2">
+                <button type="button" class="btn btn--ghost" data-dialog-close>Cancel</button>
                 <button type="submit" class="btn btn--primary">Record</button>
             </div>
         </form>
     </div>
-    <form method="dialog" class="modal-backdrop">
-        <button>close</button>
-    </form>
 </dialog>
 {{ end }}

@@ -1,0 +1,16 @@
+{{ define "pages/masterdata/tax_form.html" }}{{ template "layouts/base.html" . }}{{ end }}
+{{ define "title" }}{{ if .Data.Tax }}Edit Tax{{ else }}New Tax{{ end }}{{ end }}
+{{ define "content" }}{{ template "partials/masterdata/form.html" . }}{{ end }}
+{{ define "masterdata-form-heading" }}{{ if .Data.Tax }}Edit Tax{{ else }}New Tax{{ end }}{{ end }}
+{{ define "ui-page-header-title" }}{{ template "masterdata-form-heading" . }}{{ end }}
+{{ define "ui-page-header-subtitle" }}Complete the required information, then save the record.{{ end }}
+{{ define "ui-page-header-actions" }}<a class="btn btn--secondary" href="{{ template "masterdata-form-cancel-url" . }}">Cancel</a>{{ end }}
+{{ define "masterdata-form-action" }}{{ if .Data.Tax }}/masterdata/taxes/{{ .Data.Tax.ID }}/edit{{ else }}/masterdata/taxes{{ end }}{{ end }}
+{{ define "masterdata-form-cancel-url" }}{{ if .Data.Tax }}/masterdata/taxes/{{ .Data.Tax.ID }}{{ else }}/masterdata/taxes{{ end }}{{ end }}
+{{ define "masterdata-form-fields" }}
+<div class="form-grid">
+    <div class="form-group"><label class="form-label" for="code">Code</label><input class="form-input" id="code" name="code" required maxlength="50" value="{{ with .Data.Tax }}{{ .Code }}{{ end }}"></div>
+    <div class="form-group"><label class="form-label" for="name">Name</label><input class="form-input" id="name" name="name" required maxlength="200" value="{{ with .Data.Tax }}{{ .Name }}{{ end }}"></div>
+    <div class="form-group"><label class="form-label" for="rate">Rate (%)</label><input class="form-input" type="number" id="rate" name="rate" required min="0" step="0.01" value="{{ with .Data.Tax }}{{ printf "%.2f" .Rate }}{{ end }}"></div>
+</div>
+{{ end }}
