@@ -1,9 +1,11 @@
 package app
 
 import (
+	"context"
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
@@ -96,6 +98,18 @@ func NewRouter(params RouterParams) http.Handler {
 
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+		if params.Pool != nil {
+			ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+			defer cancel()
+			if err := params.Pool.Ping(ctx); err != nil {
+				if params.Logger != nil {
+					params.Logger.Error("health check postgres", slog.Any("error", err))
+				}
+				w.WriteHeader(http.StatusServiceUnavailable)
+				_, _ = w.Write([]byte(`{"status":"unavailable"}`))
+				return
+			}
+		}
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	})

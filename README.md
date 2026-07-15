@@ -1,5 +1,7 @@
 # Odyssey ERP
 
+Panduan deployment production di Render tersedia di [`docs/guides/deploy-render.md`](docs/guides/deploy-render.md).
+
 Modern ERP system built with Go, PostgreSQL, and Alpine Linux.
 
 **Current version:** v0.9.1 — see [CHANGELOG](docs/CHANGELOG.md) and [releases](docs/releases/).

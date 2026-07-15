@@ -1,0 +1,13 @@
+.git
+.github
+.agents
+.codex
+.cache
+.omo
+.env
+.env.*
+*.log
+*.txt
+coverage*
+tmp/
+var/
