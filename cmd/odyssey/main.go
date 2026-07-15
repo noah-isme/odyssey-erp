@@ -135,6 +135,11 @@ func main() {
 			logger.Warn("redis close", slog.Any("error", err))
 		}
 	}()
+	redisOpts, err := cache.AsynqOptions(cfg.RedisAddr)
+	if err != nil {
+		logger.Error("parse redis configuration", slog.Any("error", err))
+		os.Exit(1)
+	}
 
 	sessionManager := shared.NewSessionManager(redisClient, "odyssey_session", cfg.SessionSecret, cfg.SessionTTL, cfg.IsProduction())
 	csrfManager := shared.NewCSRFManager(cfg.CSRFSecret)
@@ -186,7 +191,7 @@ func main() {
 
 	permissionsHandler := rbac.NewPermissionsHandler(logger, rbacService, templates, csrfManager, sessionManager, rbacMiddleware)
 
-	jobClient, err := jobs.NewClient(asynq.RedisClientOpt{Addr: cfg.RedisAddr})
+	jobClient, err := jobs.NewClient(redisOpts)
 	if err != nil {
 		logger.Error("init job client", slog.Any("error", err))
 		os.Exit(1)
@@ -284,11 +289,26 @@ func main() {
 	varianceService := variancepkg.NewService(varianceRepo)
 	boardpackRepo := boardpacksvc.NewRepository(dbpool)
 	boardpackService := boardpacksvc.NewService(boardpackRepo)
+	boardpackStorage, err := boardpacksvc.NewStorage(ctx, boardpacksvc.StorageConfig{
+		Driver:          cfg.BoardPackStorageDriver,
+		LocalDir:        cfg.BoardPackStorageDir,
+		Endpoint:        cfg.BoardPackS3Endpoint,
+		Region:          cfg.BoardPackS3Region,
+		Bucket:          cfg.BoardPackS3Bucket,
+		AccessKeyID:     cfg.BoardPackS3AccessKeyID,
+		SecretAccessKey: cfg.BoardPackS3SecretAccessKey,
+		UsePathStyle:    cfg.BoardPackS3UsePathStyle,
+		AutoCreate:      cfg.BoardPackS3AutoCreate,
+	})
+	if err != nil {
+		logger.Error("init board pack storage", slog.Any("error", err))
+		os.Exit(1)
+	}
 
 	varianceHandler := variancepkg.NewHandler(logger, varianceService, templates, csrfManager, rbacMiddleware, jobClient)
-	boardpackHandler := boardpackhttp.NewHandler(logger, boardpackService, templates, csrfManager, rbacMiddleware, jobClient)
+	boardpackHandler := boardpackhttp.NewHandler(logger, boardpackService, templates, csrfManager, rbacMiddleware, jobClient, boardpackStorage)
 
-	inspector := asynq.NewInspector(asynq.RedisClientOpt{Addr: cfg.RedisAddr})
+	inspector := asynq.NewInspector(redisOpts)
 	defer func() {
 		if err := inspector.Close(); err != nil {
 			logger.Warn("inspector close", slog.Any("error", err))
