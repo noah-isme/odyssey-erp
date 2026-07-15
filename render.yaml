@@ -3,11 +3,10 @@ services:
     name: odyssey-web
     runtime: docker
     region: singapore
-    plan: starter
+    plan: free
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    dockerCommand: /app/odyssey
-    preDeployCommand: /app/migrate -path /app/migrations -database "$PG_DSN" up
+    dockerCommand: /bin/sh -c '/app/migrate -path /app/migrations -database "$PG_DSN" up && exec /app/odyssey'
     autoDeployTrigger: checksPass
     healthCheckPath: /healthz
     maxShutdownDelaySeconds: 30
@@ -23,19 +22,13 @@ services:
           name: odyssey-postgres
           property: connectionString
       - key: REDIS_ADDR
-        fromService:
-          type: keyvalue
-          name: odyssey-keyvalue
-          property: connectionString
+        sync: false
       - key: SESSION_SECRET
         generateValue: true
       - key: CSRF_SECRET
         generateValue: true
       - key: GOTENBERG_URL
-        fromService:
-          type: pserv
-          name: odyssey-gotenberg
-          property: hostport
+        sync: false
       - key: BOARD_PACK_STORAGE_DRIVER
         value: s3
       - key: BOARD_PACK_S3_ENDPOINT
@@ -52,102 +45,12 @@ services:
         value: true
       - key: BOARD_PACK_S3_AUTO_CREATE_BUCKET
         value: false
-
-  - type: worker
-    name: odyssey-worker
-    runtime: docker
-    region: singapore
-    plan: starter
-    dockerfilePath: ./Dockerfile
-    dockerContext: .
-    dockerCommand: /app/worker
-    autoDeployTrigger: checksPass
-    maxShutdownDelaySeconds: 120
-    envVars:
-      - key: APP_ENV
-        value: production
-      - key: LOG_FORMAT
-        value: json
-      - key: PG_DSN
-        fromDatabase:
-          name: odyssey-postgres
-          property: connectionString
-      - key: REDIS_ADDR
-        fromService:
-          type: keyvalue
-          name: odyssey-keyvalue
-          property: connectionString
-      - key: SESSION_SECRET
-        fromService:
-          type: web
-          name: odyssey-web
-          envVarKey: SESSION_SECRET
-      - key: CSRF_SECRET
-        fromService:
-          type: web
-          name: odyssey-web
-          envVarKey: CSRF_SECRET
-      - key: GOTENBERG_URL
-        fromService:
-          type: pserv
-          name: odyssey-gotenberg
-          property: hostport
-      - key: BOARD_PACK_STORAGE_DRIVER
-        value: s3
-      - key: BOARD_PACK_S3_ENDPOINT
-        fromService:
-          type: web
-          name: odyssey-web
-          envVarKey: BOARD_PACK_S3_ENDPOINT
-      - key: BOARD_PACK_S3_REGION
-        fromService:
-          type: web
-          name: odyssey-web
-          envVarKey: BOARD_PACK_S3_REGION
-      - key: BOARD_PACK_S3_BUCKET
-        fromService:
-          type: web
-          name: odyssey-web
-          envVarKey: BOARD_PACK_S3_BUCKET
-      - key: BOARD_PACK_S3_ACCESS_KEY_ID
-        fromService:
-          type: web
-          name: odyssey-web
-          envVarKey: BOARD_PACK_S3_ACCESS_KEY_ID
-      - key: BOARD_PACK_S3_SECRET_ACCESS_KEY
-        fromService:
-          type: web
-          name: odyssey-web
-          envVarKey: BOARD_PACK_S3_SECRET_ACCESS_KEY
-      - key: BOARD_PACK_S3_USE_PATH_STYLE
-        value: true
-      - key: BOARD_PACK_S3_AUTO_CREATE_BUCKET
-        value: false
-
-  - type: pserv
-    name: odyssey-gotenberg
-    runtime: image
-    region: singapore
-    plan: standard
-    image:
-      url: docker.io/gotenberg/gotenberg:8.32.0-chromium
-    maxShutdownDelaySeconds: 30
-
-  - type: keyvalue
-    name: odyssey-keyvalue
-    region: singapore
-    plan: starter
-    ipAllowList: []
-    maxmemoryPolicy: noeviction
-    persistenceMode: journal-snapshot
 
 databases:
   - name: odyssey-postgres
     databaseName: odyssey
     user: odyssey
     region: singapore
-    plan: basic-1gb
+    plan: free
     postgresMajorVersion: "15"
-    diskSizeGB: 15
-    storageAutoscalingEnabled: true
     ipAllowList: []

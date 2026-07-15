@@ -1,92 +1,81 @@
-# Deploy ke Render
+# Deploy Gratis ke Render
 
-Repository menyediakan `render.yaml` untuk membuat enam komponen production di region Singapore:
+`render.yaml` menyediakan Blueprint minimal dengan hanya dua resource Render:
 
-- web service `odyssey-web`;
-- background worker `odyssey-worker`;
-- private Gotenberg service;
-- Render Key Value untuk session dan Asynq;
-- Render PostgreSQL;
-- object storage S3-compatible eksternal untuk PDF board-pack.
+- web service `odyssey-web` (`plan: free`);
+- PostgreSQL `odyssey-postgres` (`plan: free`).
 
-Object storage wajib karena filesystem web dan worker Render tidak dibagi. Jangan menggunakan persistent disk pada salah satu service untuk `BOARD_PACK_STORAGE`.
+Blueprint ini ditujukan untuk demo, staging ringan, atau evaluasi. Render Free bukan target production: web akan sleep setelah idle, sedangkan PostgreSQL Free berkapasitas 1 GB, tidak memiliki backup, dan kedaluwarsa setelah 30 hari.
 
-## 1. Siapkan object storage
+Worker, Gotenberg, Render Key Value/Redis, dan cron sengaja tidak didefinisikan agar tidak membuat resource Render berbayar. Konsekuensinya, background job dan pembuatan PDF asynchronous tidak akan diproses.
 
-Buat private bucket sebelum membuat Blueprint. Kredensial cukup diberi izin membaca dan menulis object pada bucket tersebut.
+## 1. Siapkan dependensi eksternal
 
-Contoh Cloudflare R2:
+Meskipun Blueprint hanya membuat dua resource Render, aplikasi masih membutuhkan layanan berikut:
 
-- `BOARD_PACK_S3_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com`
-- `BOARD_PACK_S3_REGION=auto`
-- `BOARD_PACK_S3_BUCKET=<nama-bucket>`
-- access key dan secret key dari R2 API token
+1. Redis-compatible endpoint untuk session (`REDIS_ADDR`). Gunakan layanan eksternal yang memiliki free tier. Tanpa Redis, web service gagal start.
+2. Private S3-compatible bucket untuk board-pack. Cloudflare R2 atau layanan sejenis dapat digunakan selama masih berada dalam kuota gratis.
+3. Endpoint Gotenberg (`GOTENBERG_URL`). Untuk deployment demo tanpa fitur PDF, isi URL placeholder yang valid seperti `http://127.0.0.1:3000`; route PDF akan gagal sampai endpoint Gotenberg eksternal tersedia.
 
-Contoh AWS S3:
+Nilai object storage yang diperlukan:
 
-- `BOARD_PACK_S3_ENDPOINT=https://s3.<region>.amazonaws.com`
-- `BOARD_PACK_S3_REGION=<region>`
-- `BOARD_PACK_S3_BUCKET=<nama-bucket>`
-- access key dan secret key dari IAM principal khusus bucket
+- `BOARD_PACK_S3_ENDPOINT`
+- `BOARD_PACK_S3_REGION`
+- `BOARD_PACK_S3_BUCKET`
+- `BOARD_PACK_S3_ACCESS_KEY_ID`
+- `BOARD_PACK_S3_SECRET_ACCESS_KEY`
 
-Aktifkan versioning/lifecycle sesuai kebijakan retensi perusahaan. Bucket tidak boleh public.
-
-Jika database berasal dari instalasi lama yang memakai local filesystem, unggah PDF lama ke bucket dan perbarui `board_packs.file_path` menjadi object key sebelum mengaktifkan driver S3.
+Bucket harus private. Jangan menyimpan board-pack di filesystem web karena filesystem Render Free bersifat ephemeral.
 
 ## 2. Buat Blueprint
 
 1. Di Render Dashboard pilih **New > Blueprint**.
 2. Hubungkan repository Odyssey dan pilih branch deployment.
 3. Render membaca `render.yaml` dari root repository.
-4. Isi lima nilai S3 yang ditandai `sync: false`.
-5. Tinjau estimasi biaya, kemudian apply Blueprint.
+4. Isi `REDIS_ADDR`, `GOTENBERG_URL`, dan lima nilai S3 yang bertanda `sync: false`.
+5. Pastikan preview hanya menampilkan `odyssey-web` dan `odyssey-postgres`.
+6. Apply Blueprint.
 
-`SESSION_SECRET` dan `CSRF_SECRET` dibuat otomatis. PostgreSQL dan Key Value hanya menerima koneksi dari private network Render. Deploy web baru berjalan setelah CI branch berhasil.
+`SESSION_SECRET` dan `CSRF_SECRET` dibuat otomatis. Migration dijalankan oleh `dockerCommand` sebelum web server start karena `preDeployCommand` tidak tersedia pada web service Free.
 
-## 3. Migration dan data awal
+## 3. Administrator awal
 
-Web service menjalankan migration berikut sebelum setiap deploy:
-
-```sh
-/app/migrate -path /app/migrations -database "$PG_DSN" up
-```
-
-Migration tidak menjalankan `make seed`. Script seed repository berisi akun dan data demo sehingga **tidak boleh dijalankan pada database production**.
-
-Untuk membuat administrator pertama, tambahkan sementara `BOOTSTRAP_ADMIN_EMAIL` dan `BOOTSTRAP_ADMIN_PASSWORD` pada environment web service, lalu jalankan melalui Render Shell:
+Render Free tidak menyediakan Shell/SSH. Tambahkan sementara IP publik operator ke inbound access PostgreSQL, lalu jalankan `/app/bootstrap-admin` dari lingkungan lokal atau container sementara dengan environment berikut:
 
 ```sh
-/app/bootstrap-admin
+PG_DSN=<external-postgres-url>
+BOOTSTRAP_ADMIN_EMAIL=<email-admin>
+BOOTSTRAP_ADMIN_PASSWORD=<password-minimal-12-karakter>
 ```
 
-Password minimal 12 karakter. Hapus kedua environment variable setelah command berhasil. Command bersifat idempotent, tidak membuat transaksi/master data demo, dan dapat digunakan kembali untuk merotasi password administrator secara terkontrol.
+Jangan menjalankan `make seed` pada database yang menyimpan data nyata karena seed repository berisi akun dan data demo.
+Hapus kembali inbound rule PostgreSQL setelah administrator berhasil dibuat.
 
 ## 4. Smoke test
 
-Setelah semua service healthy:
+Setelah deploy healthy:
 
 1. buka `/healthz` dan pastikan respons `200`;
-2. login dengan akun yang diprovisikan, bukan akun demo;
-3. buat transaksi uji dan pastikan worker memproses job;
-4. generate lalu download board-pack PDF;
-5. periksa log web, worker, Gotenberg, dan Key Value;
-6. uji restore PostgreSQL dan object storage sebelum menerima data riil.
+2. login dengan administrator yang diprovisikan;
+3. uji transaksi synchronous dan koneksi session Redis;
+4. generate board-pack hanya jika worker eksternal tersedia;
+5. uji route PDF hanya jika Gotenberg eksternal tersedia.
 
-## 5. Operasional
+## 5. Batasan mode $0
 
-- Jangan mengubah plan PostgreSQL ke free untuk production.
-- Pertahankan `noeviction` dan persistence pada Key Value karena instance menyimpan session serta antrean job.
-- Worker diberi shutdown window 120 detik agar job aktif dapat selesai.
-- Rotasi kredensial object storage dan secret aplikasi secara berkala.
-- Pasang custom domain, alert health check, backup/PITR, dan pembatasan akses operasional sebelum go-live.
+- Web sleep setelah 15 menit tanpa traffic dan cold start dapat memerlukan sekitar satu menit.
+- PostgreSQL Free kedaluwarsa setelah 30 hari, maksimal 1 GB, dan tidak menyediakan backup.
+- Tidak ada worker, sehingga email queue, variance snapshot, board-pack, dan job asynchronous lain tidak diproses.
+- Tidak ada Gotenberg internal, sehingga PDF memerlukan endpoint eksternal.
+- Biaya $0 bergantung pada penggunaan tetap di bawah kuota Render serta free tier provider Redis dan object storage eksternal.
 
-## Konfigurasi local filesystem
+Untuk production, gunakan database berbayar dengan backup, worker, Redis persisten, dan Gotenberg yang dikelola.
 
-Development tetap memakai konfigurasi lama:
+## Konfigurasi development
+
+Development lokal tetap dapat menggunakan filesystem:
 
 ```env
 BOARD_PACK_STORAGE_DRIVER=local
 BOARD_PACK_STORAGE=./var/boardpacks
 ```
-
-Untuk deployment multi-service gunakan `BOARD_PACK_STORAGE_DRIVER=s3`.
