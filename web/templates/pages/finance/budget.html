@@ -5,9 +5,9 @@
 {{ define "title" }}Budget vs Actual{{ end }}
 
 {{ define "content" }}
-<div class="container">
+<div class="page-container">
     <header class="page-header">
-        <div class="header-main">
+        <div class="page-header__content">
             <h1>Budget vs Actual</h1>
             <p class="text-muted">Comparison of budgeted vs actual performance for Revenue and Expenses.</p>
         </div>
@@ -32,7 +32,7 @@
                 </tr>
                 {{ range .Data.Report.Revenue }}
                 <tr>
-                    <td style="padding-left: var(--space-8);">{{ .AccountCode }} - {{ .AccountName }}</td>
+                    <td class="table-cell--indented">{{ .AccountCode }} - {{ .AccountName }}</td>
                     <td class="numeric-right">{{ .Budget | formatCurrency "IDR" }}</td>
                     <td class="numeric-right">{{ .Actual | formatCurrency "IDR" }}</td>
                     <td class="numeric-right {{ if gt .Variance 0.0 }}text-success{{ else }}text-danger{{ end }}">
@@ -52,7 +52,7 @@
                 </tr>
                 {{ range .Data.Report.Expense }}
                 <tr>
-                    <td style="padding-left: var(--space-8);">{{ .AccountCode }} - {{ .AccountName }}</td>
+                    <td class="table-cell--indented">{{ .AccountCode }} - {{ .AccountName }}</td>
                     <td class="numeric-right">{{ .Budget | formatCurrency "IDR" }}</td>
                     <td class="numeric-right">{{ .Actual | formatCurrency "IDR" }}</td>
                     <td class="numeric-right {{ if lt .Variance 0.0 }}text-success{{ else }}text-danger{{ end }}">

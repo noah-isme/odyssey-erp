@@ -104,9 +104,9 @@
                             <td>{{ .PaymentTermsDays }} Days</td>
                             <td>
                                 {{ if .IsActive }}
-                                <span class="badge badge--success">Active</span>
+                                {{ template "partials/ui/status_badge.html" "Active" }}
                                 {{ else }}
-                                <span class="badge badge--secondary">Inactive</span>
+                                {{ template "partials/ui/status_badge.html" "Inactive" }}
                                 {{ end }}
                             </td>
                             <td class="text-right">

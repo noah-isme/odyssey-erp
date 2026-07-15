@@ -126,17 +126,7 @@
                                 {{ end }}
                             </td>
                             <td>
-                                {{ if eq .Status "Draft" }}<span class="badge badge--secondary">Draft</span>{{ end }}
-                                {{ if eq .Status "Confirmed" }}<span class="badge badge--primary">Confirmed</span>{{ end
-                                }}
-                                {{ if eq .Status "Processing" }}<span class="badge badge--info">Processing</span>{{ end
-                                }}
-                                {{ if eq .Status "Shipped" }}<span class="badge badge--warning">Shipped</span>{{ end }}
-                                {{ if eq .Status "Invoiced" }}<span class="badge badge--purple">Invoiced</span>{{ end }}
-                                {{ if eq .Status "Completed" }}<span class="badge badge--success">Completed</span>{{ end
-                                }}
-                                {{ if eq .Status "Cancelled" }}<span class="badge badge--danger">Cancelled</span>{{ end
-                                }}
+                                {{ template "partials/ui/status_badge.html" .Status }}
                             </td>
                             <td class="text-right">
                                 <div class="flex justify-end gap-2">

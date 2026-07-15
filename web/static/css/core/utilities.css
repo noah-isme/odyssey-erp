@@ -183,6 +183,10 @@ a:not([role]):not([class]):hover {
     }
 }
 
+.table-cell--indented {
+    padding-left: var(--space-8);
+}
+
 /* Filters section styling */
 .filters {
     margin-bottom: var(--space-6);

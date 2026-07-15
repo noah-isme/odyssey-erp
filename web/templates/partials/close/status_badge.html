@@ -1,5 +1,5 @@
 {{ define "partials/close/status_badge.html" }}
 {{ if . }}
-<span class="status-badge status-badge--{{ .Kind }}">{{ .Label }}</span>
+<span class="badge {{ if eq .Kind "danger" }}badge--error{{ else if eq .Kind "muted" }}badge--neutral{{ else }}badge--{{ .Kind }}{{ end }}">{{ .Label }}</span>
 {{ end }}
 {{ end }}

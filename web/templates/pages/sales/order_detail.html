@@ -10,11 +10,7 @@
         <div class="page-header__content">
             <div class="flex items-center gap-3 mb-2">
                 <span class="eyebrow">Sales Order</span>
-                {{ if eq .Data.Order.Status "DRAFT" }}<span class="badge badge--secondary">Draft</span>{{ end }}
-                {{ if eq .Data.Order.Status "CONFIRMED" }}<span class="badge badge--info">Confirmed</span>{{ end }}
-                {{ if eq .Data.Order.Status "PROCESSING" }}<span class="badge badge--warning">Processing</span>{{ end }}
-                {{ if eq .Data.Order.Status "COMPLETED" }}<span class="badge badge--success">Completed</span>{{ end }}
-                {{ if eq .Data.Order.Status "CANCELLED" }}<span class="badge badge--danger">Cancelled</span>{{ end }}
+                {{ template "partials/ui/status_badge.html" .Data.Order.Status }}
             </div>
             <h1 class="page-title">{{ .Data.Order.DocNumber }}</h1>
             <p class="page-subtitle">Customer: <a href="/sales/customers/{{ .Data.Order.Data.CustomerID }}" class="link font-medium">{{ if .Data.Customer }}{{ .Data.Customer.Name }}{{ else }}Unknown{{ end }}</a></p>
@@ -181,11 +177,7 @@
                         <div class="flex flex-col">
                             <span class="text-xs text-muted uppercase font-medium mb-1">Fulfillment State</span>
                             <div class="mt-1">
-                                {{ if eq .Data.Order.Status "DRAFT" }}<span class="badge badge--secondary">Draft</span>{{ end }}
-                                {{ if eq .Data.Order.Status "CONFIRMED" }}<span class="badge badge--info">Confirmed</span>{{ end }}
-                                {{ if eq .Data.Order.Status "PROCESSING" }}<span class="badge badge--warning">Processing</span>{{ end }}
-                                {{ if eq .Data.Order.Status "COMPLETED" }}<span class="badge badge--success">Completed</span>{{ end }}
-                                {{ if eq .Data.Order.Status "CANCELLED" }}<span class="badge badge--danger">Cancelled</span>{{ end }}
+                                {{ template "partials/ui/status_badge.html" .Data.Order.Status }}
                             </div>
                         </div>
 
