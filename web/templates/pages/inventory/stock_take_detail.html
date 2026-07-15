@@ -5,20 +5,18 @@
 {{ define "title" }}Detail Opname - {{ .Data.StockTake.Number }}{{ end }}
 
 {{ define "content" }}
-<div class="container">
+<div class="page-container">
     <header class="page-header">
-        <div class="header-main">
+        <div class="page-header__content">
             <div class="flex items-center gap-2">
-                <h1>{{ .Data.StockTake.Number }}</h1>
-                <span class="badge {{ if eq .Data.StockTake.Status "POSTED" }}badge-success{{ else if eq .Data.StockTake.Status "CANCELLED" }}badge-danger{{ else }}badge-warning{{ end }}">
-                    {{ .Data.StockTake.Status }}
-                </span>
+                <h1 class="page-title">{{ .Data.StockTake.Number }}</h1>
+                {{ template "partials/ui/status_badge.html" .Data.StockTake.Status }}
             </div>
-            <p class="text-muted">Gudang: {{ .Data.StockTake.WarehouseName }} | Tanggal: {{ .Data.StockTake.TakenAt | formatDate }}</p>
+            <p class="page-subtitle">Gudang: {{ .Data.StockTake.WarehouseName }} | Tanggal: {{ .Data.StockTake.TakenAt | formatDate }}</p>
         </div>
-        <div class="header-actions">
+        <div class="page-header__actions">
             {{ if eq .Data.StockTake.Status "DRAFT" }}
-            <form action="/inventory/stock-takes/{{ .Data.StockTake.ID }}/post" method="POST" onsubmit="return confirm('Posting akan menyesuaikan stok sistem dengan hasil fisik. Lanjutkan?')">
+            <form action="/inventory/stock-takes/{{ .Data.StockTake.ID }}/post" method="POST" data-confirm="Posting akan menyesuaikan stok sistem dengan hasil fisik. Lanjutkan?">
                 <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
                 <button type="submit" class="btn btn--primary">
                     <i class="lucide-check-circle"></i> Posting Hasil
@@ -28,8 +26,8 @@
         </div>
     </header>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div class="md:col-span-2">
+    <div class="responsive-grid responsive-grid--wide gap-6">
+        <div class="responsive-grid__span-2">
             <div class="card card-table table-responsive">
                 <div class="card-header">
                     <h2 class="card-title">Item Perhitungan</h2>

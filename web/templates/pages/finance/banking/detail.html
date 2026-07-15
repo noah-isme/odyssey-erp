@@ -7,8 +7,8 @@
 {{ define "content" }}
 <div class="page-container">
     <!-- Header -->
-    <div class="page-header">
-        <div class="page-header-content">
+    <header class="page-header">
+        <div class="page-header__content">
             <div class="flex items-center gap-2 mb-1">
                 <a href="/finance/banking/accounts" class="text-muted hover:text-primary">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -16,11 +16,11 @@
                     </svg>
                 </a>
                 <h1 class="page-title">{{ .Data.Account.Name }}</h1>
-                <span class="badge badge--primary">{{ .Data.Account.Currency }}</span>
+                <span class="badge badge--info">{{ .Data.Account.Currency }}</span>
             </div>
             <p class="page-subtitle">{{ .Data.Account.AccountNumber }}</p>
         </div>
-        <div class="page-actions">
+        <div class="page-header__actions">
             <button class="btn btn--primary" data-dialog-open="new-txn-modal">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="12" y1="5" x2="12" y2="19" />
@@ -29,10 +29,10 @@
                 Add Transaction
             </button>
         </div>
-    </div>
+    </header>
 
     <!-- Stats -->
-    <div class="grid grid-cols-4 gap-4 mb-6">
+    <div class="responsive-grid responsive-grid--compact gap-4 mb-6">
         <div class="card p-4">
             <div class="text-sm text-muted">Ledger Balance</div>
             <div class="text-2xl font-bold mt-1">
@@ -79,7 +79,7 @@
                                 {{ if ne .Status "RECONCILED" }}
                                 <form method="post" action="/finance/banking/transactions/{{ .ID | formatUUID }}/reconcile" class="inline">
                                     <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
-                                    <button type="submit" class="btn btn--xs btn--outline" title="Mark as Reconciled">
+                                    <button type="submit" class="btn btn--sm btn--secondary" title="Mark as Reconciled" aria-label="Mark transaction as reconciled">
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <polyline points="20 6 9 17 4 12" />
                                         </svg>
@@ -116,7 +116,7 @@
         <form method="post" action="/finance/banking/accounts/{{ .Data.Account.ID }}/transactions">
             <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
             
-            <div class="grid grid-cols-2 gap-4 mb-3">
+            <div class="responsive-grid responsive-grid--wide gap-4 mb-3">
                 <div class="form-group">
                     <label class="form-label">Date</label>
                     <input type="date" name="date" class="form-input" required value="{{ now | formatDateInput }}">
@@ -132,7 +132,7 @@
                 <input type="text" name="description" class="form-input" placeholder="e.g. Payment to Supplier" required>
             </div>
 
-            <div class="grid grid-cols-2 gap-4 mb-3">
+            <div class="responsive-grid responsive-grid--wide gap-4 mb-3">
                 <div class="form-group">
                     <label class="form-label">Amount</label>
                     <div class="input-group">

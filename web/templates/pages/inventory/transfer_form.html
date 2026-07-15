@@ -3,11 +3,11 @@
 {{ end }}
 
 {{ define "content" }}
-<div class="container container-narrow">
+<div class="page-container container-narrow">
     <header class="page-header">
-        <div class="header-main">
-            <h1>Transfer Stok</h1>
-            <p class="text-muted">Pindahkan stok antar gudang.</p>
+        <div class="page-header__content">
+            <h1 class="page-title">Transfer Stok</h1>
+            <p class="page-subtitle">Pindahkan stok antar gudang.</p>
         </div>
     </header>
 
@@ -15,7 +15,7 @@
         <form action="/inventory/transfers" method="POST" class="form">
             <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
             
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="responsive-grid responsive-grid--wide gap-4">
                 <div class="form-group">
                     <label for="src_warehouse">Gudang Asal</label>
                     <select name="src_warehouse" id="src_warehouse" class="form-select" required>
@@ -50,7 +50,7 @@
                 {{ if .Data.Errors.product_id }}<p class="form-error">{{ .Data.Errors.product_id }}</p>{{ end }}
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="responsive-grid responsive-grid--wide gap-4">
                 <div class="form-group">
                     <label for="qty">Jumlah Transfer</label>
                     <input type="number" step="any" name="qty" id="qty" class="form-input" value="{{ .Data.Form.Qty }}" placeholder="0.00" required>

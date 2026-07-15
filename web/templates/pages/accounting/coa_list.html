@@ -6,12 +6,12 @@
 
 {{ define "content" }}
 <div class="page-container">
-    <div class="page-header">
-        <div class="page-header-content">
+    <header class="page-header">
+        <div class="page-header__content">
             <h1 class="page-title">{{ .Title }}</h1>
             <p class="page-subtitle">Kelola Chart of Accounts untuk pencatatan keuangan</p>
         </div>
-        <div class="page-actions">
+        <div class="page-header__actions">
             <a href="/accounting/coa/new" class="btn btn--primary">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="12" y1="5" x2="12" y2="19" />
@@ -20,7 +20,7 @@
                 Tambah Account
             </a>
         </div>
-    </div>
+    </header>
 
     <div class="page-content">
         <div class="card p-0 overflow-hidden">

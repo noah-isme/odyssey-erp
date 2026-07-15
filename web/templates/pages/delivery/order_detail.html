@@ -10,11 +10,7 @@
         <div class="page-header__content">
             <div class="flex items-center gap-3 mb-2">
                 <span class="eyebrow">Delivery Order</span>
-                {{ if eq .Data.DeliveryOrder.Status "DRAFT" }}<span class="badge badge--secondary">Draft</span>{{ end }}
-                {{ if eq .Data.DeliveryOrder.Status "CONFIRMED" }}<span class="badge badge--info">Confirmed</span>{{ end }}
-                {{ if eq .Data.DeliveryOrder.Status "IN_TRANSIT" }}<span class="badge badge--warning">In Transit</span>{{ end }}
-                {{ if eq .Data.DeliveryOrder.Status "DELIVERED" }}<span class="badge badge--success">Delivered</span>{{ end }}
-                {{ if eq .Data.DeliveryOrder.Status "CANCELLED" }}<span class="badge badge--danger">Cancelled</span>{{ end }}
+                {{ template "partials/ui/status_badge.html" .Data.DeliveryOrder.Status }}
             </div>
             <h1 class="page-title">{{ .Data.DeliveryOrder.DocumentNumber }}</h1>
             <p class="page-subtitle">Customer: <span class="font-medium text-primary">{{ .Data.DeliveryOrder.CustomerName }}</span></p>
@@ -40,7 +36,7 @@
             {{ end }}
 
             {{ if eq .Data.DeliveryOrder.Status "IN_TRANSIT" }}
-            <button type="button" class="btn btn--success" data-dialog-open="deliverModal">Mark as Delivered</button>
+            <button type="button" class="btn btn--primary" data-dialog-open="deliverModal">Mark as Delivered</button>
             {{ end }}
 
             {{ if or (eq .Data.DeliveryOrder.Status "DRAFT") (eq .Data.DeliveryOrder.Status "CONFIRMED") (eq .Data.DeliveryOrder.Status "IN_TRANSIT") }}
@@ -59,8 +55,8 @@
         </div>
         {{ end }}
 
-        <div class="grid grid-cols-3 gap-6">
-            <div class="col-span-2 flex flex-col gap-6">
+        <div class="responsive-grid responsive-grid--wide gap-6">
+            <div class="responsive-grid__span-2 flex flex-col gap-6">
                 <!-- Info Card -->
                 <div class="card">
                     <div class="card__header">
@@ -162,11 +158,7 @@
                         <div class="flex flex-col">
                             <span class="text-xs text-muted uppercase font-medium mb-1">State</span>
                             <div class="mt-1">
-                                {{ if eq .Data.DeliveryOrder.Status "DRAFT" }}<span class="badge badge--secondary">Draft</span>{{ end }}
-                                {{ if eq .Data.DeliveryOrder.Status "CONFIRMED" }}<span class="badge badge--info">Confirmed</span>{{ end }}
-                                {{ if eq .Data.DeliveryOrder.Status "IN_TRANSIT" }}<span class="badge badge--warning">In Transit</span>{{ end }}
-                                {{ if eq .Data.DeliveryOrder.Status "DELIVERED" }}<span class="badge badge--success">Delivered</span>{{ end }}
-                                {{ if eq .Data.DeliveryOrder.Status "CANCELLED" }}<span class="badge badge--danger">Cancelled</span>{{ end }}
+                                {{ template "partials/ui/status_badge.html" .Data.DeliveryOrder.Status }}
                             </div>
                         </div>
 
@@ -255,7 +247,7 @@
             </div>
             <footer class="native-dialog__footer p-4 border-t bg-surface-muted flex justify-end gap-3">
                 <button type="button" class="btn btn--secondary" data-dialog-close>Close</button>
-                <button type="submit" class="btn btn--success">Confirm Delivery</button>
+                <button type="submit" class="btn btn--primary">Confirm Delivery</button>
             </footer>
         </form>
     </div>

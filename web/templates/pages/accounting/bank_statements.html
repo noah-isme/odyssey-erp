@@ -5,17 +5,17 @@
 {{ define "title" }}Bank Statements{{ end }}
 
 {{ define "content" }}
-<div class="container">
-    <header class="dashboard-header">
-        <div class="dashboard-header-content">
-            <h1 class="dashboard-title">Bank Statements</h1>
-            <p class="dashboard-subtitle">Import and review bank statements for reconciliation.</p>
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-title">Bank Statements</h1>
+            <p class="page-subtitle">Import and review bank statements for reconciliation.</p>
         </div>
-        <div class="dashboard-actions">
+        <div class="page-header__actions">
             <form action="/accounting/banks/statements/import" method="post" enctype="multipart/form-data" class="flex items-center gap-2">
                 <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
-                <input type="date" name="statement_date" required class="form-input" style="width: auto; height: var(--btn-h);">
-                <input type="file" name="statement_csv" accept=".csv" required class="form-input" style="width: auto; height: var(--btn-h); padding-top: 6px;">
+                <input type="date" name="statement_date" required class="form-input form-input--auto">
+                <input type="file" name="statement_csv" accept=".csv" required class="form-input form-input--auto form-input--file">
                 <button type="submit" class="btn btn--primary">Import CSV</button>
             </form>
         </div>
@@ -42,9 +42,9 @@
                     <td class="numeric-right">{{ .EndingBalance | formatCurrency "IDR" }}</td>
                     <td>
                         {{ if eq .Status "RECONCILED" }}
-                        <span class="badge badge-success">Reconciled</span>
+                        {{ template "partials/ui/status_badge.html" "RECONCILED" }}
                         {{ else }}
-                        <span class="badge badge-warning">Draft</span>
+                        {{ template "partials/ui/status_badge.html" "DRAFT" }}
                         {{ end }}
                     </td>
                     <td class="text-right">

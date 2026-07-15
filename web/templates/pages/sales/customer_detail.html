@@ -55,15 +55,15 @@
             </a>
         </div>
 
-        <div class="grid grid-cols-3 gap-6">
-            <div class="col-span-2 flex flex-col gap-6">
+        <div class="responsive-grid responsive-grid--wide gap-6">
+            <div class="responsive-grid__span-2 flex flex-col gap-6">
                 <!-- Basic Info Card -->
                 <div class="card">
                     <div class="card__header">
                         <h2 class="text-lg font-semibold">General Information</h2>
                     </div>
                     <div class="card__body p-6">
-                        <div class="grid grid-cols-2 gap-y-6 gap-x-12">
+                        <div class="responsive-grid responsive-grid--wide gap-y-6 gap-x-12">
                             <div>
                                 <span class="label mb-1">Email Address</span>
                                 <p class="text-primary">{{ if .Data.Customer.Email }}{{ .Data.Customer.Email }}{{ else }}<span class="text-muted">Not provided</span>{{ end }}</p>

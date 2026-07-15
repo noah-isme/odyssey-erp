@@ -73,12 +73,9 @@ a {
     text-decoration: none;
 }
 
-:focus {
-    outline: none;
-}
-
 :focus-visible {
-    outline: none;
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
 }
 
 html {
@@ -153,6 +150,37 @@ a:not([role]):not([class]):hover {
     display: grid;
     gap: var(--space-4);
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+/* Responsive layout primitive for page/card grids. */
+.responsive-grid {
+    --responsive-grid-min: 16rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--responsive-grid-min)), 1fr));
+    gap: var(--space-6);
+}
+
+.responsive-grid--compact {
+    --responsive-grid-min: 12rem;
+}
+
+.responsive-grid--wide {
+    --responsive-grid-min: 22rem;
+}
+
+.responsive-grid__span-2,
+.responsive-grid__span-3 {
+    min-width: 0;
+}
+
+@media (min-width: 900px) {
+    .responsive-grid__span-2 {
+        grid-column: span 2;
+    }
+
+    .responsive-grid__span-3 {
+        grid-column: span 3;
+    }
 }
 
 /* Filters section styling */
