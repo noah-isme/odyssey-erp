@@ -5,9 +5,9 @@
 {{ define "title" }}Cash Flow Statement{{ end }}
 
 {{ define "content" }}
-<div class="container">
+<div class="page-container">
     <header class="page-header">
-        <div class="header-main">
+        <div class="page-header__content">
             <h1>Cash Flow Statement</h1>
             <p class="text-muted">Summary of cash movements by activity.</p>
         </div>
@@ -30,7 +30,7 @@
                 </tr>
                 {{ range .Data.Report.Operating.Lines }}
                 <tr>
-                    <td style="padding-left: var(--space-8);">{{ .AccountCode }} - {{ .AccountName }}</td>
+                    <td class="table-cell--indented">{{ .AccountCode }} - {{ .AccountName }}</td>
                     <td class="numeric-right">{{ .Amount | formatCurrency "IDR" }}</td>
                 </tr>
                 {{ end }}
@@ -42,7 +42,7 @@
                 </tr>
                 {{ range .Data.Report.Investing.Lines }}
                 <tr>
-                    <td style="padding-left: var(--space-8);">{{ .AccountCode }} - {{ .AccountName }}</td>
+                    <td class="table-cell--indented">{{ .AccountCode }} - {{ .AccountName }}</td>
                     <td class="numeric-right">{{ .Amount | formatCurrency "IDR" }}</td>
                 </tr>
                 {{ end }}
@@ -54,7 +54,7 @@
                 </tr>
                 {{ range .Data.Report.Financing.Lines }}
                 <tr>
-                    <td style="padding-left: var(--space-8);">{{ .AccountCode }} - {{ .AccountName }}</td>
+                    <td class="table-cell--indented">{{ .AccountCode }} - {{ .AccountName }}</td>
                     <td class="numeric-right">{{ .Amount | formatCurrency "IDR" }}</td>
                 </tr>
                 {{ end }}

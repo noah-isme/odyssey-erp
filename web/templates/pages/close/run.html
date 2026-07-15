@@ -13,7 +13,7 @@
 {{ $period := $data.Period }}
 {{ $run := $data.Run }}
 <section class="page-header">
-    <div>
+    <div class="page-header__content">
         <p class="eyebrow">Close Run</p>
         <h1>{{ $period.Name }}</h1>
         <div class="status-stack">
@@ -23,7 +23,7 @@
         <p class="muted">Periode {{ $period.StartDate.Format "02 Jan 2006" }} – {{ $period.EndDate.Format "02 Jan 2006" }}, Company {{ if gt $period.CompanyID 0 }}#{{ $period.CompanyID }}{{ else }}N/A{{ end }}</p>
         {{ if $run.Notes }}<p class="note">Catatan: {{ $run.Notes }}</p>{{ end }}
     </div>
-    <div>
+    <div class="page-header__actions">
         <a class="btn btn--secondary" href="/accounting/periods?company_id={{ $period.CompanyID }}">Kembali ke daftar</a>
     </div>
 </section>

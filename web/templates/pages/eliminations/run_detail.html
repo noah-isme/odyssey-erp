@@ -11,11 +11,7 @@
         </div>
         <h1>Run #{{ $run.ID }}</h1>
         <div class="flex items-center gap-2 mt-2">
-            <span class="badge 
-                {{ if eq $run.Status " POSTED" }}badge--success {{ else if eq $run.Status "SIMULATED" }}badge--info {{
-                else }}badge--neutral{{ end }}">
-                {{ $run.Status }}
-            </span>
+            {{ template "partials/ui/status_badge.html" $run.Status }}
             <span class="text-secondary text-sm">Period: {{ $run.PeriodID }}</span>
         </div>
     </div>
@@ -24,8 +20,8 @@
     </div>
 </header>
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <section class="card col-span-1">
+<div class="responsive-grid responsive-grid--wide">
+    <section class="card">
         <header class="card__header">
             <h2 class="card__title">Run Configuration</h2>
         </header>
@@ -45,13 +41,13 @@
         </div>
     </section>
 
-    <section class="card col-span-1 lg:col-span-2">
+    <section class="card responsive-grid__span-2">
         <header class="card__header">
             <h2 class="card__title">Simulation Results</h2>
         </header>
         <div class="card__body">
             {{ if $run.Summary }}
-            <div class="stats-grid grid-cols-3 mb-6">
+            <div class="responsive-grid responsive-grid--compact mb-6">
                 <div class="stat-card">
                     <span class="stat-card__label">Source Balance</span>
                     <span class="stat-card__value font-mono">{{ printf "%.2f" $run.Summary.SourceBalance }}</span>
