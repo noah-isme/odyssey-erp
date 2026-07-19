@@ -24,7 +24,7 @@ to re-prioritise the genuinely remaining work.
 | Phase 11 — Cash flow report | ✅ Implemented | `internal/accounting/reports/cf.go` |
 | Phase 12 — Stock take & adjustment | ✅ Implemented | migrations 000027/000028, `/inventory/.../stock-takes`, `/adjustments` |
 | Phase 12 — Stock valuation | 🟡 Partial | Average + FIFO in `internal/inventory/service.go`; **no LIFO**, no `cost_method` column |
-| Phase 15 — Budget vs Actual | 🟡 Scaffold only | `reports/budget.go` + migration 000029 exist, but the handler serves **empty hardcoded data** — `accounting_budgets` is not yet wired |
+| Phase 15 — Budget vs Actual | ✅ Implemented | `/accounting/budget` loads `accounting_budgets` and posted journal actuals for the selected month |
 | Phase 13 — Fixed Assets | ❌ Not started | no `fixed_assets` table or module |
 | Phase 14 — Transaction-level multi-currency | ❌ Not started | FX exists only for consolidation (`internal/consol/fx/`), not realized/unrealized gain on AR/AP |
 | Phase 15 — Department reporting, Excel export | ❌ Not started | CSV export only; no `excelize` |
@@ -255,9 +255,9 @@ These can be implemented in 1-2 days each:
 ## Recommended Next Steps
 
 1. **Immediate (highest value, low effort)**
-   - Wire **Budget vs Actual** handler to the `accounting_budgets` table (currently serves empty hardcoded data — the feature looks live but returns nothing)
-   - Add login-specific rate limiting to `POST /login` (brute-force protection; `httprate` already available)
-   - Add tests for `users` / `roles` / `rbac` — the access-control surface currently has **zero** test coverage
+   - Add integration coverage for the Budget vs Actual query and form a release dataset that includes revenue and expense budgets.
+   - Monitor the login-specific rate limiter on `POST /auth/login` (5 attempts/IP/minute) and tune its threshold based on production traffic.
+   - Extend the new Users/Roles/RBAC unit coverage with handler and database integration scenarios.
 
 2. **Short-term (1 month)**
    - Automated DB backup script (`pg_dump`) in `tools/`

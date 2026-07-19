@@ -22,6 +22,26 @@ type Repository interface {
 	GetBankTransaction(ctx context.Context, id pgtype.UUID) (sqlc.BankTransaction, error)
 	ListBankTransactions(ctx context.Context, bankAccountID int64) ([]sqlc.BankTransaction, error)
 	UpdateBankTransactionStatus(ctx context.Context, arg sqlc.UpdateBankTransactionStatusParams) error
+	FindOpenPeriod(ctx context.Context, companyID int64, date time.Time) (int64, error)
+	BankTransactionExists(ctx context.Context, bankAccountID int64, date time.Time, amount float64, reference string) (bool, error)
+}
+
+// BankAccountSummary pairs an account with its ledger balance.
+type BankAccountSummary struct {
+	Account sqlc.BankAccount
+	Balance float64
+}
+
+// BankTransactionSummary adds the running balance after a transaction.
+type BankTransactionSummary struct {
+	Transaction    sqlc.BankTransaction
+	RunningBalance float64
+}
+
+// ImportResult reports imported and skipped statement rows.
+type ImportResult struct {
+	Imported int
+	Skipped  int
 }
 
 // JournalPoster handles GL integration.
@@ -291,9 +311,103 @@ func (s *Service) ListBankAccounts(ctx context.Context, companyID int64) ([]sqlc
 	return s.repo.ListBankAccounts(ctx, companyID)
 }
 
+// ListBankAccountSummaries calculates each account balance from its opening balance
+// plus every recorded bank transaction.
+func (s *Service) ListBankAccountSummaries(ctx context.Context, companyID int64) ([]BankAccountSummary, error) {
+	accounts, err := s.repo.ListBankAccounts(ctx, companyID)
+	if err != nil {
+		return nil, err
+	}
+	summaries := make([]BankAccountSummary, 0, len(accounts))
+	for _, account := range accounts {
+		balance, err := numericFloat(account.InitialBalance)
+		if err != nil {
+			return nil, err
+		}
+		transactions, err := s.repo.ListBankTransactions(ctx, account.ID)
+		if err != nil {
+			return nil, err
+		}
+		for _, transaction := range transactions {
+			amount, err := numericFloat(transaction.Amount)
+			if err != nil {
+				return nil, err
+			}
+			balance += amount
+		}
+		summaries = append(summaries, BankAccountSummary{Account: account, Balance: balance})
+	}
+	return summaries, nil
+}
+
 // ListBankTransactions returns transactions for an account.
 func (s *Service) ListBankTransactions(ctx context.Context, bankAccountID int64) ([]sqlc.BankTransaction, error) {
 	return s.repo.ListBankTransactions(ctx, bankAccountID)
+}
+
+// ListBankTransactionSummaries returns transactions with their running balance.
+func (s *Service) ListBankTransactionSummaries(ctx context.Context, account sqlc.BankAccount) ([]BankTransactionSummary, float64, error) {
+	transactions, err := s.repo.ListBankTransactions(ctx, account.ID)
+	if err != nil {
+		return nil, 0, err
+	}
+	balance, err := numericFloat(account.InitialBalance)
+	if err != nil {
+		return nil, 0, err
+	}
+	for _, transaction := range transactions {
+		amount, err := numericFloat(transaction.Amount)
+		if err != nil {
+			return nil, 0, err
+		}
+		balance += amount
+	}
+	running := balance
+	summaries := make([]BankTransactionSummary, 0, len(transactions))
+	for _, transaction := range transactions {
+		summaries = append(summaries, BankTransactionSummary{Transaction: transaction, RunningBalance: running})
+		amount, err := numericFloat(transaction.Amount)
+		if err != nil {
+			return nil, 0, err
+		}
+		running -= amount
+	}
+	return summaries, balance, nil
+}
+
+// ResolveOpenPeriod finds the accounting period that can accept a dated bank entry.
+func (s *Service) ResolveOpenPeriod(ctx context.Context, companyID int64, date time.Time) (int64, error) {
+	return s.repo.FindOpenPeriod(ctx, companyID, date)
+}
+
+// ImportStatement records statement rows as pending transactions. Pending imports
+// deliberately do not post GL entries until a finance user chooses a contra account.
+func (s *Service) ImportStatement(ctx context.Context, account sqlc.BankAccount, entries []StatementEntry) (ImportResult, error) {
+	result := ImportResult{}
+	for _, entry := range entries {
+		exists, err := s.repo.BankTransactionExists(ctx, account.ID, entry.Date, entry.Amount, entry.Reference)
+		if err != nil {
+			return result, err
+		}
+		if exists {
+			result.Skipped++
+			continue
+		}
+		_, err = s.repo.CreateBankTransaction(ctx, sqlc.CreateBankTransactionParams{
+			ID:            pgtype.UUID{Bytes: uuid.New(), Valid: true},
+			BankAccountID: account.ID,
+			Date:          pgtype.Date{Time: entry.Date, Valid: true},
+			Amount:        numericOf(entry.Amount),
+			Description:   entry.Description,
+			Reference:     pgtype.Text{String: entry.Reference, Valid: entry.Reference != ""},
+			Status:        "PENDING",
+		})
+		if err != nil {
+			return result, err
+		}
+		result.Imported++
+	}
+	return result, nil
 }
 
 // numericOf converts a float64 into a pgtype.Numeric. Scanning a formatted
@@ -302,4 +416,12 @@ func numericOf(f float64) pgtype.Numeric {
 	var n pgtype.Numeric
 	_ = n.Scan(fmt.Sprintf("%f", f))
 	return n
+}
+
+func numericFloat(n pgtype.Numeric) (float64, error) {
+	value, err := n.Float64Value()
+	if err != nil || !value.Valid {
+		return 0, fmt.Errorf("invalid numeric value")
+	}
+	return value.Float64, nil
 }

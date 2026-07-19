@@ -21,6 +21,7 @@
             <p class="page-subtitle">{{ .Data.Account.AccountNumber }}</p>
         </div>
         <div class="page-header__actions">
+            <button class="btn btn--secondary" data-dialog-open="import-statement-modal">Impor statement</button>
             <button class="btn btn--primary" data-dialog-open="new-txn-modal">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="12" y1="5" x2="12" y2="19" />
@@ -36,8 +37,7 @@
         <div class="card p-4">
             <div class="text-sm text-muted">Ledger Balance</div>
             <div class="text-2xl font-bold mt-1">
-                {{ formatCurrency .Data.Account.Currency .Data.Account.InitialBalance }}
-                <!-- TODO: Calculate real balance -->
+                {{ formatCurrency .Data.Account.Currency .Data.Balance }}
             </div>
         </div>
         <div class="card p-4">
@@ -66,18 +66,18 @@
                     {{ if .Data.Transactions }}
                     {{ range .Data.Transactions }}
                     <tr>
-                        <td>{{ formatDate .Date }}</td>
-                        <td>{{ if .Reference.Valid }}{{ .Reference.String }}{{ else }}-{{ end }}</td>
-                        <td>{{ .Description }}</td>
+                        <td>{{ formatDate .Transaction.Date }}</td>
+                        <td>{{ if .Transaction.Reference.Valid }}{{ .Transaction.Reference.String }}{{ else }}-{{ end }}</td>
+                        <td>{{ .Transaction.Description }}</td>
                         <td>
                             <div class="flex items-center justify-between">
                                 <div>
-                                    {{ if eq .Status "CLEARED" }}<span class="badge badge--success">Cleared</span>{{ end }}
-                                    {{ if eq .Status "PENDING" }}<span class="badge badge--warning">Pending</span>{{ end }}
-                                    {{ if eq .Status "RECONCILED" }}<span class="badge badge--info">Reconciled</span>{{ end }}
+                                    {{ if eq .Transaction.Status "CLEARED" }}<span class="badge badge--success">Cleared</span>{{ end }}
+                                    {{ if eq .Transaction.Status "PENDING" }}<span class="badge badge--warning">Pending</span>{{ end }}
+                                    {{ if eq .Transaction.Status "RECONCILED" }}<span class="badge badge--info">Reconciled</span>{{ end }}
                                 </div>
-                                {{ if ne .Status "RECONCILED" }}
-                                <form method="post" action="/finance/banking/transactions/{{ .ID | formatUUID }}/reconcile" class="inline">
+                                {{ if ne .Transaction.Status "RECONCILED" }}
+                                <form method="post" action="/finance/banking/transactions/{{ .Transaction.ID | formatUUID }}/reconcile" class="inline">
                                     <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
                                     <button type="submit" class="btn btn--sm btn--secondary" title="Mark as Reconciled" aria-label="Mark transaction as reconciled">
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -88,10 +88,10 @@
                                 {{ end }}
                             </div>
                         </td>
-                        <td class="text-right font-medium {{ if isNegative .Amount }}text-danger{{ else }}text-success{{ end }}">
-                            {{ formatDecimal .Amount }}
+                        <td class="text-right font-medium {{ if isNegative .Transaction.Amount }}text-danger{{ else }}text-success{{ end }}">
+                            {{ formatDecimal .Transaction.Amount }}
                         </td>
-                        <td class="text-right text-muted">-</td> <!-- Running balance requires calculation logic -->
+                        <td class="text-right text-muted">{{ formatCurrency $.Data.Account.Currency .RunningBalance }}</td>
                     </tr>
                     {{ end }}
                     {{ else }}
@@ -108,6 +108,24 @@
         </div>
     </div>
 </div>
+
+<dialog id="import-statement-modal" class="native-dialog" data-dialog aria-labelledby="import-statement-modal-title">
+    <div class="native-dialog__content native-dialog__content--padded">
+        <h3 id="import-statement-modal-title" class="font-bold text-lg mb-4">Impor bank statement</h3>
+        <form method="post" action="/finance/banking/accounts/{{ .Data.Account.ID }}/import" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+            <div class="form-group mb-3">
+                <label class="form-label" for="statement">File CSV atau OFX</label>
+                <input class="form-input" id="statement" type="file" name="statement" accept=".csv,.ofx,.qfx,text/csv,application/x-ofx" required>
+                <p class="text-xs text-muted mt-1">Kolom CSV: date/tanggal, amount/jumlah, description/deskripsi, reference/referensi. Transaksi impor masuk sebagai Pending dan belum membuat jurnal GL.</p>
+            </div>
+            <div class="native-dialog__actions flex justify-end gap-2">
+                <button type="button" class="btn btn--ghost" data-dialog-close>Batal</button>
+                <button type="submit" class="btn btn--primary">Impor</button>
+            </div>
+        </form>
+    </div>
+</dialog>
 
 <!-- New Transaction Modal -->
 <dialog id="new-txn-modal" class="native-dialog native-dialog--lg" data-dialog aria-labelledby="new-txn-modal-title">

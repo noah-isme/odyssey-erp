@@ -2,6 +2,7 @@ package banking
 
 import (
 	"context"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -52,4 +53,27 @@ func (r *PGRepository) ListBankTransactions(ctx context.Context, bankAccountID i
 
 func (r *PGRepository) UpdateBankTransactionStatus(ctx context.Context, arg sqlc.UpdateBankTransactionStatusParams) error {
 	return r.queries.UpdateBankTransactionStatus(ctx, arg)
+}
+
+func (r *PGRepository) FindOpenPeriod(ctx context.Context, companyID int64, date time.Time) (int64, error) {
+	var periodID int64
+	err := r.pool.QueryRow(ctx, `
+		SELECT period_id
+		FROM accounting_periods
+		WHERE (company_id = $1 OR company_id IS NULL)
+		  AND start_date <= $2 AND end_date >= $2 AND status = 'OPEN'
+		ORDER BY (company_id = $1) DESC, id DESC
+		LIMIT 1`, companyID, date).Scan(&periodID)
+	return periodID, err
+}
+
+func (r *PGRepository) BankTransactionExists(ctx context.Context, bankAccountID int64, date time.Time, amount float64, reference string) (bool, error) {
+	var exists bool
+	err := r.pool.QueryRow(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM bank_transactions
+			WHERE bank_account_id = $1 AND date = $2 AND amount = $3
+			  AND COALESCE(reference, '') = $4
+		)`, bankAccountID, date, amount, reference).Scan(&exists)
+	return exists, err
 }

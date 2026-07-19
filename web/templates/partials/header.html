@@ -29,6 +29,13 @@
     </div>
 
     <div class="header-right">
+        <form method="post" action="/company/select" class="header-company-select" data-company-select-form>
+            <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+            <label class="sr-only" for="active-company">Perusahaan aktif</label>
+            <select id="active-company" name="company_id" class="form-select form-select--sm" data-active-company aria-label="Perusahaan aktif" disabled>
+                <option value="">Memuat perusahaan...</option>
+            </select>
+        </form>
         <!-- Create Dropdown -->
         <button class="btn btn--primary header-btn" data-dropdown-trigger="create" aria-expanded="false" aria-haspopup="true">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

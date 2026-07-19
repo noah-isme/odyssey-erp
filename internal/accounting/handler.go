@@ -3,6 +3,7 @@ package accounting
 import (
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -11,6 +12,8 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/banks"
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/journals"
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/reports"
+	"github.com/odyssey-erp/odyssey-erp/internal/shared"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
 )
 
@@ -22,6 +25,7 @@ type Handler struct {
 	accountService *accounts.Service
 	journalHandler *journals.Handler
 	banksHandler   *banks.Handler
+	budgets        *sqlc.Queries
 }
 
 // NewHandler builds a Handler instance.
@@ -47,6 +51,7 @@ func NewHandler(logger *slog.Logger, db *pgxpool.Pool, templates *view.Engine, a
 		accountService: accountService,
 		journalHandler: journalHandler,
 		banksHandler:   banksHandler,
+		budgets:        sqlc.New(db),
 	}
 }
 
@@ -92,14 +97,14 @@ func (h *Handler) handleProfitLoss(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) handleNotImplemented(w http.ResponseWriter, _ *http.Request) {
 	h.logger.Info("ledger handler invoked", slog.String("path", "finance"))
-	http.Error(w, http.StatusText(http.StatusNotImplemented), http.StatusNotImplemented)
+	shared.WriteHTTPError(w, http.StatusNotImplemented, "")
 }
 
 func (h *Handler) handleCashFlow(w http.ResponseWriter, r *http.Request) {
 	balances, err := h.accountService.ListBalances(r.Context())
 	if err != nil {
 		h.logger.Error("list balances for cash flow", slog.Any("error", err))
-		http.Error(w, "Failed to load report data", http.StatusInternalServerError)
+		shared.WriteHTTPError(w, http.StatusInternalServerError, "Gagal memuat data laporan")
 		return
 	}
 
@@ -112,30 +117,63 @@ func (h *Handler) handleCashFlow(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := h.templates.Render(w, "pages/finance/cashflow.html", viewData); err != nil {
 		h.logger.Error("render cash flow", slog.Any("error", err))
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		shared.WriteHTTPError(w, http.StatusInternalServerError, "")
 	}
 }
 
 func (h *Handler) handleBudget(w http.ResponseWriter, r *http.Request) {
-	balances, err := h.accountService.ListBalances(r.Context())
+	year, month, err := budgetPeriod(r, time.Now())
+	if err != nil {
+		shared.WriteHTTPError(w, http.StatusBadRequest, "Periode harus berformat YYYY-MM")
+		return
+	}
+	balances, err := h.accountService.ListBalancesForPeriod(r.Context(), year, month)
 	if err != nil {
 		h.logger.Error("list balances for budget", slog.Any("error", err))
-		http.Error(w, "Failed to load report data", http.StatusInternalServerError)
+		shared.WriteHTTPError(w, http.StatusInternalServerError, "Gagal memuat data laporan")
 		return
 	}
 
-	// For MVP, empty budget data. In a real app, fetch from accounting_budgets table.
-	budgetData := reports.BudgetData{}
+	rows, err := h.budgets.ListBudgetsByPeriod(r.Context(), sqlc.ListBudgetsByPeriodParams{PeriodYear: int32(year), PeriodMonth: int32(month)})
+	if err != nil {
+		h.logger.Error("list budgets", slog.Any("error", err))
+		shared.WriteHTTPError(w, http.StatusInternalServerError, "Gagal memuat data laporan")
+		return
+	}
+	budgetData := make(reports.BudgetData, len(rows))
+	for _, row := range rows {
+		amount, err := row.Amount.Float64Value()
+		if err != nil || !amount.Valid {
+			h.logger.Error("invalid budget amount", slog.Int64("budget_id", row.ID))
+			shared.WriteHTTPError(w, http.StatusInternalServerError, "Gagal memuat data laporan")
+			return
+		}
+		budgetData[row.AccountID] = amount.Float64
+	}
 	bva := reports.BuildBudgetVsActual(balances, budgetData)
 
 	viewData := view.TemplateData{
 		Title: "Budget vs Actual",
 		Data: map[string]any{
-			"Report": bva,
+			"Report":      bva,
+			"Period":      time.Date(year, month, 1, 0, 0, 0, 0, time.UTC).Format("January 2006"),
+			"PeriodValue": time.Date(year, month, 1, 0, 0, 0, 0, time.UTC).Format("2006-01"),
 		},
 	}
 	if err := h.templates.Render(w, "pages/finance/budget.html", viewData); err != nil {
 		h.logger.Error("render budget", slog.Any("error", err))
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		shared.WriteHTTPError(w, http.StatusInternalServerError, "")
 	}
+}
+
+func budgetPeriod(r *http.Request, now time.Time) (int, time.Month, error) {
+	value := r.URL.Query().Get("period")
+	if value == "" {
+		return now.Year(), now.Month(), nil
+	}
+	parsed, err := time.Parse("2006-01", value)
+	if err != nil {
+		return 0, 0, err
+	}
+	return parsed.Year(), parsed.Month(), nil
 }

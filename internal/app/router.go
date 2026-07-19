@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -95,6 +96,11 @@ type workspaceUser struct {
 	Notifications bool      `json:"notifications"`
 }
 
+type workspaceCompany struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
 func loadWorkspaceUser(ctx context.Context, pool *pgxpool.Pool, id int64) (workspaceUser, error) {
 	var user workspaceUser
 	err := pool.QueryRow(ctx, `SELECT id, email, name, is_active, created_at, ui_theme, ui_language, ui_notifications
@@ -106,6 +112,48 @@ func loadWorkspaceUser(ctx context.Context, pool *pgxpool.Pool, id int64) (works
 		user.Language = "id"
 	}
 	return user, err
+}
+
+func loadWorkspaceCompanies(ctx context.Context, pool *pgxpool.Pool) ([]workspaceCompany, error) {
+	rows, err := pool.Query(ctx, "SELECT id, name FROM companies ORDER BY name, id")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	companies := make([]workspaceCompany, 0)
+	for rows.Next() {
+		var company workspaceCompany
+		if err := rows.Scan(&company.ID, &company.Name); err != nil {
+			return nil, err
+		}
+		companies = append(companies, company)
+	}
+	return companies, rows.Err()
+}
+
+func activeCompanyMiddleware(pool *pgxpool.Pool, logger *slog.Logger) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			sess := shared.SessionFromContext(r.Context())
+			if pool != nil && sess != nil && sess.User() != "" && sess.Get("company_id") == "" {
+				var companyID int64
+				if err := pool.QueryRow(r.Context(), "SELECT id FROM companies ORDER BY id LIMIT 1").Scan(&companyID); err == nil {
+					sess.Set("company_id", strconv.FormatInt(companyID, 10))
+				} else if logger != nil {
+					logger.Warn("initialize active company", slog.Any("error", err))
+				}
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func redirectBackToWorkspace(w http.ResponseWriter, r *http.Request) {
+	target := "/"
+	if referer, err := url.Parse(r.Referer()); err == nil && referer.Path != "" && (referer.Host == "" || referer.Host == r.Host) {
+		target = referer.RequestURI()
+	}
+	http.Redirect(w, r, target, http.StatusSeeOther)
 }
 
 // NewRouter constructs the chi.Router with Odyssey defaults.
@@ -123,6 +171,7 @@ func NewRouter(params RouterParams) http.Handler {
 	}
 
 	r.Use(chimw.Logger)
+	r.Use(activeCompanyMiddleware(params.Pool, params.Logger))
 
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -309,6 +358,28 @@ func NewRouter(params RouterParams) http.Handler {
 		}
 		http.Redirect(w, r, "/settings", http.StatusSeeOther)
 	})
+	r.Post("/company/select", func(w http.ResponseWriter, r *http.Request) {
+		sess := shared.SessionFromContext(r.Context())
+		if sess == nil || sess.User() == "" {
+			http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
+			return
+		}
+		companyID, err := strconv.ParseInt(r.PostFormValue("company_id"), 10, 64)
+		if err != nil || companyID <= 0 || params.Pool == nil {
+			sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Perusahaan tidak valid"})
+			redirectBackToWorkspace(w, r)
+			return
+		}
+		var exists bool
+		if err := params.Pool.QueryRow(r.Context(), "SELECT EXISTS(SELECT 1 FROM companies WHERE id = $1)", companyID).Scan(&exists); err != nil || !exists {
+			sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Perusahaan tidak ditemukan"})
+			redirectBackToWorkspace(w, r)
+			return
+		}
+		sess.Set("company_id", strconv.FormatInt(companyID, 10))
+		sess.AddFlash(shared.FlashMessage{Kind: "success", Message: "Perusahaan aktif diperbarui"})
+		redirectBackToWorkspace(w, r)
+	})
 	r.Get("/api/me", func(w http.ResponseWriter, r *http.Request) {
 		sess := shared.SessionFromContext(r.Context())
 		if sess == nil || sess.User() == "" {
@@ -325,8 +396,14 @@ func NewRouter(params RouterParams) http.Handler {
 			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 			return
 		}
+		companies, err := loadWorkspaceCompanies(r.Context(), params.Pool)
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+		activeCompanyID, _ := strconv.ParseInt(sess.Get("company_id"), 10, 64)
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(user)
+		_ = json.NewEncoder(w).Encode(map[string]any{"user": user, "companies": companies, "activeCompanyID": activeCompanyID})
 	})
 	if params.AccountingHandler != nil {
 		r.Route("/accounting", func(r chi.Router) {

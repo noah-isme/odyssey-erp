@@ -2,6 +2,7 @@ package accounts
 
 import (
 	"context"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/reports"
@@ -10,6 +11,40 @@ import (
 type Repository interface {
 	List(ctx context.Context) ([]Account, error)
 	ListBalances(ctx context.Context) ([]reports.AccountBalance, error)
+	ListBalancesForPeriod(ctx context.Context, year int, month time.Month) ([]reports.AccountBalance, error)
+}
+
+func (r *repository) ListBalancesForPeriod(ctx context.Context, year int, month time.Month) ([]reports.AccountBalance, error) {
+	start := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
+	end := start.AddDate(0, 1, 0)
+	rows, err := r.db.Query(ctx, `
+		SELECT a.id, a.code, a.name, a.type,
+		       0.0 AS opening,
+		       COALESCE(SUM(jl.debit), 0)::double precision AS debit,
+		       COALESCE(SUM(jl.credit), 0)::double precision AS credit
+		FROM accounts a
+		LEFT JOIN (
+			SELECT jl.account_id, jl.debit, jl.credit
+			FROM journal_lines jl
+			JOIN journal_entries je ON je.id = jl.je_id
+			WHERE je.status = 'POSTED' AND je.date >= $1 AND je.date < $2
+		) jl ON a.id = jl.account_id
+		GROUP BY a.id, a.code, a.name, a.type
+		ORDER BY a.code`, start, end)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	balances := make([]reports.AccountBalance, 0)
+	for rows.Next() {
+		var balance reports.AccountBalance
+		if err := rows.Scan(&balance.ID, &balance.Code, &balance.Name, &balance.Type, &balance.Opening, &balance.Debit, &balance.Credit); err != nil {
+			return nil, err
+		}
+		balances = append(balances, balance)
+	}
+	return balances, rows.Err()
 }
 
 type repository struct {

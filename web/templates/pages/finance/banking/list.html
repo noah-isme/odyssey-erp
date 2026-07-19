@@ -34,19 +34,18 @@
     <div class="page-content">
         <div class="responsive-grid responsive-grid--wide gap-4">
             {{ range .Data.Accounts }}
-            <a href="/finance/banking/accounts/{{ .ID }}" class="card card--interactive">
+            <a href="/finance/banking/accounts/{{ .Account.ID }}" class="card card--interactive">
                 <div class="card__header">
                     <div class="flex items-center justify-between">
-                        <h3 class="card__title">{{ .Name }}</h3>
-                        <span class="badge badge--info">{{ .Currency }}</span>
+                        <h3 class="card__title">{{ .Account.Name }}</h3>
+                        <span class="badge badge--info">{{ .Account.Currency }}</span>
                     </div>
-                    <p class="text-sm text-muted mt-1">{{ .AccountNumber }}</p>
+                    <p class="text-sm text-muted mt-1">{{ .Account.AccountNumber }}</p>
                 </div>
                 <div class="card__body mt-4">
                     <div class="text-sm text-muted">Current Balance</div>
                     <div class="text-2xl font-bold tabular-nums">
-                        {{ formatCurrency .Currency .InitialBalance }}
-                        <!-- TODO: Calculate real balance including transactions -->
+                        {{ formatCurrency .Account.Currency .Balance }}
                     </div>
                 </div>
             </a>
@@ -120,7 +119,7 @@
                     <select name="from_account_id" class="form-select" required>
                         <option value="">Select source...</option>
                         {{ range .Data.Accounts }}
-                        <option value="{{ .ID }}">{{ .Name }} ({{ .Currency }})</option>
+                        <option value="{{ .Account.ID }}">{{ .Account.Name }} ({{ .Account.Currency }})</option>
                         {{ end }}
                     </select>
                 </div>
@@ -129,7 +128,7 @@
                     <select name="to_account_id" class="form-select" required>
                         <option value="">Select destination...</option>
                         {{ range .Data.Accounts }}
-                        <option value="{{ .ID }}">{{ .Name }} ({{ .Currency }})</option>
+                        <option value="{{ .Account.ID }}">{{ .Account.Name }} ({{ .Account.Currency }})</option>
                         {{ end }}
                     </select>
                 </div>

@@ -116,6 +116,20 @@ func (m *mockRepo) UpdateBankTransactionStatus(ctx context.Context, arg sqlc.Upd
 	return nil
 }
 
+func (m *mockRepo) FindOpenPeriod(context.Context, int64, time.Time) (int64, error) {
+	return 1, nil
+}
+
+func (m *mockRepo) BankTransactionExists(_ context.Context, bankAccountID int64, date time.Time, amount float64, reference string) (bool, error) {
+	for _, transaction := range m.transactions {
+		value, _ := transaction.Amount.Float64Value()
+		if transaction.BankAccountID == bankAccountID && transaction.Date.Time.Equal(date) && value.Valid && value.Float64 == amount && transaction.Reference.String == reference {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 type mockPoster struct {
 	nextID int64
 }
