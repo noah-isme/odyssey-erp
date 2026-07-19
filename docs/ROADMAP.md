@@ -23,7 +23,7 @@ to re-prioritise the genuinely remaining work.
 | Phase 11 — Bank reconciliation | ✅ Implemented | `internal/accounting/banks/`, migration 000030, route `/accounting/banks` |
 | Phase 11 — Cash flow report | ✅ Implemented | `internal/accounting/reports/cf.go` |
 | Phase 12 — Stock take & adjustment | ✅ Implemented | migrations 000027/000028, `/inventory/.../stock-takes`, `/adjustments` |
-| Phase 12 — Stock valuation | 🟡 Partial | Average + FIFO in `internal/inventory/service.go`; **no LIFO**, no `cost_method` column |
+| Phase 12 — Stock valuation | 🟡 Partial | Per-product AVG/FIFO cost method, lot/serial receiving, and reorder PR are implemented; LIFO is intentionally excluded |
 | Phase 15 — Budget vs Actual | ✅ Implemented | `/accounting/budget` loads `accounting_budgets` and posted journal actuals for the selected month |
 | Phase 13 — Fixed Assets | ❌ Not started | no `fixed_assets` table or module |
 | Phase 14 — Transaction-level multi-currency | ❌ Not started | FX exists only for consolidation (`internal/consol/fx/`), not realized/unrealized gain on AR/AP |
@@ -85,7 +85,7 @@ are implemented (`internal/finance/banking/`, `internal/accounting/banks/`). Onl
 ## Phase 12: Inventory Enhancements — 🟡 MOSTLY DONE
 
 **Status:** Stock take, stock adjustment (with audit trail), and valuation (Average + FIFO)
-are implemented. Remaining: **LIFO costing** (and a `cost_method` column), stock reorder
+are implemented. Per-product costing, stock reorder
 automation, batch/lot tracking, and serial numbers.
 **Priority:** 🟡 Medium
 **Estimated Effort:** remaining items ~1-2 weeks
@@ -165,7 +165,7 @@ automation, batch/lot tracking, and serial numbers.
 | Custom Reports | Build reports with drag-drop | Low | Not started |
 | Dashboard Widgets | Customizable dashboard | Medium | Not started |
 | Budget vs Actual | Compare to budget | High | 🟡 Scaffold (data not wired) |
-| Department Reporting | P&L by department/cost center | Medium | Not started |
+| Department Reporting | P&L by department/cost center | Medium | Data model and journal dimensions implemented; report filters pending |
 | Export to Excel | Native Excel export | High | Not started (CSV only) |
 | Scheduled Reports | Email reports on schedule | Medium | Not started |
 

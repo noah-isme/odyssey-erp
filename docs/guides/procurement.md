@@ -24,7 +24,9 @@ Menjamin alur pengadaan PR → PO → GRN → AP berjalan konsisten, terdokument
    - Form di `/procurement/grns` memungkinkan input gudang, supplier, dan rincian barang.
    - Setelah form tersimpan, status GRN `DRAFT`.
    - Tekan tombol/endpoint `POST /procurement/grns/{id}/post` untuk mem-posting.
-   - Posting GRN memanggil service inventory (`PostInbound`) sehingga qty dan avg cost diperbarui atomik.
+   - Posting GRN memanggil service inventory (`PostInbound`) sehingga qty dan biaya persediaan diperbarui.
+   - Produk yang dilacak batch wajib memiliki nomor lot; produk serial wajib
+     memiliki satu nomor serial untuk setiap unit yang diterima.
 
 4. **Buat Invoice AP**
    - Akses `/procurement/ap/invoices`, masukkan GRN yang sudah diposting dan tanggal jatuh tempo.
@@ -45,5 +47,5 @@ Menjamin alur pengadaan PR → PO → GRN → AP berjalan konsisten, terdokument
 
 ## Troubleshooting
 * **Error 403** – pastikan role memiliki permission yang sesuai.
-* **Average cost tidak sesuai** – jalankan job `TaskInventoryRevaluation` atau periksa baris GRN untuk unit cost yang salah.
+* **Biaya persediaan tidak sesuai** – periksa cost method produk dan baris GRN untuk unit cost yang salah.
 * **PDF kosong** – pastikan layanan Gotenberg berjalan dan endpoint `/report/ping` mengembalikan status OK.

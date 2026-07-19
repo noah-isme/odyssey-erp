@@ -3,6 +3,20 @@
 ## Unreleased
 
 ### Added
+
+- Per-product inventory cost policy (weighted average or FIFO), reorder target,
+  preferred supplier, lot/batch, expiry, and serial-number traceability.
+- Inventory dashboard action that creates supplier-grouped draft purchase
+  requests from low-stock alerts.
+- Department and cost-center schema plus optional journal-line dimensions.
+
+### Changed
+
+- FIFO inbound history is now read in chronological order.
+
+## Unreleased
+
+### Added
 - **Personal workspace** — Halaman Profil dan Pengaturan pengguna untuk nama tampilan, tema, bahasa tunggal, notifikasi, dan perubahan password.
 - **Persistent preferences** — Migration `000033_user_preferences` menyimpan tema, bahasa, dan notifikasi pada akun pengguna.
 - **Operational guides** — Panduan pengguna serta runbook deployment dan troubleshooting preferensi UI.

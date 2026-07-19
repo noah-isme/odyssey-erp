@@ -169,6 +169,19 @@ func (tx *memoryTx) InsertStockTakeLine(ctx context.Context, arg sqlc.InsertStoc
 	return nil
 }
 
+func (tx *memoryTx) GetProductTraceability(ctx context.Context, productID int64) (ProductTraceability, error) {
+	return ProductTraceability{CostMethod: "AVG"}, nil
+}
+
+func (tx *memoryTx) UpsertLot(ctx context.Context, lot InventoryLot) (InventoryLot, error) {
+	lot.ID = 1
+	return lot, nil
+}
+
+func (tx *memoryTx) CreateSerial(ctx context.Context, productID, warehouseID, lotID int64, serialNumber string) error {
+	return nil
+}
+
 func (tx *memoryTx) InsertAdjustment(ctx context.Context, arg sqlc.InsertAdjustmentParams) (int64, error) {
 	return 1, nil
 }

@@ -11,12 +11,14 @@ import (
 
 // PostingLineInput describes a journal line for posting request.
 type PostingLineInput struct {
-	AccountID int64
-	Debit     float64
-	Credit    float64
-	CompanyID *int64
-	BranchID  *int64
-	Warehouse *int64
+	AccountID    int64
+	Debit        float64
+	Credit       float64
+	CompanyID    *int64
+	BranchID     *int64
+	Warehouse    *int64
+	DepartmentID *int64
+	CostCenterID *int64
 }
 
 // PostingInput groups fields required to create a journal entry.

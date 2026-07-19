@@ -65,7 +65,7 @@ func NewHandler(logger *slog.Logger, db *pgxpool.Pool, templates *view.Engine, c
 	categoriesHandler := categories.NewHandler(logger, categoryService, templates, csrf, sessions, rbac)
 	suppliersHandler := suppliers.NewHandler(logger, supplierService, templates, csrf, sessions, rbac)
 
-	productsHandler := products.NewHandler(logger, productService, categoryService, unitService, taxService, templates, csrf, sessions, rbac)
+	productsHandler := products.NewHandler(logger, productService, categoryService, unitService, taxService, supplierService, templates, csrf, sessions, rbac)
 
 	return &Handler{
 		logger:            logger,

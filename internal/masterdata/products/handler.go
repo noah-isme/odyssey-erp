@@ -9,6 +9,7 @@ import (
 
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata/categories"
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata/shared"
+	"github.com/odyssey-erp/odyssey-erp/internal/masterdata/suppliers"
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata/taxes"
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata/units"
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
@@ -22,6 +23,7 @@ type Handler struct {
 	categoryService *categories.Service
 	unitService     *units.Service
 	taxService      *taxes.Service
+	supplierService *suppliers.Service
 	templates       *view.Engine
 	csrf            *internalShared.CSRFManager
 	sessions        *internalShared.SessionManager
@@ -34,6 +36,7 @@ func NewHandler(
 	categoryService *categories.Service,
 	unitService *units.Service,
 	taxService *taxes.Service,
+	supplierService *suppliers.Service,
 	templates *view.Engine,
 	csrf *internalShared.CSRFManager,
 	sessions *internalShared.SessionManager,
@@ -45,6 +48,7 @@ func NewHandler(
 		categoryService: categoryService,
 		unitService:     unitService,
 		taxService:      taxService,
+		supplierService: supplierService,
 		templates:       templates,
 		csrf:            csrf,
 		sessions:        sessions,
@@ -117,6 +121,7 @@ func (h *Handler) Form(w http.ResponseWriter, r *http.Request) {
 	cats, _, _ := h.categoryService.List(r.Context(), shared.ListFilters{})
 	us, _, _ := h.unitService.List(r.Context(), shared.ListFilters{})
 	ts, _, _ := h.taxService.List(r.Context(), shared.ListFilters{})
+	suppliers, _, _ := h.supplierService.List(r.Context(), shared.ListFilters{Limit: 500})
 
 	h.render(w, r, "pages/masterdata/product_form.html", map[string]any{
 		"Errors":     map[string]string{},
@@ -124,6 +129,7 @@ func (h *Handler) Form(w http.ResponseWriter, r *http.Request) {
 		"Categories": cats,
 		"Units":      us,
 		"Taxes":      ts,
+		"Suppliers":  suppliers,
 	}, http.StatusOK)
 }
 
@@ -138,6 +144,9 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	taxID, _ := strconv.ParseInt(r.PostFormValue("tax_id"), 10, 64)
 	price, _ := strconv.ParseFloat(r.PostFormValue("price"), 64)
 	cost, _ := strconv.ParseFloat(r.PostFormValue("cost"), 64)
+	minStock, _ := strconv.ParseFloat(r.PostFormValue("min_stock"), 64)
+	reorderTarget, _ := strconv.ParseFloat(r.PostFormValue("reorder_target"), 64)
+	preferredSupplierID, _ := strconv.ParseInt(r.PostFormValue("preferred_supplier_id"), 10, 64)
 	active := r.PostFormValue("is_active") == "on"
 
 	product := Product{
@@ -148,7 +157,10 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		TaxID:      taxID,
 		Price:      price,
 		Cost:       cost,
-		IsActive:   active,
+		CostMethod: r.PostFormValue("cost_method"),
+		MinStock:   minStock, ReorderTarget: reorderTarget, PreferredSupplierID: preferredSupplierID,
+		TrackBatch: r.PostFormValue("track_batch") == "on", TrackSerial: r.PostFormValue("track_serial") == "on",
+		IsActive: active,
 	}
 
 	created, err := h.service.Create(r.Context(), product)
@@ -157,12 +169,14 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		cats, _, _ := h.categoryService.List(r.Context(), shared.ListFilters{})
 		us, _, _ := h.unitService.List(r.Context(), shared.ListFilters{})
 		ts, _, _ := h.taxService.List(r.Context(), shared.ListFilters{})
+		suppliers, _, _ := h.supplierService.List(r.Context(), shared.ListFilters{Limit: 500})
 		h.render(w, r, "pages/masterdata/product_form.html", map[string]any{
 			"Errors":     map[string]string{"general": internalShared.UserSafeMessage(err)},
 			"Product":    nil,
 			"Categories": cats,
 			"Units":      us,
 			"Taxes":      ts,
+			"Suppliers":  suppliers,
 		}, http.StatusBadRequest)
 		return
 	}
@@ -187,6 +201,7 @@ func (h *Handler) EditForm(w http.ResponseWriter, r *http.Request) {
 	cats, _, _ := h.categoryService.List(r.Context(), shared.ListFilters{})
 	us, _, _ := h.unitService.List(r.Context(), shared.ListFilters{})
 	ts, _, _ := h.taxService.List(r.Context(), shared.ListFilters{})
+	suppliers, _, _ := h.supplierService.List(r.Context(), shared.ListFilters{Limit: 500})
 
 	h.render(w, r, "pages/masterdata/product_form.html", map[string]any{
 		"Errors":     map[string]string{},
@@ -194,6 +209,7 @@ func (h *Handler) EditForm(w http.ResponseWriter, r *http.Request) {
 		"Categories": cats,
 		"Units":      us,
 		"Taxes":      ts,
+		"Suppliers":  suppliers,
 	}, http.StatusOK)
 }
 
@@ -214,6 +230,9 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	taxID, _ := strconv.ParseInt(r.PostFormValue("tax_id"), 10, 64)
 	price, _ := strconv.ParseFloat(r.PostFormValue("price"), 64)
 	cost, _ := strconv.ParseFloat(r.PostFormValue("cost"), 64)
+	minStock, _ := strconv.ParseFloat(r.PostFormValue("min_stock"), 64)
+	reorderTarget, _ := strconv.ParseFloat(r.PostFormValue("reorder_target"), 64)
+	preferredSupplierID, _ := strconv.ParseInt(r.PostFormValue("preferred_supplier_id"), 10, 64)
 	active := r.PostFormValue("is_active") == "on"
 
 	product := Product{
@@ -224,7 +243,10 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		TaxID:      taxID,
 		Price:      price,
 		Cost:       cost,
-		IsActive:   active,
+		CostMethod: r.PostFormValue("cost_method"),
+		MinStock:   minStock, ReorderTarget: reorderTarget, PreferredSupplierID: preferredSupplierID,
+		TrackBatch: r.PostFormValue("track_batch") == "on", TrackSerial: r.PostFormValue("track_serial") == "on",
+		IsActive: active,
 	}
 
 	err = h.service.Update(r.Context(), id, product)
@@ -233,12 +255,14 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		cats, _, _ := h.categoryService.List(r.Context(), shared.ListFilters{})
 		us, _, _ := h.unitService.List(r.Context(), shared.ListFilters{})
 		ts, _, _ := h.taxService.List(r.Context(), shared.ListFilters{})
+		suppliers, _, _ := h.supplierService.List(r.Context(), shared.ListFilters{Limit: 500})
 		h.render(w, r, "pages/masterdata/product_form.html", map[string]any{
 			"Errors":     map[string]string{"general": internalShared.UserSafeMessage(err)},
 			"Product":    product,
 			"Categories": cats,
 			"Units":      us,
 			"Taxes":      ts,
+			"Suppliers":  suppliers,
 		}, http.StatusBadRequest)
 		return
 	}

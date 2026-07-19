@@ -178,26 +178,35 @@ func (r *Repository) GetGRN(ctx context.Context, id int64) (GoodsReceipt, []GRNL
 		grn.ReceivedAt = row.ReceivedAt.Time
 	}
 
-	lineRows, err := r.queries.GetGRNLines(ctx, id)
+	lineRows, err := r.pool.Query(ctx, `SELECT id, grn_id, product_id, qty, unit_cost, lot_number, expiry_date, serial_numbers FROM grn_lines WHERE grn_id = $1 ORDER BY id`, id)
 	if err != nil {
 		return GoodsReceipt{}, nil, err
 	}
+	defer lineRows.Close()
 	var lines []GRNLine
-	for _, l := range lineRows {
-		line := GRNLine{
-			ID:        l.ID,
-			GRNID:     l.GrnID,
-			ProductID: l.ProductID,
+	for lineRows.Next() {
+		line := GRNLine{}
+		var qty, unitCost pgtype.Numeric
+		var lot pgtype.Text
+		var expiry pgtype.Date
+		if err := lineRows.Scan(&line.ID, &line.GRNID, &line.ProductID, &qty, &unitCost, &lot, &expiry, &line.SerialNumbers); err != nil {
+			return GoodsReceipt{}, nil, err
 		}
-		if l.Qty.Valid {
-			f, _ := l.Qty.Float64Value()
-			line.Qty = f.Float64
+		quantity, _ := qty.Float64Value()
+		cost, _ := unitCost.Float64Value()
+		line.Qty = quantity.Float64
+		line.UnitCost = cost.Float64
+		if lot.Valid {
+			line.LotNumber = lot.String
 		}
-		if l.UnitCost.Valid {
-			f, _ := l.UnitCost.Float64Value()
-			line.UnitCost = f.Float64
+		if expiry.Valid {
+			value := expiry.Time
+			line.ExpiryDate = &value
 		}
 		lines = append(lines, line)
+	}
+	if err := lineRows.Err(); err != nil {
+		return GoodsReceipt{}, nil, err
 	}
 	return grn, lines, nil
 }
@@ -535,15 +544,13 @@ func (tx *txRepo) CreateGRN(ctx context.Context, grn GoodsReceipt) (int64, error
 }
 
 func (tx *txRepo) InsertGRNLine(ctx context.Context, line GRNLine) error {
-	qty := numericOf(line.Qty)
-	cost := numericOf(line.UnitCost)
-
-	return tx.queries.InsertGRNLine(ctx, sqlc.InsertGRNLineParams{
-		GrnID:     line.GRNID,
-		ProductID: line.ProductID,
-		Qty:       qty,
-		UnitCost:  cost,
-	})
+	var expiry any
+	if line.ExpiryDate != nil {
+		expiry = *line.ExpiryDate
+	}
+	_, err := tx.tx.Exec(ctx, `INSERT INTO grn_lines (grn_id, product_id, qty, unit_cost, lot_number, expiry_date, serial_numbers)
+		VALUES ($1,$2,$3,$4,NULLIF($5,''),$6,$7)`, line.GRNID, line.ProductID, line.Qty, line.UnitCost, line.LotNumber, expiry, line.SerialNumbers)
+	return err
 }
 
 func (tx *txRepo) UpdateGRNStatus(ctx context.Context, id int64, status GRNStatus) error {

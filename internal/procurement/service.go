@@ -89,9 +89,12 @@ type CreateGRNInput struct {
 
 // GRNLineInput for GRN.
 type GRNLineInput struct {
-	ProductID int64
-	Qty       float64
-	UnitCost  float64
+	ProductID     int64
+	Qty           float64
+	UnitCost      float64
+	LotNumber     string
+	ExpiryDate    *time.Time
+	SerialNumbers []string
 }
 
 // CreatePurchaseRequest persists PR header and lines.
@@ -272,7 +275,7 @@ func (s *Service) CreateGoodsReceipt(ctx context.Context, input CreateGRNInput) 
 			if line.ProductID == 0 || line.Qty <= 0 {
 				return ErrValidation
 			}
-			if err := tx.InsertGRNLine(ctx, GRNLine{GRNID: grnID, ProductID: line.ProductID, Qty: line.Qty, UnitCost: line.UnitCost}); err != nil {
+			if err := tx.InsertGRNLine(ctx, GRNLine{GRNID: grnID, ProductID: line.ProductID, Qty: line.Qty, UnitCost: line.UnitCost, LotNumber: line.LotNumber, ExpiryDate: line.ExpiryDate, SerialNumbers: line.SerialNumbers}); err != nil {
 				return err
 			}
 		}
@@ -312,15 +315,18 @@ func (s *Service) PostGoodsReceipt(ctx context.Context, grnID int64) error {
 			}
 			refID := uuid.NewSHA1(uuid.Nil, []byte(fmt.Sprintf("GRN:%d:%d", grn.ID, line.ProductID)))
 			_, err := s.inventory.PostInbound(ctx, inventory.InboundInput{
-				Code:        fmt.Sprintf("GRN-%s-%d", grn.Number, line.ProductID),
-				WarehouseID: grn.WarehouseID,
-				ProductID:   line.ProductID,
-				Qty:         line.Qty,
-				UnitCost:    line.UnitCost,
-				Note:        fmt.Sprintf("GRN %s", grn.Number),
-				ActorID:     0,
-				RefModule:   "PROCUREMENT",
-				RefID:       refID.String(),
+				Code:          fmt.Sprintf("GRN-%s-%d", grn.Number, line.ProductID),
+				WarehouseID:   grn.WarehouseID,
+				ProductID:     line.ProductID,
+				Qty:           line.Qty,
+				UnitCost:      line.UnitCost,
+				Note:          fmt.Sprintf("GRN %s", grn.Number),
+				ActorID:       0,
+				RefModule:     "PROCUREMENT",
+				RefID:         refID.String(),
+				LotNumber:     line.LotNumber,
+				ExpiryDate:    line.ExpiryDate,
+				SerialNumbers: line.SerialNumbers,
 			})
 			if err != nil {
 				return err
