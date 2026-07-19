@@ -5,45 +5,34 @@
 {{ define "title" }}Board Pack Detail{{ end }}
 
 {{ define "content" }}
-<section class="page-header">
-    <div>
-        <p class="eyebrow">Close & Insights</p>
-        <h1>Board Pack #{{ .Data.Pack.ID }}</h1>
-        <p class="muted">{{ .Data.Pack.CompanyName }} · {{ .Data.Pack.PeriodName }}</p>
-    </div>
-    <div>
+<div class="page-container page-content">
+<header class="page-header">
+    <div class="page-header__content"><h1 class="page-title">Board Pack #{{ .Data.Pack.ID }}</h1><p class="page-subtitle">{{ .Data.Pack.CompanyName }} · {{ .Data.Pack.PeriodName }}</p></div>
+    <div class="page-header__actions">
         {{ if and (eq .Data.Pack.Status "READY") (.Data.Pack.FilePath) }}
             <a class="btn btn--primary" href="/board-packs/{{ .Data.Pack.ID }}/download">Download PDF</a>
         {{ end }}
     </div>
-</section>
+</header>
 
-<section class="card">
-    <dl>
-        <dt>Status</dt>
-        <dd>{{ .Data.Pack.Status }}</dd>
-        <dt>Template</dt>
-        <dd>{{ .Data.Pack.TemplateName }}</dd>
-        <dt>Dibuat</dt>
-        <dd>{{ formatDate .Data.Pack.CreatedAt }}</dd>
-        <dt>Generated At</dt>
-        <dd>{{ if .Data.Pack.GeneratedAt }}{{ formatDate .Data.Pack.GeneratedAt }}{{ else }}-{{ end }}</dd>
-        <dt>File Path</dt>
-        <dd>{{ if .Data.Pack.FilePath }}{{ .Data.Pack.FilePath }}{{ else }}-{{ end }}</dd>
+<section class="card"><header class="card__header"><h2 class="card__title">Status generation</h2>{{ template "partials/ui/status_badge.html" .Data.Pack.Status }}</header>
+    <dl class="responsive-grid responsive-grid--compact">
+        <div><dt class="text-muted text-sm">Template</dt><dd>{{ .Data.Pack.TemplateName }}</dd></div>
+        <div><dt class="text-muted text-sm">Dibuat</dt><dd>{{ formatDate .Data.Pack.CreatedAt }}</dd></div>
+        <div><dt class="text-muted text-sm">Generated at</dt><dd>{{ if .Data.Pack.GeneratedAt }}{{ formatDate .Data.Pack.GeneratedAt }}{{ else }}-{{ end }}</dd></div>
+        <div><dt class="text-muted text-sm">File</dt><dd>{{ if .Data.Pack.FilePath }}Tersedia{{ else }}Belum tersedia{{ end }}</dd></div>
     </dl>
 </section>
 
 {{ if .Data.Pack.ErrorMessage }}
-<section class="card warn">
-    <strong>Error:</strong>
-    <p>{{ .Data.Pack.ErrorMessage }}</p>
+<section class="feedback feedback--error"><div class="feedback__content"><strong>Generation gagal</strong><p>{{ .Data.Pack.ErrorMessage }}</p></div>
 </section>
 {{ end }}
 
 {{ if .Data.Pack.Metadata }}
-<section class="card">
-    <h2>Metadata</h2>
+<section class="card"><header class="card__header"><h2 class="card__title">Metadata</h2></header>
     <pre>{{ printf "%+v" .Data.Pack.Metadata }}</pre>
 </section>
 {{ end }}
+</div>
 {{ end }}

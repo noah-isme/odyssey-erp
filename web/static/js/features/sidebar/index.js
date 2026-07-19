@@ -156,6 +156,7 @@ function destroy() {
 const Navigation = {
     init() {
         this.highlightActive();
+        this.openActiveMenu();
     },
 
     highlightActive() {
@@ -163,9 +164,18 @@ const Navigation = {
         document.querySelectorAll('.nav-item').forEach(item => {
             const href = item.getAttribute('href');
             item.classList.remove('active');
-            // Exact match only - sibling routes don't inherit active state
-            if (href === currentPath) {
+            const isHome = href === '/';
+            const matches = href && (href === currentPath || (!isHome && currentPath.startsWith(`${href}/`)));
+            if (matches) {
                 item.classList.add('active');
+            }
+        });
+    },
+
+    openActiveMenu() {
+        document.querySelectorAll('[data-sidebar-menu]').forEach(menu => {
+            if (menu.querySelector('.nav-item.active')) {
+                menu.open = true;
             }
         });
     }

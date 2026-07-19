@@ -7,7 +7,7 @@
     grid-template-areas:
         "header header"
         "sidebar main";
-    grid-template-columns: var(--sidebar-w) 1fr;
+    grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
     grid-template-rows: var(--header-h) 1fr;
     min-height: 100vh;
     background-color: var(--bg-app);
@@ -20,7 +20,7 @@
 
 .app-main {
     grid-area: main;
-    padding: var(--space-6);
+    padding: var(--space-8);
     overflow-y: auto;
     background-color: var(--bg-app);
 }
@@ -28,6 +28,10 @@
 .page-container {
     max-width: var(--app-max);
     margin: 0 auto;
+}
+
+.app-main > section {
+    min-width: 0;
 }
 
 .page-content {

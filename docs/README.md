@@ -35,6 +35,8 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 | [Accounting Runbook](guides/accounting.md) | Operasi accounting |
 | [Procurement SOP](guides/procurement.md) | Prosedur procurement |
 | [Board Pack](guides/howto-boardpack.md) | Generate board pack |
+| [Profil & Pengaturan](guides/user-profile-settings.md) | Panduan pengguna untuk profil, tema, bahasa, notifikasi, dan password |
+| [Runbook Preferensi Pengguna](guides/runbook-user-preferences.md) | Deployment dan troubleshooting pengaturan UI |
 
 ## 📚 Reference
 

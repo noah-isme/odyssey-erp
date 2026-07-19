@@ -143,13 +143,6 @@ func (sm *SessionManager) Commit(ctx context.Context, w http.ResponseWriter, r *
 		http.SetCookie(w, cookie)
 	}
 
-	// Clear flashes after they have been persisted once.
-	if len(sess.flashes) > 0 {
-		sess.flashes = nil
-		sess.dirty = true
-		_ = sm.client.Set(ctx, sm.redisKey(sess.ID), mustJSON(sessionPayload{Values: sess.values, UserID: sess.userID, Flashes: sess.flashes}), sm.ttl).Err()
-	}
-
 	return nil
 }
 

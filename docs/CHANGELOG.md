@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- **Personal workspace** — Halaman Profil dan Pengaturan pengguna untuk nama tampilan, tema, bahasa tunggal, notifikasi, dan perubahan password.
+- **Persistent preferences** — Migration `000033_user_preferences` menyimpan tema, bahasa, dan notifikasi pada akun pengguna.
+- **Operational guides** — Panduan pengguna serta runbook deployment dan troubleshooting preferensi UI.
+
+### Changed
+- **Analytics navigation** — `/analytics` menjadi rute kanonis; menu KPI Tracking duplikat dihapus dan `/analytics/kpi` dipertahankan sebagai alias kompatibilitas.
+- **Language rendering** — Copy bilingual dipilih menjadi satu bahasa aktif sebelum shell halaman ditampilkan untuk mencegah flicker.
+
+### Fixed
+- **Save feedback** — Flash message bertahan melewati redirect sehingga toast sukses atau gagal tampil setelah menyimpan formulir.
+- **Toast stability** — Perbaikan loop antrian toast yang dapat menyebabkan penggunaan CPU dan memori browser meningkat.
+
 ## Release v0.9.1 — Enterprise UI/UX Overhaul (2026-05-28)
 
 ### Added

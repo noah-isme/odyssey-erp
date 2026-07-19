@@ -14,12 +14,13 @@
     padding: 0 var(--space-6);
     background-color: var(--header-bg);
     color: var(--header-fg);
-    box-shadow: var(--shadow-1);
+    box-shadow: none;
     border-bottom: 1px solid var(--border-subtle);
+    backdrop-filter: blur(12px);
 }
 
 :root[data-theme="dark"] .app-header {
-    background-color: rgba(11, 18, 32, 0.85);
+    background-color: rgba(15, 23, 42, 0.88);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
 }
@@ -66,11 +67,16 @@
 
 /* Brand */
 .header-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
     font-size: var(--text-lg);
     font-weight: var(--weight-semibold);
     color: var(--header-fg);
     text-decoration: none;
 }
+
+.header-brand__mark { display: inline-grid; width: 28px; height: 28px; place-items: center; border-radius: 8px; background: linear-gradient(135deg, #3B82F6, #2563EB); color: #fff; font-size: 13px; font-weight: 700; }
 
 /* Breadcrumbs */
 .breadcrumbs {
@@ -102,24 +108,25 @@
     width: 100%;
     max-width: 400px;
     padding: var(--space-2) var(--space-4);
-    background-color: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: var(--radius-3);
+    background-color: var(--bg-surface-muted);
+    border: 1px solid transparent;
+    border-radius: 8px;
     color: var(--text-muted);
     font-size: var(--text-sm);
     transition: all var(--dur-2) var(--ease-standard);
 }
 
 .global-search:focus-within {
-    background-color: rgba(255, 255, 255, 0.15);
+    background-color: var(--bg-surface);
     border-color: var(--primary-300);
+    box-shadow: var(--focus-ring);
 }
 
 .global-search input {
     flex: 1;
     background: transparent;
     border: none;
-    color: var(--header-fg);
+    color: var(--text-primary);
     font-size: var(--text-sm);
     outline: none;
 }
@@ -130,7 +137,7 @@
 
 .global-search-shortcut {
     padding: var(--space-1) var(--space-2);
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: var(--bg-surface);
     border-radius: var(--radius-1);
     font-size: var(--text-xs);
     color: var(--text-muted);
@@ -166,14 +173,14 @@
     background: transparent;
     border: none;
     border-radius: var(--radius-2);
-    color: var(--header-fg);
+    color: var(--text-secondary);
     cursor: pointer;
     position: relative;
     transition: background-color var(--dur-2) var(--ease-standard);
 }
 
 .header-btn-icon:hover {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: var(--bg-surface-muted);
 }
 
 .notification-badge {
@@ -200,13 +207,13 @@
     background: transparent;
     border: none;
     border-radius: var(--radius-2);
-    color: var(--header-fg);
+    color: var(--text-secondary);
     cursor: pointer;
     transition: background-color var(--dur-2) var(--ease-standard);
 }
 
 .user-menu:hover {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: var(--bg-surface-muted);
 }
 
 .user-avatar {

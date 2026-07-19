@@ -2,14 +2,18 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting"
 	analytichttp "github.com/odyssey-erp/odyssey-erp/internal/analytics/http"
@@ -78,6 +82,30 @@ type RouterParams struct {
 	SearchHandler      *search.Handler
 	BankingHandler     *banking.Handler
 	InventoryService   *inventory.Service
+}
+
+type workspaceUser struct {
+	ID            int64     `json:"id"`
+	Email         string    `json:"email"`
+	Name          string    `json:"name"`
+	IsActive      bool      `json:"isActive"`
+	CreatedAt     time.Time `json:"createdAt"`
+	Theme         string    `json:"theme"`
+	Language      string    `json:"language"`
+	Notifications bool      `json:"notifications"`
+}
+
+func loadWorkspaceUser(ctx context.Context, pool *pgxpool.Pool, id int64) (workspaceUser, error) {
+	var user workspaceUser
+	err := pool.QueryRow(ctx, `SELECT id, email, name, is_active, created_at, ui_theme, ui_language, ui_notifications
+		FROM users WHERE id = $1`, id).Scan(
+		&user.ID, &user.Email, &user.Name, &user.IsActive, &user.CreatedAt,
+		&user.Theme, &user.Language, &user.Notifications,
+	)
+	if user.Language == "" || user.Language == "bilingual" {
+		user.Language = "id"
+	}
+	return user, err
 }
 
 // NewRouter constructs the chi.Router with Odyssey defaults.
@@ -162,6 +190,144 @@ func NewRouter(params RouterParams) http.Handler {
 	})
 
 	r.Route("/auth", params.AuthHandler.MountRoutes)
+	// Personal workspace pages and preferences.
+	r.Get("/profile", func(w http.ResponseWriter, r *http.Request) {
+		sess := shared.SessionFromContext(r.Context())
+		if sess == nil || sess.User() == "" {
+			http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
+			return
+		}
+		id, err := strconv.ParseInt(sess.User(), 10, 64)
+		if err != nil || params.Pool == nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+		user, err := loadWorkspaceUser(r.Context(), params.Pool, id)
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+			return
+		}
+		csrfToken, _ := params.CSRFManager.EnsureToken(r.Context(), sess)
+		_ = params.Templates.Render(w, "pages/profile.html", view.TemplateData{Title: "Profil", CSRFToken: csrfToken, Flash: sess.PopFlash(), Data: map[string]any{"User": user}})
+	})
+	r.Post("/profile", func(w http.ResponseWriter, r *http.Request) {
+		sess := shared.SessionFromContext(r.Context())
+		if sess == nil || sess.User() == "" {
+			http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
+			return
+		}
+		id, err := strconv.ParseInt(sess.User(), 10, 64)
+		name := strings.TrimSpace(r.PostFormValue("name"))
+		if err != nil || name == "" || params.Pool == nil {
+			sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Nama wajib diisi"})
+			http.Redirect(w, r, "/profile", http.StatusSeeOther)
+			return
+		}
+		if _, err = params.Pool.Exec(r.Context(), "UPDATE users SET name = $1, updated_at = NOW() WHERE id = $2", name, id); err != nil {
+			sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Profil tidak dapat diperbarui"})
+		} else {
+			sess.Set("user.name", name)
+			sess.AddFlash(shared.FlashMessage{Kind: "success", Message: "Profil berhasil diperbarui"})
+		}
+		http.Redirect(w, r, "/profile", http.StatusSeeOther)
+	})
+	r.Get("/settings", func(w http.ResponseWriter, r *http.Request) {
+		sess := shared.SessionFromContext(r.Context())
+		if sess == nil || sess.User() == "" {
+			http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
+			return
+		}
+		id, err := strconv.ParseInt(sess.User(), 10, 64)
+		if err != nil || params.Pool == nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+		user, err := loadWorkspaceUser(r.Context(), params.Pool, id)
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+			return
+		}
+		csrfToken, _ := params.CSRFManager.EnsureToken(r.Context(), sess)
+		_ = params.Templates.Render(w, "pages/settings.html", view.TemplateData{Title: "Pengaturan", CSRFToken: csrfToken, Flash: sess.PopFlash(), Data: map[string]any{"User": user}})
+	})
+	r.Post("/settings", func(w http.ResponseWriter, r *http.Request) {
+		sess := shared.SessionFromContext(r.Context())
+		if sess == nil || sess.User() == "" {
+			http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
+			return
+		}
+		theme := r.PostFormValue("theme")
+		if theme != "light" && theme != "dark" {
+			theme = "system"
+		}
+		language := r.PostFormValue("language")
+		if language != "id" && language != "en" {
+			language = "id"
+		}
+		id, err := strconv.ParseInt(sess.User(), 10, 64)
+		if err != nil || params.Pool == nil {
+			sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Pengaturan tidak dapat disimpan"})
+			http.Redirect(w, r, "/settings", http.StatusSeeOther)
+			return
+		}
+		notifications := r.PostFormValue("notifications") == "enabled"
+		if _, err = params.Pool.Exec(r.Context(), "UPDATE users SET ui_theme = $1, ui_language = $2, ui_notifications = $3, updated_at = NOW() WHERE id = $4", theme, language, notifications, id); err != nil {
+			sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Pengaturan tidak dapat disimpan"})
+		} else {
+			sess.AddFlash(shared.FlashMessage{Kind: "success", Message: "Pengaturan berhasil disimpan"})
+		}
+		http.Redirect(w, r, "/settings", http.StatusSeeOther)
+	})
+	r.Post("/settings/security/password", func(w http.ResponseWriter, r *http.Request) {
+		sess := shared.SessionFromContext(r.Context())
+		if sess == nil || sess.User() == "" {
+			http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
+			return
+		}
+		id, err := strconv.ParseInt(sess.User(), 10, 64)
+		currentPassword := r.PostFormValue("current_password")
+		newPassword := r.PostFormValue("new_password")
+		confirmation := r.PostFormValue("confirm_password")
+		if err != nil || params.Pool == nil || len(newPassword) < 8 || newPassword != confirmation {
+			sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Password baru minimal 8 karakter dan konfirmasi harus sama"})
+			http.Redirect(w, r, "/settings", http.StatusSeeOther)
+			return
+		}
+		var currentHash string
+		if err = params.Pool.QueryRow(r.Context(), "SELECT password_hash FROM users WHERE id = $1", id).Scan(&currentHash); err != nil || bcrypt.CompareHashAndPassword([]byte(currentHash), []byte(currentPassword)) != nil {
+			sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Password saat ini tidak tepat"})
+			http.Redirect(w, r, "/settings", http.StatusSeeOther)
+			return
+		}
+		newHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+		if err != nil {
+			sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Password tidak dapat diperbarui"})
+		} else if _, err = params.Pool.Exec(r.Context(), "UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2", string(newHash), id); err != nil {
+			sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Password tidak dapat diperbarui"})
+		} else {
+			sess.AddFlash(shared.FlashMessage{Kind: "success", Message: "Password berhasil diperbarui"})
+		}
+		http.Redirect(w, r, "/settings", http.StatusSeeOther)
+	})
+	r.Get("/api/me", func(w http.ResponseWriter, r *http.Request) {
+		sess := shared.SessionFromContext(r.Context())
+		if sess == nil || sess.User() == "" {
+			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			return
+		}
+		id, err := strconv.ParseInt(sess.User(), 10, 64)
+		if err != nil || params.Pool == nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+		user, err := loadWorkspaceUser(r.Context(), params.Pool, id)
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(user)
+	})
 	if params.AccountingHandler != nil {
 		r.Route("/accounting", func(r chi.Router) {
 			params.AccountingHandler.MountRoutes(r)

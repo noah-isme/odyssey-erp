@@ -32,10 +32,14 @@ function dispatch(action) {
 
 // ========== QUEUE PROCESSOR ==========
 function processQueue() {
-    const state = getState();
-
     // Show toasts from queue if we have room
-    while (state.active.length < state.maxVisible && state.queue.length > 0) {
+    while (true) {
+        // Read fresh state for each iteration. Dispatching TOAST_SHOW changes both
+        // active and queue, so retaining a stale snapshot would enqueue the same
+        // toast indefinitely and lock up the browser.
+        const state = getState();
+        if (state.active.length >= state.maxVisible || state.queue.length === 0) break;
+
         const nextToast = state.queue[0];
         if (!nextToast) break;
 
