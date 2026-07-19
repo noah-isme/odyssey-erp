@@ -27,7 +27,7 @@
     <div class="card card-table">
         <div class="card__header">
             <div><h2 class="card__title">Peringatan reorder</h2><p class="card__desc">Prioritaskan pengadaan untuk mencegah kekosongan stok.</p></div>
-            <a href="/procurement/prs/new" class="btn btn--secondary btn--sm">Buat PR Baru</a>
+            <form method="post" action="/inventory/reorder-requests"><input type="hidden" name="csrf_token" value="{{ .CSRFToken }}"><button type="submit" class="btn btn--primary btn--sm">Create reorder requests</button></form>
         </div>
         <div class="card-table table-responsive">
             <table class="table" aria-label="Low stock inventory">

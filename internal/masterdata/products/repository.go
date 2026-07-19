@@ -33,7 +33,9 @@ func NewRepository(pool *pgxpool.Pool) Repository {
 // List uses dynamic query (not sqlc) due to filter complexity
 func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Product, int, error) {
 	// Note: DB uses 'sku' column, but we map to 'code' for backward compatibility
-	query := `SELECT id, sku, name, category_id, unit_id, price, tax_id, is_active, deleted_at FROM products WHERE 1=1`
+	query := `SELECT id, sku, name, category_id, unit_id, price, tax_id, is_active, deleted_at,
+		cost_method, min_stock, reorder_target, preferred_supplier_id, track_batch, track_serial
+		FROM products WHERE 1=1`
 	args := []interface{}{}
 	argCount := 0
 
@@ -110,7 +112,10 @@ func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Pr
 		var price pgtype.Numeric
 		var taxID pgtype.Int8
 		var deletedAt pgtype.Timestamptz
-		err := rows.Scan(&p.ID, &p.Code, &p.Name, &p.CategoryID, &p.UnitID, &price, &taxID, &p.IsActive, &deletedAt)
+		var minStock, reorderTarget pgtype.Numeric
+		var supplierID pgtype.Int8
+		err := rows.Scan(&p.ID, &p.Code, &p.Name, &p.CategoryID, &p.UnitID, &price, &taxID, &p.IsActive, &deletedAt,
+			&p.CostMethod, &minStock, &reorderTarget, &supplierID, &p.TrackBatch, &p.TrackSerial)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -121,6 +126,17 @@ func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Pr
 		if taxID.Valid {
 			p.TaxID = taxID.Int64
 		}
+		if minStock.Valid {
+			v, _ := minStock.Float64Value()
+			p.MinStock = v.Float64
+		}
+		if reorderTarget.Valid {
+			v, _ := reorderTarget.Float64Value()
+			p.ReorderTarget = v.Float64
+		}
+		if supplierID.Valid {
+			p.PreferredSupplierID = supplierID.Int64
+		}
 		if deletedAt.Valid {
 			t := deletedAt.Time
 			p.DeletedAt = &t
@@ -130,84 +146,88 @@ func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Pr
 	return products, total, rows.Err()
 }
 
-// Get uses sqlc generated query
 func (r *repository) Get(ctx context.Context, id int64) (Product, error) {
-	row, err := r.queries.GetProduct(ctx, id)
+	items, _, err := r.listByQuery(ctx, `WHERE id = $1`, []interface{}{id})
 	if err != nil {
 		return Product{}, err
 	}
-	p := Product{
-		ID:         row.ID,
-		Code:       row.Sku, // map sku -> code
-		Name:       row.Name,
-		CategoryID: row.CategoryID,
-		UnitID:     row.UnitID,
-		IsActive:   row.IsActive,
+	if len(items) == 0 {
+		return Product{}, shared.ErrNotFound
 	}
-	if row.Price.Valid {
-		f8, _ := row.Price.Float64Value()
-		p.Price = f8.Float64
-	}
-	if row.TaxID.Valid {
-		p.TaxID = row.TaxID.Int64
-	}
-	if row.DeletedAt.Valid {
-		t := row.DeletedAt.Time
-		p.DeletedAt = &t
-	}
-	return p, nil
+	return items[0], nil
 }
 
-// Create uses sqlc generated query
 func (r *repository) Create(ctx context.Context, product Product) (Product, error) {
-	// Convert price to pgtype.Numeric
-	priceStr := strconv.FormatFloat(product.Price, 'f', 2, 64)
-	var price pgtype.Numeric
-	_ = price.Scan(priceStr)
-
-	var taxID pgtype.Int8
-	if product.TaxID > 0 {
-		taxID = pgtype.Int8{Int64: product.TaxID, Valid: true}
+	var supplierID *int64
+	if product.PreferredSupplierID > 0 {
+		supplierID = &product.PreferredSupplierID
 	}
-
-	row, err := r.queries.CreateProduct(ctx, sqlc.CreateProductParams{
-		Sku:        product.Code, // map code -> sku
-		Name:       product.Name,
-		CategoryID: product.CategoryID,
-		UnitID:     product.UnitID,
-		Price:      price,
-		TaxID:      taxID,
-		IsActive:   product.IsActive,
-	})
+	err := r.pool.QueryRow(ctx, `INSERT INTO products
+		(sku, name, category_id, unit_id, price, tax_id, is_active, cost_method, min_stock, reorder_target, preferred_supplier_id, track_batch, track_serial)
+		VALUES ($1,$2,$3,$4,$5,NULLIF($6,0),$7,$8,$9,$10,$11,$12,$13) RETURNING id`,
+		product.Code, product.Name, product.CategoryID, product.UnitID, product.Price, product.TaxID, product.IsActive,
+		product.CostMethod, product.MinStock, product.ReorderTarget, supplierID, product.TrackBatch, product.TrackSerial).Scan(&product.ID)
 	if err != nil {
 		return Product{}, err
 	}
-
-	product.ID = row.ID
 	return product, nil
 }
 
-// Update uses sqlc generated query
 func (r *repository) Update(ctx context.Context, id int64, product Product) error {
-	priceStr := strconv.FormatFloat(product.Price, 'f', 2, 64)
-	var price pgtype.Numeric
-	_ = price.Scan(priceStr)
-
-	var taxID pgtype.Int8
-	if product.TaxID > 0 {
-		taxID = pgtype.Int8{Int64: product.TaxID, Valid: true}
+	var supplierID *int64
+	if product.PreferredSupplierID > 0 {
+		supplierID = &product.PreferredSupplierID
 	}
+	_, err := r.pool.Exec(ctx, `UPDATE products SET sku=$1, name=$2, category_id=$3, unit_id=$4, price=$5,
+		tax_id=NULLIF($6,0), is_active=$7, cost_method=$8, min_stock=$9, reorder_target=$10,
+		preferred_supplier_id=$11, track_batch=$12, track_serial=$13 WHERE id=$14`,
+		product.Code, product.Name, product.CategoryID, product.UnitID, product.Price, product.TaxID, product.IsActive,
+		product.CostMethod, product.MinStock, product.ReorderTarget, supplierID, product.TrackBatch, product.TrackSerial, id)
+	return err
+}
 
-	return r.queries.UpdateProduct(ctx, sqlc.UpdateProductParams{
-		Sku:        product.Code, // map code -> sku
-		Name:       product.Name,
-		CategoryID: product.CategoryID,
-		UnitID:     product.UnitID,
-		Price:      price,
-		TaxID:      taxID,
-		IsActive:   product.IsActive,
-		ID:         id,
-	})
+func (r *repository) listByQuery(ctx context.Context, suffix string, args []interface{}) ([]Product, int, error) {
+	query := `SELECT id, sku, name, category_id, unit_id, price, tax_id, is_active, deleted_at,
+		cost_method, min_stock, reorder_target, preferred_supplier_id, track_batch, track_serial FROM products ` + suffix
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	var result []Product
+	for rows.Next() {
+		var p Product
+		var price, minStock, reorderTarget pgtype.Numeric
+		var taxID, supplierID pgtype.Int8
+		var deletedAt pgtype.Timestamptz
+		if err := rows.Scan(&p.ID, &p.Code, &p.Name, &p.CategoryID, &p.UnitID, &price, &taxID, &p.IsActive, &deletedAt, &p.CostMethod, &minStock, &reorderTarget, &supplierID, &p.TrackBatch, &p.TrackSerial); err != nil {
+			return nil, 0, err
+		}
+		if price.Valid {
+			v, _ := price.Float64Value()
+			p.Price = v.Float64
+		}
+		if minStock.Valid {
+			v, _ := minStock.Float64Value()
+			p.MinStock = v.Float64
+		}
+		if reorderTarget.Valid {
+			v, _ := reorderTarget.Float64Value()
+			p.ReorderTarget = v.Float64
+		}
+		if taxID.Valid {
+			p.TaxID = taxID.Int64
+		}
+		if supplierID.Valid {
+			p.PreferredSupplierID = supplierID.Int64
+		}
+		if deletedAt.Valid {
+			t := deletedAt.Time
+			p.DeletedAt = &t
+		}
+		result = append(result, p)
+	}
+	return result, len(result), rows.Err()
 }
 
 // Delete uses sqlc generated query

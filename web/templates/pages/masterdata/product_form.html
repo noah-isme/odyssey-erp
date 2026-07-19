@@ -1,7 +1,7 @@
 {{ define "pages/masterdata/product_form.html" }}{{ template "layouts/base.html" . }}{{ end }}
 {{ define "title" }}{{ if .Data.Product }}Edit Product{{ else }}New Product{{ end }}{{ end }}
 {{ define "content" }}{{ template "partials/masterdata/form.html" . }}{{ end }}
-{{ define "masterdata-form-heading" }}{{ if .Data.Product }}Ubah produk / Edit product{{ else }}Produk baru / New product{{ end }}{{ end }}
+{{ define "masterdata-form-heading" }}{{ if .Data.Product }}Edit product{{ else }}New product{{ end }}{{ end }}
 {{ define "ui-page-header-title" }}{{ template "masterdata-form-heading" . }}{{ end }}
 {{ define "ui-page-header-subtitle" }}Lengkapi informasi wajib, lalu simpan data.{{ end }}
 {{ define "ui-page-header-actions" }}<a class="btn btn--secondary" href="{{ template "masterdata-form-cancel-url" . }}">Cancel</a>{{ end }}
@@ -17,6 +17,11 @@
     <div class="form-group"><label class="form-label" for="tax_id">Tax</label><select class="form-select" id="tax_id" name="tax_id" required><option value="">Select tax</option>{{ range .Data.Taxes }}<option value="{{ .ID }}" {{ if $product }}{{ if eq .ID $product.TaxID }}selected{{ end }}{{ end }}>{{ .Code }} — {{ .Name }}</option>{{ end }}</select></div>
     <div class="form-group"><label class="form-label" for="price">Price</label><input class="form-input" type="number" id="price" name="price" required min="0" step="0.01" value="{{ with $product }}{{ printf "%.2f" .Price }}{{ else }}0.00{{ end }}"></div>
     <div class="form-group"><label class="form-label" for="cost">Cost</label><input class="form-input" type="number" id="cost" name="cost" required min="0" step="0.01" value="{{ with $product }}{{ printf "%.2f" .Cost }}{{ else }}0.00{{ end }}"></div>
+    <div class="form-group"><label class="form-label" for="cost_method">Cost method</label><select class="form-select" id="cost_method" name="cost_method"><option value="AVG" {{ with $product }}{{ if eq .CostMethod "AVG" }}selected{{ end }}{{ end }}>Weighted average</option><option value="FIFO" {{ with $product }}{{ if eq .CostMethod "FIFO" }}selected{{ end }}{{ end }}>FIFO</option></select></div>
+    <div class="form-group"><label class="form-label" for="min_stock">Minimum stock</label><input class="form-input" type="number" id="min_stock" name="min_stock" min="0" step="0.0001" value="{{ with $product }}{{ .MinStock }}{{ else }}0{{ end }}"></div>
+    <div class="form-group"><label class="form-label" for="reorder_target">Reorder target</label><input class="form-input" type="number" id="reorder_target" name="reorder_target" min="0" step="0.0001" value="{{ with $product }}{{ .ReorderTarget }}{{ else }}0{{ end }}"></div>
+    <div class="form-group"><label class="form-label" for="preferred_supplier_id">Preferred supplier</label><select class="form-select" id="preferred_supplier_id" name="preferred_supplier_id"><option value="">Select supplier</option>{{ range .Data.Suppliers }}<option value="{{ .ID }}" {{ if $product }}{{ if eq .ID $product.PreferredSupplierID }}selected{{ end }}{{ end }}>{{ .Code }} — {{ .Name }}</option>{{ end }}</select></div>
 </div>
+<div class="form-grid mt-4"><label class="check"><input class="check__input" type="checkbox" name="track_batch" {{ with $product }}{{ if .TrackBatch }}checked{{ end }}{{ end }}> Track batch / lot and expiry</label><label class="check"><input class="check__input" type="checkbox" name="track_serial" {{ with $product }}{{ if .TrackSerial }}checked{{ end }}{{ end }}> Track individual serial numbers</label></div>
 <label class="check mt-6"><input class="check__input" type="checkbox" name="is_active" {{ if $product }}{{ if $product.IsActive }}checked{{ end }}{{ else }}checked{{ end }}> Active</label>
 {{ end }}

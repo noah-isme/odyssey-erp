@@ -41,6 +41,8 @@ type JournalLine struct {
 	DimCompanyID   *int64
 	DimBranchID    *int64
 	DimWarehouseID *int64
+	DepartmentID   *int64
+	CostCenterID   *int64
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }

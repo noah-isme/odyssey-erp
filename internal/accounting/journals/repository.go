@@ -97,8 +97,8 @@ VALUES ($1,$2,$3,$4,$5,$6,'POSTED') RETURNING id, number, posted_at, created_at,
 
 func (r *txRepository) InsertJournalLines(ctx context.Context, entryID int64, lines []PostingLineInput) error {
 	for _, line := range lines {
-		if _, err := r.tx.Exec(ctx, `INSERT INTO journal_lines (je_id, account_id, debit, credit, dim_company_id, dim_branch_id, dim_warehouse_id)
-VALUES ($1,$2,$3,$4,$5,$6,$7)`, entryID, line.AccountID, toNumeric(line.Debit), toNumeric(line.Credit), nullIntPtr(line.CompanyID), nullIntPtr(line.BranchID), nullIntPtr(line.Warehouse)); err != nil {
+		if _, err := r.tx.Exec(ctx, `INSERT INTO journal_lines (je_id, account_id, debit, credit, dim_company_id, dim_branch_id, dim_warehouse_id, department_id, cost_center_id)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, entryID, line.AccountID, toNumeric(line.Debit), toNumeric(line.Credit), nullIntPtr(line.CompanyID), nullIntPtr(line.BranchID), nullIntPtr(line.Warehouse), nullIntPtr(line.DepartmentID), nullIntPtr(line.CostCenterID)); err != nil {
 			return err
 		}
 	}
@@ -127,7 +127,7 @@ FROM journal_entries WHERE id=$1`, entryID).
 		}
 		return JournalEntry{}, nil, err
 	}
-	rows, err := r.tx.Query(ctx, `SELECT id, je_id, account_id, debit, credit, dim_company_id, dim_branch_id, dim_warehouse_id, created_at, updated_at
+	rows, err := r.tx.Query(ctx, `SELECT id, je_id, account_id, debit, credit, dim_company_id, dim_branch_id, dim_warehouse_id, department_id, cost_center_id, created_at, updated_at
 FROM journal_lines WHERE je_id=$1 ORDER BY id ASC`, entryID)
 	if err != nil {
 		return JournalEntry{}, nil, err
@@ -136,7 +136,7 @@ FROM journal_lines WHERE je_id=$1 ORDER BY id ASC`, entryID)
 	var lines []JournalLine
 	for rows.Next() {
 		var line JournalLine
-		if err := rows.Scan(&line.ID, &line.JournalID, &line.AccountID, &line.Debit, &line.Credit, &line.DimCompanyID, &line.DimBranchID, &line.DimWarehouseID, &line.CreatedAt, &line.UpdatedAt); err != nil {
+		if err := rows.Scan(&line.ID, &line.JournalID, &line.AccountID, &line.Debit, &line.Credit, &line.DimCompanyID, &line.DimBranchID, &line.DimWarehouseID, &line.DepartmentID, &line.CostCenterID, &line.CreatedAt, &line.UpdatedAt); err != nil {
 			return JournalEntry{}, nil, err
 		}
 		lines = append(lines, line)

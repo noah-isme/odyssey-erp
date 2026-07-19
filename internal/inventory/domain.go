@@ -42,6 +42,8 @@ type TransactionLine struct {
 	UnitCost       float64
 	SrcWarehouseID int64
 	DstWarehouseID int64
+	LotID          int64
+	SerialID       int64
 }
 
 // Balance summarises stock in warehouse per product.
@@ -95,15 +97,36 @@ type TransferInput struct {
 
 // InboundInput is used for GRN posting.
 type InboundInput struct {
-	Code        string
-	WarehouseID int64
+	Code          string
+	WarehouseID   int64
+	ProductID     int64
+	Qty           float64
+	UnitCost      float64
+	Note          string
+	ActorID       int64
+	RefModule     string
+	RefID         string
+	LotNumber     string
+	ExpiryDate    *time.Time
+	SerialNumbers []string
+}
+
+// ProductTraceability determines how a product must be received and valued.
+type ProductTraceability struct {
+	CostMethod  string
+	TrackBatch  bool
+	TrackSerial bool
+}
+
+// InventoryLot is a traceable received batch at a warehouse.
+type InventoryLot struct {
+	ID          int64
 	ProductID   int64
-	Qty         float64
+	WarehouseID int64
+	LotNumber   string
+	ExpiryDate  *time.Time
+	QtyOnHand   float64
 	UnitCost    float64
-	Note        string
-	ActorID     int64
-	RefModule   string
-	RefID       string
 }
 
 // StockCardFilter filters card entries.
@@ -205,13 +228,29 @@ type ValuationEntry struct {
 
 // ReorderAlert models products below min stock.
 type ReorderAlert struct {
-	ProductID     int64
-	ProductName   string
-	SKU           string
-	MinStock      float64
-	WarehouseID   int64
-	WarehouseName string
-	CurrentQty    float64
+	ProductID           int64
+	ProductName         string
+	SKU                 string
+	MinStock            float64
+	WarehouseID         int64
+	WarehouseName       string
+	CurrentQty          float64
+	ReorderTarget       float64
+	PreferredSupplierID int64
+}
+
+// ReorderRequest is the procurement-ready result of a low-stock alert.
+type ReorderRequest struct {
+	SupplierID  int64
+	RequestedBy int64
+	Note        string
+	Lines       []ReorderRequestLine
+}
+
+type ReorderRequestLine struct {
+	ProductID int64
+	Qty       float64
+	Note      string
 }
 
 // CreateStockTakeInput for new session.
