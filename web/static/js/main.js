@@ -120,13 +120,25 @@ async function applyWorkspacePreferences() {
         const response = await fetch('/api/me', { credentials: 'same-origin', headers: { Accept: 'application/json' } });
         if (!response.ok) return;
 
-        const user = await response.json();
+        const workspace = await response.json();
+        const user = workspace.user;
         const name = user.name || user.email || 'Pengguna';
         const initial = Array.from(name.trim())[0] || 'U';
         document.querySelectorAll('[data-current-user-name]').forEach((element) => { element.textContent = name; });
         document.querySelectorAll('[data-current-user-email]').forEach((element) => { element.textContent = user.email || '—'; });
         document.querySelectorAll('[data-current-user-avatar]').forEach((element) => { element.textContent = initial.toUpperCase(); });
         document.querySelectorAll('[data-notification-control]').forEach((element) => { element.hidden = !user.notifications; });
+
+        const companySelect = document.querySelector('[data-active-company]');
+        if (companySelect) {
+            companySelect.replaceChildren();
+            (workspace.companies || []).forEach((company) => {
+                const option = new Option(company.name, String(company.id), false, company.id === workspace.activeCompanyID);
+                companySelect.add(option);
+            });
+            companySelect.disabled = companySelect.options.length === 0;
+            companySelect.addEventListener('change', () => companySelect.form?.requestSubmit(), { once: true });
+        }
 
         const language = user.language === 'en' ? 'en' : 'id';
         const renderedLanguage = document.documentElement.dataset.uiLanguage || 'id';

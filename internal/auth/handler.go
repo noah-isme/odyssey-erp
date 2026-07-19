@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/httprate"
 	"github.com/go-playground/validator/v10"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
@@ -38,8 +39,20 @@ func NewHandler(logger *slog.Logger, service *Service, templates *view.Engine, s
 // MountRoutes registers auth routes on provided router.
 func (h *Handler) MountRoutes(r chi.Router) {
 	r.Get("/login", h.showLogin)
-	r.Post("/login", h.handleLogin)
+	r.Group(func(r chi.Router) {
+		r.Use(loginRateLimiter())
+		r.Post("/login", h.handleLogin)
+	})
 	r.Post("/logout", h.handleLogout)
+}
+
+func loginRateLimiter() func(http.Handler) http.Handler {
+	return httprate.Limit(5, time.Minute,
+		httprate.WithKeyFuncs(httprate.KeyByIP),
+		httprate.WithLimitHandler(func(w http.ResponseWriter, _ *http.Request) {
+			shared.WriteHTTPError(w, http.StatusTooManyRequests, "Terlalu banyak percobaan masuk. Coba lagi dalam satu menit.")
+		}),
+	)
 }
 
 type loginForm struct {
@@ -69,13 +82,13 @@ func (h *Handler) showLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := h.templates.Render(w, "pages/login.html", viewData); err != nil {
 		h.logger.Error("render login", slog.Any("error", err))
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		shared.WriteHTTPError(w, http.StatusInternalServerError, "")
 	}
 }
 
 func (h *Handler) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		shared.WriteHTTPError(w, http.StatusBadRequest, "")
 		return
 	}
 	sess := shared.SessionFromContext(r.Context())

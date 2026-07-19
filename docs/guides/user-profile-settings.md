@@ -43,3 +43,12 @@ Setiap penyimpanan profil, pengaturan, atau password mengarahkan kembali ke hala
 ## Analytics
 
 **Analytics** pada sidebar membuka `/analytics`, yang merupakan dashboard KPI kanonis. Rute `/analytics/kpi` hanya alias kompatibilitas dan tidak lagi ditampilkan sebagai menu terpisah.
+
+## Perusahaan aktif dan Banking
+
+Gunakan pemilih perusahaan di header untuk mengganti konteks perusahaan aktif. Pilihan tersebut tersimpan di sesi dan digunakan oleh halaman Banking.
+
+- Saldo akun bank dihitung dari saldo awal ditambah seluruh transaksi bank tercatat.
+- Transaksi manual dan transfer hanya dapat memakai periode akuntansi **OPEN** yang mencakup tanggal transaksi.
+- Pada detail akun bank, pilih **Impor statement** untuk mengunggah CSV atau OFX/QFX maksimal 5 MB. CSV memerlukan kolom tanggal dan jumlah; deskripsi serta referensi opsional.
+- Baris statement hasil impor berstatus **Pending** dan belum membuat jurnal GL. Lengkapi akun lawan melalui proses finance sebelum transaksi dianggap lengkap secara akuntansi.

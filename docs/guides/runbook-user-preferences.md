@@ -48,6 +48,7 @@ Migration `000033_user_preferences` menambahkan kolom berikut pada tabel `users`
 | `GET /api/me` saat login | JSON akun dan preferensi aktif. |
 | `/analytics` | Dashboard Analytics terbuka. |
 | `/analytics/kpi` | Tetap kompatibel sebagai alias dashboard, tanpa menu sidebar. |
+| Banking | Ganti perusahaan aktif, pastikan periode `OPEN`, lalu verifikasi saldo awal + transaksi. |
 
 ## Troubleshooting
 
@@ -70,6 +71,14 @@ Pastikan aset `web/static/js/features/toast/index.js` versi terbaru telah didepl
 ### Tidak bisa mengubah password
 
 Pastikan password saat ini benar, password baru minimal 8 karakter, dan konfirmasi sama. Kesalahan ditampilkan melalui toast tanpa mengekspos detail password.
+
+### Transaksi Banking menolak tanggal
+
+Pastikan pemilih perusahaan aktif di header sudah terisi dan tersedia `accounting_periods` berstatus `OPEN` yang mencakup tanggal transaksi. Sistem tidak lagi memakai `company_id` atau `period_id` hardcode.
+
+### Import CSV/OFX Banking gagal atau transaksi tidak muncul di GL
+
+Pastikan file maksimum 5 MB. CSV harus memiliki header `date`/`tanggal` dan `amount`/`jumlah`; format tanggal yang didukung adalah `YYYY-MM-DD`, `DD/MM/YYYY`, atau format OFX `YYYYMMDD`. Import mencegah duplikasi berdasarkan akun, tanggal, nilai, dan referensi. Baris baru dicatat sebagai `PENDING`, sehingga tidak otomatis membuat jurnal GL tanpa akun lawan.
 
 ## Rollback
 
