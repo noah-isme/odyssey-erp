@@ -85,7 +85,7 @@
 
 | No | Fitur | Route | Priority | Status |
 |----|-------|-------|----------|--------|
-| 22 | KPI Tracking | `/analytics/kpi` | MEDIUM | ✅ Di menu & handler tersedia |
+| 22 | KPI Tracking | `/analytics` | MEDIUM | ✅ Digabungkan ke dashboard Analytics; `/analytics/kpi` hanya alias kompatibilitas |
 
 ---
 

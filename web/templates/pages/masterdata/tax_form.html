@@ -1,9 +1,9 @@
 {{ define "pages/masterdata/tax_form.html" }}{{ template "layouts/base.html" . }}{{ end }}
 {{ define "title" }}{{ if .Data.Tax }}Edit Tax{{ else }}New Tax{{ end }}{{ end }}
 {{ define "content" }}{{ template "partials/masterdata/form.html" . }}{{ end }}
-{{ define "masterdata-form-heading" }}{{ if .Data.Tax }}Edit Tax{{ else }}New Tax{{ end }}{{ end }}
+{{ define "masterdata-form-heading" }}{{ if .Data.Tax }}Ubah pajak / Edit tax{{ else }}Pajak baru / New tax{{ end }}{{ end }}
 {{ define "ui-page-header-title" }}{{ template "masterdata-form-heading" . }}{{ end }}
-{{ define "ui-page-header-subtitle" }}Complete the required information, then save the record.{{ end }}
+{{ define "ui-page-header-subtitle" }}Lengkapi informasi wajib, lalu simpan data.{{ end }}
 {{ define "ui-page-header-actions" }}<a class="btn btn--secondary" href="{{ template "masterdata-form-cancel-url" . }}">Cancel</a>{{ end }}
 {{ define "masterdata-form-action" }}{{ if .Data.Tax }}/masterdata/taxes/{{ .Data.Tax.ID }}/edit{{ else }}/masterdata/taxes{{ end }}{{ end }}
 {{ define "masterdata-form-cancel-url" }}{{ if .Data.Tax }}/masterdata/taxes/{{ .Data.Tax.ID }}{{ else }}/masterdata/taxes{{ end }}{{ end }}

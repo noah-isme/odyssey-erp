@@ -5,10 +5,10 @@
 {{ define "title" }}Roles Management{{ end }}
 
 {{ define "content" }}
-<section class="container page-roles">
+<div class="page-container page-roles">
     <header class="page-header">
-        <h1>Roles Management</h1>
-        <p class="text-muted">Manage system roles and permissions assignments</p>
+        <div class="page-header__content"><h1 class="page-title">Manajemen Role</h1><p class="page-subtitle">Kelola role aplikasi dan penugasan aksesnya.</p></div>
+        <div class="page-header__actions"><a href="/roles/new" class="btn btn--primary">Role Baru</a></div>
     </header>
 
     {{ if .Data.Errors }}
@@ -17,7 +17,7 @@
     </div>
     {{ end }}
 
-    <div class="table-wrap" data-component="datatable">
+    <div class="card card-table"><div class="table-wrap" data-component="datatable">
         <table class="table data-table" data-datatable="roles">
             <thead>
                 <tr>
@@ -55,11 +55,11 @@
                 </tr>
                 {{ else }}
                 <tr>
-                    <td colspan="4" class="text-center text-muted">No roles found</td>
+                    <td colspan="4" class="text-center text-muted">Belum ada role / No roles found</td>
                 </tr>
                 {{ end }}
             </tbody>
         </table>
-    </div>
-</section>
+    </div></div>
+</div>
 {{ end }}

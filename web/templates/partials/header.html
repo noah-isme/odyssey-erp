@@ -6,7 +6,10 @@
                 <path d="M3 12h18M3 6h18M3 18h18" />
             </svg>
         </button>
-        <a href="/" class="header-brand">Odyssey ERP</a>
+        <a href="/" class="header-brand" aria-label="Odyssey ERP dashboard">
+            <span class="header-brand__mark">O</span>
+            <span class="header-brand__name">Odyssey</span>
+        </a>
         <nav class="breadcrumbs">
             <span class="breadcrumbs-separator">/</span>
             <span>{{ if .Title }}{{ .Title }}{{ else }}Dashboard{{ end }}</span>
@@ -15,13 +18,12 @@
 
     <div class="header-center">
         <div class="global-search" id="global-search">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                style="margin-right: 8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="11" cy="11" r="8" />
                 <path d="m21 21-4.35-4.35" />
             </svg>
-            <input class="form-input" type="text" id="global-search-input" placeholder="Search customers, orders, invoices..." autocomplete="off" />
-            <span class="global-search-shortcut">⌘K</span>
+            <input class="form-input" type="text" id="global-search-input" placeholder="Cari pelanggan, pesanan, atau invoice..." autocomplete="off" />
+            <span class="global-search-shortcut">Ctrl K</span>
             <div class="global-search-results" id="global-search-results" hidden></div>
         </div>
     </div>
@@ -32,7 +34,7 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M12 5v14M5 12h14" />
             </svg>
-            Create
+            <span data-i18n="create">Buat Baru</span>
         </button>
         <div class="dropdown-menu" data-dropdown="create" hidden aria-hidden="true">
             <a href="/sales/quotations/new" class="dropdown-item">
@@ -40,21 +42,21 @@
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                     <polyline points="14 2 14 8 20 8" />
                 </svg>
-                New Quotation
+                Penawaran Baru
             </a>
             <a href="/sales/orders/new" class="dropdown-item">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
                     <line x1="3" y1="6" x2="21" y2="6" />
                 </svg>
-                New Sales Order
+                Sales Order Baru
             </a>
             <a href="/procurement/pos/new" class="dropdown-item">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path
                         d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
                 </svg>
-                New Purchase Order
+                Purchase Order Baru
             </a>
             <a href="/sales/customers/new" class="dropdown-item">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -63,7 +65,7 @@
                     <line x1="19" y1="8" x2="19" y2="14" />
                     <line x1="22" y1="11" x2="16" y2="11" />
                 </svg>
-                New Customer
+                Pelanggan Baru
             </a>
         </div>
 
@@ -88,7 +90,7 @@
             </svg>
         </button>
 
-        <button class="btn btn--icon btn--ghost header-btn-icon" aria-label="Notifications">
+        <button class="btn btn--icon btn--ghost header-btn-icon" data-notification-control aria-label="Notifications">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
                 <path d="M13.73 21a2 2 0 0 1-3.46 0" />
@@ -98,22 +100,22 @@
 
         <!-- User Dropdown -->
         <button class="btn btn--ghost user-menu" data-dropdown-trigger="user" aria-expanded="false" aria-haspopup="true">
-            <div class="user-avatar">A</div>
-            <span class="user-name">Admin</span>
+            <div class="user-avatar" data-current-user-avatar>U</div>
+            <span class="user-name" data-current-user-name>Pengguna</span>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="m6 9 6 6 6-6" />
             </svg>
         </button>
         <div class="dropdown-menu dropdown-menu-right" data-dropdown="user" hidden aria-hidden="true">
             <div class="dropdown-header">
-                <strong>Admin User</strong>
-                <span class="text-muted">admin@odyssey.local</span>
+                <strong data-current-user-name>Pengguna</strong>
+                <span class="text-muted" data-current-user-email>—</span>
             </div>
             <div class="dropdown-divider"></div>
-            <a href="/profile" class="dropdown-item">Profile</a>
-            <a href="/settings" class="dropdown-item">Settings</a>
+            <a href="/profile" class="dropdown-item" data-i18n="profile">Profil</a>
+            <a href="/settings" class="dropdown-item" data-i18n="settings">Pengaturan</a>
             <div class="dropdown-divider"></div>
-            <a href="/auth/logout" class="dropdown-item text-error">Logout</a>
+            <a href="/auth/logout" class="dropdown-item text-error" data-i18n="logout">Keluar</a>
         </div>
     </div>
 </header>

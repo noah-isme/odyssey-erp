@@ -77,10 +77,93 @@ function bridgeServerFlashToToast() {
     flashEl.remove();
 }
 
+function localizeBilingualContent(language) {
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+        acceptNode(node) {
+            const parent = node.parentElement;
+            if (!parent || ['SCRIPT', 'STYLE', 'TEXTAREA', 'OPTION'].includes(parent.tagName)) return NodeFilter.FILTER_REJECT;
+            return node.nodeValue.includes(' / ') ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+        }
+    });
+
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach((node) => {
+        const parts = node.nodeValue.split(' / ');
+        node.nodeValue = language === 'en' ? parts[parts.length - 1] : parts[0];
+    });
+}
+
+function applyShellLanguage(language) {
+    const normalized = language === 'en' ? 'en' : 'id';
+    document.documentElement.lang = normalized;
+    document.documentElement.dataset.uiLanguage = normalized;
+    const dictionary = {
+        id: { create: 'Buat Baru', profile: 'Profil', settings: 'Pengaturan', logout: 'Keluar' },
+        en: { create: 'Create New', profile: 'Profile', settings: 'Settings', logout: 'Sign out' }
+    };
+    document.querySelectorAll('[data-i18n]').forEach((element) => {
+        const value = dictionary[normalized][element.dataset.i18n];
+        if (value) element.textContent = value;
+    });
+}
+
+function applyInitialLanguage() {
+    const language = document.documentElement.dataset.uiLanguage || 'id';
+    localizeBilingualContent(language);
+    applyShellLanguage(language);
+    document.documentElement.dataset.uiLocalized = 'true';
+}
+
+async function applyWorkspacePreferences() {
+    try {
+        const response = await fetch('/api/me', { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+        if (!response.ok) return;
+
+        const user = await response.json();
+        const name = user.name || user.email || 'Pengguna';
+        const initial = Array.from(name.trim())[0] || 'U';
+        document.querySelectorAll('[data-current-user-name]').forEach((element) => { element.textContent = name; });
+        document.querySelectorAll('[data-current-user-email]').forEach((element) => { element.textContent = user.email || '—'; });
+        document.querySelectorAll('[data-current-user-avatar]').forEach((element) => { element.textContent = initial.toUpperCase(); });
+        document.querySelectorAll('[data-notification-control]').forEach((element) => { element.hidden = !user.notifications; });
+
+        const language = user.language === 'en' ? 'en' : 'id';
+        const renderedLanguage = document.documentElement.dataset.uiLanguage || 'id';
+        localStorage.setItem('odyssey.language', language);
+        if (language !== renderedLanguage) {
+            window.location.reload();
+            return;
+        }
+        applyShellLanguage(language);
+
+        const preference = user.theme || 'system';
+        const theme = preference === 'system'
+            ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+            : preference;
+        Theme.apply(theme);
+    } catch (_) {
+        // The shell remains usable with its safe default values.
+    }
+}
+
+function persistLanguagePreferenceOnSubmit() {
+    const form = document.querySelector('form[action="/settings"]');
+    const language = form?.querySelector('[name="language"]');
+    form?.addEventListener('submit', () => {
+        if (language?.value === 'id' || language?.value === 'en') {
+            localStorage.setItem('odyssey.language', language.value);
+        }
+    });
+}
+
 // Initialize all modules on DOMContentLoaded
 document.addEventListener('DOMContentLoaded', () => {
     // Features (state-driven architecture)
     Theme.init();
+    applyInitialLanguage();
+    applyWorkspacePreferences();
+    persistLanguagePreferenceOnSubmit();
     Sidebar.init();
     Navigation.init();
     Header.init();

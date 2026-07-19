@@ -9,7 +9,7 @@
     <header class="page-header">
         <div class="page-header__content">
             <h1 class="page-title">Delivery Orders</h1>
-            <p class="page-subtitle">Manage product deliveries and track fulfillment status</p>
+            <p class="page-subtitle">Kelola pengiriman produk dan pantau status pemenuhan pesanan.</p>
         </div>
         <div class="page-header__actions">
             <a href="/delivery/orders/new" class="btn btn--primary">
@@ -39,7 +39,7 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="search" class="form-label">Search</label>
+                        <label for="search" class="form-label">Cari / Search</label>
                         <input type="text" name="search" id="search" class="form-input"
                             placeholder="Doc number, driver..."
                             value="{{ if .Data.Filters.Search }}{{ .Data.Filters.Search }}{{ end }}">
@@ -56,8 +56,8 @@
                     </div>
                 </div>
                 <div class="filters-actions">
-                    <button type="submit" class="btn btn--primary">Filter</button>
-                    <a href="/delivery/orders" class="btn btn--secondary">Clear</a>
+                    <button type="submit" class="btn btn--primary">Terapkan / Apply</button>
+                    <a href="/delivery/orders" class="btn btn--secondary">Reset / Clear</a>
                 </div>
             </form>
         </section>
@@ -146,9 +146,9 @@
                                             <polyline points="13 2 13 9 20 9"></polyline>
                                         </svg>
                                     </div>
-                                    <h3>No delivery orders found</h3>
-                                    <p>Create a new delivery order to ship products.</p>
-                                    <a href="/delivery/orders/new" class="btn btn--primary mt-4">New Delivery</a>
+                                    <h3>Belum ada pengiriman / No delivery orders found</h3>
+                                    <p>Buat delivery order baru untuk mengirim produk.</p>
+                                    <a href="/delivery/orders/new" class="btn btn--primary mt-4">Pengiriman baru / New delivery</a>
                                 </div>
                             </td>
                         </tr>
@@ -162,17 +162,17 @@
             <div class="card__footer justify-center">
                 <nav class="pagination" aria-label="Pagination">
                     {{ if gt .Data.CurrentPage 1 }}
-                    <a href="?page={{ sub .Data.CurrentPage 1 }}{{ if .Data.Filters.Status }}&status={{ .Data.Filters.Status }}{{ end }}{{ if .Data.Filters.Search }}&search={{ .Data.Filters.Search }}{{ end }}{{ if .Data.Filters.SortBy }}&sort={{ .Data.Filters.SortBy }}{{ end }}{{ if .Data.Filters.SortDir }}&dir={{ .Data.Filters.SortDir }}{{ end }}" class="btn btn--secondary btn--sm">Previous</a>
+                    <a href="?page={{ sub .Data.CurrentPage 1 }}{{ if .Data.Filters.Status }}&status={{ .Data.Filters.Status }}{{ end }}{{ if .Data.Filters.Search }}&search={{ .Data.Filters.Search }}{{ end }}{{ if .Data.Filters.SortBy }}&sort={{ .Data.Filters.SortBy }}{{ end }}{{ if .Data.Filters.SortDir }}&dir={{ .Data.Filters.SortDir }}{{ end }}" class="btn btn--secondary btn--sm">Sebelumnya / Previous</a>
                     {{ else }}
-                    <button class="btn btn--secondary btn--sm" disabled>Previous</button>
+                    <button class="btn btn--secondary btn--sm" disabled>Sebelumnya / Previous</button>
                     {{ end }}
 
                     <span class="pagination__info">Page {{ .Data.CurrentPage }} of {{ .Data.TotalPages }}</span>
 
                     {{ if lt .Data.CurrentPage .Data.TotalPages }}
-                    <a href="?page={{ add .Data.CurrentPage 1 }}{{ if .Data.Filters.Status }}&status={{ .Data.Filters.Status }}{{ end }}{{ if .Data.Filters.Search }}&search={{ .Data.Filters.Search }}{{ end }}{{ if .Data.Filters.SortBy }}&sort={{ .Data.Filters.SortBy }}{{ end }}{{ if .Data.Filters.SortDir }}&dir={{ .Data.Filters.SortDir }}{{ end }}" class="btn btn--secondary btn--sm">Next</a>
+                    <a href="?page={{ add .Data.CurrentPage 1 }}{{ if .Data.Filters.Status }}&status={{ .Data.Filters.Status }}{{ end }}{{ if .Data.Filters.Search }}&search={{ .Data.Filters.Search }}{{ end }}{{ if .Data.Filters.SortBy }}&sort={{ .Data.Filters.SortBy }}{{ end }}{{ if .Data.Filters.SortDir }}&dir={{ .Data.Filters.SortDir }}{{ end }}" class="btn btn--secondary btn--sm">Berikutnya / Next</a>
                     {{ else }}
-                    <button class="btn btn--secondary btn--sm" disabled>Next</button>
+                    <button class="btn btn--secondary btn--sm" disabled>Berikutnya / Next</button>
                     {{ end }}
                 </nav>
             </div>

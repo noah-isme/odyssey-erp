@@ -8,8 +8,8 @@
 <div class="page-container">
     <header class="page-header">
         <div class="page-header__content">
-            <h1 class="page-title">Purchase Orders</h1>
-            <p class="page-subtitle">Manage and track your company purchase orders</p>
+            <h1 class="page-title">Purchase Order (PO)</h1>
+            <p class="page-subtitle">Kelola dan pantau purchase order perusahaan.</p>
         </div>
         <div class="page-header__actions">
             <button class="btn btn--secondary" data-export="csv" data-export-target="#pos-table">
@@ -36,7 +36,7 @@
             <form method="get" action="/procurement/pos" class="filters-form" data-component="filters">
                 <div class="filters-grid">
                     <div class="form-group">
-                        <label for="search" class="form-label">Search</label>
+                        <label for="search" class="form-label">Cari / Search</label>
                         <input type="text" name="search" id="search" placeholder="PO number" class="form-input" value="{{ if .Data.Filters.Search }}{{ .Data.Filters.Search }}{{ end }}">
                     </div>
                     <div class="form-group">
@@ -44,7 +44,7 @@
                         <select name="status" id="status" class="form-select">
                             <option value="">All Statuses</option>
                             <option value="DRAFT" {{ if eq .Data.Filters.Status "DRAFT" }}selected{{ end }}>Draft</option>
-                            <option value="APPROVAL" {{ if eq .Data.Filters.Status "APPROVAL" }}selected{{ end }}>Pending Approval</option>
+                            <option value="APPROVAL" {{ if eq .Data.Filters.Status "APPROVAL" }}selected{{ end }}>Menunggu persetujuan / Pending approval</option>
                             <option value="APPROVED" {{ if eq .Data.Filters.Status "APPROVED" }}selected{{ end }}>Approved</option>
                             <option value="CLOSED" {{ if eq .Data.Filters.Status "CLOSED" }}selected{{ end }}>Closed</option>
                             <option value="CANCELLED" {{ if eq .Data.Filters.Status "CANCELLED" }}selected{{ end }}>Cancelled</option>
@@ -52,8 +52,8 @@
                     </div>
                 </div>
                 <div class="filters-actions">
-                    <button type="submit" class="btn btn--primary">Filter</button>
-                    <a href="/procurement/pos" class="btn btn--secondary">Clear</a>
+                    <button type="submit" class="btn btn--primary">Terapkan / Apply</button>
+                    <a href="/procurement/pos" class="btn btn--secondary">Reset / Clear</a>
                 </div>
             </form>
         </section>
@@ -94,10 +94,10 @@
                             </td>
                             <td>
                                 {{ if eq .Status "DRAFT" }}<span class="badge badge--secondary">Draft</span>{{ end }}
-                                {{ if eq .Status "APPROVAL" }}<span class="badge badge--warning">Pending</span>{{ end }}
-                                {{ if eq .Status "APPROVED" }}<span class="badge badge--success">Approved</span>{{ end }}
-                                {{ if eq .Status "CLOSED" }}<span class="badge badge--info">Closed</span>{{ end }}
-                                {{ if eq .Status "CANCELLED" }}<span class="badge badge--danger">Cancelled</span>{{ end }}
+                                {{ if eq .Status "APPROVAL" }}<span class="badge badge--warning">Menunggu / Pending</span>{{ end }}
+                                {{ if eq .Status "APPROVED" }}<span class="badge badge--success">Disetujui / Approved</span>{{ end }}
+                                {{ if eq .Status "CLOSED" }}<span class="badge badge--info">Ditutup / Closed</span>{{ end }}
+                                {{ if eq .Status "CANCELLED" }}<span class="badge badge--danger">Dibatalkan / Cancelled</span>{{ end }}
                             </td>
                             <td><span class="text-sm">{{ .ExpectedDate.Format "02 Jan 2006" }}</span></td>
                             <td class="text-right numeric font-medium">
@@ -108,12 +108,12 @@
                                     {{ if eq .Status "DRAFT" }}
                                     <form method="post" action="/procurement/pos/{{ .ID }}/submit" class="inline-form">
                                         <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
-                                        <button type="submit" class="btn btn--sm btn--secondary">Submit</button>
+                                        <button type="submit" class="btn btn--sm btn--secondary">Ajukan / Submit</button>
                                     </form>
                                     {{ else if eq .Status "APPROVAL" }}
                                     <form method="post" action="/procurement/pos/{{ .ID }}/approve" class="inline-form">
                                         <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
-                                        <button type="submit" class="btn btn--sm btn--primary">Approve</button>
+                                        <button type="submit" class="btn btn--sm btn--primary">Setujui / Approve</button>
                                     </form>
                                     {{ else }}
                                     <span class="text-xs text-muted">—</span>
@@ -133,9 +133,9 @@
                                             <path d="M16 10a4 4 0 0 1-8 0"></path>
                                         </svg>
                                     </div>
-                                    <h3>No purchase orders found</h3>
+                                    <h3>Belum ada purchase order / No purchase orders found</h3>
                                     <p>Start by creating your first purchase order.</p>
-                                    <a href="/procurement/pos/new" class="btn btn--primary mt-4">New PO</a>
+                                    <a href="/procurement/pos/new" class="btn btn--primary mt-4">PO baru / New PO</a>
                                 </div>
                             </td>
                         </tr>

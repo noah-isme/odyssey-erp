@@ -5,31 +5,21 @@
 {{ define "title" }}Purchase Request{{ end }}
 
 {{ define "content" }}
-<h1>Purchase Request</h1>
-<form method="post" class="grid">
-    <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
-    <label class="form-label">Nomor
-        <input class="form-input" type="text" name="number">
-    </label>
-    <label class="form-label">Supplier ID
-        <input class="form-input" type="number" name="supplier_id">
-    </label>
-    <label class="form-label">Request By (User ID)
-        <input class="form-input" type="number" name="request_by" required>
-    </label>
-    <div class="grid">
-        <label class="form-label">Produk ID
-            <input class="form-input" type="number" name="product_id" value="{{ if .Data.ProductID }}{{ .Data.ProductID }}{{ end }}" required>
-        </label>
-        <label class="form-label">Kuantitas
-            <input class="form-input" type="number" step="0.0001" name="qty" value="{{ if .Data.Qty }}{{ .Data.Qty }}{{ end }}" required>
-        </label>
-    </div>
-    <label class="form-label">Catatan
-        <textarea class="form-textarea" name="note"></textarea>
-    </label>
-    <button type="submit" class="btn btn--primary">Simpan</button>
-</form>
-{{ if .Data.Errors }}<p class="error-text">{{ index .Data.Errors "general" }}</p>{{ end }}
-<p>Gunakan tombol Submit di daftar PR untuk mengajukan dokumen.</p>
+<div class="page-container form-page">
+    <header class="page-header"><div class="page-header__content"><h1 class="page-title">Purchase Request</h1><p class="page-subtitle">Ajukan kebutuhan pembelian untuk diproses ke tahap persetujuan.</p></div></header>
+    {{ if .Data.Errors }}<div class="feedback feedback--error">{{ index .Data.Errors "general" }}</div>{{ end }}
+    <form method="post" class="card"><input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+        <section class="form-section"><h2 class="form-section__title">Informasi permintaan</h2><div class="form-grid">
+            <div class="form-group"><label class="form-label" for="number">Nomor</label><input class="form-input" id="number" type="text" name="number"></div>
+            <div class="form-group"><label class="form-label" for="supplier_id">Supplier ID</label><input class="form-input" id="supplier_id" type="number" name="supplier_id"></div>
+            <div class="form-group"><label class="form-label" for="request_by">Pemohon (User ID)</label><input class="form-input" id="request_by" type="number" name="request_by" required></div>
+        </div></section>
+        <section class="form-section"><h2 class="form-section__title">Item permintaan</h2><div class="form-grid">
+            <div class="form-group"><label class="form-label" for="product_id">Produk ID</label><input class="form-input" id="product_id" type="number" name="product_id" value="{{ if .Data.ProductID }}{{ .Data.ProductID }}{{ end }}" required></div>
+            <div class="form-group"><label class="form-label" for="qty">Kuantitas</label><input class="form-input" id="qty" type="number" step="0.0001" name="qty" value="{{ if .Data.Qty }}{{ .Data.Qty }}{{ end }}" required></div>
+        </div></section>
+        <section class="form-section"><div class="form-group"><label class="form-label" for="note">Catatan</label><textarea class="form-textarea" id="note" name="note"></textarea></div></section>
+        <footer class="form-footer"><button type="submit" class="btn btn--primary">Simpan permintaan</button></footer>
+    </form>
+</div>
 {{ end }}

@@ -25,6 +25,18 @@
    --weight-medium: 500;
    --weight-semibold: 600;
 
+   /* Compatibility aliases for pre-tokenized templates and utilities. */
+   --font-size-xs: var(--text-xs);
+   --font-size-sm: var(--text-sm);
+   --font-size-base: var(--text-md);
+   --font-size-lg: var(--text-lg);
+   --font-size-xl: var(--text-xl);
+   --font-size-2xl: var(--text-2xl);
+   --font-weight-normal: var(--weight-regular);
+   --font-weight-medium: var(--weight-medium);
+   --font-weight-semibold: var(--weight-semibold);
+   --font-weight-bold: 700;
+
    --leading-tight: 1.25;
    --leading-normal: 1.5;
 
@@ -52,12 +64,15 @@
    --radius-3: 14px;
    /* cards/panels */
    --radius-pill: 9999px;
+   --radius-md: var(--radius-2);
+   --radius-lg: var(--radius-3);
 
    /* Motion */
    --ease-standard: cubic-bezier(0.2, 0, 0, 1);
    --dur-1: 120ms;
    --dur-2: 180ms;
    --dur-3: 240ms;
+   --transition-fast: var(--dur-2) var(--ease-standard);
 
    /* Elevation (subtle, enterprise) */
    --shadow-0: none;
@@ -83,10 +98,10 @@
      ========================================================================== */
 
    /* Primary (Authority Blue) */
-   --primary-900: #0B1F33;
-   --primary-700: #163A5F;
-   --primary-500: #245C8A;
-   --primary-300: #7FA6C9;
+   --primary-900: #0F172A;
+   --primary-700: #1D4ED8;
+   --primary-500: #3B82F6;
+   --primary-300: #93C5FD;
 
    /* Neutral (Warm Gray) */
    --gray-950: #0E0F11;
@@ -122,7 +137,7 @@
      ========================================================================== */
 
    /* Backgrounds / Surfaces */
-   --bg-app: var(--gray-50);
+   --bg-app: #F8FAFC;
    --bg-surface: #FFFFFF;
    --bg-surface-muted: var(--gray-100);
    --bg-elevated: #FFFFFF;
@@ -136,6 +151,15 @@
    /* Borders */
    --border-subtle: rgba(15, 31, 51, 0.10);
    --border-strong: rgba(15, 31, 51, 0.16);
+   --color-border-subtle: var(--border-subtle);
+   --color-gray-50: var(--gray-50);
+   --color-gray-100: var(--gray-100);
+   --color-gray-300: var(--gray-300);
+   --color-text-primary: var(--text-primary);
+   --color-text-secondary: var(--text-secondary);
+   --color-brand-700: var(--primary-700);
+   --color-warning: var(--warning-600);
+   --color-error: var(--error-600);
 
    /* Brand */
    --brand: var(--primary-500);
@@ -158,15 +182,15 @@
      ========================================================================== */
 
    /* App shell */
-   --app-max: 1200px;
+   --app-max: 1440px;
    --header-h: 64px;
-   --sidebar-w: 280px;
+   --sidebar-w: 256px;
    --sidebar-w-collapsed: 72px;
 
-   --header-bg: var(--primary-900);
-   --header-fg: rgba(255, 255, 255, 0.92);
-   --sidebar-bg: var(--primary-900);
-   --sidebar-fg: rgba(255, 255, 255, 0.78);
+   --header-bg: rgba(255, 255, 255, 0.94);
+   --header-fg: var(--text-primary);
+   --sidebar-bg: #FFFFFF;
+   --sidebar-fg: var(--text-secondary);
 
    /* Card */
    --card-bg: var(--bg-surface);
@@ -252,11 +276,11 @@
    /* Nav item */
    --nav-item-h: 40px;
    --nav-item-radius: var(--radius-1);
-   --nav-item-fg: rgba(255, 255, 255, 0.78);
-   --nav-item-hover-bg: rgba(255, 255, 255, 0.06);
-   --nav-item-active-bg: rgba(127, 166, 201, 0.16);
-   --nav-item-active-fg: rgba(255, 255, 255, 0.95);
-   --nav-item-indicator: var(--primary-300);
+   --nav-item-fg: var(--text-secondary);
+   --nav-item-hover-bg: #F1F5F9;
+   --nav-item-active-bg: #EEF4FF;
+   --nav-item-active-fg: #1D4ED8;
+   --nav-item-indicator: var(--primary-500);
 
    /* Modal */
    --modal-bg: var(--bg-elevated);
@@ -267,6 +291,12 @@
    --toast-bg: #FFFFFF;
    --toast-border: rgba(15, 31, 51, 0.12);
    --toast-shadow: var(--shadow-2);
+}
+
+/* Prevent the untranslated source copy from painting before the selected
+   language is applied on authenticated SSR pages. */
+html[data-ui-language]:not([data-ui-localized="true"]) body.app-shell {
+   visibility: hidden;
 }
 
 /* -----------------------------

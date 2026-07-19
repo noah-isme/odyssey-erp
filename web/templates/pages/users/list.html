@@ -5,10 +5,10 @@
 {{ define "title" }}Users Management{{ end }}
 
 {{ define "content" }}
-<section class="container page-users">
+<div class="page-container page-users">
     <header class="page-header">
-        <h1>Users Management</h1>
-        <p class="text-muted">Manage system user accounts</p>
+        <div class="page-header__content"><h1 class="page-title">Manajemen Pengguna</h1><p class="page-subtitle">Kelola akun pengguna dan status akses sistem.</p></div>
+        <div class="page-header__actions"><a href="/users/new" class="btn btn--primary">Tambah Pengguna</a></div>
     </header>
 
     {{ if .Data.Errors }}
@@ -17,7 +17,7 @@
     </div>
     {{ end }}
 
-    <div class="table-wrap" data-component="datatable">
+    <div class="card card-table"><div class="table-wrap" data-component="datatable">
         <table class="table data-table">
             <thead>
                 <tr>
@@ -36,20 +36,20 @@
                     <td>{{ .Name }}</td>
                     <td>
                         {{ if .IsActive }}
-                        <span class="badge badge--success">Active</span>
+                        <span class="badge badge--success">Aktif / Active</span>
                         {{ else }}
-                        <span class="badge badge--muted">Inactive</span>
+                        <span class="badge badge--muted">Nonaktif / Inactive</span>
                         {{ end }}
                     </td>
                     <td>{{ .CreatedAt.Format "2006-01-02" }}</td>
                 </tr>
                 {{ else }}
                 <tr>
-                    <td colspan="5" class="text-center text-muted">No users found</td>
+                    <td colspan="5" class="text-center text-muted">Belum ada pengguna / No users found</td>
                 </tr>
                 {{ end }}
             </tbody>
         </table>
-    </div>
-</section>
+    </div></div>
+</div>
 {{ end }}

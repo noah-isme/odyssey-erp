@@ -1,9 +1,9 @@
 {{ define "pages/masterdata/category_form.html" }}{{ template "layouts/base.html" . }}{{ end }}
 {{ define "title" }}{{ if .Data.Category }}Edit Category{{ else }}New Category{{ end }}{{ end }}
 {{ define "content" }}{{ template "partials/masterdata/form.html" . }}{{ end }}
-{{ define "masterdata-form-heading" }}{{ if .Data.Category }}Edit Category{{ else }}New Category{{ end }}{{ end }}
+{{ define "masterdata-form-heading" }}{{ if .Data.Category }}Ubah kategori / Edit category{{ else }}Kategori baru / New category{{ end }}{{ end }}
 {{ define "ui-page-header-title" }}{{ template "masterdata-form-heading" . }}{{ end }}
-{{ define "ui-page-header-subtitle" }}Complete the required information, then save the record.{{ end }}
+{{ define "ui-page-header-subtitle" }}Lengkapi informasi wajib, lalu simpan data.{{ end }}
 {{ define "ui-page-header-actions" }}<a class="btn btn--secondary" href="{{ template "masterdata-form-cancel-url" . }}">Cancel</a>{{ end }}
 {{ define "masterdata-form-action" }}{{ if .Data.Category }}/masterdata/categories/{{ .Data.Category.ID }}/edit{{ else }}/masterdata/categories{{ end }}{{ end }}
 {{ define "masterdata-form-cancel-url" }}{{ if .Data.Category }}/masterdata/categories/{{ .Data.Category.ID }}{{ else }}/masterdata/categories{{ end }}{{ end }}

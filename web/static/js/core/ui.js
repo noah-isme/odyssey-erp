@@ -12,6 +12,7 @@
     'use strict';
 
     var KEY = 'odyssey.theme';
+    var LANGUAGE_KEY = 'odyssey.language';
 
     try {
         var saved = localStorage.getItem(KEY);
@@ -20,8 +21,10 @@
         if (saved === 'dark' || (!saved && prefersDark)) {
             document.documentElement.setAttribute('data-theme', 'dark');
         }
+
+        var language = localStorage.getItem(LANGUAGE_KEY);
+        document.documentElement.dataset.uiLanguage = language === 'en' ? 'en' : 'id';
     } catch (e) {
         // Silent fail - theme will default to light
     }
 })();
-

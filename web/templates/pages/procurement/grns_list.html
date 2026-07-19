@@ -9,7 +9,7 @@
     <header class="page-header">
         <div class="page-header__content">
             <h1 class="page-title">Goods Receipts</h1>
-            <p class="page-subtitle">Manage goods receipt notes</p>
+            <p class="page-subtitle">Kelola catatan penerimaan barang / goods receipt notes.</p>
         </div>
         <div class="page-header__actions">
             <a href="/procurement/grns/new" class="btn btn--primary">
@@ -29,7 +29,7 @@
             <form method="get" action="/procurement/grns" class="filters-form" data-component="filters">
                 <div class="filters-grid">
                     <div class="form-group">
-                        <label for="search" class="form-label">Search</label>
+                        <label for="search" class="form-label">Cari / Search</label>
                         <input type="text" name="search" id="search" placeholder="GRN number" class="form-input" value="{{ if .Data.Filters.Search }}{{ .Data.Filters.Search }}{{ end }}">
                     </div>
                     <div class="form-group">
@@ -43,8 +43,8 @@
                     </div>
                 </div>
                 <div class="filters-actions">
-                    <button type="submit" class="btn btn--primary">Filter</button>
-                    <a href="/procurement/grns" class="btn btn--secondary">Clear</a>
+                    <button type="submit" class="btn btn--primary">Terapkan / Apply</button>
+                    <a href="/procurement/grns" class="btn btn--secondary">Reset / Clear</a>
                 </div>
             </form>
         </section>
@@ -101,9 +101,9 @@
                                             <line x1="12" y1="22.08" x2="12" y2="12"></line>
                                         </svg>
                                     </div>
-                                    <h3>No goods receipts found</h3>
+                                    <h3>Belum ada penerimaan barang / No goods receipts found</h3>
                                     <p>Start by receiving goods from your purchase orders.</p>
-                                    <a href="/procurement/grns/new" class="btn btn--primary mt-4">New GRN</a>
+                                    <a href="/procurement/grns/new" class="btn btn--primary mt-4">GRN baru / New GRN</a>
                                 </div>
                             </td>
                         </tr>

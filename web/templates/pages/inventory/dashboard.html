@@ -8,24 +8,25 @@
 <div class="page-container">
     <header class="page-header">
         <div class="page-header__content">
-            <h1 class="page-title">Inventory Dashboard</h1>
-            <p class="page-subtitle">Ringkasan status stok dan peringatan reorder.</p>
+            <h1 class="page-title">Dashboard Inventori</h1>
+            <p class="page-subtitle">Pantau stok prioritas dan tindak lanjuti kebutuhan pengadaan.</p>
         </div>
     </header>
 
-    <div class="responsive-grid responsive-grid--compact gap-6 mb-8">
-        <div class="card bg-primary text-primary-foreground p-6">
-            <div class="text-sm font-medium opacity-80">Total Alerts</div>
-            <div class="text-3xl font-bold">{{ len .Data.Alerts }}</div>
-            <div class="text-xs mt-2">Produk di bawah stok minimum</div>
+    <div class="kpi-grid inventory-kpi-grid">
+        <div class="kpi-card">
+            <div class="kpi-icon error">!</div>
+            <div class="kpi-content">
+                <p class="kpi-label">Peringatan stok</p>
+                <p class="kpi-value">{{ len .Data.Alerts }}</p>
+                <p class="kpi-subtitle error">Produk di bawah stok minimum</p>
+            </div>
         </div>
     </div>
 
-    <div class="card">
-        <div class="card-header flex justify-between items-center">
-            <h2 class="card-title text-danger flex items-center gap-2">
-                <i class="lucide-alert-triangle"></i> Reorder Point Alerts
-            </h2>
+    <div class="card card-table">
+        <div class="card__header">
+            <div><h2 class="card__title">Peringatan reorder</h2><p class="card__desc">Prioritaskan pengadaan untuk mencegah kekosongan stok.</p></div>
             <a href="/procurement/prs/new" class="btn btn--secondary btn--sm">Buat PR Baru</a>
         </div>
         <div class="card-table table-responsive">
@@ -53,15 +54,13 @@
                             {{ printf "%.2f" (subf .MinStock .CurrentQty) }} unit lagi
                         </td>
                         <td class="text-right">
-                            <a href="/procurement/prs?product_id={{ .ProductID }}&qty={{ subf .MinStock .CurrentQty }}" class="btn btn--secondary btn--sm">
-                                <i class="lucide-shopping-cart"></i> Reorder
-                            </a>
+                            <a href="/procurement/prs?product_id={{ .ProductID }}&qty={{ subf .MinStock .CurrentQty }}" class="btn btn--secondary btn--sm">Buat PR</a>
                         </td>
                     </tr>
                     {{ else }}
                     <tr>
-                        <td colspan="6" class="text-center py-8 text-muted">
-                            <i class="lucide-check-circle text-success inline-block mr-2"></i> Semua stok aman di atas batas minimum.
+                        <td colspan="7" class="table-empty">
+                            <div class="empty-state"><div class="empty-state__icon">✓</div><h3>Stok dalam kondisi aman</h3><p>Semua produk berada di atas batas stok minimum.</p></div>
                         </td>
                     </tr>
                     {{ end }}

@@ -1,9 +1,9 @@
 {{ define "pages/masterdata/product_form.html" }}{{ template "layouts/base.html" . }}{{ end }}
 {{ define "title" }}{{ if .Data.Product }}Edit Product{{ else }}New Product{{ end }}{{ end }}
 {{ define "content" }}{{ template "partials/masterdata/form.html" . }}{{ end }}
-{{ define "masterdata-form-heading" }}{{ if .Data.Product }}Edit Product{{ else }}New Product{{ end }}{{ end }}
+{{ define "masterdata-form-heading" }}{{ if .Data.Product }}Ubah produk / Edit product{{ else }}Produk baru / New product{{ end }}{{ end }}
 {{ define "ui-page-header-title" }}{{ template "masterdata-form-heading" . }}{{ end }}
-{{ define "ui-page-header-subtitle" }}Complete the required information, then save the record.{{ end }}
+{{ define "ui-page-header-subtitle" }}Lengkapi informasi wajib, lalu simpan data.{{ end }}
 {{ define "ui-page-header-actions" }}<a class="btn btn--secondary" href="{{ template "masterdata-form-cancel-url" . }}">Cancel</a>{{ end }}
 {{ define "masterdata-form-action" }}{{ if .Data.Product }}/masterdata/products/{{ .Data.Product.ID }}/edit{{ else }}/masterdata/products{{ end }}{{ end }}
 {{ define "masterdata-form-cancel-url" }}{{ if .Data.Product }}/masterdata/products/{{ .Data.Product.ID }}{{ else }}/masterdata/products{{ end }}{{ end }}

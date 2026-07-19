@@ -3,7 +3,7 @@
 {{ define "content" }}
 <header class="page-header">
     <div class="page-header__content">
-        <h1>Variance Dashboard</h1>
+        <h1>Dashboard variansi / Variance dashboard</h1>
         <p class="text-secondary">Capture and analyze financial variance snapshots.</p>
     </div>
 </header>
@@ -11,7 +11,7 @@
 <div class="responsive-grid responsive-grid--wide">
     <section class="card">
         <header class="card__header">
-            <h2 class="card__title">Queue Snapshot</h2>
+            <h2 class="card__title">Antrekan snapshot / Queue snapshot</h2>
         </header>
         <div class="card__body">
             <form method="post" action="/variance/snapshots" class="form">
@@ -20,7 +20,7 @@
                 <div class="form-group">
                     <label for="rule_id" class="form-label">Select Rule</label>
                     <select id="rule_id" name="rule_id" class="form-select" required>
-                        <option value="">-- Choose Rule --</option>
+                        <option value="">-- Pilih aturan / Choose rule --</option>
                         {{ range $rule := .Data.Rules }}
                         <option value="{{ $rule.ID }}">{{ $rule.Name }}</option>
                         {{ end }}
@@ -42,7 +42,7 @@
 
     <section class="card responsive-grid__span-2">
         <header class="card__header">
-            <h2 class="card__title">Snapshots History</h2>
+            <h2 class="card__title">Riwayat snapshot / Snapshot history</h2>
         </header>
         <div class="table-wrap">
             <table class="table" data-datatable="variance_snapshots">
@@ -65,7 +65,7 @@
                 <tbody>
                     {{ if eq (len .Data.Snapshots) 0 }}
                     <tr>
-                        <td colspan="6" class="text-center text-secondary py-4">No snapshots recorded.</td>
+                        <td colspan="6" class="text-center text-secondary py-4">Belum ada snapshot / No snapshots recorded.</td>
                     </tr>
                     {{ end }}
                     {{ range $snap := .Data.Snapshots }}
@@ -78,7 +78,7 @@
                         </td>
                         <td class="text-secondary text-sm">{{ $snap.UpdatedAt.Format "02 Jan 15:04" }}</td>
                         <td class="text-right">
-                            <a href="/variance/snapshots/{{ $snap.ID }}" class="btn btn--sm btn--secondary">Details</a>
+                            <a href="/variance/snapshots/{{ $snap.ID }}" class="btn btn--sm btn--secondary">Rincian / Details</a>
                         </td>
                     </tr>
                     {{ end }}

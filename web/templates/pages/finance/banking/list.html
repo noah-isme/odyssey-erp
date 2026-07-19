@@ -8,8 +8,8 @@
 <div class="page-container">
     <header class="page-header">
         <div class="page-header__content">
-            <h1 class="page-title">Bank Accounts</h1>
-            <p class="page-subtitle">Manage company bank accounts and cash flow</p>
+            <h1 class="page-title">Akun bank / Bank accounts</h1>
+            <p class="page-subtitle">Kelola akun bank perusahaan dan arus kas.</p>
         </div>
         <div class="page-header__actions flex gap-2">
             <button class="btn btn--secondary" data-dialog-open="transfer-modal">
@@ -60,7 +60,7 @@
 <!-- New Account Modal -->
 <dialog id="new-account-modal" class="native-dialog" data-dialog aria-labelledby="new-account-modal-title">
     <div class="native-dialog__content native-dialog__content--padded">
-        <h3 id="new-account-modal-title" class="font-bold text-lg mb-4">Add Bank Account</h3>
+        <h3 id="new-account-modal-title" class="font-bold text-lg mb-4">Tambah akun bank / Add bank account</h3>
         <form method="post" action="/finance/banking/accounts">
             <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
             
@@ -100,8 +100,8 @@
             </div>
 
             <div class="native-dialog__actions flex justify-end gap-2">
-                <button type="button" class="btn btn--ghost" data-dialog-close>Cancel</button>
-                <button type="submit" class="btn btn--primary">Create Account</button>
+                <button type="button" class="btn btn--ghost" data-dialog-close>Batal / Cancel</button>
+                <button type="submit" class="btn btn--primary">Buat akun / Create account</button>
             </div>
         </form>
     </div>

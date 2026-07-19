@@ -1,9 +1,9 @@
 {{ define "pages/masterdata/company_form.html" }}{{ template "layouts/base.html" . }}{{ end }}
 {{ define "title" }}{{ if .Data.Company }}Edit Company{{ else }}New Company{{ end }}{{ end }}
 {{ define "content" }}{{ template "partials/masterdata/form.html" . }}{{ end }}
-{{ define "masterdata-form-heading" }}{{ if .Data.Company }}Edit Company{{ else }}New Company{{ end }}{{ end }}
+{{ define "masterdata-form-heading" }}{{ if .Data.Company }}Ubah perusahaan / Edit company{{ else }}Perusahaan baru / New company{{ end }}{{ end }}
 {{ define "ui-page-header-title" }}{{ template "masterdata-form-heading" . }}{{ end }}
-{{ define "ui-page-header-subtitle" }}Complete the required information, then save the record.{{ end }}
+{{ define "ui-page-header-subtitle" }}Lengkapi informasi wajib, lalu simpan data.{{ end }}
 {{ define "ui-page-header-actions" }}<a class="btn btn--secondary" href="{{ template "masterdata-form-cancel-url" . }}">Cancel</a>{{ end }}
 {{ define "masterdata-form-action" }}{{ if .Data.Company }}/masterdata/companies/{{ .Data.Company.ID }}/edit{{ else }}/masterdata/companies{{ end }}{{ end }}
 {{ define "masterdata-form-cancel-url" }}{{ if .Data.Company }}/masterdata/companies/{{ .Data.Company.ID }}{{ else }}/masterdata/companies{{ end }}{{ end }}

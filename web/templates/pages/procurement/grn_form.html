@@ -5,40 +5,28 @@
 {{ define "title" }}Goods Receipt{{ end }}
 
 {{ define "content" }}
-<h1>Goods Receipt</h1>
-<form method="post" class="grid">
-    <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
-    <label class="form-label">Nomor
-        <input class="form-input" type="text" name="number">
-    </label>
-    <label class="form-label">PO ID
-        <input class="form-input" type="number" name="po_id">
-    </label>
-    <label class="form-label">Supplier ID
-        <input class="form-input" type="number" name="supplier_id">
-    </label>
-    <label class="form-label">Gudang
-        <input class="form-input" type="number" name="warehouse_id" required>
-    </label>
-    <label class="form-label">Tanggal Terima
-        <input class="form-input" type="date" name="received_at">
-    </label>
-    <div class="grid">
-        <label class="form-label">Produk ID
-            <input class="form-input" type="number" name="product_id" required>
-        </label>
-        <label class="form-label">Kuantitas
-            <input class="form-input" type="number" step="0.0001" name="qty" required>
-        </label>
-        <label class="form-label">Harga Satuan
-            <input class="form-input" type="number" step="0.0001" name="unit_cost" required>
-        </label>
-    </div>
-    <label class="form-label">Catatan
-        <textarea class="form-textarea" name="note"></textarea>
-    </label>
-    <button type="submit" class="btn btn--primary">Buat GRN</button>
-</form>
-{{ if .Data.Errors }}<p class="error-text">{{ index .Data.Errors "general" }}</p>{{ end }}
-<p>Setelah dibuat, gunakan tombol Post untuk menambah stok.</p>
+<div class="page-container form-page">
+    <header class="page-header">
+        <div class="page-header__content"><h1 class="page-title">Penerimaan Barang</h1><p class="page-subtitle">Catat barang yang diterima dari pemasok sebelum stok diposting.</p></div>
+        <div class="page-header__actions"><a href="/procurement/grns" class="btn btn--secondary">Kembali ke daftar</a></div>
+    </header>
+    {{ if .Data.Errors }}<div class="feedback feedback--error">{{ index .Data.Errors "general" }}</div>{{ end }}
+    <form method="post" class="card">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+        <section class="form-section"><h2 class="form-section__title">Informasi penerimaan</h2><div class="form-grid">
+            <div class="form-group"><label class="form-label" for="number">Nomor GRN</label><input class="form-input" id="number" type="text" name="number"></div>
+            <div class="form-group"><label class="form-label" for="po_id">Purchase Order ID</label><input class="form-input" id="po_id" type="number" name="po_id"></div>
+            <div class="form-group"><label class="form-label" for="supplier_id">Supplier ID</label><input class="form-input" id="supplier_id" type="number" name="supplier_id"></div>
+            <div class="form-group"><label class="form-label" for="warehouse_id">Gudang</label><input class="form-input" id="warehouse_id" type="number" name="warehouse_id" required></div>
+            <div class="form-group"><label class="form-label" for="received_at">Tanggal terima</label><input class="form-input" id="received_at" type="date" name="received_at"></div>
+        </div></section>
+        <section class="form-section"><h2 class="form-section__title">Item diterima</h2><div class="form-grid">
+            <div class="form-group"><label class="form-label" for="product_id">Produk ID</label><input class="form-input" id="product_id" type="number" name="product_id" required></div>
+            <div class="form-group"><label class="form-label" for="qty">Kuantitas</label><input class="form-input" id="qty" type="number" step="0.0001" name="qty" required></div>
+            <div class="form-group"><label class="form-label" for="unit_cost">Harga satuan</label><input class="form-input" id="unit_cost" type="number" step="0.0001" name="unit_cost" required></div>
+        </div></section>
+        <section class="form-section"><div class="form-group"><label class="form-label" for="note">Catatan</label><textarea class="form-textarea" id="note" name="note"></textarea></div></section>
+        <footer class="form-footer"><a href="/procurement/grns" class="btn btn--ghost">Batal</a><button type="submit" class="btn btn--primary">Buat GRN</button></footer>
+    </form>
+</div>
 {{ end }}

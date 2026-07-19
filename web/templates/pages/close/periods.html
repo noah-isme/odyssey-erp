@@ -12,8 +12,8 @@
 {{ $data := .Data }}
 <section class="page-header">
     <div class="page-header__content">
-        <p class="eyebrow">Period Close</p>
-        <h1>Accounting Periods</h1>
+        <p class="eyebrow">Penutupan periode / Period close</p>
+        <h1>Periode akuntansi / Accounting periods</h1>
         <p class="muted">Pantau status periode dan mulai close run untuk setiap perusahaan.</p>
     </div>
     {{ if $data.YearError }}<small class="text-danger">{{ $data.YearError }}</small>{{ end }}
@@ -49,7 +49,7 @@
                 <th>Periode</th>
                 <th>Rentang</th>
                 <th>Status</th>
-                <th>Close Run</th>
+                <th>Proses close / Close run</th>
                 <th>Aksi</th>
             </tr>
             </thead>
@@ -74,7 +74,7 @@
                     </td>
                     <td>
                         {{ if $row.HasRun }}
-                            <a class="btn btn--secondary btn--sm" href="{{ $row.RunURL }}">Lihat Close</a>
+                            <a class="btn btn--secondary btn--sm" href="{{ $row.RunURL }}">Lihat close / View close</a>
                         {{ else }}
                             <span class="muted">Belum ada run</span>
                         {{ end }}
@@ -84,7 +84,7 @@
                             <form method="post" action="/accounting/periods/{{ $row.Period.ID }}/close-run" class="inline-form">
                                 <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
                                 <input type="hidden" name="company_id" value="{{ if gt $row.Period.CompanyID 0 }}{{ $row.Period.CompanyID }}{{ else }}{{ $data.CompanyID }}{{ end }}">
-                                <button type="submit" class="btn btn--primary">Mulai Close</button>
+                                <button type="submit" class="btn btn--primary">Mulai close / Start close</button>
                             </form>
                         {{ else }}
                             {{ if $row.HasRun }}

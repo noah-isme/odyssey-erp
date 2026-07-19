@@ -1,9 +1,9 @@
 {{ define "pages/masterdata/supplier_form.html" }}{{ template "layouts/base.html" . }}{{ end }}
 {{ define "title" }}{{ if .Data.Supplier }}Edit Supplier{{ else }}New Supplier{{ end }}{{ end }}
 {{ define "content" }}{{ template "partials/masterdata/form.html" . }}{{ end }}
-{{ define "masterdata-form-heading" }}{{ if .Data.Supplier }}Edit Supplier{{ else }}New Supplier{{ end }}{{ end }}
+{{ define "masterdata-form-heading" }}{{ if .Data.Supplier }}Ubah pemasok / Edit supplier{{ else }}Pemasok baru / New supplier{{ end }}{{ end }}
 {{ define "ui-page-header-title" }}{{ template "masterdata-form-heading" . }}{{ end }}
-{{ define "ui-page-header-subtitle" }}Complete the required information, then save the record.{{ end }}
+{{ define "ui-page-header-subtitle" }}Lengkapi informasi wajib, lalu simpan data.{{ end }}
 {{ define "ui-page-header-actions" }}<a class="btn btn--secondary" href="{{ template "masterdata-form-cancel-url" . }}">Cancel</a>{{ end }}
 {{ define "masterdata-form-action" }}{{ if .Data.Supplier }}/masterdata/suppliers/{{ .Data.Supplier.ID }}/edit{{ else }}/masterdata/suppliers{{ end }}{{ end }}
 {{ define "masterdata-form-cancel-url" }}{{ if .Data.Supplier }}/masterdata/suppliers/{{ .Data.Supplier.ID }}{{ else }}/masterdata/suppliers{{ end }}{{ end }}
