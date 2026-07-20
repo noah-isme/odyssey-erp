@@ -252,8 +252,3 @@ func (sm *SessionManager) generateSessionID() string {
 	}
 	return base64.RawURLEncoding.EncodeToString(b)
 }
-
-func mustJSON(v sessionPayload) []byte {
-	data, _ := json.Marshal(v)
-	return data
-}

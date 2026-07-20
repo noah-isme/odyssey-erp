@@ -12,25 +12,40 @@ func WriteProfitAndLossXLSX(w io.Writer, report ProfitAndLoss, period string) er
 	f := excelize.NewFile()
 	defer func() { _ = f.Close() }()
 	sheet := f.GetSheetName(0)
-	f.SetCellValue(sheet, "A1", "Profit and Loss")
-	f.SetCellValue(sheet, "A2", period)
-	f.SetCellValue(sheet, "A4", "Account")
-	f.SetCellValue(sheet, "B4", "Amount")
+	for cell, value := range map[string]any{"A1": "Profit and Loss", "A2": period, "A4": "Account", "B4": "Amount"} {
+		if err := f.SetCellValue(sheet, cell, value); err != nil {
+			return err
+		}
+	}
 	row := 5
 	for _, section := range []ProfitAndLossSection{report.Revenue, report.Expense} {
-		f.SetCellValue(sheet, "A"+itoa(row), section.Label)
+		if err := f.SetCellValue(sheet, "A"+itoa(row), section.Label); err != nil {
+			return err
+		}
 		row++
 		for _, line := range section.Accounts {
-			f.SetCellValue(sheet, "A"+itoa(row), line.Code+" - "+line.Name)
-			f.SetCellValue(sheet, "B"+itoa(row), line.Amount)
+			if err := f.SetCellValue(sheet, "A"+itoa(row), line.Code+" - "+line.Name); err != nil {
+				return err
+			}
+			if err := f.SetCellValue(sheet, "B"+itoa(row), line.Amount); err != nil {
+				return err
+			}
 			row++
 		}
-		f.SetCellValue(sheet, "A"+itoa(row), "Total "+section.Label)
-		f.SetCellValue(sheet, "B"+itoa(row), section.Total)
+		if err := f.SetCellValue(sheet, "A"+itoa(row), "Total "+section.Label); err != nil {
+			return err
+		}
+		if err := f.SetCellValue(sheet, "B"+itoa(row), section.Total); err != nil {
+			return err
+		}
 		row += 2
 	}
-	f.SetCellValue(sheet, "A"+itoa(row), "Net income")
-	f.SetCellValue(sheet, "B"+itoa(row), report.NetIncome)
+	if err := f.SetCellValue(sheet, "A"+itoa(row), "Net income"); err != nil {
+		return err
+	}
+	if err := f.SetCellValue(sheet, "B"+itoa(row), report.NetIncome); err != nil {
+		return err
+	}
 	return formatAndWrite(f, sheet, w)
 }
 
@@ -38,20 +53,26 @@ func WriteBudgetVsActualXLSX(w io.Writer, report BudgetVsActual, period string) 
 	f := excelize.NewFile()
 	defer func() { _ = f.Close() }()
 	sheet := f.GetSheetName(0)
-	f.SetCellValue(sheet, "A1", "Budget vs Actual")
-	f.SetCellValue(sheet, "A2", period)
+	if err := f.SetCellValue(sheet, "A1", "Budget vs Actual"); err != nil {
+		return err
+	}
+	if err := f.SetCellValue(sheet, "A2", period); err != nil {
+		return err
+	}
 	for col, heading := range []string{"Account", "Budget", "Actual", "Variance", "Variance %"} {
 		cell, _ := excelize.CoordinatesToCellName(col+1, 4)
-		f.SetCellValue(sheet, cell, heading)
+		if err := f.SetCellValue(sheet, cell, heading); err != nil {
+			return err
+		}
 	}
 	row := 5
 	for _, lines := range [][]BudgetVsActualLine{report.Revenue, report.Expense} {
 		for _, line := range lines {
-			f.SetCellValue(sheet, "A"+itoa(row), line.AccountCode+" - "+line.AccountName)
-			f.SetCellValue(sheet, "B"+itoa(row), line.Budget)
-			f.SetCellValue(sheet, "C"+itoa(row), line.Actual)
-			f.SetCellValue(sheet, "D"+itoa(row), line.Variance)
-			f.SetCellValue(sheet, "E"+itoa(row), line.VariancePct)
+			for column, value := range map[string]any{"A": line.AccountCode + " - " + line.AccountName, "B": line.Budget, "C": line.Actual, "D": line.Variance, "E": line.VariancePct} {
+				if err := f.SetCellValue(sheet, column+itoa(row), value); err != nil {
+					return err
+				}
+			}
 			row++
 		}
 	}
