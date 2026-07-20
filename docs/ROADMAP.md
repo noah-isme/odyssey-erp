@@ -25,7 +25,7 @@ to re-prioritise the genuinely remaining work.
 | Phase 12 — Stock take & adjustment | ✅ Implemented | migrations 000027/000028, `/inventory/.../stock-takes`, `/adjustments` |
 | Phase 12 — Stock valuation | 🟡 Partial | Per-product AVG/FIFO cost method, lot/serial receiving, and reorder PR are implemented; LIFO is intentionally excluded |
 | Phase 15 — Budget vs Actual | ✅ Implemented | `/accounting/budget` loads `accounting_budgets` and posted journal actuals for the selected month |
-| Phase 13 — Fixed Assets | ❌ Not started | no `fixed_assets` table or module |
+| Phase 13 — Fixed Assets | ✅ Implemented | Register, straight-line depreciation worker, disposal accounting, and category setup |
 | Phase 14 — Transaction-level multi-currency | ❌ Not started | FX exists only for consolidation (`internal/consol/fx/`), not realized/unrealized gain on AR/AP |
 | Phase 15 — Reporting enhancements | 🟡 Partial | P&L and Budget vs Actual support department/cost-center filters, native `.xlsx`, and scheduled email; report builder/widgets remain |
 
@@ -107,10 +107,10 @@ automation, batch/lot tracking, and serial numbers.
 
 ---
 
-## Phase 13: Fixed Assets
+## Phase 13: Fixed Assets — ✅ DONE
 
-**Priority:** 🟡 Medium  
-**Estimated Effort:** 2-3 weeks
+**Status:** Register, category account configuration, monthly straight-line
+depreciation, disposal accounting, and worker scheduling are implemented.
 
 ### Features
 | Feature | Description | Priority |
