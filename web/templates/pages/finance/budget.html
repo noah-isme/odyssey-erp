@@ -15,8 +15,16 @@
             <label class="sr-only" for="budget-period">Periode</label>
             <input class="form-input" id="budget-period" type="month" name="period" value="{{ .Data.PeriodValue }}">
             <button class="btn btn--secondary" type="submit">Terapkan</button>
+            <a class="btn btn--secondary" href="/accounting/budget/export.xlsx?period={{ .Data.PeriodValue }}&department_id={{ .Data.Filter.DepartmentID }}&cost_center_id={{ .Data.Filter.CostCenterID }}">Export Excel</a>
         </form>
     </header>
+
+    <form method="get" action="/accounting/budget" class="card mb-6 p-4 form-grid">
+        <input type="hidden" name="period" value="{{ .Data.PeriodValue }}">
+        <div class="form-group"><label class="form-label">Department</label><select class="form-select" name="department_id"><option value="">All departments</option>{{ range .Data.Departments }}<option value="{{ .ID }}" {{ if eq .ID $.Data.Filter.DepartmentID }}selected{{ end }}>{{ .Name }}</option>{{ end }}</select></div>
+        <div class="form-group"><label class="form-label">Cost center</label><select class="form-select" name="cost_center_id"><option value="">All cost centers</option>{{ range .Data.CostCenters }}<option value="{{ .ID }}" {{ if eq .ID $.Data.Filter.CostCenterID }}selected{{ end }}>{{ .Name }}</option>{{ end }}</select></div>
+        <div class="form-group"><button class="btn btn--secondary" type="submit">Apply dimensions</button></div>
+    </form>
 
     <div class="card card-table table-responsive">
         <table class="table">

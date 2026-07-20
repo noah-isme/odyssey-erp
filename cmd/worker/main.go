@@ -144,6 +144,7 @@ func main() {
 			{Type: jobs.TaskBoardPackGenerate, Handler: boardpackJob.Handle},
 			{Type: jobs.TypeEmailDelivery, Handler: jobs.HandleEmailDeliveryTask(logger)},
 			{Type: jobs.TypeOverdueInvoicesScan, Handler: jobs.HandleOverdueInvoicesScanTask(logger, pool, asynqClient)},
+			{Type: jobs.TypeReportScheduleScan, Handler: jobs.HandleReportScheduleScanTask(logger, pool, asynqClient)},
 		},
 		Cron: []jobs.CronRegistration{
 			{Spec: "15 1 * * *", Task: warmupTask, Options: []asynq.Option{asynq.MaxRetry(3)}},
@@ -151,6 +152,7 @@ func main() {
 			{Spec: "0 2 * * *", Task: consolidateTask, Options: []asynq.Option{asynq.MaxRetry(3)}},
 			// Run overdue invoice scan every day at 8:00 AM
 			{Spec: "0 8 * * *", Task: asynq.NewTask(jobs.TypeOverdueInvoicesScan, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
+			{Spec: "5 * * * *", Task: asynq.NewTask(jobs.TypeReportScheduleScan, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
 		},
 	})
 	if err != nil {

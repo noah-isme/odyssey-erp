@@ -1,7 +1,7 @@
 # Odyssey ERP — Future Roadmap & Recommendations
 
 **Prepared:** 2026-01-11
-**Revised:** 2026-07-14 (synced to actual codebase at v0.9.1)
+**Revised:** 2026-07-20 (synced to current implementation)
 **Current Version:** v0.9.1
 
 ## Executive Summary
@@ -27,7 +27,7 @@ to re-prioritise the genuinely remaining work.
 | Phase 15 — Budget vs Actual | ✅ Implemented | `/accounting/budget` loads `accounting_budgets` and posted journal actuals for the selected month |
 | Phase 13 — Fixed Assets | ❌ Not started | no `fixed_assets` table or module |
 | Phase 14 — Transaction-level multi-currency | ❌ Not started | FX exists only for consolidation (`internal/consol/fx/`), not realized/unrealized gain on AR/AP |
-| Phase 15 — Department reporting, Excel export | ❌ Not started | CSV export only; no `excelize` |
+| Phase 15 — Reporting enhancements | 🟡 Partial | P&L and Budget vs Actual support department/cost-center filters, native `.xlsx`, and scheduled email; report builder/widgets remain |
 
 The phase descriptions below are retained for reference. **Completed phases (10, 11, and
 most of 12) are kept for historical context; focus new work on the "Remaining Priorities"
@@ -153,21 +153,20 @@ automation, batch/lot tracking, and serial numbers.
 **Priority:** 🟡 Medium
 **Estimated Effort:** 3-4 weeks
 
-> **Status note:** Analytics and Insights modules exist. **Budget vs Actual is
-> scaffolded but not functional** — `internal/accounting/reports/budget.go` and the
-> `accounting_budgets` table (migration 000029) exist, but the handler currently serves
-> empty hardcoded data instead of reading the table. Wiring this up is the top follow-up
-> item. Department reporting and native Excel export are not started (CSV export only).
+> **Status note:** Analytics and Insights modules exist. Budget vs Actual reads
+> `accounting_budgets` and posted journal actuals for the selected month. P&L and
+> Budget vs Actual support department/cost-center filters, native Excel exports,
+> and scheduled email delivery. Report builder and dashboard widgets are not started.
 
 ### Features
 | Feature | Description | Priority | Status |
 |---------|-------------|----------|--------|
 | Custom Reports | Build reports with drag-drop | Low | Not started |
 | Dashboard Widgets | Customizable dashboard | Medium | Not started |
-| Budget vs Actual | Compare to budget | High | 🟡 Scaffold (data not wired) |
-| Department Reporting | P&L by department/cost center | Medium | Data model and journal dimensions implemented; report filters pending |
-| Export to Excel | Native Excel export | High | Not started (CSV only) |
-| Scheduled Reports | Email reports on schedule | Medium | Not started |
+| Budget vs Actual | Compare to budget | High | Implemented with posted journal actuals |
+| Department Reporting | P&L by department/cost center | Medium | P&L and Budget vs Actual filters implemented |
+| Export to Excel | Native Excel export | High | P&L and Budget vs Actual `.xlsx` implemented |
+| Scheduled Reports | Email reports on schedule | Medium | Hourly worker scan and email queue implemented for P&L and Budget vs Actual |
 
 ### Technical Notes
 - Consider Go templating or external BI tool

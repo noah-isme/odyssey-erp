@@ -9,6 +9,9 @@
 - Inventory dashboard action that creates supplier-grouped draft purchase
   requests from low-stock alerts.
 - Department and cost-center schema plus optional journal-line dimensions.
+- Department/cost-center filters and native Excel exports for Profit and Loss
+  and Budget vs Actual.
+- Scheduled P&L and Budget vs Actual email delivery through the Asynq worker.
 
 ### Changed
 

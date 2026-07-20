@@ -36,10 +36,22 @@ procurement control point.
 
 ## Reporting dimensions
 
-Departments and cost centers are available as optional dimensions on new
-journal lines. Existing entries remain valid. The current migration establishes
-the hierarchy and journal storage; department/cost-center filters, Excel
-exports, schedules, report builder, and dashboard widgets are follow-up work.
+Departments and cost centers are optional dimensions on new journal lines.
+Existing entries remain valid. Profit and Loss and Budget vs Actual accept both
+filters and can be downloaded as native Excel workbooks. Report builder and
+dashboard widgets remain follow-up work.
+
+## Scheduled report email
+
+`report_schedules` stores active schedules for P&L and Budget vs Actual. A
+worker scan runs hourly and queues an email when a daily, weekly, or monthly
+schedule is due. The message contains the selected reporting period and a link
+that preserves the configured department/cost-center filter. Email delivery is
+retried by Asynq up to three times.
+
+Create schedule rows through the database administration workflow; each schedule
+requires at least one recipient and a frequency of `DAILY`, `WEEKLY`, or
+`MONTHLY`. A self-service schedule management page is follow-up work.
 
 ## Deployment
 
