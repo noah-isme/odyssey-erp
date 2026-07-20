@@ -1,5 +1,11 @@
 package reports
 
+// DimensionFilter limits reports to posted lines carrying a reporting dimension.
+type DimensionFilter struct {
+	DepartmentID int64
+	CostCenterID int64
+}
+
 // TrialBalanceViewModel holds SSR/PDF data for the trial balance report.
 type TrialBalanceViewModel struct {
 	CompanyName   string

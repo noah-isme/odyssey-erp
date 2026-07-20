@@ -50,14 +50,14 @@ func HandleEmailDeliveryTask(logger *slog.Logger) func(context.Context, *asynq.T
 			From: "noreply@odyssey.local",
 		})
 
-		var toAddress string
-		if len(p.To) > 0 {
-			toAddress = p.To[0]
+		if len(p.To) == 0 {
+			return fmt.Errorf("email delivery has no recipients: %w", asynq.SkipRetry)
 		}
-
-		if err := client.SendEmail(ctx, toAddress, p.Subject, p.BodyHTML, nil); err != nil {
-			logger.Error("failed to send email", slog.Any("error", err))
-			return fmt.Errorf("mailer.SendEmail failed: %w", err)
+		for _, toAddress := range p.To {
+			if err := client.SendEmail(ctx, toAddress, p.Subject, p.BodyHTML, nil); err != nil {
+				logger.Error("failed to send email", slog.Any("error", err), slog.String("to", toAddress))
+				return fmt.Errorf("mailer.SendEmail failed: %w", err)
+			}
 		}
 
 		logger.Info("email sent successfully", slog.String("subject", p.Subject))

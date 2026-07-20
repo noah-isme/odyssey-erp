@@ -240,3 +240,21 @@ func TestProcurementFlow(t *testing.T) {
 	require.Len(t, inv.records, 1)
 	require.Equal(t, 5.0, inv.records[0].Qty)
 }
+
+func TestGRNPostPropagatesTraceabilityToInventory(t *testing.T) {
+	repo := newMemoryProcRepo()
+	inv := &stubInventory{}
+	svc := NewService(nil, repo, inv, nil, nil, nil, nil)
+	ctx := context.Background()
+
+	poID := int64(1)
+	repo.pos[poID] = PurchaseOrder{ID: poID, Number: "PO-TRACE", SupplierID: 1, Status: POStatusApproved}
+	expiry := time.Date(2027, time.January, 31, 0, 0, 0, 0, time.UTC)
+	grn, err := svc.CreateGoodsReceipt(ctx, CreateGRNInput{POID: poID, WarehouseID: 2, SupplierID: 1, Lines: []GRNLineInput{{ProductID: 11, Qty: 2, UnitCost: 10000, LotNumber: "LOT-2026-001", ExpiryDate: &expiry, SerialNumbers: []string{"SN-001", "SN-002"}}}})
+	require.NoError(t, err)
+	require.NoError(t, svc.PostGoodsReceipt(ctx, grn.ID))
+	require.Len(t, inv.records, 1)
+	require.Equal(t, "LOT-2026-001", inv.records[0].LotNumber)
+	require.Equal(t, expiry, *inv.records[0].ExpiryDate)
+	require.Equal(t, []string{"SN-001", "SN-002"}, inv.records[0].SerialNumbers)
+}

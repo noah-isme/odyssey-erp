@@ -26,3 +26,7 @@ func (s *Service) ListBalances(ctx context.Context) ([]reports.AccountBalance, e
 func (s *Service) ListBalancesForPeriod(ctx context.Context, year int, month time.Month) ([]reports.AccountBalance, error) {
 	return s.repo.ListBalancesForPeriod(ctx, year, month)
 }
+
+func (s *Service) ListBalancesForPeriodAndDimensions(ctx context.Context, year int, month time.Month, filter reports.DimensionFilter) ([]reports.AccountBalance, error) {
+	return s.repo.ListBalancesForPeriodAndDimensions(ctx, year, month, filter)
+}
