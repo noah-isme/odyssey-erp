@@ -51,7 +51,13 @@ retried by Asynq up to three times.
 
 Create schedule rows through the database administration workflow; each schedule
 requires at least one recipient and a frequency of `DAILY`, `WEEKLY`, or
-`MONTHLY`. A self-service schedule management page is follow-up work.
+`MONTHLY`. Operators can manage schedules at `/accounting/report-schedules`.
+Changes are recorded in the audit log. Departments and cost centers can be
+created at `/accounting/dimensions` for the currently active company.
+
+The Jobs dashboard surfaces the number of failed/archived tasks. Treat a value
+above zero as an operational alert: inspect the worker log, resolve SMTP or
+report-data errors, then retry or requeue the affected task.
 
 ## Deployment
 

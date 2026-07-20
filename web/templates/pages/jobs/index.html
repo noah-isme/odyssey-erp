@@ -38,6 +38,10 @@
                         <div class="stat-card__label">Completed</div>
                         <div class="stat-card__value tabular-nums">{{ .Data.Completed }}</div>
                     </div>
+                    <div class="stat-card {{ if gt .Data.Archived 0 }}is-danger{{ end }}">
+                        <div class="stat-card__label">Failed / archived</div>
+                        <div class="stat-card__value tabular-nums">{{ .Data.Archived }}</div>
+                    </div>
                 </div>
             </div>
         </section>

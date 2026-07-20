@@ -46,6 +46,7 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 | [RBAC SQL Examples](reference/RBAC_EXAMPLES.sql) | SQL scripts untuk RBAC |
 | [Inventory Integration](reference/inventory.md) | Integrasi inventory |
 | [Inventory traceability & replenishment](guides/inventory-replenishment.md) | Lot, serial, costing, dan reorder PR |
+| [HTTP E2E regression](guides/e2e-regression.md) | Smoke/regression suite tanpa browser |
 | [Account Mapping](reference/account-mapping.md) | Default account setup |
 | [Period Policy](reference/period-policy.md) | Kebijakan periode accounting |
 | [Observability](reference/observability.md) | Monitoring & metrics |
