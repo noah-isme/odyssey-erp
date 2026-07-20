@@ -14,6 +14,8 @@
 - Scheduled P&L and Budget vs Actual email delivery through the Asynq worker.
 - Self-service reporting dimensions and report schedules, audit logging for
   schedule changes, and failed-job visibility on the Jobs dashboard.
+- Fixed asset categories, register, monthly depreciation, disposal accounting,
+  manual journals with reporting dimensions, and report-delivery history.
 
 ### Changed
 
