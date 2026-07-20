@@ -12,6 +12,8 @@
 - Department/cost-center filters and native Excel exports for Profit and Loss
   and Budget vs Actual.
 - Scheduled P&L and Budget vs Actual email delivery through the Asynq worker.
+- Self-service reporting dimensions and report schedules, audit logging for
+  schedule changes, and failed-job visibility on the Jobs dashboard.
 
 ### Changed
 

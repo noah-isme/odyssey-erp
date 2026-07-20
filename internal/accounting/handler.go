@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -29,10 +30,12 @@ type Handler struct {
 	banksHandler   *banks.Handler
 	budgets        *sqlc.Queries
 	db             *pgxpool.Pool
+	audit          journals.AuditPort
+	csrf           *shared.CSRFManager
 }
 
 // NewHandler builds a Handler instance.
-func NewHandler(logger *slog.Logger, db *pgxpool.Pool, templates *view.Engine, audit journals.AuditPort, guard journals.PeriodGuard) *Handler {
+func NewHandler(logger *slog.Logger, db *pgxpool.Pool, templates *view.Engine, csrf *shared.CSRFManager, audit journals.AuditPort, guard journals.PeriodGuard) *Handler {
 	// Repositories
 	accountRepo := accounts.NewRepository(db)
 	journalRepo := journals.NewRepository(db)
@@ -56,6 +59,8 @@ func NewHandler(logger *slog.Logger, db *pgxpool.Pool, templates *view.Engine, a
 		banksHandler:   banksHandler,
 		budgets:        sqlc.New(db),
 		db:             db,
+		audit:          audit,
+		csrf:           csrf,
 	}
 }
 
@@ -76,12 +81,185 @@ func (h *Handler) MountRoutes(r chi.Router) {
 	r.Get("/balance-sheet", h.handleBalanceSheet)
 	r.Get("/cash-flow", h.handleCashFlow)
 	r.Get("/budget", h.handleBudget)
+	r.Get("/dimensions", h.handleDimensions)
+	r.Post("/dimensions/departments", h.createDepartment)
+	r.Post("/dimensions/cost-centers", h.createCostCenter)
+	r.Get("/report-schedules", h.handleReportSchedules)
+	r.Post("/report-schedules", h.createReportSchedule)
+	r.Post("/report-schedules/{id}/toggle", h.toggleReportSchedule)
 	r.Get("/pnl/export.xlsx", h.handleProfitLossExcel)
 	r.Get("/budget/export.xlsx", h.handleBudgetExcel)
 
 	r.Get("/finance/reports/trial-balance/pdf", h.handleNotImplemented)
 	r.Get("/finance/reports/pl/pdf", h.handleNotImplemented)
 	r.Get("/finance/reports/bs/pdf", h.handleNotImplemented)
+}
+
+func (h *Handler) companyID(r *http.Request) int64 {
+	sess := shared.SessionFromContext(r.Context())
+	if sess == nil {
+		return 0
+	}
+	id, _ := strconv.ParseInt(sess.Get("company_id"), 10, 64)
+	return id
+}
+func (h *Handler) csrfToken(r *http.Request) string {
+	if h.csrf == nil {
+		return ""
+	}
+	token, _ := h.csrf.EnsureToken(r.Context(), shared.SessionFromContext(r.Context()))
+	return token
+}
+func (h *Handler) renderAdmin(w http.ResponseWriter, r *http.Request, name, title string, data map[string]any) {
+	if err := h.templates.Render(w, name, view.TemplateData{Title: title, CSRFToken: h.csrfToken(r), Data: data}); err != nil {
+		h.reportError(w, err)
+	}
+}
+
+func (h *Handler) handleDimensions(w http.ResponseWriter, r *http.Request) {
+	companyID := h.companyID(r)
+	if companyID == 0 {
+		shared.WriteHTTPError(w, http.StatusBadRequest, "Pilih perusahaan aktif terlebih dahulu")
+		return
+	}
+	departments, err := h.db.Query(r.Context(), `SELECT id, code, name, is_active FROM departments WHERE company_id=$1 ORDER BY code`, companyID)
+	if err != nil {
+		h.reportError(w, err)
+		return
+	}
+	defer departments.Close()
+	var deps []map[string]any
+	for departments.Next() {
+		var id int64
+		var code, name string
+		var active bool
+		if departments.Scan(&id, &code, &name, &active) == nil {
+			deps = append(deps, map[string]any{"ID": id, "Code": code, "Name": name, "Active": active})
+		}
+	}
+	centers, err := h.db.Query(r.Context(), `SELECT c.id, c.code, c.name, COALESCE(d.name,''), c.is_active FROM cost_centers c LEFT JOIN departments d ON d.id=c.department_id WHERE c.company_id=$1 ORDER BY c.code`, companyID)
+	if err != nil {
+		h.reportError(w, err)
+		return
+	}
+	defer centers.Close()
+	var costs []map[string]any
+	for centers.Next() {
+		var id int64
+		var code, name, department string
+		var active bool
+		if centers.Scan(&id, &code, &name, &department, &active) == nil {
+			costs = append(costs, map[string]any{"ID": id, "Code": code, "Name": name, "Department": department, "Active": active})
+		}
+	}
+	h.renderAdmin(w, r, "pages/finance/dimensions.html", "Reporting dimensions", map[string]any{"Departments": deps, "CostCenters": costs})
+}
+
+func (h *Handler) createDepartment(w http.ResponseWriter, r *http.Request) {
+	h.createDimension(w, r, "departments")
+}
+func (h *Handler) createDimension(w http.ResponseWriter, r *http.Request, table string) {
+	companyID := h.companyID(r)
+	code := strings.TrimSpace(r.PostFormValue("code"))
+	name := strings.TrimSpace(r.PostFormValue("name"))
+	if companyID == 0 || code == "" || name == "" {
+		shared.WriteHTTPError(w, http.StatusBadRequest, "Company, code, dan nama wajib diisi")
+		return
+	}
+	_, err := h.db.Exec(r.Context(), "INSERT INTO "+table+" (company_id, code, name) VALUES ($1,$2,$3)", companyID, code, name)
+	if err != nil {
+		h.reportError(w, err)
+		return
+	}
+	h.auditRecord(r, "create", table, code)
+	http.Redirect(w, r, "/accounting/dimensions", http.StatusSeeOther)
+}
+func (h *Handler) createCostCenter(w http.ResponseWriter, r *http.Request) {
+	companyID := h.companyID(r)
+	code := strings.TrimSpace(r.PostFormValue("code"))
+	name := strings.TrimSpace(r.PostFormValue("name"))
+	departmentID, _ := strconv.ParseInt(r.PostFormValue("department_id"), 10, 64)
+	if companyID == 0 || code == "" || name == "" {
+		shared.WriteHTTPError(w, http.StatusBadRequest, "Company, code, dan nama wajib diisi")
+		return
+	}
+	_, err := h.db.Exec(r.Context(), `INSERT INTO cost_centers (company_id, department_id, code, name) VALUES ($1,NULLIF($2,0),$3,$4)`, companyID, departmentID, code, name)
+	if err != nil {
+		h.reportError(w, err)
+		return
+	}
+	h.auditRecord(r, "create", "cost_centers", code)
+	http.Redirect(w, r, "/accounting/dimensions", http.StatusSeeOther)
+}
+
+func (h *Handler) handleReportSchedules(w http.ResponseWriter, r *http.Request) {
+	companyID := h.companyID(r)
+	if companyID == 0 {
+		shared.WriteHTTPError(w, http.StatusBadRequest, "Pilih perusahaan aktif terlebih dahulu")
+		return
+	}
+	rows, err := h.db.Query(r.Context(), `SELECT id,report_type,recipients,frequency,is_active,last_sent_at FROM report_schedules WHERE company_id=$1 ORDER BY created_at DESC`, companyID)
+	if err != nil {
+		h.reportError(w, err)
+		return
+	}
+	defer rows.Close()
+	var schedules []map[string]any
+	for rows.Next() {
+		var id int64
+		var typ, frequency string
+		var recipients []string
+		var active bool
+		var lastSent *time.Time
+		if rows.Scan(&id, &typ, &recipients, &frequency, &active, &lastSent) == nil {
+			schedules = append(schedules, map[string]any{"ID": id, "Type": typ, "Recipients": strings.Join(recipients, ", "), "Frequency": frequency, "Active": active, "LastSent": lastSent})
+		}
+	}
+	h.renderAdmin(w, r, "pages/finance/report_schedules.html", "Report schedules", map[string]any{"Schedules": schedules})
+}
+func (h *Handler) createReportSchedule(w http.ResponseWriter, r *http.Request) {
+	companyID := h.companyID(r)
+	typ := r.PostFormValue("report_type")
+	frequency := r.PostFormValue("frequency")
+	recipients := []string{}
+	for _, value := range strings.Split(r.PostFormValue("recipients"), ",") {
+		if email := strings.TrimSpace(value); email != "" {
+			recipients = append(recipients, email)
+		}
+	}
+	if companyID == 0 || len(recipients) == 0 || (typ != "PNL" && typ != "BUDGET_VS_ACTUAL") || (frequency != "DAILY" && frequency != "WEEKLY" && frequency != "MONTHLY") {
+		shared.WriteHTTPError(w, http.StatusBadRequest, "Konfigurasi schedule tidak valid")
+		return
+	}
+	_, err := h.db.Exec(r.Context(), `INSERT INTO report_schedules (company_id,report_type,recipients,frequency) VALUES ($1,$2,$3,$4)`, companyID, typ, recipients, frequency)
+	if err != nil {
+		h.reportError(w, err)
+		return
+	}
+	h.auditRecord(r, "create", "report_schedule", typ)
+	http.Redirect(w, r, "/accounting/report-schedules", http.StatusSeeOther)
+}
+func (h *Handler) toggleReportSchedule(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	companyID := h.companyID(r)
+	_, err := h.db.Exec(r.Context(), `UPDATE report_schedules SET is_active=NOT is_active,updated_at=NOW() WHERE id=$1 AND company_id=$2`, id, companyID)
+	if err != nil {
+		h.reportError(w, err)
+		return
+	}
+	h.auditRecord(r, "toggle", "report_schedule", strconv.FormatInt(id, 10))
+	http.Redirect(w, r, "/accounting/report-schedules", http.StatusSeeOther)
+}
+func (h *Handler) auditRecord(r *http.Request, action, entity, entityID string) {
+	if h.audit == nil {
+		return
+	}
+	sess := shared.SessionFromContext(r.Context())
+	actorID := int64(0)
+	if sess != nil {
+		actorID, _ = strconv.ParseInt(sess.User(), 10, 64)
+	}
+	_ = h.audit.Record(r.Context(), shared.AuditLog{ActorID: actorID, Action: "reporting." + action, Entity: entity, EntityID: entityID, Meta: map[string]any{"company_id": h.companyID(r)}})
 }
 
 func (h *Handler) handleGeneralLedger(w http.ResponseWriter, r *http.Request) {

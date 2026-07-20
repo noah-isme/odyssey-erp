@@ -165,7 +165,7 @@ func main() {
 	mappingRepo := mappings.NewRepository(dbpool)
 
 	journalService := journals.NewService(journalRepo, auditLogger, closeService)
-	accountingHandler := accounting.NewHandler(logger, dbpool, templates, auditLogger, closeService)
+	accountingHandler := accounting.NewHandler(logger, dbpool, templates, csrfManager, auditLogger, closeService)
 	integrationHooks := integration.NewHooks(journalService, periodRepo, mappingRepo)
 
 	bankingRepo := banking.NewRepository(dbpool)
