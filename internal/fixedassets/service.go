@@ -40,12 +40,9 @@ func (s *Service) RunMonthlyDepreciation(ctx context.Context, month time.Time) (
 		if err := rows.Scan(&id, &name, &cost, &residual, &life, &accumulated, &expense, &accum, &periodID); err != nil {
 			return count, err
 		}
-		amount := (cost - residual) / life
-		if amount <= 0 || accumulated >= cost-residual {
+		amount := monthlyDepreciation(cost, residual, life, accumulated)
+		if amount <= 0 {
 			continue
-		}
-		if amount > cost-residual-accumulated {
-			amount = cost - residual - accumulated
 		}
 		source := uuid.NewSHA1(uuid.Nil, []byte(fmt.Sprintf("asset-depreciation:%d:%s", id, month.Format("2006-01"))))
 		_, err = s.journals.PostJournal(ctx, journals.PostingInput{PeriodID: periodID, Date: month, SourceModule: "FIXED_ASSET_DEPRECIATION", SourceID: source, Memo: "Depreciation: " + name, Lines: []journals.PostingLineInput{{AccountID: expense, Debit: amount}, {AccountID: accum, Credit: amount}}})
@@ -61,8 +58,23 @@ func (s *Service) RunMonthlyDepreciation(ctx context.Context, month time.Time) (
 	return count, rows.Err()
 }
 
+func monthlyDepreciation(cost, residual, usefulLifeMonths, accumulated float64) float64 {
+	if cost <= 0 || usefulLifeMonths <= 0 || residual < 0 || residual >= cost || accumulated >= cost-residual {
+		return 0
+	}
+	amount := (cost - residual) / usefulLifeMonths
+	remaining := cost - residual - accumulated
+	if amount > remaining {
+		return remaining
+	}
+	return amount
+}
+
 // Dispose posts the derecognition journal and marks an asset disposed.
 func (s *Service) Dispose(ctx context.Context, assetID int64, date time.Time, proceeds float64) error {
+	if assetID <= 0 || proceeds < 0 || date.IsZero() {
+		return fmt.Errorf("fixed assets: invalid disposal input")
+	}
 	var periodID, assetAccount, accumAccount, cashAccount, gainAccount, lossAccount int64
 	var name string
 	var cost, accumulated float64
