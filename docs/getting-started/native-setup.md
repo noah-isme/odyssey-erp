@@ -5,7 +5,7 @@ Ada 3 cara untuk setup database:
 ## Option 1: Otomatis (Recommended - Butuh sudo password)
 
 ```bash
-./setup-db.sh
+make migrate-up && make seed
 ```
 
 Jika gagal, lanjut ke Option 2.
@@ -220,7 +220,7 @@ PGPASSWORD=odyssey psql -h localhost -U odyssey -d odyssey -c "\dt"
 
 Setelah database setup:
 
-1. Start aplikasi: `./run-background.sh`
+1. Start aplikasi: `docker compose up -d`
 2. Buka browser: http://localhost:8080
 3. Login dengan `admin@odyssey.local` / `admin123`
 

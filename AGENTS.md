@@ -16,7 +16,7 @@ Odyssey is a Go modular monolith. Key paths:
 - `make test` – run Go tests; `make build` – compile binaries.
 - `make migrate-up`/`make migrate-down` – apply/rollback migrations.
 - `make seed` – load default data; `make sqlc-gen` – regenerate SQL bindings.
-- `./tools/scripts/run.sh` – run services without Docker (foreground).
+- `docker compose up -d` – start app + dependencies.
 
 ## Coding Style & Naming Conventions
 - Follow Go conventions: `gofmt` formatting, `go vet`, `golangci-lint`.
