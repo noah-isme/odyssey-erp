@@ -34,7 +34,7 @@ make seed
 ### 2. Start Application
 
 ```bash
-./run-background.sh
+docker compose up -d
 ```
 
 Server akan berjalan di background pada port 8080.
@@ -52,11 +52,10 @@ Login dengan:
 ## 📋 Available Commands
 
 ```bash
-./run.sh                # Run in foreground (interactive)
-./run-background.sh     # Run in background (daemon)
-./stop.sh               # Stop application
-./status.sh             # Check status
-./setup-db.sh           # Setup database
+docker compose up -d     # Run in background (daemon)
+docker compose down               # Stop application
+docker compose ps             # Check status
+make migrate-up && make seed           # Setup database
 ```
 
 ---
@@ -82,7 +81,7 @@ Pastikan sudah terinstall:
 
 ```bash
 # Check all services
-./status.sh
+docker compose ps
 
 # View logs
 tail -f /tmp/odyssey-erp.log
@@ -98,14 +97,14 @@ curl http://localhost:8080/
 ### Database connection error
 
 ```bash
-./setup-db.sh
+make migrate-up && make seed
 ```
 
 ### Port 8080 in use
 
 ```bash
-./stop.sh
-./run-background.sh
+docker compose down
+docker compose up -d
 ```
 
 ### Cannot login
@@ -119,8 +118,8 @@ make seed
 
 ## 📚 Next Steps
 
-1. ✅ Setup database: `./setup-db.sh`
-2. ✅ Start app: `./run-background.sh`  
+1. ✅ Setup database: `make migrate-up && make seed`
+2. ✅ Start app: `docker compose up -d`  
 3. ✅ Login: http://localhost:8080
 4. 📖 Read full documentation
 5. 🧪 Explore features

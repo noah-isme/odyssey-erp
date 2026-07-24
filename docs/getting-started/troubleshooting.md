@@ -136,7 +136,7 @@ make migrate-up
 make seed
 
 # Start aplikasi
-./run-background.sh
+docker compose up -d
 ```
 
 ---

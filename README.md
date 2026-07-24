@@ -51,13 +51,9 @@ All documentation is in [`docs/`](docs/README.md):
 ```bash
 # Hot reload (recommended)
 ~/go/bin/air
-
-# Or run scripts
-./tools/scripts/run.sh            # Foreground
-./tools/scripts/run-background.sh # Background
-./tools/scripts/status.sh         # Check status
-./tools/scripts/stop.sh           # Stop
 ```
+
+See [`QUICK_REFERENCE.md`](QUICK_REFERENCE.md) for the full command cheatsheet.
 
 ## 🐳 Docker Services
 

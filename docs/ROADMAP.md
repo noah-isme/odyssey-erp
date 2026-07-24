@@ -247,7 +247,7 @@ These can be implemented in 1-2 days each:
 - [x] ✅ Add CI/CD pipeline — `.github/workflows/ci.yml` (build + Postgres/Redis services)
 - [ ] Add staging environment
 - [ ] Implement blue-green deployment
-- [ ] Add automated database backups — no `pg_dump`/backup script in `tools/`
+- [ ] Add automated database backups via Docker volume snapshots
 
 ---
 
@@ -259,7 +259,7 @@ These can be implemented in 1-2 days each:
    - Extend the new Users/Roles/RBAC unit coverage with handler and database integration scenarios.
 
 2. **Short-term (1 month)**
-   - Automated DB backup script (`pg_dump`) in `tools/`
+   - Automated DB backup via Docker volume snapshots (`pg_dump`)
    - Finish Phase 12: decide on LIFO costing / `cost_method`; stock reorder automation
    - Bank auto-feed (CSV/OFX import) to close out Phase 11
 
