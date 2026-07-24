@@ -88,15 +88,14 @@ func (s *Service) PostInbound(ctx context.Context, input InboundInput) (StockCar
 		input.Code = code
 	}
 	key := fmt.Sprintf("%s:%s:%d:%d", TransactionTypeIn, code, input.WarehouseID, input.ProductID)
-	insertedKey := false
-	if s.idempotency != nil {
-		if err := s.idempotency.CheckAndInsert(ctx, key, "inventory"); err != nil {
-			return StockCardEntry{}, err
-		}
-		insertedKey = true
-	}
 	var entry StockCardEntry
 	err := s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
+		// Idempotency key inside transaction — rolled back on failure
+		if s.idempotency != nil {
+			if err := tx.InsertIdempotencyKey(ctx, key, "inventory"); err != nil {
+				return err
+			}
+		}
 		trace, err := tx.GetProductTraceability(ctx, input.ProductID)
 		if err != nil {
 			return err
@@ -105,7 +104,8 @@ func (s *Service) PostInbound(ctx context.Context, input InboundInput) (StockCar
 			return errors.New("inventory: lot number is required for this product")
 		}
 		if trace.TrackSerial {
-			if len(input.SerialNumbers) == 0 || float64(len(input.SerialNumbers)) != input.Qty {
+			expectedQty := math.Round(input.Qty)
+			if len(input.SerialNumbers) == 0 || float64(len(input.SerialNumbers)) != expectedQty {
 				return errors.New("inventory: one serial number is required for each received unit")
 			}
 		}
@@ -146,9 +146,6 @@ func (s *Service) PostInbound(ctx context.Context, input InboundInput) (StockCar
 		return err
 	})
 	if err != nil {
-		if insertedKey {
-			_ = s.idempotency.Delete(ctx, key)
-		}
 		return StockCardEntry{}, err
 	}
 	if s.audit != nil {
@@ -514,7 +511,7 @@ func (s *Service) AddStockTakeLine(ctx context.Context, input AddStockTakeLineIn
 // PostStockTake finalizes session and posts adjustments.
 func (s *Service) PostStockTake(ctx context.Context, id int64, postedBy int64) error {
 	return s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
-		st, err := s.repo.GetStockTake(ctx, id) // Use repo instead of tx to simplify
+		st, err := tx.GetStockTake(ctx, id)
 		if err != nil {
 			return err
 		}
@@ -544,7 +541,7 @@ func (s *Service) PostStockTake(ctx context.Context, id int64, postedBy int64) e
 		}
 
 		// 2. Update status
-		return s.repo.UpdateStockTakeStatus(ctx, sqlc.UpdateStockTakeStatusParams{
+		return tx.UpdateStockTakeStatus(ctx, sqlc.UpdateStockTakeStatusParams{
 			ID:       id,
 			Status:   string(StockTakeStatusPosted),
 			PostedBy: pgtype.Int8{Int64: postedBy, Valid: true},
@@ -595,11 +592,16 @@ func (s *Service) CreateReorderRequests(ctx context.Context, actorID int64) (int
 		request.Lines = append(request.Lines, ReorderRequestLine{ProductID: alert.ProductID, Qty: qty, Note: fmt.Sprintf("Replenish %s for %s", alert.SKU, alert.WarehouseName)})
 	}
 	created := 0
-	for _, request := range grouped {
-		if err := s.reorderCreator(ctx, *request); err != nil {
-			return created, err
+	if err := s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
+		for _, request := range grouped {
+			if err := s.reorderCreator(ctx, *request); err != nil {
+				return fmt.Errorf("failed to create reorder request for supplier %d: %w", request.SupplierID, err)
+			}
+			created++
 		}
-		created++
+		return nil
+	}); err != nil {
+		return 0, err
 	}
 	return created, nil
 }
@@ -674,7 +676,7 @@ func (s *Service) PostAdjustmentDocument(ctx context.Context, id int64, userID i
 			return errors.New("only draft adjustments can be posted")
 		}
 
-		lines, err := s.repo.GetAdjustmentLines(ctx, id) // Use repo for simplicity if lines not in TxRepository
+		lines, err := tx.GetAdjustmentLines(ctx, id)
 		if err != nil {
 			return err
 		}

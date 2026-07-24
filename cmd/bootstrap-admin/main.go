@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -13,9 +14,13 @@ import (
 
 	"github.com/odyssey-erp/odyssey-erp/internal/platform/db"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 func main() {
+	force := flag.Bool("force", false, "force password reset for existing administrator")
+	flag.Parse()
+
 	dsn := strings.TrimSpace(os.Getenv("PG_DSN"))
 	email := strings.TrimSpace(os.Getenv("BOOTSTRAP_ADMIN_EMAIL"))
 	password := os.Getenv("BOOTSTRAP_ADMIN_PASSWORD")
@@ -36,7 +41,8 @@ func main() {
 	}
 
 	if err := db.WithTx(ctx, pool, func(tx pgx.Tx) error {
-		return bootstrapAdmin(ctx, tx, email, string(hash))
+		q := sqlc.New(tx)
+		return bootstrapAdmin(ctx, q, email, string(hash), *force)
 	}); err != nil {
 		log.Fatalf("bootstrap admin: %v", err)
 	}
@@ -56,48 +62,71 @@ func validateBootstrapInput(dsn, email, password string) error {
 	return nil
 }
 
-func bootstrapAdmin(ctx context.Context, tx pgx.Tx, email, passwordHash string) error {
+func bootstrapAdmin(ctx context.Context, q *sqlc.Queries, email, passwordHash string, force bool) error {
+	// 1. Ensure the user exists (upsert password only if force is set)
 	var userID int64
-	if err := tx.QueryRow(ctx, `
-		INSERT INTO users (email, password_hash, is_active, created_at, updated_at)
-		VALUES ($1, $2, TRUE, NOW(), NOW())
-		ON CONFLICT (email) DO UPDATE
-		SET password_hash = EXCLUDED.password_hash, is_active = TRUE, updated_at = NOW()
-		RETURNING id`, email, passwordHash).Scan(&userID); err != nil {
-		return fmt.Errorf("upsert administrator: %w", err)
+	var err error
+	if force {
+		userID, err = q.UpsertAdminUser(ctx, sqlc.UpsertAdminUserParams{
+			Email:        email,
+			PasswordHash: passwordHash,
+		})
+		if err != nil {
+			return fmt.Errorf("upsert administrator: %w", err)
+		}
+		log.Println("force: administrator password was reset")
+	} else {
+		_, err = q.CreateAdminUser(ctx, sqlc.CreateAdminUserParams{
+			Email:        email,
+			PasswordHash: passwordHash,
+		})
+		if err != nil {
+			log.Printf("administrator %s already exists; password unchanged (re-run with --force to reset)", email)
+		}
+		// Re-read existing user to get the ID for role/permission assignment
+		user, err := q.AuthGetUserByEmail(ctx, email)
+		if err != nil {
+			return fmt.Errorf("read existing administrator: %w", err)
+		}
+		userID = user.ID
 	}
 
-	var roleID int64
-	if err := tx.QueryRow(ctx, `
-		INSERT INTO roles (name, description)
-		VALUES ('admin', 'Production administrator')
-		ON CONFLICT (name) DO UPDATE SET description = EXCLUDED.description
-		RETURNING id`).Scan(&roleID); err != nil {
+	// 2. Upsert admin role
+	role, err := q.UpsertRole(ctx, sqlc.UpsertRoleParams{
+		Name:        "admin",
+		Description: "Production administrator",
+	})
+	if err != nil {
 		return fmt.Errorf("upsert admin role: %w", err)
 	}
 
+	// 3. Upsert permissions and attach to role
 	for _, name := range adminPermissions() {
-		var permissionID int64
-		if err := tx.QueryRow(ctx, `
-			INSERT INTO permissions (name, description)
-			VALUES ($1, $2)
-			ON CONFLICT (name) DO UPDATE SET description = permissions.description
-			RETURNING id`, name, "Odyssey application permission").Scan(&permissionID); err != nil {
+		perm, err := q.CreatePermission(ctx, sqlc.CreatePermissionParams{
+			Name:        name,
+			Description: "Odyssey application permission",
+		})
+		if err != nil {
 			return fmt.Errorf("upsert permission %s: %w", name, err)
 		}
-		if _, err := tx.Exec(ctx, `
-			INSERT INTO role_permissions (role_id, permission_id)
-			VALUES ($1, $2)
-			ON CONFLICT DO NOTHING`, roleID, permissionID); err != nil {
+		if err := q.AttachPermissionToRole(ctx, sqlc.AttachPermissionToRoleParams{
+			RoleID:       role.ID,
+			PermissionID: perm.ID,
+		}); err != nil {
 			return fmt.Errorf("assign permission %s: %w", name, err)
 		}
 	}
 
-	if _, err := tx.Exec(ctx, `
-		INSERT INTO user_roles (user_id, role_id)
-		VALUES ($1, $2)
-		ON CONFLICT DO NOTHING`, userID, roleID); err != nil {
+	// 4. Assign role to user
+	if err := q.AssignRoleToUser(ctx, sqlc.AssignRoleToUserParams{
+		UserID: userID,
+		RoleID: role.ID,
+	}); err != nil {
 		return fmt.Errorf("assign admin role: %w", err)
+	}
+
+	if !force {
+		log.Println("administrator role assigned; password not changed")
 	}
 	return nil
 }

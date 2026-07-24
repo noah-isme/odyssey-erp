@@ -35,15 +35,21 @@ type TxRepository interface {
 	InsertCardEntry(ctx context.Context, card StockCardEntry, warehouseID, productID int64, txID int64) error
 	InsertStockTake(ctx context.Context, arg sqlc.InsertStockTakeParams) (int64, error)
 	InsertStockTakeLine(ctx context.Context, arg sqlc.InsertStockTakeLineParams) error
+	GetStockTake(ctx context.Context, id int64) (StockTake, error)
+	UpdateStockTakeStatus(ctx context.Context, arg sqlc.UpdateStockTakeStatusParams) error
 
 	// Stock Adjustments
 	InsertAdjustment(ctx context.Context, arg sqlc.InsertAdjustmentParams) (int64, error)
 	GetAdjustment(ctx context.Context, id int64) (StockAdjustment, error)
 	InsertAdjustmentLine(ctx context.Context, arg sqlc.InsertAdjustmentLineParams) error
+	GetAdjustmentLines(ctx context.Context, adjustmentID int64) ([]StockAdjustmentLine, error)
 	UpdateAdjustmentStatus(ctx context.Context, arg sqlc.UpdateAdjustmentStatusParams) error
 	GetProductTraceability(ctx context.Context, productID int64) (ProductTraceability, error)
 	UpsertLot(ctx context.Context, lot InventoryLot) (InventoryLot, error)
 	CreateSerial(ctx context.Context, productID, warehouseID, lotID int64, serialNumber string) error
+
+	// Idempotency
+	InsertIdempotencyKey(ctx context.Context, key, module string) error
 }
 
 type txRepo struct {
@@ -338,6 +344,49 @@ func (r *txRepo) InsertStockTakeLine(ctx context.Context, arg sqlc.InsertStockTa
 	return r.queries.InsertStockTakeLine(ctx, arg)
 }
 
+func (r *txRepo) GetStockTake(ctx context.Context, id int64) (StockTake, error) {
+	row, err := r.queries.GetStockTake(ctx, id)
+	if err != nil {
+		return StockTake{}, err
+	}
+	st := StockTake{
+		ID:            row.ID,
+		UUID:          uuid.UUID(row.Uuid.Bytes).String(),
+		Number:        row.Number,
+		WarehouseID:   int64(row.WarehouseID),
+		Status:        StockTakeStatus(row.Status),
+		Note:          row.Note,
+		TakenAt:       row.TakenAt.Time,
+		CreatedBy:     row.CreatedBy,
+		PostedBy:      row.PostedBy.Int64,
+		PostedAt:      row.PostedAt.Time,
+		CreatedAt:     row.CreatedAt.Time,
+		CreatorEmail:  row.CreatorEmail,
+		WarehouseName: row.WarehouseName,
+	}
+	lines, err := r.queries.GetStockTakeLines(ctx, id)
+	if err != nil {
+		return st, err
+	}
+	for _, l := range lines {
+		st.Lines = append(st.Lines, StockTakeLine{
+			ID:          l.ID,
+			StockTakeID: l.StockTakeID,
+			ProductID:   int64(l.ProductID),
+			ProductName: l.ProductName,
+			SystemQty:   numericToFloat(l.SystemQty),
+			PhysicalQty: numericToFloat(l.PhysicalQty),
+			VarianceQty: numericToFloat(l.VarianceQty),
+			Note:        l.Note,
+		})
+	}
+	return st, nil
+}
+
+func (r *txRepo) UpdateStockTakeStatus(ctx context.Context, arg sqlc.UpdateStockTakeStatusParams) error {
+	return r.queries.UpdateStockTakeStatus(ctx, arg)
+}
+
 // --- Stock Adjustments (Transactional) ---
 
 func (r *txRepo) InsertAdjustment(ctx context.Context, arg sqlc.InsertAdjustmentParams) (int64, error) {
@@ -356,8 +405,31 @@ func (r *txRepo) InsertAdjustmentLine(ctx context.Context, arg sqlc.InsertAdjust
 	return r.queries.InsertAdjustmentLine(ctx, arg)
 }
 
+func (r *txRepo) GetAdjustmentLines(ctx context.Context, adjustmentID int64) ([]StockAdjustmentLine, error) {
+	rows, err := r.queries.GetAdjustmentLines(ctx, adjustmentID)
+	if err != nil {
+		return nil, err
+	}
+	var lines []StockAdjustmentLine
+	for _, row := range rows {
+		lines = append(lines, StockAdjustmentLine{
+			ID:        row.ID,
+			AdjustmentID: row.AdjustmentID,
+			ProductID: int64(row.ProductID),
+			Qty:       numericToFloat(row.Qty),
+			Note:      row.Note,
+		})
+	}
+	return lines, nil
+}
+
 func (r *txRepo) UpdateAdjustmentStatus(ctx context.Context, arg sqlc.UpdateAdjustmentStatusParams) error {
 	return r.queries.UpdateAdjustmentStatus(ctx, arg)
+}
+
+func (r *txRepo) InsertIdempotencyKey(ctx context.Context, key, module string) error {
+	_, err := r.tx.Exec(ctx, `INSERT INTO idempotency_keys (key, module, created_at) VALUES ($1, $2, NOW())`, key, module)
+	return err
 }
 
 // --- Stock Adjustments (Main) ---

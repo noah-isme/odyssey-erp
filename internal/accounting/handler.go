@@ -12,10 +12,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/accounts"
+	"github.com/odyssey-erp/odyssey-erp/internal/accounting/assets"
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/banks"
+	"github.com/odyssey-erp/odyssey-erp/internal/accounting/dimensions"
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/journals"
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/reports"
-	"github.com/odyssey-erp/odyssey-erp/internal/fixedassets"
+	"github.com/odyssey-erp/odyssey-erp/internal/accounting/schedules"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
@@ -33,7 +35,9 @@ type Handler struct {
 	db             *pgxpool.Pool
 	audit          journals.AuditPort
 	csrf           *shared.CSRFManager
-	assets         *fixedassets.Service
+	assets         *assets.Service
+	dimensions     *dimensions.Service
+	schedules      *schedules.Service
 }
 
 // NewHandler builds a Handler instance.
@@ -46,6 +50,12 @@ func NewHandler(logger *slog.Logger, db *pgxpool.Pool, templates *view.Engine, c
 	accountService := accounts.NewService(accountRepo)
 	journalService := journals.NewService(journalRepo, audit, guard)
 	bankService := banks.NewService(db)
+	assetRepo := assets.NewRepository(db)
+	assetService := assets.NewService(assetRepo)
+	dimRepo := dimensions.NewRepository(db)
+	dimService := dimensions.NewService(dimRepo)
+	schedRepo := schedules.NewRepository(db)
+	schedService := schedules.NewService(schedRepo)
 
 	// Handlers
 	accountHandler := accounts.NewHandler(logger, accountService, templates)
@@ -63,7 +73,9 @@ func NewHandler(logger *slog.Logger, db *pgxpool.Pool, templates *view.Engine, c
 		db:             db,
 		audit:          audit,
 		csrf:           csrf,
-		assets:         fixedassets.NewService(db, journalService),
+		assets:         assetService,
+		dimensions:     dimService,
+		schedules:      schedService,
 	}
 }
 
@@ -132,43 +144,20 @@ func (h *Handler) handleDimensions(w http.ResponseWriter, r *http.Request) {
 		shared.WriteHTTPError(w, http.StatusBadRequest, "Pilih perusahaan aktif terlebih dahulu")
 		return
 	}
-	departments, err := h.db.Query(r.Context(), `SELECT id, code, name, is_active FROM departments WHERE company_id=$1 ORDER BY code`, companyID)
+	deps, err := h.dimensions.ListDepartments(r.Context(), companyID)
 	if err != nil {
 		h.reportError(w, err)
 		return
 	}
-	defer departments.Close()
-	var deps []map[string]any
-	for departments.Next() {
-		var id int64
-		var code, name string
-		var active bool
-		if departments.Scan(&id, &code, &name, &active) == nil {
-			deps = append(deps, map[string]any{"ID": id, "Code": code, "Name": name, "Active": active})
-		}
-	}
-	centers, err := h.db.Query(r.Context(), `SELECT c.id, c.code, c.name, COALESCE(d.name,''), c.is_active FROM cost_centers c LEFT JOIN departments d ON d.id=c.department_id WHERE c.company_id=$1 ORDER BY c.code`, companyID)
+	centers, err := h.dimensions.ListCostCenters(r.Context(), companyID)
 	if err != nil {
 		h.reportError(w, err)
 		return
 	}
-	defer centers.Close()
-	var costs []map[string]any
-	for centers.Next() {
-		var id int64
-		var code, name, department string
-		var active bool
-		if centers.Scan(&id, &code, &name, &department, &active) == nil {
-			costs = append(costs, map[string]any{"ID": id, "Code": code, "Name": name, "Department": department, "Active": active})
-		}
-	}
-	h.renderAdmin(w, r, "pages/finance/dimensions.html", "Reporting dimensions", map[string]any{"Departments": deps, "CostCenters": costs})
+	h.renderAdmin(w, r, "pages/finance/dimensions.html", "Reporting dimensions", map[string]any{"Departments": deps, "CostCenters": centers})
 }
 
 func (h *Handler) createDepartment(w http.ResponseWriter, r *http.Request) {
-	h.createDimension(w, r, "departments")
-}
-func (h *Handler) createDimension(w http.ResponseWriter, r *http.Request, table string) {
 	companyID := h.companyID(r)
 	code := strings.TrimSpace(r.PostFormValue("code"))
 	name := strings.TrimSpace(r.PostFormValue("name"))
@@ -176,14 +165,14 @@ func (h *Handler) createDimension(w http.ResponseWriter, r *http.Request, table 
 		shared.WriteHTTPError(w, http.StatusBadRequest, "Company, code, dan nama wajib diisi")
 		return
 	}
-	_, err := h.db.Exec(r.Context(), "INSERT INTO "+table+" (company_id, code, name) VALUES ($1,$2,$3)", companyID, code, name)
-	if err != nil {
+	if err := h.dimensions.CreateDepartment(r.Context(), companyID, code, name); err != nil {
 		h.reportError(w, err)
 		return
 	}
-	h.auditRecord(r, "create", table, code)
+	h.auditRecord(r, "create", "departments", code)
 	http.Redirect(w, r, "/accounting/dimensions", http.StatusSeeOther)
 }
+
 func (h *Handler) createCostCenter(w http.ResponseWriter, r *http.Request) {
 	companyID := h.companyID(r)
 	code := strings.TrimSpace(r.PostFormValue("code"))
@@ -193,8 +182,7 @@ func (h *Handler) createCostCenter(w http.ResponseWriter, r *http.Request) {
 		shared.WriteHTTPError(w, http.StatusBadRequest, "Company, code, dan nama wajib diisi")
 		return
 	}
-	_, err := h.db.Exec(r.Context(), `INSERT INTO cost_centers (company_id, department_id, code, name) VALUES ($1,NULLIF($2,0),$3,$4)`, companyID, departmentID, code, name)
-	if err != nil {
+	if err := h.dimensions.CreateCostCenter(r.Context(), companyID, code, name, departmentID); err != nil {
 		h.reportError(w, err)
 		return
 	}
@@ -208,26 +196,16 @@ func (h *Handler) handleReportSchedules(w http.ResponseWriter, r *http.Request) 
 		shared.WriteHTTPError(w, http.StatusBadRequest, "Pilih perusahaan aktif terlebih dahulu")
 		return
 	}
-	rows, err := h.db.Query(r.Context(), `SELECT id,report_type,recipients,frequency,is_active,last_sent_at,period_offset_months FROM report_schedules WHERE company_id=$1 ORDER BY created_at DESC`, companyID)
+	scheds, err := h.schedules.List(r.Context(), companyID)
 	if err != nil {
 		h.reportError(w, err)
 		return
 	}
-	defer rows.Close()
-	var schedules []map[string]any
-	for rows.Next() {
-		var id int64
-		var typ, frequency string
-		var recipients []string
-		var active bool
-		var lastSent *time.Time
-		var offset int
-		if rows.Scan(&id, &typ, &recipients, &frequency, &active, &lastSent, &offset) == nil {
-			schedules = append(schedules, map[string]any{"ID": id, "Type": typ, "Recipients": strings.Join(recipients, ", "), "Frequency": frequency, "Active": active, "LastSent": lastSent, "Offset": offset})
-		}
-	}
-	h.renderAdmin(w, r, "pages/finance/report_schedules.html", "Report schedules", map[string]any{"Schedules": schedules, "Departments": h.listDimensions(r, "departments"), "CostCenters": h.listDimensions(r, "cost_centers")})
+	deps, _ := h.dimensions.ListDepartments(r.Context(), companyID)
+	centers, _ := h.dimensions.ListCostCenters(r.Context(), companyID)
+	h.renderAdmin(w, r, "pages/finance/report_schedules.html", "Report schedules", map[string]any{"Schedules": scheds, "Departments": deps, "CostCenters": centers})
 }
+
 func (h *Handler) createReportSchedule(w http.ResponseWriter, r *http.Request) {
 	companyID := h.companyID(r)
 	typ := r.PostFormValue("report_type")
@@ -241,23 +219,18 @@ func (h *Handler) createReportSchedule(w http.ResponseWriter, r *http.Request) {
 			recipients = append(recipients, email)
 		}
 	}
-	if companyID == 0 || len(recipients) == 0 || (typ != "PNL" && typ != "BUDGET_VS_ACTUAL") || (frequency != "DAILY" && frequency != "WEEKLY" && frequency != "MONTHLY") {
-		shared.WriteHTTPError(w, http.StatusBadRequest, "Konfigurasi schedule tidak valid")
-		return
-	}
-	_, err := h.db.Exec(r.Context(), `INSERT INTO report_schedules (company_id,report_type,recipients,frequency,department_id,cost_center_id,period_offset_months) VALUES ($1,$2,$3,$4,NULLIF($5,0),NULLIF($6,0),$7)`, companyID, typ, recipients, frequency, departmentID, costCenterID, offset)
-	if err != nil {
+	if err := h.schedules.Create(r.Context(), companyID, typ, frequency, departmentID, costCenterID, offset, recipients); err != nil {
 		h.reportError(w, err)
 		return
 	}
 	h.auditRecord(r, "create", "report_schedule", typ)
 	http.Redirect(w, r, "/accounting/report-schedules", http.StatusSeeOther)
 }
+
 func (h *Handler) retryReportSchedule(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	companyID := h.companyID(r)
-	_, err := h.db.Exec(r.Context(), `UPDATE report_schedules SET last_sent_at=NULL,updated_at=NOW() WHERE id=$1 AND company_id=$2 AND is_active=true`, id, companyID)
-	if err != nil {
+	if err := h.schedules.Retry(r.Context(), id, companyID); err != nil {
 		h.reportError(w, err)
 		return
 	}
@@ -267,38 +240,20 @@ func (h *Handler) retryReportSchedule(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) handleFixedAssets(w http.ResponseWriter, r *http.Request) {
 	companyID := h.companyID(r)
-	rows, err := h.db.Query(r.Context(), `SELECT a.id,a.number,a.name,c.name,a.acquisition_cost,a.accumulated_depreciation,a.status FROM fixed_assets a JOIN fixed_asset_categories c ON c.id=a.category_id WHERE a.company_id=$1 ORDER BY a.number`, companyID)
+	assets, err := h.assets.ListAssets(r.Context(), companyID)
 	if err != nil {
 		h.reportError(w, err)
 		return
-	}
-	defer rows.Close()
-	assets := []map[string]any{}
-	for rows.Next() {
-		var id int64
-		var number, name, category, status string
-		var cost, accum float64
-		if rows.Scan(&id, &number, &name, &category, &cost, &accum, &status) == nil {
-			assets = append(assets, map[string]any{"ID": id, "Number": number, "Name": name, "Category": category, "Cost": cost, "Accumulated": accum, "Status": status})
-		}
 	}
 	h.renderAdmin(w, r, "pages/finance/fixed_assets.html", "Fixed assets", map[string]any{"Assets": assets})
 }
+
 func (h *Handler) handleFixedAssetCategories(w http.ResponseWriter, r *http.Request) {
 	companyID := h.companyID(r)
-	rows, err := h.db.Query(r.Context(), `SELECT c.id,c.code,c.name,a.name,ad.name,e.name FROM fixed_asset_categories c JOIN accounts a ON a.id=c.asset_account_id JOIN accounts ad ON ad.id=c.accumulated_depreciation_account_id JOIN accounts e ON e.id=c.depreciation_expense_account_id WHERE c.company_id=$1 ORDER BY c.code`, companyID)
+	cats, err := h.assets.ListCategories(r.Context(), companyID)
 	if err != nil {
 		h.reportError(w, err)
 		return
-	}
-	defer rows.Close()
-	categories := []map[string]any{}
-	for rows.Next() {
-		var id int64
-		var code, name, asset, accum, expense string
-		if rows.Scan(&id, &code, &name, &asset, &accum, &expense) == nil {
-			categories = append(categories, map[string]any{"ID": id, "Code": code, "Name": name, "Asset": asset, "Accum": accum, "Expense": expense})
-		}
 	}
 	accounts, _ := h.db.Query(r.Context(), `SELECT id,code,name FROM accounts WHERE is_active=true ORDER BY code`)
 	defer func() {
@@ -306,8 +261,9 @@ func (h *Handler) handleFixedAssetCategories(w http.ResponseWriter, r *http.Requ
 			accounts.Close()
 		}
 	}()
-	h.renderAdmin(w, r, "pages/finance/fixed_asset_categories.html", "Fixed asset categories", map[string]any{"Categories": categories, "Accounts": rowsToDimensionMaps(accounts)})
+	h.renderAdmin(w, r, "pages/finance/fixed_asset_categories.html", "Fixed asset categories", map[string]any{"Categories": cats, "Accounts": rowsToDimensionMaps(accounts)})
 }
+
 func (h *Handler) createFixedAssetCategory(w http.ResponseWriter, r *http.Request) {
 	companyID := h.companyID(r)
 	ids := []int64{}
@@ -321,24 +277,24 @@ func (h *Handler) createFixedAssetCategory(w http.ResponseWriter, r *http.Reques
 		shared.WriteHTTPError(w, 400, "Kategori aset tidak valid")
 		return
 	}
-	_, err := h.db.Exec(r.Context(), `INSERT INTO fixed_asset_categories(company_id,code,name,asset_account_id,accumulated_depreciation_account_id,depreciation_expense_account_id,cash_proceeds_account_id,disposal_gain_account_id,disposal_loss_account_id,useful_life_months,residual_rate) VALUES($1,$2,$3,$4,$5,$6,NULLIF($7,0),NULLIF($8,0),NULLIF($9,0),$10,$11)`, companyID, r.PostFormValue("code"), r.PostFormValue("name"), ids[0], ids[1], ids[2], ids[3], ids[4], ids[5], life, residual)
-	if err != nil {
+	if err := h.assets.CreateCategory(r.Context(), companyID, r.PostFormValue("code"), r.PostFormValue("name"), ids[0], ids[1], ids[2], ids[3], ids[4], ids[5], life, residual); err != nil {
 		h.reportError(w, err)
 		return
 	}
 	h.auditRecord(r, "create", "fixed_asset_category", r.PostFormValue("code"))
 	http.Redirect(w, r, "/accounting/fixed-assets/categories", 303)
 }
+
 func (h *Handler) showFixedAssetForm(w http.ResponseWriter, r *http.Request) {
 	companyID := h.companyID(r)
-	cats, _ := h.db.Query(r.Context(), `SELECT id,code,name FROM fixed_asset_categories WHERE company_id=$1 AND is_active=true ORDER BY code`, companyID)
-	defer func() {
-		if cats != nil {
-			cats.Close()
-		}
-	}()
-	h.renderAdmin(w, r, "pages/finance/fixed_asset_form.html", "New fixed asset", map[string]any{"Categories": rowsToDimensionMaps(cats)})
+	cats, err := h.assets.ListCategories(r.Context(), companyID)
+	if err != nil {
+		h.reportError(w, err)
+		return
+	}
+	h.renderAdmin(w, r, "pages/finance/fixed_asset_form.html", "New fixed asset", map[string]any{"Categories": cats})
 }
+
 func rowsToDimensionMaps(rows interface {
 	Next() bool
 	Scan(...any) error
@@ -353,6 +309,7 @@ func rowsToDimensionMaps(rows interface {
 	}
 	return result
 }
+
 func (h *Handler) createFixedAsset(w http.ResponseWriter, r *http.Request) {
 	companyID := h.companyID(r)
 	categoryID, _ := strconv.ParseInt(r.PostFormValue("category_id"), 10, 64)
@@ -363,14 +320,14 @@ func (h *Handler) createFixedAsset(w http.ResponseWriter, r *http.Request) {
 		shared.WriteHTTPError(w, 400, "Data aset tidak valid")
 		return
 	}
-	_, err = h.db.Exec(r.Context(), `INSERT INTO fixed_assets (company_id,category_id,number,name,acquisition_date,in_service_date,acquisition_cost,useful_life_months) VALUES ($1,$2,$3,$4,$5,$5,$6,$7)`, companyID, categoryID, r.PostFormValue("number"), r.PostFormValue("name"), date, cost, life)
-	if err != nil {
+	if err := h.assets.CreateAsset(r.Context(), companyID, categoryID, r.PostFormValue("number"), r.PostFormValue("name"), date, date, cost, life); err != nil {
 		h.reportError(w, err)
 		return
 	}
 	h.auditRecord(r, "create", "fixed_asset", r.PostFormValue("number"))
 	http.Redirect(w, r, "/accounting/fixed-assets", 303)
 }
+
 func (h *Handler) disposeFixedAsset(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	proceeds, _ := strconv.ParseFloat(r.PostFormValue("proceeds"), 64)
@@ -379,25 +336,25 @@ func (h *Handler) disposeFixedAsset(w http.ResponseWriter, r *http.Request) {
 		shared.WriteHTTPError(w, 400, "Tanggal disposal tidak valid")
 		return
 	}
-	err = h.assets.Dispose(r.Context(), id, date, proceeds)
-	if err != nil {
+	if err := h.assets.DisposeAsset(r.Context(), id, date, proceeds); err != nil {
 		h.reportError(w, err)
 		return
 	}
 	h.auditRecord(r, "dispose", "fixed_asset", strconv.FormatInt(id, 10))
 	http.Redirect(w, r, "/accounting/fixed-assets", 303)
 }
+
 func (h *Handler) toggleReportSchedule(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	companyID := h.companyID(r)
-	_, err := h.db.Exec(r.Context(), `UPDATE report_schedules SET is_active=NOT is_active,updated_at=NOW() WHERE id=$1 AND company_id=$2`, id, companyID)
-	if err != nil {
+	if err := h.schedules.Toggle(r.Context(), id, companyID); err != nil {
 		h.reportError(w, err)
 		return
 	}
 	h.auditRecord(r, "toggle", "report_schedule", strconv.FormatInt(id, 10))
 	http.Redirect(w, r, "/accounting/report-schedules", http.StatusSeeOther)
 }
+
 func (h *Handler) auditRecord(r *http.Request, action, entity, entityID string) {
 	if h.audit == nil {
 		return
@@ -411,7 +368,6 @@ func (h *Handler) auditRecord(r *http.Request, action, entity, entityID string) 
 }
 
 func (h *Handler) handleGeneralLedger(w http.ResponseWriter, r *http.Request) {
-	// Proxy to Account Service for List (MVP behavior)
 	h.accountHandler.List(w, r)
 }
 
@@ -603,13 +559,17 @@ func (h *Handler) reportError(w http.ResponseWriter, err error) {
 }
 
 func budgetPeriod(r *http.Request, now time.Time) (int, time.Month, error) {
-	value := r.URL.Query().Get("period")
-	if value == "" {
+	period := r.URL.Query().Get("period")
+	if period == "" {
 		return now.Year(), now.Month(), nil
 	}
-	parsed, err := time.Parse("2006-01", value)
-	if err != nil {
+	var year int
+	var month int
+	if _, err := fmt.Sscanf(period, "%d-%d", &year, &month); err != nil {
 		return 0, 0, err
 	}
-	return parsed.Year(), parsed.Month(), nil
+	if month < 1 || month > 12 {
+		return 0, 0, fmt.Errorf("invalid month")
+	}
+	return year, time.Month(month), nil
 }
