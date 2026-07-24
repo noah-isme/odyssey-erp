@@ -1,8 +1,17 @@
-# Phase 9: Sales & Delivery RBAC Permissions Setup
+# Odyssey ERP: Role-Based Access Control (RBAC)
 
 ## Overview
 
-This document describes the Role-Based Access Control (RBAC) permissions implementation for the Sales & Delivery modules in Odyssey ERP. The RBAC system provides granular access control for all sales and delivery operations, ensuring proper segregation of duties and security compliance.
+This document describes the Role-Based Access Control (RBAC) system in Odyssey ERP. The system provides granular access control for all modules, ensuring proper segregation of duties and security compliance.
+
+**Permissions are catalogued module-by-module:**
+
+| Module | Catalog |
+|--------|---------|
+| Sales & Delivery | See below (default permissions & roles) |
+| Finance | [Finance operations](../guides/accounting.md) |
+| Procurement | [Procurement SOP](../guides/procurement.md) |
+| Inventory | [Inventory Integration](inventory.md) |
 
 ## Architecture
 

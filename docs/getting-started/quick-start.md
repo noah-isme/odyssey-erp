@@ -36,12 +36,31 @@ Untuk setup tanpa Docker, lihat:
 ```bash
 # Check health endpoint
 curl http://localhost:8080/healthz
+```
 
-# Check all services
-./tools/scripts/status.sh
+### Verify Seed Data
 
-# View logs
-tail -f /tmp/odyssey-erp.log
+Confirm the admin account was created:
+
+```bash
+PGPASSWORD=odyssey psql -h localhost -U odyssey -d odyssey \
+  -c "SELECT email, is_active FROM users WHERE email='admin@odyssey.local';"
+```
+
+Expected output:
+
+```
+ email | is_active
+-------+-----------
+ admin@odyssey.local | t
+```
+
+Then test login:
+
+```bash
+curl -s -X POST http://localhost:8080/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@odyssey.local","password":"admin123"}' | head
 ```
 
 ---
@@ -50,13 +69,13 @@ tail -f /tmp/odyssey-erp.log
 
 **Port 8080 in use:**
 ```bash
-./tools/scripts/stop.sh
+docker compose down
 docker-compose down
 ```
 
 **Database connection error:**
 ```bash
-./tools/db-setup/setup-db.sh
+make migrate-up && make seed
 ```
 
 **Cannot login:**

@@ -36,7 +36,7 @@
   See: RUN_WITHOUT_DOCKER.md
 
 💾 DATABASE SETUP
-  ./setup-db.sh            → Setup database & create test account
+  make migrate-up && make seed  → Setup database & create test account
 
 🔐 TEST ACCOUNT
   Email:    admin@odyssey.local
