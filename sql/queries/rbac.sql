@@ -13,6 +13,12 @@ INSERT INTO roles (name, description)
 VALUES ($1, $2)
 RETURNING id, name, description, created_at, updated_at;
 
+-- name: UpsertRole :one
+INSERT INTO roles (name, description)
+VALUES ($1, $2)
+ON CONFLICT (name) DO UPDATE SET description = EXCLUDED.description
+RETURNING id, name, description, created_at, updated_at;
+
 -- name: UpdateRole :one
 UPDATE roles
 SET name = $2,
