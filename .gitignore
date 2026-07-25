@@ -8,6 +8,7 @@ dump.rdb
 # Binaries
 odyssey
 worker
+bootstrap-admin
 *.exe
 *.dll
 *.so
