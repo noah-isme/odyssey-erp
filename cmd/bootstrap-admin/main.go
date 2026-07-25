@@ -133,12 +133,12 @@ func bootstrapAdmin(ctx context.Context, q *sqlc.Queries, email, passwordHash st
 
 func adminPermissions() []string {
 	permissions := []string{
-		"org.view", "org.edit",
-		"master.view", "master.edit", "master.import",
-		"rbac.view", "rbac.edit", "report.view",
-		"inventory.view", "inventory.edit",
-		"procurement.view", "procurement.edit",
-		"finance.ap.view", "finance.ap.create", "finance.ap.post", "finance.ap.void", "finance.ap.payment",
+		shared.PermOrgView, shared.PermOrgEdit,
+		shared.PermMasterView, shared.PermMasterEdit, shared.PermMasterImport,
+		shared.PermRBACView, shared.PermRBACEdit, shared.PermReportView,
+		shared.PermInventoryView, shared.PermInventoryEdit,
+		shared.PermProcurementView, shared.PermProcurementEdit,
+		shared.PermFinanceAPView, shared.PermFinanceAPCreate, shared.PermFinanceAPPost, shared.PermFinanceAPVoid, shared.PermFinanceAPPayment,
 	}
 	permissions = append(permissions, shared.CoreScopes()...)
 	permissions = append(permissions, shared.FinanceScopes()...)

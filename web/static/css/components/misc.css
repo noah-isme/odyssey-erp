@@ -412,11 +412,11 @@
 /* -----------------------------
    TOOLTIP
 ----------------------------- */
-[data-tooltip] {
+.sidebar-nav [data-tooltip] {
     position: relative;
 }
 
-[data-tooltip]::after {
+.sidebar-nav [data-tooltip]::after {
     content: attr(data-tooltip);
     position: absolute;
     bottom: 100%;
@@ -436,7 +436,7 @@
     pointer-events: none;
 }
 
-[data-tooltip]:hover::after {
+.sidebar-nav [data-tooltip]:hover::after {
     opacity: 1;
     visibility: visible;
 }
