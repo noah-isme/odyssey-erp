@@ -23,7 +23,7 @@ func main() {
 
 	dsn := strings.TrimSpace(os.Getenv("PG_DSN"))
 	email := strings.TrimSpace(os.Getenv("BOOTSTRAP_ADMIN_EMAIL"))
-	password := os.Getenv("BOOTSTRAP_ADMIN_PASSWORD")
+	password := strings.TrimSpace(os.Getenv("BOOTSTRAP_ADMIN_PASSWORD"))
 	if err := validateBootstrapInput(dsn, email, password); err != nil {
 		log.Fatal(err)
 	}
