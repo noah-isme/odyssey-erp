@@ -1,0 +1,52 @@
+{{ define "pages/finance/trial_balance.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Trial Balance · Odyssey ERP{{ end }}
+
+{{ define "content" }}
+<section class="section">
+    <header class="section-header">
+        <h1>Trial Balance</h1>
+        <p class="section-description">Account balances for the selected period</p>
+    </header>
+
+    {{ if .Data.Report }}
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Account Code</th>
+                        <th>Account Name</th>
+                        <th class="text-end">Debit</th>
+                        <th class="text-end">Credit</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ range .Data.Report.Lines }}
+                    <tr>
+                        <td>{{ .AccountCode }}</td>
+                        <td>{{ .AccountName }}</td>
+                        <td class="text-end">{{ formatCurrency "IDR" .Debit }}</td>
+                        <td class="text-end">{{ formatCurrency "IDR" .Credit }}</td>
+                    </tr>
+                    {{ end }}
+                </tbody>
+                <tfoot>
+                    <tr class="fw-bold">
+                        <td colspan="2">Total</td>
+                        <td class="text-end">{{ formatCurrency "IDR" .Data.Report.TotalDebit }}</td>
+                        <td class="text-end">{{ formatCurrency "IDR" .Data.Report.TotalCredit }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+            </div>
+        </div>
+    </div>
+    {{ else }}
+    <div class="alert alert-info">No data available for the selected period.</div>
+    {{ end }}
+</section>
+{{ end }}
