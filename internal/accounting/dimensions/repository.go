@@ -66,7 +66,7 @@ func (r *repositoryImpl) WithTx(ctx context.Context, fn func(context.Context, Tx
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	txRepo := &txRepo{tx: tx}
 	if err := fn(ctx, txRepo); err != nil {
