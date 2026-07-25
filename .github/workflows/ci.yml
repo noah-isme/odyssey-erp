@@ -53,6 +53,7 @@ jobs:
         uses: golangci/golangci-lint-action@v4
         with:
           version: v1.64.8
+          args: --timeout=5m --out-format=colored-line-number
 
       - name: Vet
         run: make vet
