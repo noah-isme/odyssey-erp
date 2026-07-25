@@ -5,14 +5,13 @@
 {{ define "title" }}System Permissions{{ end }}
 
 {{ define "content" }}
-<section class="container permissions-page">
-    <header>
-        <h1>System Permissions</h1>
-        <p>List of all available system permissions.</p>
+<div class="page-container permissions-page">
+    <header class="page-header">
+        <div class="page-header__content"><h1 class="page-title">Permission sistem / System permissions</h1><p class="page-subtitle">Daftar permission yang tersedia untuk konfigurasi role.</p></div>
     </header>
 
     {{ if .Data.Permissions }}
-    <div class="table-responsive"><table class="table data-table" aria-label="System permissions">
+    <div class="card card-table"><div class="table-responsive"><table class="table data-table" aria-label="System permissions">
         <thead>
             <tr>
                 <th scope="col">ID</th>
@@ -29,9 +28,9 @@
             </tr>
             {{ end }}
         </tbody>
-    </table></div>
+    </table></div></div>
     {{ else }}
-    <p>No permissions found.</p>
+    <div class="card"><div class="empty-state"><div class="empty-state__icon">⌁</div><h3>Belum ada permission</h3><p>Permission sistem akan muncul di halaman ini.</p></div></div>
     {{ end }}
 
     {{ if .Data.Errors }}
@@ -39,5 +38,5 @@
         {{ index .Data.Errors "general" }}
     </div>
     {{ end }}
-</section>
+</div>
 {{ end }}

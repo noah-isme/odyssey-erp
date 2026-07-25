@@ -8,8 +8,8 @@
 <div class="page-container">
     <header class="page-header">
         <div class="page-header__content">
-            <h1 class="page-title">Sales Orders</h1>
-            <p class="page-subtitle">Track and manage customer orders and fulfillment</p>
+            <h1 class="page-title">Pesanan penjualan / Sales orders</h1>
+            <p class="page-subtitle">Lacak pesanan pelanggan dan proses pemenuhannya.</p>
         </div>
         <div class="page-header__actions">
             <button class="btn btn--secondary" data-export="csv" data-export-target="#orders-table">
@@ -36,12 +36,12 @@
             <form method="get" action="/sales/orders" class="filters-form" data-component="filters">
                 <div class="filters-grid">
                     <div class="form-group">
-                        <label for="date_from" class="form-label">Date From</label>
+                        <label for="date_from" class="form-label">Tanggal mulai / Date from</label>
                         <input type="date" name="date_from" id="date_from" class="form-input"
                             value="{{ if .Data.Filters.DateFrom }}{{ .Data.Filters.DateFrom }}{{ end }}">
                     </div>
                     <div class="form-group">
-                        <label for="date_to" class="form-label">Date To</label>
+                        <label for="date_to" class="form-label">Tanggal akhir / Date to</label>
                         <input type="date" name="date_to" id="date_to" class="form-input"
                             value="{{ if .Data.Filters.DateTo }}{{ .Data.Filters.DateTo }}{{ end }}">
                     </div>
@@ -67,8 +67,8 @@
                     </div>
                 </div>
                 <div class="filters-actions">
-                    <button type="submit" class="btn btn--primary">Filter</button>
-                    <a href="/sales/orders" class="btn btn--secondary">Clear</a>
+                    <button type="submit" class="btn btn--primary">Terapkan / Apply</button>
+                    <a href="/sales/orders" class="btn btn--secondary">Reset / Clear</a>
                 </div>
             </form>
         </section>
@@ -130,7 +130,7 @@
                             </td>
                             <td class="text-right">
                                 <div class="flex justify-end gap-2">
-                                    <a href="/sales/orders/{{ .ID }}" class="btn btn--ghost btn--sm">View</a>
+                                    <a href="/sales/orders/{{ .ID }}" class="btn btn--ghost btn--sm">Lihat / View</a>
                                 </div>
                             </td>
                         </tr>
@@ -147,9 +147,9 @@
                                             <path d="M16 10a4 4 0 0 1-8 0"></path>
                                         </svg>
                                     </div>
-                                    <h3>No sales orders found</h3>
-                                    <p>Create a new order to track sales.</p>
-                                    <a href="/sales/orders/new" class="btn btn--primary mt-4">New Order</a>
+                                    <h3>Belum ada pesanan / No sales orders found</h3>
+                                    <p>Buat pesanan baru untuk mulai melacak penjualan.</p>
+                                    <a href="/sales/orders/new" class="btn btn--primary mt-4">Pesanan baru / New order</a>
                                 </div>
                             </td>
                         </tr>
@@ -167,18 +167,18 @@
                 <nav class="pagination" aria-label="Pagination">
                     {{ if gt $currentPage 0 }}
                     <a href="?limit={{ .Data.Limit }}&offset={{ sub .Data.Offset .Data.Limit }}{{ if .Data.Filters.Status }}&status={{ .Data.Filters.Status }}{{ end }}{{ if .Data.Filters.SortBy }}&sort={{ .Data.Filters.SortBy }}{{ end }}{{ if .Data.Filters.SortDir }}&dir={{ .Data.Filters.SortDir }}{{ end }}"
-                        class="btn btn--secondary btn--sm">Previous</a>
+                        class="btn btn--secondary btn--sm">Sebelumnya / Previous</a>
                     {{ else }}
-                    <button class="btn btn--secondary btn--sm" disabled>Previous</button>
+                    <button class="btn btn--secondary btn--sm" disabled>Sebelumnya / Previous</button>
                     {{ end }}
 
                     <span class="pagination__info">Page {{ add $currentPage 1 }} of {{ $totalPages }}</span>
 
                     {{ if lt (add .Data.Offset .Data.Limit) .Data.Total }}
                     <a href="?limit={{ .Data.Limit }}&offset={{ add .Data.Offset .Data.Limit }}{{ if .Data.Filters.Status }}&status={{ .Data.Filters.Status }}{{ end }}{{ if .Data.Filters.SortBy }}&sort={{ .Data.Filters.SortBy }}{{ end }}{{ if .Data.Filters.SortDir }}&dir={{ .Data.Filters.SortDir }}{{ end }}"
-                        class="btn btn--secondary btn--sm">Next</a>
+                        class="btn btn--secondary btn--sm">Berikutnya / Next</a>
                     {{ else }}
-                    <button class="btn btn--secondary btn--sm" disabled>Next</button>
+                    <button class="btn btn--secondary btn--sm" disabled>Berikutnya / Next</button>
                     {{ end }}
                 </nav>
             </div>

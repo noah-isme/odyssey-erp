@@ -61,11 +61,12 @@ func TestListPeriodsRendersStatusAndActions(t *testing.T) {
 		t.Fatalf("expected status 200, got %d", rr.Code)
 	}
 	body := rr.Body.String()
-	if !strings.Contains(body, "Mulai Close") {
-		t.Fatalf("expected Mulai Close action in response")
+
+	if !strings.Contains(body, "Mulai close") {
+		t.Fatalf("expected Mulai close action in response")
 	}
-	if !strings.Contains(body, "Lihat Close") {
-		t.Fatalf("expected Lihat Close link for runs")
+	if !strings.Contains(body, "Lihat close") {
+		t.Fatalf("expected Lihat close link for runs")
 	}
 	if !strings.Contains(body, "Hard Closed") {
 		t.Fatalf("expected status badge in response")
@@ -154,6 +155,7 @@ func TestShowCloseRunDisplaysProgress(t *testing.T) {
 		t.Fatalf("expected status 200, got %d", rr.Code)
 	}
 	body := rr.Body.String()
+	
 	if !strings.Contains(body, "2 dari 3 checklist selesai") {
 		t.Fatalf("expected checklist summary in page")
 	}

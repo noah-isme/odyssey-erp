@@ -169,6 +169,30 @@ func (tx *memoryTx) InsertStockTakeLine(ctx context.Context, arg sqlc.InsertStoc
 	return nil
 }
 
+func (tx *memoryTx) GetStockTake(ctx context.Context, id int64) (StockTake, error) {
+	return tx.repo.takes[id], nil
+}
+
+func (tx *memoryTx) UpdateStockTakeStatus(ctx context.Context, arg sqlc.UpdateStockTakeStatusParams) error {
+	take := tx.repo.takes[arg.ID]
+	take.Status = StockTakeStatus(arg.Status)
+	tx.repo.takes[arg.ID] = take
+	return nil
+}
+
+func (tx *memoryTx) GetProductTraceability(ctx context.Context, productID int64) (ProductTraceability, error) {
+	return ProductTraceability{CostMethod: "AVG"}, nil
+}
+
+func (tx *memoryTx) UpsertLot(ctx context.Context, lot InventoryLot) (InventoryLot, error) {
+	lot.ID = 1
+	return lot, nil
+}
+
+func (tx *memoryTx) CreateSerial(ctx context.Context, productID, warehouseID, lotID int64, serialNumber string) error {
+	return nil
+}
+
 func (tx *memoryTx) InsertAdjustment(ctx context.Context, arg sqlc.InsertAdjustmentParams) (int64, error) {
 	return 1, nil
 }
@@ -181,7 +205,15 @@ func (tx *memoryTx) InsertAdjustmentLine(ctx context.Context, arg sqlc.InsertAdj
 	return nil
 }
 
+func (tx *memoryTx) GetAdjustmentLines(ctx context.Context, adjustmentID int64) ([]StockAdjustmentLine, error) {
+	return nil, nil
+}
+
 func (tx *memoryTx) UpdateAdjustmentStatus(ctx context.Context, arg sqlc.UpdateAdjustmentStatusParams) error {
+	return nil
+}
+
+func (tx *memoryTx) InsertIdempotencyKey(ctx context.Context, key, module string) error {
 	return nil
 }
 

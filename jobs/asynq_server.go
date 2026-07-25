@@ -182,7 +182,7 @@ func (h *Handler) MountRoutes(r chi.Router) {
 }
 
 func (h *Handler) index(w http.ResponseWriter, r *http.Request) {
-	var pending, active, completed int
+	var pending, active, completed, archived int
 	queueName := QueueDefault
 
 	if h.inspector != nil {
@@ -192,6 +192,7 @@ func (h *Handler) index(w http.ResponseWriter, r *http.Request) {
 			pending = int(info.Pending)
 			active = int(info.Active)
 			completed = int(info.Completed)
+			archived = int(info.Archived)
 		}
 	}
 
@@ -200,6 +201,7 @@ func (h *Handler) index(w http.ResponseWriter, r *http.Request) {
 		"Pending":   pending,
 		"Active":    active,
 		"Completed": completed,
+		"Archived":  archived,
 	}
 
 	if h.templates != nil {

@@ -27,6 +27,7 @@ func (s *Service) Get(ctx context.Context, id int64) (Product, error) {
 }
 
 func (s *Service) Create(ctx context.Context, product Product) (Product, error) {
+	product.normalizeInventorySettings()
 	if err := s.validate(product); err != nil {
 		return Product{}, err
 	}
@@ -37,10 +38,17 @@ func (s *Service) Update(ctx context.Context, id int64, product Product) error {
 	if id <= 0 {
 		return errors.New("invalid product ID")
 	}
+	product.normalizeInventorySettings()
 	if err := s.validate(product); err != nil {
 		return err
 	}
 	return s.repo.Update(ctx, id, product)
+}
+
+func (p *Product) normalizeInventorySettings() {
+	if p.CostMethod == "" {
+		p.CostMethod = "AVG"
+	}
 }
 
 func (s *Service) Delete(ctx context.Context, id int64) error {

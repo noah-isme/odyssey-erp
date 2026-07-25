@@ -616,3 +616,22 @@
             linear-gradient(90deg, rgba(231, 237, 244, 0.02) 1px, transparent 1px);
     }
 }
+
+/* Metronic-inspired authentication refinement. */
+.public-page { min-width: 320px; min-height: 100vh; margin: 0; background: var(--bg-app); }
+.login-gradient { background: #F8FAFC; }
+.login-bg::after { background-image: linear-gradient(rgba(15, 23, 42, .035) 1px, transparent 1px), linear-gradient(90deg, rgba(15, 23, 42, .035) 1px, transparent 1px); }
+.login-glow { background: radial-gradient(circle, rgba(59, 130, 246, .13) 0%, transparent 64%); }
+.login-branding { width: min(46vw, 560px); background: linear-gradient(145deg, #0F172A 0%, #172554 60%, #1D4ED8 150%); }
+.login-branding::after { content: ''; position: absolute; inset: auto 40px 80px; height: 1px; background: linear-gradient(90deg, transparent, rgba(147, 197, 253, .65), transparent); }
+.branding-content { padding: clamp(48px, 7vw, 88px) clamp(40px, 6vw, 72px); }
+.branding-eyebrow { color: #93C5FD; font-size: 11px; font-weight: 700; letter-spacing: .12em; }
+.branding-title { margin-top: 18px; font-size: 30px; letter-spacing: -.03em; }
+.branding-tagline { max-width: 360px; color: rgba(255,255,255,.7); }
+.branding-feature { background: rgba(255,255,255,.055); border-color: rgba(255,255,255,.09); }
+.branding-feature svg { color: #93C5FD; }
+.login-card { border: 1px solid var(--border-subtle); border-radius: 12px; box-shadow: 0 10px 30px rgba(15, 23, 42, .08); }
+.login-title { color: var(--text-primary); font-size: 24px; }
+.login-security-note { color: var(--text-muted); }
+.login-page .btn-login { background: var(--brand); box-shadow: 0 4px 12px rgba(59, 130, 246, .24); }
+.login-page .btn-login:hover { background: var(--brand-hover); }

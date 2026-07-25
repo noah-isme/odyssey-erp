@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/alicebob/miniredis/v2"
+	"github.com/go-chi/chi/v5"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 
@@ -131,5 +132,25 @@ func TestLoginInvalidCredentials(t *testing.T) {
 	}
 	if !strings.Contains(res.Body.String(), "Email atau password tidak valid") {
 		t.Fatalf("expected error message in response")
+	}
+}
+
+func TestLoginRateLimit(t *testing.T) {
+	handler, _, _ := newAuthHandler(t, &stubRepo{})
+	router := chi.NewRouter()
+	handler.MountRoutes(router)
+
+	for attempt := 1; attempt <= 6; attempt++ {
+		req := httptest.NewRequest(http.MethodPost, "/login", strings.NewReader("email=user%40example.com&password=invalid"))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.RemoteAddr = "198.51.100.25:1234"
+		res := httptest.NewRecorder()
+		router.ServeHTTP(res, req)
+		if attempt <= 5 && res.Code == http.StatusTooManyRequests {
+			t.Fatalf("attempt %d was rate limited too early", attempt)
+		}
+		if attempt == 6 && res.Code != http.StatusTooManyRequests {
+			t.Fatalf("attempt 6 status = %d, want %d", res.Code, http.StatusTooManyRequests)
+		}
 	}
 }

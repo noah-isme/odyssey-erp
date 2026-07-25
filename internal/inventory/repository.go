@@ -35,16 +35,26 @@ type TxRepository interface {
 	InsertCardEntry(ctx context.Context, card StockCardEntry, warehouseID, productID int64, txID int64) error
 	InsertStockTake(ctx context.Context, arg sqlc.InsertStockTakeParams) (int64, error)
 	InsertStockTakeLine(ctx context.Context, arg sqlc.InsertStockTakeLineParams) error
+	GetStockTake(ctx context.Context, id int64) (StockTake, error)
+	UpdateStockTakeStatus(ctx context.Context, arg sqlc.UpdateStockTakeStatusParams) error
 
 	// Stock Adjustments
 	InsertAdjustment(ctx context.Context, arg sqlc.InsertAdjustmentParams) (int64, error)
 	GetAdjustment(ctx context.Context, id int64) (StockAdjustment, error)
 	InsertAdjustmentLine(ctx context.Context, arg sqlc.InsertAdjustmentLineParams) error
+	GetAdjustmentLines(ctx context.Context, adjustmentID int64) ([]StockAdjustmentLine, error)
 	UpdateAdjustmentStatus(ctx context.Context, arg sqlc.UpdateAdjustmentStatusParams) error
+	GetProductTraceability(ctx context.Context, productID int64) (ProductTraceability, error)
+	UpsertLot(ctx context.Context, lot InventoryLot) (InventoryLot, error)
+	CreateSerial(ctx context.Context, productID, warehouseID, lotID int64, serialNumber string) error
+
+	// Idempotency
+	InsertIdempotencyKey(ctx context.Context, key, module string) error
 }
 
 type txRepo struct {
 	queries *sqlc.Queries
+	tx      pgx.Tx
 }
 
 // ErrBalanceNotFound indicates missing balance row.
@@ -59,7 +69,7 @@ func (r *Repository) WithTx(ctx context.Context, fn func(context.Context, TxRepo
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	q := r.queries.WithTx(tx)
-	wrapper := &txRepo{queries: q}
+	wrapper := &txRepo{queries: q, tx: tx}
 
 	if err := fn(ctx, wrapper); err != nil {
 		return err
@@ -160,23 +170,35 @@ func (r *Repository) GetStockBalance(ctx context.Context, arg sqlc.GetStockBalan
 }
 
 func (r *Repository) GetReorderAlerts(ctx context.Context) ([]ReorderAlert, error) {
-	rows, err := r.queries.GetReorderAlerts(ctx)
+	rows, err := r.pool.Query(ctx, `SELECT p.id, p.name, p.sku, p.min_stock, b.warehouse_id, w.name, b.qty,
+		p.reorder_target, p.preferred_supplier_id
+		FROM products p JOIN inventory_balances b ON p.id = b.product_id JOIN warehouses w ON b.warehouse_id = w.id
+		WHERE b.qty < p.min_stock AND p.is_active = true ORDER BY w.name, p.name`)
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	var res []ReorderAlert
-	for _, row := range rows {
+	for rows.Next() {
+		var alert ReorderAlert
+		var minStock, currentQty, target pgtype.Numeric
+		var supplierID pgtype.Int8
+		if err := rows.Scan(&alert.ProductID, &alert.ProductName, &alert.SKU, &minStock, &alert.WarehouseID, &alert.WarehouseName, &currentQty, &target, &supplierID); err != nil {
+			return nil, err
+		}
+		alert.MinStock = numericToFloat(minStock)
+		alert.CurrentQty = numericToFloat(currentQty)
+		alert.ReorderTarget = numericToFloat(target)
+		if supplierID.Valid {
+			alert.PreferredSupplierID = supplierID.Int64
+		}
 		res = append(res, ReorderAlert{
-			ProductID:     int64(row.ID),
-			ProductName:   row.Name,
-			SKU:           row.Sku,
-			MinStock:      numericToFloat(row.MinStock),
-			WarehouseID:   int64(row.WarehouseID),
-			WarehouseName: row.WarehouseName,
-			CurrentQty:    numericToFloat(row.Qty),
+			ProductID: alert.ProductID, ProductName: alert.ProductName, SKU: alert.SKU, MinStock: alert.MinStock,
+			WarehouseID: alert.WarehouseID, WarehouseName: alert.WarehouseName, CurrentQty: alert.CurrentQty,
+			ReorderTarget: alert.ReorderTarget, PreferredSupplierID: alert.PreferredSupplierID,
 		})
 	}
-	return res, nil
+	return res, rows.Err()
 }
 
 func (r *Repository) GetStockCard(ctx context.Context, filter StockCardFilter) ([]StockCardEntry, error) {
@@ -229,19 +251,43 @@ func (r *txRepo) InsertTransaction(ctx context.Context, tx Transaction) (int64, 
 
 func (r *txRepo) InsertTransactionLines(ctx context.Context, txID int64, lines []TransactionLine) error {
 	for _, line := range lines {
-		err := r.queries.InsertTransactionLine(ctx, sqlc.InsertTransactionLineParams{
-			TxID:           txID,
-			ProductID:      line.ProductID,
-			Qty:            floatToNumeric(line.Qty),
-			UnitCost:       floatToNumeric(line.UnitCost),
-			SrcWarehouseID: pgtype.Int8{Int64: line.SrcWarehouseID, Valid: line.SrcWarehouseID != 0},
-			DstWarehouseID: pgtype.Int8{Int64: line.DstWarehouseID, Valid: line.DstWarehouseID != 0},
-		})
+		_, err := r.tx.Exec(ctx, `INSERT INTO inventory_tx_lines
+			(tx_id, product_id, qty, unit_cost, src_warehouse_id, dst_warehouse_id, lot_id, serial_id)
+			VALUES ($1,$2,$3,$4,NULLIF($5,0),NULLIF($6,0),NULLIF($7,0),NULLIF($8,0))`,
+			txID, line.ProductID, line.Qty, line.UnitCost, line.SrcWarehouseID, line.DstWarehouseID, line.LotID, line.SerialID)
 		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (r *txRepo) GetProductTraceability(ctx context.Context, productID int64) (ProductTraceability, error) {
+	var trace ProductTraceability
+	err := r.tx.QueryRow(ctx, `SELECT cost_method, track_batch, track_serial FROM products WHERE id = $1`, productID).Scan(&trace.CostMethod, &trace.TrackBatch, &trace.TrackSerial)
+	return trace, err
+}
+
+func (r *txRepo) UpsertLot(ctx context.Context, lot InventoryLot) (InventoryLot, error) {
+	var expiry any
+	if lot.ExpiryDate != nil {
+		expiry = *lot.ExpiryDate
+	}
+	err := r.tx.QueryRow(ctx, `INSERT INTO inventory_lots
+		(product_id, warehouse_id, lot_number, expiry_date, qty_on_hand, unit_cost)
+		VALUES ($1,$2,$3,$4,$5,$6)
+		ON CONFLICT (product_id, warehouse_id, lot_number) DO UPDATE SET
+			qty_on_hand = inventory_lots.qty_on_hand + EXCLUDED.qty_on_hand,
+			expiry_date = COALESCE(EXCLUDED.expiry_date, inventory_lots.expiry_date),
+			unit_cost = EXCLUDED.unit_cost, updated_at = NOW()
+		RETURNING id, qty_on_hand`, lot.ProductID, lot.WarehouseID, lot.LotNumber, expiry, lot.QtyOnHand, lot.UnitCost).Scan(&lot.ID, &lot.QtyOnHand)
+	return lot, err
+}
+
+func (r *txRepo) CreateSerial(ctx context.Context, productID, warehouseID, lotID int64, serialNumber string) error {
+	_, err := r.tx.Exec(ctx, `INSERT INTO inventory_serials (product_id, warehouse_id, lot_id, serial_number)
+		VALUES ($1,$2,NULLIF($3,0),$4)`, productID, warehouseID, lotID, serialNumber)
+	return err
 }
 
 func (r *txRepo) GetBalanceForUpdate(ctx context.Context, warehouseID, productID int64) (Balance, error) {
@@ -298,6 +344,49 @@ func (r *txRepo) InsertStockTakeLine(ctx context.Context, arg sqlc.InsertStockTa
 	return r.queries.InsertStockTakeLine(ctx, arg)
 }
 
+func (r *txRepo) GetStockTake(ctx context.Context, id int64) (StockTake, error) {
+	row, err := r.queries.GetStockTake(ctx, id)
+	if err != nil {
+		return StockTake{}, err
+	}
+	st := StockTake{
+		ID:            row.ID,
+		UUID:          uuid.UUID(row.Uuid.Bytes).String(),
+		Number:        row.Number,
+		WarehouseID:   int64(row.WarehouseID),
+		Status:        StockTakeStatus(row.Status),
+		Note:          row.Note,
+		TakenAt:       row.TakenAt.Time,
+		CreatedBy:     row.CreatedBy,
+		PostedBy:      row.PostedBy.Int64,
+		PostedAt:      row.PostedAt.Time,
+		CreatedAt:     row.CreatedAt.Time,
+		CreatorEmail:  row.CreatorEmail,
+		WarehouseName: row.WarehouseName,
+	}
+	lines, err := r.queries.GetStockTakeLines(ctx, id)
+	if err != nil {
+		return st, err
+	}
+	for _, l := range lines {
+		st.Lines = append(st.Lines, StockTakeLine{
+			ID:          l.ID,
+			StockTakeID: l.StockTakeID,
+			ProductID:   int64(l.ProductID),
+			ProductName: l.ProductName,
+			SystemQty:   numericToFloat(l.SystemQty),
+			PhysicalQty: numericToFloat(l.PhysicalQty),
+			VarianceQty: numericToFloat(l.VarianceQty),
+			Note:        l.Note,
+		})
+	}
+	return st, nil
+}
+
+func (r *txRepo) UpdateStockTakeStatus(ctx context.Context, arg sqlc.UpdateStockTakeStatusParams) error {
+	return r.queries.UpdateStockTakeStatus(ctx, arg)
+}
+
 // --- Stock Adjustments (Transactional) ---
 
 func (r *txRepo) InsertAdjustment(ctx context.Context, arg sqlc.InsertAdjustmentParams) (int64, error) {
@@ -316,8 +405,31 @@ func (r *txRepo) InsertAdjustmentLine(ctx context.Context, arg sqlc.InsertAdjust
 	return r.queries.InsertAdjustmentLine(ctx, arg)
 }
 
+func (r *txRepo) GetAdjustmentLines(ctx context.Context, adjustmentID int64) ([]StockAdjustmentLine, error) {
+	rows, err := r.queries.GetAdjustmentLines(ctx, adjustmentID)
+	if err != nil {
+		return nil, err
+	}
+	var lines []StockAdjustmentLine
+	for _, row := range rows {
+		lines = append(lines, StockAdjustmentLine{
+			ID:        row.ID,
+			AdjustmentID: row.AdjustmentID,
+			ProductID: int64(row.ProductID),
+			Qty:       numericToFloat(row.Qty),
+			Note:      row.Note,
+		})
+	}
+	return lines, nil
+}
+
 func (r *txRepo) UpdateAdjustmentStatus(ctx context.Context, arg sqlc.UpdateAdjustmentStatusParams) error {
 	return r.queries.UpdateAdjustmentStatus(ctx, arg)
+}
+
+func (r *txRepo) InsertIdempotencyKey(ctx context.Context, key, module string) error {
+	_, err := r.tx.Exec(ctx, `INSERT INTO idempotency_keys (key, module, created_at) VALUES ($1, $2, NOW())`, key, module)
+	return err
 }
 
 // --- Stock Adjustments (Main) ---

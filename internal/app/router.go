@@ -2,14 +2,19 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting"
 	analytichttp "github.com/odyssey-erp/odyssey-erp/internal/analytics/http"
@@ -80,6 +85,77 @@ type RouterParams struct {
 	InventoryService   *inventory.Service
 }
 
+type workspaceUser struct {
+	ID            int64     `json:"id"`
+	Email         string    `json:"email"`
+	Name          string    `json:"name"`
+	IsActive      bool      `json:"isActive"`
+	CreatedAt     time.Time `json:"createdAt"`
+	Theme         string    `json:"theme"`
+	Language      string    `json:"language"`
+	Notifications bool      `json:"notifications"`
+}
+
+type workspaceCompany struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
+func loadWorkspaceUser(ctx context.Context, pool *pgxpool.Pool, id int64) (workspaceUser, error) {
+	var user workspaceUser
+	err := pool.QueryRow(ctx, `SELECT id, email, name, is_active, created_at, ui_theme, ui_language, ui_notifications
+		FROM users WHERE id = $1`, id).Scan(
+		&user.ID, &user.Email, &user.Name, &user.IsActive, &user.CreatedAt,
+		&user.Theme, &user.Language, &user.Notifications,
+	)
+	if user.Language == "" || user.Language == "bilingual" {
+		user.Language = "id"
+	}
+	return user, err
+}
+
+func loadWorkspaceCompanies(ctx context.Context, pool *pgxpool.Pool) ([]workspaceCompany, error) {
+	rows, err := pool.Query(ctx, "SELECT id, name FROM companies ORDER BY name, id")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	companies := make([]workspaceCompany, 0)
+	for rows.Next() {
+		var company workspaceCompany
+		if err := rows.Scan(&company.ID, &company.Name); err != nil {
+			return nil, err
+		}
+		companies = append(companies, company)
+	}
+	return companies, rows.Err()
+}
+
+func activeCompanyMiddleware(pool *pgxpool.Pool, logger *slog.Logger) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			sess := shared.SessionFromContext(r.Context())
+			if pool != nil && sess != nil && sess.User() != "" && sess.Get("company_id") == "" {
+				var companyID int64
+				if err := pool.QueryRow(r.Context(), "SELECT id FROM companies ORDER BY id LIMIT 1").Scan(&companyID); err == nil {
+					sess.Set("company_id", strconv.FormatInt(companyID, 10))
+				} else if logger != nil {
+					logger.Warn("initialize active company", slog.Any("error", err))
+				}
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func redirectBackToWorkspace(w http.ResponseWriter, r *http.Request) {
+	target := "/"
+	if referer, err := url.Parse(r.Referer()); err == nil && referer.Path != "" && (referer.Host == "" || referer.Host == r.Host) {
+		target = referer.RequestURI()
+	}
+	http.Redirect(w, r, target, http.StatusSeeOther)
+}
+
 // NewRouter constructs the chi.Router with Odyssey defaults.
 func NewRouter(params RouterParams) http.Handler {
 	r := chi.NewRouter()
@@ -95,6 +171,7 @@ func NewRouter(params RouterParams) http.Handler {
 	}
 
 	r.Use(chimw.Logger)
+	r.Use(activeCompanyMiddleware(params.Pool, params.Logger))
 
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -162,6 +239,172 @@ func NewRouter(params RouterParams) http.Handler {
 	})
 
 	r.Route("/auth", params.AuthHandler.MountRoutes)
+	// Personal workspace pages and preferences.
+	r.Get("/profile", func(w http.ResponseWriter, r *http.Request) {
+		sess := shared.SessionFromContext(r.Context())
+		if sess == nil || sess.User() == "" {
+			http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
+			return
+		}
+		id, err := strconv.ParseInt(sess.User(), 10, 64)
+		if err != nil || params.Pool == nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+		user, err := loadWorkspaceUser(r.Context(), params.Pool, id)
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+			return
+		}
+		csrfToken, _ := params.CSRFManager.EnsureToken(r.Context(), sess)
+		_ = params.Templates.Render(w, "pages/profile.html", view.TemplateData{Title: "Profil", CSRFToken: csrfToken, Flash: sess.PopFlash(), Data: map[string]any{"User": user}})
+	})
+	r.Post("/profile", func(w http.ResponseWriter, r *http.Request) {
+		sess := shared.SessionFromContext(r.Context())
+		if sess == nil || sess.User() == "" {
+			http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
+			return
+		}
+		id, err := strconv.ParseInt(sess.User(), 10, 64)
+		name := strings.TrimSpace(r.PostFormValue("name"))
+		if err != nil || name == "" || params.Pool == nil {
+			sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Nama wajib diisi"})
+			http.Redirect(w, r, "/profile", http.StatusSeeOther)
+			return
+		}
+		if _, err = params.Pool.Exec(r.Context(), "UPDATE users SET name = $1, updated_at = NOW() WHERE id = $2", name, id); err != nil {
+			sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Profil tidak dapat diperbarui"})
+		} else {
+			sess.Set("user.name", name)
+			sess.AddFlash(shared.FlashMessage{Kind: "success", Message: "Profil berhasil diperbarui"})
+		}
+		http.Redirect(w, r, "/profile", http.StatusSeeOther)
+	})
+	r.Get("/settings", func(w http.ResponseWriter, r *http.Request) {
+		sess := shared.SessionFromContext(r.Context())
+		if sess == nil || sess.User() == "" {
+			http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
+			return
+		}
+		id, err := strconv.ParseInt(sess.User(), 10, 64)
+		if err != nil || params.Pool == nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+		user, err := loadWorkspaceUser(r.Context(), params.Pool, id)
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+			return
+		}
+		csrfToken, _ := params.CSRFManager.EnsureToken(r.Context(), sess)
+		_ = params.Templates.Render(w, "pages/settings.html", view.TemplateData{Title: "Pengaturan", CSRFToken: csrfToken, Flash: sess.PopFlash(), Data: map[string]any{"User": user}})
+	})
+	r.Post("/settings", func(w http.ResponseWriter, r *http.Request) {
+		sess := shared.SessionFromContext(r.Context())
+		if sess == nil || sess.User() == "" {
+			http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
+			return
+		}
+		theme := r.PostFormValue("theme")
+		if theme != "light" && theme != "dark" {
+			theme = "system"
+		}
+		language := r.PostFormValue("language")
+		if language != "id" && language != "en" {
+			language = "id"
+		}
+		id, err := strconv.ParseInt(sess.User(), 10, 64)
+		if err != nil || params.Pool == nil {
+			sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Pengaturan tidak dapat disimpan"})
+			http.Redirect(w, r, "/settings", http.StatusSeeOther)
+			return
+		}
+		notifications := r.PostFormValue("notifications") == "enabled"
+		if _, err = params.Pool.Exec(r.Context(), "UPDATE users SET ui_theme = $1, ui_language = $2, ui_notifications = $3, updated_at = NOW() WHERE id = $4", theme, language, notifications, id); err != nil {
+			sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Pengaturan tidak dapat disimpan"})
+		} else {
+			sess.AddFlash(shared.FlashMessage{Kind: "success", Message: "Pengaturan berhasil disimpan"})
+		}
+		http.Redirect(w, r, "/settings", http.StatusSeeOther)
+	})
+	r.Post("/settings/security/password", func(w http.ResponseWriter, r *http.Request) {
+		sess := shared.SessionFromContext(r.Context())
+		if sess == nil || sess.User() == "" {
+			http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
+			return
+		}
+		id, err := strconv.ParseInt(sess.User(), 10, 64)
+		currentPassword := r.PostFormValue("current_password")
+		newPassword := r.PostFormValue("new_password")
+		confirmation := r.PostFormValue("confirm_password")
+		if err != nil || params.Pool == nil || len(newPassword) < 8 || newPassword != confirmation {
+			sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Password baru minimal 8 karakter dan konfirmasi harus sama"})
+			http.Redirect(w, r, "/settings", http.StatusSeeOther)
+			return
+		}
+		var currentHash string
+		if err = params.Pool.QueryRow(r.Context(), "SELECT password_hash FROM users WHERE id = $1", id).Scan(&currentHash); err != nil || bcrypt.CompareHashAndPassword([]byte(currentHash), []byte(currentPassword)) != nil {
+			sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Password saat ini tidak tepat"})
+			http.Redirect(w, r, "/settings", http.StatusSeeOther)
+			return
+		}
+		newHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+		if err != nil {
+			sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Password tidak dapat diperbarui"})
+		} else if _, err = params.Pool.Exec(r.Context(), "UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2", string(newHash), id); err != nil {
+			sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Password tidak dapat diperbarui"})
+		} else {
+			sess.AddFlash(shared.FlashMessage{Kind: "success", Message: "Password berhasil diperbarui"})
+		}
+		http.Redirect(w, r, "/settings", http.StatusSeeOther)
+	})
+	r.Post("/company/select", func(w http.ResponseWriter, r *http.Request) {
+		sess := shared.SessionFromContext(r.Context())
+		if sess == nil || sess.User() == "" {
+			http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
+			return
+		}
+		companyID, err := strconv.ParseInt(r.PostFormValue("company_id"), 10, 64)
+		if err != nil || companyID <= 0 || params.Pool == nil {
+			sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Perusahaan tidak valid"})
+			redirectBackToWorkspace(w, r)
+			return
+		}
+		var exists bool
+		if err := params.Pool.QueryRow(r.Context(), "SELECT EXISTS(SELECT 1 FROM companies WHERE id = $1)", companyID).Scan(&exists); err != nil || !exists {
+			sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Perusahaan tidak ditemukan"})
+			redirectBackToWorkspace(w, r)
+			return
+		}
+		sess.Set("company_id", strconv.FormatInt(companyID, 10))
+		sess.AddFlash(shared.FlashMessage{Kind: "success", Message: "Perusahaan aktif diperbarui"})
+		redirectBackToWorkspace(w, r)
+	})
+	r.Get("/api/me", func(w http.ResponseWriter, r *http.Request) {
+		sess := shared.SessionFromContext(r.Context())
+		if sess == nil || sess.User() == "" {
+			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			return
+		}
+		id, err := strconv.ParseInt(sess.User(), 10, 64)
+		if err != nil || params.Pool == nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+		user, err := loadWorkspaceUser(r.Context(), params.Pool, id)
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+			return
+		}
+		companies, err := loadWorkspaceCompanies(r.Context(), params.Pool)
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+		activeCompanyID, _ := strconv.ParseInt(sess.Get("company_id"), 10, 64)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"user": user, "companies": companies, "activeCompanyID": activeCompanyID})
+	})
 	if params.AccountingHandler != nil {
 		r.Route("/accounting", func(r chi.Router) {
 			params.AccountingHandler.MountRoutes(r)

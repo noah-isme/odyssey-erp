@@ -12,23 +12,10 @@ Make sure you have the following installed and running:
 
 ## Quick Start
 
-### 1. Run in Foreground (Interactive)
+### 1. Run in Background (Daemon)
 
 ```bash
-./run.sh
-```
-
-This will:
-- Check Redis and PostgreSQL
-- Start Redis if not running
-- Run the application in foreground
-- Show logs in terminal
-- Press `Ctrl+C` to stop
-
-### 2. Run in Background (Daemon)
-
-```bash
-./run-background.sh
+docker compose up -d
 ```
 
 This will:
@@ -39,7 +26,7 @@ This will:
 ### 3. Check Status
 
 ```bash
-./status.sh
+docker compose ps
 ```
 
 Shows:
@@ -52,7 +39,7 @@ Shows:
 ### 4. Stop Application
 
 ```bash
-./stop.sh
+docker compose down
 ```
 
 Stops the background application and cleans up processes.
@@ -77,7 +64,7 @@ All environment variables are configured in the scripts:
 
 ### Change Configuration
 
-Edit the scripts (`run.sh` or `run-background.sh`) to modify environment variables.
+Environment variables are set in `docker-compose.yml`.
 
 For production, **always change** `SESSION_SECRET` and `CSRF_SECRET`!
 
@@ -102,7 +89,7 @@ make seed
 ss -tlnp | grep 8080
 
 # Or use stop script
-./stop.sh
+docker compose down
 ```
 
 ### Redis not starting
@@ -146,8 +133,8 @@ grep ERROR /tmp/odyssey-erp.log
 When you make code changes:
 
 ```bash
-./stop.sh
-./run-background.sh
+docker compose down
+docker compose up -d
 ```
 
 ### Build Binary
@@ -175,8 +162,8 @@ make lint
 
 | Feature | Docker | Without Docker |
 |---------|--------|----------------|
-| Setup | `docker compose up` | `./run-background.sh` |
-| Stop | `docker compose down` | `./stop.sh` |
+| Setup | `docker compose up` | `docker compose up -d` |
+| Stop | `docker compose down` | `docker compose down` |
 | Logs | `docker compose logs -f` | `tail -f /tmp/odyssey-erp.log` |
 | Rebuild | Auto | Manual restart needed |
 | Isolation | ✓ Full | ✗ Shared system |

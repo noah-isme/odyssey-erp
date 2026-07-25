@@ -66,6 +66,8 @@
     gap: var(--space-4);
 }
 
+.inventory-kpi-grid { grid-template-columns: minmax(220px, 280px); }
+
 @media (max-width: 1200px) {
     .kpi-grid {
         grid-template-columns: repeat(2, 1fr);

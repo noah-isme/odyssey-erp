@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -267,6 +268,9 @@ func (h *Handler) createGRN(w http.ResponseWriter, r *http.Request) {
 	productIDs := r.PostForm["product_id"]
 	qtys := r.PostForm["qty"]
 	costs := r.PostForm["unit_cost"]
+	lots := r.PostForm["lot_number"]
+	expiries := r.PostForm["expiry_date"]
+	serials := r.PostForm["serial_numbers"]
 	var lines []GRNLineInput
 	for i := range productIDs {
 		pid, _ := strconv.ParseInt(productIDs[i], 10, 64)
@@ -275,7 +279,23 @@ func (h *Handler) createGRN(w http.ResponseWriter, r *http.Request) {
 		if pid == 0 || qty <= 0 {
 			continue
 		}
-		lines = append(lines, GRNLineInput{ProductID: pid, Qty: qty, UnitCost: cost})
+		line := GRNLineInput{ProductID: pid, Qty: qty, UnitCost: cost}
+		if i < len(lots) {
+			line.LotNumber = lots[i]
+		}
+		if i < len(expiries) && expiries[i] != "" {
+			if value, err := time.Parse("2006-01-02", expiries[i]); err == nil {
+				line.ExpiryDate = &value
+			}
+		}
+		if i < len(serials) && serials[i] != "" {
+			for _, serial := range strings.Split(serials[i], ",") {
+				if value := strings.TrimSpace(serial); value != "" {
+					line.SerialNumbers = append(line.SerialNumbers, value)
+				}
+			}
+		}
+		lines = append(lines, line)
 	}
 	_, err := h.service.CreateGoodsReceipt(r.Context(), CreateGRNInput{
 		POID:        poID,

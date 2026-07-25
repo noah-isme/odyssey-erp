@@ -1,6 +1,6 @@
 {{ define "partials/ui/filter_bar.html" }}
 <section class="filters-card">
-    <form class="filters-form" method="get" action="{{ template "ui-filter-action" . }}" role="search">
+    <form class="filters-form" method="get" action="{{ template "ui-filter-action" . }}" role="search" aria-label="Filter / Filter">
         <div class="filters-grid">{{ template "ui-filter-fields" . }}</div>
         <div class="filters-actions">{{ template "ui-filter-actions" . }}</div>
     </form>

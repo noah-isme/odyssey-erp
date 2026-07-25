@@ -13,10 +13,12 @@ import (
 
 	"github.com/hibiken/asynq"
 
+	"github.com/odyssey-erp/odyssey-erp/internal/accounting/journals"
 	"github.com/odyssey-erp/odyssey-erp/internal/analytics"
 	"github.com/odyssey-erp/odyssey-erp/internal/app"
 	"github.com/odyssey-erp/odyssey-erp/internal/boardpack"
 	"github.com/odyssey-erp/odyssey-erp/internal/consol"
+	"github.com/odyssey-erp/odyssey-erp/internal/fixedassets"
 	"github.com/odyssey-erp/odyssey-erp/internal/variance"
 	"github.com/odyssey-erp/odyssey-erp/jobs"
 	"github.com/odyssey-erp/odyssey-erp/report"
@@ -76,6 +78,7 @@ func main() {
 	consolidator := jobs.NewConsolidateRefreshJob(consolService, consolRepo, logger, nil)
 	varianceRepo := variance.NewRepository(pool)
 	varianceService := variance.NewService(varianceRepo)
+	fixedAssetService := fixedassets.NewService(pool, journals.NewService(journals.NewRepository(pool), nil, nil))
 	varianceJob := variance.NewSnapshotJob(varianceService, logger)
 
 	boardpackRepo := boardpack.NewRepository(pool)
@@ -144,6 +147,8 @@ func main() {
 			{Type: jobs.TaskBoardPackGenerate, Handler: boardpackJob.Handle},
 			{Type: jobs.TypeEmailDelivery, Handler: jobs.HandleEmailDeliveryTask(logger)},
 			{Type: jobs.TypeOverdueInvoicesScan, Handler: jobs.HandleOverdueInvoicesScanTask(logger, pool, asynqClient)},
+			{Type: jobs.TypeReportScheduleScan, Handler: jobs.HandleReportScheduleScanTask(logger, pool, asynqClient)},
+			{Type: jobs.TaskFixedAssetDepreciation, Handler: jobs.HandleFixedAssetDepreciation(fixedAssetService)},
 		},
 		Cron: []jobs.CronRegistration{
 			{Spec: "15 1 * * *", Task: warmupTask, Options: []asynq.Option{asynq.MaxRetry(3)}},
@@ -151,6 +156,8 @@ func main() {
 			{Spec: "0 2 * * *", Task: consolidateTask, Options: []asynq.Option{asynq.MaxRetry(3)}},
 			// Run overdue invoice scan every day at 8:00 AM
 			{Spec: "0 8 * * *", Task: asynq.NewTask(jobs.TypeOverdueInvoicesScan, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
+			{Spec: "5 * * * *", Task: asynq.NewTask(jobs.TypeReportScheduleScan, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
+			{Spec: "10 2 1 * *", Task: asynq.NewTask(jobs.TaskFixedAssetDepreciation, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
 		},
 	})
 	if err != nil {

@@ -5,8 +5,7 @@ Panduan lengkap untuk testing Odyssey ERP.
 ## Prerequisites
 
 - Docker & Docker Compose
-- Go 1.22+
-- sqlc (`go install github.com/kyleconroy/sqlc/cmd/sqlc@latest`)
+- Go 1.24+
 
 ## Quick Commands
 

@@ -8,8 +8,8 @@
 <div class="page-container">
     <header class="page-header">
         <div class="page-header__content">
-            <h1 class="page-title">Customers</h1>
-            <p class="page-subtitle">Manage customer information and accounts</p>
+            <h1 class="page-title">Pelanggan / Customers</h1>
+            <p class="page-subtitle">Kelola informasi pelanggan dan akun kredit.</p>
         </div>
         <div class="page-header__actions">
             <button class="btn btn--secondary" data-export="csv" data-export-target="#customers-table">
@@ -36,25 +36,25 @@
             <form method="get" action="/sales/customers" class="filters-form" data-component="filters">
                 <div class="filters-grid">
                     <div class="form-group">
-                        <label for="search" class="form-label">Search</label>
+                        <label for="search" class="form-label">Cari / Search</label>
                         <input type="text" name="search" id="search" class="form-input"
                             placeholder="Code, name, or email"
                             value="{{ if .Data.Filters.Search }}{{ .Data.Filters.Search }}{{ end }}">
                     </div>
                     <div class="form-group">
-                        <label for="is_active" class="form-label">Status</label>
+                        <label for="is_active" class="form-label">Status / Status</label>
                         <select name="is_active" id="is_active" class="form-select">
                             <option value="">All Statuses</option>
                             <option value="true" {{ if .Data.Filters.IsActive }}{{ if .Data.Filters.IsActive
-                                }}selected{{ end }}{{ end }}>Active</option>
+                                }}selected{{ end }}{{ end }}>Aktif / Active</option>
                             <option value="false" {{ if .Data.Filters.IsActive }}{{ if not .Data.Filters.IsActive
-                                }}selected{{ end }}{{ end }}>Inactive</option>
+                                }}selected{{ end }}{{ end }}>Nonaktif / Inactive</option>
                         </select>
                     </div>
                 </div>
                 <div class="filters-actions">
-                    <button type="submit" class="btn btn--primary">Filter</button>
-                    <a href="/sales/customers" class="btn btn--secondary">Clear</a>
+                    <button type="submit" class="btn btn--primary">Terapkan / Apply</button>
+                    <a href="/sales/customers" class="btn btn--secondary">Reset / Clear</a>
                 </div>
             </form>
         </section>
@@ -132,9 +132,9 @@
                                             <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
                                         </svg>
                                     </div>
-                                    <h3>No customers found</h3>
+                                    <h3>Belum ada pelanggan / No customers found</h3>
                                     <p>Get started by adding your first customer.</p>
-                                    <a href="/sales/customers/new" class="btn btn--primary mt-4">Create Customer</a>
+                                    <a href="/sales/customers/new" class="btn btn--primary mt-4">Buat pelanggan / Create customer</a>
                                 </div>
                             </td>
                         </tr>
@@ -152,18 +152,18 @@
                 <nav class="pagination" aria-label="Pagination">
                     {{ if gt $currentPage 0 }}
                     <a href="?limit={{ .Data.Limit }}&offset={{ sub .Data.Offset .Data.Limit }}{{ if .Data.Filters.Search }}&search={{ .Data.Filters.Search }}{{ end }}{{ if .Data.Filters.IsActive }}&is_active={{ .Data.Filters.IsActive }}{{ end }}{{ if .Data.Filters.SortBy }}&sort={{ .Data.Filters.SortBy }}{{ end }}{{ if .Data.Filters.SortDir }}&dir={{ .Data.Filters.SortDir }}{{ end }}"
-                        class="btn btn--secondary btn--sm">Previous</a>
+                        class="btn btn--secondary btn--sm">Sebelumnya / Previous</a>
                     {{ else }}
-                    <button class="btn btn--secondary btn--sm" disabled>Previous</button>
+                    <button class="btn btn--secondary btn--sm" disabled>Sebelumnya / Previous</button>
                     {{ end }}
 
                     <span class="pagination__info">Page {{ add $currentPage 1 }} of {{ $totalPages }}</span>
 
                     {{ if lt (add .Data.Offset .Data.Limit) .Data.Total }}
                     <a href="?limit={{ .Data.Limit }}&offset={{ add .Data.Offset .Data.Limit }}{{ if .Data.Filters.Search }}&search={{ .Data.Filters.Search }}{{ end }}{{ if .Data.Filters.IsActive }}&is_active={{ .Data.Filters.IsActive }}{{ end }}{{ if .Data.Filters.SortBy }}&sort={{ .Data.Filters.SortBy }}{{ end }}{{ if .Data.Filters.SortDir }}&dir={{ .Data.Filters.SortDir }}{{ end }}"
-                        class="btn btn--secondary btn--sm">Next</a>
+                        class="btn btn--secondary btn--sm">Berikutnya / Next</a>
                     {{ else }}
-                    <button class="btn btn--secondary btn--sm" disabled>Next</button>
+                    <button class="btn btn--secondary btn--sm" disabled>Berikutnya / Next</button>
                     {{ end }}
                 </nav>
             </div>

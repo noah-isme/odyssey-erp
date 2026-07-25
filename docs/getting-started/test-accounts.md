@@ -18,7 +18,7 @@ Password: admin123
 ### Option 1: Automatic Setup (Recommended)
 
 ```bash
-./setup-db.sh
+make migrate-up && make seed
 ```
 
 Script ini akan:
@@ -186,7 +186,7 @@ VALUES (
 
 Database user belum dibuat. Jalankan:
 ```bash
-./setup-db.sh
+make migrate-up && make seed
 ```
 
 ### "database does not exist"

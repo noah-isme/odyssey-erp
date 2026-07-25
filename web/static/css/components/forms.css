@@ -231,7 +231,7 @@
     border-radius: var(--radius-md);
     padding: var(--space-4);
     margin-bottom: var(--space-4);
-    box-shadow: var(--shadow-sm);
+    box-shadow: var(--shadow-0);
 }
 
 .filters-grid {
@@ -247,3 +247,8 @@
     margin-top: var(--space-4);
     align-items: center;
 }
+
+.form-page { display: grid; gap: var(--space-6); }
+.form-page .card { max-width: 960px; }
+.form-page .form-section { border-radius: var(--radius-2); background: var(--bg-surface-muted); }
+.form-page .form-footer { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-3); padding-top: var(--space-4); border-top: 1px solid var(--border-subtle); }

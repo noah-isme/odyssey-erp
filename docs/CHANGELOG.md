@@ -1,5 +1,41 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Per-product inventory cost policy (weighted average or FIFO), reorder target,
+  preferred supplier, lot/batch, expiry, and serial-number traceability.
+- Inventory dashboard action that creates supplier-grouped draft purchase
+  requests from low-stock alerts.
+- Department and cost-center schema plus optional journal-line dimensions.
+- Department/cost-center filters and native Excel exports for Profit and Loss
+  and Budget vs Actual.
+- Scheduled P&L and Budget vs Actual email delivery through the Asynq worker.
+- Self-service reporting dimensions and report schedules, audit logging for
+  schedule changes, and failed-job visibility on the Jobs dashboard.
+- Fixed asset categories, register, monthly depreciation, disposal accounting,
+  manual journals with reporting dimensions, and report-delivery history.
+
+### Changed
+
+- FIFO inbound history is now read in chronological order.
+
+## Unreleased
+
+### Added
+- **Personal workspace** — Halaman Profil dan Pengaturan pengguna untuk nama tampilan, tema, bahasa tunggal, notifikasi, dan perubahan password.
+- **Persistent preferences** — Migration `000033_user_preferences` menyimpan tema, bahasa, dan notifikasi pada akun pengguna.
+- **Operational guides** — Panduan pengguna serta runbook deployment dan troubleshooting preferensi UI.
+
+### Changed
+- **Analytics navigation** — `/analytics` menjadi rute kanonis; menu KPI Tracking duplikat dihapus dan `/analytics/kpi` dipertahankan sebagai alias kompatibilitas.
+- **Language rendering** — Copy bilingual dipilih menjadi satu bahasa aktif sebelum shell halaman ditampilkan untuk mencegah flicker.
+
+### Fixed
+- **Save feedback** — Flash message bertahan melewati redirect sehingga toast sukses atau gagal tampil setelah menyimpan formulir.
+- **Toast stability** — Perbaikan loop antrian toast yang dapat menyebabkan penggunaan CPU dan memori browser meningkat.
+
 ## Release v0.9.1 — Enterprise UI/UX Overhaul (2026-05-28)
 
 ### Added

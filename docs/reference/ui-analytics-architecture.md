@@ -4,7 +4,7 @@
 The server-rendered finance analytics dashboard consolidates KPI cards, trend charts, and aging tables into a single template (`web/templates/pages/finance/dashboard.html`). Handlers resolve analytics data via the existing analytics service layer and build a dedicated view model (`internal/analytics/ui/contracts.go`). SVG charts are rendered on the server and embedded inline, ensuring no client-side JavaScript is required.
 
 ## Request Flow
-1. **Routes** – `/finance/analytics` (HTML), `/finance/analytics/pdf`, and `/finance/analytics/export.csv` are registered in `internal/analytics/http/routes.go`. Export routes are guarded by a per-user/IP rate limiter (10 req/min).
+1. **Routes** – `/analytics` (HTML), `/analytics/pdf`, and `/analytics/export.csv` are registered in `internal/analytics/http/routes.go`. Export routes are guarded by a per-user/IP rate limiter (10 req/min). `/analytics/kpi` remains a compatibility alias for the same dashboard and is intentionally not shown in navigation.
 2. **Authorization** – `internal/analytics/http/handlers.go` enforces `finance.view_analytics` for HTML and `finance.export_analytics` for exports using the RBAC service.
 3. **Filter Binding** – query parameters (`period`, `company_id`, `branch_id`) are parsed and validated. Period defaults to the current month, company defaults to `1`, and branch is optional. Period validation delegates to the finance period validator (open/closed enforcement).
 4. **Service Calls** – `loadDashboardData` dispatches concurrent requests to `analytics.Service` (KPI, P&L trend, cashflow trend, AR/AP aging). All calls share a 2s timeout and rely on the analytics cache layer.
@@ -32,3 +32,4 @@ The server-rendered finance analytics dashboard consolidates KPI cards, trend ch
 - Additional chart types can implement the renderer interfaces and be swapped without altering handlers or templates.
 - New export formats can reuse the `loadDashboardData` helper to ensure data parity across outputs.
 - RBAC scopes are isolated in `internal/shared/authz_fin_analytics.go` for easy permission seeding.
+- The Analytics dashboard is the canonical KPI view. A dedicated KPI tracking page should only be introduced when it has distinct targets, ownership, and drill-down behaviour.

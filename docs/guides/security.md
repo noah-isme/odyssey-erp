@@ -40,9 +40,14 @@ Panduan keamanan untuk Odyssey ERP.
 - [ ] Database user dengan minimal privileges
 
 ### Rate Limiting
-- [ ] Login endpoint: 5 requests/minute
-- [ ] API endpoints: 100 requests/minute
-- [ ] File upload: 10 requests/minute
+
+| Endpoint | Limit | Code |
+|----------|-------|------|
+| `POST /auth/login` | 5 requests/minute per IP | `internal/auth/handler.go:50` |
+| General API | 60 requests/minute per IP | `internal/app/middleware.go:159` |
+| Export (PDF/CSV) — Balance Sheet, P&L, Trial Balance | 10 requests/minute per IP | `internal/consol/http/handlers_bs.go:44`, `handlers_pl.go:44`, `handlers_tb.go:55` |
+| Audit log export | 10 requests/minute per IP | `internal/audit/http/routes.go:22` |
+| Analytics export (PDF/CSV) | 10 requests/minute per IP | `internal/analytics/http/routes.go:19` |
 
 ## RBAC Implementation
 

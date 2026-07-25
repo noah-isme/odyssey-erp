@@ -165,7 +165,7 @@ func main() {
 	mappingRepo := mappings.NewRepository(dbpool)
 
 	journalService := journals.NewService(journalRepo, auditLogger, closeService)
-	accountingHandler := accounting.NewHandler(logger, dbpool, templates, auditLogger, closeService)
+	accountingHandler := accounting.NewHandler(logger, dbpool, templates, csrfManager, auditLogger, closeService)
 	integrationHooks := integration.NewHooks(journalService, periodRepo, mappingRepo)
 
 	bankingRepo := banking.NewRepository(dbpool)
@@ -177,6 +177,14 @@ func main() {
 
 	procurementRepo := procurement.NewRepository(dbpool)
 	procurementService := procurement.NewService(logger, procurementRepo, inventoryService, approvalRecorder, auditLogger, idempotencyStore, integrationHooks)
+	inventoryService.SetReorderRequestCreator(func(ctx context.Context, request inventory.ReorderRequest) error {
+		lines := make([]procurement.PRLineInput, 0, len(request.Lines))
+		for _, line := range request.Lines {
+			lines = append(lines, procurement.PRLineInput{ProductID: line.ProductID, Qty: line.Qty, Note: line.Note})
+		}
+		_, err := procurementService.CreatePurchaseRequest(ctx, procurement.CreatePRInput{SupplierID: request.SupplierID, RequestBy: request.RequestedBy, Note: request.Note, Lines: lines})
+		return err
+	})
 
 	rbacService := rbac.NewService(dbpool)
 	rbacMiddleware := rbac.Middleware{Service: rbacService, Logger: logger}

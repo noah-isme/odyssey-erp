@@ -230,7 +230,8 @@
     border-bottom: 1px solid var(--border-subtle);
 }
 
-.page-header-content {
+.page-header-content,
+.page-header__content {
     flex: 1;
     min-width: 0;
 }
@@ -243,17 +244,33 @@
     line-height: var(--leading-tight);
 }
 
+.page-header h1:not(.page-title) {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: var(--text-xl);
+    font-weight: var(--weight-semibold);
+    line-height: var(--leading-tight);
+}
+
+.page-header > div:not(.page-header__content):first-child { min-width: 0; }
+
 .page-subtitle {
     margin: var(--space-1) 0 0 0;
     font-size: var(--text-sm);
     color: var(--text-secondary);
 }
 
-.page-actions {
+.page-actions,
+.page-header__actions {
     display: flex;
     align-items: center;
     gap: var(--space-3);
     flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+    .page-header { flex-direction: column; }
+    .page-header__actions { width: 100%; flex-wrap: wrap; }
 }
 
 /* -----------------------------
@@ -395,11 +412,11 @@
 /* -----------------------------
    TOOLTIP
 ----------------------------- */
-[data-tooltip] {
+.sidebar-nav [data-tooltip] {
     position: relative;
 }
 
-[data-tooltip]::after {
+.sidebar-nav [data-tooltip]::after {
     content: attr(data-tooltip);
     position: absolute;
     bottom: 100%;
@@ -419,7 +436,7 @@
     pointer-events: none;
 }
 
-[data-tooltip]:hover::after {
+.sidebar-nav [data-tooltip]:hover::after {
     opacity: 1;
     visibility: visible;
 }

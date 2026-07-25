@@ -43,11 +43,17 @@ type AuditPort interface {
 
 // Service coordinates inventory operations.
 type Service struct {
-	repo        RepositoryPort
-	audit       AuditPort
-	idempotency *shared.IdempotencyStore
-	allowNeg    bool
-	integration IntegrationHandler
+	repo           RepositoryPort
+	audit          AuditPort
+	idempotency    *shared.IdempotencyStore
+	allowNeg       bool
+	integration    IntegrationHandler
+	reorderCreator func(context.Context, ReorderRequest) error
+}
+
+// SetReorderRequestCreator connects inventory replenishment to the procurement workflow.
+func (s *Service) SetReorderRequestCreator(creator func(context.Context, ReorderRequest) error) {
+	s.reorderCreator = creator
 }
 
 // ServiceConfig groups optional settings.
@@ -71,19 +77,81 @@ func (s *Service) PostInbound(ctx context.Context, input InboundInput) (StockCar
 	if input.UnitCost < 0 {
 		return StockCardEntry{}, ErrInvalidUnitCost
 	}
-	params := movementParams{
-		Code:        input.Code,
-		WarehouseID: input.WarehouseID,
-		ProductID:   input.ProductID,
-		QtyChange:   input.Qty,
-		UnitCost:    input.UnitCost,
-		TxType:      TransactionTypeIn,
-		Note:        input.Note,
-		ActorID:     input.ActorID,
-		RefModule:   input.RefModule,
-		RefID:       input.RefID,
+	if input.RefID != "" {
+		if _, err := uuid.Parse(input.RefID); err != nil {
+			return StockCardEntry{}, fmt.Errorf("inventory: invalid ref id: %w", err)
+		}
 	}
-	return s.postMovement(ctx, params)
+	code := input.Code
+	if code == "" {
+		code = fmt.Sprintf("INV-%d", time.Now().UTC().UnixNano())
+		input.Code = code
+	}
+	key := fmt.Sprintf("%s:%s:%d:%d", TransactionTypeIn, code, input.WarehouseID, input.ProductID)
+	var entry StockCardEntry
+	err := s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
+		// Idempotency key inside transaction — rolled back on failure
+		if s.idempotency != nil {
+			if err := tx.InsertIdempotencyKey(ctx, key, "inventory"); err != nil {
+				return err
+			}
+		}
+		trace, err := tx.GetProductTraceability(ctx, input.ProductID)
+		if err != nil {
+			return err
+		}
+		if trace.TrackBatch && input.LotNumber == "" {
+			return errors.New("inventory: lot number is required for this product")
+		}
+		if trace.TrackSerial {
+			expectedQty := math.Round(input.Qty)
+			if len(input.SerialNumbers) == 0 || float64(len(input.SerialNumbers)) != expectedQty {
+				return errors.New("inventory: one serial number is required for each received unit")
+			}
+		}
+		if !trace.TrackBatch && input.LotNumber != "" {
+			return errors.New("inventory: product does not use lot tracking")
+		}
+		if !trace.TrackSerial && len(input.SerialNumbers) > 0 {
+			return errors.New("inventory: product does not use serial tracking")
+		}
+
+		lotID := int64(0)
+		if trace.TrackBatch {
+			lot, err := tx.UpsertLot(ctx, InventoryLot{ProductID: input.ProductID, WarehouseID: input.WarehouseID, LotNumber: input.LotNumber, ExpiryDate: input.ExpiryDate, QtyOnHand: input.Qty, UnitCost: input.UnitCost})
+			if err != nil {
+				return err
+			}
+			lotID = lot.ID
+		}
+		for _, serial := range input.SerialNumbers {
+			if err := tx.CreateSerial(ctx, input.ProductID, input.WarehouseID, lotID, serial); err != nil {
+				return err
+			}
+		}
+		params := movementParams{
+			Code:        input.Code,
+			WarehouseID: input.WarehouseID,
+			ProductID:   input.ProductID,
+			QtyChange:   input.Qty,
+			UnitCost:    input.UnitCost,
+			TxType:      TransactionTypeIn,
+			Note:        input.Note,
+			ActorID:     input.ActorID,
+			RefModule:   input.RefModule,
+			RefID:       input.RefID,
+			LotID:       lotID,
+		}
+		entry, err = s.postMovementInternal(ctx, tx, params)
+		return err
+	})
+	if err != nil {
+		return StockCardEntry{}, err
+	}
+	if s.audit != nil {
+		_ = s.audit.Record(ctx, shared.AuditLog{ActorID: input.ActorID, Action: "inventory:IN", Entity: "inventory_tx", EntityID: fmt.Sprintf("IN:%d", input.ProductID), Meta: map[string]any{"warehouse_id": input.WarehouseID, "product_id": input.ProductID, "qty": input.Qty, "note": input.Note}})
+	}
+	return entry, err
 }
 
 // PostAdjustment posts an adjustment which may be positive or negative.
@@ -228,6 +296,7 @@ type movementParams struct {
 	ActorID     int64
 	RefModule   string
 	RefID       string
+	LotID       int64
 }
 
 func (s *Service) postMovementInternal(ctx context.Context, tx TxRepository, params movementParams) (StockCardEntry, error) {
@@ -292,6 +361,7 @@ func (s *Service) postMovementInternal(ctx context.Context, tx TxRepository, par
 		ProductID:     params.ProductID,
 		Qty:           qtyChange,
 		UnitCost:      unitCost,
+		LotID:         params.LotID,
 	}
 	if qtyChange < 0 {
 		line.SrcWarehouseID = params.WarehouseID
@@ -441,7 +511,7 @@ func (s *Service) AddStockTakeLine(ctx context.Context, input AddStockTakeLineIn
 // PostStockTake finalizes session and posts adjustments.
 func (s *Service) PostStockTake(ctx context.Context, id int64, postedBy int64) error {
 	return s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
-		st, err := s.repo.GetStockTake(ctx, id) // Use repo instead of tx to simplify
+		st, err := tx.GetStockTake(ctx, id)
 		if err != nil {
 			return err
 		}
@@ -471,7 +541,7 @@ func (s *Service) PostStockTake(ctx context.Context, id int64, postedBy int64) e
 		}
 
 		// 2. Update status
-		return s.repo.UpdateStockTakeStatus(ctx, sqlc.UpdateStockTakeStatusParams{
+		return tx.UpdateStockTakeStatus(ctx, sqlc.UpdateStockTakeStatusParams{
 			ID:       id,
 			Status:   string(StockTakeStatusPosted),
 			PostedBy: pgtype.Int8{Int64: postedBy, Valid: true},
@@ -486,6 +556,54 @@ func (s *Service) GetValuation(ctx context.Context, warehouseID int64) ([]Valuat
 
 func (s *Service) GetReorderAlerts(ctx context.Context) ([]ReorderAlert, error) {
 	return s.repo.GetReorderAlerts(ctx)
+}
+
+// CreateReorderRequests creates draft purchase requests grouped by preferred supplier.
+// Approval remains required before a purchase order can be issued.
+func (s *Service) CreateReorderRequests(ctx context.Context, actorID int64) (int, error) {
+	if actorID <= 0 {
+		return 0, errors.New("inventory: authenticated user required")
+	}
+	if s.reorderCreator == nil {
+		return 0, errors.New("inventory: procurement replenishment is not configured")
+	}
+	alerts, err := s.repo.GetReorderAlerts(ctx)
+	if err != nil {
+		return 0, err
+	}
+	grouped := make(map[int64]*ReorderRequest)
+	for _, alert := range alerts {
+		if alert.PreferredSupplierID <= 0 {
+			continue
+		}
+		target := alert.ReorderTarget
+		if target <= alert.MinStock {
+			target = alert.MinStock
+		}
+		qty := target - alert.CurrentQty
+		if qty <= 0 {
+			continue
+		}
+		request := grouped[alert.PreferredSupplierID]
+		if request == nil {
+			request = &ReorderRequest{SupplierID: alert.PreferredSupplierID, RequestedBy: actorID, Note: "Automatically created from inventory reorder alerts"}
+			grouped[alert.PreferredSupplierID] = request
+		}
+		request.Lines = append(request.Lines, ReorderRequestLine{ProductID: alert.ProductID, Qty: qty, Note: fmt.Sprintf("Replenish %s for %s", alert.SKU, alert.WarehouseName)})
+	}
+	created := 0
+	if err := s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
+		for _, request := range grouped {
+			if err := s.reorderCreator(ctx, *request); err != nil {
+				return fmt.Errorf("failed to create reorder request for supplier %d: %w", request.SupplierID, err)
+			}
+			created++
+		}
+		return nil
+	}); err != nil {
+		return 0, err
+	}
+	return created, nil
 }
 
 func (s *Service) GetStockTake(ctx context.Context, id int64) (StockTake, error) {
@@ -558,7 +676,7 @@ func (s *Service) PostAdjustmentDocument(ctx context.Context, id int64, userID i
 			return errors.New("only draft adjustments can be posted")
 		}
 
-		lines, err := s.repo.GetAdjustmentLines(ctx, id) // Use repo for simplicity if lines not in TxRepository
+		lines, err := tx.GetAdjustmentLines(ctx, id)
 		if err != nil {
 			return err
 		}

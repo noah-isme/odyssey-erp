@@ -44,7 +44,7 @@ make seed
 ### 6. Start Application
 
 ```bash
-./run-background.sh
+docker compose up -d
 ```
 
 ---
@@ -228,7 +228,7 @@ make migrate-up
 make seed
 
 # 4. Start app
-./run-background.sh
+docker compose up -d
 ```
 
 Done! 🎉

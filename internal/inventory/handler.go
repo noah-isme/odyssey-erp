@@ -2,6 +2,7 @@ package inventory
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -48,6 +49,7 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Post("/adjustments/{id}/post", h.handlePostAdjustment)
 		r.Get("/transfers", h.showTransferForm)
 		r.Post("/transfers", h.handleTransfer)
+		r.Post("/reorder-requests", h.handleCreateReorderRequests)
 
 		r.Get("/stock-takes", h.handleListStockTakes)
 		r.Get("/stock-takes/new", h.showCreateStockTakeForm)
@@ -57,6 +59,24 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Post("/stock-takes/{id}/post", h.handlePostStockTake)
 		r.Get("/valuation", h.handleValuation)
 	})
+}
+
+func (h *Handler) handleCreateReorderRequests(w http.ResponseWriter, r *http.Request) {
+	sess, _ := h.sessions.Load(r.Context(), r)
+	count, err := h.service.CreateReorderRequests(r.Context(), currentUserID(sess))
+	if err != nil {
+		if sess != nil {
+			sess.AddFlash(shared.FlashMessage{Kind: "error", Message: shared.UserSafeMessage(err)})
+		}
+		_ = h.sessions.Commit(r.Context(), w, r, sess)
+		http.Redirect(w, r, "/inventory/dashboard", http.StatusSeeOther)
+		return
+	}
+	if sess != nil {
+		sess.AddFlash(shared.FlashMessage{Kind: "success", Message: fmt.Sprintf("Created %d draft reorder request(s)", count)})
+	}
+	_ = h.sessions.Commit(r.Context(), w, r, sess)
+	http.Redirect(w, r, "/procurement/prs", http.StatusSeeOther)
 }
 
 type stockCardPageData struct {

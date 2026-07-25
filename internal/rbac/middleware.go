@@ -1,6 +1,7 @@
 package rbac
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"strings"
@@ -12,8 +13,13 @@ import (
 
 // Middleware wires RBAC authorization helpers for HTTP handlers.
 type Middleware struct {
-	Service *Service
+	Service PermissionReader
 	Logger  *slog.Logger
+}
+
+// PermissionReader is the minimal service contract required by authorization middleware.
+type PermissionReader interface {
+	EffectivePermissions(ctx context.Context, userID int64) ([]string, error)
 }
 
 // RequireAny ensures the current user has at least one of the required permissions.
@@ -27,7 +33,7 @@ func (m Middleware) RequireAny(perms ...string) func(http.Handler) http.Handler 
 			}
 			userID, ok := m.currentUserID(r)
 			if !ok {
-				http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+				shared.WriteHTTPError(w, http.StatusForbidden, "")
 				return
 			}
 			granted, err := m.Service.EffectivePermissions(r.Context(), userID)
@@ -35,14 +41,14 @@ func (m Middleware) RequireAny(perms ...string) func(http.Handler) http.Handler 
 				if m.Logger != nil {
 					m.Logger.Error("rbac require any", slog.Any("error", err))
 				}
-				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+				shared.WriteHTTPError(w, http.StatusInternalServerError, "")
 				return
 			}
 			if hasAnyPermission(granted, normalized) {
 				next.ServeHTTP(w, r)
 				return
 			}
-			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+			shared.WriteHTTPError(w, http.StatusForbidden, "")
 		})
 	}
 }
@@ -58,7 +64,7 @@ func (m Middleware) RequireAll(perms ...string) func(http.Handler) http.Handler 
 			}
 			userID, ok := m.currentUserID(r)
 			if !ok {
-				http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+				shared.WriteHTTPError(w, http.StatusForbidden, "")
 				return
 			}
 			granted, err := m.Service.EffectivePermissions(r.Context(), userID)
@@ -66,14 +72,14 @@ func (m Middleware) RequireAll(perms ...string) func(http.Handler) http.Handler 
 				if m.Logger != nil {
 					m.Logger.Error("rbac require all", slog.Any("error", err))
 				}
-				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+				shared.WriteHTTPError(w, http.StatusInternalServerError, "")
 				return
 			}
 			if hasAllPermissions(granted, normalized) {
 				next.ServeHTTP(w, r)
 				return
 			}
-			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+			shared.WriteHTTPError(w, http.StatusForbidden, "")
 		})
 	}
 }

@@ -10,10 +10,12 @@ Inventory valuation underpins procurement, fulfillment, and financial reporting.
 * Use Average Moving Cost across all warehouses. Each inbound movement recalculates `avg_cost` by weighting existing balance with incoming quantity.
 * Enforce strict non-negative balances by default. Transfers and adjustments run inside repeatable-read transactions to eliminate race conditions.
 * Store detailed movements in `inventory_tx`/`inventory_tx_lines` and running balances in `inventory_balances` for fast lookup. A lightweight `inventory_cards` table captures pre-aggregated ledger rows to power reports.
-* Defer FIFO/LIFO support to a future ADR; design keeps transaction headers/lines generic to allow alternative costing engines later.
+* Support weighted average and FIFO per product. LIFO is intentionally excluded
+  because it is not the selected accounting policy for this application.
 
 ## Consequences
 * Integration with procurement simply calls the inventory service with inbound payloads; no costing logic leaks into procurement.
 * Average cost recalculation happens inside the transaction pipeline ensuring atomicity but requires consistent unit cost inputs for adjustments.
 * Nightly revaluation job (`jobs/inventory_reval.go`) validates balances and flags inconsistencies for operators.
-* Moving to FIFO later will require new tables for layers but the existing schema can coexist thanks to explicit transaction headers.
+* FIFO valuation uses inbound movement history in chronological order. Product
+  configuration, lots, and serial numbers are stored alongside inventory data.

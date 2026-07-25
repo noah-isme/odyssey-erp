@@ -1,9 +1,9 @@
 {{ define "pages/masterdata/warehouse_form.html" }}{{ template "layouts/base.html" . }}{{ end }}
 {{ define "title" }}{{ if .Data.Warehouse }}Edit Warehouse{{ else }}New Warehouse{{ end }}{{ end }}
 {{ define "content" }}{{ template "partials/masterdata/form.html" . }}{{ end }}
-{{ define "masterdata-form-heading" }}{{ if .Data.Warehouse }}Edit Warehouse{{ else }}New Warehouse{{ end }}{{ end }}
+{{ define "masterdata-form-heading" }}{{ if .Data.Warehouse }}Ubah gudang / Edit warehouse{{ else }}Gudang baru / New warehouse{{ end }}{{ end }}
 {{ define "ui-page-header-title" }}{{ template "masterdata-form-heading" . }}{{ end }}
-{{ define "ui-page-header-subtitle" }}Complete the required information, then save the record.{{ end }}
+{{ define "ui-page-header-subtitle" }}Lengkapi informasi wajib, lalu simpan data.{{ end }}
 {{ define "ui-page-header-actions" }}<a class="btn btn--secondary" href="{{ template "masterdata-form-cancel-url" . }}">Cancel</a>{{ end }}
 {{ define "masterdata-form-action" }}{{ if .Data.Warehouse }}/masterdata/warehouses/{{ .Data.Warehouse.ID }}/edit{{ else }}/masterdata/warehouses{{ end }}{{ end }}
 {{ define "masterdata-form-cancel-url" }}{{ if .Data.Warehouse }}/masterdata/warehouses/{{ .Data.Warehouse.ID }}{{ else }}/masterdata/warehouses{{ end }}{{ end }}

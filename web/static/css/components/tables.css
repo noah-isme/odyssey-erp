@@ -10,6 +10,12 @@
     overflow-x: auto;
 }
 
+.card[data-component="datatable"],
+.card.card-table {
+    border-radius: var(--radius-2);
+    box-shadow: var(--shadow-0);
+}
+
 .table-responsive {
     width: 100%;
     overflow-x: auto;
@@ -34,7 +40,7 @@
     color: var(--table-head-fg);
     font-weight: var(--weight-medium);
     font-size: var(--text-xs);
-    letter-spacing: 0.08em;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
     padding: var(--table-cell-pad-y) var(--table-cell-pad-x);
     border-bottom: 1px solid var(--table-border);

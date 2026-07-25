@@ -99,11 +99,14 @@ type GoodsReceipt struct {
 
 // GRNLine describes received goods.
 type GRNLine struct {
-	ID        int64
-	GRNID     int64
-	ProductID int64
-	Qty       float64
-	UnitCost  float64
+	ID            int64
+	GRNID         int64
+	ProductID     int64
+	Qty           float64
+	UnitCost      float64
+	LotNumber     string
+	ExpiryDate    *time.Time
+	SerialNumbers []string
 }
 
 // APInvoice model.

@@ -1,7 +1,7 @@
 # Odyssey ERP — Future Roadmap & Recommendations
 
 **Prepared:** 2026-01-11
-**Revised:** 2026-07-14 (synced to actual codebase at v0.9.1)
+**Revised:** 2026-07-20 (synced to current implementation)
 **Current Version:** v0.9.1
 
 ## Executive Summary
@@ -23,11 +23,11 @@ to re-prioritise the genuinely remaining work.
 | Phase 11 — Bank reconciliation | ✅ Implemented | `internal/accounting/banks/`, migration 000030, route `/accounting/banks` |
 | Phase 11 — Cash flow report | ✅ Implemented | `internal/accounting/reports/cf.go` |
 | Phase 12 — Stock take & adjustment | ✅ Implemented | migrations 000027/000028, `/inventory/.../stock-takes`, `/adjustments` |
-| Phase 12 — Stock valuation | 🟡 Partial | Average + FIFO in `internal/inventory/service.go`; **no LIFO**, no `cost_method` column |
-| Phase 15 — Budget vs Actual | 🟡 Scaffold only | `reports/budget.go` + migration 000029 exist, but the handler serves **empty hardcoded data** — `accounting_budgets` is not yet wired |
-| Phase 13 — Fixed Assets | ❌ Not started | no `fixed_assets` table or module |
+| Phase 12 — Stock valuation | 🟡 Partial | Per-product AVG/FIFO cost method, lot/serial receiving, and reorder PR are implemented; LIFO is intentionally excluded |
+| Phase 15 — Budget vs Actual | ✅ Implemented | `/accounting/budget` loads `accounting_budgets` and posted journal actuals for the selected month |
+| Phase 13 — Fixed Assets | ✅ Implemented | Register, straight-line depreciation worker, disposal accounting, and category setup |
 | Phase 14 — Transaction-level multi-currency | ❌ Not started | FX exists only for consolidation (`internal/consol/fx/`), not realized/unrealized gain on AR/AP |
-| Phase 15 — Department reporting, Excel export | ❌ Not started | CSV export only; no `excelize` |
+| Phase 15 — Reporting enhancements | 🟡 Partial | P&L and Budget vs Actual support department/cost-center filters, native `.xlsx`, and scheduled email; report builder/widgets remain |
 
 The phase descriptions below are retained for reference. **Completed phases (10, 11, and
 most of 12) are kept for historical context; focus new work on the "Remaining Priorities"
@@ -85,7 +85,7 @@ are implemented (`internal/finance/banking/`, `internal/accounting/banks/`). Onl
 ## Phase 12: Inventory Enhancements — 🟡 MOSTLY DONE
 
 **Status:** Stock take, stock adjustment (with audit trail), and valuation (Average + FIFO)
-are implemented. Remaining: **LIFO costing** (and a `cost_method` column), stock reorder
+are implemented. Per-product costing, stock reorder
 automation, batch/lot tracking, and serial numbers.
 **Priority:** 🟡 Medium
 **Estimated Effort:** remaining items ~1-2 weeks
@@ -107,10 +107,10 @@ automation, batch/lot tracking, and serial numbers.
 
 ---
 
-## Phase 13: Fixed Assets
+## Phase 13: Fixed Assets — ✅ DONE
 
-**Priority:** 🟡 Medium  
-**Estimated Effort:** 2-3 weeks
+**Status:** Register, category account configuration, monthly straight-line
+depreciation, disposal accounting, and worker scheduling are implemented.
 
 ### Features
 | Feature | Description | Priority |
@@ -153,21 +153,20 @@ automation, batch/lot tracking, and serial numbers.
 **Priority:** 🟡 Medium
 **Estimated Effort:** 3-4 weeks
 
-> **Status note:** Analytics and Insights modules exist. **Budget vs Actual is
-> scaffolded but not functional** — `internal/accounting/reports/budget.go` and the
-> `accounting_budgets` table (migration 000029) exist, but the handler currently serves
-> empty hardcoded data instead of reading the table. Wiring this up is the top follow-up
-> item. Department reporting and native Excel export are not started (CSV export only).
+> **Status note:** Analytics and Insights modules exist. Budget vs Actual reads
+> `accounting_budgets` and posted journal actuals for the selected month. P&L and
+> Budget vs Actual support department/cost-center filters, native Excel exports,
+> and scheduled email delivery. Report builder and dashboard widgets are not started.
 
 ### Features
 | Feature | Description | Priority | Status |
 |---------|-------------|----------|--------|
 | Custom Reports | Build reports with drag-drop | Low | Not started |
 | Dashboard Widgets | Customizable dashboard | Medium | Not started |
-| Budget vs Actual | Compare to budget | High | 🟡 Scaffold (data not wired) |
-| Department Reporting | P&L by department/cost center | Medium | Not started |
-| Export to Excel | Native Excel export | High | Not started (CSV only) |
-| Scheduled Reports | Email reports on schedule | Medium | Not started |
+| Budget vs Actual | Compare to budget | High | Implemented with posted journal actuals |
+| Department Reporting | P&L by department/cost center | Medium | P&L and Budget vs Actual filters implemented |
+| Export to Excel | Native Excel export | High | P&L and Budget vs Actual `.xlsx` implemented |
+| Scheduled Reports | Email reports on schedule | Medium | Hourly worker scan and email queue implemented for P&L and Budget vs Actual |
 
 ### Technical Notes
 - Consider Go templating or external BI tool
@@ -248,19 +247,19 @@ These can be implemented in 1-2 days each:
 - [x] ✅ Add CI/CD pipeline — `.github/workflows/ci.yml` (build + Postgres/Redis services)
 - [ ] Add staging environment
 - [ ] Implement blue-green deployment
-- [ ] Add automated database backups — no `pg_dump`/backup script in `tools/`
+- [ ] Add automated database backups via Docker volume snapshots
 
 ---
 
 ## Recommended Next Steps
 
 1. **Immediate (highest value, low effort)**
-   - Wire **Budget vs Actual** handler to the `accounting_budgets` table (currently serves empty hardcoded data — the feature looks live but returns nothing)
-   - Add login-specific rate limiting to `POST /login` (brute-force protection; `httprate` already available)
-   - Add tests for `users` / `roles` / `rbac` — the access-control surface currently has **zero** test coverage
+   - Add integration coverage for the Budget vs Actual query and form a release dataset that includes revenue and expense budgets.
+   - Monitor the login-specific rate limiter on `POST /auth/login` (5 attempts/IP/minute) and tune its threshold based on production traffic.
+   - Extend the new Users/Roles/RBAC unit coverage with handler and database integration scenarios.
 
 2. **Short-term (1 month)**
-   - Automated DB backup script (`pg_dump`) in `tools/`
+   - Automated DB backup via Docker volume snapshots (`pg_dump`)
    - Finish Phase 12: decide on LIFO costing / `cost_method`; stock reorder automation
    - Bank auto-feed (CSV/OFX import) to close out Phase 11
 

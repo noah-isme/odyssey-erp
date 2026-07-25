@@ -35,6 +35,8 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 | [Accounting Runbook](guides/accounting.md) | Operasi accounting |
 | [Procurement SOP](guides/procurement.md) | Prosedur procurement |
 | [Board Pack](guides/howto-boardpack.md) | Generate board pack |
+| [Profil & Pengaturan](guides/user-profile-settings.md) | Panduan pengguna untuk profil, tema, bahasa, notifikasi, dan password |
+| [Runbook Preferensi Pengguna](guides/runbook-user-preferences.md) | Deployment dan troubleshooting pengaturan UI |
 
 ## 📚 Reference
 
@@ -43,6 +45,9 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 | [RBAC System](reference/rbac.md) | Role-Based Access Control |
 | [RBAC SQL Examples](reference/RBAC_EXAMPLES.sql) | SQL scripts untuk RBAC |
 | [Inventory Integration](reference/inventory.md) | Integrasi inventory |
+| [Inventory traceability & replenishment](guides/inventory-replenishment.md) | Lot, serial, costing, dan reorder PR |
+| [HTTP E2E regression](guides/e2e-regression.md) | Smoke/regression suite tanpa browser |
+| [Fixed Assets operations](guides/fixed-assets.md) | Kategori, register, depresiasi, dan disposal aset |
 | [Account Mapping](reference/account-mapping.md) | Default account setup |
 | [Period Policy](reference/period-policy.md) | Kebijakan periode accounting |
 | [Observability](reference/observability.md) | Monitoring & metrics |

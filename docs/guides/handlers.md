@@ -11,7 +11,7 @@ These guidelines standardize how we build server-rendered HTTP handlers during P
    - Prefer dedicated request structs with explicit fields.
    - Decode form data with `r.ParseForm()` before accessing values.
 3. **Validate**
-   - Reuse `shared.Validate` utilities (coming in Phase 2) backed by go-playground/validator.
+   - Reuse `shared.Validate` utilities backed by go-playground/validator.
    - Always whitelist sort columns and filter keys.
 4. **Execute Use Case**
    - Delegate to a service layer that wraps SQLC repositories.

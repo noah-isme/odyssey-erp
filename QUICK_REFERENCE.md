@@ -13,16 +13,6 @@ docker-compose ps                      # Check status
 docker-compose restart app             # Restart app only
 ```
 
-## 🔧 Native Scripts
-
-```bash
-./tools/scripts/run.sh            # Run foreground
-./tools/scripts/run-background.sh # Run background
-./tools/scripts/status.sh         # Check status
-./tools/scripts/stop.sh           # Stop application
-./tools/db-setup/setup-db.sh      # Setup database
-```
-
 ## 🗄️ Database
 
 ```bash
