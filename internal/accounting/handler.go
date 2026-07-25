@@ -1,6 +1,7 @@
 package accounting
 
 import (
+	"bytes"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -372,11 +373,29 @@ func (h *Handler) handleGeneralLedger(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) handleTrialBalance(w http.ResponseWriter, r *http.Request) {
-	h.accountHandler.List(w, r)
+	balances, err := h.accountService.ListBalances(r.Context())
+	if err != nil {
+		h.reportError(w, err)
+		return
+	}
+	tb := reports.BuildTrialBalance(balances)
+	data := map[string]any{"Report": tb}
+	if err := h.templates.Render(w, "pages/finance/trial_balance.html", view.TemplateData{Title: "Trial Balance", Data: data}); err != nil {
+		h.reportError(w, err)
+	}
 }
 
 func (h *Handler) handleBalanceSheet(w http.ResponseWriter, r *http.Request) {
-	h.accountHandler.List(w, r)
+	balances, err := h.accountService.ListBalances(r.Context())
+	if err != nil {
+		h.reportError(w, err)
+		return
+	}
+	bs := reports.BuildBalanceSheet(balances)
+	data := map[string]any{"Report": bs}
+	if err := h.templates.Render(w, "pages/finance/balance_sheet.html", view.TemplateData{Title: "Balance Sheet", Data: data}); err != nil {
+		h.reportError(w, err)
+	}
 }
 
 func (h *Handler) handleProfitLoss(w http.ResponseWriter, r *http.Request) {
@@ -518,10 +537,16 @@ func (h *Handler) handleProfitLossExcel(w http.ResponseWriter, r *http.Request) 
 		h.reportError(w, err)
 		return
 	}
+	var buf bytes.Buffer
+	if err := reports.WriteProfitAndLossXLSX(&buf, reports.BuildProfitAndLoss(balances), fmt.Sprintf("%04d-%02d", year, month)); err != nil {
+		h.logger.Error("write P&L workbook", slog.Any("error", err))
+		h.reportError(w, err)
+		return
+	}
 	w.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=profit-loss-%04d-%02d.xlsx", year, month))
-	if err := reports.WriteProfitAndLossXLSX(w, reports.BuildProfitAndLoss(balances), fmt.Sprintf("%04d-%02d", year, month)); err != nil {
-		h.logger.Error("write P&L workbook", slog.Any("error", err))
+	if _, err := w.Write(buf.Bytes()); err != nil {
+		h.logger.Error("write P&L response", slog.Any("error", err))
 	}
 }
 
@@ -548,9 +573,17 @@ func (h *Handler) handleBudgetExcel(w http.ResponseWriter, r *http.Request) {
 			budgets[row.AccountID] = value.Float64
 		}
 	}
+	var buf bytes.Buffer
+	if err := reports.WriteBudgetVsActualXLSX(&buf, reports.BuildBudgetVsActual(balances, budgets), fmt.Sprintf("%04d-%02d", year, month)); err != nil {
+		h.logger.Error("write budget workbook", slog.Any("error", err))
+		h.reportError(w, err)
+		return
+	}
 	w.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=budget-vs-actual-%04d-%02d.xlsx", year, month))
-	_ = reports.WriteBudgetVsActualXLSX(w, reports.BuildBudgetVsActual(balances, budgets), fmt.Sprintf("%04d-%02d", year, month))
+	if _, err := w.Write(buf.Bytes()); err != nil {
+		h.logger.Error("write budget response", slog.Any("error", err))
+	}
 }
 
 func (h *Handler) reportError(w http.ResponseWriter, err error) {
