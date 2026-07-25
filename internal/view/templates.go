@@ -28,6 +28,7 @@ type TemplateData struct {
 	CSRFToken   string
 	Flash       *shared.FlashMessage
 	CurrentPath string
+	Lang        string
 	Data        any
 }
 
@@ -182,6 +183,15 @@ func NewEngine() (*Engine, error) {
 				return def
 			}
 			return val
+		},
+		"isActive": func(currentPath, href string) bool {
+			if currentPath == href {
+				return true
+			}
+			if href != "/" && strings.HasPrefix(currentPath, href) {
+				return true
+			}
+			return false
 		},
 	}
 

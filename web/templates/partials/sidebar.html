@@ -10,115 +10,115 @@
         <nav class="sidebar-nav" aria-label="Menu aplikasi">
             <div class="sidebar-section">
                 <span class="sidebar-section-title">Overview</span>
-                <a href="/" class="nav-item" data-tooltip="Dashboard">
-                    <span class="nav-item-icon">⌂</span><span class="nav-item-text">Dashboard</span>
+                <a href="/" class="nav-item{{ if isActive .CurrentPath "/" }} active{{ end }}" data-tooltip="Dashboard">
+                    <span class="nav-item-icon">�</span><span class="nav-item-text">Dashboard</span>
                 </a>
             </div>
 
-            <details class="sidebar-menu" data-sidebar-menu>
+            <details class="sidebar-menu" data-sidebar-menu{{ if or (isActive .CurrentPath "/masterdata/companies") (isActive .CurrentPath "/masterdata/branches") (isActive .CurrentPath "/masterdata/warehouses") (isActive .CurrentPath "/masterdata/products") (isActive .CurrentPath "/masterdata/suppliers") (isActive .CurrentPath "/masterdata/categories") (isActive .CurrentPath "/masterdata/units") (isActive .CurrentPath "/masterdata/taxes") }} open{{ end }}>
                 <summary data-tooltip="Master Data"><span class="nav-item-icon">▦</span><span class="nav-item-text">Master Data</span><span class="sidebar-menu__arrow">⌄</span></summary>
                 <div class="sidebar-menu__items">
-                    <a href="/masterdata/companies" class="nav-item" data-tooltip="Perusahaan"><span class="nav-item-text">Perusahaan</span></a>
-                    <a href="/masterdata/branches" class="nav-item" data-tooltip="Cabang"><span class="nav-item-text">Cabang</span></a>
-                    <a href="/masterdata/warehouses" class="nav-item" data-tooltip="Gudang"><span class="nav-item-text">Gudang</span></a>
-                    <a href="/masterdata/products" class="nav-item" data-tooltip="Produk"><span class="nav-item-text">Produk</span></a>
-                    <a href="/masterdata/suppliers" class="nav-item" data-tooltip="Pemasok"><span class="nav-item-text">Pemasok</span></a>
-                    <a href="/masterdata/categories" class="nav-item" data-tooltip="Kategori"><span class="nav-item-text">Kategori</span></a>
-                    <a href="/masterdata/units" class="nav-item" data-tooltip="Satuan"><span class="nav-item-text">Satuan</span></a>
-                    <a href="/masterdata/taxes" class="nav-item" data-tooltip="Pajak"><span class="nav-item-text">Pajak</span></a>
+                    <a href="/masterdata/companies" class="nav-item{{ if isActive .CurrentPath "/masterdata/companies" }} active{{ end }}" data-tooltip="Perusahaan"><span class="nav-item-text">Perusahaan</span></a>
+                    <a href="/masterdata/branches" class="nav-item{{ if isActive .CurrentPath "/masterdata/branches" }} active{{ end }}" data-tooltip="Cabang"><span class="nav-item-text">Cabang</span></a>
+                    <a href="/masterdata/warehouses" class="nav-item{{ if isActive .CurrentPath "/masterdata/warehouses" }} active{{ end }}" data-tooltip="Gudang"><span class="nav-item-text">Gudang</span></a>
+                    <a href="/masterdata/products" class="nav-item{{ if isActive .CurrentPath "/masterdata/products" }} active{{ end }}" data-tooltip="Produk"><span class="nav-item-text">Produk</span></a>
+                    <a href="/masterdata/suppliers" class="nav-item{{ if isActive .CurrentPath "/masterdata/suppliers" }} active{{ end }}" data-tooltip="Pemasok"><span class="nav-item-text">Pemasok</span></a>
+                    <a href="/masterdata/categories" class="nav-item{{ if isActive .CurrentPath "/masterdata/categories" }} active{{ end }}" data-tooltip="Kategori"><span class="nav-item-text">Kategori</span></a>
+                    <a href="/masterdata/units" class="nav-item{{ if isActive .CurrentPath "/masterdata/units" }} active{{ end }}" data-tooltip="Satuan"><span class="nav-item-text">Satuan</span></a>
+                    <a href="/masterdata/taxes" class="nav-item{{ if isActive .CurrentPath "/masterdata/taxes" }} active{{ end }}" data-tooltip="Pajak"><span class="nav-item-text">Pajak</span></a>
                 </div>
             </details>
 
-            <details class="sidebar-menu" data-sidebar-menu>
+            <details class="sidebar-menu" data-sidebar-menu{{ if or (isActive .CurrentPath "/sales/customers") (isActive .CurrentPath "/sales/quotations") (isActive .CurrentPath "/sales/orders") (isActive .CurrentPath "/delivery/orders") }} open{{ end }}>
                 <summary data-tooltip="Penjualan"><span class="nav-item-icon">◫</span><span class="nav-item-text">Penjualan</span><span class="sidebar-menu__arrow">⌄</span></summary>
                 <div class="sidebar-menu__items">
-                    <a href="/sales/customers" class="nav-item" data-tooltip="Pelanggan"><span class="nav-item-text">Pelanggan</span></a>
-                    <a href="/sales/quotations" class="nav-item" data-tooltip="Penawaran"><span class="nav-item-text">Penawaran</span></a>
-                    <a href="/sales/orders" class="nav-item" data-tooltip="Sales Order"><span class="nav-item-text">Sales Order</span></a>
-                    <a href="/delivery/orders" class="nav-item" data-tooltip="Delivery Order"><span class="nav-item-text">Delivery Order</span></a>
+                    <a href="/sales/customers" class="nav-item{{ if isActive .CurrentPath "/sales/customers" }} active{{ end }}" data-tooltip="Pelanggan"><span class="nav-item-text">Pelanggan</span></a>
+                    <a href="/sales/quotations" class="nav-item{{ if isActive .CurrentPath "/sales/quotations" }} active{{ end }}" data-tooltip="Penawaran"><span class="nav-item-text">Penawaran</span></a>
+                    <a href="/sales/orders" class="nav-item{{ if isActive .CurrentPath "/sales/orders" }} active{{ end }}" data-tooltip="Sales Order"><span class="nav-item-text">Sales Order</span></a>
+                    <a href="/delivery/orders" class="nav-item{{ if isActive .CurrentPath "/delivery/orders" }} active{{ end }}" data-tooltip="Delivery Order"><span class="nav-item-text">Delivery Order</span></a>
                 </div>
             </details>
 
-            <details class="sidebar-menu" data-sidebar-menu>
+            <details class="sidebar-menu" data-sidebar-menu{{ if or (isActive .CurrentPath "/procurement/pos") (isActive .CurrentPath "/procurement/grns") }} open{{ end }}>
                 <summary data-tooltip="Pengadaan"><span class="nav-item-icon">□</span><span class="nav-item-text">Pengadaan</span><span class="sidebar-menu__arrow">⌄</span></summary>
                 <div class="sidebar-menu__items">
-                    <a href="/procurement/pos" class="nav-item" data-tooltip="Purchase Order"><span class="nav-item-text">Purchase Order</span></a>
-                    <a href="/procurement/grns" class="nav-item" data-tooltip="Penerimaan Barang"><span class="nav-item-text">Penerimaan Barang</span></a>
+                    <a href="/procurement/pos" class="nav-item{{ if isActive .CurrentPath "/procurement/pos" }} active{{ end }}" data-tooltip="Purchase Order"><span class="nav-item-text">Purchase Order</span></a>
+                    <a href="/procurement/grns" class="nav-item{{ if isActive .CurrentPath "/procurement/grns" }} active{{ end }}" data-tooltip="Penerimaan Barang"><span class="nav-item-text">Penerimaan Barang</span></a>
                 </div>
             </details>
 
-            <details class="sidebar-menu" data-sidebar-menu>
+            <details class="sidebar-menu" data-sidebar-menu{{ if or (isActive .CurrentPath "/inventory/dashboard") (isActive .CurrentPath "/inventory/stock-card") (isActive .CurrentPath "/inventory/adjustments") (isActive .CurrentPath "/inventory/transfers") (isActive .CurrentPath "/inventory/stock-takes") (isActive .CurrentPath "/inventory/valuation") }} open{{ end }}>
                 <summary data-tooltip="Inventori"><span class="nav-item-icon">◇</span><span class="nav-item-text">Inventori</span><span class="sidebar-menu__arrow">⌄</span></summary>
                 <div class="sidebar-menu__items">
-                    <a href="/inventory/dashboard" class="nav-item" data-tooltip="Dashboard Inventori"><span class="nav-item-text">Dashboard Inventori</span></a>
-                    <a href="/inventory/stock-card" class="nav-item" data-tooltip="Kartu Stok"><span class="nav-item-text">Kartu Stok</span></a>
-                    <a href="/inventory/adjustments" class="nav-item" data-tooltip="Penyesuaian Stok"><span class="nav-item-text">Penyesuaian Stok</span></a>
-                    <a href="/inventory/transfers" class="nav-item" data-tooltip="Transfer Stok"><span class="nav-item-text">Transfer Stok</span></a>
-                    <a href="/inventory/stock-takes" class="nav-item" data-tooltip="Stock Opname"><span class="nav-item-text">Stock Opname</span></a>
-                    <a href="/inventory/valuation" class="nav-item" data-tooltip="Valuasi Stok"><span class="nav-item-text">Valuasi Stok</span></a>
+                    <a href="/inventory/dashboard" class="nav-item{{ if isActive .CurrentPath "/inventory/dashboard" }} active{{ end }}" data-tooltip="Dashboard Inventori"><span class="nav-item-text">Dashboard Inventori</span></a>
+                    <a href="/inventory/stock-card" class="nav-item{{ if isActive .CurrentPath "/inventory/stock-card" }} active{{ end }}" data-tooltip="Kartu Stok"><span class="nav-item-text">Kartu Stok</span></a>
+                    <a href="/inventory/adjustments" class="nav-item{{ if isActive .CurrentPath "/inventory/adjustments" }} active{{ end }}" data-tooltip="Penyesuaian Stok"><span class="nav-item-text">Penyesuaian Stok</span></a>
+                    <a href="/inventory/transfers" class="nav-item{{ if isActive .CurrentPath "/inventory/transfers" }} active{{ end }}" data-tooltip="Transfer Stok"><span class="nav-item-text">Transfer Stok</span></a>
+                    <a href="/inventory/stock-takes" class="nav-item{{ if isActive .CurrentPath "/inventory/stock-takes" }} active{{ end }}" data-tooltip="Stock Opname"><span class="nav-item-text">Stock Opname</span></a>
+                    <a href="/inventory/valuation" class="nav-item{{ if isActive .CurrentPath "/inventory/valuation" }} active{{ end }}" data-tooltip="Valuasi Stok"><span class="nav-item-text">Valuasi Stok</span></a>
                 </div>
             </details>
 
             <span class="sidebar-section-title">Finance</span>
-            <details class="sidebar-menu" data-sidebar-menu>
+            <details class="sidebar-menu" data-sidebar-menu{{ if or (isActive .CurrentPath "/accounting/periods") (isActive .CurrentPath "/finance/banking/accounts") (isActive .CurrentPath "/accounting/banks/statements") (isActive .CurrentPath "/accounting/cash-flow") (isActive .CurrentPath "/accounting/budget") }} open{{ end }}>
                 <summary data-tooltip="Keuangan"><span class="nav-item-icon">Rp</span><span class="nav-item-text">Keuangan</span><span class="sidebar-menu__arrow">⌄</span></summary>
                 <div class="sidebar-menu__items">
-                    <a href="/accounting/periods" class="nav-item" data-tooltip="Period Close"><span class="nav-item-text">Period Close</span></a>
-                    <a href="/finance/banking/accounts" class="nav-item" data-tooltip="Akun Bank"><span class="nav-item-text">Akun Bank</span></a>
-                    <a href="/accounting/banks/statements" class="nav-item" data-tooltip="Bank Statement"><span class="nav-item-text">Bank Statement</span></a>
-                    <a href="/accounting/cash-flow" class="nav-item" data-tooltip="Cash Flow"><span class="nav-item-text">Cash Flow</span></a>
-                    <a href="/accounting/budget" class="nav-item" data-tooltip="Budget vs Actual"><span class="nav-item-text">Budget vs Actual</span></a>
+                    <a href="/accounting/periods" class="nav-item{{ if isActive .CurrentPath "/accounting/periods" }} active{{ end }}" data-tooltip="Period Close"><span class="nav-item-text">Period Close</span></a>
+                    <a href="/finance/banking/accounts" class="nav-item{{ if isActive .CurrentPath "/finance/banking/accounts" }} active{{ end }}" data-tooltip="Akun Bank"><span class="nav-item-text">Akun Bank</span></a>
+                    <a href="/accounting/banks/statements" class="nav-item{{ if isActive .CurrentPath "/accounting/banks/statements" }} active{{ end }}" data-tooltip="Bank Statement"><span class="nav-item-text">Bank Statement</span></a>
+                    <a href="/accounting/cash-flow" class="nav-item{{ if isActive .CurrentPath "/accounting/cash-flow" }} active{{ end }}" data-tooltip="Cash Flow"><span class="nav-item-text">Cash Flow</span></a>
+                    <a href="/accounting/budget" class="nav-item{{ if isActive .CurrentPath "/accounting/budget" }} active{{ end }}" data-tooltip="Budget vs Actual"><span class="nav-item-text">Budget vs Actual</span></a>
                 </div>
             </details>
-            <details class="sidebar-menu" data-sidebar-menu>
+            <details class="sidebar-menu" data-sidebar-menu{{ if or (isActive .CurrentPath "/finance/ap/invoices") (isActive .CurrentPath "/finance/ap/payments") (isActive .CurrentPath "/finance/ap/aging") }} open{{ end }}>
                 <summary data-tooltip="Accounts Payable"><span class="nav-item-icon">AP</span><span class="nav-item-text">Accounts Payable</span><span class="sidebar-menu__arrow">⌄</span></summary>
                 <div class="sidebar-menu__items">
-                    <a href="/finance/ap/invoices" class="nav-item" data-tooltip="AP Invoices"><span class="nav-item-text">AP Invoices</span></a>
-                    <a href="/finance/ap/payments" class="nav-item" data-tooltip="AP Payments"><span class="nav-item-text">AP Payments</span></a>
-                    <a href="/finance/ap/aging" class="nav-item" data-tooltip="AP Aging"><span class="nav-item-text">AP Aging Report</span></a>
+                    <a href="/finance/ap/invoices" class="nav-item{{ if isActive .CurrentPath "/finance/ap/invoices" }} active{{ end }}" data-tooltip="AP Invoices"><span class="nav-item-text">AP Invoices</span></a>
+                    <a href="/finance/ap/payments" class="nav-item{{ if isActive .CurrentPath "/finance/ap/payments" }} active{{ end }}" data-tooltip="AP Payments"><span class="nav-item-text">AP Payments</span></a>
+                    <a href="/finance/ap/aging" class="nav-item{{ if isActive .CurrentPath "/finance/ap/aging" }} active{{ end }}" data-tooltip="AP Aging"><span class="nav-item-text">AP Aging Report</span></a>
                 </div>
             </details>
-            <details class="sidebar-menu" data-sidebar-menu>
+            <details class="sidebar-menu" data-sidebar-menu{{ if or (isActive .CurrentPath "/finance/ar/invoices") (isActive .CurrentPath "/finance/ar/payments") (isActive .CurrentPath "/finance/ar/aging") (isActive .CurrentPath "/finance/ar/customer-statement") }} open{{ end }}>
                 <summary data-tooltip="Accounts Receivable"><span class="nav-item-icon">AR</span><span class="nav-item-text">Accounts Receivable</span><span class="sidebar-menu__arrow">⌄</span></summary>
                 <div class="sidebar-menu__items">
-                    <a href="/finance/ar/invoices" class="nav-item" data-tooltip="AR Invoices"><span class="nav-item-text">AR Invoices</span></a>
-                    <a href="/finance/ar/payments" class="nav-item" data-tooltip="AR Payments"><span class="nav-item-text">AR Payments</span></a>
-                    <a href="/finance/ar/aging" class="nav-item" data-tooltip="AR Aging"><span class="nav-item-text">AR Aging Report</span></a>
-                    <a href="/finance/ar/customer-statement" class="nav-item" data-tooltip="Customer Statement"><span class="nav-item-text">Customer Statement</span></a>
+                    <a href="/finance/ar/invoices" class="nav-item{{ if isActive .CurrentPath "/finance/ar/invoices" }} active{{ end }}" data-tooltip="AR Invoices"><span class="nav-item-text">AR Invoices</span></a>
+                    <a href="/finance/ar/payments" class="nav-item{{ if isActive .CurrentPath "/finance/ar/payments" }} active{{ end }}" data-tooltip="AR Payments"><span class="nav-item-text">AR Payments</span></a>
+                    <a href="/finance/ar/aging" class="nav-item{{ if isActive .CurrentPath "/finance/ar/aging" }} active{{ end }}" data-tooltip="AR Aging"><span class="nav-item-text">AR Aging Report</span></a>
+                    <a href="/finance/ar/customer-statement" class="nav-item{{ if isActive .CurrentPath "/finance/ar/customer-statement" }} active{{ end }}" data-tooltip="Customer Statement"><span class="nav-item-text">Customer Statement</span></a>
                 </div>
             </details>
 
-            <details class="sidebar-menu" data-sidebar-menu>
+            <details class="sidebar-menu" data-sidebar-menu{{ if or (isActive .CurrentPath "/consol") (isActive .CurrentPath "/finance/consol/pl") (isActive .CurrentPath "/finance/consol/tb") (isActive .CurrentPath "/finance/consol/bs") (isActive .CurrentPath "/eliminations/rules") (isActive .CurrentPath "/variance/snapshots") }} open{{ end }}>
                 <summary data-tooltip="Konsolidasi"><span class="nav-item-icon">≋</span><span class="nav-item-text">Konsolidasi</span><span class="sidebar-menu__arrow">⌄</span></summary>
                 <div class="sidebar-menu__items">
-                    <a href="/consol" class="nav-item" data-tooltip="Dashboard Konsolidasi"><span class="nav-item-text">Dashboard</span></a>
-                    <a href="/finance/consol/pl" class="nav-item" data-tooltip="Consolidated P&L"><span class="nav-item-text">Consolidated P&amp;L</span></a>
-                    <a href="/finance/consol/tb" class="nav-item" data-tooltip="Consolidated Trial Balance"><span class="nav-item-text">Consolidated Trial Balance</span></a>
-                    <a href="/finance/consol/bs" class="nav-item" data-tooltip="Consolidated Balance Sheet"><span class="nav-item-text">Consolidated Balance Sheet</span></a>
-                    <a href="/eliminations/rules" class="nav-item" data-tooltip="Eliminations"><span class="nav-item-text">Eliminations</span></a>
-                    <a href="/variance/snapshots" class="nav-item" data-tooltip="Variance"><span class="nav-item-text">Variance</span></a>
+                    <a href="/consol" class="nav-item{{ if isActive .CurrentPath "/consol" }} active{{ end }}" data-tooltip="Dashboard Konsolidasi"><span class="nav-item-text">Dashboard</span></a>
+                    <a href="/finance/consol/pl" class="nav-item{{ if isActive .CurrentPath "/finance/consol/pl" }} active{{ end }}" data-tooltip="Consolidated P&L"><span class="nav-item-text">Consolidated P&amp;L</span></a>
+                    <a href="/finance/consol/tb" class="nav-item{{ if isActive .CurrentPath "/finance/consol/tb" }} active{{ end }}" data-tooltip="Consolidated Trial Balance"><span class="nav-item-text">Consolidated Trial Balance</span></a>
+                    <a href="/finance/consol/bs" class="nav-item{{ if isActive .CurrentPath "/finance/consol/bs" }} active{{ end }}" data-tooltip="Consolidated Balance Sheet"><span class="nav-item-text">Consolidated Balance Sheet</span></a>
+                    <a href="/eliminations/rules" class="nav-item{{ if isActive .CurrentPath "/eliminations/rules" }} active{{ end }}" data-tooltip="Eliminations"><span class="nav-item-text">Eliminations</span></a>
+                    <a href="/variance/snapshots" class="nav-item{{ if isActive .CurrentPath "/variance/snapshots" }} active{{ end }}" data-tooltip="Variance"><span class="nav-item-text">Variance</span></a>
                 </div>
             </details>
 
-            <details class="sidebar-menu" data-sidebar-menu>
+            <details class="sidebar-menu" data-sidebar-menu{{ if or (isActive .CurrentPath "/analytics") (isActive .CurrentPath "/insights") (isActive .CurrentPath "/board-packs") }} open{{ end }}>
                 <summary data-tooltip="Insights"><span class="nav-item-icon">⌁</span><span class="nav-item-text">Insights</span><span class="sidebar-menu__arrow">⌄</span></summary>
                 <div class="sidebar-menu__items">
-                    <a href="/analytics" class="nav-item" data-tooltip="Analytics"><span class="nav-item-text">Analytics</span></a>
-                    <a href="/insights" class="nav-item" data-tooltip="Insights"><span class="nav-item-text">Insights</span></a>
-                    <a href="/board-packs" class="nav-item" data-tooltip="Board Pack"><span class="nav-item-text">Board Pack</span></a>
+                    <a href="/analytics" class="nav-item{{ if isActive .CurrentPath "/analytics" }} active{{ end }}" data-tooltip="Analytics"><span class="nav-item-text">Analytics</span></a>
+                    <a href="/insights" class="nav-item{{ if isActive .CurrentPath "/insights" }} active{{ end }}" data-tooltip="Insights"><span class="nav-item-text">Insights</span></a>
+                    <a href="/board-packs" class="nav-item{{ if isActive .CurrentPath "/board-packs" }} active{{ end }}" data-tooltip="Board Pack"><span class="nav-item-text">Board Pack</span></a>
                 </div>
             </details>
 
-            <details class="sidebar-menu" data-sidebar-menu>
+            <details class="sidebar-menu" data-sidebar-menu{{ if or (isActive .CurrentPath "/audit") (isActive .CurrentPath "/users") (isActive .CurrentPath "/roles") (isActive .CurrentPath "/permissions") (isActive .CurrentPath "/jobs") (isActive .CurrentPath "/metrics") (isActive .CurrentPath "/report/ping") }} open{{ end }}>
                 <summary data-tooltip="Administrasi"><span class="nav-item-icon">⚙</span><span class="nav-item-text">Administrasi</span><span class="sidebar-menu__arrow">⌄</span></summary>
                 <div class="sidebar-menu__items">
-                    <a href="/audit" class="nav-item" data-tooltip="Audit Logs"><span class="nav-item-text">Audit Logs</span></a>
-                    <a href="/users" class="nav-item" data-tooltip="Pengguna"><span class="nav-item-text">Pengguna</span></a>
-                    <a href="/roles" class="nav-item" data-tooltip="Roles"><span class="nav-item-text">Roles</span></a>
-                    <a href="/permissions" class="nav-item" data-tooltip="Permissions"><span class="nav-item-text">Permissions</span></a>
-                    <a href="/jobs" class="nav-item" data-tooltip="Jobs"><span class="nav-item-text">Jobs</span></a>
-                    <a href="/metrics" class="nav-item" data-tooltip="Metrics"><span class="nav-item-text">Metrics</span></a>
-                    <a href="/report/ping" class="nav-item" data-tooltip="Report Ping"><span class="nav-item-text">Report Ping</span></a>
+                    <a href="/audit" class="nav-item{{ if isActive .CurrentPath "/audit" }} active{{ end }}" data-tooltip="Audit Logs"><span class="nav-item-text">Audit Logs</span></a>
+                    <a href="/users" class="nav-item{{ if isActive .CurrentPath "/users" }} active{{ end }}" data-tooltip="Pengguna"><span class="nav-item-text">Pengguna</span></a>
+                    <a href="/roles" class="nav-item{{ if isActive .CurrentPath "/roles" }} active{{ end }}" data-tooltip="Roles"><span class="nav-item-text">Roles</span></a>
+                    <a href="/permissions" class="nav-item{{ if isActive .CurrentPath "/permissions" }} active{{ end }}" data-tooltip="Permissions"><span class="nav-item-text">Permissions</span></a>
+                    <a href="/jobs" class="nav-item{{ if isActive .CurrentPath "/jobs" }} active{{ end }}" data-tooltip="Jobs"><span class="nav-item-text">Jobs</span></a>
+                    <a href="/metrics" class="nav-item{{ if isActive .CurrentPath "/metrics" }} active{{ end }}" data-tooltip="Metrics"><span class="nav-item-text">Metrics</span></a>
+                    <a href="/report/ping" class="nav-item{{ if isActive .CurrentPath "/report/ping" }} active{{ end }}" data-tooltip="Report Ping"><span class="nav-item-text">Report Ping</span></a>
                 </div>
             </details>
         </nav>
