@@ -98,6 +98,26 @@ func (v analyticsPeriodValidator) ValidatePeriod(ctx context.Context, period str
 	return nil
 }
 
+// jobsTemplates adapts the view engine to the jobs package's TemplateRenderer,
+// which is deliberately decoupled from internal/view. Without this adapter the
+// jobs handler receives no renderer and silently serves a standalone fallback
+// page instead of the application shell.
+type jobsTemplates struct {
+	engine *view.Engine
+}
+
+func (j jobsTemplates) Render(w http.ResponseWriter, name string, data any) error {
+	viewData, ok := data.(jobs.ViewData)
+	if !ok {
+		return fmt.Errorf("jobs template data has unexpected type %T", data)
+	}
+	return j.engine.Render(w, name, view.TemplateData{
+		Title:       viewData.Title,
+		CurrentPath: viewData.CurrentPath,
+		Data:        viewData.Data,
+	})
+}
+
 func main() {
 	if app.InTestMode() {
 		slog.Default().Info("test mode detected, skipping runtime startup")
@@ -322,7 +342,7 @@ func main() {
 			logger.Warn("inspector close", slog.Any("error", err))
 		}
 	}()
-	jobHandler := jobs.NewHandler(inspector, logger)
+	jobHandler := jobs.NewHandler(inspector, logger, jobsTemplates{engine: templates})
 	dashboardService := dashboard.NewService(dbpool)
 	dashboardHandler := dashboard.NewHandler(logger, dashboardService, templates, csrfManager)
 
@@ -360,6 +380,17 @@ func main() {
 		Metrics:            metrics,
 		DashboardHandler:   dashboardHandler,
 	})
+
+	// Route dump mode: print the real routing table and exit without serving.
+	// The E2E suite uses this to derive its page coverage from the router
+	// rather than a hand-maintained list.
+	if os.Getenv("ODYSSEY_DUMP_ROUTES") != "" {
+		if err := app.WriteRoutes(router, os.Stdout); err != nil {
+			logger.Error("dump routes", slog.Any("error", err))
+			os.Exit(1)
+		}
+		return
+	}
 
 	server := &http.Server{
 		Addr:         cfg.AppAddr,

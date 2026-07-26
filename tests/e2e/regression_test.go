@@ -13,7 +13,10 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
+	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -53,64 +56,81 @@ func TestRegressionFlow(t *testing.T) {
 		gotenbergTargetURL = baseURL
 	}
 
-	// Core feature pages organized by module
-	pages := []struct {
-		path        string
-		description string
-	}{
-		// Dashboard & Core
-		{"/", "Home/Dashboard"},
+	pages, detailRoutes, reservedPaths := pagesUnderTest(t)
+	t.Logf("checking %d page routes", len(pages))
+	// Links seen while sweeping the listings supply real identifiers for the
+	// parameterised detail and edit routes checked afterwards.
+	discoveredLinks := make(map[string]struct{})
 
-		// Accounting (admin has finance.gl.view, finance.ap.view, finance.ar.view, finance.boardpack)
-		{"/accounting/pnl", "Accounting P&L"},
-		{"/accounting/balance-sheet", "Accounting Balance Sheet"},
-		{"/accounting/cash-flow", "Accounting Cash Flow"},
-		{"/accounting/trial-balance", "Accounting Trial Balance"},
-		{"/accounting/gl", "Accounting General Ledger"},
-		{"/accounting/budget", "Accounting Budget"},
-
-		// Banking
-		{"/finance/banking/accounts", "Banking Accounts"},
-
-		// Jobs
-		{"/jobs", "Background Jobs"},
-
-		// User Management (admin has users.view, roles.view, permissions.view, rbac.view)
-		{"/roles", "Roles"},
-		{"/users", "Users"},
-		{"/permissions", "Permissions"},
-
-		// Profile & Settings
-		// {"/profile", "User Profile"}, // rate limited
-		// {"/settings", "User Settings"}, // rate limited
-
-		// Note: Other pages (AR, AP, Inventory, Procurement, Sales, Master Data,
-		// Consolidation, Analytics, Audit, Board Pack, Variance, Elimination, Close, Reports)
-		// require specific permissions or data setup that may not be present in a fresh seed.
+	// Start from a clean directory so a run never mixes its output with stale
+	// captures from an earlier run against a different page list.
+	if screenshotDir != "" {
+		if err := os.RemoveAll(screenshotDir); err != nil {
+			t.Fatalf("clear screenshot dir: %v", err)
+		}
+		if err := os.MkdirAll(screenshotDir, 0o755); err != nil {
+			t.Fatalf("create screenshot dir: %v", err)
+		}
 	}
 
 	for _, page := range pages {
-		pageURL := baseURL + page.path
-		gotenbergPageURL := gotenbergTargetURL + page.path
-		response = get(t, client, pageURL)
-		if response.StatusCode != http.StatusOK {
-			t.Logf("GET %s (%s) status = %d, skipping", page.path, page.description, response.StatusCode)
-			response.Body.Close()
-			continue
-		}
+		t.Run(page.description, func(t *testing.T) {
+			pageURL := baseURL + page.path
+			finalURL, status, body := fetchPage(t, client, pageURL)
+			if status != http.StatusOK {
+				t.Fatalf("GET %s status = %d, want 200", page.path, status)
+			}
+			assertRenderedPage(t, page.path, body)
+			assertSeededListingHasRows(t, page.path, body)
+			harvestLinks(body, discoveredLinks)
+			if finalURL != pageURL {
+				t.Logf("GET %s redirected to %s", page.path, finalURL)
+			}
 
-		if gotenbergURL != "" && screenshotDir != "" {
+			if gotenbergURL == "" || screenshotDir == "" {
+				return
+			}
 			fileName := strings.ReplaceAll(strings.Trim(page.path, "/"), "/", "-")
 			if fileName == "" {
 				fileName = "home"
 			}
 			outputFile := filepath.Join(screenshotDir, fileName+".png")
-			if err := TakePageScreenshot(t, client, gotenbergPageURL, gotenbergURL, outputFile); err != nil {
-				t.Logf("screenshot failed for %s (%s): %v", page.path, page.description, err)
+			if err := TakePageScreenshot(t, client, pageURL, gotenbergTargetURL+page.path, gotenbergURL, outputFile); err != nil {
+				t.Fatalf("screenshot %s: %v", page.path, err)
 			}
-		}
+			assertPNG(t, outputFile)
+		})
+	}
 
-		response.Body.Close()
+	// Detail and edit views, reached with identifiers harvested above. These
+	// carry the row-level templates that listing pages never exercise when a
+	// table happens to be empty.
+	//
+	// Each round harvests links from the pages it visits, so detail pages feed
+	// the next round with the edit URLs that only they link to. The loop ends
+	// when a round can resolve nothing further.
+	remaining := detailRoutes
+	for round := 1; len(remaining) > 0; round++ {
+		batch, unresolved := resolveDetailPages(remaining, discoveredLinks, reservedPaths)
+		if len(batch) == 0 {
+			t.Logf("no link found for %d parameterised route(s), not covered: %s",
+				len(unresolved), strings.Join(unresolved, ", "))
+			break
+		}
+		t.Logf("detail round %d: checking %d parameterised route(s) from %d discovered links",
+			round, len(batch), len(discoveredLinks))
+		for _, page := range batch {
+			t.Run(page.description, func(t *testing.T) {
+				pageURL := baseURL + page.path
+				_, status, body := fetchPage(t, client, pageURL)
+				if status != http.StatusOK {
+					t.Fatalf("GET %s (as %s) status = %d, want 200", page.path, page.description, status)
+				}
+				assertRenderedPage(t, page.path, body)
+				harvestLinks(body, discoveredLinks)
+			})
+		}
+		remaining = unresolved
 	}
 
 	// Export endpoints
@@ -124,6 +144,349 @@ func TestRegressionFlow(t *testing.T) {
 		if len(payload) < 4 || string(payload[:2]) != "PK" {
 			t.Fatalf("GET %s did not return XLSX data", path)
 		}
+	}
+}
+
+// pageRoute is one HTML page the suite asserts on.
+type pageRoute struct {
+	path        string
+	description string
+}
+
+// routeEntry mirrors app.RouteEntry as emitted by ODYSSEY_DUMP_ROUTES.
+type routeEntry struct {
+	Method  string `json:"method"`
+	Pattern string `json:"pattern"`
+}
+
+// fallbackPages is used when no route dump is supplied, so the suite still
+// runs standalone against an arbitrary instance.
+var fallbackPages = []pageRoute{
+	{"/", "Home/Dashboard"},
+	{"/accounting/pnl", "Accounting P&L"},
+	{"/accounting/balance-sheet", "Accounting Balance Sheet"},
+	{"/accounting/cash-flow", "Accounting Cash Flow"},
+	{"/accounting/trial-balance", "Accounting Trial Balance"},
+	{"/accounting/gl", "Accounting General Ledger"},
+	{"/accounting/budget", "Accounting Budget"},
+	{"/finance/banking/accounts", "Banking Accounts"},
+	{"/jobs", "Background Jobs"},
+	{"/roles", "Roles"},
+	{"/users", "Users"},
+	{"/permissions", "Permissions"},
+}
+
+// nonPagePrefixes are routes that never render the authenticated app shell:
+// public pages, static assets, and operational endpoints.
+var nonPagePrefixes = []string{
+	"/static",
+	"/auth",
+	"/welcome",
+	"/metrics",
+	"/health",
+	"/healthz",
+	"/readyz",
+	"/debug",
+	"/api",
+}
+
+// nonPageSuffixes are GET routes that return a file or data payload rather
+// than a page. Exports are covered separately by their own assertions.
+var nonPageSuffixes = []string{
+	".xlsx",
+	".csv",
+	".json",
+	".pdf",
+	".png",
+	"/export",
+	"/pdf",
+	"/download",
+	"/stream",
+	"/health",
+	"/ping",
+}
+
+// pagesUnderTest derives coverage from the router's own table when
+// ODYSSEY_E2E_ROUTES points at a dump produced by ODYSSEY_DUMP_ROUTES.
+// A hand-maintained list drifts silently as routes are added; the router
+// cannot.
+func pagesUnderTest(t *testing.T) (pages []pageRoute, details []string, reserved map[string]struct{}) {
+	t.Helper()
+	reserved = make(map[string]struct{})
+	routeFile := os.Getenv("ODYSSEY_E2E_ROUTES")
+	if routeFile == "" {
+		t.Log("ODYSSEY_E2E_ROUTES not set, using built-in page list")
+		return fallbackPages, nil, reserved
+	}
+
+	raw, err := os.ReadFile(routeFile)
+	if err != nil {
+		t.Fatalf("read route dump %s: %v", routeFile, err)
+	}
+	var entries []routeEntry
+	if err := json.Unmarshal(raw, &entries); err != nil {
+		t.Fatalf("parse route dump %s: %v", routeFile, err)
+	}
+
+	pages = make([]pageRoute, 0, len(entries))
+	skipped := 0
+	for _, entry := range entries {
+		if entry.Method != http.MethodGet {
+			continue
+		}
+		// Every concrete GET path the router serves is reserved, so it can
+		// never be mistaken for an identifier when resolving detail routes.
+		if !strings.ContainsAny(entry.Pattern, "{*") {
+			reserved[entry.Pattern] = struct{}{}
+		}
+		if !isPageRoute(entry.Pattern) {
+			skipped++
+			continue
+		}
+		pages = append(pages, pageRoute{path: entry.Pattern, description: entry.Pattern})
+	}
+	if len(pages) == 0 {
+		t.Fatalf("route dump %s yielded no page routes", routeFile)
+	}
+	details = detailPatterns(entries)
+	t.Logf("derived %d page routes and %d parameterised routes from %s (%d GET routes excluded)",
+		len(pages), len(details), routeFile, skipped)
+	return pages, details, reserved
+}
+
+// isPageRoute reports whether a route pattern is a directly fetchable HTML
+// page. Parameterised routes are excluded here because they need real
+// identifiers; they are covered separately via detailPatterns.
+func isPageRoute(pattern string) bool {
+	if strings.ContainsAny(pattern, "{*") {
+		return false
+	}
+	return servesPage(pattern)
+}
+
+// servesPage reports whether a path renders the authenticated app shell,
+// ignoring whether it carries route parameters.
+func servesPage(pattern string) bool {
+	if pattern == "" || !strings.HasPrefix(pattern, "/") {
+		return false
+	}
+	if pattern == "/" {
+		return true
+	}
+	for _, prefix := range nonPagePrefixes {
+		if pattern == prefix || strings.HasPrefix(pattern, prefix+"/") {
+			return false
+		}
+	}
+	for _, suffix := range nonPageSuffixes {
+		if strings.HasSuffix(pattern, suffix) {
+			return false
+		}
+	}
+	return true
+}
+
+// detailPatterns returns the parameterised page routes from a route dump, such
+// as /masterdata/units/{id}. They are matched against links harvested from the
+// list pages so that detail and edit views are exercised with identifiers that
+// genuinely exist, without coupling the suite to seed internals.
+func detailPatterns(entries []routeEntry) []string {
+	patterns := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if entry.Method != http.MethodGet {
+			continue
+		}
+		if !strings.Contains(entry.Pattern, "{") || strings.Contains(entry.Pattern, "*") {
+			continue
+		}
+		if !servesPage(entry.Pattern) {
+			continue
+		}
+		patterns = append(patterns, entry.Pattern)
+	}
+	return patterns
+}
+
+// patternMatcher turns a chi route pattern into a matcher for concrete paths,
+// where each {param} stands for exactly one path segment.
+func patternMatcher(pattern string) *regexp.Regexp {
+	segments := strings.Split(pattern, "/")
+	for i, segment := range segments {
+		if strings.HasPrefix(segment, "{") && strings.HasSuffix(segment, "}") {
+			segments[i] = `[^/]+`
+		} else {
+			segments[i] = regexp.QuoteMeta(segment)
+		}
+	}
+	return regexp.MustCompile("^" + strings.Join(segments, "/") + "$")
+}
+
+// linkAttr captures in-app paths from anchors and the data attributes the
+// listing tables use for row navigation. Any query string or fragment is
+// dropped so that one canonical path per target is collected.
+var linkAttr = regexp.MustCompile(`(?:href|data-href|data-edit-href)="(/[^"#?]*)[^"]*"`)
+
+// harvestLinks collects in-app paths from a rendered page.
+func harvestLinks(body string, into map[string]struct{}) {
+	for _, match := range linkAttr.FindAllStringSubmatch(body, -1) {
+		into[match[1]] = struct{}{}
+	}
+}
+
+// resolveDetailPages pairs each parameterised route with a concrete path drawn
+// from the links harvested so far, and returns the patterns still without one.
+// Callers re-run it as more links come in, since a route such as
+// /sales/orders/{id}/edit is only ever linked from its own detail page.
+//
+// reserved holds the concrete route paths the router already serves in their
+// own right. A parameter matches any single segment, so without this
+// /masterdata/units/{id} would happily resolve to /masterdata/units/new and
+// report coverage for a detail page that was never fetched.
+func resolveDetailPages(patterns []string, links map[string]struct{}, reserved map[string]struct{}) (pages []pageRoute, unresolved []string) {
+	ordered := make([]string, 0, len(links))
+	for link := range links {
+		if _, isReserved := reserved[link]; isReserved {
+			continue
+		}
+		ordered = append(ordered, link)
+	}
+	sort.Strings(ordered)
+
+	pages = make([]pageRoute, 0, len(patterns))
+	for _, pattern := range patterns {
+		matcher := patternMatcher(pattern)
+		matched := ""
+		for _, link := range ordered {
+			if matcher.MatchString(link) {
+				matched = link
+				break
+			}
+		}
+		if matched == "" {
+			unresolved = append(unresolved, pattern)
+			continue
+		}
+		pages = append(pages, pageRoute{path: matched, description: pattern})
+	}
+	return pages, unresolved
+}
+
+// fetchPage retrieves a page, following in-app redirects. The shared client
+// deliberately does not auto-follow, because the login assertions depend on
+// seeing the 303 itself; alias routes such as /consol -> /finance/consol still
+// need their destination checked, so redirects are resolved here instead.
+func fetchPage(t *testing.T, client *http.Client, pageURL string) (finalURL string, status int, body string) {
+	t.Helper()
+	const maxHops = 5
+	current := pageURL
+	for hop := 0; ; hop++ {
+		response := get(t, client, current)
+		payload, err := io.ReadAll(response.Body)
+		response.Body.Close()
+		if err != nil {
+			t.Fatalf("GET %s: read body: %v", current, err)
+		}
+		if response.StatusCode < 300 || response.StatusCode > 399 {
+			return current, response.StatusCode, string(payload)
+		}
+		if hop == maxHops {
+			t.Fatalf("GET %s: exceeded %d redirects", pageURL, maxHops)
+		}
+		location := response.Header.Get("Location")
+		if location == "" {
+			t.Fatalf("GET %s: status %d without a Location header", current, response.StatusCode)
+		}
+		base, err := url.Parse(current)
+		if err != nil {
+			t.Fatalf("parse %s: %v", current, err)
+		}
+		target, err := base.Parse(location)
+		if err != nil {
+			t.Fatalf("resolve redirect %q from %s: %v", location, current, err)
+		}
+		current = target.String()
+	}
+}
+
+// seededListings are pages the seed guarantees at least one row for. If one
+// comes back empty the sweep silently loses coverage of the matching detail
+// route, so an empty listing is reported as a failure rather than passing as a
+// well-rendered but vacant page.
+// Not listed: /finance/ar/invoices. The AR module has no invoice list template
+// - listInvoices renders pages/ar/ar_invoice_form.html, which never references
+// .Data.Invoices - so the page shows the creation form and can never display
+// rows. That is a missing view rather than an empty listing, and it is tracked
+// as such instead of failing here every run. Its detail route is still covered,
+// via the links on the customer statement.
+var seededListings = map[string]string{
+	"/accounting/banks/statements": "/accounting/banks/statements/",
+	"/board-packs":                 "/board-packs/",
+	"/eliminations/runs":           "/eliminations/runs/",
+	"/finance/banking/accounts":    "/finance/banking/accounts/",
+	"/inventory/adjustments":       "/inventory/adjustments/",
+	"/inventory/stock-takes":       "/inventory/stock-takes/",
+	"/variance/snapshots":          "/variance/snapshots/",
+}
+
+// assertSeededListingHasRows checks that a listing the seed populates actually
+// rendered at least one row link.
+func assertSeededListingHasRows(t *testing.T, path, body string) {
+	t.Helper()
+	prefix, ok := seededListings[path]
+	if !ok {
+		return
+	}
+	rowLink := regexp.MustCompile(regexp.QuoteMeta(prefix) + `\d+`)
+	if !rowLink.MatchString(body) {
+		t.Errorf("GET %s rendered no rows, but the seed guarantees at least one; "+
+			"its detail route cannot be covered", path)
+	}
+}
+
+// serverErrorMarkers are strings the accounting handlers emit through
+// http.Error. Before Render buffered its output they could be appended to an
+// already-committed 200 response, so a status check alone never saw them.
+var serverErrorMarkers = []string{
+	"Gagal memuat data laporan",
+	"Internal Server Error",
+}
+
+// assertRenderedPage checks that an authenticated page actually rendered the
+// application shell to completion, rather than the public landing page or HTML
+// truncated by a mid-render template failure.
+func assertRenderedPage(t *testing.T, path, body string) {
+	t.Helper()
+	if strings.Contains(body, `class="public-page"`) {
+		t.Errorf("GET %s rendered the public landing page, want the authenticated app shell", path)
+		return
+	}
+	if !strings.Contains(body, `class="app-shell"`) {
+		t.Errorf("GET %s did not render the app shell", path)
+		return
+	}
+	for _, marker := range serverErrorMarkers {
+		if strings.Contains(body, marker) {
+			t.Errorf("GET %s body contains server error %q", path, marker)
+		}
+	}
+	if !strings.Contains(body, "</html>") {
+		t.Errorf("GET %s body is truncated: no closing </html>", path)
+	}
+}
+
+// assertPNG verifies a capture is a real, non-empty PNG rather than an error
+// payload that happened to be written to disk.
+func assertPNG(t *testing.T, path string) {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read screenshot %s: %v", path, err)
+	}
+	if len(data) < 8 || !bytes.Equal(data[:8], []byte{0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'}) {
+		t.Fatalf("screenshot %s is not a PNG", path)
+	}
+	if len(data) < 1024 {
+		t.Fatalf("screenshot %s is only %d bytes, likely blank", path, len(data))
 	}
 }
 
@@ -141,16 +504,73 @@ func fetchCSRF(t *testing.T, client *http.Client, endpoint string) string {
 	}
 	return string(match[1])
 }
+
+// The app rate-limits every non-static route to 60 requests per minute per IP
+// (conditionalRateLimiter in internal/app/middleware.go). A router-derived
+// sweep is much larger than that, so requests are paced to stay inside the
+// window. Without pacing the tail of the sweep returns 429s that are
+// indistinguishable from genuinely broken pages - which is why the original
+// hand-written list carried "rate limited" comments next to working routes.
+var (
+	pacerOnce sync.Once
+	pacerGap  time.Duration
+	pacerMu   sync.Mutex
+	pacerLast time.Time
+)
+
+func pace() {
+	pacerOnce.Do(func() {
+		perMinute := 45 // margin below the server's 60/min
+		if raw := os.Getenv("ODYSSEY_E2E_RATE_PER_MIN"); raw != "" {
+			if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
+				perMinute = parsed
+			}
+		}
+		pacerGap = time.Minute / time.Duration(perMinute)
+	})
+
+	pacerMu.Lock()
+	defer pacerMu.Unlock()
+	if wait := time.Until(pacerLast.Add(pacerGap)); wait > 0 {
+		time.Sleep(wait)
+	}
+	pacerLast = time.Now()
+}
+
+// retryAfter reports how long to wait before retrying a throttled request.
+func retryAfter(response *http.Response) time.Duration {
+	if raw := response.Header.Get("Retry-After"); raw != "" {
+		if seconds, err := strconv.Atoi(raw); err == nil && seconds > 0 {
+			return time.Duration(seconds) * time.Second
+		}
+	}
+	return time.Minute
+}
+
 func get(t *testing.T, client *http.Client, endpoint string) *http.Response {
 	t.Helper()
+	pace()
 	response, err := client.Get(endpoint)
 	if err != nil {
 		t.Fatal(err)
+	}
+	// Absorb a throttle once rather than reporting it as a page failure.
+	if response.StatusCode == http.StatusTooManyRequests {
+		wait := retryAfter(response)
+		response.Body.Close()
+		t.Logf("rate limited on %s, retrying in %s", endpoint, wait)
+		time.Sleep(wait)
+		pace()
+		response, err = client.Get(endpoint)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 	return response
 }
 func postForm(t *testing.T, client *http.Client, endpoint string, values url.Values) *http.Response {
 	t.Helper()
+	pace()
 	response, err := client.PostForm(endpoint, values)
 	if err != nil {
 		t.Fatal(err)
@@ -166,8 +586,13 @@ func envOr(key, fallback string) string {
 
 // TakePageScreenshot fetches a screenshot of an authenticated page via Gotenberg
 // by passing the session cookies to Gotenberg's URL-based screenshot endpoint.
-// Returns an error instead of failing the test, allowing the caller to decide.
-func TakePageScreenshot(t *testing.T, client *http.Client, pageURL, gotenbergURL, outputFilePath string) error {
+//
+// cookieURL is the page on the host the test client authenticated against;
+// pageURL is the same page as Gotenberg must reach it, which differs whenever
+// Gotenberg runs in its own container. The two are kept separate because the
+// cookie jar is keyed by host: looking cookies up under Gotenberg's hostname
+// silently returns none and captures a logged-out page.
+func TakePageScreenshot(t *testing.T, client *http.Client, cookieURL, pageURL, gotenbergURL, outputFilePath string) error {
 	t.Helper()
 
 	// Use multipart form to send URL and cookies
@@ -181,9 +606,19 @@ func TakePageScreenshot(t *testing.T, client *http.Client, pageURL, gotenbergURL
 
 	// Extract and pass cookies from the client's jar
 	if client.Jar != nil {
-		pageReq, _ := http.NewRequest(http.MethodGet, pageURL, nil)
-		cookies := client.Jar.Cookies(pageReq.URL)
-		if len(cookies) > 0 {
+		cookieReq, err := http.NewRequest(http.MethodGet, cookieURL, nil)
+		if err != nil {
+			return fmt.Errorf("parse cookie URL: %w", err)
+		}
+		pageReq, err := http.NewRequest(http.MethodGet, pageURL, nil)
+		if err != nil {
+			return fmt.Errorf("parse page URL: %w", err)
+		}
+		cookies := client.Jar.Cookies(cookieReq.URL)
+		if len(cookies) == 0 {
+			return fmt.Errorf("no session cookies for %s; screenshot would capture a logged-out page", cookieURL)
+		}
+		{
 			// Gotenberg expects cookies with specific fields; omit SameSite which uses Go's int enum
 			type gotenbergCookie struct {
 				Name     string `json:"name"`
@@ -194,7 +629,9 @@ func TakePageScreenshot(t *testing.T, client *http.Client, pageURL, gotenbergURL
 				HTTPOnly bool   `json:"httpOnly,omitempty"`
 				Secure   bool   `json:"secure,omitempty"`
 			}
-			// Determine domain from page URL for cookies that don't have one
+			// Always scope cookies to the host Gotenberg fetches. A domain
+			// carried over from the test client's host would not match, and
+			// Chromium would drop the cookie and render a logged-out page.
 			cookieDomain := pageReq.URL.Hostname()
 			gCookies := make([]gotenbergCookie, len(cookies))
 			for i, c := range cookies {
@@ -202,14 +639,10 @@ func TakePageScreenshot(t *testing.T, client *http.Client, pageURL, gotenbergURL
 				if !c.Expires.IsZero() {
 					expires = c.Expires.Format(time.RFC3339)
 				}
-				domain := c.Domain
-				if domain == "" {
-					domain = cookieDomain
-				}
 				gCookies[i] = gotenbergCookie{
 					Name:     c.Name,
 					Value:    c.Value,
-					Domain:   domain,
+					Domain:   cookieDomain,
 					Path:     c.Path,
 					Expires:  expires,
 					HTTPOnly: c.HttpOnly,

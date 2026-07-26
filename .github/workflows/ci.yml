@@ -77,3 +77,69 @@ jobs:
         run: |
           go test ./internal/analytics/http -run 'Test(DashboardSuccess|PDFExport)'
           go test ./internal/analytics/svg
+
+      # The E2E sweep below needs a real server, so the binary is built once and
+      # reused for both the route dump and the run. ODYSSEY_TEST_MODE must be 0
+      # or main() returns before serving.
+      - name: Build server binary
+        run: go build -o bin/odyssey ./cmd/odyssey
+
+      - name: Dump routes
+        env:
+          ODYSSEY_TEST_MODE: "0"
+          ODYSSEY_DUMP_ROUTES: "1"
+          SESSION_SECRET: ci-session-secret-not-for-production
+          CSRF_SECRET: ci-csrf-secret-not-for-production
+        run: |
+          ./bin/odyssey > routes.json
+          echo "GET page routes discovered:"
+          grep -c '"method"' routes.json
+
+      - name: Start application
+        env:
+          ODYSSEY_TEST_MODE: "0"
+          SESSION_SECRET: ci-session-secret-not-for-production
+          CSRF_SECRET: ci-csrf-secret-not-for-production
+          APP_ADDR: 127.0.0.1:8080
+        run: |
+          ./bin/odyssey > server.log 2>&1 &
+          echo $! > server.pid
+          for attempt in $(seq 1 45); do
+            if curl -fsS http://127.0.0.1:8080/healthz >/dev/null 2>&1; then
+              echo "application ready after ${attempt} attempt(s)"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "application failed to become ready"
+          cat server.log
+          exit 1
+
+      # Screenshots are deliberately not a gate: the HTML assertions catch the
+      # same failures without a Gotenberg dependency or image baselines. The
+      # job-level GOTENBERG_URL points at a dead port, so it is cleared here.
+      - name: E2E route sweep
+        env:
+          ODYSSEY_E2E_URL: http://127.0.0.1:8080
+          ODYSSEY_E2E_ROUTES: routes.json
+          GOTENBERG_URL: ""
+        run: go test ./tests/e2e/ -run TestRegressionFlow -v -timeout 20m
+
+      - name: Stop application
+        if: always()
+        run: |
+          if [ -f server.pid ]; then kill "$(cat server.pid)" 2>/dev/null || true; fi
+
+      - name: Application logs
+        if: failure()
+        run: tail -n 300 server.log || true
+
+      - name: Upload E2E diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-diagnostics
+          path: |
+            routes.json
+            server.log
+          if-no-files-found: ignore
