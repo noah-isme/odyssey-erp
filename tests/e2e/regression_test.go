@@ -56,6 +56,9 @@ func TestRegressionFlow(t *testing.T) {
 		gotenbergTargetURL = baseURL
 	}
 
+	// The shell's company switcher and user menu depend on this endpoint.
+	assertWorkspaceAPI(t, client, baseURL)
+
 	pages, detailRoutes, reservedPaths := pagesUnderTest(t)
 	t.Logf("checking %d page routes", len(pages))
 	// Links seen while sweeping the listings supply real identifiers for the
@@ -412,20 +415,61 @@ func fetchPage(t *testing.T, client *http.Client, pageURL string) (finalURL stri
 // comes back empty the sweep silently loses coverage of the matching detail
 // route, so an empty listing is reported as a failure rather than passing as a
 // well-rendered but vacant page.
-// Not listed: /finance/ar/invoices. The AR module has no invoice list template
-// - listInvoices renders pages/ar/ar_invoice_form.html, which never references
-// .Data.Invoices - so the page shows the creation form and can never display
-// rows. That is a missing view rather than an empty listing, and it is tracked
-// as such instead of failing here every run. Its detail route is still covered,
-// via the links on the customer statement.
 var seededListings = map[string]string{
 	"/accounting/banks/statements": "/accounting/banks/statements/",
 	"/board-packs":                 "/board-packs/",
 	"/eliminations/runs":           "/eliminations/runs/",
+	"/finance/ar/invoices":         "/finance/ar/invoices/",
 	"/finance/banking/accounts":    "/finance/banking/accounts/",
 	"/inventory/adjustments":       "/inventory/adjustments/",
 	"/inventory/stock-takes":       "/inventory/stock-takes/",
 	"/variance/snapshots":          "/variance/snapshots/",
+}
+
+// assertWorkspaceAPI checks the endpoint behind the shell's company switcher
+// and user menu.
+//
+// Those widgets are populated by JavaScript from /api/me, so this HTML-level
+// suite cannot see them render. It can however verify the contract they depend
+// on: if this endpoint breaks, main.js swallows the error and every
+// authenticated page silently falls back to "Memuat perusahaan..." and
+// "Pengguna" with nothing failing.
+func assertWorkspaceAPI(t *testing.T, client *http.Client, baseURL string) {
+	t.Helper()
+	response := get(t, client, baseURL+"/api/me")
+	payload, err := io.ReadAll(response.Body)
+	response.Body.Close()
+	if err != nil {
+		t.Fatalf("GET /api/me: read body: %v", err)
+	}
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("GET /api/me status = %d, want 200", response.StatusCode)
+	}
+
+	var workspace struct {
+		User struct {
+			ID    int64  `json:"id"`
+			Email string `json:"email"`
+		} `json:"user"`
+		Companies []struct {
+			ID   int64  `json:"id"`
+			Name string `json:"name"`
+		} `json:"companies"`
+	}
+	if err := json.Unmarshal(payload, &workspace); err != nil {
+		t.Fatalf("GET /api/me returned invalid JSON: %v", err)
+	}
+	if workspace.User.ID == 0 || workspace.User.Email == "" {
+		t.Errorf("GET /api/me returned no identifiable user; the user menu would show a placeholder")
+	}
+	if len(workspace.Companies) == 0 {
+		t.Errorf("GET /api/me returned no companies; the company switcher would stay disabled")
+	}
+	for _, company := range workspace.Companies {
+		if company.ID == 0 || company.Name == "" {
+			t.Errorf("GET /api/me returned an unusable company entry %+v", company)
+		}
+	}
 }
 
 // assertSeededListingHasRows checks that a listing the seed populates actually
