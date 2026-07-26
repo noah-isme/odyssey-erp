@@ -685,21 +685,21 @@ func seedProcurement(ctx context.Context, pool *pgxpool.Pool) error {
 	err = tx.QueryRow(ctx, `SELECT id FROM suppliers WHERE code = 'SUP-001' LIMIT 1`).Scan(&supplierID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return tx.Commit(ctx) // Skip if no suppliers
+			return nil // Skip if no suppliers
 		}
 		return err
 	}
 	err = tx.QueryRow(ctx, `SELECT id FROM warehouses WHERE code = 'WH-JKT-01' LIMIT 1`).Scan(&warehouseID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return tx.Commit(ctx)
+			return nil
 		}
 		return err
 	}
 	err = tx.QueryRow(ctx, `SELECT id FROM products WHERE sku = 'PRD-001' LIMIT 1`).Scan(&productID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return tx.Commit(ctx)
+			return nil
 		}
 		return err
 	}
@@ -790,18 +790,19 @@ func seedProcurement(ctx context.Context, pool *pgxpool.Pool) error {
 		err = tx.QueryRow(ctx, `
 			INSERT INTO ap_payments (number, ap_invoice_id, amount, paid_at, method, note, created_by)
 			VALUES ('PAY-AP-202412-0001', $1, 40000000, CURRENT_DATE, 'TRANSFER', 'Partial Payment Seed', 1)
+			ON CONFLICT (number) DO UPDATE SET number = EXCLUDED.number
 			RETURNING id`, invoiceID).Scan(&paymentID)
 		if err != nil {
-			// Ignore error if payment already exists (simple approach for seed)
-			// in real scenario we'd handle upsert better but ap_payments uses serial ID usually
-		} else {
-			// Allocation
-			_, err = tx.Exec(ctx, `
-				INSERT INTO ap_payment_allocations (ap_payment_id, ap_invoice_id, amount)
-				VALUES ($1, $2, 40000000)`, paymentID, invoiceID)
-			if err != nil {
-				return err
-			}
+			return err
+		}
+
+		// Allocation
+		_, err = tx.Exec(ctx, `
+			INSERT INTO ap_payment_allocations (ap_payment_id, ap_invoice_id, amount)
+			VALUES ($1, $2, 40000000)
+			ON CONFLICT DO NOTHING`, paymentID, invoiceID)
+		if err != nil {
+			return err
 		}
 	}
 
