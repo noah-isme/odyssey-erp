@@ -66,6 +66,16 @@
                         {{ .Data.Report.NetChange | formatCurrency "IDR" }}
                     </td>
                 </tr>
+                {{/* The sections must reconcile to the cash accounts themselves;
+                     showing both makes a mismatch obvious. */}}
+                <tr>
+                    <td>Cash at beginning of period</td>
+                    <td class="numeric-right">{{ .Data.Report.OpeningCash | formatCurrency "IDR" }}</td>
+                </tr>
+                <tr class="font-bold">
+                    <td>Cash at end of period</td>
+                    <td class="numeric-right">{{ .Data.Report.ClosingCash | formatCurrency "IDR" }}</td>
+                </tr>
             </tfoot>
         </table>
     </div>
