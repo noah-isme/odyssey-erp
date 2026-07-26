@@ -208,6 +208,7 @@ func (r *Repository) GetARInvoiceWithDetails(ctx context.Context, id int64) (*AR
 	// Get customer name
 	var customerName string
 	_ = r.pool.QueryRow(ctx, "SELECT name FROM customers WHERE id = $1", inv.CustomerID).Scan(&customerName)
+	inv.CustomerName = customerName
 
 	// Get lines
 	lines, err := r.ListARInvoiceLines(ctx, id)
@@ -225,50 +226,53 @@ func (r *Repository) GetARInvoiceWithDetails(ctx context.Context, id int64) (*AR
 	_, paidAmount, balance, _ := r.GetInvoiceBalance(ctx, id)
 
 	return &ARInvoiceWithDetails{
-		ARInvoice:    *inv,
-		CustomerName: customerName,
-		Lines:        lines,
-		Payments:     payments,
-		PaidAmount:   paidAmount,
-		Balance:      balance,
+		ARInvoice:  *inv,
+		Lines:      lines,
+		Payments:   payments,
+		PaidAmount: paidAmount,
+		Balance:    balance,
 	}, nil
 }
 
 // ListARInvoices returns invoices with optional filtering.
 func (r *Repository) ListARInvoices(ctx context.Context, req ListARInvoicesRequest) ([]ARInvoice, error) {
+	// Columns are qualified because the customer join makes bare created_at
+	// and id ambiguous.
 	query := `
-		SELECT id, number, customer_id, so_id, delivery_order_id, currency,
-			subtotal, tax_amount, total, status, due_at,
-			posted_at, posted_by, voided_at, voided_by, void_reason,
-			created_by, created_at, updated_at
-		FROM ar_invoices
+		SELECT i.id, i.number, i.customer_id, i.so_id, i.delivery_order_id, i.currency,
+			i.subtotal, i.tax_amount, i.total, i.status, i.due_at,
+			i.posted_at, i.posted_by, i.voided_at, i.voided_by, i.void_reason,
+			i.created_by, i.created_at, i.updated_at,
+			COALESCE(c.name, '')
+		FROM ar_invoices i
+		LEFT JOIN customers c ON c.id = i.customer_id
 		WHERE 1=1`
 
 	args := []any{}
 	argNum := 1
 
 	if req.Status != "" {
-		query += fmt.Sprintf(" AND status = $%d", argNum)
+		query += fmt.Sprintf(" AND i.status = $%d", argNum)
 		args = append(args, string(req.Status))
 		argNum++
 	}
 	if req.CustomerID > 0 {
-		query += fmt.Sprintf(" AND customer_id = $%d", argNum)
+		query += fmt.Sprintf(" AND i.customer_id = $%d", argNum)
 		args = append(args, req.CustomerID)
 		argNum++
 	}
 	if !req.FromDate.IsZero() {
-		query += fmt.Sprintf(" AND created_at >= $%d", argNum)
+		query += fmt.Sprintf(" AND i.created_at >= $%d", argNum)
 		args = append(args, req.FromDate)
 		argNum++
 	}
 	if !req.ToDate.IsZero() {
-		query += fmt.Sprintf(" AND created_at <= $%d", argNum)
+		query += fmt.Sprintf(" AND i.created_at <= $%d", argNum)
 		args = append(args, req.ToDate)
 		argNum++
 	}
 
-	query += " ORDER BY created_at DESC"
+	query += " ORDER BY i.created_at DESC"
 
 	if req.Limit > 0 {
 		query += fmt.Sprintf(" LIMIT $%d", argNum)
@@ -299,6 +303,7 @@ func (r *Repository) ListARInvoices(ctx context.Context, req ListARInvoicesReque
 			&subtotal, &taxAmount, &inv.Total, &inv.Status, &inv.DueAt,
 			&postedAt, &postedBy, &voidedAt, &voidedBy, &voidReason,
 			&createdBy, &inv.CreatedAt, &inv.UpdatedAt,
+			&inv.CustomerName,
 		)
 		if err != nil {
 			return nil, err

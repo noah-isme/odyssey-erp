@@ -81,13 +81,13 @@ func (h *Handler) listInvoices(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		h.logger.Error("list AR invoices", slog.Any("error", err))
-		h.render(w, r, "pages/ar/ar_invoice_form.html", map[string]any{
+		h.render(w, r, "pages/ar/ar_invoice_list.html", map[string]any{
 			"Errors": formErrors{"general": shared.UserSafeMessage(err)},
 		}, http.StatusInternalServerError)
 		return
 	}
 
-	h.render(w, r, "pages/ar/ar_invoice_form.html", map[string]any{
+	h.render(w, r, "pages/ar/ar_invoice_list.html", map[string]any{
 		"Invoices":       invoices,
 		"StatusFilter":   status,
 		"CustomerFilter": customerID,
@@ -106,13 +106,13 @@ func (h *Handler) showInvoiceDetail(w http.ResponseWriter, r *http.Request) {
 	invoice, err := h.service.GetARInvoiceWithDetails(r.Context(), id)
 	if err != nil {
 		h.logger.Error("get AR invoice", slog.Any("error", err), slog.Int64("id", id))
-		h.render(w, r, "pages/ar/ar_invoice_form.html", map[string]any{
+		h.render(w, r, "pages/ar/ar_invoice_list.html", map[string]any{
 			"Errors": formErrors{"general": shared.UserSafeMessage(err)},
 		}, http.StatusNotFound)
 		return
 	}
 
-	h.render(w, r, "pages/ar/ar_invoice_form.html", map[string]any{
+	h.render(w, r, "pages/ar/ar_invoice_detail.html", map[string]any{
 		"Invoice": invoice,
 	}, http.StatusOK)
 }

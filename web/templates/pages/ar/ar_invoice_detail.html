@@ -1,0 +1,129 @@
+{{ define "pages/ar/ar_invoice_detail.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}AR Invoice {{ .Data.Invoice.Number }}{{ end }}
+
+{{ define "content" }}
+{{ $inv := .Data.Invoice }}
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <div class="flex items-center gap-3 mb-2">
+                <span class="eyebrow">AR Invoice</span>
+                {{ template "partials/ui/status_badge.html" $inv.Status }}
+            </div>
+            <h1 class="page-title">{{ $inv.Number }}</h1>
+            <p class="page-subtitle">
+                Customer:
+                <a href="/sales/customers/{{ $inv.CustomerID }}" class="link font-medium">
+                    {{ if $inv.CustomerName }}{{ $inv.CustomerName }}{{ else }}Customer #{{ $inv.CustomerID }}{{ end }}
+                </a>
+            </p>
+        </div>
+        <div class="page-header__actions">
+            <a href="/finance/ar/invoices" class="btn btn--secondary">Back to List</a>
+        </div>
+    </header>
+
+    <div class="page-content">
+        <section class="card">
+            <div class="card__header"><h2 class="text-lg font-semibold">Invoice Details</h2></div>
+            <div class="card__body p-6">
+                <div class="responsive-grid responsive-grid--wide gap-6">
+                    <div>
+                        <span class="label mb-1">Due Date</span>
+                        <p class="text-primary font-medium">{{ $inv.DueAt.Format "02 Jan 2006" }}</p>
+                    </div>
+                    <div>
+                        <span class="label mb-1">Currency</span>
+                        <p class="text-primary font-medium">{{ $inv.Currency }}</p>
+                    </div>
+                    <div>
+                        <span class="label mb-1">Paid</span>
+                        <p class="text-primary font-medium">{{ printf "%.2f" .Data.Invoice.PaidAmount }}</p>
+                    </div>
+                    <div>
+                        <span class="label mb-1">Balance</span>
+                        <p class="text-xl font-bold text-primary">{{ $inv.Currency }} {{ printf "%.2f" .Data.Invoice.Balance }}</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="card mt-6">
+            <div class="card__header"><h2 class="text-lg font-semibold">Items</h2></div>
+            <div class="table-wrap">
+                <table class="table" aria-label="Invoice lines">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Description</th>
+                            <th class="numeric-right">Qty</th>
+                            <th class="numeric-right">Unit Price</th>
+                            <th class="numeric-right">Tax</th>
+                            <th class="numeric-right">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{ range $inv.Lines }}
+                        <tr>
+                            <td>#{{ .ProductID }}</td>
+                            <td>{{ .Description }}</td>
+                            <td class="numeric-right">{{ printf "%.2f" .Quantity }}</td>
+                            <td class="numeric-right">{{ printf "%.2f" .UnitPrice }}</td>
+                            <td class="numeric-right">{{ printf "%.2f" .TaxAmount }}</td>
+                            <td class="numeric-right font-medium">{{ printf "%.2f" .Total }}</td>
+                        </tr>
+                        {{ else }}
+                        <tr><td colspan="6" class="text-muted">No line items recorded.</td></tr>
+                        {{ end }}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="5" class="text-right">Subtotal</td>
+                            <td class="numeric-right">{{ printf "%.2f" $inv.Subtotal }}</td>
+                        </tr>
+                        <tr>
+                            <td colspan="5" class="text-right">Tax</td>
+                            <td class="numeric-right">{{ printf "%.2f" $inv.TaxAmount }}</td>
+                        </tr>
+                        <tr class="font-bold">
+                            <td colspan="5" class="text-right">Total</td>
+                            <td class="numeric-right">{{ $inv.Currency }} {{ printf "%.2f" $inv.Total }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </section>
+
+        <section class="card mt-6">
+            <div class="card__header"><h2 class="text-lg font-semibold">Payments</h2></div>
+            <div class="table-wrap">
+                <table class="table" aria-label="Invoice payments">
+                    <thead>
+                        <tr>
+                            <th>Number</th>
+                            <th>Paid At</th>
+                            <th>Method</th>
+                            <th class="numeric-right">Allocated</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{ range $inv.Payments }}
+                        <tr>
+                            <td>{{ .Number }}</td>
+                            <td>{{ .PaidAt.Format "02 Jan 2006" }}</td>
+                            <td>{{ .Method }}</td>
+                            <td class="numeric-right">{{ printf "%.2f" .AllocatedAmount }}</td>
+                        </tr>
+                        {{ else }}
+                        <tr><td colspan="4" class="text-muted">No payments recorded.</td></tr>
+                        {{ end }}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</div>
+{{ end }}

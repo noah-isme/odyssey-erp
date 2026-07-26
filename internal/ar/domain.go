@@ -27,14 +27,17 @@ type ARInvoice struct {
 	Total           float64
 	Status          ARInvoiceStatus
 	DueAt           time.Time
-	PostedAt        *time.Time
-	PostedBy        *int64
-	VoidedAt        *time.Time
-	VoidedBy        *int64
-	VoidReason      string
-	CreatedBy       int64
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	// CustomerName is populated by listing queries that join customers; other
+	// reads leave it empty.
+	CustomerName string
+	PostedAt     *time.Time
+	PostedBy     *int64
+	VoidedAt     *time.Time
+	VoidedBy     *int64
+	VoidReason   string
+	CreatedBy    int64
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
 
 // ARInvoiceLine represents a line item on an AR invoice.
@@ -54,14 +57,14 @@ type ARInvoiceLine struct {
 	CreatedAt           time.Time
 }
 
-// ARInvoiceWithDetails includes invoice with lines and customer info.
+// ARInvoiceWithDetails includes invoice with lines and payment allocation.
+// CustomerName comes from the embedded ARInvoice.
 type ARInvoiceWithDetails struct {
 	ARInvoice
-	CustomerName string
-	Lines        []ARInvoiceLine
-	Payments     []ARPaymentSummary
-	PaidAmount   float64
-	Balance      float64
+	Lines      []ARInvoiceLine
+	Payments   []ARPaymentSummary
+	PaidAmount float64
+	Balance    float64
 }
 
 // ARPayment model.

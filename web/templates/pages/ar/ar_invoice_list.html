@@ -1,0 +1,85 @@
+{{ define "pages/ar/ar_invoice_list.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}AR Invoices{{ end }}
+
+{{ define "content" }}
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-title">Invoice piutang / Accounts receivable invoices</h1>
+            <p class="page-subtitle">Kelola invoice dan tagihan pelanggan.</p>
+        </div>
+        <div class="page-header__actions">
+            <a href="/finance/ar/aging" class="btn btn--secondary">Laporan aging / Aging report</a>
+            <a href="/finance/ar/payments" class="btn btn--secondary">Pembayaran / Payments</a>
+            <a href="/finance/ar/invoices/new" class="btn btn--primary">Invoice baru / New invoice</a>
+        </div>
+    </header>
+
+    <div class="page-content">
+        <section class="filters-card">
+            <form method="get" action="/finance/ar/invoices" class="filters-form">
+                <div class="filters-grid">
+                    <div class="form-group">
+                        <label class="form-label" for="ar-invoice-status">Status</label>
+                        <select class="form-select" id="ar-invoice-status" name="status">
+                            <option value="">All</option>
+                            <option value="DRAFT" {{ if eq .Data.StatusFilter "DRAFT" }}selected{{ end }}>Draft</option>
+                            <option value="POSTED" {{ if eq .Data.StatusFilter "POSTED" }}selected{{ end }}>Posted</option>
+                            <option value="PAID" {{ if eq .Data.StatusFilter "PAID" }}selected{{ end }}>Paid</option>
+                            <option value="VOID" {{ if eq .Data.StatusFilter "VOID" }}selected{{ end }}>Void</option>
+                        </select>
+                    </div>
+                    <div class="form-group form-group--actions">
+                        <button type="submit" class="btn btn--primary">Filter</button>
+                    </div>
+                </div>
+            </form>
+        </section>
+
+        {{ if .Data.Invoices }}
+        <div class="card table-wrap">
+            <table class="table" aria-label="Accounts receivable invoices">
+                <thead>
+                    <tr>
+                        <th>Number</th>
+                        <th>Customer</th>
+                        <th class="numeric-right">Total</th>
+                        <th>Status</th>
+                        <th>Due Date</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ range .Data.Invoices }}
+                    <tr>
+                        <td><a href="/finance/ar/invoices/{{ .ID }}" class="link">{{ .Number }}</a></td>
+                        <td>{{ if .CustomerName }}{{ .CustomerName }}{{ else }}Customer #{{ .CustomerID }}{{ end }}</td>
+                        <td class="numeric-right">{{ printf "%.2f" .Total }} {{ .Currency }}</td>
+                        <td>{{ template "partials/ui/status_badge.html" .Status }}</td>
+                        <td>{{ .DueAt.Format "2006-01-02" }}</td>
+                        <td>{{ .CreatedAt.Format "2006-01-02" }}</td>
+                        <td><a href="/finance/ar/invoices/{{ .ID }}" class="btn btn--secondary btn--sm">View</a></td>
+                    </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
+        {{ else }}
+        {{ template "partials/ui/empty_state.html" . }}
+        {{ end }}
+
+        {{ if .Data.Errors }}
+        <div class="alert alert--danger" role="alert">{{ index .Data.Errors "general" }}</div>
+        {{ end }}
+    </div>
+</div>
+{{ end }}
+
+{{ define "ui-empty-state-icon" }}<span aria-hidden="true">—</span>{{ end }}
+{{ define "ui-empty-state-title" }}No invoices found{{ end }}
+{{ define "ui-empty-state-description" }}No receivable invoices match the current filter.{{ end }}
+{{ define "ui-empty-state-action" }}<a href="/finance/ar/invoices/new" class="btn btn--primary">Create Invoice</a>{{ end }}
