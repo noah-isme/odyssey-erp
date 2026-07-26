@@ -121,7 +121,9 @@ jobs:
       - name: E2E route sweep
         env:
           ODYSSEY_E2E_URL: http://127.0.0.1:8080
-          ODYSSEY_E2E_ROUTES: routes.json
+          # Absolute: go test runs from the package directory, so a relative
+          # path would resolve under tests/e2e rather than the workspace.
+          ODYSSEY_E2E_ROUTES: ${{ github.workspace }}/routes.json
           GOTENBERG_URL: ""
         run: go test ./tests/e2e/ -run TestRegressionFlow -v -timeout 20m
 

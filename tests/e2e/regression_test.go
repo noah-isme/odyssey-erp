@@ -224,7 +224,11 @@ func pagesUnderTest(t *testing.T) (pages []pageRoute, details []string, reserved
 
 	raw, err := os.ReadFile(routeFile)
 	if err != nil {
-		t.Fatalf("read route dump %s: %v", routeFile, err)
+		// go test runs from the package directory, so a relative path here
+		// resolves under tests/e2e rather than the caller's directory.
+		wd, _ := os.Getwd()
+		t.Fatalf("read route dump %q (working directory %s; use an absolute path): %v",
+			routeFile, wd, err)
 	}
 	var entries []routeEntry
 	if err := json.Unmarshal(raw, &entries); err != nil {
