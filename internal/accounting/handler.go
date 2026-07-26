@@ -392,7 +392,7 @@ func (h *Handler) handleBalanceSheet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	bs := reports.BuildBalanceSheet(balances)
-	data := map[string]any{"Report": bs}
+	data := map[string]any{"Report": bs, "AsOfDate": time.Now()}
 	if err := h.templates.Render(w, "pages/finance/balance_sheet.html", view.TemplateData{Title: "Balance Sheet", Data: data}); err != nil {
 		h.reportError(w, err)
 	}
