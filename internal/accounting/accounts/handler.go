@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
 )
 
@@ -25,7 +26,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data := map[string]any{"Accounts": accounts}
-	viewData := view.TemplateData{Title: "Chart of Accounts", Data: data}
+	viewData := view.TemplateData{Title: "Chart of Accounts", CSRFToken: shared.CSRFTokenFromContext(r.Context()), Data: data}
 	if err := h.templates.Render(w, "pages/accounting/coa_list.html", viewData); err != nil {
 		h.logger.Error("render coa", slog.Any("error", err))
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)

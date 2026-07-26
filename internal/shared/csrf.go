@@ -40,6 +40,21 @@ func (m *CSRFManager) EnsureToken(ctx context.Context, sess *Session) (string, e
 	return token, nil
 }
 
+// CSRFTokenFromContext returns the token already stored on the request's
+// session, or an empty string if there is none.
+//
+// Every page renders the shared header, which carries a form, so a page whose
+// TemplateData omits the token renders an empty field and submitting that form
+// is rejected. Handlers can reach the token this way without holding a
+// CSRFManager, since issuing it is the login flow's job.
+func CSRFTokenFromContext(ctx context.Context) string {
+	sess := SessionFromContext(ctx)
+	if sess == nil {
+		return ""
+	}
+	return sess.Get(CSRFSessionKey)
+}
+
 // VerifyToken compares the supplied token with the session token.
 func (m *CSRFManager) VerifyToken(ctx context.Context, sess *Session, token string) error {
 	if sess == nil {

@@ -10,6 +10,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/hibiken/asynq"
+
+	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 )
 
 // Worker wraps the Asynq server and optional scheduler.
@@ -171,6 +173,7 @@ type TemplateRenderer interface {
 type ViewData struct {
 	Title       string
 	CurrentPath string
+	CSRFToken   string
 	Data        any
 }
 
@@ -217,6 +220,7 @@ func (h *Handler) index(w http.ResponseWriter, r *http.Request) {
 		viewData := ViewData{
 			Title:       "Jobs Dashboard",
 			CurrentPath: r.URL.Path,
+			CSRFToken:   shared.CSRFTokenFromContext(r.Context()),
 			Data:        data,
 		}
 		if err := h.templates.Render(w, "pages/jobs/index.html", viewData); err != nil {

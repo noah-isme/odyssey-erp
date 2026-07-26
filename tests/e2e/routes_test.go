@@ -244,3 +244,28 @@ func TestConcreteMutationPathAvoidsRealRecords(t *testing.T) {
 		t.Error("route parameters must be substituted, not passed through literally")
 	}
 }
+
+// A form rendered without CSRFToken produces value="", and every submit of it
+// is then rejected. The page still looks healthy, so this needs its own check.
+func TestEmptyCSRFFieldIsDetected(t *testing.T) {
+	broken := []string{
+		`<input type="hidden" name="csrf_token" value="">`,
+		`<input value="" name="csrf_token" type="hidden">`,
+	}
+	for _, body := range broken {
+		if !emptyCSRFField.MatchString(body) {
+			t.Errorf("empty csrf field not detected in %q", body)
+		}
+	}
+
+	fine := []string{
+		`<input type="hidden" name="csrf_token" value="abc123">`,
+		`<input value="abc123" name="csrf_token">`,
+		`<input type="hidden" name="other" value="">`,
+	}
+	for _, body := range fine {
+		if emptyCSRFField.MatchString(body) {
+			t.Errorf("false positive on %q", body)
+		}
+	}
+}

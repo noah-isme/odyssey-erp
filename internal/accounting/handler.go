@@ -61,7 +61,7 @@ func NewHandler(logger *slog.Logger, db *pgxpool.Pool, templates *view.Engine, c
 	// Handlers
 	accountHandler := accounts.NewHandler(logger, accountService, templates)
 	journalHandler := journals.NewHandler(logger, journalService, templates, db, csrf)
-	banksHandler := banks.NewHandler(logger, bankService, templates)
+	banksHandler := banks.NewHandler(logger, bankService, templates, csrf)
 
 	return &Handler{
 		logger:         logger,
@@ -380,7 +380,7 @@ func (h *Handler) handleTrialBalance(w http.ResponseWriter, r *http.Request) {
 	}
 	tb := reports.BuildTrialBalance(balances)
 	data := map[string]any{"Report": tb}
-	if err := h.templates.Render(w, "pages/finance/trial_balance.html", view.TemplateData{Title: "Trial Balance", Data: data}); err != nil {
+	if err := h.templates.Render(w, "pages/finance/trial_balance.html", view.TemplateData{Title: "Trial Balance", CSRFToken: h.csrfToken(r), Data: data}); err != nil {
 		h.reportError(w, err)
 	}
 }
@@ -393,7 +393,7 @@ func (h *Handler) handleBalanceSheet(w http.ResponseWriter, r *http.Request) {
 	}
 	bs := reports.BuildBalanceSheet(balances)
 	data := map[string]any{"Report": bs, "AsOfDate": time.Now()}
-	if err := h.templates.Render(w, "pages/finance/balance_sheet.html", view.TemplateData{Title: "Balance Sheet", Data: data}); err != nil {
+	if err := h.templates.Render(w, "pages/finance/balance_sheet.html", view.TemplateData{Title: "Balance Sheet", CSRFToken: h.csrfToken(r), Data: data}); err != nil {
 		h.reportError(w, err)
 	}
 }
@@ -428,7 +428,8 @@ func (h *Handler) handleCashFlow(w http.ResponseWriter, r *http.Request) {
 
 	cf := reports.BuildCashFlow(balances)
 	viewData := view.TemplateData{
-		Title: "Cash Flow",
+		Title:     "Cash Flow",
+		CSRFToken: h.csrfToken(r),
 		Data: map[string]any{
 			"Report": cf,
 		},
@@ -472,7 +473,8 @@ func (h *Handler) handleBudget(w http.ResponseWriter, r *http.Request) {
 	bva := reports.BuildBudgetVsActual(balances, budgetData)
 
 	viewData := view.TemplateData{
-		Title: "Budget vs Actual",
+		Title:     "Budget vs Actual",
+		CSRFToken: h.csrfToken(r),
 		Data: map[string]any{
 			"Report":      bva,
 			"Period":      time.Date(year, month, 1, 0, 0, 0, 0, time.UTC).Format("January 2006"),
@@ -521,7 +523,7 @@ func (h *Handler) listDimensions(r *http.Request, table string) []reportDimensio
 func (h *Handler) renderProfitLoss(w http.ResponseWriter, r *http.Request, report reports.ProfitAndLoss, year int, month time.Month, filter reports.DimensionFilter) {
 	period := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 	data := map[string]any{"Report": report, "Period": period.Format("January 2006"), "PeriodValue": period.Format("2006-01"), "Filter": filter, "Departments": h.listDimensions(r, "departments"), "CostCenters": h.listDimensions(r, "cost_centers")}
-	if err := h.templates.Render(w, "pages/finance/pnl.html", view.TemplateData{Title: "Profit and Loss", Data: data}); err != nil {
+	if err := h.templates.Render(w, "pages/finance/pnl.html", view.TemplateData{Title: "Profit and Loss", CSRFToken: h.csrfToken(r), Data: data}); err != nil {
 		h.reportError(w, err)
 	}
 }

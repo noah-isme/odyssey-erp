@@ -32,7 +32,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data := map[string]any{"JournalEntries": entries}
-	viewData := view.TemplateData{Title: "Journal Entries", Data: data}
+	viewData := view.TemplateData{Title: "Journal Entries", CSRFToken: shared.CSRFTokenFromContext(r.Context()), Data: data}
 	if err := h.templates.Render(w, "pages/accounting/journals_list.html", viewData); err != nil {
 		h.logger.Error("render journals", slog.Any("error", err))
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)

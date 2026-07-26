@@ -127,7 +127,7 @@ func (h *Handler) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var flash *shared.FlashMessage
-	csrfToken := ""
+	csrfToken := shared.CSRFTokenFromContext(r.Context())
 	if sess != nil {
 		flash = sess.PopFlash()
 	}

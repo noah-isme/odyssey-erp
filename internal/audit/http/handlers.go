@@ -95,6 +95,7 @@ func (h *Handler) handleTimeline(w http.ResponseWriter, r *http.Request) {
 	}
 	data := view.TemplateData{
 		Title:       "Audit Timeline",
+		CSRFToken:   shared.CSRFTokenFromContext(r.Context()),
 		Flash:       flash,
 		CurrentPath: r.URL.Path,
 		Data:        vm,

@@ -654,6 +654,26 @@ func assertRenderedPage(t *testing.T, path, body string) {
 	if !strings.Contains(body, "</html>") {
 		t.Errorf("GET %s body is truncated: no closing </html>", path)
 	}
+	assertCSRFFieldsArePopulated(t, path, body)
+}
+
+// emptyCSRFField matches a rendered token field with no value, whatever the
+// attribute order.
+var emptyCSRFField = regexp.MustCompile(`name="csrf_token"[^>]*value=""|value=""[^>]*name="csrf_token"`)
+
+// assertCSRFFieldsArePopulated checks that a page carrying a CSRF field also
+// carries a token.
+//
+// A handler that renders a form without putting CSRFToken in its TemplateData
+// produces value="", and every submit of that form is then rejected by the
+// CSRF middleware. The page itself still looks perfectly healthy, so nothing
+// else here would notice.
+func assertCSRFFieldsArePopulated(t *testing.T, path, body string) {
+	t.Helper()
+	if emptyCSRFField.MatchString(body) {
+		t.Errorf("GET %s renders a csrf_token field with an empty value; "+
+			"submitting that form is rejected as a CSRF failure", path)
+	}
 }
 
 // assertPNG verifies a capture is a real, non-empty PNG rather than an error

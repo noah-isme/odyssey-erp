@@ -114,6 +114,7 @@ func (j jobsTemplates) Render(w http.ResponseWriter, name string, data any) erro
 	return j.engine.Render(w, name, view.TemplateData{
 		Title:       viewData.Title,
 		CurrentPath: viewData.CurrentPath,
+		CSRFToken:   viewData.CSRFToken,
 		Data:        viewData.Data,
 	})
 }

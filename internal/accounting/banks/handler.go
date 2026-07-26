@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
 )
@@ -24,14 +25,27 @@ type Handler struct {
 	logger   *slog.Logger
 	service  *Service
 	renderer Renderer
+	csrf     *shared.CSRFManager
 }
 
-func NewHandler(logger *slog.Logger, service *Service, renderer Renderer) *Handler {
+func NewHandler(logger *slog.Logger, service *Service, renderer Renderer, csrf *shared.CSRFManager) *Handler {
 	return &Handler{
 		logger:   logger,
 		service:  service,
 		renderer: renderer,
+		csrf:     csrf,
 	}
+}
+
+// csrfToken issues the token the statement import and reconciliation forms
+// post back. Without it those forms render an empty field and every submit is
+// rejected by the CSRF middleware.
+func (h *Handler) csrfToken(r *http.Request) string {
+	if h.csrf == nil {
+		return ""
+	}
+	token, _ := h.csrf.EnsureToken(r.Context(), shared.SessionFromContext(r.Context()))
+	return token
 }
 
 func (h *Handler) MountRoutes(r chi.Router) {
@@ -113,6 +127,7 @@ func (h *Handler) listStatements(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := view.TemplateData{
+		CSRFToken: h.csrfToken(r),
 		Data: map[string]any{
 			"Statements": statements,
 		},
@@ -188,6 +203,7 @@ func (h *Handler) viewStatement(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := view.TemplateData{
+		CSRFToken: h.csrfToken(r),
 		Data: map[string]any{
 			"Statement": stmt,
 			"Lines":     lines,
