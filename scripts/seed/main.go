@@ -90,6 +90,12 @@ func main() {
 		log.Fatalf("seed board pack templates: %v", err)
 	}
 
+	// Runs last: depends on the rules, templates and periods seeded above.
+	fmt.Println("→ Seeding listing fixtures...")
+	if err := seedListingFixtures(ctx, pool); err != nil {
+		log.Fatalf("seed listing fixtures: %v", err)
+	}
+
 	fmt.Println("✓ Seed complete at", time.Now().Format(time.RFC3339))
 }
 
@@ -1283,4 +1289,166 @@ func seedInventory(ctx context.Context, pool *pgxpool.Pool) error {
 	}
 
 	return tx.Commit(ctx)
+}
+
+// =============================================================================
+// LISTING FIXTURES
+// =============================================================================
+
+// seedListingFixtures gives every listing page at least one row.
+//
+// Without these, ten entities had no records at all: their listings rendered
+// the empty-state branch, so the row templates were never executed and their
+// detail pages could not be reached at all. Both gaps hid real template bugs.
+//
+// Each insert is individually tolerant of missing prerequisites - a fixture is
+// skipped rather than failing the seed - because the tables it depends on are
+// themselves conditional on earlier phases.
+func seedListingFixtures(ctx context.Context, pool *pgxpool.Pool) error {
+	var companyID, adminID, warehouseID, customerID, glAccountID int64
+	_ = pool.QueryRow(ctx, "SELECT id FROM companies WHERE code = 'ODY-01'").Scan(&companyID)
+	_ = pool.QueryRow(ctx, "SELECT id FROM users WHERE email = 'admin@odyssey.local'").Scan(&adminID)
+	_ = pool.QueryRow(ctx, "SELECT id FROM warehouses ORDER BY id LIMIT 1").Scan(&warehouseID)
+	_ = pool.QueryRow(ctx, "SELECT id FROM customers ORDER BY id LIMIT 1").Scan(&customerID)
+	_ = pool.QueryRow(ctx, "SELECT id FROM accounts WHERE code = '1120' LIMIT 1").Scan(&glAccountID)
+
+	var accountingPeriodID int64
+	_ = pool.QueryRow(ctx, "SELECT id FROM accounting_periods ORDER BY id LIMIT 1").Scan(&accountingPeriodID)
+
+	if adminID == 0 {
+		fmt.Println("  ! admin user missing, skipping listing fixtures")
+		return nil
+	}
+
+	// Banking: an account, then a statement against it. bank_accounts carries no
+	// unique constraint, so re-runs are guarded by an explicit existence check
+	// rather than ON CONFLICT, which would never fire.
+	const seedBankAccountNumber = "1234567890"
+	if companyID != 0 && glAccountID != 0 {
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO bank_accounts (company_id, name, account_number, currency, gl_account_id, initial_balance)
+			SELECT $1, 'BCA Operasional', $3, 'IDR', $2, 50000000
+			WHERE NOT EXISTS (
+				SELECT 1 FROM bank_accounts WHERE company_id = $1 AND account_number = $3
+			)`, companyID, glAccountID, seedBankAccountNumber); err != nil {
+			return fmt.Errorf("bank account: %w", err)
+		}
+		var bankAccountID int64
+		_ = pool.QueryRow(ctx,
+			"SELECT id FROM bank_accounts WHERE company_id = $1 AND account_number = $2",
+			companyID, seedBankAccountNumber).Scan(&bankAccountID)
+		if bankAccountID != 0 {
+			if _, err := pool.Exec(ctx, `
+				INSERT INTO bank_statements (bank_account_id, statement_date, starting_balance, ending_balance, status)
+				SELECT $1, CURRENT_DATE, 50000000, 62000000, 'DRAFT'
+				WHERE NOT EXISTS (SELECT 1 FROM bank_statements WHERE bank_account_id = $1)`, bankAccountID); err != nil {
+				return fmt.Errorf("bank statement: %w", err)
+			}
+		}
+	}
+
+	// Inventory: a stock take and an adjustment, both left in DRAFT so they
+	// stay editable and do not disturb valuation.
+	if warehouseID != 0 {
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO inventory_stock_takes (number, warehouse_id, status, note, created_by)
+			VALUES ('ST-SEED-0001', $1, 'DRAFT', 'Opname awal (seed)', $2)
+			ON CONFLICT (number) DO NOTHING`, warehouseID, adminID); err != nil {
+			return fmt.Errorf("stock take: %w", err)
+		}
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO inventory_adjustments (number, warehouse_id, status, note, created_by)
+			VALUES ('ADJ-SEED-0001', $1, 'DRAFT', 'Penyesuaian awal (seed)', $2)
+			ON CONFLICT (number) DO NOTHING`, warehouseID, adminID); err != nil {
+			return fmt.Errorf("inventory adjustment: %w", err)
+		}
+	}
+
+	// Accounts receivable: an invoice and a payment against it.
+	if customerID != 0 {
+		var invoiceID int64
+		err := pool.QueryRow(ctx, `
+			INSERT INTO ar_invoices (number, customer_id, currency, total, status, due_at)
+			VALUES ('INV-SEED-0001', $1, 'IDR', 12500000, 'POSTED', NOW() + INTERVAL '30 days')
+			ON CONFLICT (number) DO NOTHING
+			RETURNING id`, customerID).Scan(&invoiceID)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("ar invoice: %w", err)
+		}
+		if invoiceID == 0 {
+			_ = pool.QueryRow(ctx, "SELECT id FROM ar_invoices WHERE number = 'INV-SEED-0001'").Scan(&invoiceID)
+		}
+		if invoiceID != 0 {
+			if _, err := pool.Exec(ctx, `
+				INSERT INTO ar_payments (number, ar_invoice_id, amount, method, note)
+				VALUES ('ARP-SEED-0001', $1, 5000000, 'TRANSFER', 'Pembayaran sebagian (seed)')
+				ON CONFLICT (number) DO NOTHING`, invoiceID); err != nil {
+				return fmt.Errorf("ar payment: %w", err)
+			}
+		}
+	}
+
+	if accountingPeriodID == 0 {
+		fmt.Println("  ! no accounting period, skipping close/elimination/variance fixtures")
+		return nil
+	}
+
+	// Period close run.
+	if companyID != 0 {
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO period_close_runs (company_id, period_id, status, created_by, notes)
+			SELECT $1, $2, 'DRAFT', $3, 'Tutup buku percobaan (seed)'
+			WHERE NOT EXISTS (
+				SELECT 1 FROM period_close_runs WHERE company_id = $1 AND period_id = $2
+			)`, companyID, accountingPeriodID, adminID); err != nil {
+			return fmt.Errorf("period close run: %w", err)
+		}
+	}
+
+	// Elimination run against the rule seeded earlier.
+	var eliminationRuleID int64
+	_ = pool.QueryRow(ctx, "SELECT id FROM elimination_rules ORDER BY id LIMIT 1").Scan(&eliminationRuleID)
+	if eliminationRuleID != 0 {
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO elimination_runs (period_id, rule_id, status, created_by)
+			SELECT $1, $2, 'DRAFT', $3
+			WHERE NOT EXISTS (
+				SELECT 1 FROM elimination_runs WHERE period_id = $1 AND rule_id = $2
+			)`, accountingPeriodID, eliminationRuleID, adminID); err != nil {
+			return fmt.Errorf("elimination run: %w", err)
+		}
+	}
+
+	// Variance snapshot against the rule seeded earlier.
+	var varianceRuleID, varianceSnapshotID int64
+	_ = pool.QueryRow(ctx, "SELECT id FROM variance_rules ORDER BY id LIMIT 1").Scan(&varianceRuleID)
+	if varianceRuleID != 0 {
+		if _, err := pool.Exec(ctx, `
+			-- payload is decoded straight into []VarianceRow, so it must be a
+			-- JSON array; an object here makes the detail page fail to load.
+			INSERT INTO variance_snapshots (rule_id, period_id, status, generated_at, generated_by, payload)
+			SELECT $1, $2, 'READY', NOW(), $3, '[]'::JSONB
+			WHERE NOT EXISTS (
+				SELECT 1 FROM variance_snapshots WHERE rule_id = $1 AND period_id = $2
+			)`, varianceRuleID, accountingPeriodID, adminID); err != nil {
+			return fmt.Errorf("variance snapshot: %w", err)
+		}
+		_ = pool.QueryRow(ctx, "SELECT id FROM variance_snapshots ORDER BY id LIMIT 1").Scan(&varianceSnapshotID)
+	}
+
+	// Board pack against the template seeded earlier.
+	var templateID int64
+	_ = pool.QueryRow(ctx, "SELECT id FROM board_pack_templates ORDER BY id LIMIT 1").Scan(&templateID)
+	if templateID != 0 && companyID != 0 {
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO board_packs (company_id, period_id, template_id, variance_snapshot_id, status, generated_at, generated_by, page_count)
+			SELECT $1, $2, $3, NULLIF($4, 0), 'READY', NOW(), $5, 12
+			WHERE NOT EXISTS (
+				SELECT 1 FROM board_packs WHERE company_id = $1 AND period_id = $2 AND template_id = $3
+			)`, companyID, accountingPeriodID, templateID, varianceSnapshotID, adminID); err != nil {
+			return fmt.Errorf("board pack: %w", err)
+		}
+	}
+
+	return nil
 }
