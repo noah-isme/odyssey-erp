@@ -218,7 +218,9 @@ func (h *Handler) showEditForm(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 
-	order, err := h.service.GetByID(ctx, id)
+	// The edit form shows the sales order number and warehouse name, which only
+	// the joined view carries; GetByID returns the bare record without them.
+	order, err := h.service.GetWithDetails(ctx, id)
 	if err != nil {
 		http.Error(w, "Not Found", http.StatusNotFound)
 		return

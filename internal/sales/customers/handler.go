@@ -311,8 +311,7 @@ func (h *Handler) render(w http.ResponseWriter, r *http.Request, tmpl string, da
 		Data:        data,
 	}
 
-	w.WriteHeader(status)
-	if err := h.templates.Render(w, tmpl, viewData); err != nil {
+	if err := h.templates.RenderStatus(w, tmpl, viewData, status); err != nil {
 		h.logger.Error("template render failed", "error", err, "template", tmpl)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}

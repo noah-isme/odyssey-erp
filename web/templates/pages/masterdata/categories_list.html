@@ -12,9 +12,10 @@
 {{ end }}
 {{ define "ui-filter-actions" }}<button type="submit" class="btn btn--primary">Filter</button><a href="/masterdata/categories" class="btn btn--ghost">Clear</a>{{ end }}
 {{ define "masterdata-list-key" }}categories{{ end }}
-{{ define "masterdata-list-head" }}<th scope="col" class="sortable" data-column="name">Name</th><th scope="col">Parent ID</th><th scope="col">Status</th>{{ end }}
+{{/* The categories table has no is_active column, so this list has no status. */}}
+{{ define "masterdata-list-head" }}<th scope="col" class="sortable" data-column="code">Code</th><th scope="col" class="sortable" data-column="name">Name</th><th scope="col">Parent ID</th>{{ end }}
 {{ define "masterdata-list-rows" }}
 {{ range .Data.Categories }}
-<tr data-row-id="{{ .ID }}" data-href="/masterdata/categories/{{ .ID }}" data-edit-href="/masterdata/categories/{{ .ID }}/edit"><td>{{ .Name }}</td><td>{{ if .ParentID }}{{ .ParentID }}{{ else }}-{{ end }}</td><td>{{ if .IsActive }}{{ template "partials/ui/status_badge.html" "ACTIVE" }}{{ else }}{{ template "partials/ui/status_badge.html" "INACTIVE" }}{{ end }}</td></tr>
+<tr data-row-id="{{ .ID }}" data-href="/masterdata/categories/{{ .ID }}" data-edit-href="/masterdata/categories/{{ .ID }}/edit"><td>{{ .Code }}</td><td>{{ .Name }}</td><td>{{ if .ParentID }}{{ .ParentID }}{{ else }}-{{ end }}</td></tr>
 {{ else }}<tr><td colspan="3" class="table-empty">No categories found. <a href="/masterdata/categories/new" class="link">Create your first category</a></td></tr>{{ end }}
 {{ end }}

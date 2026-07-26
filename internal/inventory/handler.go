@@ -348,9 +348,9 @@ func (h *Handler) renderTransfer(w http.ResponseWriter, r *http.Request, form tr
 			"Products":   products,
 		},
 	}
-	w.WriteHeader(status)
-	if err := h.templates.Render(w, "pages/inventory/transfer_form.html", viewData); err != nil {
+	if err := h.templates.RenderStatus(w, "pages/inventory/transfer_form.html", viewData, status); err != nil {
 		h.logger.Error("render transfer", slog.Any("error", err))
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }
 
@@ -566,9 +566,9 @@ func (h *Handler) render(w http.ResponseWriter, r *http.Request, template string
 		CurrentPath: r.URL.Path,
 		Data:        data,
 	}
-	w.WriteHeader(status)
-	if err := h.templates.Render(w, template, viewData); err != nil {
+	if err := h.templates.RenderStatus(w, template, viewData, status); err != nil {
 		h.logger.Error("render template", slog.Any("error", err), slog.String("template", template))
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }
 

@@ -49,13 +49,13 @@
                                     <select name="customer_id" id="customer_id" class="form-select" required {{ if .Data.Quotation }}disabled{{ end }}>
                                         <option value="">Select customer...</option>
                                         {{ range .Data.Customers }}
-                                        <option value="{{ .ID }}" {{ if $.Data.Quotation }}{{ if eq $.Data.Quotation.Data.CustomerID .ID }}selected{{ end }}{{ end }}>
+                                        <option value="{{ .ID }}" {{ if $.Data.Quotation }}{{ if eq $.Data.Quotation.CustomerID .ID }}selected{{ end }}{{ end }}>
                                             {{ .Code }} - {{ .Name }}
                                         </option>
                                         {{ end }}
                                     </select>
                                     {{ if .Data.Quotation }}
-                                    <input type="hidden" name="customer_id" value="{{ .Data.Quotation.Data.CustomerID }}">
+                                    <input type="hidden" name="customer_id" value="{{ .Data.Quotation.CustomerID }}">
                                     {{ end }}
                                 </div>
                                 <div class="form-group">

@@ -52,8 +52,8 @@ func (h *PermissionsHandler) render(w http.ResponseWriter, r *http.Request, temp
 		flash = sess.PopFlash()
 	}
 	viewData := view.TemplateData{Title: "Permissions", CSRFToken: csrfToken, Flash: flash, CurrentPath: r.URL.Path, Data: data}
-	w.WriteHeader(status)
-	if err := h.templates.Render(w, template, viewData); err != nil {
+	if err := h.templates.RenderStatus(w, template, viewData, status); err != nil {
 		h.logger.Error("render template", slog.Any("error", err))
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }

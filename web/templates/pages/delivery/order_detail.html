@@ -2,7 +2,7 @@
 {{ template "layouts/base.html" . }}
 {{ end }}
 
-{{ define "title" }}Delivery Order {{ .Data.DeliveryOrder.DocumentNumber }}{{ end }}
+{{ define "title" }}Delivery Order {{ .Data.DeliveryOrder.DocNumber }}{{ end }}
 
 {{ define "content" }}
 <div class="page-container">
@@ -12,7 +12,7 @@
                 <span class="eyebrow">Delivery Order</span>
                 {{ template "partials/ui/status_badge.html" .Data.DeliveryOrder.Status }}
             </div>
-            <h1 class="page-title">{{ .Data.DeliveryOrder.DocumentNumber }}</h1>
+            <h1 class="page-title">{{ .Data.DeliveryOrder.DocNumber }}</h1>
             <p class="page-subtitle">Customer: <span class="font-medium text-primary">{{ .Data.DeliveryOrder.CustomerName }}</span></p>
         </div>
         <div class="page-header__actions">
@@ -99,15 +99,8 @@
                         </div>
                         {{ end }}
 
-                        {{ if .Data.DeliveryOrder.CancellationReason }}
-                        <div class="mt-6 feedback feedback--error">
-                            <div class="feedback__content">
-                                <p class="text-xs uppercase font-bold mb-1">Cancellation Reason</p>
-                                <p>{{ .Data.DeliveryOrder.CancellationReason }}</p>
-                                <p class="text-xs mt-2 opacity-80">Cancelled by {{ .Data.DeliveryOrder.CancelledByName }} on {{ .Data.DeliveryOrder.CancelledAt.Format "02 Jan 2006 15:04" }}</p>
-                            </div>
-                        </div>
-                        {{ end }}
+                        {{/* DeliveryOrder records no cancellation reason, actor
+                             or timestamp, so there is nothing to show here. */}}
                     </div>
                 </div>
 

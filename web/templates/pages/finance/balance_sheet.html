@@ -1,115 +1,69 @@
-{{ define "pages/finance/balance_sheet.html" }}{{ template "layouts/base.html" . }}{{ end }}
+{{ define "pages/finance/balance_sheet.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
 {{ define "title" }}Balance Sheet · Odyssey ERP{{ end }}
+
+{{/* Renders one BalanceSheetSection (Assets, Liabilities, or Equity). */}}
+{{ define "finance/bs-section" }}
+<div class="card card-table table-responsive mb-6">
+    <table class="table">
+        <caption class="sr-only">{{ .Label }}</caption>
+        <thead>
+            <tr>
+                <th>{{ .Label }}</th>
+                <th class="numeric-right">Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{ range .Accounts }}
+            <tr>
+                <td class="table-cell--indented">{{ .Code }} — {{ .Name }}</td>
+                <td class="numeric-right">{{ .Balance | formatCurrency "IDR" }}</td>
+            </tr>
+            {{ else }}
+            <tr>
+                <td colspan="2" class="text-muted">No {{ .Label }} accounts.</td>
+            </tr>
+            {{ end }}
+        </tbody>
+        <tfoot>
+            <tr class="font-bold">
+                <td>Total {{ .Label }}</td>
+                <td class="numeric-right">{{ .Total | formatCurrency "IDR" }}</td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+{{ end }}
+
 {{ define "content" }}
-<section class="section">
-    <header class="section-header">
-        <h1>Balance Sheet</h1>
-        <p class="section-description">Financial position as of {{ .Data.AsOfDate | formatDate }}</p>
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-title">Balance sheet</h1>
+            <p class="page-subtitle">Financial position as of {{ .Data.AsOfDate | formatDate }}.</p>
+        </div>
     </header>
 
-    {{ if .Data.Report }}
-    <div class="card">
-        <div class="card-body">
-            <h2 class="h5 mb-3">Assets</h2>
-            <div class="table-responsive">
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>Account Code</th>
-                        <th>Account Name</th>
-                        <th class="text-end">Amount</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {{ range .Data.Report.Assets }}
-                    <tr>
-                        <td>{{ .AccountCode }}</td>
-                        <td>{{ .AccountName }}</td>
-                        <td class="text-end">{{ formatCurrency "IDR" .Amount }}</td>
-                    </tr>
-                    {{ end }}
-                </tbody>
-                <tfoot>
-                    <tr class="fw-bold">
-                        <td colspan="2">Total Assets</td>
-                        <td class="text-end">{{ formatCurrency "IDR" .Data.Report.TotalAssets }}</td>
-                    </tr>
-                </tfoot>
-            </table>
-            </div>
-        </div>
-    </div>
+    {{ template "finance/bs-section" .Data.Report.Assets }}
+    {{ template "finance/bs-section" .Data.Report.Liabilities }}
+    {{ template "finance/bs-section" .Data.Report.Equity }}
 
-    <div class="card mt-3">
-        <div class="card-body">
-            <h2 class="h5 mb-3">Liabilities</h2>
-            <div class="table-responsive">
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>Account Code</th>
-                        <th>Account Name</th>
-                        <th class="text-end">Amount</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {{ range .Data.Report.Liabilities }}
-                    <tr>
-                        <td>{{ .AccountCode }}</td>
-                        <td>{{ .AccountName }}</td>
-                        <td class="text-end">{{ formatCurrency "IDR" .Amount }}</td>
-                    </tr>
-                    {{ end }}
-                </tbody>
-                <tfoot>
-                    <tr class="fw-bold">
-                        <td colspan="2">Total Liabilities</td>
-                        <td class="text-end">{{ formatCurrency "IDR" .Data.Report.TotalLiabilities }}</td>
-                    </tr>
-                </tfoot>
-            </table>
-            </div>
-        </div>
+    <div class="card card-table table-responsive">
+        <table class="table">
+            <caption class="sr-only">Balance check</caption>
+            <tbody>
+                <tr class="font-bold">
+                    <td>Total assets</td>
+                    <td class="numeric-right">{{ .Data.Report.Assets.Total | formatCurrency "IDR" }}</td>
+                </tr>
+                <tr class="font-bold">
+                    <td>Total liabilities and equity</td>
+                    <td class="numeric-right">{{ .Data.Report.TotalLiabilitiesAndEquity | formatCurrency "IDR" }}</td>
+                </tr>
+            </tbody>
+        </table>
     </div>
-
-    <div class="card mt-3">
-        <div class="card-body">
-            <h2 class="h5 mb-3">Equity</h2>
-            <div class="table-responsive">
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>Account Code</th>
-                        <th>Account Name</th>
-                        <th class="text-end">Amount</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {{ range .Data.Report.Equity }}
-                    <tr>
-                        <td>{{ .AccountCode }}</td>
-                        <td>{{ .AccountName }}</td>
-                        <td class="text-end">{{ formatCurrency "IDR" .Amount }}</td>
-                    </tr>
-                    {{ end }}
-                </tbody>
-                <tfoot>
-                    <tr class="fw-bold">
-                        <td colspan="2">Total Equity</td>
-                        <td class="text-end">{{ formatCurrency "IDR" .Data.Report.TotalEquity }}</td>
-                    </tr>
-                </tfoot>
-            </table>
-            </div>
-        </div>
-    </div>
-
-    <div class="alert alert-success mt-3">
-        <strong>Balance Check:</strong> Total Assets = {{ formatCurrency "IDR" .Data.Report.TotalAssets }},
-        Total Liabilities + Equity = {{ formatCurrency "IDR" (addf .Data.Report.TotalLiabilities .Data.Report.TotalEquity) }}
-    </div>
-    {{ else }}
-    <div class="alert alert-info">No data available for the selected date.</div>
-    {{ end }}
-</section>
+</div>
 {{ end }}

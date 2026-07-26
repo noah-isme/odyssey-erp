@@ -5,48 +5,63 @@
 {{ define "title" }}Trial Balance · Odyssey ERP{{ end }}
 
 {{ define "content" }}
-<section class="section">
-    <header class="section-header">
-        <h1>Trial Balance</h1>
-        <p class="section-description">Account balances for the selected period</p>
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-title">Trial balance</h1>
+            <p class="page-subtitle">Account balances for the selected period.</p>
+        </div>
     </header>
 
-    {{ if .Data.Report }}
-    <div class="card">
-        <div class="card-body">
-            <div class="table-responsive">
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>Account Code</th>
-                        <th>Account Name</th>
-                        <th class="text-end">Debit</th>
-                        <th class="text-end">Credit</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {{ range .Data.Report.Lines }}
-                    <tr>
-                        <td>{{ .AccountCode }}</td>
-                        <td>{{ .AccountName }}</td>
-                        <td class="text-end">{{ formatCurrency "IDR" .Debit }}</td>
-                        <td class="text-end">{{ formatCurrency "IDR" .Credit }}</td>
-                    </tr>
-                    {{ end }}
-                </tbody>
-                <tfoot>
-                    <tr class="fw-bold">
-                        <td colspan="2">Total</td>
-                        <td class="text-end">{{ formatCurrency "IDR" .Data.Report.TotalDebit }}</td>
-                        <td class="text-end">{{ formatCurrency "IDR" .Data.Report.TotalCredit }}</td>
-                    </tr>
-                </tfoot>
-            </table>
-            </div>
-        </div>
+    {{ if .Data.Report.Groups }}
+    <div class="card card-table table-responsive">
+        <table class="table">
+            <caption class="sr-only">Trial balance report</caption>
+            <thead>
+                <tr>
+                    <th>Account</th>
+                    <th class="numeric-right">Opening</th>
+                    <th class="numeric-right">Debit</th>
+                    <th class="numeric-right">Credit</th>
+                    <th class="numeric-right">Closing</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{ range .Data.Report.Groups }}
+                <tr class="bg-muted font-bold">
+                    <td colspan="5">{{ .Key }}</td>
+                </tr>
+                {{ range .Accounts }}
+                <tr>
+                    <td class="table-cell--indented">{{ .Code }} — {{ .Name }}</td>
+                    <td class="numeric-right">{{ .Opening | formatCurrency "IDR" }}</td>
+                    <td class="numeric-right">{{ .Debit | formatCurrency "IDR" }}</td>
+                    <td class="numeric-right">{{ .Credit | formatCurrency "IDR" }}</td>
+                    <td class="numeric-right">{{ .Closing | formatCurrency "IDR" }}</td>
+                </tr>
+                {{ end }}
+                <tr class="font-bold">
+                    <td>Subtotal {{ .Key }}</td>
+                    <td class="numeric-right">{{ .Opening | formatCurrency "IDR" }}</td>
+                    <td class="numeric-right">{{ .Debit | formatCurrency "IDR" }}</td>
+                    <td class="numeric-right">{{ .Credit | formatCurrency "IDR" }}</td>
+                    <td class="numeric-right">{{ .Closing | formatCurrency "IDR" }}</td>
+                </tr>
+                {{ end }}
+            </tbody>
+            <tfoot>
+                <tr class="font-bold">
+                    <td>Total</td>
+                    <td class="numeric-right">{{ .Data.Report.TotalOpening | formatCurrency "IDR" }}</td>
+                    <td class="numeric-right">{{ .Data.Report.TotalDebit | formatCurrency "IDR" }}</td>
+                    <td class="numeric-right">{{ .Data.Report.TotalCredit | formatCurrency "IDR" }}</td>
+                    <td class="numeric-right">{{ .Data.Report.TotalClosing | formatCurrency "IDR" }}</td>
+                </tr>
+            </tfoot>
+        </table>
     </div>
     {{ else }}
     <div class="alert alert-info">No data available for the selected period.</div>
     {{ end }}
-</section>
+</div>
 {{ end }}

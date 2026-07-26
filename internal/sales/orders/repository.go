@@ -153,9 +153,9 @@ func (r *repository) List(ctx context.Context, req ListSalesOrdersRequest) ([]Sa
 		       so.cancelled_by, so.cancelled_at, so.cancellation_reason,
 		       so.created_at, so.updated_at,
 		       c.name as customer_name,
-		       u1.full_name as created_by_name,
-		       u2.full_name as confirmed_by_name,
-		       u3.full_name as cancelled_by_name
+		       COALESCE(NULLIF(u1.name, ''), u1.email) as created_by_name,
+		       COALESCE(NULLIF(u2.name, ''), u2.email) as confirmed_by_name,
+		       COALESCE(NULLIF(u3.name, ''), u3.email) as cancelled_by_name
 		FROM sales_orders so
 		JOIN customers c ON so.customer_id = c.id
 		JOIN users u1 ON so.created_by = u1.id

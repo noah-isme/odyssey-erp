@@ -13,7 +13,7 @@
                 {{ template "partials/ui/status_badge.html" .Data.Order.Status }}
             </div>
             <h1 class="page-title">{{ .Data.Order.DocNumber }}</h1>
-            <p class="page-subtitle">Customer: <a href="/sales/customers/{{ .Data.Order.Data.CustomerID }}" class="link font-medium">{{ if .Data.Customer }}{{ .Data.Customer.Name }}{{ else }}Unknown{{ end }}</a></p>
+            <p class="page-subtitle">Customer: <a href="/sales/customers/{{ .Data.Order.CustomerID }}" class="link font-medium">{{ if .Data.Customer }}{{ .Data.Customer.Name }}{{ else }}Unknown{{ end }}</a></p>
         </div>
         <div class="page-header__actions">
             <a href="/sales/orders" class="btn btn--secondary">
@@ -60,7 +60,7 @@
                         <div class="responsive-grid responsive-grid--wide gap-6">
                             <div>
                                 <span class="label mb-1">Order Date</span>
-                                <p class="text-primary font-medium">{{ .Data.Order.Data.OrderDate.Format "02 Jan 2006" }}</p>
+                                <p class="text-primary font-medium">{{ .Data.Order.OrderDate.Format "02 Jan 2006" }}</p>
                             </div>
                             <div>
                                 <span class="label mb-1">Expected Delivery</span>
@@ -76,7 +76,7 @@
                             </div>
                         </div>
 
-                        {{ if .Data.Order.Data.QuotationID }}
+                        {{ if .Data.Order.QuotationID }}
                         <hr>
                         <div>
                             <span class="label mb-1">Source Quotation</span>
@@ -84,7 +84,7 @@
                                 {{ if .Data.Quotation }}
                                 <a href="/sales/quotations/{{ .Data.Quotation.ID }}" class="link font-medium">{{ .Data.Quotation.DocNumber }}</a>
                                 {{ else }}
-                                <span class="text-muted">#{{ .Data.Order.Data.QuotationID }}</span>
+                                <span class="text-muted">#{{ .Data.Order.QuotationID }}</span>
                                 {{ end }}
                             </p>
                         </div>
@@ -124,8 +124,9 @@
                                     <th width="50">#</th>
                                     <th>Product</th>
                                     <th class="text-right">Qty</th>
-                                    <th class="text-right">Delivered</th>
-                                    <th class="text-right">Invoiced</th>
+                                    {{/* SalesOrderLine tracks only the ordered
+                                         quantity; delivered and invoiced
+                                         quantities are not modelled. */}}
                                     <th>UOM</th>
                                     <th class="text-right">Unit Price</th>
                                     <th class="text-right">Total</th>
@@ -140,8 +141,6 @@
                                         <div class="text-xs text-muted">{{ .Description }}</div>
                                     </td>
                                     <td class="text-right numeric font-medium">{{ formatDecimal .Quantity }}</td>
-                                    <td class="text-right numeric text-secondary">{{ formatDecimal .QuantityDelivered }}</td>
-                                    <td class="text-right numeric text-secondary">{{ formatDecimal .QuantityInvoiced }}</td>
                                     <td>{{ .UOM }}</td>
                                     <td class="text-right numeric">{{ formatDecimal .UnitPrice }}</td>
                                     <td class="text-right font-semibold numeric text-primary">{{ formatDecimal .LineTotal }}</td>
@@ -150,15 +149,15 @@
                             </tbody>
                             <tfoot class="bg-surface-muted">
                                 <tr>
-                                    <td colspan="7" class="text-right font-medium">Subtotal</td>
+                                    <td colspan="5" class="text-right font-medium">Subtotal</td>
                                     <td class="text-right numeric font-medium">{{ formatDecimal .Data.Order.Subtotal }}</td>
                                 </tr>
                                 <tr>
-                                    <td colspan="7" class="text-right font-medium">Tax Amount</td>
+                                    <td colspan="5" class="text-right font-medium">Tax Amount</td>
                                     <td class="text-right numeric font-medium">{{ formatDecimal .Data.Order.TaxAmount }}</td>
                                 </tr>
                                 <tr class="border-t border-strong">
-                                    <td colspan="7" class="text-right font-bold text-lg">Grand Total</td>
+                                    <td colspan="5" class="text-right font-bold text-lg">Grand Total</td>
                                     <td class="text-right numeric font-bold text-lg">{{ .Data.Order.Currency }} {{ formatDecimal .Data.Order.TotalAmount }}</td>
                                 </tr>
                             </tfoot>

@@ -13,7 +13,7 @@
                 {{ template "partials/ui/status_badge.html" .Data.Quotation.Status }}
             </div>
             <h1 class="page-title">{{ .Data.Quotation.DocNumber }}</h1>
-            <p class="page-subtitle">Customer: <a href="/sales/customers/{{ .Data.Quotation.Data.CustomerID }}" class="link font-medium">{{ if .Data.Customer }}{{ .Data.Customer.Name }}{{ else }}Unknown{{ end }}</a></p>
+            <p class="page-subtitle">Customer: <a href="/sales/customers/{{ .Data.Quotation.CustomerID }}" class="link font-medium">{{ if .Data.Customer }}{{ .Data.Customer.Name }}{{ else }}Unknown{{ end }}</a></p>
         </div>
         <div class="page-header__actions">
             <a href="/sales/quotations" class="btn btn--secondary">

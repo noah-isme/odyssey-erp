@@ -142,11 +142,17 @@ func (h *Handler) showSnapshot(w http.ResponseWriter, r *http.Request) {
 			http.NotFound(w, r)
 			return
 		}
+		if h.logger != nil {
+			h.logger.Error("get variance snapshot", slog.Any("error", err), slog.Int64("id", id))
+		}
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 	rows, err := h.service.LoadSnapshotPayload(r.Context(), id)
 	if err != nil {
+		if h.logger != nil {
+			h.logger.Error("load variance snapshot payload", slog.Any("error", err), slog.Int64("id", id))
+		}
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -192,9 +198,11 @@ func (h *Handler) render(w http.ResponseWriter, r *http.Request, tpl, title stri
 		CurrentPath: r.URL.Path,
 		Data:        data,
 	}
-	w.WriteHeader(status)
-	if err := h.templates.Render(w, tpl, viewData); err != nil && h.logger != nil {
-		h.logger.Error("render variance template", slog.Any("error", err))
+	if err := h.templates.RenderStatus(w, tpl, viewData, status); err != nil {
+		if h.logger != nil {
+			h.logger.Error("render variance template", slog.Any("error", err))
+		}
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }
 

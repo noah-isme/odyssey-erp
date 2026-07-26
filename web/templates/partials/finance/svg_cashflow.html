@@ -23,7 +23,7 @@
             <tbody>
                 {{ range .CashflowTrend }}
                 <tr>
-                    <th scope="row">{{ .Period }}</th>
+                    <th scope="row">{{ .Month }}</th>
                     <td>Rp {{ formatDecimal .In }}</td>
                     <td>Rp {{ formatDecimal .Out }}</td>
                 </tr>

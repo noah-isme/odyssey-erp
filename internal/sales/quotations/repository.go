@@ -153,9 +153,9 @@ func (r *repository) List(ctx context.Context, req ListQuotationsRequest) ([]Quo
 		       q.created_by, q.approved_by, q.approved_at, q.rejected_by, q.rejected_at,
 		       q.rejection_reason, q.created_at, q.updated_at,
 		       c.name as customer_name,
-		       u1.full_name as created_by_name,
-		       u2.full_name as approved_by_name,
-		       u3.full_name as rejected_by_name
+		       COALESCE(NULLIF(u1.name, ''), u1.email) as created_by_name,
+		       COALESCE(NULLIF(u2.name, ''), u2.email) as approved_by_name,
+		       COALESCE(NULLIF(u3.name, ''), u3.email) as rejected_by_name
 		FROM quotations q
 		JOIN customers c ON q.customer_id = c.id
 		JOIN users u1 ON q.created_by = u1.id

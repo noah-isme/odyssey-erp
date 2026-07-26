@@ -1,6 +1,7 @@
 package view
 
 import (
+	"bytes"
 	"fmt"
 	"html/template"
 	"io/fs"
@@ -16,6 +17,18 @@ import (
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 )
+
+// stringify renders any value as a string, including named string types whose
+// underlying kind is string.
+func stringify(v any) string {
+	if v == nil {
+		return ""
+	}
+	if s, ok := v.(string); ok {
+		return s
+	}
+	return fmt.Sprint(v)
+}
 
 // Engine renders HTML templates.
 type Engine struct {
@@ -176,8 +189,12 @@ func NewEngine() (*Engine, error) {
 			}
 			return a / b
 		},
-		"lower": strings.ToLower,
-		"upper": strings.ToUpper,
+		// lower/upper take any value rather than string: Go templates do not
+		// convert a named string type (ap.APInvoiceStatus, orders.Status, ...)
+		// to its underlying string when binding a func(string) parameter, so a
+		// typed status passed to these helpers fails at execution time.
+		"lower": func(v any) string { return strings.ToLower(stringify(v)) },
+		"upper": func(v any) string { return strings.ToUpper(stringify(v)) },
 		"default": func(val, def string) string {
 			if strings.TrimSpace(val) == "" {
 				return def
@@ -237,8 +254,21 @@ func NewEngine() (*Engine, error) {
 	return &Engine{templates: templates}, nil
 }
 
-// Render executes a named template with TemplateData.
+// Render executes a named template with TemplateData, responding with 200.
 func (e *Engine) Render(w http.ResponseWriter, name string, data TemplateData) error {
+	return e.RenderStatus(w, name, data, http.StatusOK)
+}
+
+// RenderStatus executes a named template and responds with the given status.
+//
+// The body is rendered into a buffer before anything is written, so callers
+// must not set the status themselves: doing so commits the response on the
+// first write and a template failure part-way through would then be served as
+// a success with truncated or empty HTML.
+//
+// When this returns a non-nil error, nothing has been written to w and the
+// caller is free to send an error response instead.
+func (e *Engine) RenderStatus(w http.ResponseWriter, name string, data TemplateData, status int) error {
 	if e == nil {
 		return fmt.Errorf("template engine not initialised")
 	}
@@ -246,6 +276,14 @@ func (e *Engine) Render(w http.ResponseWriter, name string, data TemplateData) e
 	if !ok {
 		return fmt.Errorf("template %s not found", name)
 	}
+	var buf bytes.Buffer
+	if err := tpl.ExecuteTemplate(&buf, name, data); err != nil {
+		return err
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	return tpl.ExecuteTemplate(w, name, data)
+	w.WriteHeader(status)
+	// The response is committed at this point. A write failure here means the
+	// client went away, which no caller can act on, so it is not reported.
+	_, _ = buf.WriteTo(w)
+	return nil
 }

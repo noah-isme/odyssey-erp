@@ -68,8 +68,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	dateFrom := h.parseDate(r.URL.Query().Get("date_from"))
 	dateTo := h.parseDate(r.URL.Query().Get("date_to"))
 
-	limit := 50
-	offset := 0
+	limit, offset := shared.ParseLimitOffset(r, 50, 200)
 
 	orders, total, err := h.service.List(r.Context(), ListSalesOrdersRequest{
 		CompanyID: companyID,
@@ -90,6 +89,8 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "pages/sales/orders_list.html", map[string]any{
 		"Orders": orders,
 		"Total":  total,
+		"Limit":  limit,
+		"Offset": offset,
 		"Filters": map[string]any{
 			"Status":   status,
 			"DateFrom": r.URL.Query().Get("date_from"),
@@ -466,9 +467,9 @@ func (h *Handler) render(w http.ResponseWriter, r *http.Request, tmpl string, da
 		CurrentPath: r.URL.Path,
 		Data:        data,
 	}
-	w.WriteHeader(status)
-	if err := h.templates.Render(w, tmpl, viewData); err != nil {
+	if err := h.templates.RenderStatus(w, tmpl, viewData, status); err != nil {
 		h.logger.Error("render template", slog.Any("error", err), slog.String("template", tmpl))
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }
 

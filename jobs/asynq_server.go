@@ -160,9 +160,18 @@ type Handler struct {
 	templates TemplateRenderer
 }
 
-// TemplateRenderer abstracts template rendering.
+// TemplateRenderer abstracts template rendering, keeping this package
+// independent of the view engine.
 type TemplateRenderer interface {
 	Render(w http.ResponseWriter, name string, data any) error
+}
+
+// ViewData is the payload handed to a TemplateRenderer. It is a named type so
+// adapters can assert on it instead of guessing at an anonymous struct.
+type ViewData struct {
+	Title       string
+	CurrentPath string
+	Data        any
 }
 
 // NewHandler constructs an HTTP handler for jobs endpoints.
@@ -205,11 +214,7 @@ func (h *Handler) index(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if h.templates != nil {
-		viewData := struct {
-			Title       string
-			CurrentPath string
-			Data        any
-		}{
+		viewData := ViewData{
 			Title:       "Jobs Dashboard",
 			CurrentPath: r.URL.Path,
 			Data:        data,

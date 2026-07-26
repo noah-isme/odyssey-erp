@@ -201,9 +201,9 @@ func (h *Handler) render(w http.ResponseWriter, r *http.Request, tpl, title stri
 		CurrentPath: r.URL.Path,
 		Data:        data,
 	}
-	w.WriteHeader(status)
-	if err := h.templates.Render(w, tpl, viewData); err != nil {
+	if err := h.templates.RenderStatus(w, tpl, viewData, status); err != nil {
 		h.logger.Error("render template", slog.Any("error", err))
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }
 

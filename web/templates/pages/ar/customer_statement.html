@@ -28,25 +28,23 @@
     <table class="table">
         <caption>Account Transactions</caption>
         <thead>
+            {{/* ARInvoice carries no paid or outstanding figure, so this
+                 listing reports the invoice total only. */}}
             <tr>
-                <th scope="col">Date</th>
+                <th scope="col">Due Date</th>
                 <th scope="col">Invoice Number</th>
                 <th scope="col">Sales Order</th>
                 <th scope="col" class="text-right">Amount</th>
-                <th scope="col" class="text-right">Paid</th>
-                <th scope="col" class="text-right">Balance</th>
                 <th scope="col">Status</th>
             </tr>
         </thead>
         <tbody>
             {{ range .Data.Invoices }}
             <tr>
-                <td>{{ .DueDate.Format "2006-01-02" }}</td>
+                <td>{{ .DueAt.Format "2006-01-02" }}</td>
                 <td><a href="/finance/ar/invoices/{{ .ID }}">{{ .Number }}</a></td>
-                <td><a href="/sales/orders/{{ .SOID }}">{{ .SONumber }}</a></td>
+                <td>{{ if .SOID }}<a href="/sales/orders/{{ .SOID }}">#{{ .SOID }}</a>{{ else }}—{{ end }}</td>
                 <td class="numeric text-right">{{ printf "%.2f" .Total }}</td>
-                <td class="numeric text-right">{{ printf "%.2f" .PaidAmount }}</td>
-                <td class="numeric text-right">{{ printf "%.2f" .UnpaidAmount }}</td>
                 <td>
                     {{ template "partials/ui/status_badge.html" .Status }}
                 </td>

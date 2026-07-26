@@ -33,7 +33,7 @@ func NewRepository(pool *pgxpool.Pool) Repository {
 
 // List uses dynamic query (not sqlc) due to filter complexity
 func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Category, int, error) {
-	query := `SELECT id, code, name FROM categories WHERE 1=1`
+	query := `SELECT id, code, name, parent_id FROM categories WHERE 1=1`
 	args := []interface{}{}
 	argCount := 0
 
@@ -82,7 +82,7 @@ func (r *repository) List(ctx context.Context, filters shared.ListFilters) ([]Ca
 	var categories []Category
 	for rows.Next() {
 		var c Category
-		err := rows.Scan(&c.ID, &c.Code, &c.Name)
+		err := rows.Scan(&c.ID, &c.Code, &c.Name, &c.ParentID)
 		if err != nil {
 			return nil, 0, err
 		}
