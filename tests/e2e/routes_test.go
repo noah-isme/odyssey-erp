@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -202,5 +203,44 @@ func TestResolveDetailPagesIgnoresConcreteSiblingRoutes(t *testing.T) {
 	}
 	if len(pages) != 1 || pages[0].path != "/masterdata/units/4" {
 		t.Fatalf("pages = %+v, want /masterdata/units/4", pages)
+	}
+}
+
+func TestMutatingRoutesSelectsStateChangingMethods(t *testing.T) {
+	entries := []routeEntry{
+		{Method: http.MethodPost, Pattern: "/masterdata/units"},
+		{Method: http.MethodPost, Pattern: "/masterdata/units/{id}/delete"},
+		{Method: http.MethodGet, Pattern: "/masterdata/units"},     // reads
+		{Method: http.MethodHead, Pattern: "/masterdata/units"},    // CSRF skips
+		{Method: http.MethodOptions, Pattern: "/masterdata/units"}, // CSRF skips
+		{Method: http.MethodDelete, Pattern: "/static/*"},          // file server
+		{Method: http.MethodPut, Pattern: "/static/*"},             // file server
+	}
+
+	got := mutatingRoutes(entries)
+	if len(got) != 2 {
+		t.Fatalf("mutatingRoutes() = %+v, want the two POST routes", got)
+	}
+	for i, want := range []string{"/masterdata/units", "/masterdata/units/{id}/delete"} {
+		if got[i].Pattern != want || got[i].Method != http.MethodPost {
+			t.Errorf("route %d = %s %s, want POST %s", i, got[i].Method, got[i].Pattern, want)
+		}
+	}
+}
+
+// Probing a mutation must never address a real record: if a route turns out to
+// be unguarded, the request has to land on nothing rather than delete data.
+func TestConcreteMutationPathAvoidsRealRecords(t *testing.T) {
+	for _, tc := range []struct{ pattern, want string }{
+		{"/masterdata/units", "/masterdata/units"},
+		{"/masterdata/units/{id}/delete", "/masterdata/units/" + unreachableID + "/delete"},
+		{"/accounting/journals/{id}/reverse", "/accounting/journals/" + unreachableID + "/reverse"},
+	} {
+		if got := concreteMutationPath(tc.pattern); got != tc.want {
+			t.Errorf("concreteMutationPath(%q) = %q, want %q", tc.pattern, got, tc.want)
+		}
+	}
+	if strings.Contains(concreteMutationPath("/masterdata/units/{id}/delete"), "{") {
+		t.Error("route parameters must be substituted, not passed through literally")
 	}
 }

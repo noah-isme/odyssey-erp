@@ -59,7 +59,7 @@ func TestRegressionFlow(t *testing.T) {
 	// The shell's company switcher and user menu depend on this endpoint.
 	assertWorkspaceAPI(t, client, baseURL)
 
-	pages, detailRoutes, reservedPaths := pagesUnderTest(t)
+	pages, detailRoutes, reservedPaths, mutationRoutes := pagesUnderTest(t)
 	t.Logf("checking %d page routes", len(pages))
 	// Links seen while sweeping the listings supply real identifiers for the
 	// parameterised detail and edit routes checked afterwards.
@@ -136,6 +136,12 @@ func TestRegressionFlow(t *testing.T) {
 		remaining = unresolved
 	}
 
+	// One real write, so the guard sweep below cannot pass against an
+	// application that rejects every mutation for the wrong reason.
+	t.Run("guarded mutation succeeds with a token", func(t *testing.T) {
+		assertGuardedMutationSucceedsWithToken(t, client, baseURL)
+	})
+
 	// Export endpoints
 	for _, path := range []string{"/accounting/pnl/export.xlsx", "/accounting/budget/export.xlsx"} {
 		response = get(t, client, baseURL+path)
@@ -146,6 +152,20 @@ func TestRegressionFlow(t *testing.T) {
 		}
 		if len(payload) < 4 || string(payload[:2]) != "PK" {
 			t.Fatalf("GET %s did not return XLSX data", path)
+		}
+	}
+
+	// Last: one of these routes is POST /auth/logout, so an unguarded mutation
+	// would end the session. Running the sweep here keeps that from cascading
+	// into unrelated failures above.
+	if len(mutationRoutes) > 0 {
+		t.Logf("checking %d mutating routes reject requests without a CSRF token", len(mutationRoutes))
+		assertMutationsRequireCSRF(t, client, baseURL, mutationRoutes)
+
+		// The guard should have kept the session intact throughout.
+		if _, status, _ := fetchPage(t, client, baseURL+"/accounting/pnl"); status != http.StatusOK {
+			t.Errorf("session no longer usable after the mutation sweep (status %d); "+
+				"a mutating route ran when it should have been rejected", status)
 		}
 	}
 }
@@ -213,13 +233,13 @@ var nonPageSuffixes = []string{
 // ODYSSEY_E2E_ROUTES points at a dump produced by ODYSSEY_DUMP_ROUTES.
 // A hand-maintained list drifts silently as routes are added; the router
 // cannot.
-func pagesUnderTest(t *testing.T) (pages []pageRoute, details []string, reserved map[string]struct{}) {
+func pagesUnderTest(t *testing.T) (pages []pageRoute, details []string, reserved map[string]struct{}, mutations []routeEntry) {
 	t.Helper()
 	reserved = make(map[string]struct{})
 	routeFile := os.Getenv("ODYSSEY_E2E_ROUTES")
 	if routeFile == "" {
 		t.Log("ODYSSEY_E2E_ROUTES not set, using built-in page list")
-		return fallbackPages, nil, reserved
+		return fallbackPages, nil, reserved, nil
 	}
 
 	raw, err := os.ReadFile(routeFile)
@@ -256,9 +276,10 @@ func pagesUnderTest(t *testing.T) (pages []pageRoute, details []string, reserved
 		t.Fatalf("route dump %s yielded no page routes", routeFile)
 	}
 	details = detailPatterns(entries)
-	t.Logf("derived %d page routes and %d parameterised routes from %s (%d GET routes excluded)",
-		len(pages), len(details), routeFile, skipped)
-	return pages, details, reserved
+	t.Logf("derived %d page routes, %d parameterised routes and %d mutating routes from %s (%d GET routes excluded)",
+		len(pages), len(details), len(mutatingRoutes(entries)), routeFile, skipped)
+	mutations = mutatingRoutes(entries)
+	return pages, details, reserved, mutations
 }
 
 // isPageRoute reports whether a route pattern is a directly fetchable HTML
@@ -491,6 +512,116 @@ func assertSeededListingHasRows(t *testing.T, path, body string) {
 	if !rowLink.MatchString(body) {
 		t.Errorf("GET %s rendered no rows, but the seed guarantees at least one; "+
 			"its detail route cannot be covered", path)
+	}
+}
+
+// mutatingRoutes returns the routes that can change state: everything the CSRF
+// middleware guards, which is every method except GET, HEAD and OPTIONS. The
+// static file handler is registered for all methods and is not a mutation, so
+// it is excluded along with any wildcard pattern.
+func mutatingRoutes(entries []routeEntry) []routeEntry {
+	routes := make([]routeEntry, 0, len(entries))
+	for _, entry := range entries {
+		switch entry.Method {
+		case http.MethodGet, http.MethodHead, http.MethodOptions:
+			continue
+		}
+		if strings.Contains(entry.Pattern, "*") || strings.HasPrefix(entry.Pattern, "/static") {
+			continue
+		}
+		routes = append(routes, entry)
+	}
+	return routes
+}
+
+// unreachableID stands in for route parameters. It is deliberately an
+// identifier no record has, so that if a route turns out not to be guarded the
+// request lands on nothing rather than mutating or deleting real data.
+const unreachableID = "999999999"
+
+// concreteMutationPath substitutes route parameters with an identifier that
+// matches no record.
+func concreteMutationPath(pattern string) string {
+	segments := strings.Split(pattern, "/")
+	for i, segment := range segments {
+		if strings.HasPrefix(segment, "{") && strings.HasSuffix(segment, "}") {
+			segments[i] = unreachableID
+		}
+	}
+	return strings.Join(segments, "/")
+}
+
+// assertMutationsRequireCSRF checks that every state-changing route rejects a
+// request without a CSRF token.
+//
+// This is the whole non-GET surface, and it is checked uniformly because the
+// guard is a middleware invariant rather than per-handler logic: a route
+// mounted outside the protected chain would silently accept forged
+// cross-site writes. The requests carry no token, so a guarded route never
+// reaches its handler and nothing is written.
+//
+// It deliberately says nothing about whether these routes work - only that
+// they cannot be driven without a token. Exercising their behaviour needs
+// per-route fixtures.
+func assertMutationsRequireCSRF(t *testing.T, client *http.Client, baseURL string, routes []routeEntry) {
+	t.Helper()
+	for _, route := range routes {
+		name := route.Method + " " + route.Pattern
+		t.Run(name, func(t *testing.T) {
+			target := baseURL + concreteMutationPath(route.Pattern)
+			pace()
+			request, err := http.NewRequest(route.Method, target,
+				strings.NewReader("probe=csrf-guard"))
+			if err != nil {
+				t.Fatalf("build request for %s: %v", name, err)
+			}
+			request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+			response, err := client.Do(request)
+			if err != nil {
+				t.Fatalf("%s: %v", name, err)
+			}
+			_, _ = io.Copy(io.Discard, response.Body)
+			response.Body.Close()
+
+			if response.StatusCode != http.StatusForbidden {
+				t.Errorf("%s without a CSRF token returned %d, want 403; "+
+					"an unguarded mutation accepts cross-site writes",
+					name, response.StatusCode)
+			}
+		})
+	}
+}
+
+// assertGuardedMutationSucceedsWithToken drives one real write end to end.
+//
+// Without it the guard sweep above would pass just as happily against an
+// application that rejected every mutation for the wrong reason.
+func assertGuardedMutationSucceedsWithToken(t *testing.T, client *http.Client, baseURL string) {
+	t.Helper()
+	const listPath = "/masterdata/units"
+
+	token := fetchCSRF(t, client, baseURL+listPath+"/new")
+	code := "E2E-" + strconv.FormatInt(time.Now().UnixNano()%1_000_000, 10)
+
+	response := postForm(t, client, baseURL+listPath, url.Values{
+		"code":       {code},
+		"name":       {"E2E Probe Unit"},
+		"csrf_token": {token},
+	})
+	_, _ = io.Copy(io.Discard, response.Body)
+	response.Body.Close()
+	if response.StatusCode >= 400 {
+		t.Fatalf("POST %s with a valid token returned %d, want a success or redirect",
+			listPath, response.StatusCode)
+	}
+
+	_, status, body := fetchPage(t, client, baseURL+listPath)
+	if status != http.StatusOK {
+		t.Fatalf("GET %s after create status = %d, want 200", listPath, status)
+	}
+	if !strings.Contains(body, code) {
+		t.Errorf("unit %s was accepted but does not appear in %s", code, listPath)
 	}
 }
 
