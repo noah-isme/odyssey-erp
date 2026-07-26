@@ -79,6 +79,10 @@ type ARPayment struct {
 	CreatedBy   int64
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+	// InvoiceNumber and CustomerName are populated by listing queries that
+	// join the invoice and its customer; other reads leave them empty.
+	InvoiceNumber string
+	CustomerName  string
 }
 
 // ARPaymentSummary for display in invoice detail.

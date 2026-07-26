@@ -425,9 +425,12 @@ var seededListings = map[string]string{
 	"/eliminations/runs":           "/eliminations/runs/",
 	"/finance/ar/invoices":         "/finance/ar/invoices/",
 	"/finance/banking/accounts":    "/finance/banking/accounts/",
-	"/inventory/adjustments":       "/inventory/adjustments/",
-	"/inventory/stock-takes":       "/inventory/stock-takes/",
-	"/variance/snapshots":          "/variance/snapshots/",
+	// The payments listing has no detail route of its own; each row links to
+	// the invoice it settles.
+	"/finance/ar/payments":   "/finance/ar/invoices/",
+	"/inventory/adjustments": "/inventory/adjustments/",
+	"/inventory/stock-takes": "/inventory/stock-takes/",
+	"/variance/snapshots":    "/variance/snapshots/",
 }
 
 // assertWorkspaceAPI checks the endpoint behind the shell's company switcher

@@ -512,11 +512,16 @@ func (r *Repository) CreatePaymentAllocation(ctx context.Context, paymentID, inv
 
 // ListARPayments returns all payments.
 func (r *Repository) ListARPayments(ctx context.Context) ([]ARPayment, error) {
+	// Columns are qualified because the joins make bare id, number and
+	// created_at ambiguous.
 	query := `
-		SELECT id, number, ar_invoice_id, amount, paid_at, method, note, 
-			created_by, created_at, updated_at
-		FROM ar_payments
-		ORDER BY paid_at DESC`
+		SELECT p.id, p.number, p.ar_invoice_id, p.amount, p.paid_at, p.method, p.note,
+			p.created_by, p.created_at, p.updated_at,
+			COALESCE(i.number, ''), COALESCE(c.name, '')
+		FROM ar_payments p
+		LEFT JOIN ar_invoices i ON i.id = p.ar_invoice_id
+		LEFT JOIN customers c ON c.id = i.customer_id
+		ORDER BY p.paid_at DESC`
 
 	rows, err := r.pool.Query(ctx, query)
 	if err != nil {
@@ -532,6 +537,7 @@ func (r *Repository) ListARPayments(ctx context.Context) ([]ARPayment, error) {
 		err := rows.Scan(
 			&p.ID, &p.Number, &p.ARInvoiceID, &p.Amount, &p.PaidAt, &p.Method, &p.Note,
 			&createdBy, &p.CreatedAt, &p.UpdatedAt,
+			&p.InvoiceNumber, &p.CustomerName,
 		)
 		if err != nil {
 			return nil, err

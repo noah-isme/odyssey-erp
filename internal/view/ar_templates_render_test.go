@@ -104,3 +104,59 @@ func TestARInvoiceTemplatesExecute(t *testing.T) {
 		assert.Contains(t, body, "No payments recorded.")
 	})
 }
+
+// The payments listing had the same defect as the invoice one: listPayments
+// rendered pages/ar/ar_payment_form.html, which only references .Data.Errors.
+func TestARPaymentListTemplateExecutes(t *testing.T) {
+	engine, err := view.NewEngine()
+	require.NoError(t, err)
+
+	payment := ar.ARPayment{
+		ID: 4, Number: "ARP-2026-0004", ARInvoiceID: 7, Amount: 5_000_000,
+		PaidAt: time.Now(), Method: "TRANSFER", Note: "Pembayaran sebagian",
+		InvoiceNumber: "INV-2026-0007", CustomerName: "PT Nusantara",
+	}
+
+	t.Run("with payments", func(t *testing.T) {
+		recorder := httptest.NewRecorder()
+		err := engine.Render(recorder, "pages/ar/ar_payment_list.html", view.TemplateData{
+			Title: "AR Payments",
+			Data:  map[string]any{"Payments": []ar.ARPayment{payment}},
+		})
+		require.NoError(t, err)
+		body := recorder.Body.String()
+		for _, want := range []string{
+			"ARP-2026-0004", "PT Nusantara", "INV-2026-0007",
+			"/finance/ar/invoices/7", "TRANSFER",
+		} {
+			assert.Contains(t, body, want)
+		}
+	})
+
+	// The invoice join is a LEFT JOIN, so these can legitimately be blank.
+	t.Run("without joined invoice or customer", func(t *testing.T) {
+		bare := payment
+		bare.InvoiceNumber = ""
+		bare.CustomerName = ""
+		bare.Note = ""
+		recorder := httptest.NewRecorder()
+		err := engine.Render(recorder, "pages/ar/ar_payment_list.html", view.TemplateData{
+			Title: "AR Payments",
+			Data:  map[string]any{"Payments": []ar.ARPayment{bare}},
+		})
+		require.NoError(t, err)
+		body := recorder.Body.String()
+		assert.Contains(t, body, "ARP-2026-0004")
+		assert.NotContains(t, body, "/finance/ar/invoices/7")
+	})
+
+	t.Run("with no payments", func(t *testing.T) {
+		recorder := httptest.NewRecorder()
+		err := engine.Render(recorder, "pages/ar/ar_payment_list.html", view.TemplateData{
+			Title: "AR Payments",
+			Data:  map[string]any{"Payments": []ar.ARPayment{}},
+		})
+		require.NoError(t, err)
+		assert.Contains(t, recorder.Body.String(), "No payments found")
+	})
+}

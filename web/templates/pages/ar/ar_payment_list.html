@@ -1,0 +1,68 @@
+{{ define "pages/ar/ar_payment_list.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}AR Payments{{ end }}
+
+{{ define "content" }}
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-title">Pembayaran piutang / Accounts receivable payments</h1>
+            <p class="page-subtitle">Penerimaan pembayaran dari pelanggan.</p>
+        </div>
+        <div class="page-header__actions">
+            <a href="/finance/ar/invoices" class="btn btn--secondary">Invoice</a>
+            <a href="/finance/ar/payments/new" class="btn btn--primary">Pembayaran baru / New payment</a>
+        </div>
+    </header>
+
+    <div class="page-content">
+        {{ if .Data.Payments }}
+        <div class="card table-wrap">
+            <table class="table" aria-label="Accounts receivable payments">
+                <thead>
+                    <tr>
+                        <th>Number</th>
+                        <th>Customer</th>
+                        <th>Invoice</th>
+                        <th class="numeric-right">Amount</th>
+                        <th>Method</th>
+                        <th>Date</th>
+                        <th>Note</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ range .Data.Payments }}
+                    <tr>
+                        <td>{{ .Number }}</td>
+                        <td>{{ if .CustomerName }}{{ .CustomerName }}{{ else }}—{{ end }}</td>
+                        <td>
+                            {{ if .InvoiceNumber }}
+                            <a href="/finance/ar/invoices/{{ .ARInvoiceID }}" class="link">{{ .InvoiceNumber }}</a>
+                            {{ else }}—{{ end }}
+                        </td>
+                        <td class="numeric-right">{{ printf "%.2f" .Amount }}</td>
+                        <td>{{ .Method }}</td>
+                        <td>{{ .PaidAt.Format "2006-01-02" }}</td>
+                        <td class="text-muted">{{ if .Note }}{{ .Note }}{{ else }}—{{ end }}</td>
+                    </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
+        {{ else }}
+        {{ template "partials/ui/empty_state.html" . }}
+        {{ end }}
+
+        {{ if .Data.Errors }}
+        <div class="alert alert--danger" role="alert">{{ index .Data.Errors "general" }}</div>
+        {{ end }}
+    </div>
+</div>
+{{ end }}
+
+{{ define "ui-empty-state-icon" }}<span aria-hidden="true">—</span>{{ end }}
+{{ define "ui-empty-state-title" }}No payments found{{ end }}
+{{ define "ui-empty-state-description" }}No customer payments have been recorded yet.{{ end }}
+{{ define "ui-empty-state-action" }}<a href="/finance/ar/payments/new" class="btn btn--primary">Record Payment</a>{{ end }}

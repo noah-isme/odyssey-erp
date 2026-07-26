@@ -296,13 +296,13 @@ func (h *Handler) listPayments(w http.ResponseWriter, r *http.Request) {
 	payments, err := h.service.GetARPayments(r.Context())
 	if err != nil {
 		h.logger.Error("list AR payments", slog.Any("error", err))
-		h.render(w, r, "pages/ar/ar_payment_form.html", map[string]any{
+		h.render(w, r, "pages/ar/ar_payment_list.html", map[string]any{
 			"Errors": formErrors{"general": shared.UserSafeMessage(err)},
 		}, http.StatusInternalServerError)
 		return
 	}
 
-	h.render(w, r, "pages/ar/ar_payment_form.html", map[string]any{
+	h.render(w, r, "pages/ar/ar_payment_list.html", map[string]any{
 		"Payments": payments,
 	}, http.StatusOK)
 }
