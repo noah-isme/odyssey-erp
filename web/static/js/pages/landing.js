@@ -1,12 +1,17 @@
 /* ==========================================================================
    ODYSSEY ERP LANDING PAGE JS
-   Dev-Core Interactive Split-Pane & ROI Latency Engine
+   Dev-Core Interactive Split-Pane, Micro-Interactions & Animation Engine
    ========================================================================== */
 
 document.addEventListener('DOMContentLoaded', function () {
     'use strict';
 
+    // Check for reduced motion preference
+    var prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // ----------------------------------------------------------------------
     // 1. Theme Toggle Controller
+    // ----------------------------------------------------------------------
     var themeToggle = document.querySelector('[data-theme-toggle]');
     if (themeToggle) {
         themeToggle.addEventListener('click', function () {
@@ -23,9 +28,107 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // 2. Interactive Hero Terminal Tab Switcher
+    // ----------------------------------------------------------------------
+    // 2. Sticky Nav & Scrollspy Controller
+    // ----------------------------------------------------------------------
+    var navElem = document.querySelector('[data-scroll-nav]');
+    var navLinks = document.querySelectorAll('.landing-nav-center .nav-link');
+    var sections = document.querySelectorAll('section[id]');
+
+    function handleScrollNav() {
+        if (!navElem) return;
+        if (window.scrollY > 20) {
+            navElem.classList.add('is-scrolled');
+        } else {
+            navElem.classList.remove('is-scrolled');
+        }
+
+        // Active section highlight
+        var scrollPos = window.scrollY + 120;
+        sections.forEach(function (sec) {
+            var top = sec.offsetTop;
+            var height = sec.offsetHeight;
+            var id = sec.getAttribute('id');
+            if (scrollPos >= top && scrollPos < top + height) {
+                navLinks.forEach(function (link) {
+                    if (link.getAttribute('data-nav-section') === id) {
+                        link.classList.add('is-active');
+                    } else {
+                        link.classList.remove('is-active');
+                    }
+                });
+            }
+        });
+    }
+
+    window.addEventListener('scroll', handleScrollNav, { passive: true });
+    handleScrollNav();
+
+    // ----------------------------------------------------------------------
+    // 3. Scroll-Triggered Reveals (IntersectionObserver)
+    // ----------------------------------------------------------------------
+    var revealElements = document.querySelectorAll('[data-reveal], [data-reveal-child]');
+    if ('IntersectionObserver' in window && !prefersReducedMotion) {
+        var observerOptions = {
+            root: null,
+            threshold: 0.12,
+            rootMargin: '0px 0px -40px 0px'
+        };
+
+        var revealObserver = new IntersectionObserver(function (entries, observer) {
+            entries.forEach(function (entry) {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('is-revealed');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, observerOptions);
+
+        revealElements.forEach(function (el) {
+            revealObserver.observe(el);
+        });
+    } else {
+        // Fallback for older browsers or reduced motion
+        revealElements.forEach(function (el) {
+            el.classList.add('is-revealed');
+        });
+    }
+
+    // ----------------------------------------------------------------------
+    // 4. Interactive Hero Terminal Tab & Typing Stream Switcher
+    // ----------------------------------------------------------------------
     var tabBtns = document.querySelectorAll('.window-tabs .tab-btn');
     var tabPanels = document.querySelectorAll('.tab-panel');
+    var promptText = document.getElementById('termPromptText');
+    var typingTimer = null;
+
+    var tabCommands = {
+        'sales': 'fetch_sales_pipeline --format=json',
+        'inventory': 'check_warehouse_stock --all-skus',
+        'ledger': 'audit_ledger_balance --period=Q3',
+        'metrics': 'system_health_check --ping'
+    };
+
+    function typeTerminalCommand(text) {
+        if (!promptText) return;
+        if (prefersReducedMotion) {
+            promptText.textContent = text;
+            return;
+        }
+
+        if (typingTimer) clearInterval(typingTimer);
+        promptText.textContent = '';
+        var charIdx = 0;
+
+        typingTimer = setInterval(function () {
+            if (charIdx < text.length) {
+                promptText.textContent += text.charAt(charIdx);
+                charIdx++;
+            } else {
+                clearInterval(typingTimer);
+            }
+        }, 30);
+    }
 
     tabBtns.forEach(function (btn) {
         btn.addEventListener('click', function () {
@@ -39,10 +142,16 @@ document.addEventListener('DOMContentLoaded', function () {
             if (activePanel) {
                 activePanel.classList.add('is-active');
             }
+
+            if (tabCommands[targetTab]) {
+                typeTerminalCommand(tabCommands[targetTab]);
+            }
         });
     });
 
-    // 3. Dynamic ROI & Efficiency Calculator
+    // ----------------------------------------------------------------------
+    // 5. Dynamic ROI Calculator with Interpolated Number Counters
+    // ----------------------------------------------------------------------
     var empInput = document.getElementById('empRange');
     var invInput = document.getElementById('invRange');
     var empValDisplay = document.getElementById('empVal');
@@ -53,8 +162,39 @@ document.addEventListener('DOMContentLoaded', function () {
     var closingTimeDisplay = document.getElementById('closingTimeVal');
     var errorRateDisplay = document.getElementById('errorRateVal');
 
+    var currentHours = 440;
+    var currentAnnualJuta = 422;
+    var animFrameHours = null;
+    var animFrameAnnual = null;
+
     function formatNumber(num) {
         return new Intl.NumberFormat('id-ID').format(num);
+    }
+
+    function animateValue(start, end, duration, onUpdate, onComplete) {
+        if (prefersReducedMotion || duration === 0) {
+            onUpdate(end);
+            if (onComplete) onComplete();
+            return null;
+        }
+
+        var startTime = performance.now();
+        function update(now) {
+            var elapsed = now - startTime;
+            var progress = Math.min(elapsed / duration, 1);
+            // Ease out quad formula
+            var easeProgress = 1 - (1 - progress) * (1 - progress);
+            var val = Math.round(start + (end - start) * easeProgress);
+
+            onUpdate(val);
+
+            if (progress < 1) {
+                requestAnimationFrame(update);
+            } else if (onComplete) {
+                onComplete();
+            }
+        }
+        return requestAnimationFrame(update);
     }
 
     function calculateROI() {
@@ -66,17 +206,37 @@ document.addEventListener('DOMContentLoaded', function () {
         if (empValDisplay) empValDisplay.textContent = employees + ' orang';
         if (invValDisplay) invValDisplay.textContent = formatNumber(invoices) + ' /bln';
 
-        // Calculation logic:
-        // Estimated hours saved = (employees * 12) + (invoices * 0.15)
-        var hoursSaved = Math.round((employees * 14) + (invoices * 0.18));
-        // Estimated annual cost savings (Rp 80.000 / hr average finance wage)
-        var annualSavingsRp = hoursSaved * 80000 * 12;
+        var targetHours = Math.round((employees * 14) + (invoices * 0.18));
+        var annualSavingsRp = targetHours * 80000 * 12;
+        var targetAnnualJuta = Math.round(annualSavingsRp / 1000000);
 
         var closingDaysBefore = Math.max(2, Math.round(5 + (invoices / 800)));
         var closingDaysAfter = '2 jam';
 
-        if (hoursSavedDisplay) hoursSavedDisplay.textContent = formatNumber(hoursSaved) + ' Jam / Bln';
-        if (annualCostDisplay) annualCostDisplay.textContent = 'Rp ' + formatNumber(Math.round(annualSavingsRp / 1000000)) + ' Juta / Thn';
+        // Animate hours count-up
+        if (hoursSavedDisplay) {
+            hoursSavedDisplay.classList.add('is-updating');
+            if (animFrameHours) cancelAnimationFrame(animFrameHours);
+            animFrameHours = animateValue(currentHours, targetHours, 300, function (val) {
+                hoursSavedDisplay.textContent = formatNumber(val) + ' Jam / Bln';
+            }, function () {
+                hoursSavedDisplay.classList.remove('is-updating');
+            });
+            currentHours = targetHours;
+        }
+
+        // Animate annual cost savings count-up
+        if (annualCostDisplay) {
+            annualCostDisplay.classList.add('is-updating');
+            if (animFrameAnnual) cancelAnimationFrame(animFrameAnnual);
+            animFrameAnnual = animateValue(currentAnnualJuta, targetAnnualJuta, 300, function (val) {
+                annualCostDisplay.textContent = 'Rp ' + formatNumber(val) + ' Juta / Thn';
+            }, function () {
+                annualCostDisplay.classList.remove('is-updating');
+            });
+            currentAnnualJuta = targetAnnualJuta;
+        }
+
         if (closingTimeDisplay) closingTimeDisplay.textContent = closingDaysBefore + ' hari → ' + closingDaysAfter;
         if (errorRateDisplay) errorRateDisplay.textContent = '99.4% Reduction';
     }
@@ -85,5 +245,27 @@ document.addEventListener('DOMContentLoaded', function () {
         empInput.addEventListener('input', calculateROI);
         invInput.addEventListener('input', calculateROI);
         calculateROI();
+    }
+
+    // ----------------------------------------------------------------------
+    // 6. Command Bar Copy Interaction
+    // ----------------------------------------------------------------------
+    var copyBtn = document.getElementById('ctaCopyBtn');
+    if (copyBtn) {
+        copyBtn.addEventListener('click', function () {
+            var cmdText = '$ odyssey init enterprise --mode=production';
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(cmdText.replace(/^\$\s*/, '')).then(function () {
+                    var label = copyBtn.querySelector('.copy-label');
+                    if (label) label.textContent = 'TERSALIN!';
+                    copyBtn.classList.add('is-copied');
+
+                    setTimeout(function () {
+                        if (label) label.textContent = 'SALIN';
+                        copyBtn.classList.remove('is-copied');
+                    }, 2000);
+                });
+            }
+        });
     }
 });

@@ -38,68 +38,49 @@
     <!-- KPI Summary Cards -->
     <div class="kpi-grid">
         <!-- Open Sales Orders -->
-        <div class="kpi-card">
-            <div class="kpi-icon info">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
-                    <line x1="3" y1="6" x2="21" y2="6" />
-                    <path d="M16 10a4 4 0 0 1-8 0" />
-                </svg>
-            </div>
+        <div class="kpi-card kpi-card--accent-info">
             <div class="kpi-content">
-                <p class="kpi-label">Open Sales Orders</p>
-                <p class="kpi-value" id="kpi-open-so">-</p>
+                <div class="kpi-header-row">
+                    <span class="kpi-label font-mono">[01 // SALES] OPEN SO</span>
+                    <span class="sys-badge sys-badge--info">ACTIVE</span>
+                </div>
+                <div class="kpi-value font-mono" id="kpi-open-so">-</div>
                 <p class="kpi-subtitle warning" id="kpi-overdue-so"></p>
             </div>
         </div>
 
         <!-- Pending Deliveries -->
-        <div class="kpi-card">
-            <div class="kpi-icon warning">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="1" y="3" width="15" height="13" />
-                    <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
-                    <circle cx="5.5" cy="18.5" r="2.5" />
-                    <circle cx="18.5" cy="18.5" r="2.5" />
-                </svg>
-            </div>
+        <div class="kpi-card kpi-card--accent-warn">
             <div class="kpi-content">
-                <p class="kpi-label">Pending Deliveries</p>
-                <p class="kpi-value" id="kpi-pending-do">-</p>
+                <div class="kpi-header-row">
+                    <span class="kpi-label font-mono">[02 // LOGISTICS] PENDING DO</span>
+                    <span class="sys-badge sys-badge--warning">IN_QUEUE</span>
+                </div>
+                <div class="kpi-value font-mono" id="kpi-pending-do">-</div>
                 <p class="kpi-subtitle">DO to process</p>
             </div>
         </div>
 
         <!-- AP Invoices -->
-        <div class="kpi-card">
-            <div class="kpi-icon warning">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="2" y="3" width="20" height="18" rx="2" />
-                    <line x1="8" y1="7" x2="16" y2="7" />
-                    <line x1="8" y1="11" x2="16" y2="11" />
-                    <line x1="8" y1="15" x2="12" y2="15" />
-                </svg>
-            </div>
+        <div class="kpi-card kpi-card--accent-warn">
             <div class="kpi-content">
-                <p class="kpi-label">AP Due This Week</p>
-                <p class="kpi-value" id="kpi-ap-due">-</p>
+                <div class="kpi-header-row">
+                    <span class="kpi-label font-mono">[03 // FINANCE] AP DUE</span>
+                    <span class="sys-badge sys-badge--warning">THIS_WEEK</span>
+                </div>
+                <div class="kpi-value font-mono" id="kpi-ap-due">-</div>
                 <p class="kpi-subtitle warning">Due this week</p>
             </div>
         </div>
 
         <!-- Inventory Alerts -->
-        <div class="kpi-card">
-            <div class="kpi-icon error">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path
-                        d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                    <line x1="12" y1="9" x2="12" y2="13" />
-                    <line x1="12" y1="17" x2="12.01" y2="17" />
-                </svg>
-            </div>
+        <div class="kpi-card kpi-card--accent-error">
             <div class="kpi-content">
-                <p class="kpi-label">Inventory Alerts</p>
-                <p class="kpi-value" id="kpi-low-stock">-</p>
+                <div class="kpi-header-row">
+                    <span class="kpi-label font-mono">[04 // INVENTORY] ALERTS</span>
+                    <span class="sys-badge sys-badge--danger">LOW_STOCK</span>
+                </div>
+                <div class="kpi-value font-mono" id="kpi-low-stock">-</div>
                 <p class="kpi-subtitle error">Items low stock</p>
             </div>
         </div>
@@ -112,49 +93,49 @@
             <!-- Recent Sales Orders -->
             <div class="dashboard-panel">
                 <div class="panel-header">
-                    <h3 class="panel-title">Recent Sales Orders</h3>
-                    <a href="/sales/orders" class="panel-action">View all →</a>
+                    <h3 class="panel-title font-mono">[ RECENT SALES ORDERS ]</h3>
+                    <a href="/sales/orders" class="panel-action font-mono">LIHAT SEMUA →</a>
                 </div>
                 <div class="panel-body table-responsive">
                     <table class="table table--compact mini-table" aria-label="Recent sales orders">
                         <thead>
                             <tr>
-                                <th>SO Number</th>
-                                <th>Customer</th>
-                                <th>Status</th>
-                                <th class="col-amount">Amount</th>
+                                <th>REF_NO</th>
+                                <th>CUSTOMER</th>
+                                <th>STATUS</th>
+                                <th class="col-amount text-right">TOTAL_AMOUNT</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
-                                <td><a href="/sales/orders/1" class="doc-link">SO-2024-0124</a></td>
+                                <td><a href="/sales/orders/1" class="doc-link font-mono">SO-2024-0124</a></td>
                                 <td>PT Maju Bersama</td>
-                                <td><span class="status-badge status-confirmed">Confirmed</span></td>
-                                <td class="col-amount">Rp 45.500.000</td>
+                                <td><span class="sys-badge sys-badge--emerald">CONFIRMED</span></td>
+                                <td class="col-amount text-right font-mono numeric">Rp 45.500.000</td>
                             </tr>
                             <tr>
-                                <td><a href="/sales/orders/2" class="doc-link">SO-2024-0123</a></td>
+                                <td><a href="/sales/orders/2" class="doc-link font-mono">SO-2024-0123</a></td>
                                 <td>CV Sentosa Jaya</td>
-                                <td><span class="status-badge status-processing">Processing</span></td>
-                                <td class="col-amount">Rp 12.750.000</td>
+                                <td><span class="sys-badge sys-badge--info">PROCESSING</span></td>
+                                <td class="col-amount text-right font-mono numeric">Rp 12.750.000</td>
                             </tr>
                             <tr>
-                                <td><a href="/sales/orders/3" class="doc-link">SO-2024-0122</a></td>
+                                <td><a href="/sales/orders/3" class="doc-link font-mono">SO-2024-0122</a></td>
                                 <td>PT Abadi Makmur</td>
-                                <td><span class="status-badge status-pending">Pending</span></td>
-                                <td class="col-amount">Rp 89.200.000</td>
+                                <td><span class="sys-badge sys-badge--warning">PENDING</span></td>
+                                <td class="col-amount text-right font-mono numeric">Rp 89.200.000</td>
                             </tr>
                             <tr>
-                                <td><a href="/sales/orders/4" class="doc-link">SO-2024-0121</a></td>
+                                <td><a href="/sales/orders/4" class="doc-link font-mono">SO-2024-0121</a></td>
                                 <td>Toko Sejahtera</td>
-                                <td><span class="status-badge status-delivered">Delivered</span></td>
-                                <td class="col-amount">Rp 5.350.000</td>
+                                <td><span class="sys-badge sys-badge--emerald">DELIVERED</span></td>
+                                <td class="col-amount text-right font-mono numeric">Rp 5.350.000</td>
                             </tr>
                             <tr>
-                                <td><a href="/sales/orders/5" class="doc-link">SO-2024-0120</a></td>
+                                <td><a href="/sales/orders/5" class="doc-link font-mono">SO-2024-0120</a></td>
                                 <td>PT Global Indonesia</td>
-                                <td><span class="status-badge status-draft">Draft</span></td>
-                                <td class="col-amount">Rp 156.000.000</td>
+                                <td><span class="sys-badge">DRAFT</span></td>
+                                <td class="col-amount text-right font-mono numeric">Rp 156.000.000</td>
                             </tr>
                         </tbody>
                     </table>
@@ -164,71 +145,51 @@
             <!-- Pending Actions -->
             <div class="dashboard-panel" style="margin-top: var(--space-4);">
                 <div class="panel-header">
-                    <h3 class="panel-title">Pending Actions</h3>
+                    <h3 class="panel-title font-mono">[ ACTION ITEMS REQUIRED ]</h3>
                 </div>
                 <div class="panel-body">
                     <ul class="pending-list">
                         <li class="pending-item">
-                            <div class="pending-icon">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                    stroke-width="2">
-                                    <polyline points="9 11 12 14 22 4" />
-                                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-                                </svg>
-                            </div>
+                            <span class="sys-badge sys-badge--warning sys-pulse">
+                                <span class="sys-badge__dot"></span>
+                                PENDING
+                            </span>
                             <div class="pending-content">
-                                <span class="pending-count">3</span>
+                                <span class="pending-count font-mono">[3]</span>
                                 <span class="pending-text">Sales Orders menunggu approval</span>
                             </div>
-                            <a href="/sales/orders?status=pending" class="pending-action">Review</a>
+                            <a href="/sales/orders?status=pending" class="pending-action font-mono">Review →</a>
                         </li>
                         <li class="pending-item">
-                            <div class="pending-icon">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                    stroke-width="2">
-                                    <rect x="1" y="3" width="15" height="13" />
-                                    <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
-                                    <circle cx="5.5" cy="18.5" r="2.5" />
-                                    <circle cx="18.5" cy="18.5" r="2.5" />
-                                </svg>
-                            </div>
+                            <span class="sys-badge sys-badge--warning">
+                                IN_QUEUE
+                            </span>
                             <div class="pending-content">
-                                <span class="pending-count">2</span>
+                                <span class="pending-count font-mono">[2]</span>
                                 <span class="pending-text">Delivery Orders belum diproses</span>
                             </div>
-                            <a href="/delivery/orders?status=pending" class="pending-action">Process</a>
+                            <a href="/delivery/orders?status=pending" class="pending-action font-mono">Process →</a>
                         </li>
                         <li class="pending-item">
-                            <div class="pending-icon urgent">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                    stroke-width="2">
-                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                                    <line x1="16" y1="2" x2="16" y2="6" />
-                                    <line x1="8" y1="2" x2="8" y2="6" />
-                                    <line x1="3" y1="10" x2="21" y2="10" />
-                                </svg>
-                            </div>
+                            <span class="sys-badge sys-badge--danger sys-pulse">
+                                <span class="sys-badge__dot"></span>
+                                URGENT
+                            </span>
                             <div class="pending-content">
-                                <span class="pending-count">1</span>
+                                <span class="pending-count font-mono">[1]</span>
                                 <span class="pending-text">Period close pending</span>
                             </div>
-                            <a href="/accounting/periods" class="pending-action">Close</a>
+                            <a href="/accounting/periods" class="pending-action font-mono">Close →</a>
                         </li>
                         <li class="pending-item">
-                            <div class="pending-icon">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                    stroke-width="2">
-                                    <rect x="2" y="3" width="20" height="18" rx="2" />
-                                    <line x1="8" y1="7" x2="16" y2="7" />
-                                    <line x1="8" y1="11" x2="16" y2="11" />
-                                    <line x1="8" y1="15" x2="12" y2="15" />
-                                </svg>
-                            </div>
+                            <span class="sys-badge sys-badge--info">
+                                DUE_PAY
+                            </span>
                             <div class="pending-content">
-                                <span class="pending-count">5</span>
+                                <span class="pending-count font-mono">[5]</span>
                                 <span class="pending-text">AP Invoices perlu pembayaran</span>
                             </div>
-                            <a href="/procurement/ap/invoices?status=unpaid" class="pending-action">Pay</a>
+                            <a href="/procurement/ap/invoices?status=unpaid" class="pending-action font-mono">Pay →</a>
                         </li>
                     </ul>
                 </div>
@@ -240,33 +201,46 @@
             <!-- System Status -->
             <div class="dashboard-panel">
                 <div class="panel-header">
-                    <h3 class="panel-title">System Status</h3>
+                    <h3 class="panel-title font-mono">[ SYSTEM TELEMETRY ]</h3>
                 </div>
                 <div class="panel-body">
                     <ul class="status-list">
                         <li class="status-item">
-                            <span class="status-name">API</span>
-                            <span class="status-value">
-                                <span class="status-dot"></span>
-                                <span class="status-text">Operational</span>
+                            <span class="status-name font-mono">CMD_HTTP</span>
+                            <span class="sys-badge sys-badge--emerald">
+                                <span class="sys-badge__dot"></span>
+                                OPERATIONAL
                             </span>
                         </li>
                         <li class="status-item">
-                            <span class="status-name">Database</span>
-                            <span class="status-value">
-                                <span class="status-dot"></span>
-                                <span class="status-text">Operational</span>
+                            <span class="status-name font-mono">POSTGRES_DB</span>
+                            <span class="sys-badge sys-badge--emerald">
+                                <span class="sys-badge__dot"></span>
+                                OPERATIONAL
                             </span>
                         </li>
                         <li class="status-item">
-                            <span class="status-name">Jobs</span>
-                            <span class="status-value">
-                                <span class="status-dot warning"></span>
-                                <span class="status-text warning">1 delayed</span>
+                            <span class="status-name font-mono">ASYNQ_WORKER</span>
+                            <span class="sys-badge sys-badge--warning">
+                                1 DELAYED
                             </span>
                         </li>
                         <li class="status-item">
-                            <span class="status-name">Reports</span>
+                            <span class="status-name font-mono">GOTENBERG_PDF</span>
+                            <span class="sys-badge sys-badge--emerald">
+                                <span class="sys-badge__dot"></span>
+                                OPERATIONAL
+                            </span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="dashboard-panel">
+                <div class="panel-header">
+                    <h3 class="panel-title font-mono">[ QUICK ACTIONS ]</h3>
+                </div>
                             <span class="status-value">
                                 <span class="status-dot"></span>
                                 <span class="status-text">Operational</span>

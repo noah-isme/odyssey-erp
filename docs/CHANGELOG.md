@@ -19,6 +19,10 @@
 
 ### Changed
 
+- **Landing Page Animations & Micro-Interactions** — Added terminal code typing simulation, sticky glass navigation scrollspy, IntersectionObserver scroll reveals, requestAnimationFrame count-up ROI counters, and command copy interaction.
+- **Admin Dashboard Industrial Overhaul** — Refactored executive dashboard (`home.html`, `dashboard.css`) to eliminate generic SaaS pastel icon bubbles and soft shadows. Replaced with sharp top-accent KPI blocks, monospaced tabular figures (`.numeric`, `.font-mono`), and telemetry status badges (`.sys-badge`).
+- **Global Status Badge Standardization** — Refactored `status_badge.html` to standardize state indicators across Sales, Procurement, Inventory, Accounting, and Master Data into `.sys-badge` components with operational telemetry dot indicators (`.sys-badge__dot`).
+- **Auth Gateway Industrial Redesign** — Refactored login page (`login.html`, `login.css`) to use sharp 2px border radius cards, Midnight Ledger token palettes, and AUTH_GATEWAY telemetry badges.
 - FIFO inbound history is now read in chronological order.
 
 ## Unreleased

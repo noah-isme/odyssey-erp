@@ -98,6 +98,56 @@
     color: var(--badge-warning-fg);
 }
 
+/* System Terminal Badges */
+.sys-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: var(--weight-semibold);
+    letter-spacing: 0.04em;
+    padding: 2px 7px;
+    border-radius: var(--radius-1, 2px);
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-surface-muted);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.sys-badge--emerald {
+    border-color: var(--success-soft, var(--badge-success-bg));
+    background: var(--success-soft, var(--badge-success-bg));
+    color: var(--success-600, var(--badge-success-fg));
+}
+
+.sys-badge--info {
+    border-color: var(--badge-info-bg);
+    background: var(--badge-info-bg);
+    color: var(--info-600, var(--badge-info-fg));
+}
+
+.sys-badge--warning {
+    border-color: var(--badge-warning-bg);
+    background: var(--badge-warning-bg);
+    color: var(--warning-600, var(--badge-warning-fg));
+}
+
+.sys-badge--danger {
+    border-color: var(--badge-error-bg);
+    background: var(--badge-error-bg);
+    color: var(--danger-600, var(--badge-error-fg));
+}
+
+.sys-badge__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: currentColor;
+    display: inline-block;
+}
+
 /* -----------------------------
    NAV (sidebar + top nav)
 ----------------------------- */

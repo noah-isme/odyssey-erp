@@ -56,16 +56,16 @@
    --space-12: 48px;
    --space-16: 64px;
 
-   /* Radius */
-   --radius-1: 6px;
-   /* controls */
-   --radius-2: 10px;
-   /* buttons/inputs */
-   --radius-3: 14px;
-   /* cards/panels */
-   --radius-pill: 9999px;
-   --radius-md: var(--radius-2);
-   --radius-lg: var(--radius-3);
+    /* Radius (Midnight Ledger Industrial Sharp Radii) */
+    --radius-1: 2px;
+    /* controls / sharp badges / nav */
+    --radius-2: 4px;
+    /* buttons / inputs / sub-containers */
+    --radius-3: 6px;
+    /* cards / dialogs / panels */
+    --radius-pill: 9999px;
+    --radius-md: var(--radius-2);
+    --radius-lg: var(--radius-3);
 
    /* Motion */
    --ease-standard: cubic-bezier(0.2, 0, 0, 1);
@@ -252,9 +252,9 @@
    --table-cell-pad-y: 10px;
    --table-cell-pad-x: 12px;
 
-   /* Badges */
-   --badge-radius: var(--radius-pill);
-   --badge-font: var(--text-xs);
+    /* Badges (Industrial Sharp BEM Pills) */
+    --badge-radius: var(--radius-1);
+    --badge-font: var(--text-xs);
    --badge-pad-y: 4px;
    --badge-pad-x: 10px;
 

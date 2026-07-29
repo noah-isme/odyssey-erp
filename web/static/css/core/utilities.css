@@ -280,14 +280,20 @@ small {
 }
 
 /* -----------------------------
-   Numeric Utilities (finance-friendly)
+   Numeric & Monospace Utilities (Midnight Ledger core)
 ----------------------------- */
+.font-mono {
+    font-family: var(--font-mono);
+}
+
 .numeric {
+    font-family: var(--font-mono);
     font-variant-numeric: var(--numeric);
     font-feature-settings: "tnum" 1, "lnum" 1;
 }
 
 .numeric-right {
+    font-family: var(--font-mono);
     font-variant-numeric: var(--numeric);
     font-feature-settings: "tnum" 1, "lnum" 1;
     text-align: right;
