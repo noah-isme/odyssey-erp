@@ -282,27 +282,48 @@
     right: 0;
     min-width: 200px;
     margin-top: var(--space-2);
-    padding: var(--space-2) 0;
-    background: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-3);
-    box-shadow: var(--shadow-2);
+    padding: var(--space-2);
+    background: var(--float-bg);
+    border: 1px solid var(--float-border);
+    border-radius: var(--float-radius);
+    box-shadow: var(--float-shadow);
     opacity: 0;
     visibility: hidden;
-    transform: translateY(-8px);
-    transition: all var(--dur-2) var(--ease-standard);
+    transform: translateY(-4px) scale(0.98);
+    transform-origin: top right;
+    transition: opacity var(--dur-2) var(--ease-standard),
+        transform var(--dur-2) var(--ease-standard),
+        visibility var(--dur-2) var(--ease-standard);
     z-index: var(--z-dropdown);
 }
 
 .dropdown-menu.open {
     opacity: 1;
     visibility: visible;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .dropdown-menu.open {
+        animation: dropdown-in var(--dur-2) var(--ease-standard);
+    }
+}
+
+@keyframes dropdown-in {
+    from {
+        opacity: 0;
+        transform: translateY(-4px) scale(0.98);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
 }
 
 .dropdown-divider {
     height: 1px;
-    margin: var(--space-2) 0;
+    margin: var(--space-1) calc(-1 * var(--space-2));
     background: var(--border-subtle);
 }
 
@@ -310,17 +331,47 @@
     display: flex;
     align-items: center;
     gap: var(--space-3);
-    padding: var(--space-2) var(--space-4);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-2);
     color: var(--text-primary);
     font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+}
+
+.dropdown-item svg {
+    flex-shrink: 0;
+    color: var(--text-muted);
+    transition: color var(--dur-2) var(--ease-standard);
 }
 
 .dropdown-item:hover {
     background: var(--bg-surface-muted);
 }
 
+.dropdown-item:hover svg {
+    color: inherit;
+}
+
 .dropdown-item.text-error {
     color: var(--error-600);
+}
+
+.dropdown-item.text-error svg {
+    color: inherit;
+}
+
+.dropdown-item.text-error:hover {
+    background: var(--error-bg);
+}
+
+/* A submit button rendered as a menu row: strip .btn chrome. */
+.dropdown-menu button.dropdown-item {
+    width: 100%;
+    height: auto;
+    padding: var(--space-2) var(--space-3);
+    border: none;
+    justify-content: flex-start;
+    letter-spacing: normal;
 }
 
 /* -----------------------------
