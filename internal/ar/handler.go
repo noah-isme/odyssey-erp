@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/hibiken/asynq"
 
+	"github.com/odyssey-erp/odyssey-erp/internal/notifications"
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
@@ -25,6 +26,11 @@ type Handler struct {
 	rbac          rbac.Middleware
 	asynqClient   *asynq.Client
 	creditNotePDF CreditNotePDFRenderer
+	notifications *notifications.Dispatcher
+}
+
+func (h *Handler) SetNotificationDispatcher(dispatcher *notifications.Dispatcher) {
+	h.notifications = dispatcher
 }
 
 // NewHandler builds Handler instance.
@@ -232,6 +238,14 @@ func (h *Handler) postInvoice(w http.ResponseWriter, r *http.Request) {
 		h.logger.Error("post AR invoice", slog.Any("error", err), slog.Int64("id", id))
 		h.redirectWithFlash(w, r, "/finance/ar/invoices/"+idStr, "error", shared.UserSafeMessage(err))
 		return
+	}
+	if h.notifications != nil {
+		invoice, loadErr := h.service.GetARInvoice(r.Context(), id)
+		if loadErr == nil {
+			if notifyErr := h.notifications.Dispatch(r.Context(), notifications.InvoiceIssued(userID, id, invoice.Number)); notifyErr != nil && h.logger != nil {
+				h.logger.Warn("dispatch invoice notification", slog.Any("error", notifyErr))
+			}
+		}
 	}
 
 	h.redirectWithFlash(w, r, "/finance/ar/invoices/"+idStr, "success", "Invoice posted successfully")

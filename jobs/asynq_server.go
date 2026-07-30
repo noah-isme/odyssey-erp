@@ -39,6 +39,7 @@ type CronRegistration struct {
 type WorkerConfig struct {
 	RedisOpts asynq.RedisClientOpt
 	Logger    *slog.Logger
+	Mailer    Mailer
 	Handlers  []TaskHandler
 	Cron      []CronRegistration
 }
@@ -52,7 +53,8 @@ func NewWorker(cfg WorkerConfig) (*Worker, error) {
 		},
 	})
 	mux := asynq.NewServeMux()
-	mux.HandleFunc(TaskTypeSendEmail, HandleSendEmailTask)
+	mux.HandleFunc(TaskTypeSendEmail, HandleSendEmailTask(cfg.Mailer))
+	mux.HandleFunc(TypeEmailDelivery, HandleEmailDeliveryTask(cfg.Logger, cfg.Mailer))
 	mux.HandleFunc(TaskInventoryRevaluation, HandleInventoryRevaluationTask)
 	mux.HandleFunc(TaskProcurementReindex, HandleProcurementReindexTask)
 	for _, h := range cfg.Handlers {

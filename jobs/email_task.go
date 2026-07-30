@@ -7,7 +7,6 @@ import (
 	"log/slog"
 
 	"github.com/hibiken/asynq"
-	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 )
 
 // Task names
@@ -34,33 +33,35 @@ func NewEmailDeliveryTask(payload EmailDeliveryPayload) (*asynq.Task, error) {
 }
 
 // HandleEmailDeliveryTask handles the email delivery task execution.
-func HandleEmailDeliveryTask(logger *slog.Logger) func(context.Context, *asynq.Task) error {
+func HandleEmailDeliveryTask(logger *slog.Logger, client Mailer) func(context.Context, *asynq.Task) error {
 	return func(ctx context.Context, t *asynq.Task) error {
 		var p EmailDeliveryPayload
 		if err := json.Unmarshal(t.Payload(), &p); err != nil {
 			return fmt.Errorf("json.Unmarshal failed: %v: %w", err, asynq.SkipRetry)
 		}
 
-		logger.Info("processing email delivery", slog.String("subject", p.Subject), slog.Any("to", p.To))
-
-		// Instantiate the mailer (in a real app, this should be injected or configured from env)
-		client := shared.NewMailClient(shared.MailConfig{
-			Host: "127.0.0.1",
-			Port: 1025,
-			From: "noreply@odyssey.local",
-		})
+		if logger != nil {
+			logger.Info("processing email delivery", slog.String("subject", p.Subject), slog.Any("to", p.To))
+		}
+		if client == nil {
+			return fmt.Errorf("mail client not configured: %w", asynq.SkipRetry)
+		}
 
 		if len(p.To) == 0 {
 			return fmt.Errorf("email delivery has no recipients: %w", asynq.SkipRetry)
 		}
 		for _, toAddress := range p.To {
 			if err := client.SendEmail(ctx, toAddress, p.Subject, p.BodyHTML, nil); err != nil {
-				logger.Error("failed to send email", slog.Any("error", err), slog.String("to", toAddress))
+				if logger != nil {
+					logger.Error("failed to send email", slog.Any("error", err), slog.String("to", toAddress))
+				}
 				return fmt.Errorf("mailer.SendEmail failed: %w", err)
 			}
 		}
 
-		logger.Info("email sent successfully", slog.String("subject", p.Subject))
+		if logger != nil {
+			logger.Info("email sent successfully", slog.String("subject", p.Subject))
+		}
 		return nil
 	}
 }

@@ -50,6 +50,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/inventory"
 	jobmetrics "github.com/odyssey-erp/odyssey-erp/internal/jobs"
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata"
+	"github.com/odyssey-erp/odyssey-erp/internal/notifications"
 	"github.com/odyssey-erp/odyssey-erp/internal/observability"
 	"github.com/odyssey-erp/odyssey-erp/internal/procurement"
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
@@ -73,6 +74,13 @@ type barRenderer struct{}
 
 func (barRenderer) Bars(width, height int, seriesA, seriesB []float64, labels []string, opts svg.BarOpts) (template.HTML, error) {
 	return svg.Bars(width, height, seriesA, seriesB, labels, opts)
+}
+
+type notificationEmailQueue struct{ client *jobs.Client }
+
+func (q notificationEmailQueue) EnqueueEmail(ctx context.Context, email notifications.Email) error {
+	_, err := q.client.EnqueueSendEmail(ctx, jobs.SendEmailPayload{To: email.To, Subject: email.Subject, Body: email.Body})
+	return err
 }
 
 type analyticsPeriodValidator struct {
@@ -230,6 +238,10 @@ func main() {
 			logger.Warn("close job client", slog.Any("error", err))
 		}
 	}()
+	notificationRepo := notifications.NewRepository(dbpool)
+	notificationService := notifications.NewService(notificationRepo)
+	notificationDispatcher := notifications.NewDispatcher(notificationService, notificationRepo, notificationEmailQueue{client: jobClient})
+	notificationHandler := notifications.NewHandler(notificationService)
 
 	arRepo := ar.NewRepository(dbpool)
 	arService := ar.NewService(arRepo)
@@ -238,6 +250,7 @@ func main() {
 	arService.SetReturnDeliveryService(arInvoicing)
 	arService.SetAccountingService(integrationHooks)
 	arHandler := ar.NewHandler(logger, arService, templates, csrfManager, sessionManager, rbacMiddleware, jobClient.AsynqClient())
+	arHandler.SetNotificationDispatcher(notificationDispatcher)
 
 	apRepo := ap.NewRepository(dbpool)
 	apService := ap.NewService(apRepo, procurementService)
@@ -280,6 +293,7 @@ func main() {
 
 	inventoryHandler := inventory.NewHandler(logger, inventoryService, templates, csrfManager, sessionManager, rbacMiddleware, dbpool)
 	procurementHandler := procurement.NewHandler(logger, procurementService, templates, csrfManager, sessionManager, rbacMiddleware, jobClient.AsynqClient())
+	procurementHandler.SetNotificationDispatcher(notificationDispatcher)
 
 	salesService := sales.NewService(dbpool)
 	salesHandler := sales.NewHandler(logger, salesService, templates, csrfManager, sessionManager, rbacMiddleware, jobClient.AsynqClient())
@@ -363,38 +377,40 @@ func main() {
 	dashboardHandler := dashboard.NewHandler(logger, dashboardService, templates, csrfManager)
 
 	router := app.NewRouter(app.RouterParams{
-		Logger:             logger,
-		Config:             cfg,
-		Templates:          templates,
-		SessionManager:     sessionManager,
-		CSRFManager:        csrfManager,
-		AuthHandler:        authHandler,
-		AccountingHandler:  accountingHandler,
-		ARHandler:          arHandler,
-		APHandler:          apHandler,
-		RolesHandler:       rolesHandler,
-		UsersHandler:       usersHandler,
-		CloseHandler:       closeHandler,
-		EliminationHandler: eliminationHandler,
-		VarianceHandler:    varianceHandler,
-		BoardPackHandler:   boardpackHandler,
-		InventoryHandler:   inventoryHandler,
-		ProcurementHandler: procurementHandler,
-		SalesHandler:       salesHandler,
-		MasterDataHandler:  masterdataHandler,
-		Pool:               dbpool,
-		RBACMiddleware:     rbacMiddleware,
-		ReportHandler:      reportHandler,
-		ConsolHandler:      consolHandler,
-		JobHandler:         jobHandler,
-		AnalyticsHandler:   analyticsHandler,
-		InsightsHandler:    insightsHandler,
-		AuditHandler:       auditHandler,
-		PermissionsHandler: permissionsHandler,
-		BankingHandler:     bankingHandler,
-		InventoryService:   inventoryService,
-		Metrics:            metrics,
-		DashboardHandler:   dashboardHandler,
+		Logger:                 logger,
+		Config:                 cfg,
+		Templates:              templates,
+		SessionManager:         sessionManager,
+		CSRFManager:            csrfManager,
+		AuthHandler:            authHandler,
+		AccountingHandler:      accountingHandler,
+		ARHandler:              arHandler,
+		APHandler:              apHandler,
+		RolesHandler:           rolesHandler,
+		UsersHandler:           usersHandler,
+		CloseHandler:           closeHandler,
+		EliminationHandler:     eliminationHandler,
+		VarianceHandler:        varianceHandler,
+		BoardPackHandler:       boardpackHandler,
+		InventoryHandler:       inventoryHandler,
+		ProcurementHandler:     procurementHandler,
+		SalesHandler:           salesHandler,
+		MasterDataHandler:      masterdataHandler,
+		Pool:                   dbpool,
+		RBACMiddleware:         rbacMiddleware,
+		ReportHandler:          reportHandler,
+		ConsolHandler:          consolHandler,
+		JobHandler:             jobHandler,
+		AnalyticsHandler:       analyticsHandler,
+		InsightsHandler:        insightsHandler,
+		AuditHandler:           auditHandler,
+		PermissionsHandler:     permissionsHandler,
+		BankingHandler:         bankingHandler,
+		InventoryService:       inventoryService,
+		Metrics:                metrics,
+		DashboardHandler:       dashboardHandler,
+		NotificationHandler:    notificationHandler,
+		NotificationDispatcher: notificationDispatcher,
 	})
 
 	// Route dump mode: print the real routing table and exit without serving.

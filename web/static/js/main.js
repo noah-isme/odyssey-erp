@@ -169,6 +169,59 @@ function persistLanguagePreferenceOnSubmit() {
     });
 }
 
+function csrfToken() {
+    return document.querySelector('meta[name="csrf-token"]')?.content || '';
+}
+
+function escapeNotificationText(value) {
+    const span = document.createElement('span');
+    span.textContent = value || '';
+    return span.innerHTML;
+}
+
+function safeNotificationURL(value) {
+    return typeof value === 'string' && value.startsWith('/') && !value.startsWith('//') ? value : '#';
+}
+
+async function refreshNotifications() {
+    const badge = document.querySelector('[data-notification-count]');
+    const list = document.querySelector('[data-notification-list]');
+    if (!badge || !list) return;
+    const [countResponse, listResponse] = await Promise.all([
+        fetch('/api/notifications/unread-count', { credentials: 'same-origin', headers: { Accept: 'application/json' } }),
+        fetch('/api/notifications?limit=10', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+    ]);
+    if (!countResponse.ok || !listResponse.ok) return;
+    const count = (await countResponse.json()).count || 0;
+    const notifications = (await listResponse.json()).notifications || [];
+    badge.textContent = count > 99 ? '99+' : String(count);
+    badge.hidden = count === 0;
+    list.innerHTML = notifications.length === 0
+        ? '<p class="notification-empty">No recent notifications.</p>'
+        : notifications.map((item) => `<a class="notification-item${item.readAt ? '' : ' notification-item--unread'}" href="${safeNotificationURL(item.url)}" data-notification-id="${item.id}"><strong>${escapeNotificationText(item.title)}</strong><span>${escapeNotificationText(item.body)}</span></a>`).join('');
+}
+
+function initNotifications() {
+    const trigger = document.querySelector('[data-notification-trigger]');
+    const dropdown = document.querySelector('[data-notification-dropdown]');
+    if (!trigger || !dropdown) return;
+    trigger.addEventListener('click', async () => {
+        dropdown.hidden = !dropdown.hidden;
+        trigger.setAttribute('aria-expanded', String(!dropdown.hidden));
+        if (!dropdown.hidden) await refreshNotifications();
+    });
+    dropdown.addEventListener('click', async (event) => {
+        const item = event.target.closest('[data-notification-id]');
+        if (item) await fetch(`/api/notifications/${item.dataset.notificationId}/read`, { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRF-Token': csrfToken() } });
+        if (event.target.closest('[data-notification-read-all]')) {
+            event.preventDefault();
+            await fetch('/api/notifications/read-all', { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRF-Token': csrfToken() } });
+            await refreshNotifications();
+        }
+    });
+    refreshNotifications().catch(() => {});
+}
+
 // Initialize all modules on DOMContentLoaded
 document.addEventListener('DOMContentLoaded', () => {
     // Features (state-driven architecture)
@@ -176,6 +229,7 @@ document.addEventListener('DOMContentLoaded', () => {
     applyInitialLanguage();
     applyWorkspacePreferences();
     persistLanguagePreferenceOnSubmit();
+	initNotifications();
     Sidebar.init();
     Navigation.init();
     Header.init();

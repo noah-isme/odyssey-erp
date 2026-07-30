@@ -4,6 +4,14 @@
 
 ### Added
 
+- Persisted notification center with recent/unread APIs, an unread workspace
+  bell, and owned mark-one/mark-all-read actions.
+- Per-user, per-event in-app and email channel preferences, separate from the
+  global `users.ui_notifications` workspace toggle.
+- Transactional notification dispatch for AR invoice posting, PO approval
+  submission, board-pack delivery, and authenticated password changes.
+- SMTP username/password configuration and injected mail delivery in the Asynq
+  worker.
 - Per-product inventory cost policy (weighted average or FIFO), reorder target,
   preferred supplier, lot/batch, expiry, and serial-number traceability.
 - Inventory dashboard action that creates supplier-grouped draft purchase

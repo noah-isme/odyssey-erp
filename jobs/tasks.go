@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/hibiken/asynq"
+	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 )
 
 const (
@@ -40,14 +41,28 @@ func NewSendEmailTask(payload SendEmailPayload) (*asynq.Task, error) {
 }
 
 // HandleSendEmailTask processes TaskTypeSendEmail tasks.
-func HandleSendEmailTask(ctx context.Context, t *asynq.Task) error {
-	var payload SendEmailPayload
-	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
-		return asynq.SkipRetry
+func HandleSendEmailTask(mailer Mailer) asynq.HandlerFunc {
+	return func(ctx context.Context, t *asynq.Task) error {
+		if mailer == nil {
+			return fmt.Errorf("mail client not configured: %w", asynq.SkipRetry)
+		}
+		var payload SendEmailPayload
+		if err := json.Unmarshal(t.Payload(), &payload); err != nil {
+			return asynq.SkipRetry
+		}
+		if payload.To == "" || payload.Subject == "" {
+			return fmt.Errorf("invalid email payload: %w", asynq.SkipRetry)
+		}
+		if err := mailer.SendEmail(ctx, payload.To, payload.Subject, payload.Body, nil); err != nil {
+			return fmt.Errorf("send email: %w", err)
+		}
+		return nil
 	}
-	// Placeholder: integrate with SMTP/Mailpit in phase 2.
-	fmt.Printf("[jobs] send email to %s subject=%s\n", payload.To, payload.Subject)
-	return nil
+}
+
+// Mailer is implemented by shared.MailClient and small test fakes.
+type Mailer interface {
+	SendEmail(context.Context, string, string, string, *shared.Attachment) error
 }
 
 // InsightsWarmupPayload describes the cache warmup scope.

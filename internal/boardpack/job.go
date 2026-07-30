@@ -9,30 +9,37 @@ import (
 
 	"github.com/hibiken/asynq"
 
+	"github.com/odyssey-erp/odyssey-erp/internal/notifications"
 	"github.com/odyssey-erp/odyssey-erp/jobs"
 )
 
 // JobConfig wires dependencies required by the worker job.
 type JobConfig struct {
-	Service  *Service
-	Builder  *Builder
-	Renderer *Renderer
-	Storage  Storage
-	Logger   *slog.Logger
+	Service       *Service
+	Builder       *Builder
+	Renderer      *Renderer
+	Storage       Storage
+	Logger        *slog.Logger
+	Notifications *notifications.Dispatcher
 }
 
 // Job processes board pack generation requests coming from the queue.
 type Job struct {
-	service  *Service
-	builder  *Builder
-	renderer *Renderer
-	storage  Storage
-	logger   *slog.Logger
+	service       *Service
+	builder       *Builder
+	renderer      *Renderer
+	storage       Storage
+	logger        *slog.Logger
+	notifications *notifications.Dispatcher
 }
 
 // NewJob constructs a Job handler.
 func NewJob(cfg JobConfig) *Job {
-	return &Job{service: cfg.Service, builder: cfg.Builder, renderer: cfg.Renderer, storage: cfg.Storage, logger: cfg.Logger}
+	return &Job{service: cfg.Service, builder: cfg.Builder, renderer: cfg.Renderer, storage: cfg.Storage, logger: cfg.Logger, notifications: cfg.Notifications}
+}
+
+func (j *Job) SetNotificationDispatcher(dispatcher *notifications.Dispatcher) {
+	j.notifications = dispatcher
 }
 
 // Handle fulfils the asynq.HandlerFunc contract.
@@ -91,6 +98,22 @@ func (j *Job) Handle(ctx context.Context, task *asynq.Task) error {
 	}
 	if j.logger != nil {
 		j.logger.Info("board pack ready", slog.Int64("board_pack_id", pack.ID), slog.String("file", path))
+	}
+	if j.notifications != nil {
+		var recipientID int64
+		switch value := pack.Metadata["requested_by"].(type) {
+		case int64:
+			recipientID = value
+		case int:
+			recipientID = int64(value)
+		case float64:
+			recipientID = int64(value)
+		}
+		if recipientID > 0 {
+			if notifyErr := j.notifications.Dispatch(ctx, notifications.ReportDelivered(recipientID, pack.ID)); notifyErr != nil && j.logger != nil {
+				j.logger.Warn("dispatch report notification", slog.Any("error", notifyErr))
+			}
+		}
 	}
 	return nil
 }

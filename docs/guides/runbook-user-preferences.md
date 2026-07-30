@@ -12,6 +12,10 @@ Migration `000033_user_preferences` menambahkan kolom berikut pada tabel `users`
 | `ui_language` | `id` | Bahasa aktif (`id` atau `en`). |
 | `ui_notifications` | `true` | Visibilitas kontrol notifikasi. |
 
+`ui_notifications` adalah toggle global untuk menampilkan bell di workspace.
+Preferensi delivery per channel dan per tipe event disimpan terpisah di
+`notification_preferences`; lihat [Notifications and Transactional Email](notifications.md).
+
 ## Prosedur deployment
 
 1. Pastikan backup database terbaru tersedia.
@@ -21,7 +25,9 @@ Migration `000033_user_preferences` menambahkan kolom berikut pada tabel `users`
    make migrate-up
    ```
 
-3. Build atau restart aplikasi agar route `/profile`, `/settings`, dan `/api/me` tersedia.
+3. Build atau restart aplikasi agar route `/profile`, `/settings`, `/api/me`,
+   dan `/api/notifications` tersedia. Restart worker bila migration notifikasi
+   dan konfigurasi SMTP juga dideploy.
 
    ```bash
    ~/go/bin/air
@@ -93,5 +99,6 @@ Perintah tersebut menghapus kolom preferensi dari `users`; ekspor nilai preferen
 ## Referensi
 
 - [Panduan Profil dan Pengaturan](user-profile-settings.md)
+- [Notifications and Transactional Email](notifications.md)
 - [Arsitektur Finance Analytics](../reference/ui-analytics-architecture.md)
 - [Troubleshooting umum](../getting-started/troubleshooting.md)

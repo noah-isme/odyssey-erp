@@ -264,7 +264,7 @@ item, the detail stays in those sections — this table supersedes only the orde
 | # | Theme | Size | Depends on |
 |---|-------|------|-----------|
 | P1 | **Returns & credit/debit notes** ✅; document attachments remain | L | none (journals, inventory, AP links ✓) |
-| P2 | **Notification center + transactional email** | M | `shared/mail.go` ✓, asynq ✓, user prefs ✓ |
+| P2 | **Notification center + transactional email** ✅ | M | `shared/mail.go` ✓, asynq ✓, user prefs ✓ |
 | P3 | **Configurable approval engine + HR core** (employees, org, leave, attendance) | L | P2 |
 | P4 | **Payroll Indonesia** — PPh 21 (TER), BPJS, slip gaji, GL posting | XL | P3 |
 | P5 | **Tax compliance** — faktur pajak numbering, PPN/PPh reports, e-Faktur export (expands Phase 17 row) | L | P1 |
@@ -281,12 +281,16 @@ Sizing legend: S <2w · M 2–4w · L 1–2m · XL 2m+ (rough, single team).
 - Document attachments on invoices, POs, and GRNs remain deferred to the Phase 16 attachment work.
 
 ### P2 — Communication Backbone
-- Notification center: table, unread-count API, real bell badge (hardcoded `3` today),
-  mark-read, per-user prefs
-- Wire SMTP into asynq (replaces the `phase 2` placeholder in `jobs/tasks.go`)
-- Templates: invoice issued, approval requested, report delivered, password reset
-- **Done when:** approving a quotation notifies in-app and by email; scheduled reports
-  arrive by mail.
+- ✅ Notification table, recent/unread APIs, live bell badge, and mark-one/all-read.
+- ✅ Per-user, per-event in-app and email channel preferences, kept separate from
+  the global workspace bell toggle.
+- ✅ Configured SMTP client injected into Asynq; the `mail:send` placeholder now
+  calls `shared.MailClient.SendEmail`.
+- ✅ Initial events: posted AR invoice, submitted PO approval request, delivered
+  board pack, and authenticated password change.
+- Follow-up: route approval requests to resolved approvers when the configurable
+  approval engine lands in P3, and reuse `password_reset` for a future
+  forgot-password flow.
 
 ### P3 — Approvals + HR Core
 - Generalize `approvals` into multi-step chains: amount-based routing, delegation,

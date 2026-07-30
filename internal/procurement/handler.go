@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/hibiken/asynq"
 
+	"github.com/odyssey-erp/odyssey-erp/internal/notifications"
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
@@ -18,13 +19,18 @@ import (
 
 // Handler manages procurement endpoints.
 type Handler struct {
-	logger      *slog.Logger
-	service     *Service
-	templates   *view.Engine
-	csrf        *shared.CSRFManager
-	sessions    *shared.SessionManager
-	rbac        rbac.Middleware
-	asynqClient *asynq.Client
+	logger        *slog.Logger
+	service       *Service
+	templates     *view.Engine
+	csrf          *shared.CSRFManager
+	sessions      *shared.SessionManager
+	rbac          rbac.Middleware
+	asynqClient   *asynq.Client
+	notifications *notifications.Dispatcher
+}
+
+func (h *Handler) SetNotificationDispatcher(dispatcher *notifications.Dispatcher) {
+	h.notifications = dispatcher
 }
 
 // NewHandler builds Handler instance.
@@ -203,10 +209,19 @@ func (h *Handler) createPO(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) submitPO(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
-	if err := h.service.SubmitPurchaseOrder(r.Context(), id, currentUser(r)); err != nil {
+	actorID := currentUser(r)
+	if err := h.service.SubmitPurchaseOrder(r.Context(), id, actorID); err != nil {
 		h.logger.Error("submit PO", slog.Any("error", err), slog.Int64("id", id))
 		h.render(w, r, "pages/procurement/po_form.html", map[string]any{"Errors": formErrors{"general": shared.UserSafeMessage(err)}}, http.StatusBadRequest)
 		return
+	}
+	if h.notifications != nil {
+		po, _, loadErr := h.service.GetPOWithLines(r.Context(), id)
+		if loadErr == nil {
+			if notifyErr := h.notifications.Dispatch(r.Context(), notifications.ApprovalRequested(actorID, id, po.Number)); notifyErr != nil && h.logger != nil {
+				h.logger.Warn("dispatch approval notification", slog.Any("error", notifyErr))
+			}
+		}
 	}
 	h.redirectWithFlash(w, r, "/procurement/pos", "success", "PO diajukan")
 }

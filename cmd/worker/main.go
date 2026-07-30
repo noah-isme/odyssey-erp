@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"github.com/odyssey-erp/odyssey-erp/internal/notifications"
 	"github.com/odyssey-erp/odyssey-erp/internal/platform/cache"
 	"github.com/odyssey-erp/odyssey-erp/internal/platform/db"
+	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 	"log/slog"
 	"os"
@@ -24,6 +26,17 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/report"
 )
 
+type notificationEmailQueue struct{ client *asynq.Client }
+
+func (q notificationEmailQueue) EnqueueEmail(ctx context.Context, email notifications.Email) error {
+	task, err := jobs.NewSendEmailTask(jobs.SendEmailPayload{To: email.To, Subject: email.Subject, Body: email.Body})
+	if err != nil {
+		return err
+	}
+	_, err = q.client.EnqueueContext(ctx, task, asynq.Queue(jobs.QueueDefault))
+	return err
+}
+
 func main() {
 	if app.InTestMode() {
 		slog.Default().Info("test mode detected, skipping worker startup")
@@ -40,6 +53,7 @@ func main() {
 	}
 
 	logger := app.NewLogger(cfg)
+	mailClient := shared.NewMailClient(shared.MailConfig{Host: cfg.SMTPHost, Port: cfg.SMTPPort, From: cfg.SMTPFrom, Username: cfg.SMTPUsername, Password: cfg.SMTPPassword})
 
 	pool, err := db.New(ctx, cfg.PGDSN)
 	if err != nil {
@@ -135,17 +149,21 @@ func main() {
 			logger.Warn("close asynq client", slog.Any("error", err))
 		}
 	}()
+	notificationRepo := notifications.NewRepository(pool)
+	notificationService := notifications.NewService(notificationRepo)
+	notificationDispatcher := notifications.NewDispatcher(notificationService, notificationRepo, notificationEmailQueue{client: asynqClient})
+	boardpackJob.SetNotificationDispatcher(notificationDispatcher)
 
 	worker, err := jobs.NewWorker(jobs.WorkerConfig{
 		RedisOpts: redisOpts,
 		Logger:    logger,
+		Mailer:    mailClient,
 		Handlers: []jobs.TaskHandler{
 			{Type: jobs.TaskAnalyticsInsightsWarmup, Handler: warmupJob.Handle},
 			{Type: jobs.TaskAnalyticsAnomalyScan, Handler: anomalyJob.Handle},
 			{Type: jobs.TaskConsolidateRefresh, Handler: consolidator.Handle},
 			{Type: jobs.TaskVarianceSnapshotProcess, Handler: varianceJob.Handle},
 			{Type: jobs.TaskBoardPackGenerate, Handler: boardpackJob.Handle},
-			{Type: jobs.TypeEmailDelivery, Handler: jobs.HandleEmailDeliveryTask(logger)},
 			{Type: jobs.TypeOverdueInvoicesScan, Handler: jobs.HandleOverdueInvoicesScanTask(logger, pool, asynqClient)},
 			{Type: jobs.TypeReportScheduleScan, Handler: jobs.HandleReportScheduleScanTask(logger, pool, asynqClient)},
 			{Type: jobs.TaskFixedAssetDepreciation, Handler: jobs.HandleFixedAssetDepreciation(fixedAssetService)},

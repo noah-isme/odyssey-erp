@@ -26,9 +26,11 @@ type Config struct {
 
 	CSRFSecret string `envconfig:"CSRF_SECRET" required:"true"`
 
-	SMTPHost string `envconfig:"SMTP_HOST" default:"127.0.0.1"`
-	SMTPPort int    `envconfig:"SMTP_PORT" default:"1025"`
-	SMTPFrom string `envconfig:"SMTP_FROM" default:"no-reply@odyssey.local"`
+	SMTPHost     string `envconfig:"SMTP_HOST" default:"127.0.0.1"`
+	SMTPPort     int    `envconfig:"SMTP_PORT" default:"1025"`
+	SMTPFrom     string `envconfig:"SMTP_FROM" default:"no-reply@odyssey.local"`
+	SMTPUsername string `envconfig:"SMTP_USERNAME"`
+	SMTPPassword string `envconfig:"SMTP_PASSWORD"`
 
 	GotenbergURL        string `envconfig:"GOTENBERG_URL" default:"http://127.0.0.1:3000"`
 	BoardPackStorageDir string `envconfig:"BOARD_PACK_STORAGE" default:"./var/boardpacks"`

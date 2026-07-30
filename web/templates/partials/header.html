@@ -97,13 +97,22 @@
             </svg>
         </button>
 
-        <button class="btn btn--icon btn--ghost header-btn-icon" data-notification-control aria-label="Notifications">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-            </svg>
-            <span class="notification-badge">3</span>
-        </button>
+        <div class="notification-menu" data-notification-control>
+            <button class="btn btn--icon btn--ghost header-btn-icon" data-notification-trigger aria-label="Notifications" aria-expanded="false">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg>
+                <span class="notification-badge" data-notification-count hidden>0</span>
+            </button>
+            <div class="dropdown-menu notification-dropdown" data-notification-dropdown hidden>
+                <div class="notification-dropdown__header">
+                    <strong>Notifications</strong>
+                    <button type="button" class="btn btn--ghost btn--sm" data-notification-read-all>Mark all read</button>
+                </div>
+                <div data-notification-list><p class="notification-empty">No recent notifications.</p></div>
+            </div>
+        </div>
 
         <!-- User Dropdown -->
         <div class="user-menu-wrapper">

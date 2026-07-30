@@ -32,6 +32,7 @@ import (
 	insightshhtp "github.com/odyssey-erp/odyssey-erp/internal/insights/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/inventory"
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata"
+	"github.com/odyssey-erp/odyssey-erp/internal/notifications"
 	"github.com/odyssey-erp/odyssey-erp/internal/observability"
 	"github.com/odyssey-erp/odyssey-erp/internal/procurement"
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
@@ -72,17 +73,19 @@ type RouterParams struct {
 	Pool               *pgxpool.Pool
 	RBACMiddleware     rbac.Middleware
 
-	ReportHandler      *report.Handler
-	BoardPackHandler   *boardpackhttp.Handler
-	JobHandler         *jobs.Handler
-	AnalyticsHandler   *analytichttp.Handler
-	ConsolHandler      *consolhttp.Handler
-	PermissionsHandler *rbac.PermissionsHandler
-	Metrics            *observability.Metrics
-	DashboardHandler   *dashboard.Handler
-	SearchHandler      *search.Handler
-	BankingHandler     *banking.Handler
-	InventoryService   *inventory.Service
+	ReportHandler          *report.Handler
+	BoardPackHandler       *boardpackhttp.Handler
+	JobHandler             *jobs.Handler
+	AnalyticsHandler       *analytichttp.Handler
+	ConsolHandler          *consolhttp.Handler
+	PermissionsHandler     *rbac.PermissionsHandler
+	Metrics                *observability.Metrics
+	DashboardHandler       *dashboard.Handler
+	SearchHandler          *search.Handler
+	BankingHandler         *banking.Handler
+	InventoryService       *inventory.Service
+	NotificationHandler    *notifications.Handler
+	NotificationDispatcher *notifications.Dispatcher
 }
 
 type workspaceUser struct {
@@ -355,6 +358,11 @@ func NewRouter(params RouterParams) http.Handler {
 			sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Password tidak dapat diperbarui"})
 		} else {
 			sess.AddFlash(shared.FlashMessage{Kind: "success", Message: "Password berhasil diperbarui"})
+			if params.NotificationDispatcher != nil {
+				if notifyErr := params.NotificationDispatcher.Dispatch(r.Context(), notifications.PasswordReset(id)); notifyErr != nil && params.Logger != nil {
+					params.Logger.Warn("dispatch password notification", slog.Any("error", notifyErr))
+				}
+			}
 		}
 		http.Redirect(w, r, "/settings", http.StatusSeeOther)
 	})
@@ -405,6 +413,9 @@ func NewRouter(params RouterParams) http.Handler {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{"user": user, "companies": companies, "activeCompanyID": activeCompanyID})
 	})
+	if params.NotificationHandler != nil {
+		params.NotificationHandler.MountRoutes(r)
+	}
 	if params.AccountingHandler != nil {
 		r.Route("/accounting", func(r chi.Router) {
 			params.AccountingHandler.MountRoutes(r)
