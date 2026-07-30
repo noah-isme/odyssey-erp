@@ -36,7 +36,7 @@ type queryer interface {
 }
 
 func (r *Repository) loadSteps(ctx context.Context, q queryer, policyID int64) ([]PolicyStep, error) {
-	rows, err := q.Query(ctx, `SELECT id,policy_id,step_order,name,approver_user_id,approver_role_id,required_approvals,escalation_hours
+	rows, err := q.Query(ctx, `SELECT id,policy_id,step_order,name,approver_user_id,approver_role_id,approver_manager,required_approvals,escalation_hours
 		FROM approval_policy_steps WHERE policy_id=$1 ORDER BY step_order`, policyID)
 	if err != nil {
 		return nil, err
@@ -45,7 +45,7 @@ func (r *Repository) loadSteps(ctx context.Context, q queryer, policyID int64) (
 	var steps []PolicyStep
 	for rows.Next() {
 		var s PolicyStep
-		if err := rows.Scan(&s.ID, &s.PolicyID, &s.Order, &s.Name, &s.ApproverUserID, &s.ApproverRoleID, &s.RequiredApprovals, &s.EscalationHours); err != nil {
+		if err := rows.Scan(&s.ID, &s.PolicyID, &s.Order, &s.Name, &s.ApproverUserID, &s.ApproverRoleID, &s.ApproverManager, &s.RequiredApprovals, &s.EscalationHours); err != nil {
 			return nil, err
 		}
 		steps = append(steps, s)
@@ -67,7 +67,7 @@ func (r *Repository) CreateRequest(ctx context.Context, policy Policy, in Submis
 		return Request{}, nil, err
 	}
 	for _, step := range policy.Steps {
-		users, err := r.resolveStepUsers(ctx, tx, step, in.Module)
+		users, err := r.resolveStepUsers(ctx, tx, step, in.Module, in.ManagerID)
 		if err != nil {
 			return Request{}, nil, err
 		}
@@ -97,9 +97,11 @@ type resolvedUser struct {
 	delegatedFrom *int64
 }
 
-func (r *Repository) resolveStepUsers(ctx context.Context, tx pgx.Tx, step PolicyStep, module string) ([]resolvedUser, error) {
+func (r *Repository) resolveStepUsers(ctx context.Context, tx pgx.Tx, step PolicyStep, module string, managerID int64) ([]resolvedUser, error) {
 	var ids []int64
-	if step.ApproverUserID != nil {
+	if step.ApproverManager && managerID > 0 {
+		ids = []int64{managerID}
+	} else if step.ApproverUserID != nil {
 		ids = []int64{*step.ApproverUserID}
 	} else {
 		rows, err := tx.Query(ctx, `SELECT ur.user_id FROM user_roles ur JOIN users u ON u.id=ur.user_id WHERE ur.role_id=$1 AND u.is_active`, step.ApproverRoleID)
@@ -283,7 +285,7 @@ func (r *Repository) CreatePolicy(ctx context.Context, in CreatePolicyInput) (Po
 		if s.RequiredApprovals == 0 {
 			s.RequiredApprovals = 1
 		}
-		err = tx.QueryRow(ctx, `INSERT INTO approval_policy_steps(policy_id,step_order,name,approver_user_id,approver_role_id,required_approvals,escalation_hours) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id`, p.ID, order, s.Name, s.ApproverUserID, s.ApproverRoleID, s.RequiredApprovals, s.EscalationHours).Scan(&s.ID)
+		err = tx.QueryRow(ctx, `INSERT INTO approval_policy_steps(policy_id,step_order,name,approver_user_id,approver_role_id,approver_manager,required_approvals,escalation_hours) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`, p.ID, order, s.Name, s.ApproverUserID, s.ApproverRoleID, s.ApproverManager, s.RequiredApprovals, s.EscalationHours).Scan(&s.ID)
 		if err != nil {
 			return Policy{}, err
 		}

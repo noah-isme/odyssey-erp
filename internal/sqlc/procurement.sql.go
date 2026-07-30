@@ -152,8 +152,8 @@ func (q *Queries) CreateGoodsReturnGRNLine(ctx context.Context, arg CreateGoodsR
 
 const createPO = `-- name: CreatePO :one
 
-INSERT INTO pos (number, supplier_id, status, currency, expected_date, note, created_at)
-VALUES ($1, $2, $3, $4, $5, $6, NOW())
+INSERT INTO pos (number, supplier_id, status, currency, expected_date, note, company_id, created_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
 RETURNING id
 `
 
@@ -164,6 +164,7 @@ type CreatePOParams struct {
 	Currency     string      `json:"currency"`
 	ExpectedDate pgtype.Date `json:"expected_date"`
 	Note         string      `json:"note"`
+	CompanyID    pgtype.Int8 `json:"company_id"`
 }
 
 // =============================================================================
@@ -177,6 +178,7 @@ func (q *Queries) CreatePO(ctx context.Context, arg CreatePOParams) (int64, erro
 		arg.Currency,
 		arg.ExpectedDate,
 		arg.Note,
+		arg.CompanyID,
 	)
 	var id int64
 	err := row.Scan(&id)
@@ -185,8 +187,8 @@ func (q *Queries) CreatePO(ctx context.Context, arg CreatePOParams) (int64, erro
 
 const createPR = `-- name: CreatePR :one
 
-INSERT INTO prs (number, supplier_id, request_by, status, note, created_at)
-VALUES ($1, $2, $3, $4, $5, NOW())
+INSERT INTO prs (number, supplier_id, request_by, status, note, company_id, created_at)
+VALUES ($1, $2, $3, $4, $5, $6, NOW())
 RETURNING id
 `
 
@@ -196,6 +198,7 @@ type CreatePRParams struct {
 	RequestBy  int64       `json:"request_by"`
 	Status     string      `json:"status"`
 	Note       string      `json:"note"`
+	CompanyID  pgtype.Int8 `json:"company_id"`
 }
 
 // =============================================================================
@@ -208,6 +211,7 @@ func (q *Queries) CreatePR(ctx context.Context, arg CreatePRParams) (int64, erro
 		arg.RequestBy,
 		arg.Status,
 		arg.Note,
+		arg.CompanyID,
 	)
 	var id int64
 	err := row.Scan(&id)
@@ -369,7 +373,7 @@ func (q *Queries) GetGoodsReturnGRN(ctx context.Context, id int64) (GoodsReturnG
 }
 
 const getPO = `-- name: GetPO :one
-SELECT id, number, supplier_id, status, currency, expected_date, note
+SELECT id, number, supplier_id, status, currency, expected_date, note, company_id
 FROM pos WHERE id = $1
 `
 
@@ -381,6 +385,7 @@ type GetPORow struct {
 	Currency     string      `json:"currency"`
 	ExpectedDate pgtype.Date `json:"expected_date"`
 	Note         string      `json:"note"`
+	CompanyID    pgtype.Int8 `json:"company_id"`
 }
 
 func (q *Queries) GetPO(ctx context.Context, id int64) (GetPORow, error) {
@@ -394,6 +399,7 @@ func (q *Queries) GetPO(ctx context.Context, id int64) (GetPORow, error) {
 		&i.Currency,
 		&i.ExpectedDate,
 		&i.Note,
+		&i.CompanyID,
 	)
 	return i, err
 }
@@ -432,7 +438,7 @@ func (q *Queries) GetPOLines(ctx context.Context, poID int64) ([]PoLine, error) 
 }
 
 const getPR = `-- name: GetPR :one
-SELECT id, number, supplier_id, request_by, status, note
+SELECT id, number, supplier_id, request_by, status, note, company_id
 FROM prs WHERE id = $1
 `
 
@@ -443,6 +449,7 @@ type GetPRRow struct {
 	RequestBy  int64       `json:"request_by"`
 	Status     string      `json:"status"`
 	Note       string      `json:"note"`
+	CompanyID  pgtype.Int8 `json:"company_id"`
 }
 
 func (q *Queries) GetPR(ctx context.Context, id int64) (GetPRRow, error) {
@@ -455,6 +462,7 @@ func (q *Queries) GetPR(ctx context.Context, id int64) (GetPRRow, error) {
 		&i.RequestBy,
 		&i.Status,
 		&i.Note,
+		&i.CompanyID,
 	)
 	return i, err
 }

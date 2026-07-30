@@ -30,6 +30,9 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/delivery"
 	eliminationhttp "github.com/odyssey-erp/odyssey-erp/internal/elimination/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/banking"
+	hrattendance "github.com/odyssey-erp/odyssey-erp/internal/hr/attendance"
+	hremployees "github.com/odyssey-erp/odyssey-erp/internal/hr/employees"
+	hrleave "github.com/odyssey-erp/odyssey-erp/internal/hr/leave"
 	insightshhtp "github.com/odyssey-erp/odyssey-erp/internal/insights/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/inventory"
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata"
@@ -88,6 +91,9 @@ type RouterParams struct {
 	NotificationHandler    *notifications.Handler
 	NotificationDispatcher *notifications.Dispatcher
 	ApprovalsHandler       *approvals.Handler
+	HREmployeesHandler     *hremployees.Handler
+	HRLeaveHandler         *hrleave.Handler
+	HRAttendanceHandler    *hrattendance.Handler
 }
 
 type workspaceUser struct {
@@ -420,6 +426,15 @@ func NewRouter(params RouterParams) http.Handler {
 	}
 	if params.ApprovalsHandler != nil {
 		r.Route("/approvals", params.ApprovalsHandler.MountRoutes)
+	}
+	if params.HREmployeesHandler != nil {
+		r.Route("/hr/employees", params.HREmployeesHandler.MountRoutes)
+	}
+	if params.HRLeaveHandler != nil {
+		r.Route("/hr/leave", params.HRLeaveHandler.MountRoutes)
+	}
+	if params.HRAttendanceHandler != nil {
+		r.Route("/hr/attendance", params.HRAttendanceHandler.MountRoutes)
 	}
 	if params.AccountingHandler != nil {
 		r.Route("/accounting", func(r chi.Router) {

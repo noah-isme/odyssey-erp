@@ -155,6 +155,7 @@ func (h *Handler) createPR(w http.ResponseWriter, r *http.Request) {
 	reqBy, _ := strconv.ParseInt(r.PostFormValue("request_by"), 10, 64)
 	supplierID, _ := strconv.ParseInt(r.PostFormValue("supplier_id"), 10, 64)
 	_, err := h.service.CreatePurchaseRequest(r.Context(), CreatePRInput{
+		CompanyID:  currentCompany(r),
 		Number:     r.PostFormValue("number"),
 		SupplierID: supplierID,
 		RequestBy:  reqBy,
@@ -167,6 +168,15 @@ func (h *Handler) createPR(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.redirectWithFlash(w, r, "/procurement/prs", "success", "PR berhasil dibuat")
+}
+
+func currentCompany(r *http.Request) int64 {
+	s := shared.SessionFromContext(r.Context())
+	if s == nil {
+		return 0
+	}
+	id, _ := strconv.ParseInt(s.Get("company_id"), 10, 64)
+	return id
 }
 
 func (h *Handler) submitPR(w http.ResponseWriter, r *http.Request) {

@@ -63,6 +63,7 @@ func NewService(logger *slog.Logger, repo RepositoryPort, inventory InventoryPor
 
 // CreatePRInput describes creation payload.
 type CreatePRInput struct {
+	CompanyID  int64
 	Number     string
 	SupplierID int64
 	RequestBy  int64
@@ -115,7 +116,7 @@ func (s *Service) CreatePurchaseRequest(ctx context.Context, input CreatePRInput
 	if input.Number == "" {
 		input.Number = generateNumber("PR")
 	}
-	pr := PurchaseRequest{Number: input.Number, SupplierID: input.SupplierID, RequestBy: input.RequestBy, Status: PRStatusDraft, Note: input.Note}
+	pr := PurchaseRequest{Number: input.Number, CompanyID: input.CompanyID, SupplierID: input.SupplierID, RequestBy: input.RequestBy, Status: PRStatusDraft, Note: input.Note}
 	var created PurchaseRequest
 	err := s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
 		prID, err := tx.CreatePR(ctx, pr)
@@ -182,7 +183,7 @@ func (s *Service) CreatePOFromPR(ctx context.Context, input CreatePOInput) (Purc
 		return PurchaseOrder{}, fmt.Errorf("PO number %s already exists", input.Number)
 	}
 
-	po := PurchaseOrder{Number: input.Number, SupplierID: pr.SupplierID, Status: POStatusDraft, Currency: defaultString(input.Currency, "IDR"), ExpectedDate: input.ExpectedDate, Note: input.Note}
+	po := PurchaseOrder{Number: input.Number, CompanyID: pr.CompanyID, SupplierID: pr.SupplierID, Status: POStatusDraft, Currency: defaultString(input.Currency, "IDR"), ExpectedDate: input.ExpectedDate, Note: input.Note}
 	err = s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
 		poID, err := tx.CreatePO(ctx, po)
 		if err != nil {
@@ -196,7 +197,7 @@ func (s *Service) CreatePOFromPR(ctx context.Context, input CreatePOInput) (Purc
 		if err := tx.UpdatePRStatus(ctx, pr.ID, PRStatusClosed); err != nil {
 			return err
 		}
-		created := PurchaseOrder{ID: poID, Number: po.Number, SupplierID: po.SupplierID, Status: po.Status, Currency: po.Currency, ExpectedDate: po.ExpectedDate, Note: po.Note}
+		created := PurchaseOrder{ID: poID, CompanyID: po.CompanyID, Number: po.Number, SupplierID: po.SupplierID, Status: po.Status, Currency: po.Currency, ExpectedDate: po.ExpectedDate, Note: po.Note}
 		po = created
 		return nil
 	})
@@ -225,7 +226,11 @@ func (s *Service) SubmitPurchaseOrder(ctx context.Context, poID int64, actorID i
 		for _, line := range lines {
 			amount += line.Qty * line.Price
 		}
-		if _, err := s.approvalEngine.Submit(ctx, approvalengine.Submission{Module: "PO", DocumentID: poID, RequesterID: actorID, Amount: amount}); err != nil {
+		var companyID *int64
+		if po.CompanyID > 0 {
+			companyID = &po.CompanyID
+		}
+		if _, err := s.approvalEngine.Submit(ctx, approvalengine.Submission{Module: "PO", DocumentID: poID, RequesterID: actorID, CompanyID: companyID, Amount: amount}); err != nil {
 			return err
 		}
 	}

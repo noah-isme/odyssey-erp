@@ -3,8 +3,8 @@
 -- =============================================================================
 
 -- name: CreatePR :one
-INSERT INTO prs (number, supplier_id, request_by, status, note, created_at)
-VALUES ($1, $2, $3, $4, $5, NOW())
+INSERT INTO prs (number, supplier_id, request_by, status, note, company_id, created_at)
+VALUES ($1, $2, $3, $4, $5, $6, NOW())
 RETURNING id;
 
 -- name: InsertPRLine :exec
@@ -12,7 +12,7 @@ INSERT INTO pr_lines (pr_id, product_id, qty, note)
 VALUES ($1, $2, $3, $4);
 
 -- name: GetPR :one
-SELECT id, number, supplier_id, request_by, status, note
+SELECT id, number, supplier_id, request_by, status, note, company_id
 FROM prs WHERE id = $1;
 
 -- name: GetPRLines :many
@@ -27,8 +27,8 @@ UPDATE prs SET status = $1 WHERE id = $2;
 -- =============================================================================
 
 -- name: CreatePO :one
-INSERT INTO pos (number, supplier_id, status, currency, expected_date, note, created_at)
-VALUES ($1, $2, $3, $4, $5, $6, NOW())
+INSERT INTO pos (number, supplier_id, status, currency, expected_date, note, company_id, created_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
 RETURNING id;
 
 -- name: InsertPOLine :exec
@@ -36,7 +36,7 @@ INSERT INTO po_lines (po_id, product_id, qty, price, tax_id, note)
 VALUES ($1, $2, $3, $4, $5, $6);
 
 -- name: GetPO :one
-SELECT id, number, supplier_id, status, currency, expected_date, note
+SELECT id, number, supplier_id, status, currency, expected_date, note, company_id
 FROM pos WHERE id = $1;
 
 -- name: GetPOLines :many
@@ -147,4 +147,3 @@ ORDER BY r.created_at DESC;
 
 -- name: GenerateGoodsReturnGRNNumber :one
 SELECT generate_goods_return_grn_number();
-

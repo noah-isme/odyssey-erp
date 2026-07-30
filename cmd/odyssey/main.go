@@ -45,6 +45,9 @@ import (
 	eliminationpkg "github.com/odyssey-erp/odyssey-erp/internal/elimination"
 	eliminationhttp "github.com/odyssey-erp/odyssey-erp/internal/elimination/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/banking"
+	hrattendance "github.com/odyssey-erp/odyssey-erp/internal/hr/attendance"
+	hremployees "github.com/odyssey-erp/odyssey-erp/internal/hr/employees"
+	hrleave "github.com/odyssey-erp/odyssey-erp/internal/hr/leave"
 	"github.com/odyssey-erp/odyssey-erp/internal/insights"
 	insightshhtp "github.com/odyssey-erp/odyssey-erp/internal/insights/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/integration"
@@ -248,6 +251,13 @@ func main() {
 	approvalService.RegisterFinalizer("PO", procurementService)
 	procurementService.SetApprovalEngine(approvalService)
 	approvalsHandler := approvalengine.NewHandler(logger, approvalService, templates, csrfManager, rbacMiddleware, dbpool)
+	hrEmployeeService := hremployees.NewService(dbpool)
+	hrEmployeesHandler := hremployees.NewHandler(logger, hrEmployeeService, templates, csrfManager, rbacMiddleware)
+	hrLeaveService := hrleave.NewService(dbpool, approvalService, auditLogger)
+	approvalService.RegisterFinalizer("LEAVE", hrLeaveService)
+	hrLeaveHandler := hrleave.NewHandler(logger, hrLeaveService, templates, csrfManager, rbacMiddleware)
+	hrAttendanceService := hrattendance.NewService(dbpool)
+	hrAttendanceHandler := hrattendance.NewHandler(logger, hrAttendanceService, templates, csrfManager, rbacMiddleware)
 
 	arRepo := ar.NewRepository(dbpool)
 	arService := ar.NewService(arRepo)
@@ -417,6 +427,9 @@ func main() {
 		NotificationHandler:    notificationHandler,
 		NotificationDispatcher: notificationDispatcher,
 		ApprovalsHandler:       approvalsHandler,
+		HREmployeesHandler:     hrEmployeesHandler,
+		HRLeaveHandler:         hrLeaveHandler,
+		HRAttendanceHandler:    hrAttendanceHandler,
 	})
 
 	// Route dump mode: print the real routing table and exit without serving.

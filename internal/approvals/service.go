@@ -83,14 +83,14 @@ func (s *Service) Decide(ctx context.Context, requestID, actorID int64, decision
 			_ = s.notifier.Assigned(ctx, userID, result.Request)
 		}
 	}
-	if result.Finalized && s.notifier != nil {
-		_ = s.notifier.Completed(ctx, result.Request.RequesterID, result.Request, result.Request.Status)
-	}
 	if result.Finalized {
 		if f := s.finalizers[result.Request.Module]; f != nil {
 			if err := f.FinalizeApproval(ctx, result.Request, result.Request.Status, actorID, note); err != nil {
 				return DecisionResult{}, err
 			}
+		}
+		if s.notifier != nil {
+			_ = s.notifier.Completed(ctx, result.Request.RequesterID, result.Request, result.Request.Status)
 		}
 	}
 	return result, nil

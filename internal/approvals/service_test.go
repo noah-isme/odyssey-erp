@@ -43,16 +43,45 @@ func (m *memoryStore) CreateRequest(_ context.Context, p Policy, in Submission) 
 	r := Request{ID: m.next, PolicyID: p.ID, Module: in.Module, DocumentID: in.DocumentID, RequesterID: in.RequesterID, Amount: in.Amount, CurrentStep: 1, Status: StatusPending}
 	m.requests[r.ID] = r
 	for _, s := range p.Steps {
-		if s.Order != 1 || s.ApproverUserID == nil {
+		if s.Order != 1 {
 			continue
 		}
-		id := *s.ApproverUserID
+		id := in.ManagerID
+		if !s.ApproverManager && s.ApproverUserID != nil {
+			id = *s.ApproverUserID
+		}
+		if id == 0 {
+			continue
+		}
 		if d := m.delegates[id]; d > 0 {
 			id = d
 		}
 		m.assignees[r.ID] = append(m.assignees[r.ID], id)
 	}
 	return r, m.assignees[r.ID], nil
+}
+
+type workflowNotifier struct{ assigned, completed int }
+
+func (n *workflowNotifier) Assigned(context.Context, int64, Request) error  { n.assigned++; return nil }
+func (n *workflowNotifier) Escalated(context.Context, int64, Request) error { return nil }
+func (n *workflowNotifier) Completed(context.Context, int64, Request, string) error {
+	n.completed++
+	return nil
+}
+
+type leaveWorkflowFinalizer struct {
+	pending, used float64
+	audit         bool
+}
+
+func (f *leaveWorkflowFinalizer) FinalizeApproval(_ context.Context, _ Request, status string, _ int64, _ string) error {
+	if status == StatusApproved {
+		f.used += f.pending
+	}
+	f.pending = 0
+	f.audit = true
+	return nil
 }
 func (m *memoryStore) Decide(_ context.Context, id, actor int64, decision, note string) (DecisionResult, error) {
 	r := m.requests[id]
@@ -106,4 +135,35 @@ func TestPOPolicyResolvesDifferentApproversByAmountAndDelegation(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(2), high.PolicyID)
 	require.Equal(t, []int64{21}, store.assignees[high.ID])
+}
+
+func TestLeaveManagerApprovalUpdatesBalanceAuditAndNotifications(t *testing.T) {
+	store := newMemoryStore(Policy{ID: 3, Name: "Manager leave", Module: "LEAVE", Steps: []PolicyStep{{Order: 1, ApproverManager: true}}})
+	notifier := &workflowNotifier{}
+	finalizer := &leaveWorkflowFinalizer{pending: 2}
+	service := NewService(store, notifier)
+	service.RegisterFinalizer("LEAVE", finalizer)
+	request, err := service.Submit(context.Background(), Submission{Module: "LEAVE", DocumentID: 77, RequesterID: 40, ManagerID: 50, Amount: 2})
+	require.NoError(t, err)
+	require.Equal(t, []int64{50}, store.assignees[request.ID])
+	result, err := service.Decide(context.Background(), request.ID, 50, DecisionApprove, "approved")
+	require.NoError(t, err)
+	require.True(t, result.Finalized)
+	require.Equal(t, float64(0), finalizer.pending)
+	require.Equal(t, float64(2), finalizer.used)
+	require.True(t, finalizer.audit)
+	require.Equal(t, 1, notifier.assigned)
+	require.Equal(t, 1, notifier.completed)
+}
+
+func TestPolicyResolutionPrefersMatchingCompany(t *testing.T) {
+	companyID := int64(7)
+	store := newMemoryStore(
+		Policy{ID: 1, Name: "Global", Module: "PO", MinAmount: 0, Steps: []PolicyStep{{Order: 1, ApproverUserID: ptr(int64(10))}}},
+		Policy{ID: 2, Name: "Company 7", Module: "PO", CompanyID: &companyID, MinAmount: 0, Steps: []PolicyStep{{Order: 1, ApproverUserID: ptr(int64(20))}}},
+	)
+	request, err := NewService(store, nil).Submit(context.Background(), Submission{Module: "PO", DocumentID: 8, RequesterID: 1, CompanyID: &companyID, Amount: 100})
+	require.NoError(t, err)
+	require.Equal(t, int64(2), request.PolicyID)
+	require.Equal(t, []int64{20}, store.assignees[request.ID])
 }

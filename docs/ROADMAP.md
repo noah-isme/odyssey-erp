@@ -265,7 +265,7 @@ item, the detail stays in those sections — this table supersedes only the orde
 |---|-------|------|-----------|
 | P1 | **Returns & credit/debit notes** ✅; document attachments remain | L | none (journals, inventory, AP links ✓) |
 | P2 | **Notification center + transactional email** ✅ | M | `shared/mail.go` ✓, asynq ✓, user prefs ✓ |
-| P3 | **Configurable approval engine + HR core** (employees, org, leave, attendance) | L | P2 |
+| P3 | **Configurable approval engine + HR core** ✅ (employees, org, leave, attendance) | L | P2 |
 | P4 | **Payroll Indonesia** — PPh 21 (TER), BPJS, slip gaji, GL posting | XL | P3 |
 | P5 | **Tax compliance** — faktur pajak numbering, PPN/PPh reports, e-Faktur export (expands Phase 17 row) | L | P1 |
 | P6 | **CRM** — leads, pipeline, activities (feeds existing quotations) | L | P2 |
@@ -293,10 +293,14 @@ Sizing legend: S <2w · M 2–4w · L 1–2m · XL 2m+ (rough, single team).
   forgot-password flow.
 
 ### P3 — Approvals + HR Core
-- Generalize `approvals` into multi-step chains: amount-based routing, delegation,
-  per-module policies
-- "My Approvals" inbox; employees, org structure, leave + attendance (CSV import first)
-- **Done when:** a large PO and a leave request route through the same engine.
+- ✅ Shared multi-step policies with module/company/amount resolution,
+  role/user/manager assignment, delegation, decisions, and escalation alerts.
+- ✅ My Approvals and policy-management UI with RBAC.
+- ✅ Employee directory, departments, positions, manager relationships, leave
+  balances/requests, and validated attendance CSV imports.
+- ✅ Large-PO threshold routing and manager-routed leave share one engine;
+  approval finalizes the document, balance, audit record, and notification.
+- Payroll remains exclusively in P4.
 
 ### P4 — Payroll Indonesia
 - Salary components (gaji pokok, tunjangan, potongan, overtime, THR); monthly runs

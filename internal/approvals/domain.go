@@ -25,6 +25,7 @@ type PolicyStep struct {
 	Order                          int
 	Name                           string
 	ApproverUserID, ApproverRoleID *int64
+	ApproverManager                bool
 	RequiredApprovals              int
 	EscalationHours                *int
 }
@@ -34,6 +35,7 @@ type Submission struct {
 	DocumentID, RequesterID int64
 	CompanyID               *int64
 	Amount                  float64
+	ManagerID               int64
 }
 
 type Request struct {

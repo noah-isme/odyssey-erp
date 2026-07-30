@@ -976,6 +976,82 @@ type Approval struct {
 	At      pgtype.Timestamptz `json:"at"`
 }
 
+type ApprovalAssignment struct {
+	ID            int64              `json:"id"`
+	RequestID     int64              `json:"request_id"`
+	PolicyStepID  int64              `json:"policy_step_id"`
+	StepOrder     int32              `json:"step_order"`
+	ApproverID    int64              `json:"approver_id"`
+	DelegatedFrom pgtype.Int8        `json:"delegated_from"`
+	Status        string             `json:"status"`
+	DueAt         pgtype.Timestamptz `json:"due_at"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ApprovalDecision struct {
+	ID           int64              `json:"id"`
+	RequestID    int64              `json:"request_id"`
+	AssignmentID int64              `json:"assignment_id"`
+	ActorID      int64              `json:"actor_id"`
+	Decision     string             `json:"decision"`
+	Note         string             `json:"note"`
+	DecidedAt    pgtype.Timestamptz `json:"decided_at"`
+}
+
+type ApprovalDelegation struct {
+	ID          int64              `json:"id"`
+	DelegatorID int64              `json:"delegator_id"`
+	DelegateID  int64              `json:"delegate_id"`
+	Module      pgtype.Text        `json:"module"`
+	StartsAt    pgtype.Timestamptz `json:"starts_at"`
+	EndsAt      pgtype.Timestamptz `json:"ends_at"`
+	IsActive    bool               `json:"is_active"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type ApprovalPolicy struct {
+	ID        int64              `json:"id"`
+	Name      string             `json:"name"`
+	Module    string             `json:"module"`
+	CompanyID pgtype.Int8        `json:"company_id"`
+	MinAmount pgtype.Numeric     `json:"min_amount"`
+	MaxAmount pgtype.Numeric     `json:"max_amount"`
+	IsActive  bool               `json:"is_active"`
+	CreatedBy int64              `json:"created_by"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ApprovalPolicyStep struct {
+	ID                int64              `json:"id"`
+	PolicyID          int64              `json:"policy_id"`
+	StepOrder         int32              `json:"step_order"`
+	Name              string             `json:"name"`
+	ApproverUserID    pgtype.Int8        `json:"approver_user_id"`
+	ApproverRoleID    pgtype.Int8        `json:"approver_role_id"`
+	RequiredApprovals int32              `json:"required_approvals"`
+	EscalationHours   pgtype.Int4        `json:"escalation_hours"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	ApproverManager   bool               `json:"approver_manager"`
+}
+
+type ApprovalRequest struct {
+	ID          int64              `json:"id"`
+	PolicyID    int64              `json:"policy_id"`
+	Module      string             `json:"module"`
+	DocumentID  int64              `json:"document_id"`
+	CompanyID   pgtype.Int8        `json:"company_id"`
+	Amount      pgtype.Numeric     `json:"amount"`
+	RequesterID int64              `json:"requester_id"`
+	CurrentStep int32              `json:"current_step"`
+	Status      string             `json:"status"`
+	SubmittedAt pgtype.Timestamptz `json:"submitted_at"`
+	CompletedAt pgtype.Timestamptz `json:"completed_at"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
 type ArCreditNote struct {
 	ID                    int64              `json:"id"`
 	Number                string             `json:"number"`
@@ -1501,6 +1577,98 @@ type GrnLine struct {
 	SerialNumbers []string       `json:"serial_numbers"`
 }
 
+type HrAttendance struct {
+	ID             int64              `json:"id"`
+	EmployeeID     int64              `json:"employee_id"`
+	AttendanceDate pgtype.Date        `json:"attendance_date"`
+	CheckIn        pgtype.Timestamptz `json:"check_in"`
+	CheckOut       pgtype.Timestamptz `json:"check_out"`
+	Status         string             `json:"status"`
+	Source         string             `json:"source"`
+	ImportID       pgtype.Int8        `json:"import_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type HrAttendanceImport struct {
+	ID           int64              `json:"id"`
+	CompanyID    int64              `json:"company_id"`
+	Filename     string             `json:"filename"`
+	ImportedBy   int64              `json:"imported_by"`
+	TotalRows    int32              `json:"total_rows"`
+	AcceptedRows int32              `json:"accepted_rows"`
+	RejectedRows int32              `json:"rejected_rows"`
+	Errors       []byte             `json:"errors"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type HrDepartment struct {
+	ID        int64              `json:"id"`
+	CompanyID int64              `json:"company_id"`
+	Code      string             `json:"code"`
+	Name      string             `json:"name"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type HrEmployee struct {
+	ID             int64              `json:"id"`
+	UserID         pgtype.Int8        `json:"user_id"`
+	CompanyID      int64              `json:"company_id"`
+	EmployeeNumber string             `json:"employee_number"`
+	Name           string             `json:"name"`
+	Email          string             `json:"email"`
+	DepartmentID   pgtype.Int8        `json:"department_id"`
+	PositionID     pgtype.Int8        `json:"position_id"`
+	ManagerID      pgtype.Int8        `json:"manager_id"`
+	HireDate       pgtype.Date        `json:"hire_date"`
+	Status         string             `json:"status"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type HrLeaveBalance struct {
+	EmployeeID  int64              `json:"employee_id"`
+	LeaveTypeID int64              `json:"leave_type_id"`
+	Year        int32              `json:"year"`
+	Entitled    pgtype.Numeric     `json:"entitled"`
+	Used        pgtype.Numeric     `json:"used"`
+	Pending     pgtype.Numeric     `json:"pending"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type HrLeaveRequest struct {
+	ID                int64              `json:"id"`
+	EmployeeID        int64              `json:"employee_id"`
+	LeaveTypeID       int64              `json:"leave_type_id"`
+	StartDate         pgtype.Date        `json:"start_date"`
+	EndDate           pgtype.Date        `json:"end_date"`
+	Days              pgtype.Numeric     `json:"days"`
+	Reason            string             `json:"reason"`
+	Status            string             `json:"status"`
+	ApprovalRequestID pgtype.Int8        `json:"approval_request_id"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type HrLeaveType struct {
+	ID          int64          `json:"id"`
+	CompanyID   pgtype.Int8    `json:"company_id"`
+	Code        string         `json:"code"`
+	Name        string         `json:"name"`
+	DefaultDays pgtype.Numeric `json:"default_days"`
+	IsActive    bool           `json:"is_active"`
+}
+
+type HrPosition struct {
+	ID        int64              `json:"id"`
+	CompanyID int64              `json:"company_id"`
+	Code      string             `json:"code"`
+	Name      string             `json:"name"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
 type IcArapPair struct {
 	GroupID          int64       `json:"group_id"`
 	PeriodID         int64       `json:"period_id"`
@@ -1734,6 +1902,27 @@ type MvPlMonthly struct {
 	Cogs      int64  `json:"cogs"`
 	Opex      int64  `json:"opex"`
 	Net       int32  `json:"net"`
+}
+
+type Notification struct {
+	ID          int64              `json:"id"`
+	RecipientID int64              `json:"recipient_id"`
+	Type        string             `json:"type"`
+	Title       string             `json:"title"`
+	Body        string             `json:"body"`
+	Url         string             `json:"url"`
+	ReadAt      pgtype.Timestamptz `json:"read_at"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type NotificationPreference struct {
+	UserID           int64              `json:"user_id"`
+	NotificationType string             `json:"notification_type"`
+	InAppEnabled     bool               `json:"in_app_enabled"`
+	EmailEnabled     bool               `json:"email_enabled"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Period struct {

@@ -143,15 +143,23 @@ func (h *Handler) createPolicy(w http.ResponseWriter, r *http.Request) {
 	min, _ := strconv.ParseFloat(r.FormValue("min_amount"), 64)
 	in := CreatePolicyInput{Name: r.FormValue("name"), Module: r.FormValue("module"), CompanyID: parseOptionalInt(r.FormValue("company_id")), MinAmount: min, MaxAmount: parseOptionalFloat(r.FormValue("max_amount")), CreatedBy: userID(r)}
 	names := r.Form["step_name"]
+	kinds := r.Form["approver_kind"]
 	for i, name := range names {
 		if strings.TrimSpace(name) == "" {
 			continue
 		}
 		step := PolicyStep{Order: i + 1, Name: name, RequiredApprovals: 1}
-		if i < len(r.Form["approver_user_id"]) {
+		kind := "user"
+		if i < len(kinds) {
+			kind = kinds[i]
+		}
+		if kind == "manager" {
+			step.ApproverManager = true
+		}
+		if kind == "user" && i < len(r.Form["approver_user_id"]) {
 			step.ApproverUserID = parseOptionalInt(r.Form["approver_user_id"][i])
 		}
-		if i < len(r.Form["approver_role_id"]) && step.ApproverUserID == nil {
+		if kind == "role" && i < len(r.Form["approver_role_id"]) && step.ApproverUserID == nil {
 			step.ApproverRoleID = parseOptionalInt(r.Form["approver_role_id"][i])
 		}
 		in.Steps = append(in.Steps, step)

@@ -4,6 +4,13 @@
 
 ### Added
 
+- Configurable approval policies with company/amount resolution, ordered steps,
+  assignments, decisions, delegation, escalation notifications, and a My
+  Approvals inbox.
+- HR Core employee directory, departments, positions, manager relationships,
+  leave types/balances/requests, and validated attendance CSV imports.
+- Shared manager-routed leave approval that updates leave balances and creates
+  audit and notification records on completion.
 - Persisted notification center with recent/unread APIs, an unread workspace
   bell, and owned mark-one/mark-all-read actions.
 - Per-user, per-event in-app and email channel preferences, separate from the

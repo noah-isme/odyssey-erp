@@ -90,6 +90,9 @@ func (r *Repository) GetPR(ctx context.Context, id int64) (PurchaseRequest, []PR
 	if row.SupplierID.Valid {
 		pr.SupplierID = row.SupplierID.Int64
 	}
+	if row.CompanyID.Valid {
+		pr.CompanyID = row.CompanyID.Int64
+	}
 
 	lineRows, err := r.queries.GetPRLines(ctx, id)
 	if err != nil {
@@ -131,6 +134,9 @@ func (r *Repository) GetPO(ctx context.Context, id int64) (PurchaseOrder, []POLi
 	}
 	if row.ExpectedDate.Valid {
 		po.ExpectedDate = row.ExpectedDate.Time
+	}
+	if row.CompanyID.Valid {
+		po.CompanyID = row.CompanyID.Int64
 	}
 
 	lineRows, err := r.queries.GetPOLines(ctx, id)
@@ -451,6 +457,7 @@ func (tx *txRepo) CreatePR(ctx context.Context, pr PurchaseRequest) (int64, erro
 		RequestBy:  pr.RequestBy,
 		Status:     string(pr.Status),
 		Note:       pr.Note,
+		CompanyID:  pgtype.Int8{Int64: pr.CompanyID, Valid: pr.CompanyID > 0},
 	})
 }
 
@@ -484,6 +491,7 @@ func (tx *txRepo) CreatePO(ctx context.Context, po PurchaseOrder) (int64, error)
 		Currency:     po.Currency,
 		ExpectedDate: expectedDate,
 		Note:         po.Note,
+		CompanyID:    pgtype.Int8{Int64: po.CompanyID, Valid: po.CompanyID > 0},
 	})
 }
 

@@ -1,0 +1,13 @@
+DELETE FROM role_permissions WHERE permission_id IN (SELECT id FROM permissions WHERE name LIKE 'hr.%');
+DELETE FROM permissions WHERE name LIKE 'hr.%';
+DROP TABLE IF EXISTS hr_attendance;
+DROP TABLE IF EXISTS hr_attendance_imports;
+DROP TABLE IF EXISTS hr_leave_requests;
+DROP TABLE IF EXISTS hr_leave_balances;
+DROP TABLE IF EXISTS hr_leave_types;
+DROP TABLE IF EXISTS hr_employees;
+DROP TABLE IF EXISTS hr_positions;
+DROP TABLE IF EXISTS hr_departments;
+ALTER TABLE approval_policy_steps DROP CONSTRAINT IF EXISTS approval_policy_steps_approver_check;
+ALTER TABLE approval_policy_steps DROP COLUMN IF EXISTS approver_manager;
+ALTER TABLE approval_policy_steps ADD CHECK ((approver_user_id IS NOT NULL) <> (approver_role_id IS NOT NULL));

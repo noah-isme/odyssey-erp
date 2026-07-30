@@ -47,6 +47,7 @@ const (
 // PurchaseRequest domain model.
 type PurchaseRequest struct {
 	ID         int64
+	CompanyID  int64
 	Number     string
 	SupplierID int64
 	RequestBy  int64
@@ -66,6 +67,7 @@ type PRLine struct {
 // PurchaseOrder domain model.
 type PurchaseOrder struct {
 	ID           int64
+	CompanyID    int64
 	Number       string
 	SupplierID   int64
 	Status       POStatus
