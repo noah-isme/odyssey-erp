@@ -117,6 +117,42 @@ func (s *Service) BuildPeriod(ctx context.Context, companyID, periodID, actorID 
 	}
 	return errors.Join(failures...)
 }
+
+func (s *Service) ProcessPending(ctx context.Context, limit int) error {
+	if limit <= 0 {
+		limit = 100
+	}
+	items, err := s.store.PendingCaptures(ctx, limit)
+	if err != nil {
+		return err
+	}
+	var failures []error
+	for _, item := range items {
+		switch item.SourceType {
+		case "AR_INVOICE":
+			err = s.RecordARInvoice(ctx, item.SourceID, item.ActorID)
+		case "AR_CREDIT_NOTE":
+			err = s.RecordARCreditNote(ctx, item.SourceID, item.ActorID)
+		case "AP_INVOICE":
+			err = s.RecordAPInvoice(ctx, item.SourceID, item.ActorID)
+		case "AP_DEBIT_NOTE":
+			err = s.RecordAPDebitNote(ctx, item.SourceID, item.ActorID)
+		case "AP_PAYMENT":
+			err = s.RecordAPPayment(ctx, item.SourceID, item.ActorID)
+		default:
+			err = ErrInvalidInput
+		}
+		if err == nil {
+			err = s.store.CompleteCapture(ctx, item.ID)
+		} else {
+			_ = s.store.FailCapture(ctx, item.ID, err)
+		}
+		if err != nil {
+			failures = append(failures, err)
+		}
+	}
+	return errors.Join(failures...)
+}
 func (s *Service) Recap(ctx context.Context, companyID, periodID int64) ([]RecapLine, error) {
 	if companyID <= 0 || periodID <= 0 {
 		return nil, ErrInvalidInput

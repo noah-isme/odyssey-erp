@@ -338,6 +338,10 @@ Sizing legend: S <2w · M 2–4w · L 1–2m · XL 2m+ (rough, single team).
 - `/tax` provides posted-source rebuild, monthly PPN/PPh-to-GL recap, rupiah-exact
   lock control, and permissioned versioned XML export with persisted totals and
   content hashes.
+- Source posting also writes a durable capture outbox in the same transaction;
+  workers retry tax capture without duplicating immutable documents. Export is
+  POST-only and its XML declaration/optional fields belong to the reviewed
+  schema version.
 - Remaining release gate: tax staff must validate each version against the
   current official DJP XSD/converter and prove a representative month imports in
   Coretax while reconciling to GL to the rupiah. Until that external acceptance

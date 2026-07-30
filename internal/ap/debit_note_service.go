@@ -86,9 +86,6 @@ func (s *Service) PostAPDebitNote(ctx context.Context, input PostAPDebitNoteInpu
 		return err
 	}
 	if note.Status == APDebitNoteStatusPosted {
-		if s.tax != nil {
-			return s.tax.RecordAPDebitNote(ctx, note.ID, input.PostedBy)
-		}
 		return nil
 	}
 	if note.Status != APDebitNoteStatusDraft {

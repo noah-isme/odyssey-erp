@@ -26,7 +26,7 @@ type sourceSnapshot struct {
 }
 
 func sourceDigest(s sourceSnapshot) string {
-	sum := sha256.Sum256([]byte(fmt.Sprintf("%d|%s|%d|%s|%s|%d|%d|%d|%d", s.companyID, s.sourceType, s.sourceID, s.number, s.postedAt.UTC().Format(time.RFC3339Nano), s.base, s.vat, s.gross, s.sign)))
+	sum := sha256.Sum256([]byte(fmt.Sprintf("%d|%s|%d|%s|%s|%s|%s|%s|%s|%d|%d|%d|%d", s.companyID, s.sourceType, s.sourceID, s.number, s.kind, s.direction, s.counterpartyName, s.counterpartyTaxID, s.postedAt.UTC().Format(time.RFC3339Nano), s.base, s.vat, s.gross, s.sign)))
 	return hex.EncodeToString(sum[:])
 }
 
@@ -135,7 +135,9 @@ func captureInvoiceWithholding(ctx context.Context, tx pgx.Tx, s sourceSnapshot,
 	if err = tx.QueryRow(ctx, `SELECT account_id FROM tax_account_mappings WHERE company_id=$1 AND category=$2 AND effective_from<=$3::date AND (effective_to IS NULL OR effective_to >= $3::date)`, s.companyID, article, s.postedAt).Scan(&accountID); err != nil {
 		return ErrConfiguration
 	}
-	_ = tx.QueryRow(ctx, `SELECT id FROM tax_codes WHERE withholding_type_id=$1 ORDER BY id LIMIT 1`, typeID).Scan(&taxCodeID)
+	if err = tx.QueryRow(ctx, `SELECT id FROM tax_codes WHERE withholding_type_id=$1 ORDER BY id LIMIT 1`, typeID).Scan(&taxCodeID); err != nil {
+		return ErrConfiguration
+	}
 	amount := calculateWithholding(s.base, rate)
 	digest := sha256.Sum256([]byte(fmt.Sprintf("AP_INVOICE|%d|%d|%d", s.sourceID, s.base, amount)))
 	var id int64
@@ -190,7 +192,9 @@ func (r *Repository) CaptureAPPayment(ctx context.Context, paymentID, actorID in
 			if err = tx.QueryRow(ctx, `SELECT account_id FROM tax_account_mappings WHERE company_id=$1 AND category=$2 AND effective_from<=$3::date AND (effective_to IS NULL OR effective_to >= $3::date)`, companyID, article, paidAt).Scan(&accountID); err != nil {
 				return ErrConfiguration
 			}
-			_ = tx.QueryRow(ctx, `SELECT id FROM tax_codes WHERE withholding_type_id=$1 ORDER BY id LIMIT 1`, typeID).Scan(&taxCodeID)
+			if err = tx.QueryRow(ctx, `SELECT id FROM tax_codes WHERE withholding_type_id=$1 ORDER BY id LIMIT 1`, typeID).Scan(&taxCodeID); err != nil {
+				return ErrConfiguration
+			}
 			digest := sha256.Sum256([]byte(fmt.Sprintf("AP_PAYMENT|%d|%d|%d|%d", payID, invoiceID, base, amount)))
 			var id int64
 			err = tx.QueryRow(ctx, `INSERT INTO tax_withholding_records(company_id,tax_period_id,ap_invoice_id,ap_payment_id,source_event,withholding_type_id,tax_code_id,recognition_date,taxable_base,withheld_amount,supplier_tax_id,source_hash,created_by) VALUES($1,$2,$3,$4,'PAYMENT',$5,NULLIF($6,0),$7,$8,$9,$10,$11,$12) ON CONFLICT(withholding_type_id,ap_invoice_id,ap_payment_id,source_event) WHERE ap_payment_id IS NOT NULL DO UPDATE SET source_hash=tax_withholding_records.source_hash RETURNING id`, companyID, periodID, invoiceID, payID, typeID, taxCodeID, paidAt, base, amount, taxID, hex.EncodeToString(digest[:]), actorID).Scan(&id)
@@ -220,7 +224,9 @@ func (r *Repository) CancelDocument(ctx context.Context, documentID, actorID int
 			return err
 		}
 		var locked bool
-		_ = tx.QueryRow(ctx, `SELECT status='LOCKED' FROM tax_periods WHERE id=$1`, periodID).Scan(&locked)
+		if err := tx.QueryRow(ctx, `SELECT status='LOCKED' FROM tax_periods WHERE id=$1`, periodID).Scan(&locked); err != nil {
+			return err
+		}
 		if locked {
 			return ErrPeriodLocked
 		}
@@ -264,7 +270,9 @@ func (r *Repository) ReplaceDocument(ctx context.Context, originalID, replacemen
 			return ErrInvalidInput
 		}
 		var locked bool
-		_ = tx.QueryRow(ctx, `SELECT status='LOCKED' FROM tax_periods WHERE id=$1`, periodID).Scan(&locked)
+		if err = tx.QueryRow(ctx, `SELECT status='LOCKED' FROM tax_periods WHERE id=$1`, periodID).Scan(&locked); err != nil {
+			return err
+		}
 		if locked {
 			return ErrPeriodLocked
 		}
@@ -338,6 +346,8 @@ func (r *Repository) ListPostedSources(ctx context.Context, companyID, periodID 
 }
 
 func (r *Repository) Recap(ctx context.Context, companyID, periodID int64) ([]RecapLine, error) {
+	// Liability categories reconcile on their natural credit balance. VAT input
+	// is an asset and therefore reconciles on its natural debit balance.
 	rows, err := r.pool.Query(ctx, `WITH tax AS (SELECT category,account_id,COUNT(*) count,ROUND(SUM(taxable_base*sign))::bigint base,ROUND(SUM(tax_amount*sign))::bigint amount FROM tax_ledger_entries WHERE company_id=$1 AND tax_period_id=$2 GROUP BY category,account_id), gl AS (SELECT t.category,t.account_id,ROUND(SUM(CASE WHEN t.category='VAT_INPUT' THEN jl.debit-jl.credit ELSE jl.credit-jl.debit END))::bigint amount FROM tax tax t JOIN tax_periods tp ON tp.id=$2 JOIN accounting_periods ap ON ap.id=tp.accounting_period_id JOIN journal_entries je ON je.date BETWEEN ap.start_date AND ap.end_date AND je.status='POSTED' JOIN journal_lines jl ON jl.je_id=je.id AND jl.account_id=t.account_id AND (jl.dim_company_id=$1 OR jl.dim_company_id IS NULL) GROUP BY t.category,t.account_id) SELECT t.category,a.code,a.name,t.count,t.base,t.amount,COALESCE(gl.amount,0),t.amount-COALESCE(gl.amount,0) FROM tax t JOIN accounts a ON a.id=t.account_id LEFT JOIN gl ON gl.category=t.category AND gl.account_id=t.account_id ORDER BY t.category,a.code`, companyID, periodID)
 	if err != nil {
 		return nil, err
@@ -364,7 +374,7 @@ func (r *Repository) LockPeriod(ctx context.Context, companyID, periodID, actorI
 
 func (r *Repository) LoadExport(ctx context.Context, companyID, periodID int64, kind string) (ExportSchema, []ExportRecord, error) {
 	var s ExportSchema
-	err := r.pool.QueryRow(ctx, `SELECT id,export_kind,version_code,media_type,schema_body,official_source_url,official_checksum,effective_from FROM tax_export_schemas WHERE export_kind=$3 AND reviewed_at IS NOT NULL AND effective_from<=(SELECT end_date FROM accounting_periods ap JOIN tax_periods tp ON tp.accounting_period_id=ap.id WHERE tp.id=$2 AND tp.company_id=$1) AND (effective_to IS NULL OR effective_to>=(SELECT end_date FROM accounting_periods ap JOIN tax_periods tp ON tp.accounting_period_id=ap.id WHERE tp.id=$2 AND tp.company_id=$1)) ORDER BY effective_from DESC LIMIT 1`, companyID, periodID, kind).Scan(&s.ID, &s.Kind, &s.Version, &s.MediaType, &s.Body, &s.OfficialSourceURL, &s.OfficialChecksum, &s.EffectiveFrom)
+	err := r.pool.QueryRow(ctx, `SELECT id,export_kind,version_code,media_type,schema_body,official_source_url,official_checksum,effective_from,xml_declaration,include_sign_element FROM tax_export_schemas WHERE export_kind=$3 AND reviewed_at IS NOT NULL AND effective_from<=(SELECT end_date FROM accounting_periods ap JOIN tax_periods tp ON tp.accounting_period_id=ap.id WHERE tp.id=$2 AND tp.company_id=$1) AND (effective_to IS NULL OR effective_to>=(SELECT end_date FROM accounting_periods ap JOIN tax_periods tp ON tp.accounting_period_id=ap.id WHERE tp.id=$2 AND tp.company_id=$1)) ORDER BY effective_from DESC LIMIT 1`, companyID, periodID, kind).Scan(&s.ID, &s.Kind, &s.Version, &s.MediaType, &s.Body, &s.OfficialSourceURL, &s.OfficialChecksum, &s.EffectiveFrom, &s.XMLDeclaration, &s.IncludeSignElement)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return s, nil, ErrConfiguration
 	}
@@ -388,7 +398,36 @@ func (r *Repository) LoadExport(ctx context.Context, companyID, periodID int64, 
 }
 
 func (r *Repository) RecordExport(ctx context.Context, companyID, periodID, schemaID int64, hash string, count int, base, amount Money, actorID int64) (int64, error) {
+	_, err := r.pool.Exec(ctx, `INSERT INTO tax_exports(company_id,tax_period_id,schema_id,content_hash,record_count,taxable_base,tax_amount,generated_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(company_id,tax_period_id,schema_id,content_hash) DO NOTHING`, companyID, periodID, schemaID, hash, count, base, amount, actorID)
+	if err != nil {
+		return 0, err
+	}
 	var id int64
-	err := r.pool.QueryRow(ctx, `INSERT INTO tax_exports(company_id,tax_period_id,schema_id,content_hash,record_count,taxable_base,tax_amount,generated_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(company_id,tax_period_id,schema_id,content_hash) DO UPDATE SET content_hash=tax_exports.content_hash RETURNING id`, companyID, periodID, schemaID, hash, count, base, amount, actorID).Scan(&id)
+	err = r.pool.QueryRow(ctx, `SELECT id FROM tax_exports WHERE company_id=$1 AND tax_period_id=$2 AND schema_id=$3 AND content_hash=$4`, companyID, periodID, schemaID, hash).Scan(&id)
 	return id, err
+}
+
+func (r *Repository) PendingCaptures(ctx context.Context, limit int) ([]PendingCapture, error) {
+	rows, err := r.pool.Query(ctx, `WITH claimed AS (SELECT id FROM tax_capture_outbox WHERE completed_at IS NULL AND actor_id IS NOT NULL AND available_at<=NOW() ORDER BY available_at,id FOR UPDATE SKIP LOCKED LIMIT $1) UPDATE tax_capture_outbox o SET attempts=o.attempts+1,available_at=NOW()+INTERVAL '5 minutes',updated_at=NOW() FROM claimed WHERE o.id=claimed.id RETURNING o.id,o.source_type,o.source_id,o.actor_id`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []PendingCapture
+	for rows.Next() {
+		var item PendingCapture
+		if err = rows.Scan(&item.ID, &item.SourceType, &item.SourceID, &item.ActorID); err != nil {
+			return nil, err
+		}
+		out = append(out, item)
+	}
+	return out, rows.Err()
+}
+func (r *Repository) CompleteCapture(ctx context.Context, id int64) error {
+	_, err := r.pool.Exec(ctx, `UPDATE tax_capture_outbox SET completed_at=NOW(),last_error=NULL,updated_at=NOW() WHERE id=$1`, id)
+	return err
+}
+func (r *Repository) FailCapture(ctx context.Context, id int64, cause error) error {
+	_, err := r.pool.Exec(ctx, `UPDATE tax_capture_outbox SET last_error=LEFT($2,2000),available_at=NOW()+(LEAST(attempts,60)||' minutes')::interval,updated_at=NOW() WHERE id=$1`, id, cause.Error())
+	return err
 }

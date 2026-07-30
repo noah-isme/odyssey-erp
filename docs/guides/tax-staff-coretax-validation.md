@@ -52,6 +52,10 @@ the reviewed Odyssey field mapping together in the release evidence folder.
       previously consumed number.
 - [ ] VAT output, VAT input, PPh 23, and PPh 4(2) map to the approved GL accounts.
 - [ ] The stored schema-body SHA-256 exactly matches the reviewed artifact.
+- [ ] The stored XML declaration (version, encoding, and standalone flag) matches
+      the official template.
+- [ ] Optional exported fields, including Odyssey's `Sign` field, are enabled
+      only when the official schema explicitly permits them.
 
 For PPN, separately confirm the statutory rate and DPP formula. PMK 11/2025
 contains transaction-specific DPP Nilai Lain rules, including 11/12 factors for
@@ -91,6 +95,9 @@ blockers and add an effective-dated rule/schema implementation first.
 7. Save the validation output and Coretax acceptance/rejection evidence.
 8. Correct all warnings that can affect tax identity, classification, amount,
    numbering, or filing status; regenerate and repeat from step 4.
+
+Export is intentionally submitted with POST because it persists an immutable
+export audit record. Do not replace it with a bookmarkable GET endpoint.
 
 ## 5. Reconcile to the rupiah
 
@@ -138,4 +145,3 @@ Do not activate, lock, or file when any of these is true:
 
 Create a new schema/rule version for corrections. Never overwrite a reviewed
 effective-dated version or an immutable tax document.
-

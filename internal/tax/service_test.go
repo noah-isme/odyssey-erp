@@ -11,13 +11,18 @@ import (
 )
 
 type fakeStore struct {
-	recap    []RecapLine
-	locked   bool
-	schema   ExportSchema
-	records  []ExportRecord
-	exportID int64
-	sources  []PostedSource
-	captured []string
+	recap     []RecapLine
+	locked    bool
+	schema    ExportSchema
+	records   []ExportRecord
+	exportID  int64
+	sources   []PostedSource
+	captured  []string
+	pending   []PendingCapture
+	completed []int64
+	cancelled []int64
+	replaced  [][2]int64
+	built     bool
 }
 
 func (f *fakeStore) CaptureARInvoice(context.Context, int64, int64) (Document, error) {
@@ -40,12 +45,19 @@ func (f *fakeStore) CaptureAPPayment(context.Context, int64, int64) ([]Withholdi
 	f.captured = append(f.captured, "AP_PAYMENT")
 	return nil, nil
 }
-func (*fakeStore) CancelDocument(context.Context, int64, int64, string) error         { return nil }
-func (*fakeStore) CancelSource(context.Context, string, int64, int64, string) error   { return nil }
-func (*fakeStore) ReplaceDocument(context.Context, int64, int64, int64, string) error { return nil }
-func (*fakeStore) ListDocuments(context.Context, int64, int64) ([]Document, error)    { return nil, nil }
-func (*fakeStore) ListPeriods(context.Context, int64) ([]Period, error)               { return nil, nil }
+func (f *fakeStore) CancelDocument(_ context.Context, id, _ int64, _ string) error {
+	f.cancelled = append(f.cancelled, id)
+	return nil
+}
+func (*fakeStore) CancelSource(context.Context, string, int64, int64, string) error { return nil }
+func (f *fakeStore) ReplaceDocument(_ context.Context, id, replacementID, _ int64, _ string) error {
+	f.replaced = append(f.replaced, [2]int64{id, replacementID})
+	return nil
+}
+func (*fakeStore) ListDocuments(context.Context, int64, int64) ([]Document, error) { return nil, nil }
+func (*fakeStore) ListPeriods(context.Context, int64) ([]Period, error)            { return nil, nil }
 func (f *fakeStore) ListPostedSources(context.Context, int64, int64) ([]PostedSource, error) {
+	f.built = true
 	return f.sources, nil
 }
 func (f *fakeStore) Recap(context.Context, int64, int64) ([]RecapLine, error) { return f.recap, nil }
@@ -59,6 +71,14 @@ func (f *fakeStore) LoadExport(context.Context, int64, int64, string) (ExportSch
 func (f *fakeStore) RecordExport(_ context.Context, _, _, _ int64, _ string, _ int, _ Money, _ Money, _ int64) (int64, error) {
 	return f.exportID, nil
 }
+func (f *fakeStore) PendingCaptures(context.Context, int) ([]PendingCapture, error) {
+	return f.pending, nil
+}
+func (f *fakeStore) CompleteCapture(_ context.Context, id int64) error {
+	f.completed = append(f.completed, id)
+	return nil
+}
+func (*fakeStore) FailCapture(context.Context, int64, error) error { return nil }
 
 func reviewedSchema() ExportSchema {
 	body := "official-xsd-artifact"
@@ -80,6 +100,23 @@ func TestExportNetsCreditNotesAndRecordsExactTotals(t *testing.T) {
 	}
 	if !strings.Contains(got.Content, "<TaxableBase>-250</TaxableBase>") {
 		t.Fatalf("credit note sign missing: %s", got.Content)
+	}
+	if strings.Contains(got.Content, "<Sign>") {
+		t.Fatalf("unreviewed Sign element emitted: %s", got.Content)
+	}
+}
+
+func TestExportUsesReviewedDeclarationAndOptionalSign(t *testing.T) {
+	schema := reviewedSchema()
+	schema.XMLDeclaration = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`
+	schema.IncludeSignElement = true
+	f := &fakeStore{schema: schema, exportID: 9, records: []ExportRecord{{DocumentNumber: "CN-1", IssueDate: time.Now(), Sign: -1}}}
+	got, err := NewService(f, ReviewedSchemaValidator{}).Export(context.Background(), 1, 2, 3, "CORETAX_OUTPUT_VAT")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(got.Content, schema.XMLDeclaration) || !strings.Contains(got.Content, "<Sign>-1</Sign>") {
+		t.Fatalf("reviewed XML options not applied: %s", got.Content)
 	}
 }
 
@@ -129,5 +166,15 @@ func TestBuildPeriodCapturesEveryPostedSourceType(t *testing.T) {
 	}
 	if got := strings.Join(f.captured, ","); got != "AR_INVOICE,AR_CREDIT_NOTE,AP_INVOICE,AP_DEBIT_NOTE,AP_PAYMENT" {
 		t.Fatalf("captured %s", got)
+	}
+}
+
+func TestProcessPendingCompletesDurableCapture(t *testing.T) {
+	f := &fakeStore{pending: []PendingCapture{{ID: 8, SourceType: "AR_CREDIT_NOTE", SourceID: 4, ActorID: 3}}}
+	if err := NewService(f, nil).ProcessPending(context.Background(), 10); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.completed) != 1 || f.completed[0] != 8 {
+		t.Fatalf("completed=%v", f.completed)
 	}
 }

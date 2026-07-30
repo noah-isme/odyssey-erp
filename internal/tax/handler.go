@@ -38,7 +38,7 @@ func (h *Handler) MountRoutes(r chi.Router) {
 	})
 	r.Group(func(r chi.Router) {
 		r.Use(h.rbac.RequireAny("tax.report.export"))
-		r.Get("/periods/{id}/export", h.export)
+		r.Post("/periods/{id}/export", h.export)
 	})
 }
 
@@ -69,10 +69,19 @@ func (h *Handler) dashboard(w http.ResponseWriter, r *http.Request) {
 	documents, docErr := h.service.Documents(r.Context(), companyID, periodID)
 	recap, recapErr := h.service.Recap(r.Context(), companyID, periodID)
 	s := shared.SessionFromContext(r.Context())
-	token, _ := h.csrf.EnsureToken(r.Context(), s)
+	var token string
+	var flash *shared.FlashMessage
+	if s != nil {
+		flash = s.PopFlash()
+		if h.csrf != nil {
+			token, _ = h.csrf.EnsureToken(r.Context(), s)
+		}
+	}
 	data := map[string]any{"Periods": periods, "PeriodID": periodID, "Documents": documents, "Recap": recap, "Error": errors.Join(periodErr, docErr, recapErr)}
-	if err := h.templates.Render(w, "pages/tax/dashboard.html", view.TemplateData{Title: "Tax Compliance", CurrentPath: r.URL.Path, CSRFToken: token, Flash: s.PopFlash(), Data: data}); err != nil {
-		h.logger.Error("render tax dashboard", slog.Any("error", err))
+	if err := h.templates.Render(w, "pages/tax/dashboard.html", view.TemplateData{Title: "Tax Compliance", CurrentPath: r.URL.Path, CSRFToken: token, Flash: flash, Data: data}); err != nil {
+		if h.logger != nil {
+			h.logger.Error("render tax dashboard", slog.Any("error", err))
+		}
 		http.Error(w, http.StatusText(500), 500)
 	}
 }

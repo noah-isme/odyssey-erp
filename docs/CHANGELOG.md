@@ -11,6 +11,9 @@
   debit notes; monthly category-to-GL reconciliation and rupiah-exact period lock.
 - Versioned Coretax XML exports with official-artifact checksums, RBAC, persisted
   export totals/hashes, and an explicit official XSD/portal acceptance gate.
+- Durable tax-capture outbox retries close the AR/AP posting boundary; reviewed
+  XML declaration/optional-field controls and POST-only export remove unverified
+  Coretax assumptions while preserving immutable export records.
 
 - Versioned Indonesian payroll engine with effective-dated TER/PTKP/BPJS rules,
   company policies, compensation/components, overtime, THR, adjustments, and

@@ -5,6 +5,8 @@ Migration `000048_tax_compliance` adds effective-dated rule versions, PPN rates,
 PPh 23/PPh 4(2) withholding types, tax codes, company NPWP/NITKU identity,
 faktur ranges, account mappings, reporting periods, audit events, and versioned
 Coretax export schemas.
+Migration `000049_tax_capture_outbox` adds a transactionally written capture
+outbox and reviewed per-schema XML declaration/field controls.
 
 ## Regulatory configuration
 
@@ -44,10 +46,12 @@ replacement append an event and a reversing ledger row. The original record is
 never rewritten. Duplicate source documents and faktur numbers are prevented by
 unique constraints.
 
-If an integration hook failed after the source was posted, use **Rebuild from
-posted sources**. Rebuild scans posted invoices, notes, and AP payments in the
-accounting-period dates and uses idempotent source keys; it does not read editable
-browser totals.
+AR/AP posting writes a tax-capture outbox row in the same database transaction
+as the source status change. The worker retries incomplete captures every five
+minutes, so an accounting integration succeeding while the immediate tax hook
+fails cannot permanently omit the tax document. **Rebuild from posted sources**
+remains an explicit recovery/audit control. Both paths use idempotent source
+keys and never read editable browser totals.
 
 ## Reconciliation, locking, and export
 
@@ -56,9 +60,11 @@ The tax period cannot lock while any category differs from posted GL activity by
 even one rupiah. Once locked, database triggers reject new documents,
 withholding, or ledger rows for that period.
 
-Coretax XML generation requires `tax.report.export`. The output stores schema
+Coretax XML generation is a POST action and requires `tax.report.export`. The output stores schema
 version, content SHA-256, record count, DPP, and tax total. The application checks
-the reviewed schema artifact checksum and XML structure.
+the reviewed schema artifact checksum and XML structure. XML declaration and
+optional elements such as `Sign` are effective schema-version data, not
+hard-coded assumptions; `Sign` is omitted unless that reviewed schema enables it.
 
 ### Release gate
 

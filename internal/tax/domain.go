@@ -15,6 +15,13 @@ var (
 
 type Money int64
 
+type PeriodStatus string
+
+const (
+	PeriodOpen   PeriodStatus = "OPEN"
+	PeriodLocked PeriodStatus = "LOCKED"
+)
+
 type Document struct {
 	ID, CompanyID, PeriodID, SourceID, RuleVersionID int64
 	SourceType, SourceNumber, Kind, Direction        string
@@ -42,12 +49,17 @@ type RecapLine struct {
 
 type Period struct {
 	ID, CompanyID, AccountingPeriodID int64
-	Name, Status                      string
+	Name                              string
+	Status                            PeriodStatus
 	StartDate, EndDate                time.Time
 }
 type PostedSource struct {
 	Type string
 	ID   int64
+}
+type PendingCapture struct {
+	ID, SourceID, ActorID int64
+	SourceType            string
 }
 
 type ExportSchema struct {
@@ -55,6 +67,8 @@ type ExportSchema struct {
 	Kind, Version, MediaType, Body      string
 	OfficialSourceURL, OfficialChecksum string
 	EffectiveFrom                       time.Time
+	XMLDeclaration                      string
+	IncludeSignElement                  bool
 }
 
 type ExportRecord struct {
@@ -87,6 +101,9 @@ type Store interface {
 	LockPeriod(context.Context, int64, int64, int64) error
 	LoadExport(context.Context, int64, int64, string) (ExportSchema, []ExportRecord, error)
 	RecordExport(context.Context, int64, int64, int64, string, int, Money, Money, int64) (int64, error)
+	PendingCaptures(context.Context, int) ([]PendingCapture, error)
+	CompleteCapture(context.Context, int64) error
+	FailCapture(context.Context, int64, error) error
 }
 
 type SchemaValidator interface {

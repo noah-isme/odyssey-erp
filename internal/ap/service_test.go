@@ -31,6 +31,16 @@ type memoryAPTx struct {
 	repo *memoryAPRepo
 }
 
+type taxPortFake struct{ debitNoteCalls int }
+
+func (*taxPortFake) RecordAPInvoice(context.Context, int64, int64) error { return nil }
+func (f *taxPortFake) RecordAPDebitNote(context.Context, int64, int64) error {
+	f.debitNoteCalls++
+	return nil
+}
+func (*taxPortFake) RecordAPPayment(context.Context, int64, int64) error         { return nil }
+func (*taxPortFake) CancelAPInvoice(context.Context, int64, int64, string) error { return nil }
+
 func newMemoryAPRepo() *memoryAPRepo {
 	return &memoryAPRepo{
 		invoices:     make(map[int64]APInvoice),
@@ -573,6 +583,19 @@ func TestPostAPDebitNoteRejectsAmountAboveInvoiceBalance(t *testing.T) {
 
 	require.ErrorIs(t, err, ErrDebitExceedsBalance)
 	require.Equal(t, APDebitNoteStatusDraft, repo.debitNotes[1].Status)
+}
+
+func TestPostAPDebitNoteAlreadyPostedIsIdempotent(t *testing.T) {
+	repo := newMemoryAPRepo()
+	repo.debitNotes[1] = &APDebitNote{ID: 1, Status: APDebitNoteStatusPosted}
+	taxFake := &taxPortFake{}
+	svc := NewService(repo, nil)
+	svc.SetTaxService(taxFake)
+
+	err := svc.PostAPDebitNote(context.Background(), PostAPDebitNoteInput{DebitNoteID: 1, PostedBy: 7})
+
+	require.NoError(t, err)
+	require.Zero(t, taxFake.debitNoteCalls, "already-posted endpoint must not duplicate the tax ISSUED hook")
 }
 
 func fmtInt(val int64) string {

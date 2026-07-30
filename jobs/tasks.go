@@ -26,7 +26,22 @@ const (
 	TaskPayrollPayslipEmail = "payroll:payslip_email"
 	// TaskPayrollPayslipDispatch re-enqueues undelivered durable payslip records.
 	TaskPayrollPayslipDispatch = "payroll:payslip_dispatch"
+	// TaskTaxCaptureDispatch retries durable AR/AP tax captures.
+	TaskTaxCaptureDispatch = "tax:capture_dispatch"
 )
+
+type TaxCaptureDispatcher interface {
+	ProcessPending(context.Context, int) error
+}
+
+func HandleTaxCaptureDispatch(dispatcher TaxCaptureDispatcher) asynq.HandlerFunc {
+	return func(ctx context.Context, _ *asynq.Task) error {
+		if dispatcher == nil {
+			return fmt.Errorf("tax capture dispatcher not configured: %w", asynq.SkipRetry)
+		}
+		return dispatcher.ProcessPending(ctx, 100)
+	}
+}
 
 type PayslipOutboxDispatcher interface {
 	DispatchPending(context.Context) error

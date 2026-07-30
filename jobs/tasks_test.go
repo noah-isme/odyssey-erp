@@ -47,3 +47,18 @@ func TestHandleSendEmailTaskRejectsMalformedPayload(t *testing.T) {
 	err := HandleSendEmailTask(&mailFake{})(context.Background(), asynq.NewTask(TaskTypeSendEmail, []byte("{")))
 	require.ErrorIs(t, err, asynq.SkipRetry)
 }
+
+type taxCaptureFake struct{ calls, limit int }
+
+func (f *taxCaptureFake) ProcessPending(_ context.Context, limit int) error {
+	f.calls++
+	f.limit = limit
+	return nil
+}
+
+func TestHandleTaxCaptureDispatchProcessesOutbox(t *testing.T) {
+	fake := &taxCaptureFake{}
+	require.NoError(t, HandleTaxCaptureDispatch(fake)(context.Background(), asynq.NewTask(TaskTaxCaptureDispatch, nil)))
+	require.Equal(t, 1, fake.calls)
+	require.Equal(t, 100, fake.limit)
+}
