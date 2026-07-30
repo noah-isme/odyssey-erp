@@ -20,6 +20,14 @@ type Service struct {
 	repo               Repository
 	procurementService *procurement.Service
 	integration        procurement.IntegrationHandler
+	tax                TaxServicePort
+}
+
+type TaxServicePort interface {
+	RecordAPInvoice(context.Context, int64, int64) error
+	RecordAPDebitNote(context.Context, int64, int64) error
+	RecordAPPayment(context.Context, int64, int64) error
+	CancelAPInvoice(context.Context, int64, int64, string) error
 }
 
 func NewService(repo Repository, procService *procurement.Service) *Service {
@@ -33,6 +41,8 @@ func NewService(repo Repository, procService *procurement.Service) *Service {
 func (s *Service) SetIntegrationHandler(handler procurement.IntegrationHandler) {
 	s.integration = handler
 }
+
+func (s *Service) SetTaxService(service TaxServicePort) { s.tax = service }
 
 // CreateAPInvoice creates a new AP invoice manually.
 func (s *Service) CreateAPInvoice(ctx context.Context, input CreateAPInvoiceInput) (APInvoice, error) {
@@ -209,6 +219,9 @@ func (s *Service) PostAPInvoice(ctx context.Context, input PostAPInvoiceInput) e
 	if err != nil {
 		return err
 	}
+	if inv.Status == APStatusPosted && s.tax != nil {
+		return s.tax.RecordAPInvoice(ctx, input.InvoiceID, input.PostedBy)
+	}
 	if inv.Status != APStatusDraft {
 		return ErrInvalidStatus
 	}
@@ -243,6 +256,9 @@ func (s *Service) PostAPInvoice(ctx context.Context, input PostAPInvoiceInput) e
 			return err
 		}
 	}
+	if s.tax != nil {
+		return s.tax.RecordAPInvoice(ctx, input.InvoiceID, input.PostedBy)
+	}
 	return nil
 }
 
@@ -255,9 +271,16 @@ func (s *Service) VoidAPInvoice(ctx context.Context, input VoidAPInvoiceInput) e
 	if inv.Status == APStatusPaid || inv.Status == APStatusVoid {
 		return ErrInvalidStatus
 	}
-	return s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
+	err = s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
 		return tx.VoidAPInvoice(ctx, input)
 	})
+	if err != nil {
+		return err
+	}
+	if inv.Status == APStatusPosted && s.tax != nil {
+		return s.tax.CancelAPInvoice(ctx, input.InvoiceID, input.VoidedBy, input.VoidReason)
+	}
+	return nil
 }
 
 // RegisterAPPayment records a payment.
@@ -398,6 +421,11 @@ func (s *Service) RegisterAPPayment(ctx context.Context, input CreateAPPaymentIn
 			PaidAt:      input.PaidAt,
 		}); err != nil {
 			return payment, wrapLedgerPostError(err)
+		}
+	}
+	if s.tax != nil {
+		if err := s.tax.RecordAPPayment(ctx, paymentID, input.CreatedBy); err != nil {
+			return payment, err
 		}
 	}
 

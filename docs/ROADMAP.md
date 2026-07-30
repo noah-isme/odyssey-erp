@@ -3,6 +3,7 @@
 **Prepared:** 2026-01-11
 **Revised:** 2026-07-20 (synced to current implementation)
 **Revised:** 2026-07-29 (added the gap-analysis phased plan below)
+**Revised:** 2026-07-30 (Phase 5 tax compliance implementation and release gate)
 **Current Version:** v0.9.1
 
 ## Executive Summary
@@ -267,7 +268,7 @@ item, the detail stays in those sections — this table supersedes only the orde
 | P2 | **Notification center + transactional email** ✅ | M | `shared/mail.go` ✓, asynq ✓, user prefs ✓ |
 | P3 | **Configurable approval engine + HR core** ✅ (employees, org, leave, attendance) | L | P2 |
 | P4 | **Payroll Indonesia** ✅ — versioned PPh 21 (TER/PTKP), BPJS, payslips, approval, payment export, GL posting | XL | P3 |
-| P5 | **Tax compliance** — faktur pajak numbering, PPN/PPh reports, e-Faktur export (expands Phase 17 row) | L | P1 |
+| P5 | **Tax compliance** 🟡 — immutable faktur/PPN/PPh ledgers, GL recap, locks, and versioned Coretax export implemented; official portal acceptance pending | L | P1 |
 | P6 | **CRM** — leads, pipeline, activities (feeds existing quotations) | L | P2 |
 | P7 | **Multi-currency** (detail in Phase 14) + horizon packs: WMS, MRP, POS, public API/webhooks, portals | XL | stable AR/AP from P1 |
 
@@ -324,12 +325,23 @@ Sizing legend: S <2w · M 2–4w · L 1–2m · XL 2m+ (rough, single team).
   blocked until its separate calculation strategy and official examples are
   reviewed; monthly TER payroll is complete.
 
-### P5 — Tax Compliance
-- Regulated faktur pajak sequence on AR invoices; PPN keluaran/masukan + SPT recap;
-  e-Faktur/Coretax CSV/XML export; PPh 23/4(2) withholding on AP
-- Retur integration from P1
-- **Done when:** a month exports into an e-Faktur-importable file reconciling to GL
-  PPN accounts to the rupiah.
+### P5 — Tax Compliance — 🟡 RELEASE VALIDATION PENDING
+- Reviewed effective-dated PPN/PPh rules, tax codes, NPWP/NITKU identities,
+  controlled faktur ranges, and category-to-GL mappings are implemented without
+  silently seeding volatile regulatory values.
+- Posted AR/AP invoices and P1 credit/debit notes create immutable source-hashed
+  tax documents and signed ledger rows. PPh 23/PPh 4(2) supports invoice or
+  prorated partial-payment recognition.
+- Cancellation and replacement append audit/correction events and reversal rows;
+  database controls prevent duplicate faktur/source numbers, edits/deletes, and
+  activity in locked periods.
+- `/tax` provides posted-source rebuild, monthly PPN/PPh-to-GL recap, rupiah-exact
+  lock control, and permissioned versioned XML export with persisted totals and
+  content hashes.
+- Remaining release gate: tax staff must validate each version against the
+  current official DJP XSD/converter and prove a representative month imports in
+  Coretax while reconciling to GL to the rupiah. Until that external acceptance
+  is recorded, Phase 5 is implemented but not certified for production filing.
 
 ### P6 — CRM
 - Leads, opportunities/pipeline stages, win/loss, activities with reminders;

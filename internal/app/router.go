@@ -45,6 +45,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/sales"
 	"github.com/odyssey-erp/odyssey-erp/internal/search"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
+	"github.com/odyssey-erp/odyssey-erp/internal/tax"
 	"github.com/odyssey-erp/odyssey-erp/internal/users"
 	"github.com/odyssey-erp/odyssey-erp/internal/variance"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
@@ -96,6 +97,7 @@ type RouterParams struct {
 	HRLeaveHandler         *hrleave.Handler
 	HRAttendanceHandler    *hrattendance.Handler
 	PayrollHandler         *payroll.Handler
+	TaxHandler             *tax.Handler
 }
 
 type workspaceUser struct {
@@ -440,6 +442,9 @@ func NewRouter(params RouterParams) http.Handler {
 	}
 	if params.PayrollHandler != nil {
 		r.Route("/payroll", params.PayrollHandler.MountRoutes)
+	}
+	if params.TaxHandler != nil {
+		r.Route("/tax", params.TaxHandler.MountRoutes)
 	}
 	if params.AccountingHandler != nil {
 		r.Route("/accounting", func(r chi.Router) {

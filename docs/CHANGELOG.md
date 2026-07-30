@@ -4,6 +4,14 @@
 
 ### Added
 
+- Phase 5 tax compliance with reviewed effective-dated PPN/PPh configuration,
+  company NPWP/NITKU identity, controlled faktur ranges, immutable tax documents,
+  payment-event withholding, correction events, and audit history.
+- Tax ledger rebuild from posted AR/AP invoices, payments, credit notes, and
+  debit notes; monthly category-to-GL reconciliation and rupiah-exact period lock.
+- Versioned Coretax XML exports with official-artifact checksums, RBAC, persisted
+  export totals/hashes, and an explicit official XSD/portal acceptance gate.
+
 - Versioned Indonesian payroll engine with effective-dated TER/PTKP/BPJS rules,
   company policies, compensation/components, overtime, THR, adjustments, and
   immutable approved posting runs.

@@ -62,6 +62,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/roles"
 	"github.com/odyssey-erp/odyssey-erp/internal/sales"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
+	"github.com/odyssey-erp/odyssey-erp/internal/tax"
 	"github.com/odyssey-erp/odyssey-erp/internal/users"
 	variancepkg "github.com/odyssey-erp/odyssey-erp/internal/variance"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
@@ -276,6 +277,9 @@ func main() {
 	payrollRepo := payroll.NewRepository(dbpool)
 	payrollService := payroll.NewService(payrollRepo, approvalService, journalService, payrollDeliveryQueue{client: jobClient})
 	approvalService.RegisterFinalizer("PAYROLL", payrollService)
+	taxRepo := tax.NewRepository(dbpool)
+	taxService := tax.NewService(taxRepo, tax.ReviewedSchemaValidator{})
+	taxHandler := tax.NewHandler(logger, taxService, templates, csrfManager, rbacMiddleware)
 
 	arRepo := ar.NewRepository(dbpool)
 	arService := ar.NewService(arRepo)
@@ -283,12 +287,14 @@ func main() {
 	arService.SetDeliveryService(arInvoicing)
 	arService.SetReturnDeliveryService(arInvoicing)
 	arService.SetAccountingService(integrationHooks)
+	arService.SetTaxService(taxService)
 	arHandler := ar.NewHandler(logger, arService, templates, csrfManager, sessionManager, rbacMiddleware, jobClient.AsynqClient())
 	arHandler.SetNotificationDispatcher(notificationDispatcher)
 
 	apRepo := ap.NewRepository(dbpool)
 	apService := ap.NewService(apRepo, procurementService)
 	apService.SetIntegrationHandler(integrationHooks)
+	apService.SetTaxService(taxService)
 	apHandler := ap.NewHandler(logger, apService, templates, csrfManager, sessionManager, rbacMiddleware)
 
 	closeHandler := closehttp.NewHandler(logger, closeService, templates, csrfManager, rbacMiddleware)
@@ -451,6 +457,7 @@ func main() {
 		HRLeaveHandler:         hrLeaveHandler,
 		HRAttendanceHandler:    hrAttendanceHandler,
 		PayrollHandler:         payrollHandler,
+		TaxHandler:             taxHandler,
 	})
 
 	// Route dump mode: print the real routing table and exit without serving.

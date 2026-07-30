@@ -40,6 +40,7 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 | [Notifications & Email](guides/notifications.md) | Arsitektur, API, SMTP, deployment, dan troubleshooting notifikasi |
 | [Approvals & HR Core](guides/approvals-hr-core.md) | Policy routing, delegation, leave workflow, dan attendance CSV |
 | [Payroll Engine](guides/payroll.md) | Versioned TER/PTKP/BPJS rules, payroll approval, posting, payment export, dan payslips |
+| [Tax Compliance](guides/tax-compliance.md) | Immutable faktur, PPN/PPh ledgers, GL reconciliation, period lock, dan Coretax export |
 
 ## 📚 Reference
 

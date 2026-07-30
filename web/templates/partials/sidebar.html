@@ -65,6 +65,7 @@
             </details>
 
             <span class="sidebar-section-title">Finance</span>
+            <a href="/tax" class="nav-item{{ if isActive .CurrentPath "/tax" }} active{{ end }}" data-tooltip="Tax Compliance"><span class="nav-item-icon">Tx</span><span class="nav-item-text">Tax Compliance</span></a>
             <details class="sidebar-menu" data-sidebar-menu{{ if or (isActive .CurrentPath "/accounting/periods") (isActive .CurrentPath "/finance/banking/accounts") (isActive .CurrentPath "/accounting/banks/statements") (isActive .CurrentPath "/accounting/cash-flow") (isActive .CurrentPath "/accounting/budget") }} open{{ end }}>
                 <summary data-tooltip="Keuangan"><span class="nav-item-icon">Rp</span><span class="nav-item-text">Keuangan</span><span class="sidebar-menu__arrow">⌄</span></summary>
                 <div class="sidebar-menu__items">

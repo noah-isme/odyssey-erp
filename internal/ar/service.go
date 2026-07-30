@@ -76,6 +76,12 @@ type AccountingServicePort interface {
 	CreateARCreditNoteJournal(ctx context.Context, creditNote *ARCreditNote) error
 }
 
+type TaxServicePort interface {
+	RecordARInvoice(context.Context, int64, int64) error
+	RecordARCreditNote(context.Context, int64, int64) error
+	CancelARInvoice(context.Context, int64, int64, string) error
+}
+
 // Service handles AR business logic.
 type Service struct {
 	repo           RepositoryPort
@@ -83,6 +89,7 @@ type Service struct {
 	accounting     AccountingServicePort
 	creditNotes    CreditNoteRepositoryPort
 	returnDelivery ReturnDeliveryServicePort
+	tax            TaxServicePort
 }
 
 // NewService builds Service instance.
@@ -103,6 +110,8 @@ func (s *Service) SetDeliveryService(delivery DeliveryServicePort) {
 func (s *Service) SetAccountingService(accounting AccountingServicePort) {
 	s.accounting = accounting
 }
+
+func (s *Service) SetTaxService(service TaxServicePort) { s.tax = service }
 
 // CreateARInvoice creates a new AR invoice with lines.
 func (s *Service) CreateARInvoice(ctx context.Context, input CreateARInvoiceInput) (*ARInvoice, error) {
@@ -225,8 +234,16 @@ func (s *Service) PostARInvoice(ctx context.Context, input PostARInvoiceInput) e
 	if invoice == nil {
 		return ErrInvoiceNotFound
 	}
-	if invoice.Status == ARStatusPosted && s.accounting != nil {
-		return s.accounting.CreateARPostingJournal(ctx, invoice)
+	if invoice.Status == ARStatusPosted && (s.accounting != nil || s.tax != nil) {
+		if s.accounting != nil {
+			if err = s.accounting.CreateARPostingJournal(ctx, invoice); err != nil {
+				return err
+			}
+		}
+		if s.tax != nil {
+			err = s.tax.RecordARInvoice(ctx, invoice.ID, input.PostedBy)
+		}
+		return err
 	}
 	if invoice.Status != ARStatusDraft {
 		return ErrInvalidStatus
@@ -242,6 +259,12 @@ func (s *Service) PostARInvoice(ctx context.Context, input PostARInvoiceInput) e
 		invoice.Status = ARStatusPosted
 		if err := s.accounting.CreateARPostingJournal(ctx, invoice); err != nil {
 			slog.Error("create AR posting journal", slog.Any("error", err), slog.Int64("invoice_id", input.InvoiceID))
+			return err
+		}
+	}
+	if s.tax != nil {
+		err = s.tax.RecordARInvoice(ctx, invoice.ID, input.PostedBy)
+		if err != nil {
 			return err
 		}
 	}
@@ -265,7 +288,13 @@ func (s *Service) VoidARInvoice(ctx context.Context, input VoidARInvoiceInput) e
 		return errors.New("void reason required")
 	}
 
-	return s.repo.VoidARInvoice(ctx, input.InvoiceID, input.VoidedBy, input.VoidReason)
+	if err = s.repo.VoidARInvoice(ctx, input.InvoiceID, input.VoidedBy, input.VoidReason); err != nil {
+		return err
+	}
+	if invoice.Status == ARStatusPosted && s.tax != nil {
+		return s.tax.CancelARInvoice(ctx, input.InvoiceID, input.VoidedBy, input.VoidReason)
+	}
+	return nil
 }
 
 // RegisterARPayment records a payment and allocates to invoice(s).

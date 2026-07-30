@@ -86,6 +86,9 @@ func (s *Service) PostAPDebitNote(ctx context.Context, input PostAPDebitNoteInpu
 		return err
 	}
 	if note.Status == APDebitNoteStatusPosted {
+		if s.tax != nil {
+			return s.tax.RecordAPDebitNote(ctx, note.ID, input.PostedBy)
+		}
 		return nil
 	}
 	if note.Status != APDebitNoteStatusDraft {
@@ -101,14 +104,19 @@ func (s *Service) PostAPDebitNote(ctx context.Context, input PostAPDebitNoteInpu
 	if err := s.repo.PostAPDebitNote(ctx, note.ID, invoice.ID, input.PostedBy, note.Total); err != nil {
 		return err
 	}
-	if s.integration == nil {
-		return nil
+	if s.integration != nil {
+		var grnID int64
+		if invoice.GRNID != nil {
+			grnID = *invoice.GRNID
+		}
+		if err = s.integration.HandleDebitNotePosted(ctx, procurement.DebitNotePostedEvent{ID: note.ID, Number: note.Number, SupplierID: note.SupplierID, APInvoiceID: invoice.ID, GRNID: grnID, Total: note.Total, Subtotal: note.Subtotal, TaxAmount: note.TaxAmount, PostedAt: time.Now()}); err != nil {
+			return err
+		}
 	}
-	var grnID int64
-	if invoice.GRNID != nil {
-		grnID = *invoice.GRNID
+	if s.tax != nil {
+		return s.tax.RecordAPDebitNote(ctx, note.ID, input.PostedBy)
 	}
-	return s.integration.HandleDebitNotePosted(ctx, procurement.DebitNotePostedEvent{ID: note.ID, Number: note.Number, SupplierID: note.SupplierID, APInvoiceID: invoice.ID, GRNID: grnID, Total: note.Total, Subtotal: note.Subtotal, TaxAmount: note.TaxAmount, PostedAt: time.Now()})
+	return nil
 }
 
 func (s *Service) VoidAPDebitNote(ctx context.Context, input VoidAPDebitNoteInput) error {
