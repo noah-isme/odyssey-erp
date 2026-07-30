@@ -154,7 +154,7 @@ func (h *Handler) lead(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "pages/crm/lead_detail.html", "CRM Lead", map[string]any{"Lead": lead, "Activities": activities, "Events": events})
 }
 func (h *Handler) qualify(w http.ResponseWriter, r *http.Request) {
-	value, _ := strconv.ParseInt(r.FormValue("expected_value"), 10, 64)
+	value, _ := strconv.ParseFloat(r.FormValue("expected_value"), 64)
 	opp, err := h.service.Qualify(r.Context(), h.scope(r), QualifyInput{LeadID: routeID(r), OpportunityName: r.FormValue("name"), ExpectedValue: value, CloseDate: parseDate(r.FormValue("close_date"))})
 	target := "/crm/leads/" + strconv.FormatInt(routeID(r), 10)
 	if err == nil {
@@ -178,8 +178,8 @@ func (h *Handler) move(w http.ResponseWriter, r *http.Request) {
 	h.redirect(w, r, "/crm/opportunities/"+strconv.FormatInt(routeID(r), 10), err, "Opportunity stage updated")
 }
 func (h *Handler) addActivity(w http.ResponseWriter, r *http.Request) {
-	leadID, oppID, contactID, owner := nullableID(r.FormValue("lead_id")), nullableID(r.FormValue("opportunity_id")), nullableID(r.FormValue("contact_id")), int64(0)
-	owner, _ = strconv.ParseInt(r.FormValue("owner_id"), 10, 64)
+	leadID, oppID, contactID := nullableID(r.FormValue("lead_id")), nullableID(r.FormValue("opportunity_id")), nullableID(r.FormValue("contact_id"))
+	owner, _ := strconv.ParseInt(r.FormValue("owner_id"), 10, 64)
 	_, err := h.service.AddActivity(r.Context(), h.scope(r), ActivityInput{OwnerID: owner, LeadID: leadID, OpportunityID: oppID, ContactID: contactID, Type: r.FormValue("type"), Subject: r.FormValue("subject"), Body: r.FormValue("body"), DueAt: parseTime(r.FormValue("due_at")), ReminderAt: parseTime(r.FormValue("reminder_at"))})
 	target := "/crm"
 	if oppID != nil {

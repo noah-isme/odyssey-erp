@@ -15,12 +15,23 @@ func TestDuplicateContactMapsUniqueViolation(t *testing.T) {
 }
 
 func TestVisibilityScopesOwnerUnlessTeamAccess(t *testing.T) {
-	where, args := visibility(Scope{CompanyID: 4, UserID: 9}, "owner_id")
-	if where != "company_id=$1 AND owner_id=$2" || len(args) != 2 {
+	where, args := visibility(Scope{CompanyID: 4, UserID: 9}, "o.company_id", "o.owner_id")
+	if where != "o.company_id=$1 AND o.owner_id=$2" || len(args) != 2 {
 		t.Fatalf("owned where=%q args=%v", where, args)
 	}
-	where, args = visibility(Scope{CompanyID: 4, UserID: 9, ViewAll: true}, "owner_id")
-	if where != "company_id=$1" || len(args) != 1 {
+	where, args = visibility(Scope{CompanyID: 4, UserID: 9, ViewAll: true}, "o.company_id", "o.owner_id")
+	if where != "o.company_id=$1" || len(args) != 1 {
 		t.Fatalf("team where=%q args=%v", where, args)
+	}
+}
+
+func TestCRMEntityAllowList(t *testing.T) {
+	for _, entity := range []string{"LEAD", "OPPORTUNITY", "ACTIVITY"} {
+		if !validEntity(entity) {
+			t.Fatalf("expected %s to be allowed", entity)
+		}
+	}
+	if validEntity("lead; DROP TABLE crm_events") {
+		t.Fatal("unexpected entity accepted")
 	}
 }

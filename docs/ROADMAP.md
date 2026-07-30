@@ -351,8 +351,11 @@ Sizing legend: S <2w · M 2–4w · L 1–2m · XL 2m+ (rough, single team).
 - ✅ Company/owner-scoped leads, distinct contacts, ordered opportunities,
   activity timeline, reassignment, reminders, and HR-manager escalation.
 - ✅ Won opportunities explicitly link/create customer master data and create
-  draft quotations through the existing pricing and lifecycle service.
+  draft quotations through the existing pricing and lifecycle service. A unique
+  opportunity reference makes quotation retries idempotent, and CRM links are
+  finalized atomically.
 - ✅ Pipeline board/list and win/loss analytics are available under `/crm`.
+- ✅ Opportunity values retain `NUMERIC(18,2)` precision end to end.
 
 ### P7 — Multi-Currency + Horizon
 - Exchange-rate table, rate lock per document, realized gain/loss on payment,

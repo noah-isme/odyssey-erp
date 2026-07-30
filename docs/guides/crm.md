@@ -35,6 +35,10 @@ scoped to the active company.
    remain authoritative.
 
 Repeated qualification and completed conversion return their existing links.
+CRM-created quotations carry a unique opportunity reference. Customer and
+quotation links are finalized in one CRM transaction, so a retry reuses the
+same quotation and cannot leave a customer-only partial CRM conversion.
+Expected opportunity values preserve the database's two-decimal precision.
 The win/loss dashboard summarizes visible opportunity counts, values, and loss
 reasons.
 

@@ -164,7 +164,7 @@ func (s *Service) Reassign(ctx context.Context, scope Scope, entity string, id, 
 }
 
 func (s *Service) Convert(ctx context.Context, scope Scope, in ConvertInput) (Conversion, error) {
-	if !validScope(scope) || in.OpportunityID <= 0 || s.customers == nil || s.quotations == nil {
+	if !validScope(scope) || in.OpportunityID <= 0 {
 		return Conversion{}, ErrInvalidInput
 	}
 	opp, err := s.store.Opportunity(ctx, scope, in.OpportunityID)
@@ -177,12 +177,15 @@ func (s *Service) Convert(ctx context.Context, scope Scope, in ConvertInput) (Co
 	if opp.CustomerID != nil && opp.QuotationID != nil {
 		return Conversion{CustomerID: *opp.CustomerID, QuotationID: *opp.QuotationID, Existing: true}, nil
 	}
+	if opp.CustomerID != nil && len(in.Lines) == 0 {
+		return Conversion{CustomerID: *opp.CustomerID, Existing: true}, nil
+	}
 	customerID := in.ExistingCustomerID
 	if opp.CustomerID != nil {
 		customerID = *opp.CustomerID
 	}
-	if customerID == 0 && opp.ContactID != nil {
-		lead, leadErr := s.store.Lead(ctx, scope, valueOrZero(opp.LeadID))
+	if customerID == 0 && opp.ContactID != nil && opp.LeadID != nil {
+		lead, leadErr := s.store.Lead(ctx, scope, *opp.LeadID)
 		if leadErr == nil && lead.Email != "" {
 			customerID, err = s.store.CustomerByEmail(ctx, scope.CompanyID, lead.Email)
 			if err != nil && !errors.Is(err, ErrNotFound) {
@@ -190,14 +193,20 @@ func (s *Service) Convert(ctx context.Context, scope Scope, in ConvertInput) (Co
 			}
 		}
 	}
-	if customerID != 0 {
+	if customerID != 0 && opp.CustomerID == nil {
+		if s.customers == nil {
+			return Conversion{}, ErrInvalidInput
+		}
 		customer, lookupErr := s.customers.Get(ctx, customerID)
 		if lookupErr != nil || customer.CompanyID != scope.CompanyID {
 			return Conversion{}, ErrInvalidInput
 		}
 	}
 	if customerID == 0 {
-		lead, leadErr := s.store.Lead(ctx, scope, valueOrZero(opp.LeadID))
+		if s.customers == nil || opp.LeadID == nil {
+			return Conversion{}, ErrInvalidInput
+		}
+		lead, leadErr := s.store.Lead(ctx, scope, *opp.LeadID)
 		if leadErr != nil {
 			return Conversion{}, leadErr
 		}
@@ -227,14 +236,20 @@ func (s *Service) Convert(ctx context.Context, scope Scope, in ConvertInput) (Co
 			return Conversion{}, getErr
 		}
 	}
-	if err = s.store.LinkCustomer(ctx, scope, opp.ID, customerID, scope.UserID); err != nil {
-		return Conversion{}, err
-	}
 	if opp.QuotationID != nil {
+		if err = s.store.LinkConversion(ctx, scope, opp.ID, customerID, *opp.QuotationID, scope.UserID); err != nil {
+			return Conversion{}, err
+		}
 		return Conversion{CustomerID: customerID, QuotationID: *opp.QuotationID, Existing: true}, nil
 	}
 	if len(in.Lines) == 0 {
+		if err = s.store.LinkConversion(ctx, scope, opp.ID, customerID, 0, scope.UserID); err != nil {
+			return Conversion{}, err
+		}
 		return Conversion{CustomerID: customerID}, nil
+	}
+	if s.quotations == nil {
+		return Conversion{}, ErrInvalidInput
 	}
 	quoteDate := in.QuoteDate
 	if quoteDate.IsZero() {
@@ -249,20 +264,14 @@ func (s *Service) Convert(ctx context.Context, scope Scope, in ConvertInput) (Co
 		currency = "IDR"
 	}
 	note := fmt.Sprintf("CRM opportunity #%d", opp.ID)
-	quote, err := s.quotations.Create(ctx, quotations.CreateQuotationRequest{CompanyID: scope.CompanyID, CustomerID: customerID, QuoteDate: quoteDate, ValidUntil: validUntil, Currency: currency, Notes: &note, Lines: in.Lines}, scope.UserID)
+	quote, err := s.quotations.Create(ctx, quotations.CreateQuotationRequest{CompanyID: scope.CompanyID, CustomerID: customerID, CRMOpportunityID: &opp.ID, QuoteDate: quoteDate, ValidUntil: validUntil, Currency: currency, Notes: &note, Lines: in.Lines}, scope.UserID)
 	if err != nil {
 		return Conversion{CustomerID: customerID}, err
 	}
-	if err = s.store.LinkQuotation(ctx, scope, opp.ID, quote.ID, scope.UserID); err != nil {
+	if err = s.store.LinkConversion(ctx, scope, opp.ID, customerID, quote.ID, scope.UserID); err != nil {
 		return Conversion{CustomerID: customerID}, err
 	}
 	return Conversion{CustomerID: customerID, QuotationID: quote.ID}, nil
-}
-func valueOrZero(v *int64) int64 {
-	if v == nil {
-		return 0
-	}
-	return *v
 }
 func stringPtr(v string) *string {
 	if strings.TrimSpace(v) == "" {

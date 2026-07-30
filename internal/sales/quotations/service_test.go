@@ -41,6 +41,15 @@ func (m *memoryRepo) GetByDocNumber(ctx context.Context, docNumber string) (*Quo
 	return nil, ErrNotFound
 }
 
+func (m *memoryRepo) GetByCRMOpportunity(_ context.Context, opportunityID int64) (*Quotation, error) {
+	for _, q := range m.quotations {
+		if q.CRMOpportunityID != nil && *q.CRMOpportunityID == opportunityID {
+			return q, nil
+		}
+	}
+	return nil, ErrNotFound
+}
+
 func (m *memoryRepo) List(ctx context.Context, req ListQuotationsRequest) ([]QuotationWithDetails, int, error) {
 	return nil, 0, nil
 }
@@ -108,6 +117,23 @@ func TestCreateQuotation(t *testing.T) {
 	require.NotNil(t, qt)
 	require.Equal(t, "QT-001", qt.DocNumber)
 	require.Equal(t, QuotationStatusDraft, qt.Status)
+}
+
+func TestCreateQuotationByCRMOpportunityIsIdempotent(t *testing.T) {
+	repo := newMemoryRepo()
+	svc := NewService(repo, &mockCustomerRepo{})
+	opportunityID := int64(42)
+	req := CreateQuotationRequest{
+		CompanyID: 1, CustomerID: 1, CRMOpportunityID: &opportunityID,
+		QuoteDate: time.Now(), ValidUntil: time.Now().AddDate(0, 1, 0),
+		Lines: []CreateQuotationLineReq{{ProductID: 1, Quantity: 1, UnitPrice: 100, UOM: "PCS"}},
+	}
+	first, err := svc.Create(context.Background(), req, 1)
+	require.NoError(t, err)
+	second, err := svc.Create(context.Background(), req, 1)
+	require.NoError(t, err)
+	require.Equal(t, first.ID, second.ID)
+	require.Len(t, repo.quotations, 1)
 }
 
 func TestSubmitQuotation(t *testing.T) {

@@ -22,6 +22,7 @@ type Repository interface {
 	WithTx(ctx context.Context, fn func(context.Context, Repository) error) error
 	Get(ctx context.Context, id int64) (*Quotation, error)
 	GetByDocNumber(ctx context.Context, docNumber string) (*Quotation, error)
+	GetByCRMOpportunity(ctx context.Context, opportunityID int64) (*Quotation, error)
 	List(ctx context.Context, req ListQuotationsRequest) ([]QuotationWithDetails, int, error)
 	Create(ctx context.Context, quotation Quotation) (int64, error)
 	Update(ctx context.Context, id int64, updates map[string]interface{}) error
@@ -95,6 +96,18 @@ func (r *repository) GetByDocNumber(ctx context.Context, docNumber string) (*Quo
 	}
 	q.Lines = mapLinesFromSqlc(lineRows)
 	return &q, nil
+}
+
+func (r *repository) GetByCRMOpportunity(ctx context.Context, opportunityID int64) (*Quotation, error) {
+	var id int64
+	err := r.db.QueryRow(ctx, `SELECT id FROM quotations WHERE crm_opportunity_id=$1`, opportunityID).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return r.Get(ctx, id)
 }
 
 func (r *repository) List(ctx context.Context, req ListQuotationsRequest) ([]QuotationWithDetails, int, error) {
@@ -264,20 +277,10 @@ func (r *repository) Create(ctx context.Context, q Quotation) (int64, error) {
 	taxAmount = numericOf(q.TaxAmount)
 	totalAmount = numericOf(q.TotalAmount)
 
-	return r.queries.CreateQuotation(ctx, sqlc.CreateQuotationParams{
-		DocNumber:   q.DocNumber,
-		CompanyID:   q.CompanyID,
-		CustomerID:  q.CustomerID,
-		QuoteDate:   quoteDate,
-		ValidUntil:  validUntil,
-		Status:      sqlc.QuotationStatus(q.Status),
-		Currency:    q.Currency,
-		Subtotal:    subtotal,
-		TaxAmount:   taxAmount,
-		TotalAmount: totalAmount,
-		Notes:       pgtype.Text{String: getString(q.Notes), Valid: q.Notes != nil},
-		CreatedBy:   q.CreatedBy,
-	})
+	var id int64
+	err := r.db.QueryRow(ctx, `INSERT INTO quotations(doc_number,company_id,customer_id,quote_date,valid_until,status,currency,subtotal,tax_amount,total_amount,notes,created_by,crm_opportunity_id)
+		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id`, q.DocNumber, q.CompanyID, q.CustomerID, quoteDate, validUntil, q.Status, q.Currency, subtotal, taxAmount, totalAmount, pgtype.Text{String: getString(q.Notes), Valid: q.Notes != nil}, q.CreatedBy, q.CRMOpportunityID).Scan(&id)
+	return id, err
 }
 
 func (r *repository) Update(ctx context.Context, id int64, updates map[string]interface{}) error {

@@ -58,6 +58,10 @@
 
 ### Changed
 
+- Hardened CRM review findings: preserve two-decimal opportunity values, make
+  lead/event and conversion linking transactional, deduplicate CRM quotations
+  by opportunity, validate dynamic entities/stages, and guard optional gateway
+  and lead/email lookups.
 - Hardened payroll review findings with deterministic regular-run source IDs,
   non-overlapping effective rules, repeatable-read calculations, rejection-note
   audit records, concealed payslip lookup failures, and durable outbox retries.

@@ -46,9 +46,12 @@ func TestRepositoryCRMWorkflow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	opp, err := repo.Qualify(ctx, owner, QualifyInput{LeadID: lead.ID, ActorID: ownerID, ExpectedValue: 1500000})
+	opp, err := repo.Qualify(ctx, owner, QualifyInput{LeadID: lead.ID, ActorID: ownerID, ExpectedValue: 1500000.25})
 	if err != nil {
 		t.Fatal(err)
+	}
+	if opp.ExpectedValue != 1500000.25 {
+		t.Fatalf("expected value lost precision: %v", opp.ExpectedValue)
 	}
 	duplicate, err := repo.CreateLead(ctx, CreateLeadInput{CompanyID: companyID, OwnerID: ownerID, CreatedBy: ownerID, Name: "Ayu duplicate", Email: "ayu@example.test", Source: "OTHER"})
 	if err != nil {
@@ -70,6 +73,23 @@ func TestRepositoryCRMWorkflow(t *testing.T) {
 	}
 	if _, err = repo.Move(ctx, owner, opp.ID, stages[1], "", ownerID); err != nil {
 		t.Fatal(err)
+	}
+	if _, err = repo.Move(ctx, owner, opp.ID, stages[4], "won", ownerID); err != nil {
+		t.Fatal(err)
+	}
+	var customerID, quotationID int64
+	if err = pool.QueryRow(ctx, `INSERT INTO customers(code,name,company_id,created_by) VALUES($1,'CRM customer',$2,$3) RETURNING id`, fmt.Sprintf("CRM-%d", suffix), companyID, ownerID).Scan(&customerID); err != nil {
+		t.Fatal(err)
+	}
+	if err = pool.QueryRow(ctx, `INSERT INTO quotations(doc_number,company_id,customer_id,quote_date,valid_until,created_by,crm_opportunity_id) VALUES($1,$2,$3,CURRENT_DATE,CURRENT_DATE,$4,$5) RETURNING id`, fmt.Sprintf("CRM-Q-%d", suffix), companyID, customerID, ownerID, opp.ID).Scan(&quotationID); err != nil {
+		t.Fatal(err)
+	}
+	if err = repo.LinkConversion(ctx, owner, opp.ID, customerID, quotationID, ownerID); err != nil {
+		t.Fatal(err)
+	}
+	converted, err := repo.Opportunity(ctx, owner, opp.ID)
+	if err != nil || converted.CustomerID == nil || *converted.CustomerID != customerID || converted.QuotationID == nil || *converted.QuotationID != quotationID {
+		t.Fatalf("converted=%+v err=%v", converted, err)
 	}
 	manager := Scope{CompanyID: companyID, UserID: managerID, ViewAll: true}
 	if err = repo.Reassign(ctx, manager, "OPPORTUNITY", opp.ID, managerID, managerID); err != nil {

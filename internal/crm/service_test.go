@@ -83,17 +83,14 @@ func (f *storeFake) MarkReminder(_ context.Context, _ int64, escalated bool, _ t
 func (f *storeFake) CustomerByEmail(context.Context, int64, string) (int64, error) {
 	return 0, ErrNotFound
 }
-func (f *storeFake) LinkCustomer(_ context.Context, _ Scope, id, customerID, _ int64) error {
+func (f *storeFake) LinkConversion(_ context.Context, _ Scope, id, customerID, quotationID, _ int64) error {
 	x := f.opportunities[id]
 	x.CustomerID = &customerID
+	if quotationID != 0 {
+		x.QuotationID = &quotationID
+	}
 	f.opportunities[id] = x
 	f.linkedCustomer = customerID
-	return nil
-}
-func (f *storeFake) LinkQuotation(_ context.Context, _ Scope, id, quotationID, _ int64) error {
-	x := f.opportunities[id]
-	x.QuotationID = &quotationID
-	f.opportunities[id] = x
 	f.linkedQuotation = quotationID
 	return nil
 }
@@ -132,6 +129,9 @@ type quotationFake struct{ creates int }
 func (f *quotationFake) Create(_ context.Context, in quotations.CreateQuotationRequest, _ int64) (*quotations.Quotation, error) {
 	f.creates++
 	return &quotations.Quotation{ID: 77, CompanyID: in.CompanyID, CustomerID: in.CustomerID, Lines: make([]quotations.QuotationLine, len(in.Lines))}, nil
+}
+func (f *quotationFake) GetByCRMOpportunity(context.Context, int64) (*quotations.Quotation, error) {
+	return nil, quotations.ErrNotFound
 }
 
 type notifierFake struct{ reminders []bool }
@@ -192,6 +192,27 @@ func TestWonConversionIsIdempotentAndLinksQuotation(t *testing.T) {
 	}
 	if customersFake.creates != 1 || quotes.creates != 1 || first.CustomerID != 99 || first.QuotationID != 77 || !second.Existing || f.linkedQuotation != 77 {
 		t.Fatalf("first=%+v second=%+v customer creates=%d quote creates=%d", first, second, customersFake.creates, quotes.creates)
+	}
+}
+
+func TestWonCustomerOnlyConversionDoesNotRequireQuotationGateway(t *testing.T) {
+	f := newStoreFake()
+	leadID, customerID := int64(4), int64(99)
+	f.leads[leadID] = Lead{ID: leadID, CompanyID: 1, OwnerID: 2, Name: "Ayu"}
+	f.opportunities[8] = Opportunity{ID: 8, CompanyID: 1, OwnerID: 2, LeadID: &leadID, CustomerID: &customerID, Status: "WON"}
+
+	got, err := NewService(f, nil, nil, nil).Convert(context.Background(), Scope{CompanyID: 1, UserID: 2}, ConvertInput{OpportunityID: 8})
+	if err != nil || got.CustomerID != customerID || got.QuotationID != 0 || !got.Existing {
+		t.Fatalf("conversion=%+v err=%v", got, err)
+	}
+}
+
+func TestWonConversionWithoutLeadCannotCreateCustomer(t *testing.T) {
+	f := newStoreFake()
+	f.opportunities[8] = Opportunity{ID: 8, CompanyID: 1, OwnerID: 2, Status: "WON"}
+	_, err := NewService(f, &customerFake{items: map[int64]*customers.Customer{}, byCode: map[string]*customers.Customer{}}, nil, nil).Convert(context.Background(), Scope{CompanyID: 1, UserID: 2}, ConvertInput{OpportunityID: 8})
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("err=%v", err)
 	}
 }
 

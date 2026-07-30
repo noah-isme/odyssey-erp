@@ -37,7 +37,7 @@ type Opportunity struct {
 	ID, CompanyID, OwnerID, StageID, CreatedBy int64
 	LeadID, ContactID, CustomerID, QuotationID *int64
 	Name, Source, Status, Reason               string
-	ExpectedValue                              int64
+	ExpectedValue                              float64
 	CloseDate                                  *time.Time
 	StageName                                  string
 	CreatedAt, UpdatedAt                       time.Time
@@ -63,12 +63,13 @@ type Pipeline struct {
 }
 type WinLoss struct {
 	WonCount, LostCount int64
-	WonValue, LostValue int64
+	WonValue, LostValue float64
 	Reasons             []ReasonTotal
 }
 type ReasonTotal struct {
-	Reason       string
-	Count, Value int64
+	Reason string
+	Count  int64
+	Value  float64
 }
 
 type CreateLeadInput struct {
@@ -78,7 +79,7 @@ type CreateLeadInput struct {
 type QualifyInput struct {
 	LeadID, ActorID int64
 	OpportunityName string
-	ExpectedValue   int64
+	ExpectedValue   float64
 	CloseDate       *time.Time
 }
 type ActivityInput struct {
@@ -114,8 +115,7 @@ type Store interface {
 	DueActivities(context.Context, time.Time, int) ([]Activity, error)
 	MarkReminder(context.Context, int64, bool, time.Time) error
 	CustomerByEmail(context.Context, int64, string) (int64, error)
-	LinkCustomer(context.Context, Scope, int64, int64, int64) error
-	LinkQuotation(context.Context, Scope, int64, int64, int64) error
+	LinkConversion(context.Context, Scope, int64, int64, int64, int64) error
 	WinLoss(context.Context, Scope) (WinLoss, error)
 }
 
@@ -126,6 +126,7 @@ type CustomerGateway interface {
 }
 type QuotationGateway interface {
 	Create(context.Context, quotations.CreateQuotationRequest, int64) (*quotations.Quotation, error)
+	GetByCRMOpportunity(context.Context, int64) (*quotations.Quotation, error)
 }
 type Notifier interface {
 	Reminder(context.Context, Activity, bool) error

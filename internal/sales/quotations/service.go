@@ -26,6 +26,15 @@ func NewService(repo Repository, customerRepo customers.Repository) *Service {
 }
 
 func (s *Service) Create(ctx context.Context, req CreateQuotationRequest, createdBy int64) (*Quotation, error) {
+	if req.CRMOpportunityID != nil {
+		existing, err := s.repo.GetByCRMOpportunity(ctx, *req.CRMOpportunityID)
+		if err == nil {
+			return existing, nil
+		}
+		if !errors.Is(err, ErrNotFound) {
+			return nil, fmt.Errorf("find CRM quotation: %w", err)
+		}
+	}
 	if req.ValidUntil.Before(req.QuoteDate) {
 		return nil, errors.New("valid_until must be after quote_date")
 	}
@@ -54,18 +63,19 @@ func (s *Service) Create(ctx context.Context, req CreateQuotationRequest, create
 	}
 
 	quotation := Quotation{
-		DocNumber:   docNumber,
-		CompanyID:   req.CompanyID,
-		CustomerID:  req.CustomerID,
-		QuoteDate:   req.QuoteDate,
-		ValidUntil:  req.ValidUntil,
-		Status:      QuotationStatusDraft,
-		Currency:    req.Currency,
-		Subtotal:    subtotal,
-		TaxAmount:   taxAmount,
-		TotalAmount: totalAmount,
-		Notes:       req.Notes,
-		CreatedBy:   createdBy,
+		DocNumber:        docNumber,
+		CompanyID:        req.CompanyID,
+		CustomerID:       req.CustomerID,
+		QuoteDate:        req.QuoteDate,
+		ValidUntil:       req.ValidUntil,
+		Status:           QuotationStatusDraft,
+		Currency:         req.Currency,
+		Subtotal:         subtotal,
+		TaxAmount:        taxAmount,
+		TotalAmount:      totalAmount,
+		Notes:            req.Notes,
+		CreatedBy:        createdBy,
+		CRMOpportunityID: req.CRMOpportunityID,
 	}
 
 	var quotationID int64
@@ -112,10 +122,19 @@ func (s *Service) Create(ctx context.Context, req CreateQuotationRequest, create
 		return nil
 	})
 	if err != nil {
+		if req.CRMOpportunityID != nil {
+			if existing, lookupErr := s.repo.GetByCRMOpportunity(ctx, *req.CRMOpportunityID); lookupErr == nil {
+				return existing, nil
+			}
+		}
 		return nil, err
 	}
 
 	return s.repo.Get(ctx, quotationID)
+}
+
+func (s *Service) GetByCRMOpportunity(ctx context.Context, opportunityID int64) (*Quotation, error) {
+	return s.repo.GetByCRMOpportunity(ctx, opportunityID)
 }
 
 func (s *Service) Update(ctx context.Context, id int64, req UpdateQuotationRequest) (*Quotation, error) {

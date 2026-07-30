@@ -3,13 +3,14 @@ package quotations
 import "time"
 
 type CreateQuotationRequest struct {
-	CompanyID  int64                    `json:"company_id" validate:"required,gt=0"`
-	CustomerID int64                    `json:"customer_id" validate:"required,gt=0"`
-	QuoteDate  time.Time                `json:"quote_date" validate:"required"`
-	ValidUntil time.Time                `json:"valid_until" validate:"required"`
-	Currency   string                   `json:"currency" validate:"required,len=3"`
-	Notes      *string                  `json:"notes,omitempty"`
-	Lines      []CreateQuotationLineReq `json:"lines" validate:"required,min=1,dive"`
+	CompanyID        int64                    `json:"company_id" validate:"required,gt=0"`
+	CustomerID       int64                    `json:"customer_id" validate:"required,gt=0"`
+	CRMOpportunityID *int64                   `json:"crm_opportunity_id,omitempty"`
+	QuoteDate        time.Time                `json:"quote_date" validate:"required"`
+	ValidUntil       time.Time                `json:"valid_until" validate:"required"`
+	Currency         string                   `json:"currency" validate:"required,len=3"`
+	Notes            *string                  `json:"notes,omitempty"`
+	Lines            []CreateQuotationLineReq `json:"lines" validate:"required,min=1,dive"`
 }
 
 type CreateQuotationLineReq struct {
