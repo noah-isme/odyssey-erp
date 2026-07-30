@@ -69,6 +69,10 @@ the current official XSD/converter and complete a Coretax staging/portal import.
 Record the reviewed official artifact and checksum only after that validation.
 Production export remains blocked when no reviewed schema is active.
 
+Tax staff must complete and retain the
+[Coretax schema validation and release sign-off](tax-staff-coretax-validation.md)
+before activating each schema version for production filing.
+
 ## Permissions
 
 - `tax.view`: documents and recap.
@@ -76,4 +80,3 @@ Production export remains blocked when no reviewed schema is active.
 - `tax.period.lock`: close a reconciled tax period.
 - `tax.document.correct`: cancellation and replacement events.
 - `tax.report.export`: generate and download authority exports.
-
