@@ -22,7 +22,41 @@ const (
 	TaskVarianceSnapshotProcess = "variance:snapshot_process"
 	// TaskBoardPackGenerate triggers board pack generation.
 	TaskBoardPackGenerate = "boardpack:generate"
+	// TaskPayrollPayslipEmail renders and emails a posted payslip.
+	TaskPayrollPayslipEmail = "payroll:payslip_email"
 )
+
+type PayrollPayslipPayload struct {
+	PayslipID int64 `json:"payslip_id"`
+}
+
+func NewPayrollPayslipTask(payslipID int64) (*asynq.Task, error) {
+	if payslipID <= 0 {
+		return nil, fmt.Errorf("jobs: payslip id required")
+	}
+	body, err := json.Marshal(PayrollPayslipPayload{PayslipID: payslipID})
+	if err != nil {
+		return nil, err
+	}
+	return asynq.NewTask(TaskPayrollPayslipEmail, body), nil
+}
+
+type PayslipEmailer interface {
+	DeliverPayslip(context.Context, int64) error
+}
+
+func HandlePayrollPayslipEmail(sender PayslipEmailer) asynq.HandlerFunc {
+	return func(ctx context.Context, task *asynq.Task) error {
+		if sender == nil {
+			return fmt.Errorf("payslip sender not configured: %w", asynq.SkipRetry)
+		}
+		var payload PayrollPayslipPayload
+		if err := json.Unmarshal(task.Payload(), &payload); err != nil || payload.PayslipID <= 0 {
+			return fmt.Errorf("invalid payslip task: %w", asynq.SkipRetry)
+		}
+		return sender.DeliverPayslip(ctx, payload.PayslipID)
+	}
+}
 
 // SendEmailPayload describes the information required to send an email.
 type SendEmailPayload struct {

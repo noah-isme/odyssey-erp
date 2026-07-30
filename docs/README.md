@@ -39,6 +39,7 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 | [Runbook Preferensi Pengguna](guides/runbook-user-preferences.md) | Deployment dan troubleshooting pengaturan UI |
 | [Notifications & Email](guides/notifications.md) | Arsitektur, API, SMTP, deployment, dan troubleshooting notifikasi |
 | [Approvals & HR Core](guides/approvals-hr-core.md) | Policy routing, delegation, leave workflow, dan attendance CSV |
+| [Payroll Engine](guides/payroll.md) | Versioned TER/PTKP/BPJS rules, payroll approval, posting, payment export, dan payslips |
 
 ## 📚 Reference
 

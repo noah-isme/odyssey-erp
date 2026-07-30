@@ -38,6 +38,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata"
 	"github.com/odyssey-erp/odyssey-erp/internal/notifications"
 	"github.com/odyssey-erp/odyssey-erp/internal/observability"
+	"github.com/odyssey-erp/odyssey-erp/internal/payroll"
 	"github.com/odyssey-erp/odyssey-erp/internal/procurement"
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
 	"github.com/odyssey-erp/odyssey-erp/internal/roles"
@@ -94,6 +95,7 @@ type RouterParams struct {
 	HREmployeesHandler     *hremployees.Handler
 	HRLeaveHandler         *hrleave.Handler
 	HRAttendanceHandler    *hrattendance.Handler
+	PayrollHandler         *payroll.Handler
 }
 
 type workspaceUser struct {
@@ -435,6 +437,9 @@ func NewRouter(params RouterParams) http.Handler {
 	}
 	if params.HRAttendanceHandler != nil {
 		r.Route("/hr/attendance", params.HRAttendanceHandler.MountRoutes)
+	}
+	if params.PayrollHandler != nil {
+		r.Route("/payroll", params.PayrollHandler.MountRoutes)
 	}
 	if params.AccountingHandler != nil {
 		r.Route("/accounting", func(r chi.Router) {

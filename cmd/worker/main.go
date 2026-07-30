@@ -18,6 +18,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/consol"
 	"github.com/odyssey-erp/odyssey-erp/internal/fixedassets"
 	"github.com/odyssey-erp/odyssey-erp/internal/notifications"
+	"github.com/odyssey-erp/odyssey-erp/internal/payroll"
 	"github.com/odyssey-erp/odyssey-erp/internal/platform/cache"
 	"github.com/odyssey-erp/odyssey-erp/internal/platform/db"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
@@ -107,6 +108,8 @@ func main() {
 	boardpackService := boardpack.NewService(boardpackRepo)
 	boardpackBuilder := boardpack.NewBuilder(boardpackRepo, varianceService, analyticsService)
 	pdfClient := report.NewClient(cfg.GotenbergURL)
+	payrollRepo := payroll.NewRepository(pool)
+	payslipProcessor := payroll.NewPayslipProcessor(payrollRepo, pdfClient, mailClient)
 	boardpackRenderer, err := boardpack.NewRenderer(pdfClient)
 	if err != nil {
 		logger.Error("init board pack renderer", slog.Any("error", err))
@@ -175,6 +178,7 @@ func main() {
 			{Type: jobs.TypeOverdueInvoicesScan, Handler: jobs.HandleOverdueInvoicesScanTask(logger, pool, asynqClient)},
 			{Type: jobs.TypeReportScheduleScan, Handler: jobs.HandleReportScheduleScanTask(logger, pool, asynqClient)},
 			{Type: jobs.TaskFixedAssetDepreciation, Handler: jobs.HandleFixedAssetDepreciation(fixedAssetService)},
+			{Type: jobs.TaskPayrollPayslipEmail, Handler: jobs.HandlePayrollPayslipEmail(payslipProcessor)},
 		},
 		Cron: []jobs.CronRegistration{
 			{Spec: "15 1 * * *", Task: warmupTask, Options: []asynq.Option{asynq.MaxRetry(3)}},

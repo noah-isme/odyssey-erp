@@ -56,6 +56,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata"
 	"github.com/odyssey-erp/odyssey-erp/internal/notifications"
 	"github.com/odyssey-erp/odyssey-erp/internal/observability"
+	"github.com/odyssey-erp/odyssey-erp/internal/payroll"
 	"github.com/odyssey-erp/odyssey-erp/internal/procurement"
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
 	"github.com/odyssey-erp/odyssey-erp/internal/roles"
@@ -81,6 +82,20 @@ func (barRenderer) Bars(width, height int, seriesA, seriesB []float64, labels []
 }
 
 type notificationEmailQueue struct{ client *jobs.Client }
+
+type payrollDeliveryQueue struct{ client *jobs.Client }
+
+func (q payrollDeliveryQueue) EnqueuePayslip(ctx context.Context, line payroll.RunLine) error {
+	task, err := jobs.NewPayrollPayslipTask(line.PayslipID)
+	if err != nil {
+		return err
+	}
+	_, err = q.client.AsynqClient().EnqueueContext(ctx, task, asynq.Queue(jobs.QueueDefault), asynq.MaxRetry(5), asynq.TaskID(fmt.Sprintf("payroll-payslip-%d", line.PayslipID)))
+	if errors.Is(err, asynq.ErrTaskIDConflict) {
+		return nil
+	}
+	return err
+}
 
 func (q notificationEmailQueue) EnqueueEmail(ctx context.Context, email notifications.Email) error {
 	_, err := q.client.EnqueueSendEmail(ctx, jobs.SendEmailPayload{To: email.To, Subject: email.Subject, Body: email.Body, CorrelationID: email.CorrelationID})
@@ -258,6 +273,9 @@ func main() {
 	hrLeaveHandler := hrleave.NewHandler(logger, hrLeaveService, templates, csrfManager, rbacMiddleware)
 	hrAttendanceService := hrattendance.NewService(dbpool)
 	hrAttendanceHandler := hrattendance.NewHandler(logger, hrAttendanceService, templates, csrfManager, rbacMiddleware)
+	payrollRepo := payroll.NewRepository(dbpool)
+	payrollService := payroll.NewService(payrollRepo, approvalService, journalService, payrollDeliveryQueue{client: jobClient})
+	approvalService.RegisterFinalizer("PAYROLL", payrollService)
 
 	arRepo := ar.NewRepository(dbpool)
 	arService := ar.NewService(arRepo)
@@ -316,6 +334,8 @@ func main() {
 	masterdataHandler := masterdata.NewHandler(logger, dbpool, templates, csrfManager, sessionManager, rbacMiddleware)
 
 	reportClient := report.NewClient(cfg.GotenbergURL)
+	payrollProcessor := payroll.NewPayslipProcessor(payrollRepo, reportClient, nil)
+	payrollHandler := payroll.NewHandler(logger, payrollService, payrollProcessor, templates, csrfManager, rbacMiddleware)
 	reportHandler := report.NewHandler(reportClient, logger)
 	creditNotePDF, err := ar.NewCreditNotePDFRenderer(reportClient)
 	if err != nil {
@@ -430,6 +450,7 @@ func main() {
 		HREmployeesHandler:     hrEmployeesHandler,
 		HRLeaveHandler:         hrLeaveHandler,
 		HRAttendanceHandler:    hrAttendanceHandler,
+		PayrollHandler:         payrollHandler,
 	})
 
 	// Route dump mode: print the real routing table and exit without serving.

@@ -36,6 +36,13 @@ func TestSendEmailTaskCarriesNotificationCorrelationID(t *testing.T) {
 	require.Contains(t, string(task.Payload()), `"correlation_id":"notification-email-42"`)
 }
 
+func TestNewPayrollPayslipTask(t *testing.T) {
+	task, err := NewPayrollPayslipTask(77)
+	require.NoError(t, err)
+	require.Equal(t, TaskPayrollPayslipEmail, task.Type())
+	require.JSONEq(t, `{"payslip_id":77}`, string(task.Payload()))
+}
+
 func TestHandleSendEmailTaskRejectsMalformedPayload(t *testing.T) {
 	err := HandleSendEmailTask(&mailFake{})(context.Background(), asynq.NewTask(TaskTypeSendEmail, []byte("{")))
 	require.ErrorIs(t, err, asynq.SkipRetry)

@@ -4,6 +4,13 @@
 
 ### Added
 
+- Versioned Indonesian payroll engine with effective-dated TER/PTKP/BPJS rules,
+  company policies, compensation/components, overtime, THR, adjustments, and
+  immutable approved posting runs.
+- Payroll approval integration, balanced department/cost-center journals,
+  idempotent source IDs, bank-transfer CSV batches, restricted Gotenberg
+  payslips, and retry-safe email delivery.
+
 - Configurable approval policies with company/amount resolution, ordered steps,
   assignments, decisions, delegation, escalation notifications, and a My
   Approvals inbox.
