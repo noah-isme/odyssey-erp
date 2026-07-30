@@ -32,6 +32,10 @@ const (
 	PermDeliveryOrderComplete = "delivery.order.complete"
 	PermDeliveryOrderCancel   = "delivery.order.cancel"
 	PermDeliveryOrderPrint    = "delivery.order.print"
+	PermDeliveryReturnView    = "delivery.return.view"
+	PermDeliveryReturnCreate  = "delivery.return.create"
+	PermDeliveryReturnPost    = "delivery.return.post"
+	PermDeliveryReturnVoid    = "delivery.return.void"
 )
 
 // SalesScopes lists all permissions related to the sales module.
@@ -66,6 +70,10 @@ func DeliveryScopes() []string {
 		PermDeliveryOrderComplete,
 		PermDeliveryOrderCancel,
 		PermDeliveryOrderPrint,
+		PermDeliveryReturnView,
+		PermDeliveryReturnCreate,
+		PermDeliveryReturnPost,
+		PermDeliveryReturnVoid,
 	}
 }
 

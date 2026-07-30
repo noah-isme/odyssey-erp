@@ -23,6 +23,7 @@ type InventoryItem struct {
 // InventoryClient provides inventory operations.
 type InventoryClient interface {
 	Reduce(ctx context.Context, items []InventoryItem) error
+	Restock(ctx context.Context, items []InventoryItem) error
 	CheckAvailability(ctx context.Context, warehouseID, productID int64) (float64, error)
 }
 
@@ -474,4 +475,242 @@ func (s *Service) GetDeliverableSOLines(ctx context.Context, salesOrderID int64)
 	}
 
 	return s.repo.GetDeliverableSOLines(ctx, salesOrderID)
+}
+
+// CreateReturnDeliveryOrder creates a new return delivery order from an original DO.
+func (s *Service) CreateReturnDeliveryOrder(ctx context.Context, req CreateReturnRequest, createdBy int64) (*ReturnDeliveryOrder, error) {
+	original, err := s.repo.GetByID(ctx, req.OriginalDeliveryOrderID)
+	if err != nil {
+		return nil, fmt.Errorf("get original delivery order: %w", err)
+	}
+
+	if original.Status != StatusDelivered {
+		return nil, fmt.Errorf("original delivery order must be delivered")
+	}
+	if req.CompanyID != original.CompanyID {
+		return nil, fmt.Errorf("original delivery order belongs to another company")
+	}
+
+	if len(req.Lines) == 0 {
+		return nil, fmt.Errorf("at least one return line required")
+	}
+
+	originalLineMap := make(map[int64]*Line)
+	for i := range original.Lines {
+		originalLineMap[original.Lines[i].ID] = &original.Lines[i]
+	}
+
+	for _, lineReq := range req.Lines {
+		originalLine, ok := originalLineMap[lineReq.DeliveryOrderLineID]
+		if !ok {
+			return nil, fmt.Errorf("delivery order line %d not found", lineReq.DeliveryOrderLineID)
+		}
+		if lineReq.ProductID != originalLine.ProductID {
+			return nil, fmt.Errorf("product mismatch on line %d", lineReq.DeliveryOrderLineID)
+		}
+		if lineReq.QuantityReturned <= 0 {
+			return nil, fmt.Errorf("quantity returned must be positive")
+		}
+		if lineReq.QuantityReturned > originalLine.QuantityDelivered {
+			return nil, fmt.Errorf("quantity returned exceeds delivered quantity")
+		}
+		returnedQuantity, err := s.repo.GetReturnedQuantity(ctx, lineReq.DeliveryOrderLineID)
+		if err != nil {
+			return nil, fmt.Errorf("get returned quantity: %w", err)
+		}
+		if returnedQuantity+lineReq.QuantityReturned > originalLine.QuantityDelivered {
+			return nil, fmt.Errorf("cumulative returned quantity exceeds delivered quantity")
+		}
+	}
+
+	number, err := s.repo.GenerateReturnDocNumber(ctx, req.CompanyID, req.ReturnDate)
+	if err != nil {
+		return nil, fmt.Errorf("generate doc number: %w", err)
+	}
+
+	var rdoID int64
+	err = s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
+		do := ReturnDeliveryOrder{
+			Number:                  number,
+			CompanyID:               req.CompanyID,
+			CustomerID:              original.CustomerID,
+			OriginalDeliveryOrderID: original.ID,
+			WarehouseID:             original.WarehouseID,
+			ReturnDate:              req.ReturnDate,
+			Status:                  ReturnStatusDraft,
+			Reason:                  req.Reason,
+			Notes:                   req.Notes,
+			CreatedBy:               createdBy,
+		}
+		id, err := tx.CreateReturnDeliveryOrder(ctx, do)
+		if err != nil {
+			return fmt.Errorf("create return delivery order: %w", err)
+		}
+		rdoID = id
+
+		for _, lineReq := range req.Lines {
+			line := ReturnLine{
+				ReturnDeliveryOrderID: rdoID,
+				DeliveryOrderLineID:   lineReq.DeliveryOrderLineID,
+				ProductID:             lineReq.ProductID,
+				QuantityReturned:      lineReq.QuantityReturned,
+				UnitPrice:             lineReq.UnitPrice,
+				RestockWarehouseID:    lineReq.RestockWarehouseID,
+				LotNumber:             lineReq.LotNumber,
+				SerialNumbers:         lineReq.SerialNumbers,
+				Notes:                 lineReq.Notes,
+				LineOrder:             lineReq.LineOrder,
+			}
+			if _, err := tx.InsertReturnLine(ctx, line); err != nil {
+				return fmt.Errorf("insert return line: %w", err)
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return s.repo.GetReturnByID(ctx, rdoID)
+}
+
+// ConfirmReturnDeliveryOrder confirms a return DO and restocks inventory.
+func (s *Service) ConfirmReturnDeliveryOrder(ctx context.Context, id int64, confirmedBy int64) (*ReturnDeliveryOrder, error) {
+	existing, err := s.repo.GetReturnByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("get return delivery order: %w", err)
+	}
+
+	if !existing.Status.CanConfirm() {
+		return nil, fmt.Errorf("cannot confirm return delivery order in status %s", existing.Status)
+	}
+
+	if len(existing.Lines) == 0 {
+		return nil, fmt.Errorf("cannot confirm without lines")
+	}
+
+	items := make([]InventoryItem, 0, len(existing.Lines))
+	if s.inventory != nil {
+		for _, line := range existing.Lines {
+			warehouseID := existing.WarehouseID
+			if line.RestockWarehouseID != nil && *line.RestockWarehouseID > 0 {
+				warehouseID = *line.RestockWarehouseID
+			}
+			items = append(items, InventoryItem{
+				WarehouseID: warehouseID,
+				ProductID:   line.ProductID,
+				Quantity:    line.QuantityReturned,
+				UnitCost:    line.UnitPrice,
+				Code:        fmt.Sprintf("RDO-%s-C", existing.Number),
+				Note:        fmt.Sprintf("Return delivery %s confirmed", existing.Number),
+				ActorID:     confirmedBy,
+				RefModule:   "RETURN_DELIVERY",
+				RefID:       fmt.Sprintf("%d", id),
+			})
+		}
+		if err := s.inventory.Restock(ctx, items); err != nil {
+			return nil, fmt.Errorf("restock inventory: %w", err)
+		}
+	}
+
+	confirmedAt := time.Now()
+	err = s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
+		updates := map[string]interface{}{
+			"confirmed_by": confirmedBy,
+			"confirmed_at": confirmedAt,
+		}
+		return tx.UpdateReturnStatus(ctx, id, ReturnStatusConfirmed, updates)
+	})
+	if err != nil {
+		if s.inventory != nil {
+			for i := range items {
+				items[i].Quantity = -items[i].Quantity
+				items[i].Code += "-COMP"
+			}
+			_ = s.inventory.Restock(ctx, items)
+		}
+		return nil, err
+	}
+
+	return s.repo.GetReturnByID(ctx, id)
+}
+
+// CancelReturnDeliveryOrder cancels a return DO and reverses the stock if confirmed.
+func (s *Service) CancelReturnDeliveryOrder(ctx context.Context, id int64, cancelledBy int64, reason string) (*ReturnDeliveryOrder, error) {
+	existing, err := s.repo.GetReturnByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("get return delivery order: %w", err)
+	}
+
+	if !existing.Status.CanCancel() {
+		return nil, fmt.Errorf("cannot cancel return delivery order in status %s", existing.Status)
+	}
+	hasCreditNote, err := s.repo.HasCreditNoteForReturn(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("check return credit note: %w", err)
+	}
+	if hasCreditNote {
+		return nil, fmt.Errorf("cannot cancel a return delivery order with an active credit note")
+	}
+
+	wasConfirmed := existing.Status == ReturnStatusConfirmed
+	items := make([]InventoryItem, 0, len(existing.Lines))
+	if wasConfirmed && s.inventory != nil {
+		for _, line := range existing.Lines {
+			warehouseID := existing.WarehouseID
+			if line.RestockWarehouseID != nil && *line.RestockWarehouseID > 0 {
+				warehouseID = *line.RestockWarehouseID
+			}
+			items = append(items, InventoryItem{
+				WarehouseID: warehouseID,
+				ProductID:   line.ProductID,
+				Quantity:    -line.QuantityReturned,
+				UnitCost:    line.UnitPrice,
+				Code:        fmt.Sprintf("RDO-%s-X", existing.Number),
+				Note:        fmt.Sprintf("Return delivery %s cancelled", existing.Number),
+				ActorID:     cancelledBy,
+				RefModule:   "RETURN_DELIVERY",
+				RefID:       fmt.Sprintf("%d", id),
+			})
+		}
+		if err := s.inventory.Restock(ctx, items); err != nil {
+			return nil, fmt.Errorf("reverse restock inventory: %w", err)
+		}
+	}
+
+	err = s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
+		updates := map[string]interface{}{
+			"voided_by": cancelledBy,
+			"voided_at": time.Now(),
+			"reason":    reason,
+		}
+		return tx.UpdateReturnStatus(ctx, id, ReturnStatusCancelled, updates)
+	})
+	if err != nil {
+		if wasConfirmed && s.inventory != nil {
+			for i := range items {
+				items[i].Quantity = -items[i].Quantity
+				items[i].Code += "-COMP"
+			}
+			_ = s.inventory.Restock(ctx, items)
+		}
+		return nil, err
+	}
+
+	return s.repo.GetReturnByID(ctx, id)
+}
+
+// GetReturnByID retrieves a return delivery order by ID.
+func (s *Service) GetReturnByID(ctx context.Context, id int64) (*ReturnDeliveryOrder, error) {
+	return s.repo.GetReturnByID(ctx, id)
+}
+
+// ListReturns returns a paginated list of return delivery orders.
+func (s *Service) ListReturns(ctx context.Context, req ListReturnRequest) ([]ReturnDeliveryOrderWithDetails, int, error) {
+	if req.Limit == 0 {
+		req.Limit = 50
+	}
+	return s.repo.ListReturns(ctx, req)
 }

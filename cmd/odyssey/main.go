@@ -233,7 +233,10 @@ func main() {
 
 	arRepo := ar.NewRepository(dbpool)
 	arService := ar.NewService(arRepo)
-	arService.SetDeliveryService(deliveryorders.NewInvoicingAdapter(dbpool))
+	arInvoicing := deliveryorders.NewInvoicingAdapter(dbpool)
+	arService.SetDeliveryService(arInvoicing)
+	arService.SetReturnDeliveryService(arInvoicing)
+	arService.SetAccountingService(integrationHooks)
 	arHandler := ar.NewHandler(logger, arService, templates, csrfManager, sessionManager, rbacMiddleware, jobClient.AsynqClient())
 
 	apRepo := ap.NewRepository(dbpool)
@@ -285,6 +288,18 @@ func main() {
 
 	reportClient := report.NewClient(cfg.GotenbergURL)
 	reportHandler := report.NewHandler(reportClient, logger)
+	creditNotePDF, err := ar.NewCreditNotePDFRenderer(reportClient)
+	if err != nil {
+		logger.Error("init AR credit note PDF renderer", slog.Any("error", err))
+		os.Exit(1)
+	}
+	arHandler.SetCreditNotePDFRenderer(creditNotePDF)
+	debitNotePDF, err := ap.NewDebitNotePDFRenderer(reportClient)
+	if err != nil {
+		logger.Error("init AP debit note PDF renderer", slog.Any("error", err))
+		os.Exit(1)
+	}
+	apHandler.SetDebitNotePDFRenderer(debitNotePDF)
 
 	consolPDFClient, err := consolhttp.NewPDFRenderClient(cfg.GotenbergURL)
 	if err != nil {

@@ -11,6 +11,38 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const cancelGoodsReturnGRN = `-- name: CancelGoodsReturnGRN :exec
+UPDATE goods_return_grns
+SET status = 'CANCELLED', voided_by = $2, voided_at = NOW(), updated_at = NOW()
+WHERE id = $1 AND status IN ('DRAFT', 'CONFIRMED')
+`
+
+type CancelGoodsReturnGRNParams struct {
+	ID       int64       `json:"id"`
+	VoidedBy pgtype.Int8 `json:"voided_by"`
+}
+
+func (q *Queries) CancelGoodsReturnGRN(ctx context.Context, arg CancelGoodsReturnGRNParams) error {
+	_, err := q.db.Exec(ctx, cancelGoodsReturnGRN, arg.ID, arg.VoidedBy)
+	return err
+}
+
+const confirmGoodsReturnGRN = `-- name: ConfirmGoodsReturnGRN :exec
+UPDATE goods_return_grns
+SET status = 'CONFIRMED', confirmed_by = $2, confirmed_at = NOW(), updated_at = NOW()
+WHERE id = $1 AND status = 'DRAFT'
+`
+
+type ConfirmGoodsReturnGRNParams struct {
+	ID          int64       `json:"id"`
+	ConfirmedBy pgtype.Int8 `json:"confirmed_by"`
+}
+
+func (q *Queries) ConfirmGoodsReturnGRN(ctx context.Context, arg ConfirmGoodsReturnGRNParams) error {
+	_, err := q.db.Exec(ctx, confirmGoodsReturnGRN, arg.ID, arg.ConfirmedBy)
+	return err
+}
+
 const createGRN = `-- name: CreateGRN :one
 
 INSERT INTO grns (number, po_id, supplier_id, warehouse_id, status, received_at, note, created_at)
@@ -40,6 +72,78 @@ func (q *Queries) CreateGRN(ctx context.Context, arg CreateGRNParams) (int64, er
 		arg.Status,
 		arg.ReceivedAt,
 		arg.Note,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const createGoodsReturnGRN = `-- name: CreateGoodsReturnGRN :one
+INSERT INTO goods_return_grns (
+    number, company_id, supplier_id, grn_id, warehouse_id,
+    return_date, status, reason, notes, created_by, created_at, updated_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+RETURNING id
+`
+
+type CreateGoodsReturnGRNParams struct {
+	Number      string               `json:"number"`
+	CompanyID   int64                `json:"company_id"`
+	SupplierID  int64                `json:"supplier_id"`
+	GrnID       int64                `json:"grn_id"`
+	WarehouseID int64                `json:"warehouse_id"`
+	ReturnDate  pgtype.Date          `json:"return_date"`
+	Status      GoodsReturnGrnStatus `json:"status"`
+	Reason      string               `json:"reason"`
+	Notes       pgtype.Text          `json:"notes"`
+	CreatedBy   int64                `json:"created_by"`
+}
+
+func (q *Queries) CreateGoodsReturnGRN(ctx context.Context, arg CreateGoodsReturnGRNParams) (int64, error) {
+	row := q.db.QueryRow(ctx, createGoodsReturnGRN,
+		arg.Number,
+		arg.CompanyID,
+		arg.SupplierID,
+		arg.GrnID,
+		arg.WarehouseID,
+		arg.ReturnDate,
+		arg.Status,
+		arg.Reason,
+		arg.Notes,
+		arg.CreatedBy,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const createGoodsReturnGRNLine = `-- name: CreateGoodsReturnGRNLine :one
+INSERT INTO goods_return_grn_lines (
+    goods_return_grn_id, grn_line_id, product_id, quantity_returned, unit_cost,
+    notes, line_order, created_at, updated_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+RETURNING id
+`
+
+type CreateGoodsReturnGRNLineParams struct {
+	GoodsReturnGrnID int64          `json:"goods_return_grn_id"`
+	GrnLineID        int64          `json:"grn_line_id"`
+	ProductID        int64          `json:"product_id"`
+	QuantityReturned pgtype.Numeric `json:"quantity_returned"`
+	UnitCost         pgtype.Numeric `json:"unit_cost"`
+	Notes            pgtype.Text    `json:"notes"`
+	LineOrder        int32          `json:"line_order"`
+}
+
+func (q *Queries) CreateGoodsReturnGRNLine(ctx context.Context, arg CreateGoodsReturnGRNLineParams) (int64, error) {
+	row := q.db.QueryRow(ctx, createGoodsReturnGRNLine,
+		arg.GoodsReturnGrnID,
+		arg.GrnLineID,
+		arg.ProductID,
+		arg.QuantityReturned,
+		arg.UnitCost,
+		arg.Notes,
+		arg.LineOrder,
 	)
 	var id int64
 	err := row.Scan(&id)
@@ -121,6 +225,17 @@ func (q *Queries) GRNExistsByNumber(ctx context.Context, number string) (bool, e
 	return exists, err
 }
 
+const generateGoodsReturnGRNNumber = `-- name: GenerateGoodsReturnGRNNumber :one
+SELECT generate_goods_return_grn_number()
+`
+
+func (q *Queries) GenerateGoodsReturnGRNNumber(ctx context.Context) (string, error) {
+	row := q.db.QueryRow(ctx, generateGoodsReturnGRNNumber)
+	var generate_goods_return_grn_number string
+	err := row.Scan(&generate_goods_return_grn_number)
+	return generate_goods_return_grn_number, err
+}
+
 const getGRN = `-- name: GetGRN :one
 SELECT id, number, po_id, supplier_id, warehouse_id, status, received_at, note
 FROM grns WHERE id = $1
@@ -149,6 +264,32 @@ func (q *Queries) GetGRN(ctx context.Context, id int64) (GetGRNRow, error) {
 		&i.Status,
 		&i.ReceivedAt,
 		&i.Note,
+	)
+	return i, err
+}
+
+const getGRNLine = `-- name: GetGRNLine :one
+
+SELECT id, grn_id, product_id, qty, unit_cost, lot_number, expiry_date, serial_numbers
+FROM grn_lines
+WHERE id = $1
+`
+
+// =============================================================================
+// GOODS RETURNS (from GRN)
+// =============================================================================
+func (q *Queries) GetGRNLine(ctx context.Context, id int64) (GrnLine, error) {
+	row := q.db.QueryRow(ctx, getGRNLine, id)
+	var i GrnLine
+	err := row.Scan(
+		&i.ID,
+		&i.GrnID,
+		&i.ProductID,
+		&i.Qty,
+		&i.UnitCost,
+		&i.LotNumber,
+		&i.ExpiryDate,
+		&i.SerialNumbers,
 	)
 	return i, err
 }
@@ -190,6 +331,41 @@ func (q *Queries) GetGRNLines(ctx context.Context, grnID int64) ([]GetGRNLinesRo
 		return nil, err
 	}
 	return items, nil
+}
+
+const getGoodsReturnGRN = `-- name: GetGoodsReturnGRN :one
+SELECT
+    r.id, r.number, r.company_id, r.supplier_id, r.grn_id, r.warehouse_id,
+    r.return_date, r.status, r.reason, r.notes,
+    r.created_by, r.confirmed_by, r.confirmed_at, r.voided_by, r.voided_at,
+    r.created_at, r.updated_at
+FROM goods_return_grns r
+WHERE r.id = $1
+`
+
+func (q *Queries) GetGoodsReturnGRN(ctx context.Context, id int64) (GoodsReturnGrn, error) {
+	row := q.db.QueryRow(ctx, getGoodsReturnGRN, id)
+	var i GoodsReturnGrn
+	err := row.Scan(
+		&i.ID,
+		&i.Number,
+		&i.CompanyID,
+		&i.SupplierID,
+		&i.GrnID,
+		&i.WarehouseID,
+		&i.ReturnDate,
+		&i.Status,
+		&i.Reason,
+		&i.Notes,
+		&i.CreatedBy,
+		&i.ConfirmedBy,
+		&i.ConfirmedAt,
+		&i.VoidedBy,
+		&i.VoidedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const getPO = `-- name: GetPO :one
@@ -384,6 +560,93 @@ func (q *Queries) InsertPRLine(ctx context.Context, arg InsertPRLineParams) erro
 	return err
 }
 
+const listGoodsReturnGRNLines = `-- name: ListGoodsReturnGRNLines :many
+SELECT id, goods_return_grn_id, grn_line_id, product_id,
+       quantity_returned, unit_cost, notes, line_order, created_at, updated_at
+FROM goods_return_grn_lines
+WHERE goods_return_grn_id = $1
+ORDER BY line_order
+`
+
+func (q *Queries) ListGoodsReturnGRNLines(ctx context.Context, goodsReturnGrnID int64) ([]GoodsReturnGrnLine, error) {
+	rows, err := q.db.Query(ctx, listGoodsReturnGRNLines, goodsReturnGrnID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GoodsReturnGrnLine
+	for rows.Next() {
+		var i GoodsReturnGrnLine
+		if err := rows.Scan(
+			&i.ID,
+			&i.GoodsReturnGrnID,
+			&i.GrnLineID,
+			&i.ProductID,
+			&i.QuantityReturned,
+			&i.UnitCost,
+			&i.Notes,
+			&i.LineOrder,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listGoodsReturnGRNs = `-- name: ListGoodsReturnGRNs :many
+SELECT
+    r.id, r.number, r.company_id, r.supplier_id, r.grn_id, r.warehouse_id,
+    r.return_date, r.status, r.reason, r.notes,
+    r.created_by, r.confirmed_by, r.confirmed_at, r.voided_by, r.voided_at,
+    r.created_at, r.updated_at
+FROM goods_return_grns r
+ORDER BY r.created_at DESC
+`
+
+func (q *Queries) ListGoodsReturnGRNs(ctx context.Context) ([]GoodsReturnGrn, error) {
+	rows, err := q.db.Query(ctx, listGoodsReturnGRNs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GoodsReturnGrn
+	for rows.Next() {
+		var i GoodsReturnGrn
+		if err := rows.Scan(
+			&i.ID,
+			&i.Number,
+			&i.CompanyID,
+			&i.SupplierID,
+			&i.GrnID,
+			&i.WarehouseID,
+			&i.ReturnDate,
+			&i.Status,
+			&i.Reason,
+			&i.Notes,
+			&i.CreatedBy,
+			&i.ConfirmedBy,
+			&i.ConfirmedAt,
+			&i.VoidedBy,
+			&i.VoidedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const pOExistsByNumber = `-- name: POExistsByNumber :one
 SELECT EXISTS(SELECT 1 FROM pos WHERE number = $1) AS exists
 `
@@ -432,6 +695,22 @@ type UpdateGRNStatusParams struct {
 
 func (q *Queries) UpdateGRNStatus(ctx context.Context, arg UpdateGRNStatusParams) error {
 	_, err := q.db.Exec(ctx, updateGRNStatus, arg.Status, arg.ID)
+	return err
+}
+
+const updateGoodsReturnGRNStatus = `-- name: UpdateGoodsReturnGRNStatus :exec
+UPDATE goods_return_grns
+SET status = $2, updated_at = NOW()
+WHERE id = $1
+`
+
+type UpdateGoodsReturnGRNStatusParams struct {
+	ID     int64                `json:"id"`
+	Status GoodsReturnGrnStatus `json:"status"`
+}
+
+func (q *Queries) UpdateGoodsReturnGRNStatus(ctx context.Context, arg UpdateGoodsReturnGRNStatusParams) error {
+	_, err := q.db.Exec(ctx, updateGoodsReturnGRNStatus, arg.ID, arg.Status)
 	return err
 }
 

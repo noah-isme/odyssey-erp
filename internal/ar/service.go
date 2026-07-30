@@ -21,6 +21,7 @@ type RepositoryPort interface {
 	CreateARInvoice(ctx context.Context, input CreateARInvoiceInput) (*ARInvoice, error)
 	CreateARInvoiceLine(ctx context.Context, invoiceID int64, line CreateARInvoiceLineInput) (*ARInvoiceLine, error)
 	GetARInvoice(ctx context.Context, id int64) (*ARInvoice, error)
+	GetARInvoiceByDelivery(ctx context.Context, deliveryOrderID int64) (*ARInvoice, error)
 	GetARInvoiceWithDetails(ctx context.Context, id int64) (*ARInvoiceWithDetails, error)
 	ListARInvoices(ctx context.Context, req ListARInvoicesRequest) ([]ARInvoice, error)
 	ListARInvoiceLines(ctx context.Context, invoiceID int64) ([]ARInvoiceLine, error)
@@ -72,18 +73,25 @@ type DeliveryLineInfo struct {
 // AccountingServicePort for creating journal entries.
 type AccountingServicePort interface {
 	CreateARPostingJournal(ctx context.Context, invoice *ARInvoice) error
+	CreateARCreditNoteJournal(ctx context.Context, creditNote *ARCreditNote) error
 }
 
 // Service handles AR business logic.
 type Service struct {
-	repo       RepositoryPort
-	delivery   DeliveryServicePort
-	accounting AccountingServicePort
+	repo           RepositoryPort
+	delivery       DeliveryServicePort
+	accounting     AccountingServicePort
+	creditNotes    CreditNoteRepositoryPort
+	returnDelivery ReturnDeliveryServicePort
 }
 
 // NewService builds Service instance.
 func NewService(repo RepositoryPort) *Service {
-	return &Service{repo: repo}
+	service := &Service{repo: repo}
+	if creditNotes, ok := repo.(CreditNoteRepositoryPort); ok {
+		service.creditNotes = creditNotes
+	}
+	return service
 }
 
 // SetDeliveryService sets the delivery service for integration.
@@ -217,6 +225,9 @@ func (s *Service) PostARInvoice(ctx context.Context, input PostARInvoiceInput) e
 	if invoice == nil {
 		return ErrInvoiceNotFound
 	}
+	if invoice.Status == ARStatusPosted && s.accounting != nil {
+		return s.accounting.CreateARPostingJournal(ctx, invoice)
+	}
 	if invoice.Status != ARStatusDraft {
 		return ErrInvalidStatus
 	}
@@ -230,9 +241,8 @@ func (s *Service) PostARInvoice(ctx context.Context, input PostARInvoiceInput) e
 	if s.accounting != nil {
 		invoice.Status = ARStatusPosted
 		if err := s.accounting.CreateARPostingJournal(ctx, invoice); err != nil {
-			// Log but don't fail — the journal can be created manually.
-			// In production, this should use a saga/outbox pattern.
 			slog.Error("create AR posting journal", slog.Any("error", err), slog.Int64("invoice_id", input.InvoiceID))
+			return err
 		}
 	}
 

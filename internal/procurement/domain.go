@@ -166,6 +166,83 @@ type ListFilters struct {
 	SortDir    string // "asc" or "desc"
 }
 
+// GoodsReturnGRNStatus enumerates goods return statuses.
+type GoodsReturnGRNStatus string
+
+const (
+	GoodsReturnStatusDraft     GoodsReturnGRNStatus = "DRAFT"
+	GoodsReturnStatusConfirmed GoodsReturnGRNStatus = "CONFIRMED"
+	GoodsReturnStatusCancelled GoodsReturnGRNStatus = "CANCELLED"
+)
+
+// GoodsReturnGRN domain model for supplier returns from a posted GRN.
+type GoodsReturnGRN struct {
+	ID            int64
+	Number        string
+	CompanyID     int64
+	SupplierID    int64
+	GRNID         int64
+	WarehouseID   int64
+	ReturnDate    time.Time
+	Status        GoodsReturnGRNStatus
+	Reason        string
+	Notes         *string
+	CreatedBy     int64
+	ConfirmedBy   *int64
+	ConfirmedAt   *time.Time
+	VoidedBy      *int64
+	VoidedAt      *time.Time
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	Lines         []GoodsReturnGRNLine
+
+	SupplierName  string
+	WarehouseName string
+	GRNNumber     string
+	CreatedByName string
+}
+
+// GoodsReturnGRNLine represents a returned item line.
+type GoodsReturnGRNLine struct {
+	ID                int64
+	GoodsReturnGRNID  int64
+	GRNLineID         int64
+	ProductID         int64
+	QuantityReturned  float64
+	UnitCost          float64
+	Notes             *string
+	LineOrder         int
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+
+	ProductCode         string
+	ProductName         string
+	OriginalGRNQty      float64
+}
+
+// CreateGoodsReturnGRNInput for creating a goods return from a GRN.
+type CreateGoodsReturnGRNInput struct {
+	GRNID       int64
+	CompanyID   int64
+	SupplierID  int64
+	WarehouseID int64
+	ReturnDate  time.Time
+	Reason      string
+	Notes       *string
+	CreatedBy   int64
+	Lines       []GoodsReturnGRNLineInput
+}
+
+// GoodsReturnGRNLineInput for a return line.
+type GoodsReturnGRNLineInput struct {
+	GRNLineID        int64
+	ProductID        int64
+	QuantityReturned float64
+	UnitCost         float64
+	Notes            *string
+	LineOrder        int
+}
+
 var (
 	// ErrInvalidState occurs when action violates status workflow.
 	ErrInvalidState = errors.New("procurement: invalid state transition")
@@ -173,4 +250,8 @@ var (
 	ErrNotFound = errors.New("procurement: not found")
 	// ErrValidation indicates invalid input.
 	ErrValidation = errors.New("procurement: invalid input")
+	// ErrGoodsReturnNotFound indicates a goods return record was not found.
+	ErrGoodsReturnNotFound = errors.New("procurement: goods return not found")
+	// ErrGoodsReturnAlreadyConfirmed indicates the return is already confirmed.
+	ErrGoodsReturnAlreadyConfirmed = errors.New("procurement: goods return already confirmed")
 )

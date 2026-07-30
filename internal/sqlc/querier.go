@@ -23,13 +23,21 @@ type Querier interface {
 	AuthGetUserByEmail(ctx context.Context, email string) (AuthGetUserByEmailRow, error)
 	Balances(ctx context.Context, arg BalancesParams) ([]BalancesRow, error)
 	CalculateConsolBalances(ctx context.Context, arg CalculateConsolBalancesParams) error
+	CancelGoodsReturnGRN(ctx context.Context, arg CancelGoodsReturnGRNParams) error
 	CheckWarehouseExists(ctx context.Context, id int64) (bool, error)
 	CompareMonthlyNetRevenue(ctx context.Context, arg CompareMonthlyNetRevenueParams) ([]CompareMonthlyNetRevenueRow, error)
+	ConfirmGoodsReturnGRN(ctx context.Context, arg ConfirmGoodsReturnGRNParams) error
 	ConsolBalancesByType(ctx context.Context, arg ConsolBalancesByTypeParams) ([]ConsolBalancesByTypeRow, error)
 	ContributionByBranch(ctx context.Context, arg ContributionByBranchParams) ([]ContributionByBranchRow, error)
 	CountARInvoicesByDelivery(ctx context.Context, deliveryOrderID pgtype.Int8) (int64, error)
 	CountPendingChecklistItems(ctx context.Context, periodCloseRunID int64) (int64, error)
 	CountRuns(ctx context.Context) (int64, error)
+	// =============================================================================
+	// AP DEBIT NOTES
+	// =============================================================================
+	CreateAPDebitNote(ctx context.Context, arg CreateAPDebitNoteParams) (int64, error)
+	CreateAPDebitNoteAllocation(ctx context.Context, arg CreateAPDebitNoteAllocationParams) (int64, error)
+	CreateAPDebitNoteLine(ctx context.Context, arg CreateAPDebitNoteLineParams) (int64, error)
 	CreateAPInvoice(ctx context.Context, arg CreateAPInvoiceParams) (int64, error)
 	CreateAPInvoiceLine(ctx context.Context, arg CreateAPInvoiceLineParams) (int64, error)
 	CreateAPPayment(ctx context.Context, arg CreateAPPaymentParams) (int64, error)
@@ -51,6 +59,8 @@ type Querier interface {
 	// GOODS RECEIPTS (GRN)
 	// =============================================================================
 	CreateGRN(ctx context.Context, arg CreateGRNParams) (int64, error)
+	CreateGoodsReturnGRN(ctx context.Context, arg CreateGoodsReturnGRNParams) (int64, error)
+	CreateGoodsReturnGRNLine(ctx context.Context, arg CreateGoodsReturnGRNLineParams) (int64, error)
 	// =============================================================================
 	// PURCHASE ORDERS (PO)
 	// =============================================================================
@@ -94,13 +104,17 @@ type Querier interface {
 	FindUnpaidARInvoicesForMatching(ctx context.Context, total pgtype.Numeric) ([]FindUnpaidARInvoicesForMatchingRow, error)
 	FxRateForPeriod(ctx context.Context, arg FxRateForPeriodParams) (FxRateForPeriodRow, error)
 	GRNExistsByNumber(ctx context.Context, number string) (bool, error)
+	GenerateAPDebitNoteNumber(ctx context.Context) (string, error)
 	GenerateAPInvoiceNumber(ctx context.Context) (interface{}, error)
 	GenerateAPPaymentNumber(ctx context.Context) (interface{}, error)
 	GenerateARInvoiceNumber(ctx context.Context) (string, error)
 	GenerateARPaymentNumber(ctx context.Context) (string, error)
 	GenerateDocNumber(ctx context.Context, arg GenerateDocNumberParams) (string, error)
+	GenerateGoodsReturnGRNNumber(ctx context.Context) (string, error)
+	GetAPDebitNote(ctx context.Context, id int64) (GetAPDebitNoteRow, error)
 	GetAPInvoice(ctx context.Context, id int64) (GetAPInvoiceRow, error)
 	GetAPInvoiceBalance(ctx context.Context, id int64) (GetAPInvoiceBalanceRow, error)
+	GetAPInvoiceBalanceWithDebitNotes(ctx context.Context, id int64) (GetAPInvoiceBalanceWithDebitNotesRow, error)
 	GetAPInvoiceBalancesBatch(ctx context.Context) ([]GetAPInvoiceBalancesBatchRow, error)
 	GetAPInvoiceByNumber(ctx context.Context, number string) (GetAPInvoiceByNumberRow, error)
 	GetAPPayment(ctx context.Context, id int64) (GetAPPaymentRow, error)
@@ -134,7 +148,12 @@ type Querier interface {
 	GetCustomerByCode(ctx context.Context, arg GetCustomerByCodeParams) (Customer, error)
 	GetDeliverableSOLines(ctx context.Context, salesOrderID int64) ([]GetDeliverableSOLinesRow, error)
 	GetGRN(ctx context.Context, id int64) (GetGRNRow, error)
+	// =============================================================================
+	// GOODS RETURNS (from GRN)
+	// =============================================================================
+	GetGRNLine(ctx context.Context, id int64) (GrnLine, error)
 	GetGRNLines(ctx context.Context, grnID int64) ([]GetGRNLinesRow, error)
+	GetGoodsReturnGRN(ctx context.Context, id int64) (GoodsReturnGrn, error)
 	GetGroup(ctx context.Context, id int64) (GetGroupRow, error)
 	GetInboundHistory(ctx context.Context, arg GetInboundHistoryParams) ([]GetInboundHistoryRow, error)
 	GetInvoiceBalance(ctx context.Context, id int64) (GetInvoiceBalanceRow, error)
@@ -214,6 +233,11 @@ type Querier interface {
 	InsertTransactionLine(ctx context.Context, arg InsertTransactionLineParams) error
 	IsAPPaymentPosted(ctx context.Context, arg IsAPPaymentPostedParams) (bool, error)
 	KpiSummary(ctx context.Context, arg KpiSummaryParams) (KpiSummaryRow, error)
+	ListAPDebitNoteAllocations(ctx context.Context, apDebitNoteID int64) ([]ApDebitNoteAllocation, error)
+	ListAPDebitNoteLines(ctx context.Context, apDebitNoteID int64) ([]ApDebitNoteLine, error)
+	ListAPDebitNotes(ctx context.Context) ([]ListAPDebitNotesRow, error)
+	ListAPDebitNotesByStatus(ctx context.Context, status ApDebitNoteStatus) ([]ListAPDebitNotesByStatusRow, error)
+	ListAPDebitNotesBySupplier(ctx context.Context, supplierID int64) ([]ListAPDebitNotesBySupplierRow, error)
 	ListAPInvoiceLines(ctx context.Context, apInvoiceID int64) ([]ApInvoiceLine, error)
 	ListAPInvoicePayments(ctx context.Context, apInvoiceID int64) ([]ListAPInvoicePaymentsRow, error)
 	ListAPInvoices(ctx context.Context) ([]ListAPInvoicesRow, error)
@@ -237,6 +261,8 @@ type Querier interface {
 	ListBudgetsByYear(ctx context.Context, periodYear int32) ([]AccountingBudget, error)
 	ListChecklistItems(ctx context.Context, periodCloseRunID int64) ([]PeriodCloseChecklistItem, error)
 	ListCompanies(ctx context.Context) ([]ListCompaniesRow, error)
+	ListGoodsReturnGRNLines(ctx context.Context, goodsReturnGrnID int64) ([]GoodsReturnGrnLine, error)
+	ListGoodsReturnGRNs(ctx context.Context) ([]GoodsReturnGrn, error)
 	ListGroupIDs(ctx context.Context) ([]int64, error)
 	ListInvoicePayments(ctx context.Context, arInvoiceID int64) ([]ListInvoicePaymentsRow, error)
 	ListPaymentAllocations(ctx context.Context, arPaymentID int64) ([]ArPaymentAllocation, error)
@@ -274,6 +300,7 @@ type Querier interface {
 	PRExistsByNumber(ctx context.Context, number string) (bool, error)
 	PeriodHasActiveRun(ctx context.Context, periodID int64) (int32, error)
 	PeriodRangeConflict(ctx context.Context, arg PeriodRangeConflictParams) (int32, error)
+	PostAPDebitNote(ctx context.Context, arg PostAPDebitNoteParams) error
 	PostAPInvoice(ctx context.Context, arg PostAPInvoiceParams) error
 	PostARInvoice(ctx context.Context, arg PostARInvoiceParams) error
 	RbacCreateRole(ctx context.Context, arg RbacCreateRoleParams) (Role, error)
@@ -300,6 +327,7 @@ type Querier interface {
 	UpdateCompany(ctx context.Context, arg UpdateCompanyParams) error
 	UpdateCustomer(ctx context.Context, arg UpdateCustomerParams) error
 	UpdateGRNStatus(ctx context.Context, arg UpdateGRNStatusParams) error
+	UpdateGoodsReturnGRNStatus(ctx context.Context, arg UpdateGoodsReturnGRNStatusParams) error
 	UpdateLegacyPeriodStatus(ctx context.Context, arg UpdateLegacyPeriodStatusParams) error
 	UpdateLineQuantity(ctx context.Context, arg UpdateLineQuantityParams) error
 	UpdatePOStatus(ctx context.Context, arg UpdatePOStatusParams) error
@@ -328,6 +356,7 @@ type Querier interface {
 	VarListRules(ctx context.Context, companyID int64) ([]VarListRulesRow, error)
 	VarLoadAccountingPeriod(ctx context.Context, id int64) (VarLoadAccountingPeriodRow, error)
 	VarUpdateStatus(ctx context.Context, arg VarUpdateStatusParams) error
+	VoidAPDebitNote(ctx context.Context, arg VoidAPDebitNoteParams) error
 	VoidAPInvoice(ctx context.Context, arg VoidAPInvoiceParams) error
 	VoidARInvoice(ctx context.Context, arg VoidARInvoiceParams) error
 }

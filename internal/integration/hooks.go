@@ -191,6 +191,41 @@ func (h *Hooks) HandleAPPaymentPosted(ctx context.Context, evt procurement.APPay
 	return h.post(ctx, input)
 }
 
+func (h *Hooks) HandleGoodsReturnConfirmed(ctx context.Context, evt procurement.GoodsReturnConfirmedEvent) error {
+	return nil
+}
+
+func (h *Hooks) HandleDebitNotePosted(ctx context.Context, evt procurement.DebitNotePostedEvent) error {
+	if h == nil || h.ledger == nil || h.periodRepo == nil || h.mappingRepo == nil || evt.Total <= 0 {
+		return nil
+	}
+	if evt.PostedAt.IsZero() {
+		return errors.New("integration: debit note post date required")
+	}
+	period, err := h.periodRepo.FindOpenPeriodByDate(ctx, evt.PostedAt)
+	if err != nil {
+		return err
+	}
+	apAccount, err := h.resolveAccount(ctx, "AP", "ap.debit_note.ap")
+	if err != nil {
+		return err
+	}
+	creditKey := "ap.debit_note.expense"
+	if evt.GRNID != 0 {
+		creditKey = "ap.debit_note.inventory"
+	}
+	creditAccount, err := h.resolveAccount(ctx, "AP", creditKey)
+	if err != nil {
+		return err
+	}
+	amount := round2(evt.Total)
+	return h.post(ctx, journals.PostingInput{
+		PeriodID: period.ID, Date: evt.PostedAt, SourceModule: "PROCUREMENT.AP_DEBIT_NOTE",
+		SourceID: uuid.NewSHA1(uuid.Nil, []byte(fmt.Sprintf("APDN:%d", evt.ID))), Memo: fmt.Sprintf("AP Debit Note %s", evt.Number),
+		Lines: []journals.PostingLineInput{{AccountID: apAccount, Debit: amount}, {AccountID: creditAccount, Credit: amount}},
+	})
+}
+
 // HandleInventoryAdjustmentPosted posts the accounting entry for inventory adjustments.
 func (h *Hooks) HandleInventoryAdjustmentPosted(ctx context.Context, evt inventory.AdjustmentPostedEvent) error {
 	if h == nil || h.ledger == nil || h.periodRepo == nil || h.mappingRepo == nil {
@@ -209,6 +244,34 @@ func (h *Hooks) HandleInventoryAdjustmentPosted(ctx context.Context, evt invento
 	inventoryAccount, err := h.resolveAccount(ctx, "INVENTORY", "inventory.adjustment.inventory")
 	if err != nil {
 		return err
+	}
+	if evt.RefModule == "RETURN_DELIVERY" {
+		cogsAccount, err := h.resolveAccount(ctx, "AR", "ar.return.cogs")
+		if err != nil {
+			return err
+		}
+		amount := round2(abs(evt.Qty) * evt.UnitCost)
+		if amount == 0 {
+			return nil
+		}
+		lines := []journals.PostingLineInput{
+			{AccountID: inventoryAccount, Debit: amount},
+			{AccountID: cogsAccount, Credit: amount},
+		}
+		if evt.Qty < 0 {
+			lines = []journals.PostingLineInput{
+				{AccountID: cogsAccount, Debit: amount},
+				{AccountID: inventoryAccount, Credit: amount},
+			}
+		}
+		return h.post(ctx, journals.PostingInput{
+			PeriodID:     period.ID,
+			Date:         evt.PostedAt,
+			SourceModule: "SALES.RETURN_INVENTORY",
+			SourceID:     uuid.NewSHA1(uuid.Nil, []byte(fmt.Sprintf("RETURN:%s:%s:%d", evt.RefID, evt.Code, evt.ProductID))),
+			Memo:         fmt.Sprintf("Sales Return Inventory %s", evt.Code),
+			Lines:        lines,
+		})
 	}
 	gainAccount, err := h.resolveAccount(ctx, "INVENTORY", "inventory.adjustment.gain")
 	if err != nil {

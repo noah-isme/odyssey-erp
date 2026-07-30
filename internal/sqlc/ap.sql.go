@@ -11,6 +11,116 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const createAPDebitNote = `-- name: CreateAPDebitNote :one
+
+INSERT INTO ap_debit_notes (
+    number, supplier_id, ap_invoice_id, goods_return_grn_id,
+    currency, reason, subtotal, tax_amount, total,
+    status, created_by, created_at, updated_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
+RETURNING id
+`
+
+type CreateAPDebitNoteParams struct {
+	Number           string            `json:"number"`
+	SupplierID       int64             `json:"supplier_id"`
+	ApInvoiceID      int64             `json:"ap_invoice_id"`
+	GoodsReturnGrnID pgtype.Int8       `json:"goods_return_grn_id"`
+	Currency         string            `json:"currency"`
+	Reason           string            `json:"reason"`
+	Subtotal         pgtype.Numeric    `json:"subtotal"`
+	TaxAmount        pgtype.Numeric    `json:"tax_amount"`
+	Total            pgtype.Numeric    `json:"total"`
+	Status           ApDebitNoteStatus `json:"status"`
+	CreatedBy        int64             `json:"created_by"`
+}
+
+// =============================================================================
+// AP DEBIT NOTES
+// =============================================================================
+func (q *Queries) CreateAPDebitNote(ctx context.Context, arg CreateAPDebitNoteParams) (int64, error) {
+	row := q.db.QueryRow(ctx, createAPDebitNote,
+		arg.Number,
+		arg.SupplierID,
+		arg.ApInvoiceID,
+		arg.GoodsReturnGrnID,
+		arg.Currency,
+		arg.Reason,
+		arg.Subtotal,
+		arg.TaxAmount,
+		arg.Total,
+		arg.Status,
+		arg.CreatedBy,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const createAPDebitNoteAllocation = `-- name: CreateAPDebitNoteAllocation :one
+INSERT INTO ap_debit_note_allocations (
+    ap_debit_note_id, ap_invoice_id, amount, created_at
+) VALUES ($1, $2, $3, NOW())
+RETURNING id
+`
+
+type CreateAPDebitNoteAllocationParams struct {
+	ApDebitNoteID int64          `json:"ap_debit_note_id"`
+	ApInvoiceID   int64          `json:"ap_invoice_id"`
+	Amount        pgtype.Numeric `json:"amount"`
+}
+
+func (q *Queries) CreateAPDebitNoteAllocation(ctx context.Context, arg CreateAPDebitNoteAllocationParams) (int64, error) {
+	row := q.db.QueryRow(ctx, createAPDebitNoteAllocation, arg.ApDebitNoteID, arg.ApInvoiceID, arg.Amount)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const createAPDebitNoteLine = `-- name: CreateAPDebitNoteLine :one
+INSERT INTO ap_debit_note_lines (
+    ap_debit_note_id, ap_invoice_line_id, goods_return_grn_line_id, product_id,
+    description, quantity, unit_price, discount_pct, tax_pct,
+    subtotal, tax_amount, total, created_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
+RETURNING id
+`
+
+type CreateAPDebitNoteLineParams struct {
+	ApDebitNoteID        int64          `json:"ap_debit_note_id"`
+	ApInvoiceLineID      pgtype.Int8    `json:"ap_invoice_line_id"`
+	GoodsReturnGrnLineID pgtype.Int8    `json:"goods_return_grn_line_id"`
+	ProductID            int64          `json:"product_id"`
+	Description          string         `json:"description"`
+	Quantity             pgtype.Numeric `json:"quantity"`
+	UnitPrice            pgtype.Numeric `json:"unit_price"`
+	DiscountPct          pgtype.Numeric `json:"discount_pct"`
+	TaxPct               pgtype.Numeric `json:"tax_pct"`
+	Subtotal             pgtype.Numeric `json:"subtotal"`
+	TaxAmount            pgtype.Numeric `json:"tax_amount"`
+	Total                pgtype.Numeric `json:"total"`
+}
+
+func (q *Queries) CreateAPDebitNoteLine(ctx context.Context, arg CreateAPDebitNoteLineParams) (int64, error) {
+	row := q.db.QueryRow(ctx, createAPDebitNoteLine,
+		arg.ApDebitNoteID,
+		arg.ApInvoiceLineID,
+		arg.GoodsReturnGrnLineID,
+		arg.ProductID,
+		arg.Description,
+		arg.Quantity,
+		arg.UnitPrice,
+		arg.DiscountPct,
+		arg.TaxPct,
+		arg.Subtotal,
+		arg.TaxAmount,
+		arg.Total,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const createAPInvoice = `-- name: CreateAPInvoice :one
 INSERT INTO ap_invoices (
     number, supplier_id, grn_id, po_id, currency, 
@@ -155,6 +265,17 @@ func (q *Queries) CreateAPPaymentAllocation(ctx context.Context, arg CreateAPPay
 	return id, err
 }
 
+const generateAPDebitNoteNumber = `-- name: GenerateAPDebitNoteNumber :one
+SELECT generate_ap_debit_note_number()
+`
+
+func (q *Queries) GenerateAPDebitNoteNumber(ctx context.Context) (string, error) {
+	row := q.db.QueryRow(ctx, generateAPDebitNoteNumber)
+	var generate_ap_debit_note_number string
+	err := row.Scan(&generate_ap_debit_note_number)
+	return generate_ap_debit_note_number, err
+}
+
 const generateAPInvoiceNumber = `-- name: GenerateAPInvoiceNumber :one
 SELECT 'INV-' || TO_CHAR(NOW(), 'YYYYMMDD') || '-' || LPAD(NEXTVAL('ap_invoices_id_seq')::TEXT, 4, '0')
 `
@@ -175,6 +296,73 @@ func (q *Queries) GenerateAPPaymentNumber(ctx context.Context) (interface{}, err
 	var column_1 interface{}
 	err := row.Scan(&column_1)
 	return column_1, err
+}
+
+const getAPDebitNote = `-- name: GetAPDebitNote :one
+SELECT
+    d.id, d.number, d.supplier_id, COALESCE(s.name, '') AS supplier_name,
+    d.ap_invoice_id, d.goods_return_grn_id,
+    d.currency, d.reason, d.subtotal, d.tax_amount, d.total,
+    d.status, d.posted_at, d.posted_by, d.voided_at, d.voided_by, d.void_reason,
+    d.created_by, d.created_at, d.updated_at,
+    COALESCE(i.number, '') AS invoice_number
+FROM ap_debit_notes d
+LEFT JOIN suppliers s ON s.id = d.supplier_id
+LEFT JOIN ap_invoices i ON i.id = d.ap_invoice_id
+WHERE d.id = $1
+`
+
+type GetAPDebitNoteRow struct {
+	ID               int64              `json:"id"`
+	Number           string             `json:"number"`
+	SupplierID       int64              `json:"supplier_id"`
+	SupplierName     string             `json:"supplier_name"`
+	ApInvoiceID      int64              `json:"ap_invoice_id"`
+	GoodsReturnGrnID pgtype.Int8        `json:"goods_return_grn_id"`
+	Currency         string             `json:"currency"`
+	Reason           string             `json:"reason"`
+	Subtotal         pgtype.Numeric     `json:"subtotal"`
+	TaxAmount        pgtype.Numeric     `json:"tax_amount"`
+	Total            pgtype.Numeric     `json:"total"`
+	Status           ApDebitNoteStatus  `json:"status"`
+	PostedAt         pgtype.Timestamptz `json:"posted_at"`
+	PostedBy         pgtype.Int8        `json:"posted_by"`
+	VoidedAt         pgtype.Timestamptz `json:"voided_at"`
+	VoidedBy         pgtype.Int8        `json:"voided_by"`
+	VoidReason       pgtype.Text        `json:"void_reason"`
+	CreatedBy        int64              `json:"created_by"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	InvoiceNumber    string             `json:"invoice_number"`
+}
+
+func (q *Queries) GetAPDebitNote(ctx context.Context, id int64) (GetAPDebitNoteRow, error) {
+	row := q.db.QueryRow(ctx, getAPDebitNote, id)
+	var i GetAPDebitNoteRow
+	err := row.Scan(
+		&i.ID,
+		&i.Number,
+		&i.SupplierID,
+		&i.SupplierName,
+		&i.ApInvoiceID,
+		&i.GoodsReturnGrnID,
+		&i.Currency,
+		&i.Reason,
+		&i.Subtotal,
+		&i.TaxAmount,
+		&i.Total,
+		&i.Status,
+		&i.PostedAt,
+		&i.PostedBy,
+		&i.VoidedAt,
+		&i.VoidedBy,
+		&i.VoidReason,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.InvoiceNumber,
+	)
+	return i, err
 }
 
 const getAPInvoice = `-- name: GetAPInvoice :one
@@ -259,6 +447,38 @@ type GetAPInvoiceBalanceRow struct {
 func (q *Queries) GetAPInvoiceBalance(ctx context.Context, id int64) (GetAPInvoiceBalanceRow, error) {
 	row := q.db.QueryRow(ctx, getAPInvoiceBalance, id)
 	var i GetAPInvoiceBalanceRow
+	err := row.Scan(&i.Total, &i.PaidAmount, &i.Balance)
+	return i, err
+}
+
+const getAPInvoiceBalanceWithDebitNotes = `-- name: GetAPInvoiceBalanceWithDebitNotes :one
+SELECT
+    i.total,
+    COALESCE(pa.paid_amount, 0) + COALESCE(dna.debit_amount, 0) AS paid_amount,
+    (i.total - COALESCE(pa.paid_amount, 0) - COALESCE(dna.debit_amount, 0)) AS balance
+FROM ap_invoices i
+LEFT JOIN (
+    SELECT ap_invoice_id, SUM(amount) AS paid_amount
+    FROM ap_payment_allocations
+    GROUP BY ap_invoice_id
+) pa ON pa.ap_invoice_id = i.id
+LEFT JOIN (
+    SELECT ap_invoice_id, SUM(amount) AS debit_amount
+    FROM ap_debit_note_allocations
+    GROUP BY ap_invoice_id
+) dna ON dna.ap_invoice_id = i.id
+WHERE i.id = $1
+`
+
+type GetAPInvoiceBalanceWithDebitNotesRow struct {
+	Total      pgtype.Numeric `json:"total"`
+	PaidAmount int32          `json:"paid_amount"`
+	Balance    int32          `json:"balance"`
+}
+
+func (q *Queries) GetAPInvoiceBalanceWithDebitNotes(ctx context.Context, id int64) (GetAPInvoiceBalanceWithDebitNotesRow, error) {
+	row := q.db.QueryRow(ctx, getAPInvoiceBalanceWithDebitNotes, id)
+	var i GetAPInvoiceBalanceWithDebitNotesRow
 	err := row.Scan(&i.Total, &i.PaidAmount, &i.Balance)
 	return i, err
 }
@@ -435,6 +655,326 @@ func (q *Queries) IsAPPaymentPosted(ctx context.Context, arg IsAPPaymentPostedPa
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
+}
+
+const listAPDebitNoteAllocations = `-- name: ListAPDebitNoteAllocations :many
+SELECT id, ap_debit_note_id, ap_invoice_id, amount, created_at
+FROM ap_debit_note_allocations
+WHERE ap_debit_note_id = $1
+ORDER BY id
+`
+
+func (q *Queries) ListAPDebitNoteAllocations(ctx context.Context, apDebitNoteID int64) ([]ApDebitNoteAllocation, error) {
+	rows, err := q.db.Query(ctx, listAPDebitNoteAllocations, apDebitNoteID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ApDebitNoteAllocation
+	for rows.Next() {
+		var i ApDebitNoteAllocation
+		if err := rows.Scan(
+			&i.ID,
+			&i.ApDebitNoteID,
+			&i.ApInvoiceID,
+			&i.Amount,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAPDebitNoteLines = `-- name: ListAPDebitNoteLines :many
+SELECT
+    id, ap_debit_note_id, ap_invoice_line_id, goods_return_grn_line_id, product_id,
+    description, quantity, unit_price, discount_pct, tax_pct,
+    subtotal, tax_amount, total, created_at
+FROM ap_debit_note_lines
+WHERE ap_debit_note_id = $1
+ORDER BY id
+`
+
+func (q *Queries) ListAPDebitNoteLines(ctx context.Context, apDebitNoteID int64) ([]ApDebitNoteLine, error) {
+	rows, err := q.db.Query(ctx, listAPDebitNoteLines, apDebitNoteID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ApDebitNoteLine
+	for rows.Next() {
+		var i ApDebitNoteLine
+		if err := rows.Scan(
+			&i.ID,
+			&i.ApDebitNoteID,
+			&i.ApInvoiceLineID,
+			&i.GoodsReturnGrnLineID,
+			&i.ProductID,
+			&i.Description,
+			&i.Quantity,
+			&i.UnitPrice,
+			&i.DiscountPct,
+			&i.TaxPct,
+			&i.Subtotal,
+			&i.TaxAmount,
+			&i.Total,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAPDebitNotes = `-- name: ListAPDebitNotes :many
+SELECT
+    d.id, d.number, d.supplier_id, COALESCE(s.name, '') AS supplier_name,
+    d.ap_invoice_id, d.goods_return_grn_id,
+    d.currency, d.reason, d.subtotal, d.tax_amount, d.total,
+    d.status, d.posted_at, d.posted_by, d.voided_at, d.voided_by, d.void_reason,
+    d.created_by, d.created_at, d.updated_at,
+    COALESCE(i.number, '') AS invoice_number
+FROM ap_debit_notes d
+LEFT JOIN suppliers s ON s.id = d.supplier_id
+LEFT JOIN ap_invoices i ON i.id = d.ap_invoice_id
+ORDER BY d.created_at DESC
+`
+
+type ListAPDebitNotesRow struct {
+	ID               int64              `json:"id"`
+	Number           string             `json:"number"`
+	SupplierID       int64              `json:"supplier_id"`
+	SupplierName     string             `json:"supplier_name"`
+	ApInvoiceID      int64              `json:"ap_invoice_id"`
+	GoodsReturnGrnID pgtype.Int8        `json:"goods_return_grn_id"`
+	Currency         string             `json:"currency"`
+	Reason           string             `json:"reason"`
+	Subtotal         pgtype.Numeric     `json:"subtotal"`
+	TaxAmount        pgtype.Numeric     `json:"tax_amount"`
+	Total            pgtype.Numeric     `json:"total"`
+	Status           ApDebitNoteStatus  `json:"status"`
+	PostedAt         pgtype.Timestamptz `json:"posted_at"`
+	PostedBy         pgtype.Int8        `json:"posted_by"`
+	VoidedAt         pgtype.Timestamptz `json:"voided_at"`
+	VoidedBy         pgtype.Int8        `json:"voided_by"`
+	VoidReason       pgtype.Text        `json:"void_reason"`
+	CreatedBy        int64              `json:"created_by"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	InvoiceNumber    string             `json:"invoice_number"`
+}
+
+func (q *Queries) ListAPDebitNotes(ctx context.Context) ([]ListAPDebitNotesRow, error) {
+	rows, err := q.db.Query(ctx, listAPDebitNotes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAPDebitNotesRow
+	for rows.Next() {
+		var i ListAPDebitNotesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Number,
+			&i.SupplierID,
+			&i.SupplierName,
+			&i.ApInvoiceID,
+			&i.GoodsReturnGrnID,
+			&i.Currency,
+			&i.Reason,
+			&i.Subtotal,
+			&i.TaxAmount,
+			&i.Total,
+			&i.Status,
+			&i.PostedAt,
+			&i.PostedBy,
+			&i.VoidedAt,
+			&i.VoidedBy,
+			&i.VoidReason,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.InvoiceNumber,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAPDebitNotesByStatus = `-- name: ListAPDebitNotesByStatus :many
+SELECT
+    d.id, d.number, d.supplier_id, COALESCE(s.name, '') AS supplier_name,
+    d.ap_invoice_id, d.goods_return_grn_id,
+    d.currency, d.reason, d.subtotal, d.tax_amount, d.total,
+    d.status, d.posted_at, d.posted_by, d.voided_at, d.voided_by, d.void_reason,
+    d.created_by, d.created_at, d.updated_at,
+    COALESCE(i.number, '') AS invoice_number
+FROM ap_debit_notes d
+LEFT JOIN suppliers s ON s.id = d.supplier_id
+LEFT JOIN ap_invoices i ON i.id = d.ap_invoice_id
+WHERE d.status = $1
+ORDER BY d.created_at DESC
+`
+
+type ListAPDebitNotesByStatusRow struct {
+	ID               int64              `json:"id"`
+	Number           string             `json:"number"`
+	SupplierID       int64              `json:"supplier_id"`
+	SupplierName     string             `json:"supplier_name"`
+	ApInvoiceID      int64              `json:"ap_invoice_id"`
+	GoodsReturnGrnID pgtype.Int8        `json:"goods_return_grn_id"`
+	Currency         string             `json:"currency"`
+	Reason           string             `json:"reason"`
+	Subtotal         pgtype.Numeric     `json:"subtotal"`
+	TaxAmount        pgtype.Numeric     `json:"tax_amount"`
+	Total            pgtype.Numeric     `json:"total"`
+	Status           ApDebitNoteStatus  `json:"status"`
+	PostedAt         pgtype.Timestamptz `json:"posted_at"`
+	PostedBy         pgtype.Int8        `json:"posted_by"`
+	VoidedAt         pgtype.Timestamptz `json:"voided_at"`
+	VoidedBy         pgtype.Int8        `json:"voided_by"`
+	VoidReason       pgtype.Text        `json:"void_reason"`
+	CreatedBy        int64              `json:"created_by"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	InvoiceNumber    string             `json:"invoice_number"`
+}
+
+func (q *Queries) ListAPDebitNotesByStatus(ctx context.Context, status ApDebitNoteStatus) ([]ListAPDebitNotesByStatusRow, error) {
+	rows, err := q.db.Query(ctx, listAPDebitNotesByStatus, status)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAPDebitNotesByStatusRow
+	for rows.Next() {
+		var i ListAPDebitNotesByStatusRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Number,
+			&i.SupplierID,
+			&i.SupplierName,
+			&i.ApInvoiceID,
+			&i.GoodsReturnGrnID,
+			&i.Currency,
+			&i.Reason,
+			&i.Subtotal,
+			&i.TaxAmount,
+			&i.Total,
+			&i.Status,
+			&i.PostedAt,
+			&i.PostedBy,
+			&i.VoidedAt,
+			&i.VoidedBy,
+			&i.VoidReason,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.InvoiceNumber,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAPDebitNotesBySupplier = `-- name: ListAPDebitNotesBySupplier :many
+SELECT
+    d.id, d.number, d.supplier_id, COALESCE(s.name, '') AS supplier_name,
+    d.ap_invoice_id, d.goods_return_grn_id,
+    d.currency, d.reason, d.subtotal, d.tax_amount, d.total,
+    d.status, d.posted_at, d.posted_by, d.voided_at, d.voided_by, d.void_reason,
+    d.created_by, d.created_at, d.updated_at,
+    COALESCE(i.number, '') AS invoice_number
+FROM ap_debit_notes d
+LEFT JOIN suppliers s ON s.id = d.supplier_id
+LEFT JOIN ap_invoices i ON i.id = d.ap_invoice_id
+WHERE d.supplier_id = $1
+ORDER BY d.created_at DESC
+`
+
+type ListAPDebitNotesBySupplierRow struct {
+	ID               int64              `json:"id"`
+	Number           string             `json:"number"`
+	SupplierID       int64              `json:"supplier_id"`
+	SupplierName     string             `json:"supplier_name"`
+	ApInvoiceID      int64              `json:"ap_invoice_id"`
+	GoodsReturnGrnID pgtype.Int8        `json:"goods_return_grn_id"`
+	Currency         string             `json:"currency"`
+	Reason           string             `json:"reason"`
+	Subtotal         pgtype.Numeric     `json:"subtotal"`
+	TaxAmount        pgtype.Numeric     `json:"tax_amount"`
+	Total            pgtype.Numeric     `json:"total"`
+	Status           ApDebitNoteStatus  `json:"status"`
+	PostedAt         pgtype.Timestamptz `json:"posted_at"`
+	PostedBy         pgtype.Int8        `json:"posted_by"`
+	VoidedAt         pgtype.Timestamptz `json:"voided_at"`
+	VoidedBy         pgtype.Int8        `json:"voided_by"`
+	VoidReason       pgtype.Text        `json:"void_reason"`
+	CreatedBy        int64              `json:"created_by"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	InvoiceNumber    string             `json:"invoice_number"`
+}
+
+func (q *Queries) ListAPDebitNotesBySupplier(ctx context.Context, supplierID int64) ([]ListAPDebitNotesBySupplierRow, error) {
+	rows, err := q.db.Query(ctx, listAPDebitNotesBySupplier, supplierID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAPDebitNotesBySupplierRow
+	for rows.Next() {
+		var i ListAPDebitNotesBySupplierRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Number,
+			&i.SupplierID,
+			&i.SupplierName,
+			&i.ApInvoiceID,
+			&i.GoodsReturnGrnID,
+			&i.Currency,
+			&i.Reason,
+			&i.Subtotal,
+			&i.TaxAmount,
+			&i.Total,
+			&i.Status,
+			&i.PostedAt,
+			&i.PostedBy,
+			&i.VoidedAt,
+			&i.VoidedBy,
+			&i.VoidReason,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.InvoiceNumber,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listAPInvoiceLines = `-- name: ListAPInvoiceLines :many
@@ -865,6 +1405,22 @@ func (q *Queries) ListAPPayments(ctx context.Context) ([]ListAPPaymentsRow, erro
 	return items, nil
 }
 
+const postAPDebitNote = `-- name: PostAPDebitNote :exec
+UPDATE ap_debit_notes
+SET status = 'POSTED', posted_at = NOW(), posted_by = $2, updated_at = NOW()
+WHERE id = $1 AND status = 'DRAFT'
+`
+
+type PostAPDebitNoteParams struct {
+	ID       int64       `json:"id"`
+	PostedBy pgtype.Int8 `json:"posted_by"`
+}
+
+func (q *Queries) PostAPDebitNote(ctx context.Context, arg PostAPDebitNoteParams) error {
+	_, err := q.db.Exec(ctx, postAPDebitNote, arg.ID, arg.PostedBy)
+	return err
+}
+
 const postAPInvoice = `-- name: PostAPInvoice :exec
 UPDATE ap_invoices 
 SET status = 'POSTED', posted_at = NOW(), posted_by = $2, updated_at = NOW()
@@ -894,6 +1450,23 @@ type UpdateAPStatusParams struct {
 
 func (q *Queries) UpdateAPStatus(ctx context.Context, arg UpdateAPStatusParams) error {
 	_, err := q.db.Exec(ctx, updateAPStatus, arg.ID, arg.Status)
+	return err
+}
+
+const voidAPDebitNote = `-- name: VoidAPDebitNote :exec
+UPDATE ap_debit_notes
+SET status = 'VOID', voided_at = NOW(), voided_by = $2, void_reason = $3, updated_at = NOW()
+WHERE id = $1 AND status = 'DRAFT'
+`
+
+type VoidAPDebitNoteParams struct {
+	ID         int64       `json:"id"`
+	VoidedBy   pgtype.Int8 `json:"voided_by"`
+	VoidReason pgtype.Text `json:"void_reason"`
+}
+
+func (q *Queries) VoidAPDebitNote(ctx context.Context, arg VoidAPDebitNoteParams) error {
+	_, err := q.db.Exec(ctx, voidAPDebitNote, arg.ID, arg.VoidedBy, arg.VoidReason)
 	return err
 }
 

@@ -200,3 +200,123 @@ type ListARInvoicesRequest struct {
 	Limit      int
 	Offset     int
 }
+
+// ARCreditNoteStatus enumerates AR credit note statuses.
+type ARCreditNoteStatus string
+
+const (
+	ARCreditNoteStatusDraft  ARCreditNoteStatus = "DRAFT"
+	ARCreditNoteStatusPosted ARCreditNoteStatus = "POSTED"
+	ARCreditNoteStatusVoid   ARCreditNoteStatus = "VOID"
+)
+
+// ARCreditNote model.
+type ARCreditNote struct {
+	ID                    int64
+	Number                string
+	CustomerID            int64
+	ARInvoiceID           int64
+	ReturnDeliveryOrderID int64
+	Currency              string
+	Reason                string
+	Subtotal              float64
+	TaxAmount             float64
+	Total                 float64
+	Status                ARCreditNoteStatus
+	PostedAt              *time.Time
+	PostedBy              *int64
+	VoidedAt              *time.Time
+	VoidedBy              *int64
+	VoidReason            string
+	CreatedBy             int64
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
+	CustomerName          string
+	InvoiceNumber         string
+}
+
+// ARCreditNoteLine represents a line item on a credit note.
+type ARCreditNoteLine struct {
+	ID                        int64
+	ARCreditNoteID            int64
+	ARInvoiceLineID           int64
+	ReturnDeliveryOrderLineID int64
+	ProductID                 int64
+	Description               string
+	Quantity                  float64
+	UnitPrice                 float64
+	DiscountPct               float64
+	TaxPct                    float64
+	Subtotal                  float64
+	TaxAmount                 float64
+	Total                     float64
+	CreatedAt                 time.Time
+}
+
+// ARCreditNoteWithDetails includes credit note with lines and allocation.
+type ARCreditNoteWithDetails struct {
+	ARCreditNote
+	Lines []ARCreditNoteLine
+}
+
+// ARCreditNoteAllocation tracks how credit notes are applied to invoices.
+type ARCreditNoteAllocation struct {
+	ID             int64
+	ARCreditNoteID int64
+	ARInvoiceID    int64
+	Amount         float64
+	CreatedAt      time.Time
+}
+
+// CreateARCreditNoteInput for creating credit notes.
+type CreateARCreditNoteInput struct {
+	CustomerID            int64
+	ARInvoiceID           int64
+	ReturnDeliveryOrderID int64
+	Number                string
+	Currency              string
+	Reason                string
+	CreatedBy             int64
+	Lines                 []CreateARCreditNoteLineInput
+}
+
+// CreateARCreditNoteLineInput for credit note line items.
+type CreateARCreditNoteLineInput struct {
+	ARInvoiceLineID           int64
+	ReturnDeliveryOrderLineID int64
+	ProductID                 int64
+	Description               string
+	Quantity                  float64
+	UnitPrice                 float64
+	DiscountPct               float64
+	TaxPct                    float64
+}
+
+// CreateARCreditNoteFromReturnInput creates credit note from return delivery order.
+type CreateARCreditNoteFromReturnInput struct {
+	ReturnDeliveryOrderID int64
+	Reason                string
+	CreatedBy             int64
+}
+
+// PostARCreditNoteInput for posting a credit note.
+type PostARCreditNoteInput struct {
+	CreditNoteID int64
+	PostedBy     int64
+}
+
+// VoidARCreditNoteInput for voiding a credit note.
+type VoidARCreditNoteInput struct {
+	CreditNoteID int64
+	VoidedBy     int64
+	VoidReason   string
+}
+
+// ListARCreditNotesRequest for filtering credit notes.
+type ListARCreditNotesRequest struct {
+	Status     ARCreditNoteStatus
+	CustomerID int64
+	InvoiceID  int64
+	Limit      int
+	Offset     int
+}

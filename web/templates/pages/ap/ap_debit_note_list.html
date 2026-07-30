@@ -1,0 +1,6 @@
+{{define "content"}}
+<div class="page-header"><h1>AP Debit Notes</h1></div>
+<div class="table-responsive"><table class="table"><thead><tr><th>Number</th><th>Supplier</th><th>Invoice</th><th>Total</th><th>Status</th></tr></thead><tbody>
+{{range .Data.DebitNotes}}<tr><td><a href="/finance/ap/debit-notes/{{.ID}}">{{.Number}}</a></td><td>{{.SupplierName}}</td><td>{{.InvoiceNumber}}</td><td>{{.Total}}</td><td>{{.Status}}</td></tr>{{else}}<tr><td colspan="5">No debit notes found.</td></tr>{{end}}
+</tbody></table></div>
+{{end}}

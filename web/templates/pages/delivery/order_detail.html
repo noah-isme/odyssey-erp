@@ -39,6 +39,10 @@
             <button type="button" class="btn btn--primary" data-dialog-open="deliverModal">Mark as Delivered</button>
             {{ end }}
 
+            {{ if eq .Data.DeliveryOrder.Status "DELIVERED" }}
+            <a href="/delivery/orders/{{ .Data.DeliveryOrder.ID }}/returns/new" class="btn btn--primary">Create Return</a>
+            {{ end }}
+
             {{ if or (eq .Data.DeliveryOrder.Status "DRAFT") (eq .Data.DeliveryOrder.Status "CONFIRMED") (eq .Data.DeliveryOrder.Status "IN_TRANSIT") }}
             <button type="button" class="btn btn--danger" data-dialog-open="cancelModal">Cancel Order</button>
             {{ end }}

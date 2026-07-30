@@ -47,12 +47,21 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Get("/", h.list)
 		r.Get("/{id}", h.show)
 	})
+	r.Group(func(r chi.Router) {
+		r.Use(h.rbac.RequireAny(shared.PermDeliveryReturnView))
+		r.Get("/returns/{returnID}", h.showReturn)
+	})
 
 	// Create routes
 	r.Group(func(r chi.Router) {
 		r.Use(h.rbac.RequireAll(shared.PermDeliveryOrderCreate))
 		r.Get("/new", h.showForm)
 		r.Post("/", h.create)
+	})
+	r.Group(func(r chi.Router) {
+		r.Use(h.rbac.RequireAll(shared.PermDeliveryReturnCreate))
+		r.Get("/{id}/returns/new", h.showReturnForm)
+		r.Post("/{id}/returns", h.createReturn)
 	})
 
 	// Edit routes
@@ -68,6 +77,10 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Post("/{id}/confirm", h.confirm)
 	})
 	r.Group(func(r chi.Router) {
+		r.Use(h.rbac.RequireAll(shared.PermDeliveryReturnPost))
+		r.Post("/returns/{returnID}/confirm", h.confirmReturn)
+	})
+	r.Group(func(r chi.Router) {
 		r.Use(h.rbac.RequireAll(shared.PermDeliveryOrderShip))
 		r.Post("/{id}/ship", h.ship)
 	})
@@ -78,6 +91,10 @@ func (h *Handler) MountRoutes(r chi.Router) {
 	r.Group(func(r chi.Router) {
 		r.Use(h.rbac.RequireAll(shared.PermDeliveryOrderCancel))
 		r.Post("/{id}/cancel", h.cancel)
+	})
+	r.Group(func(r chi.Router) {
+		r.Use(h.rbac.RequireAll(shared.PermDeliveryReturnVoid))
+		r.Post("/returns/{returnID}/cancel", h.cancelReturn)
 	})
 }
 

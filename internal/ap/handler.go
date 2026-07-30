@@ -17,12 +17,13 @@ import (
 
 // Handler manages AP endpoints.
 type Handler struct {
-	logger    *slog.Logger
-	service   *Service
-	templates *view.Engine
-	csrf      *shared.CSRFManager
-	sessions  *shared.SessionManager
-	rbac      rbac.Middleware
+	logger       *slog.Logger
+	service      *Service
+	templates    *view.Engine
+	csrf         *shared.CSRFManager
+	sessions     *shared.SessionManager
+	rbac         rbac.Middleware
+	debitNotePDF DebitNotePDFRenderer
 }
 
 // NewHandler builds Handler instance.
@@ -43,6 +44,9 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Get("/payments", h.listPayments)
 		r.Get("/payments/new", h.showCreatePaymentForm)
 		r.Get("/payments/{id}", h.showPaymentDetail)
+		r.Get("/debit-notes", h.listDebitNotes)
+		r.Get("/debit-notes/{id}", h.showDebitNote)
+		r.Get("/debit-notes/{id}/pdf", h.debitNotePDFDownload)
 		r.Get("/aging", h.showAPAgingReport)
 	})
 
@@ -54,6 +58,9 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.With(h.rbac.RequireAny("finance.ap.post")).Post("/invoices/{id}/post", h.postInvoice)
 		r.With(h.rbac.RequireAny("finance.ap.void")).Post("/invoices/{id}/void", h.voidInvoice)
 		r.With(h.rbac.RequireAny("finance.ap.payment")).Post("/payments", h.createAPPayment)
+		r.With(h.rbac.RequireAny("finance.ap.debit_note.create")).Post("/debit-notes/from-return/{returnID}", h.createDebitNoteFromReturn)
+		r.With(h.rbac.RequireAny("finance.ap.debit_note.post")).Post("/debit-notes/{id}/post", h.postDebitNote)
+		r.With(h.rbac.RequireAny("finance.ap.debit_note.void")).Post("/debit-notes/{id}/void", h.voidDebitNote)
 	})
 }
 

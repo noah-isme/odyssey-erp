@@ -1,0 +1,41 @@
+{{ define "pages/ar/ar_credit_note_list.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}AR Credit Notes{{ end }}
+
+{{ define "content" }}
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <span class="eyebrow">Accounts Receivable</span>
+            <h1 class="page-title">Credit Notes</h1>
+            <p class="page-subtitle">Customer returns and invoice credits.</p>
+        </div>
+        <div class="page-header__actions">
+            <a href="/finance/ar/invoices" class="btn btn--secondary">Invoices</a>
+        </div>
+    </header>
+    <div class="page-content">
+        <div class="table-wrap">
+            <table class="table" aria-label="AR credit notes">
+                <thead><tr><th>Number</th><th>Invoice</th><th>Customer</th><th>Status</th><th class="numeric-right">Total</th><th>Created</th></tr></thead>
+                <tbody>
+                    {{ range .Data.CreditNotes }}
+                    <tr>
+                        <td><a class="link font-medium" href="/finance/ar/credit-notes/{{ .ID }}">{{ .Number }}</a></td>
+                        <td><a class="link" href="/finance/ar/invoices/{{ .ARInvoiceID }}">{{ .InvoiceNumber }}</a></td>
+                        <td>{{ .CustomerName }}</td>
+                        <td>{{ template "partials/ui/status_badge.html" .Status }}</td>
+                        <td class="numeric-right">{{ .Currency }} {{ printf "%.2f" .Total }}</td>
+                        <td>{{ formatDate .CreatedAt }}</td>
+                    </tr>
+                    {{ else }}
+                    <tr><td colspan="6" class="table-empty">No credit notes recorded.</td></tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{{ end }}

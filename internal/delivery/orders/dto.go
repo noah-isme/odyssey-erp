@@ -95,3 +95,46 @@ type DeliverableSOLinesResponse struct {
 	CustomerName     string              `json:"customer_name"`
 	Lines            []DeliverableSOLine `json:"lines"`
 }
+
+// ListReturnRequest filters return delivery orders.
+type ListReturnRequest struct {
+	CompanyID  int64
+	CustomerID *int64
+	Status     *ReturnStatus
+	Limit      int
+	Offset     int
+}
+
+// CreateReturnRequest represents request to create a return delivery order.
+type CreateReturnRequest struct {
+	CompanyID               int64
+	OriginalDeliveryOrderID int64
+	ReturnDate              time.Time
+	Reason                  string
+	Notes                   *string
+	Lines                   []CreateReturnLineReq
+}
+
+// CreateReturnLineReq represents a line in a return delivery order.
+type CreateReturnLineReq struct {
+	DeliveryOrderLineID int64
+	ProductID           int64
+	QuantityReturned    float64
+	UnitPrice           float64
+	RestockWarehouseID  *int64
+	LotNumber           string
+	SerialNumbers       []string
+	Notes               *string
+	LineOrder           int
+}
+
+// ConfirmReturnRequest represents request to confirm a return delivery order.
+type ConfirmReturnRequest struct {
+	ConfirmedBy int64
+}
+
+// CancelReturnRequest represents request to cancel a return delivery order.
+type CancelReturnRequest struct {
+	Reason      string
+	CancelledBy int64
+}

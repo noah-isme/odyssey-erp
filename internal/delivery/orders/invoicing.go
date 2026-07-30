@@ -20,6 +20,44 @@ func NewInvoicingAdapter(pool *pgxpool.Pool) *InvoicingAdapter {
 	return &InvoicingAdapter{pool: pool}
 }
 
+func (a *InvoicingAdapter) GetReturnForCreditNote(ctx context.Context, id int64) (*ar.ReturnDeliveryInfo, error) {
+	const headerSQL = `
+		SELECT id, original_delivery_order_id, customer_id, status
+		FROM return_delivery_orders WHERE id = $1`
+	info := ar.ReturnDeliveryInfo{}
+	if err := a.pool.QueryRow(ctx, headerSQL, id).Scan(&info.ID, &info.OriginalDeliveryOrderID, &info.CustomerID, &info.Status); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, errors.New("return delivery order not found")
+		}
+		return nil, err
+	}
+
+	const lineSQL = `
+		SELECT id, delivery_order_line_id, product_id, quantity_returned
+		FROM return_delivery_order_lines WHERE return_delivery_order_id = $1 ORDER BY line_order, id`
+	rows, err := a.pool.Query(ctx, lineSQL, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var line ar.ReturnDeliveryLineInfo
+		var quantity pgtype.Numeric
+		if err := rows.Scan(&line.ID, &line.DeliveryOrderLineID, &line.ProductID, &quantity); err != nil {
+			return nil, err
+		}
+		line.Quantity = numericToFloat(quantity)
+		info.Lines = append(info.Lines, line)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if len(info.Lines) == 0 {
+		return nil, errors.New("return delivery order has no lines")
+	}
+	return &info, nil
+}
+
 func (a *InvoicingAdapter) GetDeliveryOrderForInvoicing(ctx context.Context, id int64) (*ar.DeliveryOrderInfo, error) {
 	const headerSQL = `
 		SELECT d.id, d.doc_number, d.customer_id, c.name, d.sales_order_id,

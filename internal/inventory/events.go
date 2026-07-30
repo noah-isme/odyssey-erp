@@ -10,4 +10,6 @@ type AdjustmentPostedEvent struct {
 	Qty         float64
 	UnitCost    float64
 	PostedAt    time.Time
+	RefModule   string
+	RefID       string
 }

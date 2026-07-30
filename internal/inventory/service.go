@@ -199,6 +199,8 @@ func (s *Service) postAdjustmentInternal(ctx context.Context, tx TxRepository, i
 			Qty:         input.Qty,
 			UnitCost:    entry.UnitCost,
 			PostedAt:    entry.PostedAt,
+			RefModule:   input.RefModule,
+			RefID:       input.RefID,
 		}
 		if err := s.integration.HandleInventoryAdjustmentPosted(ctx, evt); err != nil {
 			return StockCardEntry{}, err

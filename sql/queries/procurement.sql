@@ -82,3 +82,69 @@ SELECT EXISTS(SELECT 1 FROM prs WHERE number = $1) AS exists;
 -- name: GRNExistsByNumber :one
 SELECT EXISTS(SELECT 1 FROM grns WHERE number = $1) AS exists;
 
+-- =============================================================================
+-- GOODS RETURNS (from GRN)
+-- =============================================================================
+
+-- name: GetGRNLine :one
+SELECT id, grn_id, product_id, qty, unit_cost, lot_number, expiry_date, serial_numbers
+FROM grn_lines
+WHERE id = $1;
+
+-- name: CreateGoodsReturnGRN :one
+INSERT INTO goods_return_grns (
+    number, company_id, supplier_id, grn_id, warehouse_id,
+    return_date, status, reason, notes, created_by, created_at, updated_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+RETURNING id;
+
+-- name: CreateGoodsReturnGRNLine :one
+INSERT INTO goods_return_grn_lines (
+    goods_return_grn_id, grn_line_id, product_id, quantity_returned, unit_cost,
+    notes, line_order, created_at, updated_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+RETURNING id;
+
+-- name: UpdateGoodsReturnGRNStatus :exec
+UPDATE goods_return_grns
+SET status = $2, updated_at = NOW()
+WHERE id = $1;
+
+-- name: ConfirmGoodsReturnGRN :exec
+UPDATE goods_return_grns
+SET status = 'CONFIRMED', confirmed_by = $2, confirmed_at = NOW(), updated_at = NOW()
+WHERE id = $1 AND status = 'DRAFT';
+
+-- name: CancelGoodsReturnGRN :exec
+UPDATE goods_return_grns
+SET status = 'CANCELLED', voided_by = $2, voided_at = NOW(), updated_at = NOW()
+WHERE id = $1 AND status IN ('DRAFT', 'CONFIRMED');
+
+-- name: GetGoodsReturnGRN :one
+SELECT
+    r.id, r.number, r.company_id, r.supplier_id, r.grn_id, r.warehouse_id,
+    r.return_date, r.status, r.reason, r.notes,
+    r.created_by, r.confirmed_by, r.confirmed_at, r.voided_by, r.voided_at,
+    r.created_at, r.updated_at
+FROM goods_return_grns r
+WHERE r.id = $1;
+
+-- name: ListGoodsReturnGRNLines :many
+SELECT id, goods_return_grn_id, grn_line_id, product_id,
+       quantity_returned, unit_cost, notes, line_order, created_at, updated_at
+FROM goods_return_grn_lines
+WHERE goods_return_grn_id = $1
+ORDER BY line_order;
+
+-- name: ListGoodsReturnGRNs :many
+SELECT
+    r.id, r.number, r.company_id, r.supplier_id, r.grn_id, r.warehouse_id,
+    r.return_date, r.status, r.reason, r.notes,
+    r.created_by, r.confirmed_by, r.confirmed_at, r.voided_by, r.voided_at,
+    r.created_at, r.updated_at
+FROM goods_return_grns r
+ORDER BY r.created_at DESC;
+
+-- name: GenerateGoodsReturnGRNNumber :one
+SELECT generate_goods_return_grn_number();
+

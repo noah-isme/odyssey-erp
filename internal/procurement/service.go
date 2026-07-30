@@ -25,9 +25,15 @@ type RepositoryPort interface {
 	POExistsByNumber(ctx context.Context, number string) (bool, error)
 }
 
+type GoodsReturnRepositoryPort interface {
+	GetGoodsReturnGRN(ctx context.Context, id int64) (GoodsReturnGRN, []GoodsReturnGRNLine, error)
+	ListGoodsReturnGRNs(ctx context.Context) ([]GoodsReturnGRN, error)
+}
+
 // InventoryPort exposes required inventory integration.
 type InventoryPort interface {
 	PostInbound(ctx context.Context, input inventory.InboundInput) (inventory.StockCardEntry, error)
+	PostAdjustment(ctx context.Context, input inventory.AdjustmentInput) (inventory.StockCardEntry, error)
 }
 
 // AuditPort reused from shared.
@@ -384,6 +390,179 @@ func (s *Service) ListGRNs(ctx context.Context, limit, offset int, filters ListF
 		limit = 20
 	}
 	return s.repo.ListGRNs(ctx, limit, offset, filters)
+}
+
+// CreateGoodsReturnGRN creates a goods return from a posted GRN.
+func (s *Service) CreateGoodsReturnGRN(ctx context.Context, input CreateGoodsReturnGRNInput) (GoodsReturnGRN, error) {
+	if len(input.Lines) == 0 {
+		return GoodsReturnGRN{}, errors.New("at least one return line is required")
+	}
+	grn, _, err := s.repo.GetGRN(ctx, input.GRNID)
+	if err != nil {
+		return GoodsReturnGRN{}, err
+	}
+	if grn.Status != GRNStatusPosted {
+		return GoodsReturnGRN{}, errors.New("GRN must be posted before creating a return")
+	}
+	if input.ReturnDate.IsZero() {
+		input.ReturnDate = time.Now()
+	}
+	var id int64
+	err = s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
+		num, err := tx.GenerateGoodsReturnGRNNumber(ctx)
+		if err != nil {
+			return err
+		}
+		id, err = tx.CreateGoodsReturnGRN(ctx, GoodsReturnGRN{
+			Number:      num,
+			CompanyID:   input.CompanyID,
+			SupplierID:  input.SupplierID,
+			GRNID:       input.GRNID,
+			WarehouseID: input.WarehouseID,
+			ReturnDate:  input.ReturnDate,
+			Status:      GoodsReturnStatusDraft,
+			Reason:      input.Reason,
+			Notes:       input.Notes,
+			CreatedBy:   input.CreatedBy,
+		})
+		if err != nil {
+			return err
+		}
+		for _, line := range input.Lines {
+			if err := tx.InsertGoodsReturnGRNLine(ctx, GoodsReturnGRNLine{
+				GoodsReturnGRNID: id,
+				GRNLineID:        line.GRNLineID,
+				ProductID:        line.ProductID,
+				QuantityReturned: line.QuantityReturned,
+				UnitCost:         line.UnitCost,
+				Notes:            line.Notes,
+				LineOrder:        line.LineOrder,
+			}); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return GoodsReturnGRN{}, err
+	}
+	return s.getGoodsReturnGRN(ctx, id)
+}
+
+// ConfirmGoodsReturnGRN confirms a goods return, posts negative inventory adjustment,
+// and fires the integration event.
+func (s *Service) ConfirmGoodsReturnGRN(ctx context.Context, id int64, actorID int64) (GoodsReturnGRN, error) {
+	ret, lines, err := s.getGoodsReturnGRNWithLines(ctx, id)
+	if err != nil {
+		return GoodsReturnGRN{}, err
+	}
+	if ret.Status != GoodsReturnStatusDraft {
+		return GoodsReturnGRN{}, ErrInvalidState
+	}
+	err = s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
+		if err := tx.ConfirmGoodsReturnGRN(ctx, id, actorID); err != nil {
+			return err
+		}
+		for _, line := range lines {
+			if s.inventory == nil {
+				return errors.New("inventory integration not configured")
+			}
+			refID := uuid.NewSHA1(uuid.Nil, []byte(fmt.Sprintf("GRN-RET:%d:%d", ret.ID, line.ProductID)))
+			_, err := s.inventory.PostAdjustment(ctx, inventory.AdjustmentInput{
+				Code:        fmt.Sprintf("GRN-RET-%s-%d", ret.Number, line.ProductID),
+				WarehouseID: ret.WarehouseID,
+				ProductID:   line.ProductID,
+				Qty:         -line.QuantityReturned,
+				UnitCost:    line.UnitCost,
+				Note:        fmt.Sprintf("Goods return %s", ret.Number),
+				ActorID:     actorID,
+				RefModule:   "PURCHASE_RETURN",
+				RefID:       refID.String(),
+			})
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return GoodsReturnGRN{}, err
+	}
+	s.recordAudit(ctx, "GOODS_RETURN_CONFIRM", id, map[string]any{"number": ret.Number})
+	if s.integration != nil {
+		evt := GoodsReturnConfirmedEvent{
+			ID:          ret.ID,
+			Number:      ret.Number,
+			SupplierID:  ret.SupplierID,
+			GRNID:       ret.GRNID,
+			WarehouseID: ret.WarehouseID,
+			ReturnDate:  ret.ReturnDate,
+		}
+		for _, line := range lines {
+			evt.Lines = append(evt.Lines, GoodsReturnLineEvent{
+				GoodsReturnGRNLineID: line.ID,
+				GRNLineID:            line.GRNLineID,
+				ProductID:            line.ProductID,
+				QuantityReturned:     line.QuantityReturned,
+				UnitCost:             line.UnitCost,
+			})
+		}
+		if err := s.integration.HandleGoodsReturnConfirmed(ctx, evt); err != nil {
+			return GoodsReturnGRN{}, err
+		}
+	}
+	return s.getGoodsReturnGRN(ctx, id)
+}
+
+// CancelGoodsReturnGRN cancels a draft goods return.
+func (s *Service) CancelGoodsReturnGRN(ctx context.Context, id int64, actorID int64) (GoodsReturnGRN, error) {
+	ret, _, err := s.getGoodsReturnGRNWithLines(ctx, id)
+	if err != nil {
+		return GoodsReturnGRN{}, err
+	}
+	if ret.Status != GoodsReturnStatusDraft {
+		return GoodsReturnGRN{}, ErrInvalidState
+	}
+	err = s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
+		return tx.CancelGoodsReturnGRN(ctx, id, actorID)
+	})
+	if err != nil {
+		return GoodsReturnGRN{}, err
+	}
+	s.recordAudit(ctx, "GOODS_RETURN_CANCEL", id, map[string]any{"number": ret.Number})
+	return s.getGoodsReturnGRN(ctx, id)
+}
+
+// GetGoodsReturnGRN returns a goods return with lines.
+func (s *Service) GetGoodsReturnGRN(ctx context.Context, id int64) (GoodsReturnGRN, error) {
+	return s.getGoodsReturnGRN(ctx, id)
+}
+
+// ListGoodsReturnGRNs returns all goods returns.
+func (s *Service) ListGoodsReturnGRNs(ctx context.Context) ([]GoodsReturnGRN, error) {
+	if repo, ok := s.repo.(GoodsReturnRepositoryPort); ok {
+		return repo.ListGoodsReturnGRNs(ctx)
+	}
+	return nil, errors.New("goods return repository not available")
+}
+
+func (s *Service) getGoodsReturnGRN(ctx context.Context, id int64) (GoodsReturnGRN, error) {
+	if repo, ok := s.repo.(GoodsReturnRepositoryPort); ok {
+		ret, lines, err := repo.GetGoodsReturnGRN(ctx, id)
+		if err != nil {
+			return GoodsReturnGRN{}, err
+		}
+		ret.Lines = lines
+		return ret, nil
+	}
+	return GoodsReturnGRN{}, errors.New("goods return repository not available")
+}
+
+func (s *Service) getGoodsReturnGRNWithLines(ctx context.Context, id int64) (GoodsReturnGRN, []GoodsReturnGRNLine, error) {
+	if repo, ok := s.repo.(GoodsReturnRepositoryPort); ok {
+		return repo.GetGoodsReturnGRN(ctx, id)
+	}
+	return GoodsReturnGRN{}, nil, errors.New("goods return repository not available")
 }
 
 func (s *Service) recordAudit(ctx context.Context, action string, entityID int64, meta map[string]any) {

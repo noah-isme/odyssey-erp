@@ -198,6 +198,21 @@ func (r *Repository) GetARInvoice(ctx context.Context, id int64) (*ARInvoice, er
 	return &inv, nil
 }
 
+func (r *Repository) GetARInvoiceByDelivery(ctx context.Context, deliveryOrderID int64) (*ARInvoice, error) {
+	var id int64
+	err := r.pool.QueryRow(ctx, `
+		SELECT id FROM ar_invoices
+		WHERE delivery_order_id = $1 AND status IN ('POSTED', 'PAID')
+		ORDER BY id DESC LIMIT 1`, deliveryOrderID).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrInvoiceNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return r.GetARInvoice(ctx, id)
+}
+
 // GetARInvoiceWithDetails retrieves an invoice with lines and payments.
 func (r *Repository) GetARInvoiceWithDetails(ctx context.Context, id int64) (*ARInvoiceWithDetails, error) {
 	inv, err := r.GetARInvoice(ctx, id)
@@ -411,14 +426,23 @@ func (r *Repository) VoidARInvoice(ctx context.Context, id int64, voidedBy int64
 // GetInvoiceBalance returns the balance for an invoice.
 func (r *Repository) GetInvoiceBalance(ctx context.Context, id int64) (total, paid, balance float64, err error) {
 	query := `
-		SELECT 
-			i.total,
-			COALESCE(SUM(pa.amount), 0) AS paid_amount,
-			i.total - COALESCE(SUM(pa.amount), 0) AS balance
-		FROM ar_invoices i
-		LEFT JOIN ar_payment_allocations pa ON pa.ar_invoice_id = i.id
-		WHERE i.id = $1
-		GROUP BY i.id`
+			SELECT 
+				i.total,
+				COALESCE(pa.paid_amount, 0) + COALESCE(cna.credit_amount, 0) AS paid_amount,
+				i.total - COALESCE(pa.paid_amount, 0) - COALESCE(cna.credit_amount, 0) AS balance
+			FROM ar_invoices i
+			LEFT JOIN (
+				SELECT ar_invoice_id, SUM(amount) AS paid_amount
+				FROM ar_payment_allocations
+				GROUP BY ar_invoice_id
+			) pa ON pa.ar_invoice_id = i.id
+			LEFT JOIN (
+				SELECT ar_invoice_id, SUM(amount) AS credit_amount
+				FROM ar_credit_note_allocations
+				GROUP BY ar_invoice_id
+			) cna ON cna.ar_invoice_id = i.id
+			WHERE i.id = $1
+			GROUP BY i.id, pa.paid_amount, cna.credit_amount`
 
 	err = r.pool.QueryRow(ctx, query, id).Scan(&total, &paid, &balance)
 	if err == pgx.ErrNoRows {

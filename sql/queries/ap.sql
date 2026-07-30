@@ -177,3 +177,129 @@ LEFT JOIN ap_payment_allocations pa ON pa.ap_invoice_id = i.id
 WHERE i.status = 'POSTED'
 GROUP BY i.id, i.due_at, i.total
 HAVING (i.total - COALESCE(SUM(pa.amount), 0)) > 0;
+
+-- =============================================================================
+-- AP DEBIT NOTES
+-- =============================================================================
+
+-- name: CreateAPDebitNote :one
+INSERT INTO ap_debit_notes (
+    number, supplier_id, ap_invoice_id, goods_return_grn_id,
+    currency, reason, subtotal, tax_amount, total,
+    status, created_by, created_at, updated_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
+RETURNING id;
+
+-- name: CreateAPDebitNoteLine :one
+INSERT INTO ap_debit_note_lines (
+    ap_debit_note_id, ap_invoice_line_id, goods_return_grn_line_id, product_id,
+    description, quantity, unit_price, discount_pct, tax_pct,
+    subtotal, tax_amount, total, created_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
+RETURNING id;
+
+-- name: CreateAPDebitNoteAllocation :one
+INSERT INTO ap_debit_note_allocations (
+    ap_debit_note_id, ap_invoice_id, amount, created_at
+) VALUES ($1, $2, $3, NOW())
+RETURNING id;
+
+-- name: PostAPDebitNote :exec
+UPDATE ap_debit_notes
+SET status = 'POSTED', posted_at = NOW(), posted_by = $2, updated_at = NOW()
+WHERE id = $1 AND status = 'DRAFT';
+
+-- name: VoidAPDebitNote :exec
+UPDATE ap_debit_notes
+SET status = 'VOID', voided_at = NOW(), voided_by = $2, void_reason = $3, updated_at = NOW()
+WHERE id = $1 AND status = 'DRAFT';
+
+-- name: GetAPDebitNote :one
+SELECT
+    d.id, d.number, d.supplier_id, COALESCE(s.name, '') AS supplier_name,
+    d.ap_invoice_id, d.goods_return_grn_id,
+    d.currency, d.reason, d.subtotal, d.tax_amount, d.total,
+    d.status, d.posted_at, d.posted_by, d.voided_at, d.voided_by, d.void_reason,
+    d.created_by, d.created_at, d.updated_at,
+    COALESCE(i.number, '') AS invoice_number
+FROM ap_debit_notes d
+LEFT JOIN suppliers s ON s.id = d.supplier_id
+LEFT JOIN ap_invoices i ON i.id = d.ap_invoice_id
+WHERE d.id = $1;
+
+-- name: ListAPDebitNoteLines :many
+SELECT
+    id, ap_debit_note_id, ap_invoice_line_id, goods_return_grn_line_id, product_id,
+    description, quantity, unit_price, discount_pct, tax_pct,
+    subtotal, tax_amount, total, created_at
+FROM ap_debit_note_lines
+WHERE ap_debit_note_id = $1
+ORDER BY id;
+
+-- name: ListAPDebitNotes :many
+SELECT
+    d.id, d.number, d.supplier_id, COALESCE(s.name, '') AS supplier_name,
+    d.ap_invoice_id, d.goods_return_grn_id,
+    d.currency, d.reason, d.subtotal, d.tax_amount, d.total,
+    d.status, d.posted_at, d.posted_by, d.voided_at, d.voided_by, d.void_reason,
+    d.created_by, d.created_at, d.updated_at,
+    COALESCE(i.number, '') AS invoice_number
+FROM ap_debit_notes d
+LEFT JOIN suppliers s ON s.id = d.supplier_id
+LEFT JOIN ap_invoices i ON i.id = d.ap_invoice_id
+ORDER BY d.created_at DESC;
+
+-- name: ListAPDebitNotesByStatus :many
+SELECT
+    d.id, d.number, d.supplier_id, COALESCE(s.name, '') AS supplier_name,
+    d.ap_invoice_id, d.goods_return_grn_id,
+    d.currency, d.reason, d.subtotal, d.tax_amount, d.total,
+    d.status, d.posted_at, d.posted_by, d.voided_at, d.voided_by, d.void_reason,
+    d.created_by, d.created_at, d.updated_at,
+    COALESCE(i.number, '') AS invoice_number
+FROM ap_debit_notes d
+LEFT JOIN suppliers s ON s.id = d.supplier_id
+LEFT JOIN ap_invoices i ON i.id = d.ap_invoice_id
+WHERE d.status = $1
+ORDER BY d.created_at DESC;
+
+-- name: ListAPDebitNotesBySupplier :many
+SELECT
+    d.id, d.number, d.supplier_id, COALESCE(s.name, '') AS supplier_name,
+    d.ap_invoice_id, d.goods_return_grn_id,
+    d.currency, d.reason, d.subtotal, d.tax_amount, d.total,
+    d.status, d.posted_at, d.posted_by, d.voided_at, d.voided_by, d.void_reason,
+    d.created_by, d.created_at, d.updated_at,
+    COALESCE(i.number, '') AS invoice_number
+FROM ap_debit_notes d
+LEFT JOIN suppliers s ON s.id = d.supplier_id
+LEFT JOIN ap_invoices i ON i.id = d.ap_invoice_id
+WHERE d.supplier_id = $1
+ORDER BY d.created_at DESC;
+
+-- name: ListAPDebitNoteAllocations :many
+SELECT id, ap_debit_note_id, ap_invoice_id, amount, created_at
+FROM ap_debit_note_allocations
+WHERE ap_debit_note_id = $1
+ORDER BY id;
+
+-- name: GetAPInvoiceBalanceWithDebitNotes :one
+SELECT
+    i.total,
+    COALESCE(pa.paid_amount, 0) + COALESCE(dna.debit_amount, 0) AS paid_amount,
+    (i.total - COALESCE(pa.paid_amount, 0) - COALESCE(dna.debit_amount, 0)) AS balance
+FROM ap_invoices i
+LEFT JOIN (
+    SELECT ap_invoice_id, SUM(amount) AS paid_amount
+    FROM ap_payment_allocations
+    GROUP BY ap_invoice_id
+) pa ON pa.ap_invoice_id = i.id
+LEFT JOIN (
+    SELECT ap_invoice_id, SUM(amount) AS debit_amount
+    FROM ap_debit_note_allocations
+    GROUP BY ap_invoice_id
+) dna ON dna.ap_invoice_id = i.id
+WHERE i.id = $1;
+
+-- name: GenerateAPDebitNoteNumber :one
+SELECT generate_ap_debit_note_number();

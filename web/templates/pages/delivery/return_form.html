@@ -1,0 +1,37 @@
+{{ define "pages/delivery/return_form.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}New Sales Return{{ end }}
+
+{{ define "content" }}
+{{ $order := .Data.DeliveryOrder }}
+<div class="page-container">
+    <header class="page-header"><div class="page-header__content"><span class="eyebrow">Delivery Returns</span><h1 class="page-title">Return {{ $order.DocNumber }}</h1><p class="page-subtitle">Select delivered quantities and their receiving warehouse.</p></div><div class="page-header__actions"><a href="/delivery/orders/{{ $order.ID }}" class="btn btn--secondary">Cancel</a></div></header>
+    <div class="page-content">
+        <form method="post" action="/delivery/orders/{{ $order.ID }}/returns" class="card">
+            <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
+            <div class="form-grid mb-6">
+                <div class="form-group"><label class="form-label" for="return-date">Return Date</label><input class="form-input" id="return-date" name="return_date" type="date" value="{{ .Data.Today }}" required></div>
+                <div class="form-group"><label class="form-label" for="reason">Reason</label><input class="form-input" id="reason" name="reason" required></div>
+            </div>
+            <div class="table-wrap">
+                <table class="table" aria-label="Return delivery lines">
+                    <thead><tr><th>Product</th><th class="numeric-right">Delivered</th><th class="numeric-right">Return Qty</th><th>Receiving Warehouse ID</th></tr></thead>
+                    <tbody>
+                        {{ range $order.Lines }}
+                        <tr>
+                            <td>#{{ .ProductID }}<input type="hidden" name="delivery_order_line_id[]" value="{{ .ID }}"><input type="hidden" name="product_id[]" value="{{ .ProductID }}"><input type="hidden" name="unit_price[]" value="{{ .UnitPrice }}"></td>
+                            <td class="numeric-right">{{ printf "%.2f" .QuantityDelivered }}</td>
+                            <td><input class="form-input" name="quantity[]" type="number" min="0" max="{{ .QuantityDelivered }}" step="0.0001" value="0"></td>
+                            <td><input class="form-input" name="restock_warehouse_id[]" type="number" min="1" value="{{ $order.WarehouseID }}"></td>
+                        </tr>
+                        {{ end }}
+                    </tbody>
+                </table>
+            </div>
+            <div class="card__footer"><button class="btn btn--primary" type="submit">Create Return</button></div>
+        </form>
+    </div>
+</div>
+{{ end }}

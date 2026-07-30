@@ -1,0 +1,55 @@
+{{ define "pages/ar/ar_credit_note_detail.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Credit Note {{ .Data.CreditNote.Number }}{{ end }}
+
+{{ define "content" }}
+{{ $cn := .Data.CreditNote }}
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <div class="flex items-center gap-3 mb-2"><span class="eyebrow">AR Credit Note</span>{{ template "partials/ui/status_badge.html" $cn.Status }}</div>
+            <h1 class="page-title">{{ $cn.Number }}</h1>
+            <p class="page-subtitle">Invoice <a class="link" href="/finance/ar/invoices/{{ $cn.ARInvoiceID }}">{{ $cn.InvoiceNumber }}</a> · {{ $cn.CustomerName }}</p>
+        </div>
+        <div class="page-header__actions">
+            <a href="/finance/ar/credit-notes/{{ $cn.ID }}/pdf" class="btn btn--secondary">PDF</a>
+            <a href="/finance/ar/credit-notes" class="btn btn--secondary">Back</a>
+            {{ if eq (printf "%s" $cn.Status) "DRAFT" }}
+            <form method="post" action="/finance/ar/credit-notes/{{ $cn.ID }}/post"><input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}"><button class="btn btn--primary" type="submit">Post Credit Note</button></form>
+            {{ end }}
+        </div>
+    </header>
+    <div class="page-content">
+        <section class="card">
+            <div class="card__header"><div><h2 class="card__title">Credit Summary</h2><p class="card__desc">{{ $cn.Reason }}</p></div></div>
+            <div class="responsive-grid responsive-grid--wide gap-6">
+                <div><span class="label mb-1">Customer</span><p class="text-primary font-medium">{{ $cn.CustomerName }}</p></div>
+                <div><span class="label mb-1">Return Delivery</span><p class="text-primary font-medium">RDO #{{ $cn.ReturnDeliveryOrderID }}</p></div>
+                <div><span class="label mb-1">Subtotal</span><p class="text-primary font-medium">{{ $cn.Currency }} {{ printf "%.2f" $cn.Subtotal }}</p></div>
+                <div><span class="label mb-1">Total Credit</span><p class="text-xl font-bold text-primary">{{ $cn.Currency }} {{ printf "%.2f" $cn.Total }}</p></div>
+            </div>
+        </section>
+        <section class="card mt-6">
+            <div class="card__header"><h2 class="card__title">Returned Items</h2></div>
+            <div class="table-wrap">
+                <table class="table" aria-label="Credit note lines">
+                    <thead><tr><th>Description</th><th class="numeric-right">Qty</th><th class="numeric-right">Unit Price</th><th class="numeric-right">Tax</th><th class="numeric-right">Total</th></tr></thead>
+                    <tbody>{{ range $cn.Lines }}<tr><td>{{ .Description }}</td><td class="numeric-right">{{ printf "%.2f" .Quantity }}</td><td class="numeric-right">{{ printf "%.2f" .UnitPrice }}</td><td class="numeric-right">{{ printf "%.2f" .TaxAmount }}</td><td class="numeric-right font-medium">{{ printf "%.2f" .Total }}</td></tr>{{ end }}</tbody>
+                </table>
+            </div>
+        </section>
+        {{ if eq (printf "%s" $cn.Status) "DRAFT" }}
+        <section class="card mt-6">
+            <div class="card__header"><div><h2 class="card__title">Void Draft</h2><p class="card__desc">Void is available before posting.</p></div></div>
+            <form method="post" action="/finance/ar/credit-notes/{{ $cn.ID }}/void" class="form-grid">
+                <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
+                <div class="form-group"><label class="form-label" for="void-reason">Reason</label><input class="form-input" id="void-reason" name="reason" required></div>
+                <div class="form-group form-group--actions"><button class="btn btn--danger" type="submit">Void Credit Note</button></div>
+            </form>
+        </section>
+        {{ end }}
+    </div>
+</div>
+{{ end }}

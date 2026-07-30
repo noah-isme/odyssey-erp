@@ -38,6 +38,13 @@ type TxRepository interface {
 	CreateGRN(ctx context.Context, grn GoodsReceipt) (int64, error)
 	InsertGRNLine(ctx context.Context, line GRNLine) error
 	UpdateGRNStatus(ctx context.Context, id int64, status GRNStatus) error
+
+	// Goods return operations
+	CreateGoodsReturnGRN(ctx context.Context, ret GoodsReturnGRN) (int64, error)
+	InsertGoodsReturnGRNLine(ctx context.Context, line GoodsReturnGRNLine) error
+	ConfirmGoodsReturnGRN(ctx context.Context, id int64, actorID int64) error
+	CancelGoodsReturnGRN(ctx context.Context, id int64, actorID int64) error
+	GenerateGoodsReturnGRNNumber(ctx context.Context) (string, error)
 }
 
 type txRepo struct {
@@ -560,4 +567,161 @@ func (tx *txRepo) UpdateGRNStatus(ctx context.Context, id int64, status GRNStatu
 	})
 }
 
-// nullInt, nullDate helpers are removed as we use pgtype directly
+func (tx *txRepo) CreateGoodsReturnGRN(ctx context.Context, ret GoodsReturnGRN) (int64, error) {
+	return tx.queries.CreateGoodsReturnGRN(ctx, sqlc.CreateGoodsReturnGRNParams{
+		Number:      ret.Number,
+		CompanyID:   ret.CompanyID,
+		SupplierID:  ret.SupplierID,
+		GrnID:       ret.GRNID,
+		WarehouseID: ret.WarehouseID,
+		ReturnDate:  pgtype.Date{Time: ret.ReturnDate, Valid: true},
+		Status:      sqlc.GoodsReturnGrnStatus(ret.Status),
+		Reason:      ret.Reason,
+		Notes:       toText(ret.Notes),
+		CreatedBy:   ret.CreatedBy,
+	})
+}
+
+func (tx *txRepo) InsertGoodsReturnGRNLine(ctx context.Context, line GoodsReturnGRNLine) error {
+	_, err := tx.queries.CreateGoodsReturnGRNLine(ctx, sqlc.CreateGoodsReturnGRNLineParams{
+		GoodsReturnGrnID: line.GoodsReturnGRNID,
+		GrnLineID:        line.GRNLineID,
+		ProductID:        line.ProductID,
+		QuantityReturned: numericOf(line.QuantityReturned),
+		UnitCost:         numericOf(line.UnitCost),
+		Notes:            toText(line.Notes),
+		LineOrder:        int32(line.LineOrder),
+	})
+	return err
+}
+
+func (tx *txRepo) ConfirmGoodsReturnGRN(ctx context.Context, id int64, actorID int64) error {
+	return tx.queries.ConfirmGoodsReturnGRN(ctx, sqlc.ConfirmGoodsReturnGRNParams{
+		ID:          id,
+		ConfirmedBy: pgtype.Int8{Int64: actorID, Valid: true},
+	})
+}
+
+func (tx *txRepo) CancelGoodsReturnGRN(ctx context.Context, id int64, actorID int64) error {
+	return tx.queries.CancelGoodsReturnGRN(ctx, sqlc.CancelGoodsReturnGRNParams{
+		ID:       id,
+		VoidedBy: pgtype.Int8{Int64: actorID, Valid: true},
+	})
+}
+
+func (tx *txRepo) GenerateGoodsReturnGRNNumber(ctx context.Context) (string, error) {
+	return tx.queries.GenerateGoodsReturnGRNNumber(ctx)
+}
+
+func (r *Repository) GetGoodsReturnGRN(ctx context.Context, id int64) (GoodsReturnGRN, []GoodsReturnGRNLine, error) {
+	row, err := r.queries.GetGoodsReturnGRN(ctx, id)
+	if err != nil {
+		return GoodsReturnGRN{}, nil, ErrGoodsReturnNotFound
+	}
+	ret := GoodsReturnGRN{
+		ID:          row.ID,
+		Number:      row.Number,
+		CompanyID:   row.CompanyID,
+		SupplierID:  row.SupplierID,
+		GRNID:       row.GrnID,
+		WarehouseID: row.WarehouseID,
+		Status:      GoodsReturnGRNStatus(row.Status),
+		Reason:      row.Reason,
+		CreatedBy:   row.CreatedBy,
+		CreatedAt:   safeTime(row.CreatedAt),
+		UpdatedAt:   safeTime(row.UpdatedAt),
+	}
+	if row.ReturnDate.Valid {
+		ret.ReturnDate = row.ReturnDate.Time
+	}
+	if row.Notes.Valid {
+		v := row.Notes.String
+		ret.Notes = &v
+	}
+	if row.ConfirmedBy.Valid {
+		v := row.ConfirmedBy.Int64
+		ret.ConfirmedBy = &v
+	}
+	if row.ConfirmedAt.Valid {
+		v := row.ConfirmedAt.Time
+		ret.ConfirmedAt = &v
+	}
+	if row.VoidedBy.Valid {
+		v := row.VoidedBy.Int64
+		ret.VoidedBy = &v
+	}
+	if row.VoidedAt.Valid {
+		v := row.VoidedAt.Time
+		ret.VoidedAt = &v
+	}
+
+	lineRows, err := r.queries.ListGoodsReturnGRNLines(ctx, id)
+	if err != nil {
+		return GoodsReturnGRN{}, nil, err
+	}
+	lines := make([]GoodsReturnGRNLine, len(lineRows))
+	for i, l := range lineRows {
+		lines[i] = GoodsReturnGRNLine{
+			ID:               l.ID,
+			GoodsReturnGRNID: l.GoodsReturnGrnID,
+			GRNLineID:        l.GrnLineID,
+			ProductID:        l.ProductID,
+			QuantityReturned: numericToFloat(l.QuantityReturned),
+			UnitCost:         numericToFloat(l.UnitCost),
+			LineOrder:        int(l.LineOrder),
+			CreatedAt:        safeTime(l.CreatedAt),
+			UpdatedAt:        safeTime(l.UpdatedAt),
+		}
+		if l.Notes.Valid {
+			v := l.Notes.String
+			lines[i].Notes = &v
+		}
+	}
+	return ret, lines, nil
+}
+
+func (r *Repository) ListGoodsReturnGRNs(ctx context.Context) ([]GoodsReturnGRN, error) {
+	rows, err := r.queries.ListGoodsReturnGRNs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]GoodsReturnGRN, len(rows))
+	for i, row := range rows {
+		items[i] = GoodsReturnGRN{
+			ID:          row.ID,
+			Number:      row.Number,
+			CompanyID:   row.CompanyID,
+			SupplierID:  row.SupplierID,
+			GRNID:       row.GrnID,
+			WarehouseID: row.WarehouseID,
+			Status:      GoodsReturnGRNStatus(row.Status),
+			Reason:      row.Reason,
+			CreatedBy:   row.CreatedBy,
+			CreatedAt:   safeTime(row.CreatedAt),
+			UpdatedAt:   safeTime(row.UpdatedAt),
+		}
+		if row.ReturnDate.Valid {
+			items[i].ReturnDate = row.ReturnDate.Time
+		}
+	}
+	return items, nil
+}
+
+func toText(ptr *string) pgtype.Text {
+	if ptr == nil {
+		return pgtype.Text{}
+	}
+	return pgtype.Text{String: *ptr, Valid: true}
+}
+
+func numericToFloat(n pgtype.Numeric) float64 {
+	f, _ := n.Float64Value()
+	return f.Float64
+}
+
+func safeTime(t pgtype.Timestamptz) time.Time {
+	if !t.Valid {
+		return time.Time{}
+	}
+	return t.Time
+}

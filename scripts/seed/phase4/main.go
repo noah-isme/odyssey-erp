@@ -98,6 +98,13 @@ func seedMappings(ctx context.Context, pool *pgxpool.Pool) error {
 		"inventory.adjustment.gain":      "5300",
 		"inventory.adjustment.loss":      "5300",
 		"inventory.adjustment.inventory": "1300",
+		"ar.invoice.ar":                  "1200",
+		"ar.invoice.revenue":             "4000",
+		"ar.invoice.tax":                 "4160",
+		"ar.credit_note.ar":              "1200",
+		"ar.credit_note.revenue":         "4000",
+		"ar.credit_note.tax":             "4160",
+		"ar.return.cogs":                 "5100",
 	}
 	tx, err := pool.Begin(ctx)
 	if err != nil {

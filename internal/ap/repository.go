@@ -23,6 +23,13 @@ type Repository interface {
 
 	ListAPPayments(ctx context.Context) ([]APPayment, error)
 	GetAPPaymentWithDetails(ctx context.Context, id int64) (APPaymentWithDetails, error)
+
+	CreateAPDebitNote(ctx context.Context, input CreateAPDebitNoteInput) (*APDebitNote, error)
+	GetAPDebitNote(ctx context.Context, id int64) (*APDebitNote, error)
+	GetAPDebitNoteWithDetails(ctx context.Context, id int64) (*APDebitNoteWithDetails, error)
+	ListAPDebitNotes(ctx context.Context, req ListAPDebitNotesRequest) ([]APDebitNote, error)
+	PostAPDebitNote(ctx context.Context, id, invoiceID, postedBy int64, amount float64) error
+	VoidAPDebitNote(ctx context.Context, id, voidedBy int64, reason string) error
 }
 
 // TxRepository defines operations within a transaction.

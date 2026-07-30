@@ -2,6 +2,7 @@
 
 **Prepared:** 2026-01-11
 **Revised:** 2026-07-20 (synced to current implementation)
+**Revised:** 2026-07-29 (added the gap-analysis phased plan below)
 **Current Version:** v0.9.1
 
 ## Executive Summary
@@ -251,7 +252,84 @@ These can be implemented in 1-2 days each:
 
 ---
 
+## Product Gap Analysis → Phased Plan (2026-07-29)
+
+Full-ERP benchmark (ERPNext/Odoo class) against `main` @ `deb23bb`. Verdict:
+**finance-complete, operationally thin** — consolidation/eliminations is ahead of most
+SMB ERPs, but buyers will ask first for returns, notifications, payroll, and tax
+compliance. Phases below are sequenced business-value first, dependencies second;
+each ships independently usable software. Where a phase expands an older Phase 14-17
+item, the detail stays in those sections — this table supersedes only the ordering.
+
+| # | Theme | Size | Depends on |
+|---|-------|------|-----------|
+| P1 | **Returns & credit/debit notes** ✅; document attachments remain | L | none (journals, inventory, AP links ✓) |
+| P2 | **Notification center + transactional email** | M | `shared/mail.go` ✓, asynq ✓, user prefs ✓ |
+| P3 | **Configurable approval engine + HR core** (employees, org, leave, attendance) | L | P2 |
+| P4 | **Payroll Indonesia** — PPh 21 (TER), BPJS, slip gaji, GL posting | XL | P3 |
+| P5 | **Tax compliance** — faktur pajak numbering, PPN/PPh reports, e-Faktur export (expands Phase 17 row) | L | P1 |
+| P6 | **CRM** — leads, pipeline, activities (feeds existing quotations) | L | P2 |
+| P7 | **Multi-currency** (detail in Phase 14) + horizon packs: WMS, MRP, POS, public API/webhooks, portals | XL | stable AR/AP from P1 |
+
+Sizing legend: S <2w · M 2–4w · L 1–2m · XL 2m+ (rough, single team).
+
+### P1 — Returns & Credit/Debit Notes — ✅ DONE
+- Sales returns and AR credit notes support stock restocking, invoice linkage, allocation,
+  posting/voiding, GL journals, SSR views, and PDF output.
+- GRN-based supplier returns and AP debit notes support inventory reversal, invoice linkage,
+  allocation, posting/voiding, GL journals, SSR views, and PDF output.
+- Document attachments on invoices, POs, and GRNs remain deferred to the Phase 16 attachment work.
+
+### P2 — Communication Backbone
+- Notification center: table, unread-count API, real bell badge (hardcoded `3` today),
+  mark-read, per-user prefs
+- Wire SMTP into asynq (replaces the `phase 2` placeholder in `jobs/tasks.go`)
+- Templates: invoice issued, approval requested, report delivered, password reset
+- **Done when:** approving a quotation notifies in-app and by email; scheduled reports
+  arrive by mail.
+
+### P3 — Approvals + HR Core
+- Generalize `approvals` into multi-step chains: amount-based routing, delegation,
+  per-module policies
+- "My Approvals" inbox; employees, org structure, leave + attendance (CSV import first)
+- **Done when:** a large PO and a leave request route through the same engine.
+
+### P4 — Payroll Indonesia
+- Salary components (gaji pokok, tunjangan, potongan, overtime, THR); monthly runs
+  draft → approve → post; slip gaji PDF via Gotenberg
+- PPh 21 with TER monthly rates (PMK 168/2023) + PTKP statuses; BPJS Kesehatan &
+  Ketenagakerjaan; expense journals per cost-center dimension
+- **Done when:** PPh 21 computes correctly for all PTKP statuses (DJP test cases),
+  slips are emailed, and the journal balances.
+
+### P5 — Tax Compliance
+- Regulated faktur pajak sequence on AR invoices; PPN keluaran/masukan + SPT recap;
+  e-Faktur/Coretax CSV/XML export; PPh 23/4(2) withholding on AP
+- Retur integration from P1
+- **Done when:** a month exports into an e-Faktur-importable file reconciling to GL
+  PPN accounts to the rupiah.
+
+### P6 — CRM
+- Leads, opportunities/pipeline stages, win/loss, activities with reminders;
+  convert lead → customer → quotation without re-keying
+- **Done when:** win/loss analytics appear on the sales dashboard.
+
+### P7 — Multi-Currency + Horizon
+- Exchange-rate table, rate lock per document, realized gain/loss on payment,
+  unrealized revaluation at period close (see Phase 14 technical notes)
+- Horizon packs by vertical: WMS (bins, picking, barcode), Manufacturing/MRP (BOM,
+  work orders), POS, Projects/timesheets, public REST API + webhooks, portals
+
+**Sequencing note:** P2 is early because it is small, visible, and P3/P4/P6 emit events
+through it. P4 and P6 may swap if a customer commits. P7 is the only phase worth
+breaking the order for (export/import demand).
+
+---
+
 ## Recommended Next Steps
+
+> For product-feature sequencing, follow the gap-analysis phased plan above; the
+> module-choice framing below reflects the 2026-07-20 revision.
 
 1. **Immediate (highest value, low effort)**
    - Add integration coverage for the Budget vs Actual query and form a release dataset that includes revenue and expense budgets.

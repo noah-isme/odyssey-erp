@@ -75,6 +75,15 @@ func (r *memoryARRepo) GetARInvoice(ctx context.Context, id int64) (*ARInvoice, 
 	return inv, nil
 }
 
+func (r *memoryARRepo) GetARInvoiceByDelivery(_ context.Context, deliveryOrderID int64) (*ARInvoice, error) {
+	for _, invoice := range r.invoices {
+		if invoice.DeliveryOrderID == deliveryOrderID && (invoice.Status == ARStatusPosted || invoice.Status == ARStatusPaid) {
+			return invoice, nil
+		}
+	}
+	return nil, ErrInvoiceNotFound
+}
+
 func (r *memoryARRepo) GetARInvoiceWithDetails(ctx context.Context, id int64) (*ARInvoiceWithDetails, error) {
 	inv, ok := r.invoices[id]
 	if !ok {

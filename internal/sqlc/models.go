@@ -99,6 +99,92 @@ func (ns NullAccountingPeriodStatus) Value() (driver.Value, error) {
 	return string(ns.AccountingPeriodStatus), nil
 }
 
+type ApDebitNoteStatus string
+
+const (
+	ApDebitNoteStatusDRAFT  ApDebitNoteStatus = "DRAFT"
+	ApDebitNoteStatusPOSTED ApDebitNoteStatus = "POSTED"
+	ApDebitNoteStatusVOID   ApDebitNoteStatus = "VOID"
+)
+
+func (e *ApDebitNoteStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ApDebitNoteStatus(s)
+	case string:
+		*e = ApDebitNoteStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ApDebitNoteStatus: %T", src)
+	}
+	return nil
+}
+
+type NullApDebitNoteStatus struct {
+	ApDebitNoteStatus ApDebitNoteStatus `json:"ap_debit_note_status"`
+	Valid             bool              `json:"valid"` // Valid is true if ApDebitNoteStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullApDebitNoteStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.ApDebitNoteStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ApDebitNoteStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullApDebitNoteStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ApDebitNoteStatus), nil
+}
+
+type ArCreditNoteStatus string
+
+const (
+	ArCreditNoteStatusDRAFT  ArCreditNoteStatus = "DRAFT"
+	ArCreditNoteStatusPOSTED ArCreditNoteStatus = "POSTED"
+	ArCreditNoteStatusVOID   ArCreditNoteStatus = "VOID"
+)
+
+func (e *ArCreditNoteStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ArCreditNoteStatus(s)
+	case string:
+		*e = ArCreditNoteStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ArCreditNoteStatus: %T", src)
+	}
+	return nil
+}
+
+type NullArCreditNoteStatus struct {
+	ArCreditNoteStatus ArCreditNoteStatus `json:"ar_credit_note_status"`
+	Valid              bool               `json:"valid"` // Valid is true if ArCreditNoteStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullArCreditNoteStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.ArCreditNoteStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ArCreditNoteStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullArCreditNoteStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ArCreditNoteStatus), nil
+}
+
 type BankLineStatus string
 
 const (
@@ -315,6 +401,49 @@ func (ns NullEliminationRunStatus) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.EliminationRunStatus), nil
+}
+
+type GoodsReturnGrnStatus string
+
+const (
+	GoodsReturnGrnStatusDRAFT     GoodsReturnGrnStatus = "DRAFT"
+	GoodsReturnGrnStatusCONFIRMED GoodsReturnGrnStatus = "CONFIRMED"
+	GoodsReturnGrnStatusCANCELLED GoodsReturnGrnStatus = "CANCELLED"
+)
+
+func (e *GoodsReturnGrnStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = GoodsReturnGrnStatus(s)
+	case string:
+		*e = GoodsReturnGrnStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for GoodsReturnGrnStatus: %T", src)
+	}
+	return nil
+}
+
+type NullGoodsReturnGrnStatus struct {
+	GoodsReturnGrnStatus GoodsReturnGrnStatus `json:"goods_return_grn_status"`
+	Valid                bool                 `json:"valid"` // Valid is true if GoodsReturnGrnStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullGoodsReturnGrnStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.GoodsReturnGrnStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.GoodsReturnGrnStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullGoodsReturnGrnStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.GoodsReturnGrnStatus), nil
 }
 
 type JournalStatus string
@@ -535,6 +664,49 @@ func (ns NullQuotationStatus) Value() (driver.Value, error) {
 	return string(ns.QuotationStatus), nil
 }
 
+type ReturnDeliveryOrderStatus string
+
+const (
+	ReturnDeliveryOrderStatusDRAFT     ReturnDeliveryOrderStatus = "DRAFT"
+	ReturnDeliveryOrderStatusCONFIRMED ReturnDeliveryOrderStatus = "CONFIRMED"
+	ReturnDeliveryOrderStatusCANCELLED ReturnDeliveryOrderStatus = "CANCELLED"
+)
+
+func (e *ReturnDeliveryOrderStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ReturnDeliveryOrderStatus(s)
+	case string:
+		*e = ReturnDeliveryOrderStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ReturnDeliveryOrderStatus: %T", src)
+	}
+	return nil
+}
+
+type NullReturnDeliveryOrderStatus struct {
+	ReturnDeliveryOrderStatus ReturnDeliveryOrderStatus `json:"return_delivery_order_status"`
+	Valid                     bool                      `json:"valid"` // Valid is true if ReturnDeliveryOrderStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullReturnDeliveryOrderStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.ReturnDeliveryOrderStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ReturnDeliveryOrderStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullReturnDeliveryOrderStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ReturnDeliveryOrderStatus), nil
+}
+
 type SalesOrderStatus string
 
 const (
@@ -685,6 +857,53 @@ type AccountingPeriod struct {
 	UpdatedAt    pgtype.Timestamptz     `json:"updated_at"`
 }
 
+type ApDebitNote struct {
+	ID               int64              `json:"id"`
+	Number           string             `json:"number"`
+	SupplierID       int64              `json:"supplier_id"`
+	ApInvoiceID      int64              `json:"ap_invoice_id"`
+	GoodsReturnGrnID pgtype.Int8        `json:"goods_return_grn_id"`
+	Currency         string             `json:"currency"`
+	Reason           string             `json:"reason"`
+	Subtotal         pgtype.Numeric     `json:"subtotal"`
+	TaxAmount        pgtype.Numeric     `json:"tax_amount"`
+	Total            pgtype.Numeric     `json:"total"`
+	Status           ApDebitNoteStatus  `json:"status"`
+	PostedAt         pgtype.Timestamptz `json:"posted_at"`
+	PostedBy         pgtype.Int8        `json:"posted_by"`
+	VoidedAt         pgtype.Timestamptz `json:"voided_at"`
+	VoidedBy         pgtype.Int8        `json:"voided_by"`
+	VoidReason       pgtype.Text        `json:"void_reason"`
+	CreatedBy        int64              `json:"created_by"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ApDebitNoteAllocation struct {
+	ID            int64              `json:"id"`
+	ApDebitNoteID int64              `json:"ap_debit_note_id"`
+	ApInvoiceID   int64              `json:"ap_invoice_id"`
+	Amount        pgtype.Numeric     `json:"amount"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
+type ApDebitNoteLine struct {
+	ID                   int64              `json:"id"`
+	ApDebitNoteID        int64              `json:"ap_debit_note_id"`
+	ApInvoiceLineID      pgtype.Int8        `json:"ap_invoice_line_id"`
+	GoodsReturnGrnLineID pgtype.Int8        `json:"goods_return_grn_line_id"`
+	ProductID            int64              `json:"product_id"`
+	Description          string             `json:"description"`
+	Quantity             pgtype.Numeric     `json:"quantity"`
+	UnitPrice            pgtype.Numeric     `json:"unit_price"`
+	DiscountPct          pgtype.Numeric     `json:"discount_pct"`
+	TaxPct               pgtype.Numeric     `json:"tax_pct"`
+	Subtotal             pgtype.Numeric     `json:"subtotal"`
+	TaxAmount            pgtype.Numeric     `json:"tax_amount"`
+	Total                pgtype.Numeric     `json:"total"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+}
+
 type ApInvoice struct {
 	ID         int64              `json:"id"`
 	Number     string             `json:"number"`
@@ -755,6 +974,53 @@ type Approval struct {
 	Action  string             `json:"action"`
 	Note    string             `json:"note"`
 	At      pgtype.Timestamptz `json:"at"`
+}
+
+type ArCreditNote struct {
+	ID                    int64              `json:"id"`
+	Number                string             `json:"number"`
+	CustomerID            int64              `json:"customer_id"`
+	ArInvoiceID           int64              `json:"ar_invoice_id"`
+	ReturnDeliveryOrderID pgtype.Int8        `json:"return_delivery_order_id"`
+	Currency              string             `json:"currency"`
+	Reason                string             `json:"reason"`
+	Subtotal              pgtype.Numeric     `json:"subtotal"`
+	TaxAmount             pgtype.Numeric     `json:"tax_amount"`
+	Total                 pgtype.Numeric     `json:"total"`
+	Status                ArCreditNoteStatus `json:"status"`
+	PostedAt              pgtype.Timestamptz `json:"posted_at"`
+	PostedBy              pgtype.Int8        `json:"posted_by"`
+	VoidedAt              pgtype.Timestamptz `json:"voided_at"`
+	VoidedBy              pgtype.Int8        `json:"voided_by"`
+	VoidReason            pgtype.Text        `json:"void_reason"`
+	CreatedBy             int64              `json:"created_by"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ArCreditNoteAllocation struct {
+	ID             int64              `json:"id"`
+	ArCreditNoteID int64              `json:"ar_credit_note_id"`
+	ArInvoiceID    int64              `json:"ar_invoice_id"`
+	Amount         pgtype.Numeric     `json:"amount"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type ArCreditNoteLine struct {
+	ID                        int64              `json:"id"`
+	ArCreditNoteID            int64              `json:"ar_credit_note_id"`
+	ArInvoiceLineID           pgtype.Int8        `json:"ar_invoice_line_id"`
+	ReturnDeliveryOrderLineID pgtype.Int8        `json:"return_delivery_order_line_id"`
+	ProductID                 int64              `json:"product_id"`
+	Description               string             `json:"description"`
+	Quantity                  pgtype.Numeric     `json:"quantity"`
+	UnitPrice                 pgtype.Numeric     `json:"unit_price"`
+	DiscountPct               pgtype.Numeric     `json:"discount_pct"`
+	TaxPct                    pgtype.Numeric     `json:"tax_pct"`
+	Subtotal                  pgtype.Numeric     `json:"subtotal"`
+	TaxAmount                 pgtype.Numeric     `json:"tax_amount"`
+	Total                     pgtype.Numeric     `json:"total"`
+	CreatedAt                 pgtype.Timestamptz `json:"created_at"`
 }
 
 type ArInvoice struct {
@@ -1176,6 +1442,39 @@ type GlBalance struct {
 	Debit     interface{} `json:"debit"`
 	Credit    interface{} `json:"credit"`
 	Closing   interface{} `json:"closing"`
+}
+
+type GoodsReturnGrn struct {
+	ID          int64                `json:"id"`
+	Number      string               `json:"number"`
+	CompanyID   int64                `json:"company_id"`
+	SupplierID  int64                `json:"supplier_id"`
+	GrnID       int64                `json:"grn_id"`
+	WarehouseID int64                `json:"warehouse_id"`
+	ReturnDate  pgtype.Date          `json:"return_date"`
+	Status      GoodsReturnGrnStatus `json:"status"`
+	Reason      string               `json:"reason"`
+	Notes       pgtype.Text          `json:"notes"`
+	CreatedBy   int64                `json:"created_by"`
+	ConfirmedBy pgtype.Int8          `json:"confirmed_by"`
+	ConfirmedAt pgtype.Timestamptz   `json:"confirmed_at"`
+	VoidedBy    pgtype.Int8          `json:"voided_by"`
+	VoidedAt    pgtype.Timestamptz   `json:"voided_at"`
+	CreatedAt   pgtype.Timestamptz   `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz   `json:"updated_at"`
+}
+
+type GoodsReturnGrnLine struct {
+	ID               int64              `json:"id"`
+	GoodsReturnGrnID int64              `json:"goods_return_grn_id"`
+	GrnLineID        int64              `json:"grn_line_id"`
+	ProductID        int64              `json:"product_id"`
+	QuantityReturned pgtype.Numeric     `json:"quantity_returned"`
+	UnitCost         pgtype.Numeric     `json:"unit_cost"`
+	Notes            pgtype.Text        `json:"notes"`
+	LineOrder        int32              `json:"line_order"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Grn struct {
@@ -1608,6 +1907,42 @@ type ReportScheduleDelivery struct {
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }
 
+type ReturnDeliveryOrder struct {
+	ID                      int64                     `json:"id"`
+	Number                  string                    `json:"number"`
+	CompanyID               int64                     `json:"company_id"`
+	CustomerID              int64                     `json:"customer_id"`
+	OriginalDeliveryOrderID int64                     `json:"original_delivery_order_id"`
+	WarehouseID             int64                     `json:"warehouse_id"`
+	ReturnDate              pgtype.Date               `json:"return_date"`
+	Status                  ReturnDeliveryOrderStatus `json:"status"`
+	Reason                  string                    `json:"reason"`
+	Notes                   pgtype.Text               `json:"notes"`
+	CreatedBy               int64                     `json:"created_by"`
+	ConfirmedBy             pgtype.Int8               `json:"confirmed_by"`
+	ConfirmedAt             pgtype.Timestamptz        `json:"confirmed_at"`
+	VoidedBy                pgtype.Int8               `json:"voided_by"`
+	VoidedAt                pgtype.Timestamptz        `json:"voided_at"`
+	CreatedAt               pgtype.Timestamptz        `json:"created_at"`
+	UpdatedAt               pgtype.Timestamptz        `json:"updated_at"`
+}
+
+type ReturnDeliveryOrderLine struct {
+	ID                    int64              `json:"id"`
+	ReturnDeliveryOrderID int64              `json:"return_delivery_order_id"`
+	DeliveryOrderLineID   int64              `json:"delivery_order_line_id"`
+	ProductID             int64              `json:"product_id"`
+	QuantityReturned      pgtype.Numeric     `json:"quantity_returned"`
+	UnitPrice             pgtype.Numeric     `json:"unit_price"`
+	RestockWarehouseID    pgtype.Int8        `json:"restock_warehouse_id"`
+	LotNumber             pgtype.Text        `json:"lot_number"`
+	SerialNumbers         []string           `json:"serial_numbers"`
+	Notes                 pgtype.Text        `json:"notes"`
+	LineOrder             int32              `json:"line_order"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Role struct {
 	ID          int64              `json:"id"`
 	Name        string             `json:"name"`
@@ -1731,6 +2066,21 @@ type UserRole struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type VApInvoiceBalance struct {
+	ID         int64              `json:"id"`
+	Number     string             `json:"number"`
+	SupplierID int64              `json:"supplier_id"`
+	GrnID      pgtype.Int8        `json:"grn_id"`
+	Subtotal   pgtype.Numeric     `json:"subtotal"`
+	TaxAmount  pgtype.Numeric     `json:"tax_amount"`
+	Total      pgtype.Numeric     `json:"total"`
+	PaidAmount int32              `json:"paid_amount"`
+	Balance    interface{}        `json:"balance"`
+	Status     string             `json:"status"`
+	DueAt      pgtype.Date        `json:"due_at"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
 type VArInvoiceBalance struct {
 	ID              int64              `json:"id"`
 	Number          string             `json:"number"`
@@ -1740,8 +2090,8 @@ type VArInvoiceBalance struct {
 	Subtotal        pgtype.Numeric     `json:"subtotal"`
 	TaxAmount       pgtype.Numeric     `json:"tax_amount"`
 	Total           pgtype.Numeric     `json:"total"`
-	PaidAmount      interface{}        `json:"paid_amount"`
-	Balance         int32              `json:"balance"`
+	PaidAmount      int32              `json:"paid_amount"`
+	Balance         interface{}        `json:"balance"`
 	Status          string             `json:"status"`
 	DueAt           pgtype.Timestamptz `json:"due_at"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`

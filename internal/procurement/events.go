@@ -41,9 +41,44 @@ type APPaymentPostedEvent struct {
 	PaidAt      time.Time
 }
 
+// GoodsReturnConfirmedEvent describes a confirmed goods return for inventory and debit note creation.
+type GoodsReturnConfirmedEvent struct {
+	ID          int64
+	Number      string
+	SupplierID  int64
+	GRNID       int64
+	WarehouseID int64
+	ReturnDate  time.Time
+	Lines       []GoodsReturnLineEvent
+}
+
+// GoodsReturnLineEvent describes individual return line values for integration.
+type GoodsReturnLineEvent struct {
+	GoodsReturnGRNLineID int64
+	GRNLineID            int64
+	ProductID            int64
+	QuantityReturned     float64
+	UnitCost             float64
+}
+
+// DebitNotePostedEvent describes a posted debit note for ledger integration.
+type DebitNotePostedEvent struct {
+	ID          int64
+	Number      string
+	SupplierID  int64
+	APInvoiceID int64
+	GRNID       int64
+	Total       float64
+	Subtotal    float64
+	TaxAmount   float64
+	PostedAt    time.Time
+}
+
 // IntegrationHandler receives procurement domain events for ledger integration.
 type IntegrationHandler interface {
 	HandleGRNPosted(ctx context.Context, evt GRNPostedEvent) error
 	HandleAPInvoicePosted(ctx context.Context, evt APInvoicePostedEvent) error
 	HandleAPPaymentPosted(ctx context.Context, evt APPaymentPostedEvent) error
+	HandleGoodsReturnConfirmed(ctx context.Context, evt GoodsReturnConfirmedEvent) error
+	HandleDebitNotePosted(ctx context.Context, evt DebitNotePostedEvent) error
 }

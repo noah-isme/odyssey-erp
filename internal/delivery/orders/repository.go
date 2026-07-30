@@ -23,6 +23,11 @@ type Repository interface {
 	List(ctx context.Context, req ListRequest) ([]WithDetails, int, error)
 	GetDeliverableSOLines(ctx context.Context, salesOrderID int64) ([]DeliverableSOLine, error)
 
+	GetReturnByID(ctx context.Context, id int64) (*ReturnDeliveryOrder, error)
+	ListReturns(ctx context.Context, req ListReturnRequest) ([]ReturnDeliveryOrderWithDetails, int, error)
+	GetReturnedQuantity(ctx context.Context, deliveryOrderLineID int64) (float64, error)
+	HasCreditNoteForReturn(ctx context.Context, returnDeliveryOrderID int64) (bool, error)
+
 	// Write operations (transactional)
 	WithTx(ctx context.Context, fn func(context.Context, TxRepository) error) error
 
@@ -30,6 +35,7 @@ type Repository interface {
 	GenerateDocNumber(ctx context.Context, companyID int64, date time.Time) (string, error)
 	GetSalesOrderDetails(ctx context.Context, salesOrderID int64) (*SalesOrderInfo, error)
 	CheckWarehouseExists(ctx context.Context, warehouseID int64) (bool, error)
+	GenerateReturnDocNumber(ctx context.Context, companyID int64, date time.Time) (string, error)
 }
 
 // TxRepository exposes transactional write operations.
@@ -40,6 +46,11 @@ type TxRepository interface {
 	UpdateStatus(ctx context.Context, id int64, status Status, updates map[string]interface{}) error
 	DeleteLines(ctx context.Context, deliveryOrderID int64) error
 	UpdateLineQuantity(ctx context.Context, lineID int64, quantityDelivered float64) error
+
+	CreateReturnDeliveryOrder(ctx context.Context, rdo ReturnDeliveryOrder) (int64, error)
+	InsertReturnLine(ctx context.Context, line ReturnLine) (int64, error)
+	UpdateReturnStatus(ctx context.Context, id int64, status ReturnStatus, updates map[string]interface{}) error
+	DeleteReturnLines(ctx context.Context, returnDeliveryOrderID int64) error
 }
 
 // SalesOrderInfo holds basic sales order data for validation.
@@ -556,4 +567,288 @@ func pointerToText(s *string) pgtype.Text {
 		return pgtype.Text{}
 	}
 	return pgtype.Text{String: *s, Valid: true}
+}
+
+func (r *repository) GenerateReturnDocNumber(ctx context.Context, companyID int64, date time.Time) (string, error) {
+	var number string
+	err := r.pool.QueryRow(ctx, "SELECT generate_return_delivery_order_number($1, $2)", companyID, date).Scan(&number)
+	return number, err
+}
+
+func (r *repository) GetReturnedQuantity(ctx context.Context, deliveryOrderLineID int64) (float64, error) {
+	var quantity pgtype.Numeric
+	err := r.pool.QueryRow(ctx, `
+		SELECT COALESCE(SUM(l.quantity_returned), 0)
+		FROM return_delivery_order_lines l
+		JOIN return_delivery_orders r ON r.id = l.return_delivery_order_id
+		WHERE l.delivery_order_line_id = $1 AND r.status <> 'CANCELLED'`, deliveryOrderLineID).Scan(&quantity)
+	return numericToFloat(quantity), err
+}
+
+func (r *repository) HasCreditNoteForReturn(ctx context.Context, returnDeliveryOrderID int64) (bool, error) {
+	var exists bool
+	err := r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM ar_credit_notes WHERE return_delivery_order_id = $1 AND status <> 'VOID')`, returnDeliveryOrderID).Scan(&exists)
+	return exists, err
+}
+
+func (r *repository) GetReturnByID(ctx context.Context, id int64) (*ReturnDeliveryOrder, error) {
+	query := `
+		SELECT r.id, r.number, r.company_id, r.customer_id, r.original_delivery_order_id, r.warehouse_id,
+		       r.return_date, r.status, r.reason, r.notes, r.created_by, r.confirmed_by, r.confirmed_at,
+		       r.voided_by, r.voided_at, r.created_at, r.updated_at,
+		       c.name AS customer_name, dor.doc_number AS original_delivery_order_doc,
+		       w.name AS warehouse_name, u_created.email AS created_by_name,
+		       u_confirmed.email AS confirmed_by_name
+		FROM return_delivery_orders r
+		INNER JOIN customers c ON c.id = r.customer_id
+		INNER JOIN delivery_orders dor ON dor.id = r.original_delivery_order_id
+		INNER JOIN warehouses w ON w.id = r.warehouse_id
+		INNER JOIN users u_created ON u_created.id = r.created_by
+		LEFT JOIN users u_confirmed ON u_confirmed.id = r.confirmed_by
+		WHERE r.id = $1`
+
+	row := r.pool.QueryRow(ctx, query, id)
+
+	var rdo ReturnDeliveryOrder
+	var reason, notes, confirmedByName pgtype.Text
+	var confirmedBy, voidedBy pgtype.Int8
+	var confirmedAt, voidedAt pgtype.Timestamptz
+
+	err := row.Scan(
+		&rdo.ID, &rdo.Number, &rdo.CompanyID, &rdo.CustomerID, &rdo.OriginalDeliveryOrderID, &rdo.WarehouseID,
+		&rdo.ReturnDate, &rdo.Status, &reason, &notes, &rdo.CreatedBy, &confirmedBy, &confirmedAt,
+		&voidedBy, &voidedAt, &rdo.CreatedAt, &rdo.UpdatedAt,
+		&rdo.CustomerName, &rdo.OriginalDeliveryOrderDoc, &rdo.WarehouseName, &rdo.CreatedByName, &confirmedByName,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+
+	rdo.Reason = reason.String
+	rdo.Notes = textToPointer(notes)
+	rdo.ConfirmedBy = int8ToPointer(confirmedBy)
+	rdo.ConfirmedAt = timeToPointer(confirmedAt)
+	rdo.VoidedBy = int8ToPointer(voidedBy)
+	rdo.VoidedAt = timeToPointer(voidedAt)
+	rdo.ConfirmedByName = textToPointer(confirmedByName)
+
+	lines, err := r.getReturnLines(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	rdo.Lines = lines
+
+	return &rdo, nil
+}
+
+func (r *repository) getReturnLines(ctx context.Context, returnDeliveryOrderID int64) ([]ReturnLine, error) {
+	query := `
+		SELECT l.id, l.return_delivery_order_id, l.delivery_order_line_id, l.product_id, l.quantity_returned,
+		       l.unit_price, l.restock_warehouse_id, l.lot_number, l.serial_numbers, l.notes, l.line_order,
+		       l.created_at, l.updated_at, p.code AS product_code, p.name AS product_name,
+		       dol.quantity_delivered AS original_quantity_delivered
+		FROM return_delivery_order_lines l
+		INNER JOIN products p ON p.id = l.product_id
+		INNER JOIN delivery_order_lines dol ON dol.id = l.delivery_order_line_id
+		WHERE l.return_delivery_order_id = $1
+		ORDER BY l.line_order, l.id`
+
+	rows, err := r.pool.Query(ctx, query, returnDeliveryOrderID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var lines []ReturnLine
+	for rows.Next() {
+		var l ReturnLine
+		var notes, lotNumber pgtype.Text
+		var restockWH pgtype.Int8
+		var originalQty pgtype.Numeric
+
+		err := rows.Scan(
+			&l.ID, &l.ReturnDeliveryOrderID, &l.DeliveryOrderLineID, &l.ProductID, &l.QuantityReturned,
+			&l.UnitPrice, &restockWH, &lotNumber, &l.SerialNumbers, &notes, &l.LineOrder,
+			&l.CreatedAt, &l.UpdatedAt, &l.ProductCode, &l.ProductName, &originalQty,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if restockWH.Valid {
+			l.RestockWarehouseID = &restockWH.Int64
+		}
+		l.LotNumber = lotNumber.String
+		l.Notes = textToPointer(notes)
+		l.OriginalQuantityDelivered = numericToFloat(originalQty)
+
+		lines = append(lines, l)
+	}
+
+	return lines, rows.Err()
+}
+
+func (r *repository) ListReturns(ctx context.Context, req ListReturnRequest) ([]ReturnDeliveryOrderWithDetails, int, error) {
+	var conditions []string
+	var args []interface{}
+	argPos := 1
+
+	conditions = append(conditions, fmt.Sprintf("r.company_id = $%d", argPos))
+	args = append(args, req.CompanyID)
+	argPos++
+
+	if req.CustomerID != nil {
+		conditions = append(conditions, fmt.Sprintf("r.customer_id = $%d", argPos))
+		args = append(args, *req.CustomerID)
+		argPos++
+	}
+
+	if req.Status != nil {
+		conditions = append(conditions, fmt.Sprintf("r.status = $%d", argPos))
+		args = append(args, string(*req.Status))
+		argPos++
+	}
+
+	whereClause := ""
+	if len(conditions) > 0 {
+		whereClause = "WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	countQuery := fmt.Sprintf(`SELECT COUNT(DISTINCT r.id) FROM return_delivery_orders r %s`, whereClause)
+	var total int
+	if err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	query := fmt.Sprintf(`
+		SELECT r.id, r.number, r.company_id, r.customer_id, r.original_delivery_order_id, r.warehouse_id,
+		       r.return_date, r.status, r.reason, r.notes, r.created_by, r.confirmed_by, r.confirmed_at,
+		       r.voided_by, r.voided_at, r.created_at, r.updated_at,
+		       c.name AS customer_name, dor.doc_number AS original_delivery_order_doc,
+		       w.name AS warehouse_name, u_created.email AS created_by_name,
+		       u_confirmed.email AS confirmed_by_name,
+		       COUNT(l.id) AS line_count,
+		       COALESCE(SUM(l.quantity_returned), 0) AS total_quantity
+		FROM return_delivery_orders r
+		INNER JOIN customers c ON c.id = r.customer_id
+		INNER JOIN delivery_orders dor ON dor.id = r.original_delivery_order_id
+		INNER JOIN warehouses w ON w.id = r.warehouse_id
+		INNER JOIN users u_created ON u_created.id = r.created_by
+		LEFT JOIN users u_confirmed ON u_confirmed.id = r.confirmed_by
+		LEFT JOIN return_delivery_order_lines l ON l.return_delivery_order_id = r.id
+		%s
+		GROUP BY r.id, r.number, r.company_id, r.customer_id, r.original_delivery_order_id, r.warehouse_id,
+		         r.return_date, r.status, r.reason, r.notes, r.created_by, r.confirmed_by, r.confirmed_at,
+		         r.voided_by, r.voided_at, r.created_at, r.updated_at,
+		         c.name, dor.doc_number, w.name, u_created.email, u_confirmed.email
+		ORDER BY r.return_date DESC, r.id DESC
+		LIMIT $%d OFFSET $%d
+	`, whereClause, argPos, argPos+1)
+
+	args = append(args, req.Limit, req.Offset)
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var results []ReturnDeliveryOrderWithDetails
+	for rows.Next() {
+		var wd ReturnDeliveryOrderWithDetails
+		var reason, notes, confirmedByName pgtype.Text
+		var confirmedBy, voidedBy pgtype.Int8
+		var confirmedAt, voidedAt pgtype.Timestamptz
+		var totalQty pgtype.Numeric
+
+		err := rows.Scan(
+			&wd.ID, &wd.Number, &wd.CompanyID, &wd.CustomerID, &wd.OriginalDeliveryOrderID, &wd.WarehouseID,
+			&wd.ReturnDate, &wd.Status, &reason, &notes, &wd.CreatedBy, &confirmedBy, &confirmedAt,
+			&voidedBy, &voidedAt, &wd.CreatedAt, &wd.UpdatedAt,
+			&wd.CustomerName, &wd.OriginalDeliveryOrderDoc, &wd.WarehouseName, &wd.CreatedByName, &confirmedByName,
+			&wd.LineCount, &totalQty,
+		)
+		if err != nil {
+			return nil, 0, err
+		}
+
+		wd.Reason = reason.String
+		wd.Notes = textToPointer(notes)
+		wd.ConfirmedBy = int8ToPointer(confirmedBy)
+		wd.ConfirmedAt = timeToPointer(confirmedAt)
+		wd.VoidedBy = int8ToPointer(voidedBy)
+		wd.VoidedAt = timeToPointer(voidedAt)
+		wd.ConfirmedByName = textToPointer(confirmedByName)
+		wd.TotalQuantity = numericToFloat(totalQty)
+
+		results = append(results, wd)
+	}
+
+	return results, total, rows.Err()
+}
+
+func (t *txRepository) CreateReturnDeliveryOrder(ctx context.Context, rdo ReturnDeliveryOrder) (int64, error) {
+	query := `
+		INSERT INTO return_delivery_orders (
+			number, company_id, customer_id, original_delivery_order_id, warehouse_id,
+			return_date, status, reason, notes, created_by, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+		RETURNING id, created_at, updated_at`
+
+	var id int64
+	err := t.tx.QueryRow(ctx, query,
+		rdo.Number, rdo.CompanyID, rdo.CustomerID, rdo.OriginalDeliveryOrderID, rdo.WarehouseID,
+		rdo.ReturnDate, string(rdo.Status), rdo.Reason, pointerToText(rdo.Notes), rdo.CreatedBy,
+	).Scan(&id, &rdo.CreatedAt, &rdo.UpdatedAt)
+	return id, err
+}
+
+func (t *txRepository) InsertReturnLine(ctx context.Context, line ReturnLine) (int64, error) {
+	query := `
+		INSERT INTO return_delivery_order_lines (
+			return_delivery_order_id, delivery_order_line_id, product_id, quantity_returned, unit_price,
+			restock_warehouse_id, lot_number, serial_numbers, notes, line_order, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, NULLIF($7, ''), $8, $9, $10, NOW(), NOW())
+		RETURNING id, created_at, updated_at`
+
+	var id int64
+	var restockWH *int64
+	if line.RestockWarehouseID != nil && *line.RestockWarehouseID > 0 {
+		restockWH = line.RestockWarehouseID
+	}
+	err := t.tx.QueryRow(ctx, query,
+		line.ReturnDeliveryOrderID, line.DeliveryOrderLineID, line.ProductID, line.QuantityReturned, line.UnitPrice,
+		restockWH, line.LotNumber, line.SerialNumbers, pointerToText(line.Notes), line.LineOrder,
+	).Scan(&id, &line.CreatedAt, &line.UpdatedAt)
+	return id, err
+}
+
+func (t *txRepository) UpdateReturnStatus(ctx context.Context, id int64, status ReturnStatus, updates map[string]interface{}) error {
+	setClauses := []string{"status = $2", "updated_at = NOW()"}
+	args := []interface{}{id, string(status)}
+	argPos := 3
+
+	for key, value := range updates {
+		setClauses = append(setClauses, fmt.Sprintf("%s = $%d", key, argPos))
+		args = append(args, value)
+		argPos++
+	}
+
+	query := fmt.Sprintf("UPDATE return_delivery_orders SET %s WHERE id = $1", strings.Join(setClauses, ", "))
+	cmd, err := t.tx.Exec(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+	if cmd.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (t *txRepository) DeleteReturnLines(ctx context.Context, returnDeliveryOrderID int64) error {
+	_, err := t.tx.Exec(ctx, "DELETE FROM return_delivery_order_lines WHERE return_delivery_order_id = $1", returnDeliveryOrderID)
+	return err
 }

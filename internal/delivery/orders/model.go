@@ -102,6 +102,96 @@ type LineWithDetails struct {
 	RemainingToDeliver float64 `json:"remaining_to_deliver" db:"remaining_to_deliver"`
 }
 
+// ReturnStatus represents the lifecycle of a return delivery order.
+type ReturnStatus string
+
+const (
+	ReturnStatusDraft     ReturnStatus = "DRAFT"
+	ReturnStatusConfirmed ReturnStatus = "CONFIRMED"
+	ReturnStatusCancelled ReturnStatus = "CANCELLED"
+)
+
+// IsValid checks if the return status is valid.
+func (s ReturnStatus) IsValid() bool {
+	switch s {
+	case ReturnStatusDraft, ReturnStatusConfirmed, ReturnStatusCancelled:
+		return true
+	default:
+		return false
+	}
+}
+
+// CanEdit checks if a return DO can be edited.
+func (s ReturnStatus) CanEdit() bool {
+	return s == ReturnStatusDraft
+}
+
+// CanConfirm checks if a return DO can be confirmed.
+func (s ReturnStatus) CanConfirm() bool {
+	return s == ReturnStatusDraft
+}
+
+// CanCancel checks if a return DO can be cancelled.
+func (s ReturnStatus) CanCancel() bool {
+	return s == ReturnStatusDraft || s == ReturnStatusConfirmed
+}
+
+// ReturnDeliveryOrder represents a customer return.
+type ReturnDeliveryOrder struct {
+	ID                      int64
+	Number                  string
+	CompanyID               int64
+	CustomerID              int64
+	OriginalDeliveryOrderID int64
+	WarehouseID             int64
+	ReturnDate              time.Time
+	Status                  ReturnStatus
+	Reason                  string
+	Notes                   *string
+	CreatedBy               int64
+	ConfirmedBy             *int64
+	ConfirmedAt             *time.Time
+	VoidedBy                *int64
+	VoidedAt                *time.Time
+	CreatedAt               time.Time
+	UpdatedAt               time.Time
+	Lines                   []ReturnLine
+
+	CustomerName             string
+	OriginalDeliveryOrderDoc string
+	WarehouseName            string
+	CreatedByName            string
+	ConfirmedByName          *string
+}
+
+// ReturnLine represents a returned item.
+type ReturnLine struct {
+	ID                    int64
+	ReturnDeliveryOrderID int64
+	DeliveryOrderLineID   int64
+	ProductID             int64
+	QuantityReturned      float64
+	UnitPrice             float64
+	RestockWarehouseID    *int64
+	LotNumber             string
+	SerialNumbers         []string
+	Notes                 *string
+	LineOrder             int
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
+
+	ProductCode               string
+	ProductName               string
+	OriginalQuantityDelivered float64
+}
+
+// ReturnDeliveryOrderWithDetails includes joined data for display.
+type ReturnDeliveryOrderWithDetails struct {
+	ReturnDeliveryOrder
+	LineCount     int
+	TotalQuantity float64
+}
+
 // DeliverableSOLine represents a sales order line that can be delivered.
 type DeliverableSOLine struct {
 	SalesOrderLineID  int64   `json:"sales_order_line_id" db:"sales_order_line_id"`

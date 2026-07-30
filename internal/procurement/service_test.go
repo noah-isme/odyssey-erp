@@ -12,15 +12,17 @@ import (
 )
 
 type memoryProcRepo struct {
-	prs      map[int64]PurchaseRequest
-	prLines  map[int64][]PRLine
-	pos      map[int64]PurchaseOrder
-	poLines  map[int64][]POLine
-	grns     map[int64]GoodsReceipt
-	grnLines map[int64][]GRNLine
-	invoices map[int64]APInvoice
-	payments map[int64][]APPayment
-	nextID   int64
+	prs         map[int64]PurchaseRequest
+	prLines     map[int64][]PRLine
+	pos         map[int64]PurchaseOrder
+	poLines     map[int64][]POLine
+	grns        map[int64]GoodsReceipt
+	grnLines    map[int64][]GRNLine
+	returns     map[int64]GoodsReturnGRN
+	returnLines map[int64][]GoodsReturnGRNLine
+	invoices    map[int64]APInvoice
+	payments    map[int64][]APPayment
+	nextID      int64
 }
 
 type memoryProcTx struct {
@@ -29,14 +31,16 @@ type memoryProcTx struct {
 
 func newMemoryProcRepo() *memoryProcRepo {
 	return &memoryProcRepo{
-		prs:      make(map[int64]PurchaseRequest),
-		prLines:  make(map[int64][]PRLine),
-		pos:      make(map[int64]PurchaseOrder),
-		poLines:  make(map[int64][]POLine),
-		grns:     make(map[int64]GoodsReceipt),
-		grnLines: make(map[int64][]GRNLine),
-		invoices: make(map[int64]APInvoice),
-		payments: make(map[int64][]APPayment),
+		prs:         make(map[int64]PurchaseRequest),
+		prLines:     make(map[int64][]PRLine),
+		pos:         make(map[int64]PurchaseOrder),
+		poLines:     make(map[int64][]POLine),
+		grns:        make(map[int64]GoodsReceipt),
+		grnLines:    make(map[int64][]GRNLine),
+		returns:     make(map[int64]GoodsReturnGRN),
+		returnLines: make(map[int64][]GoodsReturnGRNLine),
+		invoices:    make(map[int64]APInvoice),
+		payments:    make(map[int64][]APPayment),
 	}
 }
 
@@ -174,6 +178,53 @@ func (tx *memoryProcTx) UpdateGRNStatus(ctx context.Context, id int64, status GR
 	return nil
 }
 
+func (tx *memoryProcTx) CreateGoodsReturnGRN(ctx context.Context, ret GoodsReturnGRN) (int64, error) {
+	id := tx.nextID()
+	ret.ID = id
+	tx.repo.returns[id] = ret
+	return id, nil
+}
+
+func (tx *memoryProcTx) InsertGoodsReturnGRNLine(ctx context.Context, line GoodsReturnGRNLine) error {
+	line.ID = tx.nextID()
+	tx.repo.returnLines[line.GoodsReturnGRNID] = append(tx.repo.returnLines[line.GoodsReturnGRNID], line)
+	return nil
+}
+
+func (tx *memoryProcTx) ConfirmGoodsReturnGRN(ctx context.Context, id int64, actorID int64) error {
+	ret := tx.repo.returns[id]
+	ret.Status = GoodsReturnStatusConfirmed
+	tx.repo.returns[id] = ret
+	return nil
+}
+
+func (tx *memoryProcTx) CancelGoodsReturnGRN(ctx context.Context, id int64, actorID int64) error {
+	ret := tx.repo.returns[id]
+	ret.Status = GoodsReturnStatusCancelled
+	tx.repo.returns[id] = ret
+	return nil
+}
+
+func (tx *memoryProcTx) GenerateGoodsReturnGRNNumber(ctx context.Context) (string, error) {
+	return "GRN-RET-TEST", nil
+}
+
+func (r *memoryProcRepo) GetGoodsReturnGRN(ctx context.Context, id int64) (GoodsReturnGRN, []GoodsReturnGRNLine, error) {
+	ret, ok := r.returns[id]
+	if !ok {
+		return GoodsReturnGRN{}, nil, ErrGoodsReturnNotFound
+	}
+	return ret, append([]GoodsReturnGRNLine(nil), r.returnLines[id]...), nil
+}
+
+func (r *memoryProcRepo) ListGoodsReturnGRNs(ctx context.Context) ([]GoodsReturnGRN, error) {
+	returns := make([]GoodsReturnGRN, 0, len(r.returns))
+	for _, ret := range r.returns {
+		returns = append(returns, ret)
+	}
+	return returns, nil
+}
+
 func (tx *memoryProcTx) CreateAPInvoice(ctx context.Context, inv APInvoice) (int64, error) {
 	id := tx.nextID()
 	inv.ID = id
@@ -196,12 +247,18 @@ func (tx *memoryProcTx) CreatePayment(ctx context.Context, payment APPayment) (i
 }
 
 type stubInventory struct {
-	records []inventory.InboundInput
+	records     []inventory.InboundInput
+	adjustments []inventory.AdjustmentInput
 }
 
 func (s *stubInventory) PostInbound(ctx context.Context, input inventory.InboundInput) (inventory.StockCardEntry, error) {
 	s.records = append(s.records, input)
 	return inventory.StockCardEntry{TxCode: input.Code, QtyIn: input.Qty}, nil
+}
+
+func (s *stubInventory) PostAdjustment(ctx context.Context, input inventory.AdjustmentInput) (inventory.StockCardEntry, error) {
+	s.adjustments = append(s.adjustments, input)
+	return inventory.StockCardEntry{TxCode: input.Code, QtyOut: -input.Qty}, nil
 }
 
 func TestProcurementFlow(t *testing.T) {

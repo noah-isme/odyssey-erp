@@ -1,0 +1,16 @@
+{{ define "pages/delivery/return_detail.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Return {{ .Data.Return.Number }}{{ end }}
+
+{{ define "content" }}
+{{ $return := .Data.Return }}
+<div class="page-container">
+    <header class="page-header"><div class="page-header__content"><div class="flex items-center gap-3 mb-2"><span class="eyebrow">Delivery Return</span>{{ template "partials/ui/status_badge.html" $return.Status }}</div><h1 class="page-title">{{ $return.Number }}</h1><p class="page-subtitle">Original delivery <a class="link" href="/delivery/orders/{{ $return.OriginalDeliveryOrderID }}">{{ $return.OriginalDeliveryOrderDoc }}</a> · {{ $return.CustomerName }}</p></div><div class="page-header__actions"><a href="/delivery/orders/{{ $return.OriginalDeliveryOrderID }}" class="btn btn--secondary">Original Delivery</a>{{ if eq (printf "%s" $return.Status) "DRAFT" }}<form method="post" action="/delivery/orders/returns/{{ $return.ID }}/confirm"><input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}"><button class="btn btn--primary" type="submit">Confirm Restock</button></form>{{ end }}{{ if eq (printf "%s" $return.Status) "CONFIRMED" }}<form method="post" action="/finance/ar/credit-notes/from-return/{{ $return.ID }}"><input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}"><input type="hidden" name="reason" value="{{ $return.Reason }}"><button class="btn btn--primary" type="submit">Create Credit Note</button></form>{{ end }}</div></header>
+    <div class="page-content">
+        <section class="card"><div class="responsive-grid responsive-grid--wide gap-6"><div><span class="label mb-1">Return Date</span><p class="text-primary font-medium">{{ formatDate $return.ReturnDate }}</p></div><div><span class="label mb-1">Warehouse</span><p class="text-primary font-medium">{{ $return.WarehouseName }}</p></div><div><span class="label mb-1">Reason</span><p class="text-primary font-medium">{{ $return.Reason }}</p></div></div></section>
+        <section class="card mt-6"><div class="card__header"><h2 class="card__title">Returned Items</h2></div><div class="table-wrap"><table class="table" aria-label="Return delivery lines"><thead><tr><th>Product</th><th class="numeric-right">Returned</th><th>Receiving Warehouse</th><th>Lot / Serial</th></tr></thead><tbody>{{ range $return.Lines }}<tr><td>{{ if .ProductCode }}{{ .ProductCode }} · {{ .ProductName }}{{ else }}#{{ .ProductID }}{{ end }}</td><td class="numeric-right">{{ printf "%.2f" .QuantityReturned }}</td><td>{{ if .RestockWarehouseID }}Configured warehouse{{ else }}Original warehouse{{ end }}</td><td>{{ .LotNumber }}</td></tr>{{ end }}</tbody></table></div></section>
+    </div>
+</div>
+{{ end }}

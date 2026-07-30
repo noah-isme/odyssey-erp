@@ -17,13 +17,14 @@ import (
 
 // Handler manages AR endpoints.
 type Handler struct {
-	logger      *slog.Logger
-	service     *Service
-	templates   *view.Engine
-	csrf        *shared.CSRFManager
-	sessions    *shared.SessionManager
-	rbac        rbac.Middleware
-	asynqClient *asynq.Client
+	logger        *slog.Logger
+	service       *Service
+	templates     *view.Engine
+	csrf          *shared.CSRFManager
+	sessions      *shared.SessionManager
+	rbac          rbac.Middleware
+	asynqClient   *asynq.Client
+	creditNotePDF CreditNotePDFRenderer
 }
 
 // NewHandler builds Handler instance.
@@ -45,6 +46,12 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Get("/aging", h.showARAgingReport)
 		r.Get("/customer-statement", h.showCustomerStatement)
 	})
+	r.Group(func(r chi.Router) {
+		r.Use(h.rbac.RequireAny(shared.PermFinanceARCreditNoteView))
+		r.Get("/credit-notes", h.listCreditNotes)
+		r.Get("/credit-notes/{id}", h.showCreditNote)
+		r.Get("/credit-notes/{id}/pdf", h.creditNotePDFDownload)
+	})
 
 	// Create routes
 	r.Group(func(r chi.Router) {
@@ -53,6 +60,10 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Post("/invoices/from-delivery/{doID}", h.createInvoiceFromDelivery)
 		r.Post("/payments", h.createARPayment)
 	})
+	r.Group(func(r chi.Router) {
+		r.Use(h.rbac.RequireAll(shared.PermFinanceARCreditNoteCreate))
+		r.Post("/credit-notes/from-return/{returnID}", h.createCreditNoteFromReturn)
+	})
 
 	// Workflow routes
 	r.Group(func(r chi.Router) {
@@ -60,6 +71,14 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Post("/invoices/{id}/post", h.postInvoice)
 		r.Post("/invoices/{id}/void", h.voidInvoice)
 		r.Post("/invoices/{id}/email", h.emailInvoice)
+	})
+	r.Group(func(r chi.Router) {
+		r.Use(h.rbac.RequireAll(shared.PermFinanceARCreditNotePost))
+		r.Post("/credit-notes/{id}/post", h.postCreditNote)
+	})
+	r.Group(func(r chi.Router) {
+		r.Use(h.rbac.RequireAll(shared.PermFinanceARCreditNoteVoid))
+		r.Post("/credit-notes/{id}/void", h.voidCreditNote)
 	})
 }
 

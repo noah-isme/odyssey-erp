@@ -17,6 +17,9 @@ type memoryAPRepo struct {
 	lines        map[int64][]APInvoiceLine
 	payments     map[int64]APPayment
 	allocations  map[int64][]APPaymentAllocation
+	debitNotes   map[int64]*APDebitNote
+	debitLines   map[int64][]APDebitNoteLine
+	debitAmounts map[int64]float64
 	nextID       int64
 	nextLineID   int64
 	nextPayID    int64
@@ -30,10 +33,13 @@ type memoryAPTx struct {
 
 func newMemoryAPRepo() *memoryAPRepo {
 	return &memoryAPRepo{
-		invoices:    make(map[int64]APInvoice),
-		lines:       make(map[int64][]APInvoiceLine),
-		payments:    make(map[int64]APPayment),
-		allocations: make(map[int64][]APPaymentAllocation),
+		invoices:     make(map[int64]APInvoice),
+		lines:        make(map[int64][]APInvoiceLine),
+		payments:     make(map[int64]APPayment),
+		allocations:  make(map[int64][]APPaymentAllocation),
+		debitNotes:   make(map[int64]*APDebitNote),
+		debitLines:   make(map[int64][]APDebitNoteLine),
+		debitAmounts: make(map[int64]float64),
 	}
 }
 
@@ -177,6 +183,84 @@ func (r *memoryAPRepo) GetAPInvoiceBalancesBatch(ctx context.Context) ([]APInvoi
 		}
 	}
 	return balances, nil
+}
+
+func (r *memoryAPRepo) CreateAPDebitNote(ctx context.Context, input CreateAPDebitNoteInput) (*APDebitNote, error) {
+	r.nextID++
+	note := &APDebitNote{ID: r.nextID, Number: input.Number, SupplierID: input.SupplierID, APInvoiceID: input.APInvoiceID, GoodsReturnGRNID: input.GoodsReturnGRNID, Currency: input.Currency, Reason: input.Reason, Status: APDebitNoteStatusDraft, CreatedBy: input.CreatedBy, CreatedAt: time.Now()}
+	for _, inputLine := range input.Lines {
+		subtotal := inputLine.Quantity * inputLine.UnitPrice * (1 - inputLine.DiscountPct/100)
+		tax := subtotal * inputLine.TaxPct / 100
+		line := APDebitNoteLine{ID: int64(len(r.debitLines[note.ID]) + 1), APDebitNoteID: note.ID, APInvoiceLineID: inputLine.APInvoiceLineID, GoodsReturnGRNLineID: inputLine.GoodsReturnGRNLineID, ProductID: inputLine.ProductID, Description: inputLine.Description, Quantity: inputLine.Quantity, UnitPrice: inputLine.UnitPrice, DiscountPct: inputLine.DiscountPct, TaxPct: inputLine.TaxPct, Subtotal: subtotal, TaxAmount: tax, Total: subtotal + tax}
+		r.debitLines[note.ID] = append(r.debitLines[note.ID], line)
+		note.Subtotal += subtotal
+		note.TaxAmount += tax
+		note.Total += line.Total
+	}
+	r.debitNotes[note.ID] = note
+	return note, nil
+}
+
+func (r *memoryAPRepo) GetAPDebitNote(ctx context.Context, id int64) (*APDebitNote, error) {
+	note, ok := r.debitNotes[id]
+	if !ok {
+		return nil, ErrDebitNoteNotFound
+	}
+	return note, nil
+}
+
+func (r *memoryAPRepo) GetAPDebitNoteWithDetails(ctx context.Context, id int64) (*APDebitNoteWithDetails, error) {
+	note, err := r.GetAPDebitNote(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return &APDebitNoteWithDetails{APDebitNote: *note, Lines: r.debitLines[id]}, nil
+}
+
+func (r *memoryAPRepo) ListAPDebitNotes(ctx context.Context, req ListAPDebitNotesRequest) ([]APDebitNote, error) {
+	notes := make([]APDebitNote, 0, len(r.debitNotes))
+	for _, note := range r.debitNotes {
+		if req.Status != "" && note.Status != req.Status {
+			continue
+		}
+		if req.SupplierID != 0 && note.SupplierID != req.SupplierID {
+			continue
+		}
+		if req.InvoiceID != 0 && note.APInvoiceID != req.InvoiceID {
+			continue
+		}
+		notes = append(notes, *note)
+	}
+	return notes, nil
+}
+
+func (r *memoryAPRepo) PostAPDebitNote(ctx context.Context, id, invoiceID, postedBy int64, amount float64) error {
+	note, err := r.GetAPDebitNote(ctx, id)
+	if err != nil {
+		return err
+	}
+	invoice, err := r.GetAPInvoice(ctx, invoiceID)
+	if err != nil {
+		return err
+	}
+	if amount > invoice.Total-r.debitAmounts[invoiceID] {
+		return ErrDebitExceedsBalance
+	}
+	note.Status = APDebitNoteStatusPosted
+	note.PostedBy = &postedBy
+	r.debitAmounts[invoiceID] += amount
+	return nil
+}
+
+func (r *memoryAPRepo) VoidAPDebitNote(ctx context.Context, id, voidedBy int64, reason string) error {
+	note, err := r.GetAPDebitNote(ctx, id)
+	if err != nil {
+		return err
+	}
+	note.Status = APDebitNoteStatusVoid
+	note.VoidedBy = &voidedBy
+	note.VoidReason = &reason
+	return nil
 }
 
 func (tx *memoryAPTx) CreateAPInvoice(ctx context.Context, input CreateAPInvoiceInput) (int64, error) {
@@ -476,6 +560,19 @@ func TestRegisterAPPaymentMultiAllocation(t *testing.T) {
 		},
 	})
 	require.Error(t, err)
+}
+
+func TestPostAPDebitNoteRejectsAmountAboveInvoiceBalance(t *testing.T) {
+	ctx := context.Background()
+	repo := newMemoryAPRepo()
+	repo.invoices[1] = APInvoice{ID: 1, SupplierID: 10, Total: 100, Status: APStatusPosted}
+	repo.debitNotes[1] = &APDebitNote{ID: 1, APInvoiceID: 1, SupplierID: 10, Total: 120, Status: APDebitNoteStatusDraft}
+	svc := NewService(repo, nil)
+
+	err := svc.PostAPDebitNote(ctx, PostAPDebitNoteInput{DebitNoteID: 1, PostedBy: 7})
+
+	require.ErrorIs(t, err, ErrDebitExceedsBalance)
+	require.Equal(t, APDebitNoteStatusDraft, repo.debitNotes[1].Status)
 }
 
 func fmtInt(val int64) string {
