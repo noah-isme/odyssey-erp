@@ -266,7 +266,7 @@ item, the detail stays in those sections — this table supersedes only the orde
 | P1 | **Returns & credit/debit notes** ✅; document attachments remain | L | none (journals, inventory, AP links ✓) |
 | P2 | **Notification center + transactional email** ✅ | M | `shared/mail.go` ✓, asynq ✓, user prefs ✓ |
 | P3 | **Configurable approval engine + HR core** ✅ (employees, org, leave, attendance) | L | P2 |
-| P4 | **Payroll Indonesia** — PPh 21 (TER), BPJS, slip gaji, GL posting | XL | P3 |
+| P4 | **Payroll Indonesia** ✅ — versioned PPh 21 (TER/PTKP), BPJS, payslips, approval, payment export, GL posting | XL | P3 |
 | P5 | **Tax compliance** — faktur pajak numbering, PPN/PPh reports, e-Faktur export (expands Phase 17 row) | L | P1 |
 | P6 | **CRM** — leads, pipeline, activities (feeds existing quotations) | L | P2 |
 | P7 | **Multi-currency** (detail in Phase 14) + horizon packs: WMS, MRP, POS, public API/webhooks, portals | XL | stable AR/AP from P1 |
@@ -302,13 +302,27 @@ Sizing legend: S <2w · M 2–4w · L 1–2m · XL 2m+ (rough, single team).
   approval finalizes the document, balance, audit record, and notification.
 - Payroll remains exclusively in P4.
 
-### P4 — Payroll Indonesia
-- Salary components (gaji pokok, tunjangan, potongan, overtime, THR); monthly runs
-  draft → approve → post; slip gaji PDF via Gotenberg
-- PPh 21 with TER monthly rates (PMK 168/2023) + PTKP statuses; BPJS Kesehatan &
-  Ketenagakerjaan; expense journals per cost-center dimension
-- **Done when:** PPh 21 computes correctly for all PTKP statuses (DJP test cases),
-  slips are emailed, and the journal balances.
+### P4 — Payroll Indonesia — ✅ DONE
+- Effective-dated, source-referenced and reviewed versions cover PTKP/TER, BPJS
+  rates/caps, and company overtime/rounding policies. Reviewed regulatory ranges
+  and company-policy ranges cannot overlap.
+- Compensation assignments, recurring components, one-off adjustments, overtime,
+  THR, attendance/leave inputs, and integer-rupiah calculations produce a complete
+  employee breakdown tied to the exact rule versions used.
+- Runs follow `DRAFT → APPROVAL → POSTED` through the shared P3 engine. Regular-run
+  source IDs are deterministic by company/period, posting is idempotent, posted
+  data is immutable, and rejection actors/notes are audited.
+- Balanced journals are grouped by department/cost center; posted runs generate
+  bank-transfer CSV instructions and restricted Gotenberg payslips.
+- Payslip records form a durable outbox. Initial enqueue failures do not undo
+  posting, and the worker retries undelivered records every five minutes before
+  sending through the shared SMTP jobs.
+- Calculator, service, HTTP, worker, and migration coverage proves TER categories,
+  PTKP evidence, BPJS caps, overtime, THR, negative adjustments, rounding, approval,
+  journal balance, repeated-post idempotency, and concealed payslip access.
+- Release boundary: December/last-tax-period annual PPh 21 reconciliation remains
+  blocked until its separate calculation strategy and official examples are
+  reviewed; monthly TER payroll is complete.
 
 ### P5 — Tax Compliance
 - Regulated faktur pajak sequence on AR invoices; PPN keluaran/masukan + SPT recap;
