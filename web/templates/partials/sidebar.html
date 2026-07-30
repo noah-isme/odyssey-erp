@@ -34,9 +34,10 @@
                 </div>
             </details>
 
-            <details class="sidebar-menu" data-sidebar-menu{{ if or (isActive .CurrentPath "/sales/customers") (isActive .CurrentPath "/sales/quotations") (isActive .CurrentPath "/sales/orders") (isActive .CurrentPath "/delivery/orders") }} open{{ end }}>
+            <details class="sidebar-menu" data-sidebar-menu{{ if or (isActive .CurrentPath "/crm") (isActive .CurrentPath "/sales/customers") (isActive .CurrentPath "/sales/quotations") (isActive .CurrentPath "/sales/orders") (isActive .CurrentPath "/delivery/orders") }} open{{ end }}>
                 <summary data-tooltip="Penjualan"><span class="nav-item-icon">◫</span><span class="nav-item-text">Penjualan</span><span class="sidebar-menu__arrow">⌄</span></summary>
                 <div class="sidebar-menu__items">
+					<a href="/crm" class="nav-item{{ if isActive .CurrentPath "/crm" }} active{{ end }}" data-tooltip="CRM"><span class="nav-item-text">CRM Pipeline</span></a>
                     <a href="/sales/customers" class="nav-item{{ if isActive .CurrentPath "/sales/customers" }} active{{ end }}" data-tooltip="Pelanggan"><span class="nav-item-text">Pelanggan</span></a>
                     <a href="/sales/quotations" class="nav-item{{ if isActive .CurrentPath "/sales/quotations" }} active{{ end }}" data-tooltip="Penawaran"><span class="nav-item-text">Penawaran</span></a>
                     <a href="/sales/orders" class="nav-item{{ if isActive .CurrentPath "/sales/orders" }} active{{ end }}" data-tooltip="Sales Order"><span class="nav-item-text">Sales Order</span></a>

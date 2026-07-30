@@ -40,6 +40,7 @@ import (
 	closehttp "github.com/odyssey-erp/odyssey-erp/internal/close/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/consol"
 	consolhttp "github.com/odyssey-erp/odyssey-erp/internal/consol/http"
+	"github.com/odyssey-erp/odyssey-erp/internal/crm"
 	"github.com/odyssey-erp/odyssey-erp/internal/dashboard"
 	deliveryorders "github.com/odyssey-erp/odyssey-erp/internal/delivery/orders"
 	eliminationpkg "github.com/odyssey-erp/odyssey-erp/internal/elimination"
@@ -336,6 +337,8 @@ func main() {
 
 	salesService := sales.NewService(dbpool)
 	salesHandler := sales.NewHandler(logger, salesService, templates, csrfManager, sessionManager, rbacMiddleware, jobClient.AsynqClient())
+	crmService := crm.NewService(crm.NewRepository(dbpool), salesService.Customers, salesService.Quotations, crm.NewNotificationAdapter(notificationDispatcher))
+	crmHandler := crm.NewHandler(logger, crmService, templates, csrfManager, rbacMiddleware)
 
 	masterdataHandler := masterdata.NewHandler(logger, dbpool, templates, csrfManager, sessionManager, rbacMiddleware)
 
@@ -458,6 +461,7 @@ func main() {
 		HRAttendanceHandler:    hrAttendanceHandler,
 		PayrollHandler:         payrollHandler,
 		TaxHandler:             taxHandler,
+		CRMHandler:             crmHandler,
 	})
 
 	// Route dump mode: print the real routing table and exit without serving.

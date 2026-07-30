@@ -26,6 +26,7 @@ import (
 	boardpackhttp "github.com/odyssey-erp/odyssey-erp/internal/boardpack/http"
 	closehttp "github.com/odyssey-erp/odyssey-erp/internal/close/http"
 	consolhttp "github.com/odyssey-erp/odyssey-erp/internal/consol/http"
+	"github.com/odyssey-erp/odyssey-erp/internal/crm"
 	"github.com/odyssey-erp/odyssey-erp/internal/dashboard"
 	"github.com/odyssey-erp/odyssey-erp/internal/delivery"
 	eliminationhttp "github.com/odyssey-erp/odyssey-erp/internal/elimination/http"
@@ -98,6 +99,7 @@ type RouterParams struct {
 	HRAttendanceHandler    *hrattendance.Handler
 	PayrollHandler         *payroll.Handler
 	TaxHandler             *tax.Handler
+	CRMHandler             *crm.Handler
 }
 
 type workspaceUser struct {
@@ -445,6 +447,9 @@ func NewRouter(params RouterParams) http.Handler {
 	}
 	if params.TaxHandler != nil {
 		r.Route("/tax", params.TaxHandler.MountRoutes)
+	}
+	if params.CRMHandler != nil {
+		r.Route("/crm", params.CRMHandler.MountRoutes)
 	}
 	if params.AccountingHandler != nil {
 		r.Route("/accounting", func(r chi.Router) {

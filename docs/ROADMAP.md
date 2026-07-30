@@ -269,7 +269,7 @@ item, the detail stays in those sections — this table supersedes only the orde
 | P3 | **Configurable approval engine + HR core** ✅ (employees, org, leave, attendance) | L | P2 |
 | P4 | **Payroll Indonesia** ✅ — versioned PPh 21 (TER/PTKP), BPJS, payslips, approval, payment export, GL posting | XL | P3 |
 | P5 | **Tax compliance** 🟡 — immutable faktur/PPN/PPh ledgers, GL recap, locks, and versioned Coretax export implemented; official portal acceptance pending | L | P1 |
-| P6 | **CRM** — leads, pipeline, activities (feeds existing quotations) | L | P2 |
+| P6 | **CRM** ✅ — leads, contacts, pipeline, activities/reminders, explicit customer/quotation conversion, win/loss | L | P2 |
 | P7 | **Multi-currency** (detail in Phase 14) + horizon packs: WMS, MRP, POS, public API/webhooks, portals | XL | stable AR/AP from P1 |
 
 Sizing legend: S <2w · M 2–4w · L 1–2m · XL 2m+ (rough, single team).
@@ -348,9 +348,11 @@ Sizing legend: S <2w · M 2–4w · L 1–2m · XL 2m+ (rough, single team).
   is recorded, Phase 5 is implemented but not certified for production filing.
 
 ### P6 — CRM
-- Leads, opportunities/pipeline stages, win/loss, activities with reminders;
-  convert lead → customer → quotation without re-keying
-- **Done when:** win/loss analytics appear on the sales dashboard.
+- ✅ Company/owner-scoped leads, distinct contacts, ordered opportunities,
+  activity timeline, reassignment, reminders, and HR-manager escalation.
+- ✅ Won opportunities explicitly link/create customer master data and create
+  draft quotations through the existing pricing and lifecycle service.
+- ✅ Pipeline board/list and win/loss analytics are available under `/crm`.
 
 ### P7 — Multi-Currency + Horizon
 - Exchange-rate table, rate lock per document, realized gain/loss on payment,

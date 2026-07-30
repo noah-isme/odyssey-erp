@@ -28,7 +28,22 @@ const (
 	TaskPayrollPayslipDispatch = "payroll:payslip_dispatch"
 	// TaskTaxCaptureDispatch retries durable AR/AP tax captures.
 	TaskTaxCaptureDispatch = "tax:capture_dispatch"
+	// TaskCRMReminderDispatch sends due and overdue CRM activity notifications.
+	TaskCRMReminderDispatch = "crm:reminder_dispatch"
 )
+
+type CRMReminderDispatcher interface {
+	DispatchReminders(context.Context, int) error
+}
+
+func HandleCRMReminderDispatch(dispatcher CRMReminderDispatcher) asynq.HandlerFunc {
+	return func(ctx context.Context, _ *asynq.Task) error {
+		if dispatcher == nil {
+			return fmt.Errorf("CRM reminder dispatcher not configured: %w", asynq.SkipRetry)
+		}
+		return dispatcher.DispatchReminders(ctx, 100)
+	}
+}
 
 type TaxCaptureDispatcher interface {
 	ProcessPending(context.Context, int) error

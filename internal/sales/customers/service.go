@@ -127,6 +127,10 @@ func (s *Service) Get(ctx context.Context, id int64) (*Customer, error) {
 	return s.repo.Get(ctx, id)
 }
 
+func (s *Service) GetByCode(ctx context.Context, companyID int64, code string) (*Customer, error) {
+	return s.repo.GetByCode(ctx, companyID, code)
+}
+
 func (s *Service) List(ctx context.Context, req ListCustomersRequest) ([]Customer, int, error) {
 	return s.repo.List(ctx, req)
 }

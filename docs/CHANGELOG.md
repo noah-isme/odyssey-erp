@@ -4,6 +4,12 @@
 
 ### Added
 
+- Phase 6 CRM with company/owner-scoped leads, contacts, opportunities, ordered
+  stages, activities, timeline, reassignment, and win/loss dashboard.
+- Idempotent won-opportunity conversion reuses customer and quotation services;
+  scheduled reminders, manager escalation, and reassignment use notification
+  channel preferences and the existing email worker.
+
 - Phase 5 tax compliance with reviewed effective-dated PPN/PPh configuration,
   company NPWP/NITKU identity, controlled faktur ranges, immutable tax documents,
   payment-event withholding, correction events, and audit history.

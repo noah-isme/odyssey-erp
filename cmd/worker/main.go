@@ -17,6 +17,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/app"
 	"github.com/odyssey-erp/odyssey-erp/internal/boardpack"
 	"github.com/odyssey-erp/odyssey-erp/internal/consol"
+	"github.com/odyssey-erp/odyssey-erp/internal/crm"
 	"github.com/odyssey-erp/odyssey-erp/internal/fixedassets"
 	"github.com/odyssey-erp/odyssey-erp/internal/notifications"
 	"github.com/odyssey-erp/odyssey-erp/internal/payroll"
@@ -181,6 +182,7 @@ func main() {
 	notificationDispatcher := notifications.NewDispatcher(notificationService, notificationRepo, notificationEmailQueue{client: asynqClient})
 	payrollOutbox := payroll.NewOutboxDispatcher(payrollRepo, payrollDeliveryQueue{client: asynqClient})
 	taxService := tax.NewService(tax.NewRepository(pool), nil)
+	crmService := crm.NewService(crm.NewRepository(pool), nil, nil, crm.NewNotificationAdapter(notificationDispatcher))
 	boardpackJob.SetNotificationDispatcher(notificationDispatcher)
 
 	worker, err := jobs.NewWorker(jobs.WorkerConfig{
@@ -199,6 +201,7 @@ func main() {
 			{Type: jobs.TaskPayrollPayslipEmail, Handler: jobs.HandlePayrollPayslipEmail(payslipProcessor)},
 			{Type: jobs.TaskPayrollPayslipDispatch, Handler: jobs.HandlePayrollPayslipDispatch(payrollOutbox)},
 			{Type: jobs.TaskTaxCaptureDispatch, Handler: jobs.HandleTaxCaptureDispatch(taxService)},
+			{Type: jobs.TaskCRMReminderDispatch, Handler: jobs.HandleCRMReminderDispatch(crmService)},
 		},
 		Cron: []jobs.CronRegistration{
 			{Spec: "15 1 * * *", Task: warmupTask, Options: []asynq.Option{asynq.MaxRetry(3)}},
@@ -210,6 +213,7 @@ func main() {
 			{Spec: "10 2 1 * *", Task: asynq.NewTask(jobs.TaskFixedAssetDepreciation, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
 			{Spec: "*/5 * * * *", Task: asynq.NewTask(jobs.TaskPayrollPayslipDispatch, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
 			{Spec: "*/5 * * * *", Task: asynq.NewTask(jobs.TaskTaxCaptureDispatch, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
+			{Spec: "* * * * *", Task: asynq.NewTask(jobs.TaskCRMReminderDispatch, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
 		},
 	})
 	if err != nil {

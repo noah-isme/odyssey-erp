@@ -41,6 +41,9 @@ Supported initial notification types are:
 - `approval_escalated`
 - `approval_approved`
 - `approval_rejected`
+- `crm_activity_reminder`
+- `crm_activity_escalated`
+- `crm_owner_reassigned`
 
 ## HTTP API and workspace bell
 
@@ -73,6 +76,9 @@ The initial dispatcher hooks are:
 | Approval escalated | A pending assignment passes its escalation deadline. | The overdue assignment's approver. |
 | Approval approved | An approval request is finalized as approved. | The original requester. |
 | Approval rejected | An approval request is finalized as rejected. | The original requester. |
+| CRM activity reminder | An incomplete activity reaches its reminder time. | Activity owner. |
+| CRM activity escalated | A reminded activity passes its due date. | Owner's active HR manager, falling back to owner. |
+| CRM owner reassigned | A manager/admin changes CRM ownership. | New owner. |
 
 Dispatch checks `notification_preferences` before each channel. An in-app
 record is written only when the in-app channel is enabled, and email is queued

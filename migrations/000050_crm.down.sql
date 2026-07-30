@@ -1,0 +1,11 @@
+DELETE FROM role_permissions WHERE permission_id IN (SELECT id FROM permissions WHERE name LIKE 'crm.%');
+DELETE FROM permissions WHERE name LIKE 'crm.%';
+DROP TRIGGER IF EXISTS trg_company_default_crm_stages ON companies;
+DROP FUNCTION IF EXISTS create_default_crm_stages();
+DROP TABLE IF EXISTS crm_events;
+DROP TABLE IF EXISTS crm_activities;
+DROP TABLE IF EXISTS crm_opportunities;
+ALTER TABLE crm_leads DROP CONSTRAINT IF EXISTS fk_crm_lead_contact;
+DROP TABLE IF EXISTS crm_contacts;
+DROP TABLE IF EXISTS crm_leads;
+DROP TABLE IF EXISTS crm_pipeline_stages;

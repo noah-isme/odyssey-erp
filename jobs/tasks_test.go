@@ -62,3 +62,16 @@ func TestHandleTaxCaptureDispatchProcessesOutbox(t *testing.T) {
 	require.Equal(t, 1, fake.calls)
 	require.Equal(t, 100, fake.limit)
 }
+
+type crmReminderFake struct{ limit int }
+
+func (f *crmReminderFake) DispatchReminders(_ context.Context, limit int) error {
+	f.limit = limit
+	return nil
+}
+
+func TestHandleCRMReminderDispatchProcessesDueActivities(t *testing.T) {
+	fake := &crmReminderFake{}
+	require.NoError(t, HandleCRMReminderDispatch(fake)(context.Background(), asynq.NewTask(TaskCRMReminderDispatch, nil)))
+	require.Equal(t, 100, fake.limit)
+}
