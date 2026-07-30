@@ -49,6 +49,13 @@ type TemplateData struct {
 func NewEngine() (*Engine, error) {
 	printer := message.NewPrinter(language.Indonesian)
 	funcMap := template.FuncMap{
+		"seq": func(start, end int) []int {
+			values := make([]int, 0)
+			for i := start; i <= end; i++ {
+				values = append(values, i)
+			}
+			return values
+		},
 		"formatDate": func(v any) string {
 			var t time.Time
 			if tv, ok := v.(time.Time); ok {

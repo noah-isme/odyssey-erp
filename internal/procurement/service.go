@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	approvalengine "github.com/odyssey-erp/odyssey-erp/internal/approvals"
 	"github.com/odyssey-erp/odyssey-erp/internal/inventory"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 )
@@ -43,14 +44,17 @@ type AuditPort interface {
 
 // Service orchestrates procurement flows.
 type Service struct {
-	logger      *slog.Logger
-	repo        RepositoryPort
-	inventory   InventoryPort
-	approvals   *shared.ApprovalRecorder
-	audit       AuditPort
-	idempotency *shared.IdempotencyStore
-	integration IntegrationHandler
+	logger         *slog.Logger
+	repo           RepositoryPort
+	inventory      InventoryPort
+	approvals      *shared.ApprovalRecorder
+	approvalEngine *approvalengine.Service
+	audit          AuditPort
+	idempotency    *shared.IdempotencyStore
+	integration    IntegrationHandler
 }
+
+func (s *Service) SetApprovalEngine(engine *approvalengine.Service) { s.approvalEngine = engine }
 
 // NewService constructs procurement service.
 func NewService(logger *slog.Logger, repo RepositoryPort, inventory InventoryPort, approvals *shared.ApprovalRecorder, audit AuditPort, idem *shared.IdempotencyStore, integration IntegrationHandler) *Service {
@@ -208,7 +212,7 @@ func (s *Service) CreatePOFromPR(ctx context.Context, input CreatePOInput) (Purc
 
 // SubmitPurchaseOrder requests approval.
 func (s *Service) SubmitPurchaseOrder(ctx context.Context, poID int64, actorID int64) error {
-	po, _, err := s.repo.GetPO(ctx, poID)
+	po, lines, err := s.repo.GetPO(ctx, poID)
 	if err != nil {
 		return err
 	}
@@ -216,6 +220,15 @@ func (s *Service) SubmitPurchaseOrder(ctx context.Context, poID int64, actorID i
 		return ErrInvalidState
 	}
 	refID := uuid.NewSHA1(uuid.Nil, []byte(fmt.Sprintf("PO:%d", poID)))
+	if s.approvalEngine != nil {
+		amount := 0.0
+		for _, line := range lines {
+			amount += line.Qty * line.Price
+		}
+		if _, err := s.approvalEngine.Submit(ctx, approvalengine.Submission{Module: "PO", DocumentID: poID, RequesterID: actorID, Amount: amount}); err != nil {
+			return err
+		}
+	}
 	return s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
 		if err := tx.UpdatePOStatus(ctx, poID, POStatusApproval); err != nil {
 			return err
@@ -238,6 +251,10 @@ func (s *Service) ApprovePurchaseOrder(ctx context.Context, poID int64, actorID 
 	}
 	now := time.Now()
 	refID := uuid.NewSHA1(uuid.Nil, []byte(fmt.Sprintf("PO:%d", poID)))
+	if s.approvalEngine != nil {
+		_, err := s.approvalEngine.DecideDocument(ctx, "PO", poID, actorID, approvalengine.DecisionApprove, "")
+		return err
+	}
 	return s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
 		if err := tx.UpdatePOStatus(ctx, poID, POStatusApproved); err != nil {
 			return err
@@ -247,6 +264,50 @@ func (s *Service) ApprovePurchaseOrder(ctx context.Context, poID int64, actorID 
 		}
 		if s.approvals != nil {
 			_ = s.approvals.Record(ctx, shared.ApprovalLog{Module: "PO", RefID: refID, ActorID: actorID, Action: shared.ApprovalApprove, Note: fmt.Sprintf("PO %s approved", po.Number)})
+		}
+		return nil
+	})
+}
+
+func (s *Service) RejectPurchaseOrder(ctx context.Context, poID, actorID int64, note string) error {
+	po, _, err := s.repo.GetPO(ctx, poID)
+	if err != nil {
+		return err
+	}
+	if po.Status != POStatusApproval {
+		return ErrInvalidState
+	}
+	if s.approvalEngine == nil {
+		return errors.New("approval engine not configured")
+	}
+	_, err = s.approvalEngine.DecideDocument(ctx, "PO", poID, actorID, approvalengine.DecisionReject, note)
+	return err
+}
+
+func (s *Service) FinalizeApproval(ctx context.Context, request approvalengine.Request, status string, actorID int64, note string) error {
+	po, _, err := s.repo.GetPO(ctx, request.DocumentID)
+	if err != nil {
+		return err
+	}
+	refID := uuid.NewSHA1(uuid.Nil, []byte(fmt.Sprintf("PO:%d", po.ID)))
+	return s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
+		if status == approvalengine.StatusApproved {
+			if err := tx.UpdatePOStatus(ctx, po.ID, POStatusApproved); err != nil {
+				return err
+			}
+			if err := tx.SetPOApproval(ctx, po.ID, actorID, time.Now()); err != nil {
+				return err
+			}
+			if s.approvals != nil {
+				_ = s.approvals.Record(ctx, shared.ApprovalLog{Module: "PO", RefID: refID, ActorID: actorID, Action: shared.ApprovalApprove, Note: note})
+			}
+		} else {
+			if err := tx.UpdatePOStatus(ctx, po.ID, POStatusCancelled); err != nil {
+				return err
+			}
+			if s.approvals != nil {
+				_ = s.approvals.Record(ctx, shared.ApprovalLog{Module: "PO", RefID: refID, ActorID: actorID, Action: shared.ApprovalReject, Note: note})
+			}
 		}
 		return nil
 	})

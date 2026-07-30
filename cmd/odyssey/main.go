@@ -29,6 +29,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/analytics/svg"
 	"github.com/odyssey-erp/odyssey-erp/internal/ap"
 	"github.com/odyssey-erp/odyssey-erp/internal/app"
+	approvalengine "github.com/odyssey-erp/odyssey-erp/internal/approvals"
 	"github.com/odyssey-erp/odyssey-erp/internal/ar"
 	"github.com/odyssey-erp/odyssey-erp/internal/audit"
 	audithttp "github.com/odyssey-erp/odyssey-erp/internal/audit/http"
@@ -242,6 +243,11 @@ func main() {
 	notificationService := notifications.NewService(notificationRepo)
 	notificationDispatcher := notifications.NewDispatcher(notificationService, notificationRepo, notificationEmailQueue{client: jobClient})
 	notificationHandler := notifications.NewHandler(notificationService)
+	approvalRepo := approvalengine.NewRepository(dbpool)
+	approvalService := approvalengine.NewService(approvalRepo, approvalengine.NewNotificationAdapter(notificationDispatcher))
+	approvalService.RegisterFinalizer("PO", procurementService)
+	procurementService.SetApprovalEngine(approvalService)
+	approvalsHandler := approvalengine.NewHandler(logger, approvalService, templates, csrfManager, rbacMiddleware, dbpool)
 
 	arRepo := ar.NewRepository(dbpool)
 	arService := ar.NewService(arRepo)
@@ -293,7 +299,6 @@ func main() {
 
 	inventoryHandler := inventory.NewHandler(logger, inventoryService, templates, csrfManager, sessionManager, rbacMiddleware, dbpool)
 	procurementHandler := procurement.NewHandler(logger, procurementService, templates, csrfManager, sessionManager, rbacMiddleware, jobClient.AsynqClient())
-	procurementHandler.SetNotificationDispatcher(notificationDispatcher)
 
 	salesService := sales.NewService(dbpool)
 	salesHandler := sales.NewHandler(logger, salesService, templates, csrfManager, sessionManager, rbacMiddleware, jobClient.AsynqClient())
@@ -411,6 +416,7 @@ func main() {
 		DashboardHandler:       dashboardHandler,
 		NotificationHandler:    notificationHandler,
 		NotificationDispatcher: notificationDispatcher,
+		ApprovalsHandler:       approvalsHandler,
 	})
 
 	// Route dump mode: print the real routing table and exit without serving.

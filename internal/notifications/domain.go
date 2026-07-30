@@ -7,6 +7,10 @@ const (
 	TypeApprovalRequested = "approval_requested"
 	TypeReportDelivered   = "report_delivered"
 	TypePasswordReset     = "password_reset"
+	TypeApprovalAssigned  = "approval_assigned"
+	TypeApprovalEscalated = "approval_escalated"
+	TypeApprovalApproved  = "approval_approved"
+	TypeApprovalRejected  = "approval_rejected"
 )
 
 type Notification struct {

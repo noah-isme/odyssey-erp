@@ -19,6 +19,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting"
 	analytichttp "github.com/odyssey-erp/odyssey-erp/internal/analytics/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/ap"
+	"github.com/odyssey-erp/odyssey-erp/internal/approvals"
 	"github.com/odyssey-erp/odyssey-erp/internal/ar"
 	audithttp "github.com/odyssey-erp/odyssey-erp/internal/audit/http"
 	auth "github.com/odyssey-erp/odyssey-erp/internal/auth"
@@ -86,6 +87,7 @@ type RouterParams struct {
 	InventoryService       *inventory.Service
 	NotificationHandler    *notifications.Handler
 	NotificationDispatcher *notifications.Dispatcher
+	ApprovalsHandler       *approvals.Handler
 }
 
 type workspaceUser struct {
@@ -415,6 +417,9 @@ func NewRouter(params RouterParams) http.Handler {
 	})
 	if params.NotificationHandler != nil {
 		params.NotificationHandler.MountRoutes(r)
+	}
+	if params.ApprovalsHandler != nil {
+		r.Route("/approvals", params.ApprovalsHandler.MountRoutes)
 	}
 	if params.AccountingHandler != nil {
 		r.Route("/accounting", func(r chi.Router) {

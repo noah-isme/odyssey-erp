@@ -109,9 +109,10 @@
                 </div>
             </details>
 
-            <details class="sidebar-menu" data-sidebar-menu{{ if or (isActive .CurrentPath "/audit") (isActive .CurrentPath "/users") (isActive .CurrentPath "/roles") (isActive .CurrentPath "/permissions") (isActive .CurrentPath "/jobs") (isActive .CurrentPath "/metrics") (isActive .CurrentPath "/report/ping") }} open{{ end }}>
+            <details class="sidebar-menu" data-sidebar-menu{{ if or (isActive .CurrentPath "/approvals") (isActive .CurrentPath "/audit") (isActive .CurrentPath "/users") (isActive .CurrentPath "/roles") (isActive .CurrentPath "/permissions") (isActive .CurrentPath "/jobs") (isActive .CurrentPath "/metrics") (isActive .CurrentPath "/report/ping") }} open{{ end }}>
                 <summary data-tooltip="Administrasi"><span class="nav-item-icon">⚙</span><span class="nav-item-text">Administrasi</span><span class="sidebar-menu__arrow">⌄</span></summary>
                 <div class="sidebar-menu__items">
+                    <a href="/approvals" class="nav-item{{ if isActive .CurrentPath "/approvals" }} active{{ end }}" data-tooltip="My Approvals"><span class="nav-item-text">My Approvals</span></a>
                     <a href="/audit" class="nav-item{{ if isActive .CurrentPath "/audit" }} active{{ end }}" data-tooltip="Audit Logs"><span class="nav-item-text">Audit Logs</span></a>
                     <a href="/users" class="nav-item{{ if isActive .CurrentPath "/users" }} active{{ end }}" data-tooltip="Pengguna"><span class="nav-item-text">Pengguna</span></a>
                     <a href="/roles" class="nav-item{{ if isActive .CurrentPath "/roles" }} active{{ end }}" data-tooltip="Roles"><span class="nav-item-text">Roles</span></a>
