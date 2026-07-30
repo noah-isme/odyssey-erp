@@ -131,7 +131,15 @@ func (c *Client) EnqueueSendEmail(ctx context.Context, payload SendEmailPayload)
 	if err != nil {
 		return nil, err
 	}
-	return c.client.EnqueueContext(ctx, task, asynq.Queue(QueueDefault))
+	options := []asynq.Option{asynq.Queue(QueueDefault), asynq.MaxRetry(5)}
+	if payload.CorrelationID != "" {
+		options = append(options, asynq.TaskID(payload.CorrelationID))
+	}
+	info, err := c.client.EnqueueContext(ctx, task, options...)
+	if errors.Is(err, asynq.ErrTaskIDConflict) {
+		return nil, nil
+	}
+	return info, err
 }
 
 // EnqueueVarianceSnapshot enqueues a variance snapshot task.

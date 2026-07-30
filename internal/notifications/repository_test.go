@@ -28,6 +28,25 @@ func TestRepositoryUnreadCountAndMarkRead(t *testing.T) {
 	require.NoError(t, db.ExpectationsWereMet())
 }
 
+func TestRepositoryCreateIsIdempotentForDeliveryKey(t *testing.T) {
+	db, err := pgxmock.NewPool()
+	require.NoError(t, err)
+	defer db.Close()
+	repo := NewRepository(db)
+	createdAt := time.Date(2026, 7, 30, 10, 0, 0, 0, time.UTC)
+	updatedAt := createdAt
+	db.ExpectQuery("INSERT INTO notifications").
+		WithArgs(int64(7), "invoice:12", TypeInvoiceIssued, "Invoice issued", "Ready", "/finance/ar/invoices/12").
+		WillReturnRows(pgxmock.NewRows([]string{"id", "recipient_id", "dedupe_key", "type", "title", "body", "url", "read_at", "created_at", "updated_at"}).
+			AddRow(int64(42), int64(7), "invoice:12", TypeInvoiceIssued, "Invoice issued", "Ready", "/finance/ar/invoices/12", nil, createdAt, updatedAt))
+
+	n, err := repo.Create(context.Background(), Notification{RecipientID: 7, DedupeKey: "invoice:12", Type: TypeInvoiceIssued, Title: "Invoice issued", Body: "Ready", URL: "/finance/ar/invoices/12"})
+	require.NoError(t, err)
+	require.Equal(t, int64(42), n.ID)
+	require.Equal(t, "invoice:12", n.DedupeKey)
+	require.NoError(t, db.ExpectationsWereMet())
+}
+
 func TestRepositoryChannelsDefaultsWhenPreferenceMissing(t *testing.T) {
 	db, err := pgxmock.NewPool()
 	require.NoError(t, err)

@@ -16,6 +16,7 @@ const (
 type Notification struct {
 	ID          int64      `json:"id"`
 	RecipientID int64      `json:"recipientId"`
+	DedupeKey   string     `json:"-"`
 	Type        string     `json:"type"`
 	Title       string     `json:"title"`
 	Body        string     `json:"body"`
@@ -27,6 +28,7 @@ type Notification struct {
 
 type Message struct {
 	RecipientID int64
+	DedupeKey   string
 	Type        string
 	Title       string
 	Body        string

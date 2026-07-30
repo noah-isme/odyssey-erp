@@ -111,6 +111,9 @@ func TestCreateAndPostCreditNoteFromConfirmedReturn(t *testing.T) {
 	require.Equal(t, 880.0, repo.available)
 	require.Len(t, ledger.creditNotes, 1)
 	require.Equal(t, 220.0, ledger.creditNotes[0].Total)
+
+	require.NoError(t, service.PostARCreditNote(ctx, PostARCreditNoteInput{CreditNoteID: note.ID, PostedBy: 4}))
+	require.Len(t, ledger.creditNotes, 1, "an already-posted credit note must not create another journal")
 }
 
 func TestPostCreditNoteRejectsAmountAboveRemainingCredit(t *testing.T) {

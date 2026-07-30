@@ -2,11 +2,7 @@ package main
 
 import (
 	"context"
-	"github.com/odyssey-erp/odyssey-erp/internal/notifications"
-	"github.com/odyssey-erp/odyssey-erp/internal/platform/cache"
-	"github.com/odyssey-erp/odyssey-erp/internal/platform/db"
-	"github.com/odyssey-erp/odyssey-erp/internal/shared"
-	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
+	"errors"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -21,6 +17,11 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/boardpack"
 	"github.com/odyssey-erp/odyssey-erp/internal/consol"
 	"github.com/odyssey-erp/odyssey-erp/internal/fixedassets"
+	"github.com/odyssey-erp/odyssey-erp/internal/notifications"
+	"github.com/odyssey-erp/odyssey-erp/internal/platform/cache"
+	"github.com/odyssey-erp/odyssey-erp/internal/platform/db"
+	"github.com/odyssey-erp/odyssey-erp/internal/shared"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 	"github.com/odyssey-erp/odyssey-erp/internal/variance"
 	"github.com/odyssey-erp/odyssey-erp/jobs"
 	"github.com/odyssey-erp/odyssey-erp/report"
@@ -29,11 +30,18 @@ import (
 type notificationEmailQueue struct{ client *asynq.Client }
 
 func (q notificationEmailQueue) EnqueueEmail(ctx context.Context, email notifications.Email) error {
-	task, err := jobs.NewSendEmailTask(jobs.SendEmailPayload{To: email.To, Subject: email.Subject, Body: email.Body})
+	task, err := jobs.NewSendEmailTask(jobs.SendEmailPayload{To: email.To, Subject: email.Subject, Body: email.Body, CorrelationID: email.CorrelationID})
 	if err != nil {
 		return err
 	}
-	_, err = q.client.EnqueueContext(ctx, task, asynq.Queue(jobs.QueueDefault))
+	options := []asynq.Option{asynq.Queue(jobs.QueueDefault), asynq.MaxRetry(5)}
+	if email.CorrelationID != "" {
+		options = append(options, asynq.TaskID(email.CorrelationID))
+	}
+	_, err = q.client.EnqueueContext(ctx, task, options...)
+	if errors.Is(err, asynq.ErrTaskIDConflict) {
+		return nil
+	}
 	return err
 }
 

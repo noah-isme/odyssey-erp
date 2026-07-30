@@ -30,6 +30,12 @@ func TestHandleSendEmailTaskUsesInjectedMailer(t *testing.T) {
 	require.Equal(t, "Invoice issued", mailer.subject)
 }
 
+func TestSendEmailTaskCarriesNotificationCorrelationID(t *testing.T) {
+	task, err := NewSendEmailTask(SendEmailPayload{To: "user@example.com", Subject: "Invoice issued", Body: "Ready", CorrelationID: "notification-email-42"})
+	require.NoError(t, err)
+	require.Contains(t, string(task.Payload()), `"correlation_id":"notification-email-42"`)
+}
+
 func TestHandleSendEmailTaskRejectsMalformedPayload(t *testing.T) {
 	err := HandleSendEmailTask(&mailFake{})(context.Background(), asynq.NewTask(TaskTypeSendEmail, []byte("{")))
 	require.ErrorIs(t, err, asynq.SkipRetry)

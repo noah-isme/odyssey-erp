@@ -11,7 +11,7 @@ Migration `000042_notifications` creates two independent tables:
 
 | Table | Purpose |
 |---|---|
-| `notifications` | Per-recipient notification records, including type, title, body, URL, read timestamp, and audit timestamps. |
+| `notifications` | Per-recipient notification records, including type, title, body, URL, read timestamp, audit timestamps, and an internal delivery dedupe key. |
 | `notification_preferences` | Per-user, per-notification-type channel switches for in-app and email delivery. |
 
 `users.ui_notifications` remains a global workspace UI toggle. It only controls
@@ -37,6 +37,10 @@ Supported initial notification types are:
 - `approval_requested`
 - `report_delivered`
 - `password_reset`
+- `approval_assigned`
+- `approval_escalated`
+- `approval_approved`
+- `approval_rejected`
 
 ## HTTP API and workspace bell
 
@@ -65,11 +69,21 @@ The initial dispatcher hooks are:
 | Approval requested | Purchase order is submitted for approval. | User submitting the PO until role-based approver routing is introduced. |
 | Report delivered | Board-pack generation reaches `READY`. | User stored in board-pack `requested_by` metadata. |
 | Password reset | Authenticated password change succeeds. | User changing the password. |
+| Approval assigned | An approval request enters a policy step. | Each resolved approver for the current step. |
+| Approval escalated | A pending assignment passes its escalation deadline. | The overdue assignment's approver. |
+| Approval approved | An approval request is finalized as approved. | The original requester. |
+| Approval rejected | An approval request is finalized as rejected. | The original requester. |
 
 Dispatch checks `notification_preferences` before each channel. An in-app
 record is written only when the in-app channel is enabled, and email is queued
 only when the email channel is enabled. A notification delivery failure is
 logged without reverting the completed invoice, PO, report, or password action.
+
+Each dispatched event has a stable dedupe key. Repeating dispatch after a queue
+failure returns the original in-app record instead of inserting a duplicate.
+Email tasks use the in-app notification ID as their correlation/task ID (or a
+stable event hash when in-app delivery is disabled), so an enqueue retry cannot
+create a second pending task. Transactional email tasks retry at most five times.
 
 ## SMTP configuration
 
@@ -90,7 +104,8 @@ not require credentials. Never commit production SMTP credentials.
 
 ## Deployment and verification
 
-1. Apply migration `000042_notifications` with `make migrate-up`.
+1. Apply migrations `000042_notifications` and
+   `000045_notification_delivery_idempotency` with `make migrate-up`.
 2. Deploy or restart both `cmd/odyssey` and `cmd/worker`.
 3. Confirm Redis is reachable by both processes and SMTP is reachable by the
    worker.

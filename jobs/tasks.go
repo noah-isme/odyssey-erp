@@ -26,9 +26,10 @@ const (
 
 // SendEmailPayload describes the information required to send an email.
 type SendEmailPayload struct {
-	To      string `json:"to"`
-	Subject string `json:"subject"`
-	Body    string `json:"body"`
+	To            string `json:"to"`
+	Subject       string `json:"subject"`
+	Body          string `json:"body"`
+	CorrelationID string `json:"correlation_id,omitempty"`
 }
 
 // NewSendEmailTask constructs an Asynq task.

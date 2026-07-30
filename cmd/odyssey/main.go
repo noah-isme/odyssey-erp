@@ -83,7 +83,7 @@ func (barRenderer) Bars(width, height int, seriesA, seriesB []float64, labels []
 type notificationEmailQueue struct{ client *jobs.Client }
 
 func (q notificationEmailQueue) EnqueueEmail(ctx context.Context, email notifications.Email) error {
-	_, err := q.client.EnqueueSendEmail(ctx, jobs.SendEmailPayload{To: email.To, Subject: email.Subject, Body: email.Body})
+	_, err := q.client.EnqueueSendEmail(ctx, jobs.SendEmailPayload{To: email.To, Subject: email.Subject, Body: email.Body, CorrelationID: email.CorrelationID})
 	return err
 }
 

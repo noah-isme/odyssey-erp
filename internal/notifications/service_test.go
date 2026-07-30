@@ -13,6 +13,11 @@ type memoryStore struct {
 }
 
 func (m *memoryStore) Create(_ context.Context, n Notification) (Notification, error) {
+	for _, item := range m.items {
+		if n.DedupeKey != "" && item.RecipientID == n.RecipientID && item.Type == n.Type && item.DedupeKey == n.DedupeKey {
+			return item, nil
+		}
+	}
 	n.ID = int64(len(m.items) + 1)
 	m.items = append(m.items, n)
 	return n, nil

@@ -141,9 +141,6 @@ func (s *Service) PostARCreditNote(ctx context.Context, input PostARCreditNoteIn
 		return ErrCreditNoteNotFound
 	}
 	if creditNote.Status == ARCreditNoteStatusPosted {
-		if s.accounting != nil {
-			return s.accounting.CreateARCreditNoteJournal(ctx, creditNote)
-		}
 		return nil
 	}
 	if creditNote.Status != ARCreditNoteStatusDraft {

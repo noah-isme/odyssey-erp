@@ -367,7 +367,7 @@ func NewRouter(params RouterParams) http.Handler {
 		} else {
 			sess.AddFlash(shared.FlashMessage{Kind: "success", Message: "Password berhasil diperbarui"})
 			if params.NotificationDispatcher != nil {
-				if notifyErr := params.NotificationDispatcher.Dispatch(r.Context(), notifications.PasswordReset(id)); notifyErr != nil && params.Logger != nil {
+				if notifyErr := params.NotificationDispatcher.Dispatch(r.Context(), notifications.PasswordReset(id, chimw.GetReqID(r.Context()))); notifyErr != nil && params.Logger != nil {
 					params.Logger.Warn("dispatch password notification", slog.Any("error", notifyErr))
 				}
 			}
