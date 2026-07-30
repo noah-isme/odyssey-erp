@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -58,7 +59,11 @@ func (r *Repository) CreateRequest(ctx context.Context, policy Policy, in Submis
 	if err != nil {
 		return Request{}, nil, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() {
+		if err := tx.Rollback(ctx); err != nil && err != pgx.ErrTxClosed {
+			slog.Error("tx rollback failed", "err", err)
+		}
+	}()
 	var req Request
 	err = tx.QueryRow(ctx, `INSERT INTO approval_requests(policy_id,module,document_id,company_id,amount,requester_id,current_step,status)
 		VALUES($1,$2,$3,$4,$5,$6,1,'PENDING') RETURNING id,policy_id,module,document_id,company_id,amount,requester_id,current_step,status,submitted_at`,
@@ -157,7 +162,11 @@ func (r *Repository) Decide(ctx context.Context, requestID, actorID int64, decis
 	if err != nil {
 		return DecisionResult{}, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() {
+		if err := tx.Rollback(ctx); err != nil && err != pgx.ErrTxClosed {
+			slog.Error("tx rollback failed", "err", err)
+		}
+	}()
 	var req Request
 	err = tx.QueryRow(ctx, `SELECT id,policy_id,module,document_id,company_id,amount,requester_id,current_step,status,submitted_at FROM approval_requests WHERE id=$1 FOR UPDATE`, requestID).Scan(&req.ID, &req.PolicyID, &req.Module, &req.DocumentID, &req.CompanyID, &req.Amount, &req.RequesterID, &req.CurrentStep, &req.Status, &req.SubmittedAt)
 	if err != nil {
@@ -271,7 +280,11 @@ func (r *Repository) CreatePolicy(ctx context.Context, in CreatePolicyInput) (Po
 	if err != nil {
 		return Policy{}, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() {
+		if err := tx.Rollback(ctx); err != nil && err != pgx.ErrTxClosed {
+			slog.Error("tx rollback failed", "err", err)
+		}
+	}()
 	var p Policy
 	err = tx.QueryRow(ctx, `INSERT INTO approval_policies(name,module,company_id,min_amount,max_amount,created_by) VALUES($1,$2,$3,$4,$5,$6) RETURNING id,name,module,company_id,min_amount,max_amount,is_active`, in.Name, in.Module, in.CompanyID, in.MinAmount, in.MaxAmount, in.CreatedBy).Scan(&p.ID, &p.Name, &p.Module, &p.CompanyID, &p.MinAmount, &p.MaxAmount, &p.Active)
 	if err != nil {
