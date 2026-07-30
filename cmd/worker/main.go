@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -29,6 +30,20 @@ import (
 )
 
 type notificationEmailQueue struct{ client *asynq.Client }
+
+type payrollDeliveryQueue struct{ client *asynq.Client }
+
+func (q payrollDeliveryQueue) EnqueuePayslip(ctx context.Context, line payroll.RunLine) error {
+	task, err := jobs.NewPayrollPayslipTask(line.PayslipID)
+	if err != nil {
+		return err
+	}
+	_, err = q.client.EnqueueContext(ctx, task, asynq.Queue(jobs.QueueDefault), asynq.MaxRetry(5), asynq.TaskID(fmt.Sprintf("payroll-payslip-%d", line.PayslipID)))
+	if errors.Is(err, asynq.ErrTaskIDConflict) {
+		return nil
+	}
+	return err
+}
 
 func (q notificationEmailQueue) EnqueueEmail(ctx context.Context, email notifications.Email) error {
 	task, err := jobs.NewSendEmailTask(jobs.SendEmailPayload{To: email.To, Subject: email.Subject, Body: email.Body, CorrelationID: email.CorrelationID})
@@ -163,6 +178,7 @@ func main() {
 	notificationRepo := notifications.NewRepository(pool)
 	notificationService := notifications.NewService(notificationRepo)
 	notificationDispatcher := notifications.NewDispatcher(notificationService, notificationRepo, notificationEmailQueue{client: asynqClient})
+	payrollOutbox := payroll.NewOutboxDispatcher(payrollRepo, payrollDeliveryQueue{client: asynqClient})
 	boardpackJob.SetNotificationDispatcher(notificationDispatcher)
 
 	worker, err := jobs.NewWorker(jobs.WorkerConfig{
@@ -179,6 +195,7 @@ func main() {
 			{Type: jobs.TypeReportScheduleScan, Handler: jobs.HandleReportScheduleScanTask(logger, pool, asynqClient)},
 			{Type: jobs.TaskFixedAssetDepreciation, Handler: jobs.HandleFixedAssetDepreciation(fixedAssetService)},
 			{Type: jobs.TaskPayrollPayslipEmail, Handler: jobs.HandlePayrollPayslipEmail(payslipProcessor)},
+			{Type: jobs.TaskPayrollPayslipDispatch, Handler: jobs.HandlePayrollPayslipDispatch(payrollOutbox)},
 		},
 		Cron: []jobs.CronRegistration{
 			{Spec: "15 1 * * *", Task: warmupTask, Options: []asynq.Option{asynq.MaxRetry(3)}},
@@ -188,6 +205,7 @@ func main() {
 			{Spec: "0 8 * * *", Task: asynq.NewTask(jobs.TypeOverdueInvoicesScan, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
 			{Spec: "5 * * * *", Task: asynq.NewTask(jobs.TypeReportScheduleScan, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
 			{Spec: "10 2 1 * *", Task: asynq.NewTask(jobs.TaskFixedAssetDepreciation, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
+			{Spec: "*/5 * * * *", Task: asynq.NewTask(jobs.TaskPayrollPayslipDispatch, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
 		},
 	})
 	if err != nil {

@@ -102,7 +102,8 @@ func (h *Handler) payslip(w http.ResponseWriter, r *http.Request) {
 	}
 	line, err := h.service.Payslip(r.Context(), id, payrollUserID(r), staff)
 	if err != nil {
-		shared.WriteHTTPError(w, http.StatusForbidden, "")
+		// Missing and unauthorized payslips are deliberately indistinguishable.
+		shared.WriteHTTPError(w, http.StatusNotFound, "")
 		return
 	}
 	pdf, err := h.processor.Render(r.Context(), PayslipRecord{ID: id, Line: line, PeriodCode: line.PeriodCode})

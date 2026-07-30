@@ -15,11 +15,11 @@ Release data was checked on 30 July 2026 against:
 - BPJS Ketenagakerjaan letter `B/1226/022026`, effective 1 March 2026: JP maximum wage Rp11,086,300. This also reconciles to the statutory annual-ceiling formula using the previous Rp10,547,400 ceiling and [BPS's official 2025 GDP growth of 5.11%](https://www.bps.go.id/id/pressrelease/2026/02/05/2546/pertumbuhan-ekonomi.html), truncated to the published hundred-rupiah ceiling.
 - Perpres 64/2020: PPU health contribution (employee 1%, employer 4%) and Rp12,000,000 wage ceiling.
 
-Do not edit an effective rule version. Add a new version and brackets/rates, retain its official document reference, and set `reviewed_at` only after payroll/legal review. `CreateDraft` refuses periods without a reviewed effective tax/BPJS version or effective company policy.
+Do not edit an effective rule version. Add a new version and brackets/rates, retain its official document reference, and set `reviewed_at` only after payroll/legal review. Migration `000047_payroll_review_fixes` rejects overlapping reviewed rule ranges by rule type and overlapping company-policy ranges by company. `CreateDraft` refuses periods without a reviewed effective tax/BPJS version or effective company policy. The selected PTKP annual amount is retained in each line breakdown as regulatory evidence even though monthly TER calculation uses its mapped category.
 
 ## Setup
 
-1. Apply migration `000046_payroll_engine`.
+1. Apply migrations `000046_payroll_engine` and `000047_payroll_review_fixes`.
 2. Add a `COMPANY` rule version and an effective `payroll_company_policies` row for each company. This controls overtime divisor/multipliers, JKK risk class, currency, and rounding unit.
 3. Create payroll periods and effective employee compensation assignments. Bank code, account number, PTKP status, base salary, and BPJS participation are effective-dated with the assignment.
 4. Configure the five `payroll_account_mappings`: `SALARY_EXPENSE`, `EMPLOYER_BPJS_EXPENSE`, `PAYROLL_PAYABLE`, `PPH21_PAYABLE`, and `BPJS_PAYABLE`.
@@ -27,17 +27,17 @@ Do not edit an effective rule version. Add a new version and brackets/rates, ret
 
 ## Lifecycle
 
-`DRAFT → APPROVAL → POSTED` is enforced by conditional updates. Calculation snapshots base salary, recurring/one-off components, overtime, THR, attendance/approved leave counts, department, PTKP/TER, BPJS, tax, and net pay. Approval rejection returns an unposted run to draft for correction. Approval finalization posts it automatically.
+`DRAFT → APPROVAL → POSTED` is enforced by conditional updates. Calculation uses repeatable-read isolation and atomically replaces only draft line snapshots. It records base salary, recurring/one-off components, overtime, THR, attendance/approved leave counts, department, PTKP/TER, BPJS, tax, and net pay. Approval rejection returns an unposted run to draft for correction and records its actor and note in `payroll_run_events`. Approval finalization posts it automatically.
 
-Posting uses `payroll_runs.run_uuid` as the accounting source ID. The partial unique index permits only one posted regular run per company/period. Posted lines are never recalculated or deleted; corrections use `ADJUSTMENT` or `REVERSAL` runs and `reversal_of_id`.
+Posting uses `payroll_runs.run_uuid` as the accounting source ID. Regular run UUIDs are deterministically derived from company and payroll period, while the partial unique index permits only one posted regular run per company/period. Posted lines are never recalculated or deleted; corrections use `ADJUSTMENT` or `REVERSAL` runs and `reversal_of_id`.
 
 Journal debits salary and employer BPJS expense and credits payroll, PPh 21, and BPJS payables. Lines are grouped by mapped accounting department/cost center. A posted run creates one payment batch; `/payroll/{id}/bank.csv` exports employee bank instructions.
 
 ## Payslips and access
 
-Posting creates immutable payslip records and retry-safe Asynq tasks (`payroll:payslip_email`). The worker renders `payroll_payslip_pdf.html` through Gotenberg and sends the PDF with the shared SMTP mail client. The task ID is `payroll-payslip-{payslipID}` and retries at most five times.
+Posting creates immutable payslip records that also serve as a durable delivery outbox. Initial enqueue errors do not undo a posted run or stop later employees from being queued. The worker runs `payroll:payslip_dispatch` every five minutes to re-enqueue records without `delivered_at`, then `payroll:payslip_email` renders `payroll_payslip_pdf.html` through Gotenberg and sends the PDF with the shared SMTP mail client. The delivery task ID is `payroll-payslip-{payslipID}` and retries at most five times.
 
-`/payroll/payslips/{id}.pdf` allows payroll staff, the linked employee user, or that employee's linked manager. Authorization is enforced in the repository query as well as route RBAC.
+`/payroll/payslips/{id}.pdf` allows payroll staff, the linked employee user, or that employee's linked manager. Authorization is enforced in the repository query as well as route RBAC. Missing and unauthorized records both return HTTP 404 to prevent payslip-ID enumeration.
 
 ## Verification
 

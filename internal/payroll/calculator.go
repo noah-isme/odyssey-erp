@@ -2,7 +2,6 @@ package payroll
 
 import (
 	"errors"
-	"sort"
 )
 
 var (
@@ -32,6 +31,7 @@ type BPJSRule struct {
 type Rules struct {
 	TaxVersionID, BPJSVersionID int64
 	PTKPCategory                map[string]string
+	PTKPAnnual                  map[string]Money
 	TER                         []TERBracket
 	BPJS                        []BPJSRule
 }
@@ -66,6 +66,7 @@ type Result struct {
 	EmployeeID                            int64
 	TaxVersionID, BPJSVersionID, PolicyID int64
 	PTKPCode, TERCategory                 string
+	PTKPAnnual                            Money
 	BaseSalary, Allowances, Overtime, THR Money
 	Adjustments, Gross, TaxableGross      Money
 	EmployeeBPJS, EmployerBPJS, PPh21     Money
@@ -80,7 +81,8 @@ func Calculate(in Input, rules Rules, policy Policy) (Result, error) {
 	if in.EmployeeID <= 0 || in.BaseSalary < 0 || in.Allowances < 0 || in.THR < 0 || in.OtherDeductions < 0 || in.OvertimeMinutes < 0 || in.BPJSWage < 0 || policy.OvertimeDivisor <= 0 || policy.RoundingUnit <= 0 {
 		return Result{}, ErrInvalidInput
 	}
-	if category == "" || rules.TaxVersionID <= 0 || rules.BPJSVersionID <= 0 || policy.VersionID <= 0 {
+	ptkpAnnual := rules.PTKPAnnual[in.PTKPCode]
+	if category == "" || ptkpAnnual <= 0 || rules.TaxVersionID <= 0 || rules.BPJSVersionID <= 0 || policy.VersionID <= 0 {
 		return Result{}, ErrMissingRule
 	}
 	overtime := OvertimePay(in.BaseSalary, in.OvertimeMinutes, policy)
@@ -88,7 +90,7 @@ func Calculate(in Input, rules Rules, policy Policy) (Result, error) {
 	if gross < 0 {
 		return Result{}, ErrInvalidInput
 	}
-	result := Result{EmployeeID: in.EmployeeID, TaxVersionID: rules.TaxVersionID, BPJSVersionID: rules.BPJSVersionID, PolicyID: policy.VersionID, PTKPCode: in.PTKPCode, TERCategory: category, BaseSalary: in.BaseSalary, Allowances: in.Allowances, Overtime: overtime, THR: in.THR, Adjustments: in.Adjustments, Gross: gross, OtherDeductions: in.OtherDeductions, AttendanceDays: in.AttendanceDays, LeaveDays: in.LeaveDays}
+	result := Result{EmployeeID: in.EmployeeID, TaxVersionID: rules.TaxVersionID, BPJSVersionID: rules.BPJSVersionID, PolicyID: policy.VersionID, PTKPCode: in.PTKPCode, PTKPAnnual: ptkpAnnual, TERCategory: category, BaseSalary: in.BaseSalary, Allowances: in.Allowances, Overtime: overtime, THR: in.THR, Adjustments: in.Adjustments, Gross: gross, OtherDeductions: in.OtherDeductions, AttendanceDays: in.AttendanceDays, LeaveDays: in.LeaveDays}
 	taxableEmployer := Money(0)
 	for _, rule := range rules.BPJS {
 		if rule.Program == "HEALTH" && !in.BPJSHealth || rule.Program != "HEALTH" && !in.BPJSEmployment {
@@ -120,9 +122,8 @@ func Calculate(in Input, rules Rules, policy Policy) (Result, error) {
 }
 
 func FindTERRate(category string, gross Money, brackets []TERBracket) (int64, bool) {
-	ordered := append([]TERBracket(nil), brackets...)
-	sort.SliceStable(ordered, func(i, j int) bool { return ordered[i].LowerBound < ordered[j].LowerBound })
-	for _, bracket := range ordered {
+	// Rule brackets are ordered once by loadRules, rather than for every employee.
+	for _, bracket := range brackets {
 		if bracket.Category == category && gross > bracket.LowerBound && (bracket.UpperBound == nil || gross <= *bracket.UpperBound) {
 			return bracket.RateBPS, true
 		}

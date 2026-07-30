@@ -9,7 +9,7 @@ import (
 func money(v Money) *Money { return &v }
 
 func testRules() Rules {
-	return Rules{TaxVersionID: 1, BPJSVersionID: 2, PTKPCategory: map[string]string{"TK/0": "A", "TK/1": "A", "K/0": "A", "TK/2": "B", "TK/3": "B", "K/1": "B", "K/2": "B", "K/3": "C"}, TER: []TERBracket{
+	return Rules{TaxVersionID: 1, BPJSVersionID: 2, PTKPCategory: map[string]string{"TK/0": "A", "TK/1": "A", "K/0": "A", "TK/2": "B", "TK/3": "B", "K/1": "B", "K/2": "B", "K/3": "C"}, PTKPAnnual: map[string]Money{"TK/0": 54000000, "TK/1": 58500000, "K/0": 58500000, "TK/2": 63000000, "TK/3": 67500000, "K/1": 63000000, "K/2": 67500000, "K/3": 72000000}, TER: []TERBracket{
 		{Category: "A", LowerBound: 0, UpperBound: money(5400000), RateBPS: 0}, {Category: "A", LowerBound: 5400000, UpperBound: money(5650000), RateBPS: 25},
 		{Category: "B", LowerBound: 0, UpperBound: money(6200000), RateBPS: 0}, {Category: "B", LowerBound: 6200000, UpperBound: money(6500000), RateBPS: 25},
 		{Category: "C", LowerBound: 0, UpperBound: money(6600000), RateBPS: 0}, {Category: "C", LowerBound: 6600000, UpperBound: money(6950000), RateBPS: 25},
@@ -68,6 +68,7 @@ func TestOvertimeTHRNegativeAdjustmentAndRounding(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, Money(4500000), result.Gross)
 	require.Equal(t, Money(4500000), result.NetPay)
+	require.Equal(t, Money(54000000), result.PTKPAnnual)
 	require.Equal(t, Money(1300), Round(1250, 100))
 	require.Equal(t, Money(-1300), Round(-1250, 100))
 }

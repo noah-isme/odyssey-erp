@@ -56,7 +56,7 @@ type Store interface {
 	GetRun(context.Context, int64) (Run, error)
 	ListRuns(context.Context, int64) ([]Run, error)
 	SetApproval(context.Context, int64, int64) error
-	ResetRejected(context.Context, int64) error
+	ResetRejected(context.Context, int64, int64, string) error
 	PostingData(context.Context, int64) (Run, []PostingGroup, AccountMappings, int64, error)
 	MarkPosted(context.Context, int64, int64) ([]RunLine, error)
 	PendingPayslips(context.Context, int64) ([]RunLine, error)

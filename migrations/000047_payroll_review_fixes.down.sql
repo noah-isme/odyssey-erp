@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS payroll_run_events;
+ALTER TABLE payroll_company_policies DROP CONSTRAINT IF EXISTS payroll_company_policies_no_overlap;
+ALTER TABLE payroll_rule_versions DROP CONSTRAINT IF EXISTS payroll_rule_versions_no_reviewed_overlap;

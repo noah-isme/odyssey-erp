@@ -66,7 +66,7 @@ func (s *Service) Submit(ctx context.Context, runID, actorID int64) (Run, error)
 // rejection returns it to draft so corrections never mutate a posted run.
 func (s *Service) FinalizeApproval(ctx context.Context, request approvals.Request, status string, actorID int64, note string) error {
 	if status == approvals.StatusRejected {
-		return s.store.ResetRejected(ctx, request.DocumentID)
+		return s.store.ResetRejected(ctx, request.DocumentID, actorID, note)
 	}
 	if status != approvals.StatusApproved {
 		return ErrInvalidState
@@ -81,9 +81,7 @@ func (s *Service) Post(ctx context.Context, runID, actorID int64) (Run, error) {
 		return Run{}, err
 	}
 	if current.Status == StatusPosted {
-		if err = s.enqueuePayslips(ctx, current.ID, nil); err != nil {
-			return current, err
-		}
+		_ = s.enqueuePayslips(ctx, current.ID, nil)
 		return current, nil
 	}
 	run, groups, mappings, accountingPeriodID, err := s.store.PostingData(ctx, runID)
@@ -116,9 +114,9 @@ func (s *Service) Post(ctx context.Context, runID, actorID int64) (Run, error) {
 		return Run{}, err
 	}
 	run.Status, run.JournalEntryID = StatusPosted, &journal.ID
-	if err = s.enqueuePayslips(ctx, run.ID, lines); err != nil {
-		return run, err
-	}
+	// Payslip rows are the durable outbox. Delivery failures must not turn a
+	// successfully posted run into a failed request; the dispatcher retries them.
+	_ = s.enqueuePayslips(ctx, run.ID, lines)
 	return run, nil
 }
 
@@ -133,12 +131,13 @@ func (s *Service) enqueuePayslips(ctx context.Context, runID int64, lines []RunL
 			return err
 		}
 	}
+	var enqueueErrors []error
 	for _, line := range lines {
 		if err = s.delivery.EnqueuePayslip(ctx, line); err != nil {
-			return err
+			enqueueErrors = append(enqueueErrors, err)
 		}
 	}
-	return nil
+	return errors.Join(enqueueErrors...)
 }
 
 func (s *Service) Runs(ctx context.Context, companyID int64) ([]Run, error) {

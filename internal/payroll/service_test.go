@@ -17,6 +17,9 @@ type storeFake struct {
 	approvalID int64
 	posted     int
 	lines      []RunLine
+	rejectedBy int64
+	rejectNote string
+	payslipErr error
 }
 
 func (s *storeFake) CreateDraft(context.Context, int64, int64, int64) (Run, error) { return s.run, nil }
@@ -28,8 +31,9 @@ func (s *storeFake) SetApproval(_ context.Context, _ int64, id int64) error {
 	s.run.Status = StatusApproval
 	return nil
 }
-func (s *storeFake) ResetRejected(context.Context, int64) error {
+func (s *storeFake) ResetRejected(_ context.Context, _ int64, actorID int64, note string) error {
 	s.run.Status = StatusDraft
+	s.rejectedBy, s.rejectNote = actorID, note
 	return nil
 }
 func (s *storeFake) PostingData(context.Context, int64) (Run, []PostingGroup, AccountMappings, int64, error) {
@@ -43,7 +47,7 @@ func (s *storeFake) MarkPosted(_ context.Context, _ int64, journal int64) ([]Run
 }
 func (s *storeFake) PendingPayslips(context.Context, int64) ([]RunLine, error) { return s.lines, nil }
 func (s *storeFake) Payslip(context.Context, int64, int64, bool) (RunLine, error) {
-	return RunLine{}, nil
+	return RunLine{}, s.payslipErr
 }
 func (s *storeFake) PaymentInstructions(context.Context, int64) ([]PaymentInstruction, error) {
 	return nil, nil
@@ -60,13 +64,13 @@ type ledgerFake struct {
 	input journals.PostingInput
 }
 type deliveryFake struct {
-	calls int
-	fail  bool
+	calls  int
+	failAt int
 }
 
 func (d *deliveryFake) EnqueuePayslip(context.Context, RunLine) error {
 	d.calls++
-	if d.fail {
+	if d.calls == d.failAt {
 		return errors.New("queue unavailable")
 	}
 	return nil
@@ -111,14 +115,27 @@ func TestPayrollJournalIsBalanced(t *testing.T) {
 }
 
 func TestPostedPayslipEnqueueCanBeRetried(t *testing.T) {
-	store := &storeFake{run: Run{ID: 7, CompanyID: 1, RunUUID: uuid.New(), Status: StatusApproval, PeriodCode: "P", PayDate: time.Now()}, lines: []RunLine{{PayslipID: 9}}}
-	delivery := &deliveryFake{fail: true}
+	store := &storeFake{run: Run{ID: 7, CompanyID: 1, RunUUID: uuid.New(), Status: StatusApproval, PeriodCode: "P", PayDate: time.Now()}, lines: []RunLine{{PayslipID: 9}, {PayslipID: 10}}}
+	delivery := &deliveryFake{failAt: 1}
 	service := NewService(store, nil, &ledgerFake{}, delivery)
 	_, err := service.Post(context.Background(), 7, 3)
-	require.Error(t, err)
-	require.Equal(t, StatusPosted, store.run.Status)
-	delivery.fail = false
-	_, err = service.Post(context.Background(), 7, 3)
 	require.NoError(t, err)
+	require.Equal(t, StatusPosted, store.run.Status)
+	require.Equal(t, 2, delivery.calls)
+}
+
+func TestRejectedApprovalPersistsActorAndNote(t *testing.T) {
+	store := &storeFake{run: Run{ID: 7, Status: StatusApproval}}
+	err := NewService(store, nil, nil, nil).FinalizeApproval(context.Background(), approvals.Request{DocumentID: 7}, approvals.StatusRejected, 12, "incorrect allowance")
+	require.NoError(t, err)
+	require.Equal(t, int64(12), store.rejectedBy)
+	require.Equal(t, "incorrect allowance", store.rejectNote)
+}
+
+func TestPayslipOutboxContinuesAfterFailure(t *testing.T) {
+	store := &storeFake{lines: []RunLine{{PayslipID: 1}, {PayslipID: 2}}}
+	delivery := &deliveryFake{failAt: 1}
+	err := NewOutboxDispatcher(store, delivery).DispatchPending(context.Background())
+	require.Error(t, err)
 	require.Equal(t, 2, delivery.calls)
 }

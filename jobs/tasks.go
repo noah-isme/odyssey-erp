@@ -24,7 +24,22 @@ const (
 	TaskBoardPackGenerate = "boardpack:generate"
 	// TaskPayrollPayslipEmail renders and emails a posted payslip.
 	TaskPayrollPayslipEmail = "payroll:payslip_email"
+	// TaskPayrollPayslipDispatch re-enqueues undelivered durable payslip records.
+	TaskPayrollPayslipDispatch = "payroll:payslip_dispatch"
 )
+
+type PayslipOutboxDispatcher interface {
+	DispatchPending(context.Context) error
+}
+
+func HandlePayrollPayslipDispatch(dispatcher PayslipOutboxDispatcher) asynq.HandlerFunc {
+	return func(ctx context.Context, _ *asynq.Task) error {
+		if dispatcher == nil {
+			return fmt.Errorf("payslip outbox dispatcher not configured: %w", asynq.SkipRetry)
+		}
+		return dispatcher.DispatchPending(ctx)
+	}
+}
 
 type PayrollPayslipPayload struct {
 	PayslipID int64 `json:"payslip_id"`

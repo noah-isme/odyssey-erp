@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -16,9 +15,13 @@ type Repository struct{ pool *pgxpool.Pool }
 
 func NewRepository(pool *pgxpool.Pool) *Repository { return &Repository{pool: pool} }
 
+func regularRunUUID(companyID, periodID int64) uuid.UUID {
+	return uuid.NewSHA1(uuid.Nil, []byte(fmt.Sprintf("payroll:regular:%d:%d", companyID, periodID)))
+}
+
 func (r *Repository) CreateDraft(ctx context.Context, companyID, periodID, actorID int64) (Run, error) {
 	var run Run
-	run.RunUUID = uuid.NewSHA1(uuid.Nil, []byte(fmt.Sprintf("payroll:%d:%d:%d", companyID, periodID, time.Now().UnixNano())))
+	run.RunUUID = regularRunUUID(companyID, periodID)
 	err := r.pool.QueryRow(ctx, `WITH p AS (
 		SELECT id,code,pay_date FROM payroll_periods WHERE id=$2 AND company_id=$1 AND status='OPEN'
 	), tax AS (
@@ -39,16 +42,12 @@ func (r *Repository) CreateDraft(ctx context.Context, companyID, periodID, actor
 }
 
 func (r *Repository) Calculate(ctx context.Context, runID int64) (Run, error) {
-	tx, err := r.pool.Begin(ctx)
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
 	if err != nil {
 		return Run{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	var lockedStatus string
-	if err = tx.QueryRow(ctx, `SELECT status FROM payroll_runs WHERE id=$1 FOR UPDATE`, runID).Scan(&lockedStatus); err != nil {
-		return Run{}, err
-	}
-	run, err := getRun(ctx, tx, runID, false)
+	run, err := getRun(ctx, tx, runID, true)
 	if err != nil {
 		return Run{}, err
 	}
@@ -59,6 +58,8 @@ func (r *Repository) Calculate(ctx context.Context, runID int64) (Run, error) {
 	if err != nil {
 		return Run{}, err
 	}
+	// Recalculation atomically replaces the draft snapshot. Posted runs cannot
+	// enter this transaction, so their component breakdown remains immutable.
 	if _, err = tx.Exec(ctx, `DELETE FROM payroll_run_lines WHERE run_id=$1`, runID); err != nil {
 		return Run{}, err
 	}
@@ -114,18 +115,20 @@ func (r *Repository) Calculate(ctx context.Context, runID int64) (Run, error) {
 }
 
 func loadRules(ctx context.Context, tx pgx.Tx, run Run) (Rules, Policy, error) {
-	rules := Rules{TaxVersionID: run.TaxRuleVersionID, BPJSVersionID: run.BPJSRuleVersionID, PTKPCategory: map[string]string{}}
-	rows, err := tx.Query(ctx, `SELECT code,ter_category FROM payroll_ptkp_statuses WHERE rule_version_id=$1`, run.TaxRuleVersionID)
+	rules := Rules{TaxVersionID: run.TaxRuleVersionID, BPJSVersionID: run.BPJSRuleVersionID, PTKPCategory: map[string]string{}, PTKPAnnual: map[string]Money{}}
+	rows, err := tx.Query(ctx, `SELECT code,ter_category,annual_amount::bigint FROM payroll_ptkp_statuses WHERE rule_version_id=$1`, run.TaxRuleVersionID)
 	if err != nil {
 		return Rules{}, Policy{}, err
 	}
 	for rows.Next() {
 		var code, category string
-		if err = rows.Scan(&code, &category); err != nil {
+		var annual Money
+		if err = rows.Scan(&code, &category, &annual); err != nil {
 			rows.Close()
 			return Rules{}, Policy{}, err
 		}
 		rules.PTKPCategory[code] = category
+		rules.PTKPAnnual[code] = annual
 	}
 	rows.Close()
 	rows, err = tx.Query(ctx, `SELECT category,lower_bound::bigint,upper_bound::bigint,rate_bps FROM payroll_ter_brackets WHERE rule_version_id=$1 ORDER BY category,lower_bound`, run.TaxRuleVersionID)
@@ -168,10 +171,13 @@ type rowQuerier interface {
 }
 
 func getRun(ctx context.Context, q rowQuerier, id int64, lock bool) (Run, error) {
-	query := `SELECT r.id,r.run_uuid,r.company_id,r.period_id,r.run_type,r.tax_rule_version_id,r.bpjs_rule_version_id,r.company_policy_id,r.status,r.approval_request_id,r.journal_entry_id,r.created_by,r.created_at,p.code,p.pay_date,COALESCE(SUM(l.gross),0)::bigint,COALESCE(SUM(l.net_pay),0)::bigint FROM payroll_runs r JOIN payroll_periods p ON p.id=r.period_id LEFT JOIN payroll_run_lines l ON l.run_id=r.id WHERE r.id=$1 GROUP BY r.id,p.code,p.pay_date`
 	if lock {
-		query += ` FOR UPDATE OF r`
+		var lockedID int64
+		if err := q.QueryRow(ctx, `SELECT id FROM payroll_runs WHERE id=$1 FOR UPDATE`, id).Scan(&lockedID); err != nil {
+			return Run{}, err
+		}
 	}
+	query := `SELECT r.id,r.run_uuid,r.company_id,r.period_id,r.run_type,r.tax_rule_version_id,r.bpjs_rule_version_id,r.company_policy_id,r.status,r.approval_request_id,r.journal_entry_id,r.created_by,r.created_at,p.code,p.pay_date,COALESCE(SUM(l.gross),0)::bigint,COALESCE(SUM(l.net_pay),0)::bigint FROM payroll_runs r JOIN payroll_periods p ON p.id=r.period_id LEFT JOIN payroll_run_lines l ON l.run_id=r.id WHERE r.id=$1 GROUP BY r.id,p.code,p.pay_date`
 	var run Run
 	err := q.QueryRow(ctx, query, id).Scan(&run.ID, &run.RunUUID, &run.CompanyID, &run.PeriodID, &run.RunType, &run.TaxRuleVersionID, &run.BPJSRuleVersionID, &run.PolicyID, &run.Status, &run.ApprovalRequestID, &run.JournalEntryID, &run.CreatedBy, &run.CreatedAt, &run.PeriodCode, &run.PayDate, &run.Gross, &run.NetPay)
 	return run, err
@@ -201,12 +207,23 @@ func (r *Repository) SetApproval(ctx context.Context, runID, requestID int64) er
 	}
 	return err
 }
-func (r *Repository) ResetRejected(ctx context.Context, runID int64) error {
-	tag, err := r.pool.Exec(ctx, `UPDATE payroll_runs SET status='DRAFT',approval_request_id=NULL,submitted_at=NULL,updated_at=NOW() WHERE id=$1 AND status='APPROVAL'`, runID)
+func (r *Repository) ResetRejected(ctx context.Context, runID, actorID int64, note string) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	tag, err := tx.Exec(ctx, `UPDATE payroll_runs SET status='DRAFT',approval_request_id=NULL,submitted_at=NULL,updated_at=NOW() WHERE id=$1 AND status='APPROVAL'`, runID)
 	if err == nil && tag.RowsAffected() != 1 {
 		return ErrInvalidState
 	}
-	return err
+	if err != nil {
+		return err
+	}
+	if _, err = tx.Exec(ctx, `INSERT INTO payroll_run_events(run_id,event_type,actor_id,note) VALUES($1,'REJECTED',$2,$3)`, runID, actorID, note); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (r *Repository) PostingData(ctx context.Context, runID int64) (Run, []PostingGroup, AccountMappings, int64, error) {
@@ -281,7 +298,7 @@ func (r *Repository) MarkPosted(ctx context.Context, runID, journalID int64) ([]
 }
 
 func (r *Repository) PendingPayslips(ctx context.Context, runID int64) ([]RunLine, error) {
-	rows, err := r.pool.Query(ctx, `SELECT l.id,ps.id,l.run_id,l.employee_id,e.name,e.email,e.user_id,m.user_id,l.department_id,l.cost_center_id,p.code FROM payroll_run_lines l JOIN payroll_payslips ps ON ps.run_line_id=l.id AND ps.delivered_at IS NULL JOIN payroll_runs r ON r.id=l.run_id JOIN payroll_periods p ON p.id=r.period_id JOIN hr_employees e ON e.id=l.employee_id LEFT JOIN hr_employees m ON m.id=e.manager_id WHERE l.run_id=$1`, runID)
+	rows, err := r.pool.Query(ctx, `SELECT l.id,ps.id,l.run_id,l.employee_id,e.name,e.email,e.user_id,m.user_id,l.department_id,l.cost_center_id,p.code FROM payroll_run_lines l JOIN payroll_payslips ps ON ps.run_line_id=l.id AND ps.delivered_at IS NULL JOIN payroll_runs r ON r.id=l.run_id JOIN payroll_periods p ON p.id=r.period_id JOIN hr_employees e ON e.id=l.employee_id LEFT JOIN hr_employees m ON m.id=e.manager_id WHERE ($1=0 OR l.run_id=$1) ORDER BY ps.id LIMIT 500`, runID)
 	if err != nil {
 		return nil, err
 	}
