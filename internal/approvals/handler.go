@@ -28,18 +28,18 @@ func NewHandler(logger *slog.Logger, service *Service, templates *view.Engine, c
 }
 func (h *Handler) MountRoutes(r chi.Router) {
 	r.Group(func(r chi.Router) {
-		r.Use(h.rbac.RequireAny("approvals.inbox"))
+		r.Use(h.rbac.RequireAny(shared.PermApprovalsInbox))
 		r.Get("/", h.inbox)
 		r.Post("/{id}/approve", h.approve)
 		r.Post("/{id}/reject", h.reject)
 	})
 	r.Route("/policies", func(r chi.Router) {
-		r.Use(h.rbac.RequireAny("approvals.policy.admin"))
+		r.Use(h.rbac.RequireAny(shared.PermApprovalsPolicyAdmin))
 		r.Get("/", h.policies)
 		r.Post("/", h.createPolicy)
 	})
 	r.Group(func(r chi.Router) {
-		r.Use(h.rbac.RequireAny("approvals.delegate"))
+		r.Use(h.rbac.RequireAny(shared.PermApprovalsDelegate))
 		r.Post("/delegations", h.createDelegation)
 	})
 }

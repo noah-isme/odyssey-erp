@@ -11,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -169,6 +170,10 @@ func seedRBAC(ctx context.Context, pool *pgxpool.Pool) error {
 		// Finance
 		{"finance.ap.view", "View AP documents"},
 		{"finance.ap.edit", "Manage AP documents"},
+		{"finance.ap.create", "Create AP documents"},
+		{"finance.ap.post", "Post AP documents"},
+		{"finance.ap.void", "Void AP documents"},
+		{"finance.ap.payment", "Create AP payments"},
 		{"finance.gl.view", "View General Ledger"},
 		{"finance.view_analytics", "View Finance Analytics"},
 		{"finance.export_analytics", "Export Finance Analytics"},
@@ -206,6 +211,12 @@ func seedRBAC(ctx context.Context, pool *pgxpool.Pool) error {
 		{"delivery.order.complete", "Complete delivery orders"},
 		{"delivery.order.cancel", "Cancel delivery orders"},
 	}
+	for _, permission := range shared.Phase1To6Permissions {
+		perms = append(perms, struct {
+			name        string
+			description string
+		}{permission.Name, permission.Description})
+	}
 
 	tx, err := pool.Begin(ctx)
 	if err != nil {
@@ -233,7 +244,7 @@ func seedRBAC(ctx context.Context, pool *pgxpool.Pool) error {
 			"rbac.view", "rbac.edit", "report.view",
 			"inventory.view", "inventory.edit",
 			"procurement.view", "procurement.edit",
-			"finance.ap.view", "finance.ap.edit", "finance.boardpack", "finance.ar.view", "finance.ar.edit", "finance.gl.view",
+			"finance.ap.view", "finance.ap.edit", "finance.ap.create", "finance.ap.post", "finance.ap.void", "finance.ap.payment", "finance.boardpack", "finance.ar.view", "finance.ar.edit", "finance.gl.view",
 			"finance.view_analytics", "finance.export_analytics", "finance.view_insights", "finance.export_insights", "finance.view_audit",
 			"sales.customer.view", "sales.customer.create", "sales.customer.edit",
 			"sales.quotation.view", "sales.quotation.create", "sales.quotation.edit", "sales.quotation.approve",
@@ -257,20 +268,29 @@ func seedRBAC(ctx context.Context, pool *pgxpool.Pool) error {
 		}},
 	}
 
+	roleIDs := make(map[string]int64, len(roles))
 	for _, role := range roles {
 		var roleID int64
-		err := tx.QueryRow(ctx, `
-			INSERT INTO roles (name, description)
-			VALUES ($1, $2)
-			ON CONFLICT (name) DO UPDATE SET description = EXCLUDED.description, updated_at = NOW()
-			RETURNING id`, role.name, role.description).Scan(&roleID)
+		err := tx.QueryRow(ctx, `SELECT id FROM roles WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) ORDER BY id LIMIT 1`, role.name).Scan(&roleID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			err = tx.QueryRow(ctx, `
+				INSERT INTO roles (name, description)
+				VALUES ($1, $2)
+				RETURNING id`, role.name, role.description).Scan(&roleID)
+		}
 		if err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, `DELETE FROM role_permissions WHERE role_id = $1`, roleID); err != nil {
+		// Seeded role names are canonical lowercase names. Existing mixed-case
+		// roles are matched case-insensitively above and retained for compatibility.
+		if _, err := tx.Exec(ctx, `UPDATE roles SET description = $2, updated_at = NOW() WHERE id = $1`, roleID, role.description); err != nil {
 			return err
 		}
-		for _, permName := range role.permissions {
+		permissions := role.permissions
+		if role.name == "admin" {
+			permissions = append(append([]string{}, permissions...), shared.Phase1To6PermissionNames()...)
+		}
+		for _, permName := range permissions {
 			if _, err := tx.Exec(ctx, `
 				INSERT INTO role_permissions (role_id, permission_id)
 				SELECT $1, id FROM permissions WHERE name = $2
@@ -278,6 +298,7 @@ func seedRBAC(ctx context.Context, pool *pgxpool.Pool) error {
 				return err
 			}
 		}
+		roleIDs[role.name] = roleID
 	}
 
 	// Assign roles to users
@@ -295,13 +316,10 @@ func seedRBAC(ctx context.Context, pool *pgxpool.Pool) error {
 			}
 			return err
 		}
-		if _, err := tx.Exec(ctx, `DELETE FROM user_roles WHERE user_id = $1`, userID); err != nil {
-			return err
-		}
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO user_roles (user_id, role_id)
-			SELECT $1, id FROM roles WHERE name = $2
-			ON CONFLICT DO NOTHING`, userID, roleName); err != nil {
+			VALUES ($1, $2)
+			ON CONFLICT DO NOTHING`, userID, roleIDs[roleName]); err != nil {
 			return err
 		}
 	}

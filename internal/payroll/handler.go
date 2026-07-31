@@ -25,16 +25,22 @@ func NewHandler(logger *slog.Logger, service *Service, processor *PayslipProcess
 }
 
 func (h *Handler) MountRoutes(r chi.Router) {
-	r.Group(func(r chi.Router) { r.Use(h.rbac.RequireAny("payroll.view", "payroll.process")); r.Get("/", h.list) })
 	r.Group(func(r chi.Router) {
-		r.Use(h.rbac.RequireAny("payroll.process"))
+		r.Use(h.rbac.RequireAny(shared.PermPayrollView, shared.PermPayrollProcess))
+		r.Get("/", h.list)
+	})
+	r.Group(func(r chi.Router) {
+		r.Use(h.rbac.RequireAny(shared.PermPayrollProcess))
 		r.Post("/", h.create)
 		r.Post("/{id}/calculate", h.calculate)
 		r.Post("/{id}/submit", h.submit)
 	})
-	r.Group(func(r chi.Router) { r.Use(h.rbac.RequireAny("payroll.post")); r.Get("/{id}/bank.csv", h.bankCSV) })
 	r.Group(func(r chi.Router) {
-		r.Use(h.rbac.RequireAny("payroll.payslip.own", "payroll.payslip.manager", "payroll.view"))
+		r.Use(h.rbac.RequireAny(shared.PermPayrollPost))
+		r.Get("/{id}/bank.csv", h.bankCSV)
+	})
+	r.Group(func(r chi.Router) {
+		r.Use(h.rbac.RequireAny(shared.PermPayrollPayslipOwn, shared.PermPayrollPayslipManager, shared.PermPayrollView))
 		r.Get("/payslips/{id}.pdf", h.payslip)
 	})
 }

@@ -1,13 +1,16 @@
-{{ define "pages/ap/ap_debit_note_detail.html" }}
-{{ template "layouts/base.html" . }}
-{{ end }}
-
+{{ define "pages/ap/ap_debit_note_detail.html" }}{{ template "layouts/base.html" . }}{{ end }}
 {{ define "title" }}Debit Note {{ .Data.DebitNote.Number }}{{ end }}
-
 {{ define "content" }}
-<div class="page-header"><h1>Debit Note {{.Data.DebitNote.Number}}</h1></div>
-<p>Supplier: {{.Data.DebitNote.SupplierName}} | Invoice: {{.Data.DebitNote.InvoiceNumber}} | Status: {{.Data.DebitNote.Status}}</p>
-<p>Reason: {{.Data.DebitNote.Reason}} | Total: {{.Data.DebitNote.Total}}</p>
-{{if eq .Data.DebitNote.Status "DRAFT"}}<form method="post" action="/finance/ap/debit-notes/{{.Data.DebitNote.ID}}/post"><button type="submit" class="btn btn--primary">Post</button></form><form method="post" action="/finance/ap/debit-notes/{{.Data.DebitNote.ID}}/void"><input class="form-input" name="reason" required placeholder="Void reason"><button type="submit" class="btn btn--danger">Void</button></form>{{end}}
-<div class="table-responsive"><table class="table"><thead><tr><th>Description</th><th>Quantity</th><th>Unit Price</th><th>Total</th></tr></thead><tbody>{{range .Data.DebitNote.Lines}}<tr><td>{{.Description}}</td><td>{{.Quantity}}</td><td>{{.UnitPrice}}</td><td>{{.Total}}</td></tr>{{end}}</tbody></table></div>
+{{ $note := .Data.DebitNote }}
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content"><div class="flex items-center gap-3"><h1 class="page-title">{{ $note.Number }}</h1>{{ template "partials/ui/status_badge.html" $note.Status }}</div><p class="page-subtitle">Supplier debit note · {{ $note.SupplierName }} · Invoice {{ $note.InvoiceNumber }}</p></div>
+        <div class="page-header__actions"><a href="/finance/ap/debit-notes" class="btn btn--secondary">Back to debit notes</a>{{ if eq $note.Status "DRAFT" }}<form method="post" action="/finance/ap/debit-notes/{{ $note.ID }}/post"><input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}"><button type="submit" class="btn btn--primary">Post</button></form><button type="button" class="btn btn--danger" data-dialog-open="void-debit-note">Void</button>{{ end }}</div>
+    </header>
+    <div class="page-content">
+        <section class="card"><div class="card__header"><div><h2 class="card__title">Debit note summary</h2><p class="card__desc">{{ $note.Reason }}</p></div></div><dl class="responsive-grid responsive-grid--wide gap-6"><div><dt class="label">Supplier</dt><dd class="text-primary font-medium">{{ $note.SupplierName }}</dd></div><div><dt class="label">Invoice</dt><dd class="text-primary font-medium">{{ $note.InvoiceNumber }}</dd></div><div><dt class="label">Total</dt><dd class="text-primary font-medium">{{ $note.Total }}</dd></div></dl></section>
+        <section class="card"><div class="card__header"><h2 class="card__title">Line items</h2></div><div class="table-wrap"><table class="table" aria-label="Debit note lines"><thead><tr><th>Description</th><th class="numeric-right">Quantity</th><th class="numeric-right">Unit price</th><th class="numeric-right">Total</th></tr></thead><tbody>{{ range $note.Lines }}<tr><td>{{ .Description }}</td><td class="numeric-right">{{ .Quantity }}</td><td class="numeric-right">{{ .UnitPrice }}</td><td class="numeric-right">{{ .Total }}</td></tr>{{ end }}</tbody></table></div></section>
+    </div>
+</div>
+{{ if eq $note.Status "DRAFT" }}<dialog id="void-debit-note" class="native-dialog" data-dialog aria-labelledby="void-debit-note-title"><div class="native-dialog__content"><header class="native-dialog__header"><h2 id="void-debit-note-title" class="native-dialog__title">Void debit note</h2></header><form method="post" action="/finance/ap/debit-notes/{{ $note.ID }}/void"><div class="native-dialog__body"><label class="form-group"><span class="form-label">Reason</span><input class="form-input" name="reason" required></label></div><input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}"><footer class="native-dialog__footer"><button type="button" class="btn btn--secondary" data-dialog-close>Cancel</button><button type="submit" class="btn btn--danger">Void</button></footer></form></div></dialog>{{ end }}
 {{ end }}

@@ -17,8 +17,9 @@
         </div>
     </header>
     <div class="page-content">
-        <div class="table-wrap">
-            <table class="table" aria-label="AR credit notes">
+        <section class="card card-table" data-component="datatable">
+            <div class="table-responsive">
+            <table class="table table--sticky" data-datatable="ar-credit-notes" aria-label="AR credit notes">
                 <thead><tr><th>Number</th><th>Invoice</th><th>Customer</th><th>Status</th><th class="numeric-right">Total</th><th>Created</th></tr></thead>
                 <tbody>
                     {{ range .Data.CreditNotes }}
@@ -35,7 +36,8 @@
                     {{ end }}
                 </tbody>
             </table>
-        </div>
+            </div>
+        </section>
     </div>
 </div>
 {{ end }}

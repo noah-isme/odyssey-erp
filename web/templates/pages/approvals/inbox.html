@@ -1,12 +1,10 @@
 {{ define "pages/approvals/inbox.html" }}{{ template "layouts/base.html" . }}{{ end }}
 {{ define "title" }}My Approvals{{ end }}
+{{ define "ui-empty-state-icon" }}<span aria-hidden="true">✓</span>{{ end }}
+{{ define "ui-empty-state-title" }}Inbox clear{{ end }}
+{{ define "ui-empty-state-description" }}No approval requests are assigned to you.{{ end }}
+{{ define "ui-empty-state-action" }}<a class="btn btn--secondary" href="/approvals/policies">View policies</a>{{ end }}
 {{ define "content" }}
-<div class="page-container">
-  <header class="page-header"><div><h1 class="page-title">My Approvals</h1><p class="page-subtitle">Policy-routed requests waiting for your decision.</p></div><a class="btn btn--secondary" href="/approvals/policies">Manage policies</a></header>
-  {{ if .Data.Assignments }}
-  <div class="card card-table"><div class="table-responsive"><table class="table"><thead><tr><th>Module</th><th>Document</th><th>Policy / Step</th><th>Amount</th><th>Delegated</th><th>Decision</th></tr></thead><tbody>
-  {{ range .Data.Assignments }}<tr><td>{{ .Module }}</td><td>#{{ .DocumentID }}</td><td>{{ .PolicyName }} / {{ .StepName }}</td><td class="numeric">{{ formatDecimal .Amount }}</td><td>{{ if .DelegatedFrom }}Yes{{ else }}No{{ end }}</td><td><div class="button-group"><form method="post" action="/approvals/{{ .RequestID }}/approve"><input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}"><button class="btn btn--primary btn--sm">Approve</button></form><form method="post" action="/approvals/{{ .RequestID }}/reject"><input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}"><input class="form-input" name="note" placeholder="Reason" required><button class="btn btn--danger btn--sm">Reject</button></form></div></td></tr>{{ end }}
-  </tbody></table></div></div>
-  {{ else }}<div class="card empty-state"><h3>Inbox clear</h3><p>No approval requests are assigned to you.</p></div>{{ end }}
-</div>
+<div class="page-container"><header class="page-header"><div class="page-header__content"><h1 class="page-title">My Approvals</h1><p class="page-subtitle">Policy-routed requests waiting for your decision.</p></div><div class="page-header__actions"><a class="btn btn--secondary" href="/approvals/policies">Manage policies</a></div></header>
+<div class="page-content">{{ if .Data.Assignments }}<section class="card card-table" data-component="datatable"><div class="table-responsive"><table class="table table--sticky" data-datatable="approval-inbox"><thead><tr><th>Module</th><th>Document</th><th>Policy / Step</th><th class="numeric-right">Amount</th><th>Delegated</th><th>Decision</th></tr></thead><tbody>{{ range .Data.Assignments }}<tr><td>{{ .Module }}</td><td>#{{ .DocumentID }}</td><td>{{ .PolicyName }} / {{ .StepName }}</td><td class="numeric-right">{{ formatDecimal .Amount }}</td><td>{{ if .DelegatedFrom }}Yes{{ else }}No{{ end }}</td><td><div class="button-group"><form method="post" action="/approvals/{{ .RequestID }}/approve"><input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}"><button class="btn btn--primary btn--sm">Approve</button></form><form method="post" action="/approvals/{{ .RequestID }}/reject"><input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}"><input class="form-input" name="note" placeholder="Reason" required><button class="btn btn--danger btn--sm">Reject</button></form></div></td></tr>{{ end }}</tbody></table></div></section>{{ else }}{{ template "partials/ui/empty_state.html" . }}{{ end }}</div></div>
 {{ end }}

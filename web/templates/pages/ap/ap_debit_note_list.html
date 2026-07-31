@@ -1,6 +1,26 @@
-{{define "content"}}
-<div class="page-header"><h1>AP Debit Notes</h1></div>
-<div class="table-responsive"><table class="table"><thead><tr><th>Number</th><th>Supplier</th><th>Invoice</th><th>Total</th><th>Status</th></tr></thead><tbody>
-{{range .Data.DebitNotes}}<tr><td><a href="/finance/ap/debit-notes/{{.ID}}">{{.Number}}</a></td><td>{{.SupplierName}}</td><td>{{.InvoiceNumber}}</td><td>{{.Total}}</td><td>{{.Status}}</td></tr>{{else}}<tr><td colspan="5">No debit notes found.</td></tr>{{end}}
-</tbody></table></div>
-{{end}}
+{{ define "pages/ap/ap_debit_note_list.html" }}{{ template "layouts/base.html" . }}{{ end }}
+{{ define "title" }}AP Debit Notes{{ end }}
+{{ define "ui-empty-state-icon" }}<span aria-hidden="true">—</span>{{ end }}
+{{ define "ui-empty-state-title" }}No debit notes found{{ end }}
+{{ define "ui-empty-state-description" }}Supplier debit notes will appear here after a return is processed.{{ end }}
+{{ define "ui-empty-state-action" }}<a href="/finance/ap/invoices" class="btn btn--secondary">View invoices</a>{{ end }}
+{{ define "content" }}
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content"><h1 class="page-title">AP Debit Notes</h1><p class="page-subtitle">Supplier returns and invoice adjustments.</p></div>
+        <div class="page-header__actions"><a href="/finance/ap/invoices" class="btn btn--secondary">Invoices</a></div>
+    </header>
+    <div class="page-content">
+        {{ if .Data.DebitNotes }}
+        <section class="card card-table" data-component="datatable">
+            <div class="table-responsive"><table class="table table--sticky" data-datatable="ap-debit-notes" aria-label="AP debit notes">
+                <thead><tr><th>Number</th><th>Supplier</th><th>Invoice</th><th class="numeric-right">Total</th><th>Status</th></tr></thead>
+                <tbody>{{ range .Data.DebitNotes }}<tr><td><a class="link font-medium" href="/finance/ap/debit-notes/{{ .ID }}">{{ .Number }}</a></td><td>{{ .SupplierName }}</td><td>{{ .InvoiceNumber }}</td><td class="numeric-right">{{ .Total }}</td><td>{{ template "partials/ui/status_badge.html" .Status }}</td></tr>{{ end }}</tbody>
+            </table></div>
+        </section>
+        {{ else }}
+        {{ template "partials/ui/empty_state.html" . }}
+        {{ end }}
+    </div>
+</div>
+{{ end }}

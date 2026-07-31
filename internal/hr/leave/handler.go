@@ -23,7 +23,7 @@ func NewHandler(l *slog.Logger, s *Service, t *view.Engine, c *shared.CSRFManage
 	return &Handler{l, s, t, c, r}
 }
 func (h *Handler) MountRoutes(r chi.Router) {
-	r.Use(h.rbac.RequireAny("hr.leave.request", "hr.leave.admin"))
+	r.Use(h.rbac.RequireAny(shared.PermHRLeaveRequest, shared.PermHRLeaveAdmin))
 	r.Get("/", h.list)
 	r.Post("/", h.submit)
 }

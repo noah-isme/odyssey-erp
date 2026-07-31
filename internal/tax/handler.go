@@ -25,19 +25,22 @@ func NewHandler(logger *slog.Logger, service *Service, templates *view.Engine, c
 }
 
 func (h *Handler) MountRoutes(r chi.Router) {
-	r.Group(func(r chi.Router) { r.Use(h.rbac.RequireAny("tax.view")); r.Get("/", h.dashboard) })
-	r.Group(func(r chi.Router) { r.Use(h.rbac.RequireAny("tax.period.lock")); r.Post("/periods/{id}/lock", h.lock) })
+	r.Group(func(r chi.Router) { r.Use(h.rbac.RequireAny(shared.PermTaxView)); r.Get("/", h.dashboard) })
 	r.Group(func(r chi.Router) {
-		r.Use(h.rbac.RequireAny("tax.config.manage"))
+		r.Use(h.rbac.RequireAny(shared.PermTaxPeriodLock))
+		r.Post("/periods/{id}/lock", h.lock)
+	})
+	r.Group(func(r chi.Router) {
+		r.Use(h.rbac.RequireAny(shared.PermTaxConfigManage))
 		r.Post("/periods/{id}/build", h.build)
 	})
 	r.Group(func(r chi.Router) {
-		r.Use(h.rbac.RequireAny("tax.document.correct"))
+		r.Use(h.rbac.RequireAny(shared.PermTaxDocumentCorrect))
 		r.Post("/documents/{id}/cancel", h.cancel)
 		r.Post("/documents/{id}/replace", h.replace)
 	})
 	r.Group(func(r chi.Router) {
-		r.Use(h.rbac.RequireAny("tax.report.export"))
+		r.Use(h.rbac.RequireAny(shared.PermTaxReportExport))
 		r.Post("/periods/{id}/export", h.export)
 	})
 }

@@ -22,7 +22,7 @@ func NewHandler(l *slog.Logger, s *Service, t *view.Engine, c *shared.CSRFManage
 	return &Handler{l, s, t, c, r}
 }
 func (h *Handler) MountRoutes(r chi.Router) {
-	r.Use(h.rbac.RequireAny("hr.attendance.import"))
+	r.Use(h.rbac.RequireAny(shared.PermHRAttendanceImport))
 	r.Get("/", h.page)
 	r.Post("/import", h.importCSV)
 }

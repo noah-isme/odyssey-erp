@@ -58,9 +58,9 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.With(h.rbac.RequireAny("finance.ap.post")).Post("/invoices/{id}/post", h.postInvoice)
 		r.With(h.rbac.RequireAny("finance.ap.void")).Post("/invoices/{id}/void", h.voidInvoice)
 		r.With(h.rbac.RequireAny("finance.ap.payment")).Post("/payments", h.createAPPayment)
-		r.With(h.rbac.RequireAny("finance.ap.debit_note.create")).Post("/debit-notes/from-return/{returnID}", h.createDebitNoteFromReturn)
-		r.With(h.rbac.RequireAny("finance.ap.debit_note.post")).Post("/debit-notes/{id}/post", h.postDebitNote)
-		r.With(h.rbac.RequireAny("finance.ap.debit_note.void")).Post("/debit-notes/{id}/void", h.voidDebitNote)
+		r.With(h.rbac.RequireAny(shared.PermFinanceAPDebitNoteCreate)).Post("/debit-notes/from-return/{returnID}", h.createDebitNoteFromReturn)
+		r.With(h.rbac.RequireAny(shared.PermFinanceAPDebitNotePost)).Post("/debit-notes/{id}/post", h.postDebitNote)
+		r.With(h.rbac.RequireAny(shared.PermFinanceAPDebitNoteVoid)).Post("/debit-notes/{id}/void", h.voidDebitNote)
 	})
 }
 

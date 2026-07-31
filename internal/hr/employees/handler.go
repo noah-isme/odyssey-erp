@@ -24,10 +24,10 @@ func NewHandler(l *slog.Logger, s *Service, t *view.Engine, c *shared.CSRFManage
 }
 func (h *Handler) MountRoutes(r chi.Router) {
 	r.Group(func(r chi.Router) {
-		r.Use(h.rbac.RequireAny("hr.employee.view", "hr.employee.admin"))
+		r.Use(h.rbac.RequireAny(shared.PermHREmployeeView, shared.PermHREmployeeAdmin))
 		r.Get("/", h.list)
 	})
-	r.Group(func(r chi.Router) { r.Use(h.rbac.RequireAny("hr.employee.admin")); r.Post("/", h.create) })
+	r.Group(func(r chi.Router) { r.Use(h.rbac.RequireAny(shared.PermHREmployeeAdmin)); r.Post("/", h.create) })
 }
 func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 	company, _ := strconv.ParseInt(shared.SessionFromContext(r.Context()).Get("company_id"), 10, 64)

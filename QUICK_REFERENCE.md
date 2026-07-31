@@ -31,9 +31,12 @@ make refresh-mv                   # Refresh materialized views
 go install github.com/air-verse/air@latest
 
 # Start hot reload
-set -a && source .env && set +a
-~/go/bin/air
+make air
 ```
+
+The `air` target loads `.env` automatically when it exists and uses
+`~/go/bin/air` by default. Override the binary path when needed, for example:
+`make air AIR_BIN=/usr/local/bin/air`.
 
 ## 🧪 Testing
 

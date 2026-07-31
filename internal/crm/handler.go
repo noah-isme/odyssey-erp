@@ -27,7 +27,7 @@ func NewHandler(logger *slog.Logger, service *Service, templates *view.Engine, c
 }
 func (h *Handler) MountRoutes(r chi.Router) {
 	r.Group(func(r chi.Router) {
-		r.Use(h.rbac.RequireAny("crm.view", "crm.team.view", "crm.manage"))
+		r.Use(h.rbac.RequireAny(shared.PermCRMView, shared.PermCRMTeamView, shared.PermCRMManage))
 		r.Get("/", h.pipeline)
 		r.Get("/leads/{id}", h.lead)
 		r.Get("/opportunities/{id}", h.opportunity)
@@ -35,19 +35,19 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Get("/dashboard", h.dashboard)
 	})
 	r.Group(func(r chi.Router) {
-		r.Use(h.rbac.RequireAny("crm.create", "crm.manage"))
+		r.Use(h.rbac.RequireAny(shared.PermCRMCreate, shared.PermCRMManage))
 		r.Post("/leads", h.createLead)
 		r.Post("/leads/{id}/qualify", h.qualify)
 		r.Post("/activities", h.addActivity)
 	})
 	r.Group(func(r chi.Router) {
-		r.Use(h.rbac.RequireAny("crm.edit", "crm.manage"))
+		r.Use(h.rbac.RequireAny(shared.PermCRMEdit, shared.PermCRMManage))
 		r.Post("/opportunities/{id}/stage", h.move)
 		r.Post("/activities/{id}/complete", h.completeActivity)
 		r.Post("/{entity}/{id}/reassign", h.reassign)
 	})
 	r.Group(func(r chi.Router) {
-		r.Use(h.rbac.RequireAny("crm.convert", "crm.manage"))
+		r.Use(h.rbac.RequireAny(shared.PermCRMConvert, shared.PermCRMManage))
 		r.Post("/opportunities/{id}/convert", h.convert)
 	})
 }
