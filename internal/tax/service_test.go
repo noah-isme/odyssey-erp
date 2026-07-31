@@ -20,6 +20,12 @@ type fakeStore struct {
 	captured  []string
 	pending   []PendingCapture
 	completed []int64
+	failed    []int64
+	recorded  struct {
+		companyID, periodID, schemaID, count, actorID int64
+		hash                                          string
+		base, amount                                  Money
+	}
 	cancelled []int64
 	replaced  [][2]int64
 	built     bool
@@ -68,7 +74,9 @@ func (f *fakeStore) LockPeriod(context.Context, int64, int64, int64) error {
 func (f *fakeStore) LoadExport(context.Context, int64, int64, string) (ExportSchema, []ExportRecord, error) {
 	return f.schema, f.records, nil
 }
-func (f *fakeStore) RecordExport(_ context.Context, _, _, _ int64, _ string, _ int, _ Money, _ Money, _ int64) (int64, error) {
+func (f *fakeStore) RecordExport(_ context.Context, companyID, periodID, schemaID int64, hash string, count int, base, amount Money, actorID int64) (int64, error) {
+	f.recorded.companyID, f.recorded.periodID, f.recorded.schemaID = companyID, periodID, schemaID
+	f.recorded.hash, f.recorded.count, f.recorded.base, f.recorded.amount, f.recorded.actorID = hash, int64(count), base, amount, actorID
 	return f.exportID, nil
 }
 func (f *fakeStore) PendingCaptures(context.Context, int) ([]PendingCapture, error) {
@@ -78,7 +86,10 @@ func (f *fakeStore) CompleteCapture(_ context.Context, id int64) error {
 	f.completed = append(f.completed, id)
 	return nil
 }
-func (*fakeStore) FailCapture(context.Context, int64, error) error { return nil }
+func (f *fakeStore) FailCapture(_ context.Context, id int64, _ error) error {
+	f.failed = append(f.failed, id)
+	return nil
+}
 
 func reviewedSchema() ExportSchema {
 	body := "official-xsd-artifact"
@@ -103,6 +114,10 @@ func TestExportNetsCreditNotesAndRecordsExactTotals(t *testing.T) {
 	}
 	if strings.Contains(got.Content, "<Sign>") {
 		t.Fatalf("unreviewed Sign element emitted: %s", got.Content)
+	}
+	digest := sha256.Sum256([]byte(got.Content))
+	if f.recorded.hash != hex.EncodeToString(digest[:]) || f.recorded.count != 2 || f.recorded.base != 750 || f.recorded.amount != 82 || f.recorded.actorID != 3 {
+		t.Fatalf("persisted export metadata mismatch: %+v", f.recorded)
 	}
 }
 
@@ -135,6 +150,24 @@ func TestLockRequiresRupiahReconciliation(t *testing.T) {
 	}
 	if !f.locked {
 		t.Fatal("reconciled period was not locked")
+	}
+}
+
+func TestMonthlyRecapUsesRupiahExactAmounts(t *testing.T) {
+	f := &fakeStore{recap: []RecapLine{
+		{Category: "VAT_OUTPUT", AccountCode: "2101", TaxableBase: 10000000, TaxAmount: 1100000, GLAmount: 1100000, Difference: 0},
+		{Category: "VAT_INPUT", AccountCode: "1401", TaxableBase: 5000000, TaxAmount: 550000, GLAmount: 550000, Difference: 0},
+		{Category: "PPh23", AccountCode: "2201", TaxableBase: 2000000, TaxAmount: 40000, GLAmount: 40000, Difference: 0},
+	}}
+	lines, err := NewService(f, nil).Recap(context.Background(), 1, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(lines) != 3 || lines[0].TaxAmount != 1100000 || lines[1].TaxAmount != 550000 || lines[2].TaxAmount != 40000 {
+		t.Fatalf("unexpected exact recap: %+v", lines)
+	}
+	if err := NewService(f, nil).Lock(context.Background(), 1, 2, 3); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -176,5 +209,15 @@ func TestProcessPendingCompletesDurableCapture(t *testing.T) {
 	}
 	if len(f.completed) != 1 || f.completed[0] != 8 {
 		t.Fatalf("completed=%v", f.completed)
+	}
+}
+
+func TestProcessPendingFailureIsRecordedForRetry(t *testing.T) {
+	f := &fakeStore{pending: []PendingCapture{{ID: 10, SourceType: "UNKNOWN", SourceID: 99, ActorID: 3}}}
+	if err := NewService(f, nil).ProcessPending(context.Background(), 1); err == nil {
+		t.Fatal("expected capture failure")
+	}
+	if len(f.completed) != 0 || len(f.failed) != 1 || f.failed[0] != 10 {
+		t.Fatalf("unexpected outbox state: completed=%v failed=%v", f.completed, f.failed)
 	}
 }

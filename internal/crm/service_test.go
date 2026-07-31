@@ -19,6 +19,12 @@ type storeFake struct {
 	linkedCustomer, linkedQuotation int64
 	reminders                       []bool
 	lastScope                       Scope
+	reassigned                      struct {
+		entity           string
+		id, owner, actor int64
+	}
+	activityInput ActivityInput
+	winLoss       WinLoss
 }
 
 func newStoreFake() *storeFake {
@@ -63,7 +69,9 @@ func (f *storeFake) Move(_ context.Context, _ Scope, id int64, stage Stage, reas
 	f.opportunities[id] = x
 	return x, nil
 }
-func (f *storeFake) AddActivity(context.Context, Scope, ActivityInput) (Activity, error) {
+
+func (f *storeFake) AddActivity(_ context.Context, _ Scope, in ActivityInput) (Activity, error) {
+	f.activityInput = in
 	return Activity{ID: 1}, nil
 }
 func (f *storeFake) CompleteActivity(context.Context, Scope, int64, int64, time.Time) error {
@@ -72,7 +80,13 @@ func (f *storeFake) CompleteActivity(context.Context, Scope, int64, int64, time.
 func (f *storeFake) Timeline(context.Context, Scope, string, int64) ([]Activity, []Event, error) {
 	return nil, nil, nil
 }
-func (f *storeFake) Reassign(context.Context, Scope, string, int64, int64, int64) error { return nil }
+func (f *storeFake) Reassign(_ context.Context, _ Scope, entity string, id, owner, actor int64) error {
+	f.reassigned = struct {
+		entity           string
+		id, owner, actor int64
+	}{entity, id, owner, actor}
+	return nil
+}
 func (f *storeFake) DueActivities(context.Context, time.Time, int) ([]Activity, error) {
 	return f.due, nil
 }
@@ -94,7 +108,7 @@ func (f *storeFake) LinkConversion(_ context.Context, _ Scope, id, customerID, q
 	f.linkedQuotation = quotationID
 	return nil
 }
-func (f *storeFake) WinLoss(context.Context, Scope) (WinLoss, error) { return WinLoss{}, nil }
+func (f *storeFake) WinLoss(context.Context, Scope) (WinLoss, error) { return f.winLoss, nil }
 
 type customerFake struct {
 	items   map[int64]*customers.Customer
@@ -124,10 +138,14 @@ func (f *customerFake) GetByCode(_ context.Context, _ int64, code string) (*cust
 	return x, nil
 }
 
-type quotationFake struct{ creates int }
+type quotationFake struct {
+	creates int
+	last    quotations.CreateQuotationRequest
+}
 
 func (f *quotationFake) Create(_ context.Context, in quotations.CreateQuotationRequest, _ int64) (*quotations.Quotation, error) {
 	f.creates++
+	f.last = in
 	return &quotations.Quotation{ID: 77, CompanyID: in.CompanyID, CustomerID: in.CustomerID, Lines: make([]quotations.QuotationLine, len(in.Lines))}, nil
 }
 func (f *quotationFake) GetByCRMOpportunity(context.Context, int64) (*quotations.Quotation, error) {
@@ -241,5 +259,79 @@ func TestOwnerCannotCreateForAnotherOwner(t *testing.T) {
 	_, err := NewService(f, nil, nil, nil).CreateLead(context.Background(), Scope{CompanyID: 1, UserID: 2}, CreateLeadInput{Name: "Lead", OwnerID: 3})
 	if !errors.Is(err, ErrForbidden) {
 		t.Fatalf("err=%v", err)
+	}
+}
+
+func TestCRMCreateAndActivityNormalizeCompanyOwnerAndScope(t *testing.T) {
+	f := newStoreFake()
+	svc := NewService(f, nil, nil, nil)
+	scope := Scope{CompanyID: 3, UserID: 7}
+	lead, err := svc.CreateLead(context.Background(), scope, CreateLeadInput{Name: "Lead", Email: "  SALES@EXAMPLE.COM "})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if lead.CompanyID != 3 || lead.OwnerID != 7 || lead.Email != "sales@example.com" {
+		t.Fatalf("lead scope/normalization=%+v", lead)
+	}
+	leadID := lead.ID
+	_, err = svc.AddActivity(context.Background(), scope, ActivityInput{LeadID: &leadID, Subject: "Call", Type: "CALL"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.activityInput.CompanyID != 3 || f.activityInput.CreatedBy != 7 || f.activityInput.OwnerID != 7 {
+		t.Fatalf("activity scope=%+v", f.activityInput)
+	}
+	_, err = svc.AddActivity(context.Background(), scope, ActivityInput{LeadID: &leadID, OwnerID: 9, Subject: "Forbidden", Type: "CALL"})
+	if !errors.Is(err, ErrForbidden) {
+		t.Fatalf("cross-owner activity err=%v", err)
+	}
+}
+
+func TestCRMReassignmentRequiresTeamScopeAndNotifiesNewOwner(t *testing.T) {
+	f := newStoreFake()
+	notifier := &notifierFake{}
+	svc := NewService(f, nil, nil, notifier)
+	if err := svc.Reassign(context.Background(), Scope{CompanyID: 1, UserID: 7}, "LEAD", 4, 9); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("owner reassignment err=%v", err)
+	}
+	if err := svc.Reassign(context.Background(), Scope{CompanyID: 1, UserID: 7, ViewAll: true}, "LEAD", 4, 9); err != nil {
+		t.Fatal(err)
+	}
+	if f.reassigned.entity != "LEAD" || f.reassigned.id != 4 || f.reassigned.owner != 9 || f.reassigned.actor != 7 {
+		t.Fatalf("reassignment=%+v", f.reassigned)
+	}
+}
+
+func TestWonConversionPreservesExistingPricingRulesAndAtomicLinkInputs(t *testing.T) {
+	f := newStoreFake()
+	leadID := int64(4)
+	f.leads[leadID] = Lead{ID: leadID, CompanyID: 1, OwnerID: 2, Name: "Ayu", Organization: "Acme", Email: "ayu@example.com"}
+	f.opportunities[8] = Opportunity{ID: 8, CompanyID: 1, OwnerID: 2, LeadID: &leadID, Status: "WON"}
+	customersFake := &customerFake{items: map[int64]*customers.Customer{}, byCode: map[string]*customers.Customer{}}
+	quotes := &quotationFake{}
+	svc := NewService(f, customersFake, quotes, nil)
+	date := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+	lines := []quotations.CreateQuotationLineReq{{ProductID: 3, Quantity: 2, UOM: "EA", UnitPrice: 1250, DiscountPercent: 10, TaxPercent: 11}}
+	got, err := svc.Convert(context.Background(), Scope{CompanyID: 1, UserID: 2}, ConvertInput{OpportunityID: 8, QuoteDate: date, ValidUntil: date.AddDate(0, 0, 30), Currency: "IDR", Lines: lines})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.CustomerID != 99 || got.QuotationID != 77 || quotes.creates != 1 || f.linkedCustomer != 99 || f.linkedQuotation != 77 {
+		t.Fatalf("conversion=%+v quote creates=%d linked=%d/%d", got, quotes.creates, f.linkedCustomer, f.linkedQuotation)
+	}
+	if quotes.last.CompanyID != 1 || quotes.last.CustomerID != 99 || quotes.last.Currency != "IDR" || len(quotes.last.Lines) != 1 || quotes.last.Lines[0].DiscountPercent != 10 || quotes.last.Lines[0].TaxPercent != 11 {
+		t.Fatalf("pricing request=%+v", quotes.last)
+	}
+}
+
+func TestWinLossReportKeepsNumericOpportunityValues(t *testing.T) {
+	f := newStoreFake()
+	f.winLoss = WinLoss{WonCount: 2, WonValue: 1500000000.25, LostCount: 1, LostValue: 987654321.75, Reasons: []ReasonTotal{{Reason: "Budget", Count: 1, Value: 987654321.75}}}
+	got, err := NewService(f, nil, nil, nil).WinLoss(context.Background(), Scope{CompanyID: 1, UserID: 7})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.WonValue != 1500000000.25 || got.LostValue != 987654321.75 || got.Reasons[0].Value != 987654321.75 {
+		t.Fatalf("numeric report=%+v", got)
 	}
 }

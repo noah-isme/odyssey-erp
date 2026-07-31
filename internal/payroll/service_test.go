@@ -13,13 +13,18 @@ import (
 )
 
 type storeFake struct {
-	run        Run
-	approvalID int64
-	posted     int
-	lines      []RunLine
-	rejectedBy int64
-	rejectNote string
-	payslipErr error
+	run          Run
+	approvalID   int64
+	posted       int
+	lines        []RunLine
+	groups       []PostingGroup
+	payments     []PaymentInstruction
+	rejectedBy   int64
+	rejectNote   string
+	payslipActor int64
+	payslipStaff bool
+	payslipLine  RunLine
+	payslipErr   error
 }
 
 func (s *storeFake) CreateDraft(context.Context, int64, int64, int64) (Run, error) { return s.run, nil }
@@ -37,7 +42,11 @@ func (s *storeFake) ResetRejected(_ context.Context, _ int64, actorID int64, not
 	return nil
 }
 func (s *storeFake) PostingData(context.Context, int64) (Run, []PostingGroup, AccountMappings, int64, error) {
-	return s.run, []PostingGroup{{Gross: 10000000, EmployerBPJS: 500000, EmployeeBPJS: 300000, Tax: 200000, OtherDeductions: 100000, Net: 9400000}}, AccountMappings{1, 2, 3, 4, 5}, 9, nil
+	groups := s.groups
+	if groups == nil {
+		groups = []PostingGroup{{Gross: 10000000, EmployerBPJS: 500000, EmployeeBPJS: 300000, Tax: 200000, OtherDeductions: 100000, Net: 9400000}}
+	}
+	return s.run, groups, AccountMappings{1, 2, 3, 4, 5}, 9, nil
 }
 func (s *storeFake) MarkPosted(_ context.Context, _ int64, journal int64) ([]RunLine, error) {
 	s.posted++
@@ -46,16 +55,27 @@ func (s *storeFake) MarkPosted(_ context.Context, _ int64, journal int64) ([]Run
 	return s.lines, nil
 }
 func (s *storeFake) PendingPayslips(context.Context, int64) ([]RunLine, error) { return s.lines, nil }
-func (s *storeFake) Payslip(context.Context, int64, int64, bool) (RunLine, error) {
-	return RunLine{}, s.payslipErr
+func (s *storeFake) Payslip(_ context.Context, _ int64, actorID int64, staff bool) (RunLine, error) {
+	s.payslipActor, s.payslipStaff = actorID, staff
+	return s.payslipLine, s.payslipErr
 }
 func (s *storeFake) PaymentInstructions(context.Context, int64) ([]PaymentInstruction, error) {
-	return nil, nil
+	return s.payments, nil
 }
 
 type approvalFake struct{}
 
 func (approvalFake) Submit(context.Context, approvals.Submission) (approvals.Request, error) {
+	return approvals.Request{ID: 44}, nil
+}
+
+type approvalCapture struct {
+	approvalFake
+	submission approvals.Submission
+}
+
+func (a *approvalCapture) Submit(_ context.Context, submission approvals.Submission) (approvals.Request, error) {
+	a.submission = submission
 	return approvals.Request{ID: 44}, nil
 }
 
@@ -101,6 +121,22 @@ func TestPayrollApprovalAndRepeatedPostIdempotency(t *testing.T) {
 	require.Equal(t, runUUID, ledger.input.SourceID)
 }
 
+func TestPayrollApprovalAndPostingRecordActors(t *testing.T) {
+	run := Run{ID: 7, CompanyID: 1, PeriodID: 2, RunUUID: uuid.New(), Status: StatusDraft, Gross: 10000000, PeriodCode: "2026-07", PayDate: time.Now()}
+	store := &storeFake{run: run}
+	approval := &approvalCapture{}
+	ledger := &ledgerFake{}
+	service := NewService(store, approval, ledger, nil)
+	_, err := service.Submit(context.Background(), 7, 55)
+	require.NoError(t, err)
+	require.Equal(t, int64(55), approval.submission.RequesterID)
+	require.Equal(t, "PAYROLL", approval.submission.Module)
+	require.Equal(t, float64(10000000), approval.submission.Amount)
+	_, err = service.Post(context.Background(), 7, 77)
+	require.NoError(t, err)
+	require.Equal(t, int64(77), ledger.input.PostedBy)
+}
+
 func TestPayrollJournalIsBalanced(t *testing.T) {
 	store := &storeFake{run: Run{ID: 7, CompanyID: 1, RunUUID: uuid.New(), Status: StatusApproval, PeriodCode: "P", PayDate: time.Now()}}
 	ledger := &ledgerFake{}
@@ -112,6 +148,33 @@ func TestPayrollJournalIsBalanced(t *testing.T) {
 		credit += line.Credit
 	}
 	require.Equal(t, debit, credit)
+}
+
+func TestPayrollJournalBalancesEachDepartmentAndCostCenter(t *testing.T) {
+	department1, department2 := int64(10), int64(20)
+	costCenter1, costCenter2 := int64(11), int64(21)
+	store := &storeFake{
+		run: Run{ID: 7, CompanyID: 1, RunUUID: uuid.New(), Status: StatusApproval, PeriodCode: "P", PayDate: time.Now()},
+		groups: []PostingGroup{
+			{DepartmentID: &department1, CostCenterID: &costCenter1, Gross: 10000000, EmployerBPJS: 500000, EmployeeBPJS: 300000, Tax: 200000, OtherDeductions: 100000, Net: 9400000},
+			{DepartmentID: &department2, CostCenterID: &costCenter2, Gross: 6000000, EmployerBPJS: 300000, EmployeeBPJS: 180000, Tax: 120000, OtherDeductions: 50000, Net: 5650000},
+		},
+	}
+	ledger := &ledgerFake{}
+	_, err := NewService(store, nil, ledger, nil).Post(context.Background(), 7, 3)
+	require.NoError(t, err)
+	require.Len(t, ledger.input.Lines, 10)
+	for groupIndex, group := range store.groups {
+		lines := ledger.input.Lines[groupIndex*5 : groupIndex*5+5]
+		var debit, credit float64
+		for _, line := range lines {
+			debit += line.Debit
+			credit += line.Credit
+			require.Equal(t, group.DepartmentID, line.DepartmentID)
+			require.Equal(t, group.CostCenterID, line.CostCenterID)
+		}
+		require.Equal(t, debit, credit)
+	}
 }
 
 func TestPostedPayslipEnqueueCanBeRetried(t *testing.T) {
@@ -130,6 +193,39 @@ func TestRejectedApprovalPersistsActorAndNote(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(12), store.rejectedBy)
 	require.Equal(t, "incorrect allowance", store.rejectNote)
+}
+
+func TestBankCSVRequiresPostedRunAndConcealsNoEmployeeData(t *testing.T) {
+	store := &storeFake{run: Run{ID: 7, Status: StatusPosted}, payments: []PaymentInstruction{{
+		EmployeeNumber: "E-01", EmployeeName: "Ayu", BankCode: "BCA", AccountNumber: "123", AccountName: "Ayu", Amount: 9000000,
+	}}}
+	data, err := NewService(store, nil, nil, nil).BankCSV(context.Background(), 7)
+	require.NoError(t, err)
+	require.Contains(t, string(data), "employee_number,employee_name,bank_code,account_number,account_name,amount,currency")
+	require.Contains(t, string(data), "E-01,Ayu,BCA,123,Ayu,9000000,IDR")
+
+	store.run.Status = StatusApproval
+	_, err = NewService(store, nil, nil, nil).BankCSV(context.Background(), 7)
+	require.ErrorIs(t, err, ErrInvalidState)
+
+	store.run.Status = StatusPosted
+	store.payments[0].AccountNumber = ""
+	_, err = NewService(store, nil, nil, nil).BankCSV(context.Background(), 7)
+	require.ErrorIs(t, err, ErrConfiguration)
+}
+
+func TestPayslipAccessPassesActorAndStaffScopeToStore(t *testing.T) {
+	store := &storeFake{payslipLine: RunLine{EmployeeID: 8}}
+	line, err := NewService(store, nil, nil, nil).Payslip(context.Background(), 5, 42, false)
+	require.NoError(t, err)
+	require.Equal(t, int64(8), line.EmployeeID)
+	require.Equal(t, int64(42), store.payslipActor)
+	require.False(t, store.payslipStaff)
+
+	_, err = NewService(store, nil, nil, nil).Payslip(context.Background(), 5, 99, true)
+	require.NoError(t, err)
+	require.Equal(t, int64(99), store.payslipActor)
+	require.True(t, store.payslipStaff)
 }
 
 func TestPayslipOutboxContinuesAfterFailure(t *testing.T) {

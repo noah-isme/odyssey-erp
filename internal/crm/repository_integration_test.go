@@ -60,12 +60,20 @@ func TestRepositoryCRMWorkflow(t *testing.T) {
 	if _, err = repo.Qualify(ctx, owner, QualifyInput{LeadID: duplicate.ID, ActorID: ownerID}); !errors.Is(err, ErrDuplicateContact) {
 		t.Fatalf("duplicate err=%v", err)
 	}
+	rolledBackLead, err := repo.Lead(ctx, owner, duplicate.ID)
+	if err != nil || rolledBackLead.Status != "NEW" {
+		t.Fatalf("duplicate qualification changed lead: %+v err=%v", rolledBackLead, err)
+	}
 	activity, err := repo.AddActivity(ctx, owner, ActivityInput{CompanyID: companyID, OwnerID: ownerID, CreatedBy: ownerID, OpportunityID: &opp.ID, Type: "CALL", Subject: "Discovery"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err = repo.CompleteActivity(ctx, owner, activity.ID, ownerID, time.Now()); err != nil {
 		t.Fatal(err)
+	}
+	activities, events, err := repo.Timeline(ctx, owner, "OPPORTUNITY", opp.ID)
+	if err != nil || len(activities) != 1 || len(events) == 0 {
+		t.Fatalf("timeline activities=%d events=%d err=%v", len(activities), len(events), err)
 	}
 	stages, err := repo.Stages(ctx, owner)
 	if err != nil || len(stages) != 6 {
@@ -86,6 +94,9 @@ func TestRepositoryCRMWorkflow(t *testing.T) {
 	}
 	if err = repo.LinkConversion(ctx, owner, opp.ID, customerID, quotationID, ownerID); err != nil {
 		t.Fatal(err)
+	}
+	if err = repo.LinkConversion(ctx, owner, opp.ID, customerID, quotationID, ownerID); err != nil {
+		t.Fatalf("idempotent conversion link failed: %v", err)
 	}
 	converted, err := repo.Opportunity(ctx, owner, opp.ID)
 	if err != nil || converted.CustomerID == nil || *converted.CustomerID != customerID || converted.QuotationID == nil || *converted.QuotationID != quotationID {

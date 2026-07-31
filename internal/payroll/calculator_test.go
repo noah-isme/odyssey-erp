@@ -80,3 +80,89 @@ func TestOfficialDJPExampleMonthlyTER(t *testing.T) {
 	require.Equal(t, int64(200), rate)
 	require.Equal(t, Money(200000), Percent(10000000, rate))
 }
+
+func TestIndonesiaPayrollCalculationTables(t *testing.T) {
+	tests := []struct {
+		name     string
+		code     string
+		category string
+		gross    Money
+		wantRate int64
+		wantPTKP Money
+	}{
+		{"TK/0 TER A zero", "TK/0", "A", 5400000, 0, 54000000},
+		{"TK/1 TER A", "TK/1", "A", 5500000, 25, 58500000},
+		{"TK/2 TER B", "TK/2", "B", 6300000, 25, 63000000},
+		{"K/3 TER C", "K/3", "C", 6700000, 25, 72000000},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			rate, ok := FindTERRate(tc.category, tc.gross, testRules().TER)
+			require.True(t, ok)
+			require.Equal(t, tc.wantRate, rate)
+			require.Equal(t, tc.wantPTKP, testRules().PTKPAnnual[tc.code])
+		})
+	}
+}
+
+func TestBPJSContributionCapsAndFloorsTable(t *testing.T) {
+	tests := []struct {
+		program                              string
+		wantBase, wantEmployee, wantEmployer Money
+	}{
+		{"HEALTH", 12000000, 120000, 480000},
+		{"JP", 11086300, 110863, 221726},
+		{"JHT", 15000000, 300000, 555000},
+		{"JKK", 15000000, 0, 81000},
+		{"JKM", 15000000, 0, 45000},
+	}
+	result, err := Calculate(Input{EmployeeID: 7, PTKPCode: "TK/0", BaseSalary: 15000000, BPJSWage: 15000000, BPJSHealth: true, BPJSEmployment: true}, testRules(), testPolicy())
+	require.NoError(t, err)
+	byProgram := make(map[string]Contribution, len(result.Contributions))
+	for _, contribution := range result.Contributions {
+		byProgram[contribution.Program] = contribution
+	}
+	for _, tc := range tests {
+		t.Run(tc.program, func(t *testing.T) {
+			got := byProgram[tc.program]
+			require.Equal(t, tc.wantBase, got.WageBase)
+			require.Equal(t, tc.wantEmployee, got.Employee)
+			require.Equal(t, tc.wantEmployer, got.Employer)
+		})
+	}
+}
+
+func TestOvertimeTHRAdjustmentAndRoundingTables(t *testing.T) {
+	policy := testPolicy()
+	for _, tc := range []struct {
+		name string
+		base Money
+		mins int64
+		want Money
+	}{
+		{"no overtime", 10000000, 0, 0},
+		{"first hour", 10000000, 60, 86705},
+		{"two hours", 10000000, 120, 202312},
+	} {
+		t.Run(tc.name, func(t *testing.T) { require.Equal(t, tc.want, OvertimePay(tc.base, tc.mins, policy)) })
+	}
+	for _, tc := range []struct {
+		months int64
+		want   Money
+	}{
+		{0, 0}, {1, 833333}, {6, 5000000}, {12, 10000000}, {18, 10000000},
+	} {
+		require.Equal(t, tc.want, THRAmount(10000000, tc.months))
+	}
+	for _, tc := range []struct {
+		value, unit, want Money
+	}{
+		{1250, 100, 1300}, {-1250, 100, -1300}, {1499, 100, 1500},
+	} {
+		require.Equal(t, tc.want, Round(tc.value, tc.unit))
+	}
+	result, err := Calculate(Input{EmployeeID: 1, PTKPCode: "TK/0", BaseSalary: 5000000, Adjustments: -500000, OtherDeductions: 100000, BPJSWage: 0}, testRules(), policy)
+	require.NoError(t, err)
+	require.Equal(t, Money(4500000), result.Gross)
+	require.Equal(t, Money(4400000), result.NetPay)
+}
