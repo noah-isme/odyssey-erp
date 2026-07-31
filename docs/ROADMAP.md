@@ -29,7 +29,7 @@ to re-prioritise the genuinely remaining work.
 | Phase 12 — Stock valuation | 🟡 Partial | Per-product AVG/FIFO cost method, lot/serial receiving, and reorder PR are implemented; LIFO is intentionally excluded |
 | Phase 15 — Budget vs Actual | ✅ Implemented | `/accounting/budget` loads `accounting_budgets` and posted journal actuals for the selected month |
 | Phase 13 — Fixed Assets | ✅ Implemented | Register, straight-line depreciation worker, disposal accounting, and category setup |
-| Phase 14 — Transaction-level multi-currency | 🟡 Implemented; deployment gate pending | `internal/fx/`, AR/AP valuation, realized FX, revaluation/reversal, migration `000053`; database-backed E2E and staging/production migration execution remain |
+| Phase 14 — Transaction-level multi-currency | 🟡 Functionally implemented; production verification pending | `internal/fx/`, AR/AP valuation, realized FX, revaluation/reversal, migration `000053`; DB-backed acceptance, migration execution, worker verification, and smoke tests remain |
 | Phase 15 — Reporting enhancements | 🟡 Partial | P&L and Budget vs Actual support department/cost-center filters, native `.xlsx`, and scheduled email; report builder/widgets remain |
 
 The phase descriptions below are retained for reference. **Completed phases (10, 11, and
@@ -149,7 +149,27 @@ depreciation, disposal accounting, and worker scheduling are implemented.
 - Consolidation continues using monthly `fx_rates`; transaction FX uses `fx_daily_rates`.
 - AR/AP retain original values and locked invoice/payment rates as PostgreSQL `NUMERIC`.
 - `odyssey fx fetch` and `odyssey fx status` support operations; the worker fetches in `Asia/Jakarta`.
-- Remaining release gates are database-backed USD AR/AP E2E execution and staging/production migration verification.
+- Focused unit and package validation is complete:
+  `go test ./internal/ar ./internal/ap ./internal/fx ./internal/accounting/journals ./internal/integration`,
+  `go test ./cmd/odyssey ./cmd/worker ./cmd/odyssey/cli`,
+  and `go test ./jobs -run 'TestFXDailyRates'`.
+
+### Phase 14 release gate
+
+The FX implementation is complete, but Phase 14 is not production-certified until the
+following acceptance work is recorded:
+
+- [x] Add and pass a database-backed USD AR end-to-end test.
+- [x] Add and pass a database-backed USD AP end-to-end test.
+- [ ] Run the complete integration suite against PostgreSQL with migration `000053`.
+- [ ] Execute migration `000053_transaction_fx` on staging and verify the four FX account mappings.
+- [ ] Execute and verify the production migration and account mappings.
+- [ ] Confirm the production worker is deployed and the daily FX job is running.
+- [ ] Run post-migration smoke tests for invoice posting, partial payment, revaluation, and reversal.
+
+After deployment, verify rate fetch audit rows, journal idempotency, and the AR/AP
+valuation fields before closing this gate. This is a deployment and database-backed
+acceptance track; it does not represent unfinished core FX functionality.
 
 ---
 
@@ -361,8 +381,8 @@ Sizing legend: S <2w · M 2–4w · L 1–2m · XL 2m+ (rough, single team).
 - ✅ Opportunity values retain `NUMERIC(18,2)` precision end to end.
 
 ### P7 — Multi-Currency + Horizon
-- Transaction-level FX is implemented in Phase 14; deployment and acceptance
-  verification remain before marking the multi-currency release gate complete.
+- Transaction-level FX is functionally implemented in Phase 14. Complete the Phase 14
+  release gate above before marking the multi-currency capability production-certified.
 - Horizon packs by vertical: WMS (bins, picking, barcode), Manufacturing/MRP (BOM,
   work orders), POS, Projects/timesheets, public REST API + webhooks, portals
 

@@ -196,11 +196,11 @@ ON CONFLICT (name) DO NOTHING;
 
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
-WHERE r.name IN ('Admin', 'Finance Manager')
+WHERE LOWER(TRIM(r.name)) IN ('admin', 'administrator', 'finance manager')
   AND p.name IN ('finance.fx.view', 'finance.fx.manage', 'finance.fx.revalue', 'finance.fx.override')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
-WHERE r.name = 'Finance User' AND p.name = 'finance.fx.view'
+WHERE LOWER(TRIM(r.name)) = 'finance user' AND p.name = 'finance.fx.view'
 ON CONFLICT DO NOTHING;

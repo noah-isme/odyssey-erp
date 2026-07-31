@@ -63,14 +63,26 @@ Period revaluation stores details in `fx_revaluations`, claims each document
 before journal creation, and records reversal journals in
 `fx_revaluation_reversals`.
 
-## Deployment checklist
+## Deployment and acceptance checklist
+
+The implementation and database-backed USD AR/AP acceptance flows have passed
+focused validation. It is not production-certified until all of the following
+are completed:
 
 1. Back up the database.
-2. Run `make migrate-up` with the selected `PG_DSN`.
-3. Verify migration version and the four `FX` account mappings.
-4. Start the application and worker processes.
-5. Fetch rates and inspect `fx_fetch_runs`.
-6. Run a controlled USD AR/AP posting and payment smoke test.
+2. Deploy the corrected application and worker code.
+3. Run `make migrate-up` with the selected `PG_DSN`, including
+   `000053_transaction_fx`.
+4. Verify migration version and the four `FX` account mappings on staging and
+   production.
+5. Run database-backed USD AR and USD AP end-to-end tests against PostgreSQL
+   (covered by the tagged FX acceptance suite).
+6. Start the application and worker processes; confirm the daily FX job is
+   deployed and running in `Asia/Jakarta`.
+7. Fetch rates and inspect `fx_fetch_runs`.
+8. Run post-migration smoke tests for invoice posting, partial payment,
+   revaluation, and reversal.
 
-The remaining release gate is a database-backed USD AR/AP end-to-end suite and
-execution of migration `000053_transaction_fx` against staging and production.
+The release gate remains open until staging and production migration execution,
+account mapping verification, worker confirmation, and the database-backed
+acceptance suite are recorded.

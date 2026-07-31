@@ -19,6 +19,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting"
 	analytichttp "github.com/odyssey-erp/odyssey-erp/internal/analytics/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/ap"
+	apihttp "github.com/odyssey-erp/odyssey-erp/internal/api"
 	"github.com/odyssey-erp/odyssey-erp/internal/approvals"
 	"github.com/odyssey-erp/odyssey-erp/internal/ar"
 	audithttp "github.com/odyssey-erp/odyssey-erp/internal/audit/http"
@@ -37,10 +38,14 @@ import (
 	insightshhtp "github.com/odyssey-erp/odyssey-erp/internal/insights/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/inventory"
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata"
+	"github.com/odyssey-erp/odyssey-erp/internal/mrp"
 	"github.com/odyssey-erp/odyssey-erp/internal/notifications"
 	"github.com/odyssey-erp/odyssey-erp/internal/observability"
 	"github.com/odyssey-erp/odyssey-erp/internal/payroll"
+	"github.com/odyssey-erp/odyssey-erp/internal/portal"
+	"github.com/odyssey-erp/odyssey-erp/internal/pos"
 	"github.com/odyssey-erp/odyssey-erp/internal/procurement"
+	"github.com/odyssey-erp/odyssey-erp/internal/projects"
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
 	"github.com/odyssey-erp/odyssey-erp/internal/roles"
 	"github.com/odyssey-erp/odyssey-erp/internal/sales"
@@ -50,6 +55,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/users"
 	"github.com/odyssey-erp/odyssey-erp/internal/variance"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
+	"github.com/odyssey-erp/odyssey-erp/internal/wms"
 	"github.com/odyssey-erp/odyssey-erp/jobs"
 	"github.com/odyssey-erp/odyssey-erp/report"
 	"github.com/odyssey-erp/odyssey-erp/web"
@@ -100,6 +106,12 @@ type RouterParams struct {
 	PayrollHandler         *payroll.Handler
 	TaxHandler             *tax.Handler
 	CRMHandler             *crm.Handler
+	WMSHandler             *wms.Handler
+	APIHandler             *apihttp.Handler
+	PortalHandler          *portal.Handler
+	POSHandler             *pos.Handler
+	ProjectsHandler        *projects.Handler
+	MRPHandler             *mrp.Handler
 }
 
 type workspaceUser struct {
@@ -495,6 +507,24 @@ func NewRouter(params RouterParams) http.Handler {
 	}
 	if params.MasterDataHandler != nil {
 		r.Route("/masterdata", params.MasterDataHandler.MountRoutes)
+	}
+	if params.WMSHandler != nil {
+		r.Route("/wms", params.WMSHandler.MountRoutes)
+	}
+	if params.APIHandler != nil {
+		params.APIHandler.MountRoutes(r)
+	}
+	if params.PortalHandler != nil {
+		params.PortalHandler.MountRoutes(r)
+	}
+	if params.POSHandler != nil {
+		r.Route("/pos", params.POSHandler.MountRoutes)
+	}
+	if params.ProjectsHandler != nil {
+		r.Route("/projects", params.ProjectsHandler.MountRoutes)
+	}
+	if params.MRPHandler != nil {
+		r.Route("/mrp", params.MRPHandler.MountRoutes)
 	}
 	r.Route("/delivery", func(r chi.Router) {
 		delivery.MountRoutes(r, params.Pool, params.Logger, params.Templates, params.CSRFManager, params.RBACMiddleware, params.InventoryService)

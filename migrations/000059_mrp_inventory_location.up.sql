@@ -1,0 +1,1 @@
+ALTER TABLE mrp_work_orders ADD COLUMN IF NOT EXISTS warehouse_id BIGINT REFERENCES warehouses(id) ON DELETE RESTRICT;

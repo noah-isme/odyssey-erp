@@ -29,8 +29,20 @@ const (
 	// TaskTaxCaptureDispatch retries durable AR/AP tax captures.
 	TaskTaxCaptureDispatch = "tax:capture_dispatch"
 	// TaskCRMReminderDispatch sends due and overdue CRM activity notifications.
-	TaskCRMReminderDispatch = "crm:reminder_dispatch"
+	TaskCRMReminderDispatch     = "crm:reminder_dispatch"
+	TaskWebhookDeliveryDispatch = "webhook:delivery_dispatch"
 )
+
+type WebhookDeliveryDispatcher interface{ DispatchWebhookDeliveries(context.Context) error }
+
+func HandleWebhookDeliveryDispatch(dispatcher WebhookDeliveryDispatcher) asynq.HandlerFunc {
+	return func(ctx context.Context, _ *asynq.Task) error {
+		if dispatcher == nil {
+			return fmt.Errorf("webhook dispatcher not configured: %w", asynq.SkipRetry)
+		}
+		return dispatcher.DispatchWebhookDeliveries(ctx)
+	}
+}
 
 type CRMReminderDispatcher interface {
 	DispatchReminders(context.Context, int) error

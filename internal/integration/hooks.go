@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,6 +15,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/periods"
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/shared"
 	"github.com/odyssey-erp/odyssey-erp/internal/inventory"
+	"github.com/odyssey-erp/odyssey-erp/internal/pos"
 	"github.com/odyssey-erp/odyssey-erp/internal/procurement"
 )
 
@@ -62,7 +64,7 @@ func (h *Hooks) post(ctx context.Context, input journals.PostingInput) error {
 	}
 	_, err := h.ledger.PostJournal(ctx, input)
 	if err != nil {
-		if errors.Is(err, shared.ErrSourceAlreadyLinked) {
+		if errors.Is(err, shared.ErrSourceAlreadyLinked) || strings.Contains(err.Error(), "uq_source_links") {
 			return nil
 		}
 	}
@@ -87,13 +89,23 @@ func (h *Hooks) postTx(ctx context.Context, tx pgx.Tx, input journals.PostingInp
 func (h *Hooks) postFXTx(ctx context.Context, tx pgx.Tx, sourceKey string, input journals.PostingInput) error {
 	var journalID int64
 	err := tx.QueryRow(ctx, `SELECT journal_entry_id FROM fx_journal_idempotency WHERE source_key=$1`, sourceKey).Scan(&journalID)
-	if err == nil { return nil }
-	if !errors.Is(err, pgx.ErrNoRows) { return err }
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
 	ledger, ok := h.ledger.(TransactionalLedger)
-	if !ok { return errors.New("integration: ledger does not support caller transaction") }
+	if !ok {
+		return errors.New("integration: ledger does not support caller transaction")
+	}
 	entry, err := ledger.PostJournalInTx(ctx, tx, input)
-	if errors.Is(err, shared.ErrSourceAlreadyLinked) { return nil }
-	if err != nil { return err }
+	if errors.Is(err, shared.ErrSourceAlreadyLinked) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
 	_, err = tx.Exec(ctx, `INSERT INTO fx_journal_idempotency (source_key, journal_entry_id) VALUES ($1,$2) ON CONFLICT (source_key) DO NOTHING`, sourceKey, entry.ID)
 	return err
 }
@@ -141,6 +153,59 @@ func (h *Hooks) HandleGRNPosted(ctx context.Context, evt procurement.GRNPostedEv
 	return h.post(ctx, input)
 }
 
+// HandlePOSSalePosted posts the cash/tender side of a completed POS sale.
+// Inventory cost movements are posted separately by the inventory integration
+// hook; this journal is keyed by the ticket so retries cannot duplicate it.
+func (h *Hooks) HandlePOSSalePosted(ctx context.Context, evt pos.SalePostedEvent) error {
+	if h == nil || h.ledger == nil || h.periodRepo == nil || h.mappingRepo == nil {
+		return nil
+	}
+	if evt.TicketID == 0 || evt.BaseAmount <= 0 {
+		return errors.New("integration: POS sale amount required")
+	}
+	period, err := h.periodRepo.FindOpenPeriodByDate(ctx, time.Now().UTC())
+	if err != nil {
+		return err
+	}
+	cash, err := h.resolveAccount(ctx, "POS", "pos.cash")
+	if err != nil {
+		return err
+	}
+	revenue, err := h.resolveAccount(ctx, "POS", "pos.sales")
+	if err != nil {
+		return err
+	}
+	sourceID := uuid.NewSHA1(uuid.Nil, []byte(fmt.Sprintf("POS:%d", evt.TicketID)))
+	return h.post(ctx, journals.PostingInput{
+		PeriodID: period.ID, Date: time.Now().UTC(), SourceModule: "POS.SALE", SourceID: sourceID,
+		Memo: fmt.Sprintf("POS sale %d", evt.TicketID), PostedBy: evt.ActorID,
+		Lines: []journals.PostingLineInput{{AccountID: cash, Debit: evt.BaseAmount}, {AccountID: revenue, Credit: evt.BaseAmount}},
+	})
+}
+
+func (h *Hooks) HandlePOSRefunded(ctx context.Context, evt pos.SalePostedEvent) error {
+	if h == nil || h.ledger == nil || h.periodRepo == nil || h.mappingRepo == nil {
+		return nil
+	}
+	if evt.TicketID == 0 || evt.BaseAmount <= 0 {
+		return errors.New("integration: POS refund amount required")
+	}
+	period, err := h.periodRepo.FindOpenPeriodByDate(ctx, time.Now().UTC())
+	if err != nil {
+		return err
+	}
+	cash, err := h.resolveAccount(ctx, "POS", "pos.cash")
+	if err != nil {
+		return err
+	}
+	revenue, err := h.resolveAccount(ctx, "POS", "pos.sales")
+	if err != nil {
+		return err
+	}
+	sourceID := uuid.NewSHA1(uuid.Nil, []byte(fmt.Sprintf("POS:REFUND:%d", evt.TicketID)))
+	return h.post(ctx, journals.PostingInput{PeriodID: period.ID, Date: time.Now().UTC(), SourceModule: "POS.REFUND", SourceID: sourceID, Memo: fmt.Sprintf("POS refund %d", evt.TicketID), PostedBy: evt.ActorID, Lines: []journals.PostingLineInput{{AccountID: revenue, Debit: evt.BaseAmount}, {AccountID: cash, Credit: evt.BaseAmount}}})
+}
+
 // HandleAPInvoicePosted posts the accounting entry for an AP invoice.
 func (h *Hooks) HandleAPInvoicePosted(ctx context.Context, evt procurement.APInvoicePostedEvent) error {
 	if h == nil || h.ledger == nil || h.periodRepo == nil || h.mappingRepo == nil {
@@ -171,7 +236,9 @@ func (h *Hooks) HandleAPInvoicePosted(ctx context.Context, evt procurement.APInv
 		return err
 	}
 	amount := round2(evt.Total)
-	if evt.BaseAmount > 0 { amount = round2(evt.BaseAmount) }
+	if evt.BaseAmount > 0 {
+		amount = round2(evt.BaseAmount)
+	}
 	sourceID := uuid.NewSHA1(uuid.Nil, []byte(fmt.Sprintf("APINV:%d", evt.ID)))
 	input := journals.PostingInput{
 		PeriodID:     period.ID,
@@ -214,7 +281,9 @@ func (h *Hooks) HandleAPInvoicePostedTx(ctx context.Context, tx pgx.Tx, evt proc
 		return err
 	}
 	amount := round2(evt.Total)
-	if evt.BaseAmount > 0 { amount = round2(evt.BaseAmount) }
+	if evt.BaseAmount > 0 {
+		amount = round2(evt.BaseAmount)
+	}
 	return h.postTx(ctx, tx, journals.PostingInput{PeriodID: period.ID, Date: evt.PostedAt, SourceModule: "PROCUREMENT.AP_INVOICE", SourceID: uuid.NewSHA1(uuid.Nil, []byte(fmt.Sprintf("APINV:%d", evt.ID))), Memo: fmt.Sprintf("AP Invoice %s", evt.Number), Lines: []journals.PostingLineInput{{AccountID: debit, Debit: amount}, {AccountID: ap, Credit: amount}}})
 }
 

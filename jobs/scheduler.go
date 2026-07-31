@@ -32,7 +32,7 @@ func HandleOverdueInvoicesScanTask(logger *slog.Logger, db *pgxpool.Pool, client
 			FROM ar_invoices 
 			WHERE status = 'POSTED' AND due_date < $1 AND amount_due > 0
 		`
-		
+
 		rows, err := db.Query(ctx, query, time.Now())
 		if err != nil {
 			logger.Error("failed to query overdue invoices", slog.Any("error", err))
@@ -52,18 +52,18 @@ func HandleOverdueInvoicesScanTask(logger *slog.Logger, db *pgxpool.Pool, client
 			}
 
 			// In a real application, we would check a flag to see if the notification
-			// has already been sent to avoid spamming the customer every day, 
+			// has already been sent to avoid spamming the customer every day,
 			// or we would use a last_reminded_at timestamp.
 
 			customerEmail := "customer@example.com" // Dummy for MVP
-			
-			payload := fmt.Sprintf(`{"to": ["%s"], "subject": "OVERDUE: Invoice %s", "body_html": "<p>Your invoice %s for amount %.2f is overdue since %s. Please arrange payment.</p>"}`, 
+
+			payload := fmt.Sprintf(`{"to": ["%s"], "subject": "OVERDUE: Invoice %s", "body_html": "<p>Your invoice %s for amount %.2f is overdue since %s. Please arrange payment.</p>"}`,
 				customerEmail, invoiceNumber, invoiceNumber, total, dueDate.Format("2006-01-02"))
 
 			task := asynq.NewTask(TypeEmailDelivery, []byte(payload))
 			if _, err := client.EnqueueContext(ctx, task); err != nil {
-				logger.Error("failed to enqueue email task for overdue invoice", 
-					slog.String("invoice", invoiceNumber), 
+				logger.Error("failed to enqueue email task for overdue invoice",
+					slog.String("invoice", invoiceNumber),
 					slog.Any("error", err))
 			} else {
 				count++

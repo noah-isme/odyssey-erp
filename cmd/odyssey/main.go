@@ -29,6 +29,7 @@ import (
 	analytichttp "github.com/odyssey-erp/odyssey-erp/internal/analytics/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/analytics/svg"
 	"github.com/odyssey-erp/odyssey-erp/internal/ap"
+	apihttp "github.com/odyssey-erp/odyssey-erp/internal/api"
 	"github.com/odyssey-erp/odyssey-erp/internal/app"
 	approvalengine "github.com/odyssey-erp/odyssey-erp/internal/approvals"
 	"github.com/odyssey-erp/odyssey-erp/internal/ar"
@@ -57,10 +58,14 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/inventory"
 	jobmetrics "github.com/odyssey-erp/odyssey-erp/internal/jobs"
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata"
+	"github.com/odyssey-erp/odyssey-erp/internal/mrp"
 	"github.com/odyssey-erp/odyssey-erp/internal/notifications"
 	"github.com/odyssey-erp/odyssey-erp/internal/observability"
 	"github.com/odyssey-erp/odyssey-erp/internal/payroll"
+	"github.com/odyssey-erp/odyssey-erp/internal/portal"
+	"github.com/odyssey-erp/odyssey-erp/internal/pos"
 	"github.com/odyssey-erp/odyssey-erp/internal/procurement"
+	"github.com/odyssey-erp/odyssey-erp/internal/projects"
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
 	"github.com/odyssey-erp/odyssey-erp/internal/roles"
 	"github.com/odyssey-erp/odyssey-erp/internal/sales"
@@ -69,6 +74,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/users"
 	variancepkg "github.com/odyssey-erp/odyssey-erp/internal/variance"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
+	"github.com/odyssey-erp/odyssey-erp/internal/wms"
 	"github.com/odyssey-erp/odyssey-erp/jobs"
 	"github.com/odyssey-erp/odyssey-erp/report"
 )
@@ -428,6 +434,16 @@ func main() {
 	jobHandler := jobs.NewHandler(inspector, logger, jobsTemplates{engine: templates})
 	dashboardService := dashboard.NewService(dbpool)
 	dashboardHandler := dashboard.NewHandler(logger, dashboardService, templates, csrfManager)
+	wmsHandler := wms.NewHandler(wms.NewService(wms.NewRepository(dbpool)), rbacMiddleware, dbpool)
+	wmsHandler.SetInventoryService(inventoryService)
+	apiHandler := apihttp.NewHandler(dbpool, []byte(cfg.SessionSecret))
+	portalHandler := portal.NewHandler(dbpool, rbacMiddleware)
+	posHandler := pos.NewHandler(pos.NewService(pos.NewRepository(dbpool)), rbacMiddleware, dbpool)
+	posHandler.SetInventoryService(inventoryService)
+	posHandler.SetAccountingService(integrationHooks)
+	projectsHandler := projects.NewHandler(projects.NewService(projects.NewRepository(dbpool)), rbacMiddleware, dbpool)
+	mrpHandler := mrp.NewHandler(mrp.NewService(mrp.NewRepository(dbpool)), rbacMiddleware, dbpool)
+	mrpHandler.SetInventoryService(inventoryService)
 
 	router := app.NewRouter(app.RouterParams{
 		Logger:                 logger,
@@ -471,6 +487,12 @@ func main() {
 		PayrollHandler:         payrollHandler,
 		TaxHandler:             taxHandler,
 		CRMHandler:             crmHandler,
+		WMSHandler:             wmsHandler,
+		APIHandler:             apiHandler,
+		PortalHandler:          portalHandler,
+		POSHandler:             posHandler,
+		ProjectsHandler:        projectsHandler,
+		MRPHandler:             mrpHandler,
 	})
 
 	// Route dump mode: print the real routing table and exit without serving.

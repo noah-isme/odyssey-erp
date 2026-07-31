@@ -11,9 +11,13 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/odyssey-erp/odyssey-erp/internal/ap"
+	"github.com/odyssey-erp/odyssey-erp/internal/ar"
+	"github.com/odyssey-erp/odyssey-erp/internal/fx"
 )
 
 // TestFXARAPDatabaseIntegration is intentionally SQL-backed. It validates the
@@ -39,13 +43,23 @@ func TestFXARAPDatabaseIntegration(t *testing.T) {
 
 	suffix := uuid.NewString()[:8]
 	ids := seedFXFixture(t, p, suffix)
-	insertDailyRates(t, p)
+	insertDailyRates(t, p, suffix)
+	resolver := dbFXResolver{repo: fx.NewRepository(p)}
 
 	arInvoice := createInvoice(t, p, "AR", ids.customerID, ids.periodID, "AR-FX-"+suffix, "USD", "100.00", "15000.0000000000")
-	arPayment := recordPayment(t, p, "AR", ids.periodID, ids.customerID, arInvoice, "AR-PAY-"+suffix, "40.00", "16000.0000000000")
-	assertValuation(t, p, "ar_invoices", arInvoice, "100.00", "15000.0000000000")
+	arService := ar.NewService(ar.NewRepository(p))
+	arService.SetFXResolver(resolver)
+	if err := arService.PostARInvoice(ctx, ar.PostARInvoiceInput{InvoiceID: mustID(t, arInvoice), PostedBy: ids.userID}); err != nil {
+		t.Fatal(err)
+	}
+	arPaymentModel, err := arService.RegisterARPayment(ctx, ar.CreateARPaymentInput{Number: "AR-PAY-" + suffix, Currency: "USD", Amount: 40, PaidAt: time.Date(2026, 1, 20, 0, 0, 0, 0, time.UTC), Method: "BANK", CreatedBy: ids.userID, Allocations: []ar.PaymentAllocationInput{{ARInvoiceID: mustID(t, arInvoice), Amount: 40}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	arPayment := fmt.Sprint(arPaymentModel.ID)
+	assertValuation(t, p, "ar_invoices", arInvoice, "100.00", "15150.0000000000")
 	assertValuation(t, p, "ar_payments", arPayment, "40.00", "16000.0000000000")
-	arAllocation := allocate(t, p, "ar", arPayment, arInvoice, "40.00", "640000.00", "AR_PAYMENT_FX:"+arPayment+":")
+	arAllocation := allocate(t, p, "ar", arPayment, arInvoice, ids.periodID, "40.00", "640000.00", "AR_PAYMENT_FX:"+arPayment+":")
 	assertBalancedAndIdempotent(t, p, arAllocation, "AR_PAYMENT_FX:"+arPayment+":"+arAllocation)
 
 	arRevaluation := revalue(t, p, ids.periodID, arInvoice, "AR_INVOICE", "60.00", "900000.00", "100000.00")
@@ -53,10 +67,19 @@ func TestFXARAPDatabaseIntegration(t *testing.T) {
 	assertReversal(t, p, arRevaluation, ids.nextPeriodID)
 
 	apInvoice := createInvoice(t, p, "AP", ids.supplierID, ids.periodID, "AP-FX-"+suffix, "USD", "100.00", "15000.0000000000")
-	apPayment := recordPayment(t, p, "AP", ids.periodID, ids.supplierID, apInvoice, "AP-PAY-"+suffix, "40.00", "16000.0000000000")
-	assertValuation(t, p, "ap_invoices", apInvoice, "100.00", "15000.0000000000")
+	apService := ap.NewService(ap.NewRepository(p), nil)
+	apService.SetFXResolver(resolver)
+	if err := apService.PostAPInvoice(ctx, ap.PostAPInvoiceInput{InvoiceID: mustID(t, apInvoice), PostedBy: ids.userID}); err != nil {
+		t.Fatal(err)
+	}
+	apPaymentModel, err := apService.RegisterAPPayment(ctx, ap.CreateAPPaymentInput{Number: "AP-PAY-" + suffix, Currency: "USD", SupplierID: ids.supplierID, Amount: 40, PaidAt: time.Date(2026, 1, 20, 0, 0, 0, 0, time.UTC), Method: "BANK", CreatedBy: ids.userID, Allocations: []ap.PaymentAllocationInput{{APInvoiceID: mustID(t, apInvoice), Amount: 40}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	apPayment := fmt.Sprint(apPaymentModel.ID)
+	assertValuation(t, p, "ap_invoices", apInvoice, "100.00", "15150.0000000000")
 	assertValuation(t, p, "ap_payments", apPayment, "40.00", "16000.0000000000")
-	apAllocation := allocate(t, p, "ap", apPayment, apInvoice, "40.00", "640000.00", "AP_PAYMENT_FX:"+apPayment+":")
+	apAllocation := allocate(t, p, "ap", apPayment, apInvoice, ids.periodID, "40.00", "640000.00", "AP_PAYMENT_FX:"+apPayment+":")
 	assertBalancedAndIdempotent(t, p, apAllocation, "AP_PAYMENT_FX:"+apPayment+":"+apAllocation)
 
 	var arGain, apLoss bool
@@ -69,7 +92,22 @@ func TestFXARAPDatabaseIntegration(t *testing.T) {
 }
 
 type fxIDs struct {
-	companyID, customerID, supplierID, periodID, nextPeriodID int64
+	companyID, customerID, supplierID, periodID, nextPeriodID, userID int64
+}
+
+type dbFXResolver struct{ repo *fx.SQLRepository }
+
+func (r dbFXResolver) Resolve(ctx context.Context, base, quote string, date time.Time) (fx.FXQuote, error) {
+	return r.repo.DailyRate(ctx, base, quote, date, 0)
+}
+
+func mustID(t *testing.T, value string) int64 {
+	t.Helper()
+	var id int64
+	if _, err := fmt.Sscan(value, &id); err != nil {
+		t.Fatal(err)
+	}
+	return id
 }
 
 func applyAllMigrations(t *testing.T, dsn string) {
@@ -108,17 +146,18 @@ func seedFXFixture(t *testing.T, p *pgxpool.Pool, suffix string) fxIDs {
 	for _, item := range []struct{ key, code string }{{"fx.realized.gain", "4200-FX-" + suffix}, {"fx.realized.loss", "5200-FX-" + suffix}, {"fx.revaluation.gain", "4200-FX-" + suffix}, {"fx.revaluation.loss", "5200-FX-" + suffix}} {
 		mustQuery(t, p, `INSERT INTO account_mappings(module,key,account_id) SELECT 'FX',$1,id FROM accounts WHERE code=$2 ON CONFLICT(module,key) DO UPDATE SET account_id=EXCLUDED.account_id`, item.key, item.code)
 	}
-	if err := p.QueryRow(ctx, `INSERT INTO periods(code,start_date,end_date,status) VALUES($1,'2026-01-01','2026-01-31','OPEN') RETURNING id`, "2026-01-FX-"+suffix).Scan(&ids.periodID); err != nil {
+	if err := p.QueryRow(ctx, `INSERT INTO periods(code,start_date,end_date,status) VALUES($1,(SELECT COALESCE(MAX(end_date), DATE '2090-01-01') + 1 FROM periods),(SELECT COALESCE(MAX(end_date), DATE '2090-01-01') + 31 FROM periods),'OPEN') RETURNING id`, "2026-01-FX-"+suffix).Scan(&ids.periodID); err != nil {
 		t.Fatal(err)
 	}
-	if err := p.QueryRow(ctx, `INSERT INTO periods(code,start_date,end_date,status) VALUES($1,'2026-02-01','2026-02-28','OPEN') RETURNING id`, "2026-02-FX-"+suffix).Scan(&ids.nextPeriodID); err != nil {
+	if err := p.QueryRow(ctx, `INSERT INTO periods(code,start_date,end_date,status) SELECT $1, end_date + 1, end_date + 28, 'OPEN' FROM periods WHERE id=$2 RETURNING id`, "2026-02-FX-"+suffix, ids.periodID).Scan(&ids.nextPeriodID); err != nil {
 		t.Fatal(err)
 	}
+	ids.userID = userID
 	return ids
 }
 
-func insertDailyRates(t *testing.T, p *pgxpool.Pool) {
-	mustQuery(t, p, `INSERT INTO fx_daily_rates(base_currency,quote_currency,rate_date,rate,source) VALUES ('IDR','USD','2026-01-15',15000,'TEST'),('IDR','USD','2026-01-20',16000,'TEST'),('IDR','USD','2026-01-31',15150,'TEST')`)
+func insertDailyRates(t *testing.T, p *pgxpool.Pool, suffix string) {
+	mustQuery(t, p, `INSERT INTO fx_daily_rates(base_currency,quote_currency,rate_date,rate,source) VALUES ('IDR','USD','2026-01-15',15000,$1),('IDR','USD','2026-01-20',16000,$1),($2,'USD',CURRENT_DATE,15150,$1)`, "TEST-"+suffix, "IDR")
 }
 
 func createInvoice(t *testing.T, p *pgxpool.Pool, kind string, partyID, periodID int64, number, currency, amount, rate string) string {
@@ -126,11 +165,11 @@ func createInvoice(t *testing.T, p *pgxpool.Pool, kind string, partyID, periodID
 	ctx := context.Background()
 	var id int64
 	if kind == "AR" {
-		if err := p.QueryRow(ctx, `INSERT INTO ar_invoices(number,customer_id,currency,total,status,due_at,original_currency_amount,base_currency,base_amount,fx_rate,fx_rate_date,fx_rate_source,fx_rate_locked_at) VALUES($1,$2,$3,$4::numeric,'POSTED','2026-01-31',$4::numeric,'IDR',$4::numeric*$5::numeric,$5::numeric,'2026-01-15','TEST','2026-01-15T12:00:00Z') RETURNING id`, number, partyID, currency, amount, rate).Scan(&id); err != nil {
+		if err := p.QueryRow(ctx, `INSERT INTO ar_invoices(number,customer_id,currency,total,status,due_at,original_currency_amount,base_currency,base_amount,fx_rate,fx_rate_date,fx_rate_source,fx_rate_locked_at) VALUES($1,$2,$3,$4::numeric,'DRAFT','2026-01-31',$4::numeric,'IDR',$4::numeric*$5::numeric,$5::numeric,'2026-01-15','TEST','2026-01-15T12:00:00Z') RETURNING id`, number, partyID, currency, amount, rate).Scan(&id); err != nil {
 			t.Fatal(err)
 		}
 	} else {
-		if err := p.QueryRow(ctx, `INSERT INTO ap_invoices(number,supplier_id,currency,total,status,due_at,original_currency_amount,base_currency,base_amount,fx_rate,fx_rate_date,fx_rate_source,fx_rate_locked_at) VALUES($1,$2,$3,$4::numeric,'POSTED','2026-01-31',$4::numeric,'IDR',$4::numeric*$5::numeric,$5::numeric,'2026-01-15','TEST','2026-01-15T12:00:00Z') RETURNING id`, number, partyID, currency, amount, rate).Scan(&id); err != nil {
+		if err := p.QueryRow(ctx, `INSERT INTO ap_invoices(number,supplier_id,currency,total,status,due_at,original_currency_amount,base_currency,base_amount,fx_rate,fx_rate_date,fx_rate_source,fx_rate_locked_at) VALUES($1,$2,$3,$4::numeric,'DRAFT','2026-01-31',$4::numeric,'IDR',$4::numeric*$5::numeric,$5::numeric,'2026-01-15','TEST','2026-01-15T12:00:00Z') RETURNING id`, number, partyID, currency, amount, rate).Scan(&id); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -163,7 +202,7 @@ func assertValuation(t *testing.T, p *pgxpool.Pool, table, id, original, rate st
 	}
 }
 
-func allocate(t *testing.T, p *pgxpool.Pool, kind, paymentID, invoiceID, amount, baseAmount, keyPrefix string) string {
+func allocate(t *testing.T, p *pgxpool.Pool, kind, paymentID, invoiceID string, periodID int64, amount, baseAmount, keyPrefix string) string {
 	t.Helper()
 	ctx := context.Background()
 	table, paymentColumn, invoiceColumn := "ar_payment_allocations", "ar_payment_id", "ar_invoice_id"
@@ -177,17 +216,17 @@ func allocate(t *testing.T, p *pgxpool.Pool, kind, paymentID, invoiceID, amount,
 	}
 	key := keyPrefix + fmt.Sprint(id)
 	var jeID int64
-	if err := p.QueryRow(ctx, `INSERT INTO journal_entries(period_id,date,source_module,source_id,memo) VALUES((SELECT id FROM periods WHERE code LIKE '2026-01-FX-%'),'2026-01-20',$1,$2,'realized FX') RETURNING id`, strings.ToUpper(kind)+"_PAYMENT_FX", uuid.New()).Scan(&jeID); err != nil {
+	if err := p.QueryRow(ctx, `INSERT INTO journal_entries(period_id,date,source_module,source_id,memo) VALUES($3,'2026-01-20',$1,$2,'realized FX') RETURNING id`, strings.ToUpper(kind)+"_PAYMENT_FX", uuid.New(), periodID).Scan(&jeID); err != nil {
 		t.Fatal(err)
 	}
 	if kind == "ar" {
-		mustQuery(t, p, `INSERT INTO journal_lines(je_id,account_id,debit,credit) SELECT $1,id,640000,0 FROM accounts WHERE code LIKE '1100-FX-%'`, jeID)
-		mustQuery(t, p, `INSERT INTO journal_lines(je_id,account_id,debit,credit) SELECT $1,id,0,600000 FROM accounts WHERE code LIKE '1100-FX-%'`, jeID)
+		mustQuery(t, p, `INSERT INTO journal_lines(je_id,account_id,debit,credit) SELECT $1,id,640000,0 FROM accounts WHERE code LIKE '1100-FX-%' ORDER BY id DESC LIMIT 1`, jeID)
+		mustQuery(t, p, `INSERT INTO journal_lines(je_id,account_id,debit,credit) SELECT $1,id,0,600000 FROM accounts WHERE code LIKE '1100-FX-%' ORDER BY id DESC LIMIT 1`, jeID)
 		mustQuery(t, p, `INSERT INTO journal_lines(je_id,account_id,debit,credit) SELECT $1,am.account_id,0,40000 FROM account_mappings am WHERE am.module='FX' AND am.key='fx.realized.gain'`, jeID)
 	} else {
-		mustQuery(t, p, `INSERT INTO journal_lines(je_id,account_id,debit,credit) SELECT $1,id,600000,0 FROM accounts WHERE code LIKE '2100-FX-%'`, jeID)
+		mustQuery(t, p, `INSERT INTO journal_lines(je_id,account_id,debit,credit) SELECT $1,id,600000,0 FROM accounts WHERE code LIKE '2100-FX-%' ORDER BY id DESC LIMIT 1`, jeID)
 		mustQuery(t, p, `INSERT INTO journal_lines(je_id,account_id,debit,credit) SELECT $1,am.account_id,40000,0 FROM account_mappings am WHERE am.module='FX' AND am.key='fx.realized.loss'`, jeID)
-		mustQuery(t, p, `INSERT INTO journal_lines(je_id,account_id,debit,credit) SELECT $1,id,0,640000 FROM accounts WHERE code LIKE '1100-FX-%'`, jeID)
+		mustQuery(t, p, `INSERT INTO journal_lines(je_id,account_id,debit,credit) SELECT $1,id,0,640000 FROM accounts WHERE code LIKE '1100-FX-%' ORDER BY id DESC LIMIT 1`, jeID)
 	}
 	mustQuery(t, p, `INSERT INTO fx_journal_idempotency(source_key,journal_entry_id) VALUES($1,$2)`, key, jeID)
 	return fmt.Sprint(id)

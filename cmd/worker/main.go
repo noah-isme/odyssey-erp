@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/journals"
 	"github.com/odyssey-erp/odyssey-erp/internal/analytics"
+	apihttp "github.com/odyssey-erp/odyssey-erp/internal/api"
 	"github.com/odyssey-erp/odyssey-erp/internal/app"
 	"github.com/odyssey-erp/odyssey-erp/internal/boardpack"
 	"github.com/odyssey-erp/odyssey-erp/internal/consol"
@@ -37,6 +39,13 @@ type notificationEmailQueue struct{ client *asynq.Client }
 type payrollDeliveryQueue struct{ client *asynq.Client }
 
 type fxJobFetcher struct{ service *fxservice.Service }
+
+type webhookDispatcher struct{ handler *apihttp.Handler }
+
+func (d webhookDispatcher) DispatchWebhookDeliveries(ctx context.Context) error {
+	_, err := d.handler.DeliverDue(ctx, http.DefaultClient, 100)
+	return err
+}
 
 func (f fxJobFetcher) FetchDailyRates(ctx context.Context, base string, date time.Time, force bool) error {
 	return f.service.FetchDailyRatesForJob(ctx, base, date, force)
@@ -193,6 +202,7 @@ func main() {
 	fxRepo := fxservice.NewRepository(pool)
 	fxProvider := fxservice.NewExchangeRateAPI(fxservice.ProviderConfig{BaseURL: cfg.FXAPIBaseURL, APIKey: cfg.FXAPIKey, Timeout: cfg.FXFetchTimeout})
 	fxDailyService := &fxservice.Service{Provider: fxProvider, Repo: fxRepo, MaxRateAge: cfg.FXMaxRateAge}
+	apiHandler := apihttp.NewHandler(pool, []byte(cfg.SessionSecret))
 	boardpackJob.SetNotificationDispatcher(notificationDispatcher)
 
 	worker, err := jobs.NewWorker(jobs.WorkerConfig{
@@ -212,6 +222,7 @@ func main() {
 			{Type: jobs.TaskPayrollPayslipDispatch, Handler: jobs.HandlePayrollPayslipDispatch(payrollOutbox)},
 			{Type: jobs.TaskTaxCaptureDispatch, Handler: jobs.HandleTaxCaptureDispatch(taxService)},
 			{Type: jobs.TaskCRMReminderDispatch, Handler: jobs.HandleCRMReminderDispatch(crmService)},
+			{Type: jobs.TaskWebhookDeliveryDispatch, Handler: jobs.HandleWebhookDeliveryDispatch(webhookDispatcher{handler: apiHandler})},
 		},
 		FXFetcher:   fxJobFetcher{service: fxDailyService},
 		FXCompanies: fxRepo,
@@ -228,6 +239,7 @@ func main() {
 			{Spec: "*/5 * * * *", Task: asynq.NewTask(jobs.TaskPayrollPayslipDispatch, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
 			{Spec: "*/5 * * * *", Task: asynq.NewTask(jobs.TaskTaxCaptureDispatch, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
 			{Spec: "* * * * *", Task: asynq.NewTask(jobs.TaskCRMReminderDispatch, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
+			{Spec: "* * * * *", Task: asynq.NewTask(jobs.TaskWebhookDeliveryDispatch, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
 			{Spec: "5 0 * * *", Task: func() *asynq.Task { task, _ := jobs.NewFXDailyRatesTask(time.Time{}, false); return task }(), Options: []asynq.Option{asynq.MaxRetry(5)}},
 		},
 	})

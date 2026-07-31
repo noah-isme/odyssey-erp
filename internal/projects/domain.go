@@ -1,0 +1,98 @@
+package projects
+
+import (
+	"context"
+	"errors"
+	"fmt"
+)
+
+var (
+	ErrNotFound     = errors.New("projects: not found")
+	ErrInvalidState = errors.New("projects: invalid state")
+)
+
+type Project struct {
+	ID, CompanyID, ManagerID     int64
+	Code, Name, Currency, Status string
+}
+type Task struct {
+	ID, ProjectID      int64
+	Code, Name, Status string
+}
+type Timesheet struct {
+	ID, CompanyID, ProjectID, TaskID, EmployeeID int64
+	WorkDate                                     string
+	Currency, BaseCurrency, FXRateSource         string
+	BillableRate, BaseAmount, FXRate             float64
+	FXRateLockedAt                               string
+	Hours                                        float64
+	Description                                  string
+	Billable                                     bool
+	Status                                       string
+}
+
+type Repository interface {
+	GetProjectTask(context.Context, int64, int64) (Project, Task, error)
+	CreateTimesheet(context.Context, Timesheet) (Timesheet, error)
+	GetTimesheet(context.Context, int64, int64) (Timesheet, error)
+	UpdateTimesheet(context.Context, Timesheet) error
+}
+
+type Service struct{ repo Repository }
+
+func NewService(repo Repository) *Service { return &Service{repo: repo} }
+
+func (s *Service) CreateTimesheet(ctx context.Context, sheet Timesheet) (Timesheet, error) {
+	if sheet.CompanyID == 0 || sheet.ProjectID == 0 || sheet.TaskID == 0 || sheet.EmployeeID == 0 || sheet.Hours <= 0 || sheet.Hours > 24 {
+		return Timesheet{}, errors.New("projects: invalid timesheet")
+	}
+	project, task, err := s.repo.GetProjectTask(ctx, sheet.ProjectID, sheet.TaskID)
+	if err != nil {
+		return Timesheet{}, err
+	}
+	if project.CompanyID != sheet.CompanyID || task.ProjectID != sheet.ProjectID || task.Status == "CANCELLED" {
+		return Timesheet{}, ErrNotFound
+	}
+	sheet.Status = "DRAFT"
+	return s.repo.CreateTimesheet(ctx, sheet)
+}
+
+func (s *Service) Submit(ctx context.Context, companyID, employeeID, id int64) (Timesheet, error) {
+	return s.transition(ctx, companyID, employeeID, id, "DRAFT", "SUBMITTED")
+}
+func (s *Service) Reject(ctx context.Context, companyID, managerID, id int64) (Timesheet, error) {
+	return s.transition(ctx, companyID, managerID, id, "SUBMITTED", "REJECTED")
+}
+func (s *Service) Approve(ctx context.Context, companyID, managerID, id int64) (Timesheet, error) {
+	return s.transition(ctx, companyID, managerID, id, "SUBMITTED", "APPROVED")
+}
+func (s *Service) Lock(ctx context.Context, companyID, managerID, id int64) (Timesheet, error) {
+	return s.transition(ctx, companyID, managerID, id, "APPROVED", "LOCKED")
+}
+
+func (s *Service) transition(ctx context.Context, companyID, actorID, id int64, from, to string) (Timesheet, error) {
+	sheet, err := s.repo.GetTimesheet(ctx, companyID, id)
+	if err != nil {
+		return Timesheet{}, err
+	}
+	if sheet.Status != from {
+		return Timesheet{}, fmt.Errorf("%w: timesheet is %s", ErrInvalidState, sheet.Status)
+	}
+	if from == "DRAFT" && sheet.EmployeeID != actorID {
+		return Timesheet{}, ErrNotFound
+	}
+	if from != "DRAFT" {
+		project, _, err := s.repo.GetProjectTask(ctx, sheet.ProjectID, sheet.TaskID)
+		if err != nil {
+			return Timesheet{}, err
+		}
+		if project.ManagerID != 0 && project.ManagerID != actorID {
+			return Timesheet{}, ErrNotFound
+		}
+	}
+	sheet.Status = to
+	if err := s.repo.UpdateTimesheet(ctx, sheet); err != nil {
+		return Timesheet{}, err
+	}
+	return sheet, nil
+}
