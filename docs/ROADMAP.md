@@ -4,6 +4,7 @@
 **Revised:** 2026-07-20 (synced to current implementation)
 **Revised:** 2026-07-29 (added the gap-analysis phased plan below)
 **Revised:** 2026-07-30 (Phase 5 tax compliance implementation and release gate)
+**Revised:** 2026-08-01 (Phase 14 transaction-level FX implementation)
 **Current Version:** v0.9.1
 
 ## Executive Summary
@@ -16,7 +17,7 @@ to re-prioritise the genuinely remaining work.
 
 ---
 
-## Implementation Status (verified against code, 2026-07-14)
+## Implementation Status (verified against code, 2026-08-01)
 
 | Area | Status | Evidence |
 |------|--------|----------|
@@ -28,7 +29,7 @@ to re-prioritise the genuinely remaining work.
 | Phase 12 — Stock valuation | 🟡 Partial | Per-product AVG/FIFO cost method, lot/serial receiving, and reorder PR are implemented; LIFO is intentionally excluded |
 | Phase 15 — Budget vs Actual | ✅ Implemented | `/accounting/budget` loads `accounting_budgets` and posted journal actuals for the selected month |
 | Phase 13 — Fixed Assets | ✅ Implemented | Register, straight-line depreciation worker, disposal accounting, and category setup |
-| Phase 14 — Transaction-level multi-currency | ❌ Not started | FX exists only for consolidation (`internal/consol/fx/`), not realized/unrealized gain on AR/AP |
+| Phase 14 — Transaction-level multi-currency | 🟡 Implemented; deployment gate pending | `internal/fx/`, AR/AP valuation, realized FX, revaluation/reversal, migration `000053`; database-backed E2E and staging/production migration execution remain |
 | Phase 15 — Reporting enhancements | 🟡 Partial | P&L and Budget vs Actual support department/cost-center filters, native `.xlsx`, and scheduled email; report builder/widgets remain |
 
 The phase descriptions below are retained for reference. **Completed phases (10, 11, and
@@ -133,20 +134,22 @@ depreciation, disposal accounting, and worker scheduling are implemented.
 ## Phase 14: Multi-Currency Enhancement
 
 **Priority:** 🟡 Medium  
-**Estimated Effort:** 2 weeks
+**Status:** 🟡 Implemented; database-backed acceptance and deployment verification pending
+**Migration:** `000053_transaction_fx`
 
 ### Features
 | Feature | Description | Priority |
 |---------|-------------|----------|
-| Auto FX Rate | Fetch daily rates from API | Medium |
-| Realized Gain/Loss | Calculate on payment | High |
-| Unrealized Gain/Loss | Revalue outstanding invoices | High |
-| Currency Revaluation | Month-end revaluation job | High |
+| Auto FX Rate | Fetch daily rates from configurable provider | ✅ Implemented |
+| Realized Gain/Loss | Calculate on AR/AP payment allocations | ✅ Implemented |
+| Unrealized Gain/Loss | Revalue outstanding invoices | ✅ Implemented |
+| Currency Revaluation | Month-end job with reversal model | ✅ Implemented |
 
 ### Technical Notes
-- Integrate with free FX API (exchangerate-api.com)
-- Add `original_currency_amount` to AR/AP
-- Create revaluation journal entries
+- Consolidation continues using monthly `fx_rates`; transaction FX uses `fx_daily_rates`.
+- AR/AP retain original values and locked invoice/payment rates as PostgreSQL `NUMERIC`.
+- `odyssey fx fetch` and `odyssey fx status` support operations; the worker fetches in `Asia/Jakarta`.
+- Remaining release gates are database-backed USD AR/AP E2E execution and staging/production migration verification.
 
 ---
 
@@ -358,8 +361,8 @@ Sizing legend: S <2w · M 2–4w · L 1–2m · XL 2m+ (rough, single team).
 - ✅ Opportunity values retain `NUMERIC(18,2)` precision end to end.
 
 ### P7 — Multi-Currency + Horizon
-- Exchange-rate table, rate lock per document, realized gain/loss on payment,
-  unrealized revaluation at period close (see Phase 14 technical notes)
+- Transaction-level FX is implemented in Phase 14; deployment and acceptance
+  verification remain before marking the multi-currency release gate complete.
 - Horizon packs by vertical: WMS (bins, picking, barcode), Manufacturing/MRP (BOM,
   work orders), POS, Projects/timesheets, public REST API + webhooks, portals
 

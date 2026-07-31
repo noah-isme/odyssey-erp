@@ -19,6 +19,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	fxcli "github.com/odyssey-erp/odyssey-erp/cmd/odyssey/cli"
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting"
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/journals"
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/mappings"
@@ -46,6 +47,7 @@ import (
 	eliminationpkg "github.com/odyssey-erp/odyssey-erp/internal/elimination"
 	eliminationhttp "github.com/odyssey-erp/odyssey-erp/internal/elimination/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/banking"
+	fxservice "github.com/odyssey-erp/odyssey-erp/internal/fx"
 	hrattendance "github.com/odyssey-erp/odyssey-erp/internal/hr/attendance"
 	hremployees "github.com/odyssey-erp/odyssey-erp/internal/hr/employees"
 	hrleave "github.com/odyssey-erp/odyssey-erp/internal/hr/leave"
@@ -149,6 +151,13 @@ func (j jobsTemplates) Render(w http.ResponseWriter, name string, data any) erro
 }
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "fx" {
+		if err := runFXCommand(context.Background(), os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 	if app.InTestMode() {
 		slog.Default().Info("test mode detected, skipping runtime startup")
 		return
@@ -498,4 +507,64 @@ func main() {
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		logger.Error("graceful shutdown", slog.Any("error", err))
 	}
+}
+
+func runFXCommand(ctx context.Context, args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("usage: odyssey fx fetch|status --date YYYY-MM-DD")
+	}
+	cfg, err := app.LoadConfig()
+	if err != nil {
+		return err
+	}
+	pool, err := db.New(ctx, cfg.PGDSN)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+	repo := fxservice.NewRepository(pool)
+	provider := fxservice.NewExchangeRateAPI(fxservice.ProviderConfig{BaseURL: cfg.FXAPIBaseURL, APIKey: cfg.FXAPIKey, Timeout: cfg.FXFetchTimeout})
+	service := &fxservice.Service{Provider: provider, Repo: repo, MaxRateAge: cfg.FXMaxRateAge}
+	ops := fxservice.Operations{Service: service, Repository: repo}
+	opts := fxcli.TransactionFXCommandOptions{}
+	for i := 1; i < len(args); i++ {
+		if args[i] == "--date" && i+1 < len(args) {
+			opts.Date = args[i+1]
+			i++
+		} else if args[i] == "--force" {
+			opts.Force = true
+		} else {
+			return fmt.Errorf("unknown fx option %q", args[i])
+		}
+	}
+	switch args[0] {
+	case "fetch":
+		returnCode := fxcli.RunTransactionFXFetch(ctx, opsAdapter{ops}, opts)
+		if returnCode != 0 {
+			return fmt.Errorf("fx fetch failed")
+		}
+		return nil
+	case "status":
+		returnCode := fxcli.RunTransactionFXStatus(ctx, opsAdapter{ops}, opts)
+		if returnCode != 0 {
+			return fmt.Errorf("fx status failed")
+		}
+		return nil
+	default:
+		return fmt.Errorf("unknown fx command %q", args[0])
+	}
+}
+
+type opsAdapter struct{ fxservice.Operations }
+
+func (o opsAdapter) Status(ctx context.Context, date time.Time) ([]fxcli.FXRateStatus, error) {
+	rows, err := o.Operations.Status(ctx, date)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]fxcli.FXRateStatus, len(rows))
+	for i, row := range rows {
+		result[i] = fxcli.FXRateStatus{BaseCurrency: row.BaseCurrency, QuoteCurrency: row.QuoteCurrency, Source: row.Source, Status: row.Status, Rate: row.Rate, RateDate: row.RateDate}
+	}
+	return result, nil
 }

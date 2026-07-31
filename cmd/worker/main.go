@@ -19,6 +19,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/consol"
 	"github.com/odyssey-erp/odyssey-erp/internal/crm"
 	"github.com/odyssey-erp/odyssey-erp/internal/fixedassets"
+	fxservice "github.com/odyssey-erp/odyssey-erp/internal/fx"
 	"github.com/odyssey-erp/odyssey-erp/internal/notifications"
 	"github.com/odyssey-erp/odyssey-erp/internal/payroll"
 	"github.com/odyssey-erp/odyssey-erp/internal/platform/cache"
@@ -34,6 +35,12 @@ import (
 type notificationEmailQueue struct{ client *asynq.Client }
 
 type payrollDeliveryQueue struct{ client *asynq.Client }
+
+type fxJobFetcher struct{ service *fxservice.Service }
+
+func (f fxJobFetcher) FetchDailyRates(ctx context.Context, base string, date time.Time, force bool) error {
+	return f.service.FetchDailyRatesForJob(ctx, base, date, force)
+}
 
 func (q payrollDeliveryQueue) EnqueuePayslip(ctx context.Context, line payroll.RunLine) error {
 	task, err := jobs.NewPayrollPayslipTask(line.PayslipID)
@@ -183,6 +190,9 @@ func main() {
 	payrollOutbox := payroll.NewOutboxDispatcher(payrollRepo, payrollDeliveryQueue{client: asynqClient})
 	taxService := tax.NewService(tax.NewRepository(pool), nil)
 	crmService := crm.NewService(crm.NewRepository(pool), nil, nil, crm.NewNotificationAdapter(notificationDispatcher))
+	fxRepo := fxservice.NewRepository(pool)
+	fxProvider := fxservice.NewExchangeRateAPI(fxservice.ProviderConfig{BaseURL: cfg.FXAPIBaseURL, APIKey: cfg.FXAPIKey, Timeout: cfg.FXFetchTimeout})
+	fxDailyService := &fxservice.Service{Provider: fxProvider, Repo: fxRepo, MaxRateAge: cfg.FXMaxRateAge}
 	boardpackJob.SetNotificationDispatcher(notificationDispatcher)
 
 	worker, err := jobs.NewWorker(jobs.WorkerConfig{
@@ -203,6 +213,10 @@ func main() {
 			{Type: jobs.TaskTaxCaptureDispatch, Handler: jobs.HandleTaxCaptureDispatch(taxService)},
 			{Type: jobs.TaskCRMReminderDispatch, Handler: jobs.HandleCRMReminderDispatch(crmService)},
 		},
+		FXFetcher:   fxJobFetcher{service: fxDailyService},
+		FXCompanies: fxRepo,
+		FXLocation:  mustLocation("Asia/Jakarta"),
+		FXLogger:    logger,
 		Cron: []jobs.CronRegistration{
 			{Spec: "15 1 * * *", Task: warmupTask, Options: []asynq.Option{asynq.MaxRetry(3)}},
 			{Spec: "30 1 * * *", Task: anomalyTask, Options: []asynq.Option{asynq.MaxRetry(3)}},
@@ -214,6 +228,7 @@ func main() {
 			{Spec: "*/5 * * * *", Task: asynq.NewTask(jobs.TaskPayrollPayslipDispatch, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
 			{Spec: "*/5 * * * *", Task: asynq.NewTask(jobs.TaskTaxCaptureDispatch, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
 			{Spec: "* * * * *", Task: asynq.NewTask(jobs.TaskCRMReminderDispatch, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
+			{Spec: "5 0 * * *", Task: func() *asynq.Task { task, _ := jobs.NewFXDailyRatesTask(time.Time{}, false); return task }(), Options: []asynq.Option{asynq.MaxRetry(5)}},
 		},
 	})
 	if err != nil {
@@ -225,4 +240,12 @@ func main() {
 		logger.Error("worker run", slog.Any("error", err))
 		os.Exit(1)
 	}
+}
+
+func mustLocation(name string) *time.Location {
+	location, err := time.LoadLocation(name)
+	if err != nil {
+		return time.UTC
+	}
+	return location
 }

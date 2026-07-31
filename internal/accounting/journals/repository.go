@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/periods"
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/shared"
+	"github.com/odyssey-erp/odyssey-erp/internal/fx"
 )
 
 // Repository encapsulates DB operations for journals.
@@ -20,6 +21,10 @@ type Repository interface {
 	List(ctx context.Context) ([]JournalEntry, error)
 	// Tx Operations are internal or exposed via specific service methods
 	WithTx(ctx context.Context, fn func(context.Context, TxRepository) error) error
+}
+
+type ExistingTxRepository interface {
+	TxRepositoryFor(pgx.Tx) TxRepository
 }
 
 // TxRepository exposes methods available within a transaction
@@ -74,6 +79,8 @@ func (r *repository) WithTx(ctx context.Context, fn func(context.Context, TxRepo
 	return tx.Commit(ctx)
 }
 
+func (r *repository) TxRepositoryFor(tx pgx.Tx) TxRepository { return &txRepository{tx: tx} }
+
 type txRepository struct {
 	tx pgx.Tx
 }
@@ -97,12 +104,20 @@ VALUES ($1,$2,$3,$4,$5,$6,'POSTED') RETURNING id, number, posted_at, created_at,
 
 func (r *txRepository) InsertJournalLines(ctx context.Context, entryID int64, lines []PostingLineInput) error {
 	for _, line := range lines {
+		debit, credit := decimalOrFloat(line.DebitDecimal, line.Debit), decimalOrFloat(line.CreditDecimal, line.Credit)
 		if _, err := r.tx.Exec(ctx, `INSERT INTO journal_lines (je_id, account_id, debit, credit, dim_company_id, dim_branch_id, dim_warehouse_id, department_id, cost_center_id)
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, entryID, line.AccountID, toNumeric(line.Debit), toNumeric(line.Credit), nullIntPtr(line.CompanyID), nullIntPtr(line.BranchID), nullIntPtr(line.Warehouse), nullIntPtr(line.DepartmentID), nullIntPtr(line.CostCenterID)); err != nil {
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, entryID, line.AccountID, debit, credit, nullIntPtr(line.CompanyID), nullIntPtr(line.BranchID), nullIntPtr(line.Warehouse), nullIntPtr(line.DepartmentID), nullIntPtr(line.CostCenterID)); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func decimalOrFloat(d fx.Decimal, legacy float64) any {
+	if !d.IsZero() {
+		return d.String()
+	}
+	return toNumeric(legacy)
 }
 
 func (r *txRepository) LinkSource(ctx context.Context, module string, ref uuid.UUID, entryID int64) error {

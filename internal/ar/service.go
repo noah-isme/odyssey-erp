@@ -4,7 +4,13 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strconv"
 	"time"
+
+	"github.com/jackc/pgx/v5"
+	accountingmoney "github.com/odyssey-erp/odyssey-erp/internal/accounting/money"
+	"github.com/odyssey-erp/odyssey-erp/internal/fx"
+	shared "github.com/odyssey-erp/odyssey-erp/internal/shared"
 )
 
 // Error definitions
@@ -34,9 +40,9 @@ type RepositoryPort interface {
 	// Payment operations
 	CreateARPayment(ctx context.Context, input CreateARPaymentInput) (*ARPayment, error)
 	CreatePaymentAllocation(ctx context.Context, paymentID, invoiceID int64, amount float64) error
+	GeneratePaymentNumber(ctx context.Context) (string, error)
 	ListARPayments(ctx context.Context) ([]ARPayment, error)
 	ListInvoicePayments(ctx context.Context, invoiceID int64) ([]ARPaymentSummary, error)
-	GeneratePaymentNumber(ctx context.Context) (string, error)
 
 	// Aging operations
 	ListAROutstanding(ctx context.Context) ([]ARInvoice, error)
@@ -76,6 +82,61 @@ type AccountingServicePort interface {
 	CreateARCreditNoteJournal(ctx context.Context, creditNote *ARCreditNote) error
 }
 
+// FXRateResolver is the only FX dependency AR is allowed to call.
+type FXRateResolver interface {
+	Resolve(ctx context.Context, base, quote string, date time.Time) (fx.FXQuote, error)
+}
+
+type ValuatedARInvoicePoster interface {
+	PostARInvoiceWithValuation(context.Context, int64, int64, ARInvoiceValuation) error
+}
+
+type TxValuatedARInvoicePoster interface {
+	PostARInvoiceWithValuation(context.Context, int64, int64, ARInvoiceValuation) error
+}
+type TransactionalAccountingServicePort interface {
+	CreateARPostingJournalTx(context.Context, pgx.Tx, *ARInvoice) error
+}
+type AuditPort interface {
+	Record(context.Context, shared.AuditLog) error
+}
+type TransactionalAuditPort interface {
+	RecordTx(context.Context, pgx.Tx, shared.AuditLog) error
+}
+
+type ARInvoiceValuation struct {
+	BaseCurrency string
+	BaseAmount   accountingmoney.Money
+	Rate         fx.Decimal
+	RateDate     time.Time
+	Source       string
+	LockedAt     time.Time
+}
+
+type ARPaymentValuation struct {
+	Currency, BaseCurrency     string
+	OriginalAmount, BaseAmount accountingmoney.Money
+	Rate                       fx.Decimal
+	RateDate                   time.Time
+	Source                     string
+	LockedAt                   time.Time
+}
+type ARAllocationValuation struct {
+	AllocationID, InvoiceID    int64
+	OriginalAmount, BaseAmount accountingmoney.Money
+	Rate                       fx.Decimal
+	RateDate                   time.Time
+	Source                     string
+	LockedAt                   time.Time
+}
+type TxARPaymentValuationWriter interface {
+	UpdateARPaymentValuation(context.Context, int64, ARPaymentValuation) error
+	UpdateARAllocationValuation(context.Context, int64, int64, ARAllocationValuation) error
+}
+type TransactionalARPaymentFXJournalPort interface {
+	CreateARRealizedFXJournalTx(context.Context, pgx.Tx, *ARPayment, *ARInvoice, ARAllocationValuation) error
+}
+
 type TaxServicePort interface {
 	RecordARInvoice(context.Context, int64, int64) error
 	RecordARCreditNote(context.Context, int64, int64) error
@@ -90,6 +151,15 @@ type Service struct {
 	creditNotes    CreditNoteRepositoryPort
 	returnDelivery ReturnDeliveryServicePort
 	tax            TaxServicePort
+	fxResolver     FXRateResolver
+	audit          AuditPort
+}
+
+// legacyFloat is only used when populating the pre-decimal UI-compatible
+// fields. Accounting arithmetic must remain in fx.Decimal.
+func legacyFloat(value fx.Decimal) float64 {
+	result, _ := strconv.ParseFloat(value.String(), 64)
+	return result
 }
 
 // NewService builds Service instance.
@@ -112,6 +182,9 @@ func (s *Service) SetAccountingService(accounting AccountingServicePort) {
 }
 
 func (s *Service) SetTaxService(service TaxServicePort) { s.tax = service }
+
+func (s *Service) SetFXResolver(resolver FXRateResolver) { s.fxResolver = resolver }
+func (s *Service) SetAuditLogger(audit AuditPort)        { s.audit = audit }
 
 // CreateARInvoice creates a new AR invoice with lines.
 func (s *Service) CreateARInvoice(ctx context.Context, input CreateARInvoiceInput) (*ARInvoice, error) {
@@ -169,17 +242,34 @@ func (s *Service) CreateARInvoiceFromDelivery(ctx context.Context, input CreateA
 	}
 
 	// Calculate totals
-	var subtotal, taxAmount, total float64
+	subtotal, taxAmount, total := fx.MustDecimal("0"), fx.MustDecimal("0"), fx.MustDecimal("0")
+	hundred := fx.MustDecimal("100")
 	var lines []CreateARInvoiceLineInput
 
 	for _, line := range do.Lines {
-		lineSubtotal := line.Quantity * line.UnitPrice * (1 - line.DiscountPct/100)
-		lineTax := lineSubtotal * (line.TaxPct / 100)
-		lineTotal := lineSubtotal + lineTax
+		quantity, err := fx.FromLegacyFloat(line.Quantity, 6)
+		if err != nil {
+			return nil, err
+		}
+		unitPrice, err := fx.FromLegacyFloat(line.UnitPrice, 6)
+		if err != nil {
+			return nil, err
+		}
+		discount, err := fx.FromLegacyFloat(line.DiscountPct, 6)
+		if err != nil {
+			return nil, err
+		}
+		tax, err := fx.FromLegacyFloat(line.TaxPct, 6)
+		if err != nil {
+			return nil, err
+		}
+		lineSubtotal := quantity.Mul(unitPrice).Mul(fx.MustDecimal("1").Sub(discount.Div(hundred))).Round(2)
+		lineTax := lineSubtotal.Mul(tax.Div(hundred)).Round(2)
+		lineTotal := lineSubtotal.Add(lineTax).Round(2)
 
-		subtotal += lineSubtotal
-		taxAmount += lineTax
-		total += lineTotal
+		subtotal = subtotal.Add(lineSubtotal)
+		taxAmount = taxAmount.Add(lineTax)
+		total = total.Add(lineTotal)
 
 		lines = append(lines, CreateARInvoiceLineInput{
 			DeliveryOrderLineID: line.ID,
@@ -198,9 +288,9 @@ func (s *Service) CreateARInvoiceFromDelivery(ctx context.Context, input CreateA
 		SOID:            do.SalesOrderID,
 		DeliveryOrderID: do.ID,
 		Currency:        do.Currency,
-		Subtotal:        subtotal,
-		TaxAmount:       taxAmount,
-		Total:           total,
+		Subtotal:        legacyFloat(subtotal),
+		TaxAmount:       legacyFloat(taxAmount),
+		Total:           legacyFloat(total),
 		DueDate:         input.DueDate,
 		CreatedBy:       input.CreatedBy,
 		Lines:           lines,
@@ -248,14 +338,51 @@ func (s *Service) PostARInvoice(ctx context.Context, input PostARInvoiceInput) e
 	if invoice.Status != ARStatusDraft {
 		return ErrInvalidStatus
 	}
+	valuation, err := s.resolveInvoiceValuation(ctx, invoice)
+	if err != nil {
+		return err
+	}
 
-	// Post the invoice
-	if err := s.repo.PostARInvoice(ctx, input.InvoiceID, input.PostedBy); err != nil {
+	invoice.BaseCurrency, invoice.BaseAmount, invoice.FXRate = valuation.BaseCurrency, valuation.BaseAmount, valuation.Rate
+	invoice.FXRateDate, invoice.FXRateSource, invoice.FXRateLockedAt = valuation.RateDate, valuation.Source, valuation.LockedAt
+	journalInTx := false
+	if repo, ok := s.repo.(interface {
+		WithTx(context.Context, func(context.Context, TxRepository) error) error
+	}); ok {
+		err = repo.WithTx(ctx, func(txctx context.Context, tx TxRepository) error {
+			if poster, ok := tx.(TxValuatedARInvoicePoster); ok {
+				if err := poster.PostARInvoiceWithValuation(txctx, input.InvoiceID, input.PostedBy, *valuation); err != nil {
+					return err
+				}
+			} else if err := tx.PostARInvoice(txctx, input.InvoiceID, input.PostedBy); err != nil {
+				return err
+			}
+			if handle, ok := tx.(interface{ PGXTx() pgx.Tx }); ok {
+				if accounting, ok := s.accounting.(TransactionalAccountingServicePort); ok {
+					if err := accounting.CreateARPostingJournalTx(txctx, handle.PGXTx(), invoice); err != nil {
+						return err
+					}
+					journalInTx = true
+				}
+				if audit, ok := s.audit.(TransactionalAuditPort); ok {
+					if err := audit.RecordTx(txctx, handle.PGXTx(), shared.AuditLog{ActorID: input.PostedBy, Action: "post", Entity: "ar_invoice", EntityID: strconv.FormatInt(invoice.ID, 10), Meta: map[string]any{"fx_rate": valuation.Rate.String()}}); err != nil {
+						return err
+					}
+				}
+			}
+			return nil
+		})
+	} else if poster, ok := s.repo.(ValuatedARInvoicePoster); ok {
+		err = poster.PostARInvoiceWithValuation(ctx, input.InvoiceID, input.PostedBy, *valuation)
+	} else {
+		err = s.repo.PostARInvoice(ctx, input.InvoiceID, input.PostedBy)
+	}
+	if err != nil {
 		return err
 	}
 
 	// Create accounting journal entry if service available
-	if s.accounting != nil {
+	if s.accounting != nil && !journalInTx {
 		invoice.Status = ARStatusPosted
 		if err := s.accounting.CreateARPostingJournal(ctx, invoice); err != nil {
 			slog.Error("create AR posting journal", slog.Any("error", err), slog.Int64("invoice_id", input.InvoiceID))
@@ -270,6 +397,35 @@ func (s *Service) PostARInvoice(ctx context.Context, input PostARInvoiceInput) e
 	}
 
 	return nil
+}
+
+func (s *Service) resolveInvoiceValuation(ctx context.Context, inv *ARInvoice) (*ARInvoiceValuation, error) {
+	base := "IDR"
+	if inv.Currency == "" || inv.Currency == base {
+		now := time.Now()
+		return &ARInvoiceValuation{BaseCurrency: base, BaseAmount: accountingmoney.Must(strconv.FormatFloat(inv.Total, 'f', 2, 64), 2), Rate: fx.MustDecimal("1"), RateDate: now, Source: "INTERNAL", LockedAt: now}, nil
+	}
+	if s.fxResolver == nil {
+		return nil, errors.New("ar: FX resolver is required for foreign-currency invoice")
+	}
+	now := time.Now()
+	quote, err := s.fxResolver.Resolve(ctx, base, inv.Currency, now)
+	if err != nil {
+		return nil, err
+	}
+	original, err := fx.ParseDecimal(inv.OriginalAmount.String())
+	if err != nil {
+		return nil, err
+	}
+	amount, err := fx.CalculateBaseAmount(original, quote.Rate)
+	if err != nil {
+		return nil, err
+	}
+	baseAmount, err := accountingmoney.Parse(amount.String(), 2)
+	if err != nil {
+		return nil, err
+	}
+	return &ARInvoiceValuation{BaseCurrency: base, BaseAmount: baseAmount, Rate: quote.Rate, RateDate: quote.RateDate, Source: quote.Source, LockedAt: now}, nil
 }
 
 // VoidARInvoice voids an invoice.
@@ -299,20 +455,24 @@ func (s *Service) VoidARInvoice(ctx context.Context, input VoidARInvoiceInput) e
 
 // RegisterARPayment records a payment and allocates to invoice(s).
 func (s *Service) RegisterARPayment(ctx context.Context, input CreateARPaymentInput) (*ARPayment, error) {
-	if input.Amount <= 0 {
+	amount, err := fx.FromLegacyFloat(input.Amount, 2)
+	if err != nil || amount.Cmp(fx.MustDecimal("0")) <= 0 {
 		return nil, errors.New("amount must be positive")
 	}
 	if len(input.Allocations) == 0 {
 		return nil, errors.New("at least one allocation required")
 	}
 
-	// Validate allocations don't exceed payment amount
-	var totalAllocated float64
+	// Validate allocations don't exceed payment amount and resolve one locked
+	// payment quote for all allocations.
+	totalAllocated := fx.MustDecimal("0")
+	var firstInvoice *ARInvoice
 	for _, alloc := range input.Allocations {
-		if alloc.Amount <= 0 {
+		allocated, err := fx.FromLegacyFloat(alloc.Amount, 2)
+		if err != nil || allocated.Cmp(fx.MustDecimal("0")) <= 0 {
 			return nil, errors.New("allocation amount must be positive")
 		}
-		totalAllocated += alloc.Amount
+		totalAllocated = totalAllocated.Add(allocated)
 
 		invoice, err := s.repo.GetARInvoice(ctx, alloc.ARInvoiceID)
 		if err != nil {
@@ -324,19 +484,59 @@ func (s *Service) RegisterARPayment(ctx context.Context, input CreateARPaymentIn
 		if invoice.Status != ARStatusPosted {
 			return nil, ErrInvalidStatus
 		}
+		if firstInvoice == nil {
+			firstInvoice = invoice
+		}
+		if input.Currency == "" {
+			input.Currency = invoice.Currency
+		}
+		if input.Currency != invoice.Currency {
+			return nil, errors.New("payment allocations must use one currency")
+		}
 
 		// Check invoice balance
 		_, _, balance, err := s.repo.GetInvoiceBalance(ctx, alloc.ARInvoiceID)
 		if err != nil {
 			return nil, err
 		}
-		if alloc.Amount > balance {
+		balanceDecimal, err := fx.FromLegacyFloat(balance, 2)
+		if err != nil || allocated.Cmp(balanceDecimal) > 0 {
 			return nil, ErrInsufficientAmount
 		}
 	}
 
-	if totalAllocated > input.Amount {
+	if totalAllocated.Cmp(amount) > 0 {
 		return nil, errors.New("total allocation exceeds payment amount")
+	}
+	if input.Currency == "" {
+		input.Currency = "IDR"
+	}
+	rate, err := s.resolvePaymentRate(ctx, input.Currency, input.PaidAt)
+	if err != nil {
+		return nil, err
+	}
+	paymentRate := rate.Rate
+	paymentBase, err := fx.CalculateBaseAmount(amount, paymentRate)
+	if err != nil {
+		return nil, err
+	}
+	paymentVal := ARPaymentValuation{Currency: input.Currency, BaseCurrency: "IDR", OriginalAmount: accountingmoney.Must(amount.String(), 2), BaseAmount: accountingmoney.Must(paymentBase.String(), 2), Rate: paymentRate, RateDate: rate.RateDate, Source: rate.Source, LockedAt: time.Now()}
+	allocVals := make([]ARAllocationValuation, 0, len(input.Allocations))
+	for _, alloc := range input.Allocations {
+		invoice, _ := s.repo.GetARInvoice(ctx, alloc.ARInvoiceID)
+		invoiceRate := invoice.FXRate
+		if invoiceRate.IsZero() {
+			invoiceRate = fx.MustDecimal("1")
+		}
+		allocated, err := fx.FromLegacyFloat(alloc.Amount, 2)
+		if err != nil {
+			return nil, err
+		}
+		pv, err := fx.CalculatePaymentValuation(allocated, invoiceRate, paymentRate)
+		if err != nil {
+			return nil, err
+		}
+		allocVals = append(allocVals, ARAllocationValuation{InvoiceID: alloc.ARInvoiceID, OriginalAmount: accountingmoney.Must(allocated.String(), 2), BaseAmount: accountingmoney.Must(pv.SettlementBaseAmount.String(), 2), Rate: paymentRate, RateDate: rate.RateDate, Source: rate.Source, LockedAt: time.Now()})
 	}
 
 	// Generate number if not provided
@@ -348,20 +548,82 @@ func (s *Service) RegisterARPayment(ctx context.Context, input CreateARPaymentIn
 		input.Number = num
 	}
 
-	// Create payment
-	payment, err := s.repo.CreateARPayment(ctx, input)
+	payment := &ARPayment{Number: input.Number, Amount: input.Amount, Currency: paymentVal.Currency, OriginalAmount: paymentVal.OriginalAmount, BaseCurrency: paymentVal.BaseCurrency, BaseAmount: paymentVal.BaseAmount, FXRate: paymentVal.Rate, FXRateDate: paymentVal.RateDate, FXRateSource: paymentVal.Source, FXRateLockedAt: paymentVal.LockedAt, PaidAt: input.PaidAt, Method: input.Method, Note: input.Note, CreatedBy: input.CreatedBy}
+	if repo, ok := s.repo.(interface {
+		WithTx(context.Context, func(context.Context, TxRepository) error) error
+	}); ok {
+		err = repo.WithTx(ctx, func(txctx context.Context, tx TxRepository) error {
+			if input.Number == "" {
+				number, err := tx.GeneratePaymentNumber(txctx)
+				if err != nil {
+					return err
+				}
+				input.Number = number
+				payment.Number = number
+			}
+			created, err := tx.CreateARPayment(txctx, input)
+			if err != nil {
+				return err
+			}
+			payment.ID = created.ID
+			writer, _ := tx.(TxARPaymentValuationWriter)
+			if writer != nil {
+				if err := writer.UpdateARPaymentValuation(txctx, payment.ID, paymentVal); err != nil {
+					return err
+				}
+			}
+			for i, alloc := range input.Allocations {
+				if err := tx.CreatePaymentAllocation(txctx, payment.ID, alloc.ARInvoiceID, alloc.Amount); err != nil {
+					return err
+				}
+				if writer != nil {
+					if err := writer.UpdateARAllocationValuation(txctx, payment.ID, alloc.ARInvoiceID, allocVals[i]); err != nil {
+						return err
+					}
+				}
+				if handle, ok := tx.(interface{ PGXTx() pgx.Tx }); ok {
+					if journal, ok := s.accounting.(TransactionalARPaymentFXJournalPort); ok {
+						invoice, _ := s.repo.GetARInvoice(ctx, alloc.ARInvoiceID)
+						if err := journal.CreateARRealizedFXJournalTx(txctx, handle.PGXTx(), payment, invoice, allocVals[i]); err != nil {
+							return err
+						}
+					}
+					if audit, ok := s.audit.(TransactionalAuditPort); ok {
+						if err := audit.RecordTx(txctx, handle.PGXTx(), shared.AuditLog{ActorID: input.CreatedBy, Action: "record", Entity: "ar_payment", EntityID: strconv.FormatInt(payment.ID, 10), Meta: map[string]any{"fx_rate": paymentVal.Rate.String(), "allocation_id": alloc.ARInvoiceID}}); err != nil {
+							return err
+						}
+					}
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+		return payment, nil
+	}
+	created, err := s.repo.CreateARPayment(ctx, input)
 	if err != nil {
 		return nil, err
 	}
-
-	// Create allocations
+	payment.ID = created.ID
 	for _, alloc := range input.Allocations {
 		if err := s.repo.CreatePaymentAllocation(ctx, payment.ID, alloc.ARInvoiceID, alloc.Amount); err != nil {
 			return nil, err
 		}
 	}
-
+	_ = firstInvoice
 	return payment, nil
+}
+
+func (s *Service) resolvePaymentRate(ctx context.Context, currency string, date time.Time) (fx.FXQuote, error) {
+	if currency == "" || currency == "IDR" {
+		return fx.FXQuote{BaseCurrency: "IDR", QuoteCurrency: currency, Rate: fx.MustDecimal("1"), RateDate: date, Source: "INTERNAL"}, nil
+	}
+	if s.fxResolver == nil {
+		return fx.FXQuote{}, errors.New("ar: FX resolver is required for foreign-currency payment")
+	}
+	return s.fxResolver.Resolve(ctx, "IDR", currency, date)
 }
 
 // GetARPayments returns all AR payments.
@@ -379,30 +641,31 @@ func (s *Service) CalculateARAging(ctx context.Context, asOf time.Time) (ARAging
 		asOf = time.Now()
 	}
 
-	var bucket ARAgingBucket
+	current, bucket30, bucket60, bucket90, bucket120 := fx.MustDecimal("0"), fx.MustDecimal("0"), fx.MustDecimal("0"), fx.MustDecimal("0"), fx.MustDecimal("0")
 	for _, inv := range invoices {
 		// Get balance for this invoice
 		_, _, balance, err := s.repo.GetInvoiceBalance(ctx, inv.ID)
 		if err != nil {
 			continue
 		}
-		if balance <= 0 {
+		balanceDecimal, err := fx.FromLegacyFloat(balance, 2)
+		if err != nil || balanceDecimal.Cmp(fx.MustDecimal("0")) <= 0 {
 			continue
 		}
 
 		days := int(asOf.Sub(inv.DueAt).Hours() / 24)
 		switch {
 		case days <= 0:
-			bucket.Current += balance
+			current = current.Add(balanceDecimal)
 		case days <= 30:
-			bucket.Bucket30 += balance
+			bucket30 = bucket30.Add(balanceDecimal)
 		case days <= 60:
-			bucket.Bucket60 += balance
+			bucket60 = bucket60.Add(balanceDecimal)
 		case days <= 90:
-			bucket.Bucket90 += balance
+			bucket90 = bucket90.Add(balanceDecimal)
 		default:
-			bucket.Bucket120 += balance
+			bucket120 = bucket120.Add(balanceDecimal)
 		}
 	}
-	return bucket, nil
+	return ARAgingBucket{Current: legacyFloat(current), Bucket30: legacyFloat(bucket30), Bucket60: legacyFloat(bucket60), Bucket90: legacyFloat(bucket90), Bucket120: legacyFloat(bucket120)}, nil
 }

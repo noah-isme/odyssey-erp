@@ -43,6 +43,13 @@ type Config struct {
 	BoardPackS3SecretAccessKey string `envconfig:"BOARD_PACK_S3_SECRET_ACCESS_KEY"`
 	BoardPackS3UsePathStyle    bool   `envconfig:"BOARD_PACK_S3_USE_PATH_STYLE" default:"true"`
 	BoardPackS3AutoCreate      bool   `envconfig:"BOARD_PACK_S3_AUTO_CREATE_BUCKET" default:"false"`
+
+	FXProvider     string        `envconfig:"FX_PROVIDER" default:"exchangerate-api"`
+	FXAPIBaseURL   string        `envconfig:"FX_API_BASE_URL" default:"https://open.er-api.com/v6"`
+	FXAPIKey       string        `envconfig:"FX_API_KEY"`
+	FXBaseCurrency string        `envconfig:"FX_BASE_CURRENCY" default:"IDR"`
+	FXFetchTimeout time.Duration `envconfig:"FX_FETCH_TIMEOUT" default:"10s"`
+	FXMaxRateAge   time.Duration `envconfig:"FX_MAX_RATE_AGE" default:"48h"`
 }
 
 // LoadConfig reads configuration from environment variables.

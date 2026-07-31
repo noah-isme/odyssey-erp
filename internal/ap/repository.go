@@ -6,8 +6,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	accountingmoney "github.com/odyssey-erp/odyssey-erp/internal/accounting/money"
+	"github.com/odyssey-erp/odyssey-erp/internal/fx"
 	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
@@ -70,10 +73,30 @@ func (r *pgRepository) WithTx(ctx context.Context, fn func(context.Context, TxRe
 		return err
 	}
 	qTx := r.q.WithTx(tx)
-	txRepo := &pgTxRepository{q: qTx}
+	txRepo := &pgTxRepository{q: qTx, tx: tx}
 
 	if err := fn(ctx, txRepo); err != nil {
 		_ = tx.Rollback(ctx)
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+func (r *pgRepository) PostAPInvoiceWithValuation(ctx context.Context, input PostAPInvoiceInput, v APInvoiceValuation) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	var status string
+	if err = tx.QueryRow(ctx, `SELECT status FROM ap_invoices WHERE id=$1 FOR UPDATE`, input.InvoiceID).Scan(&status); err != nil {
+		return err
+	}
+	if status != string(APStatusDraft) {
+		return ErrInvalidStatus
+	}
+	_, err = tx.Exec(ctx, `UPDATE ap_invoices SET base_currency=$2, base_amount=$3, fx_rate=$4, fx_rate_date=$5, fx_rate_source=$6, fx_rate_locked_at=$7, status='POSTED', posted_at=NOW(), posted_by=$8, updated_at=NOW() WHERE id=$1`, input.InvoiceID, v.BaseCurrency, v.BaseAmount.String(), v.Rate.String(), v.RateDate, v.Source, v.LockedAt, input.PostedBy)
+	if err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
@@ -85,7 +108,7 @@ func (r *pgRepository) GetAPInvoice(ctx context.Context, id int64) (APInvoice, e
 		return APInvoice{}, err
 	}
 
-	return APInvoice{
+	result := APInvoice{
 		ID:           row.ID,
 		Number:       row.Number,
 		SupplierID:   row.SupplierID,
@@ -106,7 +129,43 @@ func (r *pgRepository) GetAPInvoice(ctx context.Context, id int64) (APInvoice, e
 		CreatedBy:    row.CreatedBy.Int64,
 		CreatedAt:    safeTime(row.CreatedAt),
 		UpdatedAt:    safeTime(row.UpdatedAt),
-	}, nil
+	}
+	if err := r.loadInvoiceValuation(ctx, id, &result); err != nil {
+		return APInvoice{}, err
+	}
+	return result, nil
+}
+
+func (r *pgRepository) loadInvoiceValuation(ctx context.Context, id int64, inv *APInvoice) error {
+	var original, base, rate, source, currency, baseCurrency string
+	var rateDate, lockedAt time.Time
+	err := r.pool.QueryRow(ctx, `SELECT COALESCE(currency,''), COALESCE(original_currency_amount,0)::text,
+		COALESCE(base_currency,''), COALESCE(base_amount,0)::text, COALESCE(fx_rate,0)::text,
+		COALESCE(fx_rate_date, DATE '0001-01-01'), COALESCE(fx_rate_source,''),
+		COALESCE(fx_rate_locked_at, TIMESTAMPTZ '0001-01-01') FROM ap_invoices WHERE id=$1`, id).
+		Scan(&currency, &original, &baseCurrency, &base, &rate, &rateDate, &source, &lockedAt)
+	if err != nil {
+		return err
+	}
+	var parseErr error
+	if inv.OriginalAmount, parseErr = accountingmoney.Parse(original, decimalScale(original)); parseErr != nil {
+		return parseErr
+	}
+	if inv.BaseAmount, parseErr = accountingmoney.Parse(base, decimalScale(base)); parseErr != nil {
+		return parseErr
+	}
+	inv.Currency, inv.BaseCurrency, inv.FXRateDate, inv.FXRateSource, inv.FXRateLockedAt = currency, baseCurrency, rateDate, source, lockedAt
+	inv.FXRate, parseErr = fx.ParseDecimal(rate)
+	return parseErr
+}
+
+func decimalScale(v string) int {
+	for i := 0; i < len(v); i++ {
+		if v[i] == '.' {
+			return len(v) - i - 1
+		}
+	}
+	return 0
 }
 
 func (r *pgRepository) CountInvoicesByGRN(ctx context.Context, grnID int64) (int, error) {
@@ -346,7 +405,7 @@ ORDER BY i.number`, id)
 	defer rows.Close()
 
 	var allocations []APPaymentAllocationDetail
-	var totalAllocated float64
+	totalAllocated := fx.MustDecimal("0")
 	for rows.Next() {
 		var alloc APPaymentAllocationDetail
 		var allocAmount pgtype.Numeric
@@ -372,7 +431,11 @@ ORDER BY i.number`, id)
 		alloc.InvoiceTotal = numericToFloat(total)
 		alloc.DueAt = dateToTime(dueAt)
 		alloc.Amount = numericToFloat(allocAmount)
-		totalAllocated += alloc.Amount
+		allocated, err := fx.FromLegacyFloat(alloc.Amount, 2)
+		if err != nil {
+			return APPaymentWithDetails{}, err
+		}
+		totalAllocated = totalAllocated.Add(allocated)
 		allocations = append(allocations, alloc)
 	}
 	if err := rows.Err(); err != nil {
@@ -390,16 +453,20 @@ SELECT EXISTS (
 		return APPaymentWithDetails{}, err
 	}
 
-	unallocated := payment.Amount - totalAllocated
-	if unallocated < 0 {
-		unallocated = 0
+	paymentAmount, err := fx.FromLegacyFloat(payment.Amount, 2)
+	if err != nil {
+		return APPaymentWithDetails{}, err
+	}
+	unallocated := paymentAmount.Sub(totalAllocated)
+	if unallocated.Cmp(fx.MustDecimal("0")) < 0 {
+		unallocated = fx.MustDecimal("0")
 	}
 
 	return APPaymentWithDetails{
 		APPayment:      payment,
 		Allocations:    allocations,
-		TotalAllocated: totalAllocated,
-		Unallocated:    unallocated,
+		TotalAllocated: legacyFloat(totalAllocated),
+		Unallocated:    legacyFloat(unallocated),
 		LedgerPosted:   posted,
 	}, nil
 }
@@ -407,7 +474,31 @@ SELECT EXISTS (
 // Transaction Repository Implementation
 
 type pgTxRepository struct {
-	q *sqlc.Queries
+	q  *sqlc.Queries
+	tx pgx.Tx
+}
+
+func (tx *pgTxRepository) PGXTx() pgx.Tx { return tx.tx }
+
+func (tx *pgTxRepository) PostAPInvoiceWithValuation(ctx context.Context, input PostAPInvoiceInput, v APInvoiceValuation) error {
+	var status string
+	if err := tx.tx.QueryRow(ctx, `SELECT status FROM ap_invoices WHERE id=$1 FOR UPDATE`, input.InvoiceID).Scan(&status); err != nil {
+		return err
+	}
+	if status != string(APStatusDraft) {
+		return ErrInvalidStatus
+	}
+	_, err := tx.tx.Exec(ctx, `UPDATE ap_invoices SET base_currency=$2, base_amount=$3, fx_rate=$4, fx_rate_date=$5, fx_rate_source=$6, fx_rate_locked_at=$7, status='POSTED', posted_at=NOW(), posted_by=$8, updated_at=NOW() WHERE id=$1`, input.InvoiceID, v.BaseCurrency, v.BaseAmount.String(), v.Rate.String(), v.RateDate, v.Source, v.LockedAt, input.PostedBy)
+	return err
+}
+
+func (tx *pgTxRepository) UpdateAPPaymentValuation(ctx context.Context, id int64, v APPaymentValuation) error {
+	_, err := tx.tx.Exec(ctx, `UPDATE ap_payments SET currency=$2, original_currency_amount=$3, base_currency=$4, base_amount=$5, fx_rate=$6, fx_rate_date=$7, fx_rate_source=$8, fx_rate_locked_at=$9, updated_at=NOW() WHERE id=$1`, id, v.Currency, v.OriginalAmount.String(), v.BaseCurrency, v.BaseAmount.String(), v.Rate.String(), v.RateDate, v.Source, v.LockedAt)
+	return err
+}
+func (tx *pgTxRepository) UpdateAPAllocationValuation(ctx context.Context, paymentID, invoiceID int64, v APAllocationValuation) error {
+	_, err := tx.tx.Exec(ctx, `UPDATE ap_payment_allocations SET original_currency_amount=$3, base_amount=$4, currency=$5, base_currency=$6, fx_rate=$7, fx_rate_date=$8, fx_rate_source=$9, fx_rate_locked_at=$10 WHERE ap_payment_id=$1 AND ap_invoice_id=$2`, paymentID, invoiceID, v.OriginalAmount.String(), v.BaseAmount.String(), "", "IDR", v.Rate.String(), v.RateDate, v.Source, v.LockedAt)
+	return err
 }
 
 func (tx *pgTxRepository) CreateAPInvoice(ctx context.Context, input CreateAPInvoiceInput) (int64, error) {
@@ -427,10 +518,27 @@ func (tx *pgTxRepository) CreateAPInvoice(ctx context.Context, input CreateAPInv
 }
 
 func (tx *pgTxRepository) CreateAPInvoiceLine(ctx context.Context, input CreateAPInvoiceLineInput, invoiceID int64) error {
-	lineSubtotal := input.Quantity * input.UnitPrice * (1 - (input.DiscountPct / 100))
-	lineTax := lineSubtotal * (input.TaxPct / 100)
-	lineTotal := lineSubtotal + lineTax
-	_, err := tx.q.CreateAPInvoiceLine(ctx, sqlc.CreateAPInvoiceLineParams{
+	quantity, err := fx.FromLegacyFloat(input.Quantity, 6)
+	if err != nil {
+		return err
+	}
+	unitPrice, err := fx.FromLegacyFloat(input.UnitPrice, 6)
+	if err != nil {
+		return err
+	}
+	discount, err := fx.FromLegacyFloat(input.DiscountPct, 6)
+	if err != nil {
+		return err
+	}
+	taxRate, err := fx.FromLegacyFloat(input.TaxPct, 6)
+	if err != nil {
+		return err
+	}
+	hundred := fx.MustDecimal("100")
+	lineSubtotal := quantity.Mul(unitPrice).Mul(fx.MustDecimal("1").Sub(discount.Div(hundred))).Round(2)
+	lineTax := lineSubtotal.Mul(taxRate.Div(hundred)).Round(2)
+	lineTotal := lineSubtotal.Add(lineTax).Round(2)
+	_, err = tx.q.CreateAPInvoiceLine(ctx, sqlc.CreateAPInvoiceLineParams{
 		ApInvoiceID: invoiceID,
 		GrnLineID:   toNullInt64(input.GRNLineID),
 		ProductID:   input.ProductID,
@@ -439,9 +547,9 @@ func (tx *pgTxRepository) CreateAPInvoiceLine(ctx context.Context, input CreateA
 		UnitPrice:   floatToNumeric(input.UnitPrice),
 		DiscountPct: floatToNumeric(input.DiscountPct),
 		TaxPct:      floatToNumeric(input.TaxPct),
-		Subtotal:    floatToNumeric(lineSubtotal),
-		TaxAmount:   floatToNumeric(lineTax),
-		Total:       floatToNumeric(lineTotal),
+		Subtotal:    decimalToNumeric(lineSubtotal),
+		TaxAmount:   decimalToNumeric(lineTax),
+		Total:       decimalToNumeric(lineTotal),
 	})
 	return err
 }
@@ -526,6 +634,14 @@ func numericToFloat(n pgtype.Numeric) float64 {
 func floatToNumeric(f float64) pgtype.Numeric {
 	var n pgtype.Numeric
 	if err := n.Scan(fmt.Sprintf("%f", f)); err != nil {
+		return pgtype.Numeric{}
+	}
+	return n
+}
+
+func decimalToNumeric(d fx.Decimal) pgtype.Numeric {
+	var n pgtype.Numeric
+	if err := n.Scan(d.String()); err != nil {
 		return pgtype.Numeric{}
 	}
 	return n

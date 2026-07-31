@@ -7,18 +7,23 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/shared"
+	"github.com/odyssey-erp/odyssey-erp/internal/fx"
 )
 
 // PostingLineInput describes a journal line for posting request.
 type PostingLineInput struct {
-	AccountID    int64
-	Debit        float64
-	Credit       float64
-	CompanyID    *int64
-	BranchID     *int64
-	Warehouse    *int64
-	DepartmentID *int64
-	CostCenterID *int64
+	AccountID int64
+	Debit     float64
+	Credit    float64
+	// DebitDecimal/CreditDecimal are the exact NUMERIC boundary for new
+	// accounting flows. Debit/Credit remain legacy UI/API compatibility fields.
+	DebitDecimal  fx.Decimal
+	CreditDecimal fx.Decimal
+	CompanyID     *int64
+	BranchID      *int64
+	Warehouse     *int64
+	DepartmentID  *int64
+	CostCenterID  *int64
 }
 
 // PostingInput groups fields required to create a journal entry.
@@ -40,21 +45,28 @@ func (in PostingInput) Validate() error {
 	if len(in.Lines) < 2 {
 		return shared.ErrTooFewLines
 	}
-	var debit, credit float64
+	var debit, credit fx.Decimal
 	for idx, line := range in.Lines {
 		if line.AccountID == 0 {
 			return fmt.Errorf("accounting: line %d missing account", idx)
 		}
-		if line.Debit < 0 || line.Credit < 0 {
+		lineDebit, lineCredit := line.DebitDecimal, line.CreditDecimal
+		if lineDebit.IsZero() {
+			lineDebit = fx.MustDecimal(fmt.Sprintf("%.2f", line.Debit))
+		}
+		if lineCredit.IsZero() {
+			lineCredit = fx.MustDecimal(fmt.Sprintf("%.2f", line.Credit))
+		}
+		if lineDebit.Cmp(fx.MustDecimal("0")) < 0 || lineCredit.Cmp(fx.MustDecimal("0")) < 0 {
 			return fmt.Errorf("accounting: line %d negative amount", idx)
 		}
-		if line.Debit > 0 && line.Credit > 0 {
+		if lineDebit.Cmp(fx.MustDecimal("0")) > 0 && lineCredit.Cmp(fx.MustDecimal("0")) > 0 {
 			return fmt.Errorf("accounting: line %d cannot be both debit and credit", idx)
 		}
-		debit += line.Debit
-		credit += line.Credit
+		debit = debit.Add(lineDebit)
+		credit = credit.Add(lineCredit)
 	}
-	if fmt.Sprintf("%.2f", debit) != fmt.Sprintf("%.2f", credit) {
+	if debit.Cmp(credit) != 0 {
 		return shared.ErrUnbalanced
 	}
 	if in.SourceModule == "" {

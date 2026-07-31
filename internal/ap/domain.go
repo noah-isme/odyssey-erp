@@ -2,6 +2,9 @@ package ap
 
 import (
 	"time"
+
+	accountingmoney "github.com/odyssey-erp/odyssey-erp/internal/accounting/money"
+	"github.com/odyssey-erp/odyssey-erp/internal/fx"
 )
 
 // APInvoiceStatus enumerates AP invoice statuses.
@@ -16,26 +19,35 @@ const (
 
 // APInvoice model.
 type APInvoice struct {
-	ID           int64
-	Number       string
-	SupplierID   int64
-	SupplierName string
-	GRNID        *int64
-	POID         *int64
-	Currency     string
-	Subtotal     float64
-	TaxAmount    float64
-	Total        float64
-	Status       APInvoiceStatus
-	DueAt        time.Time
-	PostedAt     *time.Time
-	PostedBy     *int64
-	VoidedAt     *time.Time
-	VoidedBy     *int64
-	VoidReason   *string
-	CreatedBy    int64
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID             int64
+	Number         string
+	SupplierID     int64
+	SupplierName   string
+	GRNID          *int64
+	POID           *int64
+	Currency       string
+	OriginalAmount accountingmoney.Money
+	BaseCurrency   string
+	BaseAmount     accountingmoney.Money
+	FXRate         fx.Decimal
+	FXRateDate     time.Time
+	FXRateSource   string
+	FXRateLockedAt time.Time
+	// The float fields below are legacy UI compatibility fields. New
+	// accounting calculations must use the exact valuation fields above.
+	Subtotal   float64
+	TaxAmount  float64
+	Total      float64
+	Status     APInvoiceStatus
+	DueAt      time.Time
+	PostedAt   *time.Time
+	PostedBy   *int64
+	VoidedAt   *time.Time
+	VoidedBy   *int64
+	VoidReason *string
+	CreatedBy  int64
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 // APInvoiceLine represents a line item on an AP invoice.
@@ -67,18 +79,26 @@ type APInvoiceWithDetails struct {
 
 // APPayment model.
 type APPayment struct {
-	ID           int64
-	Number       string
-	APInvoiceID  *int64 // Optional direct link
-	SupplierID   int64
-	SupplierName string
-	Amount       float64
-	PaidAt       time.Time
-	Method       string
-	Note         string
-	CreatedBy    int64
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID             int64
+	Number         string
+	APInvoiceID    *int64 // Optional direct link
+	SupplierID     int64
+	SupplierName   string
+	Amount         float64
+	Currency       string
+	OriginalAmount accountingmoney.Money
+	BaseCurrency   string
+	BaseAmount     accountingmoney.Money
+	FXRate         fx.Decimal
+	FXRateDate     time.Time
+	FXRateSource   string
+	FXRateLockedAt time.Time
+	PaidAt         time.Time
+	Method         string
+	Note           string
+	CreatedBy      int64
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 // APPaymentSummary for display in invoice detail.
@@ -103,15 +123,23 @@ type APPaymentAllocation struct {
 
 // APPaymentAllocationDetail includes invoice context for a payment allocation.
 type APPaymentAllocationDetail struct {
-	ID            int64
-	APPaymentID   int64
-	APInvoiceID   int64
-	InvoiceNumber string
-	POID          *int64
-	InvoiceStatus APInvoiceStatus
-	InvoiceTotal  float64
-	DueAt         time.Time
-	Amount        float64
+	ID             int64
+	APPaymentID    int64
+	APInvoiceID    int64
+	InvoiceNumber  string
+	POID           *int64
+	InvoiceStatus  APInvoiceStatus
+	InvoiceTotal   float64
+	DueAt          time.Time
+	Amount         float64
+	Currency       string
+	OriginalAmount accountingmoney.Money
+	BaseCurrency   string
+	BaseAmount     accountingmoney.Money
+	FXRate         fx.Decimal
+	FXRateDate     time.Time
+	FXRateSource   string
+	FXRateLockedAt time.Time
 }
 
 // APPaymentWithDetails includes payment with allocation breakdown and ledger status.
@@ -213,6 +241,7 @@ type VoidAPInvoiceInput struct {
 // CreateAPPaymentInput for creating AP payments.
 type CreateAPPaymentInput struct {
 	Number      string
+	Currency    string
 	SupplierID  int64
 	Amount      float64
 	PaidAt      time.Time

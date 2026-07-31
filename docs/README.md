@@ -41,6 +41,7 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 | [Approvals & HR Core](guides/approvals-hr-core.md) | Policy routing, delegation, leave workflow, dan attendance CSV |
 | [Payroll Engine](guides/payroll.md) | Versioned TER/PTKP/BPJS rules, payroll approval, posting, payment export, dan payslips |
 | [Tax Compliance](guides/tax-compliance.md) | Immutable faktur, PPN/PPh ledgers, GL reconciliation, period lock, dan Coretax export |
+| [Transaction-level FX](guides/transaction-fx.md) | Daily rates, AR/AP valuation, realized FX, revaluation, reversal, and operations |
 | [Coretax Validation Sign-off](guides/tax-staff-coretax-validation.md) | Checklist staf pajak untuk artefak DJP, portal testing, rekonsiliasi, dan persetujuan rilis |
 | [CRM](guides/crm.md) | Leads, pipeline, activities, reminders, ownership, conversion, dan win/loss |
 
@@ -67,6 +68,7 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 | [ADR-0002](decisions/ADR-0002-rbac.md) | RBAC Implementation |
 | [ADR-0003](decisions/ADR-0003-inventory-costing.md) | Inventory Costing |
 | [ADR-0004](decisions/ADR-0004-accounting-model.md) | Accounting Model |
+| [ADR-0005](decisions/ADR-0005-transaction-fx.md) | Transaction-level FX |
 
 ## 📦 Releases
 

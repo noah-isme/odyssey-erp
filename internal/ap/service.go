@@ -4,9 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+	accountingmoney "github.com/odyssey-erp/odyssey-erp/internal/accounting/money"
+	"github.com/odyssey-erp/odyssey-erp/internal/fx"
 	"github.com/odyssey-erp/odyssey-erp/internal/procurement"
+	shared "github.com/odyssey-erp/odyssey-erp/internal/shared"
 )
 
 var (
@@ -21,6 +26,70 @@ type Service struct {
 	procurementService *procurement.Service
 	integration        procurement.IntegrationHandler
 	tax                TaxServicePort
+	fxResolver         FXRateResolver
+	audit              AuditPort
+}
+
+// legacyFloat is only used to populate UI-compatible float fields after the
+// exact calculation has completed.
+func legacyFloat(value fx.Decimal) float64 {
+	result, _ := strconv.ParseFloat(value.String(), 64)
+	return result
+}
+
+// FXRateResolver is the only FX dependency AP is allowed to call.
+type FXRateResolver interface {
+	Resolve(ctx context.Context, base, quote string, date time.Time) (fx.FXQuote, error)
+}
+
+type ValuatedAPInvoicePoster interface {
+	PostAPInvoiceWithValuation(context.Context, PostAPInvoiceInput, APInvoiceValuation) error
+}
+
+type TxValuatedAPInvoicePoster interface {
+	PostAPInvoiceWithValuation(context.Context, PostAPInvoiceInput, APInvoiceValuation) error
+}
+type TransactionalAPAccountingPort interface {
+	HandleAPInvoicePostedTx(context.Context, pgx.Tx, procurement.APInvoicePostedEvent) error
+}
+type AuditPort interface {
+	Record(context.Context, shared.AuditLog) error
+}
+type TransactionalAuditPort interface {
+	RecordTx(context.Context, pgx.Tx, shared.AuditLog) error
+}
+
+type APInvoiceValuation struct {
+	BaseCurrency string
+	BaseAmount   accountingmoney.Money
+	Rate         fx.Decimal
+	RateDate     time.Time
+	Source       string
+	LockedAt     time.Time
+}
+
+type APPaymentValuation struct {
+	Currency, BaseCurrency     string
+	OriginalAmount, BaseAmount accountingmoney.Money
+	Rate                       fx.Decimal
+	RateDate                   time.Time
+	Source                     string
+	LockedAt                   time.Time
+}
+type APAllocationValuation struct {
+	AllocationID, InvoiceID    int64
+	OriginalAmount, BaseAmount accountingmoney.Money
+	Rate                       fx.Decimal
+	RateDate                   time.Time
+	Source                     string
+	LockedAt                   time.Time
+}
+type TxAPPaymentValuationWriter interface {
+	UpdateAPPaymentValuation(context.Context, int64, APPaymentValuation) error
+	UpdateAPAllocationValuation(context.Context, int64, int64, APAllocationValuation) error
+}
+type TransactionalAPPaymentFXJournalPort interface {
+	CreateAPRealizedFXJournalTx(context.Context, pgx.Tx, *APPayment, *APInvoice, APAllocationValuation) error
 }
 
 type TaxServicePort interface {
@@ -44,6 +113,9 @@ func (s *Service) SetIntegrationHandler(handler procurement.IntegrationHandler) 
 
 func (s *Service) SetTaxService(service TaxServicePort) { s.tax = service }
 
+func (s *Service) SetFXResolver(resolver FXRateResolver) { s.fxResolver = resolver }
+func (s *Service) SetAuditLogger(audit AuditPort)        { s.audit = audit }
+
 // CreateAPInvoice creates a new AP invoice manually.
 func (s *Service) CreateAPInvoice(ctx context.Context, input CreateAPInvoiceInput) (APInvoice, error) {
 	if len(input.Lines) == 0 {
@@ -61,17 +133,34 @@ func (s *Service) CreateAPInvoice(ctx context.Context, input CreateAPInvoiceInpu
 		}
 
 		// Calculate totals from lines
-		var subtotal, taxAmount float64
+		subtotal, taxAmount := fx.MustDecimal("0"), fx.MustDecimal("0")
+		hundred := fx.MustDecimal("100")
 		for _, line := range input.Lines {
-			lineSubtotal := line.Quantity * line.UnitPrice * (1 - (line.DiscountPct / 100))
-			lineTax := lineSubtotal * (line.TaxPct / 100)
-			subtotal += lineSubtotal
-			taxAmount += lineTax
+			quantity, err := fx.FromLegacyFloat(line.Quantity, 6)
+			if err != nil {
+				return err
+			}
+			unitPrice, err := fx.FromLegacyFloat(line.UnitPrice, 6)
+			if err != nil {
+				return err
+			}
+			discount, err := fx.FromLegacyFloat(line.DiscountPct, 6)
+			if err != nil {
+				return err
+			}
+			tax, err := fx.FromLegacyFloat(line.TaxPct, 6)
+			if err != nil {
+				return err
+			}
+			lineSubtotal := quantity.Mul(unitPrice).Mul(fx.MustDecimal("1").Sub(discount.Div(hundred))).Round(2)
+			lineTax := lineSubtotal.Mul(tax.Div(hundred)).Round(2)
+			subtotal = subtotal.Add(lineSubtotal)
+			taxAmount = taxAmount.Add(lineTax)
 		}
 
-		input.Subtotal = subtotal
-		input.TaxAmount = taxAmount
-		input.Total = subtotal + taxAmount
+		input.Subtotal = legacyFloat(subtotal)
+		input.TaxAmount = legacyFloat(taxAmount)
+		input.Total = legacyFloat(subtotal.Add(taxAmount))
 
 		id, err := tx.CreateAPInvoice(ctx, input)
 		if err != nil {
@@ -225,13 +314,43 @@ func (s *Service) PostAPInvoice(ctx context.Context, input PostAPInvoiceInput) e
 	if inv.Status != APStatusDraft {
 		return ErrInvalidStatus
 	}
-	if err := s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
-		return tx.PostAPInvoice(ctx, input)
+	valuation, err := s.resolveInvoiceValuation(ctx, inv)
+	if err != nil {
+		return err
+	}
+	journalInTx := false
+	if err := s.repo.WithTx(ctx, func(txctx context.Context, tx TxRepository) error {
+		if poster, ok := tx.(TxValuatedAPInvoicePoster); ok {
+			if err := poster.PostAPInvoiceWithValuation(txctx, input, *valuation); err != nil {
+				return err
+			}
+		} else if err := tx.PostAPInvoice(txctx, input); err != nil {
+			return err
+		}
+		if handle, ok := tx.(interface{ PGXTx() pgx.Tx }); ok {
+			if accounting, ok := s.integration.(TransactionalAPAccountingPort); ok {
+				baseTotal, _ := strconv.ParseFloat(valuation.BaseAmount.String(), 64)
+				evt := procurement.APInvoicePostedEvent{ID: inv.ID, Number: inv.Number, SupplierID: inv.SupplierID, Total: inv.Total, BaseAmount: baseTotal, PostedAt: time.Now()}
+				if inv.GRNID != nil {
+					evt.GRNID = *inv.GRNID
+				}
+				if err := accounting.HandleAPInvoicePostedTx(txctx, handle.PGXTx(), evt); err != nil {
+					return err
+				}
+				journalInTx = true
+			}
+			if audit, ok := s.audit.(TransactionalAuditPort); ok {
+				if err := audit.RecordTx(txctx, handle.PGXTx(), shared.AuditLog{ActorID: input.PostedBy, Action: "post", Entity: "ap_invoice", EntityID: strconv.FormatInt(inv.ID, 10), Meta: map[string]any{"fx_rate": valuation.Rate.String()}}); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
 	}); err != nil {
 		return err
 	}
 
-	if s.integration != nil {
+	if s.integration != nil && !journalInTx {
 		invoice, err := s.repo.GetAPInvoice(ctx, input.InvoiceID)
 		if err != nil {
 			return err
@@ -245,12 +364,14 @@ func (s *Service) PostAPInvoice(ctx context.Context, input PostAPInvoiceInput) e
 			now := time.Now()
 			postedAt = &now
 		}
+		baseTotal, _ := strconv.ParseFloat(invoice.BaseAmount.String(), 64)
 		if err := s.integration.HandleAPInvoicePosted(ctx, procurement.APInvoicePostedEvent{
 			ID:         invoice.ID,
 			Number:     invoice.Number,
 			SupplierID: invoice.SupplierID,
 			GRNID:      grnID,
 			Total:      invoice.Total,
+			BaseAmount: baseTotal,
 			PostedAt:   *postedAt,
 		}); err != nil {
 			return err
@@ -260,6 +381,44 @@ func (s *Service) PostAPInvoice(ctx context.Context, input PostAPInvoiceInput) e
 		return s.tax.RecordAPInvoice(ctx, input.InvoiceID, input.PostedBy)
 	}
 	return nil
+}
+
+func (s *Service) resolveInvoiceValuation(ctx context.Context, inv APInvoice) (*APInvoiceValuation, error) {
+	base := "IDR"
+	if inv.Currency == "" || inv.Currency == base {
+		return &APInvoiceValuation{BaseCurrency: base, BaseAmount: accountingmoney.Must(strconv.FormatFloat(inv.Total, 'f', 2, 64), 2), Rate: fx.MustDecimal("1"), RateDate: time.Now(), Source: "INTERNAL", LockedAt: time.Now()}, nil
+	}
+	if s.fxResolver == nil {
+		return nil, fmt.Errorf("ap: FX resolver is required for %s invoice", inv.Currency)
+	}
+	date := time.Now()
+	quote, err := s.fxResolver.Resolve(ctx, base, inv.Currency, date)
+	if err != nil {
+		return nil, err
+	}
+	original, err := fx.ParseDecimal(inv.OriginalAmount.String())
+	if err != nil {
+		return nil, err
+	}
+	amount, err := fx.CalculateBaseAmount(original, quote.Rate)
+	if err != nil {
+		return nil, err
+	}
+	baseAmount, err := accountingmoney.Parse(amount.String(), 2)
+	if err != nil {
+		return nil, err
+	}
+	return &APInvoiceValuation{BaseCurrency: base, BaseAmount: baseAmount, Rate: quote.Rate, RateDate: quote.RateDate, Source: quote.Source, LockedAt: time.Now()}, nil
+}
+
+func (s *Service) resolvePaymentRate(ctx context.Context, currency string, date time.Time) (fx.FXQuote, error) {
+	if currency == "" || currency == "IDR" {
+		return fx.FXQuote{BaseCurrency: "IDR", QuoteCurrency: currency, Rate: fx.MustDecimal("1"), RateDate: date, Source: "INTERNAL"}, nil
+	}
+	if s.fxResolver == nil {
+		return fx.FXQuote{}, errors.New("ap: FX resolver is required for foreign-currency payment")
+	}
+	return s.fxResolver.Resolve(ctx, "IDR", currency, date)
 }
 
 // VoidAPInvoice voids an invoice.
@@ -285,27 +444,37 @@ func (s *Service) VoidAPInvoice(ctx context.Context, input VoidAPInvoiceInput) e
 
 // RegisterAPPayment records a payment.
 func (s *Service) RegisterAPPayment(ctx context.Context, input CreateAPPaymentInput) (APPayment, error) {
-	if input.Amount <= 0 {
+	amount, err := fx.FromLegacyFloat(input.Amount, 2)
+	if err != nil || amount.Cmp(fx.MustDecimal("0")) <= 0 {
 		return APPayment{}, errors.New("amount must be positive")
 	}
 	if len(input.Allocations) == 0 {
 		return APPayment{}, errors.New("at least one allocation required")
 	}
 
-	totalAllocated := 0.0
-	invoiceTotals := make(map[int64]float64)
+	totalAllocated := fx.MustDecimal("0")
+	invoiceTotals := make(map[int64]fx.Decimal)
+	invoices := make(map[int64]APInvoice)
 	for _, alloc := range input.Allocations {
-		if alloc.Amount <= 0 {
+		allocated, err := fx.FromLegacyFloat(alloc.Amount, 2)
+		if err != nil || allocated.Cmp(fx.MustDecimal("0")) <= 0 {
 			return APPayment{}, errors.New("allocation amount must be positive")
 		}
-		totalAllocated += alloc.Amount
-		invoiceTotals[alloc.APInvoiceID] += alloc.Amount
+		totalAllocated = totalAllocated.Add(allocated)
+		invoiceTotals[alloc.APInvoiceID] = invoiceTotals[alloc.APInvoiceID].Add(allocated)
 	}
 	var supplierID int64
 	for invoiceID, allocTotal := range invoiceTotals {
 		inv, err := s.repo.GetAPInvoice(ctx, invoiceID)
 		if err != nil {
 			return APPayment{}, err
+		}
+		invoices[invoiceID] = inv
+		if input.Currency == "" {
+			input.Currency = inv.Currency
+		}
+		if input.Currency != inv.Currency {
+			return APPayment{}, errors.New("payment allocations must use one currency")
 		}
 		if supplierID == 0 {
 			supplierID = inv.SupplierID
@@ -332,20 +501,52 @@ func (s *Service) RegisterAPPayment(ctx context.Context, input CreateAPPaymentIn
 		if err != nil {
 			return APPayment{}, err
 		}
-		if allocTotal > detail.Balance {
+		balance, err := fx.FromLegacyFloat(detail.Balance, 2)
+		if err != nil || allocTotal.Cmp(balance) > 0 {
 			return APPayment{}, fmt.Errorf("allocation exceeds invoice %s balance", inv.Number)
 		}
 	}
 	if input.SupplierID == 0 && supplierID != 0 {
 		input.SupplierID = supplierID
 	}
-	if totalAllocated > input.Amount {
+	if totalAllocated.Cmp(amount) > 0 {
 		return APPayment{}, errors.New("total allocation exceeds payment amount")
+	}
+	if input.Currency == "" {
+		input.Currency = "IDR"
+	}
+	rate, err := s.resolvePaymentRate(ctx, input.Currency, input.PaidAt)
+	if err != nil {
+		return APPayment{}, err
+	}
+	paymentRate := rate.Rate
+	paymentBase, err := fx.CalculateBaseAmount(amount, paymentRate)
+	if err != nil {
+		return APPayment{}, err
+	}
+	paymentVal := APPaymentValuation{Currency: input.Currency, BaseCurrency: "IDR", OriginalAmount: accountingmoney.Must(amount.String(), 2), BaseAmount: accountingmoney.Must(paymentBase.String(), 2), Rate: paymentRate, RateDate: rate.RateDate, Source: rate.Source, LockedAt: time.Now()}
+	allocVals := make([]APAllocationValuation, 0, len(input.Allocations))
+	for _, alloc := range input.Allocations {
+		invoice := invoices[alloc.APInvoiceID]
+		invoiceRate := invoice.FXRate
+		if invoiceRate.IsZero() {
+			invoiceRate = fx.MustDecimal("1")
+		}
+		allocated, err := fx.FromLegacyFloat(alloc.Amount, 2)
+		if err != nil {
+			return APPayment{}, err
+		}
+		pv, err := fx.CalculatePaymentValuation(allocated, invoiceRate, paymentRate)
+		if err != nil {
+			return APPayment{}, err
+		}
+		allocVals = append(allocVals, APAllocationValuation{InvoiceID: alloc.APInvoiceID, OriginalAmount: accountingmoney.Must(allocated.String(), 2), BaseAmount: accountingmoney.Must(pv.SettlementBaseAmount.String(), 2), Rate: paymentRate, RateDate: rate.RateDate, Source: rate.Source, LockedAt: time.Now()})
 	}
 
 	var paymentID int64
 	var allocationInvoiceID int64
-	err := s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
+	var paymentValuation APPaymentValuation = paymentVal
+	err = s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
 		if input.Number == "" {
 			num, err := tx.GenerateAPPaymentNumber(ctx)
 			if err != nil {
@@ -363,10 +564,34 @@ func (s *Service) RegisterAPPayment(ctx context.Context, input CreateAPPaymentIn
 			return err
 		}
 		paymentID = id
+		if writer, ok := tx.(TxAPPaymentValuationWriter); ok {
+			if err := writer.UpdateAPPaymentValuation(ctx, paymentID, paymentValuation); err != nil {
+				return err
+			}
+		}
 
-		for _, alloc := range input.Allocations {
+		for i, alloc := range input.Allocations {
 			if err := tx.CreatePaymentAllocation(ctx, alloc, id); err != nil {
 				return err
+			}
+			if writer, ok := tx.(TxAPPaymentValuationWriter); ok {
+				if err := writer.UpdateAPAllocationValuation(ctx, id, alloc.APInvoiceID, allocVals[i]); err != nil {
+					return err
+				}
+			}
+			if handle, ok := tx.(interface{ PGXTx() pgx.Tx }); ok {
+				if journal, ok := s.integration.(TransactionalAPPaymentFXJournalPort); ok {
+					p := &APPayment{ID: id, Number: input.Number, Amount: input.Amount, Currency: input.Currency, OriginalAmount: paymentVal.OriginalAmount, BaseCurrency: paymentVal.BaseCurrency, BaseAmount: paymentVal.BaseAmount, FXRate: paymentVal.Rate, FXRateDate: paymentVal.RateDate, FXRateSource: paymentVal.Source, FXRateLockedAt: paymentVal.LockedAt, PaidAt: input.PaidAt}
+					invoice := invoices[alloc.APInvoiceID]
+					if err := journal.CreateAPRealizedFXJournalTx(ctx, handle.PGXTx(), p, &invoice, allocVals[i]); err != nil {
+						return err
+					}
+				}
+				if audit, ok := s.audit.(TransactionalAuditPort); ok {
+					if err := audit.RecordTx(ctx, handle.PGXTx(), shared.AuditLog{ActorID: input.CreatedBy, Action: "record", Entity: "ap_payment", EntityID: strconv.FormatInt(paymentID, 10), Meta: map[string]any{"fx_rate": paymentVal.Rate.String(), "allocation_id": alloc.APInvoiceID}}); err != nil {
+						return err
+					}
+				}
 			}
 		}
 		return nil
@@ -395,14 +620,11 @@ func (s *Service) RegisterAPPayment(ctx context.Context, input CreateAPPaymentIn
 		apInvoiceIDPtr = &allocationInvoiceID
 	}
 	payment := APPayment{
-		ID:          paymentID,
-		Number:      input.Number,
-		APInvoiceID: apInvoiceIDPtr,
-		SupplierID:  input.SupplierID,
-		Amount:      input.Amount,
-		PaidAt:      input.PaidAt,
-		Method:      input.Method,
-		Note:        input.Note,
+		ID: paymentID, Number: input.Number, APInvoiceID: apInvoiceIDPtr, SupplierID: input.SupplierID,
+		Amount: input.Amount, Currency: paymentVal.Currency, OriginalAmount: paymentVal.OriginalAmount,
+		BaseCurrency: paymentVal.BaseCurrency, BaseAmount: paymentVal.BaseAmount, FXRate: paymentVal.Rate,
+		FXRateDate: paymentVal.RateDate, FXRateSource: paymentVal.Source, FXRateLockedAt: paymentVal.LockedAt,
+		PaidAt: input.PaidAt, Method: input.Method, Note: input.Note,
 	}
 
 	if s.integration != nil {
@@ -440,28 +662,29 @@ func (s *Service) CalculateAPAging(ctx context.Context, asOf time.Time) (APAging
 		return APAgingBucket{}, err
 	}
 
-	bucket := APAgingBucket{}
+	current, bucket30, bucket60, bucket90, bucket120 := fx.MustDecimal("0"), fx.MustDecimal("0"), fx.MustDecimal("0"), fx.MustDecimal("0"), fx.MustDecimal("0")
 
 	for _, inv := range balances {
-		if inv.Balance <= 0 {
+		balance, err := fx.FromLegacyFloat(inv.Balance, 2)
+		if err != nil || balance.Cmp(fx.MustDecimal("0")) <= 0 {
 			continue
 		}
 
 		daysOverdue := int(asOf.Sub(inv.DueAt).Hours() / 24)
 
 		if daysOverdue <= 0 {
-			bucket.Current += inv.Balance
+			current = current.Add(balance)
 		} else if daysOverdue <= 30 {
-			bucket.Bucket30 += inv.Balance
+			bucket30 = bucket30.Add(balance)
 		} else if daysOverdue <= 60 {
-			bucket.Bucket60 += inv.Balance
+			bucket60 = bucket60.Add(balance)
 		} else if daysOverdue <= 90 {
-			bucket.Bucket90 += inv.Balance
+			bucket90 = bucket90.Add(balance)
 		} else {
-			bucket.Bucket120 += inv.Balance
+			bucket120 = bucket120.Add(balance)
 		}
 	}
-	return bucket, nil
+	return APAgingBucket{Current: legacyFloat(current), Bucket30: legacyFloat(bucket30), Bucket60: legacyFloat(bucket60), Bucket90: legacyFloat(bucket90), Bucket120: legacyFloat(bucket120)}, nil
 }
 
 func (s *Service) ListAPInvoices(ctx context.Context, req ListAPInvoicesRequest) ([]APInvoice, error) {

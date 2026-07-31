@@ -4,6 +4,11 @@
 
 ### Added
 
+- Phase 14 transaction-level FX foundation and AR/AP integration: daily provider
+  rates, exact decimal valuation, locked invoice/payment rates, realized FX
+  journals, idempotent revaluation and reversal, manual override authorization,
+  FX audit records, worker scheduling, and `odyssey fx fetch/status` operations.
+
 - Phase 6 CRM with company/owner-scoped leads, contacts, opportunities, ordered
   stages, activities, timeline, reassignment, and win/loss dashboard.
 - Idempotent won-opportunity conversion reuses customer and quotation services;

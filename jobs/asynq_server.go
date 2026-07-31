@@ -43,6 +43,10 @@ type WorkerConfig struct {
 	RetryDelayFunc asynq.RetryDelayFunc
 	Handlers       []TaskHandler
 	Cron           []CronRegistration
+	FXFetcher      FXDailyRatesFetcher
+	FXCompanies    FXCompanyCurrencies
+	FXLocation     *time.Location
+	FXLogger       *slog.Logger
 }
 
 // NewWorker constructs a Worker instance.
@@ -59,6 +63,9 @@ func NewWorker(cfg WorkerConfig) (*Worker, error) {
 	mux.HandleFunc(TypeEmailDelivery, HandleEmailDeliveryTask(cfg.Logger, cfg.Mailer))
 	mux.HandleFunc(TaskInventoryRevaluation, HandleInventoryRevaluationTask)
 	mux.HandleFunc(TaskProcurementReindex, HandleProcurementReindexTask)
+	if cfg.FXFetcher != nil && cfg.FXCompanies != nil {
+		mux.HandleFunc(TaskFXDailyRates, HandleFXDailyRatesTask(cfg.FXFetcher, cfg.FXCompanies, cfg.FXLocation, cfg.FXLogger))
+	}
 	for _, h := range cfg.Handlers {
 		if h.Type == "" || h.Handler == nil {
 			continue

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/periods"
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/shared"
 	closepkg "github.com/odyssey-erp/odyssey-erp/internal/close"
@@ -15,6 +16,10 @@ import (
 
 type AuditPort interface {
 	Record(ctx context.Context, log internalShared.AuditLog) error
+}
+
+type TransactionalAuditPort interface {
+	RecordTx(context.Context, pgx.Tx, internalShared.AuditLog) error
 }
 
 type PeriodGuard interface {
@@ -102,6 +107,52 @@ func (s *Service) PostJournal(ctx context.Context, input PostingInput) (JournalE
 			},
 			At: s.now(),
 		})
+	}
+	return entry, nil
+}
+
+// PostJournalInTx posts a journal using the caller's transaction. This keeps
+// the journal, source link, audit event, and the caller's state transition in
+// one commit boundary.
+func (s *Service) PostJournalInTx(ctx context.Context, dbtx pgx.Tx, input PostingInput) (JournalEntry, error) {
+	if err := input.Validate(); err != nil {
+		return JournalEntry{}, err
+	}
+	factory, ok := s.repo.(ExistingTxRepository)
+	if !ok {
+		return JournalEntry{}, errors.New("accounting: repository does not support caller transaction")
+	}
+	tx := factory.TxRepositoryFor(dbtx)
+	period, err := tx.GetPeriodForUpdate(ctx, input.PeriodID)
+	if err != nil {
+		return JournalEntry{}, err
+	}
+	if period.Status == periods.PeriodStatusLocked {
+		return JournalEntry{}, shared.ErrPeriodLocked
+	}
+	if period.Status != periods.PeriodStatusOpen && period.Status != periods.PeriodStatusClosed {
+		return JournalEntry{}, shared.ErrInvalidPeriod
+	}
+	if input.Date.Before(period.StartDate) || input.Date.After(period.EndDate) {
+		return JournalEntry{}, shared.ErrDateOutOfRange
+	}
+	entry, err := tx.InsertJournalEntry(ctx, input)
+	if err != nil {
+		return JournalEntry{}, err
+	}
+	if err := tx.InsertJournalLines(ctx, entry.ID, input.Lines); err != nil {
+		return JournalEntry{}, err
+	}
+	if err := tx.LinkSource(ctx, input.SourceModule, input.SourceID, entry.ID); err != nil {
+		if errors.Is(err, shared.ErrSourceConflict) {
+			return JournalEntry{}, shared.ErrSourceAlreadyLinked
+		}
+		return JournalEntry{}, err
+	}
+	if audit, ok := s.audit.(TransactionalAuditPort); ok {
+		if err := audit.RecordTx(ctx, dbtx, internalShared.AuditLog{ActorID: input.PostedBy, Action: "journal.post", Entity: "journal_entry", EntityID: fmt.Sprint(entry.ID), Meta: map[string]any{"source_module": input.SourceModule}}); err != nil {
+			return JournalEntry{}, err
+		}
 	}
 	return entry, nil
 }

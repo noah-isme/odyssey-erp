@@ -104,6 +104,12 @@ fx-tools:
 	@echo "Preview FX backfill candidates:";
 	@echo "  odyssey fx backfill --pair $(FX_PAIR) --from $(FX_FROM) --to $(FX_TO) --source $(FX_SOURCE) --mode dry";
 
+fx-fetch:
+	$(GO_BIN) run ./cmd/odyssey fx fetch --date "$(FX_DATE)"
+
+fx-status:
+	$(GO_BIN) run ./cmd/odyssey fx status --date "$(FX_DATE)"
+
 analytics-dashboard:
 	curl -fsS "http://localhost:8080/finance/analytics?period=$(PERIOD)&company_id=$(COMPANY_ID)$(BRANCH_QUERY)"
 

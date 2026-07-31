@@ -29,6 +29,7 @@ type APInvoicePostedEvent struct {
 	SupplierID int64
 	GRNID      int64
 	Total      float64
+	BaseAmount float64
 	PostedAt   time.Time
 }
 

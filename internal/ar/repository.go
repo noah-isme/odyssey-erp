@@ -4,10 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	accountingmoney "github.com/odyssey-erp/odyssey-erp/internal/accounting/money"
+	"github.com/odyssey-erp/odyssey-erp/internal/fx"
 )
 
 // Repository provides PostgreSQL backed persistence for AR.
@@ -91,10 +94,27 @@ func (r *Repository) CreateARInvoice(ctx context.Context, input CreateARInvoiceI
 
 // CreateARInvoiceLine creates a line item for an invoice.
 func (r *Repository) CreateARInvoiceLine(ctx context.Context, invoiceID int64, line CreateARInvoiceLineInput) (*ARInvoiceLine, error) {
-	// Calculate line totals
-	subtotal := line.Quantity * line.UnitPrice * (1 - line.DiscountPct/100)
-	taxAmount := subtotal * (line.TaxPct / 100)
-	total := subtotal + taxAmount
+	// Convert legacy inputs once, then keep line arithmetic exact.
+	quantity, err := fx.FromLegacyFloat(line.Quantity, 6)
+	if err != nil {
+		return nil, err
+	}
+	unitPrice, err := fx.FromLegacyFloat(line.UnitPrice, 6)
+	if err != nil {
+		return nil, err
+	}
+	discount, err := fx.FromLegacyFloat(line.DiscountPct, 6)
+	if err != nil {
+		return nil, err
+	}
+	taxRate, err := fx.FromLegacyFloat(line.TaxPct, 6)
+	if err != nil {
+		return nil, err
+	}
+	hundred := fx.MustDecimal("100")
+	subtotal := quantity.Mul(unitPrice).Mul(fx.MustDecimal("1").Sub(discount.Div(hundred))).Round(2)
+	taxAmount := subtotal.Mul(taxRate.Div(hundred)).Round(2)
+	total := subtotal.Add(taxAmount).Round(2)
 
 	query := `
 		INSERT INTO ar_invoice_lines (
@@ -110,7 +130,7 @@ func (r *Repository) CreateARInvoiceLine(ctx context.Context, invoiceID int64, l
 	}
 
 	var result ARInvoiceLine
-	err := r.pool.QueryRow(ctx, query,
+	err = r.pool.QueryRow(ctx, query,
 		invoiceID,
 		doLineID,
 		line.ProductID,
@@ -119,9 +139,9 @@ func (r *Repository) CreateARInvoiceLine(ctx context.Context, invoiceID int64, l
 		line.UnitPrice,
 		line.DiscountPct,
 		line.TaxPct,
-		subtotal,
-		taxAmount,
-		total,
+		subtotal.String(),
+		taxAmount.String(),
+		total.String(),
 	).Scan(&result.ID, &result.CreatedAt)
 
 	if err != nil {
@@ -136,9 +156,9 @@ func (r *Repository) CreateARInvoiceLine(ctx context.Context, invoiceID int64, l
 	result.UnitPrice = line.UnitPrice
 	result.DiscountPct = line.DiscountPct
 	result.TaxPct = line.TaxPct
-	result.Subtotal = subtotal
-	result.TaxAmount = taxAmount
-	result.Total = total
+	result.Subtotal = legacyFloat(subtotal)
+	result.TaxAmount = legacyFloat(taxAmount)
+	result.Total = legacyFloat(total)
 
 	return &result, nil
 }
@@ -194,8 +214,64 @@ func (r *Repository) GetARInvoice(ctx context.Context, id int64) (*ARInvoice, er
 	if voidReason.Valid {
 		inv.VoidReason = voidReason.String
 	}
+	if err := r.loadInvoiceValuation(ctx, id, &inv); err != nil {
+		return nil, err
+	}
 
 	return &inv, nil
+}
+
+func (r *Repository) PostARInvoiceWithValuation(ctx context.Context, id, postedBy int64, v ARInvoiceValuation) error {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	var status string
+	if err = tx.QueryRow(ctx, `SELECT status FROM ar_invoices WHERE id=$1 FOR UPDATE`, id).Scan(&status); err != nil {
+		return err
+	}
+	if status != string(ARStatusDraft) {
+		return ErrInvalidStatus
+	}
+	if _, err = tx.Exec(ctx, `UPDATE ar_invoices SET base_currency=$2, base_amount=$3, fx_rate=$4, fx_rate_date=$5, fx_rate_source=$6, fx_rate_locked_at=$7, status='POSTED', posted_at=NOW(), posted_by=$8, updated_at=NOW() WHERE id=$1`, id, v.BaseCurrency, v.BaseAmount.String(), v.Rate.String(), v.RateDate, v.Source, v.LockedAt, postedBy); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+// loadInvoiceValuation reads NUMERIC columns as text. The legacy float fields
+// above remain projections for templates; they are not used for valuation.
+func (r *Repository) loadInvoiceValuation(ctx context.Context, id int64, inv *ARInvoice) error {
+	var original, base, rate, source, currency, baseCurrency string
+	var rateDate, lockedAt time.Time
+	err := r.pool.QueryRow(ctx, `SELECT COALESCE(currency,''), COALESCE(original_currency_amount,0)::text,
+		COALESCE(base_currency,''), COALESCE(base_amount,0)::text, COALESCE(fx_rate,0)::text,
+		COALESCE(fx_rate_date, DATE '0001-01-01'), COALESCE(fx_rate_source,''),
+		COALESCE(fx_rate_locked_at, TIMESTAMPTZ '0001-01-01') FROM ar_invoices WHERE id=$1`, id).
+		Scan(&currency, &original, &baseCurrency, &base, &rate, &rateDate, &source, &lockedAt)
+	if err != nil {
+		return err
+	}
+	var parseErr error
+	if inv.OriginalAmount, parseErr = accountingmoney.Parse(original, decimalScale(original)); parseErr != nil {
+		return parseErr
+	}
+	if inv.BaseAmount, parseErr = accountingmoney.Parse(base, decimalScale(base)); parseErr != nil {
+		return parseErr
+	}
+	inv.Currency, inv.BaseCurrency, inv.FXRateDate, inv.FXRateSource, inv.FXRateLockedAt = currency, baseCurrency, rateDate, source, lockedAt
+	inv.FXRate, parseErr = fx.ParseDecimal(rate)
+	return parseErr
+}
+
+func decimalScale(v string) int {
+	for i := 0; i < len(v); i++ {
+		if v[i] == '.' {
+			return len(v) - i - 1
+		}
+	}
+	return 0
 }
 
 func (r *Repository) GetARInvoiceByDelivery(ctx context.Context, deliveryOrderID int64) (*ARInvoice, error) {
@@ -638,6 +714,7 @@ type TxRepository interface {
 	PostARInvoice(ctx context.Context, id int64, postedBy int64) error
 	CreateARPayment(ctx context.Context, input CreateARPaymentInput) (*ARPayment, error)
 	CreatePaymentAllocation(ctx context.Context, paymentID, invoiceID int64, amount float64) error
+	GeneratePaymentNumber(ctx context.Context) (string, error)
 }
 
 // WithTx wraps callback in repeatable-read transaction.
@@ -660,6 +737,20 @@ type txRepo struct {
 	tx pgx.Tx
 }
 
+func (t *txRepo) PGXTx() pgx.Tx { return t.tx }
+
+func (t *txRepo) PostARInvoiceWithValuation(ctx context.Context, id, postedBy int64, v ARInvoiceValuation) error {
+	var status string
+	if err := t.tx.QueryRow(ctx, `SELECT status FROM ar_invoices WHERE id=$1 FOR UPDATE`, id).Scan(&status); err != nil {
+		return err
+	}
+	if status != string(ARStatusDraft) {
+		return ErrInvalidStatus
+	}
+	_, err := t.tx.Exec(ctx, `UPDATE ar_invoices SET base_currency=$2, base_amount=$3, fx_rate=$4, fx_rate_date=$5, fx_rate_source=$6, fx_rate_locked_at=$7, status='POSTED', posted_at=NOW(), posted_by=$8, updated_at=NOW() WHERE id=$1`, id, v.BaseCurrency, v.BaseAmount.String(), v.Rate.String(), v.RateDate, v.Source, v.LockedAt, postedBy)
+	return err
+}
+
 func (t *txRepo) CreateARInvoice(ctx context.Context, input CreateARInvoiceInput) (*ARInvoice, error) {
 	// Simplified - use main repo logic with tx
 	return nil, errors.New("not implemented in tx")
@@ -674,9 +765,35 @@ func (t *txRepo) PostARInvoice(ctx context.Context, id int64, postedBy int64) er
 }
 
 func (t *txRepo) CreateARPayment(ctx context.Context, input CreateARPaymentInput) (*ARPayment, error) {
-	return nil, errors.New("not implemented in tx")
+	var p ARPayment
+	var invoiceID int64
+	if len(input.Allocations) > 0 {
+		invoiceID = input.Allocations[0].ARInvoiceID
+	}
+	err := t.tx.QueryRow(ctx, `INSERT INTO ar_payments (number, ar_invoice_id, amount, currency, paid_at, method, note, created_by, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW(),NOW()) RETURNING id, created_at, updated_at`, input.Number, invoiceID, input.Amount, input.Currency, input.PaidAt, input.Method, input.Note, input.CreatedBy).Scan(&p.ID, &p.CreatedAt, &p.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	p.Number, p.ARInvoiceID, p.Amount, p.Currency, p.PaidAt, p.Method, p.Note, p.CreatedBy = input.Number, invoiceID, input.Amount, input.Currency, input.PaidAt, input.Method, input.Note, input.CreatedBy
+	return &p, nil
 }
 
 func (t *txRepo) CreatePaymentAllocation(ctx context.Context, paymentID, invoiceID int64, amount float64) error {
-	return errors.New("not implemented in tx")
+	_, err := t.tx.Exec(ctx, `INSERT INTO ar_payment_allocations (ar_payment_id, ar_invoice_id, amount, created_at) VALUES ($1,$2,$3,NOW())`, paymentID, invoiceID, amount)
+	return err
+}
+
+func (t *txRepo) GeneratePaymentNumber(ctx context.Context) (string, error) {
+	var n string
+	err := t.tx.QueryRow(ctx, `SELECT generate_ar_payment_number()`).Scan(&n)
+	return n, err
+}
+
+func (t *txRepo) UpdateARPaymentValuation(ctx context.Context, id int64, v ARPaymentValuation) error {
+	_, err := t.tx.Exec(ctx, `UPDATE ar_payments SET currency=$2, original_currency_amount=$3, base_currency=$4, base_amount=$5, fx_rate=$6, fx_rate_date=$7, fx_rate_source=$8, fx_rate_locked_at=$9, updated_at=NOW() WHERE id=$1`, id, v.Currency, v.OriginalAmount.String(), v.BaseCurrency, v.BaseAmount.String(), v.Rate.String(), v.RateDate, v.Source, v.LockedAt)
+	return err
+}
+func (t *txRepo) UpdateARAllocationValuation(ctx context.Context, paymentID, invoiceID int64, v ARAllocationValuation) error {
+	_, err := t.tx.Exec(ctx, `UPDATE ar_payment_allocations SET original_currency_amount=$3, base_amount=$4, currency=$5, base_currency=$6, fx_rate=$7, fx_rate_date=$8, fx_rate_source=$9, fx_rate_locked_at=$10 WHERE ar_payment_id=$1 AND ar_invoice_id=$2`, paymentID, invoiceID, v.OriginalAmount.String(), v.BaseAmount.String(), "", "IDR", v.Rate.String(), v.RateDate, v.Source, v.LockedAt)
+	return err
 }

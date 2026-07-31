@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/journals"
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/mappings"
@@ -19,6 +20,10 @@ import (
 // Ledger exposes journal posting operations required by integrations.
 type Ledger interface {
 	PostJournal(ctx context.Context, input journals.PostingInput) (journals.JournalEntry, error)
+}
+
+type TransactionalLedger interface {
+	PostJournalInTx(ctx context.Context, tx pgx.Tx, input journals.PostingInput) (journals.JournalEntry, error)
 }
 
 // PeriodRepository provides period lookups.
@@ -61,6 +66,35 @@ func (h *Hooks) post(ctx context.Context, input journals.PostingInput) error {
 			return nil
 		}
 	}
+	return err
+}
+
+func (h *Hooks) postTx(ctx context.Context, tx pgx.Tx, input journals.PostingInput) error {
+	if input.SourceID == uuid.Nil {
+		return errors.New("integration: source id required")
+	}
+	ledger, ok := h.ledger.(TransactionalLedger)
+	if !ok {
+		return errors.New("integration: ledger does not support caller transaction")
+	}
+	_, err := ledger.PostJournalInTx(ctx, tx, input)
+	if errors.Is(err, shared.ErrSourceAlreadyLinked) {
+		return nil
+	}
+	return err
+}
+
+func (h *Hooks) postFXTx(ctx context.Context, tx pgx.Tx, sourceKey string, input journals.PostingInput) error {
+	var journalID int64
+	err := tx.QueryRow(ctx, `SELECT journal_entry_id FROM fx_journal_idempotency WHERE source_key=$1`, sourceKey).Scan(&journalID)
+	if err == nil { return nil }
+	if !errors.Is(err, pgx.ErrNoRows) { return err }
+	ledger, ok := h.ledger.(TransactionalLedger)
+	if !ok { return errors.New("integration: ledger does not support caller transaction") }
+	entry, err := ledger.PostJournalInTx(ctx, tx, input)
+	if errors.Is(err, shared.ErrSourceAlreadyLinked) { return nil }
+	if err != nil { return err }
+	_, err = tx.Exec(ctx, `INSERT INTO fx_journal_idempotency (source_key, journal_entry_id) VALUES ($1,$2) ON CONFLICT (source_key) DO NOTHING`, sourceKey, entry.ID)
 	return err
 }
 
@@ -137,6 +171,7 @@ func (h *Hooks) HandleAPInvoicePosted(ctx context.Context, evt procurement.APInv
 		return err
 	}
 	amount := round2(evt.Total)
+	if evt.BaseAmount > 0 { amount = round2(evt.BaseAmount) }
 	sourceID := uuid.NewSHA1(uuid.Nil, []byte(fmt.Sprintf("APINV:%d", evt.ID)))
 	input := journals.PostingInput{
 		PeriodID:     period.ID,
@@ -150,6 +185,37 @@ func (h *Hooks) HandleAPInvoicePosted(ctx context.Context, evt procurement.APInv
 		},
 	}
 	return h.post(ctx, input)
+}
+
+func (h *Hooks) HandleAPInvoicePostedTx(ctx context.Context, tx pgx.Tx, evt procurement.APInvoicePostedEvent) error {
+	if h == nil || h.ledger == nil || h.periodRepo == nil || h.mappingRepo == nil {
+		return nil
+	}
+	if evt.PostedAt.IsZero() {
+		return errors.New("integration: AP invoice post date required")
+	}
+	if evt.Total <= 0 {
+		return nil
+	}
+	period, err := h.periodRepo.FindOpenPeriodByDate(ctx, evt.PostedAt)
+	if err != nil {
+		return err
+	}
+	key := "ap.invoice.expense"
+	if evt.GRNID != 0 {
+		key = "ap.invoice.inventory"
+	}
+	debit, err := h.resolveAccount(ctx, "AP", key)
+	if err != nil {
+		return err
+	}
+	ap, err := h.resolveAccount(ctx, "AP", "ap.invoice.ap")
+	if err != nil {
+		return err
+	}
+	amount := round2(evt.Total)
+	if evt.BaseAmount > 0 { amount = round2(evt.BaseAmount) }
+	return h.postTx(ctx, tx, journals.PostingInput{PeriodID: period.ID, Date: evt.PostedAt, SourceModule: "PROCUREMENT.AP_INVOICE", SourceID: uuid.NewSHA1(uuid.Nil, []byte(fmt.Sprintf("APINV:%d", evt.ID))), Memo: fmt.Sprintf("AP Invoice %s", evt.Number), Lines: []journals.PostingLineInput{{AccountID: debit, Debit: amount}, {AccountID: ap, Credit: amount}}})
 }
 
 // HandleAPPaymentPosted posts the accounting entry for an AP payment.

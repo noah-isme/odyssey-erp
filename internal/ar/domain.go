@@ -2,6 +2,9 @@ package ar
 
 import (
 	"time"
+
+	accountingmoney "github.com/odyssey-erp/odyssey-erp/internal/accounting/money"
+	"github.com/odyssey-erp/odyssey-erp/internal/fx"
 )
 
 // ARInvoiceStatus enumerates AR invoice statuses.
@@ -22,11 +25,20 @@ type ARInvoice struct {
 	SOID            int64
 	DeliveryOrderID int64
 	Currency        string
-	Subtotal        float64
-	TaxAmount       float64
-	Total           float64
-	Status          ARInvoiceStatus
-	DueAt           time.Time
+	OriginalAmount  accountingmoney.Money
+	BaseCurrency    string
+	BaseAmount      accountingmoney.Money
+	FXRate          fx.Decimal
+	FXRateDate      time.Time
+	FXRateSource    string
+	FXRateLockedAt  time.Time
+	// The float fields below are legacy UI compatibility fields. New
+	// accounting calculations must use the exact valuation fields above.
+	Subtotal  float64
+	TaxAmount float64
+	Total     float64
+	Status    ARInvoiceStatus
+	DueAt     time.Time
 	// CustomerName is populated by listing queries that join customers; other
 	// reads leave it empty.
 	CustomerName string
@@ -69,16 +81,24 @@ type ARInvoiceWithDetails struct {
 
 // ARPayment model.
 type ARPayment struct {
-	ID          int64
-	Number      string
-	ARInvoiceID int64
-	Amount      float64
-	PaidAt      time.Time
-	Method      string
-	Note        string
-	CreatedBy   int64
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID             int64
+	Number         string
+	ARInvoiceID    int64
+	Amount         float64
+	Currency       string
+	OriginalAmount accountingmoney.Money
+	BaseCurrency   string
+	BaseAmount     accountingmoney.Money
+	FXRate         fx.Decimal
+	FXRateDate     time.Time
+	FXRateSource   string
+	FXRateLockedAt time.Time
+	PaidAt         time.Time
+	Method         string
+	Note           string
+	CreatedBy      int64
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 	// InvoiceNumber and CustomerName are populated by listing queries that
 	// join the invoice and its customer; other reads leave them empty.
 	InvoiceNumber string
@@ -98,11 +118,19 @@ type ARPaymentSummary struct {
 
 // ARPaymentAllocation tracks how payments are applied to invoices.
 type ARPaymentAllocation struct {
-	ID          int64
-	ARPaymentID int64
-	ARInvoiceID int64
-	Amount      float64
-	CreatedAt   time.Time
+	ID             int64
+	ARPaymentID    int64
+	ARInvoiceID    int64
+	Amount         float64
+	Currency       string
+	OriginalAmount accountingmoney.Money
+	BaseCurrency   string
+	BaseAmount     accountingmoney.Money
+	FXRate         fx.Decimal
+	FXRateDate     time.Time
+	FXRateSource   string
+	FXRateLockedAt time.Time
+	CreatedAt      time.Time
 }
 
 // ARAgingBucket summarises totals by aging periods.
@@ -177,6 +205,7 @@ type VoidARInvoiceInput struct {
 // CreateARPaymentInput for creating AR payments.
 type CreateARPaymentInput struct {
 	Number      string
+	Currency    string
 	Amount      float64
 	PaidAt      time.Time
 	Method      string
