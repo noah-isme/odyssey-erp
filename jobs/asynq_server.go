@@ -37,17 +37,19 @@ type CronRegistration struct {
 
 // WorkerConfig collects dependencies required to bootstrap the worker.
 type WorkerConfig struct {
-	RedisOpts asynq.RedisClientOpt
-	Logger    *slog.Logger
-	Mailer    Mailer
-	Handlers  []TaskHandler
-	Cron      []CronRegistration
+	RedisOpts      asynq.RedisClientOpt
+	Logger         *slog.Logger
+	Mailer         Mailer
+	RetryDelayFunc asynq.RetryDelayFunc
+	Handlers       []TaskHandler
+	Cron           []CronRegistration
 }
 
 // NewWorker constructs a Worker instance.
 func NewWorker(cfg WorkerConfig) (*Worker, error) {
 	srv := asynq.NewServer(cfg.RedisOpts, asynq.Config{
-		Concurrency: 5,
+		Concurrency:    5,
+		RetryDelayFunc: cfg.RetryDelayFunc,
 		Queues: map[string]int{
 			QueueDefault: 1,
 		},

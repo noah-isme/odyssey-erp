@@ -91,3 +91,33 @@ func TestServiceValidatesCreateAndBoundsListLimit(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, items, 1)
 }
+
+func TestServiceUnreadAndReadAllRespectRecipientIsolation(t *testing.T) {
+	store := &memoryStore{items: []Notification{
+		{ID: 1, RecipientID: 9, Type: TypeInvoiceIssued},
+		{ID: 2, RecipientID: 10, Type: TypeInvoiceIssued},
+		{ID: 3, RecipientID: 9, Type: TypePasswordReset, ReadAt: func() *time.Time { ts := time.Date(2026, 7, 30, 12, 0, 0, 0, time.UTC); return &ts }()},
+	}}
+	service := NewService(store)
+
+	items, err := service.ListUnread(context.Background(), 9, 50)
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	require.Equal(t, int64(1), items[0].ID)
+
+	count, err := service.UnreadCount(context.Background(), 9)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), count)
+
+	updated, err := service.MarkAllRead(context.Background(), 9)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), updated)
+
+	count, err = service.UnreadCount(context.Background(), 9)
+	require.NoError(t, err)
+	require.Zero(t, count)
+
+	count, err = service.UnreadCount(context.Background(), 10)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), count)
+}

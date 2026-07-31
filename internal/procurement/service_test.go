@@ -315,3 +315,54 @@ func TestGRNPostPropagatesTraceabilityToInventory(t *testing.T) {
 	require.Equal(t, expiry, *inv.records[0].ExpiryDate)
 	require.Equal(t, []string{"SN-001", "SN-002"}, inv.records[0].SerialNumbers)
 }
+
+func TestCreateGoodsReturnPreventsDuplicateQuantities(t *testing.T) {
+	repo := newMemoryProcRepo()
+	repo.grns[1] = GoodsReceipt{ID: 1, SupplierID: 7, POID: 22, Status: GRNStatusPosted}
+	repo.grnLines[1] = []GRNLine{{ID: 9, ProductID: 100, Qty: 5, UnitCost: 12}}
+	svc := NewService(nil, repo, nil, nil, nil, nil, nil)
+
+	_, err := svc.CreateGoodsReturnGRN(context.Background(), CreateGoodsReturnGRNInput{
+		GRNID:       1,
+		CompanyID:   3,
+		SupplierID:  7,
+		WarehouseID: 4,
+		Reason:      "damaged",
+		Lines: []GoodsReturnGRNLineInput{
+			{GRNLineID: 9, ProductID: 100, QuantityReturned: 3, UnitCost: 12},
+			{GRNLineID: 9, ProductID: 100, QuantityReturned: 3, UnitCost: 12},
+		},
+	})
+	require.ErrorContains(t, err, "quantity returned exceeds GRN line quantity")
+}
+
+func TestGoodsReturnLifecycleTransitions(t *testing.T) {
+	repo := newMemoryProcRepo()
+	repo.grns[1] = GoodsReceipt{ID: 1, SupplierID: 7, POID: 22, Status: GRNStatusPosted}
+	repo.grnLines[1] = []GRNLine{{ID: 9, ProductID: 100, Qty: 5, UnitCost: 12}}
+	svc := NewService(nil, repo, &stubInventory{}, nil, nil, nil, nil)
+
+	ret, err := svc.CreateGoodsReturnGRN(context.Background(), CreateGoodsReturnGRNInput{
+		GRNID:       1,
+		CompanyID:   3,
+		SupplierID:  7,
+		WarehouseID: 4,
+		Reason:      "damaged",
+		Lines:       []GoodsReturnGRNLineInput{{GRNLineID: 9, ProductID: 100, QuantityReturned: 2, UnitCost: 12}},
+	})
+	require.NoError(t, err)
+	require.Equal(t, GoodsReturnStatusDraft, ret.Status)
+
+	confirmed, err := svc.ConfirmGoodsReturnGRN(context.Background(), ret.ID, 11)
+	require.NoError(t, err)
+	require.Equal(t, GoodsReturnStatusConfirmed, confirmed.Status)
+
+	_, err = svc.ConfirmGoodsReturnGRN(context.Background(), ret.ID, 11)
+	require.ErrorIs(t, err, ErrInvalidState)
+
+	cancelRepo := newMemoryProcRepo()
+	cancelRepo.returns[2] = GoodsReturnGRN{ID: 2, Number: "GRN-RET-2", Status: GoodsReturnStatusCancelled}
+	cancelSvc := NewService(nil, cancelRepo, nil, nil, nil, nil, nil)
+	_, err = cancelSvc.CancelGoodsReturnGRN(context.Background(), 2, 11)
+	require.ErrorIs(t, err, ErrInvalidState)
+}

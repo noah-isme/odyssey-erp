@@ -598,6 +598,36 @@ func TestPostAPDebitNoteAlreadyPostedIsIdempotent(t *testing.T) {
 	require.Zero(t, taxFake.debitNoteCalls, "already-posted endpoint must not duplicate the tax ISSUED hook")
 }
 
+func TestVoidAPDebitNoteRequiresReasonAndDraftStatus(t *testing.T) {
+	repo := newMemoryAPRepo()
+	repo.debitNotes[1] = &APDebitNote{ID: 1, Status: APDebitNoteStatusDraft}
+	svc := NewService(repo, nil)
+
+	err := svc.VoidAPDebitNote(context.Background(), VoidAPDebitNoteInput{DebitNoteID: 1, VoidedBy: 7})
+	require.ErrorContains(t, err, "void reason required")
+
+	err = svc.VoidAPDebitNote(context.Background(), VoidAPDebitNoteInput{DebitNoteID: 1, VoidedBy: 7, VoidReason: "duplicate return"})
+	require.NoError(t, err)
+	require.Equal(t, APDebitNoteStatusVoid, repo.debitNotes[1].Status)
+
+	err = svc.VoidAPDebitNote(context.Background(), VoidAPDebitNoteInput{DebitNoteID: 1, VoidedBy: 7, VoidReason: "duplicate return"})
+	require.ErrorIs(t, err, ErrInvalidStatus)
+}
+
+func TestPostAPDebitNoteRecordsTaxOnce(t *testing.T) {
+	repo := newMemoryAPRepo()
+	repo.invoices[1] = APInvoice{ID: 1, SupplierID: 10, Total: 100, Status: APStatusPosted}
+	repo.debitNotes[1] = &APDebitNote{ID: 1, APInvoiceID: 1, SupplierID: 10, Total: 50, Status: APDebitNoteStatusDraft}
+	taxFake := &taxPortFake{}
+	svc := NewService(repo, nil)
+	svc.SetTaxService(taxFake)
+
+	require.NoError(t, svc.PostAPDebitNote(context.Background(), PostAPDebitNoteInput{DebitNoteID: 1, PostedBy: 7}))
+	require.NoError(t, svc.PostAPDebitNote(context.Background(), PostAPDebitNoteInput{DebitNoteID: 1, PostedBy: 7}))
+	require.Equal(t, 1, taxFake.debitNoteCalls)
+	require.Equal(t, APDebitNoteStatusPosted, repo.debitNotes[1].Status)
+}
+
 func fmtInt(val int64) string {
 	return strconv.FormatInt(val, 10)
 }

@@ -18,6 +18,20 @@ func (p preferenceFake) Channels(context.Context, int64, string) (Channels, erro
 }
 func (p preferenceFake) UserEmail(context.Context, int64) (string, error) { return p.email, nil }
 
+type preferenceMatrixFake struct {
+	channels map[string]Channels
+	email    string
+}
+
+func (p preferenceMatrixFake) Channels(_ context.Context, _ int64, typ string) (Channels, error) {
+	if ch, ok := p.channels[typ]; ok {
+		return ch, nil
+	}
+	return Channels{InApp: true, Email: true}, nil
+}
+
+func (p preferenceMatrixFake) UserEmail(context.Context, int64) (string, error) { return p.email, nil }
+
 type emailQueueFake struct {
 	messages []Email
 	failures int
@@ -60,4 +74,27 @@ func TestDispatcherRetryDoesNotDuplicateInAppNotification(t *testing.T) {
 	require.Len(t, queue.messages, 2)
 	require.Equal(t, "notification-email-1", queue.messages[0].CorrelationID)
 	require.Equal(t, queue.messages[0].CorrelationID, queue.messages[1].CorrelationID)
+}
+
+func TestDispatcherHonorsPerEventChannelPreferences(t *testing.T) {
+	store := &memoryStore{}
+	queue := &emailQueueFake{}
+	dispatcher := NewDispatcher(NewService(store), preferenceMatrixFake{
+		channels: map[string]Channels{
+			TypeInvoiceIssued:   {InApp: false, Email: true},
+			TypePasswordReset:   {InApp: true, Email: false},
+			TypeReportDelivered: {InApp: true, Email: false},
+		},
+		email: "person@example.com",
+	}, queue)
+
+	require.NoError(t, dispatcher.Dispatch(context.Background(), InvoiceIssued(8, 12, "INV-12")))
+	require.Empty(t, store.items)
+	require.Len(t, queue.messages, 1)
+	require.Equal(t, "person@example.com", queue.messages[0].To)
+
+	require.NoError(t, dispatcher.Dispatch(context.Background(), PasswordReset(8, "request-2")))
+	require.Len(t, store.items, 1)
+	require.Len(t, queue.messages, 1)
+	require.Equal(t, TypePasswordReset, store.items[0].Type)
 }

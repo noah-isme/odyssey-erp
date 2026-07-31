@@ -135,6 +135,55 @@ func TestLoginInvalidCredentials(t *testing.T) {
 	}
 }
 
+func TestLoginSuccessSetsSessionUser(t *testing.T) {
+	hashed, err := bcrypt.GenerateFromPassword([]byte("correctpass"), bcrypt.DefaultCost)
+	if err != nil {
+		t.Fatalf("hash: %v", err)
+	}
+	handler, sessionManager, _ := newAuthHandler(t, &stubRepo{user: &auth.User{ID: 1, Email: "user@test.local", PasswordHash: string(hashed), IsActive: true}})
+
+	getReq := httptest.NewRequest(http.MethodGet, "/auth/login", nil)
+	sess, err := sessionManager.Load(context.Background(), getReq)
+	if err != nil {
+		t.Fatalf("load session: %v", err)
+	}
+	getCtx := shared.ContextWithSession(getReq.Context(), sess)
+	getReq = getReq.WithContext(getCtx)
+	getRes := httptest.NewRecorder()
+	handler.ShowLoginForTest(getRes, getReq)
+	if err := sessionManager.Commit(getCtx, getRes, getReq, sess); err != nil {
+		t.Fatalf("commit session: %v", err)
+	}
+
+	postData := url.Values{}
+	postData.Set("email", "user@test.local")
+	postData.Set("password", "correctpass")
+
+	postReq := httptest.NewRequest(http.MethodPost, "/auth/login", strings.NewReader(postData.Encode()))
+	postReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	postReq.AddCookie(&http.Cookie{Name: sessionManager.CookieName(), Value: sess.ID})
+
+	loadedSess, err := sessionManager.Load(context.Background(), postReq)
+	if err != nil {
+		t.Fatalf("load session for post: %v", err)
+	}
+	postCtx := shared.ContextWithSession(postReq.Context(), loadedSess)
+	postReq = postReq.WithContext(postCtx)
+
+	res := httptest.NewRecorder()
+	handler.HandleLoginForTest(res, postReq)
+	if err := sessionManager.Commit(postCtx, res, postReq, loadedSess); err != nil {
+		t.Fatalf("commit session post: %v", err)
+	}
+
+	if res.Code != http.StatusSeeOther {
+		t.Fatalf("expected redirect, got %d", res.Code)
+	}
+	if loadedSess.User() != "1" {
+		t.Fatalf("expected session user 1, got %q", loadedSess.User())
+	}
+}
+
 func TestLoginRateLimit(t *testing.T) {
 	handler, _, _ := newAuthHandler(t, &stubRepo{})
 	router := chi.NewRouter()

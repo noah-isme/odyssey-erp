@@ -6,11 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"io"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Row struct {
@@ -25,7 +27,13 @@ type ImportResult struct {
 	Total, Accepted, Rejected int
 	Errors                    []string
 }
-type Service struct{ pool *pgxpool.Pool }
+type db interface {
+	Begin(context.Context) (pgx.Tx, error)
+	Query(context.Context, string, ...any) (pgx.Rows, error)
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
+type Service struct{ pool db }
 
 func NewService(pool *pgxpool.Pool) *Service { return &Service{pool: pool} }
 func ParseCSV(reader io.Reader) ([]Row, []string, error) {
@@ -47,6 +55,7 @@ func ParseCSV(reader io.Reader) ([]Row, []string, error) {
 	}
 	var rows []Row
 	var problems []string
+	seen := make(map[string]struct{})
 	for i, record := range records[1:] {
 		get := func(k string) string {
 			idx, ok := header[k]
@@ -64,6 +73,12 @@ func ParseCSV(reader io.Reader) ([]Row, []string, error) {
 			problems = append(problems, fmt.Sprintf("line %d: employee_number and YYYY-MM-DD date are required", row.Line))
 			continue
 		}
+		key := row.EmployeeNumber + "\x00" + row.Date.Format("2006-01-02")
+		if _, exists := seen[key]; exists {
+			problems = append(problems, fmt.Sprintf("line %d: duplicate employee/date row", row.Line))
+			continue
+		}
+		seen[key] = struct{}{}
 		parseTime := func(v string) (*time.Time, error) {
 			if v == "" {
 				return nil, nil

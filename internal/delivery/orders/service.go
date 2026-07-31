@@ -499,6 +499,7 @@ func (s *Service) CreateReturnDeliveryOrder(ctx context.Context, req CreateRetur
 	for i := range original.Lines {
 		originalLineMap[original.Lines[i].ID] = &original.Lines[i]
 	}
+	requestedQty := make(map[int64]float64)
 
 	for _, lineReq := range req.Lines {
 		originalLine, ok := originalLineMap[lineReq.DeliveryOrderLineID]
@@ -511,7 +512,8 @@ func (s *Service) CreateReturnDeliveryOrder(ctx context.Context, req CreateRetur
 		if lineReq.QuantityReturned <= 0 {
 			return nil, fmt.Errorf("quantity returned must be positive")
 		}
-		if lineReq.QuantityReturned > originalLine.QuantityDelivered {
+		requestedQty[lineReq.DeliveryOrderLineID] += lineReq.QuantityReturned
+		if requestedQty[lineReq.DeliveryOrderLineID] > originalLine.QuantityDelivered {
 			return nil, fmt.Errorf("quantity returned exceeds delivered quantity")
 		}
 		returnedQuantity, err := s.repo.GetReturnedQuantity(ctx, lineReq.DeliveryOrderLineID)

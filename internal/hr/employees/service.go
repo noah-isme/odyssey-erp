@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -21,7 +22,12 @@ type CreateInput struct {
 	EmployeeNumber, Name, Email                 string
 	HireDate                                    time.Time
 }
-type Service struct{ pool *pgxpool.Pool }
+type db interface {
+	Query(context.Context, string, ...any) (pgx.Rows, error)
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
+type Service struct{ pool db }
 
 func NewService(pool *pgxpool.Pool) *Service { return &Service{pool: pool} }
 func (s *Service) List(ctx context.Context, companyID int64) ([]Employee, error) {

@@ -122,3 +122,50 @@ func TestConfirmReturnRestocksSelectedWarehouse(t *testing.T) {
 	require.Equal(t, int64(8), stock.restocked[0].WarehouseID)
 	require.Equal(t, 2.0, stock.restocked[0].Quantity)
 }
+
+func TestConfirmReturnReversesOnCancel(t *testing.T) {
+	repo := &returnRepoFake{returned: &ReturnDeliveryOrder{ID: 1, Number: "RDO-2", WarehouseID: 4, Status: ReturnStatusConfirmed, Lines: []ReturnLine{{ProductID: 9, QuantityReturned: 2, UnitPrice: 30}}}}
+	stock := &inventoryFake{}
+	service := NewService(repo)
+	service.SetInventory(stock)
+
+	returned, err := service.CancelReturnDeliveryOrder(context.Background(), 1, 3, "customer rejected")
+	require.NoError(t, err)
+	require.Equal(t, ReturnStatusCancelled, returned.Status)
+	require.Len(t, stock.restocked, 1)
+	require.Equal(t, -2.0, stock.restocked[0].Quantity)
+	require.Equal(t, "RDO-RDO-2-X", stock.restocked[0].Code)
+}
+
+func TestCreateReturnRejectsDuplicateLinesBeyondDelivered(t *testing.T) {
+	repo := &returnRepoFake{
+		delivery: &DeliveryOrder{
+			ID:          10,
+			CompanyID:   1,
+			CustomerID:  2,
+			Status:      StatusDelivered,
+			WarehouseID: 4,
+			Lines:       []Line{{ID: 7, ProductID: 9, QuantityDelivered: 5}},
+		},
+	}
+	service := NewService(repo)
+
+	_, err := service.CreateReturnDeliveryOrder(context.Background(), CreateReturnRequest{
+		CompanyID:               1,
+		OriginalDeliveryOrderID: 10,
+		ReturnDate:              time.Now(),
+		Lines: []CreateReturnLineReq{
+			{DeliveryOrderLineID: 7, ProductID: 9, QuantityReturned: 3},
+			{DeliveryOrderLineID: 7, ProductID: 9, QuantityReturned: 3},
+		},
+	}, 3)
+	require.ErrorContains(t, err, "quantity returned exceeds delivered quantity")
+}
+
+func TestConfirmReturnRejectsInvalidStatus(t *testing.T) {
+	repo := &returnRepoFake{returned: &ReturnDeliveryOrder{ID: 1, Number: "RDO-3", WarehouseID: 4, Status: ReturnStatusCancelled, Lines: []ReturnLine{{ProductID: 9, QuantityReturned: 2, UnitPrice: 30}}}}
+	service := NewService(repo)
+	_, err := service.ConfirmReturnDeliveryOrder(context.Background(), 1, 3)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "cannot confirm return delivery order")
+}

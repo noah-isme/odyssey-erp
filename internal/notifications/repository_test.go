@@ -57,3 +57,30 @@ func TestRepositoryChannelsDefaultsWhenPreferenceMissing(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, Channels{InApp: true, Email: true}, channels)
 }
+
+func TestRepositoryMarkAllRead(t *testing.T) {
+	db, err := pgxmock.NewPool()
+	require.NoError(t, err)
+	defer db.Close()
+	repo := NewRepository(db)
+	at := time.Date(2026, 7, 31, 9, 0, 0, 0, time.UTC)
+
+	db.ExpectExec("UPDATE notifications SET read_at").WithArgs(int64(7), at).WillReturnResult(pgxmock.NewResult("UPDATE", 2))
+	updated, err := repo.MarkAllRead(context.Background(), 7, at)
+	require.NoError(t, err)
+	require.Equal(t, int64(2), updated)
+	require.NoError(t, db.ExpectationsWereMet())
+}
+
+func TestRepositoryChannelsUsesPreferenceValues(t *testing.T) {
+	db, err := pgxmock.NewPool()
+	require.NoError(t, err)
+	defer db.Close()
+	repo := NewRepository(db)
+
+	db.ExpectQuery("SELECT in_app_enabled").WithArgs(int64(3), TypePasswordReset).WillReturnRows(pgxmock.NewRows([]string{"in_app_enabled", "email_enabled"}).AddRow(false, true))
+	channels, err := repo.Channels(context.Background(), 3, TypePasswordReset)
+	require.NoError(t, err)
+	require.Equal(t, Channels{InApp: false, Email: true}, channels)
+	require.NoError(t, db.ExpectationsWereMet())
+}

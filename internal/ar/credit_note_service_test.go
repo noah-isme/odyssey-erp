@@ -89,6 +89,18 @@ func (f *accountingFake) CreateARCreditNoteJournal(_ context.Context, note *ARCr
 	return nil
 }
 
+type taxFake struct {
+	creditNotes int
+}
+
+func (f *taxFake) RecordARInvoice(context.Context, int64, int64) error         { return nil }
+func (f *taxFake) RecordARPayment(context.Context, int64, int64) error         { return nil }
+func (f *taxFake) CancelARInvoice(context.Context, int64, int64, string) error { return nil }
+func (f *taxFake) RecordARCreditNote(context.Context, int64, int64) error {
+	f.creditNotes++
+	return nil
+}
+
 func TestCreateAndPostCreditNoteFromConfirmedReturn(t *testing.T) {
 	ctx := context.Background()
 	repo := newCreditNoteMemoryRepo()
@@ -127,4 +139,35 @@ func TestPostCreditNoteRejectsAmountAboveRemainingCredit(t *testing.T) {
 	err := service.PostARCreditNote(ctx, PostARCreditNoteInput{CreditNoteID: 1, PostedBy: 4})
 	require.ErrorIs(t, err, ErrCreditExceedsBalance)
 	require.Equal(t, ARCreditNoteStatusDraft, repo.notes[1].Status)
+}
+
+func TestVoidCreditNoteRequiresReasonAndDraftStatus(t *testing.T) {
+	ctx := context.Background()
+	repo := newCreditNoteMemoryRepo()
+	repo.notes[1] = &ARCreditNote{ID: 1, ARInvoiceID: 1, Status: ARCreditNoteStatusDraft}
+	service := NewService(repo)
+
+	err := service.VoidARCreditNote(ctx, VoidARCreditNoteInput{CreditNoteID: 1, VoidedBy: 9})
+	require.ErrorContains(t, err, "void reason required")
+
+	err = service.VoidARCreditNote(ctx, VoidARCreditNoteInput{CreditNoteID: 1, VoidedBy: 9, VoidReason: "duplicate"})
+	require.NoError(t, err)
+	require.Equal(t, ARCreditNoteStatusVoid, repo.notes[1].Status)
+}
+
+func TestPostCreditNoteIsIdempotentAndDoesNotDuplicateTaxCapture(t *testing.T) {
+	ctx := context.Background()
+	repo := newCreditNoteMemoryRepo()
+	repo.available = 500
+	repo.invoices[1] = &ARInvoice{ID: 1, Status: ARStatusPosted}
+	repo.notes[1] = &ARCreditNote{ID: 1, ARInvoiceID: 1, Total: 120, Status: ARCreditNoteStatusDraft}
+	service := NewService(repo)
+	tax := &taxFake{}
+	service.SetTaxService(tax)
+
+	require.NoError(t, service.PostARCreditNote(ctx, PostARCreditNoteInput{CreditNoteID: 1, PostedBy: 4}))
+	require.NoError(t, service.PostARCreditNote(ctx, PostARCreditNoteInput{CreditNoteID: 1, PostedBy: 4}))
+	require.Equal(t, 1, tax.creditNotes)
+	require.Equal(t, ARCreditNoteStatusPosted, repo.notes[1].Status)
+	require.Equal(t, 380.0, repo.available)
 }

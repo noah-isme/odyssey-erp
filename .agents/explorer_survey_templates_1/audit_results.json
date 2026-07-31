@@ -1,0 +1,1312 @@
+{
+  "Sales": [
+    {
+      "file": "pages/sales/quotations_list.html",
+      "issues": []
+    },
+    {
+      "file": "pages/sales/customer_detail.html",
+      "issues": [
+        {
+          "line": 89,
+          "type": "ROUNDED_RADIUS",
+          "matches": [
+            "rounded-md"
+          ],
+          "content": "<div class=\"p-4 bg-surface-muted border rounded-md\">"
+        },
+        {
+          "line": 107,
+          "type": "ROUNDED_RADIUS",
+          "matches": [
+            "rounded-md"
+          ],
+          "content": "<div class=\"p-4 bg-warning-soft text-warning-900 border border-warning-200 rounded-md text-sm whitespace-pre-wrap italic\">"
+        }
+      ]
+    },
+    {
+      "file": "pages/sales/customer_form.html",
+      "issues": []
+    },
+    {
+      "file": "pages/sales/order_detail.html",
+      "issues": [
+        {
+          "line": 97,
+          "type": "ROUNDED_RADIUS",
+          "matches": [
+            "rounded-md"
+          ],
+          "content": "<div class=\"p-4 bg-surface-muted border rounded-md text-sm whitespace-pre-wrap\">"
+        }
+      ]
+    },
+    {
+      "file": "pages/sales/customers_list.html",
+      "issues": []
+    },
+    {
+      "file": "pages/sales/orders_list.html",
+      "issues": []
+    },
+    {
+      "file": "pages/sales/order_form.html",
+      "issues": []
+    },
+    {
+      "file": "pages/sales/quotation_form.html",
+      "issues": []
+    },
+    {
+      "file": "pages/sales/quotation_detail.html",
+      "issues": [
+        {
+          "line": 97,
+          "type": "ROUNDED_RADIUS",
+          "matches": [
+            "rounded-md"
+          ],
+          "content": "<div class=\"p-4 bg-surface-muted border rounded-md text-sm whitespace-pre-wrap\">"
+        }
+      ]
+    }
+  ],
+  "Procurement": [
+    {
+      "file": "pages/procurement/grn_form.html",
+      "issues": []
+    },
+    {
+      "file": "pages/procurement/po_form.html",
+      "issues": []
+    },
+    {
+      "file": "pages/procurement/grns_list.html",
+      "issues": [
+        {
+          "line": 80,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td>{{ if .PONumber }}{{ .PONumber }}{{ else }}-{{ end }}</td>"
+        },
+        {
+          "line": 119,
+          "type": "INLINE_STYLE",
+          "content": "<div class=\"context-menu\" data-context-menu=\"grns\" style=\"display: none;\">"
+        }
+      ]
+    },
+    {
+      "file": "pages/procurement/pos_list.html",
+      "issues": [
+        {
+          "line": 88,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td><input class=\"check__input\" type=\"checkbox\" data-row-select aria-label=\"Select purchase order {{ .Number }}\"></td>"
+        },
+        {
+          "line": 102,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td><span class=\"text-sm\">{{ .ExpectedDate.Format \"02 Jan 2006\" }}</span></td>"
+        },
+        {
+          "line": 151,
+          "type": "INLINE_STYLE",
+          "content": "<div class=\"context-menu\" data-context-menu=\"pos\" style=\"display: none;\">"
+        }
+      ]
+    },
+    {
+      "file": "pages/procurement/pr_form.html",
+      "issues": []
+    }
+  ],
+  "Inventory": [
+    {
+      "file": "pages/inventory/stock_take_detail.html",
+      "issues": [
+        {
+          "line": 49,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td class=\"text-right\">{{ .SystemQty | formatDecimal }}</td>"
+        },
+        {
+          "line": 50,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td class=\"text-right\">{{ .PhysicalQty | formatDecimal }}</td>"
+        }
+      ]
+    },
+    {
+      "file": "pages/inventory/valuation.html",
+      "issues": [
+        {
+          "line": 55,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td>{{ .SKU }}</td>"
+        },
+        {
+          "line": 56,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td class=\"text-right\">{{ .Qty | formatDecimal }}</td>"
+        },
+        {
+          "line": 57,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td class=\"text-right\">{{ .AvgCost | formatCurrency \"IDR\" }}</td>"
+        }
+      ]
+    },
+    {
+      "file": "pages/inventory/adjustment_detail.html",
+      "issues": []
+    },
+    {
+      "file": "pages/inventory/adjustment_form.html",
+      "issues": []
+    },
+    {
+      "file": "pages/inventory/transfer_form.html",
+      "issues": []
+    },
+    {
+      "file": "pages/inventory/adjustment_list.html",
+      "issues": [
+        {
+          "line": 41,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td class=\"font-medium\">{{ .Number }}</td>"
+        }
+      ]
+    },
+    {
+      "file": "pages/inventory/stock_card.html",
+      "issues": [
+        {
+          "line": 94,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td>{{ formatDate .PostedAt }}</td>"
+        },
+        {
+          "line": 95,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td><code class=\"text-xs\">{{ .TxCode }}</code></td>"
+        }
+      ]
+    },
+    {
+      "file": "pages/inventory/stock_take_form.html",
+      "issues": []
+    },
+    {
+      "file": "pages/inventory/dashboard.html",
+      "issues": [
+        {
+          "line": 50,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td>{{ .SKU }}</td>"
+        },
+        {
+          "line": 51,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td class=\"text-right font-bold text-danger\">{{ .CurrentQty | formatDecimal }}</td>"
+        }
+      ]
+    },
+    {
+      "file": "pages/inventory/stock_take_list.html",
+      "issues": [
+        {
+          "line": 36,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td class=\"font-medium\">{{ .Number }}</td>"
+        }
+      ]
+    }
+  ],
+  "Accounting & Finance": [
+    {
+      "file": "pages/accounting/bank_reconciliation.html",
+      "issues": [
+        {
+          "line": 44,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td>{{ .TrxDate.Time.Format \"02 Jan 2006\" }}</td>"
+        },
+        {
+          "line": 49,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td>{{ .ReferenceNumber.String }}</td>"
+        },
+        {
+          "line": 56,
+          "type": "NON_STANDARD_BADGE",
+          "content": "<span class=\"badge badge-muted\">Unmatched</span>"
+        }
+      ]
+    },
+    {
+      "file": "pages/accounting/journals_list.html",
+      "issues": [
+        {
+          "line": 42,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td>{{ .Number }}</td>"
+        },
+        {
+          "line": 43,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td>{{ .Date.Format \"2006-01-02\" }}</td>"
+        }
+      ]
+    },
+    {
+      "file": "pages/accounting/journal_form.html",
+      "issues": [
+        {
+          "line": 8,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "{{ define \"journal-line\" }}<tr><td><select class=\"form-select\" name=\"account_id\">{{ range .Data.Accounts }}<option value=\"{{ .ID }}\">{{ .Code }} \u2014 {{ .Name }}</option>{{ end }}</select></td><td><input class=\"form-input\" type=\"number\" step=\"0.01\" name=\"debit\" value=\"0\"></td><td><input class=\"form-input\" type=\"number\" step=\"0.01\" name=\"credit\" value=\"0\"></td><td><select class=\"form-select\" name=\"department_id\"><option value=\"\">\u2014</option>{{ range .Data.Departments }}<option value=\"{{ .ID }}\">{{ .Code }} \u2014 {{ .Name }}</option>{{ end }}</select></td><td><select class=\"form-select\" name=\"cost_center_id\"><option value=\"\">\u2014</option>{{ range .Data.CostCenters }}<option value=\"{{ .ID }}\">{{ .Code }} \u2014 {{ .Name }}</option>{{ end }}</select></td></tr>{{ end }}"
+        }
+      ]
+    },
+    {
+      "file": "pages/accounting/coa_list.html",
+      "issues": [
+        {
+          "line": 41,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td>{{ .Code }}</td>"
+        }
+      ]
+    },
+    {
+      "file": "pages/accounting/bank_statements.html",
+      "issues": [
+        {
+          "line": 39,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td>{{ .StatementDate.Time.Format \"02 Jan 2006\" }}</td>"
+        }
+      ]
+    },
+    {
+      "file": "pages/ap/ap_payment_form.html",
+      "issues": []
+    },
+    {
+      "file": "pages/ap/ap_invoice_list.html",
+      "issues": [
+        {
+          "line": 50,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td><a href=\"/finance/ap/invoices/{{.ID}}\">{{.Number}}</a></td>"
+        },
+        {
+          "line": 56,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td>{{.CreatedAt.Format \"2006-01-02\"}}</td>"
+        }
+      ]
+    },
+    {
+      "file": "pages/ap/ap_invoice_form.html",
+      "issues": []
+    },
+    {
+      "file": "pages/ap/ap_payment_list.html",
+      "issues": [
+        {
+          "line": 32,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td><a href=\"/finance/ap/payments/{{.ID}}\">{{.Number}}</a></td>"
+        }
+      ]
+    },
+    {
+      "file": "pages/ap/ap_payment_detail.html",
+      "issues": [
+        {
+          "line": 11,
+          "type": "NON_STANDARD_BADGE",
+          "content": "<div class=\"page-header__content\"><div class=\"flex items-center gap-3\"><h1 class=\"page-title\">{{$pay.Number}}</h1>{{if $pay.LedgerPosted}}{{ template \"partials/ui/status_badge.html\" \"POSTED\" }}{{else}}{{ template \"partials/ui/status_badge.html\" \"UNPOSTED\" }}{{end}}</div><p class=\"page-subtitle\">Supplier payment allocation and ledger details</p></div>"
+        },
+        {
+          "line": 65,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td><a href=\"/finance/ap/invoices/{{.APInvoiceID}}\">{{.InvoiceNumber}}</a></td>"
+        }
+      ]
+    },
+    {
+      "file": "pages/ap/ap_invoice_detail.html",
+      "issues": [
+        {
+          "line": 11,
+          "type": "NON_STANDARD_BADGE",
+          "content": "<div class=\"page-header__content\"><div class=\"flex items-center gap-3\"><h1 class=\"page-title\">{{$inv.Number}}</h1>{{ template \"partials/ui/status_badge.html\" $inv.Status }}</div><p class=\"page-subtitle\">Supplier invoice, posting, and payment details</p></div>"
+        },
+        {
+          "line": 123,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td>{{.Number}}</td>"
+        }
+      ]
+    },
+    {
+      "file": "pages/ap/ap_aging_report.html",
+      "issues": []
+    },
+    {
+      "file": "pages/ar/ar_payment_form.html",
+      "issues": []
+    },
+    {
+      "file": "pages/ar/ar_invoice_list.html",
+      "issues": [
+        {
+          "line": 59,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td><a href=\"/finance/ar/invoices/{{ .ID }}\" class=\"link\">{{ .Number }}</a></td>"
+        },
+        {
+          "line": 64,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td>{{ .CreatedAt.Format \"2006-01-02\" }}</td>"
+        }
+      ]
+    },
+    {
+      "file": "pages/ar/ar_invoice_form.html",
+      "issues": []
+    },
+    {
+      "file": "pages/ar/ar_invoice_detail.html",
+      "issues": [
+        {
+          "line": 115,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td>{{ .Number }}</td>"
+        }
+      ]
+    },
+    {
+      "file": "pages/ar/ar_payment_list.html",
+      "issues": [
+        {
+          "line": 38,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td>{{ .Number }}</td>"
+        }
+      ]
+    },
+    {
+      "file": "pages/ar/customer_statement.html",
+      "issues": [
+        {
+          "line": 45,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td><a href=\"/finance/ar/invoices/{{ .ID }}\">{{ .Number }}</a></td>"
+        }
+      ]
+    },
+    {
+      "file": "pages/ar/ar_aging_report.html",
+      "issues": []
+    },
+    {
+      "file": "pages/finance/budget.html",
+      "issues": [
+        {
+          "line": 48,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td class=\"table-cell--indented\">{{ .AccountCode }} - {{ .AccountName }}</td>"
+        },
+        {
+          "line": 68,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td class=\"table-cell--indented\">{{ .AccountCode }} - {{ .AccountName }}</td>"
+        }
+      ]
+    },
+    {
+      "file": "pages/finance/consol_bs.html",
+      "issues": [
+        {
+          "line": 116,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td>{{ .AccountCode }}</td>"
+        },
+        {
+          "line": 151,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td>{{ .AccountCode }}</td>"
+        }
+      ]
+    },
+    {
+      "file": "pages/finance/consol_pl.html",
+      "issues": [
+        {
+          "line": 129,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td>{{ .AccountCode }}</td>"
+        }
+      ]
+    },
+    {
+      "file": "pages/finance/trial_balance.html",
+      "issues": [
+        {
+          "line": 36,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td class=\"table-cell--indented\">{{ .Code }} \u2014 {{ .Name }}</td>"
+        }
+      ]
+    },
+    {
+      "file": "pages/finance/audit_timeline.html",
+      "issues": [
+        {
+          "line": 82,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td>{{ .JournalNo }}</td>"
+        }
+      ]
+    },
+    {
+      "file": "pages/finance/report_schedules.html",
+      "issues": []
+    },
+    {
+      "file": "pages/finance/fixed_assets.html",
+      "issues": [
+        {
+          "line": 3,
+          "type": "NON_STANDARD_BADGE",
+          "content": "{{ define \"content\" }}<div class=\"page-container\"><header class=\"page-header\"><div class=\"page-header__content\"><h1 class=\"page-title\">Fixed assets</h1><p class=\"page-subtitle\">Asset register and depreciation status.</p></div><a class=\"btn btn--primary\" href=\"/accounting/fixed-assets/new\">New asset</a></header><div class=\"card card-table table-responsive\"><table class=\"table\"><thead><tr><th>Number</th><th>Asset</th><th>Category</th><th>Cost</th><th>Accumulated</th><th>Status</th><th>Disposal</th></tr></thead><tbody>{{ range .Data.Assets }}<tr><td>{{ .Number }}</td><td>{{ .Name }}</td><td>{{ .Category }}</td><td>{{ .Cost | formatCurrency \"IDR\" }}</td><td>{{ .Accumulated | formatCurrency \"IDR\" }}</td><td>{{ .Status }}</td><td>{{ if eq .Status \"ACTIVE\" }}<form method=\"post\" action=\"/accounting/fixed-assets/{{ .ID }}/dispose\"><input type=\"hidden\" name=\"csrf_token\" value=\"{{ $.CSRFToken }}\"><input class=\"form-input\" type=\"date\" name=\"disposal_date\" required><input class=\"form-input\" type=\"number\" name=\"proceeds\" value=\"0\"><button class=\"btn btn--secondary btn--sm\">Dispose</button></form>{{ end }}</td></tr>{{ else }}<tr><td colspan=\"7\" class=\"table-empty\">No fixed assets yet.</td></tr>{{ end }}</tbody></table></div></div>{{ end }}"
+        },
+        {
+          "line": 3,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "{{ define \"content\" }}<div class=\"page-container\"><header class=\"page-header\"><div class=\"page-header__content\"><h1 class=\"page-title\">Fixed assets</h1><p class=\"page-subtitle\">Asset register and depreciation status.</p></div><a class=\"btn btn--primary\" href=\"/accounting/fixed-assets/new\">New asset</a></header><div class=\"card card-table table-responsive\"><table class=\"table\"><thead><tr><th>Number</th><th>Asset</th><th>Category</th><th>Cost</th><th>Accumulated</th><th>Status</th><th>Disposal</th></tr></thead><tbody>{{ range .Data.Assets }}<tr><td>{{ .Number }}</td><td>{{ .Name }}</td><td>{{ .Category }}</td><td>{{ .Cost | formatCurrency \"IDR\" }}</td><td>{{ .Accumulated | formatCurrency \"IDR\" }}</td><td>{{ .Status }}</td><td>{{ if eq .Status \"ACTIVE\" }}<form method=\"post\" action=\"/accounting/fixed-assets/{{ .ID }}/dispose\"><input type=\"hidden\" name=\"csrf_token\" value=\"{{ $.CSRFToken }}\"><input class=\"form-input\" type=\"date\" name=\"disposal_date\" required><input class=\"form-input\" type=\"number\" name=\"proceeds\" value=\"0\"><button class=\"btn btn--secondary btn--sm\">Dispose</button></form>{{ end }}</td></tr>{{ else }}<tr><td colspan=\"7\" class=\"table-empty\">No fixed assets yet.</td></tr>{{ end }}</tbody></table></div></div>{{ end }}"
+        }
+      ]
+    },
+    {
+      "file": "pages/finance/consol_tb.html",
+      "issues": []
+    },
+    {
+      "file": "pages/finance/fixed_asset_form.html",
+      "issues": []
+    },
+    {
+      "file": "pages/finance/balance_sheet.html",
+      "issues": [
+        {
+          "line": 21,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td class=\"table-cell--indented\">{{ .Code }} \u2014 {{ .Name }}</td>"
+        }
+      ]
+    },
+    {
+      "file": "pages/finance/fixed_asset_categories.html",
+      "issues": []
+    },
+    {
+      "file": "pages/finance/pnl.html",
+      "issues": []
+    },
+    {
+      "file": "pages/finance/cashflow.html",
+      "issues": [
+        {
+          "line": 33,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td class=\"table-cell--indented\">{{ .AccountCode }} - {{ .AccountName }}</td>"
+        },
+        {
+          "line": 45,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td class=\"table-cell--indented\">{{ .AccountCode }} - {{ .AccountName }}</td>"
+        },
+        {
+          "line": 57,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td class=\"table-cell--indented\">{{ .AccountCode }} - {{ .AccountName }}</td>"
+        }
+      ]
+    },
+    {
+      "file": "pages/finance/consol_dashboard.html",
+      "issues": [
+        {
+          "line": 13,
+          "type": "SOFT_SHADOW",
+          "matches": [
+            "shadow-lg"
+          ],
+          "content": "<div class=\"card hover:shadow-lg transition-shadow\">"
+        },
+        {
+          "line": 28,
+          "type": "SOFT_SHADOW",
+          "matches": [
+            "shadow-lg"
+          ],
+          "content": "<div class=\"card hover:shadow-lg transition-shadow\">"
+        },
+        {
+          "line": 41,
+          "type": "SOFT_SHADOW",
+          "matches": [
+            "shadow-lg"
+          ],
+          "content": "<div class=\"card hover:shadow-lg transition-shadow\">"
+        }
+      ]
+    },
+    {
+      "file": "pages/finance/dimensions.html",
+      "issues": [
+        {
+          "line": 3,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "{{ define \"content\" }}<div class=\"page-container\"><header class=\"page-header\"><div class=\"page-header__content\"><h1 class=\"page-title\">Reporting dimensions</h1><p class=\"page-subtitle\">Manage departments and cost centers for reports.</p></div><a class=\"btn btn--secondary\" href=\"/accounting/report-schedules\">Report schedules</a></header><div class=\"form-grid\"><form class=\"card p-4\" method=\"post\" action=\"/accounting/dimensions/departments\"><input type=\"hidden\" name=\"csrf_token\" value=\"{{ .CSRFToken }}\"><h2 class=\"card__title\">New department</h2><div class=\"form-group\"><label class=\"form-label\">Code</label><input class=\"form-input\" name=\"code\" required></div><div class=\"form-group\"><label class=\"form-label\">Name</label><input class=\"form-input\" name=\"name\" required></div><button class=\"btn btn--primary\">Create department</button></form><form class=\"card p-4\" method=\"post\" action=\"/accounting/dimensions/cost-centers\"><input type=\"hidden\" name=\"csrf_token\" value=\"{{ .CSRFToken }}\"><h2 class=\"card__title\">New cost center</h2><div class=\"form-group\"><label class=\"form-label\">Department</label><select class=\"form-select\" name=\"department_id\"><option value=\"\">Unassigned</option>{{ range .Data.Departments }}<option value=\"{{ .ID }}\">{{ .Code }} \u2014 {{ .Name }}</option>{{ end }}</select></div><div class=\"form-group\"><label class=\"form-label\">Code</label><input class=\"form-input\" name=\"code\" required></div><div class=\"form-group\"><label class=\"form-label\">Name</label><input class=\"form-input\" name=\"name\" required></div><button class=\"btn btn--primary\">Create cost center</button></form></div><div class=\"card card-table table-responsive mt-6\"><table class=\"table\"><thead><tr><th>Department</th><th>Cost center</th><th>Status</th></tr></thead><tbody>{{ range .Data.CostCenters }}<tr><td>{{ .Department }}</td><td>{{ .Code }} \u2014 {{ .Name }}</td><td>{{ if .Active }}Active{{ else }}Inactive{{ end }}</td></tr>{{ else }}<tr><td colspan=\"3\" class=\"table-empty\">No cost centers yet.</td></tr>{{ end }}</tbody></table></div></div>{{ end }}"
+        }
+      ]
+    },
+    {
+      "file": "pages/finance/insights.html",
+      "issues": []
+    },
+    {
+      "file": "pages/finance/dashboard.html",
+      "issues": []
+    },
+    {
+      "file": "pages/finance/banking/list.html",
+      "issues": []
+    },
+    {
+      "file": "pages/finance/banking/detail.html",
+      "issues": [
+        {
+          "line": 69,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td>{{ formatDate .Transaction.Date }}</td>"
+        },
+        {
+          "line": 94,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td class=\"text-right text-muted\">{{ formatCurrency $.Data.Account.Currency .RunningBalance }}</td>"
+        }
+      ]
+    },
+    {
+      "file": "pages/close/run.html",
+      "issues": [
+        {
+          "line": 19,
+          "type": "NON_STANDARD_BADGE",
+          "content": "<div class=\"status-stack\">"
+        }
+      ]
+    },
+    {
+      "file": "pages/close/periods.html",
+      "issues": []
+    },
+    {
+      "file": "pages/eliminations/run_detail.html",
+      "issues": []
+    },
+    {
+      "file": "pages/eliminations/runs.html",
+      "issues": []
+    },
+    {
+      "file": "pages/eliminations/rules.html",
+      "issues": []
+    },
+    {
+      "file": "pages/variance/snapshot_detail.html",
+      "issues": []
+    },
+    {
+      "file": "pages/variance/snapshots.html",
+      "issues": []
+    },
+    {
+      "file": "pages/variance/rules.html",
+      "issues": []
+    },
+    {
+      "file": "pages/boardpacks/new.html",
+      "issues": []
+    },
+    {
+      "file": "pages/boardpacks/list.html",
+      "issues": [
+        {
+          "line": 24,
+          "type": "NON_STANDARD_BADGE",
+          "content": "<div class=\"form-group\"><label class=\"form-label\" for=\"status\">Status</label>"
+        },
+        {
+          "line": 59,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td>{{ formatDate $pack.CreatedAt }}</td>"
+        }
+      ]
+    },
+    {
+      "file": "pages/boardpacks/detail.html",
+      "issues": []
+    }
+  ],
+  "Auth / Login": [
+    {
+      "file": "pages/login.html",
+      "issues": []
+    }
+  ],
+  "Master Data": [
+    {
+      "file": "pages/masterdata/category_form.html",
+      "issues": []
+    },
+    {
+      "file": "pages/masterdata/branch_form.html",
+      "issues": []
+    },
+    {
+      "file": "pages/masterdata/company_form.html",
+      "issues": []
+    },
+    {
+      "file": "pages/masterdata/supplier_form.html",
+      "issues": []
+    },
+    {
+      "file": "pages/masterdata/suppliers_list.html",
+      "issues": [
+        {
+          "line": 18,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<tr data-row-id=\"{{ .ID }}\" data-href=\"/masterdata/suppliers/{{ .ID }}\" data-edit-href=\"/masterdata/suppliers/{{ .ID }}/edit\"><td>{{ .Code }}</td><td>{{ .Name }}</td><td>{{ if .Email }}{{ .Email }}{{ else }}-{{ end }}</td><td>{{ if .Phone }}{{ .Phone }}{{ else }}-{{ end }}</td><td>{{ if .IsActive }}{{ template \"partials/ui/status_badge.html\" \"ACTIVE\" }}{{ else }}{{ template \"partials/ui/status_badge.html\" \"INACTIVE\" }}{{ end }}</td></tr>"
+        }
+      ]
+    },
+    {
+      "file": "pages/masterdata/companies_list.html",
+      "issues": [
+        {
+          "line": 15,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<tr data-row-id=\"{{ .ID }}\" data-href=\"/masterdata/companies/{{ .ID }}\" data-edit-href=\"/masterdata/companies/{{ .ID }}/edit\"><td>{{ .Code }}</td><td>{{ .Name }}</td><td>{{ .Address }}</td><td>{{ .TaxID }}</td></tr>"
+        }
+      ]
+    },
+    {
+      "file": "pages/masterdata/supplier_detail.html",
+      "issues": []
+    },
+    {
+      "file": "pages/masterdata/taxes_list.html",
+      "issues": []
+    },
+    {
+      "file": "pages/masterdata/unit_form.html",
+      "issues": []
+    },
+    {
+      "file": "pages/masterdata/company_detail.html",
+      "issues": []
+    },
+    {
+      "file": "pages/masterdata/warehouses_list.html",
+      "issues": [
+        {
+          "line": 15,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<tr data-row-id=\"{{ .ID }}\" data-href=\"/masterdata/warehouses/{{ .ID }}\" data-edit-href=\"/masterdata/warehouses/{{ .ID }}/edit\"><td>{{ .Code }}</td><td>{{ .Name }}</td><td>{{ .BranchID }}</td><td>{{ .Address }}</td></tr>"
+        }
+      ]
+    },
+    {
+      "file": "pages/masterdata/tax_form.html",
+      "issues": []
+    },
+    {
+      "file": "pages/masterdata/branches_list.html",
+      "issues": [
+        {
+          "line": 22,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<tr data-row-id=\"{{ .ID }}\" data-href=\"/masterdata/branches/{{ .ID }}\" data-edit-href=\"/masterdata/branches/{{ .ID }}/edit\"><td>{{ .Code }}</td><td>{{ .Name }}</td><td>{{ .CompanyID }}</td><td>{{ .Address }}</td></tr>"
+        }
+      ]
+    },
+    {
+      "file": "pages/masterdata/products_list.html",
+      "issues": []
+    },
+    {
+      "file": "pages/masterdata/tax_detail.html",
+      "issues": []
+    },
+    {
+      "file": "pages/masterdata/product_form.html",
+      "issues": []
+    },
+    {
+      "file": "pages/masterdata/categories_list.html",
+      "issues": [
+        {
+          "line": 19,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<tr data-row-id=\"{{ .ID }}\" data-href=\"/masterdata/categories/{{ .ID }}\" data-edit-href=\"/masterdata/categories/{{ .ID }}/edit\"><td>{{ .Code }}</td><td>{{ .Name }}</td><td>{{ if .ParentID }}{{ .ParentID }}{{ else }}-{{ end }}</td></tr>"
+        }
+      ]
+    },
+    {
+      "file": "pages/masterdata/branch_detail.html",
+      "issues": []
+    },
+    {
+      "file": "pages/masterdata/product_detail.html",
+      "issues": []
+    },
+    {
+      "file": "pages/masterdata/warehouse_detail.html",
+      "issues": []
+    },
+    {
+      "file": "pages/masterdata/category_detail.html",
+      "issues": []
+    },
+    {
+      "file": "pages/masterdata/warehouse_form.html",
+      "issues": []
+    },
+    {
+      "file": "pages/masterdata/unit_detail.html",
+      "issues": []
+    },
+    {
+      "file": "pages/masterdata/units_list.html",
+      "issues": [
+        {
+          "line": 15,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<tr data-row-id=\"{{ .ID }}\" data-href=\"/masterdata/units/{{ .ID }}\" data-edit-href=\"/masterdata/units/{{ .ID }}/edit\"><td>{{ .Code }}</td><td>{{ .Name }}</td></tr>"
+        }
+      ]
+    }
+  ],
+  "Delivery": [
+    {
+      "file": "pages/delivery/order_detail.html",
+      "issues": [
+        {
+          "line": 96,
+          "type": "ROUNDED_RADIUS",
+          "matches": [
+            "rounded-md"
+          ],
+          "content": "<div class=\"p-4 bg-surface-muted border rounded-md text-sm whitespace-pre-wrap leading-relaxed max-w-prose\">"
+        }
+      ]
+    },
+    {
+      "file": "pages/delivery/order_edit.html",
+      "issues": [
+        {
+          "line": 121,
+          "type": "ROUNDED_RADIUS",
+          "matches": [
+            "rounded-md"
+          ],
+          "content": "<div class=\"line-item p-4 bg-surface-muted border rounded-md\" data-index=\"{{ $index }}\">"
+        }
+      ]
+    },
+    {
+      "file": "pages/delivery/orders_list.html",
+      "issues": []
+    },
+    {
+      "file": "pages/delivery/order_form.html",
+      "issues": [
+        {
+          "line": 122,
+          "type": "ROUNDED_RADIUS",
+          "matches": [
+            "rounded-md"
+          ],
+          "content": "<div class=\"line-item p-4 bg-surface-muted border rounded-md\" data-index=\"0\">"
+        }
+      ]
+    }
+  ],
+  "Roles & Permissions": [
+    {
+      "file": "pages/roles/form.html",
+      "issues": []
+    },
+    {
+      "file": "pages/roles/list.html",
+      "issues": [
+        {
+          "line": 54,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td>{{ .CreatedAt.Format \"2006-01-02\" }}</td>"
+        }
+      ]
+    },
+    {
+      "file": "pages/permissions/list.html",
+      "issues": []
+    },
+    {
+      "file": "pages/users/form.html",
+      "issues": [
+        {
+          "line": 23,
+          "type": "NON_STANDARD_BADGE",
+          "content": "<div class=\"feedback feedback--info\" role=\"status\">"
+        }
+      ]
+    },
+    {
+      "file": "pages/users/list.html",
+      "issues": [
+        {
+          "line": 10,
+          "type": "NON_STANDARD_BADGE",
+          "content": "<div class=\"page-header__content\"><h1 class=\"page-title\">Manajemen Pengguna</h1><p class=\"page-subtitle\">Kelola akun pengguna dan status akses sistem.</p></div>"
+        },
+        {
+          "line": 44,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td>{{ .CreatedAt.Format \"2006-01-02\" }}</td>"
+        }
+      ]
+    }
+  ],
+  "Other Pages": [
+    {
+      "file": "pages/home.html",
+      "issues": [
+        {
+          "line": 146,
+          "type": "INLINE_STYLE",
+          "content": "<div class=\"dashboard-panel\" style=\"margin-top: var(--space-4);\">"
+        },
+        {
+          "line": 209,
+          "type": "NON_STANDARD_BADGE",
+          "content": "<span class=\"status-name font-mono\">CMD_HTTP</span>"
+        },
+        {
+          "line": 216,
+          "type": "NON_STANDARD_BADGE",
+          "content": "<span class=\"status-name font-mono\">POSTGRES_DB</span>"
+        },
+        {
+          "line": 223,
+          "type": "NON_STANDARD_BADGE",
+          "content": "<span class=\"status-name font-mono\">ASYNQ_WORKER</span>"
+        },
+        {
+          "line": 229,
+          "type": "NON_STANDARD_BADGE",
+          "content": "<span class=\"status-name font-mono\">GOTENBERG_PDF</span>"
+        },
+        {
+          "line": 244,
+          "type": "NON_STANDARD_BADGE",
+          "content": "<span class=\"status-value\">"
+        },
+        {
+          "line": 245,
+          "type": "NON_STANDARD_BADGE",
+          "content": "<span class=\"status-dot\"></span>"
+        },
+        {
+          "line": 246,
+          "type": "NON_STANDARD_BADGE",
+          "content": "<span class=\"status-text\">Operational</span>"
+        },
+        {
+          "line": 286,
+          "type": "INLINE_STYLE",
+          "content": "<form method=\"post\" action=\"/report/sample\" style=\"margin: 0;\">"
+        },
+        {
+          "line": 288,
+          "type": "INLINE_STYLE",
+          "content": "<button type=\"submit\" class=\"btn btn--primary quick-action-btn\" style=\"width: 100%; border: none;\">"
+        }
+      ]
+    },
+    {
+      "file": "pages/landing.html",
+      "issues": [
+        {
+          "line": 24,
+          "type": "NON_STANDARD_BADGE",
+          "content": "<span class=\"sys-badge__ring\"></span>"
+        },
+        {
+          "line": 59,
+          "type": "NON_STANDARD_BADGE",
+          "content": "<div class=\"hero-header-badge\">"
+        },
+        {
+          "line": 62,
+          "type": "NON_STANDARD_BADGE",
+          "content": "<span class=\"sys-badge__ring\"></span>"
+        },
+        {
+          "line": 110,
+          "type": "NON_STANDARD_BADGE",
+          "content": "<span class=\"window-status\">[STATUS: 200 OK]</span>"
+        },
+        {
+          "line": 152,
+          "type": "NON_STANDARD_BADGE",
+          "content": "<td><span class=\"status-pill conf\">CONFIRMED</span></td>"
+        },
+        {
+          "line": 158,
+          "type": "NON_STANDARD_BADGE",
+          "content": "<td><span class=\"status-pill proc\">PROCESSING</span></td>"
+        },
+        {
+          "line": 164,
+          "type": "NON_STANDARD_BADGE",
+          "content": "<td><span class=\"status-pill conf\">CONFIRMED</span></td>"
+        },
+        {
+          "line": 209,
+          "type": "NON_STANDARD_BADGE",
+          "content": "<td><span class=\"status-pill warn\">REORDER_NOW</span></td>"
+        },
+        {
+          "line": 297,
+          "type": "NON_STANDARD_BADGE",
+          "content": "<td><span class=\"status-pill conf\">HEALTHY</span></td>"
+        },
+        {
+          "line": 303,
+          "type": "NON_STANDARD_BADGE",
+          "content": "<td><span class=\"status-pill conf\">HEALTHY</span></td>"
+        },
+        {
+          "line": 478,
+          "type": "INLINE_STYLE",
+          "content": "<div class=\"sys-badge sys-badge--emerald\" style=\"margin-top: 12px; align-self: flex-start;\">"
+        },
+        {
+          "line": 492,
+          "type": "INLINE_STYLE",
+          "content": "<div class=\"roi-big-num\" id=\"annualCostVal\" style=\"color: var(--dev-text);\">Rp 422 Juta / Thn</div>"
+        }
+      ]
+    },
+    {
+      "file": "pages/profile.html",
+      "issues": []
+    },
+    {
+      "file": "pages/settings.html",
+      "issues": []
+    },
+    {
+      "file": "pages/jobs/index.html",
+      "issues": []
+    }
+  ],
+  "Partials": [
+    {
+      "file": "partials/header.html",
+      "issues": [
+        {
+          "line": 105,
+          "type": "NON_STANDARD_BADGE",
+          "content": "<span class=\"notification-badge\">3</span>"
+        }
+      ]
+    },
+    {
+      "file": "partials/sidebar.html",
+      "issues": [
+        {
+          "line": 127,
+          "type": "NON_STANDARD_BADGE",
+          "content": "<span class=\"env-badge\">development</span>"
+        }
+      ]
+    },
+    {
+      "file": "partials/nav.html",
+      "issues": []
+    },
+    {
+      "file": "partials/flash.html",
+      "issues": [
+        {
+          "line": 6,
+          "type": "INLINE_STYLE",
+          "content": "style=\"display:none;\""
+        }
+      ]
+    },
+    {
+      "file": "partials/finance/kpi_card.html",
+      "issues": []
+    },
+    {
+      "file": "partials/finance/aging_table.html",
+      "issues": []
+    },
+    {
+      "file": "partials/finance/svg_cashflow.html",
+      "issues": []
+    },
+    {
+      "file": "partials/finance/filters.html",
+      "issues": []
+    },
+    {
+      "file": "partials/finance/svg_trend.html",
+      "issues": []
+    },
+    {
+      "file": "partials/masterdata/form.html",
+      "issues": []
+    },
+    {
+      "file": "partials/masterdata/list.html",
+      "issues": []
+    },
+    {
+      "file": "partials/masterdata/detail.html",
+      "issues": []
+    },
+    {
+      "file": "partials/close/status_badge.html",
+      "issues": []
+    },
+    {
+      "file": "partials/ui/filter_bar.html",
+      "issues": []
+    },
+    {
+      "file": "partials/ui/empty_state.html",
+      "issues": []
+    },
+    {
+      "file": "partials/ui/status_badge.html",
+      "issues": []
+    },
+    {
+      "file": "partials/ui/form_grid.html",
+      "issues": []
+    },
+    {
+      "file": "partials/ui/page_header.html",
+      "issues": []
+    }
+  ],
+  "Layouts": [
+    {
+      "file": "layouts/base.html",
+      "issues": []
+    },
+    {
+      "file": "layouts/public.html",
+      "issues": []
+    }
+  ],
+  "Reports": [
+    {
+      "file": "reports/grn_pdf.html",
+      "issues": []
+    },
+    {
+      "file": "reports/packing_list_pdf.html",
+      "issues": [
+        {
+          "line": 178,
+          "type": "NON_STANDARD_BADGE",
+          "content": "<span class=\"info-value\">{{ template \"status_badge\" .Data.Status }}</span>"
+        },
+        {
+          "line": 200,
+          "type": "INLINE_STYLE",
+          "content": "<span class=\"info-value\" style=\"white-space: pre-wrap;\">{{ .Data.ShippingAddress }}</span>"
+        },
+        {
+          "line": 228,
+          "type": "INLINE_STYLE",
+          "content": "<th class=\"text-center\" style=\"width: 40px;\">#</th>"
+        },
+        {
+          "line": 229,
+          "type": "INLINE_STYLE",
+          "content": "<th style=\"width: 120px;\">Product Code</th>"
+        },
+        {
+          "line": 231,
+          "type": "INLINE_STYLE",
+          "content": "<th class=\"text-right\" style=\"width: 80px;\">Quantity</th>"
+        },
+        {
+          "line": 232,
+          "type": "INLINE_STYLE",
+          "content": "<th class=\"text-center\" style=\"width: 60px;\">UOM</th>"
+        },
+        {
+          "line": 233,
+          "type": "INLINE_STYLE",
+          "content": "<th style=\"width: 120px;\">Batch/Serial</th>"
+        },
+        {
+          "line": 239,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td class=\"text-center\">{{ .LineNumber }}</td>"
+        },
+        {
+          "line": 240,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td>{{ .ProductCode }}</td>"
+        },
+        {
+          "line": 243,
+          "type": "INLINE_STYLE",
+          "content": "{{ if .Description }}<br><span style=\"font-size: 9pt; color: #666;\">{{ .Description }}</span>{{ end }}"
+        },
+        {
+          "line": 245,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td class=\"text-right\"><strong>{{ formatQty .Quantity }}</strong></td>"
+        },
+        {
+          "line": 249,
+          "type": "INLINE_STYLE",
+          "content": "<div style=\"font-size: 9pt;\">Batch: {{ deref .BatchNumber }}</div>"
+        },
+        {
+          "line": 252,
+          "type": "INLINE_STYLE",
+          "content": "<div style=\"font-size: 9pt;\">Serial: {{ deref .SerialNumber }}</div>"
+        },
+        {
+          "line": 280,
+          "type": "INLINE_STYLE",
+          "content": "<div style=\"font-size: 9pt; color: #999; margin-top: 4px;\">{{ formatDateTime .Data.CreatedAt }}</div>"
+        },
+        {
+          "line": 285,
+          "type": "INLINE_STYLE",
+          "content": "<div style=\"font-size: 9pt; color: #999; margin-top: 4px;\">Signature &amp; Date</div>"
+        },
+        {
+          "line": 292,
+          "type": "INLINE_STYLE",
+          "content": "<p style=\"margin-top: 8px;\">Generated: {{ now }}</p>"
+        }
+      ]
+    },
+    {
+      "file": "reports/pl_pdf.html",
+      "issues": []
+    },
+    {
+      "file": "reports/boardpack_standard.html",
+      "issues": [
+        {
+          "line": 49,
+          "type": "NON_STANDARD_BADGE",
+          "content": "<p><span class=\"badge\">{{ .Exec.Status }}</span></p>"
+        },
+        {
+          "line": 79,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<tr><td>Revenue</td><td>{{ .Code }} \u2013 {{ .Name }}</td><td>{{ formatDecimal .Amount }}</td></tr>"
+        },
+        {
+          "line": 82,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<tr><td>Expense</td><td>{{ .Code }} \u2013 {{ .Name }}</td><td>{{ formatDecimal .Amount }}</td></tr>"
+        },
+        {
+          "line": 118,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td>{{ .AccountCode }} \u2013 {{ .AccountName }}</td>"
+        }
+      ]
+    },
+    {
+      "file": "reports/audit_timeline_pdf.html",
+      "issues": []
+    },
+    {
+      "file": "reports/bs_pdf.html",
+      "issues": []
+    },
+    {
+      "file": "reports/stock_card_pdf.html",
+      "issues": [
+        {
+          "line": 23,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td>{{ formatDate .PostedAt }}</td>"
+        },
+        {
+          "line": 24,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td>{{ .TxCode }}</td>"
+        }
+      ]
+    },
+    {
+      "file": "reports/tb_pdf.html",
+      "issues": []
+    },
+    {
+      "file": "reports/finance/consol_tb_pdf.html",
+      "issues": []
+    },
+    {
+      "file": "reports/finance/consol_pl_pdf.html",
+      "issues": [
+        {
+          "line": 57,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td>{{ .AccountCode }}</td>"
+        }
+      ]
+    },
+    {
+      "file": "reports/finance/consol_bs_pdf.html",
+      "issues": [
+        {
+          "line": 53,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td>{{ .AccountCode }}</td>"
+        },
+        {
+          "line": 74,
+          "type": "TABLE_NUMERIC_MISSING_MONO",
+          "content": "<td>{{ .AccountCode }}</td>"
+        }
+      ]
+    }
+  ]
+}

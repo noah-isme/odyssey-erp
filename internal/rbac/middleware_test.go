@@ -69,3 +69,12 @@ func TestRequireAllDeniesWhenOnePermissionMissing(t *testing.T) {
 		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusForbidden)
 	}
 }
+
+func TestRequireAnyDeniesWithoutSession(t *testing.T) {
+	middleware := Middleware{Service: stubPermissionReader{permissions: []string{"users.view"}}}.RequireAny("users.view")
+	recorder := httptest.NewRecorder()
+	middleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/protected", nil))
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusForbidden)
+	}
+}

@@ -473,6 +473,15 @@ func (s *Service) CreateGoodsReturnGRN(ctx context.Context, input CreateGoodsRet
 	if input.ReturnDate.IsZero() {
 		input.ReturnDate = time.Now()
 	}
+	_, grnLines, err := s.repo.GetGRN(ctx, input.GRNID)
+	if err != nil {
+		return GoodsReturnGRN{}, err
+	}
+	grnLineMap := make(map[int64]GRNLine, len(grnLines))
+	for _, line := range grnLines {
+		grnLineMap[line.ID] = line
+	}
+	requestedQty := make(map[int64]float64)
 	var id int64
 	err = s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
 		num, err := tx.GenerateGoodsReturnGRNNumber(ctx)
@@ -495,6 +504,20 @@ func (s *Service) CreateGoodsReturnGRN(ctx context.Context, input CreateGoodsRet
 			return err
 		}
 		for _, line := range input.Lines {
+			originalLine, ok := grnLineMap[line.GRNLineID]
+			if !ok {
+				return fmt.Errorf("GRN line %d not found", line.GRNLineID)
+			}
+			if line.ProductID != originalLine.ProductID {
+				return fmt.Errorf("product mismatch on GRN line %d", line.GRNLineID)
+			}
+			if line.QuantityReturned <= 0 {
+				return fmt.Errorf("quantity returned must be positive")
+			}
+			requestedQty[line.GRNLineID] += line.QuantityReturned
+			if requestedQty[line.GRNLineID] > originalLine.Qty {
+				return fmt.Errorf("quantity returned exceeds GRN line quantity")
+			}
 			if err := tx.InsertGoodsReturnGRNLine(ctx, GoodsReturnGRNLine{
 				GoodsReturnGRNID: id,
 				GRNLineID:        line.GRNLineID,

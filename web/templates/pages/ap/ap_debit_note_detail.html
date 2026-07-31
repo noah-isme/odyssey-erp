@@ -1,7 +1,13 @@
-{{define "content"}}
+{{ define "pages/ap/ap_debit_note_detail.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Debit Note {{ .Data.DebitNote.Number }}{{ end }}
+
+{{ define "content" }}
 <div class="page-header"><h1>Debit Note {{.Data.DebitNote.Number}}</h1></div>
 <p>Supplier: {{.Data.DebitNote.SupplierName}} | Invoice: {{.Data.DebitNote.InvoiceNumber}} | Status: {{.Data.DebitNote.Status}}</p>
 <p>Reason: {{.Data.DebitNote.Reason}} | Total: {{.Data.DebitNote.Total}}</p>
 {{if eq .Data.DebitNote.Status "DRAFT"}}<form method="post" action="/finance/ap/debit-notes/{{.Data.DebitNote.ID}}/post"><button type="submit" class="btn btn--primary">Post</button></form><form method="post" action="/finance/ap/debit-notes/{{.Data.DebitNote.ID}}/void"><input class="form-input" name="reason" required placeholder="Void reason"><button type="submit" class="btn btn--danger">Void</button></form>{{end}}
 <div class="table-responsive"><table class="table"><thead><tr><th>Description</th><th>Quantity</th><th>Unit Price</th><th>Total</th></tr></thead><tbody>{{range .Data.DebitNote.Lines}}<tr><td>{{.Description}}</td><td>{{.Quantity}}</td><td>{{.UnitPrice}}</td><td>{{.Total}}</td></tr>{{end}}</tbody></table></div>
-{{end}}
+{{ end }}

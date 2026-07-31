@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/odyssey-erp/odyssey-erp/internal/approvals"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
@@ -34,9 +35,16 @@ type Audit interface {
 	Record(context.Context, shared.AuditLog) error
 }
 type Service struct {
-	pool      *pgxpool.Pool
+	pool      leaveDB
 	approvals *approvals.Service
 	audit     Audit
+}
+
+type leaveDB interface {
+	Begin(context.Context) (pgx.Tx, error)
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
+	Query(context.Context, string, ...any) (pgx.Rows, error)
+	QueryRow(context.Context, string, ...any) pgx.Row
 }
 
 func NewService(pool *pgxpool.Pool, a *approvals.Service, audit Audit) *Service {
