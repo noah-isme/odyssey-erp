@@ -1342,7 +1342,9 @@ func seedInventory(ctx context.Context, pool *pgxpool.Pool) error {
 // themselves conditional on earlier phases.
 func seedListingFixtures(ctx context.Context, pool *pgxpool.Pool) error {
 	var companyID, adminID, warehouseID, customerID, glAccountID int64
-	_ = pool.QueryRow(ctx, "SELECT id FROM companies WHERE code = 'ODY-01'").Scan(&companyID)
+	// The active-company middleware defaults to the first company, so fixtures
+	// must be created there for the authenticated E2E account to see them.
+	_ = pool.QueryRow(ctx, "SELECT id FROM companies ORDER BY id LIMIT 1").Scan(&companyID)
 	_ = pool.QueryRow(ctx, "SELECT id FROM users WHERE email = 'admin@odyssey.local'").Scan(&adminID)
 	_ = pool.QueryRow(ctx, "SELECT id FROM warehouses ORDER BY id LIMIT 1").Scan(&warehouseID)
 	_ = pool.QueryRow(ctx, "SELECT id FROM customers ORDER BY id LIMIT 1").Scan(&customerID)

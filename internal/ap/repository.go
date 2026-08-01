@@ -142,7 +142,7 @@ func (r *pgRepository) loadInvoiceValuation(ctx context.Context, id int64, inv *
 	err := r.pool.QueryRow(ctx, `SELECT COALESCE(i.currency,''), COALESCE(i.original_currency_amount,i.total,0)::text,
 		COALESCE(i.base_currency,co.base_currency,'IDR'), COALESCE(i.base_amount,0)::text, COALESCE(i.fx_rate,0)::text,
 		COALESCE(fx_rate_date, DATE '0001-01-01'), COALESCE(fx_rate_source,''),
-		COALESCE(fx_rate_locked_at, TIMESTAMPTZ '0001-01-01') FROM ap_invoices i JOIN suppliers s ON s.id=i.supplier_id JOIN companies co ON co.id=s.company_id WHERE i.id=$1`, id).
+		COALESCE(fx_rate_locked_at, TIMESTAMPTZ '0001-01-01') FROM ap_invoices i JOIN suppliers s ON s.id=i.supplier_id LEFT JOIN companies co ON co.id=s.company_id WHERE i.id=$1`, id).
 		Scan(&currency, &original, &baseCurrency, &base, &rate, &rateDate, &source, &lockedAt)
 	if err != nil {
 		return err

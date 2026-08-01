@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/periods"
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/shared"
@@ -57,9 +58,21 @@ func (r *repository) List(ctx context.Context) ([]JournalEntry, error) {
 	var entries []JournalEntry
 	for rows.Next() {
 		var e JournalEntry
-		err := rows.Scan(&e.ID, &e.Number, &e.PeriodID, &e.Date, &e.SourceModule, &e.SourceID, &e.Memo, &e.PostedBy, &e.PostedAt, &e.Status, &e.CreatedAt, &e.UpdatedAt)
+		var sourceID pgtype.UUID
+		var memo pgtype.Text
+		var postedBy pgtype.Int8
+		err := rows.Scan(&e.ID, &e.Number, &e.PeriodID, &e.Date, &e.SourceModule, &sourceID, &memo, &postedBy, &e.PostedAt, &e.Status, &e.CreatedAt, &e.UpdatedAt)
 		if err != nil {
 			return nil, err
+		}
+		if sourceID.Valid {
+			e.SourceID = uuid.UUID(sourceID.Bytes)
+		}
+		if memo.Valid {
+			e.Memo = memo.String
+		}
+		if postedBy.Valid {
+			e.PostedBy = postedBy.Int64
 		}
 		entries = append(entries, e)
 	}
@@ -133,14 +146,26 @@ func (r *txRepository) LinkSource(ctx context.Context, module string, ref uuid.U
 
 func (r *txRepository) GetJournalWithLines(ctx context.Context, entryID int64) (JournalEntry, []JournalLine, error) {
 	var entry JournalEntry
+	var sourceID pgtype.UUID
+	var memo pgtype.Text
+	var postedBy pgtype.Int8
 	err := r.tx.QueryRow(ctx, `SELECT id, number, period_id, date, source_module, source_id, memo, posted_by, posted_at, status, created_at, updated_at
 FROM journal_entries WHERE id=$1`, entryID).
-		Scan(&entry.ID, &entry.Number, &entry.PeriodID, &entry.Date, &entry.SourceModule, &entry.SourceID, &entry.Memo, &entry.PostedBy, &entry.PostedAt, &entry.Status, &entry.CreatedAt, &entry.UpdatedAt)
+		Scan(&entry.ID, &entry.Number, &entry.PeriodID, &entry.Date, &entry.SourceModule, &sourceID, &memo, &postedBy, &entry.PostedAt, &entry.Status, &entry.CreatedAt, &entry.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return JournalEntry{}, nil, shared.ErrJournalNotFound
 		}
 		return JournalEntry{}, nil, err
+	}
+	if sourceID.Valid {
+		entry.SourceID = uuid.UUID(sourceID.Bytes)
+	}
+	if memo.Valid {
+		entry.Memo = memo.String
+	}
+	if postedBy.Valid {
+		entry.PostedBy = postedBy.Int64
 	}
 	rows, err := r.tx.Query(ctx, `SELECT id, je_id, account_id, debit, credit, dim_company_id, dim_branch_id, dim_warehouse_id, department_id, cost_center_id, created_at, updated_at
 FROM journal_lines WHERE je_id=$1 ORDER BY id ASC`, entryID)

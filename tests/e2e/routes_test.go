@@ -29,6 +29,7 @@ func TestIsPageRoute(t *testing.T) {
 		"/finance/banking/accounts/{id}",     // needs a real identifier
 		"/static/*",                          // asset handler
 		"/auth/login",                        // public, no app shell
+		"/portal/customer",                   // separate portal session
 		"/welcome",                           // public landing page
 		"/metrics",                           // operational
 		"/metrics/prometheus",                // operational
@@ -148,6 +149,20 @@ func TestResolveDetailPagesPairsPatternsWithRealPaths(t *testing.T) {
 	}
 	if len(unresolved) != 1 || unresolved[0] != "/sales/orders/{id}" {
 		t.Errorf("unresolved = %v, want [/sales/orders/{id}]", unresolved)
+	}
+}
+
+func TestResolveDetailPagesIgnoresZeroIdentifiers(t *testing.T) {
+	pages, unresolved := resolveDetailPages(
+		[]string{"/delivery/orders/{id}/returns/new"},
+		map[string]struct{}{"/delivery/orders/0/returns/new": {}},
+		nil,
+	)
+	if len(pages) != 0 {
+		t.Fatalf("resolveDetailPages() returned placeholder page %+v", pages)
+	}
+	if len(unresolved) != 1 || unresolved[0] != "/delivery/orders/{id}/returns/new" {
+		t.Fatalf("unresolved = %v, want the route to remain unresolved", unresolved)
 	}
 }
 

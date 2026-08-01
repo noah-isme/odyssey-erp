@@ -112,8 +112,24 @@ func (h *Handler) confirmStatement(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) listStatements(w http.ResponseWriter, r *http.Request) {
-	// For MVP, assume bank account ID 1
-	var accountID int64 = 1
+	sess := shared.SessionFromContext(r.Context())
+	if sess == nil {
+		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+		return
+	}
+	companyID, err := strconv.ParseInt(sess.Get("company_id"), 10, 64)
+	if err != nil || companyID <= 0 {
+		http.Error(w, "Active company is required", http.StatusBadRequest)
+		return
+	}
+	var accountID int64
+	if err := h.service.db.QueryRow(r.Context(),
+		"SELECT id FROM bank_accounts WHERE company_id = $1 ORDER BY id LIMIT 1", companyID,
+	).Scan(&accountID); err != nil {
+		h.logger.Error("find bank account for statements", slog.Any("error", err), slog.Int64("company_id", companyID))
+		http.Error(w, "Failed to load bank account", http.StatusInternalServerError)
+		return
+	}
 
 	statements, err := h.service.queries.ListBankStatements(r.Context(), sqlc.ListBankStatementsParams{
 		BankAccountID: accountID,

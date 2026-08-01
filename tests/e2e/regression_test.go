@@ -200,10 +200,11 @@ var fallbackPages = []pageRoute{
 }
 
 // nonPagePrefixes are routes that never render the authenticated app shell:
-// public pages, static assets, and operational endpoints.
+// public pages, portal pages, static assets, and operational endpoints.
 var nonPagePrefixes = []string{
 	"/static",
 	"/auth",
+	"/portal",
 	"/welcome",
 	"/metrics",
 	"/health",
@@ -376,6 +377,9 @@ func resolveDetailPages(patterns []string, links map[string]struct{}, reserved m
 		if _, isReserved := reserved[link]; isReserved {
 			continue
 		}
+		if hasZeroPathSegment(link) {
+			continue
+		}
 		ordered = append(ordered, link)
 	}
 	sort.Strings(ordered)
@@ -397,6 +401,15 @@ func resolveDetailPages(patterns []string, links map[string]struct{}, reserved m
 		pages = append(pages, pageRoute{path: matched, description: pattern})
 	}
 	return pages, unresolved
+}
+
+func hasZeroPathSegment(path string) bool {
+	for _, segment := range strings.Split(strings.Trim(path, "/"), "/") {
+		if segment == "0" {
+			return true
+		}
+	}
+	return false
 }
 
 // fetchPage retrieves a page, following in-app redirects. The shared client
