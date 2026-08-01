@@ -8,6 +8,10 @@
 **Revised:** 2026-08-01 (Phase 14 and P7 local acceptance gates)
 **Current Version:** v0.9.1
 
+> For current capability status, use the [Module Catalog](reference/module-catalog.md).
+> This roadmap tracks sequencing and release gates; it is not a second feature-status
+> authority.
+
 ## Executive Summary
 
 Odyssey ERP has moved well beyond Phase 9. Since this roadmap was first drafted,
@@ -65,9 +69,9 @@ section near the end.**
 
 ## Phase 11: Bank & Cash Management — ✅ DONE (auto bank feed pending)
 
-**Status:** Bank accounts, transactions, transfers, reconciliation, and cash flow report
-are implemented (`internal/finance/banking/`, `internal/accounting/banks/`). Only the
-**auto bank feed (CSV/OFX import)** remains outstanding.
+**Status:** Bank accounts, transactions, transfers, reconciliation, cash flow reporting,
+and manual CSV/OFX statement import are implemented (`internal/finance/banking/`,
+`internal/accounting/banks/`). A scheduled/provider-backed bank feed remains outstanding.
 **Priority:** ~~🔴 High~~
 **Estimated Effort:** ~~2-3 weeks~~
 
@@ -78,7 +82,7 @@ are implemented (`internal/finance/banking/`, `internal/accounting/banks/`). Onl
 | Bank Transactions | Record deposits, withdrawals, transfers | High |
 | Bank Reconciliation | Match transactions with bank statement | High |
 | Cash Flow Report | Actual cash flow from transactions | Medium |
-| Auto Bank Feed | Import bank statements (CSV/OFX) | Low |
+| Scheduled Bank Feed | Automatically fetch/import statements from a provider | Low |
 
 ### Technical Notes
 - New entity `bank_accounts` with `company_id`
@@ -207,10 +211,14 @@ acceptance track; it does not represent unfinished core FX functionality.
 
 ---
 
-## Phase 16: Audit & Compliance
+## Phase 16: Audit & Compliance — 🟡 PARTIAL
 
 **Priority:** 🟢 Low  
 **Estimated Effort:** 2 weeks
+
+> The audit timeline, protected exports, immutable tax/audit records, and RBAC
+> controls already exist. The remaining items below are hardening and general-purpose
+> document-management work; they are not a claim that audit logging is absent.
 
 ### Features
 | Feature | Description | Priority |
@@ -223,10 +231,14 @@ acceptance track; it does not represent unfinished core FX functionality.
 
 ---
 
-## Phase 17: Integration
+## Phase 17: Integration — 🟡 PARTIAL
 
 **Priority:** 🟢 Low  
 **Estimated Effort:** Varies
+
+> Public API, webhooks, SMTP, PDF/Gotenberg, CSV/OFX statement import, portals, and
+> Coretax export are implemented or locally certified. The candidates below are
+> additional external connectors, not the complete integration surface.
 
 ### Potential Integrations
 | Integration | Description | Effort |
@@ -414,21 +426,22 @@ breaking the order for (export/import demand).
    - Extend the new Users/Roles/RBAC unit coverage with handler and database integration scenarios.
 
 2. **Short-term (1 month)**
-   - Automated DB backup via Docker volume snapshots (`pg_dump`)
-   - Finish Phase 12: decide on LIFO costing / `cost_method`; stock reorder automation
-   - Bank auto-feed (CSV/OFX import) to close out Phase 11
+   - Define and test automated DB backup, restore, retention, and RPO/RTO controls
+   - Expand reporting catalog coverage for operational and HR reports
+   - Document the supported lifecycle and integration contracts for current modules
 
 3. **Medium-term (3 months)**
-   - Choose the next major module: **Fixed Assets (Phase 13)** or **transaction-level
-     multi-currency with realized/unrealized gain (Phase 14)**, driven by business need
-   - Department reporting and native Excel export (Phase 15)
+   - Choose the next major operational investment: manufacturing planning, projects,
+     POS depth, CMMS/QMS, or external integrations, driven by business need
+   - Add document management, 2FA/SSO, and enterprise compliance controls
 
 ---
 
 ## Conclusion
 
-The core finance cycle (GL, AR, **AP**, and **Banking with reconciliation**) is complete
-and user-facing, and Inventory is largely enhanced. The highest-leverage work now is
-**finishing what is half-built** — wiring up Budget vs Actual, hardening login rate
-limiting, and covering the RBAC/users/roles surface with tests — before starting the next
-major module (**Fixed Assets** or **transaction-level multi-currency**).
+The core finance cycle (GL, AR, **AP**, banking with reconciliation, tax capture, and
+transaction-level FX) is user-facing, subject to the release gates stated above.
+Inventory is largely enhanced, while the wider ERP surface remains operationally thin.
+The next work should follow the authoritative [`module catalog`](reference/module-catalog.md)
+and close documentation and control gaps before advertising unsupported enterprise
+capabilities.

@@ -46,6 +46,15 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 | [Horizon MVP Foundation](guides/horizon-mvp.md) | WMS, MRP, POS, projects/timesheets, API/webhooks, portals, and isolation rules |
 | [Coretax Validation Sign-off](guides/tax-staff-coretax-validation.md) | Checklist staf pajak untuk artefak DJP, portal testing, rekonsiliasi, dan persetujuan rilis |
 | [CRM](guides/crm.md) | Leads, pipeline, activities, reminders, ownership, conversion, dan win/loss |
+| [Manufacturing / MRP](guides/manufacturing-mrp.md) | BOM, work orders, production scope, and documented gaps |
+| [Projects](guides/projects.md) | Projects, tasks, members, timesheets, and scope boundaries |
+| [POS](guides/pos.md) | Terminals, sessions, tickets, payments, refunds, and gaps |
+| [Supply Chain](guides/supply-chain.md) | WMS, warehouse, fulfillment, supplier, and logistics boundaries |
+| [Maintenance / CMMS](guides/cmms.md) | Current status and deferred maintenance capabilities |
+| [Quality / QMS](guides/qms.md) | Current status and deferred quality capabilities |
+| [Document Management](guides/document-management.md) | Attachments, signatures, versioning, and permissions status |
+| [Integration Boundaries](guides/integrations.md) | Implemented, planned, and unsupported integrations |
+| [Lifecycle Reference](architecture/lifecycles.md) | Supported document states and cross-module flows |
 
 ## 📚 Reference
 
@@ -61,6 +70,8 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 | [Period Policy](reference/period-policy.md) | Kebijakan periode accounting |
 | [Observability](reference/observability.md) | Monitoring & metrics |
 | [SLO Finance](reference/slo-finance.md) | Service Level Objectives |
+| [Module Catalog](reference/module-catalog.md) | Authoritative status for the ERP requirement inventory |
+| [Reporting Catalog](reference/reporting-catalog.md) | Reports, KPIs, routes, data sources, filters, and exports |
 
 ## 📝 Architecture Decision Records
 
@@ -76,7 +87,8 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 
 | Version | Notes |
 |---------|-------|
-| [v0.9.1](releases/v0.9.1.md) | **Current** — Enterprise UI/UX overhaul (2026-05-28) |
+| [v0.9.1](releases/v0.9.1.md) | **Latest named release** — Enterprise UI/UX overhaul (2026-05-28) |
+| [Version and Progress Report](releases/VERSION_HISTORY.md) | Differences between releases and post-v0.9.1 implementation progress |
 | [v0.9.0](releases/v0.9.0.md) | Phase 9 — Sales & AR complete |
 | [v0.8.0](releases/v0.8.0.md) | Phase 8 — Board Pack |
 | [v0.7.0](releases/v0.7.0.md) | Phase 7 |

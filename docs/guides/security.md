@@ -74,6 +74,44 @@ go test -v ./internal/auth/...
 govulncheck ./...
 ```
 
+## Enterprise control status
+
+The following table is the current security boundary. A control is not considered
+implemented merely because the application has a related concept such as RBAC or
+sessions.
+
+| Control | Status | Current evidence / boundary |
+|---|---|---|
+| RBAC | Implemented | Permission middleware and module-scoped roles; see [`reference/rbac.md`](../reference/rbac.md) |
+| Audit logs | Implemented | Audit timeline and protected exports are available; retention and tamper-evidence policy remain to be formalized |
+| 2FA | Unsupported | No TOTP, WebAuthn, recovery-code, enrollment, or enforcement flow is documented |
+| SSO | Unsupported | No SAML/OIDC provider or session handoff is documented |
+| Encryption in transit | Partial | HTTPS is a production requirement; certificate, TLS policy, and reverse-proxy ownership are deployment concerns |
+| Encryption at rest | Unsupported | No database, backup, object-storage, or key-management policy is documented |
+| IP restrictions | Unsupported | Rate limiting is documented, but allowlists/denylists and trusted-network policy are not |
+| Device/session management | Partial | Redis-backed sessions and logout exist; device inventory, session listing, revocation UI, and anomaly detection are not documented |
+| Secrets management | Partial | Secrets are environment-configured and should not be logged; a managed vault/KMS policy is not documented |
+| Backup and restore | Planned | Manual backup/restore procedures exist in deployment material; automated backup verification is a roadmap item |
+| Disaster recovery | Planned | RPO/RTO, restore drills, failover, and regional recovery procedures are not yet defined |
+| Data retention | Planned | Audit/tax immutability exists, but retention periods, legal holds, deletion/anonymization, and purge ownership are not defined |
+| GDPR/privacy | Unsupported | No data inventory, subject-access, erasure, consent, breach, or processor-control procedure is documented |
+| ISO 27001 controls | Unsupported | No control mapping, evidence owner, risk register, or statement of applicability is documented |
+
+### Minimum production baseline
+
+Before claiming enterprise security readiness, document and test: TLS termination and
+certificate rotation; encrypted database and backup storage; secret rotation; session
+revocation; backup restore drills; stated RPO/RTO; audit-log retention and access;
+incident severity and notification timelines; and privacy/compliance ownership.
+
+### Backup and restore boundary
+
+The application depends on PostgreSQL, Redis, and externally configured services. A
+database dump alone is not a disaster-recovery plan: restore procedures must include
+schema migrations, secret/config recovery, Redis rebuild expectations, worker queues,
+uploaded/generated artifacts, and post-restore integrity checks. Until those checks are
+automated and exercised, backup/DR remains **Planned** in the module catalog.
+
 ## Incident Response
 
 1. **Detection**: Monitor logs untuk anomalies

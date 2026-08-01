@@ -17,6 +17,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -tags production -a -installsuffix cgo -o /app/odyssey ./cmd/odyssey
 RUN CGO_ENABLED=0 GOOS=linux go build -tags production -a -installsuffix cgo -o /app/worker ./cmd/worker
 RUN CGO_ENABLED=0 GOOS=linux go build -tags production -a -installsuffix cgo -o /app/bootstrap-admin ./cmd/bootstrap-admin
+RUN CGO_ENABLED=0 GOOS=linux go build -tags production -a -installsuffix cgo -o /app/seed ./scripts/seed
 RUN GOBIN=/app go install -tags postgres github.com/golang-migrate/migrate/v4/cmd/migrate@v4.18.3
 
 # Runtime stage
@@ -32,6 +33,7 @@ RUN addgroup -S odyssey && adduser -S -G odyssey odyssey
 COPY --from=builder /app/odyssey /app/odyssey
 COPY --from=builder /app/worker /app/worker
 COPY --from=builder /app/bootstrap-admin /app/bootstrap-admin
+COPY --from=builder /app/seed /app/seed
 COPY --from=builder /app/migrate /app/migrate
 
 # Copy migrations and other necessary files

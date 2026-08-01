@@ -1,40 +1,153 @@
 # Odyssey ERP
 
-Panduan deployment production di Render tersedia di [`docs/guides/deploy-render.md`](docs/guides/deploy-render.md).
+[![CI](https://github.com/noah-isme/odyssey-erp/actions/workflows/ci.yml/badge.svg)](https://github.com/noah-isme/odyssey-erp/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/badge/release-v0.9.1-blue)](docs/releases/VERSION_HISTORY.md)
+[![Go](https://img.shields.io/badge/Go-1.24+-00ADD8?logo=go&logoColor=white)](go.mod)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-Modern ERP system built with Go, PostgreSQL, and Alpine Linux.
+## Finance-led operations for growing businesses
 
-**Current version:** v0.9.1 — see [CHANGELOG](docs/CHANGELOG.md) and [releases](docs/releases/).
+Odyssey ERP helps teams run finance and daily operations in one place—from purchasing,
+sales, inventory, and delivery through accounting, reporting, approvals, and audit.
+It exists to give operators a dependable shared record of money, documents, stock, and
+business activity without stitching together disconnected systems.
 
-## 📦 Modules
+## Key features
 
-Finance & accounting: General Ledger, Accounts Receivable (AR), Accounts Payable (AP),
-Banking (accounts, transactions, reconciliation, cash flow), Period Close, Consolidation
-(FX, intercompany, elimination), Variance, Board Pack.
+- **Control the financial cycle:** GL, AR, AP, tax, banking, reconciliation, budgets, FX, and consolidation.
+- **Move goods and documents:** procurement, quotations, sales orders, delivery, inventory, lots/serials, and costing.
+- **Coordinate teams:** CRM pipeline, approvals, HR core, payroll, notifications, and company-scoped access.
+- **See the business clearly:** finance analytics, board packs, aging, cash flow, budget-vs-actual, and audit timelines.
+- **Extend safely:** public API, idempotent operations, signed webhooks, portals, and multi-company isolation.
 
-Operations: Master Data, Procurement (PR → PO → GRN), Sales (quotations & orders),
-Delivery, Inventory (valuation, stock takes, adjustments).
+## Visual preview
 
-Platform: Auth, RBAC, Users & Roles, Analytics, Insights, Dashboard, Global Search, Audit log.
+![Odyssey ERP public landing page](docs/assets/odyssey-dashboard-preview.png)
 
-## 🚀 Quick Start
+The preview shows Odyssey ERP's public landing page, including its product overview,
+sales, inventory, accounting, fulfillment, reporting, governance, and integration
+sections. Additional authenticated application previews are available in
+[`tests/e2e/test-screenshots/`](tests/e2e/test-screenshots/).
 
-```bash
-# Start all services
-docker-compose up -d
+For deploying to Render, see the [Production Deployment Guide](docs/guides/deploy-render.md).
 
-# Run migrations and seed
-export PG_DSN='postgres://odyssey:odyssey@localhost:5432/odyssey?sslmode=disable'
-make migrate-up
-make seed
+See the [CHANGELOG](docs/CHANGELOG.md), [version and progress report](docs/releases/VERSION_HISTORY.md), [release notes](docs/releases/), and [authoritative module catalog](docs/reference/module-catalog.md).
 
-# Access application
-open http://localhost:8080
+## Feature overview
+
+- **Core accounting:** GL, AR, AP, tax, banking, reconciliation, cash flow, budgets, fixed assets, FX, consolidation, analytics, and board packs.
+- **Operations:** Procurement, quotations, sales orders, delivery, inventory movements, stock takes, adjustments, lot/serial tracking, AVG/FIFO costing, and replenishment foundations.
+- **People and relationships:** CRM pipeline and activities, approvals, HR core, payroll, notifications, and company-scoped access.
+- **Horizon foundations:** WMS bins/picking/barcodes, MRP BOMs/work orders, POS tickets/payments/refunds, projects/timesheets, portals, public APIs, and signed webhooks.
+
+## In progress
+
+- Sales lifecycle depth, inventory costing breadth, project and POS workflows, supply-chain operations, BI/reporting coverage, multi-everything support, integrations, and enterprise security controls.
+
+## Planned
+
+- E-commerce connectors, fleet and route optimization, CMMS, QMS, general document management, 2FA, SSO, encryption-at-rest policy, automated disaster recovery, and compliance control mapping.
+
+## Example end-to-end business flow
+
+This example follows the documented Odyssey workflows. CRM conversion creates a draft
+quotation; quotation approval is required before order conversion; delivery completion
+posts inventory movement; and AR posting/payment allocation feeds accounting records.
+Replenishment creates draft purchase requests and does not bypass procurement approval.
+
+```text
+CRM Lead
+    |
+    v
+Qualify -> Opportunity -> WIN
+    |
+    v
+Link or create customer
+    |
+    v
+Draft Sales Quotation
+    |
+    v
+Submit -> Approve
+    |
+    v
+Convert to Draft Sales Order
+    |
+    v
+Confirm Sales Order
+    |
+    v
+Create Delivery Order / select warehouse
+    |
+    +-- Available ------------------------------+
+    |                                           |
+    +-- Below minimum stock                     |
+            |                                   |
+            v                                   |
+    Create draft Purchase Request               |
+            |                                   |
+            v                                   |
+    Submit / approve -> Draft Purchase Order    |
+            |                                   |
+            v                                   |
+    Submit / approve -> Post Goods Receipt      |
+            |                                   |
+            +------ Inventory inbound movement -+
+                                                |
+                                                v
+                                      Create Delivery Order
+                                                |
+                                                v
+                                      Confirm -> Ship -> Deliver
+                                                |
+                                                v
+                                      Inventory movement posted
+                                                |
+                                                v
+                                      Create AR invoice from delivery
+                                                |
+                                                v
+                                      Post AR invoice
+                                                |
+                                                v
+                                      Allocate customer payment
+                                                |
+                                                v
+                                      Invoice becomes PAID when fully allocated
+                                                |
+                                                v
+                                      Journal, tax, and audit records written;
+                                      reports/read models update through their jobs
 ```
 
-**Login:** `admin@odyssey.local` / `admin123`
+For feature-level status, supported lifecycle states, report routes, and integration
+boundaries, see the [module catalog](docs/reference/module-catalog.md),
+[lifecycle reference](docs/architecture/lifecycles.md),
+[reporting catalog](docs/reference/reporting-catalog.md), and
+[integration boundaries](docs/guides/integrations.md).
 
-## 📖 Documentation
+## Quick Start
+
+### Try it out with Docker
+
+This path is for evaluators and end-users. It builds the app, starts its dependencies,
+applies migrations, and loads development seed data:
+
+```bash
+docker compose --profile full up --build
+```
+
+Open <http://localhost:8080> after the services are ready.
+
+**Development login:** `admin@odyssey.local` / `admin123`
+
+### Local development
+
+This path is for contributors who want hot reload, tests, and direct access to the Go
+toolchain. Install Go 1.24+, Docker, and Make, then follow
+[`QUICK_REFERENCE.md`](QUICK_REFERENCE.md) or the [native setup guide](docs/getting-started/native-setup.md).
+
+## Documentation
 
 All documentation is in [`docs/`](docs/README.md):
 
@@ -46,7 +159,7 @@ All documentation is in [`docs/`](docs/README.md):
 | [Reference](docs/reference/) | Technical reference |
 | [ADRs](docs/decisions/) | Architecture decisions |
 
-## 🔧 Development
+## Development
 
 ```bash
 # Hot reload (recommended)
@@ -55,7 +168,7 @@ All documentation is in [`docs/`](docs/README.md):
 
 See [`QUICK_REFERENCE.md`](QUICK_REFERENCE.md) for the full command cheatsheet.
 
-## 🐳 Docker Services
+## Docker Services
 
 | Service | Port | Description |
 |---------|------|-------------|
@@ -65,7 +178,7 @@ See [`QUICK_REFERENCE.md`](QUICK_REFERENCE.md) for the full command cheatsheet.
 | Mailpit | 8025 | Email testing |
 | Gotenberg | 3000 | PDF generator |
 
-## 🏗️ Tech Stack
+## Tech Stack
 
 - **Architecture:** Modular Monolith (Clean Architecture)
 - **Backend:** Go 1.24+, Chi router
@@ -76,6 +189,6 @@ See [`QUICK_REFERENCE.md`](QUICK_REFERENCE.md) for the full command cheatsheet.
 - **PDF:** Gotenberg
 - **Container:** Docker with Alpine Linux
 
-## 📝 License
+## License
 
 See LICENSE file for details.
