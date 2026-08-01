@@ -60,12 +60,13 @@ type TransactionalAuditPort interface {
 }
 
 type APInvoiceValuation struct {
-	BaseCurrency string
-	BaseAmount   accountingmoney.Money
-	Rate         fx.Decimal
-	RateDate     time.Time
-	Source       string
-	LockedAt     time.Time
+	OriginalAmount accountingmoney.Money
+	BaseCurrency   string
+	BaseAmount     accountingmoney.Money
+	Rate           fx.Decimal
+	RateDate       time.Time
+	Source         string
+	LockedAt       time.Time
 }
 
 type APPaymentValuation struct {
@@ -390,7 +391,9 @@ func (s *Service) resolveInvoiceValuation(ctx context.Context, inv APInvoice) (*
 		base = "IDR"
 	}
 	if inv.Currency == "" || inv.Currency == base {
-		return &APInvoiceValuation{BaseCurrency: base, BaseAmount: accountingmoney.Must(strconv.FormatFloat(inv.Total, 'f', 2, 64), 2), Rate: fx.MustDecimal("1"), RateDate: time.Now(), Source: "INTERNAL", LockedAt: time.Now()}, nil
+		original := accountingmoney.Must(strconv.FormatFloat(inv.Total, 'f', 2, 64), 2)
+		now := time.Now()
+		return &APInvoiceValuation{OriginalAmount: original, BaseCurrency: base, BaseAmount: original, Rate: fx.MustDecimal("1"), RateDate: now, Source: "INTERNAL", LockedAt: now}, nil
 	}
 	if s.fxResolver == nil {
 		return nil, fmt.Errorf("ap: FX resolver is required for %s invoice", inv.Currency)
@@ -416,7 +419,7 @@ func (s *Service) resolveInvoiceValuation(ctx context.Context, inv APInvoice) (*
 	if err != nil {
 		return nil, err
 	}
-	return &APInvoiceValuation{BaseCurrency: base, BaseAmount: baseAmount, Rate: quote.Rate, RateDate: quote.RateDate, Source: quote.Source, LockedAt: time.Now()}, nil
+	return &APInvoiceValuation{OriginalAmount: accountingmoney.Must(original.String(), 2), BaseCurrency: base, BaseAmount: baseAmount, Rate: quote.Rate, RateDate: quote.RateDate, Source: quote.Source, LockedAt: time.Now()}, nil
 }
 
 func (s *Service) resolvePaymentRate(ctx context.Context, base, currency string, date time.Time) (fx.FXQuote, error) {

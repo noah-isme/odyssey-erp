@@ -226,7 +226,7 @@ func (r *Repository) PostARInvoiceWithValuation(ctx context.Context, id, postedB
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	var status string
 	if err = tx.QueryRow(ctx, `SELECT status FROM ar_invoices WHERE id=$1 FOR UPDATE`, id).Scan(&status); err != nil {
 		return err
@@ -234,7 +234,7 @@ func (r *Repository) PostARInvoiceWithValuation(ctx context.Context, id, postedB
 	if status != string(ARStatusDraft) {
 		return ErrInvalidStatus
 	}
-	if _, err = tx.Exec(ctx, `UPDATE ar_invoices SET base_currency=$2, base_amount=$3, fx_rate=$4, fx_rate_date=$5, fx_rate_source=$6, fx_rate_locked_at=$7, status='POSTED', posted_at=NOW(), posted_by=$8, updated_at=NOW() WHERE id=$1`, id, v.BaseCurrency, v.BaseAmount.String(), v.Rate.String(), v.RateDate, v.Source, v.LockedAt, postedBy); err != nil {
+	if _, err = tx.Exec(ctx, `UPDATE ar_invoices SET original_currency_amount=$2, base_currency=$3, base_amount=$4, fx_rate=$5, fx_rate_date=$6, fx_rate_source=$7, fx_rate_locked_at=$8, status='POSTED', posted_at=NOW(), posted_by=$9, updated_at=NOW() WHERE id=$1`, id, v.OriginalAmount.String(), v.BaseCurrency, v.BaseAmount.String(), v.Rate.String(), v.RateDate, v.Source, v.LockedAt, postedBy); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
@@ -747,7 +747,7 @@ func (t *txRepo) PostARInvoiceWithValuation(ctx context.Context, id, postedBy in
 	if status != string(ARStatusDraft) {
 		return ErrInvalidStatus
 	}
-	_, err := t.tx.Exec(ctx, `UPDATE ar_invoices SET base_currency=$2, base_amount=$3, fx_rate=$4, fx_rate_date=$5, fx_rate_source=$6, fx_rate_locked_at=$7, status='POSTED', posted_at=NOW(), posted_by=$8, updated_at=NOW() WHERE id=$1`, id, v.BaseCurrency, v.BaseAmount.String(), v.Rate.String(), v.RateDate, v.Source, v.LockedAt, postedBy)
+	_, err := t.tx.Exec(ctx, `UPDATE ar_invoices SET original_currency_amount=$2, base_currency=$3, base_amount=$4, fx_rate=$5, fx_rate_date=$6, fx_rate_source=$7, fx_rate_locked_at=$8, status='POSTED', posted_at=NOW(), posted_by=$9, updated_at=NOW() WHERE id=$1`, id, v.OriginalAmount.String(), v.BaseCurrency, v.BaseAmount.String(), v.Rate.String(), v.RateDate, v.Source, v.LockedAt, postedBy)
 	return err
 }
 

@@ -20,7 +20,7 @@ func (r *SQLRevaluationRepository) WithTx(ctx context.Context, fn func(context.C
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	if err := fn(ctx, &sqlRevaluationTx{tx: tx}); err != nil {
 		return err
 	}

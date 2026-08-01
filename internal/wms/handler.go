@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/odyssey-erp/odyssey-erp/internal/inventory"
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
@@ -35,6 +36,9 @@ func (h *Handler) MountRoutes(r chi.Router) {
 	r.Group(func(r chi.Router) {
 		r.Use(h.rbac.RequireAny("wms.manage"))
 		r.Post("/waves", h.createWave)
+		r.Post("/waves/{id}/release", h.releaseWave)
+		r.Post("/waves/{id}/complete", h.completeWave)
+		r.Post("/waves/{id}/cancel", h.cancelWave)
 		r.Post("/bins", h.createBin)
 		r.Post("/barcodes", h.createBarcode)
 		r.Post("/pick-tasks", h.createPickTask)
@@ -42,6 +46,48 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Post("/pick-tasks/{id}/pack", h.pack)
 		r.Post("/pick-tasks/{id}/ship", h.ship)
 	})
+}
+
+func (h *Handler) transitionWave(w http.ResponseWriter, r *http.Request, from, to string) {
+	_, cid, ok := sessionIDs(r)
+	if !ok {
+		shared.WriteHTTPError(w, http.StatusForbidden, "")
+		return
+	}
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		http.Error(w, "invalid wave id", http.StatusBadRequest)
+		return
+	}
+	var response struct {
+		ID, WarehouseID int64
+		Number, Status  string
+	}
+	query := `UPDATE wms_pick_waves SET status=$1,updated_at=NOW() WHERE id=$2 AND company_id=$3 AND status=$4 RETURNING id,warehouse_id,number,status`
+	args := []any{to, id, cid, from}
+	if to == "COMPLETED" {
+		query = `UPDATE wms_pick_waves SET status=$1,updated_at=NOW() WHERE id=$2 AND company_id=$3 AND status=$4 AND NOT EXISTS (SELECT 1 FROM wms_pick_tasks WHERE wave_id=$2 AND company_id=$3 AND status NOT IN ('PACKED','SHIPPED','CANCELLED')) RETURNING id,warehouse_id,number,status`
+	}
+	err = h.pool.QueryRow(r.Context(), query, args...).Scan(&response.ID, &response.WarehouseID, &response.Number, &response.Status)
+	if errors.Is(err, pgx.ErrNoRows) {
+		http.Error(w, http.StatusText(http.StatusConflict), http.StatusConflict)
+		return
+	}
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, http.StatusOK, response)
+}
+
+func (h *Handler) releaseWave(w http.ResponseWriter, r *http.Request) {
+	h.transitionWave(w, r, "DRAFT", "RELEASED")
+}
+func (h *Handler) completeWave(w http.ResponseWriter, r *http.Request) {
+	h.transitionWave(w, r, "RELEASED", "COMPLETED")
+}
+func (h *Handler) cancelWave(w http.ResponseWriter, r *http.Request) {
+	h.transitionWave(w, r, "DRAFT", "CANCELLED")
 }
 
 func (h *Handler) createWave(w http.ResponseWriter, r *http.Request) {

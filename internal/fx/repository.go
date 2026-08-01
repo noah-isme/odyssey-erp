@@ -24,7 +24,7 @@ func (r *SQLRepository) UpsertDailyRates(ctx context.Context, set FXQuoteSet) er
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	for quote, rate := range set.Rates {
 		if _, err := tx.Exec(ctx, `INSERT INTO fx_daily_rates (base_currency,quote_currency,rate_date,rate,source,source_reference,provider_updated_at,raw_payload_hash) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (base_currency,quote_currency,rate_date,source) DO UPDATE SET fetched_at=NOW(),source_reference=EXCLUDED.source_reference,provider_updated_at=EXCLUDED.provider_updated_at,raw_payload_hash=EXCLUDED.raw_payload_hash`, set.BaseCurrency, quote, set.RateDate, rate.String(), set.Source, set.SourceReference, set.ProviderUpdatedAt, set.RawPayloadHash); err != nil {
 			return err

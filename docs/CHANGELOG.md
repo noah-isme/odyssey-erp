@@ -9,6 +9,13 @@
   journals, idempotent revaluation and reversal, manual override authorization,
   FX audit records, worker scheduling, and `odyssey fx fetch/status` operations.
 
+- P7 Horizon MVP foundation across WMS, MRP, POS, projects/timesheets, public API,
+  webhooks, and portals, including company isolation, idempotency, lifecycle controls,
+  webhook secret protection, and timesheet FX snapshots.
+- Phase 14 and P7 local acceptance gates completed through migration v61; lint, build,
+  unit tests, full tests, and tagged integration tests passed. Staging and production
+  smoke verification remain release gates.
+
 - Phase 6 CRM with company/owner-scoped leads, contacts, opportunities, ordered
   stages, activities, timeline, reassignment, and win/loss dashboard.
 - Idempotent won-opportunity conversion reuses customer and quotation services;

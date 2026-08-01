@@ -148,7 +148,7 @@ func (h *Handler) complete(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, qerr.Error(), 400)
 			return
 		}
-		defer tx.Rollback(r.Context())
+		defer func() { _ = tx.Rollback(r.Context()) }()
 		var warehouse, product, bom int64
 		var planned, completed float64
 		var status string

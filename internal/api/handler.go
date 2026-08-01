@@ -221,7 +221,7 @@ func (h *Handler) provisionKey(w http.ResponseWriter, r *http.Request, companyID
 		apiError(w, err)
 		return
 	}
-	defer tx.Rollback(r.Context())
+	defer func() { _ = tx.Rollback(r.Context()) }()
 	var id int64
 	if err = tx.QueryRow(r.Context(), `INSERT INTO api_keys(company_id,name,key_hash,expires_at,created_by) VALUES($1,$2,$3,$4,$5) RETURNING id`, companyID, in.Name, hash, in.ExpiresAt, createdBy).Scan(&id); err != nil {
 		apiError(w, err)
@@ -347,7 +347,7 @@ func (h *Handler) createProject(w http.ResponseWriter, r *http.Request) {
 		apiError(w, err)
 		return
 	}
-	defer tx.Rollback(r.Context())
+	defer func() { _ = tx.Rollback(r.Context()) }()
 	var claimed bool
 	err = tx.QueryRow(r.Context(), `INSERT INTO horizon_idempotency_keys(company_id,actor_id,idempotency_key,operation,response) VALUES($1,$2,$3,'api.projects.create','{}'::jsonb) ON CONFLICT DO NOTHING RETURNING TRUE`, key.CompanyID, key.CreatedBy, idempotency).Scan(&claimed)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {

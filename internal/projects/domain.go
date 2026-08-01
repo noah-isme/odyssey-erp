@@ -33,6 +33,7 @@ type Timesheet struct {
 
 type Repository interface {
 	GetProjectTask(context.Context, int64, int64) (Project, Task, error)
+	IsProjectMember(context.Context, int64, int64, int64) (bool, error)
 	CreateTimesheet(context.Context, Timesheet) (Timesheet, error)
 	GetTimesheet(context.Context, int64, int64) (Timesheet, error)
 	UpdateTimesheet(context.Context, Timesheet) error
@@ -80,6 +81,20 @@ func (s *Service) transition(ctx context.Context, companyID, actorID, id int64, 
 	}
 	if from == "DRAFT" && sheet.EmployeeID != actorID {
 		return Timesheet{}, ErrNotFound
+	}
+	if from == "DRAFT" {
+		members, ok := s.repo.(interface {
+			IsProjectMember(context.Context, int64, int64, int64) (bool, error)
+		})
+		if ok {
+			member, err := members.IsProjectMember(ctx, sheet.CompanyID, sheet.ProjectID, actorID)
+			if err != nil {
+				return Timesheet{}, err
+			}
+			if !member {
+				return Timesheet{}, ErrNotFound
+			}
+		}
 	}
 	if from != "DRAFT" {
 		project, _, err := s.repo.GetProjectTask(ctx, sheet.ProjectID, sheet.TaskID)

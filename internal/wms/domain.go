@@ -66,7 +66,7 @@ func (s *Service) RegisterBarcode(ctx context.Context, companyID int64, barcode 
 	if s == nil || s.repo == nil {
 		return errors.New("wms: repository is required")
 	}
-	if companyID == 0 || barcode == "" || (productID == 0 && binID == 0) {
+	if companyID == 0 || barcode == "" || (productID == 0) == (binID == 0) {
 		return errors.New("wms: company, barcode, and target are required")
 	}
 	return s.repo.CreateBarcode(ctx, companyID, barcode, productID, binID)

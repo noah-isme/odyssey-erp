@@ -121,7 +121,7 @@ func (s *Service) Submit(ctx context.Context, in CreateInput) (Request, error) {
 	if err != nil {
 		return Request{}, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	_, err = tx.Exec(ctx, `UPDATE hr_leave_requests SET status='PENDING',approval_request_id=$2,updated_at=NOW() WHERE id=$1`, req.ID, approvalReq.ID)
 	if err == nil {
 		_, err = tx.Exec(ctx, `UPDATE hr_leave_balances SET pending=pending+$4,updated_at=NOW() WHERE employee_id=$1 AND leave_type_id=$2 AND year=$3`, employeeID, in.LeaveTypeID, year, days)
@@ -142,7 +142,7 @@ func (s *Service) FinalizeApproval(ctx context.Context, a approvals.Request, sta
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	var employeeID, typeID int64
 	var start time.Time
 	var days float64

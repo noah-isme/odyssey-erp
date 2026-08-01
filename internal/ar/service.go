@@ -105,12 +105,13 @@ type TransactionalAuditPort interface {
 }
 
 type ARInvoiceValuation struct {
-	BaseCurrency string
-	BaseAmount   accountingmoney.Money
-	Rate         fx.Decimal
-	RateDate     time.Time
-	Source       string
-	LockedAt     time.Time
+	OriginalAmount accountingmoney.Money
+	BaseCurrency   string
+	BaseAmount     accountingmoney.Money
+	Rate           fx.Decimal
+	RateDate       time.Time
+	Source         string
+	LockedAt       time.Time
 }
 
 type ARPaymentValuation struct {
@@ -407,7 +408,8 @@ func (s *Service) resolveInvoiceValuation(ctx context.Context, inv *ARInvoice) (
 	}
 	if inv.Currency == "" || inv.Currency == base {
 		now := time.Now()
-		return &ARInvoiceValuation{BaseCurrency: base, BaseAmount: accountingmoney.Must(strconv.FormatFloat(inv.Total, 'f', 2, 64), 2), Rate: fx.MustDecimal("1"), RateDate: now, Source: "INTERNAL", LockedAt: now}, nil
+		original := accountingmoney.Must(strconv.FormatFloat(inv.Total, 'f', 2, 64), 2)
+		return &ARInvoiceValuation{OriginalAmount: original, BaseCurrency: base, BaseAmount: original, Rate: fx.MustDecimal("1"), RateDate: now, Source: "INTERNAL", LockedAt: now}, nil
 	}
 	if s.fxResolver == nil {
 		return nil, errors.New("ar: FX resolver is required for foreign-currency invoice")
@@ -433,7 +435,7 @@ func (s *Service) resolveInvoiceValuation(ctx context.Context, inv *ARInvoice) (
 	if err != nil {
 		return nil, err
 	}
-	return &ARInvoiceValuation{BaseCurrency: base, BaseAmount: baseAmount, Rate: quote.Rate, RateDate: quote.RateDate, Source: quote.Source, LockedAt: now}, nil
+	return &ARInvoiceValuation{OriginalAmount: accountingmoney.Must(original.String(), 2), BaseCurrency: base, BaseAmount: baseAmount, Rate: quote.Rate, RateDate: quote.RateDate, Source: quote.Source, LockedAt: now}, nil
 }
 
 // VoidARInvoice voids an invoice.

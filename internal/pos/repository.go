@@ -17,7 +17,7 @@ func (r *SQLRepository) CreateTicket(ctx context.Context, ticket Ticket) (Ticket
 	if err != nil {
 		return Ticket{}, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	var out Ticket
 	err = tx.QueryRow(ctx, `INSERT INTO pos_tickets(company_id,session_id,number,currency,subtotal,tax_amount,total,status,created_by) VALUES($1,$2,'POS-'||to_char(NOW(),'YYYYMMDDHH24MISSMS')||'-'||nextval('pos_tickets_id_seq')::text,$3,$4/100.0,$5/100.0,$6/100.0,'DRAFT',$7) RETURNING id,company_id,session_id,currency,(subtotal*100)::bigint,(tax_amount*100)::bigint,(total*100)::bigint,status`, ticket.CompanyID, ticket.SessionID, ticket.Currency, ticket.SubtotalCents, ticket.TaxCents, ticket.TotalCents, ticket.ID).Scan(&out.ID, &out.CompanyID, &out.SessionID, &out.Currency, &out.SubtotalCents, &out.TaxCents, &out.TotalCents, &out.Status)
 	out.PaidCents = 0
@@ -54,7 +54,7 @@ func (r *SQLRepository) HasPayment(ctx context.Context, ticketID int64, key stri
 }
 func (r *SQLRepository) RecordPayment(ctx context.Context, p Payment) (Payment, bool, error) {
 	var out Payment
-	err := r.pool.QueryRow(ctx, `INSERT INTO pos_payments(ticket_id,method,amount,reference,idempotency_key) VALUES($1,$2,$3/100.0,$4,$5) ON CONFLICT(ticket_id,idempotency_key) DO NOTHING RETURNING id,ticket_id,method,(amount*100)::bigint,reference,idempotency_key`, p.TicketID, p.Method, p.AmountCents, p.Reference, p.IdempotencyKey).Scan(&out.ID, &out.TicketID, &out.Method, &out.AmountCents, &out.Reference, &out.IdempotencyKey)
+	err := r.pool.QueryRow(ctx, `WITH locked AS (SELECT id,total FROM pos_tickets WHERE id=$1 FOR UPDATE) INSERT INTO pos_payments(ticket_id,method,amount,reference,idempotency_key) SELECT locked.id,$2,$3/100.0,$4,$5 FROM locked WHERE locked.total >= (SELECT COALESCE(SUM(amount),0) FROM pos_payments WHERE ticket_id=$1)+$3/100.0 ON CONFLICT(ticket_id,idempotency_key) DO NOTHING RETURNING id,ticket_id,method,(amount*100)::bigint,reference,idempotency_key`, p.TicketID, p.Method, p.AmountCents, p.Reference, p.IdempotencyKey).Scan(&out.ID, &out.TicketID, &out.Method, &out.AmountCents, &out.Reference, &out.IdempotencyKey)
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = r.pool.QueryRow(ctx, `SELECT id,ticket_id,method,(amount*100)::bigint,reference,idempotency_key FROM pos_payments WHERE ticket_id=$1 AND idempotency_key=$2`, p.TicketID, p.IdempotencyKey).Scan(&out.ID, &out.TicketID, &out.Method, &out.AmountCents, &out.Reference, &out.IdempotencyKey)
 		return out, true, err

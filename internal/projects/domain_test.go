@@ -10,10 +10,14 @@ type memoryRepo struct {
 	project Project
 	task    Task
 	sheet   Timesheet
+	member  bool
 }
 
 func (r *memoryRepo) GetProjectTask(context.Context, int64, int64) (Project, Task, error) {
 	return r.project, r.task, nil
+}
+func (r *memoryRepo) IsProjectMember(context.Context, int64, int64, int64) (bool, error) {
+	return r.member, nil
 }
 func (r *memoryRepo) CreateTimesheet(_ context.Context, s Timesheet) (Timesheet, error) {
 	s.ID = 1
@@ -25,7 +29,7 @@ func (r *memoryRepo) GetTimesheet(context.Context, int64, int64) (Timesheet, err
 }
 func (r *memoryRepo) UpdateTimesheet(_ context.Context, s Timesheet) error { r.sheet = s; return nil }
 func TestTimesheetApprovalAndLock(t *testing.T) {
-	r := &memoryRepo{project: Project{ID: 1, CompanyID: 2, ManagerID: 9}, task: Task{ID: 3, ProjectID: 1, Status: "OPEN"}}
+	r := &memoryRepo{project: Project{ID: 1, CompanyID: 2, ManagerID: 9}, task: Task{ID: 3, ProjectID: 1, Status: "OPEN"}, member: true}
 	s := NewService(r)
 	sheet, e := s.CreateTimesheet(context.Background(), Timesheet{CompanyID: 2, ProjectID: 1, TaskID: 3, EmployeeID: 5, Hours: 8})
 	require.NoError(t, e)

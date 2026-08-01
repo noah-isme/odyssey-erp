@@ -70,7 +70,6 @@ func (approvalFake) Submit(context.Context, approvals.Submission) (approvals.Req
 }
 
 type approvalCapture struct {
-	approvalFake
 	submission approvals.Submission
 }
 

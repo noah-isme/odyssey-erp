@@ -30,6 +30,7 @@ func (r *memoryRepo) RecordPayment(_ context.Context, p Payment) (Payment, bool,
 	}
 	p.ID = int64(len(r.payments) + 1)
 	r.payments[p.IdempotencyKey] = p
+	r.ticket.PaidCents += p.AmountCents
 	return p, false, nil
 }
 func (r *memoryRepo) UpdateTicket(_ context.Context, t Ticket) error {

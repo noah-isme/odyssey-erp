@@ -63,11 +63,22 @@ Period revaluation stores details in `fx_revaluations`, claims each document
 before journal creation, and records reversal journals in
 `fx_revaluation_reversals`.
 
+## Local acceptance result
+
+Phase 14 local gates are complete. The clean schema was migrated through version 61;
+the FX account mappings, AR/AP FX columns, fetch-run audit behavior, CLI redaction,
+focused tests, tagged integration tests, full test suite, lint, and build all passed.
+The exact checklist and command evidence are recorded in
+`docs/guides/phase14-p7-acceptance-evidence.md`.
+
+The development `fx fetch` command may return `FAILED` when no live
+`EXCHANGERATE_API` key is configured. This is expected safe-failure behavior when the
+failure is recorded in `fx_fetch_runs` and the key is absent from output and logs.
+
 ## Deployment and acceptance checklist
 
-The implementation and database-backed USD AR/AP acceptance flows have passed
-focused validation. It is not production-certified until all of the following
-are completed:
+The implementation is locally certified. It is not production-certified until all of
+the following staging and production checks are completed:
 
 1. Back up the database.
 2. Deploy the corrected application and worker code.
@@ -75,8 +86,7 @@ are completed:
    `000053_transaction_fx`.
 4. Verify migration version and the four `FX` account mappings on staging and
    production.
-5. Run database-backed USD AR and USD AP end-to-end tests against PostgreSQL
-   (covered by the tagged FX acceptance suite).
+5. Run database-backed USD AR and USD AP end-to-end tests against PostgreSQL.
 6. Start the application and worker processes; confirm the daily FX job is
    deployed and running in `Asia/Jakarta`.
 7. Fetch rates and inspect `fx_fetch_runs`.
@@ -84,5 +94,5 @@ are completed:
    revaluation, and reversal.
 
 The release gate remains open until staging and production migration execution,
-account mapping verification, worker confirmation, and the database-backed
-acceptance suite are recorded.
+account mapping verification, worker confirmation, and post-migration smoke evidence
+are recorded.

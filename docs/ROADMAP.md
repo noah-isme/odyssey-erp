@@ -5,6 +5,7 @@
 **Revised:** 2026-07-29 (added the gap-analysis phased plan below)
 **Revised:** 2026-07-30 (Phase 5 tax compliance implementation and release gate)
 **Revised:** 2026-08-01 (Phase 14 transaction-level FX implementation)
+**Revised:** 2026-08-01 (Phase 14 and P7 local acceptance gates)
 **Current Version:** v0.9.1
 
 ## Executive Summary
@@ -29,7 +30,8 @@ to re-prioritise the genuinely remaining work.
 | Phase 12 — Stock valuation | 🟡 Partial | Per-product AVG/FIFO cost method, lot/serial receiving, and reorder PR are implemented; LIFO is intentionally excluded |
 | Phase 15 — Budget vs Actual | ✅ Implemented | `/accounting/budget` loads `accounting_budgets` and posted journal actuals for the selected month |
 | Phase 13 — Fixed Assets | ✅ Implemented | Register, straight-line depreciation worker, disposal accounting, and category setup |
-| Phase 14 — Transaction-level multi-currency | 🟡 Functionally implemented; production verification pending | `internal/fx/`, AR/AP valuation, realized FX, revaluation/reversal, migration `000053`; DB-backed acceptance, migration execution, worker verification, and smoke tests remain |
+| Phase 14 — Transaction-level multi-currency | 🟡 Locally certified; staging/production verification pending | `internal/fx/`, AR/AP valuation, realized FX, revaluation/reversal, migrations `000053/000054`; local acceptance evidence in `docs/guides/phase14-p7-acceptance-evidence.md` |
+| P7 — Multi-Currency and Horizon MVP foundation | 🟡 Locally certified; staging/production verification pending | WMS, MRP, POS, projects/timesheets, API/webhooks, portals; migrations `000055/000056/000060`; local acceptance evidence in `docs/guides/phase14-p7-acceptance-evidence.md` |
 | Phase 15 — Reporting enhancements | 🟡 Partial | P&L and Budget vs Actual support department/cost-center filters, native `.xlsx`, and scheduled email; report builder/widgets remain |
 
 The phase descriptions below are retained for reference. **Completed phases (10, 11, and
@@ -134,7 +136,7 @@ depreciation, disposal accounting, and worker scheduling are implemented.
 ## Phase 14: Multi-Currency Enhancement
 
 **Priority:** 🟡 Medium  
-**Status:** 🟡 Implemented; database-backed acceptance and deployment verification pending
+**Status:** 🟡 Locally certified; staging and production deployment verification pending
 **Migration:** `000053_transaction_fx`
 
 ### Features
@@ -161,11 +163,16 @@ following acceptance work is recorded:
 
 - [x] Add and pass a database-backed USD AR end-to-end test.
 - [x] Add and pass a database-backed USD AP end-to-end test.
-- [ ] Run the complete integration suite against PostgreSQL with migration `000053`.
+- [x] Run the complete local integration suite with the clean schema through migration `000061`.
 - [ ] Execute migration `000053_transaction_fx` on staging and verify the four FX account mappings.
 - [ ] Execute and verify the production migration and account mappings.
-- [ ] Confirm the production worker is deployed and the daily FX job is running.
+- [ ] Confirm the staging and production workers are deployed and the daily FX job is running.
 - [ ] Run post-migration smoke tests for invoice posting, partial payment, revaluation, and reversal.
+
+Local gate evidence, including FX audit/error behavior and CLI secret redaction, is recorded
+in `docs/guides/phase14-p7-acceptance-evidence.md`. A provider fetch without a configured
+ExchangeRate API key is expected to fail safely and record `fx_fetch_runs`; this does not
+constitute a staging provider smoke test.
 
 After deployment, verify rate fetch audit rows, journal idempotency, and the AR/AP
 valuation fields before closing this gate. This is a deployment and database-backed
@@ -381,10 +388,14 @@ Sizing legend: S <2w · M 2–4w · L 1–2m · XL 2m+ (rough, single team).
 - ✅ Opportunity values retain `NUMERIC(18,2)` precision end to end.
 
 ### P7 — Multi-Currency + Horizon
-- Transaction-level FX is functionally implemented in Phase 14. Complete the Phase 14
-  release gate above before marking the multi-currency capability production-certified.
+- ✅ Local MVP foundation gates pass for company isolation, idempotency, lifecycle rules,
+  WMS, MRP, POS, projects/timesheets, public REST API, webhooks, and portals.
+- ✅ Local clean migrations through v61, build, lint, unit tests, full tests, and tagged
+  integration tests pass. Detailed evidence is in `docs/guides/phase14-p7-acceptance-evidence.md`.
 - Horizon packs by vertical: WMS (bins, picking, barcode), Manufacturing/MRP (BOM,
-  work orders), POS, Projects/timesheets, public REST API + webhooks, portals
+  work orders), POS, Projects/timesheets, public REST API + webhooks, portals.
+- Production certification remains pending staging smoke tests, including the Asia/Jakarta
+  FX worker, webhook delivery inspection, and the USD cross-feature scenario.
 
 **Sequencing note:** P2 is early because it is small, visible, and P3/P4/P6 emit events
 through it. P4 and P6 may swap if a customer commits. P7 is the only phase worth

@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS wms_barcode_aliases (
     product_id BIGINT REFERENCES products(id) ON DELETE CASCADE,
     bin_id BIGINT REFERENCES wms_bins(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CHECK (product_id IS NOT NULL OR bin_id IS NOT NULL),
+    CHECK ((product_id IS NOT NULL) <> (bin_id IS NOT NULL)),
     UNIQUE (company_id, barcode)
 );
 

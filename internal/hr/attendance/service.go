@@ -112,7 +112,7 @@ func (s *Service) Import(ctx context.Context, companyID, userID int64, filename 
 	if err != nil {
 		return result, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	payload, _ := json.Marshal(problems)
 	err = tx.QueryRow(ctx, `INSERT INTO hr_attendance_imports(company_id,filename,imported_by,total_rows,rejected_rows,errors) VALUES($1,$2,$3,$4,$5,$6) RETURNING id`, companyID, filename, userID, result.Total, result.Rejected, payload).Scan(&result.ID)
 	if err != nil {

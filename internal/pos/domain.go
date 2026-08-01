@@ -94,7 +94,13 @@ func (s *Service) AddPayment(ctx context.Context, companyID, ticketID int64, pay
 	if duplicate {
 		return created, nil
 	}
-	ticket.PaidCents += payment.AmountCents
+	// Re-read after the atomic insert so concurrent payments cannot overwrite
+	// the ticket with a stale paid total or leave a fully paid ticket open.
+	current, err := s.repo.GetTicket(ctx, companyID, ticketID)
+	if err != nil {
+		return Payment{}, err
+	}
+	ticket = current
 	if ticket.PaidCents == ticket.TotalCents {
 		ticket.Status = "COMPLETED"
 	}

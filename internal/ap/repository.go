@@ -87,7 +87,7 @@ func (r *pgRepository) PostAPInvoiceWithValuation(ctx context.Context, input Pos
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	var status string
 	if err = tx.QueryRow(ctx, `SELECT status FROM ap_invoices WHERE id=$1 FOR UPDATE`, input.InvoiceID).Scan(&status); err != nil {
 		return err
@@ -95,7 +95,7 @@ func (r *pgRepository) PostAPInvoiceWithValuation(ctx context.Context, input Pos
 	if status != string(APStatusDraft) {
 		return ErrInvalidStatus
 	}
-	_, err = tx.Exec(ctx, `UPDATE ap_invoices SET base_currency=$2, base_amount=$3, fx_rate=$4, fx_rate_date=$5, fx_rate_source=$6, fx_rate_locked_at=$7, status='POSTED', posted_at=NOW(), posted_by=$8, updated_at=NOW() WHERE id=$1`, input.InvoiceID, v.BaseCurrency, v.BaseAmount.String(), v.Rate.String(), v.RateDate, v.Source, v.LockedAt, input.PostedBy)
+	_, err = tx.Exec(ctx, `UPDATE ap_invoices SET original_currency_amount=$2, base_currency=$3, base_amount=$4, fx_rate=$5, fx_rate_date=$6, fx_rate_source=$7, fx_rate_locked_at=$8, status='POSTED', posted_at=NOW(), posted_by=$9, updated_at=NOW() WHERE id=$1`, input.InvoiceID, v.OriginalAmount.String(), v.BaseCurrency, v.BaseAmount.String(), v.Rate.String(), v.RateDate, v.Source, v.LockedAt, input.PostedBy)
 	if err != nil {
 		return err
 	}
@@ -488,7 +488,7 @@ func (tx *pgTxRepository) PostAPInvoiceWithValuation(ctx context.Context, input 
 	if status != string(APStatusDraft) {
 		return ErrInvalidStatus
 	}
-	_, err := tx.tx.Exec(ctx, `UPDATE ap_invoices SET base_currency=$2, base_amount=$3, fx_rate=$4, fx_rate_date=$5, fx_rate_source=$6, fx_rate_locked_at=$7, status='POSTED', posted_at=NOW(), posted_by=$8, updated_at=NOW() WHERE id=$1`, input.InvoiceID, v.BaseCurrency, v.BaseAmount.String(), v.Rate.String(), v.RateDate, v.Source, v.LockedAt, input.PostedBy)
+	_, err := tx.tx.Exec(ctx, `UPDATE ap_invoices SET original_currency_amount=$2, base_currency=$3, base_amount=$4, fx_rate=$5, fx_rate_date=$6, fx_rate_source=$7, fx_rate_locked_at=$8, status='POSTED', posted_at=NOW(), posted_by=$9, updated_at=NOW() WHERE id=$1`, input.InvoiceID, v.OriginalAmount.String(), v.BaseCurrency, v.BaseAmount.String(), v.Rate.String(), v.RateDate, v.Source, v.LockedAt, input.PostedBy)
 	return err
 }
 

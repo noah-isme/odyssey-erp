@@ -124,7 +124,7 @@ func (h *Handler) acceptInvitation(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	defer tx.Rollback(r.Context())
+	defer func() { _ = tx.Rollback(r.Context()) }()
 	var inv struct {
 		ID, CompanyID                  int64
 		Email, DisplayName, PortalType string
@@ -184,16 +184,16 @@ func (h *Handler) access(r *http.Request, kind string) (int64, int64, int64, err
 		return 0, 0, 0, shared.ErrUnauthorized
 	}
 	var id int64
-	query := `SELECT COALESCE(customer_id,0) FROM portal_users WHERE user_id=$1 AND company_id=$2 AND portal_type=$3 AND active`
+	query := `SELECT COALESCE(pu.customer_id,0) FROM portal_users pu JOIN customers c ON c.id=pu.customer_id AND c.company_id=pu.company_id WHERE pu.user_id=$1 AND pu.company_id=$2 AND pu.portal_type=$3 AND pu.active`
 	if kind == "SUPPLIER" {
-		query = `SELECT COALESCE(supplier_id,0) FROM portal_users WHERE user_id=$1 AND company_id=$2 AND portal_type=$3 AND active`
+		query = `SELECT COALESCE(pu.supplier_id,0) FROM portal_users pu JOIN suppliers s ON s.id=pu.supplier_id AND s.company_id=pu.company_id WHERE pu.user_id=$1 AND pu.company_id=$2 AND pu.portal_type=$3 AND pu.active`
 	}
 	if kind == "EMPLOYEE" {
-		query = `SELECT id FROM users WHERE id=$1 AND is_active`
+		query = `SELECT id FROM hr_employees WHERE user_id=$1 AND company_id=$2 AND status='ACTIVE'`
 	}
 	var row pgx.Row
 	if kind == "EMPLOYEE" {
-		row = h.pool.QueryRow(r.Context(), query, uid)
+		row = h.pool.QueryRow(r.Context(), query, uid, cid)
 	} else {
 		row = h.pool.QueryRow(r.Context(), query, uid, cid, kind)
 	}
@@ -216,7 +216,7 @@ func (h *Handler) customer(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 		return
 	}
-	rows, err := h.pool.Query(r.Context(), `SELECT number,total::float8,status FROM ar_invoices WHERE customer_id=$1 ORDER BY id DESC LIMIT 100`, id)
+	rows, err := h.pool.Query(r.Context(), `SELECT i.number,i.total::float8,i.status FROM ar_invoices i JOIN customers c ON c.id=i.customer_id WHERE i.customer_id=$1 AND c.company_id=$2 ORDER BY i.id DESC LIMIT 100`, id, cid)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
@@ -244,7 +244,7 @@ func (h *Handler) supplier(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 		return
 	}
-	rows, err := h.pool.Query(r.Context(), `SELECT number,total::float8,status FROM ap_invoices WHERE supplier_id=$1 ORDER BY id DESC LIMIT 100`, id)
+	rows, err := h.pool.Query(r.Context(), `SELECT i.number,i.total::float8,i.status FROM ap_invoices i JOIN suppliers s ON s.id=i.supplier_id WHERE i.supplier_id=$1 AND s.company_id=$2 ORDER BY i.id DESC LIMIT 100`, id, cid)
 	if err != nil {
 		http.Error(w, http.StatusText(500), 500)
 		return
@@ -327,12 +327,12 @@ func (h *Handler) customerOrders(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) customerPayments(w http.ResponseWriter, r *http.Request) {
-	_, _, customerID, err := h.access(r, "CUSTOMER")
+	_, cid, customerID, err := h.access(r, "CUSTOMER")
 	if err != nil {
 		http.Error(w, http.StatusText(401), 401)
 		return
 	}
-	rows, err := h.pool.Query(r.Context(), `SELECT p.number,p.amount,p.paid_at::text,p.method FROM ar_payments p JOIN ar_invoices i ON i.id=p.ar_invoice_id WHERE i.customer_id=$1 ORDER BY p.paid_at DESC LIMIT 100`, customerID)
+	rows, err := h.pool.Query(r.Context(), `SELECT p.number,p.amount,p.paid_at::text,p.method FROM ar_payments p JOIN ar_invoices i ON i.id=p.ar_invoice_id JOIN customers c ON c.id=i.customer_id WHERE i.customer_id=$1 AND c.company_id=$2 ORDER BY p.paid_at DESC LIMIT 100`, customerID, cid)
 	if err != nil {
 		http.Error(w, http.StatusText(500), 500)
 		return
@@ -355,12 +355,12 @@ func (h *Handler) customerPayments(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) employeePayslips(w http.ResponseWriter, r *http.Request) {
-	uid, _, _, err := h.access(r, "EMPLOYEE")
+	uid, cid, _, err := h.access(r, "EMPLOYEE")
 	if err != nil {
 		http.Error(w, http.StatusText(401), 401)
 		return
 	}
-	rows, err := h.pool.Query(r.Context(), `SELECT p.id,p.document_key,p.generated_at::text,l.net_pay FROM payroll_payslips p JOIN payroll_run_lines l ON l.id=p.run_line_id JOIN hr_employees e ON e.id=l.employee_id WHERE e.user_id=$1 ORDER BY p.generated_at DESC LIMIT 100`, uid)
+	rows, err := h.pool.Query(r.Context(), `SELECT p.id,p.document_key,p.generated_at::text,l.net_pay FROM payroll_payslips p JOIN payroll_run_lines l ON l.id=p.run_line_id JOIN hr_employees e ON e.id=l.employee_id WHERE e.user_id=$1 AND e.company_id=$2 ORDER BY p.generated_at DESC LIMIT 100`, uid, cid)
 	if err != nil {
 		http.Error(w, http.StatusText(500), 500)
 		return
@@ -384,12 +384,12 @@ func (h *Handler) employeePayslips(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) employeeLeave(w http.ResponseWriter, r *http.Request) {
-	uid, _, _, err := h.access(r, "EMPLOYEE")
+	uid, cid, _, err := h.access(r, "EMPLOYEE")
 	if err != nil {
 		http.Error(w, http.StatusText(401), 401)
 		return
 	}
-	rows, err := h.pool.Query(r.Context(), `SELECT l.id,t.code,l.start_date::text,l.end_date::text,l.days,l.status FROM hr_leave_requests l JOIN hr_employees e ON e.id=l.employee_id JOIN hr_leave_types t ON t.id=l.leave_type_id WHERE e.user_id=$1 ORDER BY l.start_date DESC LIMIT 100`, uid)
+	rows, err := h.pool.Query(r.Context(), `SELECT l.id,t.code,l.start_date::text,l.end_date::text,l.days,l.status FROM hr_leave_requests l JOIN hr_employees e ON e.id=l.employee_id JOIN hr_leave_types t ON t.id=l.leave_type_id WHERE e.user_id=$1 AND e.company_id=$2 ORDER BY l.start_date DESC LIMIT 100`, uid, cid)
 	if err != nil {
 		http.Error(w, http.StatusText(500), 500)
 		return
@@ -413,12 +413,12 @@ func (h *Handler) employeeLeave(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) employeeAttendance(w http.ResponseWriter, r *http.Request) {
-	uid, _, _, err := h.access(r, "EMPLOYEE")
+	uid, cid, _, err := h.access(r, "EMPLOYEE")
 	if err != nil {
 		http.Error(w, http.StatusText(401), 401)
 		return
 	}
-	rows, err := h.pool.Query(r.Context(), `SELECT a.attendance_date::text,a.check_in,a.check_out,a.status FROM hr_attendance a JOIN hr_employees e ON e.id=a.employee_id WHERE e.user_id=$1 ORDER BY a.attendance_date DESC LIMIT 100`, uid)
+	rows, err := h.pool.Query(r.Context(), `SELECT a.attendance_date::text,a.check_in,a.check_out,a.status FROM hr_attendance a JOIN hr_employees e ON e.id=a.employee_id WHERE e.user_id=$1 AND e.company_id=$2 ORDER BY a.attendance_date DESC LIMIT 100`, uid, cid)
 	if err != nil {
 		http.Error(w, http.StatusText(500), 500)
 		return
@@ -441,12 +441,12 @@ func (h *Handler) employeeAttendance(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) customerCreditNotes(w http.ResponseWriter, r *http.Request) {
-	_, _, customerID, err := h.access(r, "CUSTOMER")
+	_, cid, customerID, err := h.access(r, "CUSTOMER")
 	if err != nil {
 		http.Error(w, http.StatusText(401), 401)
 		return
 	}
-	rows, err := h.pool.Query(r.Context(), `SELECT number,total::float8,status FROM ar_credit_notes WHERE customer_id=$1 ORDER BY id DESC LIMIT 100`, customerID)
+	rows, err := h.pool.Query(r.Context(), `SELECT n.number,n.total::float8,n.status FROM ar_credit_notes n JOIN customers c ON c.id=n.customer_id WHERE n.customer_id=$1 AND c.company_id=$2 ORDER BY n.id DESC LIMIT 100`, customerID, cid)
 	if err != nil {
 		http.Error(w, http.StatusText(500), 500)
 		return
@@ -470,12 +470,12 @@ func (h *Handler) customerCreditNotes(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) supplierOrders(w http.ResponseWriter, r *http.Request) {
-	_, _, supplierID, err := h.access(r, "SUPPLIER")
+	_, cid, supplierID, err := h.access(r, "SUPPLIER")
 	if err != nil {
 		http.Error(w, http.StatusText(401), 401)
 		return
 	}
-	rows, err := h.pool.Query(r.Context(), `SELECT number,status,currency FROM pos WHERE supplier_id=$1 ORDER BY id DESC LIMIT 100`, supplierID)
+	rows, err := h.pool.Query(r.Context(), `SELECT p.number,p.status,p.currency FROM pos p JOIN suppliers s ON s.id=p.supplier_id WHERE p.supplier_id=$1 AND s.company_id=$2 ORDER BY p.id DESC LIMIT 100`, supplierID, cid)
 	if err != nil {
 		http.Error(w, http.StatusText(500), 500)
 		return
@@ -495,12 +495,12 @@ func (h *Handler) supplierOrders(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) supplierDeliveries(w http.ResponseWriter, r *http.Request) {
-	_, _, supplierID, err := h.access(r, "SUPPLIER")
+	_, cid, supplierID, err := h.access(r, "SUPPLIER")
 	if err != nil {
 		http.Error(w, http.StatusText(401), 401)
 		return
 	}
-	rows, err := h.pool.Query(r.Context(), `SELECT number,status,received_at::text,warehouse_id FROM grns WHERE supplier_id=$1 ORDER BY id DESC LIMIT 100`, supplierID)
+	rows, err := h.pool.Query(r.Context(), `SELECT g.number,g.status,g.received_at::text,g.warehouse_id FROM grns g JOIN suppliers s ON s.id=g.supplier_id WHERE g.supplier_id=$1 AND s.company_id=$2 ORDER BY g.id DESC LIMIT 100`, supplierID, cid)
 	if err != nil {
 		http.Error(w, http.StatusText(500), 500)
 		return
@@ -562,12 +562,12 @@ func (h *Handler) uploadDocument(w http.ResponseWriter, r *http.Request, kind st
 }
 
 func (h *Handler) supplierDebitNotes(w http.ResponseWriter, r *http.Request) {
-	_, _, supplierID, err := h.access(r, "SUPPLIER")
+	_, cid, supplierID, err := h.access(r, "SUPPLIER")
 	if err != nil {
 		http.Error(w, http.StatusText(401), 401)
 		return
 	}
-	rows, err := h.pool.Query(r.Context(), `SELECT number,total::float8,status FROM ap_debit_notes WHERE supplier_id=$1 ORDER BY id DESC LIMIT 100`, supplierID)
+	rows, err := h.pool.Query(r.Context(), `SELECT n.number,n.total::float8,n.status FROM ap_debit_notes n JOIN suppliers s ON s.id=n.supplier_id WHERE n.supplier_id=$1 AND s.company_id=$2 ORDER BY n.id DESC LIMIT 100`, supplierID, cid)
 	if err != nil {
 		http.Error(w, http.StatusText(500), 500)
 		return

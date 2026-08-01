@@ -58,19 +58,21 @@ func (p *ExchangeRateAPI) DailyRates(ctx context.Context, baseCurrency string, d
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
-		return FXQuoteSet{}, err
+		// Never return a URL-bearing error: API-key based providers put the
+		// credential in the request path.
+		return FXQuoteSet{}, &ProviderError{Kind: ErrorMalformed, Err: fmt.Errorf("invalid provider request")}
 	}
 	resp, err := p.cfg.Client.Do(req)
 	if err != nil {
 		if ctx.Err() != nil {
 			return FXQuoteSet{}, &ProviderError{Kind: ErrorTimeout, Err: ctx.Err()}
 		}
-		return FXQuoteSet{}, &ProviderError{Kind: ErrorTimeout, Err: err}
+		return FXQuoteSet{}, &ProviderError{Kind: ErrorTimeout, Err: fmt.Errorf("provider request failed")}
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 	if err != nil {
-		return FXQuoteSet{}, &ProviderError{Kind: ErrorMalformed, StatusCode: resp.StatusCode, Err: err}
+		return FXQuoteSet{}, &ProviderError{Kind: ErrorMalformed, StatusCode: resp.StatusCode, Err: fmt.Errorf("provider response could not be read")}
 	}
 	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
 		return FXQuoteSet{}, &ProviderError{Kind: ErrorAuthentication, StatusCode: resp.StatusCode, Err: fmt.Errorf("provider rejected credentials")}

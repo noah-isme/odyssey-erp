@@ -17,7 +17,7 @@ func (r *SQLRepository) CreateBOM(ctx context.Context, b BOM) (BOM, error) {
 	if err != nil {
 		return BOM{}, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	var out BOM
 	err = tx.QueryRow(ctx, `INSERT INTO mrp_boms(company_id,product_id,version,effective_from,active,created_by) SELECT $1,p.id,$3,CURRENT_DATE,$4,$5 FROM products p WHERE p.id=$2 AND p.company_id=$1 RETURNING id,company_id,product_id,version,active`, b.CompanyID, b.ProductID, b.Version, b.Active, b.CreatedBy).Scan(&out.ID, &out.CompanyID, &out.ProductID, &out.Version, &out.Active)
 	if err != nil {

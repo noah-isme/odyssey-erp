@@ -22,8 +22,7 @@ func (s *Service) FetchDailyRates(ctx context.Context, base string, date time.Ti
 		_ = s.Repo.RecordFetchRun(ctx, FetchRun{RateDate: date, Source: "EXCHANGERATE_API", Status: "FAILED", ErrorMessage: err.Error()})
 		return FXQuoteSet{}, err
 	}
-	if !force { /* repository upsert is append-safe; existing source/date rows are not overwritten by rate data */
-	}
+	_ = force // repository upsert is append-safe and force is retained for the job API.
 	if err := s.Repo.UpsertDailyRates(ctx, set); err != nil {
 		_ = s.Repo.RecordFetchRun(ctx, FetchRun{RateDate: date, Source: set.Source, Status: "FAILED", ResponseHash: set.RawPayloadHash, ErrorMessage: err.Error()})
 		return FXQuoteSet{}, err
