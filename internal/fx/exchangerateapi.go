@@ -43,9 +43,18 @@ func (p *ExchangeRateAPI) DailyRates(ctx context.Context, baseCurrency string, d
 	if err != nil {
 		return FXQuoteSet{}, err
 	}
-	endpoint := strings.TrimRight(p.cfg.BaseURL, "/") + "/latest/" + url.PathEscape(base)
+	requestedDate := date.Format("2006-01-02")
+	today := time.Now().Format("2006-01-02")
+	if requestedDate != today && p.cfg.APIKey == "" {
+		return FXQuoteSet{}, fmt.Errorf("exchange rate api: historical rates require an API key")
+	}
+	path := "latest/" + url.PathEscape(base)
+	if requestedDate != today {
+		path = fmt.Sprintf("history/%s/%s/%s/%s", url.PathEscape(base), date.Format("2006"), date.Format("1"), date.Format("2"))
+	}
+	endpoint := strings.TrimRight(p.cfg.BaseURL, "/") + "/" + path
 	if p.cfg.APIKey != "" {
-		endpoint = strings.TrimRight(p.cfg.BaseURL, "/") + "/" + url.PathEscape(p.cfg.APIKey) + "/latest/" + url.PathEscape(base)
+		endpoint = strings.TrimRight(p.cfg.BaseURL, "/") + "/" + url.PathEscape(p.cfg.APIKey) + "/" + path
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {

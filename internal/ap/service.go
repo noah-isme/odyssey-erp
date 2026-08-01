@@ -78,6 +78,7 @@ type APPaymentValuation struct {
 }
 type APAllocationValuation struct {
 	AllocationID, InvoiceID    int64
+	Currency, BaseCurrency     string
 	OriginalAmount, BaseAmount accountingmoney.Money
 	Rate                       fx.Decimal
 	RateDate                   time.Time
@@ -384,7 +385,10 @@ func (s *Service) PostAPInvoice(ctx context.Context, input PostAPInvoiceInput) e
 }
 
 func (s *Service) resolveInvoiceValuation(ctx context.Context, inv APInvoice) (*APInvoiceValuation, error) {
-	base := "IDR"
+	base := inv.BaseCurrency
+	if base == "" {
+		base = "IDR"
+	}
 	if inv.Currency == "" || inv.Currency == base {
 		return &APInvoiceValuation{BaseCurrency: base, BaseAmount: accountingmoney.Must(strconv.FormatFloat(inv.Total, 'f', 2, 64), 2), Rate: fx.MustDecimal("1"), RateDate: time.Now(), Source: "INTERNAL", LockedAt: time.Now()}, nil
 	}
@@ -396,7 +400,11 @@ func (s *Service) resolveInvoiceValuation(ctx context.Context, inv APInvoice) (*
 	if err != nil {
 		return nil, err
 	}
-	original, err := fx.ParseDecimal(inv.OriginalAmount.String())
+	originalText := inv.OriginalAmount.String()
+	if inv.OriginalAmount.Cmp(accountingmoney.Money{}) == 0 && inv.Total != 0 {
+		originalText = strconv.FormatFloat(inv.Total, 'f', 2, 64)
+	}
+	original, err := fx.ParseDecimal(originalText)
 	if err != nil {
 		return nil, err
 	}
@@ -411,14 +419,14 @@ func (s *Service) resolveInvoiceValuation(ctx context.Context, inv APInvoice) (*
 	return &APInvoiceValuation{BaseCurrency: base, BaseAmount: baseAmount, Rate: quote.Rate, RateDate: quote.RateDate, Source: quote.Source, LockedAt: time.Now()}, nil
 }
 
-func (s *Service) resolvePaymentRate(ctx context.Context, currency string, date time.Time) (fx.FXQuote, error) {
-	if currency == "" || currency == "IDR" {
-		return fx.FXQuote{BaseCurrency: "IDR", QuoteCurrency: currency, Rate: fx.MustDecimal("1"), RateDate: date, Source: "INTERNAL"}, nil
+func (s *Service) resolvePaymentRate(ctx context.Context, base, currency string, date time.Time) (fx.FXQuote, error) {
+	if currency == "" || currency == base {
+		return fx.FXQuote{BaseCurrency: base, QuoteCurrency: currency, Rate: fx.MustDecimal("1"), RateDate: date, Source: "INTERNAL"}, nil
 	}
 	if s.fxResolver == nil {
 		return fx.FXQuote{}, errors.New("ap: FX resolver is required for foreign-currency payment")
 	}
-	return s.fxResolver.Resolve(ctx, "IDR", currency, date)
+	return s.fxResolver.Resolve(ctx, base, currency, date)
 }
 
 // VoidAPInvoice voids an invoice.
@@ -515,7 +523,14 @@ func (s *Service) RegisterAPPayment(ctx context.Context, input CreateAPPaymentIn
 	if input.Currency == "" {
 		input.Currency = "IDR"
 	}
-	rate, err := s.resolvePaymentRate(ctx, input.Currency, input.PaidAt)
+	baseCurrency := "IDR"
+	for _, invoice := range invoices {
+		if invoice.BaseCurrency != "" {
+			baseCurrency = invoice.BaseCurrency
+			break
+		}
+	}
+	rate, err := s.resolvePaymentRate(ctx, baseCurrency, input.Currency, input.PaidAt)
 	if err != nil {
 		return APPayment{}, err
 	}
@@ -524,7 +539,7 @@ func (s *Service) RegisterAPPayment(ctx context.Context, input CreateAPPaymentIn
 	if err != nil {
 		return APPayment{}, err
 	}
-	paymentVal := APPaymentValuation{Currency: input.Currency, BaseCurrency: "IDR", OriginalAmount: accountingmoney.Must(amount.String(), 2), BaseAmount: accountingmoney.Must(paymentBase.String(), 2), Rate: paymentRate, RateDate: rate.RateDate, Source: rate.Source, LockedAt: time.Now()}
+	paymentVal := APPaymentValuation{Currency: input.Currency, BaseCurrency: baseCurrency, OriginalAmount: accountingmoney.Must(amount.String(), 2), BaseAmount: accountingmoney.Must(paymentBase.String(), 2), Rate: paymentRate, RateDate: rate.RateDate, Source: rate.Source, LockedAt: time.Now()}
 	allocVals := make([]APAllocationValuation, 0, len(input.Allocations))
 	for _, alloc := range input.Allocations {
 		invoice := invoices[alloc.APInvoiceID]
@@ -540,7 +555,11 @@ func (s *Service) RegisterAPPayment(ctx context.Context, input CreateAPPaymentIn
 		if err != nil {
 			return APPayment{}, err
 		}
-		allocVals = append(allocVals, APAllocationValuation{InvoiceID: alloc.APInvoiceID, OriginalAmount: accountingmoney.Must(allocated.String(), 2), BaseAmount: accountingmoney.Must(pv.SettlementBaseAmount.String(), 2), Rate: paymentRate, RateDate: rate.RateDate, Source: rate.Source, LockedAt: time.Now()})
+		baseCurrency := "IDR"
+		if invoice.BaseCurrency != "" {
+			baseCurrency = invoice.BaseCurrency
+		}
+		allocVals = append(allocVals, APAllocationValuation{InvoiceID: alloc.APInvoiceID, Currency: input.Currency, BaseCurrency: baseCurrency, OriginalAmount: accountingmoney.Must(allocated.String(), 2), BaseAmount: accountingmoney.Must(pv.SettlementBaseAmount.String(), 2), Rate: paymentRate, RateDate: rate.RateDate, Source: rate.Source, LockedAt: time.Now()})
 	}
 
 	var paymentID int64

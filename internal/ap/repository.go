@@ -139,10 +139,10 @@ func (r *pgRepository) GetAPInvoice(ctx context.Context, id int64) (APInvoice, e
 func (r *pgRepository) loadInvoiceValuation(ctx context.Context, id int64, inv *APInvoice) error {
 	var original, base, rate, source, currency, baseCurrency string
 	var rateDate, lockedAt time.Time
-	err := r.pool.QueryRow(ctx, `SELECT COALESCE(currency,''), COALESCE(original_currency_amount,0)::text,
-		COALESCE(base_currency,''), COALESCE(base_amount,0)::text, COALESCE(fx_rate,0)::text,
+	err := r.pool.QueryRow(ctx, `SELECT COALESCE(i.currency,''), COALESCE(i.original_currency_amount,i.total,0)::text,
+		COALESCE(i.base_currency,co.base_currency,'IDR'), COALESCE(i.base_amount,0)::text, COALESCE(i.fx_rate,0)::text,
 		COALESCE(fx_rate_date, DATE '0001-01-01'), COALESCE(fx_rate_source,''),
-		COALESCE(fx_rate_locked_at, TIMESTAMPTZ '0001-01-01') FROM ap_invoices WHERE id=$1`, id).
+		COALESCE(fx_rate_locked_at, TIMESTAMPTZ '0001-01-01') FROM ap_invoices i JOIN suppliers s ON s.id=i.supplier_id JOIN companies co ON co.id=s.company_id WHERE i.id=$1`, id).
 		Scan(&currency, &original, &baseCurrency, &base, &rate, &rateDate, &source, &lockedAt)
 	if err != nil {
 		return err
@@ -497,7 +497,7 @@ func (tx *pgTxRepository) UpdateAPPaymentValuation(ctx context.Context, id int64
 	return err
 }
 func (tx *pgTxRepository) UpdateAPAllocationValuation(ctx context.Context, paymentID, invoiceID int64, v APAllocationValuation) error {
-	_, err := tx.tx.Exec(ctx, `UPDATE ap_payment_allocations SET original_currency_amount=$3, base_amount=$4, currency=$5, base_currency=$6, fx_rate=$7, fx_rate_date=$8, fx_rate_source=$9, fx_rate_locked_at=$10 WHERE ap_payment_id=$1 AND ap_invoice_id=$2`, paymentID, invoiceID, v.OriginalAmount.String(), v.BaseAmount.String(), "", "IDR", v.Rate.String(), v.RateDate, v.Source, v.LockedAt)
+	_, err := tx.tx.Exec(ctx, `UPDATE ap_payment_allocations SET original_currency_amount=$3, base_amount=$4, currency=$5, base_currency=$6, fx_rate=$7, fx_rate_date=$8, fx_rate_source=$9, fx_rate_locked_at=$10 WHERE ap_payment_id=$1 AND ap_invoice_id=$2`, paymentID, invoiceID, v.OriginalAmount.String(), v.BaseAmount.String(), v.Currency, v.BaseCurrency, v.Rate.String(), v.RateDate, v.Source, v.LockedAt)
 	return err
 }
 

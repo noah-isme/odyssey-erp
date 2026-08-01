@@ -35,18 +35,18 @@ func (r *SQLRevaluationRepository) PeriodLocked(ctx context.Context, periodID in
 
 func (r *SQLRevaluationRepository) ListOutstandingBalances(ctx context.Context, asOf time.Time) ([]OutstandingBalance, error) {
 	rows, err := r.pool.Query(ctx, `
-SELECT 'AR_INVOICE', i.id, i.currency, COALESCE(i.base_currency,'IDR'),
+SELECT 'AR_INVOICE', i.id, i.currency, COALESCE(i.base_currency,co.base_currency,'IDR'),
        (i.total-COALESCE(SUM(pa.amount),0))::text,
        ((i.total-COALESCE(SUM(pa.amount),0))*COALESCE(i.fx_rate,1))::text
-FROM ar_invoices i LEFT JOIN ar_payment_allocations pa ON pa.ar_invoice_id=i.id
-WHERE i.status='POSTED' AND i.currency<>COALESCE(i.base_currency,'IDR') AND i.due_at <= $1
+FROM ar_invoices i JOIN customers c ON c.id=i.customer_id JOIN companies co ON co.id=c.company_id LEFT JOIN ar_payment_allocations pa ON pa.ar_invoice_id=i.id AND pa.created_at <= $1
+WHERE i.status='POSTED' AND i.posted_at <= $1 AND i.currency<>COALESCE(i.base_currency,co.base_currency,'IDR')
 GROUP BY i.id HAVING (i.total-COALESCE(SUM(pa.amount),0)) > 0
 UNION ALL
-SELECT 'AP_INVOICE', i.id, i.currency, COALESCE(i.base_currency,'IDR'),
+SELECT 'AP_INVOICE', i.id, i.currency, COALESCE(i.base_currency,co.base_currency,'IDR'),
        (i.total-COALESCE(SUM(pa.amount),0))::text,
        ((i.total-COALESCE(SUM(pa.amount),0))*COALESCE(i.fx_rate,1))::text
-FROM ap_invoices i LEFT JOIN ap_payment_allocations pa ON pa.ap_invoice_id=i.id
-WHERE i.status='POSTED' AND i.currency<>COALESCE(i.base_currency,'IDR') AND i.due_at <= $1
+FROM ap_invoices i JOIN suppliers s ON s.id=i.supplier_id JOIN companies co ON co.id=s.company_id LEFT JOIN ap_payment_allocations pa ON pa.ap_invoice_id=i.id AND pa.created_at <= $1
+WHERE i.status='POSTED' AND i.posted_at <= $1 AND i.currency<>COALESCE(i.base_currency,co.base_currency,'IDR')
 GROUP BY i.id HAVING (i.total-COALESCE(SUM(pa.amount),0)) > 0`, asOf)
 	if err != nil {
 		return nil, err
@@ -136,7 +136,7 @@ func getRevaluation(ctx context.Context, db interface {
 }, periodID int64, typ DocumentType, documentID int64) (RevaluationRecord, error) {
 	var v RevaluationRecord
 	var original, previous, closing, difference, rate string
-	err := db.QueryRow(ctx, `SELECT id,period_id,document_type,document_id,currency,base_currency,original_balance::text,previous_base_amount::text,closing_base_amount::text,difference::text,closing_rate::text,rate_date,rate_source,COALESCE(journal_entry_id,0),COALESCE(actor_id,0) FROM fx_revaluations WHERE period_id=$1 AND document_type=$2 AND document_id=$3`, periodID, typ, documentID).Scan(&v.ID, &v.PeriodID, &v.DocumentType, &v.DocumentID, &v.Currency, &v.BaseCurrency, &original, &previous, &closing, &difference, &rate, &v.RateDate, &v.RateSource, &v.JournalEntryID, &v.ActorID)
+	err := db.QueryRow(ctx, `SELECT id,period_id,document_type,document_id,currency,original_balance::text,previous_base_amount::text,closing_base_amount::text,difference::text,closing_rate::text,rate_date,rate_source,COALESCE(journal_entry_id,0),COALESCE(actor_id,0) FROM fx_revaluations WHERE period_id=$1 AND document_type=$2 AND document_id=$3`, periodID, typ, documentID).Scan(&v.ID, &v.PeriodID, &v.DocumentType, &v.DocumentID, &v.Currency, &original, &previous, &closing, &difference, &rate, &v.RateDate, &v.RateSource, &v.JournalEntryID, &v.ActorID)
 	if err != nil {
 		return v, err
 	}
