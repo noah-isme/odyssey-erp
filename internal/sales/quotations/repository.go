@@ -89,7 +89,7 @@ func (r *repository) GetByDocNumber(ctx context.Context, docNumber string) (*Quo
 		}
 		return nil, err
 	}
-	q := mapQuotationFromSqlc(row)
+	q := mapQuotationByDocNumberFromSqlc(row)
 	lineRows, err := r.queries.GetQuotationLines(ctx, q.ID)
 	if err != nil {
 		return nil, err
@@ -401,7 +401,52 @@ func (r *repository) GenerateNumber(ctx context.Context, companyID int64, date t
 	return fmt.Sprintf("QT-%s-%04d", date.Format("0601"), seq), nil
 }
 
-func mapQuotationFromSqlc(row sqlc.Quotation) Quotation {
+type quotationSQLRow struct {
+	ID              int64
+	DocNumber       string
+	CompanyID       int64
+	CustomerID      int64
+	Status          sqlc.QuotationStatus
+	Currency        string
+	CreatedBy       int64
+	CreatedAt       pgtype.Timestamptz
+	UpdatedAt       pgtype.Timestamptz
+	QuoteDate       pgtype.Date
+	ValidUntil      pgtype.Date
+	Subtotal        pgtype.Numeric
+	TaxAmount       pgtype.Numeric
+	TotalAmount     pgtype.Numeric
+	Notes           pgtype.Text
+	ApprovedBy      pgtype.Int8
+	ApprovedAt      pgtype.Timestamptz
+	RejectedBy      pgtype.Int8
+	RejectedAt      pgtype.Timestamptz
+	RejectionReason pgtype.Text
+}
+
+func mapQuotationFromSqlc(row sqlc.GetQuotationRow) Quotation {
+	return mapQuotationSQLRow(quotationSQLRow{
+		ID: row.ID, DocNumber: row.DocNumber, CompanyID: row.CompanyID, CustomerID: row.CustomerID,
+		Status: row.Status, Currency: row.Currency, CreatedBy: row.CreatedBy, CreatedAt: row.CreatedAt,
+		UpdatedAt: row.UpdatedAt, QuoteDate: row.QuoteDate, ValidUntil: row.ValidUntil,
+		Subtotal: row.Subtotal, TaxAmount: row.TaxAmount, TotalAmount: row.TotalAmount, Notes: row.Notes,
+		ApprovedBy: row.ApprovedBy, ApprovedAt: row.ApprovedAt, RejectedBy: row.RejectedBy,
+		RejectedAt: row.RejectedAt, RejectionReason: row.RejectionReason,
+	})
+}
+
+func mapQuotationByDocNumberFromSqlc(row sqlc.GetQuotationByDocNumberRow) Quotation {
+	return mapQuotationSQLRow(quotationSQLRow{
+		ID: row.ID, DocNumber: row.DocNumber, CompanyID: row.CompanyID, CustomerID: row.CustomerID,
+		Status: row.Status, Currency: row.Currency, CreatedBy: row.CreatedBy, CreatedAt: row.CreatedAt,
+		UpdatedAt: row.UpdatedAt, QuoteDate: row.QuoteDate, ValidUntil: row.ValidUntil,
+		Subtotal: row.Subtotal, TaxAmount: row.TaxAmount, TotalAmount: row.TotalAmount, Notes: row.Notes,
+		ApprovedBy: row.ApprovedBy, ApprovedAt: row.ApprovedAt, RejectedBy: row.RejectedBy,
+		RejectedAt: row.RejectedAt, RejectionReason: row.RejectionReason,
+	})
+}
+
+func mapQuotationSQLRow(row quotationSQLRow) Quotation {
 	q := Quotation{
 		ID:         row.ID,
 		DocNumber:  row.DocNumber,

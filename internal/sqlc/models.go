@@ -905,27 +905,35 @@ type ApDebitNoteLine struct {
 }
 
 type ApInvoice struct {
-	ID         int64              `json:"id"`
-	Number     string             `json:"number"`
-	SupplierID int64              `json:"supplier_id"`
-	GrnID      pgtype.Int8        `json:"grn_id"`
-	Currency   string             `json:"currency"`
-	Total      pgtype.Numeric     `json:"total"`
-	Status     string             `json:"status"`
-	IssuedAt   pgtype.Date        `json:"issued_at"`
-	DueAt      pgtype.Date        `json:"due_at"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	CompanyID  pgtype.Int8        `json:"company_id"`
-	Subtotal   pgtype.Numeric     `json:"subtotal"`
-	TaxAmount  pgtype.Numeric     `json:"tax_amount"`
-	PostedAt   pgtype.Timestamptz `json:"posted_at"`
-	PostedBy   pgtype.Int8        `json:"posted_by"`
-	VoidedAt   pgtype.Timestamptz `json:"voided_at"`
-	VoidedBy   pgtype.Int8        `json:"voided_by"`
-	VoidReason pgtype.Text        `json:"void_reason"`
-	CreatedBy  pgtype.Int8        `json:"created_by"`
-	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
-	PoID       pgtype.Int8        `json:"po_id"`
+	ID                     int64              `json:"id"`
+	Number                 string             `json:"number"`
+	SupplierID             int64              `json:"supplier_id"`
+	GrnID                  pgtype.Int8        `json:"grn_id"`
+	Currency               string             `json:"currency"`
+	Total                  pgtype.Numeric     `json:"total"`
+	Status                 string             `json:"status"`
+	IssuedAt               pgtype.Date        `json:"issued_at"`
+	DueAt                  pgtype.Date        `json:"due_at"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	CompanyID              pgtype.Int8        `json:"company_id"`
+	Subtotal               pgtype.Numeric     `json:"subtotal"`
+	TaxAmount              pgtype.Numeric     `json:"tax_amount"`
+	PostedAt               pgtype.Timestamptz `json:"posted_at"`
+	PostedBy               pgtype.Int8        `json:"posted_by"`
+	VoidedAt               pgtype.Timestamptz `json:"voided_at"`
+	VoidedBy               pgtype.Int8        `json:"voided_by"`
+	VoidReason             pgtype.Text        `json:"void_reason"`
+	CreatedBy              pgtype.Int8        `json:"created_by"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+	PoID                   pgtype.Int8        `json:"po_id"`
+	WithholdingTypeID      pgtype.Int8        `json:"withholding_type_id"`
+	BaseCurrency           pgtype.Text        `json:"base_currency"`
+	OriginalCurrencyAmount pgtype.Numeric     `json:"original_currency_amount"`
+	BaseAmount             pgtype.Numeric     `json:"base_amount"`
+	FxRate                 pgtype.Numeric     `json:"fx_rate"`
+	FxRateDate             pgtype.Date        `json:"fx_rate_date"`
+	FxRateSource           pgtype.Text        `json:"fx_rate_source"`
+	FxRateLockedAt         pgtype.Timestamptz `json:"fx_rate_locked_at"`
 }
 
 type ApInvoiceLine struct {
@@ -945,25 +953,57 @@ type ApInvoiceLine struct {
 }
 
 type ApPayment struct {
-	ID          int64              `json:"id"`
-	Number      string             `json:"number"`
-	ApInvoiceID pgtype.Int8        `json:"ap_invoice_id"`
-	Amount      pgtype.Numeric     `json:"amount"`
-	PaidAt      pgtype.Date        `json:"paid_at"`
-	Method      string             `json:"method"`
-	Note        string             `json:"note"`
-	CreatedBy   pgtype.Int8        `json:"created_by"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
-	SupplierID  pgtype.Int8        `json:"supplier_id"`
+	ID                     int64              `json:"id"`
+	Number                 string             `json:"number"`
+	ApInvoiceID            pgtype.Int8        `json:"ap_invoice_id"`
+	Amount                 pgtype.Numeric     `json:"amount"`
+	PaidAt                 pgtype.Date        `json:"paid_at"`
+	Method                 string             `json:"method"`
+	Note                   string             `json:"note"`
+	CreatedBy              pgtype.Int8        `json:"created_by"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+	SupplierID             pgtype.Int8        `json:"supplier_id"`
+	Currency               pgtype.Text        `json:"currency"`
+	OriginalCurrencyAmount pgtype.Numeric     `json:"original_currency_amount"`
+	BaseCurrency           pgtype.Text        `json:"base_currency"`
+	BaseAmount             pgtype.Numeric     `json:"base_amount"`
+	FxRate                 pgtype.Numeric     `json:"fx_rate"`
+	FxRateDate             pgtype.Date        `json:"fx_rate_date"`
+	FxRateSource           pgtype.Text        `json:"fx_rate_source"`
+	FxRateLockedAt         pgtype.Timestamptz `json:"fx_rate_locked_at"`
 }
 
 type ApPaymentAllocation struct {
-	ID          int64              `json:"id"`
-	ApPaymentID int64              `json:"ap_payment_id"`
-	ApInvoiceID int64              `json:"ap_invoice_id"`
-	Amount      pgtype.Numeric     `json:"amount"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	ID                     int64              `json:"id"`
+	ApPaymentID            int64              `json:"ap_payment_id"`
+	ApInvoiceID            int64              `json:"ap_invoice_id"`
+	Amount                 pgtype.Numeric     `json:"amount"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	OriginalCurrencyAmount pgtype.Numeric     `json:"original_currency_amount"`
+	BaseAmount             pgtype.Numeric     `json:"base_amount"`
+	Currency               pgtype.Text        `json:"currency"`
+	BaseCurrency           pgtype.Text        `json:"base_currency"`
+	FxRate                 pgtype.Numeric     `json:"fx_rate"`
+	FxRateDate             pgtype.Date        `json:"fx_rate_date"`
+	FxRateSource           pgtype.Text        `json:"fx_rate_source"`
+	FxRateLockedAt         pgtype.Timestamptz `json:"fx_rate_locked_at"`
+}
+
+type ApiKey struct {
+	ID        int64              `json:"id"`
+	CompanyID int64              `json:"company_id"`
+	Name      string             `json:"name"`
+	KeyHash   string             `json:"key_hash"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+	RevokedAt pgtype.Timestamptz `json:"revoked_at"`
+	CreatedBy int64              `json:"created_by"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type ApiKeyScope struct {
+	ApiKeyID int64  `json:"api_key_id"`
+	Scope    string `json:"scope"`
 }
 
 type Approval struct {
@@ -1100,25 +1140,41 @@ type ArCreditNoteLine struct {
 }
 
 type ArInvoice struct {
-	ID              int64              `json:"id"`
-	Number          string             `json:"number"`
-	CustomerID      int64              `json:"customer_id"`
-	SoID            pgtype.Int8        `json:"so_id"`
-	Currency        string             `json:"currency"`
-	Total           pgtype.Numeric     `json:"total"`
-	Status          string             `json:"status"`
-	DueAt           pgtype.Timestamptz `json:"due_at"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
-	DeliveryOrderID pgtype.Int8        `json:"delivery_order_id"`
-	Subtotal        pgtype.Numeric     `json:"subtotal"`
-	TaxAmount       pgtype.Numeric     `json:"tax_amount"`
-	PostedAt        pgtype.Timestamptz `json:"posted_at"`
-	PostedBy        pgtype.Int8        `json:"posted_by"`
-	VoidedAt        pgtype.Timestamptz `json:"voided_at"`
-	VoidedBy        pgtype.Int8        `json:"voided_by"`
-	VoidReason      pgtype.Text        `json:"void_reason"`
-	CreatedBy       pgtype.Int8        `json:"created_by"`
+	ID                         int64              `json:"id"`
+	Number                     string             `json:"number"`
+	CustomerID                 int64              `json:"customer_id"`
+	SoID                       pgtype.Int8        `json:"so_id"`
+	Currency                   string             `json:"currency"`
+	Total                      pgtype.Numeric     `json:"total"`
+	Status                     string             `json:"status"`
+	DueAt                      pgtype.Timestamptz `json:"due_at"`
+	CreatedAt                  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                  pgtype.Timestamptz `json:"updated_at"`
+	DeliveryOrderID            pgtype.Int8        `json:"delivery_order_id"`
+	Subtotal                   pgtype.Numeric     `json:"subtotal"`
+	TaxAmount                  pgtype.Numeric     `json:"tax_amount"`
+	PostedAt                   pgtype.Timestamptz `json:"posted_at"`
+	PostedBy                   pgtype.Int8        `json:"posted_by"`
+	VoidedAt                   pgtype.Timestamptz `json:"voided_at"`
+	VoidedBy                   pgtype.Int8        `json:"voided_by"`
+	VoidReason                 pgtype.Text        `json:"void_reason"`
+	CreatedBy                  pgtype.Int8        `json:"created_by"`
+	TaxCodeID                  pgtype.Int8        `json:"tax_code_id"`
+	TaxDocumentID              pgtype.Int8        `json:"tax_document_id"`
+	FakturNumber               pgtype.Text        `json:"faktur_number"`
+	FakturIssueDate            pgtype.Date        `json:"faktur_issue_date"`
+	BuyerTaxID                 pgtype.Text        `json:"buyer_tax_id"`
+	FakturTaxableBase          pgtype.Numeric     `json:"faktur_taxable_base"`
+	FakturVatAmount            pgtype.Numeric     `json:"faktur_vat_amount"`
+	FakturStatus               pgtype.Text        `json:"faktur_status"`
+	ReplacementOfTaxDocumentID pgtype.Int8        `json:"replacement_of_tax_document_id"`
+	BaseCurrency               pgtype.Text        `json:"base_currency"`
+	OriginalCurrencyAmount     pgtype.Numeric     `json:"original_currency_amount"`
+	BaseAmount                 pgtype.Numeric     `json:"base_amount"`
+	FxRate                     pgtype.Numeric     `json:"fx_rate"`
+	FxRateDate                 pgtype.Date        `json:"fx_rate_date"`
+	FxRateSource               pgtype.Text        `json:"fx_rate_source"`
+	FxRateLockedAt             pgtype.Timestamptz `json:"fx_rate_locked_at"`
 }
 
 type ArInvoiceLine struct {
@@ -1138,24 +1194,40 @@ type ArInvoiceLine struct {
 }
 
 type ArPayment struct {
-	ID          int64              `json:"id"`
-	Number      string             `json:"number"`
-	ArInvoiceID int64              `json:"ar_invoice_id"`
-	Amount      pgtype.Numeric     `json:"amount"`
-	PaidAt      pgtype.Timestamptz `json:"paid_at"`
-	Method      string             `json:"method"`
-	Note        string             `json:"note"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
-	CreatedBy   pgtype.Int8        `json:"created_by"`
+	ID                     int64              `json:"id"`
+	Number                 string             `json:"number"`
+	ArInvoiceID            int64              `json:"ar_invoice_id"`
+	Amount                 pgtype.Numeric     `json:"amount"`
+	PaidAt                 pgtype.Timestamptz `json:"paid_at"`
+	Method                 string             `json:"method"`
+	Note                   string             `json:"note"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+	CreatedBy              pgtype.Int8        `json:"created_by"`
+	Currency               pgtype.Text        `json:"currency"`
+	OriginalCurrencyAmount pgtype.Numeric     `json:"original_currency_amount"`
+	BaseCurrency           pgtype.Text        `json:"base_currency"`
+	BaseAmount             pgtype.Numeric     `json:"base_amount"`
+	FxRate                 pgtype.Numeric     `json:"fx_rate"`
+	FxRateDate             pgtype.Date        `json:"fx_rate_date"`
+	FxRateSource           pgtype.Text        `json:"fx_rate_source"`
+	FxRateLockedAt         pgtype.Timestamptz `json:"fx_rate_locked_at"`
 }
 
 type ArPaymentAllocation struct {
-	ID          int64              `json:"id"`
-	ArPaymentID int64              `json:"ar_payment_id"`
-	ArInvoiceID int64              `json:"ar_invoice_id"`
-	Amount      pgtype.Numeric     `json:"amount"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	ID                     int64              `json:"id"`
+	ArPaymentID            int64              `json:"ar_payment_id"`
+	ArInvoiceID            int64              `json:"ar_invoice_id"`
+	Amount                 pgtype.Numeric     `json:"amount"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	OriginalCurrencyAmount pgtype.Numeric     `json:"original_currency_amount"`
+	BaseAmount             pgtype.Numeric     `json:"base_amount"`
+	Currency               pgtype.Text        `json:"currency"`
+	BaseCurrency           pgtype.Text        `json:"base_currency"`
+	FxRate                 pgtype.Numeric     `json:"fx_rate"`
+	FxRateDate             pgtype.Date        `json:"fx_rate_date"`
+	FxRateSource           pgtype.Text        `json:"fx_rate_source"`
+	FxRateLockedAt         pgtype.Timestamptz `json:"fx_rate_locked_at"`
 }
 
 type AuditLog struct {
@@ -1273,13 +1345,28 @@ type Category struct {
 
 type Company struct {
 	// Primary key (BIGINT for consistency)
-	ID        int64              `json:"id"`
-	Code      string             `json:"code"`
-	Name      string             `json:"name"`
-	Address   string             `json:"address"`
-	TaxID     string             `json:"tax_id"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	ID           int64              `json:"id"`
+	Code         string             `json:"code"`
+	Name         string             `json:"name"`
+	Address      string             `json:"address"`
+	TaxID        string             `json:"tax_id"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	BaseCurrency string             `json:"base_currency"`
+}
+
+type CompanyTaxIdentity struct {
+	ID                int64              `json:"id"`
+	CompanyID         int64              `json:"company_id"`
+	LegalName         string             `json:"legal_name"`
+	Npwp              string             `json:"npwp"`
+	Nitku             string             `json:"nitku"`
+	PkpNumber         pgtype.Text        `json:"pkp_number"`
+	RegisteredAddress string             `json:"registered_address"`
+	EffectiveFrom     pgtype.Date        `json:"effective_from"`
+	EffectiveTo       pgtype.Date        `json:"effective_to"`
+	CreatedBy         int64              `json:"created_by"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 }
 
 type ConsolGroup struct {
@@ -1320,6 +1407,99 @@ type CostCenter struct {
 	IsActive     bool               `json:"is_active"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+type CrmActivity struct {
+	ID             int64              `json:"id"`
+	CompanyID      int64              `json:"company_id"`
+	LeadID         pgtype.Int8        `json:"lead_id"`
+	OpportunityID  pgtype.Int8        `json:"opportunity_id"`
+	ContactID      pgtype.Int8        `json:"contact_id"`
+	OwnerID        int64              `json:"owner_id"`
+	ActivityType   string             `json:"activity_type"`
+	Subject        string             `json:"subject"`
+	Body           string             `json:"body"`
+	DueAt          pgtype.Timestamptz `json:"due_at"`
+	CompletedAt    pgtype.Timestamptz `json:"completed_at"`
+	ReminderAt     pgtype.Timestamptz `json:"reminder_at"`
+	ReminderSentAt pgtype.Timestamptz `json:"reminder_sent_at"`
+	EscalatedAt    pgtype.Timestamptz `json:"escalated_at"`
+	CreatedBy      int64              `json:"created_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type CrmContact struct {
+	ID         int64              `json:"id"`
+	CompanyID  int64              `json:"company_id"`
+	CustomerID pgtype.Int8        `json:"customer_id"`
+	LeadID     pgtype.Int8        `json:"lead_id"`
+	Name       string             `json:"name"`
+	Email      string             `json:"email"`
+	Phone      string             `json:"phone"`
+	Title      string             `json:"title"`
+	CreatedBy  int64              `json:"created_by"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
+type CrmEvent struct {
+	ID         int64              `json:"id"`
+	CompanyID  int64              `json:"company_id"`
+	EntityType string             `json:"entity_type"`
+	EntityID   int64              `json:"entity_id"`
+	EventType  string             `json:"event_type"`
+	ActorID    int64              `json:"actor_id"`
+	Details    []byte             `json:"details"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type CrmLead struct {
+	ID                  int64              `json:"id"`
+	CompanyID           int64              `json:"company_id"`
+	OwnerID             int64              `json:"owner_id"`
+	Source              string             `json:"source"`
+	Name                string             `json:"name"`
+	Organization        string             `json:"organization"`
+	Email               string             `json:"email"`
+	Phone               string             `json:"phone"`
+	Status              string             `json:"status"`
+	Notes               string             `json:"notes"`
+	ConvertedCustomerID pgtype.Int8        `json:"converted_customer_id"`
+	ConvertedContactID  pgtype.Int8        `json:"converted_contact_id"`
+	CreatedBy           int64              `json:"created_by"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+}
+
+type CrmOpportunity struct {
+	ID            int64              `json:"id"`
+	CompanyID     int64              `json:"company_id"`
+	LeadID        pgtype.Int8        `json:"lead_id"`
+	ContactID     pgtype.Int8        `json:"contact_id"`
+	CustomerID    pgtype.Int8        `json:"customer_id"`
+	QuotationID   pgtype.Int8        `json:"quotation_id"`
+	OwnerID       int64              `json:"owner_id"`
+	StageID       int64              `json:"stage_id"`
+	Name          string             `json:"name"`
+	Source        string             `json:"source"`
+	ExpectedValue pgtype.Numeric     `json:"expected_value"`
+	CloseDate     pgtype.Date        `json:"close_date"`
+	Status        string             `json:"status"`
+	WinLossReason string             `json:"win_loss_reason"`
+	CreatedBy     int64              `json:"created_by"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+type CrmPipelineStage struct {
+	ID          int64              `json:"id"`
+	CompanyID   int64              `json:"company_id"`
+	Name        string             `json:"name"`
+	Position    int32              `json:"position"`
+	StageType   string             `json:"stage_type"`
+	Probability int32              `json:"probability"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
 type Customer struct {
@@ -1497,6 +1677,35 @@ type FixedAssetDisposal struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
+type FxDailyRate struct {
+	ID                int64              `json:"id"`
+	BaseCurrency      string             `json:"base_currency"`
+	QuoteCurrency     string             `json:"quote_currency"`
+	RateDate          pgtype.Date        `json:"rate_date"`
+	Rate              pgtype.Numeric     `json:"rate"`
+	Source            string             `json:"source"`
+	SourceReference   pgtype.Text        `json:"source_reference"`
+	ProviderUpdatedAt pgtype.Timestamptz `json:"provider_updated_at"`
+	FetchedAt         pgtype.Timestamptz `json:"fetched_at"`
+	RawPayloadHash    pgtype.Text        `json:"raw_payload_hash"`
+}
+
+type FxFetchRun struct {
+	ID           int64              `json:"id"`
+	RequestedAt  pgtype.Timestamptz `json:"requested_at"`
+	RateDate     pgtype.Date        `json:"rate_date"`
+	Source       string             `json:"source"`
+	Status       string             `json:"status"`
+	ResponseHash pgtype.Text        `json:"response_hash"`
+	ErrorMessage pgtype.Text        `json:"error_message"`
+}
+
+type FxJournalIdempotency struct {
+	SourceKey      string             `json:"source_key"`
+	JournalEntryID int64              `json:"journal_entry_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
 type FxPolicy struct {
 	GroupAccountID int64              `json:"group_account_id"`
 	Method         string             `json:"method"`
@@ -1509,6 +1718,41 @@ type FxRate struct {
 	AverageRate pgtype.Numeric     `json:"average_rate"`
 	ClosingRate pgtype.Numeric     `json:"closing_rate"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type FxRevaluation struct {
+	ID                 int64              `json:"id"`
+	PeriodID           int64              `json:"period_id"`
+	DocumentType       string             `json:"document_type"`
+	DocumentID         int64              `json:"document_id"`
+	Currency           string             `json:"currency"`
+	OriginalBalance    pgtype.Numeric     `json:"original_balance"`
+	PreviousBaseAmount pgtype.Numeric     `json:"previous_base_amount"`
+	ClosingBaseAmount  pgtype.Numeric     `json:"closing_base_amount"`
+	Difference         pgtype.Numeric     `json:"difference"`
+	ClosingRate        pgtype.Numeric     `json:"closing_rate"`
+	RateDate           pgtype.Date        `json:"rate_date"`
+	RateSource         string             `json:"rate_source"`
+	JournalEntryID     pgtype.Int8        `json:"journal_entry_id"`
+	ActorID            pgtype.Int8        `json:"actor_id"`
+	ReversedByID       pgtype.Int8        `json:"reversed_by_id"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+}
+
+type FxRevaluationIdempotency struct {
+	PeriodID     int64              `json:"period_id"`
+	DocumentType string             `json:"document_type"`
+	DocumentID   int64              `json:"document_id"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type FxRevaluationReversal struct {
+	ID             int64              `json:"id"`
+	RevaluationID  int64              `json:"revaluation_id"`
+	NextPeriodID   int64              `json:"next_period_id"`
+	JournalEntryID int64              `json:"journal_entry_id"`
+	ActorID        int64              `json:"actor_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
 type GlBalance struct {
@@ -1575,6 +1819,15 @@ type GrnLine struct {
 	LotNumber     pgtype.Text    `json:"lot_number"`
 	ExpiryDate    pgtype.Date    `json:"expiry_date"`
 	SerialNumbers []string       `json:"serial_numbers"`
+}
+
+type HorizonIdempotencyKey struct {
+	CompanyID      int64              `json:"company_id"`
+	ActorID        pgtype.Int8        `json:"actor_id"`
+	IdempotencyKey string             `json:"idempotency_key"`
+	Operation      string             `json:"operation"`
+	Response       []byte             `json:"response"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
 type HrAttendance struct {
@@ -1861,6 +2114,41 @@ type JournalLine struct {
 	CostCenterID   pgtype.Int8        `json:"cost_center_id"`
 }
 
+type MrpBom struct {
+	ID            int64          `json:"id"`
+	CompanyID     int64          `json:"company_id"`
+	ProductID     int64          `json:"product_id"`
+	Version       string         `json:"version"`
+	EffectiveFrom pgtype.Date    `json:"effective_from"`
+	EffectiveTo   pgtype.Date    `json:"effective_to"`
+	ScrapPct      pgtype.Numeric `json:"scrap_pct"`
+	Active        bool           `json:"active"`
+	CreatedBy     pgtype.Int8    `json:"created_by"`
+}
+
+type MrpBomLine struct {
+	ID                 int64          `json:"id"`
+	BomID              int64          `json:"bom_id"`
+	ComponentProductID int64          `json:"component_product_id"`
+	Quantity           pgtype.Numeric `json:"quantity"`
+	ScrapPct           pgtype.Numeric `json:"scrap_pct"`
+}
+
+type MrpWorkOrder struct {
+	ID           int64              `json:"id"`
+	CompanyID    int64              `json:"company_id"`
+	Number       string             `json:"number"`
+	ProductID    int64              `json:"product_id"`
+	BomID        pgtype.Int8        `json:"bom_id"`
+	PlannedQty   pgtype.Numeric     `json:"planned_qty"`
+	CompletedQty pgtype.Numeric     `json:"completed_qty"`
+	Status       string             `json:"status"`
+	CreatedBy    int64              `json:"created_by"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	WarehouseID  pgtype.Int8        `json:"warehouse_id"`
+}
+
 type MvApAging struct {
 	Bucket    string      `json:"bucket"`
 	CompanyID int64       `json:"company_id"`
@@ -1914,6 +2202,7 @@ type Notification struct {
 	ReadAt      pgtype.Timestamptz `json:"read_at"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	DedupeKey   pgtype.Text        `json:"dedupe_key"`
 }
 
 type NotificationPreference struct {
@@ -1923,6 +2212,227 @@ type NotificationPreference struct {
 	EmailEnabled     bool               `json:"email_enabled"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
+type PayrollAccountMapping struct {
+	CompanyID   int64  `json:"company_id"`
+	MappingType string `json:"mapping_type"`
+	AccountID   int64  `json:"account_id"`
+}
+
+type PayrollAdjustment struct {
+	ID           int64              `json:"id"`
+	EmployeeID   int64              `json:"employee_id"`
+	PeriodID     int64              `json:"period_id"`
+	ComponentID  int64              `json:"component_id"`
+	Amount       pgtype.Numeric     `json:"amount"`
+	Reason       string             `json:"reason"`
+	ReversalOfID pgtype.Int8        `json:"reversal_of_id"`
+	CreatedBy    int64              `json:"created_by"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type PayrollBpjsRate struct {
+	ID              int64          `json:"id"`
+	RuleVersionID   int64          `json:"rule_version_id"`
+	Program         string         `json:"program"`
+	RiskClass       string         `json:"risk_class"`
+	EmployeeRateBps int32          `json:"employee_rate_bps"`
+	EmployerRateBps int32          `json:"employer_rate_bps"`
+	EmployerTaxable bool           `json:"employer_taxable"`
+	WageFloor       pgtype.Numeric `json:"wage_floor"`
+	WageCap         pgtype.Numeric `json:"wage_cap"`
+}
+
+type PayrollCompanyPolicy struct {
+	ID                          int64       `json:"id"`
+	RuleVersionID               int64       `json:"rule_version_id"`
+	CompanyID                   int64       `json:"company_id"`
+	OvertimeDivisor             int32       `json:"overtime_divisor"`
+	FirstHourMultiplierBps      int32       `json:"first_hour_multiplier_bps"`
+	SubsequentHourMultiplierBps int32       `json:"subsequent_hour_multiplier_bps"`
+	Currency                    string      `json:"currency"`
+	RoundingUnit                int32       `json:"rounding_unit"`
+	JkkRiskClass                string      `json:"jkk_risk_class"`
+	EffectiveFrom               pgtype.Date `json:"effective_from"`
+	EffectiveTo                 pgtype.Date `json:"effective_to"`
+}
+
+type PayrollCompensationAssignment struct {
+	ID                int64              `json:"id"`
+	EmployeeID        int64              `json:"employee_id"`
+	BaseSalary        pgtype.Numeric     `json:"base_salary"`
+	PtkpCode          string             `json:"ptkp_code"`
+	BpjsHealth        bool               `json:"bpjs_health"`
+	BpjsEmployment    bool               `json:"bpjs_employment"`
+	BankCode          string             `json:"bank_code"`
+	BankAccountNumber string             `json:"bank_account_number"`
+	BankAccountName   string             `json:"bank_account_name"`
+	EffectiveFrom     pgtype.Date        `json:"effective_from"`
+	EffectiveTo       pgtype.Date        `json:"effective_to"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+}
+
+type PayrollComponent struct {
+	ID        int64              `json:"id"`
+	CompanyID int64              `json:"company_id"`
+	Code      string             `json:"code"`
+	Name      string             `json:"name"`
+	Kind      string             `json:"kind"`
+	Taxable   bool               `json:"taxable"`
+	BpjsBase  bool               `json:"bpjs_base"`
+	Recurring bool               `json:"recurring"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type PayrollOvertime struct {
+	ID         int64              `json:"id"`
+	EmployeeID int64              `json:"employee_id"`
+	PeriodID   int64              `json:"period_id"`
+	WorkedOn   pgtype.Date        `json:"worked_on"`
+	Minutes    int32              `json:"minutes"`
+	ApprovedBy pgtype.Int8        `json:"approved_by"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type PayrollPaymentBatch struct {
+	ID               int64              `json:"id"`
+	RunID            int64              `json:"run_id"`
+	Format           string             `json:"format"`
+	Status           string             `json:"status"`
+	InstructionCount int32              `json:"instruction_count"`
+	TotalAmount      pgtype.Numeric     `json:"total_amount"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
+type PayrollPayslip struct {
+	ID          int64              `json:"id"`
+	RunLineID   int64              `json:"run_line_id"`
+	DocumentKey string             `json:"document_key"`
+	Checksum    string             `json:"checksum"`
+	GeneratedAt pgtype.Timestamptz `json:"generated_at"`
+	DeliveredAt pgtype.Timestamptz `json:"delivered_at"`
+}
+
+type PayrollPeriod struct {
+	ID        int64              `json:"id"`
+	CompanyID int64              `json:"company_id"`
+	Code      string             `json:"code"`
+	StartsOn  pgtype.Date        `json:"starts_on"`
+	EndsOn    pgtype.Date        `json:"ends_on"`
+	PayDate   pgtype.Date        `json:"pay_date"`
+	Status    string             `json:"status"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type PayrollPtkpStatus struct {
+	ID            int64          `json:"id"`
+	RuleVersionID int64          `json:"rule_version_id"`
+	Code          string         `json:"code"`
+	TerCategory   string         `json:"ter_category"`
+	AnnualAmount  pgtype.Numeric `json:"annual_amount"`
+}
+
+type PayrollRecurringComponent struct {
+	ID            int64          `json:"id"`
+	AssignmentID  int64          `json:"assignment_id"`
+	ComponentID   int64          `json:"component_id"`
+	Amount        pgtype.Numeric `json:"amount"`
+	EffectiveFrom pgtype.Date    `json:"effective_from"`
+	EffectiveTo   pgtype.Date    `json:"effective_to"`
+}
+
+type PayrollRuleVersion struct {
+	ID              int64              `json:"id"`
+	Code            string             `json:"code"`
+	RuleType        string             `json:"rule_type"`
+	EffectiveFrom   pgtype.Date        `json:"effective_from"`
+	EffectiveTo     pgtype.Date        `json:"effective_to"`
+	SourceName      string             `json:"source_name"`
+	SourceUrl       string             `json:"source_url"`
+	SourceReference string             `json:"source_reference"`
+	ReviewedBy      pgtype.Int8        `json:"reviewed_by"`
+	ReviewedAt      pgtype.Timestamptz `json:"reviewed_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+}
+
+type PayrollRun struct {
+	ID                int64              `json:"id"`
+	RunUuid           pgtype.UUID        `json:"run_uuid"`
+	CompanyID         int64              `json:"company_id"`
+	PeriodID          int64              `json:"period_id"`
+	RunType           string             `json:"run_type"`
+	ReversalOfID      pgtype.Int8        `json:"reversal_of_id"`
+	TaxRuleVersionID  int64              `json:"tax_rule_version_id"`
+	BpjsRuleVersionID int64              `json:"bpjs_rule_version_id"`
+	CompanyPolicyID   int64              `json:"company_policy_id"`
+	Status            string             `json:"status"`
+	ApprovalRequestID pgtype.Int8        `json:"approval_request_id"`
+	JournalEntryID    pgtype.Int8        `json:"journal_entry_id"`
+	CreatedBy         int64              `json:"created_by"`
+	SubmittedAt       pgtype.Timestamptz `json:"submitted_at"`
+	PostedAt          pgtype.Timestamptz `json:"posted_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type PayrollRunDeduction struct {
+	ID           int64          `json:"id"`
+	RunLineID    int64          `json:"run_line_id"`
+	Code         string         `json:"code"`
+	Name         string         `json:"name"`
+	Amount       pgtype.Numeric `json:"amount"`
+	EmployeePaid bool           `json:"employee_paid"`
+}
+
+type PayrollRunEvent struct {
+	ID        int64              `json:"id"`
+	RunID     int64              `json:"run_id"`
+	EventType string             `json:"event_type"`
+	ActorID   int64              `json:"actor_id"`
+	Note      string             `json:"note"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type PayrollRunLine struct {
+	ID              int64              `json:"id"`
+	RunID           int64              `json:"run_id"`
+	EmployeeID      int64              `json:"employee_id"`
+	DepartmentID    pgtype.Int8        `json:"department_id"`
+	CostCenterID    pgtype.Int8        `json:"cost_center_id"`
+	PtkpCode        string             `json:"ptkp_code"`
+	TerCategory     string             `json:"ter_category"`
+	BaseSalary      pgtype.Numeric     `json:"base_salary"`
+	Allowances      pgtype.Numeric     `json:"allowances"`
+	Overtime        pgtype.Numeric     `json:"overtime"`
+	Thr             pgtype.Numeric     `json:"thr"`
+	Gross           pgtype.Numeric     `json:"gross"`
+	EmployeeBpjs    pgtype.Numeric     `json:"employee_bpjs"`
+	EmployerBpjs    pgtype.Numeric     `json:"employer_bpjs"`
+	Pph21           pgtype.Numeric     `json:"pph21"`
+	OtherDeductions pgtype.Numeric     `json:"other_deductions"`
+	NetPay          pgtype.Numeric     `json:"net_pay"`
+	Breakdown       []byte             `json:"breakdown"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+}
+
+type PayrollTerBracket struct {
+	ID            int64          `json:"id"`
+	RuleVersionID int64          `json:"rule_version_id"`
+	Category      string         `json:"category"`
+	LowerBound    pgtype.Numeric `json:"lower_bound"`
+	UpperBound    pgtype.Numeric `json:"upper_bound"`
+	RateBps       int32          `json:"rate_bps"`
+}
+
+type PayrollThr struct {
+	ID            int64              `json:"id"`
+	EmployeeID    int64              `json:"employee_id"`
+	PeriodID      int64              `json:"period_id"`
+	Amount        pgtype.Numeric     `json:"amount"`
+	ServiceMonths int32              `json:"service_months"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 }
 
 type Period struct {
@@ -1992,6 +2502,97 @@ type PoLine struct {
 	Note      string         `json:"note"`
 }
 
+type PortalDocument struct {
+	ID          int64              `json:"id"`
+	CompanyID   int64              `json:"company_id"`
+	UserID      int64              `json:"user_id"`
+	PortalType  string             `json:"portal_type"`
+	Filename    string             `json:"filename"`
+	ContentType string             `json:"content_type"`
+	Content     []byte             `json:"content"`
+	UploadedAt  pgtype.Timestamptz `json:"uploaded_at"`
+}
+
+type PortalInvitation struct {
+	ID          int64              `json:"id"`
+	CompanyID   int64              `json:"company_id"`
+	Email       string             `json:"email"`
+	DisplayName string             `json:"display_name"`
+	PortalType  string             `json:"portal_type"`
+	CustomerID  pgtype.Int8        `json:"customer_id"`
+	SupplierID  pgtype.Int8        `json:"supplier_id"`
+	TokenHash   string             `json:"token_hash"`
+	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
+	AcceptedAt  pgtype.Timestamptz `json:"accepted_at"`
+	CreatedBy   pgtype.Int8        `json:"created_by"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type PortalUser struct {
+	ID         int64       `json:"id"`
+	CompanyID  int64       `json:"company_id"`
+	UserID     int64       `json:"user_id"`
+	PortalType string      `json:"portal_type"`
+	CustomerID pgtype.Int8 `json:"customer_id"`
+	SupplierID pgtype.Int8 `json:"supplier_id"`
+	Active     bool        `json:"active"`
+}
+
+type PosPayment struct {
+	ID             int64          `json:"id"`
+	TicketID       int64          `json:"ticket_id"`
+	Method         string         `json:"method"`
+	Amount         pgtype.Numeric `json:"amount"`
+	Reference      pgtype.Text    `json:"reference"`
+	IdempotencyKey string         `json:"idempotency_key"`
+}
+
+type PosSession struct {
+	ID            int64              `json:"id"`
+	CompanyID     int64              `json:"company_id"`
+	TerminalID    int64              `json:"terminal_id"`
+	CashierID     int64              `json:"cashier_id"`
+	OpeningFloat  pgtype.Numeric     `json:"opening_float"`
+	ClosingAmount pgtype.Numeric     `json:"closing_amount"`
+	Variance      pgtype.Numeric     `json:"variance"`
+	Status        string             `json:"status"`
+	OpenedAt      pgtype.Timestamptz `json:"opened_at"`
+	ClosedAt      pgtype.Timestamptz `json:"closed_at"`
+}
+
+type PosTerminal struct {
+	ID          int64       `json:"id"`
+	CompanyID   int64       `json:"company_id"`
+	Code        string      `json:"code"`
+	Name        string      `json:"name"`
+	WarehouseID pgtype.Int8 `json:"warehouse_id"`
+	Active      bool        `json:"active"`
+}
+
+type PosTicket struct {
+	ID        int64              `json:"id"`
+	CompanyID int64              `json:"company_id"`
+	SessionID int64              `json:"session_id"`
+	Number    string             `json:"number"`
+	Currency  string             `json:"currency"`
+	Subtotal  pgtype.Numeric     `json:"subtotal"`
+	TaxAmount pgtype.Numeric     `json:"tax_amount"`
+	Total     pgtype.Numeric     `json:"total"`
+	Status    string             `json:"status"`
+	CreatedBy int64              `json:"created_by"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type PosTicketLine struct {
+	ID        int64          `json:"id"`
+	TicketID  int64          `json:"ticket_id"`
+	ProductID int64          `json:"product_id"`
+	Quantity  pgtype.Numeric `json:"quantity"`
+	UnitPrice pgtype.Numeric `json:"unit_price"`
+	Discount  pgtype.Numeric `json:"discount"`
+	TaxAmount pgtype.Numeric `json:"tax_amount"`
+}
+
 type Pr struct {
 	ID         int64              `json:"id"`
 	Number     string             `json:"number"`
@@ -2031,27 +2632,53 @@ type Product struct {
 	TrackSerial         bool           `json:"track_serial"`
 }
 
+type Project struct {
+	ID        int64              `json:"id"`
+	CompanyID int64              `json:"company_id"`
+	Code      string             `json:"code"`
+	Name      string             `json:"name"`
+	Currency  string             `json:"currency"`
+	Status    string             `json:"status"`
+	ManagerID pgtype.Int8        `json:"manager_id"`
+	CreatedBy int64              `json:"created_by"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type ProjectMember struct {
+	ProjectID int64 `json:"project_id"`
+	UserID    int64 `json:"user_id"`
+}
+
+type ProjectTask struct {
+	ID        int64  `json:"id"`
+	ProjectID int64  `json:"project_id"`
+	Code      string `json:"code"`
+	Name      string `json:"name"`
+	Status    string `json:"status"`
+}
+
 type Quotation struct {
-	ID              int64              `json:"id"`
-	DocNumber       string             `json:"doc_number"`
-	CompanyID       int64              `json:"company_id"`
-	CustomerID      int64              `json:"customer_id"`
-	QuoteDate       pgtype.Date        `json:"quote_date"`
-	ValidUntil      pgtype.Date        `json:"valid_until"`
-	Status          QuotationStatus    `json:"status"`
-	Currency        string             `json:"currency"`
-	Subtotal        pgtype.Numeric     `json:"subtotal"`
-	TaxAmount       pgtype.Numeric     `json:"tax_amount"`
-	TotalAmount     pgtype.Numeric     `json:"total_amount"`
-	Notes           pgtype.Text        `json:"notes"`
-	CreatedBy       int64              `json:"created_by"`
-	ApprovedBy      pgtype.Int8        `json:"approved_by"`
-	ApprovedAt      pgtype.Timestamptz `json:"approved_at"`
-	RejectedBy      pgtype.Int8        `json:"rejected_by"`
-	RejectedAt      pgtype.Timestamptz `json:"rejected_at"`
-	RejectionReason pgtype.Text        `json:"rejection_reason"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	ID               int64              `json:"id"`
+	DocNumber        string             `json:"doc_number"`
+	CompanyID        int64              `json:"company_id"`
+	CustomerID       int64              `json:"customer_id"`
+	QuoteDate        pgtype.Date        `json:"quote_date"`
+	ValidUntil       pgtype.Date        `json:"valid_until"`
+	Status           QuotationStatus    `json:"status"`
+	Currency         string             `json:"currency"`
+	Subtotal         pgtype.Numeric     `json:"subtotal"`
+	TaxAmount        pgtype.Numeric     `json:"tax_amount"`
+	TotalAmount      pgtype.Numeric     `json:"total_amount"`
+	Notes            pgtype.Text        `json:"notes"`
+	CreatedBy        int64              `json:"created_by"`
+	ApprovedBy       pgtype.Int8        `json:"approved_by"`
+	ApprovedAt       pgtype.Timestamptz `json:"approved_at"`
+	RejectedBy       pgtype.Int8        `json:"rejected_by"`
+	RejectedAt       pgtype.Timestamptz `json:"rejected_at"`
+	RejectionReason  pgtype.Text        `json:"rejection_reason"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	CrmOpportunityID pgtype.Int8        `json:"crm_opportunity_id"`
 }
 
 type QuotationLine struct {
@@ -2219,6 +2846,7 @@ type Supplier struct {
 	IsActive bool   `json:"is_active"`
 	// Tenant isolation: company that owns this supplier
 	CompanyID pgtype.Int8 `json:"company_id"`
+	TaxID     string      `json:"tax_id"`
 }
 
 type Tax struct {
@@ -2226,6 +2854,232 @@ type Tax struct {
 	Code string         `json:"code"`
 	Name string         `json:"name"`
 	Rate pgtype.Numeric `json:"rate"`
+}
+
+type TaxAccountMapping struct {
+	ID            int64              `json:"id"`
+	CompanyID     int64              `json:"company_id"`
+	Category      string             `json:"category"`
+	AccountID     int64              `json:"account_id"`
+	EffectiveFrom pgtype.Date        `json:"effective_from"`
+	EffectiveTo   pgtype.Date        `json:"effective_to"`
+	CreatedBy     int64              `json:"created_by"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
+type TaxAuditEvent struct {
+	ID         int64              `json:"id"`
+	CompanyID  int64              `json:"company_id"`
+	EntityType string             `json:"entity_type"`
+	EntityID   int64              `json:"entity_id"`
+	Action     string             `json:"action"`
+	ActorID    int64              `json:"actor_id"`
+	Details    []byte             `json:"details"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type TaxCaptureOutbox struct {
+	ID          int64              `json:"id"`
+	SourceType  string             `json:"source_type"`
+	SourceID    int64              `json:"source_id"`
+	ActorID     pgtype.Int8        `json:"actor_id"`
+	Attempts    int32              `json:"attempts"`
+	AvailableAt pgtype.Timestamptz `json:"available_at"`
+	LastError   pgtype.Text        `json:"last_error"`
+	CompletedAt pgtype.Timestamptz `json:"completed_at"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type TaxCode struct {
+	ID                 int64       `json:"id"`
+	RuleVersionID      int64       `json:"rule_version_id"`
+	Code               string      `json:"code"`
+	Name               string      `json:"name"`
+	TaxKind            string      `json:"tax_kind"`
+	OfficialObjectCode pgtype.Text `json:"official_object_code"`
+	VatRateID          pgtype.Int8 `json:"vat_rate_id"`
+	WithholdingTypeID  pgtype.Int8 `json:"withholding_type_id"`
+}
+
+type TaxDocument struct {
+	ID                int64              `json:"id"`
+	CompanyID         int64              `json:"company_id"`
+	TaxPeriodID       int64              `json:"tax_period_id"`
+	SourceType        string             `json:"source_type"`
+	SourceID          int64              `json:"source_id"`
+	SourceNumber      string             `json:"source_number"`
+	SourcePostedAt    pgtype.Timestamptz `json:"source_posted_at"`
+	DocumentKind      string             `json:"document_kind"`
+	Direction         string             `json:"direction"`
+	TaxNumber         pgtype.Text        `json:"tax_number"`
+	IssueDate         pgtype.Date        `json:"issue_date"`
+	CounterpartyName  string             `json:"counterparty_name"`
+	CounterpartyTaxID string             `json:"counterparty_tax_id"`
+	TaxableBase       pgtype.Numeric     `json:"taxable_base"`
+	VatAmount         pgtype.Numeric     `json:"vat_amount"`
+	GrossAmount       pgtype.Numeric     `json:"gross_amount"`
+	Sign              int16              `json:"sign"`
+	TaxCodeID         pgtype.Int8        `json:"tax_code_id"`
+	RuleVersionID     int64              `json:"rule_version_id"`
+	ReplacementOfID   pgtype.Int8        `json:"replacement_of_id"`
+	SourceHash        string             `json:"source_hash"`
+	CreatedBy         int64              `json:"created_by"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+}
+
+type TaxDocumentEvent struct {
+	ID                    int64              `json:"id"`
+	TaxDocumentID         int64              `json:"tax_document_id"`
+	EventType             string             `json:"event_type"`
+	Reason                string             `json:"reason"`
+	ReplacementDocumentID pgtype.Int8        `json:"replacement_document_id"`
+	ActorID               int64              `json:"actor_id"`
+	OccurredAt            pgtype.Timestamptz `json:"occurred_at"`
+}
+
+type TaxExport struct {
+	ID          int64              `json:"id"`
+	CompanyID   int64              `json:"company_id"`
+	TaxPeriodID int64              `json:"tax_period_id"`
+	SchemaID    int64              `json:"schema_id"`
+	ContentHash string             `json:"content_hash"`
+	RecordCount int32              `json:"record_count"`
+	TaxableBase pgtype.Numeric     `json:"taxable_base"`
+	TaxAmount   pgtype.Numeric     `json:"tax_amount"`
+	GeneratedBy int64              `json:"generated_by"`
+	GeneratedAt pgtype.Timestamptz `json:"generated_at"`
+}
+
+type TaxExportSchema struct {
+	ID                 int64              `json:"id"`
+	ExportKind         string             `json:"export_kind"`
+	VersionCode        string             `json:"version_code"`
+	MediaType          string             `json:"media_type"`
+	SchemaBody         string             `json:"schema_body"`
+	OfficialSourceUrl  string             `json:"official_source_url"`
+	OfficialChecksum   string             `json:"official_checksum"`
+	EffectiveFrom      pgtype.Date        `json:"effective_from"`
+	EffectiveTo        pgtype.Date        `json:"effective_to"`
+	ReviewedBy         pgtype.Int8        `json:"reviewed_by"`
+	ReviewedAt         pgtype.Timestamptz `json:"reviewed_at"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	XmlDeclaration     string             `json:"xml_declaration"`
+	IncludeSignElement bool               `json:"include_sign_element"`
+}
+
+type TaxInvoiceNumberRange struct {
+	ID            int64              `json:"id"`
+	CompanyID     int64              `json:"company_id"`
+	Prefix        string             `json:"prefix"`
+	RangeStart    int64              `json:"range_start"`
+	RangeEnd      int64              `json:"range_end"`
+	NextNumber    int64              `json:"next_number"`
+	EffectiveFrom pgtype.Date        `json:"effective_from"`
+	EffectiveTo   pgtype.Date        `json:"effective_to"`
+	CreatedBy     int64              `json:"created_by"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
+type TaxLedgerEntry struct {
+	ID                  int64              `json:"id"`
+	CompanyID           int64              `json:"company_id"`
+	TaxPeriodID         int64              `json:"tax_period_id"`
+	Category            string             `json:"category"`
+	TaxDocumentID       pgtype.Int8        `json:"tax_document_id"`
+	WithholdingRecordID pgtype.Int8        `json:"withholding_record_id"`
+	AccountID           int64              `json:"account_id"`
+	SourceType          string             `json:"source_type"`
+	SourceID            int64              `json:"source_id"`
+	SourceDate          pgtype.Date        `json:"source_date"`
+	TaxableBase         pgtype.Numeric     `json:"taxable_base"`
+	TaxAmount           pgtype.Numeric     `json:"tax_amount"`
+	Sign                int16              `json:"sign"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+}
+
+type TaxPeriod struct {
+	ID                 int64              `json:"id"`
+	CompanyID          int64              `json:"company_id"`
+	AccountingPeriodID int64              `json:"accounting_period_id"`
+	Status             string             `json:"status"`
+	LockedBy           pgtype.Int8        `json:"locked_by"`
+	LockedAt           pgtype.Timestamptz `json:"locked_at"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+}
+
+type TaxRuleVersion struct {
+	ID             int64              `json:"id"`
+	RuleKind       string             `json:"rule_kind"`
+	VersionCode    string             `json:"version_code"`
+	EffectiveFrom  pgtype.Date        `json:"effective_from"`
+	EffectiveTo    pgtype.Date        `json:"effective_to"`
+	SourceUrl      string             `json:"source_url"`
+	SourceChecksum string             `json:"source_checksum"`
+	ReviewedBy     pgtype.Int8        `json:"reviewed_by"`
+	ReviewedAt     pgtype.Timestamptz `json:"reviewed_at"`
+	CreatedBy      int64              `json:"created_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type TaxVatRate struct {
+	ID             int64  `json:"id"`
+	RuleVersionID  int64  `json:"rule_version_id"`
+	Code           string `json:"code"`
+	Name           string `json:"name"`
+	RateBps        int32  `json:"rate_bps"`
+	DppNumerator   int32  `json:"dpp_numerator"`
+	DppDenominator int32  `json:"dpp_denominator"`
+	LuxuryOnly     bool   `json:"luxury_only"`
+}
+
+type TaxWithholdingRecord struct {
+	ID                int64              `json:"id"`
+	CompanyID         int64              `json:"company_id"`
+	TaxPeriodID       int64              `json:"tax_period_id"`
+	ApInvoiceID       int64              `json:"ap_invoice_id"`
+	ApPaymentID       pgtype.Int8        `json:"ap_payment_id"`
+	SourceEvent       string             `json:"source_event"`
+	WithholdingTypeID int64              `json:"withholding_type_id"`
+	TaxCodeID         pgtype.Int8        `json:"tax_code_id"`
+	RecognitionDate   pgtype.Date        `json:"recognition_date"`
+	TaxableBase       pgtype.Numeric     `json:"taxable_base"`
+	WithheldAmount    pgtype.Numeric     `json:"withheld_amount"`
+	SupplierTaxID     string             `json:"supplier_tax_id"`
+	SourceHash        string             `json:"source_hash"`
+	CreatedBy         int64              `json:"created_by"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+}
+
+type TaxWithholdingType struct {
+	ID               int64  `json:"id"`
+	RuleVersionID    int64  `json:"rule_version_id"`
+	Code             string `json:"code"`
+	Article          string `json:"article"`
+	Name             string `json:"name"`
+	RecognitionEvent string `json:"recognition_event"`
+	RateBps          int32  `json:"rate_bps"`
+	TaxBase          string `json:"tax_base"`
+}
+
+type Timesheet struct {
+	ID             int64              `json:"id"`
+	CompanyID      int64              `json:"company_id"`
+	ProjectID      int64              `json:"project_id"`
+	TaskID         int64              `json:"task_id"`
+	EmployeeID     int64              `json:"employee_id"`
+	WorkDate       pgtype.Date        `json:"work_date"`
+	Hours          pgtype.Numeric     `json:"hours"`
+	Description    pgtype.Text        `json:"description"`
+	Billable       bool               `json:"billable"`
+	Status         string             `json:"status"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	BillableRate   pgtype.Numeric     `json:"billable_rate"`
+	BaseCurrency   pgtype.Text        `json:"base_currency"`
+	BaseAmount     pgtype.Numeric     `json:"base_amount"`
+	FxRate         pgtype.Numeric     `json:"fx_rate"`
+	FxRateSource   pgtype.Text        `json:"fx_rate_source"`
+	FxRateLockedAt pgtype.Timestamptz `json:"fx_rate_locked_at"`
 }
 
 type Unit struct {
@@ -2296,6 +3150,33 @@ type VSalesDeliveryPermission struct {
 	Module                string `json:"module"`
 }
 
+type VTaxDocumentStatus struct {
+	ID                int64              `json:"id"`
+	CompanyID         int64              `json:"company_id"`
+	TaxPeriodID       int64              `json:"tax_period_id"`
+	SourceType        string             `json:"source_type"`
+	SourceID          int64              `json:"source_id"`
+	SourceNumber      string             `json:"source_number"`
+	SourcePostedAt    pgtype.Timestamptz `json:"source_posted_at"`
+	DocumentKind      string             `json:"document_kind"`
+	Direction         string             `json:"direction"`
+	TaxNumber         pgtype.Text        `json:"tax_number"`
+	IssueDate         pgtype.Date        `json:"issue_date"`
+	CounterpartyName  string             `json:"counterparty_name"`
+	CounterpartyTaxID string             `json:"counterparty_tax_id"`
+	TaxableBase       pgtype.Numeric     `json:"taxable_base"`
+	VatAmount         pgtype.Numeric     `json:"vat_amount"`
+	GrossAmount       pgtype.Numeric     `json:"gross_amount"`
+	Sign              int16              `json:"sign"`
+	TaxCodeID         pgtype.Int8        `json:"tax_code_id"`
+	RuleVersionID     int64              `json:"rule_version_id"`
+	ReplacementOfID   pgtype.Int8        `json:"replacement_of_id"`
+	SourceHash        string             `json:"source_hash"`
+	CreatedBy         int64              `json:"created_by"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	Status            string             `json:"status"`
+}
+
 type VarianceRule struct {
 	ID               int64              `json:"id"`
 	CompanyID        int64              `json:"company_id"`
@@ -2362,4 +3243,90 @@ type Warehouse struct {
 	Address   string             `json:"address"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type WebhookDelivery struct {
+	ID             int64              `json:"id"`
+	SubscriptionID int64              `json:"subscription_id"`
+	EventID        pgtype.UUID        `json:"event_id"`
+	Payload        []byte             `json:"payload"`
+	AttemptCount   int32              `json:"attempt_count"`
+	ResponseStatus pgtype.Int4        `json:"response_status"`
+	NextAttemptAt  pgtype.Timestamptz `json:"next_attempt_at"`
+	DeliveredAt    pgtype.Timestamptz `json:"delivered_at"`
+	DeadLetteredAt pgtype.Timestamptz `json:"dead_lettered_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type WebhookSubscription struct {
+	ID               int64              `json:"id"`
+	CompanyID        int64              `json:"company_id"`
+	EventType        string             `json:"event_type"`
+	Endpoint         string             `json:"endpoint"`
+	SecretHash       string             `json:"secret_hash"`
+	SecretCiphertext string             `json:"secret_ciphertext"`
+	Active           bool               `json:"active"`
+	CreatedBy        int64              `json:"created_by"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
+type WmsBarcodeAlias struct {
+	ID        int64              `json:"id"`
+	CompanyID int64              `json:"company_id"`
+	Barcode   string             `json:"barcode"`
+	ProductID pgtype.Int8        `json:"product_id"`
+	BinID     pgtype.Int8        `json:"bin_id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type WmsBin struct {
+	ID          int64              `json:"id"`
+	CompanyID   int64              `json:"company_id"`
+	WarehouseID int64              `json:"warehouse_id"`
+	Code        string             `json:"code"`
+	Name        string             `json:"name"`
+	Capacity    pgtype.Numeric     `json:"capacity"`
+	Active      bool               `json:"active"`
+	CreatedBy   pgtype.Int8        `json:"created_by"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type WmsPickScan struct {
+	ID             int64              `json:"id"`
+	CompanyID      int64              `json:"company_id"`
+	TaskID         int64              `json:"task_id"`
+	Barcode        string             `json:"barcode"`
+	Quantity       pgtype.Numeric     `json:"quantity"`
+	ActorID        int64              `json:"actor_id"`
+	IdempotencyKey string             `json:"idempotency_key"`
+	ScannedAt      pgtype.Timestamptz `json:"scanned_at"`
+}
+
+type WmsPickTask struct {
+	ID              int64              `json:"id"`
+	CompanyID       int64              `json:"company_id"`
+	WaveID          int64              `json:"wave_id"`
+	DeliveryOrderID pgtype.Int8        `json:"delivery_order_id"`
+	ProductID       int64              `json:"product_id"`
+	SourceBinID     pgtype.Int8        `json:"source_bin_id"`
+	RequestedQty    pgtype.Numeric     `json:"requested_qty"`
+	PickedQty       pgtype.Numeric     `json:"picked_qty"`
+	Status          string             `json:"status"`
+	AssignedTo      pgtype.Int8        `json:"assigned_to"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type WmsPickWafe struct {
+	ID          int64              `json:"id"`
+	CompanyID   int64              `json:"company_id"`
+	WarehouseID int64              `json:"warehouse_id"`
+	Number      string             `json:"number"`
+	Status      string             `json:"status"`
+	CreatedBy   int64              `json:"created_by"`
+	ReleasedBy  pgtype.Int8        `json:"released_by"`
+	ReleasedAt  pgtype.Timestamptz `json:"released_at"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }

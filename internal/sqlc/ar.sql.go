@@ -802,15 +802,23 @@ WHERE ar_payment_id = $1
 ORDER BY id
 `
 
-func (q *Queries) ListPaymentAllocations(ctx context.Context, arPaymentID int64) ([]ArPaymentAllocation, error) {
+type ListPaymentAllocationsRow struct {
+	ID          int64              `json:"id"`
+	ArPaymentID int64              `json:"ar_payment_id"`
+	ArInvoiceID int64              `json:"ar_invoice_id"`
+	Amount      pgtype.Numeric     `json:"amount"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) ListPaymentAllocations(ctx context.Context, arPaymentID int64) ([]ListPaymentAllocationsRow, error) {
 	rows, err := q.db.Query(ctx, listPaymentAllocations, arPaymentID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ArPaymentAllocation
+	var items []ListPaymentAllocationsRow
 	for rows.Next() {
-		var i ArPaymentAllocation
+		var i ListPaymentAllocationsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ArPaymentID,

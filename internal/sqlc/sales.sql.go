@@ -265,12 +265,35 @@ FROM quotations
 WHERE id = $1
 `
 
+type GetQuotationRow struct {
+	ID              int64              `json:"id"`
+	DocNumber       string             `json:"doc_number"`
+	CompanyID       int64              `json:"company_id"`
+	CustomerID      int64              `json:"customer_id"`
+	QuoteDate       pgtype.Date        `json:"quote_date"`
+	ValidUntil      pgtype.Date        `json:"valid_until"`
+	Status          QuotationStatus    `json:"status"`
+	Currency        string             `json:"currency"`
+	Subtotal        pgtype.Numeric     `json:"subtotal"`
+	TaxAmount       pgtype.Numeric     `json:"tax_amount"`
+	TotalAmount     pgtype.Numeric     `json:"total_amount"`
+	Notes           pgtype.Text        `json:"notes"`
+	CreatedBy       int64              `json:"created_by"`
+	ApprovedBy      pgtype.Int8        `json:"approved_by"`
+	ApprovedAt      pgtype.Timestamptz `json:"approved_at"`
+	RejectedBy      pgtype.Int8        `json:"rejected_by"`
+	RejectedAt      pgtype.Timestamptz `json:"rejected_at"`
+	RejectionReason pgtype.Text        `json:"rejection_reason"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
 // =============================================================================
 // QUOTATIONS
 // =============================================================================
-func (q *Queries) GetQuotation(ctx context.Context, id int64) (Quotation, error) {
+func (q *Queries) GetQuotation(ctx context.Context, id int64) (GetQuotationRow, error) {
 	row := q.db.QueryRow(ctx, getQuotation, id)
-	var i Quotation
+	var i GetQuotationRow
 	err := row.Scan(
 		&i.ID,
 		&i.DocNumber,
@@ -305,9 +328,32 @@ FROM quotations
 WHERE doc_number = $1
 `
 
-func (q *Queries) GetQuotationByDocNumber(ctx context.Context, docNumber string) (Quotation, error) {
+type GetQuotationByDocNumberRow struct {
+	ID              int64              `json:"id"`
+	DocNumber       string             `json:"doc_number"`
+	CompanyID       int64              `json:"company_id"`
+	CustomerID      int64              `json:"customer_id"`
+	QuoteDate       pgtype.Date        `json:"quote_date"`
+	ValidUntil      pgtype.Date        `json:"valid_until"`
+	Status          QuotationStatus    `json:"status"`
+	Currency        string             `json:"currency"`
+	Subtotal        pgtype.Numeric     `json:"subtotal"`
+	TaxAmount       pgtype.Numeric     `json:"tax_amount"`
+	TotalAmount     pgtype.Numeric     `json:"total_amount"`
+	Notes           pgtype.Text        `json:"notes"`
+	CreatedBy       int64              `json:"created_by"`
+	ApprovedBy      pgtype.Int8        `json:"approved_by"`
+	ApprovedAt      pgtype.Timestamptz `json:"approved_at"`
+	RejectedBy      pgtype.Int8        `json:"rejected_by"`
+	RejectedAt      pgtype.Timestamptz `json:"rejected_at"`
+	RejectionReason pgtype.Text        `json:"rejection_reason"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetQuotationByDocNumber(ctx context.Context, docNumber string) (GetQuotationByDocNumberRow, error) {
 	row := q.db.QueryRow(ctx, getQuotationByDocNumber, docNumber)
-	var i Quotation
+	var i GetQuotationByDocNumberRow
 	err := row.Scan(
 		&i.ID,
 		&i.DocNumber,

@@ -52,7 +52,7 @@ type Querier interface {
 	CreateBankTransaction(ctx context.Context, arg CreateBankTransactionParams) (BankTransaction, error)
 	CreateBranch(ctx context.Context, arg CreateBranchParams) (Branch, error)
 	CreateCategory(ctx context.Context, arg CreateCategoryParams) (CreateCategoryRow, error)
-	CreateCompany(ctx context.Context, arg CreateCompanyParams) (Company, error)
+	CreateCompany(ctx context.Context, arg CreateCompanyParams) (CreateCompanyRow, error)
 	CreateCustomer(ctx context.Context, arg CreateCustomerParams) (int64, error)
 	CreateDeliveryOrder(ctx context.Context, arg CreateDeliveryOrderParams) (int64, error)
 	// =============================================================================
@@ -75,7 +75,7 @@ type Querier interface {
 	CreateQuotation(ctx context.Context, arg CreateQuotationParams) (int64, error)
 	CreateSalesOrder(ctx context.Context, arg CreateSalesOrderParams) (int64, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) error
-	CreateSupplier(ctx context.Context, arg CreateSupplierParams) (Supplier, error)
+	CreateSupplier(ctx context.Context, arg CreateSupplierParams) (CreateSupplierRow, error)
 	CreateTax(ctx context.Context, arg CreateTaxParams) (Tax, error)
 	CreateUnit(ctx context.Context, arg CreateUnitParams) (Unit, error)
 	CreateWarehouse(ctx context.Context, arg CreateWarehouseParams) (Warehouse, error)
@@ -173,8 +173,8 @@ type Querier interface {
 	// =============================================================================
 	// QUOTATIONS
 	// =============================================================================
-	GetQuotation(ctx context.Context, id int64) (Quotation, error)
-	GetQuotationByDocNumber(ctx context.Context, docNumber string) (Quotation, error)
+	GetQuotation(ctx context.Context, id int64) (GetQuotationRow, error)
+	GetQuotationByDocNumber(ctx context.Context, docNumber string) (GetQuotationByDocNumberRow, error)
 	GetQuotationLines(ctx context.Context, quotationID int64) ([]QuotationLine, error)
 	GetReorderAlerts(ctx context.Context) ([]GetReorderAlertsRow, error)
 	GetRole(ctx context.Context, id int64) (Role, error)
@@ -195,7 +195,7 @@ type Querier interface {
 	// =============================================================================
 	// SUPPLIERS (id, code, name, phone, email, address, is_active) - no timestamps
 	// =============================================================================
-	GetSupplier(ctx context.Context, id int64) (Supplier, error)
+	GetSupplier(ctx context.Context, id int64) (GetSupplierRow, error)
 	// =============================================================================
 	// TAXES (id, code, name, rate) - no timestamps in schema
 	// =============================================================================
@@ -265,7 +265,7 @@ type Querier interface {
 	ListGoodsReturnGRNs(ctx context.Context) ([]GoodsReturnGrn, error)
 	ListGroupIDs(ctx context.Context) ([]int64, error)
 	ListInvoicePayments(ctx context.Context, arInvoiceID int64) ([]ListInvoicePaymentsRow, error)
-	ListPaymentAllocations(ctx context.Context, arPaymentID int64) ([]ArPaymentAllocation, error)
+	ListPaymentAllocations(ctx context.Context, arPaymentID int64) ([]ListPaymentAllocationsRow, error)
 	ListPeriods(ctx context.Context, arg ListPeriodsParams) ([]ListPeriodsRow, error)
 	ListPermissions(ctx context.Context) ([]Permission, error)
 	ListRecentPeriods(ctx context.Context, arg ListRecentPeriodsParams) ([]ListRecentPeriodsRow, error)
@@ -291,7 +291,7 @@ type Querier interface {
 	// =============================================================================
 	// COMPANIES (id, code, name, address, tax_id, created_at, updated_at)
 	// =============================================================================
-	MdGetCompany(ctx context.Context, id int64) (Company, error)
+	MdGetCompany(ctx context.Context, id int64) (MdGetCompanyRow, error)
 	MemberCurrencies(ctx context.Context, groupID int64) ([]MemberCurrenciesRow, error)
 	Members(ctx context.Context, groupID int64) ([]MembersRow, error)
 	MonthlyCashflow(ctx context.Context, arg MonthlyCashflowParams) ([]MonthlyCashflowRow, error)

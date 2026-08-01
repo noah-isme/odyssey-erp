@@ -106,7 +106,17 @@ type CreateCompanyParams struct {
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
-func (q *Queries) CreateCompany(ctx context.Context, arg CreateCompanyParams) (Company, error) {
+type CreateCompanyRow struct {
+	ID        int64              `json:"id"`
+	Code      string             `json:"code"`
+	Name      string             `json:"name"`
+	Address   string             `json:"address"`
+	TaxID     string             `json:"tax_id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) CreateCompany(ctx context.Context, arg CreateCompanyParams) (CreateCompanyRow, error) {
 	row := q.db.QueryRow(ctx, createCompany,
 		arg.Code,
 		arg.Name,
@@ -115,7 +125,7 @@ func (q *Queries) CreateCompany(ctx context.Context, arg CreateCompanyParams) (C
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
-	var i Company
+	var i CreateCompanyRow
 	err := row.Scan(
 		&i.ID,
 		&i.Code,
@@ -198,7 +208,18 @@ type CreateSupplierParams struct {
 	IsActive bool   `json:"is_active"`
 }
 
-func (q *Queries) CreateSupplier(ctx context.Context, arg CreateSupplierParams) (Supplier, error) {
+type CreateSupplierRow struct {
+	ID        int64       `json:"id"`
+	Code      string      `json:"code"`
+	Name      string      `json:"name"`
+	Phone     string      `json:"phone"`
+	Email     string      `json:"email"`
+	Address   string      `json:"address"`
+	IsActive  bool        `json:"is_active"`
+	CompanyID pgtype.Int8 `json:"company_id"`
+}
+
+func (q *Queries) CreateSupplier(ctx context.Context, arg CreateSupplierParams) (CreateSupplierRow, error) {
 	row := q.db.QueryRow(ctx, createSupplier,
 		arg.Code,
 		arg.Name,
@@ -207,7 +228,7 @@ func (q *Queries) CreateSupplier(ctx context.Context, arg CreateSupplierParams) 
 		arg.Address,
 		arg.IsActive,
 	)
-	var i Supplier
+	var i CreateSupplierRow
 	err := row.Scan(
 		&i.ID,
 		&i.Code,
@@ -487,12 +508,23 @@ SELECT id, code, name, phone, email, address, is_active, company_id
 FROM suppliers WHERE id = $1
 `
 
+type GetSupplierRow struct {
+	ID        int64       `json:"id"`
+	Code      string      `json:"code"`
+	Name      string      `json:"name"`
+	Phone     string      `json:"phone"`
+	Email     string      `json:"email"`
+	Address   string      `json:"address"`
+	IsActive  bool        `json:"is_active"`
+	CompanyID pgtype.Int8 `json:"company_id"`
+}
+
 // =============================================================================
 // SUPPLIERS (id, code, name, phone, email, address, is_active) - no timestamps
 // =============================================================================
-func (q *Queries) GetSupplier(ctx context.Context, id int64) (Supplier, error) {
+func (q *Queries) GetSupplier(ctx context.Context, id int64) (GetSupplierRow, error) {
 	row := q.db.QueryRow(ctx, getSupplier, id)
-	var i Supplier
+	var i GetSupplierRow
 	err := row.Scan(
 		&i.ID,
 		&i.Code,
@@ -577,12 +609,22 @@ SELECT id, code, name, address, tax_id, created_at, updated_at
 FROM companies WHERE id = $1
 `
 
+type MdGetCompanyRow struct {
+	ID        int64              `json:"id"`
+	Code      string             `json:"code"`
+	Name      string             `json:"name"`
+	Address   string             `json:"address"`
+	TaxID     string             `json:"tax_id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
 // =============================================================================
 // COMPANIES (id, code, name, address, tax_id, created_at, updated_at)
 // =============================================================================
-func (q *Queries) MdGetCompany(ctx context.Context, id int64) (Company, error) {
+func (q *Queries) MdGetCompany(ctx context.Context, id int64) (MdGetCompanyRow, error) {
 	row := q.db.QueryRow(ctx, mdGetCompany, id)
-	var i Company
+	var i MdGetCompanyRow
 	err := row.Scan(
 		&i.ID,
 		&i.Code,
