@@ -20,6 +20,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 )
 
 var (
@@ -94,6 +95,7 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Get("/projects", h.listProjects)
 		r.Post("/projects", h.createProject)
 		r.Post("/keys", h.createKey)
+		r.Post("/keys/bootstrap", h.bootstrapKey)
 		r.Post("/keys/{id}/revoke", h.revokeKey)
 		r.Post("/webhooks", h.createWebhook)
 		r.Get("/webhooks", h.listWebhooks)
@@ -167,6 +169,39 @@ func (h *Handler) createKey(w http.ResponseWriter, r *http.Request) {
 		apiError(w, err)
 		return
 	}
+	h.provisionKey(w, r, key.CompanyID, key.CreatedBy)
+}
+
+func (h *Handler) bootstrapKey(w http.ResponseWriter, r *http.Request) {
+	if h.pool == nil {
+		apiError(w, ErrUnauthorized)
+		return
+	}
+	sess := shared.SessionFromContext(r.Context())
+	if sess == nil {
+		apiError(w, ErrUnauthorized)
+		return
+	}
+	userID, err := strconv.ParseInt(sess.User(), 10, 64)
+	if err != nil || userID <= 0 {
+		apiError(w, ErrUnauthorized)
+		return
+	}
+	companyID, err := strconv.ParseInt(sess.Get("company_id"), 10, 64)
+	if err != nil || companyID <= 0 {
+		apiError(w, ErrUnauthorized)
+		return
+	}
+	var allowed bool
+	err = h.pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM user_roles ur JOIN role_permissions rp ON rp.role_id=ur.role_id JOIN permissions p ON p.id=rp.permission_id WHERE ur.user_id=$1 AND p.name='api.manage')`, userID).Scan(&allowed)
+	if err != nil || !allowed {
+		apiError(w, ErrForbidden)
+		return
+	}
+	h.provisionKey(w, r, companyID, userID)
+}
+
+func (h *Handler) provisionKey(w http.ResponseWriter, r *http.Request, companyID, createdBy int64) {
 	var in struct {
 		Name      string     `json:"name"`
 		Scopes    []string   `json:"scopes"`
@@ -188,7 +223,7 @@ func (h *Handler) createKey(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback(r.Context())
 	var id int64
-	if err = tx.QueryRow(r.Context(), `INSERT INTO api_keys(company_id,name,key_hash,expires_at,created_by) VALUES($1,$2,$3,$4,$5) RETURNING id`, key.CompanyID, in.Name, hash, in.ExpiresAt, key.CreatedBy).Scan(&id); err != nil {
+	if err = tx.QueryRow(r.Context(), `INSERT INTO api_keys(company_id,name,key_hash,expires_at,created_by) VALUES($1,$2,$3,$4,$5) RETURNING id`, companyID, in.Name, hash, in.ExpiresAt, createdBy).Scan(&id); err != nil {
 		apiError(w, err)
 		return
 	}
@@ -307,30 +342,49 @@ func (h *Handler) createProject(w http.ResponseWriter, r *http.Request) {
 	if input.Currency == "" {
 		input.Currency = "IDR"
 	}
-	var cached []byte
-	err = h.pool.QueryRow(r.Context(), `SELECT response FROM horizon_idempotency_keys WHERE company_id=$1 AND operation='api.projects.create' AND idempotency_key=$2`, key.CompanyID, idempotency).Scan(&cached)
-	if err == nil {
+	tx, err := h.pool.Begin(r.Context())
+	if err != nil {
+		apiError(w, err)
+		return
+	}
+	defer tx.Rollback(r.Context())
+	var claimed bool
+	err = tx.QueryRow(r.Context(), `INSERT INTO horizon_idempotency_keys(company_id,actor_id,idempotency_key,operation,response) VALUES($1,$2,$3,'api.projects.create','{}'::jsonb) ON CONFLICT DO NOTHING RETURNING TRUE`, key.CompanyID, key.CreatedBy, idempotency).Scan(&claimed)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		apiError(w, err)
+		return
+	}
+	if !claimed {
+		var cached []byte
+		if err = tx.QueryRow(r.Context(), `SELECT response FROM horizon_idempotency_keys WHERE company_id=$1 AND operation='api.projects.create' AND idempotency_key=$2`, key.CompanyID, idempotency).Scan(&cached); err != nil {
+			apiError(w, err)
+			return
+		}
+		if err = tx.Commit(r.Context()); err != nil {
+			apiError(w, err)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write(cached)
-		return
-	}
-	if !errors.Is(err, pgx.ErrNoRows) {
-		apiError(w, err)
 		return
 	}
 	var project struct {
 		ID                           int64 `json:"id"`
 		Code, Name, Currency, Status string
 	}
-	err = h.pool.QueryRow(r.Context(), `INSERT INTO projects(company_id,code,name,currency,status,created_by) VALUES($1,$2,$3,$4,'OPEN',$5) RETURNING id,code,name,currency,status`, key.CompanyID, input.Code, input.Name, input.Currency, key.CreatedBy).Scan(&project.ID, &project.Code, &project.Name, &project.Currency, &project.Status)
+	err = tx.QueryRow(r.Context(), `INSERT INTO projects(company_id,code,name,currency,status,created_by) VALUES($1,$2,$3,$4,'OPEN',$5) RETURNING id,code,name,currency,status`, key.CompanyID, input.Code, input.Name, input.Currency, key.CreatedBy).Scan(&project.ID, &project.Code, &project.Name, &project.Currency, &project.Status)
 	if err != nil {
 		apiError(w, err)
 		return
 	}
 	body, _ := json.Marshal(map[string]any{"data": project})
-	_, err = h.pool.Exec(r.Context(), `INSERT INTO horizon_idempotency_keys(company_id,actor_id,idempotency_key,operation,response) VALUES($1,$2,$3,'api.projects.create',$4)`, key.CompanyID, key.CreatedBy, idempotency, body)
+	_, err = tx.Exec(r.Context(), `UPDATE horizon_idempotency_keys SET response=$1 WHERE company_id=$2 AND operation='api.projects.create' AND idempotency_key=$3`, body, key.CompanyID, idempotency)
 	if err != nil {
+		apiError(w, err)
+		return
+	}
+	if err = tx.Commit(r.Context()); err != nil {
 		apiError(w, err)
 		return
 	}

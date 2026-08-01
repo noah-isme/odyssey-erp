@@ -20,7 +20,7 @@ func (r *SQLRepository) CreateBin(ctx context.Context, bin Bin) (Bin, error) {
 	var out Bin
 	err := r.pool.QueryRow(ctx, `
 		INSERT INTO wms_bins(company_id, warehouse_id, code, name, capacity, active, created_by)
-		VALUES($1,$2,$3,$4,$5,$6,$7)
+		SELECT $1,id,$3,$4,$5,$6,$7 FROM warehouses WHERE id=$2 AND company_id=$1
 		RETURNING id, company_id, warehouse_id, code, name, capacity, active`,
 		bin.CompanyID, bin.WarehouseID, bin.Code, bin.Name, bin.Capacity, bin.Active, nilIfZero(bin.ID)).Scan(
 		&out.ID, &out.CompanyID, &out.WarehouseID, &out.Code, &out.Name, &out.Capacity, &out.Active)
@@ -35,13 +35,19 @@ func nilIfZero(id int64) any {
 }
 
 func (r *SQLRepository) CreateBarcode(ctx context.Context, companyID int64, barcode string, productID, binID int64) error {
-	_, err := r.pool.Exec(ctx, `INSERT INTO wms_barcode_aliases(company_id,barcode,product_id,bin_id) VALUES($1,$2,$3,$4) ON CONFLICT (company_id,barcode) DO UPDATE SET product_id=EXCLUDED.product_id,bin_id=EXCLUDED.bin_id`, companyID, barcode, nilIfZero(productID), nilIfZero(binID))
-	return err
+	result, err := r.pool.Exec(ctx, `INSERT INTO wms_barcode_aliases(company_id,barcode,product_id,bin_id) SELECT $1,$2,CASE WHEN $3::bigint IS NULL THEN NULL ELSE p.id END,CASE WHEN $4::bigint IS NULL THEN NULL ELSE b.id END FROM (SELECT 1) x LEFT JOIN products p ON p.id=$3 AND p.company_id=$1 LEFT JOIN wms_bins b ON b.id=$4 AND b.company_id=$1 WHERE ($3::bigint IS NULL OR p.id IS NOT NULL) AND ($4::bigint IS NULL OR b.id IS NOT NULL) ON CONFLICT (company_id,barcode) DO UPDATE SET product_id=EXCLUDED.product_id,bin_id=EXCLUDED.bin_id`, companyID, barcode, nilIfZero(productID), nilIfZero(binID))
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 func (r *SQLRepository) CreatePickTask(ctx context.Context, task PickTask) (PickTask, error) {
 	var out PickTask
-	err := r.pool.QueryRow(ctx, `INSERT INTO wms_pick_tasks(company_id,wave_id,product_id,requested_qty,status) VALUES($1,$2,$3,$4,'OPEN') RETURNING id,company_id,wave_id,product_id,requested_qty,picked_qty,status`, task.CompanyID, task.WaveID, task.ProductID, task.RequestedQty).Scan(&out.ID, &out.CompanyID, &out.WaveID, &out.ProductID, &out.RequestedQty, &out.PickedQty, &out.Status)
+	err := r.pool.QueryRow(ctx, `INSERT INTO wms_pick_tasks(company_id,wave_id,product_id,requested_qty,status) SELECT $1,w.id,p.id,$4,'OPEN' FROM wms_pick_waves w JOIN products p ON p.id=$3 AND p.company_id=$1 WHERE w.id=$2 AND w.company_id=$1 RETURNING id,company_id,wave_id,product_id,requested_qty,picked_qty,status`, task.CompanyID, task.WaveID, task.ProductID, task.RequestedQty).Scan(&out.ID, &out.CompanyID, &out.WaveID, &out.ProductID, &out.RequestedQty, &out.PickedQty, &out.Status)
 	return out, err
 }
 

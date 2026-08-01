@@ -19,13 +19,18 @@ func (r *SQLRepository) CreateBOM(ctx context.Context, b BOM) (BOM, error) {
 	}
 	defer tx.Rollback(ctx)
 	var out BOM
-	err = tx.QueryRow(ctx, `INSERT INTO mrp_boms(company_id,product_id,version,effective_from,active,created_by) VALUES($1,$2,$3,CURRENT_DATE,$4,$5) RETURNING id,company_id,product_id,version,active`, b.CompanyID, b.ProductID, b.Version, b.Active, b.CreatedBy).Scan(&out.ID, &out.CompanyID, &out.ProductID, &out.Version, &out.Active)
+	err = tx.QueryRow(ctx, `INSERT INTO mrp_boms(company_id,product_id,version,effective_from,active,created_by) SELECT $1,p.id,$3,CURRENT_DATE,$4,$5 FROM products p WHERE p.id=$2 AND p.company_id=$1 RETURNING id,company_id,product_id,version,active`, b.CompanyID, b.ProductID, b.Version, b.Active, b.CreatedBy).Scan(&out.ID, &out.CompanyID, &out.ProductID, &out.Version, &out.Active)
 	if err != nil {
 		return BOM{}, err
 	}
 	for _, line := range b.Lines {
-		if _, err = tx.Exec(ctx, `INSERT INTO mrp_bom_lines(bom_id,component_product_id,quantity,scrap_pct) VALUES($1,$2,$3,$4)`, out.ID, line.ProductID, line.Quantity, line.ScrapPct); err != nil {
+		result, execErr := tx.Exec(ctx, `INSERT INTO mrp_bom_lines(bom_id,component_product_id,quantity,scrap_pct) SELECT $1,p.id,$3,$4 FROM products p JOIN mrp_boms b ON b.id=$1 AND b.company_id=$5 WHERE p.id=$2 AND p.company_id=$5`, out.ID, line.ProductID, line.Quantity, line.ScrapPct, b.CompanyID)
+		if execErr != nil {
+			err = execErr
 			return BOM{}, err
+		}
+		if result.RowsAffected() == 0 {
+			return BOM{}, errors.New("mrp: component product is outside company")
 		}
 	}
 	if err = tx.Commit(ctx); err != nil {
@@ -37,7 +42,7 @@ func (r *SQLRepository) CreateBOM(ctx context.Context, b BOM) (BOM, error) {
 
 func (r *SQLRepository) CreateWorkOrder(ctx context.Context, o WorkOrder) (WorkOrder, error) {
 	var out WorkOrder
-	err := r.pool.QueryRow(ctx, `INSERT INTO mrp_work_orders(company_id,number,product_id,bom_id,warehouse_id,planned_qty,status,created_by) VALUES($1,'WO-'||to_char(NOW(),'YYYYMMDDHH24MISSMS')||'-'||nextval('mrp_work_orders_id_seq')::text,$2,$3,$4,$5,'DRAFT',$6) RETURNING id,company_id,product_id,bom_id,warehouse_id,planned_qty,completed_qty,status,created_by`, o.CompanyID, o.ProductID, o.BOMID, o.WarehouseID, o.PlannedQty, o.CreatedBy).Scan(&out.ID, &out.CompanyID, &out.ProductID, &out.BOMID, &out.WarehouseID, &out.PlannedQty, &out.CompletedQty, &out.Status, &out.CreatedBy)
+	err := r.pool.QueryRow(ctx, `INSERT INTO mrp_work_orders(company_id,number,product_id,bom_id,warehouse_id,planned_qty,status,created_by) SELECT $1,'WO-'||to_char(NOW(),'YYYYMMDDHH24MISSMS')||'-'||nextval('mrp_work_orders_id_seq')::text,p.id,b.id,w.id,$5,'DRAFT',$6 FROM products p JOIN mrp_boms b ON b.id=$3 AND b.company_id=$1 JOIN warehouses w ON w.id=$4 AND w.company_id=$1 WHERE p.id=$2 AND p.company_id=$1 RETURNING id,company_id,product_id,bom_id,warehouse_id,planned_qty,completed_qty,status,created_by`, o.CompanyID, o.ProductID, o.BOMID, o.WarehouseID, o.PlannedQty, o.CreatedBy).Scan(&out.ID, &out.CompanyID, &out.ProductID, &out.BOMID, &out.WarehouseID, &out.PlannedQty, &out.CompletedQty, &out.Status, &out.CreatedBy)
 	return out, err
 }
 func (r *SQLRepository) GetBOM(ctx context.Context, companyID, bomID int64) (BOM, error) {

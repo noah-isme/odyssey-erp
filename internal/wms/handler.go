@@ -33,7 +33,7 @@ func (h *Handler) SetInventoryService(stock *inventory.Service) { h.stock = stoc
 
 func (h *Handler) MountRoutes(r chi.Router) {
 	r.Group(func(r chi.Router) {
-		r.Use(h.rbac.RequireAny("wms.view", "wms.manage"))
+		r.Use(h.rbac.RequireAny("wms.manage"))
 		r.Post("/waves", h.createWave)
 		r.Post("/bins", h.createBin)
 		r.Post("/barcodes", h.createBarcode)
@@ -69,7 +69,7 @@ func (h *Handler) createWave(w http.ResponseWriter, r *http.Request) {
 		ID, WarehouseID, CreatedBy int64
 		Number, Status             string
 	}
-	err := h.pool.QueryRow(r.Context(), `INSERT INTO wms_pick_waves(company_id,warehouse_id,number,created_by) VALUES($1,$2,$3,$4) RETURNING id,warehouse_id,number,status,created_by`, cid, in.WarehouseID, in.Number, uid).Scan(&response.ID, &response.WarehouseID, &response.Number, &response.Status, &response.CreatedBy)
+	err := h.pool.QueryRow(r.Context(), `INSERT INTO wms_pick_waves(company_id,warehouse_id,number,created_by) SELECT $1,id,$3,$4 FROM warehouses WHERE id=$2 AND company_id=$1 RETURNING id,warehouse_id,number,status,created_by`, cid, in.WarehouseID, in.Number, uid).Scan(&response.ID, &response.WarehouseID, &response.Number, &response.Status, &response.CreatedBy)
 	if err != nil {
 		http.Error(w, err.Error(), 400)
 		return

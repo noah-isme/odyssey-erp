@@ -28,7 +28,7 @@ func NewHandler(service *Service, middleware rbac.Middleware, pools ...*pgxpool.
 }
 func (h *Handler) MountRoutes(r chi.Router) {
 	r.Group(func(r chi.Router) {
-		r.Use(h.rbac.RequireAny("projects.view", "projects.manage"))
+		r.Use(h.rbac.RequireAny("projects.manage"))
 		r.Post("/", h.createProject)
 		r.Post("/{id}/tasks", h.createTask)
 		r.Post("/timesheets", h.create)

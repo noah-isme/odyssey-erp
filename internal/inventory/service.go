@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
@@ -163,6 +164,17 @@ func (s *Service) PostAdjustment(ctx context.Context, input AdjustmentInput) (St
 		return err
 	})
 	return entry, err
+}
+
+// PostAdjustmentTx applies an adjustment using a caller-owned transaction.
+// It is used when an operational state transition and its stock movement must
+// commit or roll back together.
+func (s *Service) PostAdjustmentTx(ctx context.Context, dbtx pgx.Tx, input AdjustmentInput) (StockCardEntry, error) {
+	r, ok := s.repo.(interface{ TransactionRepository(pgx.Tx) TxRepository })
+	if !ok {
+		return StockCardEntry{}, errors.New("inventory: transactional repository is required")
+	}
+	return s.postAdjustmentInternal(ctx, r.TransactionRepository(dbtx), input)
 }
 
 func (s *Service) postAdjustmentInternal(ctx context.Context, tx TxRepository, input AdjustmentInput) (StockCardEntry, error) {

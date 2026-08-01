@@ -39,6 +39,10 @@ type Service struct{ repo Repository }
 
 func NewService(repo Repository) *Service { return &Service{repo: repo} }
 
+func (s *Service) GetWorkOrder(ctx context.Context, companyID, orderID int64) (WorkOrder, error) {
+	return s.repo.GetWorkOrder(ctx, companyID, orderID)
+}
+
 func (s *Service) CreateBOM(ctx context.Context, bom BOM) (BOM, error) {
 	if bom.CompanyID == 0 || bom.ProductID == 0 || bom.CreatedBy == 0 || bom.Version == "" || len(bom.Lines) == 0 {
 		return BOM{}, ErrInvalidState

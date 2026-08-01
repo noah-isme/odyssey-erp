@@ -30,9 +30,9 @@ func (r *SQLRepository) CreateTimesheet(ctx context.Context, s Timesheet) (Times
 	} else {
 		args = []any{s.CompanyID, s.ProjectID, s.TaskID, s.EmployeeID, s.WorkDate, s.Hours, s.Description, s.Billable}
 	}
-	query := `INSERT INTO timesheets(company_id,project_id,task_id,employee_id,work_date,hours,description,billable,billable_rate,status) VALUES($1,$2,$3,$4,CURRENT_DATE,$5,$6,$7,$8,'DRAFT') RETURNING id,company_id,project_id,task_id,employee_id,work_date::text,hours,COALESCE(description,''),billable,billable_rate,status`
+	query := `WITH owned AS (SELECT p.id AS project_id,t.id AS task_id FROM projects p JOIN project_tasks t ON t.project_id=p.id WHERE p.id=$2 AND t.id=$3 AND p.company_id=$1) INSERT INTO timesheets(company_id,project_id,task_id,employee_id,work_date,hours,description,billable,billable_rate,status) SELECT $1,owned.project_id,owned.task_id,$4,CURRENT_DATE,$5,$6,$7,$8,'DRAFT' FROM owned RETURNING id,company_id,project_id,task_id,employee_id,work_date::text,hours,COALESCE(description,''),billable,billable_rate,status`
 	if s.WorkDate != "" {
-		query = `INSERT INTO timesheets(company_id,project_id,task_id,employee_id,work_date,hours,description,billable,billable_rate,status) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'DRAFT') RETURNING id,company_id,project_id,task_id,employee_id,work_date::text,hours,COALESCE(description,''),billable,billable_rate,status`
+		query = `WITH owned AS (SELECT p.id AS project_id,t.id AS task_id FROM projects p JOIN project_tasks t ON t.project_id=p.id WHERE p.id=$2 AND t.id=$3 AND p.company_id=$1) INSERT INTO timesheets(company_id,project_id,task_id,employee_id,work_date,hours,description,billable,billable_rate,status) SELECT $1,owned.project_id,owned.task_id,$4,$5,$6,$7,$8,$9,'DRAFT' FROM owned RETURNING id,company_id,project_id,task_id,employee_id,work_date::text,hours,COALESCE(description,''),billable,billable_rate,status`
 		args = []any{s.CompanyID, s.ProjectID, s.TaskID, s.EmployeeID, s.WorkDate, s.Hours, s.Description, s.Billable, s.BillableRate}
 	} else {
 		args = []any{s.CompanyID, s.ProjectID, s.TaskID, s.EmployeeID, s.Hours, s.Description, s.Billable, s.BillableRate}

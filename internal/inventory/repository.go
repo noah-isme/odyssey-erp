@@ -78,6 +78,10 @@ func (r *Repository) WithTx(ctx context.Context, fn func(context.Context, TxRepo
 	return tx.Commit(ctx)
 }
 
+func (r *Repository) TransactionRepository(tx pgx.Tx) TxRepository {
+	return &txRepo{queries: r.queries.WithTx(tx), tx: tx}
+}
+
 func (r *Repository) GetStockTake(ctx context.Context, id int64) (StockTake, error) {
 	row, err := r.queries.GetStockTake(ctx, id)
 	if err != nil {
@@ -413,11 +417,11 @@ func (r *txRepo) GetAdjustmentLines(ctx context.Context, adjustmentID int64) ([]
 	var lines []StockAdjustmentLine
 	for _, row := range rows {
 		lines = append(lines, StockAdjustmentLine{
-			ID:        row.ID,
+			ID:           row.ID,
 			AdjustmentID: row.AdjustmentID,
-			ProductID: int64(row.ProductID),
-			Qty:       numericToFloat(row.Qty),
-			Note:      row.Note,
+			ProductID:    int64(row.ProductID),
+			Qty:          numericToFloat(row.Qty),
+			Note:         row.Note,
 		})
 	}
 	return lines, nil

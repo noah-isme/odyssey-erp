@@ -46,7 +46,7 @@ func NewHandler(service *Service, middleware rbac.Middleware, pools ...*pgxpool.
 }
 func (h *Handler) MountRoutes(r chi.Router) {
 	r.Group(func(r chi.Router) {
-		r.Use(h.rbac.RequireAny("pos.view", "pos.manage"))
+		r.Use(h.rbac.RequireAny("pos.manage"))
 		r.Post("/terminals", h.createTerminal)
 		r.Post("/terminals/{id}/open", h.openSession)
 		r.Post("/sessions/{id}/close", h.closeSession)
@@ -81,7 +81,7 @@ func (h *Handler) createTerminal(w http.ResponseWriter, r *http.Request) {
 		Code, Name string
 		Active     bool
 	}
-	err := h.pool.QueryRow(r.Context(), `INSERT INTO pos_terminals(company_id,code,name,warehouse_id) VALUES($1,$2,$3,$4) RETURNING id,code,name,active`, companyID, in.Code, in.Name, in.WarehouseID).Scan(&response.ID, &response.Code, &response.Name, &response.Active)
+	err := h.pool.QueryRow(r.Context(), `INSERT INTO pos_terminals(company_id,code,name,warehouse_id) SELECT $1,$2,$3,w.id FROM warehouses w WHERE ($4::bigint IS NULL OR w.id=$4) AND ($4::bigint IS NULL OR w.company_id=$1) RETURNING id,code,name,active`, companyID, in.Code, in.Name, in.WarehouseID).Scan(&response.ID, &response.Code, &response.Name, &response.Active)
 	if err != nil {
 		http.Error(w, err.Error(), 400)
 		return

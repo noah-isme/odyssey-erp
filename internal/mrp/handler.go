@@ -30,7 +30,7 @@ func NewHandler(s *Service, m rbac.Middleware, pools ...*pgxpool.Pool) *Handler 
 func (h *Handler) SetInventoryService(stock *inventory.Service) { h.stock = stock }
 func (h *Handler) MountRoutes(r chi.Router) {
 	r.Group(func(r chi.Router) {
-		r.Use(h.rbac.RequireAny("mrp.view", "mrp.manage"))
+		r.Use(h.rbac.RequireAny("mrp.manage"))
 		r.Post("/boms", h.createBOM)
 		r.Post("/work-orders", h.createWorkOrder)
 		r.Post("/work-orders/{id}/release", h.release)
@@ -142,6 +142,73 @@ func (h *Handler) complete(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid JSON", 400)
 		return
 	}
+	if h.stock != nil && h.pool != nil {
+		tx, qerr := h.pool.Begin(r.Context())
+		if qerr != nil {
+			http.Error(w, qerr.Error(), 400)
+			return
+		}
+		defer tx.Rollback(r.Context())
+		var warehouse, product, bom int64
+		var planned, completed float64
+		var status string
+		qerr = tx.QueryRow(r.Context(), `SELECT warehouse_id,product_id,COALESCE(bom_id,0),planned_qty,completed_qty,status FROM mrp_work_orders WHERE id=$1 AND company_id=$2 FOR UPDATE`, id, c).Scan(&warehouse, &product, &bom, &planned, &completed, &status)
+		if qerr != nil {
+			http.Error(w, qerr.Error(), 400)
+			return
+		}
+		if status != "IN_PROGRESS" || in.Quantity <= 0 || completed+in.Quantity > planned || warehouse == 0 || product == 0 || bom == 0 {
+			http.Error(w, ErrInvalidState.Error(), 400)
+			return
+		}
+		rows, qerr := tx.Query(r.Context(), `SELECT component_product_id,quantity::float8 FROM mrp_bom_lines WHERE bom_id=$1`, bom)
+		if qerr != nil {
+			http.Error(w, qerr.Error(), 400)
+			return
+		}
+		for rows.Next() {
+			var component int64
+			var qty float64
+			if qerr = rows.Scan(&component, &qty); qerr != nil {
+				rows.Close()
+				http.Error(w, qerr.Error(), 400)
+				return
+			}
+			if _, qerr = h.stock.PostAdjustmentTx(r.Context(), tx, inventory.AdjustmentInput{Code: fmt.Sprintf("MRP-CONSUME-%d-%d", id, component), WarehouseID: warehouse, ProductID: component, Qty: -qty * in.Quantity, Note: "MRP material consumption", ActorID: u, RefModule: "MRP"}); qerr != nil {
+				rows.Close()
+				http.Error(w, qerr.Error(), 400)
+				return
+			}
+		}
+		rows.Close()
+		if qerr = rows.Err(); qerr != nil {
+			http.Error(w, qerr.Error(), 400)
+			return
+		}
+		if _, qerr = h.stock.PostAdjustmentTx(r.Context(), tx, inventory.AdjustmentInput{Code: fmt.Sprintf("MRP-RECEIPT-%d", id), WarehouseID: warehouse, ProductID: product, Qty: in.Quantity, Note: "MRP finished goods receipt", ActorID: u, RefModule: "MRP"}); qerr != nil {
+			http.Error(w, qerr.Error(), 400)
+			return
+		}
+		completed += in.Quantity
+		if completed == planned {
+			status = "COMPLETED"
+		}
+		if _, qerr = tx.Exec(r.Context(), `UPDATE mrp_work_orders SET completed_qty=$1,status=$2,updated_at=NOW() WHERE id=$3 AND company_id=$4`, completed, status, id, c); qerr != nil {
+			http.Error(w, qerr.Error(), 400)
+			return
+		}
+		if qerr = tx.Commit(r.Context()); qerr != nil {
+			http.Error(w, qerr.Error(), 400)
+			return
+		}
+		o, qerr := h.service.GetWorkOrder(r.Context(), c, id)
+		if qerr != nil {
+			http.Error(w, qerr.Error(), 400)
+			return
+		}
+		out(w, 200, o)
+		return
+	}
 	o, e := h.service.Complete(r.Context(), c, id, in.Quantity)
 	if errors.Is(e, ErrNotFound) {
 		http.Error(w, "not found", 404)
@@ -150,29 +217,6 @@ func (h *Handler) complete(w http.ResponseWriter, r *http.Request) {
 	if e != nil {
 		http.Error(w, e.Error(), 400)
 		return
-	}
-	if h.stock != nil && h.pool != nil {
-		var warehouse, product, bom int64
-		if qerr := h.pool.QueryRow(r.Context(), `SELECT warehouse_id,product_id,COALESCE(bom_id,0) FROM mrp_work_orders WHERE id=$1 AND company_id=$2`, id, c).Scan(&warehouse, &product, &bom); qerr == nil && warehouse > 0 && bom > 0 {
-			rows, qerr := h.pool.Query(r.Context(), `SELECT component_product_id,quantity::float8 FROM mrp_bom_lines WHERE bom_id=$1`, bom)
-			if qerr == nil {
-				defer rows.Close()
-				for rows.Next() {
-					var component int64
-					var qty float64
-					if rows.Scan(&component, &qty) == nil {
-						if _, qerr = h.stock.PostAdjustment(r.Context(), inventory.AdjustmentInput{Code: fmt.Sprintf("MRP-CONSUME-%d-%d", id, component), WarehouseID: warehouse, ProductID: component, Qty: -qty * in.Quantity, Note: "MRP material consumption", ActorID: u, RefModule: "MRP"}); qerr != nil {
-							http.Error(w, qerr.Error(), 400)
-							return
-						}
-					}
-				}
-			}
-			if _, qerr = h.stock.PostAdjustment(r.Context(), inventory.AdjustmentInput{Code: fmt.Sprintf("MRP-RECEIPT-%d", id), WarehouseID: warehouse, ProductID: product, Qty: in.Quantity, Note: "MRP finished goods receipt", ActorID: u, RefModule: "MRP"}); qerr != nil {
-				http.Error(w, qerr.Error(), 400)
-				return
-			}
-		}
 	}
 	out(w, 200, o)
 }

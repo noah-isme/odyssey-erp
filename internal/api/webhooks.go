@@ -62,7 +62,15 @@ func (h *Handler) DeliverDue(ctx context.Context, client *http.Client, limit int
 	if limit <= 0 {
 		limit = 50
 	}
-	rows, err := h.pool.Query(ctx, `SELECT d.id,d.event_id,d.payload,s.endpoint,s.secret_ciphertext,d.attempt_count FROM webhook_deliveries d JOIN webhook_subscriptions s ON s.id=d.subscription_id WHERE d.delivered_at IS NULL AND d.dead_lettered_at IS NULL AND COALESCE(d.next_attempt_at,NOW()) <= NOW() ORDER BY d.id LIMIT $1`, limit)
+	rows, err := h.pool.Query(ctx, `WITH claimed AS (
+		SELECT d.id FROM webhook_deliveries d
+		WHERE d.delivered_at IS NULL AND d.dead_lettered_at IS NULL
+		  AND COALESCE(d.next_attempt_at,NOW()) <= NOW()
+		ORDER BY d.id LIMIT $1 FOR UPDATE SKIP LOCKED
+	)
+	UPDATE webhook_deliveries d SET next_attempt_at=NOW()+INTERVAL '5 minutes'
+	FROM claimed c WHERE d.id=c.id
+	RETURNING d.id,d.event_id,d.payload,(SELECT s.endpoint FROM webhook_subscriptions s WHERE s.id=d.subscription_id),(SELECT s.secret_ciphertext FROM webhook_subscriptions s WHERE s.id=d.subscription_id),d.attempt_count`, limit)
 	if err != nil {
 		return 0, err
 	}
