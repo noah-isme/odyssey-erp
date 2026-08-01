@@ -6,7 +6,7 @@
 dump.rdb
 
 # Binaries
-odyssey
+/odyssey
 worker
 bootstrap-admin
 *.exe
