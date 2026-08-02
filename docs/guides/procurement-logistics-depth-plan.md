@@ -4,6 +4,17 @@
 draft-PO foundation is implemented; supplier contracts/ratings and logistics milestones
 remain planned.
 
+## Completion status
+
+- [x] RFQ shared foundation: company-scoped sourcing tables, exact-value bid and FX
+  boundaries, RFQ/award permissions, audit events, and idempotent award-to-PO creation.
+- [x] Strategic sourcing: RFQ issue email, buyer-entered bids, persisted weighted
+  comparisons, split awards, shared approval, and linked draft POs.
+- [ ] Vendor intelligence: supplier contracts, PO variance controls, price history,
+  ratings, and expiry notifications.
+- [ ] Transportation execution, distribution planning, freight accounting, and the
+  operational SSR workbenches.
+
 ## Summary
 
 Extend Odyssey's existing PR → PO → GRN → AP and delivery-order foundations with:
