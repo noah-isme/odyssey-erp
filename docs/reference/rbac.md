@@ -6,6 +6,10 @@ This document describes the Role-Based Access Control (RBAC) system in Odyssey E
 
 **Permissions are catalogued module-by-module:**
 
+Scoped company/branch assignments, newer-module role templates, separation-of-duties
+coverage, access reviews, and the target role matrix are planned in the
+[`Reporting and Administration Depth Execution Plan`](../guides/reporting-administration-depth-plan.md).
+
 | Module | Catalog |
 |--------|---------|
 | Sales & Delivery | See below (default permissions & roles) |

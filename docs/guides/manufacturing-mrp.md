@@ -4,6 +4,9 @@
 
 **Implemented manufacturing planning and execution workflow, with compliance-control foundations.** Routes are mounted under `/mrp`; local acceptance evidence is linked from [`horizon-mvp.md`](horizon-mvp.md).
 
+Mandatory decision enforcement and staging certification are specified in the
+[`Manufacturing Governance Execution Plan`](manufacturing-governance-plan.md).
+
 ## Supported scope
 
 - Company-scoped, effective-dated BOM revisions with `DRAFT`, `APPROVED`, and `SUPERSEDED` states. Approved revisions and lines are immutable; approval records an approver, time, and change reason.

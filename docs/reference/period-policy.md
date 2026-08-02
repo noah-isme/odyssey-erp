@@ -34,6 +34,9 @@ Transitions:
 * After locking, any discovered errors require override process: request approval, unlock, post adjustments in corrective period, relock.
 
 ## Future Enhancements
-* Support fiscal calendars with 4-4-5 or custom periods by storing `fiscal_year` and `sequence` columns.
+* Implement the company-scoped fiscal calendar/version and legacy-period migration in
+  the
+  [`Reporting and Administration Depth Execution Plan`](../guides/reporting-administration-depth-plan.md),
+  including month-based, 4-4-5, 4-5-4, 5-4-4, 52/53-week, and custom periods.
 * Introduce segregation-of-duties automation: separate permissions for preparer vs approver.
 * Add webhook notifications on period status changes to alert BI systems.

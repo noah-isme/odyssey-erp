@@ -86,6 +86,13 @@ Invalid rows are recorded on the import batch. Valid rows are upserted by
 employee and attendance date. Direct time-clock integrations remain out of
 scope.
 
+## Planned talent-workflow depth
+
+Recruitment, candidate and offer workflows, structured performance cycles, and
+training/certification management are not currently supported. The implementation
+boundary, lifecycles, permissions, privacy controls, and rollout plan are defined in
+the [`Product Workflow Depth Execution Plan`](product-workflow-depth-plan.md).
+
 ## Verification
 
 ```bash

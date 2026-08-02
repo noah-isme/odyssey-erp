@@ -13,4 +13,8 @@
 
 ## Gaps
 
-Barcode scanner and receipt-printer device integration, cashier shift controls, discount rules, loyalty points, gift cards, and a documented multi-payment tender model are not yet specified as supported.
+Barcode scanner and receipt-printer device integration, cashier shift controls,
+discount rules, loyalty points, gift cards, and a documented multi-payment tender
+model are not currently supported. Loyalty, gift-card, and governed hardware depth is
+planned in the
+[`Product Workflow Depth Execution Plan`](product-workflow-depth-plan.md).

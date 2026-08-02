@@ -42,6 +42,14 @@ Expected opportunity values preserve the database's two-decimal precision.
 The win/loss dashboard summarizes visible opportunity counts, values, and loss
 reasons.
 
+## Planned campaign and segmentation depth
+
+Campaigns, marketing consent, suppression, governed segment definitions, audience
+snapshots, campaign delivery, and attribution are not currently supported. Their
+ownership, privacy controls, lifecycle, permissions, and staged implementation are
+defined in the
+[`Product Workflow Depth Execution Plan`](product-workflow-depth-plan.md).
+
 ## Activities and reminders
 
 The worker scans every minute. A reminder is sent to the activity owner when

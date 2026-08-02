@@ -2,6 +2,10 @@
 
 This catalog maps the requested report/KPI inventory to current documented routes and outputs. “Not mapped” means the requirement should not be advertised as available until a route and data contract are added.
 
+Governed datasets, custom report definitions, dashboard widgets, broader operational
+and HR coverage, and their certification sequence are planned in the
+[`Reporting and Administration Depth Execution Plan`](../guides/reporting-administration-depth-plan.md).
+
 | Report / KPI | Status | Route | Data source | Filters | Export |
 |---|---|---|---|---|---|
 | Trial balance | Implemented | `/accounting/reports/trial-balance` | Posted GL journals | Company, period, account | PDF route exists; verify current handler before advertising CSV |

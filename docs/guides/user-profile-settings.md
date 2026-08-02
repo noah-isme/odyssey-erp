@@ -27,6 +27,11 @@ Di **Pengaturan**, pilih salah satu opsi berikut lalu simpan.
 
 Preferensi disimpan pada akun dan digunakan kembali pada sesi berikutnya. Browser menyimpan bahasa terakhir untuk mencegah teks bilingual terlihat sesaat saat halaman dimuat; preferensi akun tetap menjadi sumber kebenaran dan akan menyinkronkan browser bila berbeda.
 
+Bahasa saat ini terbatas pada preferensi `id`/`en`; kebijakan locale perusahaan,
+timezone IANA pengguna/perusahaan, dan kalender fiskal belum tersedia. Aturan resolusi
+dan rencana migrasinya dijelaskan dalam
+[`Reporting and Administration Depth Execution Plan`](reporting-administration-depth-plan.md).
+
 ## Mengubah password
 
 1. Buka **Pengaturan** dan bagian **Keamanan akun**.

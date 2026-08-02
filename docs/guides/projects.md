@@ -13,4 +13,7 @@
 
 ## Gaps
 
-Milestones, Kanban boards, Gantt charts, project budgets, project cost accounting, and resource-capacity allocation are not currently documented as supported.
+Milestones, Kanban boards, Gantt charts, project budgets, project cost accounting, and
+resource-capacity allocation are not currently supported. Their ownership, lifecycle,
+integration, and delivery milestones are defined in the
+[`Product Workflow Depth Execution Plan`](product-workflow-depth-plan.md).

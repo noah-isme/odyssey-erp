@@ -47,6 +47,10 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 | [Coretax Validation Sign-off](guides/tax-staff-coretax-validation.md) | Checklist staf pajak untuk artefak DJP, portal testing, rekonsiliasi, dan persetujuan rilis |
 | [CRM](guides/crm.md) | Leads, pipeline, activities, reminders, ownership, conversion, dan win/loss |
 | [Manufacturing / MRP](guides/manufacturing-mrp.md) | BOM revisions, planning, WIP, scheduling, quality, analytics, and documented compliance boundaries |
+| [Manufacturing Governance Plan](guides/manufacturing-governance-plan.md) | Mandatory controlled decisions, manufacturing quality boundaries, and staging certification |
+| [CMMS, QMS, and Document Management Plan](guides/missing-modules-cmms-qms-documents-plan.md) | Standalone maintenance, quality, managed storage, versioning, e-signature, retention, and document permissions |
+| [Product Workflow Depth Plan](guides/product-workflow-depth-plan.md) | Project planning/budgeting, POS value programs/hardware, HR talent workflows, and CRM campaigns/segmentation |
+| [Reporting and Administration Depth Plan](guides/reporting-administration-depth-plan.md) | Governed report builder/widgets, operational and HR coverage, role matrix, locale, timezone, and fiscal policy |
 | [Projects](guides/projects.md) | Projects, tasks, members, timesheets, and scope boundaries |
 | [POS](guides/pos.md) | Terminals, sessions, tickets, payments, refunds, and gaps |
 | [Supply Chain](guides/supply-chain.md) | WMS, warehouse, fulfillment, supplier, and logistics boundaries |
