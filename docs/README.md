@@ -46,7 +46,7 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 | [Horizon MVP Foundation](guides/horizon-mvp.md) | WMS, MRP, POS, projects/timesheets, API/webhooks, portals, and isolation rules |
 | [Coretax Validation Sign-off](guides/tax-staff-coretax-validation.md) | Checklist staf pajak untuk artefak DJP, portal testing, rekonsiliasi, dan persetujuan rilis |
 | [CRM](guides/crm.md) | Leads, pipeline, activities, reminders, ownership, conversion, dan win/loss |
-| [Manufacturing / MRP](guides/manufacturing-mrp.md) | BOM, work orders, production scope, and documented gaps |
+| [Manufacturing / MRP](guides/manufacturing-mrp.md) | BOM revisions, planning, WIP, scheduling, quality, analytics, and documented compliance boundaries |
 | [Projects](guides/projects.md) | Projects, tasks, members, timesheets, and scope boundaries |
 | [POS](guides/pos.md) | Terminals, sessions, tickets, payments, refunds, and gaps |
 | [Supply Chain](guides/supply-chain.md) | WMS, warehouse, fulfillment, supplier, and logistics boundaries |

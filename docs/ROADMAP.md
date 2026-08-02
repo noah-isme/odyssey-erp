@@ -6,6 +6,7 @@
 **Revised:** 2026-07-30 (Phase 5 tax compliance implementation and release gate)
 **Revised:** 2026-08-01 (Phase 14 transaction-level FX implementation)
 **Revised:** 2026-08-01 (Phase 14 and P7 local acceptance gates)
+**Revised:** 2026-08-02 (manufacturing/MRP execution, planning, quality, analytics, and compliance foundations)
 **Current Version:** v0.9.1
 
 > For current capability status, use the [Module Catalog](reference/module-catalog.md).
@@ -36,6 +37,7 @@ to re-prioritise the genuinely remaining work.
 | Phase 13 — Fixed Assets | ✅ Implemented | Register, straight-line depreciation worker, disposal accounting, and category setup |
 | Phase 14 — Transaction-level multi-currency | 🟡 Locally certified; staging/production verification pending | `internal/fx/`, AR/AP valuation, realized FX, revaluation/reversal, migrations `000053/000054`; local acceptance evidence in `docs/guides/phase14-p7-acceptance-evidence.md` |
 | P7 — Multi-Currency and Horizon MVP foundation | 🟡 Locally certified; staging/production verification pending | WMS, MRP, POS, projects/timesheets, API/webhooks, portals; migrations `000055/000056/000060`; local acceptance evidence in `docs/guides/phase14-p7-acceptance-evidence.md` |
+| Manufacturing / MRP expansion | 🟡 Locally verified; staging and regulated-policy enforcement pending | Approved BOM revisions, planning/firming, WIP cost transfer, finite-capacity scheduling, exceptions, quality/genealogy, analytics, and compliance foundations; migrations `000062`–`000075`; [`manufacturing-mrp.md`](guides/manufacturing-mrp.md) |
 | Phase 15 — Reporting enhancements | 🟡 Partial | P&L and Budget vs Actual support department/cost-center filters, native `.xlsx`, and scheduled email; report builder/widgets remain |
 
 The phase descriptions below are retained for reference. **Completed phases (10, 11, and
@@ -404,8 +406,13 @@ Sizing legend: S <2w · M 2–4w · L 1–2m · XL 2m+ (rough, single team).
   WMS, MRP, POS, projects/timesheets, public REST API, webhooks, and portals.
 - ✅ Local clean migrations through v61, build, lint, unit tests, full tests, and tagged
   integration tests pass. Detailed evidence is in `docs/guides/phase14-p7-acceptance-evidence.md`.
-- Horizon packs by vertical: WMS (bins, picking, barcode), Manufacturing/MRP (BOM,
-  work orders), POS, Projects/timesheets, public REST API + webhooks, portals.
+- Horizon packs by vertical: WMS (bins, picking, barcode), Manufacturing/MRP, POS,
+  Projects/timesheets, public REST API + webhooks, portals.
+- ✅ Manufacturing/MRP now includes controlled BOM revisions, warehouse-aware demand and
+  supply planning, recommendation firming, routing operations, WIP execution and
+  finished-goods cost transfer, finite-capacity scheduling, exceptions, quality and
+  genealogy records, live analytics, and compliance-control foundations. See
+  [`manufacturing-mrp.md`](guides/manufacturing-mrp.md) for the supported boundary.
 - Production certification remains pending staging smoke tests, including the Asia/Jakarta
   FX worker, webhook delivery inspection, and the USD cross-feature scenario.
 
@@ -431,9 +438,10 @@ breaking the order for (export/import demand).
    - Document the supported lifecycle and integration contracts for current modules
 
 3. **Medium-term (3 months)**
-   - Choose the next major operational investment: manufacturing planning, projects,
-     POS depth, CMMS/QMS, or external integrations, driven by business need
-   - Add document management, 2FA/SSO, and enterprise compliance controls
+   - Choose the next major operational investment: projects, POS depth, CMMS, advanced
+     QMS, or external integrations, driven by business need
+   - Enforce manufacturing controlled-record policies at approval and release decision
+     points; add document management, 2FA/SSO, and enterprise compliance controls
 
 ---
 
@@ -441,7 +449,7 @@ breaking the order for (export/import demand).
 
 The core finance cycle (GL, AR, **AP**, banking with reconciliation, tax capture, and
 transaction-level FX) is user-facing, subject to the release gates stated above.
-Inventory is largely enhanced, while the wider ERP surface remains operationally thin.
-The next work should follow the authoritative [`module catalog`](reference/module-catalog.md)
-and close documentation and control gaps before advertising unsupported enterprise
-capabilities.
+Inventory and manufacturing execution are substantially expanded, while several wider
+ERP surfaces remain partial. The next work should follow the authoritative
+[`module catalog`](reference/module-catalog.md) and close staging, documentation, and
+control-enforcement gaps before advertising regulated enterprise capabilities.

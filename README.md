@@ -17,6 +17,7 @@ business activity without stitching together disconnected systems.
 - **Control the financial cycle:** GL, AR, AP, tax, banking, reconciliation, budgets, FX, and consolidation.
 - **Move goods and documents:** procurement, quotations, sales orders, delivery, inventory, lots/serials, and costing.
 - **Coordinate teams:** CRM pipeline, approvals, HR core, payroll, notifications, and company-scoped access.
+- **Plan and execute production:** approved BOM revisions, warehouse-aware MRP, WIP, finite-capacity scheduling, quality traceability, manufacturing analytics, and compliance foundations.
 - **See the business clearly:** finance analytics, board packs, aging, cash flow, budget-vs-actual, and audit timelines.
 - **Extend safely:** public API, idempotent operations, signed webhooks, portals, and multi-company isolation.
 
@@ -38,7 +39,8 @@ See the [CHANGELOG](docs/CHANGELOG.md), [version and progress report](docs/relea
 - **Core accounting:** GL, AR, AP, tax, banking, reconciliation, cash flow, budgets, fixed assets, FX, consolidation, analytics, and board packs.
 - **Operations:** Procurement, quotations, sales orders, delivery, inventory movements, stock takes, adjustments, lot/serial tracking, AVG/FIFO costing, and replenishment foundations.
 - **People and relationships:** CRM pipeline and activities, approvals, HR core, payroll, notifications, and company-scoped access.
-- **Horizon foundations:** WMS bins/picking/barcodes, MRP BOMs/work orders, POS tickets/payments/refunds, projects/timesheets, portals, public APIs, and signed webhooks.
+- **Manufacturing / MRP:** approved BOM revisions, planning and recommendation firming, WIP execution/cost transfer, finite-capacity scheduling, exceptions, quality/genealogy, analytics, and controlled-record foundations. See the [Manufacturing / MRP guide](docs/guides/manufacturing-mrp.md).
+- **Horizon foundations:** WMS bins/picking/barcodes, POS tickets/payments/refunds, projects/timesheets, portals, public APIs, and signed webhooks.
 
 ## In progress
 
@@ -46,7 +48,7 @@ See the [CHANGELOG](docs/CHANGELOG.md), [version and progress report](docs/relea
 
 ## Planned
 
-- E-commerce connectors, fleet and route optimization, CMMS, QMS, general document management, 2FA, SSO, encryption-at-rest policy, automated disaster recovery, and compliance control mapping.
+- E-commerce connectors, fleet and route optimization, CMMS, advanced QMS, general document management, 2FA, SSO, encryption-at-rest policy, automated disaster recovery, and regulated-policy enforcement for manufacturing compliance controls.
 
 ## Example end-to-end business flow
 
