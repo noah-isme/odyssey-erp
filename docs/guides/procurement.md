@@ -40,10 +40,39 @@ Menjamin alur pengadaan PR → PO → GRN → AP berjalan konsisten, terdokument
    - Stock card: `GET /report/stock-card/pdf?warehouse_id=...&product_id=...`.
    - GRN: `GET /report/grn/pdf?number=...`.
 
+## RFQ sourcing foundation
+
+RFQ sourcing is available as a secured, form-encoded backend workflow. A dedicated
+SSR workbench is still planned; use the endpoints below from an internal form or
+integration with a valid CSRF token.
+
+1. Create an RFQ with `POST /procurement/rfqs`. Provide the company-scoped supplier
+   IDs, product lines, RFC3339 response deadline, and optional comparison weights.
+   The default weighting is price 50%, lead time 20%, commercial terms 10%, and
+   supplier rating 20%.
+2. Issue it with `POST /procurement/rfqs/{id}/issue`. The application queues an email
+   to each invited supplier that has an email address and freezes the RFQ into
+   `ISSUED` status.
+3. Record each supplier response with `POST /procurement/rfq-bids`, then submit it
+   using `POST /procurement/rfq-bids/{id}/submit`. Bid lines retain original-currency
+   prices plus the supplied FX snapshot, tax, freight, MOQ, lead time, and source
+   reference.
+4. Close the RFQ using `POST /procurement/rfqs/{id}/close`, then create a persisted
+   comparison snapshot via `POST /procurement/rfqs/{id}/comparison`.
+5. Create a full or split award with `POST /procurement/rfq-awards`, then submit it
+   through `POST /procurement/rfq-awards/{id}/submit`. The shared approval engine
+   decides the `RFQ_AWARD` request. Approval creates one draft PO per supplier and
+   links PO lines back to the award; rejection leaves no POs.
+
+Required permissions are `procurement.rfq.view`, `procurement.rfq.manage`, and
+`procurement.rfq.award`. The migration seeds these only for administrator roles.
+
 ## Kontrol & Audit
 * Semua mutasi inventory menulis log ke `audit_logs` dengan entity `inventory_tx`.
 * Approval PO tersimpan di tabel `approvals` dan dapat ditelusur berdasarkan UUID referensi.
 * Idempotency key diterapkan pada GRN posting dan transaksi inventory untuk mencegah duplikasi saat retry.
+* RFQ issue, bid submission, comparison, award, approval, and generated POs record
+  audit entries. Award approval and PO generation are idempotent.
 
 ## Troubleshooting
 * **Error 403** – pastikan role memiliki permission yang sesuai.

@@ -282,6 +282,8 @@ func main() {
 	approvalService := approvalengine.NewService(approvalRepo, approvalengine.NewNotificationAdapter(notificationDispatcher))
 	approvalService.RegisterFinalizer("PO", procurementService)
 	procurementService.SetApprovalEngine(approvalService)
+	sourcingService := procurement.NewSourcingService(procurement.NewSourcingRepository(dbpool), approvalService, auditLogger, idempotencyStore, procurement.NewAsynqRFQEmailQueue(jobClient.AsynqClient()))
+	approvalService.RegisterFinalizer("RFQ_AWARD", sourcingService)
 	approvalsHandler := approvalengine.NewHandler(logger, approvalService, templates, csrfManager, rbacMiddleware, dbpool)
 	hrEmployeeService := hremployees.NewService(dbpool)
 	hrEmployeesHandler := hremployees.NewHandler(logger, hrEmployeeService, templates, csrfManager, rbacMiddleware)
@@ -349,6 +351,7 @@ func main() {
 
 	inventoryHandler := inventory.NewHandler(logger, inventoryService, templates, csrfManager, sessionManager, rbacMiddleware, dbpool)
 	procurementHandler := procurement.NewHandler(logger, procurementService, templates, csrfManager, sessionManager, rbacMiddleware, jobClient.AsynqClient())
+	procurementHandler.SetSourcingService(sourcingService)
 
 	salesService := sales.NewService(dbpool)
 	salesHandler := sales.NewHandler(logger, salesService, templates, csrfManager, sessionManager, rbacMiddleware, jobClient.AsynqClient())

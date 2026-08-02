@@ -154,6 +154,25 @@ and [asset capitalization and operations](../decisions/ADR-0009-asset-capitaliza
 They remain proposed until the named treasury, controller, AP, procurement, and asset
 custodian approvals are recorded.
 
+#### F0 completion ledger
+
+- [x] Record the four policy ADRs and lifecycle diagrams before adding downstream
+  workflow migrations.
+- [x] Add provider-neutral bank-feed and payment ports, canonical external references,
+  correlation/causation identifiers, typed provider errors, retry policy, and fake-port
+  contract coverage.
+- [x] Use exact money/currency contracts for every new finance automation boundary; the
+  F0 automation, bank-feed, and payment packages contain no `float64` fields.
+- [x] Add company-scoped, disabled-by-default settings and feature flags, including
+  payment execution's dependency on payment scheduling.
+- [x] Add finance/P2P/fixed-asset permissions, actor-separation validation, a durable
+  idempotent outbox, and the shared Asynq dispatch boundary.
+- [x] Add unit and migration coverage for company-scoped settings/outbox behavior,
+  conservative defaults, and incompatible payment duties.
+- [ ] Record named finance-owner approval of ADR-0006 through ADR-0009.
+- [ ] Apply migration `000076_finance_automation_foundation` in staging and verify
+  existing and newly created companies receive disabled settings rows.
+
 #### F0.1 — Architecture and policy contracts
 
 - Record the bank ownership, payment execution, matching, and asset capitalization

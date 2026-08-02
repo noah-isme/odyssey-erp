@@ -25,12 +25,17 @@ type Handler struct {
 	sessions    *shared.SessionManager
 	rbac        rbac.Middleware
 	asynqClient *asynq.Client
+	sourcing    *SourcingService
 }
 
 // NewHandler builds Handler instance.
 func NewHandler(logger *slog.Logger, service *Service, templates *view.Engine, csrf *shared.CSRFManager, sessions *shared.SessionManager, rbac rbac.Middleware, asynqClient *asynq.Client) *Handler {
 	return &Handler{logger: logger, service: service, templates: templates, csrf: csrf, sessions: sessions, rbac: rbac, asynqClient: asynqClient}
 }
+
+// SetSourcingService enables RFQ-to-award routes without changing the
+// established handler constructor used by existing callers and tests.
+func (h *Handler) SetSourcingService(service *SourcingService) { h.sourcing = service }
 
 // MountRoutes registers procurement routes.
 func (h *Handler) MountRoutes(r chi.Router) {
@@ -54,6 +59,23 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Post("/grns", h.createGRN)
 		r.Post("/grns/{id}/post", h.postGRN)
 
+	})
+	r.Group(func(r chi.Router) {
+		r.Use(h.rbac.RequireAny(shared.PermProcurementRFQView))
+		r.Post("/rfqs/{id}/comparison", h.compareRFQ)
+	})
+	r.Group(func(r chi.Router) {
+		r.Use(h.rbac.RequireAll(shared.PermProcurementRFQManage))
+		r.Post("/rfqs", h.createRFQ)
+		r.Post("/rfqs/{id}/issue", h.issueRFQ)
+		r.Post("/rfqs/{id}/close", h.closeRFQ)
+		r.Post("/rfq-bids", h.createBid)
+		r.Post("/rfq-bids/{id}/submit", h.submitBid)
+	})
+	r.Group(func(r chi.Router) {
+		r.Use(h.rbac.RequireAll(shared.PermProcurementRFQAward))
+		r.Post("/rfq-awards", h.createAward)
+		r.Post("/rfq-awards/{id}/submit", h.submitAward)
 	})
 }
 
