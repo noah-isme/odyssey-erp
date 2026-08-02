@@ -5,9 +5,9 @@ Command cheatsheet untuk development dan operations.
 ## 🐳 Docker
 
 ```bash
-docker compose up -d                            # Start all services
+docker compose --profile full up --build         # Start app, dependencies, migrations, and seed data
 docker compose up -d postgres redis mailpit gotenberg  # Start infra only (run app separately)
-docker compose up -d --build app                # Start all services and rebuild
+docker compose up -d --build app                # Rebuild/start app after setup has completed
 docker compose down                             # Stop all services
 docker compose logs -f app                      # View app logs
 docker compose ps                               # Check status
@@ -44,6 +44,7 @@ The `air` target loads `.env` automatically when it exists and uses
 make test                         # Run all tests
 make lint                         # Run linter
 make build                        # Build binaries
+make docs-check                   # Validate current docs links and Make targets
 go test -v ./internal/auth/...    # Test specific package
 go test -cover ./...              # With coverage
 ```
@@ -54,6 +55,8 @@ go test -cover ./...              # With coverage
 export PG_DSN='postgres://odyssey:odyssey@localhost:5432/odyssey?sslmode=disable'
 export REDIS_ADDR=localhost:6380
 export GOTENBERG_URL=http://localhost:3000
+export SESSION_SECRET='local-development-session-secret'
+export CSRF_SECRET='local-development-csrf-secret'
 ```
 
 ## 🔐 Default Credentials

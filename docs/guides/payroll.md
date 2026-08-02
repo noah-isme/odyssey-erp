@@ -1,6 +1,6 @@
 # Payroll engine
 
-Phase 4 adds Indonesian payroll as a versioned calculation engine. Regulatory values are data in migration `000046_payroll_engine`; no tax, BPJS, overtime, or rounding rate is compiled into the Go service.
+Indonesian payroll is a versioned calculation engine. Regulatory values are data in migration `000046_payroll_engine`; no tax, BPJS, overtime, or rounding rate is compiled into the Go service.
 
 ## Regulatory provenance
 

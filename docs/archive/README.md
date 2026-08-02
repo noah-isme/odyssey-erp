@@ -14,6 +14,11 @@ This directory contains historical documentation from past development phases.
 | [phase6/](phase6/) | Hardening phase |
 | [phase7/](phase7/) | Optimization phase |
 | [phase9/](phase9/) | Sales & Delivery + RBAC phase |
+| [setup/](setup/) | Superseded setup instructions |
+| [testing/](testing/) | Superseded test plans and module test notes |
+| [audits/](audits/) | Completed one-off audits and quick-win summaries |
+| [task-artifacts/](task-artifacts/) | Completed or superseded task plans and requests |
+| [operations/](operations/) | Superseded operational runbooks and technical notes |
 
 ## Project Status Documents
 

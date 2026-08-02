@@ -1,6 +1,6 @@
 # CRM
 
-Phase 6 adds `/crm` as a sales front-end to the existing customer, quotation,
+The `/crm` module is a sales front-end to the existing customer, quotation,
 and sales-order modules. It does not copy pricing, quotation approval, or order
 conversion logic.
 

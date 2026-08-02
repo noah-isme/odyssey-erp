@@ -1,4 +1,4 @@
-# SOP – Procurement Phase 3
+# Procurement Operations
 
 ## Tujuan
 Menjamin alur pengadaan PR → PO → GRN → AP berjalan konsisten, terdokumentasi, dan dapat diaudit.

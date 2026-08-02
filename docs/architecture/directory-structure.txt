@@ -1,62 +1,39 @@
 Odyssey ERP — Directory Structure
-Regenerated: 2026-07-14 (reflects codebase at v0.9.1)
+Verified: 2026-08-02
 
 /cmd
-  /odyssey            # HTTP server entrypoint
-  /worker             # Asynq background-worker entrypoint
+  /odyssey            # HTTP server and CLI entrypoint
+  /worker             # Asynq worker
+  /bootstrap-admin    # Development/admin bootstrap command
 
-/internal             # Application modules (modular monolith, clean architecture)
-  /app                # Config, router wiring, middleware
-  /auth               # Authentication (login/session)
-  /rbac               # Role-based access control middleware & checks
-  /roles              # Role management
-  /users              # User management
+/internal             # Application modules (modular monolith)
+  /app                # Configuration, router wiring, middleware
+  /accounting         # GL, reports, periods, mappings, bank reconciliation
+  /ap, /ar            # Payables and receivables
+  /auth, /rbac        # Authentication and authorization
+  /crm, /hr, /payroll, /tax
+  /inventory, /wms, /mrp, /procurement, /sales, /delivery
+  /projects, /pos, /portal, /api
+  /analytics, /boardpack, /consol, /close, /insights, /audit
+  /finance, /fixedassets, /fx, /notifications
+  /masterdata, /users, /roles, /search, /dashboard
+  /integration         # Cross-module integration adapters and tests
+  /jobs, /observability, /perf
+  /platform            # Database, cache, and HTTP infrastructure
+  /shared              # Cross-module helpers
+  /sqlc                # Generated sqlc bindings
+  /testing, /e2e, /view
 
-  /masterdata         # Companies, branches, warehouses, products, categories,
-                      #   suppliers, customers, units, taxes
-  /accounting         # GL: accounts, journals, periods, mappings, reports,
-                      #   banks (reconciliation), shared
-  /ar                 # Accounts Receivable (invoices, payments, aging)
-  /ap                 # Accounts Payable (invoices, payments, allocations)
-  /finance            # /banking — bank accounts, transactions, transfers
-  /procurement        # Purchase Request -> PO -> Goods Receipt (GRN)
-  /sales              # Quotations, sales orders, customers
-  /delivery           # Delivery orders, fulfilment, integrations, export
-  /inventory          # Stock levels, valuation, stock takes, adjustments
-
-  /consol             # Consolidation: fx, intercompany (ic), http
-  /elimination        # Consolidation elimination entries
-  /variance           # Variance analysis
-  /close              # Period close workflow
-  /boardpack          # Board pack generation
-  /analytics          # Analytics: export, http, svg, ui
-  /insights           # Insights: http, svg
-  /dashboard          # Landing dashboard
-  /search             # Global search
-  /audit              # Audit log
-
-  /jobs               # In-process job definitions
-  /observability      # Metrics / logging helpers
-  /perf               # Performance helpers
-  /platform           # cache, db, httpx infrastructure
-  /shared             # Session, CSRF, respond, errors (cross-module)
-  /view               # HTML template engine + helpers
-  /sqlc               # Generated sqlc query code
-  /testing            # Test helpers (incl. guard)
-  /e2e                # End-to-end tests
-  /integration        # Integration test harness (currently empty)
-
-/jobs                 # Asynq client/server + HTTP observability (top-level)
-/report               # Gotenberg PDF client + handler
-/migrations           # SQL schema migrations (000001 .. 000030)
-/sql                  # sqlc queries & schema sources
+/jobs                 # Top-level Asynq wiring and job handlers
+/report               # Gotenberg client and report handler
+/migrations           # Database migrations (000001 through 000075)
+/sql/queries          # sqlc query definitions
+/sqlc.yaml            # sqlc configuration
 /web
-  /static             # CSS (custom component design system) + JS
-  /templates          # layouts, partials, pages (SSR), reports
-/tools                # scripts/ (run, status, stop), db-setup/
-/scripts              # Auxiliary scripts
-/deploy               # Deployment assets
-/samples              # Sample data / fixtures
-/testing              # Top-level test assets
-/docs                 # Documentation (this tree)
-/sqlc.yaml            # sqlc config
+  /static             # CSS and JavaScript
+  /templates          # SSR layouts, partials, pages, and reports
+/scripts              # Seed, finance, and maintenance commands
+/deploy               # Monitoring and deployment assets
+/samples              # Sample data and fixtures
+/testing              # Shared test assets
+/docs                 # Current and archived documentation

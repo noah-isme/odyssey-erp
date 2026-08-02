@@ -1,7 +1,7 @@
 PROJECT_NAME=odyssey-erp
 GO_BIN?=go
-VET_PKGS:=$(shell $(GO_BIN) list ./... | grep -v "/cmd/odyssey$$")
-VET_CONSOL_PKGS:=$(shell $(GO_BIN) list ./internal/consol/...)
+VET_PKGS=$(shell $(GO_BIN) list ./... | grep -v "/cmd/odyssey$$")
+VET_CONSOL_PKGS=$(shell $(GO_BIN) list ./internal/consol/...)
 SQLC_BIN?=$(HOME)/go/bin/sqlc
 MIGRATE_BIN?=$(HOME)/go/bin/migrate
 AIR_BIN?=$(HOME)/go/bin/air
@@ -20,7 +20,7 @@ BRANCH_QUERY=$(if $(BRANCH_ID),&branch_id=$(BRANCH_ID),)
 export APP_ENV?=development
 export PG_DSN?=postgres://odyssey:odyssey@localhost:5432/odyssey?sslmode=disable
 
-.PHONY: dev air lint vet vet-consol test build migrate-up migrate-down sqlc-gen seed seed-phase3 seed-phase4 refresh-mv reports-demo pdf-sample export-demo fx-tools analytics-dashboard analytics-dashboard-pdf analytics-dashboard-csv prom-up grafana-load alert-test monitor-demo release-phase6
+.PHONY: dev air lint vet vet-consol test build docs-check migrate-up migrate-down sqlc-gen seed seed-phase3 seed-phase4 refresh-mv reports-demo pdf-sample export-demo fx-tools analytics-dashboard analytics-dashboard-pdf analytics-dashboard-csv prom-up grafana-load alert-test monitor-demo release-phase6
 
 dev:
 	docker compose up --build
@@ -55,6 +55,9 @@ test:
 
 build:
 	$(GO_BIN) build ./...
+
+docs-check:
+	bash scripts/check-docs.sh
 
 migrate-up:
 	$(MIGRATE_BIN) -path migrations -database "$(PG_DSN)" up

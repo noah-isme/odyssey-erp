@@ -1,6 +1,6 @@
-# Finance Observability SLO/SLA (Phase 6 Final)
+# Finance Observability SLO/SLA
 
-This document captures the final service objectives for the Odyssey ERP finance surface as shipped in Phase 6. All metrics are collected from Prometheus via the consolidated `/metrics` endpoint and surfaced in Grafana dashboards located in `deploy/grafana/dashboards/finance.json`.
+This document captures service objectives for the Odyssey ERP finance surface. All metrics are collected from Prometheus via the consolidated `/metrics` endpoint and surfaced in Grafana dashboards located in `deploy/grafana/dashboards/finance.json`.
 
 ## Service Level Objectives
 
@@ -46,6 +46,7 @@ latency_p95(route, scope) = histogram_quantile(0.95, sum(rate(odyssey_http_reque
 * Monthly retro to adjust thresholds and evaluate alert fatigue.
 * Quarterly audit of runbook accuracy and PagerDuty escalation paths.
 
-## Change Log
+## Review cadence
 
-* **Phase 6 Final:** Introduced dedicated severity filter for anomaly trend, split cached vs cold latency benchmarks, and aligned alerting thresholds with the final SLA targets.
+Review thresholds after material changes to dashboards, alerts, or finance
+traffic patterns. Historical phase release notes are preserved in `docs/archive/`.

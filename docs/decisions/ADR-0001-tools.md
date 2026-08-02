@@ -1,5 +1,9 @@
 # ADR-0001: Pemilihan Tooling Inti
 
+**Status:** Partially superseded. The Go, PostgreSQL, sqlc, Redis, Asynq, and
+Gotenberg choices remain current. The CSS decision below records an early phase
+and is no longer the active frontend implementation.
+
 ## Konteks
 
 Platform Odyssey ERP fase 1 membutuhkan fondasi backend Go yang aman dan mudah dirawat. Kita perlu router ringan, config sederhana, query type-safe, migrasi solid, job queue, dan integrasi PDF.
@@ -15,7 +19,7 @@ Platform Odyssey ERP fase 1 membutuhkan fondasi backend Go yang aman dan mudah d
 7. **Validation:** `github.com/go-playground/validator/v10` de facto.
 8. **Background Job:** `github.com/hibiken/asynq` di atas Redis, cocok dengan worker terpisah.
 9. **PDF:** Gotenberg (container) untuk konversi HTML -> PDF.
-10. **CSS:** Pico.css (tanpa toolchain JS) dengan placeholder lokal dan saran download CDN.
+10. **CSS (historical):** Pico.css was selected during the initial phase.
 
 ## Konsekuensi
 
@@ -23,3 +27,6 @@ Platform Odyssey ERP fase 1 membutuhkan fondasi backend Go yang aman dan mudah d
 - Dependensi minimal, mudah dibawa ke produksi.
 - Membutuhkan Docker Compose agar service pendukung (Postgres, Redis, Mailpit, Gotenberg) tersedia.
 - Pengembang harus menjalankan `sqlc generate` setelah memodifikasi query SQL.
+- The current frontend is a custom component CSS design system under
+  `web/static/css`; see `DESIGN.md` and the frontend assets rather than relying
+  on the historical Pico.css decision.

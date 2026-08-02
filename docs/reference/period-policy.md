@@ -1,4 +1,4 @@
-# Accounting Period Policy – Phase 4.2
+# Accounting Period Policy
 
 Status: Finalised
 

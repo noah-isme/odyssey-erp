@@ -11,4 +11,5 @@ Halaman `/finance/insights` menyediakan perbandingan Net dan Revenue dalam renta
 - Data bersumber dari materialized view `mv_pl_monthly`.
 - Respons fallback "no data" apabila tidak ada catatan pada rentang yang diminta.
 
-Dokumen ini akan diperbarui setelah implementasi final selesai.
+The current route and export surface is maintained in the
+[reporting catalog](reporting-catalog.md).

@@ -18,9 +18,9 @@ Archived status files do not override this catalog.
 | POS | Partial | Terminals, sessions, tickets, payments, refunds, voids | [`pos.md`](../guides/pos.md); loyalty, gift cards, printer/scanner operations are not documented |
 | E-commerce | Planned | Candidate marketplace/store integrations only | [`integrations.md`](../guides/integrations.md); no sync connector is committed |
 | Supply chain | Partial | WMS bins, picking, barcode, warehouse and fulfillment foundations | [`supply-chain.md`](../guides/supply-chain.md); fleet and route optimization are unsupported |
-| CMMS | Unsupported | No current maintenance module | [`cmms.md`](../guides/cmms.md) |
-| QMS | Unsupported | No current quality module | [`qms.md`](../guides/qms.md) |
-| Document management | Planned | Transaction attachments and e-signature are roadmap items | [`document-management.md`](../guides/document-management.md) |
+| CMMS | Unsupported | No current maintenance module | Preventive/corrective maintenance and work orders are not implemented |
+| QMS | Unsupported | No current quality-management module | Inspection plans, NCR/CAPA, and quality reporting are not implemented |
+| Document management | Planned | Transaction attachments and e-signature are roadmap items | Central storage, versioning, retention, and document-level permissions remain roadmap work |
 | BI | Partial | Analytics, insights, KPIs, board packs, finance exports and scheduled reports | [`reporting-catalog.md`](reporting-catalog.md); custom report builder/widgets are not started |
 | Workflow automation | Partial | Shared approvals, lifecycle transitions, notifications, payroll and tax outboxes | [`lifecycles.md`](../architecture/lifecycles.md); full purchase-to-pay automation is not documented as one workflow |
 | Notifications | Partial | In-app notifications and transactional email | [`notifications.md`](../guides/notifications.md); SMS, push and WhatsApp are planned/unsupported |

@@ -1,95 +1,33 @@
-# Quick Start - Odyssey ERP
+# Quick Start
 
-Panduan cepat untuk menjalankan Odyssey ERP.
+This is the supported Docker path for evaluating Odyssey locally. It starts the
+application and dependencies, runs migrations, and creates the development user.
 
-## 🐳 Docker (Recommended)
+## Prerequisites
 
-```bash
-# 1. Start all services
-docker-compose up -d
+Install Docker with the Compose plugin. For native Go development, use the
+[native setup guide](native-setup.md) instead.
 
-# 2. Run migrations & seed
-export PG_DSN='postgres://odyssey:odyssey@localhost:5432/odyssey?sslmode=disable'
-make migrate-up
-make seed
-
-# 3. Access application
-open http://localhost:8080
-```
-
-**Login:**
-- Email: `admin@odyssey.local`
-- Password: `admin123`
-
----
-
-## 🔧 Native Installation
-
-Untuk setup tanpa Docker, lihat:
-- [Native Setup Guide](native-setup.md) - PostgreSQL lokal
-- [Docker Setup Guide](docker-setup.md) - PostgreSQL via Docker container
-
----
-
-## ✅ Verify Installation
+## Start Odyssey
 
 ```bash
-# Check health endpoint
-curl http://localhost:8080/healthz
+docker compose --profile full up --build
 ```
 
-### Verify Seed Data
+Open <http://localhost:8080> once the services are ready. Sign in with
+`admin@odyssey.local` / `admin123`.
 
-Confirm the admin account was created:
+The full profile runs the one-off `setup` service, which applies migrations and
+loads seed data. The default Compose service addresses are internal to Docker;
+when running the Go application on the host, use PostgreSQL at `localhost:5432`
+and Redis at `localhost:6380`.
+
+## Verify and stop
 
 ```bash
-PGPASSWORD=odyssey psql -h localhost -U odyssey -d odyssey \
-  -c "SELECT email, is_active FROM users WHERE email='admin@odyssey.local';"
-```
-
-Expected output:
-
-```
- email | is_active
--------+-----------
- admin@odyssey.local | t
-```
-
-Then test login:
-
-```bash
-curl -s -X POST http://localhost:8080/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@odyssey.local","password":"admin123"}' | head
-```
-
----
-
-## 🆘 Troubleshooting
-
-**Port 8080 in use:**
-```bash
+curl -fsS http://localhost:8080/healthz
 docker compose down
-docker-compose down
 ```
 
-**Database connection error:**
-```bash
-make migrate-up && make seed
-```
-
-**Cannot login:**
-```bash
-make seed  # Recreate test account
-```
-
-Untuk masalah lainnya, lihat [Troubleshooting Guide](troubleshooting.md).
-
----
-
-## 📚 Next Steps
-
-1. ✅ Explore the application
-2. 📖 Read [Architecture Overview](../architecture/arsitektur.md)
-3. 🔐 Setup [RBAC](../reference/rbac.md)
-4. 🧪 Run [Tests](../guides/testing-runbook.md)
+For common setup failures, see [troubleshooting](troubleshooting.md). For test
+commands, see the [testing runbook](../guides/testing-runbook.md).

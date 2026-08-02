@@ -1,9 +1,9 @@
 # Approval Engine and HR Core
 
-Phase 3 is delivered in two releases. Release A introduces the shared approval
-engine; Release B adds HR Core consumers. Payroll is not part of this phase.
+The shared approval capability has two functional layers: the approval engine
+and HR Core consumers. Payroll is documented separately.
 
-## Release A: configurable approvals
+## Configurable approvals
 
 Migration `000043_approval_engine` adds policies, ordered steps, requests,
 assignments, decisions, and time-bounded delegations. The legacy `approvals`

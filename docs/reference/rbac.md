@@ -447,21 +447,9 @@ SELECT EXISTS(
 - RBAC Middleware: `internal/rbac/middleware.go`
 - Permission Constants: `internal/shared/authz_sales_delivery.go`
 - Migration: `migrations/000013_phase9_permissions.up.sql`
-- Handler Implementation: `internal/delivery/handler.go`
+- Handler Implementation: `internal/delivery/orders/handler.go`
 - Database Schema: `migrations/000001_init.up.sql` (RBAC tables)
 
-## Change Log
-
-| Version | Date | Changes |
-|---------|------|---------|
-| 1.0 | 2024-01 | Initial RBAC setup for Phase 9.2 |
-| | | - 23 permissions defined |
-| | | - 3 default roles created |
-| | | - Delivery order handlers secured |
-| | | - Documentation completed |
-
----
-
-**Document Owner:** Engineering Team  
-**Last Updated:** Phase 9.2 Implementation  
-**Next Review:** Phase 10 or as needed
+**Document Owner:** Engineering Team
+**Last Verified:** 2026-08-02
+**Review Trigger:** Changes to roles, permission constants, or route protection.

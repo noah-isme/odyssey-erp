@@ -1,6 +1,6 @@
 # Transaction-level FX operations
 
-Phase 14 adds daily transaction FX for AR/AP. It is separate from the monthly
+Daily transaction FX supports AR/AP. It is separate from the monthly
 `fx_rates` table used by consolidation.
 
 ## Accounting policy
@@ -65,7 +65,7 @@ before journal creation, and records reversal journals in
 
 ## Local acceptance result
 
-Phase 14 local gates are complete. The clean schema was migrated through version 61;
+Local FX acceptance gates are complete. The clean schema was migrated through version 61;
 the FX account mappings, AR/AP FX columns, fetch-run audit behavior, CLI redaction,
 focused tests, tagged integration tests, full test suite, lint, and build all passed.
 The exact checklist and command evidence are recorded in

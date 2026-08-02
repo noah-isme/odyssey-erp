@@ -100,5 +100,5 @@ Perintah tersebut menghapus kolom preferensi dari `users`; ekspor nilai preferen
 
 - [Panduan Profil dan Pengaturan](user-profile-settings.md)
 - [Notifications and Transactional Email](notifications.md)
-- [Arsitektur Finance Analytics](../reference/ui-analytics-architecture.md)
+- [Reporting Catalog](../reference/reporting-catalog.md)
 - [Troubleshooting umum](../getting-started/troubleshooting.md)

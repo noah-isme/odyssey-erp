@@ -1,6 +1,6 @@
 # Odyssey ERP Handler Guidelines
 
-These guidelines standardize how we build server-rendered HTTP handlers during Phase 2.
+These guidelines standardize server-rendered HTTP handlers in Odyssey.
 
 ## 1. Structure and Flow
 

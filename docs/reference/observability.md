@@ -1,6 +1,6 @@
 # Observability Overview
 
-This document captures the core observability assets for the finance and platform surfaces ahead of the Phase 6 release. It summarizes the dashboards, alert rules, and labeling conventions that are now part of the deployment playbook.
+This document captures the core observability assets for the finance and platform surfaces. It summarizes the dashboards, alert rules, and labeling conventions in the deployment playbook.
 
 ## Dashboards
 
@@ -25,13 +25,13 @@ Both dashboards refresh every 30 seconds and assume a Prometheus datasource iden
 
 ## Prometheus Alerts
 
-The finance alert suite lives in `deploy/prometheus/alerts/finance.yml`. All rules apply consistent label keys (`route`, `code`, `job`, `severity`) and map to the finance runbook sections.
+The finance alert suite lives in `deploy/prometheus/alerts/finance.yml`. All rules apply consistent label keys (`route`, `code`, `job`, `severity`). Incident response procedures must be maintained with the deployment environment rather than inferred from historical phase runbooks.
 
-| Alert | Expr summary | For | Severity | Runbook |
-| --- | --- | --- | --- | --- |
-| `HighErrorRate` | Finance 5xx ratio > 2% over 5m | 5m | `critical` | `docs/runbook-ops-finance.md#high-error-rate` |
-| `HighLatency` | Finance p95 latency > 800ms | 10m | `warning` | `docs/runbook-ops-finance.md#high-latency` |
-| `AnomalySpike` | High severity anomalies > 3 / hour | 15m | `warning` | `docs/runbook-ops-finance.md#anomaly-spike` |
+| Alert | Expr summary | For | Severity |
+| --- | --- | --- | --- |
+| `HighErrorRate` | Finance 5xx ratio > 2% over 5m | 5m | `critical` |
+| `HighLatency` | Finance p95 latency > 800ms | 10m | `warning` |
+| `AnomalySpike` | High severity anomalies > 3 / hour | 15m | `warning` |
 
 ## Labeling Conventions
 

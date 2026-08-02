@@ -1,6 +1,6 @@
 # Tax Compliance
 
-Phase 5 provides immutable Indonesian tax documents and ledgers under `/tax`.
+Odyssey provides immutable Indonesian tax documents and ledgers under `/tax`.
 Migration `000048_tax_compliance` adds effective-dated rule versions, PPN rates,
 PPh 23/PPh 4(2) withholding types, tax codes, company NPWP/NITKU identity,
 faktur ranges, account mappings, reporting periods, audit events, and versioned

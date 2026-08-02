@@ -10,11 +10,11 @@ This document describes the inventory integration for the Delivery Order module 
 
 ### Components
 
-1. **Delivery Service** (`internal/delivery/service.go`)
+1. **Delivery Service** (`internal/delivery/orders/service.go`)
    - Core business logic for delivery orders
    - Triggers inventory adjustments on delivery completion
 
-2. **Inventory Adapter** (`internal/delivery/inventory_adapter.go`)
+2. **Inventory Adapter** (`internal/delivery/orders/inventory_adapter.go`)
    - Adapter pattern implementation
    - Bridges delivery service with inventory service
    - Converts delivery-specific requests to inventory operations
@@ -320,7 +320,8 @@ if s.inventory != nil {
 
 ### Unit Tests
 
-See `internal/delivery/inventory_integration_test.go`:
+Relevant behavior is covered by the delivery-order tests in
+`internal/delivery/orders/`:
 
 - ✅ Test inventory adapter interface
 - ✅ Test negative quantity for outbound
@@ -331,7 +332,7 @@ See `internal/delivery/inventory_integration_test.go`:
 
 **Run tests:**
 ```bash
-go test ./internal/delivery -run TestInventory -v
+go test ./internal/delivery/orders -run 'Test(CreateRejectsSalesLineAssignedToAnotherFulfillmentWarehouse|ConfirmReturnRestocksSelectedWarehouse)' -v
 ```
 
 ### Integration Tests
@@ -556,10 +557,10 @@ INSERT INTO inventory_transactions ...
 
 ## References
 
-- **Delivery Service:** `internal/delivery/service.go`
+- **Delivery Service:** `internal/delivery/orders/service.go`
 - **Inventory Service:** `internal/inventory/service.go`
-- **Inventory Adapter:** `internal/delivery/inventory_adapter.go`
-- **Integration Tests:** `internal/delivery/inventory_integration_test.go`
+- **Inventory Adapter:** `internal/delivery/orders/inventory_adapter.go`
+- **Delivery-order Tests:** `internal/delivery/orders/fulfillment_warehouse_test.go` and `internal/delivery/orders/return_service_test.go`
 - **Main Application:** `cmd/odyssey/main.go`
 
 ---

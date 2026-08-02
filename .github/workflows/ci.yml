@@ -49,6 +49,9 @@ jobs:
       - name: Go mod download
         run: go mod download
 
+      - name: Check documentation
+        run: make docs-check
+
       - name: Lint
         uses: golangci/golangci-lint-action@v4
         with:

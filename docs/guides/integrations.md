@@ -1,6 +1,6 @@
 # Integration Boundaries
 
-Statuses in this document are authoritative: **Implemented** is available in the current code/documentation; **Planned** appears as a committed roadmap item but is not a production connector; **Unsupported** has no current connector or committed interface.
+The [module catalog](../reference/module-catalog.md) is the authoritative capability-status source. In this guide, **Implemented** is available in the current code/documentation; **Planned** appears as a committed roadmap item but is not a production connector; **Unsupported** has no current connector or committed interface.
 
 | Integration | Status | Boundary |
 |---|---|---|

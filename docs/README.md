@@ -6,9 +6,8 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 
 | Document | Description |
 |----------|-------------|
-| [Quick Start (Docker)](getting-started/GETTING_STARTED.md) | Setup dalam 3 langkah |
+| [Quick Start (Docker)](getting-started/quick-start.md) | Supported Compose setup |
 | [Native Setup](getting-started/native-setup.md) | Setup tanpa Docker |
-| [Docker Setup](getting-started/docker-setup.md) | PostgreSQL via Docker |
 | [Test Accounts](getting-started/test-accounts.md) | Kredensial testing |
 | [Troubleshooting](getting-started/troubleshooting.md) | Common issues & fixes |
 
@@ -26,8 +25,6 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 |----------|-------------|
 | [Handler Guidelines](guides/handlers.md) | Pola handler HTTP |
 | [Testing Guide](guides/testing-runbook.md) | Menjalankan tests |
-| [Integration Tests](guides/integration-tests.md) | End-to-end testing |
-| [PDF Generation](guides/pdf-generation.md) | Generate PDF reports |
 
 ### Operations
 | Document | Description |
@@ -50,9 +47,6 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 | [Projects](guides/projects.md) | Projects, tasks, members, timesheets, and scope boundaries |
 | [POS](guides/pos.md) | Terminals, sessions, tickets, payments, refunds, and gaps |
 | [Supply Chain](guides/supply-chain.md) | WMS, warehouse, fulfillment, supplier, and logistics boundaries |
-| [Maintenance / CMMS](guides/cmms.md) | Current status and deferred maintenance capabilities |
-| [Quality / QMS](guides/qms.md) | Current status and deferred quality capabilities |
-| [Document Management](guides/document-management.md) | Attachments, signatures, versioning, and permissions status |
 | [Integration Boundaries](guides/integrations.md) | Implemented, planned, and unsupported integrations |
 | [Lifecycle Reference](architecture/lifecycles.md) | Supported document states and cross-module flows |
 
@@ -104,3 +98,4 @@ Historical documentation dari development phases tersedia di [archive/](archive/
 - 📖 [Root README](../README.md) - Project overview
 - 🔧 [Quick Reference](../QUICK_REFERENCE.md) - Command cheatsheet
 - 📜 [Changelog](CHANGELOG.md) - Version history
+- 📐 [Documentation policy](DOCUMENTATION_POLICY.md) - Ownership, status, and archive rules

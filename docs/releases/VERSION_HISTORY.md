@@ -24,7 +24,7 @@ it has already been packaged as a new release.
 | v0.7.0 | Earlier Phase 7 release | Finance export reliability | Consolidated P&L/BS exports, warning consistency, streaming CSV, Gotenberg PDF hardening, metrics and rate limits | Foundation for current finance reporting/export operations |
 | v0.8.0 | Phase 8 | Board packs | Async executive PDF packs with templates, KPIs, variance sections, lifecycle, storage, and RBAC | Still a current finance/reporting capability |
 | v0.9.0 | 2026-01-11 | Sales and AR | Quotations, sales orders, delivery orders, AR invoices, payment allocation, aging | Still the functional baseline for Sales and AR |
-| v0.9.1 | 2026-05-28 | Enterprise UI/UX | Standardized forms, filters, tables, responsive layouts, and Midnight Ledger styling across core operations | Latest named/tagged release; mostly presentation and usability improvements |
+| v0.9.1 | 2026-05-28 | Enterprise UI/UX | Standardized forms, filters, tables, responsive layouts, and Midnight Ledger styling across core operations | Latest named release documented in this repository; mostly presentation and usability improvements |
 | Post-v0.9.1 progress | 2026-08-01 review | ERP capability expansion | AP, banking, reconciliation, cash flow, inventory enhancements, fixed assets, FX, tax, CRM, HR/payroll, WMS, MRP, POS, projects, APIs, webhooks, and portals | Implemented or locally certified, but not yet represented by a new version number |
 
 ## Detailed version reports

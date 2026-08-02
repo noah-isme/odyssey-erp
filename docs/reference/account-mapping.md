@@ -1,4 +1,4 @@
-# Default Account Mapping – Phase 4
+# Default Account Mapping
 
 This document defines the mandatory Chart of Accounts (CoA) mappings for automated postings originating from Procurement, Invent
 ory, and Accounts Payable modules. The mapping keys align with `account_mappings.module` and `account_mappings.key` fields. All m
