@@ -1,0 +1,259 @@
+{{define "governance/certification_gate"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manufacturing Governance - Certification Gate</title>
+    <link rel="stylesheet" href="/static/css/governance.css">
+</head>
+<body>
+    <div class="governance-container">
+        <header class="governance-header">
+            <h1>Certification Gate Status</h1>
+            <p class="subtitle">Track multi-actor approval progress</p>
+        </header>
+
+        <main class="governance-main">
+            <!-- Gate Overview -->
+            <section class="form-section">
+                <h2>Gate Information</h2>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                    <div>
+                        <strong>Gate Name:</strong><br>
+                        <span id="gateName">BOM Approval: #12345</span>
+                    </div>
+                    <div>
+                        <strong>Record Type:</strong><br>
+                        <span id="gateRecordType">BOM</span>
+                    </div>
+                    <div>
+                        <strong>Record ID:</strong><br>
+                        <span id="gateRecordId">12345</span>
+                    </div>
+                    <div>
+                        <strong>Status:</strong><br>
+                        <span id="gateStatus" class="gate-status pending">PENDING</span>
+                    </div>
+                    <div>
+                        <strong>Created:</strong><br>
+                        <span id="gateCreated">2024-01-15 10:30:45</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Required Approvers -->
+            <section class="form-section">
+                <h2>Required Approvers</h2>
+                <div id="requiredRoles" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                    <!-- Populated by JavaScript -->
+                </div>
+            </section>
+
+            <!-- Signatures/Approvals -->
+            <section class="form-section">
+                <h2>Approval Progress</h2>
+                <div class="gate-panel">
+                    <ul class="signatures-list" id="signaturesList">
+                        <!-- Populated by JavaScript -->
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Completion Status -->
+            <section class="form-section" id="completionSection" style="display: none;">
+                <h2>Gate Decision</h2>
+                <div style="text-align: center; padding: 20px;">
+                    <h3 id="completionMessage" style="margin-bottom: 15px;">Gate Approved</h3>
+                    <p id="completionDetails" style="color: #6b7280; margin-bottom: 20px;">
+                        All required approvers have signed off. The decision has been recorded in the audit log.
+                    </p>
+                    <button type="button" class="btn btn-primary" onclick="viewAuditLog()">
+                        View in Audit Log
+                    </button>
+                </div>
+            </section>
+
+            <!-- Action Buttons -->
+            <section class="form-section button-section" id="actionButtons">
+                <button type="button" class="btn btn-primary" onclick="submitApproval()">
+                    Submit Your Approval
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="viewDetails()">
+                    View Details
+                </button>
+            </section>
+        </main>
+    </div>
+
+    <!-- Approval Modal -->
+    <div id="approvalModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 1000;">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 8px; max-width: 400px; width: 90%;">
+            <h2>Submit Approval</h2>
+            <div class="form-group" style="margin-top: 20px;">
+                <label for="approvalDecision">Your Decision *</label>
+                <select id="approvalDecision" style="width: 100%;">
+                    <option value="">-- Select --</option>
+                    <option value="APPROVE">Approve</option>
+                    <option value="REJECT">Reject</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="approvalComment">Comment (optional)</label>
+                <textarea id="approvalComment" style="width: 100%;" rows="3"></textarea>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button type="button" class="btn btn-primary" onclick="submitApprovalForm()">
+                    Submit
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="closeApprovalModal()">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/governance.js"></script>
+    <script>
+        // Gate data (would come from API in production)
+        const gateData = {
+            id: 1,
+            name: 'BOM Approval: #12345',
+            recordType: 'BOM',
+            recordId: 12345,
+            status: 'PENDING',
+            created: '2024-01-15 10:30:45',
+            requiredRoles: ['QUALITY_LEAD', 'ENGINEERING'],
+            signatures: [
+                {
+                    role: 'QUALITY_LEAD',
+                    actor: 'John Smith',
+                    decision: 'APPROVE',
+                    timestamp: '2024-01-15 10:45:30',
+                    comment: 'Structure looks good'
+                },
+                {
+                    role: 'ENGINEERING',
+                    actor: null,
+                    decision: null,
+                    timestamp: null,
+                    comment: null
+                }
+            ]
+        };
+
+        function initializeGate() {
+            // Populate gate information
+            document.getElementById('gateName').textContent = gateData.name;
+            document.getElementById('gateRecordType').textContent = gateData.recordType;
+            document.getElementById('gateRecordId').textContent = gateData.recordId;
+            document.getElementById('gateCreated').textContent = gateData.created;
+            
+            // Update status
+            const statusEl = document.getElementById('gateStatus');
+            statusEl.textContent = gateData.status;
+            statusEl.className = `gate-status ${gateData.status.toLowerCase()}`;
+
+            // Display required roles
+            const rolesContainer = document.getElementById('requiredRoles');
+            rolesContainer.innerHTML = '';
+            gateData.requiredRoles.forEach(role => {
+                const div = document.createElement('div');
+                div.style.padding = '15px';
+                div.style.backgroundColor = '#f9fafb';
+                div.style.borderRadius = '6px';
+                div.style.textAlign = 'center';
+                div.innerHTML = `
+                    <div style="font-weight: 600; margin-bottom: 5px;">${role}</div>
+                    <div style="font-size: 12px; color: #6b7280;">Required</div>
+                `;
+                rolesContainer.appendChild(div);
+            });
+
+            // Display signatures
+            const sigList = document.getElementById('signaturesList');
+            sigList.innerHTML = '';
+            gateData.signatures.forEach(sig => {
+                const li = document.createElement('li');
+                li.className = 'signature-item';
+                
+                if (sig.decision) {
+                    li.innerHTML = `
+                        <div>
+                            <span class="signature-role">${sig.role}</span><br>
+                            <span style="font-size: 12px; color: #6b7280;">${sig.actor} - ${sig.timestamp}</span><br>
+                            <span style="font-size: 12px;">${sig.comment}</span>
+                        </div>
+                        <span class="signature-decision ${sig.decision.toLowerCase()}">${sig.decision}</span>
+                    `;
+                } else {
+                    li.innerHTML = `
+                        <div>
+                            <span class="signature-role">${sig.role}</span><br>
+                            <span style="font-size: 12px; color: #6b7280;">Pending approval...</span>
+                        </div>
+                        <span style="color: #9ca3af;">Awaiting</span>
+                    `;
+                }
+                
+                sigList.appendChild(li);
+            });
+
+            // Check if gate is complete
+            const allApproved = gateData.signatures.every(s => s.decision);
+            if (allApproved) {
+                document.getElementById('actionButtons').style.display = 'none';
+                document.getElementById('completionSection').style.display = 'block';
+                
+                const rejectedCount = gateData.signatures.filter(s => s.decision === 'REJECT').length;
+                const msgEl = document.getElementById('completionMessage');
+                if (rejectedCount > 0) {
+                    msgEl.textContent = 'Gate Rejected';
+                    msgEl.style.color = '#ef4444';
+                } else {
+                    msgEl.textContent = 'Gate Approved';
+                    msgEl.style.color = '#10b981';
+                }
+            }
+        }
+
+        function submitApproval() {
+            document.getElementById('approvalModal').style.display = 'block';
+        }
+
+        function closeApprovalModal() {
+            document.getElementById('approvalModal').style.display = 'none';
+            document.getElementById('approvalDecision').value = '';
+            document.getElementById('approvalComment').value = '';
+        }
+
+        function submitApprovalForm() {
+            const decision = document.getElementById('approvalDecision').value;
+            const comment = document.getElementById('approvalComment').value;
+
+            if (!decision) {
+                alert('Please select a decision');
+                return;
+            }
+
+            // In production, would call API
+            console.log('Submitting approval:', { decision, comment });
+            closeApprovalModal();
+            alert('Approval submitted successfully');
+            initializeGate();
+        }
+
+        function viewDetails() {
+            alert('View details functionality');
+        }
+
+        function viewAuditLog() {
+            window.location.href = '/governance/audit-log';
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', initializeGate);
+    </script>
+</body>
+</html>
+{{end}}

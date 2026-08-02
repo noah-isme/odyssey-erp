@@ -8,6 +8,7 @@
 **Revised:** 2026-08-01 (Phase 14 and P7 local acceptance gates)
 **Revised:** 2026-08-02 (manufacturing/MRP execution, planning, quality, analytics, and compliance foundations)
 **Revised:** 2026-08-02 (external integrations implementation plan)
+**Revised:** 2026-08-02 (linked execution plans for remaining module depth and administration)
 **Current Version:** v0.9.1
 
 > For current capability status, use the [Module Catalog](reference/module-catalog.md).
@@ -21,6 +22,24 @@ Odyssey ERP has moved well beyond Phase 9. Since this roadmap was first drafted,
 built and are user-facing, and **Phase 12 (Inventory Enhancements)** is largely
 complete. This document has been revised to reflect what is actually implemented and
 to re-prioritise the genuinely remaining work.
+
+## Linked execution plans
+
+The following guides are the implementation plans for the remaining depth and control
+work. They contain ownership boundaries, lifecycles, permissions, data migrations,
+integration contracts, rollout gates, and acceptance criteria. The
+[`Module Catalog`](reference/module-catalog.md) remains authoritative for current
+capability status.
+
+| Plan | Scope |
+|---|---|
+| [`Core Finance Automation Plan`](guides/core-finance-automation-plan.md) | Bank feeds, cash forecasting, payment execution, purchase-to-pay automation, and fixed-asset operations |
+| [`External Integrations Plan`](guides/external-integrations-plan.md) | Shared connector foundation, payments, carriers, marketplaces, messaging, BI, identity, and governed AI integrations |
+| [`Procurement and Logistics Depth Plan`](guides/procurement-logistics-depth-plan.md) | RFQ/bids/awards, supplier contracts/ratings/price history, carriers, fleet, routes, freight, and distribution planning |
+| [`Manufacturing Governance Plan`](guides/manufacturing-governance-plan.md) | Mandatory controlled-record enforcement, manufacturing quality boundaries, and staging certification |
+| [`CMMS, QMS, and Document Management Plan`](guides/missing-modules-cmms-qms-documents-plan.md) | Operational maintenance, standalone QMS migration, managed storage, versions, signatures, retention, and document permissions |
+| [`Product Workflow Depth Plan`](guides/product-workflow-depth-plan.md) | Project milestones/Gantt/Kanban/budgets, POS loyalty/gift cards/hardware, HR talent workflows, and CRM campaigns/segmentation |
+| [`Reporting and Administration Depth Plan`](guides/reporting-administration-depth-plan.md) | Governed report builder/widgets, operational and HR coverage, role matrix, locale, timezone, and fiscal-calendar policy |
 
 ---
 

@@ -1,0 +1,130 @@
+{{ template "base.html" . }}
+
+{{ define "content" }}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Supplier Scorecard</h1>
+    <div>
+      {{ if eq .Scorecard.Status "DRAFT" }}
+        <form method="POST" action="/procurement/scorecards/{{ .Scorecard.ID }}/publish" style="display:inline;">
+          <button type="submit" class="btn btn-success">Publish</button>
+        </form>
+      {{ end }}
+      <a href="/procurement/suppliers" class="btn btn-secondary">Back</a>
+    </div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-header">
+      <h5 class="mb-0">Scorecard Information</h5>
+    </div>
+    <div class="card-body">
+      <div class="row mb-3">
+        <div class="col-md-3">
+          <strong>Supplier ID:</strong><br>{{ .Scorecard.SupplierID }}
+        </div>
+        <div class="col-md-3">
+          <strong>Version:</strong><br>{{ .Scorecard.Version }}
+        </div>
+        <div class="col-md-3">
+          <strong>Status:</strong><br>
+          <span class="badge bg-{{ if eq .Scorecard.Status "PUBLISHED" }}success{{ else }}warning{{ end }}">{{ .Scorecard.Status }}</span>
+        </div>
+        <div class="col-md-3">
+          <strong>Overall Score:</strong><br>
+          <strong>{{ .Scorecard.OverallScore.String }}%</strong>
+        </div>
+      </div>
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <strong>Period:</strong><br>{{ .Scorecard.PeriodStart.Format "2006-01-02" }} to {{ .Scorecard.PeriodEnd.Format "2006-01-02" }}
+        </div>
+        <div class="col-md-6">
+          {{ if .Scorecard.PublishedAt }}
+            <strong>Published:</strong><br>{{ .Scorecard.PublishedAt.Format "2006-01-02 15:04" }} by User {{ .Scorecard.PublishedBy }}
+          {{ end }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h5 class="mb-0">Score Breakdown</h5>
+    </div>
+    <div class="card-body">
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <div class="card bg-light">
+            <div class="card-body">
+              <h6 class="card-title">Delivery / OTIF</h6>
+              <div class="progress mb-2">
+                <div class="progress-bar" role="progressbar" style="width: {{ .Scorecard.DeliveryOTIFScore.String }}%"></div>
+              </div>
+              <p class="mb-0">
+                <strong>{{ .Scorecard.DeliveryOTIFScore.String }}%</strong> (Weight: {{ .Scorecard.DeliveryOTIFWeight }}%, Sample: {{ .Scorecard.DeliveryOTIFSampleSize }})
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6 mb-3">
+          <div class="card bg-light">
+            <div class="card-body">
+              <h6 class="card-title">Quality</h6>
+              <div class="progress mb-2">
+                <div class="progress-bar" role="progressbar" style="width: {{ .Scorecard.QualityScore.String }}%"></div>
+              </div>
+              <p class="mb-0">
+                <strong>{{ .Scorecard.QualityScore.String }}%</strong> (Weight: {{ .Scorecard.QualityWeight }}%, Sample: {{ .Scorecard.QualitySampleSize }})
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6 mb-3">
+          <div class="card bg-light">
+            <div class="card-body">
+              <h6 class="card-title">Price Adherence</h6>
+              <div class="progress mb-2">
+                <div class="progress-bar" role="progressbar" style="width: {{ .Scorecard.PriceAdherenceScore.String }}%"></div>
+              </div>
+              <p class="mb-0">
+                <strong>{{ .Scorecard.PriceAdherenceScore.String }}%</strong> (Weight: {{ .Scorecard.PriceAdherenceWeight }}%, Sample: {{ .Scorecard.PriceAdherenceSampleSize }})
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6 mb-3">
+          <div class="card bg-light">
+            <div class="card-body">
+              <h6 class="card-title">RFQ Responsiveness</h6>
+              <div class="progress mb-2">
+                <div class="progress-bar" role="progressbar" style="width: {{ .Scorecard.RFQResponsivenessScore.String }}%"></div>
+              </div>
+              <p class="mb-0">
+                <strong>{{ .Scorecard.RFQResponsivenessScore.String }}%</strong> (Weight: {{ .Scorecard.RFQResponsivenessWeight }}%, Sample: {{ .Scorecard.RFQResponsivenessSampleSize }})
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-md-6">
+          <div class="card bg-light">
+            <div class="card-body">
+              <h6 class="card-title">Reviewer Assessment</h6>
+              <p class="mb-0">
+                <strong>{{ .Scorecard.ReviewerAssessmentScore.String }}%</strong> (Weight: {{ .Scorecard.ReviewerAssessmentWeight }}%)
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      {{ if .Scorecard.Note }}
+      <div class="mt-3">
+        <strong>Notes:</strong><br>{{ .Scorecard.Note }}
+      </div>
+      {{ end }}
+    </div>
+  </div>
+</div>
+{{ end }}

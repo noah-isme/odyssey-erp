@@ -1,0 +1,195 @@
+{{define "freight/rate_cards"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Freight Rate Cards - Odyssey ERP</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .badge-active { background-color: #28a745; }
+        .badge-inactive { background-color: #dc3545; }
+        .rate-table { font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="container-fluid mt-5">
+        <div class="row mb-4">
+            <div class="col-md-8">
+                <h1>Freight Rate Cards</h1>
+                <p class="text-muted">Manage freight rates by route, carrier, and service level</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <a href="/freight/rate-cards/new" class="btn btn-primary">+ New Rate Card</a>
+            </div>
+        </div>
+
+        {{if .flash}}
+        <div class="alert alert-{{.flash.Type}} alert-dismissible fade show" role="alert">
+            {{.flash.Message}}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {{end}}
+
+        <div class="card">
+            <div class="table-responsive">
+                <table class="table table-hover rate-table mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Route</th>
+                            <th>Service Level</th>
+                            <th>Base Rate</th>
+                            <th>Per KG</th>
+                            <th>Per CBM</th>
+                            <th>Carrier</th>
+                            <th>Active</th>
+                            <th>Effective Until</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{range .rateCards}}
+                        <tr>
+                            <td>
+                                <strong>{{.OriginCity}}</strong><br>
+                                <small class="text-muted">→ {{.DestinationCity}}</small>
+                            </td>
+                            <td>
+                                <span class="badge bg-info">{{.ServiceLevel}}</span>
+                            </td>
+                            <td>{{.BaseRate}} {{.Currency}}</td>
+                            <td>{{if .PerKgRate}}{{.PerKgRate}}{{else}}-{{end}}</td>
+                            <td>{{if .PerCbmRate}}{{.PerCbmRate}}{{else}}-{{end}}</td>
+                            <td>{{if .CarrierID}}Carrier #{{.CarrierID}}{{else}}<em>All</em>{{end}}</td>
+                            <td>
+                                {{if .IsActive}}
+                                <span class="badge badge-active">Active</span>
+                                {{else}}
+                                <span class="badge badge-inactive">Inactive</span>
+                                {{end}}
+                            </td>
+                            <td>{{if .ExpirationDate}}{{.ExpirationDate|date}}{{else}}No expiry{{end}}</td>
+                            <td>
+                                <a href="/freight/rate-cards/{{.ID}}/edit" class="btn btn-sm btn-outline-primary">Edit</a>
+                                <a href="/freight/rate-cards/{{.ID}}/surcharges" class="btn btn-sm btn-outline-secondary">Surcharges</a>
+                            </td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {{if not .rateCards}}
+        <div class="alert alert-info mt-3">
+            No rate cards yet. <a href="/freight/rate-cards/new">Create the first rate card</a>
+        </div>
+        {{end}}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+{{end}}
+
+{{define "freight/rate_card_form"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{if .IsNew}}New{{else}}Edit{{end}} Rate Card - Odyssey ERP</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5 mb-5">
+        <div class="row">
+            <div class="col-md-8">
+                <h1>{{if .IsNew}}Create New{{else}}Edit{{end}} Rate Card</h1>
+                
+                {{if .errors}}
+                <div class="alert alert-danger">
+                    <ul>
+                    {{range .errors}}<li>{{.}}</li>{{end}}
+                    </ul>
+                </div>
+                {{end}}
+
+                <form method="POST" class="needs-validation">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Origin City *</label>
+                            <input type="text" class="form-control" name="origin_city" value="{{.rateCard.OriginCity}}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Destination City *</label>
+                            <input type="text" class="form-control" name="destination_city" value="{{.rateCard.DestinationCity}}" required>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Service Level *</label>
+                            <select class="form-control" name="service_level" required>
+                                <option {{if eq .rateCard.ServiceLevel "STANDARD"}}selected{{end}}>STANDARD</option>
+                                <option {{if eq .rateCard.ServiceLevel "EXPRESS"}}selected{{end}}>EXPRESS</option>
+                                <option {{if eq .rateCard.ServiceLevel "OVERNIGHT"}}selected{{end}}>OVERNIGHT</option>
+                                <option {{if eq .rateCard.ServiceLevel "ECONOMY"}}selected{{end}}>ECONOMY</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Carrier (Optional)</label>
+                            <input type="number" class="form-control" name="carrier_id" {{if .rateCard.CarrierID}}value="{{.rateCard.CarrierID}}"{{end}}>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Base Rate ({{.rateCard.Currency}}) *</label>
+                            <input type="number" class="form-control" name="base_rate" value="{{.rateCard.BaseRate}}" step="0.01" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Per KG Rate ({{.rateCard.Currency}})</label>
+                            <input type="number" class="form-control" name="per_kg_rate" value="{{.rateCard.PerKgRate}}" step="0.01">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Per CBM Rate ({{.rateCard.Currency}})</label>
+                            <input type="number" class="form-control" name="per_cbm_rate" value="{{.rateCard.PerCbmRate}}" step="0.01">
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Min Weight (KG)</label>
+                            <input type="number" class="form-control" name="min_weight_kg" value="{{.rateCard.MinWeightKg}}" step="0.01">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Max Weight (KG)</label>
+                            <input type="number" class="form-control" name="max_weight_kg" value="{{.rateCard.MaxWeightKg}}" step="0.01">
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Effective Date *</label>
+                            <input type="date" class="form-control" name="effective_date" value="{{.rateCard.EffectiveDate|date}}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Expiration Date</label>
+                            <input type="date" class="form-control" name="expiration_date" {{if .rateCard.ExpirationDate}}value="{{.rateCard.ExpirationDate|date}}"{{end}}>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">{{if .IsNew}}Create{{else}}Update{{end}} Rate Card</button>
+                        <a href="/freight/rate-cards" class="btn btn-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+{{end}}

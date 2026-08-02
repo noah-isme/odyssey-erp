@@ -1,0 +1,215 @@
+{{template "layout" .}}
+
+{{define "content"}}
+<div class="container-fluid mt-4">
+  <div class="row mb-4">
+    <div class="col-md-8">
+      <h1>Distribution Planning Dashboard</h1>
+      <p class="text-muted">Overview of logistics operations and load consolidation</p>
+    </div>
+  </div>
+
+  <!-- Key Metrics -->
+  <div class="row mb-4">
+    <div class="col-md-3">
+      <div class="card border-left-primary">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="text-muted mb-2">Active Loads</h6>
+              <h3 class="mb-0">{{.ActiveLoads}}</h3>
+            </div>
+            <div class="text-primary" style="font-size: 2.5rem; opacity: 0.2;">
+              <i class="bi bi-box2"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card border-left-success">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="text-muted mb-2">Routes Planned</h6>
+              <h3 class="mb-0">{{.RoutesPlanned}}</h3>
+            </div>
+            <div class="text-success" style="font-size: 2.5rem; opacity: 0.2;">
+              <i class="bi bi-map"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card border-left-warning">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="text-muted mb-2">Transfers Pending</h6>
+              <h3 class="mb-0">{{.TransfersPending}}</h3>
+            </div>
+            <div class="text-warning" style="font-size: 2.5rem; opacity: 0.2;">
+              <i class="bi bi-arrow-left-right"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card border-left-info">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="text-muted mb-2">Avg Efficiency</h6>
+              <h3 class="mb-0">{{.AvgEfficiency}}%</h3>
+            </div>
+            <div class="text-info" style="font-size: 2.5rem; opacity: 0.2;">
+              <i class="bi bi-lightning"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent Activity -->
+  <div class="row">
+    <div class="col-lg-6">
+      <div class="card mb-4">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+          <h6 class="mb-0">Recent Loads</h6>
+          <a href="/distribution/loads" class="small text-decoration-none">View all →</a>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Load</th>
+                <th>Destination</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{range .RecentLoads}}
+              <tr>
+                <td>
+                  <a href="/distribution/loads/{{.ID}}" class="text-decoration-none">
+                    {{.LoadNumber}}
+                  </a>
+                </td>
+                <td class="small">{{.DestinationCity}}, {{.DestinationCountry}}</td>
+                <td>{{template "status-badge" .Status}}</td>
+              </tr>
+              {{end}}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      <div class="card mb-4">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+          <h6 class="mb-0">Recent Routes</h6>
+          <a href="/distribution/routes" class="small text-decoration-none">View all →</a>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Route</th>
+                <th>Load</th>
+                <th>Efficiency</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{range .RecentRoutes}}
+              <tr>
+                <td>
+                  <a href="/distribution/routes/{{.ID}}" class="text-decoration-none">
+                    {{.RouteNumber}}
+                  </a>
+                </td>
+                <td class="small">{{.LoadNumber}}</td>
+                <td>
+                  {{if .OptimizationScore}}
+                  <span class="badge {{if ge .OptimizationScore 85}}bg-success{{else if ge .OptimizationScore 70}}bg-warning{{else}}bg-danger{{end}}">
+                    {{.OptimizationScore}}%
+                  </span>
+                  {{else}}-{{end}}
+                </td>
+                <td>{{template "status-badge" .Status}}</td>
+              </tr>
+              {{end}}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Planning Status -->
+  <div class="row">
+    <div class="col-lg-6">
+      <div class="card">
+        <div class="card-header bg-light">
+          <h6 class="mb-0">Planning Horizons</h6>
+        </div>
+        <div class="list-group list-group-flush">
+          {{range .PlanningHorizons}}
+          <div class="list-group-item d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="mb-1">Warehouse {{.WarehouseID}}</h6>
+              <small class="text-muted">{{.PlanningStartDate | dateFormat}} - {{.PlanningEndDate | dateFormat}}</small>
+            </div>
+            <span class="badge bg-primary">{{.Status}}</span>
+          </div>
+          {{end}}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      <div class="card">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+          <h6 class="mb-0">Quick Actions</h6>
+        </div>
+        <div class="list-group list-group-flush">
+          <a href="/distribution/loads/new" class="list-group-item list-group-item-action">
+            <i class="bi bi-plus-circle text-primary"></i> Create New Load
+          </a>
+          <a href="/distribution/routes/new" class="list-group-item list-group-item-action">
+            <i class="bi bi-lightning text-warning"></i> Plan Route
+          </a>
+          <a href="/distribution/transfers/new" class="list-group-item list-group-item-action">
+            <i class="bi bi-arrow-left-right text-info"></i> Create Transfer
+          </a>
+          <a href="/distribution/loads?status=READY" class="list-group-item list-group-item-action">
+            <i class="bi bi-filter text-secondary"></i> View Pending Dispatch
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.border-left-primary {
+  border-left: 4px solid #0d6efd !important;
+}
+
+.border-left-success {
+  border-left: 4px solid #198754 !important;
+}
+
+.border-left-warning {
+  border-left: 4px solid #ffc107 !important;
+}
+
+.border-left-info {
+  border-left: 4px solid #0dcaf0 !important;
+}
+</style>
+{{end}}

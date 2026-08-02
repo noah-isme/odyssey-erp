@@ -26,6 +26,8 @@ type Handler struct {
 	rbac        rbac.Middleware
 	asynqClient *asynq.Client
 	sourcing    *SourcingService
+	contracts   *ContractService
+	scorecards  *ScorecardService
 }
 
 // NewHandler builds Handler instance.
@@ -36,6 +38,12 @@ func NewHandler(logger *slog.Logger, service *Service, templates *view.Engine, c
 // SetSourcingService enables RFQ-to-award routes without changing the
 // established handler constructor used by existing callers and tests.
 func (h *Handler) SetSourcingService(service *SourcingService) { h.sourcing = service }
+
+// SetContractService enables supplier contract routes.
+func (h *Handler) SetContractService(service *ContractService) { h.contracts = service }
+
+// SetScorecardService enables supplier scorecard routes.
+func (h *Handler) SetScorecardService(service *ScorecardService) { h.scorecards = service }
 
 // MountRoutes registers procurement routes.
 func (h *Handler) MountRoutes(r chi.Router) {
@@ -76,6 +84,48 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Use(h.rbac.RequireAll(shared.PermProcurementRFQAward))
 		r.Post("/rfq-awards", h.createAward)
 		r.Post("/rfq-awards/{id}/submit", h.submitAward)
+	})
+	
+	// Phase 3: Supplier Contracts and Scorecards
+	r.Group(func(r chi.Router) {
+		r.Use(h.rbac.RequireAny("procurement.contract.create"))
+		r.Get("/contracts", h.listContracts)
+		r.Get("/contracts/{id}", h.getContract)
+	})
+	r.Group(func(r chi.Router) {
+		r.Use(h.rbac.RequireAll("procurement.contract.create"))
+		r.Post("/contracts", h.createContract)
+	})
+	r.Group(func(r chi.Router) {
+		r.Use(h.rbac.RequireAll("procurement.contract.approve"))
+		r.Post("/contracts/{id}/approve", h.approveContract)
+		r.Post("/contracts/{id}/reject", h.rejectContract)
+		r.Post("/contracts/{id}/terminate", h.terminateContract)
+	})
+	
+	// Supplier Scorecards
+	r.Group(func(r chi.Router) {
+		r.Use(h.rbac.RequireAny("procurement.supplier_rating.view"))
+		r.Get("/scorecards/{id}", h.getScorecard)
+	})
+	r.Group(func(r chi.Router) {
+		r.Use(h.rbac.RequireAll("procurement.supplier_rating.create"))
+		r.Post("/scorecards", h.createScorecard)
+	})
+	r.Group(func(r chi.Router) {
+		r.Use(h.rbac.RequireAll("procurement.supplier_rating.publish"))
+		r.Post("/scorecards/{id}/publish", h.publishScorecard)
+	})
+	
+	// PO Variances
+	r.Group(func(r chi.Router) {
+		r.Use(h.rbac.RequireAny("procurement.variance.view"))
+		r.Get("/variances", h.listPendingVariances)
+	})
+	r.Group(func(r chi.Router) {
+		r.Use(h.rbac.RequireAll("procurement.variance.approve"))
+		r.Post("/variances", h.createPOVariance)
+		r.Post("/variances/{id}/approve", h.approvePOVariance)
 	})
 }
 

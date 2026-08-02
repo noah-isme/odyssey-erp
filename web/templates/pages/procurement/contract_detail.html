@@ -1,0 +1,110 @@
+{{ template "base.html" . }}
+
+{{ define "content" }}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Contract Detail</h1>
+    <div>
+      {{ if eq .Contract.Status "DRAFT" }}
+        <form method="POST" action="/procurement/contracts/{{ .Contract.ID }}/approve" style="display:inline;">
+          <button type="submit" class="btn btn-success">Approve</button>
+        </form>
+      {{ else if eq .Contract.Status "ACTIVE" }}
+        <form method="POST" action="/procurement/contracts/{{ .Contract.ID }}/terminate" style="display:inline;">
+          <button type="submit" class="btn btn-danger">Terminate</button>
+        </form>
+      {{ end }}
+      <a href="/procurement/contracts" class="btn btn-secondary">Back</a>
+    </div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-header">
+      <h5 class="mb-0">Contract Information</h5>
+    </div>
+    <div class="card-body">
+      <div class="row mb-3">
+        <div class="col-md-3">
+          <strong>Supplier ID:</strong><br>{{ .Contract.SupplierID }}
+        </div>
+        <div class="col-md-3">
+          <strong>Status:</strong><br>
+          <span class="badge bg-{{ statusBadgeClass .Contract.Status }}">{{ .Contract.Status }}</span>
+        </div>
+        <div class="col-md-3">
+          <strong>Version:</strong><br>{{ .Contract.Version }}
+        </div>
+        <div class="col-md-3">
+          <strong>Currency:</strong><br>{{ .Contract.Currency }}
+        </div>
+      </div>
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <strong>Effective From:</strong><br>{{ .Contract.EffectiveFrom.Format "2006-01-02" }}
+        </div>
+        <div class="col-md-6">
+          <strong>Effective To:</strong><br>
+          {{ if .Contract.EffectiveTo }}
+            {{ .Contract.EffectiveTo.Format "2006-01-02" }}
+          {{ else }}
+            <em>No expiry</em>
+          {{ end }}
+        </div>
+      </div>
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <strong>Payment Terms:</strong><br>{{ .Contract.PaymentTerms }}
+        </div>
+        <div class="col-md-6">
+          <strong>Incoterms:</strong><br>{{ .Contract.Incoterms }}
+        </div>
+      </div>
+      {{ if .Contract.Note }}
+      <div class="row">
+        <div class="col-12">
+          <strong>Note:</strong><br>{{ .Contract.Note }}
+        </div>
+      </div>
+      {{ end }}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h5 class="mb-0">Price Tiers</h5>
+    </div>
+    <div class="card-body">
+      {{ if .Contract.PriceLines }}
+      <div class="table-responsive">
+        <table class="table table-sm table-striped">
+          <thead>
+            <tr>
+              <th>Product ID</th>
+              <th>Min Quantity</th>
+              <th>Unit Price</th>
+              <th>Tax Rate (%)</th>
+              <th>Lead Time (days)</th>
+              <th>MOQ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{ range .Contract.PriceLines }}
+            <tr>
+              <td>{{ .ProductID }}</td>
+              <td>{{ .MinQuantity.String }}</td>
+              <td>{{ .UnitPrice.String }}</td>
+              <td>{{ .TaxRate.String }}</td>
+              <td>{{ .LeadTimeDays }}</td>
+              <td>{{ .MOQ.String }}</td>
+            </tr>
+            {{ end }}
+          </tbody>
+        </table>
+      </div>
+      {{ else }}
+      <div class="alert alert-info mb-0">No price tiers defined</div>
+      {{ end }}
+    </div>
+  </div>
+</div>
+{{ end }}

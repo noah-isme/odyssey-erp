@@ -1,0 +1,211 @@
+{{template "layout" .}}
+
+{{define "content"}}
+<div class="container-fluid mt-4">
+  <div class="row mb-4">
+    <div class="col-md-8">
+      <h1>Transfer Orders</h1>
+      <p class="text-muted">Manage inter-warehouse inventory transfers</p>
+    </div>
+    <div class="col-md-4 text-end">
+      <a href="/distribution/transfers/new" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> Create Transfer
+      </a>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="card mb-4">
+    <div class="card-body">
+      <form method="get" class="row g-3">
+        <div class="col-md-3">
+          <label for="status" class="form-label">Status</label>
+          <select name="status" id="status" class="form-select">
+            <option value="">All Statuses</option>
+            <option value="DRAFT">Draft</option>
+            <option value="APPROVED">Approved</option>
+            <option value="DISPATCHED">Dispatched</option>
+            <option value="IN_TRANSIT">In Transit</option>
+            <option value="RECEIVED">Received</option>
+            <option value="CANCELLED">Cancelled</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label for="from_warehouse" class="form-label">From Warehouse</label>
+          <input type="text" name="from_warehouse" id="from_warehouse" class="form-control" placeholder="Source warehouse...">
+        </div>
+        <div class="col-md-3">
+          <label for="to_warehouse" class="form-label">To Warehouse</label>
+          <input type="text" name="to_warehouse" id="to_warehouse" class="form-control" placeholder="Destination warehouse...">
+        </div>
+        <div class="col-md-3">
+          <label>&nbsp;</label>
+          <button type="submit" class="btn btn-outline-secondary w-100">
+            <i class="bi bi-search"></i> Filter
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Transfers Table -->
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Transfer #</th>
+            <th>From</th>
+            <th>To</th>
+            <th>Items</th>
+            <th>Planned Dispatch</th>
+            <th>Planned Arrival</th>
+            <th>Status</th>
+            <th>Transport</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{range .Transfers}}
+          <tr>
+            <td>
+              <a href="/distribution/transfers/{{.ID}}" class="text-decoration-none fw-500">
+                {{.TransferNumber}}
+              </a>
+            </td>
+            <td>{{.FromWarehouse}}</td>
+            <td>{{.ToWarehouse}}</td>
+            <td class="text-center">
+              <span class="badge bg-info">{{.LineCount}}</span>
+            </td>
+            <td>{{if .PlannedDispatchDate}}{{.PlannedDispatchDate | dateFormat}}{{else}}-{{end}}</td>
+            <td>{{if .PlannedArrivalDate}}{{.PlannedArrivalDate | dateFormat}}{{else}}-{{end}}</td>
+            <td>
+              {{template "status-badge" .Status}}
+            </td>
+            <td>
+              {{if .VehicleID}}
+              <span class="badge bg-success">Internal Fleet</span>
+              {{else if .CarrierID}}
+              <span class="badge bg-info">Carrier</span>
+              {{else}}
+              <span class="badge bg-secondary">Unassigned</span>
+              {{end}}
+            </td>
+            <td>
+              <div class="btn-group btn-group-sm" role="group">
+                <a href="/distribution/transfers/{{.ID}}" class="btn btn-outline-primary" title="View">
+                  <i class="bi bi-eye"></i>
+                </a>
+                {{if eq .Status "DRAFT"}}
+                <a href="/distribution/transfers/{{.ID}}/edit" class="btn btn-outline-secondary" title="Edit">
+                  <i class="bi bi-pencil"></i>
+                </a>
+                {{end}}
+                {{if eq .Status "APPROVED"}}
+                <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#dispatchModal" onclick="setTransferId({{.ID}})" title="Dispatch">
+                  <i class="bi bi-truck"></i>
+                </button>
+                {{end}}
+              </div>
+            </td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{if not .Transfers}}
+    <div class="card-body text-center text-muted py-5">
+      <i class="bi bi-arrow-left-right" style="font-size: 2rem;"></i>
+      <p class="mt-3">No transfers found. <a href="/distribution/transfers/new">Create one</a></p>
+    </div>
+    {{end}}
+  </div>
+</div>
+
+<!-- Dispatch Modal -->
+<div class="modal fade" id="dispatchModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Dispatch Transfer</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="/distribution/transfers/dispatch">
+        <div class="modal-body">
+          <input type="hidden" name="transfer_id" id="transfer_id" value="">
+          
+          <div class="mb-3">
+            <label class="form-label">Transport Method</label>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="transport_type" id="internal" value="internal" checked>
+              <label class="form-check-label" for="internal">
+                Internal Fleet (Vehicle + Driver)
+              </label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="transport_type" id="carrier" value="carrier">
+              <label class="form-check-label" for="carrier">
+                3PL Carrier
+              </label>
+            </div>
+          </div>
+
+          <div id="internalTransport">
+            <div class="mb-3">
+              <label for="vehicle" class="form-label">Vehicle *</label>
+              <select name="vehicle_id" id="vehicle" class="form-select" required>
+                <option value="">Select vehicle...</option>
+                {{range .Vehicles}}
+                <option value="{{.ID}}">{{.VehicleNumber}} ({{.VehicleType}})</option>
+                {{end}}
+              </select>
+            </div>
+            <div class="mb-3">
+              <label for="driver" class="form-label">Driver *</label>
+              <select name="driver_id" id="driver" class="form-select" required>
+                <option value="">Select driver...</option>
+                {{range .Drivers}}
+                <option value="{{.ID}}">{{.DriverName}} (License: {{.LicenseNumber}})</option>
+                {{end}}
+              </select>
+            </div>
+          </div>
+
+          <div id="carrierTransport" style="display: none;">
+            <div class="mb-3">
+              <label for="carrier_select" class="form-label">Carrier *</label>
+              <select name="carrier_id" id="carrier_select" class="form-select">
+                <option value="">Select carrier...</option>
+                {{range .Carriers}}
+                <option value="{{.ID}}">{{.CarrierName}} ({{.CountryOfOperation}})</option>
+                {{end}}
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Dispatch</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function setTransferId(transferId) {
+  document.getElementById('transfer_id').value = transferId;
+}
+
+document.getElementById('internal').addEventListener('change', function() {
+  document.getElementById('internalTransport').style.display = 'block';
+  document.getElementById('carrierTransport').style.display = 'none';
+});
+
+document.getElementById('carrier').addEventListener('change', function() {
+  document.getElementById('internalTransport').style.display = 'none';
+  document.getElementById('carrierTransport').style.display = 'block';
+});
+</script>
+{{end}}

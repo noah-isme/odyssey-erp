@@ -100,6 +100,10 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Post("/work-orders/{id}/operations/{operationID}/report", h.reportOperation)
 		r.Post("/work-orders/{id}/materials/issue", h.issueMaterial)
 		r.Post("/work-orders/{id}/materials/return", h.returnMaterial)
+		// Governance UI routes
+		r.Get("/decisions/form", h.decisionSubmissionForm)
+		r.Get("/decisions/audit", h.auditLogViewer)
+		r.Get("/gates/{gateType}/status", h.gateStatusDisplay)
 	})
 }
 func (h *Handler) listWorkOrderOperations(w http.ResponseWriter, r *http.Request) {
@@ -1230,4 +1234,142 @@ func (h *Handler) moveMaterial(w http.ResponseWriter, r *http.Request, returning
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// decisionSubmissionForm serves the governance decision form template
+func (h *Handler) decisionSubmissionForm(w http.ResponseWriter, r *http.Request) {
+	u, c, ok := ids(r)
+	if !ok {
+		http.Error(w, "unauthorized", 401)
+		return
+	}
+
+	// Render decision submission template
+	data := map[string]interface{}{
+		"userID":    u,
+		"companyID": c,
+		"recordTypes": []string{"BOM", "WorkOrder", "Operation", "QualityHold", "NCR", "CAPA"},
+		"actions":    []string{"Approve", "Release", "Complete", "Reject", "Revise"},
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := h.renderTemplate(w, "governance/decision_submission.html", data); err != nil {
+		http.Error(w, err.Error(), 500)
+	}
+}
+
+// auditLogViewer serves the governance audit log viewer template
+func (h *Handler) auditLogViewer(w http.ResponseWriter, r *http.Request) {
+	u, c, ok := ids(r)
+	if !ok {
+		http.Error(w, "unauthorized", 401)
+		return
+	}
+
+	// Parse pagination params
+	page := 1
+	if p := r.URL.Query().Get("page"); p != "" {
+		if parsed, err := strconv.Atoi(p); err == nil && parsed > 0 {
+			page = parsed
+		}
+	}
+
+	// Fetch audit log from repository (if available)
+	var auditEvents []map[string]interface{}
+	if h.pool != nil {
+		// Query audit events (mock for now, would use repository)
+		auditEvents = []map[string]interface{}{
+			{
+				"id":          1,
+				"recordType":  "BOM",
+				"recordID":    1,
+				"action":      "Approve",
+				"actorID":     u,
+				"actorRole":   "QUALITY_LEAD",
+				"timestamp":   "2026-08-03T11:00:00Z",
+				"status":      "APPROVED",
+				"reason":      "BOM structure verified",
+			},
+		}
+	}
+
+	// Render audit log template
+	data := map[string]interface{}{
+		"userID":       u,
+		"companyID":    c,
+		"auditEvents":  auditEvents,
+		"currentPage":  page,
+		"pageSize":     50,
+		"totalRecords": len(auditEvents),
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := h.renderTemplate(w, "governance/audit_log_viewer.html", data); err != nil {
+		http.Error(w, err.Error(), 500)
+	}
+}
+
+// gateStatusDisplay serves the certification gate status template
+func (h *Handler) gateStatusDisplay(w http.ResponseWriter, r *http.Request) {
+	u, c, ok := ids(r)
+	if !ok {
+		http.Error(w, "unauthorized", 401)
+		return
+	}
+
+	gateType := chi.URLParam(r, "gateType")
+
+	// Map gate types to required actors
+	gateRequirements := map[string][]string{
+		"BOM":       {"QUALITY_LEAD", "ENGINEERING"},
+		"WorkOrder": {"PLANNER", "PRODUCTION_MANAGER"},
+		"Hold":      {"QUALITY_MANAGER"},
+		"NCR":       {"QUALITY_LEAD", "ENGINEERING"},
+		"CAPA":      {"QUALITY_MANAGER", "PROCESS_OWNER"},
+	}
+
+	requiredActors, ok := gateRequirements[gateType]
+	if !ok {
+		http.Error(w, "unknown gate type", 400)
+		return
+	}
+
+	// Mock signatures (would come from repository)
+	signatures := []map[string]interface{}{}
+	for i, actor := range requiredActors {
+		signatures = append(signatures, map[string]interface{}{
+			"actorID":   100 + int64(i),
+			"actorRole": actor,
+			"decision":  "PENDING",
+			"timestamp": nil,
+		})
+	}
+
+	// Render gate status template
+	data := map[string]interface{}{
+		"userID":         u,
+		"companyID":      c,
+		"gateType":       gateType,
+		"requiredActors": requiredActors,
+		"signatures":     signatures,
+		"status":         "PENDING",
+		"actorCount":     len(requiredActors),
+		"signedCount":    0,
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := h.renderTemplate(w, "governance/certification_gate_display.html", data); err != nil {
+		http.Error(w, err.Error(), 500)
+	}
+}
+
+// renderTemplate renders an HTML template with data
+func (h *Handler) renderTemplate(w http.ResponseWriter, templateName string, data interface{}) error {
+	// Mock template rendering (would use actual template engine)
+	// This is a placeholder that writes JSON response
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if _, err := w.Write([]byte("<html><body>Governance UI - " + templateName + "</body></html>")); err != nil {
+		return err
+	}
+	return nil
 }

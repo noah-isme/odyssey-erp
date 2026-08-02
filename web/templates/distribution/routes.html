@@ -1,0 +1,144 @@
+{{template "layout" .}}
+
+{{define "content"}}
+<div class="container-fluid mt-4">
+  <div class="row mb-4">
+    <div class="col-md-8">
+      <h1>Distribution Planning</h1>
+      <p class="text-muted">Plan and optimize delivery routes</p>
+    </div>
+    <div class="col-md-4 text-end">
+      <a href="/distribution/routes/new" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> Plan Route
+      </a>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="card mb-4">
+    <div class="card-body">
+      <form method="get" class="row g-3">
+        <div class="col-md-3">
+          <label for="status" class="form-label">Status</label>
+          <select name="status" id="status" class="form-select">
+            <option value="">All Statuses</option>
+            <option value="PLANNED">Planned</option>
+            <option value="OPTIMIZED">Optimized</option>
+            <option value="APPROVED">Approved</option>
+            <option value="ACTIVE">Active</option>
+            <option value="COMPLETED">Completed</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label for="load" class="form-label">Load</label>
+          <input type="text" name="load" id="load" class="form-control" placeholder="Filter by load...">
+        </div>
+        <div class="col-md-3">
+          <label for="efficiency" class="form-label">Min Efficiency</label>
+          <input type="number" name="efficiency" id="efficiency" class="form-control" placeholder="0-100" min="0" max="100">
+        </div>
+        <div class="col-md-3">
+          <label>&nbsp;</label>
+          <button type="submit" class="btn btn-outline-secondary w-100">
+            <i class="bi bi-search"></i> Filter
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Routes Table -->
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Route #</th>
+            <th>Load</th>
+            <th>Stops</th>
+            <th>Distance</th>
+            <th>Est. Duration</th>
+            <th>Efficiency</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{range .Routes}}
+          <tr>
+            <td>
+              <a href="/distribution/routes/{{.ID}}" class="text-decoration-none fw-500">
+                {{.RouteNumber}}
+              </a>
+            </td>
+            <td>
+              <a href="/distribution/loads/{{.LoadID}}" class="text-decoration-none">
+                {{.LoadNumber}}
+              </a>
+            </td>
+            <td class="text-center">
+              <span class="badge bg-info">{{.StopCount}}</span>
+            </td>
+            <td>{{if .TotalDistanceKm}}{{.TotalDistanceKm}} km{{else}}-{{end}}</td>
+            <td>{{if .EstimatedDurationMinutes}}{{.EstimatedDurationMinutes}} min{{else}}-{{end}}</td>
+            <td>
+              {{if .OptimizationScore}}
+              <span class="badge {{if ge .OptimizationScore 85}}bg-success{{else if ge .OptimizationScore 70}}bg-warning{{else}}bg-danger{{end}}">
+                {{.OptimizationScore}}%
+              </span>
+              {{else}}-{{end}}
+            </td>
+            <td>
+              {{template "status-badge" .Status}}
+            </td>
+            <td>
+              <div class="btn-group btn-group-sm" role="group">
+                <a href="/distribution/routes/{{.ID}}" class="btn btn-outline-primary" title="View">
+                  <i class="bi bi-eye"></i>
+                </a>
+                {{if eq .Status "PLANNED"}}
+                <button type="button" class="btn btn-outline-warning" onclick="optimizeRoute({{.ID}})" title="Optimize">
+                  <i class="bi bi-lightning"></i>
+                </button>
+                {{end}}
+                {{if eq .Status "OPTIMIZED"}}
+                <button type="button" class="btn btn-outline-success" onclick="approveRoute({{.ID}})" title="Approve">
+                  <i class="bi bi-check-circle"></i>
+                </button>
+                {{end}}
+              </div>
+            </td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{if not .Routes}}
+    <div class="card-body text-center text-muted py-5">
+      <i class="bi bi-map" style="font-size: 2rem;"></i>
+      <p class="mt-3">No routes found. <a href="/distribution/routes/new">Plan one</a></p>
+    </div>
+    {{end}}
+  </div>
+</div>
+
+<script>
+function optimizeRoute(routeId) {
+  if (confirm('Run optimization algorithm for this route?')) {
+    fetch(`/distribution/routes/${routeId}/optimize`, { method: 'POST' })
+      .then(r => r.json())
+      .then(d => { if (d.success) window.location.reload(); })
+      .catch(e => alert('Error: ' + e.message));
+  }
+}
+
+function approveRoute(routeId) {
+  if (confirm('Approve this route for execution?')) {
+    fetch(`/distribution/routes/${routeId}/approve`, { method: 'POST' })
+      .then(r => r.json())
+      .then(d => { if (d.success) window.location.reload(); })
+      .catch(e => alert('Error: ' + e.message));
+  }
+}
+</script>
+{{end}}

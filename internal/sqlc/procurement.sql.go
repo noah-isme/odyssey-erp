@@ -416,15 +416,25 @@ SELECT id, po_id, product_id, qty, price, tax_id, note
 FROM po_lines WHERE po_id = $1 ORDER BY id
 `
 
-func (q *Queries) GetPOLines(ctx context.Context, poID int64) ([]PoLine, error) {
+type GetPOLinesRow struct {
+	ID        int64          `json:"id"`
+	PoID      int64          `json:"po_id"`
+	ProductID int64          `json:"product_id"`
+	Qty       pgtype.Numeric `json:"qty"`
+	Price     pgtype.Numeric `json:"price"`
+	TaxID     pgtype.Int8    `json:"tax_id"`
+	Note      string         `json:"note"`
+}
+
+func (q *Queries) GetPOLines(ctx context.Context, poID int64) ([]GetPOLinesRow, error) {
 	rows, err := q.db.Query(ctx, getPOLines, poID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []PoLine
+	var items []GetPOLinesRow
 	for rows.Next() {
-		var i PoLine
+		var i GetPOLinesRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.PoID,

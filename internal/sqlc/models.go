@@ -1230,6 +1230,21 @@ type ArPaymentAllocation struct {
 	FxRateLockedAt         pgtype.Timestamptz `json:"fx_rate_locked_at"`
 }
 
+type AuditEvent struct {
+	ID            int64              `json:"id"`
+	CompanyID     int64              `json:"company_id"`
+	CorrelationID pgtype.UUID        `json:"correlation_id"`
+	CausationID   pgtype.UUID        `json:"causation_id"`
+	DecisionID    pgtype.Int8        `json:"decision_id"`
+	EntityType    pgtype.Text        `json:"entity_type"`
+	EntityID      pgtype.Int8        `json:"entity_id"`
+	Action        pgtype.Text        `json:"action"`
+	ActorID       pgtype.Int8        `json:"actor_id"`
+	Details       []byte             `json:"details"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	Index         interface{}        `json:"index"`
+}
+
 type AuditLog struct {
 	ID         int64              `json:"id"`
 	ActorID    int64              `json:"actor_id"`
@@ -1333,6 +1348,44 @@ type Branch struct {
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
+type Carrier struct {
+	ID                    int64              `json:"id"`
+	CompanyID             int64              `json:"company_id"`
+	CarrierName           string             `json:"carrier_name"`
+	CarrierCode           string             `json:"carrier_code"`
+	Status                string             `json:"status"`
+	ContactName           pgtype.Text        `json:"contact_name"`
+	ContactEmail          pgtype.Text        `json:"contact_email"`
+	ContactPhone          pgtype.Text        `json:"contact_phone"`
+	InsuranceProvider     pgtype.Text        `json:"insurance_provider"`
+	InsurancePolicyNumber pgtype.Text        `json:"insurance_policy_number"`
+	InsuranceExpiresAt    pgtype.Timestamptz `json:"insurance_expires_at"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+	CreatedBy             int64              `json:"created_by"`
+	UpdatedBy             int64              `json:"updated_by"`
+}
+
+type CarrierRateCard struct {
+	ID               int64              `json:"id"`
+	CompanyID        int64              `json:"company_id"`
+	CarrierID        int64              `json:"carrier_id"`
+	RouteFromCity    string             `json:"route_from_city"`
+	RouteToCity      string             `json:"route_to_city"`
+	WeightFrom       pgtype.Numeric     `json:"weight_from"`
+	WeightTo         pgtype.Numeric     `json:"weight_to"`
+	VolumeFrom       pgtype.Numeric     `json:"volume_from"`
+	VolumeTo         pgtype.Numeric     `json:"volume_to"`
+	RatePerUnit      pgtype.Numeric     `json:"rate_per_unit"`
+	RateUnit         string             `json:"rate_unit"`
+	Currency         string             `json:"currency"`
+	EffectiveFrom    pgtype.Date        `json:"effective_from"`
+	EffectiveTo      pgtype.Date        `json:"effective_to"`
+	MinimumCharge    pgtype.Numeric     `json:"minimum_charge"`
+	FuelSurchargePct pgtype.Numeric     `json:"fuel_surcharge_pct"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
 type Category struct {
 	ID        int64              `json:"id"`
 	Code      string             `json:"code"`
@@ -1369,6 +1422,22 @@ type CompanyTaxIdentity struct {
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 }
 
+type ComplianceDecision struct {
+	ID              int64              `json:"id"`
+	CompanyID       int64              `json:"company_id"`
+	PolicyVersionID int64              `json:"policy_version_id"`
+	RecordType      string             `json:"record_type"`
+	RecordID        int64              `json:"record_id"`
+	Action          string             `json:"action"`
+	ActorID         int64              `json:"actor_id"`
+	Reason          pgtype.Text        `json:"reason"`
+	DecisionID      pgtype.UUID        `json:"decision_id"`
+	RecordVersion   pgtype.Text        `json:"record_version"`
+	RecordHash      pgtype.Text        `json:"record_hash"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	Index           interface{}        `json:"index"`
+}
+
 type ConsolGroup struct {
 	ID                int64              `json:"id"`
 	Name              string             `json:"name"`
@@ -1396,6 +1465,17 @@ type ConsolMember struct {
 	Enabled   bool               `json:"enabled"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ContractPriceLine struct {
+	ID           int64          `json:"id"`
+	ContractID   int64          `json:"contract_id"`
+	ProductID    int64          `json:"product_id"`
+	MinQuantity  pgtype.Numeric `json:"min_quantity"`
+	UnitPrice    pgtype.Numeric `json:"unit_price"`
+	TaxRate      pgtype.Numeric `json:"tax_rate"`
+	LeadTimeDays int32          `json:"lead_time_days"`
+	Moq          pgtype.Numeric `json:"moq"`
 }
 
 type CostCenter struct {
@@ -1567,6 +1647,20 @@ type DeliveryOrderLine struct {
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
 
+type DeliveryRoute struct {
+	ID                       int64              `json:"id"`
+	CompanyID                int64              `json:"company_id"`
+	RouteNumber              string             `json:"route_number"`
+	Status                   string             `json:"status"`
+	LoadID                   int64              `json:"load_id"`
+	TotalDistanceKm          pgtype.Numeric     `json:"total_distance_km"`
+	EstimatedDurationMinutes pgtype.Int4        `json:"estimated_duration_minutes"`
+	OptimizationScore        pgtype.Numeric     `json:"optimization_score"`
+	CreatedAt                pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                pgtype.Timestamptz `json:"updated_at"`
+	CreatedBy                int64              `json:"created_by"`
+}
+
 type Department struct {
 	ID        int64              `json:"id"`
 	CompanyID int64              `json:"company_id"`
@@ -1582,6 +1676,25 @@ type DocumentSequence struct {
 	DocType   string `json:"doc_type"`
 	Period    string `json:"period"`
 	Seq       int64  `json:"seq"`
+}
+
+type Driver struct {
+	ID                    int64              `json:"id"`
+	CompanyID             int64              `json:"company_id"`
+	DriverName            string             `json:"driver_name"`
+	DriverCode            string             `json:"driver_code"`
+	Status                string             `json:"status"`
+	Email                 pgtype.Text        `json:"email"`
+	Phone                 pgtype.Text        `json:"phone"`
+	LicenseNumber         string             `json:"license_number"`
+	LicenseClass          pgtype.Text        `json:"license_class"`
+	LicenseExpiresAt      pgtype.Timestamptz `json:"license_expires_at"`
+	EmergencyContactName  pgtype.Text        `json:"emergency_contact_name"`
+	EmergencyContactPhone pgtype.Text        `json:"emergency_contact_phone"`
+	Notes                 pgtype.Text        `json:"notes"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+	CreatedBy             int64              `json:"created_by"`
 }
 
 type EliminationJournalHeader struct {
@@ -1634,6 +1747,58 @@ type EliminationRun struct {
 	Summary        []byte               `json:"summary"`
 }
 
+type EvidenceRecord struct {
+	ID           int64              `json:"id"`
+	DecisionID   int64              `json:"decision_id"`
+	EvidenceType pgtype.Text        `json:"evidence_type"`
+	Content      []byte             `json:"content"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	Index        interface{}        `json:"index"`
+}
+
+type FinanceAutomationOutbox struct {
+	ID             int64              `json:"id"`
+	CompanyID      int64              `json:"company_id"`
+	Topic          string             `json:"topic"`
+	AggregateType  string             `json:"aggregate_type"`
+	AggregateID    string             `json:"aggregate_id"`
+	Operation      string             `json:"operation"`
+	CorrelationID  string             `json:"correlation_id"`
+	CausationID    pgtype.Text        `json:"causation_id"`
+	IdempotencyKey string             `json:"idempotency_key"`
+	Payload        []byte             `json:"payload"`
+	Status         string             `json:"status"`
+	Attempts       int32              `json:"attempts"`
+	MaxAttempts    int32              `json:"max_attempts"`
+	AvailableAt    pgtype.Timestamptz `json:"available_at"`
+	LockedAt       pgtype.Timestamptz `json:"locked_at"`
+	LockedBy       pgtype.Text        `json:"locked_by"`
+	LastError      pgtype.Text        `json:"last_error"`
+	CompletedAt    pgtype.Timestamptz `json:"completed_at"`
+	DeadLetteredAt pgtype.Timestamptz `json:"dead_lettered_at"`
+	ReplayedFromID pgtype.Int8        `json:"replayed_from_id"`
+	CreatedBy      pgtype.Int8        `json:"created_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type FinanceAutomationSetting struct {
+	CompanyID                        int64              `json:"company_id"`
+	BankFeedAutoSyncEnabled          bool               `json:"bank_feed_auto_sync_enabled"`
+	CashForecastEnabled              bool               `json:"cash_forecast_enabled"`
+	PaymentSchedulingEnabled         bool               `json:"payment_scheduling_enabled"`
+	PaymentExecutionEnabled          bool               `json:"payment_execution_enabled"`
+	P2pAutoPostEnabled               bool               `json:"p2p_auto_post_enabled"`
+	AssetOperationsEnabled           bool               `json:"asset_operations_enabled"`
+	ForecastHorizonWeeks             int16              `json:"forecast_horizon_weeks"`
+	BankFeedSyncIntervalMinutes      int32              `json:"bank_feed_sync_interval_minutes"`
+	PaymentMakerCheckerEnabled       bool               `json:"payment_maker_checker_enabled"`
+	PaymentExecutorSeparationEnabled bool               `json:"payment_executor_separation_enabled"`
+	UpdatedBy                        pgtype.Int8        `json:"updated_by"`
+	CreatedAt                        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                        pgtype.Timestamptz `json:"updated_at"`
+}
+
 type FixedAsset struct {
 	ID                      int64              `json:"id"`
 	CompanyID               int64              `json:"company_id"`
@@ -1675,6 +1840,62 @@ type FixedAssetDisposal struct {
 	Proceeds       pgtype.Numeric     `json:"proceeds"`
 	JournalEntryID pgtype.Int8        `json:"journal_entry_id"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type Fleet struct {
+	ID          int64              `json:"id"`
+	CompanyID   int64              `json:"company_id"`
+	FleetName   string             `json:"fleet_name"`
+	FleetCode   string             `json:"fleet_code"`
+	FleetType   string             `json:"fleet_type"`
+	Status      string             `json:"status"`
+	WarehouseID pgtype.Int8        `json:"warehouse_id"`
+	HomeCity    pgtype.Text        `json:"home_city"`
+	Notes       pgtype.Text        `json:"notes"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	CreatedBy   int64              `json:"created_by"`
+}
+
+type FreightAuditLog struct {
+	ID              int64            `json:"id"`
+	CompanyID       int64            `json:"company_id"`
+	FreightChargeID int64            `json:"freight_charge_id"`
+	AuditType       string           `json:"audit_type"`
+	OldValue        pgtype.Numeric   `json:"old_value"`
+	NewValue        pgtype.Numeric   `json:"new_value"`
+	Reason          pgtype.Text      `json:"reason"`
+	UserID          int64            `json:"user_id"`
+	CreatedAt       pgtype.Timestamp `json:"created_at"`
+}
+
+type FreightCharge struct {
+	ID              int64            `json:"id"`
+	CompanyID       int64            `json:"company_id"`
+	ShipmentID      pgtype.Int8      `json:"shipment_id"`
+	LoadID          pgtype.Int8      `json:"load_id"`
+	CarrierID       pgtype.Int8      `json:"carrier_id"`
+	RateCardID      pgtype.Int8      `json:"rate_card_id"`
+	OriginCity      string           `json:"origin_city"`
+	DestinationCity string           `json:"destination_city"`
+	ServiceLevel    pgtype.Text      `json:"service_level"`
+	WeightKg        pgtype.Numeric   `json:"weight_kg"`
+	VolumeCbm       pgtype.Numeric   `json:"volume_cbm"`
+	BaseCharge      pgtype.Numeric   `json:"base_charge"`
+	WeightCharge    pgtype.Numeric   `json:"weight_charge"`
+	VolumeCharge    pgtype.Numeric   `json:"volume_charge"`
+	SurchargeTotal  pgtype.Numeric   `json:"surcharge_total"`
+	FreightTotal    pgtype.Numeric   `json:"freight_total"`
+	Currency        string           `json:"currency"`
+	Status          string           `json:"status"`
+	InvoiceNumber   pgtype.Text      `json:"invoice_number"`
+	InvoiceDate     pgtype.Date      `json:"invoice_date"`
+	GlPostingID     pgtype.Int8      `json:"gl_posting_id"`
+	CostCenterID    pgtype.Int8      `json:"cost_center_id"`
+	Notes           pgtype.Text      `json:"notes"`
+	CreatedBy       int64            `json:"created_by"`
+	CreatedAt       pgtype.Timestamp `json:"created_at"`
+	UpdatedAt       pgtype.Timestamp `json:"updated_at"`
 }
 
 type FxDailyRate struct {
@@ -2114,16 +2335,137 @@ type JournalLine struct {
 	CostCenterID   pgtype.Int8        `json:"cost_center_id"`
 }
 
+type LandedCost struct {
+	ID               int64            `json:"id"`
+	CompanyID        int64            `json:"company_id"`
+	ShipmentID       int64            `json:"shipment_id"`
+	LoadID           pgtype.Int8      `json:"load_id"`
+	FreightChargeID  int64            `json:"freight_charge_id"`
+	PoID             pgtype.Int8      `json:"po_id"`
+	ProductCost      pgtype.Numeric   `json:"product_cost"`
+	FreightCost      pgtype.Numeric   `json:"freight_cost"`
+	DutyCost         pgtype.Numeric   `json:"duty_cost"`
+	TaxCost          pgtype.Numeric   `json:"tax_cost"`
+	InsuranceCost    pgtype.Numeric   `json:"insurance_cost"`
+	OtherCost        pgtype.Numeric   `json:"other_cost"`
+	TotalLandedCost  pgtype.Numeric   `json:"total_landed_cost"`
+	CostPerUnit      pgtype.Numeric   `json:"cost_per_unit"`
+	Currency         string           `json:"currency"`
+	AllocationMethod string           `json:"allocation_method"`
+	CreatedAt        pgtype.Timestamp `json:"created_at"`
+	UpdatedAt        pgtype.Timestamp `json:"updated_at"`
+}
+
+type Load struct {
+	ID                     int64              `json:"id"`
+	CompanyID              int64              `json:"company_id"`
+	LoadNumber             string             `json:"load_number"`
+	Status                 string             `json:"status"`
+	OriginWarehouseID      int64              `json:"origin_warehouse_id"`
+	DestinationWarehouseID pgtype.Int8        `json:"destination_warehouse_id"`
+	DestinationAddress     pgtype.Text        `json:"destination_address"`
+	DestinationCity        pgtype.Text        `json:"destination_city"`
+	DestinationCountry     pgtype.Text        `json:"destination_country"`
+	VehicleID              pgtype.Int8        `json:"vehicle_id"`
+	DriverID               pgtype.Int8        `json:"driver_id"`
+	CarrierID              pgtype.Int8        `json:"carrier_id"`
+	CarrierServiceType     pgtype.Text        `json:"carrier_service_type"`
+	TotalWeightKg          pgtype.Numeric     `json:"total_weight_kg"`
+	TotalVolumeCbm         pgtype.Numeric     `json:"total_volume_cbm"`
+	TotalItems             pgtype.Int4        `json:"total_items"`
+	PlannedPickupDate      pgtype.Date        `json:"planned_pickup_date"`
+	PlannedDeliveryDate    pgtype.Date        `json:"planned_delivery_date"`
+	ActualDispatchAt       pgtype.Timestamptz `json:"actual_dispatch_at"`
+	ActualDeliveryAt       pgtype.Timestamptz `json:"actual_delivery_at"`
+	FreightCharge          pgtype.Numeric     `json:"freight_charge"`
+	FreightCurrency        pgtype.Text        `json:"freight_currency"`
+	Notes                  pgtype.Text        `json:"notes"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+	CreatedBy              int64              `json:"created_by"`
+}
+
+type LoadItem struct {
+	ID         int64              `json:"id"`
+	CompanyID  int64              `json:"company_id"`
+	LoadID     int64              `json:"load_id"`
+	ShipmentID pgtype.Int8        `json:"shipment_id"`
+	ProductID  int64              `json:"product_id"`
+	Quantity   pgtype.Numeric     `json:"quantity"`
+	WeightKg   pgtype.Numeric     `json:"weight_kg"`
+	VolumeCbm  pgtype.Numeric     `json:"volume_cbm"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type MrpAnalyticsOperationDaily struct {
+	CompanyID           int64       `json:"company_id"`
+	Day                 pgtype.Date `json:"day"`
+	ProductID           int64       `json:"product_id"`
+	RoutingID           pgtype.Int8 `json:"routing_id"`
+	WorkCenterID        int64       `json:"work_center_id"`
+	OperationCode       string      `json:"operation_code"`
+	GoodQuantity        int64       `json:"good_quantity"`
+	ScrapQuantity       int64       `json:"scrap_quantity"`
+	ActualSetupMinutes  int64       `json:"actual_setup_minutes"`
+	ActualRunMinutes    int64       `json:"actual_run_minutes"`
+	PlannedSetupMinutes int64       `json:"planned_setup_minutes"`
+	PlannedRunMinutes   int64       `json:"planned_run_minutes"`
+}
+
+type MrpAnalyticsScheduleAdherence struct {
+	CompanyID      int64              `json:"company_id"`
+	WorkCenterID   int64              `json:"work_center_id"`
+	ProductID      int64              `json:"product_id"`
+	OperationID    int64              `json:"operation_id"`
+	ScheduledEndAt pgtype.Timestamptz `json:"scheduled_end_at"`
+	CompletedAt    pgtype.Timestamptz `json:"completed_at"`
+	OnTime         bool               `json:"on_time"`
+}
+
+type MrpAnalyticsWipValue struct {
+	CompanyID         int64          `json:"company_id"`
+	SourceWarehouseID int64          `json:"source_warehouse_id"`
+	WipWarehouseID    int64          `json:"wip_warehouse_id"`
+	ProductID         int64          `json:"product_id"`
+	Qty               pgtype.Numeric `json:"qty"`
+	AvgCost           pgtype.Numeric `json:"avg_cost"`
+	Value             int32          `json:"value"`
+	FirstIssuedAt     interface{}    `json:"first_issued_at"`
+}
+
+type MrpAnalyticsWorkCenterUtilization struct {
+	CompanyID      int64       `json:"company_id"`
+	WorkCenterID   int64       `json:"work_center_id"`
+	Day            pgtype.Date `json:"day"`
+	ScheduledHours int32       `json:"scheduled_hours"`
+	AvailableHours interface{} `json:"available_hours"`
+}
+
+type MrpAuditEvent struct {
+	ID         int64              `json:"id"`
+	CompanyID  int64              `json:"company_id"`
+	RecordType string             `json:"record_type"`
+	RecordID   int64              `json:"record_id"`
+	EventType  string             `json:"event_type"`
+	ActorID    int64              `json:"actor_id"`
+	Detail     []byte             `json:"detail"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
 type MrpBom struct {
-	ID            int64          `json:"id"`
-	CompanyID     int64          `json:"company_id"`
-	ProductID     int64          `json:"product_id"`
-	Version       string         `json:"version"`
-	EffectiveFrom pgtype.Date    `json:"effective_from"`
-	EffectiveTo   pgtype.Date    `json:"effective_to"`
-	ScrapPct      pgtype.Numeric `json:"scrap_pct"`
-	Active        bool           `json:"active"`
-	CreatedBy     pgtype.Int8    `json:"created_by"`
+	ID             int64              `json:"id"`
+	CompanyID      int64              `json:"company_id"`
+	ProductID      int64              `json:"product_id"`
+	Version        string             `json:"version"`
+	EffectiveFrom  pgtype.Date        `json:"effective_from"`
+	EffectiveTo    pgtype.Date        `json:"effective_to"`
+	ScrapPct       pgtype.Numeric     `json:"scrap_pct"`
+	Active         bool               `json:"active"`
+	CreatedBy      pgtype.Int8        `json:"created_by"`
+	RevisionStatus string             `json:"revision_status"`
+	ApprovedBy     pgtype.Int8        `json:"approved_by"`
+	ApprovedAt     pgtype.Timestamptz `json:"approved_at"`
+	ChangeReason   pgtype.Text        `json:"change_reason"`
 }
 
 type MrpBomLine struct {
@@ -2132,6 +2474,137 @@ type MrpBomLine struct {
 	ComponentProductID int64          `json:"component_product_id"`
 	Quantity           pgtype.Numeric `json:"quantity"`
 	ScrapPct           pgtype.Numeric `json:"scrap_pct"`
+}
+
+type MrpCapa struct {
+	ID        int64              `json:"id"`
+	CompanyID int64              `json:"company_id"`
+	NcrID     pgtype.Int8        `json:"ncr_id"`
+	Action    string             `json:"action"`
+	Status    string             `json:"status"`
+	OwnerID   pgtype.Int8        `json:"owner_id"`
+	DueDate   pgtype.Date        `json:"due_date"`
+	ClosedBy  pgtype.Int8        `json:"closed_by"`
+	ClosedAt  pgtype.Timestamptz `json:"closed_at"`
+}
+
+type MrpControlledRecordPolicy struct {
+	ID                int64  `json:"id"`
+	CompanyID         int64  `json:"company_id"`
+	RecordType        string `json:"record_type"`
+	RequiresSignature bool   `json:"requires_signature"`
+	RetentionDays     int32  `json:"retention_days"`
+	Active            bool   `json:"active"`
+}
+
+type MrpElectronicSignature struct {
+	ID                       int64              `json:"id"`
+	CompanyID                int64              `json:"company_id"`
+	RecordType               string             `json:"record_type"`
+	RecordID                 int64              `json:"record_id"`
+	RecordVersion            string             `json:"record_version"`
+	RecordHash               string             `json:"record_hash"`
+	Meaning                  string             `json:"meaning"`
+	SignerID                 int64              `json:"signer_id"`
+	ReauthenticationEvidence string             `json:"reauthentication_evidence"`
+	CreatedAt                pgtype.Timestamptz `json:"created_at"`
+}
+
+type MrpException struct {
+	ID               int64              `json:"id"`
+	CompanyID        int64              `json:"company_id"`
+	Fingerprint      string             `json:"fingerprint"`
+	ExceptionType    string             `json:"exception_type"`
+	Severity         string             `json:"severity"`
+	ProductID        pgtype.Int8        `json:"product_id"`
+	WarehouseID      pgtype.Int8        `json:"warehouse_id"`
+	WorkOrderID      pgtype.Int8        `json:"work_order_id"`
+	OperationID      pgtype.Int8        `json:"operation_id"`
+	RecommendationID pgtype.Int8        `json:"recommendation_id"`
+	DueDate          pgtype.Date        `json:"due_date"`
+	Explanation      []byte             `json:"explanation"`
+	Status           string             `json:"status"`
+	OwnerID          pgtype.Int8        `json:"owner_id"`
+	ResolvedAction   pgtype.Text        `json:"resolved_action"`
+	Comment          string             `json:"comment"`
+	ResolvedBy       pgtype.Int8        `json:"resolved_by"`
+	ResolvedAt       pgtype.Timestamptz `json:"resolved_at"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
+type MrpGenealogy struct {
+	ID                 int64              `json:"id"`
+	CompanyID          int64              `json:"company_id"`
+	WorkOrderID        int64              `json:"work_order_id"`
+	OperationID        pgtype.Int8        `json:"operation_id"`
+	ComponentProductID pgtype.Int8        `json:"component_product_id"`
+	ConsumedLotID      pgtype.Int8        `json:"consumed_lot_id"`
+	ConsumedSerialID   pgtype.Int8        `json:"consumed_serial_id"`
+	ProducedLotID      pgtype.Int8        `json:"produced_lot_id"`
+	ProducedSerialID   pgtype.Int8        `json:"produced_serial_id"`
+	Quantity           pgtype.Numeric     `json:"quantity"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+}
+
+type MrpInspection struct {
+	ID          int64              `json:"id"`
+	CompanyID   int64              `json:"company_id"`
+	PlanID      pgtype.Int8        `json:"plan_id"`
+	WorkOrderID int64              `json:"work_order_id"`
+	OperationID pgtype.Int8        `json:"operation_id"`
+	Status      string             `json:"status"`
+	Result      []byte             `json:"result"`
+	DefectCode  pgtype.Text        `json:"defect_code"`
+	Disposition pgtype.Text        `json:"disposition"`
+	InspectorID pgtype.Int8        `json:"inspector_id"`
+	ApprovedBy  pgtype.Int8        `json:"approved_by"`
+	ApprovedAt  pgtype.Timestamptz `json:"approved_at"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type MrpInspectionPlan struct {
+	ID                 int64              `json:"id"`
+	CompanyID          int64              `json:"company_id"`
+	ProductID          int64              `json:"product_id"`
+	RoutingOperationID pgtype.Int8        `json:"routing_operation_id"`
+	Name               string             `json:"name"`
+	Required           bool               `json:"required"`
+	Active             bool               `json:"active"`
+	CreatedBy          int64              `json:"created_by"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+}
+
+type MrpMaterialMovement struct {
+	ID                     int64              `json:"id"`
+	CompanyID              int64              `json:"company_id"`
+	WorkOrderID            int64              `json:"work_order_id"`
+	OperationID            pgtype.Int8        `json:"operation_id"`
+	ProductID              int64              `json:"product_id"`
+	SourceWarehouseID      int64              `json:"source_warehouse_id"`
+	DestinationWarehouseID int64              `json:"destination_warehouse_id"`
+	Quantity               pgtype.Numeric     `json:"quantity"`
+	MovementType           string             `json:"movement_type"`
+	IdempotencyKey         string             `json:"idempotency_key"`
+	CreatedBy              int64              `json:"created_by"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+}
+
+type MrpNonconformance struct {
+	ID           int64              `json:"id"`
+	CompanyID    int64              `json:"company_id"`
+	InspectionID pgtype.Int8        `json:"inspection_id"`
+	Number       string             `json:"number"`
+	Description  string             `json:"description"`
+	Status       string             `json:"status"`
+	OwnerID      pgtype.Int8        `json:"owner_id"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type MrpOperationDependency struct {
+	OperationID            int64 `json:"operation_id"`
+	PredecessorOperationID int64 `json:"predecessor_operation_id"`
 }
 
 type MrpPlanningRecommendation struct {
@@ -2189,6 +2662,30 @@ type MrpProductionEvent struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
+type MrpProductionReceiptCost struct {
+	ID                 int64          `json:"id"`
+	CompanyID          int64          `json:"company_id"`
+	ProductionEventID  int64          `json:"production_event_id"`
+	ComponentProductID int64          `json:"component_product_id"`
+	Quantity           pgtype.Numeric `json:"quantity"`
+	UnitCost           pgtype.Numeric `json:"unit_cost"`
+	ExtendedAmount     pgtype.Numeric `json:"extended_amount"`
+}
+
+type MrpQualityHold struct {
+	ID           int64              `json:"id"`
+	CompanyID    int64              `json:"company_id"`
+	WorkOrderID  int64              `json:"work_order_id"`
+	OperationID  pgtype.Int8        `json:"operation_id"`
+	InspectionID pgtype.Int8        `json:"inspection_id"`
+	Reason       string             `json:"reason"`
+	Status       string             `json:"status"`
+	CreatedBy    int64              `json:"created_by"`
+	ReleasedBy   pgtype.Int8        `json:"released_by"`
+	ReleasedAt   pgtype.Timestamptz `json:"released_at"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
 type MrpRouting struct {
 	ID        int64              `json:"id"`
 	CompanyID int64              `json:"company_id"`
@@ -2213,6 +2710,42 @@ type MrpRoutingOperation struct {
 	YieldPct     pgtype.Numeric `json:"yield_pct"`
 }
 
+type MrpScheduleException struct {
+	ID            int64              `json:"id"`
+	CompanyID     int64              `json:"company_id"`
+	OperationID   int64              `json:"operation_id"`
+	ExceptionType string             `json:"exception_type"`
+	Detail        string             `json:"detail"`
+	ResolvedAt    pgtype.Timestamptz `json:"resolved_at"`
+	ResolvedBy    pgtype.Int8        `json:"resolved_by"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
+type MrpSubcontractOperation struct {
+	ID               int64              `json:"id"`
+	CompanyID        int64              `json:"company_id"`
+	OperationID      int64              `json:"operation_id"`
+	SupplierID       int64              `json:"supplier_id"`
+	Status           string             `json:"status"`
+	SentQuantity     pgtype.Numeric     `json:"sent_quantity"`
+	SentCost         pgtype.Numeric     `json:"sent_cost"`
+	SentAt           pgtype.Timestamptz `json:"sent_at"`
+	ReceivedQuantity pgtype.Numeric     `json:"received_quantity"`
+	ReceivedAt       pgtype.Timestamptz `json:"received_at"`
+	InspectionID     pgtype.Int8        `json:"inspection_id"`
+}
+
+type MrpWipLocation struct {
+	ID             int64       `json:"id"`
+	CompanyID      int64       `json:"company_id"`
+	WarehouseID    int64       `json:"warehouse_id"`
+	WipWarehouseID int64       `json:"wip_warehouse_id"`
+	WorkCenterID   pgtype.Int8 `json:"work_center_id"`
+	Name           string      `json:"name"`
+	Active         bool        `json:"active"`
+	CreatedBy      int64       `json:"created_by"`
+}
+
 type MrpWorkCenter struct {
 	ID                  int64              `json:"id"`
 	CompanyID           int64              `json:"company_id"`
@@ -2223,6 +2756,27 @@ type MrpWorkCenter struct {
 	CreatedBy           int64              `json:"created_by"`
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+}
+
+type MrpWorkCenterCalendarException struct {
+	ID            int64          `json:"id"`
+	CompanyID     int64          `json:"company_id"`
+	WorkCenterID  int64          `json:"work_center_id"`
+	ExceptionDate pgtype.Date    `json:"exception_date"`
+	ExceptionType string         `json:"exception_type"`
+	CapacityHours pgtype.Numeric `json:"capacity_hours"`
+	Note          string         `json:"note"`
+}
+
+type MrpWorkCenterShift struct {
+	ID            int64          `json:"id"`
+	CompanyID     int64          `json:"company_id"`
+	WorkCenterID  int64          `json:"work_center_id"`
+	Weekday       int16          `json:"weekday"`
+	StartTime     pgtype.Time    `json:"start_time"`
+	EndTime       pgtype.Time    `json:"end_time"`
+	CapacityHours pgtype.Numeric `json:"capacity_hours"`
+	Active        bool           `json:"active"`
 }
 
 type MrpWorkOrder struct {
@@ -2241,6 +2795,35 @@ type MrpWorkOrder struct {
 	PlannedStartDate         pgtype.Date        `json:"planned_start_date"`
 	PlannedDueDate           pgtype.Date        `json:"planned_due_date"`
 	PlanningRecommendationID pgtype.Int8        `json:"planning_recommendation_id"`
+	RoutingID                pgtype.Int8        `json:"routing_id"`
+}
+
+type MrpWorkOrderOperation struct {
+	ID                  int64              `json:"id"`
+	CompanyID           int64              `json:"company_id"`
+	WorkOrderID         int64              `json:"work_order_id"`
+	RoutingOperationID  pgtype.Int8        `json:"routing_operation_id"`
+	WorkCenterID        int64              `json:"work_center_id"`
+	Sequence            int32              `json:"sequence"`
+	Code                string             `json:"code"`
+	Name                string             `json:"name"`
+	Status              string             `json:"status"`
+	PlannedSetupMinutes pgtype.Numeric     `json:"planned_setup_minutes"`
+	PlannedRunMinutes   pgtype.Numeric     `json:"planned_run_minutes"`
+	ActualSetupMinutes  pgtype.Numeric     `json:"actual_setup_minutes"`
+	ActualRunMinutes    pgtype.Numeric     `json:"actual_run_minutes"`
+	GoodQuantity        pgtype.Numeric     `json:"good_quantity"`
+	ScrapQuantity       pgtype.Numeric     `json:"scrap_quantity"`
+	OperatorID          pgtype.Int8        `json:"operator_id"`
+	StartedAt           pgtype.Timestamptz `json:"started_at"`
+	CompletedAt         pgtype.Timestamptz `json:"completed_at"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	ScheduledStartAt    pgtype.Timestamptz `json:"scheduled_start_at"`
+	ScheduledEndAt      pgtype.Timestamptz `json:"scheduled_end_at"`
+	ScheduleManual      bool               `json:"schedule_manual"`
+	ScheduleSequence    pgtype.Int4        `json:"schedule_sequence"`
+	ScheduledBy         pgtype.Int8        `json:"scheduled_by"`
 }
 
 type MvApAging struct {
@@ -2572,6 +3155,39 @@ type Permission struct {
 	Description string `json:"description"`
 }
 
+type PlanningHorizon struct {
+	ID                int64              `json:"id"`
+	CompanyID         int64              `json:"company_id"`
+	WarehouseID       int64              `json:"warehouse_id"`
+	PlanningStartDate pgtype.Date        `json:"planning_start_date"`
+	PlanningEndDate   pgtype.Date        `json:"planning_end_date"`
+	FrozenUntilDate   pgtype.Date        `json:"frozen_until_date"`
+	Status            string             `json:"status"`
+	Notes             pgtype.Text        `json:"notes"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	CreatedBy         int64              `json:"created_by"`
+}
+
+type PlanningRule struct {
+	ID                   int64              `json:"id"`
+	CompanyID            int64              `json:"company_id"`
+	WarehouseID          int64              `json:"warehouse_id"`
+	RuleName             string             `json:"rule_name"`
+	RuleType             string             `json:"rule_type"`
+	MaxLoadWeightKg      pgtype.Numeric     `json:"max_load_weight_kg"`
+	MaxLoadVolumeCbm     pgtype.Numeric     `json:"max_load_volume_cbm"`
+	MaxItemsPerLoad      pgtype.Int4        `json:"max_items_per_load"`
+	TimeWindowStart      pgtype.Time        `json:"time_window_start"`
+	TimeWindowEnd        pgtype.Time        `json:"time_window_end"`
+	VehicleTypeRequired  pgtype.Text        `json:"vehicle_type_required"`
+	CustomRuleExpression pgtype.Text        `json:"custom_rule_expression"`
+	Priority             pgtype.Int4        `json:"priority"`
+	IsActive             pgtype.Bool        `json:"is_active"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	CreatedBy            int64              `json:"created_by"`
+}
+
 type Po struct {
 	ID                  int64              `json:"id"`
 	Number              string             `json:"number"`
@@ -2585,16 +3201,54 @@ type Po struct {
 	ApprovedAt          pgtype.Timestamptz `json:"approved_at"`
 	CompanyID           pgtype.Int8        `json:"company_id"`
 	ExpectedWarehouseID pgtype.Int8        `json:"expected_warehouse_id"`
+	RfqAwardID          pgtype.Int8        `json:"rfq_award_id"`
+}
+
+type PoContractVariance struct {
+	ID                 int64              `json:"id"`
+	CompanyID          int64              `json:"company_id"`
+	PoID               int64              `json:"po_id"`
+	PoLineID           int64              `json:"po_line_id"`
+	ContractID         pgtype.Int8        `json:"contract_id"`
+	VarianceType       string             `json:"variance_type"`
+	VariancePercentage pgtype.Numeric     `json:"variance_percentage"`
+	VarianceReason     string             `json:"variance_reason"`
+	ApprovalStatus     string             `json:"approval_status"`
+	ApprovedBy         pgtype.Int8        `json:"approved_by"`
+	ApprovedAt         pgtype.Timestamptz `json:"approved_at"`
+	Note               string             `json:"note"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 }
 
 type PoLine struct {
-	ID        int64          `json:"id"`
-	PoID      int64          `json:"po_id"`
-	ProductID int64          `json:"product_id"`
-	Qty       pgtype.Numeric `json:"qty"`
-	Price     pgtype.Numeric `json:"price"`
-	TaxID     pgtype.Int8    `json:"tax_id"`
-	Note      string         `json:"note"`
+	ID             int64          `json:"id"`
+	PoID           int64          `json:"po_id"`
+	ProductID      int64          `json:"product_id"`
+	Qty            pgtype.Numeric `json:"qty"`
+	Price          pgtype.Numeric `json:"price"`
+	TaxID          pgtype.Int8    `json:"tax_id"`
+	Note           string         `json:"note"`
+	RfqAwardLineID pgtype.Int8    `json:"rfq_award_line_id"`
+}
+
+type PolicyVersion struct {
+	ID                  int64              `json:"id"`
+	CompanyID           int64              `json:"company_id"`
+	RecordType          string             `json:"record_type"`
+	DecisionName        string             `json:"decision_name"`
+	EffectiveFrom       pgtype.Timestamptz `json:"effective_from"`
+	EffectiveTo         pgtype.Timestamptz `json:"effective_to"`
+	EnforcementMode     string             `json:"enforcement_mode"`
+	SignatureRequired   bool               `json:"signature_required"`
+	ApproverRoles       []string           `json:"approver_roles"`
+	SeparationOfDuties  pgtype.Bool        `json:"separation_of_duties"`
+	RequiredEvidence    []string           `json:"required_evidence"`
+	RetentionPeriodDays pgtype.Int4        `json:"retention_period_days"`
+	Version             int32              `json:"version"`
+	Status              string             `json:"status"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	CreatedBy           int64              `json:"created_by"`
 }
 
 type PortalDocument struct {
@@ -2707,6 +3361,26 @@ type PrLine struct {
 	Note      string         `json:"note"`
 }
 
+type PriceHistory struct {
+	ID                int64              `json:"id"`
+	CompanyID         int64              `json:"company_id"`
+	SupplierID        int64              `json:"supplier_id"`
+	ProductID         int64              `json:"product_id"`
+	SourceType        string             `json:"source_type"`
+	SourceID          int64              `json:"source_id"`
+	Currency          string             `json:"currency"`
+	UnitPrice         pgtype.Numeric     `json:"unit_price"`
+	Quantity          pgtype.Numeric     `json:"quantity"`
+	TaxRate           pgtype.Numeric     `json:"tax_rate"`
+	Moq               pgtype.Numeric     `json:"moq"`
+	LeadTimeDays      int32              `json:"lead_time_days"`
+	FxRate            pgtype.Numeric     `json:"fx_rate"`
+	BaseCurrencyPrice pgtype.Numeric     `json:"base_currency_price"`
+	ObservationDate   pgtype.Date        `json:"observation_date"`
+	Note              string             `json:"note"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+}
+
 type Product struct {
 	ID         int64              `json:"id"`
 	Sku        string             `json:"sku"`
@@ -2752,6 +3426,56 @@ type ProjectTask struct {
 	Status    string `json:"status"`
 }
 
+type QualityCapa struct {
+	ID        int64              `json:"id"`
+	CompanyID int64              `json:"company_id"`
+	Number    string             `json:"number"`
+	Status    string             `json:"status"`
+	CreatedBy int64              `json:"created_by"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	Index     interface{}        `json:"index"`
+}
+
+type QualityHold struct {
+	ID           int64              `json:"id"`
+	CompanyID    int64              `json:"company_id"`
+	InspectionID pgtype.Int8        `json:"inspection_id"`
+	RecordType   pgtype.Text        `json:"record_type"`
+	RecordID     pgtype.Int8        `json:"record_id"`
+	Status       string             `json:"status"`
+	CreatedBy    int64              `json:"created_by"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	Index        interface{}        `json:"index"`
+}
+
+type QualityInspection struct {
+	ID               int64              `json:"id"`
+	CompanyID        int64              `json:"company_id"`
+	ProductID        int64              `json:"product_id"`
+	WorkOrderID      pgtype.Int8        `json:"work_order_id"`
+	OperationID      pgtype.Int8        `json:"operation_id"`
+	InspectionPlanID pgtype.Int8        `json:"inspection_plan_id"`
+	Status           string             `json:"status"`
+	ResultSnapshot   []byte             `json:"result_snapshot"`
+	ResultVersion    pgtype.Text        `json:"result_version"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	Index            interface{}        `json:"index"`
+}
+
+type QualityNcr struct {
+	ID        int64              `json:"id"`
+	CompanyID int64              `json:"company_id"`
+	Number    string             `json:"number"`
+	Status    string             `json:"status"`
+	CreatedBy int64              `json:"created_by"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	Index     interface{}        `json:"index"`
+}
+
 type Quotation struct {
 	ID               int64              `json:"id"`
 	DocNumber        string             `json:"doc_number"`
@@ -2793,6 +3517,42 @@ type QuotationLine struct {
 	LineOrder       int32              `json:"line_order"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type RateCard struct {
+	ID                 int64            `json:"id"`
+	CompanyID          int64            `json:"company_id"`
+	CarrierID          pgtype.Int8      `json:"carrier_id"`
+	OriginCity         string           `json:"origin_city"`
+	OriginCountry      string           `json:"origin_country"`
+	DestinationCity    string           `json:"destination_city"`
+	DestinationCountry string           `json:"destination_country"`
+	ServiceLevel       string           `json:"service_level"`
+	MinWeight          pgtype.Numeric   `json:"min_weight"`
+	MaxWeight          pgtype.Numeric   `json:"max_weight"`
+	BaseRate           pgtype.Numeric   `json:"base_rate"`
+	PerKgRate          pgtype.Numeric   `json:"per_kg_rate"`
+	PerCbmRate         pgtype.Numeric   `json:"per_cbm_rate"`
+	Currency           string           `json:"currency"`
+	EffectiveDate      pgtype.Date      `json:"effective_date"`
+	ExpirationDate     pgtype.Date      `json:"expiration_date"`
+	IsActive           bool             `json:"is_active"`
+	CreatedBy          int64            `json:"created_by"`
+	CreatedAt          pgtype.Timestamp `json:"created_at"`
+	UpdatedAt          pgtype.Timestamp `json:"updated_at"`
+}
+
+type RateSurcharge struct {
+	ID               int64            `json:"id"`
+	CompanyID        int64            `json:"company_id"`
+	RateCardID       int64            `json:"rate_card_id"`
+	SurchargeType    string           `json:"surcharge_type"`
+	SurchargeName    string           `json:"surcharge_name"`
+	SurchargeAmount  pgtype.Numeric   `json:"surcharge_amount"`
+	SurchargePercent pgtype.Numeric   `json:"surcharge_percent"`
+	EffectiveDate    pgtype.Date      `json:"effective_date"`
+	ExpirationDate   pgtype.Date      `json:"expiration_date"`
+	CreatedAt        pgtype.Timestamp `json:"created_at"`
 }
 
 type ReportSchedule struct {
@@ -2854,6 +3614,122 @@ type ReturnDeliveryOrderLine struct {
 	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
 }
 
+type Rfq struct {
+	ID                   int64              `json:"id"`
+	CompanyID            int64              `json:"company_id"`
+	Number               string             `json:"number"`
+	Status               string             `json:"status"`
+	Currency             string             `json:"currency"`
+	ResponseDueAt        pgtype.Timestamptz `json:"response_due_at"`
+	CommercialTerms      string             `json:"commercial_terms"`
+	PriceWeight          int32              `json:"price_weight"`
+	LeadTimeWeight       int32              `json:"lead_time_weight"`
+	TermsWeight          int32              `json:"terms_weight"`
+	SupplierRatingWeight int32              `json:"supplier_rating_weight"`
+	CreatedBy            int64              `json:"created_by"`
+	IssuedAt             pgtype.Timestamptz `json:"issued_at"`
+	ClosedAt             pgtype.Timestamptz `json:"closed_at"`
+	AwardedAt            pgtype.Timestamptz `json:"awarded_at"`
+	Version              int32              `json:"version"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
+type RfqAward struct {
+	ID                  int64              `json:"id"`
+	RfqID               int64              `json:"rfq_id"`
+	CompanyID           int64              `json:"company_id"`
+	Status              string             `json:"status"`
+	ExpectedWarehouseID int64              `json:"expected_warehouse_id"`
+	Note                string             `json:"note"`
+	CreatedBy           int64              `json:"created_by"`
+	ApprovedBy          pgtype.Int8        `json:"approved_by"`
+	ApprovedAt          pgtype.Timestamptz `json:"approved_at"`
+	Version             int32              `json:"version"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+}
+
+type RfqAwardLine struct {
+	ID            int64          `json:"id"`
+	AwardID       int64          `json:"award_id"`
+	RfqLineID     int64          `json:"rfq_line_id"`
+	BidLineID     int64          `json:"bid_line_id"`
+	SupplierID    int64          `json:"supplier_id"`
+	Quantity      pgtype.Numeric `json:"quantity"`
+	UnitPrice     pgtype.Numeric `json:"unit_price"`
+	TaxAmount     pgtype.Numeric `json:"tax_amount"`
+	FreightAmount pgtype.Numeric `json:"freight_amount"`
+	PoID          pgtype.Int8    `json:"po_id"`
+	PoLineID      pgtype.Int8    `json:"po_line_id"`
+}
+
+type RfqBid struct {
+	ID              int64              `json:"id"`
+	RfqID           int64              `json:"rfq_id"`
+	SupplierID      int64              `json:"supplier_id"`
+	CompanyID       int64              `json:"company_id"`
+	Status          string             `json:"status"`
+	Currency        string             `json:"currency"`
+	FxRate          pgtype.Numeric     `json:"fx_rate"`
+	FxRateDate      pgtype.Date        `json:"fx_rate_date"`
+	PaymentTerms    string             `json:"payment_terms"`
+	SourceReference string             `json:"source_reference"`
+	ValidUntil      pgtype.Date        `json:"valid_until"`
+	SubmittedAt     pgtype.Timestamptz `json:"submitted_at"`
+	Version         int32              `json:"version"`
+	CreatedBy       int64              `json:"created_by"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type RfqBidLine struct {
+	ID                   int64          `json:"id"`
+	BidID                int64          `json:"bid_id"`
+	RfqLineID            int64          `json:"rfq_line_id"`
+	Quantity             pgtype.Numeric `json:"quantity"`
+	UnitPrice            pgtype.Numeric `json:"unit_price"`
+	UnitPriceBase        pgtype.Numeric `json:"unit_price_base"`
+	TaxAmount            pgtype.Numeric `json:"tax_amount"`
+	FreightAmount        pgtype.Numeric `json:"freight_amount"`
+	TaxAmountBase        pgtype.Numeric `json:"tax_amount_base"`
+	FreightAmountBase    pgtype.Numeric `json:"freight_amount_base"`
+	MinimumOrderQuantity pgtype.Numeric `json:"minimum_order_quantity"`
+	LeadTimeDays         int32          `json:"lead_time_days"`
+	CommercialScore      int32          `json:"commercial_score"`
+	SupplierRatingScore  int32          `json:"supplier_rating_score"`
+	Note                 string         `json:"note"`
+}
+
+type RfqComparisonSnapshot struct {
+	ID         int64              `json:"id"`
+	RfqID      int64              `json:"rfq_id"`
+	CompanyID  int64              `json:"company_id"`
+	RfqVersion int32              `json:"rfq_version"`
+	Comparison []byte             `json:"comparison"`
+	CreatedBy  int64              `json:"created_by"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type RfqLine struct {
+	ID        int64          `json:"id"`
+	RfqID     int64          `json:"rfq_id"`
+	PrLineID  pgtype.Int8    `json:"pr_line_id"`
+	ProductID int64          `json:"product_id"`
+	Quantity  pgtype.Numeric `json:"quantity"`
+	Note      string         `json:"note"`
+	LineOrder int32          `json:"line_order"`
+}
+
+type RfqSupplier struct {
+	ID               int64              `json:"id"`
+	RfqID            int64              `json:"rfq_id"`
+	SupplierID       int64              `json:"supplier_id"`
+	InvitedAt        pgtype.Timestamptz `json:"invited_at"`
+	IssuedMessageRef string             `json:"issued_message_ref"`
+	Status           string             `json:"status"`
+}
+
 type Role struct {
 	ID          int64              `json:"id"`
 	Name        string             `json:"name"`
@@ -2866,6 +3742,29 @@ type RolePermission struct {
 	RoleID       int64              `json:"role_id"`
 	PermissionID int64              `json:"permission_id"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type RouteStop struct {
+	ID                   int64              `json:"id"`
+	CompanyID            int64              `json:"company_id"`
+	RouteID              int64              `json:"route_id"`
+	StopSequence         int32              `json:"stop_sequence"`
+	StopType             string             `json:"stop_type"`
+	WarehouseID          pgtype.Int8        `json:"warehouse_id"`
+	CustomerID           pgtype.Int8        `json:"customer_id"`
+	CustomerAddress      pgtype.Text        `json:"customer_address"`
+	CustomerCity         pgtype.Text        `json:"customer_city"`
+	LocationLat          pgtype.Numeric     `json:"location_lat"`
+	LocationLon          pgtype.Numeric     `json:"location_lon"`
+	ContactName          pgtype.Text        `json:"contact_name"`
+	ContactPhone         pgtype.Text        `json:"contact_phone"`
+	PlannedArrivalTime   pgtype.Time        `json:"planned_arrival_time"`
+	PlannedDepartureTime pgtype.Time        `json:"planned_departure_time"`
+	ActualArrivalAt      pgtype.Timestamptz `json:"actual_arrival_at"`
+	ActualDepartureAt    pgtype.Timestamptz `json:"actual_departure_at"`
+	ItemsDelivered       pgtype.Int4        `json:"items_delivered"`
+	Notes                pgtype.Text        `json:"notes"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 }
 
 type SalesOrder struct {
@@ -2924,12 +3823,82 @@ type Session struct {
 	Ua        pgtype.Text        `json:"ua"`
 }
 
+type Shipment struct {
+	ID                      int64              `json:"id"`
+	CompanyID               int64              `json:"company_id"`
+	ShipmentNumber          string             `json:"shipment_number"`
+	Status                  string             `json:"status"`
+	ShipmentType            string             `json:"shipment_type"`
+	OriginWarehouseID       pgtype.Int8        `json:"origin_warehouse_id"`
+	DestinationWarehouseID  pgtype.Int8        `json:"destination_warehouse_id"`
+	DestinationAddress      pgtype.Text        `json:"destination_address"`
+	DestinationCity         pgtype.Text        `json:"destination_city"`
+	DestinationCountry      pgtype.Text        `json:"destination_country"`
+	DestinationContactName  pgtype.Text        `json:"destination_contact_name"`
+	DestinationContactPhone pgtype.Text        `json:"destination_contact_phone"`
+	VehicleID               pgtype.Int8        `json:"vehicle_id"`
+	DriverID                pgtype.Int8        `json:"driver_id"`
+	CarrierID               pgtype.Int8        `json:"carrier_id"`
+	CarrierServiceType      pgtype.Text        `json:"carrier_service_type"`
+	PlannedDispatchAt       pgtype.Timestamptz `json:"planned_dispatch_at"`
+	PlannedDeliveryAt       pgtype.Timestamptz `json:"planned_delivery_at"`
+	ActualDispatchAt        pgtype.Timestamptz `json:"actual_dispatch_at"`
+	ActualDeliveryAt        pgtype.Timestamptz `json:"actual_delivery_at"`
+	TotalWeightKg           pgtype.Numeric     `json:"total_weight_kg"`
+	TotalVolumeCbm          pgtype.Numeric     `json:"total_volume_cbm"`
+	FreightCharge           pgtype.Numeric     `json:"freight_charge"`
+	FreightCurrency         pgtype.Text        `json:"freight_currency"`
+	Notes                   pgtype.Text        `json:"notes"`
+	CreatedAt               pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt               pgtype.Timestamptz `json:"updated_at"`
+	CreatedBy               int64              `json:"created_by"`
+}
+
+type ShipmentLine struct {
+	ID            int64              `json:"id"`
+	CompanyID     int64              `json:"company_id"`
+	ShipmentID    int64              `json:"shipment_id"`
+	ProductID     int64              `json:"product_id"`
+	Quantity      pgtype.Numeric     `json:"quantity"`
+	WeightKg      pgtype.Numeric     `json:"weight_kg"`
+	VolumeCbm     pgtype.Numeric     `json:"volume_cbm"`
+	LotNumber     pgtype.Text        `json:"lot_number"`
+	SerialNumbers []string           `json:"serial_numbers"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
+type SignatureChallenge struct {
+	ID                       int64              `json:"id"`
+	ChallengeID              pgtype.UUID        `json:"challenge_id"`
+	PolicyVersionID          int64              `json:"policy_version_id"`
+	RecordID                 int64              `json:"record_id"`
+	RecordVersion            pgtype.Text        `json:"record_version"`
+	Expiry                   pgtype.Timestamptz `json:"expiry"`
+	ReauthenticationRequired bool               `json:"reauthentication_required"`
+	Used                     bool               `json:"used"`
+	CreatedAt                pgtype.Timestamptz `json:"created_at"`
+	Index                    interface{}        `json:"index"`
+}
+
 type SourceLink struct {
 	ID        int64              `json:"id"`
 	Module    string             `json:"module"`
 	RefID     pgtype.UUID        `json:"ref_id"`
 	JeID      int64              `json:"je_id"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type SubcontractReceipt struct {
+	ID          int64              `json:"id"`
+	CompanyID   int64              `json:"company_id"`
+	WorkOrderID int64              `json:"work_order_id"`
+	OperationID int64              `json:"operation_id"`
+	Status      string             `json:"status"`
+	SentQty     pgtype.Numeric     `json:"sent_qty"`
+	ReceivedQty pgtype.Numeric     `json:"received_qty"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	Index       interface{}        `json:"index"`
 }
 
 type Supplier struct {
@@ -2943,6 +3912,58 @@ type Supplier struct {
 	// Tenant isolation: company that owns this supplier
 	CompanyID pgtype.Int8 `json:"company_id"`
 	TaxID     string      `json:"tax_id"`
+}
+
+type SupplierContract struct {
+	ID                     int64              `json:"id"`
+	CompanyID              int64              `json:"company_id"`
+	SupplierID             int64              `json:"supplier_id"`
+	Version                int32              `json:"version"`
+	Status                 string             `json:"status"`
+	Currency               string             `json:"currency"`
+	EffectiveFrom          pgtype.Date        `json:"effective_from"`
+	EffectiveTo            pgtype.Date        `json:"effective_to"`
+	PaymentTerms           string             `json:"payment_terms"`
+	Incoterms              string             `json:"incoterms"`
+	RenewalNoticeDays      int32              `json:"renewal_notice_days"`
+	ExpiryNotificationSent bool               `json:"expiry_notification_sent"`
+	CreatedBy              int64              `json:"created_by"`
+	ApprovedBy             pgtype.Int8        `json:"approved_by"`
+	ApprovedAt             pgtype.Timestamptz `json:"approved_at"`
+	TerminatedAt           pgtype.Timestamptz `json:"terminated_at"`
+	Note                   string             `json:"note"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SupplierScorecard struct {
+	ID                          int64              `json:"id"`
+	CompanyID                   int64              `json:"company_id"`
+	SupplierID                  int64              `json:"supplier_id"`
+	Version                     int32              `json:"version"`
+	PeriodStart                 pgtype.Date        `json:"period_start"`
+	PeriodEnd                   pgtype.Date        `json:"period_end"`
+	Status                      string             `json:"status"`
+	DeliveryOtifScore           pgtype.Numeric     `json:"delivery_otif_score"`
+	DeliveryOtifWeight          int32              `json:"delivery_otif_weight"`
+	DeliveryOtifSampleSize      int32              `json:"delivery_otif_sample_size"`
+	QualityScore                pgtype.Numeric     `json:"quality_score"`
+	QualityWeight               int32              `json:"quality_weight"`
+	QualitySampleSize           int32              `json:"quality_sample_size"`
+	PriceAdherenceScore         pgtype.Numeric     `json:"price_adherence_score"`
+	PriceAdherenceWeight        int32              `json:"price_adherence_weight"`
+	PriceAdherenceSampleSize    int32              `json:"price_adherence_sample_size"`
+	RfqResponsivenessScore      pgtype.Numeric     `json:"rfq_responsiveness_score"`
+	RfqResponsivenessWeight     int32              `json:"rfq_responsiveness_weight"`
+	RfqResponsivenessSampleSize int32              `json:"rfq_responsiveness_sample_size"`
+	ReviewerAssessmentScore     pgtype.Numeric     `json:"reviewer_assessment_score"`
+	ReviewerAssessmentWeight    int32              `json:"reviewer_assessment_weight"`
+	OverallScore                pgtype.Numeric     `json:"overall_score"`
+	PublishedBy                 pgtype.Int8        `json:"published_by"`
+	PublishedAt                 pgtype.Timestamptz `json:"published_at"`
+	Note                        string             `json:"note"`
+	CreatedBy                   int64              `json:"created_by"`
+	CreatedAt                   pgtype.Timestamptz `json:"created_at"`
 }
 
 type Tax struct {
@@ -3178,6 +4199,89 @@ type Timesheet struct {
 	FxRateLockedAt pgtype.Timestamptz `json:"fx_rate_locked_at"`
 }
 
+type TransferOrder struct {
+	ID                   int64              `json:"id"`
+	CompanyID            int64              `json:"company_id"`
+	TransferNumber       string             `json:"transfer_number"`
+	Status               string             `json:"status"`
+	FromWarehouseID      int64              `json:"from_warehouse_id"`
+	ToWarehouseID        int64              `json:"to_warehouse_id"`
+	LoadID               pgtype.Int8        `json:"load_id"`
+	VehicleID            pgtype.Int8        `json:"vehicle_id"`
+	DriverID             pgtype.Int8        `json:"driver_id"`
+	CarrierID            pgtype.Int8        `json:"carrier_id"`
+	CarrierServiceType   pgtype.Text        `json:"carrier_service_type"`
+	PlannedDispatchDate  pgtype.Date        `json:"planned_dispatch_date"`
+	PlannedArrivalDate   pgtype.Date        `json:"planned_arrival_date"`
+	ActualDispatchAt     pgtype.Timestamptz `json:"actual_dispatch_at"`
+	ActualArrivalAt      pgtype.Timestamptz `json:"actual_arrival_at"`
+	TotalWeightKg        pgtype.Numeric     `json:"total_weight_kg"`
+	TotalVolumeCbm       pgtype.Numeric     `json:"total_volume_cbm"`
+	TotalItems           pgtype.Int4        `json:"total_items"`
+	InTransitQuantity    pgtype.Numeric     `json:"in_transit_quantity"`
+	TransferCost         pgtype.Numeric     `json:"transfer_cost"`
+	TransferCostCurrency pgtype.Text        `json:"transfer_cost_currency"`
+	Notes                pgtype.Text        `json:"notes"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	CreatedBy            int64              `json:"created_by"`
+}
+
+type TransferOrderLine struct {
+	ID                int64              `json:"id"`
+	CompanyID         int64              `json:"company_id"`
+	TransferOrderID   int64              `json:"transfer_order_id"`
+	ProductID         int64              `json:"product_id"`
+	QuantityRequested pgtype.Numeric     `json:"quantity_requested"`
+	QuantityShipped   pgtype.Numeric     `json:"quantity_shipped"`
+	QuantityReceived  pgtype.Numeric     `json:"quantity_received"`
+	LotNumber         pgtype.Text        `json:"lot_number"`
+	SerialNumbers     []string           `json:"serial_numbers"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+}
+
+type Trip struct {
+	ID                int64              `json:"id"`
+	CompanyID         int64              `json:"company_id"`
+	TripNumber        string             `json:"trip_number"`
+	Status            string             `json:"status"`
+	VehicleID         int64              `json:"vehicle_id"`
+	DriverID          int64              `json:"driver_id"`
+	FleetID           pgtype.Int8        `json:"fleet_id"`
+	OriginWarehouseID pgtype.Int8        `json:"origin_warehouse_id"`
+	PlannedStartAt    pgtype.Timestamptz `json:"planned_start_at"`
+	PlannedEndAt      pgtype.Timestamptz `json:"planned_end_at"`
+	ActualStartAt     pgtype.Timestamptz `json:"actual_start_at"`
+	ActualEndAt       pgtype.Timestamptz `json:"actual_end_at"`
+	TotalDistanceKm   pgtype.Numeric     `json:"total_distance_km"`
+	FuelUsedLiters    pgtype.Numeric     `json:"fuel_used_liters"`
+	Notes             pgtype.Text        `json:"notes"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	CreatedBy         int64              `json:"created_by"`
+}
+
+type TripStop struct {
+	ID                int64              `json:"id"`
+	CompanyID         int64              `json:"company_id"`
+	TripID            int64              `json:"trip_id"`
+	ShipmentID        pgtype.Int8        `json:"shipment_id"`
+	StopSequence      int32              `json:"stop_sequence"`
+	StopType          string             `json:"stop_type"`
+	WarehouseID       pgtype.Int8        `json:"warehouse_id"`
+	LocationAddress   pgtype.Text        `json:"location_address"`
+	LocationCity      pgtype.Text        `json:"location_city"`
+	LocationLat       pgtype.Numeric     `json:"location_lat"`
+	LocationLon       pgtype.Numeric     `json:"location_lon"`
+	ContactName       pgtype.Text        `json:"contact_name"`
+	ContactPhone      pgtype.Text        `json:"contact_phone"`
+	PlannedArrivalAt  pgtype.Timestamptz `json:"planned_arrival_at"`
+	ActualArrivalAt   pgtype.Timestamptz `json:"actual_arrival_at"`
+	ActualDepartureAt pgtype.Timestamptz `json:"actual_departure_at"`
+	Notes             pgtype.Text        `json:"notes"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+}
+
 type Unit struct {
 	ID        int64              `json:"id"`
 	Code      string             `json:"code"`
@@ -3299,6 +4403,30 @@ type VarianceSnapshot struct {
 	Payload      []byte                 `json:"payload"`
 	CreatedAt    pgtype.Timestamptz     `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz     `json:"updated_at"`
+}
+
+type Vehicle struct {
+	ID                  int64              `json:"id"`
+	CompanyID           int64              `json:"company_id"`
+	FleetID             int64              `json:"fleet_id"`
+	VehicleRegistration string             `json:"vehicle_registration"`
+	VehicleType         string             `json:"vehicle_type"`
+	Status              string             `json:"status"`
+	MaxWeightKg         pgtype.Numeric     `json:"max_weight_kg"`
+	MaxVolumeCbm        pgtype.Numeric     `json:"max_volume_cbm"`
+	LicensePlate        string             `json:"license_plate"`
+	Vin                 pgtype.Text        `json:"vin"`
+	Make                pgtype.Text        `json:"make"`
+	Model               pgtype.Text        `json:"model"`
+	YearManufactured    pgtype.Int4        `json:"year_manufactured"`
+	LastMaintenanceAt   pgtype.Timestamptz `json:"last_maintenance_at"`
+	NextMaintenanceDue  pgtype.Date        `json:"next_maintenance_due"`
+	InsuranceExpiresAt  pgtype.Timestamptz `json:"insurance_expires_at"`
+	GpsDeviceID         pgtype.Text        `json:"gps_device_id"`
+	Notes               pgtype.Text        `json:"notes"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	CreatedBy           int64              `json:"created_by"`
 }
 
 // Enriched view of delivery orders with related entity details

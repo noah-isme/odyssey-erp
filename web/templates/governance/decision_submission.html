@@ -1,0 +1,138 @@
+{{define "governance/decision_submission"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manufacturing Governance - Decision Submission</title>
+    <link rel="stylesheet" href="/static/css/governance.css">
+</head>
+<body>
+    <div class="governance-container">
+        <header class="governance-header">
+            <h1>Manufacturing Governance Decision</h1>
+            <p class="subtitle">Submit a decision for multi-actor certification</p>
+        </header>
+
+        <main class="governance-main">
+            <form id="decisionForm" class="decision-form" method="POST" action="/api/decisions">
+                
+                <!-- Record Type Selection -->
+                <section class="form-section">
+                    <h2>Decision Type</h2>
+                    <div class="form-group">
+                        <label for="recordType">Record Type *</label>
+                        <select id="recordType" name="record_type" required onchange="updateRecordTypeFields()">
+                            <option value="">-- Select Record Type --</option>
+                            <option value="BOM">BOM Approval</option>
+                            <option value="WorkOrder">Work Order Release</option>
+                            <option value="Operation">Operation Completion</option>
+                            <option value="Hold">Quality Hold Release</option>
+                            <option value="NCR">NCR Disposition</option>
+                            <option value="CAPA">CAPA Closure</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="recordId">Record ID *</label>
+                        <input type="number" id="recordId" name="record_id" required placeholder="Enter record ID">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="companyId">Company ID *</label>
+                        <input type="number" id="companyId" name="company_id" required placeholder="Enter company ID">
+                    </div>
+                </section>
+
+                <!-- Actor Information -->
+                <section class="form-section">
+                    <h2>Your Information</h2>
+                    <div class="form-group">
+                        <label for="actorId">Your User ID *</label>
+                        <input type="number" id="actorId" name="actor_id" required placeholder="Your user ID">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="actorRole">Your Role *</label>
+                        <select id="actorRole" name="actor_role" required>
+                            <option value="">-- Select Role --</option>
+                            <option value="QUALITY_LEAD">Quality Lead</option>
+                            <option value="ENGINEERING">Engineering</option>
+                            <option value="PRODUCTION_MANAGER">Production Manager</option>
+                            <option value="PLANNER">Planner</option>
+                            <option value="QUALITY_MANAGER">Quality Manager</option>
+                            <option value="PROCESS_OWNER">Process Owner</option>
+                        </select>
+                    </div>
+                </section>
+
+                <!-- Decision Details -->
+                <section class="form-section">
+                    <h2>Decision Details</h2>
+                    <div class="form-group">
+                        <label for="action">Action *</label>
+                        <select id="action" name="action" required>
+                            <option value="">-- Select Action --</option>
+                            <option value="Approve">Approve</option>
+                            <option value="Release">Release</option>
+                            <option value="Complete">Complete</option>
+                            <option value="Accept">Accept</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reason">Reason *</label>
+                        <textarea id="reason" name="reason" required placeholder="Provide reason for this decision" rows="4"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="evidence">Supporting Evidence (optional)</label>
+                        <textarea id="evidence" name="evidence" placeholder="Additional evidence or notes" rows="3"></textarea>
+                    </div>
+                </section>
+
+                <!-- Pre-condition Validation -->
+                <section class="form-section validation-section" id="validationSection" style="display:none;">
+                    <h2>Pre-condition Validation</h2>
+                    <div id="validationResults" class="validation-results">
+                        <!-- Populated by JavaScript -->
+                    </div>
+                </section>
+
+                <!-- Buttons -->
+                <section class="form-section button-section">
+                    <button type="button" class="btn btn-validate" onclick="validateDecision()">
+                        Validate & Request Challenge
+                    </button>
+                    <button type="reset" class="btn btn-secondary">Clear Form</button>
+                </section>
+            </form>
+
+            <!-- Challenge Section (Hidden Initially) -->
+            <section id="challengeSection" class="challenge-section" style="display:none;">
+                <h2>Signature Challenge</h2>
+                <div class="challenge-box">
+                    <p class="challenge-text" id="challengeText"></p>
+                    <div class="form-group">
+                        <label for="signature">Your Signature *</label>
+                        <input type="text" id="signature" placeholder="Enter your digital signature or token" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="comment">Decision Comment (optional)</label>
+                        <textarea id="comment" placeholder="Add any final comments" rows="2"></textarea>
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="submitSignature()">
+                        Submit Signature
+                    </button>
+                </div>
+            </section>
+        </main>
+
+        <!-- Status Messages -->
+        <div id="statusMessage" class="status-message" style="display:none;"></div>
+    </div>
+
+    <script src="/static/js/governance.js"></script>
+</body>
+</html>
+{{end}}

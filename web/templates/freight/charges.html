@@ -1,0 +1,261 @@
+{{define "freight/charges"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Freight Charges - Odyssey ERP</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .status-calculated { background-color: #ffc107; }
+        .status-invoiced { background-color: #17a2b8; }
+        .status-paid { background-color: #28a745; }
+        .charge-table { font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="container-fluid mt-5">
+        <div class="row mb-4">
+            <div class="col-md-8">
+                <h1>Freight Charges</h1>
+                <p class="text-muted">Track freight charges, invoicing, and payments</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <a href="/freight/charges/calculate" class="btn btn-primary">+ Calculate Freight</a>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-body">
+                <form method="GET" class="row g-3">
+                    <div class="col-md-3">
+                        <select class="form-select" name="status">
+                            <option value="">All Statuses</option>
+                            <option {{if eq .filter.Status "CALCULATED"}}selected{{end}}>CALCULATED</option>
+                            <option {{if eq .filter.Status "INVOICED"}}selected{{end}}>INVOICED</option>
+                            <option {{if eq .filter.Status "PAID"}}selected{{end}}>PAID</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <input type="text" class="form-control" name="origin" placeholder="Origin city" value="{{.filter.OriginCity}}">
+                    </div>
+                    <div class="col-md-3">
+                        <input type="text" class="form-control" name="destination" placeholder="Destination city" value="{{.filter.DestinationCity}}">
+                    </div>
+                    <div class="col-md-3">
+                        <button type="submit" class="btn btn-outline-secondary w-100">Filter</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {{if .flash}}
+        <div class="alert alert-{{.flash.Type}} alert-dismissible fade show" role="alert">
+            {{.flash.Message}}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {{end}}
+
+        <div class="card">
+            <div class="table-responsive">
+                <table class="table table-hover charge-table mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Route</th>
+                            <th>Shipment</th>
+                            <th>Weight/Volume</th>
+                            <th>Base Charge</th>
+                            <th>Freight Total</th>
+                            <th>Status</th>
+                            <th>Invoice #</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{range .charges}}
+                        <tr>
+                            <td>
+                                <strong>{{.OriginCity}}</strong><br>
+                                <small class="text-muted">→ {{.DestinationCity}}</small>
+                            </td>
+                            <td>
+                                {{if .ShipmentID}}
+                                <a href="/shipments/{{.ShipmentID}}">Shipment #{{.ShipmentID}}</a>
+                                {{else if .LoadID}}
+                                <a href="/loads/{{.LoadID}}">Load #{{.LoadID}}</a>
+                                {{else}}
+                                <em>-</em>
+                                {{end}}
+                            </td>
+                            <td>
+                                {{if .WeightKg}}{{.WeightKg}} kg{{end}}
+                                {{if .VolumeCbm}}<br>{{.VolumeCbm}} cbm{{end}}
+                            </td>
+                            <td>{{.BaseCharge}} {{.Currency}}</td>
+                            <td>
+                                <strong>{{.FreightTotal}} {{.Currency}}</strong>
+                            </td>
+                            <td>
+                                <span class="badge status-{{.Status|lower}}">{{.Status}}</span>
+                            </td>
+                            <td>{{if .InvoiceNumber}}<a href="#invoice-{{.InvoiceNumber}}">{{.InvoiceNumber}}</a>{{else}}-{{end}}</td>
+                            <td>{{.CreatedAt|dateShort}}</td>
+                            <td>
+                                <a href="/freight/charges/{{.ID}}" class="btn btn-sm btn-outline-primary">View</a>
+                                {{if eq .Status "CALCULATED"}}
+                                <a href="/freight/charges/{{.ID}}/invoice" class="btn btn-sm btn-outline-success">Invoice</a>
+                                {{else if eq .Status "INVOICED"}}
+                                <a href="/freight/charges/{{.ID}}/paid" class="btn btn-sm btn-outline-info" onclick="return confirm('Mark as paid?')">Mark Paid</a>
+                                {{end}}
+                            </td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {{if not .charges}}
+        <div class="alert alert-info mt-3">
+            No freight charges found. <a href="/freight/charges/calculate">Calculate freight for a shipment</a>
+        </div>
+        {{end}}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+{{end}}
+
+{{define "freight/charge_detail"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Freight Charge #{{.charge.ID}} - Odyssey ERP</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5 mb-5">
+        <div class="row mb-4">
+            <div class="col-md-8">
+                <h1>Freight Charge #{{.charge.ID}}</h1>
+                <p class="text-muted">
+                    {{.charge.OriginCity}} → {{.charge.DestinationCity}}
+                    <span class="badge bg-info">{{.charge.ServiceLevel}}</span>
+                </p>
+            </div>
+            <div class="col-md-4 text-end">
+                <span class="badge bg-success fs-6">{{.charge.Status}}</span>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h5>Charge Details</h5>
+                    </div>
+                    <div class="card-body">
+                        <dl class="row">
+                            <dt class="col-sm-5">Route:</dt>
+                            <dd class="col-sm-7">{{.charge.OriginCity}} → {{.charge.DestinationCity}}</dd>
+
+                            <dt class="col-sm-5">Service Level:</dt>
+                            <dd class="col-sm-7">{{.charge.ServiceLevel}}</dd>
+
+                            <dt class="col-sm-5">Weight:</dt>
+                            <dd class="col-sm-7">{{.charge.WeightKg}} kg</dd>
+
+                            <dt class="col-sm-5">Volume:</dt>
+                            <dd class="col-sm-7">{{.charge.VolumeCbm}} cbm</dd>
+
+                            <dt class="col-sm-5">Currency:</dt>
+                            <dd class="col-sm-7">{{.charge.Currency}}</dd>
+
+                            <dt class="col-sm-5">Created:</dt>
+                            <dd class="col-sm-7">{{.charge.CreatedAt}}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h5>Freight Calculation Breakdown</h5>
+                    </div>
+                    <div class="card-body">
+                        <dl class="row">
+                            <dt class="col-sm-5">Base Rate:</dt>
+                            <dd class="col-sm-7"><strong>{{.charge.BaseCharge}} {{.charge.Currency}}</strong></dd>
+
+                            {{if .charge.WeightCharge}}
+                            <dt class="col-sm-5">Weight Charge:</dt>
+                            <dd class="col-sm-7">{{.charge.WeightCharge}} {{.charge.Currency}}</dd>
+                            {{end}}
+
+                            {{if .charge.VolumeCharge}}
+                            <dt class="col-sm-5">Volume Charge:</dt>
+                            <dd class="col-sm-7">{{.charge.VolumeCharge}} {{.charge.Currency}}</dd>
+                            {{end}}
+
+                            {{if .charge.SurchargeTotal}}
+                            <dt class="col-sm-5">Surcharges:</dt>
+                            <dd class="col-sm-7">{{.charge.SurchargeTotal}} {{.charge.Currency}}</dd>
+                            {{end}}
+
+                            <dt class="col-sm-5"><strong>Total Freight:</strong></dt>
+                            <dd class="col-sm-7"><strong class="text-success fs-5">{{.charge.FreightTotal}} {{.charge.Currency}}</strong></dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {{if .charge.InvoiceNumber}}
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Invoice Information</h5>
+                    </div>
+                    <div class="card-body">
+                        <dl class="row">
+                            <dt class="col-sm-2">Invoice #:</dt>
+                            <dd class="col-sm-4">{{.charge.InvoiceNumber}}</dd>
+
+                            <dt class="col-sm-2">Invoice Date:</dt>
+                            <dd class="col-sm-4">{{.charge.InvoiceDate}}</dd>
+
+                            <dt class="col-sm-2">Status:</dt>
+                            <dd class="col-sm-4">
+                                {{if eq .charge.Status "PAID"}}
+                                <span class="badge bg-success">Paid</span>
+                                {{else if eq .charge.Status "INVOICED"}}
+                                <span class="badge bg-info">Invoiced</span>
+                                {{else}}
+                                <span class="badge bg-warning">Pending</span>
+                                {{end}}
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {{end}}
+
+        <div class="mt-4">
+            <a href="/freight/charges" class="btn btn-secondary">Back to Charges</a>
+            {{if eq .charge.Status "CALCULATED"}}
+            <a href="/freight/charges/{{.charge.ID}}/invoice" class="btn btn-success">Add Invoice</a>
+            {{end}}
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+{{end}}

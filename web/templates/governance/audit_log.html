@@ -1,0 +1,133 @@
+{{define "governance/audit_log"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manufacturing Governance - Audit Log</title>
+    <link rel="stylesheet" href="/static/css/governance.css">
+</head>
+<body>
+    <div class="governance-container">
+        <header class="governance-header">
+            <h1>Audit Log Viewer</h1>
+            <p class="subtitle">View all governance decision records and approvals</p>
+        </header>
+
+        <main class="governance-main">
+            <!-- Filter Section -->
+            <section class="form-section">
+                <h2>Filter Events</h2>
+                <div class="audit-filters">
+                    <div class="form-group">
+                        <label for="filterEntityType">Record Type</label>
+                        <select id="filterEntityType">
+                            <option value="">All Types</option>
+                            <option value="BOM">BOM</option>
+                            <option value="WorkOrder">Work Order</option>
+                            <option value="Operation">Operation</option>
+                            <option value="Hold">Quality Hold</option>
+                            <option value="NCR">NCR</option>
+                            <option value="CAPA">CAPA</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="filterAction">Action</label>
+                        <select id="filterAction">
+                            <option value="">All Actions</option>
+                            <option value="APPROVE">Approve</option>
+                            <option value="REJECT">Reject</option>
+                            <option value="RELEASE">Release</option>
+                            <option value="COMPLETE">Complete</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="filterStartDate">From Date</label>
+                        <input type="date" id="filterStartDate">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="filterEndDate">To Date</label>
+                        <input type="date" id="filterEndDate">
+                    </div>
+                </div>
+
+                <button type="button" class="btn btn-primary" onclick="governance.filterAuditLog()">
+                    Apply Filters
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="resetFilters()">
+                    Clear Filters
+                </button>
+            </section>
+
+            <!-- Audit Log Table -->
+            <section class="audit-log-container">
+                <table class="audit-table">
+                    <thead>
+                        <tr>
+                            <th>Event ID</th>
+                            <th>Record Type</th>
+                            <th>Record ID</th>
+                            <th>Action</th>
+                            <th>Actor ID</th>
+                            <th>Status</th>
+                            <th>Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="7" style="text-align: center; padding: 20px;">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- Pagination -->
+            <section class="form-section" style="text-align: center;">
+                <button type="button" class="btn btn-secondary" onclick="previousPage()" id="prevBtn" disabled>
+                    ← Previous
+                </button>
+                <span id="pageInfo" style="margin: 0 20px;">Page 1</span>
+                <button type="button" class="btn btn-secondary" onclick="nextPage()" id="nextBtn">
+                    Next →
+                </button>
+            </section>
+        </main>
+    </div>
+
+    <script src="/static/js/governance.js"></script>
+    <script>
+        let currentPage = 1;
+        const pageSize = 25;
+
+        function resetFilters() {
+            document.getElementById('filterEntityType').value = '';
+            document.getElementById('filterAction').value = '';
+            document.getElementById('filterStartDate').value = '';
+            document.getElementById('filterEndDate').value = '';
+            currentPage = 1;
+            governance.filterAuditLog();
+        }
+
+        function previousPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                governance.filterAuditLog();
+            }
+        }
+
+        function nextPage() {
+            currentPage++;
+            governance.filterAuditLog();
+        }
+
+        // Load audit log on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            governance.loadAuditLog();
+        });
+    </script>
+</body>
+</html>
+{{end}}
