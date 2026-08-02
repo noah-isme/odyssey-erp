@@ -30,7 +30,7 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 | Document | Description |
 |----------|-------------|
 | [Accounting Runbook](guides/accounting.md) | Operasi accounting |
-| [Core Finance Automation Plan](guides/core-finance-automation-plan.md) | Bank feeds, cash forecasting, payment scheduling, purchase-to-pay, dan operasi aset |
+| [Core Finance Automation Plan](guides/core-finance-automation-plan.md) | Execution-ready plan untuk bank feeds, forecasting, payment, P2P, dan operasi aset |
 | [External Integrations Plan](guides/external-integrations-plan.md) | Payment, carrier, marketplace, messaging, BI, identity, dan AI connectors |
 | [Procurement SOP](guides/procurement.md) | Prosedur procurement |
 | [Board Pack](guides/howto-boardpack.md) | Generate board pack |
@@ -78,6 +78,10 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 | [ADR-0003](decisions/ADR-0003-inventory-costing.md) | Inventory Costing |
 | [ADR-0004](decisions/ADR-0004-accounting-model.md) | Accounting Model |
 | [ADR-0005](decisions/ADR-0005-transaction-fx.md) | Transaction-level FX |
+| [ADR-0006](decisions/ADR-0006-bank-ownership-and-feed-ingestion.md) | Bank Ownership and Feed Ingestion |
+| [ADR-0007](decisions/ADR-0007-payment-execution-and-settlement.md) | Payment Execution and Settlement |
+| [ADR-0008](decisions/ADR-0008-p2p-matching-and-exceptions.md) | P2P Matching and Exceptions |
+| [ADR-0009](decisions/ADR-0009-asset-capitalization-and-operations.md) | Asset Capitalization and Operations |
 
 ## 📦 Releases
 

@@ -75,3 +75,17 @@ func TestHandleCRMReminderDispatchProcessesDueActivities(t *testing.T) {
 	require.NoError(t, HandleCRMReminderDispatch(fake)(context.Background(), asynq.NewTask(TaskCRMReminderDispatch, nil)))
 	require.Equal(t, 100, fake.limit)
 }
+
+type financeAutomationFake struct{ limit int }
+
+func (f *financeAutomationFake) DispatchFinanceAutomation(_ context.Context, limit int) error {
+	f.limit = limit
+	return nil
+}
+
+func TestHandleFinanceAutomationDispatchUsesSharedOutboxBoundary(t *testing.T) {
+	fake := &financeAutomationFake{}
+	require.NoError(t, HandleFinanceAutomationDispatch(fake)(context.Background(), asynq.NewTask(TaskFinanceAutomationDispatch, nil)))
+	require.Equal(t, 100, fake.limit)
+	require.ErrorIs(t, HandleFinanceAutomationDispatch(nil)(context.Background(), asynq.NewTask(TaskFinanceAutomationDispatch, nil)), asynq.SkipRetry)
+}

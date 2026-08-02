@@ -78,6 +78,27 @@ Examples:
 | `delivery.order.cancel` | Cancel delivery orders | Cancel unfulfilled deliveries |
 | `delivery.order.print` | Print packing lists and delivery documents | Generate delivery documentation |
 
+### Finance Automation Permissions
+
+| Permission | Description |
+|------------|-------------|
+| `finance.automation.manage` | Manage company automation settings and feature flags |
+| `finance.bank_feed.manage` | Manage bank-feed connections and synchronization |
+| `finance.forecast.view` / `finance.forecast.manage` | View or manage cash forecasts and adjustments |
+| `finance.payment.propose` | Create or revise payment proposals |
+| `finance.payment.approve` | Approve or reject payment proposals |
+| `finance.payment.export` / `finance.payment.execute` | Export instructions or submit/confirm execution |
+| `procurement.p2p_exception.view` / `procurement.p2p_exception.resolve` | View or resolve P2P matching exceptions |
+| `fixedassets.location.manage` | Manage asset locations and custody |
+| `fixedassets.transfer.manage` | Manage asset transfers |
+| `fixedassets.maintenance.manage` | Manage maintenance work |
+| `fixedassets.warranty.manage` | Manage warranties and claims |
+
+Payment workflows enforce maker-checker and executor separation at batch action time.
+An emergency administrator may hold several permissions, but cannot bypass an enabled
+company separation policy by acting as the proposer, approver, and executor of the
+same batch.
+
 ## Default Roles
 
 The system includes three pre-configured roles for common organizational structures:

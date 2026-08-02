@@ -432,7 +432,8 @@ The high-priority finance automation work is specified in the
 [`Core Finance Automation Plan`](guides/core-finance-automation-plan.md). It sequences
 automated bank feeds, rolling cash forecasts, scheduled payments, purchase-to-pay
 orchestration, and asset operations on the current banking, AP, procurement,
-approval, and fixed-asset modules.
+approval, and fixed-asset modules with ticket-ready work packages, dependencies,
+release gates, and a two-stream delivery schedule.
 
 The high-priority external connector program is specified in the
 [`External Integrations Plan`](guides/external-integrations-plan.md). It establishes a

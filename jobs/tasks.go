@@ -31,7 +31,23 @@ const (
 	// TaskCRMReminderDispatch sends due and overdue CRM activity notifications.
 	TaskCRMReminderDispatch     = "crm:reminder_dispatch"
 	TaskWebhookDeliveryDispatch = "webhook:delivery_dispatch"
+	// TaskFinanceAutomationDispatch claims durable finance commands. Individual
+	// Phase 1+ handlers decide which provider-neutral topic they can execute.
+	TaskFinanceAutomationDispatch = "finance:automation_dispatch"
 )
+
+type FinanceAutomationDispatcher interface {
+	DispatchFinanceAutomation(context.Context, int) error
+}
+
+func HandleFinanceAutomationDispatch(dispatcher FinanceAutomationDispatcher) asynq.HandlerFunc {
+	return func(ctx context.Context, _ *asynq.Task) error {
+		if dispatcher == nil {
+			return fmt.Errorf("finance automation dispatcher not configured: %w", asynq.SkipRetry)
+		}
+		return dispatcher.DispatchFinanceAutomation(ctx, 100)
+	}
+}
 
 type WebhookDeliveryDispatcher interface{ DispatchWebhookDeliveries(context.Context) error }
 
