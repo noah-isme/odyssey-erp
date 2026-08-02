@@ -1,0 +1,1 @@
+DROP TABLE IF EXISTS mrp_subcontract_operations; DROP TABLE IF EXISTS mrp_genealogy; DROP TABLE IF EXISTS mrp_capas; DROP TABLE IF EXISTS mrp_nonconformances; DROP TABLE IF EXISTS mrp_quality_holds; DROP TABLE IF EXISTS mrp_inspections; DROP TABLE IF EXISTS mrp_inspection_plans;

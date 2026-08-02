@@ -37,22 +37,23 @@ type SalesOrder struct {
 }
 
 type SalesOrderLine struct {
-	ID              int64     `json:"id" db:"id"`
-	SalesOrderID    int64     `json:"sales_order_id" db:"sales_order_id"`
-	ProductID       int64     `json:"product_id" db:"product_id"`
-	Description     *string   `json:"description,omitempty" db:"description"`
-	Quantity        float64   `json:"quantity" db:"quantity"`
-	UOM             string    `json:"uom" db:"uom"`
-	UnitPrice       float64   `json:"unit_price" db:"unit_price"`
-	DiscountPercent float64   `json:"discount_percent" db:"discount_percent"`
-	DiscountAmount  float64   `json:"discount_amount" db:"discount_amount"`
-	TaxPercent      float64   `json:"tax_percent" db:"tax_percent"`
-	TaxAmount       float64   `json:"tax_amount" db:"tax_amount"`
-	LineTotal       float64   `json:"line_total" db:"line_total"`
-	Notes           *string   `json:"notes,omitempty" db:"notes"`
-	LineOrder       int       `json:"line_order" db:"line_order"`
-	CreatedAt       time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at" db:"updated_at"`
+	ID                     int64     `json:"id" db:"id"`
+	SalesOrderID           int64     `json:"sales_order_id" db:"sales_order_id"`
+	ProductID              int64     `json:"product_id" db:"product_id"`
+	FulfillmentWarehouseID *int64    `json:"fulfillment_warehouse_id,omitempty" db:"fulfillment_warehouse_id"`
+	Description            *string   `json:"description,omitempty" db:"description"`
+	Quantity               float64   `json:"quantity" db:"quantity"`
+	UOM                    string    `json:"uom" db:"uom"`
+	UnitPrice              float64   `json:"unit_price" db:"unit_price"`
+	DiscountPercent        float64   `json:"discount_percent" db:"discount_percent"`
+	DiscountAmount         float64   `json:"discount_amount" db:"discount_amount"`
+	TaxPercent             float64   `json:"tax_percent" db:"tax_percent"`
+	TaxAmount              float64   `json:"tax_amount" db:"tax_amount"`
+	LineTotal              float64   `json:"line_total" db:"line_total"`
+	Notes                  *string   `json:"notes,omitempty" db:"notes"`
+	LineOrder              int       `json:"line_order" db:"line_order"`
+	CreatedAt              time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt              time.Time `json:"updated_at" db:"updated_at"`
 }
 
 type SalesOrderWithDetails struct {

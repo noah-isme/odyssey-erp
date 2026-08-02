@@ -1,0 +1,44 @@
+{{ define "pages/mrp/work_order_dispatch.html" }}{{ template "layouts/base.html" . }}{{ end }}
+{{ define "title" }}Work order dispatch{{ end }}
+{{ define "content" }}
+<div class="page-container" data-work-order-id="{{ .Data.WorkOrderID }}">
+  <header class="page-header"><h1 class="page-title">Work order {{ .Data.WorkOrderID }}</h1></header>
+  <section class="card"><div class="card__body">
+    <h2>Operations</h2><pre id="operations">Loading…</pre>
+    <h2>Current WIP</h2><pre id="wip">Loading…</pre>
+    <form id="material-form" class="form-grid">
+      <h2>Material issue / return</h2>
+      <input class="form-input" name="operation_id" placeholder="Operation ID">
+      <input class="form-input" name="product_id" required placeholder="Component product ID">
+      <input class="form-input" name="quantity" type="number" min="0.0001" step="any" required placeholder="Quantity">
+      <select class="form-select" name="action"><option value="issue">Issue to WIP</option><option value="return">Return from WIP</option></select>
+      <input class="form-input" name="idempotency_key" required placeholder="Idempotency key">
+      <button class="btn btn--primary">Post material movement</button>
+    </form>
+    <form id="operation-form" class="form-grid">
+      <h2>Report operation</h2>
+      <input class="form-input" name="operation_id" required placeholder="Operation ID">
+      <input class="form-input" name="setup_minutes" type="number" min="0" step="any" placeholder="Setup minutes">
+      <input class="form-input" name="run_minutes" type="number" min="0" step="any" placeholder="Run minutes">
+      <input class="form-input" name="good_quantity" type="number" min="0" step="any" placeholder="Good quantity">
+      <input class="form-input" name="scrap_quantity" type="number" min="0" step="any" placeholder="Scrap quantity">
+      <select class="form-select" name="complete"><option value="false">Keep in progress</option><option value="true">Complete operation</option></select>
+      <button class="btn btn--primary">Report</button>
+    </form>
+    <form id="completion-form" class="form-grid">
+      <h2>Finished-goods receipt</h2>
+      <input class="form-input" name="quantity" type="number" min="0.0001" step="any" required placeholder="Finished quantity">
+      <input class="form-input" name="idempotency_key" required placeholder="Idempotency key">
+      <button class="btn btn--primary">Receive finished goods</button>
+    </form>
+  </div></section>
+</div>
+<script>
+const id=document.querySelector('[data-work-order-id]').dataset.workOrderId;
+const refresh=()=>Promise.all([fetch('/mrp/work-orders/'+id+'/operations').then(r=>r.json()),fetch('/mrp/work-orders/'+id+'/wip').then(r=>r.json())]).then(([ops,wip])=>{operations.textContent=ops.map(o=>o.sequence+'. '+o.name+' — '+o.status).join('\n')||'No operations';wip.textContent=wip.map(x=>'Product '+x.product_id+': '+x.quantity).join('\n')||'No WIP material'});
+async function post(path,payload,key){const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':key||''},body:JSON.stringify(payload)});if(!r.ok)throw Error(await r.text());refresh()}
+document.getElementById('material-form').onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);post('/mrp/work-orders/'+id+'/materials/'+f.get('action'),{operation_id:Number(f.get('operation_id')||0),product_id:Number(f.get('product_id')),quantity:Number(f.get('quantity'))},f.get('idempotency_key')).catch(x=>alert(x.message))};
+document.getElementById('operation-form').onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);post('/mrp/work-orders/'+id+'/operations/'+f.get('operation_id')+'/report',{setup_minutes:Number(f.get('setup_minutes')||0),run_minutes:Number(f.get('run_minutes')||0),good_quantity:Number(f.get('good_quantity')||0),scrap_quantity:Number(f.get('scrap_quantity')||0),complete:f.get('complete')==='true'}).catch(x=>alert(x.message))};refresh();
+document.getElementById('completion-form').onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);post('/mrp/work-orders/'+id+'/complete',{quantity:Number(f.get('quantity'))},f.get('idempotency_key')).catch(x=>alert(x.message))};
+</script>
+{{ end }}

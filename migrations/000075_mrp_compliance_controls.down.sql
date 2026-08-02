@@ -1,0 +1,1 @@
+DROP TRIGGER IF EXISTS trg_prevent_mrp_audit_mutation ON mrp_audit_events; DROP FUNCTION IF EXISTS prevent_mrp_audit_mutation(); DROP TABLE IF EXISTS mrp_audit_events; DROP TABLE IF EXISTS mrp_electronic_signatures; DROP TABLE IF EXISTS mrp_controlled_record_policies;

@@ -29,6 +29,10 @@ export const view = {
                     <input type="number" name="product_id" id="product_id_${index}" class="input" required min="1" value="${line.product_id}">
                 </div>
                 <div class="field">
+                    <label for="fulfillment_warehouse_id_${index}" class="label">Fulfillment Warehouse <span class="text-error">*</span></label>
+                    <input type="number" name="fulfillment_warehouse_id" id="fulfillment_warehouse_id_${index}" class="input" required min="1" value="${line.fulfillment_warehouse_id}">
+                </div>
+                <div class="field">
                     <label for="quantity_${index}" class="label">Quantity <span class="text-error">*</span></label>
                     <input type="number" name="quantity" id="quantity_${index}" class="input" required min="0.01" step="0.01" value="${line.quantity}">
                 </div>

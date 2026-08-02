@@ -132,6 +132,9 @@ func (r *Repository) GetPO(ctx context.Context, id int64) (PurchaseOrder, []POLi
 		Currency:   row.Currency,
 		Note:       row.Note,
 	}
+	if row.ExpectedWarehouseID.Valid {
+		po.ExpectedWarehouseID = row.ExpectedWarehouseID.Int64
+	}
 	if row.ExpectedDate.Valid {
 		po.ExpectedDate = row.ExpectedDate.Time
 	}
@@ -490,6 +493,7 @@ func (tx *txRepo) CreatePO(ctx context.Context, po PurchaseOrder) (int64, error)
 		Status:       string(po.Status),
 		Currency:     po.Currency,
 		ExpectedDate: expectedDate,
+		ID:           po.ExpectedWarehouseID,
 		Note:         po.Note,
 		CompanyID:    pgtype.Int8{Int64: po.CompanyID, Valid: po.CompanyID > 0},
 	})

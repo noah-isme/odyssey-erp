@@ -2134,19 +2134,113 @@ type MrpBomLine struct {
 	ScrapPct           pgtype.Numeric `json:"scrap_pct"`
 }
 
+type MrpPlanningRecommendation struct {
+	ID                int64              `json:"id"`
+	RunID             int64              `json:"run_id"`
+	ProductID         int64              `json:"product_id"`
+	WarehouseID       int64              `json:"warehouse_id"`
+	OrderType         string             `json:"order_type"`
+	Quantity          pgtype.Numeric     `json:"quantity"`
+	ReleaseDate       pgtype.Date        `json:"release_date"`
+	DueDate           pgtype.Date        `json:"due_date"`
+	DemandSourceRef   string             `json:"demand_source_ref"`
+	Late              bool               `json:"late"`
+	Status            string             `json:"status"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	FirmedWorkOrderID pgtype.Int8        `json:"firmed_work_order_id"`
+	FirmedPrID        pgtype.Int8        `json:"firmed_pr_id"`
+}
+
+type MrpPlanningRun struct {
+	ID            int64              `json:"id"`
+	CompanyID     int64              `json:"company_id"`
+	AsOfDate      pgtype.Date        `json:"as_of_date"`
+	Status        string             `json:"status"`
+	InputSnapshot []byte             `json:"input_snapshot"`
+	CreatedBy     int64              `json:"created_by"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
+type MrpProductPlanningPolicy struct {
+	ID          int64              `json:"id"`
+	CompanyID   int64              `json:"company_id"`
+	ProductID   int64              `json:"product_id"`
+	WarehouseID int64              `json:"warehouse_id"`
+	OrderType   string             `json:"order_type"`
+	LeadDays    int32              `json:"lead_days"`
+	SafetyStock pgtype.Numeric     `json:"safety_stock"`
+	LotSizing   string             `json:"lot_sizing"`
+	LotQuantity pgtype.Numeric     `json:"lot_quantity"`
+	Active      bool               `json:"active"`
+	CreatedBy   int64              `json:"created_by"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type MrpProductionEvent struct {
+	ID             int64              `json:"id"`
+	CompanyID      int64              `json:"company_id"`
+	WorkOrderID    int64              `json:"work_order_id"`
+	EventType      string             `json:"event_type"`
+	IdempotencyKey string             `json:"idempotency_key"`
+	Quantity       pgtype.Numeric     `json:"quantity"`
+	Response       []byte             `json:"response"`
+	CreatedBy      int64              `json:"created_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type MrpRouting struct {
+	ID        int64              `json:"id"`
+	CompanyID int64              `json:"company_id"`
+	ProductID int64              `json:"product_id"`
+	Code      string             `json:"code"`
+	Version   string             `json:"version"`
+	Active    bool               `json:"active"`
+	CreatedBy int64              `json:"created_by"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type MrpRoutingOperation struct {
+	ID           int64          `json:"id"`
+	RoutingID    int64          `json:"routing_id"`
+	WorkCenterID int64          `json:"work_center_id"`
+	Sequence     int32          `json:"sequence"`
+	Code         string         `json:"code"`
+	Name         string         `json:"name"`
+	SetupMinutes pgtype.Numeric `json:"setup_minutes"`
+	RunMinutes   pgtype.Numeric `json:"run_minutes"`
+	YieldPct     pgtype.Numeric `json:"yield_pct"`
+}
+
+type MrpWorkCenter struct {
+	ID                  int64              `json:"id"`
+	CompanyID           int64              `json:"company_id"`
+	Code                string             `json:"code"`
+	Name                string             `json:"name"`
+	CapacityHoursPerDay pgtype.Numeric     `json:"capacity_hours_per_day"`
+	Active              bool               `json:"active"`
+	CreatedBy           int64              `json:"created_by"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+}
+
 type MrpWorkOrder struct {
-	ID           int64              `json:"id"`
-	CompanyID    int64              `json:"company_id"`
-	Number       string             `json:"number"`
-	ProductID    int64              `json:"product_id"`
-	BomID        pgtype.Int8        `json:"bom_id"`
-	PlannedQty   pgtype.Numeric     `json:"planned_qty"`
-	CompletedQty pgtype.Numeric     `json:"completed_qty"`
-	Status       string             `json:"status"`
-	CreatedBy    int64              `json:"created_by"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
-	WarehouseID  pgtype.Int8        `json:"warehouse_id"`
+	ID                       int64              `json:"id"`
+	CompanyID                int64              `json:"company_id"`
+	Number                   string             `json:"number"`
+	ProductID                int64              `json:"product_id"`
+	BomID                    pgtype.Int8        `json:"bom_id"`
+	PlannedQty               pgtype.Numeric     `json:"planned_qty"`
+	CompletedQty             pgtype.Numeric     `json:"completed_qty"`
+	Status                   string             `json:"status"`
+	CreatedBy                int64              `json:"created_by"`
+	CreatedAt                pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                pgtype.Timestamptz `json:"updated_at"`
+	WarehouseID              pgtype.Int8        `json:"warehouse_id"`
+	PlannedStartDate         pgtype.Date        `json:"planned_start_date"`
+	PlannedDueDate           pgtype.Date        `json:"planned_due_date"`
+	PlanningRecommendationID pgtype.Int8        `json:"planning_recommendation_id"`
 }
 
 type MvApAging struct {
@@ -2479,17 +2573,18 @@ type Permission struct {
 }
 
 type Po struct {
-	ID           int64              `json:"id"`
-	Number       string             `json:"number"`
-	SupplierID   int64              `json:"supplier_id"`
-	Status       string             `json:"status"`
-	Currency     string             `json:"currency"`
-	ExpectedDate pgtype.Date        `json:"expected_date"`
-	Note         string             `json:"note"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	ApprovedBy   pgtype.Int8        `json:"approved_by"`
-	ApprovedAt   pgtype.Timestamptz `json:"approved_at"`
-	CompanyID    pgtype.Int8        `json:"company_id"`
+	ID                  int64              `json:"id"`
+	Number              string             `json:"number"`
+	SupplierID          int64              `json:"supplier_id"`
+	Status              string             `json:"status"`
+	Currency            string             `json:"currency"`
+	ExpectedDate        pgtype.Date        `json:"expected_date"`
+	Note                string             `json:"note"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	ApprovedBy          pgtype.Int8        `json:"approved_by"`
+	ApprovedAt          pgtype.Timestamptz `json:"approved_at"`
+	CompanyID           pgtype.Int8        `json:"company_id"`
+	ExpectedWarehouseID pgtype.Int8        `json:"expected_warehouse_id"`
 }
 
 type PoLine struct {
@@ -2804,19 +2899,20 @@ type SalesOrderLine struct {
 	Description  pgtype.Text    `json:"description"`
 	Quantity     pgtype.Numeric `json:"quantity"`
 	// Total quantity delivered across all DOs (auto-updated by trigger)
-	QuantityDelivered pgtype.Numeric     `json:"quantity_delivered"`
-	QuantityInvoiced  pgtype.Numeric     `json:"quantity_invoiced"`
-	Uom               string             `json:"uom"`
-	UnitPrice         pgtype.Numeric     `json:"unit_price"`
-	DiscountPercent   pgtype.Numeric     `json:"discount_percent"`
-	DiscountAmount    pgtype.Numeric     `json:"discount_amount"`
-	TaxPercent        pgtype.Numeric     `json:"tax_percent"`
-	TaxAmount         pgtype.Numeric     `json:"tax_amount"`
-	LineTotal         pgtype.Numeric     `json:"line_total"`
-	Notes             pgtype.Text        `json:"notes"`
-	LineOrder         int32              `json:"line_order"`
-	CreatedAt         pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	QuantityDelivered      pgtype.Numeric     `json:"quantity_delivered"`
+	QuantityInvoiced       pgtype.Numeric     `json:"quantity_invoiced"`
+	Uom                    string             `json:"uom"`
+	UnitPrice              pgtype.Numeric     `json:"unit_price"`
+	DiscountPercent        pgtype.Numeric     `json:"discount_percent"`
+	DiscountAmount         pgtype.Numeric     `json:"discount_amount"`
+	TaxPercent             pgtype.Numeric     `json:"tax_percent"`
+	TaxAmount              pgtype.Numeric     `json:"tax_amount"`
+	LineTotal              pgtype.Numeric     `json:"line_total"`
+	Notes                  pgtype.Text        `json:"notes"`
+	LineOrder              int32              `json:"line_order"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+	FulfillmentWarehouseID pgtype.Int8        `json:"fulfillment_warehouse_id"`
 }
 
 type Session struct {

@@ -14,15 +14,16 @@ type CreateSalesOrderRequest struct {
 }
 
 type CreateSalesOrderLineReq struct {
-	ProductID       int64   `json:"product_id" validate:"required,gt=0"`
-	Description     *string `json:"description,omitempty"`
-	Quantity        float64 `json:"quantity" validate:"required,gt=0"`
-	UOM             string  `json:"uom" validate:"required,max=20"`
-	UnitPrice       float64 `json:"unit_price" validate:"required,gte=0"`
-	DiscountPercent float64 `json:"discount_percent" validate:"gte=0,lte=100"`
-	TaxPercent      float64 `json:"tax_percent" validate:"gte=0,lte=100"`
-	Notes           *string `json:"notes,omitempty"`
-	LineOrder       int     `json:"line_order" validate:"gte=0"`
+	ProductID              int64   `json:"product_id" validate:"required,gt=0"`
+	FulfillmentWarehouseID int64   `json:"fulfillment_warehouse_id" validate:"required,gt=0"`
+	Description            *string `json:"description,omitempty"`
+	Quantity               float64 `json:"quantity" validate:"required,gt=0"`
+	UOM                    string  `json:"uom" validate:"required,max=20"`
+	UnitPrice              float64 `json:"unit_price" validate:"required,gte=0"`
+	DiscountPercent        float64 `json:"discount_percent" validate:"gte=0,lte=100"`
+	TaxPercent             float64 `json:"tax_percent" validate:"gte=0,lte=100"`
+	Notes                  *string `json:"notes,omitempty"`
+	LineOrder              int     `json:"line_order" validate:"gte=0"`
 }
 
 type UpdateSalesOrderRequest struct {

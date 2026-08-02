@@ -456,17 +456,18 @@ func (r *repository) GetDeliverableSOLines(ctx context.Context, salesOrderID int
 	var lines []DeliverableSOLine
 	for _, l := range rows {
 		lines = append(lines, DeliverableSOLine{
-			SalesOrderLineID:  l.SalesOrderLineID,
-			SalesOrderID:      l.SalesOrderID,
-			ProductID:         l.ProductID,
-			ProductCode:       l.ProductCode,
-			ProductName:       l.ProductName,
-			Quantity:          numericToFloat(l.Quantity),
-			QuantityDelivered: numericToFloat(l.QuantityDelivered),
-			RemainingQuantity: numericToFloat(l.RemainingQuantity),
-			UOM:               l.Uom,
-			UnitPrice:         numericToFloat(l.UnitPrice),
-			LineOrder:         int(l.LineOrder),
+			SalesOrderLineID:       l.SalesOrderLineID,
+			SalesOrderID:           l.SalesOrderID,
+			ProductID:              l.ProductID,
+			ProductCode:            l.ProductCode,
+			ProductName:            l.ProductName,
+			Quantity:               numericToFloat(l.Quantity),
+			QuantityDelivered:      numericToFloat(l.QuantityDelivered),
+			RemainingQuantity:      numericToFloat(l.RemainingQuantity),
+			UOM:                    l.Uom,
+			UnitPrice:              numericToFloat(l.UnitPrice),
+			LineOrder:              int(l.LineOrder),
+			FulfillmentWarehouseID: int8ToPointer(l.FulfillmentWarehouseID),
 		})
 	}
 	return lines, nil

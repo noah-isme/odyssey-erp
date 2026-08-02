@@ -111,6 +111,10 @@
                                             <input type="number" name="product_id" id="product_id_{{ $index }}" class="form-input" required min="1" value="{{ $line.ProductID }}">
                                         </div>
                                         <div class="form-group">
+                                            <label for="fulfillment_warehouse_id_{{ $index }}" class="form-label">Fulfillment Warehouse <span class="text-danger">*</span></label>
+                                            <input type="number" name="fulfillment_warehouse_id" id="fulfillment_warehouse_id_{{ $index }}" class="form-input" required min="1" value="{{ if $line.FulfillmentWarehouseID }}{{ $line.FulfillmentWarehouseID }}{{ end }}">
+                                        </div>
+                                        <div class="form-group">
                                             <label for="quantity_{{ $index }}" class="form-label">Quantity <span class="text-danger">*</span></label>
                                             <input type="number" name="quantity" id="quantity_{{ $index }}" class="form-input" required min="0.01" step="0.01" value="{{ printf "%.2f" $line.Quantity }}">
                                         </div>
@@ -150,6 +154,10 @@
                                         <div class="form-group">
                                             <label for="product_id_0" class="form-label">Product <span class="text-danger">*</span></label>
                                             <input type="number" name="product_id" id="product_id_0" class="form-input" required min="1">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="fulfillment_warehouse_id_0" class="form-label">Fulfillment Warehouse <span class="text-danger">*</span></label>
+                                            <input type="number" name="fulfillment_warehouse_id" id="fulfillment_warehouse_id_0" class="form-input" required min="1">
                                         </div>
                                         <div class="form-group">
                                             <label for="quantity_0" class="form-label">Quantity <span class="text-danger">*</span></label>

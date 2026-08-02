@@ -1,0 +1,1 @@
+DROP VIEW IF EXISTS mrp_analytics_work_center_utilization; DROP VIEW IF EXISTS mrp_analytics_schedule_adherence; DROP VIEW IF EXISTS mrp_analytics_wip_value; DROP VIEW IF EXISTS mrp_analytics_operation_daily;

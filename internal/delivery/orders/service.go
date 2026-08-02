@@ -85,15 +85,8 @@ func (s *Service) Create(ctx context.Context, req CreateRequest, createdBy int64
 
 	for _, reqLine := range req.Lines {
 		deliverable, exists := deliverableMap[reqLine.SalesOrderLineID]
-		if !exists {
-			return nil, fmt.Errorf("SO line %d not found or fully delivered", reqLine.SalesOrderLineID)
-		}
-		if reqLine.QuantityToDeliver > deliverable.RemainingQuantity {
-			return nil, fmt.Errorf("qty %.2f exceeds remaining %.2f for line %d",
-				reqLine.QuantityToDeliver, deliverable.RemainingQuantity, reqLine.SalesOrderLineID)
-		}
-		if reqLine.ProductID != deliverable.ProductID {
-			return nil, fmt.Errorf("product ID mismatch for line %d", reqLine.SalesOrderLineID)
+		if err := validateDeliveryLine(reqLine, deliverable, exists, req.WarehouseID); err != nil {
+			return nil, err
 		}
 
 		// Check stock availability if inventory client is set
@@ -217,7 +210,10 @@ func (s *Service) Update(ctx context.Context, id int64, req UpdateRequest) (*Del
 			}
 
 			for _, reqLine := range *req.Lines {
-				deliverable := deliverableMap[reqLine.SalesOrderLineID]
+				deliverable, exists := deliverableMap[reqLine.SalesOrderLineID]
+				if err := validateDeliveryLine(reqLine, deliverable, exists, existing.WarehouseID); err != nil {
+					return err
+				}
 				line := Line{
 					DeliveryOrderID:   id,
 					SalesOrderLineID:  reqLine.SalesOrderLineID,
@@ -243,6 +239,22 @@ func (s *Service) Update(ctx context.Context, id int64, req UpdateRequest) (*Del
 	}
 
 	return s.repo.GetByID(ctx, id)
+}
+
+func validateDeliveryLine(reqLine CreateLineReq, deliverable *DeliverableSOLine, exists bool, warehouseID int64) error {
+	if !exists {
+		return fmt.Errorf("SO line %d not found or fully delivered", reqLine.SalesOrderLineID)
+	}
+	if deliverable.FulfillmentWarehouseID == nil || *deliverable.FulfillmentWarehouseID != warehouseID {
+		return fmt.Errorf("SO line %d is assigned to a different fulfillment warehouse", reqLine.SalesOrderLineID)
+	}
+	if reqLine.QuantityToDeliver <= 0 || reqLine.QuantityToDeliver > deliverable.RemainingQuantity {
+		return fmt.Errorf("qty %.2f exceeds remaining %.2f for line %d", reqLine.QuantityToDeliver, deliverable.RemainingQuantity, reqLine.SalesOrderLineID)
+	}
+	if reqLine.ProductID != deliverable.ProductID {
+		return fmt.Errorf("product ID mismatch for line %d", reqLine.SalesOrderLineID)
+	}
+	return nil
 }
 
 // Confirm confirms a delivery order and reduces inventory.

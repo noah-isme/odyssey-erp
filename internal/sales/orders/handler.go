@@ -308,19 +308,25 @@ func (h *Handler) ConvertFromQuotation(w http.ResponseWriter, r *http.Request) {
 			expectedDeliveryDate = &t
 		}
 	}
+	fulfillmentWarehouseID, err := strconv.ParseInt(r.PostFormValue("fulfillment_warehouse_id"), 10, 64)
+	if err != nil || fulfillmentWarehouseID <= 0 {
+		h.redirectWithFlash(w, r, "/sales/quotations/"+strconv.FormatInt(id, 10), "error", "A fulfillment warehouse is required")
+		return
+	}
 
 	lines := make([]CreateSalesOrderLineReq, 0, len(quotation.Lines))
 	for _, line := range quotation.Lines {
 		lines = append(lines, CreateSalesOrderLineReq{
-			ProductID:       line.ProductID,
-			Description:     line.Description,
-			Quantity:        line.Quantity,
-			UOM:             line.UOM,
-			UnitPrice:       line.UnitPrice,
-			DiscountPercent: line.DiscountPercent,
-			TaxPercent:      line.TaxPercent,
-			LineOrder:       line.LineOrder,
-			Notes:           line.Notes,
+			ProductID:              line.ProductID,
+			FulfillmentWarehouseID: fulfillmentWarehouseID,
+			Description:            line.Description,
+			Quantity:               line.Quantity,
+			UOM:                    line.UOM,
+			UnitPrice:              line.UnitPrice,
+			DiscountPercent:        line.DiscountPercent,
+			TaxPercent:             line.TaxPercent,
+			LineOrder:              line.LineOrder,
+			Notes:                  line.Notes,
 		})
 	}
 
@@ -410,6 +416,7 @@ func (h *Handler) EmailOrder(w http.ResponseWriter, r *http.Request) {
 // Helpers
 func (h *Handler) parseSalesOrderLines(r *http.Request) ([]CreateSalesOrderLineReq, error) {
 	productIDs := r.PostForm["product_id"]
+	warehouseIDs := r.PostForm["fulfillment_warehouse_id"]
 	quantities := r.PostForm["quantity"]
 	uoms := r.PostForm["uom"]
 	unitPrices := r.PostForm["unit_price"]
@@ -419,23 +426,31 @@ func (h *Handler) parseSalesOrderLines(r *http.Request) ([]CreateSalesOrderLineR
 	if len(productIDs) == 0 {
 		return nil, nil
 	}
+	if len(warehouseIDs) != len(productIDs) || len(quantities) != len(productIDs) || len(uoms) != len(productIDs) || len(unitPrices) != len(productIDs) || len(discountPercents) != len(productIDs) || len(taxPercents) != len(productIDs) {
+		return nil, fmt.Errorf("each sales order line requires a fulfillment warehouse and complete values")
+	}
 
 	lines := make([]CreateSalesOrderLineReq, 0, len(productIDs))
 	for i := range productIDs {
-		pid, _ := strconv.ParseInt(productIDs[i], 10, 64)
-		qty, _ := strconv.ParseFloat(quantities[i], 64)
-		price, _ := strconv.ParseFloat(unitPrices[i], 64)
-		dist, _ := strconv.ParseFloat(discountPercents[i], 64)
-		tax, _ := strconv.ParseFloat(taxPercents[i], 64)
+		pid, productErr := strconv.ParseInt(productIDs[i], 10, 64)
+		warehouseID, warehouseErr := strconv.ParseInt(warehouseIDs[i], 10, 64)
+		qty, quantityErr := strconv.ParseFloat(quantities[i], 64)
+		price, priceErr := strconv.ParseFloat(unitPrices[i], 64)
+		dist, discountErr := strconv.ParseFloat(discountPercents[i], 64)
+		tax, taxErr := strconv.ParseFloat(taxPercents[i], 64)
+		if productErr != nil || warehouseErr != nil || quantityErr != nil || priceErr != nil || discountErr != nil || taxErr != nil || pid <= 0 || warehouseID <= 0 {
+			return nil, fmt.Errorf("invalid sales order line %d", i+1)
+		}
 
 		lines = append(lines, CreateSalesOrderLineReq{
-			ProductID:       pid,
-			Quantity:        qty,
-			UOM:             uoms[i],
-			UnitPrice:       price,
-			DiscountPercent: dist,
-			TaxPercent:      tax,
-			LineOrder:       i + 1,
+			ProductID:              pid,
+			FulfillmentWarehouseID: warehouseID,
+			Quantity:               qty,
+			UOM:                    uoms[i],
+			UnitPrice:              price,
+			DiscountPercent:        dist,
+			TaxPercent:             tax,
+			LineOrder:              i + 1,
 		})
 	}
 	return lines, nil

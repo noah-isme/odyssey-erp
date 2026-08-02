@@ -132,15 +132,15 @@ INSERT INTO sales_order_lines (
     sales_order_id, product_id, description, quantity,
     quantity_delivered, quantity_invoiced, uom, unit_price,
     discount_percent, discount_amount, tax_percent, tax_amount,
-    line_total, notes, line_order
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+    line_total, notes, line_order, fulfillment_warehouse_id
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
 RETURNING id;
 
 -- name: GetSalesOrderLines :many
 SELECT id, sales_order_id, product_id, description, quantity,
        quantity_delivered, quantity_invoiced, uom, unit_price,
        discount_percent, discount_amount, tax_percent, tax_amount,
-       line_total, notes, line_order, created_at, updated_at
+       line_total, notes, line_order, fulfillment_warehouse_id, created_at, updated_at
 FROM sales_order_lines
 WHERE sales_order_id = $1
 ORDER BY line_order, id;

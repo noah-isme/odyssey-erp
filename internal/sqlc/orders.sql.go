@@ -179,7 +179,8 @@ SELECT sol.id AS sales_order_line_id,
        (sol.quantity - sol.quantity_delivered)::NUMERIC AS remaining_quantity,
        sol.uom,
        sol.unit_price,
-       sol.line_order
+       sol.line_order,
+       sol.fulfillment_warehouse_id
 FROM sales_order_lines sol
 INNER JOIN products p ON p.id = sol.product_id
 WHERE sol.sales_order_id = $1
@@ -188,17 +189,18 @@ ORDER BY sol.line_order, sol.id
 `
 
 type GetDeliverableSOLinesRow struct {
-	SalesOrderLineID  int64          `json:"sales_order_line_id"`
-	SalesOrderID      int64          `json:"sales_order_id"`
-	ProductID         int64          `json:"product_id"`
-	ProductCode       string         `json:"product_code"`
-	ProductName       string         `json:"product_name"`
-	Quantity          pgtype.Numeric `json:"quantity"`
-	QuantityDelivered pgtype.Numeric `json:"quantity_delivered"`
-	RemainingQuantity pgtype.Numeric `json:"remaining_quantity"`
-	Uom               string         `json:"uom"`
-	UnitPrice         pgtype.Numeric `json:"unit_price"`
-	LineOrder         int32          `json:"line_order"`
+	SalesOrderLineID       int64          `json:"sales_order_line_id"`
+	SalesOrderID           int64          `json:"sales_order_id"`
+	ProductID              int64          `json:"product_id"`
+	ProductCode            string         `json:"product_code"`
+	ProductName            string         `json:"product_name"`
+	Quantity               pgtype.Numeric `json:"quantity"`
+	QuantityDelivered      pgtype.Numeric `json:"quantity_delivered"`
+	RemainingQuantity      pgtype.Numeric `json:"remaining_quantity"`
+	Uom                    string         `json:"uom"`
+	UnitPrice              pgtype.Numeric `json:"unit_price"`
+	LineOrder              int32          `json:"line_order"`
+	FulfillmentWarehouseID pgtype.Int8    `json:"fulfillment_warehouse_id"`
 }
 
 func (q *Queries) GetDeliverableSOLines(ctx context.Context, salesOrderID int64) ([]GetDeliverableSOLinesRow, error) {
@@ -222,6 +224,7 @@ func (q *Queries) GetDeliverableSOLines(ctx context.Context, salesOrderID int64)
 			&i.Uom,
 			&i.UnitPrice,
 			&i.LineOrder,
+			&i.FulfillmentWarehouseID,
 		); err != nil {
 			return nil, err
 		}

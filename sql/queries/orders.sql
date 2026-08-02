@@ -114,7 +114,8 @@ SELECT sol.id AS sales_order_line_id,
        (sol.quantity - sol.quantity_delivered)::NUMERIC AS remaining_quantity,
        sol.uom,
        sol.unit_price,
-       sol.line_order
+       sol.line_order,
+       sol.fulfillment_warehouse_id
 FROM sales_order_lines sol
 INNER JOIN products p ON p.id = sol.product_id
 WHERE sol.sales_order_id = $1

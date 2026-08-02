@@ -14,6 +14,7 @@ export function init() {
     const existingLines = Array.from(container.querySelectorAll('.line-item')).map(el => ({
         id: Date.now() + Math.random(),
         product_id: el.querySelector('[name="product_id"]')?.value || '',
+        fulfillment_warehouse_id: el.querySelector('[name="fulfillment_warehouse_id"]')?.value || '',
         quantity: el.querySelector('[name="quantity"]')?.value || '1.00',
         uom: el.querySelector('[name="uom"]')?.value || 'PCS',
         unit_price: el.querySelector('[name="unit_price"]')?.value || '0.00',

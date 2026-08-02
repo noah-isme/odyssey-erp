@@ -195,13 +195,15 @@ func (h *Handler) createPO(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	prID, _ := strconv.ParseInt(r.PostFormValue("pr_id"), 10, 64)
+	expectedWarehouseID, _ := strconv.ParseInt(r.PostFormValue("expected_warehouse_id"), 10, 64)
 	expectedDate, _ := time.Parse("2006-01-02", r.PostFormValue("expected_date"))
 	_, err := h.service.CreatePOFromPR(r.Context(), CreatePOInput{
-		PRID:         prID,
-		Number:       r.PostFormValue("number"),
-		Currency:     r.PostFormValue("currency"),
-		ExpectedDate: expectedDate,
-		Note:         r.PostFormValue("note"),
+		PRID:                prID,
+		Number:              r.PostFormValue("number"),
+		Currency:            r.PostFormValue("currency"),
+		ExpectedDate:        expectedDate,
+		ExpectedWarehouseID: expectedWarehouseID,
+		Note:                r.PostFormValue("note"),
 	})
 	if err != nil {
 		h.logger.Error("create PO", slog.Any("error", err))

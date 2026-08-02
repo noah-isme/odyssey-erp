@@ -194,15 +194,16 @@ type ReturnDeliveryOrderWithDetails struct {
 
 // DeliverableSOLine represents a sales order line that can be delivered.
 type DeliverableSOLine struct {
-	SalesOrderLineID  int64   `json:"sales_order_line_id" db:"sales_order_line_id"`
-	SalesOrderID      int64   `json:"sales_order_id" db:"sales_order_id"`
-	ProductID         int64   `json:"product_id" db:"product_id"`
-	ProductCode       string  `json:"product_code" db:"product_code"`
-	ProductName       string  `json:"product_name" db:"product_name"`
-	Quantity          float64 `json:"quantity" db:"quantity"`
-	QuantityDelivered float64 `json:"quantity_delivered" db:"quantity_delivered"`
-	RemainingQuantity float64 `json:"remaining_quantity" db:"remaining_quantity"`
-	UOM               string  `json:"uom" db:"uom"`
-	UnitPrice         float64 `json:"unit_price" db:"unit_price"`
-	LineOrder         int     `json:"line_order" db:"line_order"`
+	SalesOrderLineID       int64   `json:"sales_order_line_id" db:"sales_order_line_id"`
+	SalesOrderID           int64   `json:"sales_order_id" db:"sales_order_id"`
+	ProductID              int64   `json:"product_id" db:"product_id"`
+	ProductCode            string  `json:"product_code" db:"product_code"`
+	ProductName            string  `json:"product_name" db:"product_name"`
+	Quantity               float64 `json:"quantity" db:"quantity"`
+	QuantityDelivered      float64 `json:"quantity_delivered" db:"quantity_delivered"`
+	RemainingQuantity      float64 `json:"remaining_quantity" db:"remaining_quantity"`
+	UOM                    string  `json:"uom" db:"uom"`
+	UnitPrice              float64 `json:"unit_price" db:"unit_price"`
+	LineOrder              int     `json:"line_order" db:"line_order"`
+	FulfillmentWarehouseID *int64  `json:"fulfillment_warehouse_id,omitempty" db:"fulfillment_warehouse_id"`
 }

@@ -123,6 +123,7 @@
                                 <tr>
                                     <th width="50">#</th>
                                     <th>Product</th>
+                                    <th>Fulfillment Warehouse</th>
                                     <th class="text-right">Qty</th>
                                     {{/* SalesOrderLine tracks only the ordered
                                          quantity; delivered and invoiced
@@ -140,6 +141,7 @@
                                         <div class="font-medium text-primary">ID: {{ .ProductID }}</div>
                                         <div class="text-xs text-muted">{{ .Description }}</div>
                                     </td>
+                                    <td>{{ if .FulfillmentWarehouseID }}#{{ .FulfillmentWarehouseID }}{{ else }}<span class="text-muted">Unassigned</span>{{ end }}</td>
                                     <td class="text-right numeric font-medium">{{ formatDecimal .Quantity }}</td>
                                     <td>{{ .UOM }}</td>
                                     <td class="text-right numeric">{{ formatDecimal .UnitPrice }}</td>
@@ -149,15 +151,15 @@
                             </tbody>
                             <tfoot class="bg-surface-muted">
                                 <tr>
-                                    <td colspan="5" class="text-right font-medium">Subtotal</td>
+                                    <td colspan="6" class="text-right font-medium">Subtotal</td>
                                     <td class="text-right numeric font-medium">{{ formatDecimal .Data.Order.Subtotal }}</td>
                                 </tr>
                                 <tr>
-                                    <td colspan="5" class="text-right font-medium">Tax Amount</td>
+                                    <td colspan="6" class="text-right font-medium">Tax Amount</td>
                                     <td class="text-right numeric font-medium">{{ formatDecimal .Data.Order.TaxAmount }}</td>
                                 </tr>
                                 <tr class="border-t border-strong">
-                                    <td colspan="5" class="text-right font-bold text-lg">Grand Total</td>
+                                    <td colspan="6" class="text-right font-bold text-lg">Grand Total</td>
                                     <td class="text-right numeric font-bold text-lg">{{ .Data.Order.Currency }} {{ formatDecimal .Data.Order.TotalAmount }}</td>
                                 </tr>
                             </tfoot>

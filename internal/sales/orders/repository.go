@@ -334,6 +334,9 @@ func (r *repository) Update(ctx context.Context, id int64, updates map[string]in
 }
 
 func (r *repository) InsertLine(ctx context.Context, line SalesOrderLine) (int64, error) {
+	if line.FulfillmentWarehouseID == nil || *line.FulfillmentWarehouseID <= 0 {
+		return 0, errors.New("fulfillment warehouse is required")
+	}
 	var quantity, unitPrice, discountPercent, discountAmount, taxPercent, taxAmount, lineTotal pgtype.Numeric
 	quantity = numericOf(line.Quantity)
 	unitPrice = numericOf(line.UnitPrice)
@@ -343,21 +346,27 @@ func (r *repository) InsertLine(ctx context.Context, line SalesOrderLine) (int64
 	taxAmount = numericOf(line.TaxAmount)
 	lineTotal = numericOf(line.LineTotal)
 
-	return r.queries.InsertSalesOrderLine(ctx, sqlc.InsertSalesOrderLineParams{
-		SalesOrderID:    line.SalesOrderID,
-		ProductID:       line.ProductID,
-		Description:     pgtype.Text{String: getString(line.Description), Valid: line.Description != nil},
-		Quantity:        quantity,
-		Uom:             line.UOM,
-		UnitPrice:       unitPrice,
-		DiscountPercent: discountPercent,
-		DiscountAmount:  discountAmount,
-		TaxPercent:      taxPercent,
-		TaxAmount:       taxAmount,
-		LineTotal:       lineTotal,
-		Notes:           pgtype.Text{String: getString(line.Notes), Valid: line.Notes != nil},
-		LineOrder:       int32(line.LineOrder),
-	})
+	var id int64
+	err := r.db.QueryRow(ctx, `
+		INSERT INTO sales_order_lines (
+			sales_order_id,product_id,description,quantity,uom,unit_price,
+			discount_percent,discount_amount,tax_percent,tax_amount,line_total,
+			notes,line_order,fulfillment_warehouse_id
+		)
+		SELECT $1,p.id,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,w.id
+		FROM sales_orders so
+		JOIN products p ON p.id=$2 AND p.company_id=so.company_id
+		JOIN warehouses w ON w.id=$14
+		JOIN branches b ON b.id=w.branch_id AND b.company_id=so.company_id
+		WHERE so.id=$1
+		RETURNING id`,
+		line.SalesOrderID, line.ProductID, pgtype.Text{String: getString(line.Description), Valid: line.Description != nil}, quantity, line.UOM, unitPrice,
+		discountPercent, discountAmount, taxPercent, taxAmount, lineTotal, pgtype.Text{String: getString(line.Notes), Valid: line.Notes != nil}, line.LineOrder, *line.FulfillmentWarehouseID,
+	).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, errors.New("product or fulfillment warehouse is outside the sales order company")
+	}
+	return id, err
 }
 
 func (r *repository) UpdateStatus(ctx context.Context, id int64, status SalesOrderStatus, userID int64, reason *string) error {
@@ -485,7 +494,7 @@ func mapOrderFromSqlc(row sqlc.SalesOrder) SalesOrder {
 	return o
 }
 
-func mapLinesFromSqlc(rows []sqlc.SalesOrderLine) []SalesOrderLine {
+func mapLinesFromSqlc(rows []sqlc.GetSalesOrderLinesRow) []SalesOrderLine {
 	var lines []SalesOrderLine
 	for _, l := range rows {
 		line := SalesOrderLine{
@@ -494,6 +503,10 @@ func mapLinesFromSqlc(rows []sqlc.SalesOrderLine) []SalesOrderLine {
 			ProductID:    l.ProductID,
 			UOM:          l.Uom,
 			LineOrder:    int(l.LineOrder),
+		}
+		if l.FulfillmentWarehouseID.Valid {
+			value := l.FulfillmentWarehouseID.Int64
+			line.FulfillmentWarehouseID = &value
 		}
 		if l.Description.Valid {
 			val := l.Description.String

@@ -185,7 +185,7 @@ type Querier interface {
 	GetSalesOrder(ctx context.Context, id int64) (SalesOrder, error)
 	GetSalesOrderByDocNumber(ctx context.Context, docNumber string) (SalesOrder, error)
 	GetSalesOrderDetails(ctx context.Context, id int64) (GetSalesOrderDetailsRow, error)
-	GetSalesOrderLines(ctx context.Context, salesOrderID int64) ([]SalesOrderLine, error)
+	GetSalesOrderLines(ctx context.Context, salesOrderID int64) ([]GetSalesOrderLinesRow, error)
 	GetSnapshot(ctx context.Context, id int64) (GetSnapshotRow, error)
 	GetStockBalance(ctx context.Context, arg GetStockBalanceParams) (InventoryBalance, error)
 	GetStockCard(ctx context.Context, arg GetStockCardParams) ([]GetStockCardRow, error)

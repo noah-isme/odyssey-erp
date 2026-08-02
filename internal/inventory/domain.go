@@ -79,6 +79,10 @@ type AdjustmentInput struct {
 	ActorID     int64
 	RefModule   string
 	RefID       string
+	// SkipIntegration is for operational flows that use inventory movements as
+	// a physical sub-ledger and post their own accounting entry in the caller's
+	// transaction (for example, manufacturing WIP).
+	SkipIntegration bool
 }
 
 // TransferInput describes transfer request between warehouses.

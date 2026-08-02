@@ -7,7 +7,7 @@ const instances = new Map();
 export function createInitialState(id, existingLines = []) {
     return {
         id,
-        lines: existingLines.length > 0 ? existingLines : [{ id: Date.now(), product_id: '', quantity: '1.00', uom: 'PCS', unit_price: '0.00', discount_percent: '0.00', tax_percent: '11.00' }],
+        lines: existingLines.length > 0 ? existingLines : [{ id: Date.now(), product_id: '', fulfillment_warehouse_id: '', quantity: '1.00', uom: 'PCS', unit_price: '0.00', discount_percent: '0.00', tax_percent: '11.00' }],
         dirty: false
     };
 }
@@ -25,7 +25,7 @@ export function reducer(state, action) {
         case 'ADD_LINE':
             return {
                 ...state,
-                lines: [...state.lines, { id: Date.now(), product_id: '', quantity: '1.00', uom: 'PCS', unit_price: '0.00', discount_percent: '0.00', tax_percent: '11.00' }],
+                lines: [...state.lines, { id: Date.now(), product_id: '', fulfillment_warehouse_id: '', quantity: '1.00', uom: 'PCS', unit_price: '0.00', discount_percent: '0.00', tax_percent: '11.00' }],
                 dirty: true
             };
         case 'REMOVE_LINE':

@@ -203,7 +203,7 @@ func (s *Service) postAdjustmentInternal(ctx context.Context, tx TxRepository, i
 	if err != nil {
 		return StockCardEntry{}, err
 	}
-	if s.integration != nil {
+	if s.integration != nil && !input.SkipIntegration {
 		evt := AdjustmentPostedEvent{
 			Code:        entry.TxCode,
 			WarehouseID: input.WarehouseID,
@@ -223,6 +223,19 @@ func (s *Service) postAdjustmentInternal(ctx context.Context, tx TxRepository, i
 
 // PostTransfer moves stock between warehouses using OUT + IN.
 func (s *Service) PostTransfer(ctx context.Context, input TransferInput) (StockCardEntry, StockCardEntry, error) {
+	return s.postTransfer(ctx, nil, input)
+}
+
+// PostTransferTx posts both legs using a caller-owned transaction.
+func (s *Service) PostTransferTx(ctx context.Context, dbtx pgx.Tx, input TransferInput) (StockCardEntry, StockCardEntry, error) {
+	r, ok := s.repo.(interface{ TransactionRepository(pgx.Tx) TxRepository })
+	if !ok {
+		return StockCardEntry{}, StockCardEntry{}, errors.New("inventory: transactional repository is required")
+	}
+	return s.postTransfer(ctx, r.TransactionRepository(dbtx), input)
+}
+
+func (s *Service) postTransfer(ctx context.Context, tx TxRepository, input TransferInput) (StockCardEntry, StockCardEntry, error) {
 	if input.SrcWarehouse == 0 || input.DstWarehouse == 0 || input.ProductID == 0 {
 		return StockCardEntry{}, StockCardEntry{}, errors.New("inventory: warehouse and product required")
 	}
@@ -259,11 +272,22 @@ func (s *Service) PostTransfer(ctx context.Context, input TransferInput) (StockC
 		RefModule:   input.RefModule,
 		RefID:       input.RefID,
 	}
-	outCard, err := s.postMovement(ctx, outParams)
+	var outCard StockCardEntry
+	var err error
+	if tx != nil {
+		outCard, err = s.postMovementInternal(ctx, tx, outParams)
+	} else {
+		outCard, err = s.postMovement(ctx, outParams)
+	}
 	if err != nil {
 		return StockCardEntry{}, StockCardEntry{}, err
 	}
-	inCard, err := s.postMovement(ctx, inParams)
+	var inCard StockCardEntry
+	if tx != nil {
+		inCard, err = s.postMovementInternal(ctx, tx, inParams)
+	} else {
+		inCard, err = s.postMovement(ctx, inParams)
+	}
 	if err != nil {
 		return StockCardEntry{}, StockCardEntry{}, err
 	}

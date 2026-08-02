@@ -56,6 +56,9 @@ func (s *Service) Create(ctx context.Context, req CreateSalesOrderRequest, creat
 
 	var subtotal, taxAmount, totalAmount float64
 	for _, lineReq := range req.Lines {
+		if err := validateFulfillmentLine(lineReq); err != nil {
+			return nil, err
+		}
 		discount, tax, lineTotal := shared.CalculateLineTotals(
 			lineReq.Quantity,
 			lineReq.UnitPrice,
@@ -99,20 +102,22 @@ func (s *Service) Create(ctx context.Context, req CreateSalesOrderRequest, creat
 				lineReq.TaxPercent,
 			)
 
+			warehouseID := lineReq.FulfillmentWarehouseID
 			line := SalesOrderLine{
-				SalesOrderID:    orderID,
-				ProductID:       lineReq.ProductID,
-				Description:     lineReq.Description,
-				Quantity:        lineReq.Quantity,
-				UOM:             lineReq.UOM,
-				UnitPrice:       lineReq.UnitPrice,
-				DiscountPercent: lineReq.DiscountPercent,
-				DiscountAmount:  discount,
-				TaxPercent:      lineReq.TaxPercent,
-				TaxAmount:       tax,
-				LineTotal:       lineTotal,
-				Notes:           lineReq.Notes,
-				LineOrder:       lineReq.LineOrder,
+				SalesOrderID:           orderID,
+				ProductID:              lineReq.ProductID,
+				FulfillmentWarehouseID: &warehouseID,
+				Description:            lineReq.Description,
+				Quantity:               lineReq.Quantity,
+				UOM:                    lineReq.UOM,
+				UnitPrice:              lineReq.UnitPrice,
+				DiscountPercent:        lineReq.DiscountPercent,
+				DiscountAmount:         discount,
+				TaxPercent:             lineReq.TaxPercent,
+				TaxAmount:              tax,
+				LineTotal:              lineTotal,
+				Notes:                  lineReq.Notes,
+				LineOrder:              lineReq.LineOrder,
 			}
 			if line.LineOrder == 0 {
 				line.LineOrder = i + 1
@@ -153,6 +158,9 @@ func (s *Service) Update(ctx context.Context, id int64, req UpdateSalesOrderRequ
 
 	if req.Lines != nil && len(*req.Lines) > 0 {
 		for i, lineReq := range *req.Lines {
+			if err := validateFulfillmentLine(lineReq); err != nil {
+				return nil, err
+			}
 			discount, tax, lineTotal := shared.CalculateLineTotals(
 				lineReq.Quantity,
 				lineReq.UnitPrice,
@@ -163,20 +171,22 @@ func (s *Service) Update(ctx context.Context, id int64, req UpdateSalesOrderRequ
 			taxAmount += tax
 			totalAmount += lineTotal
 
+			warehouseID := lineReq.FulfillmentWarehouseID
 			line := SalesOrderLine{
-				SalesOrderID:    id,
-				ProductID:       lineReq.ProductID,
-				Description:     lineReq.Description,
-				Quantity:        lineReq.Quantity,
-				UOM:             lineReq.UOM,
-				UnitPrice:       lineReq.UnitPrice,
-				DiscountPercent: lineReq.DiscountPercent,
-				DiscountAmount:  discount,
-				TaxPercent:      lineReq.TaxPercent,
-				TaxAmount:       tax,
-				LineTotal:       lineTotal,
-				Notes:           lineReq.Notes,
-				LineOrder:       lineReq.LineOrder,
+				SalesOrderID:           id,
+				ProductID:              lineReq.ProductID,
+				FulfillmentWarehouseID: &warehouseID,
+				Description:            lineReq.Description,
+				Quantity:               lineReq.Quantity,
+				UOM:                    lineReq.UOM,
+				UnitPrice:              lineReq.UnitPrice,
+				DiscountPercent:        lineReq.DiscountPercent,
+				DiscountAmount:         discount,
+				TaxPercent:             lineReq.TaxPercent,
+				TaxAmount:              tax,
+				LineTotal:              lineTotal,
+				Notes:                  lineReq.Notes,
+				LineOrder:              lineReq.LineOrder,
 			}
 			if line.LineOrder == 0 {
 				line.LineOrder = i + 1
@@ -229,6 +239,13 @@ func (s *Service) Update(ctx context.Context, id int64, req UpdateSalesOrderRequ
 	}
 
 	return s.repo.Get(ctx, id)
+}
+
+func validateFulfillmentLine(line CreateSalesOrderLineReq) error {
+	if line.ProductID <= 0 || line.FulfillmentWarehouseID <= 0 || line.Quantity <= 0 || line.UOM == "" || line.UnitPrice < 0 || line.DiscountPercent < 0 || line.DiscountPercent > 100 || line.TaxPercent < 0 || line.TaxPercent > 100 {
+		return errors.New("each sales order line requires a valid fulfillment warehouse and item values")
+	}
+	return nil
 }
 
 func (s *Service) Confirm(ctx context.Context, id int64, userID int64) (*SalesOrder, error) {

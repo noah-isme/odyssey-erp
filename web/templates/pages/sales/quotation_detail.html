@@ -270,6 +270,10 @@
                     <label for="order_date" class="label">Order Date <span class="text-error">*</span></label>
                     <input type="date" name="order_date" id="order_date" class="form-input" value="{{ .Data.Quotation.QuoteDate.Format "2006-01-02" }}" required>
                 </div>
+                <div class="field mt-4">
+                    <label for="fulfillment_warehouse_id" class="label">Fulfillment Warehouse ID <span class="text-error">*</span></label>
+                    <input type="number" name="fulfillment_warehouse_id" id="fulfillment_warehouse_id" class="form-input" min="1" required>
+                </div>
                 <div class="feedback feedback--info mt-4">
                     <div class="feedback__content">
                         <p class="text-xs">This will create a new Sales Order and mark this Quotation as converted.</p>

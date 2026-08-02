@@ -66,14 +66,15 @@ type PRLine struct {
 
 // PurchaseOrder domain model.
 type PurchaseOrder struct {
-	ID           int64
-	CompanyID    int64
-	Number       string
-	SupplierID   int64
-	Status       POStatus
-	Currency     string
-	ExpectedDate time.Time
-	Note         string
+	ID                  int64
+	CompanyID           int64
+	Number              string
+	SupplierID          int64
+	ExpectedWarehouseID int64
+	Status              POStatus
+	Currency            string
+	ExpectedDate        time.Time
+	Note                string
 }
 
 // POLine represents PO lines.
@@ -179,24 +180,24 @@ const (
 
 // GoodsReturnGRN domain model for supplier returns from a posted GRN.
 type GoodsReturnGRN struct {
-	ID            int64
-	Number        string
-	CompanyID     int64
-	SupplierID    int64
-	GRNID         int64
-	WarehouseID   int64
-	ReturnDate    time.Time
-	Status        GoodsReturnGRNStatus
-	Reason        string
-	Notes         *string
-	CreatedBy     int64
-	ConfirmedBy   *int64
-	ConfirmedAt   *time.Time
-	VoidedBy      *int64
-	VoidedAt      *time.Time
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
-	Lines         []GoodsReturnGRNLine
+	ID          int64
+	Number      string
+	CompanyID   int64
+	SupplierID  int64
+	GRNID       int64
+	WarehouseID int64
+	ReturnDate  time.Time
+	Status      GoodsReturnGRNStatus
+	Reason      string
+	Notes       *string
+	CreatedBy   int64
+	ConfirmedBy *int64
+	ConfirmedAt *time.Time
+	VoidedBy    *int64
+	VoidedAt    *time.Time
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	Lines       []GoodsReturnGRNLine
 
 	SupplierName  string
 	WarehouseName string
@@ -206,20 +207,20 @@ type GoodsReturnGRN struct {
 
 // GoodsReturnGRNLine represents a returned item line.
 type GoodsReturnGRNLine struct {
-	ID                int64
-	GoodsReturnGRNID  int64
-	GRNLineID         int64
-	ProductID         int64
-	QuantityReturned  float64
-	UnitCost          float64
-	Notes             *string
-	LineOrder         int
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	ID               int64
+	GoodsReturnGRNID int64
+	GRNLineID        int64
+	ProductID        int64
+	QuantityReturned float64
+	UnitCost         float64
+	Notes            *string
+	LineOrder        int
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
 
-	ProductCode         string
-	ProductName         string
-	OriginalGRNQty      float64
+	ProductCode    string
+	ProductName    string
+	OriginalGRNQty float64
 }
 
 // CreateGoodsReturnGRNInput for creating a goods return from a GRN.

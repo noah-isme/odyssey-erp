@@ -23,6 +23,13 @@ type memoryTx struct {
 	repo *memoryRepo
 }
 
+type recordingIntegration struct{ calls int }
+
+func (r *recordingIntegration) HandleInventoryAdjustmentPosted(context.Context, AdjustmentPostedEvent) error {
+	r.calls++
+	return nil
+}
+
 func newMemoryRepo() *memoryRepo {
 	return &memoryRepo{
 		balances: make(map[string]Balance),
@@ -263,4 +270,21 @@ func TestNegativeStockGuard(t *testing.T) {
 
 	_, err := svc.PostAdjustment(ctx, AdjustmentInput{WarehouseID: 1, ProductID: 1, Qty: -1, Note: "negative"})
 	require.ErrorIs(t, err, ErrNegativeStock)
+}
+
+func TestAdjustmentCanDeferAccountingIntegrationToOperationalFlow(t *testing.T) {
+	repo := newMemoryRepo()
+	integration := &recordingIntegration{}
+	svc := NewService(repo, nil, nil, ServiceConfig{}, integration)
+	ctx := context.Background()
+
+	_, err := svc.PostInbound(ctx, InboundInput{WarehouseID: 1, ProductID: 1, Qty: 2, UnitCost: 10})
+	require.NoError(t, err)
+	_, err = svc.PostAdjustment(ctx, AdjustmentInput{WarehouseID: 1, ProductID: 1, Qty: -1, SkipIntegration: true})
+	require.NoError(t, err)
+	require.Zero(t, integration.calls)
+
+	_, err = svc.PostAdjustment(ctx, AdjustmentInput{WarehouseID: 1, ProductID: 1, Qty: -1})
+	require.NoError(t, err)
+	require.Equal(t, 1, integration.calls)
 }

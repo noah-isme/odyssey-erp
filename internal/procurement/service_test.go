@@ -277,7 +277,7 @@ func TestProcurementFlow(t *testing.T) {
 
 	require.NoError(t, svc.SubmitPurchaseRequest(ctx, pr.ID, 100))
 
-	po, err := svc.CreatePOFromPR(ctx, CreatePOInput{PRID: pr.ID, Currency: "IDR", ExpectedDate: time.Now()})
+	po, err := svc.CreatePOFromPR(ctx, CreatePOInput{PRID: pr.ID, Currency: "IDR", ExpectedDate: time.Now(), ExpectedWarehouseID: 1})
 	require.NoError(t, err)
 	require.NotZero(t, po.ID)
 

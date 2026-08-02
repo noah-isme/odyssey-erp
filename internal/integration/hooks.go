@@ -445,5 +445,28 @@ func (h *Hooks) HandleInventoryAdjustmentPosted(ctx context.Context, evt invento
 	return h.post(ctx, input)
 }
 
+// PostWIPToFinishedGoods records the single manufacturing reclassification
+// entry after a WIP-backed finished-goods receipt.
+func (h *Hooks) PostWIPToFinishedGoods(ctx context.Context, eventID int64, amount float64) error {
+	if h == nil || h.ledger == nil || h.periodRepo == nil || h.mappingRepo == nil || amount <= 0 {
+		return nil
+	}
+	now := time.Now().UTC()
+	period, err := h.periodRepo.FindOpenPeriodByDate(ctx, now)
+	if err != nil {
+		return err
+	}
+	wip, err := h.resolveAccount(ctx, "INVENTORY", "manufacturing.wip.inventory")
+	if err != nil {
+		return err
+	}
+	fg, err := h.resolveAccount(ctx, "INVENTORY", "manufacturing.finished_goods.inventory")
+	if err != nil {
+		return err
+	}
+	amount = round2(amount)
+	return h.post(ctx, journals.PostingInput{PeriodID: period.ID, Date: now, SourceModule: "MRP.PRODUCTION_RECEIPT", SourceID: uuid.NewSHA1(uuid.Nil, []byte(fmt.Sprintf("MRP-RECEIPT:%d", eventID))), Memo: fmt.Sprintf("WIP to finished goods receipt %d", eventID), Lines: []journals.PostingLineInput{{AccountID: fg, Debit: amount}, {AccountID: wip, Credit: amount}}})
+}
+
 var _ procurement.IntegrationHandler = (*Hooks)(nil)
 var _ inventory.IntegrationHandler = (*Hooks)(nil)

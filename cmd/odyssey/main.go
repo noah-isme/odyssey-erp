@@ -444,6 +444,8 @@ func main() {
 	projectsHandler := projects.NewHandler(projects.NewService(projects.NewRepository(dbpool)), rbacMiddleware, dbpool)
 	mrpHandler := mrp.NewHandler(mrp.NewService(mrp.NewRepository(dbpool)), rbacMiddleware, dbpool)
 	mrpHandler.SetInventoryService(inventoryService)
+	mrpHandler.SetManufacturingAccounting(integrationHooks)
+	mrpHandler.SetUI(templates, csrfManager)
 
 	router := app.NewRouter(app.RouterParams{
 		Logger:                 logger,

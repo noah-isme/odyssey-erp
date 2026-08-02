@@ -108,7 +108,7 @@ func TestCreateSalesOrder(t *testing.T) {
 		CustomerID: 1,
 		OrderDate:  time.Now(),
 		Lines: []CreateSalesOrderLineReq{
-			{ProductID: 1, Quantity: 10, UnitPrice: 100, UOM: "PCS"},
+			{ProductID: 1, FulfillmentWarehouseID: 2, Quantity: 10, UnitPrice: 100, UOM: "PCS"},
 		},
 	}
 
@@ -117,6 +117,17 @@ func TestCreateSalesOrder(t *testing.T) {
 	require.NotNil(t, order)
 	require.Equal(t, "SO-001", order.DocNumber)
 	require.Equal(t, SalesOrderStatusDraft, order.Status)
+}
+
+func TestCreateSalesOrderRequiresLineFulfillmentWarehouse(t *testing.T) {
+	repo := newMemoryRepo()
+	svc := NewService(repo, &mockCustomerRepo{}, &mockQuoteRepo{})
+
+	_, err := svc.Create(context.Background(), CreateSalesOrderRequest{
+		CompanyID: 1, CustomerID: 1, OrderDate: time.Now(),
+		Lines: []CreateSalesOrderLineReq{{ProductID: 1, Quantity: 1, UnitPrice: 10, UOM: "PCS"}},
+	}, 1)
+	require.ErrorContains(t, err, "fulfillment warehouse")
 }
 
 func TestConfirmSalesOrder(t *testing.T) {

@@ -509,21 +509,43 @@ const getSalesOrderLines = `-- name: GetSalesOrderLines :many
 SELECT id, sales_order_id, product_id, description, quantity,
        quantity_delivered, quantity_invoiced, uom, unit_price,
        discount_percent, discount_amount, tax_percent, tax_amount,
-       line_total, notes, line_order, created_at, updated_at
+       line_total, notes, line_order, fulfillment_warehouse_id, created_at, updated_at
 FROM sales_order_lines
 WHERE sales_order_id = $1
 ORDER BY line_order, id
 `
 
-func (q *Queries) GetSalesOrderLines(ctx context.Context, salesOrderID int64) ([]SalesOrderLine, error) {
+type GetSalesOrderLinesRow struct {
+	ID                     int64              `json:"id"`
+	SalesOrderID           int64              `json:"sales_order_id"`
+	ProductID              int64              `json:"product_id"`
+	Description            pgtype.Text        `json:"description"`
+	Quantity               pgtype.Numeric     `json:"quantity"`
+	QuantityDelivered      pgtype.Numeric     `json:"quantity_delivered"`
+	QuantityInvoiced       pgtype.Numeric     `json:"quantity_invoiced"`
+	Uom                    string             `json:"uom"`
+	UnitPrice              pgtype.Numeric     `json:"unit_price"`
+	DiscountPercent        pgtype.Numeric     `json:"discount_percent"`
+	DiscountAmount         pgtype.Numeric     `json:"discount_amount"`
+	TaxPercent             pgtype.Numeric     `json:"tax_percent"`
+	TaxAmount              pgtype.Numeric     `json:"tax_amount"`
+	LineTotal              pgtype.Numeric     `json:"line_total"`
+	Notes                  pgtype.Text        `json:"notes"`
+	LineOrder              int32              `json:"line_order"`
+	FulfillmentWarehouseID pgtype.Int8        `json:"fulfillment_warehouse_id"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetSalesOrderLines(ctx context.Context, salesOrderID int64) ([]GetSalesOrderLinesRow, error) {
 	rows, err := q.db.Query(ctx, getSalesOrderLines, salesOrderID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []SalesOrderLine
+	var items []GetSalesOrderLinesRow
 	for rows.Next() {
-		var i SalesOrderLine
+		var i GetSalesOrderLinesRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.SalesOrderID,
@@ -541,6 +563,7 @@ func (q *Queries) GetSalesOrderLines(ctx context.Context, salesOrderID int64) ([
 			&i.LineTotal,
 			&i.Notes,
 			&i.LineOrder,
+			&i.FulfillmentWarehouseID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -605,27 +628,28 @@ INSERT INTO sales_order_lines (
     sales_order_id, product_id, description, quantity,
     quantity_delivered, quantity_invoiced, uom, unit_price,
     discount_percent, discount_amount, tax_percent, tax_amount,
-    line_total, notes, line_order
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+    line_total, notes, line_order, fulfillment_warehouse_id
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
 RETURNING id
 `
 
 type InsertSalesOrderLineParams struct {
-	SalesOrderID      int64          `json:"sales_order_id"`
-	ProductID         int64          `json:"product_id"`
-	Description       pgtype.Text    `json:"description"`
-	Quantity          pgtype.Numeric `json:"quantity"`
-	QuantityDelivered pgtype.Numeric `json:"quantity_delivered"`
-	QuantityInvoiced  pgtype.Numeric `json:"quantity_invoiced"`
-	Uom               string         `json:"uom"`
-	UnitPrice         pgtype.Numeric `json:"unit_price"`
-	DiscountPercent   pgtype.Numeric `json:"discount_percent"`
-	DiscountAmount    pgtype.Numeric `json:"discount_amount"`
-	TaxPercent        pgtype.Numeric `json:"tax_percent"`
-	TaxAmount         pgtype.Numeric `json:"tax_amount"`
-	LineTotal         pgtype.Numeric `json:"line_total"`
-	Notes             pgtype.Text    `json:"notes"`
-	LineOrder         int32          `json:"line_order"`
+	SalesOrderID           int64          `json:"sales_order_id"`
+	ProductID              int64          `json:"product_id"`
+	Description            pgtype.Text    `json:"description"`
+	Quantity               pgtype.Numeric `json:"quantity"`
+	QuantityDelivered      pgtype.Numeric `json:"quantity_delivered"`
+	QuantityInvoiced       pgtype.Numeric `json:"quantity_invoiced"`
+	Uom                    string         `json:"uom"`
+	UnitPrice              pgtype.Numeric `json:"unit_price"`
+	DiscountPercent        pgtype.Numeric `json:"discount_percent"`
+	DiscountAmount         pgtype.Numeric `json:"discount_amount"`
+	TaxPercent             pgtype.Numeric `json:"tax_percent"`
+	TaxAmount              pgtype.Numeric `json:"tax_amount"`
+	LineTotal              pgtype.Numeric `json:"line_total"`
+	Notes                  pgtype.Text    `json:"notes"`
+	LineOrder              int32          `json:"line_order"`
+	FulfillmentWarehouseID pgtype.Int8    `json:"fulfillment_warehouse_id"`
 }
 
 func (q *Queries) InsertSalesOrderLine(ctx context.Context, arg InsertSalesOrderLineParams) (int64, error) {
@@ -645,6 +669,7 @@ func (q *Queries) InsertSalesOrderLine(ctx context.Context, arg InsertSalesOrder
 		arg.LineTotal,
 		arg.Notes,
 		arg.LineOrder,
+		arg.FulfillmentWarehouseID,
 	)
 	var id int64
 	err := row.Scan(&id)

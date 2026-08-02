@@ -152,8 +152,11 @@ func (q *Queries) CreateGoodsReturnGRNLine(ctx context.Context, arg CreateGoodsR
 
 const createPO = `-- name: CreatePO :one
 
-INSERT INTO pos (number, supplier_id, status, currency, expected_date, note, company_id, created_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+INSERT INTO pos (number, supplier_id, status, currency, expected_date, expected_warehouse_id, note, company_id, created_at)
+SELECT $1, $2, $3, $4, $5, warehouse.id, $7, $8, NOW()
+FROM warehouses warehouse
+JOIN branches branch ON branch.id=warehouse.branch_id AND branch.company_id=$8
+WHERE warehouse.id=$6
 RETURNING id
 `
 
@@ -163,6 +166,7 @@ type CreatePOParams struct {
 	Status       string      `json:"status"`
 	Currency     string      `json:"currency"`
 	ExpectedDate pgtype.Date `json:"expected_date"`
+	ID           int64       `json:"id"`
 	Note         string      `json:"note"`
 	CompanyID    pgtype.Int8 `json:"company_id"`
 }
@@ -177,6 +181,7 @@ func (q *Queries) CreatePO(ctx context.Context, arg CreatePOParams) (int64, erro
 		arg.Status,
 		arg.Currency,
 		arg.ExpectedDate,
+		arg.ID,
 		arg.Note,
 		arg.CompanyID,
 	)
@@ -373,19 +378,20 @@ func (q *Queries) GetGoodsReturnGRN(ctx context.Context, id int64) (GoodsReturnG
 }
 
 const getPO = `-- name: GetPO :one
-SELECT id, number, supplier_id, status, currency, expected_date, note, company_id
+SELECT id, number, supplier_id, status, currency, expected_date, expected_warehouse_id, note, company_id
 FROM pos WHERE id = $1
 `
 
 type GetPORow struct {
-	ID           int64       `json:"id"`
-	Number       string      `json:"number"`
-	SupplierID   int64       `json:"supplier_id"`
-	Status       string      `json:"status"`
-	Currency     string      `json:"currency"`
-	ExpectedDate pgtype.Date `json:"expected_date"`
-	Note         string      `json:"note"`
-	CompanyID    pgtype.Int8 `json:"company_id"`
+	ID                  int64       `json:"id"`
+	Number              string      `json:"number"`
+	SupplierID          int64       `json:"supplier_id"`
+	Status              string      `json:"status"`
+	Currency            string      `json:"currency"`
+	ExpectedDate        pgtype.Date `json:"expected_date"`
+	ExpectedWarehouseID pgtype.Int8 `json:"expected_warehouse_id"`
+	Note                string      `json:"note"`
+	CompanyID           pgtype.Int8 `json:"company_id"`
 }
 
 func (q *Queries) GetPO(ctx context.Context, id int64) (GetPORow, error) {
@@ -398,6 +404,7 @@ func (q *Queries) GetPO(ctx context.Context, id int64) (GetPORow, error) {
 		&i.Status,
 		&i.Currency,
 		&i.ExpectedDate,
+		&i.ExpectedWarehouseID,
 		&i.Note,
 		&i.CompanyID,
 	)

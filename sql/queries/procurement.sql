@@ -27,8 +27,11 @@ UPDATE prs SET status = $1 WHERE id = $2;
 -- =============================================================================
 
 -- name: CreatePO :one
-INSERT INTO pos (number, supplier_id, status, currency, expected_date, note, company_id, created_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+INSERT INTO pos (number, supplier_id, status, currency, expected_date, expected_warehouse_id, note, company_id, created_at)
+SELECT $1, $2, $3, $4, $5, warehouse.id, $7, $8, NOW()
+FROM warehouses warehouse
+JOIN branches branch ON branch.id=warehouse.branch_id AND branch.company_id=$8
+WHERE warehouse.id=$6
 RETURNING id;
 
 -- name: InsertPOLine :exec
@@ -36,7 +39,7 @@ INSERT INTO po_lines (po_id, product_id, qty, price, tax_id, note)
 VALUES ($1, $2, $3, $4, $5, $6);
 
 -- name: GetPO :one
-SELECT id, number, supplier_id, status, currency, expected_date, note, company_id
+SELECT id, number, supplier_id, status, currency, expected_date, expected_warehouse_id, note, company_id
 FROM pos WHERE id = $1;
 
 -- name: GetPOLines :many

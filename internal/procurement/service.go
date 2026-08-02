@@ -80,11 +80,12 @@ type PRLineInput struct {
 
 // CreatePOInput defines data to create PO from PR.
 type CreatePOInput struct {
-	PRID         int64
-	Number       string
-	Currency     string
-	ExpectedDate time.Time
-	Note         string
+	PRID                int64
+	Number              string
+	Currency            string
+	ExpectedDate        time.Time
+	ExpectedWarehouseID int64
+	Note                string
 }
 
 // CreateGRNInput describes GRN creation.
@@ -164,6 +165,9 @@ func (s *Service) SubmitPurchaseRequest(ctx context.Context, prID int64, actorID
 
 // CreatePOFromPR converts PR to PO with identical lines.
 func (s *Service) CreatePOFromPR(ctx context.Context, input CreatePOInput) (PurchaseOrder, error) {
+	if input.ExpectedWarehouseID <= 0 {
+		return PurchaseOrder{}, ErrValidation
+	}
 	pr, lines, err := s.repo.GetPR(ctx, input.PRID)
 	if err != nil {
 		return PurchaseOrder{}, err
@@ -183,7 +187,7 @@ func (s *Service) CreatePOFromPR(ctx context.Context, input CreatePOInput) (Purc
 		return PurchaseOrder{}, fmt.Errorf("PO number %s already exists", input.Number)
 	}
 
-	po := PurchaseOrder{Number: input.Number, CompanyID: pr.CompanyID, SupplierID: pr.SupplierID, Status: POStatusDraft, Currency: defaultString(input.Currency, "IDR"), ExpectedDate: input.ExpectedDate, Note: input.Note}
+	po := PurchaseOrder{Number: input.Number, CompanyID: pr.CompanyID, SupplierID: pr.SupplierID, ExpectedWarehouseID: input.ExpectedWarehouseID, Status: POStatusDraft, Currency: defaultString(input.Currency, "IDR"), ExpectedDate: input.ExpectedDate, Note: input.Note}
 	err = s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
 		poID, err := tx.CreatePO(ctx, po)
 		if err != nil {
@@ -197,7 +201,7 @@ func (s *Service) CreatePOFromPR(ctx context.Context, input CreatePOInput) (Purc
 		if err := tx.UpdatePRStatus(ctx, pr.ID, PRStatusClosed); err != nil {
 			return err
 		}
-		created := PurchaseOrder{ID: poID, CompanyID: po.CompanyID, Number: po.Number, SupplierID: po.SupplierID, Status: po.Status, Currency: po.Currency, ExpectedDate: po.ExpectedDate, Note: po.Note}
+		created := PurchaseOrder{ID: poID, CompanyID: po.CompanyID, Number: po.Number, SupplierID: po.SupplierID, ExpectedWarehouseID: po.ExpectedWarehouseID, Status: po.Status, Currency: po.Currency, ExpectedDate: po.ExpectedDate, Note: po.Note}
 		po = created
 		return nil
 	})

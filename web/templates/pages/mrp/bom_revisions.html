@@ -1,0 +1,40 @@
+{{ define "pages/mrp/bom_revisions.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}BOM Revisions{{ end }}
+
+{{ define "content" }}
+<div class="page-container">
+  <header class="page-header">
+    <div><h1 class="page-title">BOM revisions</h1><p class="page-subtitle">Product {{ .Data.ProductID }} — approved revisions are read-only.</p></div>
+  </header>
+  <section class="card">
+    <div class="card__body">
+      {{ if .Data.Revisions }}<form id="bom-revision-create" class="form-grid" data-product-id="{{ .Data.ProductID }}">
+        <label>Copy lines from <select class="form-select" name="source_bom_id">{{ range .Data.Revisions }}<option value="{{ .ID }}">{{ .Version }} ({{ .RevisionStatus }})</option>{{ end }}</select></label>
+        <label>New version <input class="form-input" name="version" required placeholder="v2"></label>
+        <label>Effective from <input class="form-input" name="effective_from" type="date" required></label>
+        <label>Change reason <input class="form-input" name="change_reason" required></label>
+        <button class="btn btn--secondary" type="submit">Create draft revision</button>
+      </form>{{ end }}
+      <div class="table-responsive"><table class="table"><thead><tr><th>Version</th><th>Effective from</th><th>Status</th><th>Reason</th><th>Approved</th><th></th></tr></thead>
+      <tbody>{{ range .Data.Revisions }}<tr><td>{{ .Version }}</td><td>{{ formatDateInput .EffectiveFrom }}</td><td>{{ .RevisionStatus }}</td><td>{{ .ChangeReason }}</td><td>{{ formatDatePtr .ApprovedAt }}</td><td>{{ if eq .RevisionStatus "DRAFT" }}<form class="bom-approve" data-bom-id="{{ .ID }}"><input class="form-input" name="change_reason" required placeholder="Approval reason"><button class="btn btn--primary" type="submit">Approve</button></form>{{ end }}</td></tr>{{ else }}<tr><td colspan="6">No revisions found.</td></tr>{{ end }}</tbody></table></div>
+    </div>
+  </section>
+</div>
+<script>
+async function submitBOM(path, payload) {
+  const response = await fetch(path, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)});
+  if (!response.ok) throw new Error(await response.text());
+  window.location.reload();
+}
+document.getElementById('bom-revision-create')?.addEventListener('submit', async (event) => {
+  event.preventDefault(); const form = new FormData(event.currentTarget);
+  try { await submitBOM('/mrp/boms/' + form.get('source_bom_id') + '/revisions', {version: form.get('version'), effective_from: form.get('effective_from') + 'T00:00:00Z', change_reason: form.get('change_reason')}); } catch (error) { alert(error.message); }
+});
+document.querySelectorAll('.bom-approve').forEach((form) => form.addEventListener('submit', async (event) => {
+  event.preventDefault(); try { await submitBOM('/mrp/boms/' + form.dataset.bomId + '/approve', {change_reason: new FormData(form).get('change_reason')}); } catch (error) { alert(error.message); }
+}));
+</script>
+{{ end }}
