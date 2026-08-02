@@ -7,6 +7,7 @@
 **Revised:** 2026-08-01 (Phase 14 transaction-level FX implementation)
 **Revised:** 2026-08-01 (Phase 14 and P7 local acceptance gates)
 **Revised:** 2026-08-02 (manufacturing/MRP execution, planning, quality, analytics, and compliance foundations)
+**Revised:** 2026-08-02 (external integrations implementation plan)
 **Current Version:** v0.9.1
 
 > For current capability status, use the [Module Catalog](reference/module-catalog.md).
@@ -426,6 +427,18 @@ breaking the order for (export/import demand).
 
 > For product-feature sequencing, follow the gap-analysis phased plan above; the
 > module-choice framing below reflects the 2026-07-20 revision.
+
+The high-priority finance automation work is specified in the
+[`Core Finance Automation Plan`](guides/core-finance-automation-plan.md). It sequences
+automated bank feeds, rolling cash forecasts, scheduled payments, purchase-to-pay
+orchestration, and asset operations on the current banking, AP, procurement,
+approval, and fixed-asset modules.
+
+The high-priority external connector program is specified in the
+[`External Integrations Plan`](guides/external-integrations-plan.md). It establishes a
+shared outbox/inbox, connection, secret, mapping, retry, and observability foundation,
+then sequences payment gateways, carriers, marketplaces, messaging, BI, identity, and
+governed AI connectors.
 
 1. **Immediate (highest value, low effort)**
    - Add integration coverage for the Budget vs Actual query and form a release dataset that includes revenue and expense budgets.

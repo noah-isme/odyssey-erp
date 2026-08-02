@@ -30,6 +30,8 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 | Document | Description |
 |----------|-------------|
 | [Accounting Runbook](guides/accounting.md) | Operasi accounting |
+| [Core Finance Automation Plan](guides/core-finance-automation-plan.md) | Bank feeds, cash forecasting, payment scheduling, purchase-to-pay, dan operasi aset |
+| [External Integrations Plan](guides/external-integrations-plan.md) | Payment, carrier, marketplace, messaging, BI, identity, dan AI connectors |
 | [Procurement SOP](guides/procurement.md) | Prosedur procurement |
 | [Board Pack](guides/howto-boardpack.md) | Generate board pack |
 | [Profil & Pengaturan](guides/user-profile-settings.md) | Panduan pengguna untuk profil, tema, bahasa, notifikasi, dan password |

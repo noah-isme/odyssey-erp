@@ -85,7 +85,7 @@ sessions.
 | RBAC | Implemented | Permission middleware and module-scoped roles; see [`reference/rbac.md`](../reference/rbac.md) |
 | Audit logs | Implemented | Audit timeline and protected exports are available; retention and tamper-evidence policy remain to be formalized |
 | 2FA | Unsupported | No TOTP, WebAuthn, recovery-code, enrollment, or enforcement flow is documented |
-| SSO | Unsupported | No SAML/OIDC provider or session handoff is documented |
+| SSO | Planned | OIDC-first federation, identity linking, role mapping, and break-glass controls are specified in the [`External Integrations Plan`](external-integrations-plan.md); no provider or session handoff is implemented |
 | Encryption in transit | Partial | HTTPS is a production requirement; certificate, TLS policy, and reverse-proxy ownership are deployment concerns |
 | Encryption at rest | Unsupported | No database, backup, object-storage, or key-management policy is documented |
 | IP restrictions | Unsupported | Rate limiting is documented, but allowlists/denylists and trusted-network policy are not |
