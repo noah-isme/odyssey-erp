@@ -478,7 +478,7 @@ func (s *Service) SignDocument(ctx context.Context, req SignDocumentRequest) (Do
 	}
 	
 	// Record audit access event
-	s.repo.RecordAccessEvent(ctx, DocumentAccessEvent{
+	_ = s.repo.RecordAccessEvent(ctx, DocumentAccessEvent{
 		CompanyID:         req.CompanyID,
 		DocumentVersionID: req.DocumentVersionID,
 		ActorID:           req.SignerID,

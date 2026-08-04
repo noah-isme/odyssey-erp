@@ -9,8 +9,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/suite"
-
-	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 )
 
 // E2ETestSuite runs comprehensive end-to-end tests across all phases
@@ -18,7 +16,6 @@ type E2ETestSuite struct {
 	suite.Suite
 	server *httptest.Server
 	client *http.Client
-	session *shared.Session
 }
 
 func (suite *E2ETestSuite) SetupSuite() {
@@ -80,7 +77,7 @@ func (suite *E2ETestSuite) TestVendorContractLifecycle() {
 	suite.Equal(http.StatusCreated, resp.StatusCode)
 
 	var contractResp map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&contractResp)
+	_ = json.NewDecoder(resp.Body).Decode(&contractResp)
 	contractID := contractResp["id"]
 
 	// 2. Add pricing lines
@@ -107,7 +104,7 @@ func (suite *E2ETestSuite) TestVendorContractLifecycle() {
 	resp = suite.doAuthenticatedRequest("GET", "/procurement/contracts/"+contractID.(string), nil)
 	suite.Equal(http.StatusOK, resp.StatusCode)
 
-	json.NewDecoder(resp.Body).Decode(&contractResp)
+	_ = json.NewDecoder(resp.Body).Decode(&contractResp)
 	suite.Equal("ACTIVE", contractResp["status"])
 }
 
@@ -123,7 +120,7 @@ func (suite *E2ETestSuite) TestVendorScorecardCalculation() {
 	suite.Equal(http.StatusCreated, resp.StatusCode)
 
 	var scoreResp map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&scoreResp)
+	_ = json.NewDecoder(resp.Body).Decode(&scoreResp)
 
 	// 2. Verify metrics calculated
 	suite.NotNil(scoreResp["otif_score"])
@@ -156,7 +153,7 @@ func (suite *E2ETestSuite) TestShipmentTrackingLifecycle() {
 	suite.Equal(http.StatusCreated, resp.StatusCode)
 
 	var shipResp map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&shipResp)
+	_ = json.NewDecoder(resp.Body).Decode(&shipResp)
 	shipmentID := shipResp["id"]
 
 	// 2. Create trip with shipment
@@ -173,7 +170,7 @@ func (suite *E2ETestSuite) TestShipmentTrackingLifecycle() {
 	suite.Equal(http.StatusCreated, resp.StatusCode)
 
 	var tripResp map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&tripResp)
+	_ = json.NewDecoder(resp.Body).Decode(&tripResp)
 	tripID := tripResp["id"]
 
 	// 3. Start trip
@@ -196,7 +193,7 @@ func (suite *E2ETestSuite) TestShipmentTrackingLifecycle() {
 	resp = suite.doAuthenticatedRequest("GET", "/logistics/shipments/"+shipmentID.(string), nil)
 	suite.Equal(http.StatusOK, resp.StatusCode)
 
-	json.NewDecoder(resp.Body).Decode(&shipResp)
+	_ = json.NewDecoder(resp.Body).Decode(&shipResp)
 	suite.Equal("DELIVERED", shipResp["status"])
 }
 
@@ -212,7 +209,7 @@ func (suite *E2ETestSuite) TestCarrierRateCalculation() {
 	suite.Equal(http.StatusCreated, resp.StatusCode)
 
 	var carrierResp map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&carrierResp)
+	_ = json.NewDecoder(resp.Body).Decode(&carrierResp)
 	carrierID := carrierResp["id"]
 
 	// 2. Add rate card
@@ -236,7 +233,7 @@ func (suite *E2ETestSuite) TestCarrierRateCalculation() {
 	suite.Equal(http.StatusOK, resp.StatusCode)
 
 	var rateResp map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&rateResp)
+	_ = json.NewDecoder(resp.Body).Decode(&rateResp)
 	suite.NotNil(rateResp["calculated_rate"])
 	suite.NotNil(rateResp["breakdown"])
 }
@@ -260,7 +257,7 @@ func (suite *E2ETestSuite) TestLoadConsolidationWorkflow() {
 	suite.Equal(http.StatusCreated, resp.StatusCode)
 
 	var loadResp map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&loadResp)
+	_ = json.NewDecoder(resp.Body).Decode(&loadResp)
 	loadID := loadResp["id"]
 
 	// 2. Add multiple items to load
@@ -291,7 +288,7 @@ func (suite *E2ETestSuite) TestLoadConsolidationWorkflow() {
 	resp = suite.doAuthenticatedRequest("GET", "/distribution/loads/"+loadID.(string), nil)
 	suite.Equal(http.StatusOK, resp.StatusCode)
 
-	json.NewDecoder(resp.Body).Decode(&loadResp)
+	_ = json.NewDecoder(resp.Body).Decode(&loadResp)
 	suite.Equal("CONFIRMED", loadResp["status"])
 }
 
@@ -307,7 +304,7 @@ func (suite *E2ETestSuite) TestRouteOptimization() {
 	suite.Equal(http.StatusCreated, resp.StatusCode)
 
 	var loadResp map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&loadResp)
+	_ = json.NewDecoder(resp.Body).Decode(&loadResp)
 	loadID := loadResp["id"]
 
 	// 2. Create route for load
@@ -320,7 +317,7 @@ func (suite *E2ETestSuite) TestRouteOptimization() {
 	suite.Equal(http.StatusCreated, resp.StatusCode)
 
 	var routeResp map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&routeResp)
+	_ = json.NewDecoder(resp.Body).Decode(&routeResp)
 	routeID := routeResp["id"]
 
 	// 3. Add multiple stops
@@ -349,7 +346,7 @@ func (suite *E2ETestSuite) TestRouteOptimization() {
 	resp = suite.doAuthenticatedRequest("GET", "/distribution/routes/"+routeID.(string), nil)
 	suite.Equal(http.StatusOK, resp.StatusCode)
 
-	json.NewDecoder(resp.Body).Decode(&routeResp)
+	_ = json.NewDecoder(resp.Body).Decode(&routeResp)
 	suite.NotNil(routeResp["optimization_score"])
 }
 

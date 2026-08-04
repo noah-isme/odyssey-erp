@@ -43,7 +43,7 @@ func (h *Handler) CreateCarrierHandler(w http.ResponseWriter, r *http.Request) {
 	// TODO: Log audit trail
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
 }
 
 // ListCarriersHandler lists all carriers for a company
@@ -54,7 +54,7 @@ func (h *Handler) ListCarriersHandler(w http.ResponseWriter, r *http.Request) {
 	// TODO: Return JSON array of carriers
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"carriers": []interface{}{}})
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"carriers": []interface{}{}})
 }
 
 // GetCarrierHandler retrieves a single carrier
@@ -72,7 +72,7 @@ func (h *Handler) GetCarrierHandler(w http.ResponseWriter, r *http.Request) {
 
 	_ = carrierID
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -96,7 +96,7 @@ func (h *Handler) CreateFleetHandler(w http.ResponseWriter, r *http.Request) {
 	// TODO: Return JSON response with created fleet
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
 }
 
 // ListFleetsHandler lists all fleets for a company
@@ -106,7 +106,7 @@ func (h *Handler) ListFleetsHandler(w http.ResponseWriter, r *http.Request) {
 	// TODO: Return JSON array of fleets with vehicle counts
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"fleets": []interface{}{}})
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"fleets": []interface{}{}})
 }
 
 // RegisterVehicleRequest defines the request body for registering a vehicle
@@ -132,7 +132,7 @@ func (h *Handler) RegisterVehicleHandler(w http.ResponseWriter, r *http.Request)
 	// TODO: Return JSON response with created vehicle
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
 }
 
 // ListVehiclesHandler lists all vehicles for a fleet
@@ -149,7 +149,7 @@ func (h *Handler) ListVehiclesHandler(w http.ResponseWriter, r *http.Request) {
 
 	_ = fleetID
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"vehicles": []interface{}{}})
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"vehicles": []interface{}{}})
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -177,7 +177,7 @@ func (h *Handler) RegisterDriverHandler(w http.ResponseWriter, r *http.Request) 
 	// TODO: Return JSON response with created driver
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
 }
 
 // ListDriversHandler lists all drivers for a company
@@ -188,7 +188,7 @@ func (h *Handler) ListDriversHandler(w http.ResponseWriter, r *http.Request) {
 	// TODO: Return JSON array of drivers
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"drivers": []interface{}{}})
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"drivers": []interface{}{}})
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -218,7 +218,7 @@ func (h *Handler) CreateShipmentHandler(w http.ResponseWriter, r *http.Request) 
 	// TODO: Return JSON response with created shipment
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
 }
 
 // ListShipmentsHandler lists all shipments for a company
@@ -229,7 +229,7 @@ func (h *Handler) ListShipmentsHandler(w http.ResponseWriter, r *http.Request) {
 	// TODO: Return JSON array of shipments
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"shipments": []interface{}{}})
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"shipments": []interface{}{}})
 }
 
 // GetShipmentHandler retrieves a single shipment
@@ -247,7 +247,7 @@ func (h *Handler) GetShipmentHandler(w http.ResponseWriter, r *http.Request) {
 
 	_ = shipmentID
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
 }
 
 // DispatchShipmentRequest defines the request body for dispatching a shipment
@@ -274,7 +274,7 @@ func (h *Handler) DispatchShipmentHandler(w http.ResponseWriter, r *http.Request
 
 	_ = shipmentID
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
 }
 
 // TrackShipmentHandler returns real-time shipment tracking information
@@ -291,7 +291,7 @@ func (h *Handler) TrackShipmentHandler(w http.ResponseWriter, r *http.Request) {
 
 	_ = shipmentID
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -317,7 +317,7 @@ func (h *Handler) PlanTripHandler(w http.ResponseWriter, r *http.Request) {
 	// TODO: Return JSON response with created trip
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
 }
 
 // ListTripsHandler lists all active trips for a company
@@ -327,7 +327,7 @@ func (h *Handler) ListTripsHandler(w http.ResponseWriter, r *http.Request) {
 	// TODO: Return JSON array of active trips
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"trips": []interface{}{}})
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"trips": []interface{}{}})
 }
 
 // GetTripHandler retrieves a single trip with all stops
@@ -345,7 +345,7 @@ func (h *Handler) GetTripHandler(w http.ResponseWriter, r *http.Request) {
 
 	_ = tripID
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
 }
 
 // DispatchTripHandler dispatches a trip to the driver
@@ -363,7 +363,7 @@ func (h *Handler) DispatchTripHandler(w http.ResponseWriter, r *http.Request) {
 
 	_ = tripID
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -385,7 +385,7 @@ type SuccessResponse struct {
 func JSONError(w http.ResponseWriter, message string, code int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(ErrorResponse{
+	_ = json.NewEncoder(w).Encode(ErrorResponse{
 		Error:   http.StatusText(code),
 		Message: message,
 		Code:    code,
@@ -396,7 +396,7 @@ func JSONError(w http.ResponseWriter, message string, code int) {
 func JSONSuccess(w http.ResponseWriter, data interface{}, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(SuccessResponse{
+	_ = json.NewEncoder(w).Encode(SuccessResponse{
 		Data:    data,
 		Message: message,
 	})

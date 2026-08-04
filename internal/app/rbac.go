@@ -266,14 +266,17 @@ func RequireAnyPermission(checker *PermissionChecker, permissions ...Permission)
 	}
 }
 
+type permissionContextKey string
+const permissionCheckerKey = permissionContextKey("permissionChecker")
+
 // ContextWithPermissionChecker adds permission checker to context
 func ContextWithPermissionChecker(ctx context.Context, checker *PermissionChecker) context.Context {
-	return context.WithValue(ctx, "permissionChecker", checker)
+	return context.WithValue(ctx, permissionCheckerKey, checker)
 }
 
 // PermissionCheckerFromContext extracts permission checker from context
 func PermissionCheckerFromContext(ctx context.Context) *PermissionChecker {
-	checker, ok := ctx.Value("permissionChecker").(*PermissionChecker)
+	checker, ok := ctx.Value(permissionCheckerKey).(*PermissionChecker)
 	if !ok {
 		return nil
 	}

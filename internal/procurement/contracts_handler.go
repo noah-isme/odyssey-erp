@@ -284,6 +284,7 @@ func (h *Handler) listPendingVariances(w http.ResponseWriter, r *http.Request) {
 }
 
 // Helper functions
+var _ = (*Handler).contractUnavailable
 
 func (h *Handler) contractUnavailable(w http.ResponseWriter) bool {
 	if h.contracts != nil {
@@ -304,13 +305,13 @@ func (h *Handler) scorecardError(w http.ResponseWriter, err error) {
 func writeContractJSON(w http.ResponseWriter, status int, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(v)
+	_ = json.NewEncoder(w).Encode(v)
 }
 
 func writeScorecardJSON(w http.ResponseWriter, status int, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(v)
+	_ = json.NewEncoder(w).Encode(v)
 }
 
 // Form helper functions

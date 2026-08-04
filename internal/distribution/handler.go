@@ -38,7 +38,7 @@ func (h *Handler) CreatePlanningHorizonHandler(w http.ResponseWriter, r *http.Re
 	// TODO: Return JSON response with created horizon
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
 }
 
 type AddPlanningRuleRequest struct {
@@ -62,7 +62,7 @@ func (h *Handler) AddPlanningRuleHandler(w http.ResponseWriter, r *http.Request)
 	// TODO: Return JSON response
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -87,7 +87,7 @@ func (h *Handler) CreateLoadHandler(w http.ResponseWriter, r *http.Request) {
 	// TODO: Return JSON response
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
 }
 
 // ListLoadsHandler lists all loads for a company
@@ -98,7 +98,7 @@ func (h *Handler) ListLoadsHandler(w http.ResponseWriter, r *http.Request) {
 	// TODO: Return JSON array of loads
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"loads": []interface{}{}})
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"loads": []interface{}{}})
 }
 
 // GetLoadHandler retrieves a single load
@@ -116,7 +116,7 @@ func (h *Handler) GetLoadHandler(w http.ResponseWriter, r *http.Request) {
 
 	_ = loadID
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
 }
 
 type DispatchLoadRequest struct {
@@ -142,7 +142,7 @@ func (h *Handler) DispatchLoadHandler(w http.ResponseWriter, r *http.Request) {
 
 	_ = loadID
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -163,7 +163,7 @@ func (h *Handler) PlanRouteHandler(w http.ResponseWriter, r *http.Request) {
 	// TODO: Return JSON response with route
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
 }
 
 // OptimizeRouteHandler runs route optimization algorithm
@@ -181,7 +181,7 @@ func (h *Handler) OptimizeRouteHandler(w http.ResponseWriter, r *http.Request) {
 
 	_ = routeID
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
 }
 
 // ApproveRouteHandler approves an optimized route
@@ -199,7 +199,7 @@ func (h *Handler) ApproveRouteHandler(w http.ResponseWriter, r *http.Request) {
 
 	_ = routeID
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -222,7 +222,7 @@ func (h *Handler) CreateTransferHandler(w http.ResponseWriter, r *http.Request) 
 	// TODO: Return JSON response with created transfer
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
 }
 
 // ListTransfersHandler lists all transfer orders for a company
@@ -233,7 +233,7 @@ func (h *Handler) ListTransfersHandler(w http.ResponseWriter, r *http.Request) {
 	// TODO: Return JSON array of transfers
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"transfers": []interface{}{}})
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"transfers": []interface{}{}})
 }
 
 // GetTransferHandler retrieves a single transfer order
@@ -252,7 +252,7 @@ func (h *Handler) GetTransferHandler(w http.ResponseWriter, r *http.Request) {
 
 	_ = transferID
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
 }
 
 type ApproveTransferRequest struct {
@@ -275,7 +275,7 @@ func (h *Handler) ApproveTransferHandler(w http.ResponseWriter, r *http.Request)
 
 	_ = transferID
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
 }
 
 type DispatchTransferRequest struct {
@@ -300,7 +300,7 @@ func (h *Handler) DispatchTransferHandler(w http.ResponseWriter, r *http.Request
 
 	_ = transferID
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -321,7 +321,7 @@ func (h *Handler) GetLoadUtilizationHandler(w http.ResponseWriter, r *http.Reque
 
 	_ = loadID
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
 }
 
 // GetRouteMetricsHandler returns route performance metrics
@@ -338,7 +338,7 @@ func (h *Handler) GetRouteMetricsHandler(w http.ResponseWriter, r *http.Request)
 
 	_ = routeID
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -360,7 +360,7 @@ type SuccessResponse struct {
 func JSONError(w http.ResponseWriter, message string, code int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(ErrorResponse{
+	_ = json.NewEncoder(w).Encode(ErrorResponse{
 		Error:   http.StatusText(code),
 		Message: message,
 		Code:    code,
@@ -371,7 +371,7 @@ func JSONError(w http.ResponseWriter, message string, code int) {
 func JSONSuccess(w http.ResponseWriter, data interface{}, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(SuccessResponse{
+	_ = json.NewEncoder(w).Encode(SuccessResponse{
 		Data:    data,
 		Message: message,
 	})

@@ -849,6 +849,11 @@ func (r *Repository) RecordAccessEvent(ctx context.Context, event DocumentAccess
 
 // Helpers
 
+var _ = statusPtr
+var _ = stringPtr
+var _ = categoryIDOrZero
+var _ = classificationIDOrZero
+var _ = ownerIDOrZero
 func int8Ptr(i *int64) pgtype.Int8 {
 	if i == nil {
 		return pgtype.Int8{}

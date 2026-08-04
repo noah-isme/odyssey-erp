@@ -166,7 +166,12 @@ func NewMockRepository() *MockRepository {
 
 // Implement all Repository methods for MockRepository
 func (m *MockRepository) CreateRateCard(ctx context.Context, input CreateRateCardInput) (*RateCard, error) {
-	rc := &RateCard{ID: int64(len(m.RateCards) + 1)}
+	rc := &RateCard{
+		ID:         int64(len(m.RateCards) + 1),
+		BaseRate:   input.BaseRate,
+		PerKgRate:  input.PerKgRate,
+		PerCbmRate: input.PerCbmRate,
+	}
 	m.RateCards[rc.ID] = rc
 	return rc, nil
 }
@@ -237,6 +242,14 @@ func (m *MockRepository) ListFreightCharges(ctx context.Context, companyID int64
 }
 
 func (m *MockRepository) UpdateFreightCharge(ctx context.Context, companyID, chargeID int64, updates FreightChargeUpdate) (*FreightCharge, error) {
+	if charge, ok := m.FreightCharges[chargeID]; ok {
+		if updates.Status != nil {
+			charge.Status = *updates.Status
+		}
+		if updates.InvoiceNumber != nil {
+			charge.InvoiceNumber = updates.InvoiceNumber
+		}
+	}
 	return m.FreightCharges[chargeID], nil
 }
 

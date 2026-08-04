@@ -70,7 +70,7 @@ func TestDecisionSubmissionHandler(t *testing.T) {
 			}
 
 			var resp DecisionResponse
-			json.NewDecoder(w.Body).Decode(&resp)
+			_ = json.NewDecoder(w.Body).Decode(&resp)
 
 			if tt.expectedValid && !resp.Success {
 				t.Errorf("Expected successful response, got error: %s", resp.Error)
@@ -220,7 +220,7 @@ func TestChallengeVerificationHandler(t *testing.T) {
 			}
 
 			var resp ChallengeVerificationResponse
-			json.NewDecoder(w.Body).Decode(&resp)
+			_ = json.NewDecoder(w.Body).Decode(&resp)
 
 			if tt.shouldSucceed && !resp.Success {
 				t.Errorf("Expected successful response, got: %s", resp.Error)
@@ -277,7 +277,7 @@ func TestAuditLogHandler(t *testing.T) {
 			}
 
 			var resp AuditLogResponse
-			json.NewDecoder(w.Body).Decode(&resp)
+			_ = json.NewDecoder(w.Body).Decode(&resp)
 
 			if !resp.Success {
 				t.Errorf("Expected successful response, got error: %s", resp.Error)

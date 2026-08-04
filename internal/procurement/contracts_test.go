@@ -11,8 +11,8 @@ import (
 
 // TestContractLifecycle tests the full contract lifecycle: DRAFT → APPROVAL → ACTIVE → TERMINATED
 func TestContractLifecycle(t *testing.T) {
-	ctx := context.Background()
 	db := setupTestDB(t)
+	ctx := context.Background()
 	defer db.Close()
 
 	service := NewContractService(db)
@@ -91,8 +91,8 @@ func TestContractLifecycle(t *testing.T) {
 
 // TestContractPriceTierSelection tests quantity-based price tier selection
 func TestContractPriceTierSelection(t *testing.T) {
-	ctx := context.Background()
 	db := setupTestDB(t)
+	ctx := context.Background()
 	defer db.Close()
 
 	repo := NewContractRepository(db)
@@ -182,8 +182,8 @@ func TestContractPriceTierSelection(t *testing.T) {
 
 // TestPriceHistoryImmutability verifies price history cannot be updated
 func TestPriceHistoryImmutability(t *testing.T) {
-	ctx := context.Background()
 	db := setupTestDB(t)
+	ctx := context.Background()
 	defer db.Close()
 
 	repo := NewContractRepository(db)
@@ -233,8 +233,8 @@ func TestPriceHistoryImmutability(t *testing.T) {
 
 // TestVarianceDetection tests automatic variance detection during PO creation
 func TestVarianceDetection(t *testing.T) {
-	ctx := context.Background()
 	db := setupTestDB(t)
+	ctx := context.Background()
 	defer db.Close()
 
 	service := NewContractService(db)
@@ -297,8 +297,8 @@ func TestVarianceDetection(t *testing.T) {
 
 // TestScorecardLifecycle tests scorecard creation and publication
 func TestScorecardLifecycle(t *testing.T) {
-	ctx := context.Background()
 	db := setupTestDB(t)
+	ctx := context.Background()
 	defer db.Close()
 
 	service := NewScorecardService(db)

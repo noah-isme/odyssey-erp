@@ -1013,12 +1013,7 @@ func valueOrZeroFloat(ptr *float64) float64 {
 	return *ptr
 }
 
-func stringValue(ptr *string) string {
-	if ptr == nil {
-		return ""
-	}
-	return *ptr
-}
+
 
 func statusStringOrEmpty(s *Status) string {
 	if s == nil {
@@ -1050,7 +1045,7 @@ func (r *Repository) GeneratePMWorkOrderTx(ctx context.Context, req CreateWorkOr
 	if err != nil {
 		return WorkOrder{}, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	qtx := r.queries.WithTx(tx)
 
