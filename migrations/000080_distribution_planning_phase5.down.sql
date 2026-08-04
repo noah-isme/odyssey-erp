@@ -1,6 +1,6 @@
 -- Rollback: Phase 5 - Distribution Planning
 
-BEGIN;
+-- BEGIN;
 
 -- Drop indexes
 DROP INDEX IF EXISTS idx_transfer_order_lines_transfer;
@@ -35,4 +35,4 @@ DELETE FROM role_permissions WHERE permission_id IN (
 
 DELETE FROM permissions WHERE name LIKE 'distribution.%';
 
-COMMIT;
+-- COMMIT;

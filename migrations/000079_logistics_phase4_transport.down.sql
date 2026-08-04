@@ -1,6 +1,6 @@
 -- Rollback: Phase 4 - Transport Execution
 
-BEGIN;
+-- BEGIN;
 
 -- Drop indexes
 DROP INDEX IF EXISTS idx_trip_stops_shipment;
@@ -36,4 +36,4 @@ DELETE FROM role_permissions WHERE permission_id IN (
 
 DELETE FROM permissions WHERE name LIKE 'logistics.%';
 
-COMMIT;
+-- COMMIT;

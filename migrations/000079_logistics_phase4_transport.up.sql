@@ -1,7 +1,7 @@
 -- Migration 000079: Phase 4 - Transport Execution (Carriers, Fleet, Vehicles, Drivers, Shipments, Trips)
 -- Creates tables and permissions for carrier management, fleet operations, and shipment execution
 
-BEGIN;
+-- BEGIN;
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- CARRIERS & RATE CARDS

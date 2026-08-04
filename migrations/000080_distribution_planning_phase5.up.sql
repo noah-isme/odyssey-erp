@@ -1,7 +1,7 @@
 -- Migration 000080: Phase 5 - Distribution Planning (Load Planning, Route Optimization, Transfer Orders)
 -- Creates tables for planning horizon, load consolidation, route optimization, and inter-warehouse transfers
 
-BEGIN;
+-- BEGIN;
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- PLANNING CONFIGURATION
@@ -239,4 +239,4 @@ JOIN permissions p ON p.name IN (
 WHERE LOWER(TRIM(r.name)) IN ('admin', 'administrator')
 ON CONFLICT DO NOTHING;
 
-COMMIT;
+-- COMMIT;

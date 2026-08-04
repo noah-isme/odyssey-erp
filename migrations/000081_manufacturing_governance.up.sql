@@ -111,9 +111,9 @@ CREATE TABLE quality_inspections (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     FOREIGN KEY (company_id) REFERENCES companies(id)
 );
-CREATE INDEX idx_company_status ON quality_inspections(company_id, status);
-CREATE INDEX idx_work_order ON quality_inspections(work_order_id);
-CREATE INDEX idx_operation ON quality_inspections(operation_id);
+CREATE INDEX idx_quality_inspections_company_status ON quality_inspections(company_id, status);
+CREATE INDEX idx_quality_inspections_work_order ON quality_inspections(work_order_id);
+CREATE INDEX idx_quality_inspections_operation ON quality_inspections(operation_id);
 
 -- Quality Holds: Hold records with explicit lifecycle
 CREATE TABLE quality_holds (
@@ -130,8 +130,8 @@ CREATE TABLE quality_holds (
     FOREIGN KEY (inspection_id) REFERENCES quality_inspections(id),
     FOREIGN KEY (created_by) REFERENCES users(id)
 );
-CREATE INDEX idx_company_status ON quality_holds(company_id, status);
-CREATE INDEX idx_record ON quality_holds(record_type, record_id);
+CREATE INDEX idx_quality_holds_company_status ON quality_holds(company_id, status);
+CREATE INDEX idx_quality_holds_record ON quality_holds(record_type, record_id);
 
 -- Quality NCRs: Nonconformance records with explicit lifecycle
 CREATE TABLE quality_ncrs (
@@ -146,7 +146,7 @@ CREATE TABLE quality_ncrs (
     FOREIGN KEY (created_by) REFERENCES users(id),
     UNIQUE(company_id, number)
 );
-CREATE INDEX idx_company_status ON quality_ncrs(company_id, status);
+CREATE INDEX idx_quality_ncrs_company_status ON quality_ncrs(company_id, status);
 
 -- Quality CAPAs: Corrective/preventive action records with explicit lifecycle
 CREATE TABLE quality_capas (
@@ -161,7 +161,7 @@ CREATE TABLE quality_capas (
     FOREIGN KEY (created_by) REFERENCES users(id),
     UNIQUE(company_id, number)
 );
-CREATE INDEX idx_company_status ON quality_capas(company_id, status);
+CREATE INDEX idx_quality_capas_company_status ON quality_capas(company_id, status);
 
 -- Subcontract Receipts: Received goods tracking with explicit lifecycle
 CREATE TABLE subcontract_receipts (
@@ -176,6 +176,6 @@ CREATE TABLE subcontract_receipts (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     FOREIGN KEY (company_id) REFERENCES companies(id)
 );
-CREATE INDEX idx_company_status ON subcontract_receipts(company_id, status);
-CREATE INDEX idx_work_order ON subcontract_receipts(work_order_id);
-CREATE INDEX idx_operation ON subcontract_receipts(operation_id);
+CREATE INDEX idx_subcontract_receipts_company_status ON subcontract_receipts(company_id, status);
+CREATE INDEX idx_subcontract_receipts_work_order ON subcontract_receipts(work_order_id);
+CREATE INDEX idx_subcontract_receipts_operation ON subcontract_receipts(operation_id);
