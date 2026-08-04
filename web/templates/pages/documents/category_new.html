@@ -34,7 +34,7 @@
           <label class="form-label fw-bold">Parent Category (Optional)</label>
           <select name="parent_id" class="form-select">
             <option value="">-- None (Top Level) --</option>
-            {{ range .Categories }}<option value="{{ .ID }}">{{ .Name }}</option>{{ end }}
+            {{ range .Data.Categories }}<option value="{{ .ID }}">{{ .Name }}</option>{{ end }}
           </select>
         </div>
 

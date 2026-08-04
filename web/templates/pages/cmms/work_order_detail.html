@@ -8,8 +8,8 @@
 <div class="container-fluid mt-4">
   <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-      <h1 class="h3 text-primary mb-1">Work Order: {{ .WorkOrder.Number }}</h1>
-      <p class="text-muted">{{ .WorkOrder.Title }}</p>
+      <h1 class="h3 text-primary mb-1">Work Order: {{ .Data.WorkOrder.Number }}</h1>
+      <p class="text-muted">{{ .Data.WorkOrder.Title }}</p>
     </div>
     <a href="/cmms/work-orders" class="btn btn-outline-secondary">Back to List</a>
   </div>
@@ -19,15 +19,15 @@
       <div class="card shadow-sm mb-4">
         <div class="card-header bg-light fw-bold">Details</div>
         <div class="card-body">
-          <p><strong>Description:</strong><br> {{ .WorkOrder.Description }}</p>
+          <p><strong>Description:</strong><br> {{ .Data.WorkOrder.Description }}</p>
           <div class="row mt-4">
             <div class="col-sm-6">
-              <p><strong>Asset:</strong> {{ .WorkOrder.AssetName }}</p>
-              <p><strong>Location:</strong> {{ .WorkOrder.LocationName }}</p>
+              <p><strong>Asset:</strong> {{ .Data.WorkOrder.AssetName }}</p>
+              <p><strong>Location:</strong> {{ .Data.WorkOrder.LocationName }}</p>
             </div>
             <div class="col-sm-6">
-              <p><strong>Priority:</strong> <span class="badge bg-secondary">{{ .WorkOrder.Priority }}</span></p>
-              <p><strong>Category:</strong> {{ .WorkOrder.Category }}</p>
+              <p><strong>Priority:</strong> <span class="badge bg-secondary">{{ .Data.WorkOrder.Priority }}</span></p>
+              <p><strong>Category:</strong> {{ .Data.WorkOrder.Category }}</p>
             </div>
           </div>
         </div>
@@ -38,12 +38,12 @@
       <div class="card shadow-sm mb-4">
         <div class="card-header bg-light fw-bold">Status Update</div>
         <div class="card-body">
-          <p class="mb-3">Current Status: <span class="badge bg-info text-dark fs-6">{{ .WorkOrder.Status }}</span></p>
-          <form action="/cmms/work-orders/{{ .WorkOrder.ID }}/status" method="POST">
+          <p class="mb-3">Current Status: <span class="badge bg-info text-dark fs-6">{{ .Data.WorkOrder.Status }}</span></p>
+          <form action="/cmms/work-orders/{{ .Data.WorkOrder.ID }}/status" method="POST">
             <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
             <div class="input-group">
               <select name="status" class="form-select">
-                {{ range .Statuses }}
+                {{ range .Data.Statuses }}
                 <option value="{{ . }}">{{ . }}</option>
                 {{ end }}
               </select>

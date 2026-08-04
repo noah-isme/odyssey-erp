@@ -29,14 +29,14 @@
             <label class="form-label fw-bold">Category</label>
             <select name="category_id" class="form-select" required>
               <option value="">-- Select Category --</option>
-              {{ range .Categories }}<option value="{{ .ID }}">{{ .Name }}</option>{{ end }}
+              {{ range .Data.Categories }}<option value="{{ .ID }}">{{ .Name }}</option>{{ end }}
             </select>
           </div>
           <div class="col-md-6">
             <label class="form-label fw-bold">Classification Level</label>
             <select name="classification_id" class="form-select" required>
               <option value="">-- Select Classification --</option>
-              {{ range .Classifications }}<option value="{{ .ID }}">{{ .Name }}</option>{{ end }}
+              {{ range .Data.Classifications }}<option value="{{ .ID }}">{{ .Name }}</option>{{ end }}
             </select>
           </div>
         </div>

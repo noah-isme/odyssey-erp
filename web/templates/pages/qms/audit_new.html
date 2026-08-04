@@ -37,7 +37,7 @@
             <div class="col-md-6">
               <label class="form-label">Audit Type</label>
               <select name="audit_type" class="form-select">
-                {{ range .AuditTypes }}<option value="{{ . }}">{{ . }}</option>{{ end }}
+                {{ range .Data.AuditTypes }}<option value="{{ . }}">{{ . }}</option>{{ end }}
               </select>
             </div>
             <div class="col-md-6">

@@ -8,8 +8,8 @@
 <div class="container-fluid mt-4">
   <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-      <h1 class="h3 text-success mb-1">Asset: {{ .Asset.Code }}</h1>
-      <p class="text-muted">{{ .Asset.Name }}</p>
+      <h1 class="h3 text-success mb-1">Asset: {{ .Data.Asset.Code }}</h1>
+      <p class="text-muted">{{ .Data.Asset.Name }}</p>
     </div>
     <a href="/cmms/assets" class="btn btn-outline-secondary">Back to Assets</a>
   </div>
@@ -19,13 +19,13 @@
     <div class="card-body">
       <div class="row">
         <div class="col-sm-6">
-          <p><strong>Description:</strong><br> {{ .Asset.Description }}</p>
-          <p><strong>Type:</strong> {{ .Asset.AssetType }}</p>
+          <p><strong>Description:</strong><br> {{ .Data.Asset.Description }}</p>
+          <p><strong>Type:</strong> {{ .Data.Asset.AssetType }}</p>
         </div>
         <div class="col-sm-6">
-          <p><strong>Manufacturer:</strong> {{ .Asset.Manufacturer }}</p>
-          <p><strong>Model:</strong> {{ .Asset.Model }}</p>
-          <p><strong>Serial Number:</strong> {{ .Asset.SerialNumber }}</p>
+          <p><strong>Manufacturer:</strong> {{ .Data.Asset.Manufacturer }}</p>
+          <p><strong>Model:</strong> {{ .Data.Asset.Model }}</p>
+          <p><strong>Serial Number:</strong> {{ .Data.Asset.SerialNumber }}</p>
         </div>
       </div>
     </div>

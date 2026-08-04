@@ -17,17 +17,17 @@
         <div class="col-md-3">
           <select name="status" class="form-select">
             <option value="">All Statuses</option>
-            {{ range .Statuses }}
-            <option value="{{ . }}" {{ if eq $.Filter.Status . }}selected{{ end }}>{{ . }}</option>
+            {{ range .Data.Statuses }}
+            <option value="{{ . }}" {{ if eq $.Data.Filter.Status . }}selected{{ end }}>{{ . }}</option>
             {{ end }}
           </select>
         </div>
         <div class="col-md-3">
           <select name="category" class="form-select">
             <option value="">All Categories</option>
-            <option value="PREVENTIVE" {{ if eq .Filter.Category "PREVENTIVE" }}selected{{ end }}>Preventive</option>
-            <option value="CORRECTIVE" {{ if eq .Filter.Category "CORRECTIVE" }}selected{{ end }}>Corrective</option>
-            <option value="INSPECTION" {{ if eq .Filter.Category "INSPECTION" }}selected{{ end }}>Inspection</option>
+            <option value="PREVENTIVE" {{ if eq .Data.Filter.Category "PREVENTIVE" }}selected{{ end }}>Preventive</option>
+            <option value="CORRECTIVE" {{ if eq .Data.Filter.Category "CORRECTIVE" }}selected{{ end }}>Corrective</option>
+            <option value="INSPECTION" {{ if eq .Data.Filter.Category "INSPECTION" }}selected{{ end }}>Inspection</option>
           </select>
         </div>
         <div class="col-md-2">
@@ -52,8 +52,8 @@
           </tr>
         </thead>
         <tbody>
-          {{ if .WorkOrders }}
-            {{ range .WorkOrders }}
+          {{ if .Data.WorkOrders }}
+            {{ range .Data.WorkOrders }}
             <tr>
               <td><strong>{{ .Number }}</strong></td>
               <td>{{ .Title }}</td>

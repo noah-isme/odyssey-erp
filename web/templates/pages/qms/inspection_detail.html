@@ -18,15 +18,15 @@
     <div>
       <div class="d-flex align-items-center mb-2">
         <h1 class="h3 mb-0 fw-bold text-dark me-3">
-          {{ .Inspection.Name }}
+          {{ .Data.Inspection.Name }}
         </h1>
-        {{ if eq .Inspection.Status "PASSED" }}<span class="qms-badge qms-badge-passed"><i class="bi bi-check-circle me-1"></i>Passed</span>
-        {{ else if eq .Inspection.Status "FAILED" }}<span class="qms-badge qms-badge-failed"><i class="bi bi-x-circle me-1"></i>Failed</span>
-        {{ else if eq .Inspection.Status "IN_PROGRESS" }}<span class="qms-badge qms-badge-progress"><i class="bi bi-arrow-repeat me-1"></i>In Progress</span>
-        {{ else if eq .Inspection.Status "PLANNED" }}<span class="qms-badge bg-white text-dark border"><i class="bi bi-calendar me-1"></i>Planned</span>
-        {{ else }}<span class="qms-badge bg-secondary text-white">{{ .Inspection.Status }}</span>{{ end }}
+        {{ if eq .Data.Inspection.Status "PASSED" }}<span class="qms-badge qms-badge-passed"><i class="bi bi-check-circle me-1"></i>Passed</span>
+        {{ else if eq .Data.Inspection.Status "FAILED" }}<span class="qms-badge qms-badge-failed"><i class="bi bi-x-circle me-1"></i>Failed</span>
+        {{ else if eq .Data.Inspection.Status "IN_PROGRESS" }}<span class="qms-badge qms-badge-progress"><i class="bi bi-arrow-repeat me-1"></i>In Progress</span>
+        {{ else if eq .Data.Inspection.Status "PLANNED" }}<span class="qms-badge bg-white text-dark border"><i class="bi bi-calendar me-1"></i>Planned</span>
+        {{ else }}<span class="qms-badge bg-secondary text-white">{{ .Data.Inspection.Status }}</span>{{ end }}
       </div>
-      <p class="text-muted mb-0">{{ .Inspection.Description }}</p>
+      <p class="text-muted mb-0">{{ .Data.Inspection.Description }}</p>
     </div>
   </div>
 
@@ -39,10 +39,10 @@
           <div class="detail-label"><i class="bi bi-link-45deg me-1"></i> Reference</div>
           <div class="detail-value">
             <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-3 py-1 me-2 shadow-sm">
-              {{ .Inspection.ReferenceModule }}
+              {{ .Data.Inspection.ReferenceModule }}
             </span>
-            {{ if .Inspection.ReferenceID }}
-              <span class="fw-bold text-dark ms-1">#{{ .Inspection.ReferenceID }}</span>
+            {{ if .Data.Inspection.ReferenceID }}
+              <span class="fw-bold text-dark ms-1">#{{ .Data.Inspection.ReferenceID }}</span>
             {{ end }}
           </div>
         </div>
@@ -50,21 +50,21 @@
         <div class="detail-row">
           <div class="detail-label"><i class="bi bi-calendar3 me-1"></i> Scheduled</div>
           <div class="detail-value">
-            {{ if .Inspection.ScheduledAt }}{{ .Inspection.ScheduledAt.Format "Jan 02, 2006 at 15:04" }}{{ else }}<span class="text-muted fst-italic">Not scheduled</span>{{ end }}
+            {{ if .Data.Inspection.ScheduledAt }}{{ .Data.Inspection.ScheduledAt.Format "Jan 02, 2006 at 15:04" }}{{ else }}<span class="text-muted fst-italic">Not scheduled</span>{{ end }}
           </div>
         </div>
         
         <div class="detail-row">
           <div class="detail-label"><i class="bi bi-play-circle me-1"></i> Started</div>
           <div class="detail-value">
-            {{ if .Inspection.StartedAt }}{{ .Inspection.StartedAt.Format "Jan 02, 2006 at 15:04" }}{{ else }}<span class="text-muted fst-italic">Not started yet</span>{{ end }}
+            {{ if .Data.Inspection.StartedAt }}{{ .Data.Inspection.StartedAt.Format "Jan 02, 2006 at 15:04" }}{{ else }}<span class="text-muted fst-italic">Not started yet</span>{{ end }}
           </div>
         </div>
         
         <div class="detail-row">
           <div class="detail-label"><i class="bi bi-check2-all me-1"></i> Completed</div>
           <div class="detail-value">
-            {{ if .Inspection.CompletedAt }}{{ .Inspection.CompletedAt.Format "Jan 02, 2006 at 15:04" }}{{ else }}<span class="text-muted fst-italic">Not completed</span>{{ end }}
+            {{ if .Data.Inspection.CompletedAt }}{{ .Data.Inspection.CompletedAt.Format "Jan 02, 2006 at 15:04" }}{{ else }}<span class="text-muted fst-italic">Not completed</span>{{ end }}
           </div>
         </div>
       </div>

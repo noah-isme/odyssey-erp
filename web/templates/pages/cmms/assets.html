@@ -25,8 +25,8 @@
           </tr>
         </thead>
         <tbody>
-          {{ if .Assets }}
-            {{ range .Assets }}
+          {{ if .Data.Assets }}
+            {{ range .Data.Assets }}
             <tr>
               <td><strong>{{ .Code }}</strong></td>
               <td>{{ .Name }}</td>

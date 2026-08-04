@@ -26,7 +26,7 @@
         <label class="form-label text-muted small fw-bold">STATUS</label>
         <select name="status" class="form-select border-0 bg-light shadow-sm">
           <option value="">All Statuses</option>
-          {{ range .Statuses }}
+          {{ range .Data.Statuses }}
           <option value="{{ . }}">{{ . }}</option>
           {{ end }}
         </select>
@@ -35,7 +35,7 @@
         <label class="form-label text-muted small fw-bold">SEVERITY</label>
         <select name="severity" class="form-select border-0 bg-light shadow-sm">
           <option value="">All Severities</option>
-          {{ range .Severities }}
+          {{ range .Data.Severities }}
           <option value="{{ . }}">{{ . }}</option>
           {{ end }}
         </select>
@@ -61,8 +61,8 @@
           </tr>
         </thead>
         <tbody>
-          {{ if .NCRs }}
-            {{ range .NCRs }}
+          {{ if .Data.NCRs }}
+            {{ range .Data.NCRs }}
             <tr>
               <td class="ps-4 py-3">
                 <div class="d-flex align-items-center">
@@ -80,7 +80,7 @@
                   <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill px-2 py-1 mb-1 align-self-start">
                     {{ .SourceType }}
                   </span>
-                  <span class="small fw-500 text-muted">{{ .Category }}</span>
+                  <span class="small fw-500 text-muted">{{ .Data.Category }}</span>
                 </div>
               </td>
               <td class="py-3">

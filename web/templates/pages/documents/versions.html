@@ -8,10 +8,10 @@
 <div class="container-fluid mt-4">
   <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-      <h1 class="h3 text-primary mb-1">Version Control: {{ .Document.Number }}</h1>
-      <p class="text-muted">{{ .Document.Title }}</p>
+      <h1 class="h3 text-primary mb-1">Version Control: {{ .Data.Document.Number }}</h1>
+      <p class="text-muted">{{ .Data.Document.Title }}</p>
     </div>
-    <a href="/documents/library/{{ .Document.ID }}" class="btn btn-outline-secondary">Back to Document</a>
+    <a href="/documents/library/{{ .Data.Document.ID }}" class="btn btn-outline-secondary">Back to Document</a>
   </div>
 
   <div class="row">
@@ -30,8 +30,8 @@
               </tr>
             </thead>
             <tbody>
-              {{ if .Versions }}
-                {{ range .Versions }}
+              {{ if .Data.Versions }}
+                {{ range .Data.Versions }}
                 <tr>
                   <td><strong>v{{ .VersionNumber }}</strong></td>
                   <td><span class="badge bg-secondary">{{ .Status }}</span></td>
@@ -40,11 +40,11 @@
                   <td>
                     <button class="btn btn-sm btn-outline-primary" disabled><i class="bi bi-download"></i> Download</button>
                     {{ if eq .Status "DRAFT" }}
-                      <form action="/documents/library/{{ $.Document.ID }}/versions/{{ .ID }}/challenge" method="POST" class="d-inline mt-1">
+                      <form action="/documents/library/{{ $.Data.Document.ID }}/versions/{{ .ID }}/challenge" method="POST" class="d-inline mt-1">
                         <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
                         <button class="btn btn-sm btn-outline-warning" type="submit"><i class="bi bi-shield-lock"></i> Request Sign</button>
                       </form>
-                      <form action="/documents/library/{{ $.Document.ID }}/versions/{{ .ID }}/sign" method="POST" class="d-inline d-flex align-items-center gap-2 mt-1">
+                      <form action="/documents/library/{{ $.Data.Document.ID }}/versions/{{ .ID }}/sign" method="POST" class="d-inline d-flex align-items-center gap-2 mt-1">
                         <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
                         <input type="text" name="challenge_id" class="form-input form-input-sm" placeholder="Challenge ID" required>
                         <input type="text" name="meaning" class="form-input form-input-sm" placeholder="Meaning" required>
@@ -52,7 +52,7 @@
                       </form>
                     {{ end }}
                     {{ if eq .Status "APPROVED" }}
-                      <form action="/documents/library/{{ $.Document.ID }}/versions/{{ .ID }}/retention" method="POST" class="d-inline mt-1">
+                      <form action="/documents/library/{{ $.Data.Document.ID }}/versions/{{ .ID }}/retention" method="POST" class="d-inline mt-1">
                         <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
                         <button class="btn btn-sm btn-outline-info" type="submit"><i class="bi bi-archive"></i> Apply Retention</button>
                       </form>
@@ -73,7 +73,7 @@
       <div class="card shadow-sm border-primary">
         <div class="card-header bg-primary text-white fw-bold">Upload New Version</div>
         <div class="card-body">
-          <form action="/documents/library/{{ .Document.ID }}/versions" method="POST" enctype="multipart/form-data">
+          <form action="/documents/library/{{ .Data.Document.ID }}/versions" method="POST" enctype="multipart/form-data">
             <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
             
             <div class="mb-3">

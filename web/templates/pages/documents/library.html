@@ -21,19 +21,19 @@
         <div class="col-md-3">
           <select name="status" class="form-select">
             <option value="">All Statuses</option>
-            {{ range .Statuses }}<option value="{{ . }}">{{ . }}</option>{{ end }}
+            {{ range .Data.Statuses }}<option value="{{ . }}">{{ . }}</option>{{ end }}
           </select>
         </div>
         <div class="col-md-3">
           <select name="category_id" class="form-select">
             <option value="">All Categories</option>
-            {{ range .Categories }}<option value="{{ .ID }}">{{ .Name }}</option>{{ end }}
+            {{ range .Data.Categories }}<option value="{{ .ID }}">{{ .Name }}</option>{{ end }}
           </select>
         </div>
         <div class="col-md-3">
           <select name="classification_id" class="form-select">
             <option value="">All Classifications</option>
-            {{ range .Classifications }}<option value="{{ .ID }}">{{ .Name }}</option>{{ end }}
+            {{ range .Data.Classifications }}<option value="{{ .ID }}">{{ .Name }}</option>{{ end }}
           </select>
         </div>
         <div class="col-md-2">
@@ -58,8 +58,8 @@
           </tr>
         </thead>
         <tbody>
-          {{ if .Documents }}
-            {{ range .Documents }}
+          {{ if .Data.Documents }}
+            {{ range .Data.Documents }}
             <tr>
               <td><strong>{{ .Number }}</strong></td>
               <td>{{ .Title }}</td>

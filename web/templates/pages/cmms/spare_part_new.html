@@ -33,7 +33,7 @@
           <div class="col-md-4">
             <label class="form-label fw-bold">Unit of Measure</label>
             <select name="unit_of_measure" class="form-select">
-              {{ range .UOMs }}<option value="{{ . }}">{{ . }}</option>{{ end }}
+              {{ range .Data.UOMs }}<option value="{{ . }}">{{ . }}</option>{{ end }}
             </select>
           </div>
           <div class="col-md-4">

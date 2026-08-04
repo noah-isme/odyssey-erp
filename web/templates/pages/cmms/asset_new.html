@@ -34,7 +34,7 @@
           <div class="col-md-4">
             <label class="form-label fw-bold">Type</label>
             <select name="asset_type" class="form-select">
-              {{ range .AssetTypes }}<option value="{{ . }}">{{ . }}</option>{{ end }}
+              {{ range .Data.AssetTypes }}<option value="{{ . }}">{{ . }}</option>{{ end }}
             </select>
           </div>
           <div class="col-md-4">

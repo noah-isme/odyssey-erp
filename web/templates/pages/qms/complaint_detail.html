@@ -18,19 +18,19 @@
     <div>
       <div class="d-flex align-items-center mb-2">
         <h1 class="h3 mb-0 fw-bold text-dark me-3">
-          {{ .Complaint.ComplaintNumber }}
+          {{ .Data.Complaint.ComplaintNumber }}
         </h1>
-        {{ if eq .Complaint.Severity "CRITICAL" }}<span class="qms-badge qms-badge-critical me-2"><i class="bi bi-exclamation-triangle-fill me-1"></i>Critical</span>
-        {{ else if eq .Complaint.Severity "HIGH" }}<span class="qms-badge qms-badge-high me-2"><i class="bi bi-exclamation-circle me-1"></i>High</span>
-        {{ else if eq .Complaint.Severity "MEDIUM" }}<span class="qms-badge qms-badge-medium me-2">Medium</span>
+        {{ if eq .Data.Complaint.Severity "CRITICAL" }}<span class="qms-badge qms-badge-critical me-2"><i class="bi bi-exclamation-triangle-fill me-1"></i>Critical</span>
+        {{ else if eq .Data.Complaint.Severity "HIGH" }}<span class="qms-badge qms-badge-high me-2"><i class="bi bi-exclamation-circle me-1"></i>High</span>
+        {{ else if eq .Data.Complaint.Severity "MEDIUM" }}<span class="qms-badge qms-badge-medium me-2">Medium</span>
         {{ else }}<span class="qms-badge qms-badge-low me-2">Low</span>{{ end }}
         
-        {{ if eq .Complaint.Status "CLOSED" }}<span class="qms-badge status-badge-closed"><i class="bi bi-check-circle me-1"></i>Closed</span>
-        {{ else if eq .Complaint.Status "RESOLVED" }}<span class="qms-badge status-badge-resolved"><i class="bi bi-check me-1"></i>Resolved</span>
-        {{ else if eq .Complaint.Status "INVESTIGATING" }}<span class="qms-badge status-badge-investigating"><i class="bi bi-search me-1"></i>Investigating</span>
-        {{ else }}<span class="qms-badge status-badge-received">{{ .Complaint.Status }}</span>{{ end }}
+        {{ if eq .Data.Complaint.Status "CLOSED" }}<span class="qms-badge status-badge-closed"><i class="bi bi-check-circle me-1"></i>Closed</span>
+        {{ else if eq .Data.Complaint.Status "RESOLVED" }}<span class="qms-badge status-badge-resolved"><i class="bi bi-check me-1"></i>Resolved</span>
+        {{ else if eq .Data.Complaint.Status "INVESTIGATING" }}<span class="qms-badge status-badge-investigating"><i class="bi bi-search me-1"></i>Investigating</span>
+        {{ else }}<span class="qms-badge status-badge-received">{{ .Data.Complaint.Status }}</span>{{ end }}
       </div>
-      <p class="text-dark mb-0 fs-5">{{ .Complaint.Title }}</p>
+      <p class="text-dark mb-0 fs-5">{{ .Data.Complaint.Title }}</p>
     </div>
   </div>
 
@@ -39,7 +39,7 @@
       <div class="qms-card p-4 mb-4">
         <h5 class="fw-bold mb-4 text-dark border-bottom pb-3"><i class="bi bi-card-text me-2 text-danger"></i> Complaint Description</h5>
         <div class="p-3 bg-white border rounded">
-          {{ .Complaint.Description }}
+          {{ .Data.Complaint.Description }}
         </div>
       </div>
       
@@ -49,29 +49,29 @@
         <div class="detail-row">
           <div class="detail-label"><i class="bi bi-person me-1"></i> Customer ID</div>
           <div class="detail-value">
-            <span class="fw-bold text-dark">{{ .Complaint.CustomerID }}</span>
+            <span class="fw-bold text-dark">{{ .Data.Complaint.CustomerID }}</span>
           </div>
         </div>
         
         <div class="detail-row">
           <div class="detail-label"><i class="bi bi-calendar3 me-1"></i> Received At</div>
           <div class="detail-value text-muted">
-            {{ .Complaint.ReceivedAt.Format "Jan 02, 2006 at 15:04" }}
+            {{ .Data.Complaint.ReceivedAt.Format "Jan 02, 2006 at 15:04" }}
           </div>
         </div>
         
         <div class="detail-row">
           <div class="detail-label"><i class="bi bi-check2-all me-1"></i> Closed At</div>
           <div class="detail-value text-muted">
-            {{ if .Complaint.ClosedAt }}{{ .Complaint.ClosedAt.Format "Jan 02, 2006 at 15:04" }}{{ else }}<span class="fst-italic">Not closed</span>{{ end }}
+            {{ if .Data.Complaint.ClosedAt }}{{ .Data.Complaint.ClosedAt.Format "Jan 02, 2006 at 15:04" }}{{ else }}<span class="fst-italic">Not closed</span>{{ end }}
           </div>
         </div>
         
-        {{ if .Complaint.ResponseEvidence }}
+        {{ if .Data.Complaint.ResponseEvidence }}
         <div class="detail-row flex-column">
           <div class="detail-label mb-2"><i class="bi bi-file-earmark-text me-1"></i> Response / Evidence</div>
           <div class="detail-value bg-light p-3 rounded border">
-            {{ .Complaint.ResponseEvidence }}
+            {{ .Data.Complaint.ResponseEvidence }}
           </div>
         </div>
         {{ end }}

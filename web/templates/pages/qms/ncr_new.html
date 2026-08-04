@@ -37,13 +37,13 @@
             <div class="col-md-6">
               <label class="form-label">Category</label>
               <select name="category" class="form-select">
-                {{ range .Categories }}<option value="{{ . }}">{{ . }}</option>{{ end }}
+                {{ range .Data.Categories }}<option value="{{ . }}">{{ . }}</option>{{ end }}
               </select>
             </div>
             <div class="col-md-6">
               <label class="form-label">Severity</label>
               <select name="severity" class="form-select">
-                {{ range .Severities }}<option value="{{ . }}">{{ . }}</option>{{ end }}
+                {{ range .Data.Severities }}<option value="{{ . }}">{{ . }}</option>{{ end }}
               </select>
             </div>
           </div>

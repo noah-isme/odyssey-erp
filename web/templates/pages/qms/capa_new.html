@@ -37,7 +37,7 @@
             <div class="col-md-4">
               <label class="form-label">Priority</label>
               <select name="priority" class="form-select">
-                {{ range .Priorities }}<option value="{{ . }}">{{ . }}</option>{{ end }}
+                {{ range .Data.Priorities }}<option value="{{ . }}">{{ . }}</option>{{ end }}
               </select>
             </div>
             <div class="col-md-4">

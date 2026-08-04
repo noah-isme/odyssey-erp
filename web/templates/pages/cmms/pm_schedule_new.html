@@ -18,7 +18,7 @@
           <label class="form-label fw-bold">Asset</label>
           <select name="asset_id" class="form-select" required>
             <option value="">-- Select Asset --</option>
-            {{ range .Assets }}
+            {{ range .Data.Assets }}
             <option value="{{ .ID }}">{{ .Code }} - {{ .Name }}</option>
             {{ end }}
           </select>
@@ -33,7 +33,7 @@
           <div class="col-md-6">
             <label class="form-label fw-bold">Frequency Type</label>
             <select name="frequency_type" class="form-select">
-              {{ range .FrequencyTypes }}<option value="{{ . }}">{{ . }}</option>{{ end }}
+              {{ range .Data.FrequencyTypes }}<option value="{{ . }}">{{ . }}</option>{{ end }}
             </select>
           </div>
           <div class="col-md-6">

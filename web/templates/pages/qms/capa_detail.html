@@ -18,13 +18,13 @@
     <div>
       <div class="d-flex align-items-center mb-2">
         <h1 class="h3 mb-0 fw-bold text-dark me-3">
-          {{ .CAPA.Number }}
+          {{ .Data.CAPA.Number }}
         </h1>
-        <span class="qms-badge me-2">{{ .CAPA.Priority }} Priority</span>
+        <span class="qms-badge me-2">{{ .Data.CAPA.Priority }} Priority</span>
         
-        <span class="badge bg-dark px-2 py-1 fs-6 rounded-pill shadow-sm">{{ .CAPA.Status }}</span>
+        <span class="badge bg-dark px-2 py-1 fs-6 rounded-pill shadow-sm">{{ .Data.CAPA.Status }}</span>
       </div>
-      <p class="text-dark mb-0 fs-5">{{ .CAPA.Title }}</p>
+      <p class="text-dark mb-0 fs-5">{{ .Data.CAPA.Title }}</p>
     </div>
   </div>
 
@@ -33,20 +33,20 @@
       <div class="qms-card p-4 mb-4">
         <h5 class="fw-bold mb-4 text-dark border-bottom pb-3"><i class="bi bi-card-text me-2"></i> Problem Statement</h5>
         <div class="p-3 bg-white border rounded shadow-sm mb-4">
-          {{ .CAPA.Description }}
+          {{ .Data.CAPA.Description }}
         </div>
         
         <div class="row g-4 mt-2">
           <div class="col-sm-6">
             <div class="p-3 rounded bg-light border border-opacity-50 h-100">
               <div class="small text-muted fw-bold mb-1 text-uppercase">Root Cause Method</div>
-              <div class="fw-bold text-dark fs-5">{{ .CAPA.RootCauseMethod }}</div>
+              <div class="fw-bold text-dark fs-5">{{ .Data.CAPA.RootCauseMethod }}</div>
             </div>
           </div>
           <div class="col-sm-6">
             <div class="p-3 rounded bg-light border border-opacity-50 h-100">
               <div class="small text-muted fw-bold mb-1 text-uppercase">Source</div>
-              <div class="fw-bold text-dark fs-5">{{ .CAPA.SourceType }}</div>
+              <div class="fw-bold text-dark fs-5">{{ .Data.CAPA.SourceType }}</div>
             </div>
           </div>
         </div>
@@ -61,7 +61,7 @@
             <h6 class="fw-bold text-dark mb-0">Root Cause Analysis</h6>
           </div>
           <div class="p-3 bg-light rounded border">
-            {{ if .CAPA.RootCause }}{{ .CAPA.RootCause }}{{ else }}<span class="text-muted fst-italic">Pending Investigation...</span>{{ end }}
+            {{ if .Data.CAPA.RootCause }}{{ .Data.CAPA.RootCause }}{{ else }}<span class="text-muted fst-italic">Pending Investigation...</span>{{ end }}
           </div>
         </div>
         
@@ -71,7 +71,7 @@
             <h6 class="fw-bold text-dark mb-0">Corrective Action Plan</h6>
           </div>
           <div class="p-3 bg-light rounded border">
-            {{ if .CAPA.CorrectiveAction }}{{ .CAPA.CorrectiveAction }}{{ else }}<span class="text-muted fst-italic">Pending Definition...</span>{{ end }}
+            {{ if .Data.CAPA.CorrectiveAction }}{{ .Data.CAPA.CorrectiveAction }}{{ else }}<span class="text-muted fst-italic">Pending Definition...</span>{{ end }}
           </div>
         </div>
       </div>
@@ -83,11 +83,11 @@
         
         <p class="mb-3 text-muted">Update the CAPA workflow status as it moves from investigation to implementation and effectiveness review.</p>
         
-        <form action="/qms/capas/{{ .CAPA.ID }}/status" method="POST" class="bg-white p-3 rounded shadow-sm border border-opacity-50 mt-4">
+        <form action="/qms/capas/{{ .Data.CAPA.ID }}/status" method="POST" class="bg-white p-3 rounded shadow-sm border border-opacity-50 mt-4">
           <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
           <label class="form-label fw-bold text-muted small">UPDATE WORKFLOW STATUS</label>
           <select name="status" class="form-select mb-3">
-            {{ range .Statuses }}<option value="{{ . }}">{{ . }}</option>{{ end }}
+            {{ range .Data.Statuses }}<option value="{{ . }}">{{ . }}</option>{{ end }}
           </select>
           <button class="btn qms-btn-capa w-100" type="submit">
             <i class="bi bi-cloud-arrow-up me-1"></i> Update Status

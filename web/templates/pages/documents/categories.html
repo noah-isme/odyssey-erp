@@ -23,8 +23,8 @@
           </tr>
         </thead>
         <tbody>
-          {{ if .Categories }}
-            {{ range .Categories }}
+          {{ if .Data.Categories }}
+            {{ range .Data.Categories }}
             <tr>
               <td><strong>{{ .Code }}</strong></td>
               <td>{{ .Name }}</td>
