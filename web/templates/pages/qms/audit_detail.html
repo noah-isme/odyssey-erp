@@ -1,0 +1,121 @@
+{{ define "content" }}
+
+
+<div class="container-fluid mt-4 mb-5">
+  <div class="mb-4">
+    <a href="/qms/audits" class="text-decoration-none text-muted fw-500 hover-opacity">
+      <i class="bi bi-arrow-left me-1"></i> Back to Audits
+    </a>
+  </div>
+
+  <div class="qms-header-audit d-flex justify-content-between align-items-start mb-4">
+    <div>
+      <div class="d-flex align-items-center mb-2">
+        <h1 class="h3 mb-0 fw-bold text-dark me-3">
+          {{ .Audit.Number }}
+        </h1>
+        <span class="qms-badge me-2">{{ .Audit.AuditType }}</span>
+        
+        <span class="badge bg-dark px-2 py-1 fs-6 rounded-pill shadow-sm">{{ .Audit.Status }}</span>
+      </div>
+      <p class="text-dark mb-0 fs-5">{{ .Audit.Title }}</p>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <div class="qms-card p-4 mb-4">
+        <h5 class="fw-bold mb-4 text-dark border-bottom pb-3"><i class="bi bi-card-text me-2 text-success"></i> Audit Scope</h5>
+        <div class="p-3 bg-white border rounded shadow-sm mb-4">
+          {{ .Audit.Description }}
+        </div>
+        
+        <div class="row g-4 mt-2">
+          <div class="col-sm-6">
+            <div class="p-3 rounded bg-light border border-opacity-50 h-100">
+              <div class="small text-muted fw-bold mb-1 text-uppercase">Standard</div>
+              <div class="fw-bold text-dark fs-5">{{ .Audit.Standard }}</div>
+            </div>
+          </div>
+          <div class="col-sm-6">
+            <div class="p-3 rounded bg-light border border-opacity-50 h-100">
+              <div class="small text-muted fw-bold mb-1 text-uppercase">Type</div>
+              <div class="fw-bold text-dark fs-5">{{ .Audit.AuditType }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="qms-card p-4 border-start border-4">
+        <h5 class="fw-bold mb-4 text-dark border-bottom pb-3"><i class="bi bi-list-check me-2 text-warning"></i> Audit Findings</h5>
+        
+        {{ if .Findings }}
+          <div class="d-flex flex-column gap-3">
+            {{ range .Findings }}
+            <div class="p-3 bg-white border rounded shadow-sm">
+              <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                  <h6 class="fw-bold text-dark mb-1">{{ .FindingNumber }} <span class="text-muted fw-normal ms-1">({{ .Category }})</span></h6>
+                  <div class="small text-muted"><i class="bi bi-bookmark me-1"></i> Clause: {{ .Clause }}</div>
+                </div>
+                <span class="badge {{ if eq .RiskLevel "HIGH" }}bg-danger{{ else if eq .RiskLevel "MEDIUM" }}bg-warning text-dark{{ else }}bg-info text-dark{{ end }} rounded-pill px-2">
+                  {{ .RiskLevel }} Risk
+                </span>
+              </div>
+              <p class="mb-0 text-muted small mt-2">{{ .Description }}</p>
+              <div class="mt-3 pt-2 border-top">
+                <form action="/qms/audits/{{ $.Audit.ID }}/findings/{{ .ID }}/calibration" method="POST" class="d-inline flex items-center gap-2">
+                  <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
+                  <input type="number" name="asset_id" class="form-input form-input-sm" placeholder="Asset ID" required>
+                  <button type="submit" class="btn btn-warning btn-sm"><i class="bi bi-tools"></i> Request Calibration</button>
+                </form>
+              </div>
+            </div>
+            {{ end }}
+          </div>
+        {{ else }}
+          <div class="text-center py-4 bg-light rounded border border-dashed">
+            <i class="bi bi-clipboard-check fs-2 text-black-50 mb-2"></i>
+            <p class="text-muted mb-0">No findings logged yet.</p>
+          </div>
+        {{ end }}
+      </div>
+    </div>
+    
+    <div class="col-lg-4">
+      <div class="qms-card p-4 h-100">
+        <h5 class="fw-bold mb-4 text-dark border-bottom pb-3"><i class="bi bi-plus-circle-dotted me-2 text-danger"></i> Log Finding</h5>
+        
+        <form action="/qms/audits/{{ .Audit.ID }}/findings" method="POST" class="bg-white p-3 rounded shadow-sm border border-opacity-50">
+          <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+          
+          <div class="mb-3">
+            <label class="form-label fw-bold text-muted small">CATEGORY</label>
+            <select name="category" class="form-select form-select-sm" required>
+              {{ range .FindingCategories }}<option value="{{ . }}">{{ . }}</option>{{ end }}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold text-muted small">RISK LEVEL</label>
+            <select name="risk_level" class="form-select form-select-sm" required>
+              {{ range .RiskLevels }}<option value="{{ . }}">{{ . }}</option>{{ end }}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold text-muted small">STANDARD CLAUSE</label>
+            <input type="text" name="clause" class="form-input form-input-sm" placeholder="e.g. ISO9001 8.2">
+          </div>
+          <div class="mb-4">
+            <label class="form-label fw-bold text-muted small">DESCRIPTION</label>
+            <textarea name="description" class="form-textarea form-textarea-sm" rows="3" required></textarea>
+          </div>
+          <button class="btn btn-danger w-100 fw-bold" type="submit">
+            <i class="bi bi-save me-1"></i> Save Finding
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{ end }}

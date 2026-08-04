@@ -35,7 +35,7 @@
             {{ end }}
           </td>
           <td>
-            <span class="badge bg-{{ statusBadgeClass .Status }}">{{ .Status }}</span>
+            <span class="badge bg-info">{{ .Status }}</span>
           </td>
           <td>{{ .Version }}</td>
           <td>
@@ -63,15 +63,4 @@
   {{ end }}
 </div>
 
-{{ define "helpers" }}
-{{ define "statusBadgeClass" }}
-  {{ if eq . "DRAFT" }}secondary
-  {{ else if eq . "APPROVAL" }}warning
-  {{ else if eq . "ACTIVE" }}success
-  {{ else if eq . "EXPIRED" }}danger
-  {{ else if eq . "TERMINATED" }}dark
-  {{ else }}secondary
-  {{ end }}
-{{ end }}
-{{ end }}
 {{ end }}

@@ -43,10 +43,10 @@ CREATE TABLE compliance_decisions (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     FOREIGN KEY (company_id) REFERENCES companies(id),
     FOREIGN KEY (policy_version_id) REFERENCES policy_versions(id),
-    FOREIGN KEY (actor_id) REFERENCES users(id),
-    INDEX idx_company_record (company_id, record_type, record_id),
-    INDEX idx_decision_id (decision_id)
+    FOREIGN KEY (actor_id) REFERENCES users(id)
 );
+CREATE INDEX idx_company_record ON compliance_decisions(company_id, record_type, record_id);
+CREATE INDEX idx_decision_id ON compliance_decisions(decision_id);
 
 -- Signature Challenges: One-time challenges with expiry
 CREATE TABLE signature_challenges (
@@ -59,10 +59,10 @@ CREATE TABLE signature_challenges (
     reauthentication_required BOOLEAN NOT NULL,
     used BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    FOREIGN KEY (policy_version_id) REFERENCES policy_versions(id),
-    INDEX idx_expiry (expiry),
-    INDEX idx_challenge_id (challenge_id)
+    FOREIGN KEY (policy_version_id) REFERENCES policy_versions(id)
 );
+CREATE INDEX idx_expiry ON signature_challenges(expiry);
+CREATE INDEX idx_challenge_id ON signature_challenges(challenge_id);
 
 -- Evidence Records: Immutable proof linked to decisions
 CREATE TABLE evidence_records (
@@ -71,9 +71,9 @@ CREATE TABLE evidence_records (
     evidence_type VARCHAR(50),                  -- Inspection, Hold, Signature, etc.
     content JSONB NOT NULL,                     -- Snapshot/verification data
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    FOREIGN KEY (decision_id) REFERENCES compliance_decisions(id),
-    INDEX idx_decision (decision_id)
+    FOREIGN KEY (decision_id) REFERENCES compliance_decisions(id)
 );
+CREATE INDEX idx_decision ON evidence_records(decision_id);
 
 -- Audit Events: Immutable causation tracking
 CREATE TABLE audit_events (
@@ -90,11 +90,11 @@ CREATE TABLE audit_events (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     FOREIGN KEY (company_id) REFERENCES companies(id),
     FOREIGN KEY (decision_id) REFERENCES compliance_decisions(id),
-    FOREIGN KEY (actor_id) REFERENCES users(id),
-    INDEX idx_company_causation (company_id, causation_id),
-    INDEX idx_entity (entity_type, entity_id),
-    INDEX idx_correlation (correlation_id)
+    FOREIGN KEY (actor_id) REFERENCES users(id)
 );
+CREATE INDEX idx_company_causation ON audit_events(company_id, causation_id);
+CREATE INDEX idx_entity ON audit_events(entity_type, entity_id);
+CREATE INDEX idx_correlation ON audit_events(correlation_id);
 
 -- Quality Inspections: Inspection records with explicit lifecycle
 CREATE TABLE quality_inspections (
@@ -109,11 +109,11 @@ CREATE TABLE quality_inspections (
     result_version VARCHAR(50),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    FOREIGN KEY (company_id) REFERENCES companies(id),
-    INDEX idx_company_status (company_id, status),
-    INDEX idx_work_order (work_order_id),
-    INDEX idx_operation (operation_id)
+    FOREIGN KEY (company_id) REFERENCES companies(id)
 );
+CREATE INDEX idx_company_status ON quality_inspections(company_id, status);
+CREATE INDEX idx_work_order ON quality_inspections(work_order_id);
+CREATE INDEX idx_operation ON quality_inspections(operation_id);
 
 -- Quality Holds: Hold records with explicit lifecycle
 CREATE TABLE quality_holds (
@@ -128,10 +128,10 @@ CREATE TABLE quality_holds (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     FOREIGN KEY (company_id) REFERENCES companies(id),
     FOREIGN KEY (inspection_id) REFERENCES quality_inspections(id),
-    FOREIGN KEY (created_by) REFERENCES users(id),
-    INDEX idx_company_status (company_id, status),
-    INDEX idx_record (record_type, record_id)
+    FOREIGN KEY (created_by) REFERENCES users(id)
 );
+CREATE INDEX idx_company_status ON quality_holds(company_id, status);
+CREATE INDEX idx_record ON quality_holds(record_type, record_id);
 
 -- Quality NCRs: Nonconformance records with explicit lifecycle
 CREATE TABLE quality_ncrs (
@@ -144,9 +144,9 @@ CREATE TABLE quality_ncrs (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     FOREIGN KEY (company_id) REFERENCES companies(id),
     FOREIGN KEY (created_by) REFERENCES users(id),
-    UNIQUE(company_id, number),
-    INDEX idx_company_status (company_id, status)
+    UNIQUE(company_id, number)
 );
+CREATE INDEX idx_company_status ON quality_ncrs(company_id, status);
 
 -- Quality CAPAs: Corrective/preventive action records with explicit lifecycle
 CREATE TABLE quality_capas (
@@ -159,9 +159,9 @@ CREATE TABLE quality_capas (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     FOREIGN KEY (company_id) REFERENCES companies(id),
     FOREIGN KEY (created_by) REFERENCES users(id),
-    UNIQUE(company_id, number),
-    INDEX idx_company_status (company_id, status)
+    UNIQUE(company_id, number)
 );
+CREATE INDEX idx_company_status ON quality_capas(company_id, status);
 
 -- Subcontract Receipts: Received goods tracking with explicit lifecycle
 CREATE TABLE subcontract_receipts (
@@ -174,8 +174,8 @@ CREATE TABLE subcontract_receipts (
     received_qty NUMERIC(12,4),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    FOREIGN KEY (company_id) REFERENCES companies(id),
-    INDEX idx_company_status (company_id, status),
-    INDEX idx_work_order (work_order_id),
-    INDEX idx_operation (operation_id)
+    FOREIGN KEY (company_id) REFERENCES companies(id)
 );
+CREATE INDEX idx_company_status ON subcontract_receipts(company_id, status);
+CREATE INDEX idx_work_order ON subcontract_receipts(work_order_id);
+CREATE INDEX idx_operation ON subcontract_receipts(operation_id);

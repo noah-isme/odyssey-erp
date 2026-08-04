@@ -257,10 +257,10 @@ func (h *AuditLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
-		fmt.Sscanf(limitStr, "%d", &query.Limit)
+		_, _ = fmt.Sscanf(limitStr, "%d", &query.Limit)
 	}
 	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
-		fmt.Sscanf(offsetStr, "%d", &query.Offset)
+		_, _ = fmt.Sscanf(offsetStr, "%d", &query.Offset)
 	}
 
 	query.EntityType = r.URL.Query().Get("entity_type")

@@ -1,0 +1,76 @@
+{{ define "content" }}
+
+
+<div class="container-fluid mt-4 mb-5">
+  <div class="qms-header-capa d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h1 class="h3 mb-1 fw-bold text-dark">
+        <i class="bi bi-journal-medical me-2"></i> Initiate CAPA
+      </h1>
+      <p class="text-muted mb-0 small">Start a new Corrective and Preventive Action workflow.</p>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <div class="qms-card p-4">
+        <form action="/qms/capas" method="POST">
+          <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+          
+          <div class="mb-4">
+            <label class="form-label">Title <span class="text-danger">*</span></label>
+            <input type="text" name="title" class="form-input" required placeholder="Brief description of the CAPA objective">
+          </div>
+          
+          <div class="mb-4">
+            <label class="form-label">Problem Statement</label>
+            <textarea name="description" class="form-textarea" rows="4" placeholder="Clearly describe the problem being addressed..."></textarea>
+          </div>
+          
+          <div class="row mb-5 g-3">
+            <div class="col-md-4">
+              <label class="form-label">Priority</label>
+              <select name="priority" class="form-select">
+                {{ range .Priorities }}<option value="{{ . }}">{{ . }}</option>{{ end }}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Source Type</label>
+              <select name="source_type" class="form-select">
+                {{ range .SourceTypes }}<option value="{{ . }}">{{ . }}</option>{{ end }}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Root Cause Method</label>
+              <select name="root_cause_method" class="form-select">
+                {{ range .RootCauseMethods }}<option value="{{ . }}">{{ . }}</option>{{ end }}
+              </select>
+            </div>
+          </div>
+
+          <div class="d-flex justify-content-end gap-3 pt-4 border-top">
+            <a href="/qms/capas" class="qms-btn-secondary text-decoration-none">Cancel</a>
+            <button type="submit" class="btn qms-btn-capa">Initiate CAPA</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    
+    <div class="col-lg-4">
+      <div class="qms-card p-4">
+        <div class="d-flex align-items-center mb-3">
+          <i class="bi bi-info-circle-fill fs-4 me-2"></i>
+          <h6 class="fw-bold mb-0">About CAPAs</h6>
+        </div>
+        <p class="small text-muted mb-3">
+          Corrective and Preventive Actions (CAPA) are crucial for systematic quality improvement.
+        </p>
+        <ul class="small text-muted mb-0">
+          <li class="mb-2"><strong>Problem Statement:</strong> Be as specific as possible. Define what went wrong and where.</li>
+          <li class="mb-2"><strong>Root Cause Method:</strong> Select the analytical approach (e.g. 5 Whys, Fishbone) that you intend to use.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{{ end }}

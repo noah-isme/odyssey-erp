@@ -74,7 +74,7 @@ func TestMigratedModulesRejectLegacyMarkup(t *testing.T) {
 	migratedPaths := []string{
 		"/pages/sales/", "/pages/delivery/", "/pages/inventory/", "/pages/accounting/",
 		"/pages/finance/", "/pages/masterdata/", "/pages/ap/", "/pages/ar/",
-		"/pages/close/", "/pages/eliminations/", "/pages/variance/",
+		"/pages/close/", "/pages/eliminations/", "/pages/variance/", "/pages/qms/",
 	}
 
 	err := fs.WalkDir(web.Templates, "templates", func(path string, entry fs.DirEntry, walkErr error) error {

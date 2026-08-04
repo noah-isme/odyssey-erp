@@ -1,0 +1,86 @@
+{{ define "content" }}
+
+
+<div class="container-fluid mt-4">
+  <div class="qms-header-sq d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h1 class="h3 mb-1 fw-bold text-dark">
+        <i class="bi bi-truck text-primary me-2"></i> Supplier Quality
+      </h1>
+      <p class="text-muted mb-0 small">Monitor and evaluate vendor performance and quality ratings.</p>
+    </div>
+    <a href="/qms/supplier-quality/new" class="qms-btn-sq text-decoration-none">
+      <i class="bi bi-plus-circle me-1"></i> Add Rating
+    </a>
+  </div>
+
+  <div class="qms-card p-0 overflow-hidden mb-5">
+    <div class="table-responsive">
+      <table class="table qms-table mb-0 align-middle">
+        <thead>
+          <tr>
+            <th class="ps-4 py-3">Supplier Name</th>
+            <th class="py-3">Status</th>
+            <th class="py-3">Quality Score</th>
+            <th class="py-3">Risk Level</th>
+            <th class="py-3">Last Audit</th>
+            <th class="pe-4 py-3 text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{ if .Records }}
+            {{ range .Records }}
+            <tr>
+              <td class="ps-4 py-3">
+                <div class="d-flex align-items-center">
+                  <div class="rounded p-2 me-3">
+                    <i class="bi bi-buildings text-primary"></i>
+                  </div>
+                  <div class="fw-bold text-dark">{{ .SupplierName }}</div>
+                </div>
+              </td>
+              <td class="py-3">
+                <span class="badge bg-light text-dark border px-2 py-1 rounded-pill">{{ .Status }}</span>
+              </td>
+              <td class="py-3">
+                <div class="progress shadow-sm">
+                  <div class="progress-bar-custom {{ if ge .QualityRating 90.0 }}bg-success{{ else if ge .QualityRating 70.0 }}bg-warning{{ else }}bg-danger{{ end }}">
+                    {{ .QualityRating }}%
+                  </div>
+                </div>
+              </td>
+              <td class="py-3">
+                <span class="qms-badge">{{ .RiskLevel }}</span>
+              </td>
+              <td class="py-3 text-muted small">
+                {{ if .LastAuditDate }}
+                  <i class="bi bi-calendar3 me-1"></i>{{ .LastAuditDate.Format "Jan 02, 2006" }}
+                {{ else }}
+                  <span class="text-black-50">-</span>
+                {{ end }}
+              </td>
+              <td class="pe-4 py-3 text-end">
+                <a href="/qms/supplier-quality/{{ .ID }}" class="btn btn-sm btn-light border shadow-sm rounded-pill px-3 fw-500 hover-lift text-primary">
+                  View <i class="bi bi-arrow-right ms-1"></i>
+                </a>
+              </td>
+            </tr>
+            {{ end }}
+          {{ else }}
+            <tr>
+              <td colspan="6" class="text-center py-5">
+                <div class="text-muted mb-3">
+                  <i class="bi bi-truck fs-1 text-black-50"></i>
+                </div>
+                <h5 class="fw-bold text-dark">No Supplier Records</h5>
+                <p class="text-muted small">No quality ratings have been created yet.</p>
+              </td>
+            </tr>
+          {{ end }}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{{ end }}

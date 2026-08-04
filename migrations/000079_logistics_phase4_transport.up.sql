@@ -243,25 +243,36 @@ CREATE INDEX idx_trip_stops_shipment ON trip_stops(shipment_id);
 -- RBAC PERMISSIONS (Phase 4)
 -- ═══════════════════════════════════════════════════════════════════════════
 
-INSERT INTO rbac_permissions (permission_code, permission_name, description, module, created_at)
-VALUES
-    ('logistics.carriers.view', 'View Carriers', 'View carrier list and details', 'logistics', NOW()),
-    ('logistics.carriers.create', 'Create Carrier', 'Create new carrier', 'logistics', NOW()),
-    ('logistics.carriers.edit', 'Edit Carrier', 'Edit carrier details', 'logistics', NOW()),
-    ('logistics.carriers.delete', 'Delete Carrier', 'Delete carrier', 'logistics', NOW()),
-    ('logistics.fleet.view', 'View Fleet', 'View fleet and vehicle details', 'logistics', NOW()),
-    ('logistics.fleet.create', 'Create Fleet/Vehicle', 'Create new fleet or vehicle', 'logistics', NOW()),
-    ('logistics.fleet.edit', 'Edit Fleet/Vehicle', 'Edit fleet or vehicle', 'logistics', NOW()),
-    ('logistics.drivers.view', 'View Drivers', 'View driver list and details', 'logistics', NOW()),
-    ('logistics.drivers.create', 'Create Driver', 'Create new driver', 'logistics', NOW()),
-    ('logistics.drivers.edit', 'Edit Driver', 'Edit driver details', 'logistics', NOW()),
-    ('logistics.shipments.view', 'View Shipments', 'View shipment list and tracking', 'logistics', NOW()),
-    ('logistics.shipments.create', 'Create Shipment', 'Create new shipment', 'logistics', NOW()),
-    ('logistics.shipments.dispatch', 'Dispatch Shipment', 'Dispatch shipment to carrier/vehicle', 'logistics', NOW()),
-    ('logistics.shipments.track', 'Track Shipment', 'Real-time tracking and updates', 'logistics', NOW()),
-    ('logistics.trips.view', 'View Trips', 'View trip list and planning', 'logistics', NOW()),
-    ('logistics.trips.create', 'Create Trip', 'Create new trip', 'logistics', NOW()),
-    ('logistics.trips.dispatch', 'Dispatch Trip', 'Dispatch trip to driver', 'logistics', NOW()),
-    ('logistics.trips.complete', 'Complete Trip', 'Mark trip as completed', 'logistics', NOW());
+INSERT INTO permissions (name, description) VALUES
+    ('logistics.carriers.view', 'View carrier list and details'),
+    ('logistics.carriers.create', 'Create new carrier'),
+    ('logistics.carriers.edit', 'Edit carrier details'),
+    ('logistics.carriers.delete', 'Delete carrier'),
+    ('logistics.fleet.view', 'View fleet and vehicle details'),
+    ('logistics.fleet.create', 'Create new fleet or vehicle'),
+    ('logistics.fleet.edit', 'Edit fleet or vehicle'),
+    ('logistics.drivers.view', 'View driver list and details'),
+    ('logistics.drivers.create', 'Create new driver'),
+    ('logistics.drivers.edit', 'Edit driver details'),
+    ('logistics.shipments.view', 'View shipment list and tracking'),
+    ('logistics.shipments.create', 'Create new shipment'),
+    ('logistics.shipments.dispatch', 'Dispatch shipment to carrier/vehicle'),
+    ('logistics.shipments.track', 'Real-time tracking and updates'),
+    ('logistics.trips.view', 'View trip list and planning'),
+    ('logistics.trips.create', 'Create new trip'),
+    ('logistics.trips.dispatch', 'Dispatch trip to driver'),
+    ('logistics.trips.complete', 'Mark trip as completed')
+ON CONFLICT (name) DO UPDATE SET description = EXCLUDED.description;
 
-COMMIT;
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id
+FROM roles r
+JOIN permissions p ON p.name IN (
+    'logistics.carriers.view', 'logistics.carriers.create', 'logistics.carriers.edit', 'logistics.carriers.delete',
+    'logistics.fleet.view', 'logistics.fleet.create', 'logistics.fleet.edit',
+    'logistics.drivers.view', 'logistics.drivers.create', 'logistics.drivers.edit',
+    'logistics.shipments.view', 'logistics.shipments.create', 'logistics.shipments.dispatch', 'logistics.shipments.track',
+    'logistics.trips.view', 'logistics.trips.create', 'logistics.trips.dispatch', 'logistics.trips.complete'
+)
+WHERE LOWER(TRIM(r.name)) IN ('admin', 'administrator')
+ON CONFLICT DO NOTHING;

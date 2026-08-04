@@ -1,0 +1,98 @@
+{{ define "content" }}
+
+
+<div class="container-fluid mt-4 mb-5">
+  <div class="mb-4">
+    <a href="/qms/ncrs" class="text-decoration-none text-muted fw-500 hover-opacity">
+      <i class="bi bi-arrow-left me-1"></i> Back to NCRs
+    </a>
+  </div>
+
+  <div class="qms-header-ncr d-flex justify-content-between align-items-start mb-4">
+    <div>
+      <div class="d-flex align-items-center mb-2">
+        <h1 class="h3 mb-0 fw-bold text-dark me-3">
+          {{ .NCR.Number }}
+        </h1>
+        {{ if eq .NCR.Severity "CRITICAL" }}<span class="qms-badge qms-badge-critical me-2"><i class="bi bi-exclamation-triangle-fill me-1"></i>Critical</span>
+        {{ else if eq .NCR.Severity "MAJOR" }}<span class="qms-badge qms-badge-major me-2"><i class="bi bi-exclamation-circle me-1"></i>Major</span>
+        {{ else }}<span class="qms-badge qms-badge-minor me-2">Minor</span>{{ end }}
+        
+        <span class="badge bg-dark px-2 py-1 fs-6 rounded-pill shadow-sm">{{ .NCR.Status }}</span>
+      </div>
+      <p class="text-dark mb-0 fs-5">{{ .NCR.Title }}</p>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <div class="qms-card p-4 mb-4">
+        <h5 class="fw-bold mb-4 text-dark border-bottom pb-3"><i class="bi bi-card-text me-2"></i> Defect Details</h5>
+        <div class="p-3 bg-white border rounded shadow-sm mb-4">
+          {{ .NCR.Description }}
+        </div>
+        
+        <div class="row g-4 mt-2">
+          <div class="col-sm-6">
+            <div class="p-3 rounded bg-light border border-opacity-50">
+              <div class="small text-muted fw-bold mb-1 text-uppercase">Category</div>
+              <div class="fw-bold text-dark fs-5">{{ .NCR.Category }}</div>
+            </div>
+          </div>
+          <div class="col-sm-6">
+            <div class="p-3 rounded bg-light border border-opacity-50">
+              <div class="small text-muted fw-bold mb-1 text-uppercase">Severity</div>
+              <div class="fw-bold text-dark fs-5">{{ .NCR.Severity }}</div>
+            </div>
+          </div>
+          <div class="col-sm-6">
+            <div class="p-3 rounded bg-light border border-opacity-50">
+              <div class="small text-muted fw-bold mb-1 text-uppercase">Source</div>
+              <div class="fw-bold text-dark fs-5">{{ .NCR.SourceType }}</div>
+            </div>
+          </div>
+          <div class="col-sm-6">
+            <div class="p-3 rounded bg-light border border-opacity-50">
+              <div class="small text-muted fw-bold mb-1 text-uppercase">Location</div>
+              <div class="fw-bold text-dark fs-5">{{ if .NCR.DetectedLocation }}{{ .NCR.DetectedLocation }}{{ else }}<span class="text-muted fst-italic">Unspecified</span>{{ end }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-lg-4">
+      <div class="qms-card p-4 h-100 border-start border-4">
+        <h5 class="fw-bold mb-4 text-dark border-bottom pb-3 border-opacity-25 border-info"><i class="bi bi-diagram-3 me-2 text-info"></i> Disposition & Workflow</h5>
+        
+        <form action="/qms/ncrs/{{ .NCR.ID }}/status" method="POST" class="mb-4 bg-white p-3 rounded shadow-sm border border-opacity-25 border-info">
+          <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+          <label class="form-label fw-bold text-muted small">UPDATE WORKFLOW STATUS</label>
+          <div class="d-flex gap-2">
+            <select name="status" class="form-select flex-grow-1">
+              {{ range .Statuses }}<option value="{{ . }}">{{ . }}</option>{{ end }}
+            </select>
+            <button class="btn btn-dark fw-500 rounded px-3" type="submit">Update</button>
+          </div>
+        </form>
+
+        <hr class="my-4 border-info border-opacity-25">
+
+        <form action="/qms/ncrs/{{ .NCR.ID }}/disposition" method="POST" class="bg-white p-3 rounded shadow-sm border border-opacity-25 border-info">
+          <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+          <label class="form-label fw-bold text-muted small">RECORD FINAL DISPOSITION</label>
+          <select name="disposition_type" class="form-select mb-3" required>
+            <option value="">-- Select Decision --</option>
+            {{ range .DispositionTypes }}<option value="{{ . }}">{{ . }}</option>{{ end }}
+          </select>
+          <textarea name="description" class="form-textarea mb-3" rows="3" placeholder="Provide justification or notes..." required></textarea>
+          <button class="btn qms-btn-ncr w-100" type="submit">
+            <i class="bi bi-check2-circle me-1"></i> Approve Disposition
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{ end }}

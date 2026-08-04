@@ -1,0 +1,125 @@
+{{ define "content" }}
+
+
+<div class="container-fluid mt-4">
+  <div class="qms-header d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h1 class="h3 mb-1 fw-bold text-dark">
+        <i class="bi bi-shield-check text-primary me-2"></i> Quality Inspections
+      </h1>
+      <p class="text-muted mb-0 small">Monitor and manage all inspection plans, outcomes, and defects in one place.</p>
+    </div>
+    <a href="/qms/inspections/new" class="qms-btn-primary text-decoration-none">
+      <i class="bi bi-plus-circle me-1"></i> Plan Inspection
+    </a>
+  </div>
+
+  <div class="qms-card mb-4 p-4">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label text-muted small fw-bold">STATUS</label>
+        <select name="status" class="form-select border-0 bg-light shadow-sm">
+          <option value="">All Statuses</option>
+          <option value="PLANNED">Planned</option>
+          <option value="IN_PROGRESS">In Progress</option>
+          <option value="PASSED">Passed</option>
+          <option value="FAILED">Failed</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label text-muted small fw-bold">REFERENCE</label>
+        <input type="text" name="reference_module" class="form-input border-0 bg-light shadow-sm" placeholder="e.g. procurement, manufacturing">
+      </div>
+      <div class="col-md-2">
+        <button type="submit" class="btn btn-dark w-100 shadow-sm border-0">
+          <i class="bi bi-search me-1"></i> Filter
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <div class="qms-card p-0 overflow-hidden mb-5">
+    <div class="table-responsive">
+      <table class="table qms-table mb-0 align-middle">
+        <thead>
+          <tr>
+            <th class="ps-4 py-3">Inspection Name</th>
+            <th class="py-3">Reference</th>
+            <th class="py-3">Status</th>
+            <th class="py-3">Scheduled</th>
+            <th class="py-3">Completed</th>
+            <th class="pe-4 py-3 text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{ if .Inspections }}
+            {{ range .Inspections }}
+            <tr>
+              <td class="ps-4 py-3">
+                <div class="d-flex align-items-center">
+                  <div class="bg-primary bg-opacity-10 rounded p-2 me-3">
+                    <i class="bi bi-clipboard-data text-primary"></i>
+                  </div>
+                  <div>
+                    <div class="fw-bold text-dark">{{ .Name }}</div>
+                    <div class="small text-muted text-truncate">{{ .Description }}</div>
+                  </div>
+                </div>
+              </td>
+              <td class="py-3">
+                <div class="d-flex align-items-center">
+                  <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill px-2 py-1 me-2">
+                    {{ .ReferenceModule }}
+                  </span>
+                  {{ if .ReferenceID }}
+                    <span class="text-muted small fw-500">#{{ .ReferenceID }}</span>
+                  {{ end }}
+                </div>
+              </td>
+              <td class="py-3">
+                {{ if eq .Status "PASSED" }}<span class="qms-badge qms-badge-passed"><i class="bi bi-check-circle me-1"></i>Passed</span>
+                {{ else if eq .Status "FAILED" }}<span class="qms-badge qms-badge-failed"><i class="bi bi-x-circle me-1"></i>Failed</span>
+                {{ else if eq .Status "IN_PROGRESS" }}<span class="qms-badge qms-badge-progress"><i class="bi bi-arrow-repeat me-1"></i>In Progress</span>
+                {{ else if eq .Status "PLANNED" }}<span class="qms-badge bg-light text-dark border"><i class="bi bi-calendar me-1"></i>Planned</span>
+                {{ else }}<span class="qms-badge bg-secondary text-white">{{ .Status }}</span>{{ end }}
+              </td>
+              <td class="py-3 text-muted small">
+                {{ if .ScheduledAt }}
+                  <i class="bi bi-calendar3 me-1"></i>{{ .ScheduledAt.Format "Jan 02, 2006" }}
+                {{ else }}
+                  <span class="text-black-50">-</span>
+                {{ end }}
+              </td>
+              <td class="py-3 text-muted small">
+                {{ if .CompletedAt }}
+                  <i class="bi bi-check2-all me-1"></i>{{ .CompletedAt.Format "Jan 02, 2006" }}
+                {{ else }}
+                  <span class="text-black-50">-</span>
+                {{ end }}
+              </td>
+              <td class="pe-4 py-3 text-end">
+                <a href="/qms/inspections/{{ .ID }}" class="btn btn-sm btn-light border shadow-sm text-primary rounded-pill px-3 fw-500 hover-lift">
+                  View <i class="bi bi-arrow-right ms-1"></i>
+                </a>
+              </td>
+            </tr>
+            {{ end }}
+          {{ else }}
+            <tr>
+              <td colspan="6" class="text-center py-5">
+                <div class="text-muted mb-3">
+                  <i class="bi bi-inbox fs-1 text-black-50"></i>
+                </div>
+                <h5 class="fw-bold text-dark">No Inspections Found</h5>
+                <p class="text-muted small">There are currently no inspection plans matching your filters.</p>
+                <a href="/qms/inspections/new" class="btn btn-outline-primary btn-sm mt-2 rounded-pill px-4">Create First Inspection</a>
+              </td>
+            </tr>
+          {{ end }}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{{ end }}

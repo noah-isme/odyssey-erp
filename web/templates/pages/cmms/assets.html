@@ -1,0 +1,43 @@
+{{ define "content" }}
+<div class="container-fluid mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 text-success"><i class="bi bi-box"></i> Assets</h1>
+    <a href="/cmms/assets/new" class="btn btn-success shadow-sm"><i class="bi bi-plus"></i> Add Asset</a>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-hover table-striped mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Code</th>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Manufacturer</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{ if .Assets }}
+            {{ range .Assets }}
+            <tr>
+              <td><strong>{{ .Code }}</strong></td>
+              <td>{{ .Name }}</td>
+              <td>{{ .AssetType }}</td>
+              <td>{{ .Manufacturer }}</td>
+              <td><span class="badge bg-secondary">{{ .Status }}</span></td>
+              <td>
+                <a href="/cmms/assets/{{ .ID }}" class="btn btn-sm btn-outline-success">View</a>
+              </td>
+            </tr>
+            {{ end }}
+          {{ else }}
+            <tr><td colspan="6" class="text-center text-muted py-4">No assets found.</td></tr>
+          {{ end }}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{{ end }}

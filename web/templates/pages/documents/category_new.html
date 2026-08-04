@@ -1,0 +1,43 @@
+{{ define "content" }}
+<div class="container mt-4 max-w-4xl mx-auto">
+  <div class="card shadow-sm">
+    <div class="card-header bg-primary text-white py-3">
+      <h2 class="h5 mb-0"><i class="bi bi-folder-plus"></i> Create Category</h2>
+    </div>
+    <div class="card-body p-4">
+      <form action="/documents/categories" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+        
+        <div class="row mb-3">
+          <div class="col-md-4">
+            <label class="form-label fw-bold">Code</label>
+            <input type="text" name="code" class="form-input" required placeholder="CAT-01">
+          </div>
+          <div class="col-md-8">
+            <label class="form-label fw-bold">Name</label>
+            <input type="text" name="name" class="form-input" required>
+          </div>
+        </div>
+        
+        <div class="mb-3">
+          <label class="form-label fw-bold">Description</label>
+          <textarea name="description" class="form-textarea" rows="2"></textarea>
+        </div>
+        
+        <div class="mb-3">
+          <label class="form-label fw-bold">Parent Category (Optional)</label>
+          <select name="parent_id" class="form-select">
+            <option value="">-- None (Top Level) --</option>
+            {{ range .Categories }}<option value="{{ .ID }}">{{ .Name }}</option>{{ end }}
+          </select>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2 mt-4">
+          <a href="/documents/categories" class="btn btn-light border">Cancel</a>
+          <button type="submit" class="btn btn-primary">Save Category</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{{ end }}

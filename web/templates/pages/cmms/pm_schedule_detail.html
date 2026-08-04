@@ -1,0 +1,26 @@
+{{ define "content" }}
+<div class="container-fluid mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h1 class="h3 text-info mb-1">PM Schedule: {{ .Schedule.Name }}</h1>
+      <p class="text-muted">{{ .Schedule.Description }}</p>
+    </div>
+    <a href="/cmms/pm-schedules" class="btn btn-outline-secondary">Back to Schedules</a>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-light fw-bold">Schedule Details</div>
+    <div class="card-body">
+      <div class="row">
+        <div class="col-sm-6">
+          <p><strong>Frequency:</strong> {{ .Schedule.FrequencyValue }} {{ .Schedule.FrequencyType }}</p>
+          <p><strong>Next Due Date:</strong> {{ if .Schedule.NextDueDate }}{{ .Schedule.NextDueDate.Format "2006-01-02" }}{{ else }}-{{ end }}</p>
+        </div>
+        <div class="col-sm-6">
+          <p><strong>Status:</strong> {{ if .Schedule.Active }}Active{{ else }}Inactive{{ end }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{{ end }}

@@ -26,9 +26,11 @@ import (
 	auth "github.com/odyssey-erp/odyssey-erp/internal/auth"
 	boardpackhttp "github.com/odyssey-erp/odyssey-erp/internal/boardpack/http"
 	closehttp "github.com/odyssey-erp/odyssey-erp/internal/close/http"
+	cmmshttp "github.com/odyssey-erp/odyssey-erp/internal/cmms/http"
 	consolhttp "github.com/odyssey-erp/odyssey-erp/internal/consol/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/crm"
 	"github.com/odyssey-erp/odyssey-erp/internal/dashboard"
+	documentshttp "github.com/odyssey-erp/odyssey-erp/internal/documents/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/delivery"
 	eliminationhttp "github.com/odyssey-erp/odyssey-erp/internal/elimination/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/banking"
@@ -46,6 +48,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/pos"
 	"github.com/odyssey-erp/odyssey-erp/internal/procurement"
 	"github.com/odyssey-erp/odyssey-erp/internal/projects"
+	qmshttp "github.com/odyssey-erp/odyssey-erp/internal/qms/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
 	"github.com/odyssey-erp/odyssey-erp/internal/roles"
 	"github.com/odyssey-erp/odyssey-erp/internal/sales"
@@ -112,6 +115,9 @@ type RouterParams struct {
 	POSHandler             *pos.Handler
 	ProjectsHandler        *projects.Handler
 	MRPHandler             *mrp.Handler
+	DocumentsHandler       *documentshttp.Handler
+	CMMSHandler            *cmmshttp.Handler
+	QMSHandler             *qmshttp.Handler
 }
 
 type workspaceUser struct {
@@ -525,6 +531,15 @@ func NewRouter(params RouterParams) http.Handler {
 	}
 	if params.MRPHandler != nil {
 		r.Route("/mrp", params.MRPHandler.MountRoutes)
+	}
+	if params.DocumentsHandler != nil {
+		r.Route("/documents", params.DocumentsHandler.MountRoutes)
+	}
+	if params.CMMSHandler != nil {
+		r.Route("/cmms", params.CMMSHandler.MountRoutes)
+	}
+	if params.QMSHandler != nil {
+		r.Route("/qms", params.QMSHandler.MountRoutes)
 	}
 	r.Route("/delivery", func(r chi.Router) {
 		delivery.MountRoutes(r, params.Pool, params.Logger, params.Templates, params.CSRFManager, params.RBACMiddleware, params.InventoryService)

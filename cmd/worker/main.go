@@ -18,16 +18,21 @@ import (
 	apihttp "github.com/odyssey-erp/odyssey-erp/internal/api"
 	"github.com/odyssey-erp/odyssey-erp/internal/app"
 	"github.com/odyssey-erp/odyssey-erp/internal/boardpack"
+	"github.com/odyssey-erp/odyssey-erp/internal/cmms"
 	"github.com/odyssey-erp/odyssey-erp/internal/consol"
 	"github.com/odyssey-erp/odyssey-erp/internal/crm"
+	"github.com/odyssey-erp/odyssey-erp/internal/documents"
 	"github.com/odyssey-erp/odyssey-erp/internal/fixedassets"
 	fxservice "github.com/odyssey-erp/odyssey-erp/internal/fx"
 	"github.com/odyssey-erp/odyssey-erp/internal/notifications"
+	"github.com/odyssey-erp/odyssey-erp/internal/outbox"
 	"github.com/odyssey-erp/odyssey-erp/internal/payroll"
 	"github.com/odyssey-erp/odyssey-erp/internal/platform/cache"
 	"github.com/odyssey-erp/odyssey-erp/internal/platform/db"
+	"github.com/odyssey-erp/odyssey-erp/internal/qms"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
+	"github.com/odyssey-erp/odyssey-erp/internal/storage"
 	"github.com/odyssey-erp/odyssey-erp/internal/tax"
 	"github.com/odyssey-erp/odyssey-erp/internal/variance"
 	"github.com/odyssey-erp/odyssey-erp/jobs"
@@ -78,6 +83,8 @@ func (q notificationEmailQueue) EnqueueEmail(ctx context.Context, email notifica
 	}
 	return err
 }
+
+
 
 func main() {
 	if app.InTestMode() {
@@ -199,11 +206,29 @@ func main() {
 	payrollOutbox := payroll.NewOutboxDispatcher(payrollRepo, payrollDeliveryQueue{client: asynqClient})
 	taxService := tax.NewService(tax.NewRepository(pool), nil)
 	crmService := crm.NewService(crm.NewRepository(pool), nil, nil, crm.NewNotificationAdapter(notificationDispatcher))
+	cmmsService := cmms.NewService(cmms.NewRepository(pool))
 	fxRepo := fxservice.NewRepository(pool)
 	fxProvider := fxservice.NewExchangeRateAPI(fxservice.ProviderConfig{BaseURL: cfg.FXAPIBaseURL, APIKey: cfg.FXAPIKey, Timeout: cfg.FXFetchTimeout})
 	fxDailyService := &fxservice.Service{Provider: fxProvider, Repo: fxRepo, MaxRateAge: cfg.FXMaxRateAge}
 	apiHandler := apihttp.NewHandler(pool, []byte(cfg.SessionSecret))
 	boardpackJob.SetNotificationDispatcher(notificationDispatcher)
+	
+	qmsService := qms.NewService(qms.NewRepository(pool))
+
+	docStorage, err := storage.NewStorage(ctx, storage.StorageConfig{
+		Driver:   cfg.BoardPackStorageDriver, // Share storage config for now
+		LocalDir: cfg.BoardPackStorageDir,
+	})
+	if err != nil {
+		logger.Error("init documents storage", slog.Any("error", err))
+		os.Exit(1)
+	}
+	documentsService := documents.NewService(documents.NewRepository(pool), docStorage)
+
+	outboxRepo := outbox.NewRepository(pool)
+	outboxDispatcher := outbox.NewDispatcher(pool, outboxRepo, logger)
+	cmms.RegisterOutboxHandlers(outboxDispatcher, cmmsService, logger)
+	qms.RegisterOutboxHandlers(outboxDispatcher, qmsService, logger)
 
 	worker, err := jobs.NewWorker(jobs.WorkerConfig{
 		RedisOpts: redisOpts,
@@ -223,6 +248,12 @@ func main() {
 			{Type: jobs.TaskTaxCaptureDispatch, Handler: jobs.HandleTaxCaptureDispatch(taxService)},
 			{Type: jobs.TaskCRMReminderDispatch, Handler: jobs.HandleCRMReminderDispatch(crmService)},
 			{Type: jobs.TaskWebhookDeliveryDispatch, Handler: jobs.HandleWebhookDeliveryDispatch(webhookDispatcher{handler: apiHandler})},
+			{Type: jobs.TaskOutboxSweep, Handler: jobs.HandleOutboxSweep(outboxDispatcher)},
+			{Type: jobs.TypeCMMSPMGeneratorScan, Handler: jobs.HandleCMMSPMGeneratorScanTask(logger, func(ctx context.Context) error {
+				_, err := cmmsService.GenerateAllPMWorkOrders(ctx)
+				return err
+			})},
+			{Type: jobs.TaskDocumentDisposition, Handler: jobs.HandleDocumentDisposition(documentsService)},
 		},
 		FXFetcher:   fxJobFetcher{service: fxDailyService},
 		FXCompanies: fxRepo,
@@ -240,7 +271,11 @@ func main() {
 			{Spec: "*/5 * * * *", Task: asynq.NewTask(jobs.TaskTaxCaptureDispatch, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
 			{Spec: "* * * * *", Task: asynq.NewTask(jobs.TaskCRMReminderDispatch, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
 			{Spec: "* * * * *", Task: asynq.NewTask(jobs.TaskWebhookDeliveryDispatch, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
+			{Spec: "* * * * *", Task: asynq.NewTask(jobs.TaskOutboxSweep, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
+			// Run CMMS PM generator hourly
+			{Spec: "0 * * * *", Task: asynq.NewTask(jobs.TypeCMMSPMGeneratorScan, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
 			{Spec: "5 0 * * *", Task: func() *asynq.Task { task, _ := jobs.NewFXDailyRatesTask(time.Time{}, false); return task }(), Options: []asynq.Option{asynq.MaxRetry(5)}},
+			{Spec: "0 1 * * *", Task: asynq.NewTask(jobs.TaskDocumentDisposition, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
 		},
 	})
 	if err != nil {

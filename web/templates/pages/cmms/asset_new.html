@@ -1,0 +1,52 @@
+{{ define "content" }}
+<div class="container mt-4 max-w-4xl mx-auto">
+  <div class="card shadow-sm">
+    <div class="card-header bg-success text-white py-3">
+      <h2 class="h5 mb-0"><i class="bi bi-box"></i> Register New Asset</h2>
+    </div>
+    <div class="card-body p-4">
+      <form action="/cmms/assets" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+        
+        <div class="row mb-3">
+          <div class="col-md-4">
+            <label class="form-label fw-bold">Code</label>
+            <input type="text" name="code" class="form-input" required placeholder="EQ-001">
+          </div>
+          <div class="col-md-8">
+            <label class="form-label fw-bold">Name</label>
+            <input type="text" name="name" class="form-input" required placeholder="Asset Name">
+          </div>
+        </div>
+        
+        <div class="mb-3">
+          <label class="form-label fw-bold">Description</label>
+          <textarea name="description" class="form-textarea" rows="3"></textarea>
+        </div>
+        
+        <div class="row mb-3">
+          <div class="col-md-4">
+            <label class="form-label fw-bold">Type</label>
+            <select name="asset_type" class="form-select">
+              {{ range .AssetTypes }}<option value="{{ . }}">{{ . }}</option>{{ end }}
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-bold">Manufacturer</label>
+            <input type="text" name="manufacturer" class="form-input">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-bold">Model</label>
+            <input type="text" name="model" class="form-input">
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2 mt-4">
+          <a href="/cmms/assets" class="btn btn-light border">Cancel</a>
+          <button type="submit" class="btn btn-success">Register Asset</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{{ end }}

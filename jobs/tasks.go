@@ -28,6 +28,9 @@ const (
 	TaskPayrollPayslipDispatch = "payroll:payslip_dispatch"
 	// TaskTaxCaptureDispatch retries durable AR/AP tax captures.
 	TaskTaxCaptureDispatch = "tax:capture_dispatch"
+
+	// TaskOutboxSweep processes pending cross-module outbox events.
+	TaskOutboxSweep = "outbox:sweep"
 	// TaskCRMReminderDispatch sends due and overdue CRM activity notifications.
 	TaskCRMReminderDispatch     = "crm:reminder_dispatch"
 	TaskWebhookDeliveryDispatch = "webhook:delivery_dispatch"

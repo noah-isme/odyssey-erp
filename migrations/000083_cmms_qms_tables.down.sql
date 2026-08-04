@@ -1,0 +1,22 @@
+-- Migration 000083 rollback: Remove CMMS and QMS core tables
+
+DROP TABLE IF EXISTS quality_objective_measurements CASCADE;
+DROP TABLE IF EXISTS quality_objectives CASCADE;
+DROP TABLE IF EXISTS supplier_audits CASCADE;
+DROP TABLE IF EXISTS supplier_quality CASCADE;
+DROP TABLE IF EXISTS audit_findings CASCADE;
+DROP TABLE IF EXISTS audits CASCADE;
+DROP TABLE IF EXISTS ncr_dispositions CASCADE;
+DROP TABLE IF EXISTS ncrs CASCADE;
+DROP TABLE IF EXISTS capas CASCADE;
+DROP TABLE IF EXISTS work_order_spare_parts CASCADE;
+DROP TABLE IF EXISTS spare_parts CASCADE;
+DROP TABLE IF EXISTS meter_readings CASCADE;
+ALTER TABLE work_orders DROP CONSTRAINT IF EXISTS fk_work_orders_pm_schedule;
+DROP TABLE IF EXISTS pm_schedules CASCADE;
+DROP TABLE IF EXISTS task_template_steps CASCADE;
+DROP TABLE IF EXISTS task_templates CASCADE;
+DROP TABLE IF EXISTS work_order_tasks CASCADE;
+DROP TABLE IF EXISTS work_orders CASCADE;
+DROP TABLE IF EXISTS assets CASCADE;
+DROP TABLE IF EXISTS locations CASCADE;

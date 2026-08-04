@@ -37,11 +37,7 @@ func TestBOMApprovalValidator(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Placeholder test structure
 			// In production, would use real database and test fixtures
-			if tt.valid {
-				// Expected: validator returns valid result
-			} else {
-				// Expected: validator returns invalid result
-			}
+			_ = tt.valid
 		})
 	}
 }

@@ -1,0 +1,83 @@
+{{ define "content" }}
+
+
+<div class="container-fluid mt-4 mb-5">
+  <div class="qms-header-ncr d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h1 class="h3 mb-1 fw-bold text-dark">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i> Log Non-Conformance
+      </h1>
+      <p class="text-muted mb-0 small">Create a new Non-Conformance Report (NCR) for defective materials or processes.</p>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <div class="qms-card p-4">
+        <form action="/qms/ncrs" method="POST">
+          <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+          
+          <div class="mb-4">
+            <label class="form-label">Title <span class="text-danger">*</span></label>
+            <input type="text" name="title" class="form-input" required placeholder="Brief description of the defect/issue">
+          </div>
+          
+          <div class="mb-4">
+            <label class="form-label">Detailed Description</label>
+            <textarea name="description" class="form-textarea" rows="4" placeholder="Explain the non-conformance in detail..."></textarea>
+          </div>
+          
+          <div class="row mb-4 g-3">
+            <div class="col-md-6">
+              <label class="form-label">Category</label>
+              <select name="category" class="form-select">
+                {{ range .Categories }}<option value="{{ . }}">{{ . }}</option>{{ end }}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Severity</label>
+              <select name="severity" class="form-select">
+                {{ range .Severities }}<option value="{{ . }}">{{ . }}</option>{{ end }}
+              </select>
+            </div>
+          </div>
+
+          <div class="row mb-5 g-3">
+            <div class="col-md-6">
+              <label class="form-label">Source Type</label>
+              <select name="source_type" class="form-select">
+                {{ range .SourceTypes }}<option value="{{ . }}">{{ . }}</option>{{ end }}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Detected Location</label>
+              <input type="text" name="detected_location" class="form-input" placeholder="e.g. Warehouse A, Assembly Line 2">
+            </div>
+          </div>
+
+          <div class="d-flex justify-content-end gap-3 pt-4 border-top">
+            <a href="/qms/ncrs" class="qms-btn-secondary text-decoration-none">Cancel</a>
+            <button type="submit" class="btn qms-btn-ncr">Submit NCR</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    
+    <div class="col-lg-4">
+      <div class="qms-card p-4">
+        <div class="d-flex align-items-center mb-3">
+          <i class="bi bi-info-circle-fill fs-4 me-2"></i>
+          <h6 class="fw-bold mb-0">NCR Guidelines</h6>
+        </div>
+        <p class="small text-muted mb-3">
+          An NCR should be logged whenever a material, product, or process fails to meet defined quality standards.
+        </p>
+        <ul class="small text-muted mb-0">
+          <li class="mb-2"><strong>Severity:</strong> Select Major or Critical if this issue affects safety or key product functionality.</li>
+          <li class="mb-2"><strong>Source:</strong> Accurately tracking the source helps identify root causes during the CAPA phase.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{{ end }}

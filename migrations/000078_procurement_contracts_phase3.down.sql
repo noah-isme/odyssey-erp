@@ -6,7 +6,7 @@ DROP TABLE IF EXISTS price_history;
 DROP TABLE IF EXISTS contract_price_lines;
 DROP TABLE IF EXISTS supplier_contracts;
 
-DELETE FROM permissions WHERE module IN (
+DELETE FROM permissions WHERE name IN (
     'procurement.contract.create',
     'procurement.contract.submit',
     'procurement.contract.approve',

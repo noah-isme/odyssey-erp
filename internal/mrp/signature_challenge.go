@@ -12,7 +12,6 @@ import (
 type SignatureChallengeService struct {
 	db            *pgx.Conn
 	challengeTTL  time.Duration // 5 minutes default
-	authService   interface{}   // Dependency for password reauthentication (to be injected)
 }
 
 // NewSignatureChallengeService creates a new challenge service

@@ -1,0 +1,112 @@
+{{ define "content" }}
+
+
+<div class="container-fluid mt-4">
+  <div class="qms-header-ncr d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h1 class="h3 mb-1 fw-bold text-dark">
+        <i class="bi bi-exclamation-triangle text-orange me-2"></i> Non-Conformance Reports (NCR)
+      </h1>
+      <p class="text-muted mb-0 small">Identify, track, and manage non-conforming materials and processes.</p>
+    </div>
+    <a href="/qms/ncrs/new" class="qms-btn-ncr text-decoration-none">
+      <i class="bi bi-plus-circle me-1"></i> Log NCR
+    </a>
+  </div>
+
+  <div class="qms-card mb-4 p-4">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label text-muted small fw-bold">STATUS</label>
+        <select name="status" class="form-select border-0 bg-light shadow-sm">
+          <option value="">All Statuses</option>
+          {{ range .Statuses }}
+          <option value="{{ . }}">{{ . }}</option>
+          {{ end }}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label text-muted small fw-bold">SEVERITY</label>
+        <select name="severity" class="form-select border-0 bg-light shadow-sm">
+          <option value="">All Severities</option>
+          {{ range .Severities }}
+          <option value="{{ . }}">{{ . }}</option>
+          {{ end }}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <button type="submit" class="btn btn-dark w-100 shadow-sm border-0">
+          <i class="bi bi-search me-1"></i> Filter
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <div class="qms-card p-0 overflow-hidden mb-5">
+    <div class="table-responsive">
+      <table class="table qms-table mb-0 align-middle">
+        <thead>
+          <tr>
+            <th class="ps-4 py-3">NCR Details</th>
+            <th class="py-3">Source & Category</th>
+            <th class="py-3">Severity</th>
+            <th class="py-3">Status</th>
+            <th class="pe-4 py-3 text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{ if .NCRs }}
+            {{ range .NCRs }}
+            <tr>
+              <td class="ps-4 py-3">
+                <div class="d-flex align-items-center">
+                  <div class="rounded p-2 me-3">
+                    <i class="bi bi-file-earmark-break text-orange"></i>
+                  </div>
+                  <div>
+                    <div class="fw-bold text-dark">{{ .Number }}</div>
+                    <div class="small text-muted text-truncate">{{ .Title }}</div>
+                  </div>
+                </div>
+              </td>
+              <td class="py-3">
+                <div class="d-flex flex-column">
+                  <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill px-2 py-1 mb-1 align-self-start">
+                    {{ .SourceType }}
+                  </span>
+                  <span class="small fw-500 text-muted">{{ .Category }}</span>
+                </div>
+              </td>
+              <td class="py-3">
+                {{ if eq .Severity "CRITICAL" }}<span class="qms-badge qms-badge-critical"><i class="bi bi-exclamation-triangle-fill me-1"></i>Critical</span>
+                {{ else if eq .Severity "MAJOR" }}<span class="qms-badge qms-badge-major"><i class="bi bi-exclamation-circle me-1"></i>Major</span>
+                {{ else }}<span class="qms-badge qms-badge-minor">Minor</span>{{ end }}
+              </td>
+              <td class="py-3">
+                <span class="badge bg-light text-dark border px-2 py-1 rounded-pill">{{ .Status }}</span>
+              </td>
+              <td class="pe-4 py-3 text-end">
+                <a href="/qms/ncrs/{{ .ID }}" class="btn btn-sm btn-light border shadow-sm rounded-pill px-3 fw-500 hover-lift">
+                  Review <i class="bi bi-arrow-right ms-1"></i>
+                </a>
+              </td>
+            </tr>
+            {{ end }}
+          {{ else }}
+            <tr>
+              <td colspan="5" class="text-center py-5">
+                <div class="text-muted mb-3">
+                  <i class="bi bi-check2-circle fs-1 text-black-50"></i>
+                </div>
+                <h5 class="fw-bold text-dark">No Non-Conformances</h5>
+                <p class="text-muted small">Everything is compliant! There are no NCRs matching your filters.</p>
+              </td>
+            </tr>
+          {{ end }}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{{ end }}

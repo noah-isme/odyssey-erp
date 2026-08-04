@@ -34,24 +34,10 @@ type CreateAuditEventParams struct {
 	Details       []byte      `json:"details"`
 }
 
-type CreateAuditEventRow struct {
-	ID            int64              `json:"id"`
-	CompanyID     int64              `json:"company_id"`
-	CorrelationID pgtype.UUID        `json:"correlation_id"`
-	CausationID   pgtype.UUID        `json:"causation_id"`
-	DecisionID    pgtype.Int8        `json:"decision_id"`
-	EntityType    pgtype.Text        `json:"entity_type"`
-	EntityID      pgtype.Int8        `json:"entity_id"`
-	Action        pgtype.Text        `json:"action"`
-	ActorID       pgtype.Int8        `json:"actor_id"`
-	Details       []byte             `json:"details"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-}
-
 // =============================================================================
 // AUDIT EVENTS
 // =============================================================================
-func (q *Queries) CreateAuditEvent(ctx context.Context, arg CreateAuditEventParams) (CreateAuditEventRow, error) {
+func (q *Queries) CreateAuditEvent(ctx context.Context, arg CreateAuditEventParams) (AuditEvent, error) {
 	row := q.db.QueryRow(ctx, createAuditEvent,
 		arg.CompanyID,
 		arg.CorrelationID,
@@ -63,7 +49,7 @@ func (q *Queries) CreateAuditEvent(ctx context.Context, arg CreateAuditEventPara
 		arg.ActorID,
 		arg.Details,
 	)
-	var i CreateAuditEventRow
+	var i AuditEvent
 	err := row.Scan(
 		&i.ID,
 		&i.CompanyID,
@@ -104,25 +90,10 @@ type CreateComplianceDecisionParams struct {
 	RecordHash      pgtype.Text `json:"record_hash"`
 }
 
-type CreateComplianceDecisionRow struct {
-	ID              int64              `json:"id"`
-	CompanyID       int64              `json:"company_id"`
-	PolicyVersionID int64              `json:"policy_version_id"`
-	RecordType      string             `json:"record_type"`
-	RecordID        int64              `json:"record_id"`
-	Action          string             `json:"action"`
-	ActorID         int64              `json:"actor_id"`
-	Reason          pgtype.Text        `json:"reason"`
-	DecisionID      pgtype.UUID        `json:"decision_id"`
-	RecordVersion   pgtype.Text        `json:"record_version"`
-	RecordHash      pgtype.Text        `json:"record_hash"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
-}
-
 // =============================================================================
 // COMPLIANCE DECISIONS
 // =============================================================================
-func (q *Queries) CreateComplianceDecision(ctx context.Context, arg CreateComplianceDecisionParams) (CreateComplianceDecisionRow, error) {
+func (q *Queries) CreateComplianceDecision(ctx context.Context, arg CreateComplianceDecisionParams) (ComplianceDecision, error) {
 	row := q.db.QueryRow(ctx, createComplianceDecision,
 		arg.CompanyID,
 		arg.PolicyVersionID,
@@ -135,7 +106,7 @@ func (q *Queries) CreateComplianceDecision(ctx context.Context, arg CreateCompli
 		arg.RecordVersion,
 		arg.RecordHash,
 	)
-	var i CreateComplianceDecisionRow
+	var i ComplianceDecision
 	err := row.Scan(
 		&i.ID,
 		&i.CompanyID,
@@ -166,20 +137,12 @@ type CreateEvidenceRecordParams struct {
 	Content      []byte      `json:"content"`
 }
 
-type CreateEvidenceRecordRow struct {
-	ID           int64              `json:"id"`
-	DecisionID   int64              `json:"decision_id"`
-	EvidenceType pgtype.Text        `json:"evidence_type"`
-	Content      []byte             `json:"content"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-}
-
 // =============================================================================
 // EVIDENCE RECORDS
 // =============================================================================
-func (q *Queries) CreateEvidenceRecord(ctx context.Context, arg CreateEvidenceRecordParams) (CreateEvidenceRecordRow, error) {
+func (q *Queries) CreateEvidenceRecord(ctx context.Context, arg CreateEvidenceRecordParams) (EvidenceRecord, error) {
 	row := q.db.QueryRow(ctx, createEvidenceRecord, arg.DecisionID, arg.EvidenceType, arg.Content)
-	var i CreateEvidenceRecordRow
+	var i EvidenceRecord
 	err := row.Scan(
 		&i.ID,
 		&i.DecisionID,
@@ -276,27 +239,17 @@ type CreateQualityCAPAParams struct {
 	CreatedBy int64  `json:"created_by"`
 }
 
-type CreateQualityCAPARow struct {
-	ID        int64              `json:"id"`
-	CompanyID int64              `json:"company_id"`
-	Number    string             `json:"number"`
-	Status    string             `json:"status"`
-	CreatedBy int64              `json:"created_by"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
-}
-
 // =============================================================================
 // QUALITY CAPAs
 // =============================================================================
-func (q *Queries) CreateQualityCAPA(ctx context.Context, arg CreateQualityCAPAParams) (CreateQualityCAPARow, error) {
+func (q *Queries) CreateQualityCAPA(ctx context.Context, arg CreateQualityCAPAParams) (QualityCapa, error) {
 	row := q.db.QueryRow(ctx, createQualityCAPA,
 		arg.CompanyID,
 		arg.Number,
 		arg.Status,
 		arg.CreatedBy,
 	)
-	var i CreateQualityCAPARow
+	var i QualityCapa
 	err := row.Scan(
 		&i.ID,
 		&i.CompanyID,
@@ -325,22 +278,10 @@ type CreateQualityHoldParams struct {
 	CreatedBy    int64       `json:"created_by"`
 }
 
-type CreateQualityHoldRow struct {
-	ID           int64              `json:"id"`
-	CompanyID    int64              `json:"company_id"`
-	InspectionID pgtype.Int8        `json:"inspection_id"`
-	RecordType   pgtype.Text        `json:"record_type"`
-	RecordID     pgtype.Int8        `json:"record_id"`
-	Status       string             `json:"status"`
-	CreatedBy    int64              `json:"created_by"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
-}
-
 // =============================================================================
 // QUALITY HOLDS
 // =============================================================================
-func (q *Queries) CreateQualityHold(ctx context.Context, arg CreateQualityHoldParams) (CreateQualityHoldRow, error) {
+func (q *Queries) CreateQualityHold(ctx context.Context, arg CreateQualityHoldParams) (QualityHold, error) {
 	row := q.db.QueryRow(ctx, createQualityHold,
 		arg.CompanyID,
 		arg.InspectionID,
@@ -349,7 +290,7 @@ func (q *Queries) CreateQualityHold(ctx context.Context, arg CreateQualityHoldPa
 		arg.Status,
 		arg.CreatedBy,
 	)
-	var i CreateQualityHoldRow
+	var i QualityHold
 	err := row.Scan(
 		&i.ID,
 		&i.CompanyID,
@@ -386,24 +327,10 @@ type CreateQualityInspectionParams struct {
 	ResultVersion    pgtype.Text `json:"result_version"`
 }
 
-type CreateQualityInspectionRow struct {
-	ID               int64              `json:"id"`
-	CompanyID        int64              `json:"company_id"`
-	ProductID        int64              `json:"product_id"`
-	WorkOrderID      pgtype.Int8        `json:"work_order_id"`
-	OperationID      pgtype.Int8        `json:"operation_id"`
-	InspectionPlanID pgtype.Int8        `json:"inspection_plan_id"`
-	Status           string             `json:"status"`
-	ResultSnapshot   []byte             `json:"result_snapshot"`
-	ResultVersion    pgtype.Text        `json:"result_version"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
-}
-
 // =============================================================================
 // QUALITY INSPECTIONS
 // =============================================================================
-func (q *Queries) CreateQualityInspection(ctx context.Context, arg CreateQualityInspectionParams) (CreateQualityInspectionRow, error) {
+func (q *Queries) CreateQualityInspection(ctx context.Context, arg CreateQualityInspectionParams) (QualityInspection, error) {
 	row := q.db.QueryRow(ctx, createQualityInspection,
 		arg.CompanyID,
 		arg.ProductID,
@@ -414,7 +341,7 @@ func (q *Queries) CreateQualityInspection(ctx context.Context, arg CreateQuality
 		arg.ResultSnapshot,
 		arg.ResultVersion,
 	)
-	var i CreateQualityInspectionRow
+	var i QualityInspection
 	err := row.Scan(
 		&i.ID,
 		&i.CompanyID,
@@ -445,27 +372,17 @@ type CreateQualityNCRParams struct {
 	CreatedBy int64  `json:"created_by"`
 }
 
-type CreateQualityNCRRow struct {
-	ID        int64              `json:"id"`
-	CompanyID int64              `json:"company_id"`
-	Number    string             `json:"number"`
-	Status    string             `json:"status"`
-	CreatedBy int64              `json:"created_by"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
-}
-
 // =============================================================================
 // QUALITY NCRs
 // =============================================================================
-func (q *Queries) CreateQualityNCR(ctx context.Context, arg CreateQualityNCRParams) (CreateQualityNCRRow, error) {
+func (q *Queries) CreateQualityNCR(ctx context.Context, arg CreateQualityNCRParams) (QualityNcr, error) {
 	row := q.db.QueryRow(ctx, createQualityNCR,
 		arg.CompanyID,
 		arg.Number,
 		arg.Status,
 		arg.CreatedBy,
 	)
-	var i CreateQualityNCRRow
+	var i QualityNcr
 	err := row.Scan(
 		&i.ID,
 		&i.CompanyID,
@@ -498,22 +415,10 @@ type CreateSignatureChallengeParams struct {
 	ReauthenticationRequired bool               `json:"reauthentication_required"`
 }
 
-type CreateSignatureChallengeRow struct {
-	ID                       int64              `json:"id"`
-	ChallengeID              pgtype.UUID        `json:"challenge_id"`
-	PolicyVersionID          int64              `json:"policy_version_id"`
-	RecordID                 int64              `json:"record_id"`
-	RecordVersion            pgtype.Text        `json:"record_version"`
-	Expiry                   pgtype.Timestamptz `json:"expiry"`
-	ReauthenticationRequired bool               `json:"reauthentication_required"`
-	Used                     bool               `json:"used"`
-	CreatedAt                pgtype.Timestamptz `json:"created_at"`
-}
-
 // =============================================================================
 // SIGNATURE CHALLENGES
 // =============================================================================
-func (q *Queries) CreateSignatureChallenge(ctx context.Context, arg CreateSignatureChallengeParams) (CreateSignatureChallengeRow, error) {
+func (q *Queries) CreateSignatureChallenge(ctx context.Context, arg CreateSignatureChallengeParams) (SignatureChallenge, error) {
 	row := q.db.QueryRow(ctx, createSignatureChallenge,
 		arg.ChallengeID,
 		arg.PolicyVersionID,
@@ -522,7 +427,7 @@ func (q *Queries) CreateSignatureChallenge(ctx context.Context, arg CreateSignat
 		arg.Expiry,
 		arg.ReauthenticationRequired,
 	)
-	var i CreateSignatureChallengeRow
+	var i SignatureChallenge
 	err := row.Scan(
 		&i.ID,
 		&i.ChallengeID,
@@ -552,22 +457,10 @@ type CreateSubcontractReceiptParams struct {
 	SentQty     pgtype.Numeric `json:"sent_qty"`
 }
 
-type CreateSubcontractReceiptRow struct {
-	ID          int64              `json:"id"`
-	CompanyID   int64              `json:"company_id"`
-	WorkOrderID int64              `json:"work_order_id"`
-	OperationID int64              `json:"operation_id"`
-	Status      string             `json:"status"`
-	SentQty     pgtype.Numeric     `json:"sent_qty"`
-	ReceivedQty pgtype.Numeric     `json:"received_qty"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
-}
-
 // =============================================================================
 // SUBCONTRACT RECEIPTS
 // =============================================================================
-func (q *Queries) CreateSubcontractReceipt(ctx context.Context, arg CreateSubcontractReceiptParams) (CreateSubcontractReceiptRow, error) {
+func (q *Queries) CreateSubcontractReceipt(ctx context.Context, arg CreateSubcontractReceiptParams) (SubcontractReceipt, error) {
 	row := q.db.QueryRow(ctx, createSubcontractReceipt,
 		arg.CompanyID,
 		arg.WorkOrderID,
@@ -575,7 +468,7 @@ func (q *Queries) CreateSubcontractReceipt(ctx context.Context, arg CreateSubcon
 		arg.Status,
 		arg.SentQty,
 	)
-	var i CreateSubcontractReceiptRow
+	var i SubcontractReceipt
 	err := row.Scan(
 		&i.ID,
 		&i.CompanyID,
@@ -648,23 +541,9 @@ FROM audit_events
 WHERE id = $1
 `
 
-type GetAuditEventRow struct {
-	ID            int64              `json:"id"`
-	CompanyID     int64              `json:"company_id"`
-	CorrelationID pgtype.UUID        `json:"correlation_id"`
-	CausationID   pgtype.UUID        `json:"causation_id"`
-	DecisionID    pgtype.Int8        `json:"decision_id"`
-	EntityType    pgtype.Text        `json:"entity_type"`
-	EntityID      pgtype.Int8        `json:"entity_id"`
-	Action        pgtype.Text        `json:"action"`
-	ActorID       pgtype.Int8        `json:"actor_id"`
-	Details       []byte             `json:"details"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-}
-
-func (q *Queries) GetAuditEvent(ctx context.Context, id int64) (GetAuditEventRow, error) {
+func (q *Queries) GetAuditEvent(ctx context.Context, id int64) (AuditEvent, error) {
 	row := q.db.QueryRow(ctx, getAuditEvent, id)
-	var i GetAuditEventRow
+	var i AuditEvent
 	err := row.Scan(
 		&i.ID,
 		&i.CompanyID,
@@ -688,24 +567,9 @@ FROM compliance_decisions
 WHERE id = $1
 `
 
-type GetComplianceDecisionRow struct {
-	ID              int64              `json:"id"`
-	CompanyID       int64              `json:"company_id"`
-	PolicyVersionID int64              `json:"policy_version_id"`
-	RecordType      string             `json:"record_type"`
-	RecordID        int64              `json:"record_id"`
-	Action          string             `json:"action"`
-	ActorID         int64              `json:"actor_id"`
-	Reason          pgtype.Text        `json:"reason"`
-	DecisionID      pgtype.UUID        `json:"decision_id"`
-	RecordVersion   pgtype.Text        `json:"record_version"`
-	RecordHash      pgtype.Text        `json:"record_hash"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
-}
-
-func (q *Queries) GetComplianceDecision(ctx context.Context, id int64) (GetComplianceDecisionRow, error) {
+func (q *Queries) GetComplianceDecision(ctx context.Context, id int64) (ComplianceDecision, error) {
 	row := q.db.QueryRow(ctx, getComplianceDecision, id)
-	var i GetComplianceDecisionRow
+	var i ComplianceDecision
 	err := row.Scan(
 		&i.ID,
 		&i.CompanyID,
@@ -730,24 +594,9 @@ FROM compliance_decisions
 WHERE decision_id = $1
 `
 
-type GetComplianceDecisionByUUIDRow struct {
-	ID              int64              `json:"id"`
-	CompanyID       int64              `json:"company_id"`
-	PolicyVersionID int64              `json:"policy_version_id"`
-	RecordType      string             `json:"record_type"`
-	RecordID        int64              `json:"record_id"`
-	Action          string             `json:"action"`
-	ActorID         int64              `json:"actor_id"`
-	Reason          pgtype.Text        `json:"reason"`
-	DecisionID      pgtype.UUID        `json:"decision_id"`
-	RecordVersion   pgtype.Text        `json:"record_version"`
-	RecordHash      pgtype.Text        `json:"record_hash"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
-}
-
-func (q *Queries) GetComplianceDecisionByUUID(ctx context.Context, decisionID pgtype.UUID) (GetComplianceDecisionByUUIDRow, error) {
+func (q *Queries) GetComplianceDecisionByUUID(ctx context.Context, decisionID pgtype.UUID) (ComplianceDecision, error) {
 	row := q.db.QueryRow(ctx, getComplianceDecisionByUUID, decisionID)
-	var i GetComplianceDecisionByUUIDRow
+	var i ComplianceDecision
 	err := row.Scan(
 		&i.ID,
 		&i.CompanyID,
@@ -772,23 +621,15 @@ WHERE decision_id = $1
 ORDER BY created_at DESC
 `
 
-type GetEvidenceRecordsForDecisionRow struct {
-	ID           int64              `json:"id"`
-	DecisionID   int64              `json:"decision_id"`
-	EvidenceType pgtype.Text        `json:"evidence_type"`
-	Content      []byte             `json:"content"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-}
-
-func (q *Queries) GetEvidenceRecordsForDecision(ctx context.Context, decisionID int64) ([]GetEvidenceRecordsForDecisionRow, error) {
+func (q *Queries) GetEvidenceRecordsForDecision(ctx context.Context, decisionID int64) ([]EvidenceRecord, error) {
 	rows, err := q.db.Query(ctx, getEvidenceRecordsForDecision, decisionID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetEvidenceRecordsForDecisionRow
+	var items []EvidenceRecord
 	for rows.Next() {
-		var i GetEvidenceRecordsForDecisionRow
+		var i EvidenceRecord
 		if err := rows.Scan(
 			&i.ID,
 			&i.DecisionID,
@@ -812,19 +653,9 @@ FROM quality_capas
 WHERE id = $1
 `
 
-type GetQualityCAPARow struct {
-	ID        int64              `json:"id"`
-	CompanyID int64              `json:"company_id"`
-	Number    string             `json:"number"`
-	Status    string             `json:"status"`
-	CreatedBy int64              `json:"created_by"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
-}
-
-func (q *Queries) GetQualityCAPA(ctx context.Context, id int64) (GetQualityCAPARow, error) {
+func (q *Queries) GetQualityCAPA(ctx context.Context, id int64) (QualityCapa, error) {
 	row := q.db.QueryRow(ctx, getQualityCAPA, id)
-	var i GetQualityCAPARow
+	var i QualityCapa
 	err := row.Scan(
 		&i.ID,
 		&i.CompanyID,
@@ -843,21 +674,9 @@ FROM quality_holds
 WHERE id = $1
 `
 
-type GetQualityHoldRow struct {
-	ID           int64              `json:"id"`
-	CompanyID    int64              `json:"company_id"`
-	InspectionID pgtype.Int8        `json:"inspection_id"`
-	RecordType   pgtype.Text        `json:"record_type"`
-	RecordID     pgtype.Int8        `json:"record_id"`
-	Status       string             `json:"status"`
-	CreatedBy    int64              `json:"created_by"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
-}
-
-func (q *Queries) GetQualityHold(ctx context.Context, id int64) (GetQualityHoldRow, error) {
+func (q *Queries) GetQualityHold(ctx context.Context, id int64) (QualityHold, error) {
 	row := q.db.QueryRow(ctx, getQualityHold, id)
-	var i GetQualityHoldRow
+	var i QualityHold
 	err := row.Scan(
 		&i.ID,
 		&i.CompanyID,
@@ -879,23 +698,9 @@ FROM quality_inspections
 WHERE id = $1
 `
 
-type GetQualityInspectionRow struct {
-	ID               int64              `json:"id"`
-	CompanyID        int64              `json:"company_id"`
-	ProductID        int64              `json:"product_id"`
-	WorkOrderID      pgtype.Int8        `json:"work_order_id"`
-	OperationID      pgtype.Int8        `json:"operation_id"`
-	InspectionPlanID pgtype.Int8        `json:"inspection_plan_id"`
-	Status           string             `json:"status"`
-	ResultSnapshot   []byte             `json:"result_snapshot"`
-	ResultVersion    pgtype.Text        `json:"result_version"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
-}
-
-func (q *Queries) GetQualityInspection(ctx context.Context, id int64) (GetQualityInspectionRow, error) {
+func (q *Queries) GetQualityInspection(ctx context.Context, id int64) (QualityInspection, error) {
 	row := q.db.QueryRow(ctx, getQualityInspection, id)
-	var i GetQualityInspectionRow
+	var i QualityInspection
 	err := row.Scan(
 		&i.ID,
 		&i.CompanyID,
@@ -918,19 +723,9 @@ FROM quality_ncrs
 WHERE id = $1
 `
 
-type GetQualityNCRRow struct {
-	ID        int64              `json:"id"`
-	CompanyID int64              `json:"company_id"`
-	Number    string             `json:"number"`
-	Status    string             `json:"status"`
-	CreatedBy int64              `json:"created_by"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
-}
-
-func (q *Queries) GetQualityNCR(ctx context.Context, id int64) (GetQualityNCRRow, error) {
+func (q *Queries) GetQualityNCR(ctx context.Context, id int64) (QualityNcr, error) {
 	row := q.db.QueryRow(ctx, getQualityNCR, id)
-	var i GetQualityNCRRow
+	var i QualityNcr
 	err := row.Scan(
 		&i.ID,
 		&i.CompanyID,
@@ -950,21 +745,9 @@ FROM signature_challenges
 WHERE challenge_id = $1
 `
 
-type GetSignatureChallengeRow struct {
-	ID                       int64              `json:"id"`
-	ChallengeID              pgtype.UUID        `json:"challenge_id"`
-	PolicyVersionID          int64              `json:"policy_version_id"`
-	RecordID                 int64              `json:"record_id"`
-	RecordVersion            pgtype.Text        `json:"record_version"`
-	Expiry                   pgtype.Timestamptz `json:"expiry"`
-	ReauthenticationRequired bool               `json:"reauthentication_required"`
-	Used                     bool               `json:"used"`
-	CreatedAt                pgtype.Timestamptz `json:"created_at"`
-}
-
-func (q *Queries) GetSignatureChallenge(ctx context.Context, challengeID pgtype.UUID) (GetSignatureChallengeRow, error) {
+func (q *Queries) GetSignatureChallenge(ctx context.Context, challengeID pgtype.UUID) (SignatureChallenge, error) {
 	row := q.db.QueryRow(ctx, getSignatureChallenge, challengeID)
-	var i GetSignatureChallengeRow
+	var i SignatureChallenge
 	err := row.Scan(
 		&i.ID,
 		&i.ChallengeID,
@@ -985,21 +768,9 @@ FROM subcontract_receipts
 WHERE id = $1
 `
 
-type GetSubcontractReceiptRow struct {
-	ID          int64              `json:"id"`
-	CompanyID   int64              `json:"company_id"`
-	WorkOrderID int64              `json:"work_order_id"`
-	OperationID int64              `json:"operation_id"`
-	Status      string             `json:"status"`
-	SentQty     pgtype.Numeric     `json:"sent_qty"`
-	ReceivedQty pgtype.Numeric     `json:"received_qty"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
-}
-
-func (q *Queries) GetSubcontractReceipt(ctx context.Context, id int64) (GetSubcontractReceiptRow, error) {
+func (q *Queries) GetSubcontractReceipt(ctx context.Context, id int64) (SubcontractReceipt, error) {
 	row := q.db.QueryRow(ctx, getSubcontractReceipt, id)
-	var i GetSubcontractReceiptRow
+	var i SubcontractReceipt
 	err := row.Scan(
 		&i.ID,
 		&i.CompanyID,
@@ -1029,29 +800,15 @@ type ListAuditEventsByCompanyParams struct {
 	Offset    int32 `json:"offset"`
 }
 
-type ListAuditEventsByCompanyRow struct {
-	ID            int64              `json:"id"`
-	CompanyID     int64              `json:"company_id"`
-	CorrelationID pgtype.UUID        `json:"correlation_id"`
-	CausationID   pgtype.UUID        `json:"causation_id"`
-	DecisionID    pgtype.Int8        `json:"decision_id"`
-	EntityType    pgtype.Text        `json:"entity_type"`
-	EntityID      pgtype.Int8        `json:"entity_id"`
-	Action        pgtype.Text        `json:"action"`
-	ActorID       pgtype.Int8        `json:"actor_id"`
-	Details       []byte             `json:"details"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-}
-
-func (q *Queries) ListAuditEventsByCompany(ctx context.Context, arg ListAuditEventsByCompanyParams) ([]ListAuditEventsByCompanyRow, error) {
+func (q *Queries) ListAuditEventsByCompany(ctx context.Context, arg ListAuditEventsByCompanyParams) ([]AuditEvent, error) {
 	rows, err := q.db.Query(ctx, listAuditEventsByCompany, arg.CompanyID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListAuditEventsByCompanyRow
+	var items []AuditEvent
 	for rows.Next() {
-		var i ListAuditEventsByCompanyRow
+		var i AuditEvent
 		if err := rows.Scan(
 			&i.ID,
 			&i.CompanyID,
@@ -1083,29 +840,15 @@ WHERE correlation_id = $1
 ORDER BY created_at ASC
 `
 
-type ListAuditEventsByCorrelationRow struct {
-	ID            int64              `json:"id"`
-	CompanyID     int64              `json:"company_id"`
-	CorrelationID pgtype.UUID        `json:"correlation_id"`
-	CausationID   pgtype.UUID        `json:"causation_id"`
-	DecisionID    pgtype.Int8        `json:"decision_id"`
-	EntityType    pgtype.Text        `json:"entity_type"`
-	EntityID      pgtype.Int8        `json:"entity_id"`
-	Action        pgtype.Text        `json:"action"`
-	ActorID       pgtype.Int8        `json:"actor_id"`
-	Details       []byte             `json:"details"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-}
-
-func (q *Queries) ListAuditEventsByCorrelation(ctx context.Context, correlationID pgtype.UUID) ([]ListAuditEventsByCorrelationRow, error) {
+func (q *Queries) ListAuditEventsByCorrelation(ctx context.Context, correlationID pgtype.UUID) ([]AuditEvent, error) {
 	rows, err := q.db.Query(ctx, listAuditEventsByCorrelation, correlationID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListAuditEventsByCorrelationRow
+	var items []AuditEvent
 	for rows.Next() {
-		var i ListAuditEventsByCorrelationRow
+		var i AuditEvent
 		if err := rows.Scan(
 			&i.ID,
 			&i.CompanyID,
@@ -1136,25 +879,15 @@ WHERE company_id = $1
 ORDER BY created_at DESC
 `
 
-type ListCAPAsByCompanyRow struct {
-	ID        int64              `json:"id"`
-	CompanyID int64              `json:"company_id"`
-	Number    string             `json:"number"`
-	Status    string             `json:"status"`
-	CreatedBy int64              `json:"created_by"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
-}
-
-func (q *Queries) ListCAPAsByCompany(ctx context.Context, companyID int64) ([]ListCAPAsByCompanyRow, error) {
+func (q *Queries) ListCAPAsByCompany(ctx context.Context, companyID int64) ([]QualityCapa, error) {
 	rows, err := q.db.Query(ctx, listCAPAsByCompany, companyID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListCAPAsByCompanyRow
+	var items []QualityCapa
 	for rows.Next() {
-		var i ListCAPAsByCompanyRow
+		var i QualityCapa
 		if err := rows.Scan(
 			&i.ID,
 			&i.CompanyID,
@@ -1189,30 +922,15 @@ type ListDecisionsByCompanyParams struct {
 	Offset    int32 `json:"offset"`
 }
 
-type ListDecisionsByCompanyRow struct {
-	ID              int64              `json:"id"`
-	CompanyID       int64              `json:"company_id"`
-	PolicyVersionID int64              `json:"policy_version_id"`
-	RecordType      string             `json:"record_type"`
-	RecordID        int64              `json:"record_id"`
-	Action          string             `json:"action"`
-	ActorID         int64              `json:"actor_id"`
-	Reason          pgtype.Text        `json:"reason"`
-	DecisionID      pgtype.UUID        `json:"decision_id"`
-	RecordVersion   pgtype.Text        `json:"record_version"`
-	RecordHash      pgtype.Text        `json:"record_hash"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
-}
-
-func (q *Queries) ListDecisionsByCompany(ctx context.Context, arg ListDecisionsByCompanyParams) ([]ListDecisionsByCompanyRow, error) {
+func (q *Queries) ListDecisionsByCompany(ctx context.Context, arg ListDecisionsByCompanyParams) ([]ComplianceDecision, error) {
 	rows, err := q.db.Query(ctx, listDecisionsByCompany, arg.CompanyID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListDecisionsByCompanyRow
+	var items []ComplianceDecision
 	for rows.Next() {
-		var i ListDecisionsByCompanyRow
+		var i ComplianceDecision
 		if err := rows.Scan(
 			&i.ID,
 			&i.CompanyID,
@@ -1253,30 +971,15 @@ type ListDecisionsByRecordParams struct {
 	RecordID   int64  `json:"record_id"`
 }
 
-type ListDecisionsByRecordRow struct {
-	ID              int64              `json:"id"`
-	CompanyID       int64              `json:"company_id"`
-	PolicyVersionID int64              `json:"policy_version_id"`
-	RecordType      string             `json:"record_type"`
-	RecordID        int64              `json:"record_id"`
-	Action          string             `json:"action"`
-	ActorID         int64              `json:"actor_id"`
-	Reason          pgtype.Text        `json:"reason"`
-	DecisionID      pgtype.UUID        `json:"decision_id"`
-	RecordVersion   pgtype.Text        `json:"record_version"`
-	RecordHash      pgtype.Text        `json:"record_hash"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
-}
-
-func (q *Queries) ListDecisionsByRecord(ctx context.Context, arg ListDecisionsByRecordParams) ([]ListDecisionsByRecordRow, error) {
+func (q *Queries) ListDecisionsByRecord(ctx context.Context, arg ListDecisionsByRecordParams) ([]ComplianceDecision, error) {
 	rows, err := q.db.Query(ctx, listDecisionsByRecord, arg.CompanyID, arg.RecordType, arg.RecordID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListDecisionsByRecordRow
+	var items []ComplianceDecision
 	for rows.Next() {
-		var i ListDecisionsByRecordRow
+		var i ComplianceDecision
 		if err := rows.Scan(
 			&i.ID,
 			&i.CompanyID,
@@ -1311,27 +1014,15 @@ ORDER BY expiry DESC
 LIMIT $1
 `
 
-type ListExpiredChallengesRow struct {
-	ID                       int64              `json:"id"`
-	ChallengeID              pgtype.UUID        `json:"challenge_id"`
-	PolicyVersionID          int64              `json:"policy_version_id"`
-	RecordID                 int64              `json:"record_id"`
-	RecordVersion            pgtype.Text        `json:"record_version"`
-	Expiry                   pgtype.Timestamptz `json:"expiry"`
-	ReauthenticationRequired bool               `json:"reauthentication_required"`
-	Used                     bool               `json:"used"`
-	CreatedAt                pgtype.Timestamptz `json:"created_at"`
-}
-
-func (q *Queries) ListExpiredChallenges(ctx context.Context, limit int32) ([]ListExpiredChallengesRow, error) {
+func (q *Queries) ListExpiredChallenges(ctx context.Context, limit int32) ([]SignatureChallenge, error) {
 	rows, err := q.db.Query(ctx, listExpiredChallenges, limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListExpiredChallengesRow
+	var items []SignatureChallenge
 	for rows.Next() {
-		var i ListExpiredChallengesRow
+		var i SignatureChallenge
 		if err := rows.Scan(
 			&i.ID,
 			&i.ChallengeID,
@@ -1361,29 +1052,15 @@ WHERE work_order_id = $1
 ORDER BY created_at DESC
 `
 
-type ListInspectionsByWorkOrderRow struct {
-	ID               int64              `json:"id"`
-	CompanyID        int64              `json:"company_id"`
-	ProductID        int64              `json:"product_id"`
-	WorkOrderID      pgtype.Int8        `json:"work_order_id"`
-	OperationID      pgtype.Int8        `json:"operation_id"`
-	InspectionPlanID pgtype.Int8        `json:"inspection_plan_id"`
-	Status           string             `json:"status"`
-	ResultSnapshot   []byte             `json:"result_snapshot"`
-	ResultVersion    pgtype.Text        `json:"result_version"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
-}
-
-func (q *Queries) ListInspectionsByWorkOrder(ctx context.Context, workOrderID pgtype.Int8) ([]ListInspectionsByWorkOrderRow, error) {
+func (q *Queries) ListInspectionsByWorkOrder(ctx context.Context, workOrderID pgtype.Int8) ([]QualityInspection, error) {
 	rows, err := q.db.Query(ctx, listInspectionsByWorkOrder, workOrderID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListInspectionsByWorkOrderRow
+	var items []QualityInspection
 	for rows.Next() {
-		var i ListInspectionsByWorkOrderRow
+		var i QualityInspection
 		if err := rows.Scan(
 			&i.ID,
 			&i.CompanyID,
@@ -1414,25 +1091,15 @@ WHERE company_id = $1
 ORDER BY created_at DESC
 `
 
-type ListNCRsByCompanyRow struct {
-	ID        int64              `json:"id"`
-	CompanyID int64              `json:"company_id"`
-	Number    string             `json:"number"`
-	Status    string             `json:"status"`
-	CreatedBy int64              `json:"created_by"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
-}
-
-func (q *Queries) ListNCRsByCompany(ctx context.Context, companyID int64) ([]ListNCRsByCompanyRow, error) {
+func (q *Queries) ListNCRsByCompany(ctx context.Context, companyID int64) ([]QualityNcr, error) {
 	rows, err := q.db.Query(ctx, listNCRsByCompany, companyID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListNCRsByCompanyRow
+	var items []QualityNcr
 	for rows.Next() {
-		var i ListNCRsByCompanyRow
+		var i QualityNcr
 		if err := rows.Scan(
 			&i.ID,
 			&i.CompanyID,
@@ -1459,27 +1126,15 @@ WHERE company_id = $1 AND status = 'OPEN'
 ORDER BY created_at DESC
 `
 
-type ListOpenHoldsRow struct {
-	ID           int64              `json:"id"`
-	CompanyID    int64              `json:"company_id"`
-	InspectionID pgtype.Int8        `json:"inspection_id"`
-	RecordType   pgtype.Text        `json:"record_type"`
-	RecordID     pgtype.Int8        `json:"record_id"`
-	Status       string             `json:"status"`
-	CreatedBy    int64              `json:"created_by"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
-}
-
-func (q *Queries) ListOpenHolds(ctx context.Context, companyID int64) ([]ListOpenHoldsRow, error) {
+func (q *Queries) ListOpenHolds(ctx context.Context, companyID int64) ([]QualityHold, error) {
 	rows, err := q.db.Query(ctx, listOpenHolds, companyID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListOpenHoldsRow
+	var items []QualityHold
 	for rows.Next() {
-		var i ListOpenHoldsRow
+		var i QualityHold
 		if err := rows.Scan(
 			&i.ID,
 			&i.CompanyID,
@@ -1554,27 +1209,15 @@ WHERE work_order_id = $1
 ORDER BY created_at DESC
 `
 
-type ListSubcontractsByWorkOrderRow struct {
-	ID          int64              `json:"id"`
-	CompanyID   int64              `json:"company_id"`
-	WorkOrderID int64              `json:"work_order_id"`
-	OperationID int64              `json:"operation_id"`
-	Status      string             `json:"status"`
-	SentQty     pgtype.Numeric     `json:"sent_qty"`
-	ReceivedQty pgtype.Numeric     `json:"received_qty"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
-}
-
-func (q *Queries) ListSubcontractsByWorkOrder(ctx context.Context, workOrderID int64) ([]ListSubcontractsByWorkOrderRow, error) {
+func (q *Queries) ListSubcontractsByWorkOrder(ctx context.Context, workOrderID int64) ([]SubcontractReceipt, error) {
 	rows, err := q.db.Query(ctx, listSubcontractsByWorkOrder, workOrderID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListSubcontractsByWorkOrderRow
+	var items []SubcontractReceipt
 	for rows.Next() {
-		var i ListSubcontractsByWorkOrderRow
+		var i SubcontractReceipt
 		if err := rows.Scan(
 			&i.ID,
 			&i.CompanyID,

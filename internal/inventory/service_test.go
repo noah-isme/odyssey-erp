@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
-	_ "github.com/odyssey-erp/odyssey-erp/testing"
+
 )
 
 type memoryRepo struct {

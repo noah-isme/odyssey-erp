@@ -1,0 +1,113 @@
+{{ define "content" }}
+
+
+<div class="container-fluid mt-4">
+  <div class="qms-header-danger d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h1 class="h3 mb-1 fw-bold text-dark">
+        <i class="bi bi-envelope-exclamation text-danger me-2"></i> Customer Complaints
+      </h1>
+      <p class="text-muted mb-0 small">Track, investigate, and resolve feedback and complaints from customers.</p>
+    </div>
+    <button class="btn qms-btn-danger text-decoration-none" disabled>
+      <i class="bi bi-plus-circle me-1"></i> Log Complaint
+    </button>
+  </div>
+
+  <div class="qms-card mb-4 p-4">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label text-muted small fw-bold">STATUS</label>
+        <select name="status" class="form-select border-0 bg-light shadow-sm">
+          <option value="">All Statuses</option>
+          <option value="RECEIVED">Received</option>
+          <option value="INVESTIGATING">Investigating</option>
+          <option value="RESOLVED">Resolved</option>
+          <option value="CLOSED">Closed</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label text-muted small fw-bold">SEVERITY</label>
+        <select name="severity" class="form-select border-0 bg-light shadow-sm">
+          <option value="">All Severities</option>
+          <option value="LOW">Low</option>
+          <option value="MEDIUM">Medium</option>
+          <option value="HIGH">High</option>
+          <option value="CRITICAL">Critical</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <button type="submit" class="btn btn-dark w-100 shadow-sm border-0">
+          <i class="bi bi-search me-1"></i> Filter
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <div class="qms-card p-0 overflow-hidden mb-5">
+    <div class="table-responsive">
+      <table class="table qms-table mb-0 align-middle">
+        <thead>
+          <tr>
+            <th class="ps-4 py-3">Complaint Details</th>
+            <th class="py-3">Severity</th>
+            <th class="py-3">Status</th>
+            <th class="py-3">Received On</th>
+            <th class="pe-4 py-3 text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{ if .Complaints }}
+            {{ range .Complaints }}
+            <tr>
+              <td class="ps-4 py-3">
+                <div class="d-flex align-items-center">
+                  <div class="bg-danger bg-opacity-10 rounded p-2 me-3">
+                    <i class="bi bi-chat-square-text text-danger"></i>
+                  </div>
+                  <div>
+                    <div class="fw-bold text-dark">{{ .ComplaintNumber }}</div>
+                    <div class="small text-muted text-truncate">{{ .Title }}</div>
+                  </div>
+                </div>
+              </td>
+              <td class="py-3">
+                {{ if eq .Severity "CRITICAL" }}<span class="qms-badge qms-badge-critical"><i class="bi bi-exclamation-triangle-fill me-1"></i>Critical</span>
+                {{ else if eq .Severity "HIGH" }}<span class="qms-badge qms-badge-high"><i class="bi bi-exclamation-circle me-1"></i>High</span>
+                {{ else if eq .Severity "MEDIUM" }}<span class="qms-badge qms-badge-medium">Medium</span>
+                {{ else }}<span class="qms-badge qms-badge-low">Low</span>{{ end }}
+              </td>
+              <td class="py-3">
+                {{ if eq .Status "CLOSED" }}<span class="qms-badge status-badge-closed"><i class="bi bi-check-circle me-1"></i>Closed</span>
+                {{ else if eq .Status "RESOLVED" }}<span class="qms-badge status-badge-resolved"><i class="bi bi-check me-1"></i>Resolved</span>
+                {{ else if eq .Status "INVESTIGATING" }}<span class="qms-badge status-badge-investigating"><i class="bi bi-search me-1"></i>Investigating</span>
+                {{ else }}<span class="qms-badge status-badge-received">{{ .Status }}</span>{{ end }}
+              </td>
+              <td class="py-3 text-muted small">
+                <i class="bi bi-calendar3 me-1"></i>{{ .ReceivedAt.Format "Jan 02, 2006" }}
+              </td>
+              <td class="pe-4 py-3 text-end">
+                <a href="/qms/complaints/{{ .ID }}" class="btn btn-sm btn-light border shadow-sm text-danger rounded-pill px-3 fw-500 hover-lift">
+                  Review <i class="bi bi-arrow-right ms-1"></i>
+                </a>
+              </td>
+            </tr>
+            {{ end }}
+          {{ else }}
+            <tr>
+              <td colspan="5" class="text-center py-5">
+                <div class="text-muted mb-3">
+                  <i class="bi bi-emoji-smile fs-1 text-black-50"></i>
+                </div>
+                <h5 class="fw-bold text-dark">No Complaints Found</h5>
+                <p class="text-muted small">Great job! There are currently no customer complaints matching your filters.</p>
+              </td>
+            </tr>
+          {{ end }}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{{ end }}

@@ -40,10 +40,14 @@ import (
 	boardpackhttp "github.com/odyssey-erp/odyssey-erp/internal/boardpack/http"
 	closepkg "github.com/odyssey-erp/odyssey-erp/internal/close"
 	closehttp "github.com/odyssey-erp/odyssey-erp/internal/close/http"
+	"github.com/odyssey-erp/odyssey-erp/internal/cmms"
+	cmmshttp "github.com/odyssey-erp/odyssey-erp/internal/cmms/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/consol"
 	consolhttp "github.com/odyssey-erp/odyssey-erp/internal/consol/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/crm"
 	"github.com/odyssey-erp/odyssey-erp/internal/dashboard"
+	"github.com/odyssey-erp/odyssey-erp/internal/documents"
+	documentshttp "github.com/odyssey-erp/odyssey-erp/internal/documents/http"
 	deliveryorders "github.com/odyssey-erp/odyssey-erp/internal/delivery/orders"
 	eliminationpkg "github.com/odyssey-erp/odyssey-erp/internal/elimination"
 	eliminationhttp "github.com/odyssey-erp/odyssey-erp/internal/elimination/http"
@@ -61,15 +65,19 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/mrp"
 	"github.com/odyssey-erp/odyssey-erp/internal/notifications"
 	"github.com/odyssey-erp/odyssey-erp/internal/observability"
+	"github.com/odyssey-erp/odyssey-erp/internal/outbox"
 	"github.com/odyssey-erp/odyssey-erp/internal/payroll"
 	"github.com/odyssey-erp/odyssey-erp/internal/portal"
 	"github.com/odyssey-erp/odyssey-erp/internal/pos"
 	"github.com/odyssey-erp/odyssey-erp/internal/procurement"
 	"github.com/odyssey-erp/odyssey-erp/internal/projects"
+	"github.com/odyssey-erp/odyssey-erp/internal/qms"
+	qmshttp "github.com/odyssey-erp/odyssey-erp/internal/qms/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
 	"github.com/odyssey-erp/odyssey-erp/internal/roles"
 	"github.com/odyssey-erp/odyssey-erp/internal/sales"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
+	"github.com/odyssey-erp/odyssey-erp/internal/storage"
 	"github.com/odyssey-erp/odyssey-erp/internal/tax"
 	"github.com/odyssey-erp/odyssey-erp/internal/users"
 	variancepkg "github.com/odyssey-erp/odyssey-erp/internal/variance"
@@ -449,6 +457,31 @@ func main() {
 	mrpHandler.SetInventoryService(inventoryService)
 	mrpHandler.SetManufacturingAccounting(integrationHooks)
 	mrpHandler.SetUI(templates, csrfManager)
+	
+	outboxRepo := outbox.NewRepository(dbpool)
+	mrpHandler.SetOutboxRepository(outboxRepo)
+
+	documentsRepo := documents.NewRepository(dbpool)
+	sharedStorage, err := storage.NewStorage(ctx, storage.StorageConfig{
+		Driver:   "local",
+		LocalDir: "./data/storage", // Use a local directory for development
+	})
+	if err != nil {
+		logger.Error("init shared storage", slog.Any("error", err))
+	}
+	documentsService := documents.NewService(documentsRepo, sharedStorage)
+	portalHandler.SetDocumentsService(documentsService)
+	documentsHandler := documentshttp.NewHandler(logger, documentsService, templates, csrfManager, rbacMiddleware, jobClient, nil)
+
+	cmmsRepo := cmms.NewRepository(dbpool)
+	cmmsService := cmms.NewService(cmmsRepo)
+	cmmsHandler := cmmshttp.NewHandler(logger, cmmsService, templates, csrfManager, rbacMiddleware, dbpool)
+
+	qmsRepo := qms.NewRepository(dbpool)
+	qmsService := qms.NewService(qmsRepo)
+	qmsHandler := qmshttp.NewHandler(logger, qmsService, templates, csrfManager, rbacMiddleware, dbpool, outboxRepo)
+	
+	mrpHandler.SetQMSService(qmsService)
 
 	router := app.NewRouter(app.RouterParams{
 		Logger:                 logger,
@@ -498,6 +531,9 @@ func main() {
 		POSHandler:             posHandler,
 		ProjectsHandler:        projectsHandler,
 		MRPHandler:             mrpHandler,
+		DocumentsHandler:       documentsHandler,
+		CMMSHandler:            cmmsHandler,
+		QMSHandler:             qmsHandler,
 	})
 
 	// Route dump mode: print the real routing table and exit without serving.

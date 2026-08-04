@@ -65,6 +65,19 @@
                 </div>
             </details>
 
+            <details class="sidebar-menu" data-sidebar-menu{{ if or (isActive .CurrentPath "/qms/inspections") (isActive .CurrentPath "/qms/complaints") (isActive .CurrentPath "/qms/ncrs") (isActive .CurrentPath "/qms/capas") (isActive .CurrentPath "/qms/audits") (isActive .CurrentPath "/qms/supplier-quality") }} open{{ end }}>
+                <summary data-tooltip="Quality (QMS)"><span class="nav-item-icon">Q</span><span class="nav-item-text">Quality (QMS)</span><span class="sidebar-menu__arrow">⌄</span></summary>
+                <div class="sidebar-menu__items">
+                    <a href="/qms/inspections" class="nav-item{{ if isActive .CurrentPath "/qms/inspections" }} active{{ end }}" data-tooltip="Inspeksi"><span class="nav-item-text">Inspections</span></a>
+                    <a href="/qms/complaints" class="nav-item{{ if isActive .CurrentPath "/qms/complaints" }} active{{ end }}" data-tooltip="Komplain Pelanggan"><span class="nav-item-text">Customer Complaints</span></a>
+                    <a href="/qms/ncrs" class="nav-item{{ if isActive .CurrentPath "/qms/ncrs" }} active{{ end }}" data-tooltip="NCRs"><span class="nav-item-text">NCRs</span></a>
+                    <a href="/qms/capas" class="nav-item{{ if isActive .CurrentPath "/qms/capas" }} active{{ end }}" data-tooltip="CAPAs"><span class="nav-item-text">CAPAs</span></a>
+                    <a href="/qms/audits" class="nav-item{{ if isActive .CurrentPath "/qms/audits" }} active{{ end }}" data-tooltip="Audits"><span class="nav-item-text">Audits</span></a>
+                    <a href="/qms/supplier-quality" class="nav-item{{ if isActive .CurrentPath "/qms/supplier-quality" }} active{{ end }}" data-tooltip="Supplier Quality"><span class="nav-item-text">Supplier Quality</span></a>
+                </div>
+            </details>
+
+
             <span class="sidebar-section-title">Finance</span>
             <a href="/tax" class="nav-item{{ if isActive .CurrentPath "/tax" }} active{{ end }}" data-tooltip="Tax Compliance"><span class="nav-item-icon">Tx</span><span class="nav-item-text">Tax Compliance</span></a>
             <details class="sidebar-menu" data-sidebar-menu{{ if or (isActive .CurrentPath "/accounting/periods") (isActive .CurrentPath "/finance/banking/accounts") (isActive .CurrentPath "/accounting/banks/statements") (isActive .CurrentPath "/accounting/cash-flow") (isActive .CurrentPath "/accounting/budget") }} open{{ end }}>

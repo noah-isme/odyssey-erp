@@ -1,0 +1,38 @@
+{{ define "content" }}
+<div class="container-fluid mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 text-primary"><i class="bi bi-shield-lock"></i> Classifications</h1>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-hover table-striped mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Code</th>
+            <th>Name</th>
+            <th>Description</th>
+            <th>Requires Approval</th>
+            <th>Requires Signature</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{ if .Classifications }}
+            {{ range .Classifications }}
+            <tr>
+              <td><strong>{{ .Code }}</strong></td>
+              <td>{{ .Name }}</td>
+              <td>{{ .Description }}</td>
+              <td>{{ if .RequiresApproval }}<span class="badge bg-danger">Yes</span>{{ else }}No{{ end }}</td>
+              <td>{{ if .RequiresSignature }}<span class="badge bg-danger">Yes</span>{{ else }}No{{ end }}</td>
+            </tr>
+            {{ end }}
+          {{ else }}
+            <tr><td colspan="5" class="text-center text-muted py-4">No classifications defined.</td></tr>
+          {{ end }}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{{ end }}

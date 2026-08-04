@@ -30,6 +30,10 @@ DROP TABLE IF EXISTS carrier_rate_cards CASCADE;
 DROP TABLE IF EXISTS carriers CASCADE;
 
 -- Remove RBAC permissions
-DELETE FROM rbac_permissions WHERE permission_code LIKE 'logistics.%';
+DELETE FROM role_permissions WHERE permission_id IN (
+    SELECT id FROM permissions WHERE name LIKE 'logistics.%'
+);
+
+DELETE FROM permissions WHERE name LIKE 'logistics.%';
 
 COMMIT;

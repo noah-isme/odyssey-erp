@@ -212,19 +212,31 @@ CREATE INDEX idx_transfer_order_lines_transfer ON transfer_order_lines(transfer_
 -- RBAC PERMISSIONS (Phase 5)
 -- ═══════════════════════════════════════════════════════════════════════════
 
-INSERT INTO rbac_permissions (permission_code, permission_name, description, module, created_at)
-VALUES
-    ('distribution.planning.view', 'View Planning', 'View planning horizons and rules', 'distribution', NOW()),
-    ('distribution.planning.manage', 'Manage Planning', 'Create and manage planning configuration', 'distribution', NOW()),
-    ('distribution.loads.view', 'View Loads', 'View loads and consolidations', 'distribution', NOW()),
-    ('distribution.loads.create', 'Create Load', 'Create new load consolidation', 'distribution', NOW()),
-    ('distribution.loads.dispatch', 'Dispatch Load', 'Dispatch load to vehicle/carrier', 'distribution', NOW()),
-    ('distribution.routes.view', 'View Routes', 'View delivery routes and optimization', 'distribution', NOW()),
-    ('distribution.routes.create', 'Create Route', 'Create and plan delivery routes', 'distribution', NOW()),
-    ('distribution.routes.optimize', 'Optimize Route', 'Run route optimization algorithm', 'distribution', NOW()),
-    ('distribution.transfers.view', 'View Transfers', 'View transfer orders', 'distribution', NOW()),
-    ('distribution.transfers.create', 'Create Transfer', 'Create inter-warehouse transfer', 'distribution', NOW()),
-    ('distribution.transfers.dispatch', 'Dispatch Transfer', 'Dispatch transfer order', 'distribution', NOW()),
-    ('distribution.transfers.receive', 'Receive Transfer', 'Receive transferred inventory', 'distribution', NOW());
+INSERT INTO permissions (name, description) VALUES
+    ('distribution.planning.view', 'View planning horizons and rules'),
+    ('distribution.planning.manage', 'Create and manage planning configuration'),
+    ('distribution.loads.view', 'View loads and consolidations'),
+    ('distribution.loads.create', 'Create new load consolidation'),
+    ('distribution.loads.dispatch', 'Dispatch load to vehicle/carrier'),
+    ('distribution.routes.view', 'View delivery routes and optimization'),
+    ('distribution.routes.create', 'Create and plan delivery routes'),
+    ('distribution.routes.optimize', 'Run route optimization algorithm'),
+    ('distribution.transfers.view', 'View transfer orders'),
+    ('distribution.transfers.create', 'Create inter-warehouse transfer'),
+    ('distribution.transfers.dispatch', 'Dispatch transfer order'),
+    ('distribution.transfers.receive', 'Receive transferred inventory')
+ON CONFLICT (name) DO UPDATE SET description = EXCLUDED.description;
+
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id
+FROM roles r
+JOIN permissions p ON p.name IN (
+    'distribution.planning.view', 'distribution.planning.manage',
+    'distribution.loads.view', 'distribution.loads.create', 'distribution.loads.dispatch',
+    'distribution.routes.view', 'distribution.routes.create', 'distribution.routes.optimize',
+    'distribution.transfers.view', 'distribution.transfers.create', 'distribution.transfers.dispatch', 'distribution.transfers.receive'
+)
+WHERE LOWER(TRIM(r.name)) IN ('admin', 'administrator')
+ON CONFLICT DO NOTHING;
 
 COMMIT;

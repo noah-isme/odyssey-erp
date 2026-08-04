@@ -1,0 +1,87 @@
+{{ define "content" }}
+<div class="container-fluid mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h1 class="h3 text-primary mb-1">{{ .Document.Number }}</h1>
+      <p class="text-muted h5">{{ .Document.Title }}</p>
+    </div>
+    <div>
+      <a href="/documents/library" class="btn btn-outline-secondary me-2">Back to Library</a>
+      <a href="/documents/library/{{ .Document.ID }}/versions" class="btn btn-primary shadow-sm"><i class="bi bi-clock-history"></i> Manage Versions</a>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-lg-8">
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light fw-bold">Document Metadata</div>
+        <div class="card-body">
+          <p>{{ .Document.Description }}</p>
+          <hr>
+          <div class="row">
+            <div class="col-sm-6">
+              <p><strong>Category:</strong> {{ .Document.CategoryName }}</p>
+              <p><strong>Classification:</strong> <span class="badge bg-secondary">{{ .Document.ClassificationName }}</span></p>
+            </div>
+            <div class="col-sm-6">
+              <p><strong>Owner:</strong> {{ .Document.OwnerName }}</p>
+              <p><strong>Created:</strong> {{ .Document.CreatedAt.Format "Jan 02, 2006" }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light fw-bold">Version History (Preview)</div>
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead>
+              <tr>
+                <th>V#</th>
+                <th>Status</th>
+                <th>Change Summary</th>
+                <th>Created By</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{ if .Versions }}
+                {{ range .Versions }}
+                <tr>
+                  <td>v{{ .VersionNumber }}</td>
+                  <td><span class="badge bg-secondary">{{ .Status }}</span></td>
+                  <td class="text-truncate" style="max-width: 200px;">{{ .ChangeSummary }}</td>
+                  <td>{{ .CreatedByName }}</td>
+                  <td>{{ .CreatedAt.Format "Jan 02, 2006" }}</td>
+                </tr>
+                {{ end }}
+              {{ else }}
+                <tr><td colspan="5" class="text-center text-muted">No versions uploaded yet.</td></tr>
+              {{ end }}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-lg-4">
+      <div class="card shadow-sm mb-4 border-info">
+        <div class="card-header bg-info text-white fw-bold">Lifecycle Status</div>
+        <div class="card-body">
+          <p class="mb-3">Current Status: <span class="badge bg-dark fs-6">{{ .Document.Status }}</span></p>
+          
+          <form action="/documents/library/{{ .Document.ID }}/status" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+            <div class="input-group">
+              <select name="status" class="form-select">
+                {{ range .Statuses }}<option value="{{ . }}">{{ . }}</option>{{ end }}
+              </select>
+              <button class="btn btn-primary" type="submit">Update</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{{ end }}

@@ -49,7 +49,7 @@ func (cg *ComplianceGate) DecideDecision(ctx context.Context, req DecisionReques
 			Details: map[string]interface{}{"error": err.Error()},
 		}
 	}
-	defer tx.Rollback(ctx) // Will be no-op if tx is committed
+	defer func() { _ = tx.Rollback(ctx) }() // Will be no-op if tx is committed
 
 	// Step 1: Lock & load effective policy
 	policy, err := cg.stepLoadPolicy(ctx, tx, req.CompanyID, req.RecordType, req.Action)

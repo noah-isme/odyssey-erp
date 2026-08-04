@@ -75,11 +75,11 @@ func (s *Service) Dispose(ctx context.Context, assetID int64, date time.Time, pr
 	if assetID <= 0 || proceeds < 0 || date.IsZero() {
 		return fmt.Errorf("fixed assets: invalid disposal input")
 	}
-	var periodID, assetAccount, accumAccount, cashAccount, gainAccount, lossAccount int64
+	var periodID, assetAccount, accumAccount, cashAccount, gainAccount, lossAccount, companyID int64
 	var name string
 	var cost, accumulated float64
-	err := s.db.QueryRow(ctx, `SELECT p.id,c.asset_account_id,c.accumulated_depreciation_account_id,COALESCE(c.cash_proceeds_account_id,0),COALESCE(c.disposal_gain_account_id,0),COALESCE(c.disposal_loss_account_id,0),a.name,a.acquisition_cost,a.accumulated_depreciation
-		FROM fixed_assets a JOIN fixed_asset_categories c ON c.id=a.category_id JOIN periods p ON $2 BETWEEN p.start_date AND p.end_date WHERE a.id=$1 AND a.status!='DISPOSED' AND p.status='OPEN'`, assetID, date).Scan(&periodID, &assetAccount, &accumAccount, &cashAccount, &gainAccount, &lossAccount, &name, &cost, &accumulated)
+	err := s.db.QueryRow(ctx, `SELECT p.id,c.asset_account_id,c.accumulated_depreciation_account_id,COALESCE(c.cash_proceeds_account_id,0),COALESCE(c.disposal_gain_account_id,0),COALESCE(c.disposal_loss_account_id,0),a.name,a.acquisition_cost,a.accumulated_depreciation,a.company_id
+		FROM fixed_assets a JOIN fixed_asset_categories c ON c.id=a.category_id JOIN periods p ON $2 BETWEEN p.start_date AND p.end_date WHERE a.id=$1 AND a.status!='DISPOSED' AND p.status='OPEN'`, assetID, date).Scan(&periodID, &assetAccount, &accumAccount, &cashAccount, &gainAccount, &lossAccount, &name, &cost, &accumulated, &companyID)
 	if err != nil {
 		return err
 	}
@@ -100,6 +100,14 @@ func (s *Service) Dispose(ctx context.Context, assetID int64, date time.Time, pr
 	if err != nil {
 		return err
 	}
-	_, err = s.db.Exec(ctx, `INSERT INTO fixed_asset_disposals(asset_id,disposal_date,proceeds,journal_entry_id) VALUES($1,$2,$3,$4); UPDATE fixed_assets SET status='DISPOSED',updated_at=NOW() WHERE id=$1`, assetID, date, proceeds, entry.ID)
+	
+	payloadJSON := fmt.Sprintf(`{"asset_id":%d,"date":"%s","proceeds":%f}`, assetID, date.Format(time.RFC3339), proceeds)
+	
+	_, err = s.db.Exec(ctx, `
+		INSERT INTO fixed_asset_disposals(asset_id,disposal_date,proceeds,journal_entry_id) VALUES($1,$2,$3,$4); 
+		UPDATE fixed_assets SET status='DISPOSED',updated_at=NOW() WHERE id=$1;
+		INSERT INTO outbox_events (company_id, correlation_id, event_type, aggregate_type, aggregate_id, payload)
+		VALUES ($5, gen_random_uuid(), 'fixed_assets.asset.disposed', 'fixed_asset', $1, $6);
+	`, assetID, date, proceeds, entry.ID, companyID, payloadJSON)
 	return err
 }

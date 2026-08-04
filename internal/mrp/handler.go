@@ -1,14 +1,19 @@
 package mrp
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/odyssey-erp/odyssey-erp/internal/inventory"
+	"github.com/odyssey-erp/odyssey-erp/internal/outbox"
+	"github.com/odyssey-erp/odyssey-erp/internal/qms"
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
 	"net/http"
 	"strconv"
@@ -29,6 +34,14 @@ type Handler struct {
 	compliance *ComplianceService
 	templates  *view.Engine
 	csrf       *shared.CSRFManager
+	qms        QMSService
+	outbox     *outbox.Repository
+}
+
+type QMSService interface {
+	CreateQualityHold(ctx context.Context, req qms.CreateQualityHoldRequest) (qms.QualityHold, error)
+	ReleaseQualityHold(ctx context.Context, id, companyID, actorID int64) error
+	CreateInspection(ctx context.Context, req qms.CreateInspectionRequest) (qms.Inspection, error)
 }
 
 func NewHandler(s *Service, m rbac.Middleware, pools ...*pgxpool.Pool) *Handler {
@@ -42,6 +55,9 @@ func (h *Handler) SetInventoryService(stock *inventory.Service) {
 	h.stock = stock
 	h.executor = NewProductionExecutor(h.pool, stock)
 }
+func (h *Handler) SetQMSService(qms QMSService) {
+	h.qms = qms
+}
 func (h *Handler) SetManufacturingAccounting(accounting ManufacturingAccounting) {
 	if h.executor != nil {
 		h.executor.SetAccounting(accounting)
@@ -49,6 +65,9 @@ func (h *Handler) SetManufacturingAccounting(accounting ManufacturingAccounting)
 }
 func (h *Handler) SetUI(templates *view.Engine, csrf *shared.CSRFManager) {
 	h.templates, h.csrf = templates, csrf
+}
+func (h *Handler) SetOutboxRepository(repo *outbox.Repository) {
+	h.outbox = repo
 }
 func (h *Handler) MountRoutes(r chi.Router) {
 	r.Group(func(r chi.Router) {
@@ -591,16 +610,42 @@ func (h *Handler) createInspection(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid inspection", 400)
 		return
 	}
-	if len(in.Result) == 0 {
-		in.Result = []byte("{}")
-	}
-	var id int64
-	err := h.pool.QueryRow(r.Context(), `INSERT INTO mrp_inspections(company_id,plan_id,work_order_id,operation_id,status,result,defect_code,disposition,inspector_id) VALUES($1,NULLIF($2,0),$3,NULLIF($4,0),$5,$6::jsonb,$7,$8,$9) RETURNING id`, c, in.PlanID, in.WorkOrderID, in.OperationID, in.Status, string(in.Result), in.DefectCode, in.Disposition, u).Scan(&id)
+	
+	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		http.Error(w, err.Error(), 500)
 		return
 	}
-	out(w, 201, map[string]int64{"id": id})
+	defer func() { _ = tx.Rollback(r.Context()) }()
+	
+	req := qms.CreateInspectionRequest{
+		CompanyID:       c,
+		Name:            fmt.Sprintf("MRP Inspection - WO %d", in.WorkOrderID),
+		Description:     "Migrated from MRP",
+		ReferenceModule: "MRP",
+		ReferenceID:     &in.WorkOrderID,
+		ActorID:         u,
+	}
+	
+	_, err = h.outbox.InsertEvent(r.Context(), sqlc.New(tx), outbox.PublishRequest{
+		CompanyID:     c,
+		CorrelationID: uuid.New(),
+		EventType:     "mrp.inspection.requested",
+		AggregateType: "WorkOrder",
+		AggregateID:   in.WorkOrderID,
+		Payload:       req,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	
+	if err := tx.Commit(r.Context()); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	
+	out(w, 202, map[string]string{"message": "inspection requested"})
 }
 func (h *Handler) createInspectionPlan(w http.ResponseWriter, r *http.Request) {
 	u, c, ok := ids(r)
@@ -617,13 +662,42 @@ func (h *Handler) createInspectionPlan(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid inspection plan", 400)
 		return
 	}
-	var id int64
-	err := h.pool.QueryRow(r.Context(), `INSERT INTO mrp_inspection_plans(company_id,product_id,routing_operation_id,name,required,created_by) SELECT $1,p.id,NULLIF($3,0),$4,$5,$6 FROM products p WHERE p.id=$2 AND p.company_id=$1 RETURNING id`, c, in.ProductID, in.RoutingOperationID, in.Name, in.Required, u).Scan(&id)
+	
+	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		http.Error(w, err.Error(), 500)
 		return
 	}
-	out(w, 201, map[string]int64{"id": id})
+	defer func() { _ = tx.Rollback(r.Context()) }()
+	
+	req := qms.CreateInspectionPlanRequest{
+		CompanyID:       c,
+		Name:            in.Name,
+		Description:     "Migrated from MRP",
+		ReferenceModule: "MRP",
+		ReferenceID:     in.ProductID,
+		ActorID:         u,
+	}
+	
+	_, err = h.outbox.InsertEvent(r.Context(), sqlc.New(tx), outbox.PublishRequest{
+		CompanyID:     c,
+		CorrelationID: uuid.New(),
+		EventType:     "mrp.inspection_plan.requested",
+		AggregateType: "Product",
+		AggregateID:   in.ProductID,
+		Payload:       req,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	
+	if err := tx.Commit(r.Context()); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	
+	out(w, 202, map[string]string{"message": "inspection plan requested"})
 }
 func (h *Handler) createNCR(w http.ResponseWriter, r *http.Request) {
 	u, c, ok := ids(r)
@@ -639,13 +713,48 @@ func (h *Handler) createNCR(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid non-conformance", 400)
 		return
 	}
-	var id int64
-	err := h.pool.QueryRow(r.Context(), `INSERT INTO mrp_nonconformances(company_id,inspection_id,number,description,owner_id) VALUES($1,NULLIF($2,0),$3,$4,$5) RETURNING id`, c, in.InspectionID, in.Number, in.Description, u).Scan(&id)
+	
+	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		http.Error(w, err.Error(), 500)
 		return
 	}
-	out(w, 201, map[string]int64{"id": id})
+	defer func() { _ = tx.Rollback(r.Context()) }()
+	
+	var srcID *int64
+	if in.InspectionID > 0 {
+		srcID = &in.InspectionID
+	}
+	
+	req := qms.CreateNCRRequest{
+		CompanyID:       c,
+		Title:           in.Number,
+		Description:     in.Description,
+		SourceType:      "INSPECTION",
+		SourceID:        srcID,
+		DetectedBy:      u,
+		ActorID:         u,
+	}
+	
+	_, err = h.outbox.InsertEvent(r.Context(), sqlc.New(tx), outbox.PublishRequest{
+		CompanyID:     c,
+		CorrelationID: uuid.New(),
+		EventType:     "mrp.ncr.requested",
+		AggregateType: "WorkOrder",
+		AggregateID:   in.InspectionID,
+		Payload:       req,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	
+	if err := tx.Commit(r.Context()); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	
+	out(w, 202, map[string]string{"message": "ncr requested"})
 }
 func (h *Handler) createCAPA(w http.ResponseWriter, r *http.Request) {
 	u, c, ok := ids(r)
@@ -662,13 +771,44 @@ func (h *Handler) createCAPA(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid CAPA", 400)
 		return
 	}
-	var id int64
-	err := h.pool.QueryRow(r.Context(), `INSERT INTO mrp_capas(company_id,ncr_id,action,owner_id,due_date) VALUES($1,$2,$3,$4,$5) RETURNING id`, c, in.NCRID, in.Action, u, in.DueDate).Scan(&id)
+	
+	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		http.Error(w, err.Error(), 500)
 		return
 	}
-	out(w, 201, map[string]int64{"id": id})
+	defer func() { _ = tx.Rollback(r.Context()) }()
+	
+	req := qms.CreateCAPARequest{
+		CompanyID:   c,
+		Title:       fmt.Sprintf("CAPA for NCR %d", in.NCRID),
+		Description: in.Action,
+		SourceType:  "NCR",
+		SourceID:    &in.NCRID,
+		TargetDate:  in.DueDate,
+		ActorID:     u,
+		OwnerID:     u,
+	}
+	
+	_, err = h.outbox.InsertEvent(r.Context(), sqlc.New(tx), outbox.PublishRequest{
+		CompanyID:     c,
+		CorrelationID: uuid.New(),
+		EventType:     "mrp.capa.requested",
+		AggregateType: "WorkOrder",
+		AggregateID:   in.NCRID,
+		Payload:       req,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	
+	if err := tx.Commit(r.Context()); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	
+	out(w, 202, map[string]string{"message": "capa requested"})
 }
 func (h *Handler) createSubcontractOperation(w http.ResponseWriter, r *http.Request) {
 	_, c, ok := ids(r)
@@ -831,13 +971,41 @@ func (h *Handler) createQualityHold(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid quality hold", 400)
 		return
 	}
-	var id int64
-	err := h.pool.QueryRow(r.Context(), `INSERT INTO mrp_quality_holds(company_id,work_order_id,operation_id,inspection_id,reason,created_by) VALUES($1,$2,NULLIF($3,0),NULLIF($4,0),$5,$6) RETURNING id`, c, in.WorkOrderID, in.OperationID, in.InspectionID, in.Reason, u).Scan(&id)
+	
+	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		http.Error(w, err.Error(), 500)
 		return
 	}
-	out(w, 201, map[string]int64{"id": id})
+	defer func() { _ = tx.Rollback(r.Context()) }()
+	
+	req := qms.CreateQualityHoldRequest{
+		CompanyID:       c,
+		ReferenceModule: "MRP",
+		ReferenceID:     in.WorkOrderID,
+		Reason:          in.Reason,
+		ActorID:         u,
+	}
+	
+	_, err = h.outbox.InsertEvent(r.Context(), sqlc.New(tx), outbox.PublishRequest{
+		CompanyID:     c,
+		CorrelationID: uuid.New(),
+		EventType:     "mrp.quality_hold.requested",
+		AggregateType: "WorkOrder",
+		AggregateID:   in.WorkOrderID,
+		Payload:       req,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	
+	if err := tx.Commit(r.Context()); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	
+	out(w, 202, map[string]string{"message": "quality hold requested"})
 }
 func (h *Handler) releaseQualityHold(w http.ResponseWriter, r *http.Request) {
 	u, c, ok := ids(r)
@@ -850,16 +1018,41 @@ func (h *Handler) releaseQualityHold(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid hold id", 400)
 		return
 	}
-	res, err := h.pool.Exec(r.Context(), `UPDATE mrp_quality_holds SET status='RELEASED',released_by=$1,released_at=NOW() WHERE id=$2 AND company_id=$3 AND status='OPEN'`, u, id, c)
+	
+	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		http.Error(w, err.Error(), 500)
 		return
 	}
-	if res.RowsAffected() == 0 {
-		http.Error(w, "not found", 404)
+	defer func() { _ = tx.Rollback(r.Context()) }()
+	
+	payload := struct {
+		HoldID  int64 `json:"hold_id"`
+		ActorID int64 `json:"actor_id"`
+	}{
+		HoldID:  id,
+		ActorID: u,
+	}
+	
+	_, err = h.outbox.InsertEvent(r.Context(), sqlc.New(tx), outbox.PublishRequest{
+		CompanyID:     c,
+		CorrelationID: uuid.New(),
+		EventType:     "mrp.quality_hold.release_requested",
+		AggregateType: "WorkOrder", // Could be QualityHold but we don't have the WO ID here easily
+		AggregateID:   id,
+		Payload:       payload,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), 500)
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	
+	if err := tx.Commit(r.Context()); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	
+	w.WriteHeader(202)
 }
 func (h *Handler) genealogy(w http.ResponseWriter, r *http.Request) {
 	_, c, ok := ids(r)

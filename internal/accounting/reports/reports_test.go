@@ -3,7 +3,7 @@ package reports
 import (
 	"testing"
 
-	_ "github.com/odyssey-erp/odyssey-erp/testing"
+
 )
 
 func TestBuildTrialBalance(t *testing.T) {

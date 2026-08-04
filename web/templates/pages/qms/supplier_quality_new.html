@@ -1,0 +1,59 @@
+{{ define "content" }}
+
+
+<div class="container-fluid mt-4 mb-5">
+  <div class="qms-header-sq d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h1 class="h3 mb-1 fw-bold text-dark">
+        <i class="bi bi-truck text-primary me-2"></i> Add Supplier Rating
+      </h1>
+      <p class="text-muted mb-0 small">Create a new quality performance record for a supplier.</p>
+    </div>
+  </div>
+
+  <div class="qms-card p-4">
+    <form action="/qms/supplier-quality" method="POST">
+      <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+      
+      <div class="row mb-4 g-4">
+        <div class="col-md-4">
+          <label class="form-label">Supplier ID <span class="text-danger">*</span></label>
+          <input type="number" name="supplier_id" class="form-input" required placeholder="e.g. 1001">
+          <div class="form-text mt-1 text-muted small">The database ID from Procurement</div>
+        </div>
+        <div class="col-md-8">
+          <label class="form-label">Supplier Name <span class="text-danger">*</span></label>
+          <input type="text" name="supplier_name" class="form-input" required placeholder="e.g. Acme Materials Inc.">
+        </div>
+      </div>
+      
+      <div class="row mb-5 g-4 border-top pt-4 mt-2">
+        <div class="col-md-4">
+          <label class="form-label">Approval Status</label>
+          <select name="status" class="form-select">
+            {{ range .Statuses }}<option value="{{ . }}">{{ . }}</option>{{ end }}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Risk Level</label>
+          <select name="risk_level" class="form-select">
+            {{ range .RiskLevels }}<option value="{{ . }}">{{ . }}</option>{{ end }}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Quality Score (0-100%)</label>
+          <div class="input-group">
+            <input type="number" step="0.1" name="quality_rating" class="form-input border-end-0" value="100.0" min="0" max="100">
+            <span class="input-group-text bg-white text-muted border-start-0">%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="d-flex justify-content-end gap-3 pt-4 border-top">
+        <a href="/qms/supplier-quality" class="qms-btn-secondary text-decoration-none">Cancel</a>
+        <button type="submit" class="btn qms-btn-sq">Save Record</button>
+      </div>
+    </form>
+  </div>
+</div>
+{{ end }}

@@ -7,6 +7,7 @@ package sqlc
 import (
 	"database/sql/driver"
 	"fmt"
+	"net/netip"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -1230,6 +1231,52 @@ type ArPaymentAllocation struct {
 	FxRateLockedAt         pgtype.Timestamptz `json:"fx_rate_locked_at"`
 }
 
+type Asset struct {
+	ID             int64              `json:"id"`
+	CompanyID      int64              `json:"company_id"`
+	Code           string             `json:"code"`
+	Name           string             `json:"name"`
+	Description    pgtype.Text        `json:"description"`
+	AssetType      string             `json:"asset_type"`
+	ParentID       pgtype.Int8        `json:"parent_id"`
+	LocationID     pgtype.Int8        `json:"location_id"`
+	FixedAssetID   pgtype.Int8        `json:"fixed_asset_id"`
+	Manufacturer   pgtype.Text        `json:"manufacturer"`
+	Model          pgtype.Text        `json:"model"`
+	SerialNumber   pgtype.Text        `json:"serial_number"`
+	TagNumber      pgtype.Text        `json:"tag_number"`
+	InstallDate    pgtype.Date        `json:"install_date"`
+	WarrantyExpiry pgtype.Date        `json:"warranty_expiry"`
+	Status         string             `json:"status"`
+	Criticality    string             `json:"criticality"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type Audit struct {
+	ID            int64              `json:"id"`
+	CompanyID     int64              `json:"company_id"`
+	Number        string             `json:"number"`
+	Title         string             `json:"title"`
+	Description   pgtype.Text        `json:"description"`
+	AuditType     string             `json:"audit_type"`
+	Status        string             `json:"status"`
+	Standard      pgtype.Text        `json:"standard"`
+	Scope         pgtype.Text        `json:"scope"`
+	LeadAuditorID int64              `json:"lead_auditor_id"`
+	AuditTeamIds  []int64            `json:"audit_team_ids"`
+	AuditeeID     pgtype.Int8        `json:"auditee_id"`
+	PlannedStart  pgtype.Date        `json:"planned_start"`
+	PlannedEnd    pgtype.Date        `json:"planned_end"`
+	ActualStart   pgtype.Date        `json:"actual_start"`
+	ActualEnd     pgtype.Date        `json:"actual_end"`
+	ReportNumber  pgtype.Text        `json:"report_number"`
+	ReportDate    pgtype.Date        `json:"report_date"`
+	CreatedBy     int64              `json:"created_by"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
 type AuditEvent struct {
 	ID            int64              `json:"id"`
 	CompanyID     int64              `json:"company_id"`
@@ -1242,7 +1289,27 @@ type AuditEvent struct {
 	ActorID       pgtype.Int8        `json:"actor_id"`
 	Details       []byte             `json:"details"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	Index         interface{}        `json:"index"`
+}
+
+type AuditFinding struct {
+	ID              int64              `json:"id"`
+	AuditID         int64              `json:"audit_id"`
+	FindingNumber   pgtype.Text        `json:"finding_number"`
+	Category        string             `json:"category"`
+	Clause          pgtype.Text        `json:"clause"`
+	Description     string             `json:"description"`
+	Evidence        pgtype.Text        `json:"evidence"`
+	Requirement     pgtype.Text        `json:"requirement"`
+	RiskLevel       string             `json:"risk_level"`
+	Status          string             `json:"status"`
+	Response        pgtype.Text        `json:"response"`
+	ResponseDueDate pgtype.Date        `json:"response_due_date"`
+	ResponseDate    pgtype.Date        `json:"response_date"`
+	AssignedTo      pgtype.Int8        `json:"assigned_to"`
+	VerifiedBy      pgtype.Int8        `json:"verified_by"`
+	VerifiedAt      pgtype.Timestamptz `json:"verified_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 }
 
 type AuditLog struct {
@@ -1348,6 +1415,34 @@ type Branch struct {
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
+type Capa struct {
+	ID                 int64              `json:"id"`
+	CompanyID          int64              `json:"company_id"`
+	Number             string             `json:"number"`
+	Title              string             `json:"title"`
+	Description        pgtype.Text        `json:"description"`
+	SourceType         string             `json:"source_type"`
+	SourceID           pgtype.Int8        `json:"source_id"`
+	SourceReference    pgtype.Text        `json:"source_reference"`
+	Status             string             `json:"status"`
+	Priority           string             `json:"priority"`
+	OwnerID            int64              `json:"owner_id"`
+	TeamMembers        []int64            `json:"team_members"`
+	RootCause          pgtype.Text        `json:"root_cause"`
+	RootCauseMethod    pgtype.Text        `json:"root_cause_method"`
+	CorrectiveAction   pgtype.Text        `json:"corrective_action"`
+	PreventiveAction   pgtype.Text        `json:"preventive_action"`
+	VerificationMethod pgtype.Text        `json:"verification_method"`
+	VerificationResult pgtype.Text        `json:"verification_result"`
+	EffectivenessCheck pgtype.Text        `json:"effectiveness_check"`
+	TargetDate         pgtype.Date        `json:"target_date"`
+	CompletionDate     pgtype.Date        `json:"completion_date"`
+	EffectivenessDate  pgtype.Date        `json:"effectiveness_date"`
+	CreatedBy          int64              `json:"created_by"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Carrier struct {
 	ID                    int64              `json:"id"`
 	CompanyID             int64              `json:"company_id"`
@@ -1408,6 +1503,18 @@ type Company struct {
 	BaseCurrency string             `json:"base_currency"`
 }
 
+type CompanyModuleFeature struct {
+	ID              int64              `json:"id"`
+	CompanyID       int64              `json:"company_id"`
+	Module          string             `json:"module"`
+	Enabled         bool               `json:"enabled"`
+	MigrationState  string             `json:"migration_state"`
+	EnforcementMode string             `json:"enforcement_mode"`
+	Config          []byte             `json:"config"`
+	EnabledAt       pgtype.Timestamptz `json:"enabled_at"`
+	EnabledBy       pgtype.Int8        `json:"enabled_by"`
+}
+
 type CompanyTaxIdentity struct {
 	ID                int64              `json:"id"`
 	CompanyID         int64              `json:"company_id"`
@@ -1435,7 +1542,6 @@ type ComplianceDecision struct {
 	RecordVersion   pgtype.Text        `json:"record_version"`
 	RecordHash      pgtype.Text        `json:"record_hash"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
-	Index           interface{}        `json:"index"`
 }
 
 type ConsolGroup struct {
@@ -1605,6 +1711,25 @@ type Customer struct {
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
 
+type CustomerComplaint struct {
+	ID               int64              `json:"id"`
+	CompanyID        int64              `json:"company_id"`
+	ComplaintNumber  string             `json:"complaint_number"`
+	CustomerID       int64              `json:"customer_id"`
+	Title            string             `json:"title"`
+	Description      string             `json:"description"`
+	Status           string             `json:"status"`
+	Severity         string             `json:"severity"`
+	AssignedTo       pgtype.Int8        `json:"assigned_to"`
+	ResponseEvidence pgtype.Text        `json:"response_evidence"`
+	ReceivedAt       pgtype.Timestamptz `json:"received_at"`
+	ClosedAt         pgtype.Timestamptz `json:"closed_at"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	CreatedBy        int64              `json:"created_by"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	UpdatedBy        int64              `json:"updated_by"`
+}
+
 // Delivery orders for fulfilling sales orders with inventory integration
 type DeliveryOrder struct {
 	ID int64 `json:"id"`
@@ -1671,11 +1796,223 @@ type Department struct {
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
+type DispositionRequest struct {
+	ID                int64              `json:"id"`
+	CompanyID         int64              `json:"company_id"`
+	DocumentVersionID int64              `json:"document_version_id"`
+	RequestedBy       int64              `json:"requested_by"`
+	Reason            string             `json:"reason"`
+	Status            string             `json:"status"`
+	ApprovedBy        pgtype.Int8        `json:"approved_by"`
+	ApprovedAt        pgtype.Timestamptz `json:"approved_at"`
+	ExecutedAt        pgtype.Timestamptz `json:"executed_at"`
+	ExecutedBy        pgtype.Int8        `json:"executed_by"`
+	ExecutionEvidence []byte             `json:"execution_evidence"`
+	ErrorMessage      pgtype.Text        `json:"error_message"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+}
+
+type Document struct {
+	ID                int64              `json:"id"`
+	CompanyID         int64              `json:"company_id"`
+	CategoryID        pgtype.Int8        `json:"category_id"`
+	ClassificationID  int64              `json:"classification_id"`
+	NumberingRuleID   pgtype.Int8        `json:"numbering_rule_id"`
+	DocumentNumber    string             `json:"document_number"`
+	Title             string             `json:"title"`
+	Description       pgtype.Text        `json:"description"`
+	OwnerID           int64              `json:"owner_id"`
+	Status            string             `json:"status"`
+	EffectiveFrom     pgtype.Timestamptz `json:"effective_from"`
+	EffectiveTo       pgtype.Timestamptz `json:"effective_to"`
+	CurrentVersionID  pgtype.Int8        `json:"current_version_id"`
+	MigrationSource   pgtype.Text        `json:"migration_source"`
+	MigrationSourceID pgtype.Text        `json:"migration_source_id"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	CreatedBy         int64              `json:"created_by"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	UpdatedBy         int64              `json:"updated_by"`
+}
+
+type DocumentAccessEvent struct {
+	ID                int64              `json:"id"`
+	CompanyID         int64              `json:"company_id"`
+	DocumentVersionID int64              `json:"document_version_id"`
+	ActorID           int64              `json:"actor_id"`
+	Action            string             `json:"action"`
+	IpAddress         *netip.Addr        `json:"ip_address"`
+	UserAgent         pgtype.Text        `json:"user_agent"`
+	ShareToken        pgtype.Text        `json:"share_token"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+}
+
+type DocumentAcl struct {
+	ID               int64              `json:"id"`
+	CompanyID        int64              `json:"company_id"`
+	DocumentID       pgtype.Int8        `json:"document_id"`
+	ClassificationID pgtype.Int8        `json:"classification_id"`
+	PrincipalType    string             `json:"principal_type"`
+	PrincipalID      int64              `json:"principal_id"`
+	Permission       string             `json:"permission"`
+	Effect           string             `json:"effect"`
+	GrantedBy        int64              `json:"granted_by"`
+	GrantedAt        pgtype.Timestamptz `json:"granted_at"`
+	ExpiresAt        pgtype.Timestamptz `json:"expires_at"`
+}
+
+type DocumentCategory struct {
+	ID                      int64              `json:"id"`
+	CompanyID               int64              `json:"company_id"`
+	ParentID                pgtype.Int8        `json:"parent_id"`
+	Code                    string             `json:"code"`
+	Name                    string             `json:"name"`
+	Description             pgtype.Text        `json:"description"`
+	DefaultClassificationID pgtype.Int8        `json:"default_classification_id"`
+	NumberingRuleID         pgtype.Int8        `json:"numbering_rule_id"`
+	Active                  bool               `json:"active"`
+	CreatedAt               pgtype.Timestamptz `json:"created_at"`
+	CreatedBy               int64              `json:"created_by"`
+}
+
+type DocumentClassification struct {
+	ID                       int64              `json:"id"`
+	CompanyID                int64              `json:"company_id"`
+	Code                     string             `json:"code"`
+	Name                     string             `json:"name"`
+	Description              pgtype.Text        `json:"description"`
+	DefaultRetentionPolicyID pgtype.Int8        `json:"default_retention_policy_id"`
+	RequiresApproval         bool               `json:"requires_approval"`
+	RequiresSignature        bool               `json:"requires_signature"`
+	AllowedExtensions        []string           `json:"allowed_extensions"`
+	MaxSizeBytes             pgtype.Int8        `json:"max_size_bytes"`
+	SortOrder                int32              `json:"sort_order"`
+	Active                   bool               `json:"active"`
+	CreatedAt                pgtype.Timestamptz `json:"created_at"`
+	CreatedBy                int64              `json:"created_by"`
+}
+
+type DocumentLink struct {
+	ID                int64              `json:"id"`
+	CompanyID         int64              `json:"company_id"`
+	DocumentVersionID int64              `json:"document_version_id"`
+	TargetModule      string             `json:"target_module"`
+	TargetID          int64              `json:"target_id"`
+	TargetCompanyID   int64              `json:"target_company_id"`
+	LinkType          string             `json:"link_type"`
+	Description       pgtype.Text        `json:"description"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	CreatedBy         int64              `json:"created_by"`
+}
+
+type DocumentNumberingRule struct {
+	ID              int64              `json:"id"`
+	CompanyID       int64              `json:"company_id"`
+	Code            string             `json:"code"`
+	Name            string             `json:"name"`
+	Prefix          pgtype.Text        `json:"prefix"`
+	Suffix          pgtype.Text        `json:"suffix"`
+	Pattern         string             `json:"pattern"`
+	SequenceStart   int32              `json:"sequence_start"`
+	SequenceCurrent int32              `json:"sequence_current"`
+	Scope           string             `json:"scope"`
+	ScopeID         pgtype.Int8        `json:"scope_id"`
+	Active          bool               `json:"active"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	CreatedBy       int64              `json:"created_by"`
+}
+
+type DocumentRetention struct {
+	ID                int64              `json:"id"`
+	CompanyID         int64              `json:"company_id"`
+	DocumentVersionID int64              `json:"document_version_id"`
+	PolicyID          int64              `json:"policy_id"`
+	TriggerDate       pgtype.Timestamptz `json:"trigger_date"`
+	ExpiryDate        pgtype.Timestamptz `json:"expiry_date"`
+	Status            string             `json:"status"`
+	CalculatedAt      pgtype.Timestamptz `json:"calculated_at"`
+}
+
+type DocumentReviewDecision struct {
+	ID           int64              `json:"id"`
+	CompanyID    int64              `json:"company_id"`
+	ReviewStepID int64              `json:"review_step_id"`
+	ReviewerID   int64              `json:"reviewer_id"`
+	Decision     string             `json:"decision"`
+	Comment      pgtype.Text        `json:"comment"`
+	DecidedAt    pgtype.Timestamptz `json:"decided_at"`
+}
+
+type DocumentReviewStep struct {
+	ID                int64              `json:"id"`
+	CompanyID         int64              `json:"company_id"`
+	DocumentVersionID int64              `json:"document_version_id"`
+	StepOrder         int32              `json:"step_order"`
+	Name              string             `json:"name"`
+	ReviewerRoleID    pgtype.Int8        `json:"reviewer_role_id"`
+	ReviewerUserID    pgtype.Int8        `json:"reviewer_user_id"`
+	RequiredApprovals int32              `json:"required_approvals"`
+	Status            string             `json:"status"`
+	DueAt             pgtype.Timestamptz `json:"due_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+}
+
 type DocumentSequence struct {
 	CompanyID int64  `json:"company_id"`
 	DocType   string `json:"doc_type"`
 	Period    string `json:"period"`
 	Seq       int64  `json:"seq"`
+}
+
+type DocumentSignature struct {
+	ID                int64              `json:"id"`
+	CompanyID         int64              `json:"company_id"`
+	DocumentVersionID int64              `json:"document_version_id"`
+	ChallengeID       pgtype.UUID        `json:"challenge_id"`
+	SignerID          int64              `json:"signer_id"`
+	RecordVersion     string             `json:"record_version"`
+	RecordHash        string             `json:"record_hash"`
+	Meaning           string             `json:"meaning"`
+	PolicyVersion     int32              `json:"policy_version"`
+	AuthMethod        string             `json:"auth_method"`
+	SignedAt          pgtype.Timestamptz `json:"signed_at"`
+}
+
+type DocumentSignatureChallenge struct {
+	ID                int64              `json:"id"`
+	CompanyID         int64              `json:"company_id"`
+	ChallengeID       pgtype.UUID        `json:"challenge_id"`
+	DocumentVersionID int64              `json:"document_version_id"`
+	SignerID          int64              `json:"signer_id"`
+	Meaning           string             `json:"meaning"`
+	PolicyVersion     int32              `json:"policy_version"`
+	Expiry            pgtype.Timestamptz `json:"expiry"`
+	Used              bool               `json:"used"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+}
+
+type DocumentVersion struct {
+	ID                    int64              `json:"id"`
+	CompanyID             int64              `json:"company_id"`
+	DocumentID            int64              `json:"document_id"`
+	VersionNumber         int32              `json:"version_number"`
+	VersionLabel          pgtype.Text        `json:"version_label"`
+	BlobID                int64              `json:"blob_id"`
+	Status                string             `json:"status"`
+	ClassificationID      int64              `json:"classification_id"`
+	ChangeSummary         pgtype.Text        `json:"change_summary"`
+	ReviewSnapshot        []byte             `json:"review_snapshot"`
+	ApprovedBy            pgtype.Int8        `json:"approved_by"`
+	ApprovedAt            pgtype.Timestamptz `json:"approved_at"`
+	EffectiveAt           pgtype.Timestamptz `json:"effective_at"`
+	SupersededAt          pgtype.Timestamptz `json:"superseded_at"`
+	SupersededByVersionID pgtype.Int8        `json:"superseded_by_version_id"`
+	DisposedAt            pgtype.Timestamptz `json:"disposed_at"`
+	DisposedBy            pgtype.Int8        `json:"disposed_by"`
+	DispositionRequestID  pgtype.Int8        `json:"disposition_request_id"`
+	MigrationSource       pgtype.Text        `json:"migration_source"`
+	MigrationSourceID     pgtype.Text        `json:"migration_source_id"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	CreatedBy             int64              `json:"created_by"`
 }
 
 type Driver struct {
@@ -1753,7 +2090,6 @@ type EvidenceRecord struct {
 	EvidenceType pgtype.Text        `json:"evidence_type"`
 	Content      []byte             `json:"content"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	Index        interface{}        `json:"index"`
 }
 
 type FinanceAutomationOutbox struct {
@@ -2356,6 +2692,28 @@ type LandedCost struct {
 	UpdatedAt        pgtype.Timestamp `json:"updated_at"`
 }
 
+type LegalHold struct {
+	ID          int64              `json:"id"`
+	CompanyID   int64              `json:"company_id"`
+	Name        string             `json:"name"`
+	Description pgtype.Text        `json:"description"`
+	IssuedBy    int64              `json:"issued_by"`
+	IssuedAt    pgtype.Timestamptz `json:"issued_at"`
+	ReleasedAt  pgtype.Timestamptz `json:"released_at"`
+	ReleasedBy  pgtype.Int8        `json:"released_by"`
+	Status      string             `json:"status"`
+	ScopeType   string             `json:"scope_type"`
+	ScopeID     int64              `json:"scope_id"`
+}
+
+type LegalHoldReference struct {
+	ID                int64              `json:"id"`
+	CompanyID         int64              `json:"company_id"`
+	LegalHoldID       int64              `json:"legal_hold_id"`
+	DocumentVersionID int64              `json:"document_version_id"`
+	AppliedAt         pgtype.Timestamptz `json:"applied_at"`
+}
+
 type Load struct {
 	ID                     int64              `json:"id"`
 	CompanyID              int64              `json:"company_id"`
@@ -2395,6 +2753,32 @@ type LoadItem struct {
 	WeightKg   pgtype.Numeric     `json:"weight_kg"`
 	VolumeCbm  pgtype.Numeric     `json:"volume_cbm"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type Location struct {
+	ID          int64              `json:"id"`
+	CompanyID   int64              `json:"company_id"`
+	Code        string             `json:"code"`
+	Name        string             `json:"name"`
+	Description pgtype.Text        `json:"description"`
+	ParentID    pgtype.Int8        `json:"parent_id"`
+	Address     pgtype.Text        `json:"address"`
+	GpsLat      pgtype.Float8      `json:"gps_lat"`
+	GpsLng      pgtype.Float8      `json:"gps_lng"`
+	Active      bool               `json:"active"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type MeterReading struct {
+	ID          int64              `json:"id"`
+	AssetID     int64              `json:"asset_id"`
+	ReadingType string             `json:"reading_type"`
+	Value       float64            `json:"value"`
+	ReadingDate pgtype.Date        `json:"reading_date"`
+	EnteredBy   int64              `json:"entered_by"`
+	Notes       pgtype.Text        `json:"notes"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
 type MrpAnalyticsOperationDaily struct {
@@ -2869,6 +3253,42 @@ type MvPlMonthly struct {
 	Net       int32  `json:"net"`
 }
 
+type Ncr struct {
+	ID                 int64              `json:"id"`
+	CompanyID          int64              `json:"company_id"`
+	Number             string             `json:"number"`
+	Title              string             `json:"title"`
+	Description        pgtype.Text        `json:"description"`
+	SourceType         string             `json:"source_type"`
+	SourceID           pgtype.Int8        `json:"source_id"`
+	SourceReference    pgtype.Text        `json:"source_reference"`
+	Category           string             `json:"category"`
+	Severity           string             `json:"severity"`
+	Status             string             `json:"status"`
+	DetectedBy         int64              `json:"detected_by"`
+	DetectedAt         pgtype.Timestamptz `json:"detected_at"`
+	DetectedLocation   pgtype.Text        `json:"detected_location"`
+	ResponsiblePartyID pgtype.Int8        `json:"responsible_party_id"`
+	AssignedTo         pgtype.Int8        `json:"assigned_to"`
+	TargetClosureDate  pgtype.Date        `json:"target_closure_date"`
+	ActualClosureDate  pgtype.Date        `json:"actual_closure_date"`
+	RootCause          pgtype.Text        `json:"root_cause"`
+	ContainmentAction  pgtype.Text        `json:"containment_action"`
+	CreatedBy          int64              `json:"created_by"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+type NcrDisposition struct {
+	ID              int64              `json:"id"`
+	NcrID           int64              `json:"ncr_id"`
+	DispositionType string             `json:"disposition_type"`
+	Description     pgtype.Text        `json:"description"`
+	ApprovedBy      int64              `json:"approved_by"`
+	ApprovedAt      pgtype.Timestamptz `json:"approved_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+}
+
 type Notification struct {
 	ID          int64              `json:"id"`
 	RecipientID int64              `json:"recipient_id"`
@@ -2889,6 +3309,23 @@ type NotificationPreference struct {
 	EmailEnabled     bool               `json:"email_enabled"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
+type OutboxEvent struct {
+	ID               int64              `json:"id"`
+	CompanyID        int64              `json:"company_id"`
+	CorrelationID    pgtype.UUID        `json:"correlation_id"`
+	CausationID      pgtype.UUID        `json:"causation_id"`
+	EventType        string             `json:"event_type"`
+	AggregateType    string             `json:"aggregate_type"`
+	AggregateID      int64              `json:"aggregate_id"`
+	AggregateVersion pgtype.Int4        `json:"aggregate_version"`
+	Payload          []byte             `json:"payload"`
+	IdempotencyKey   pgtype.Text        `json:"idempotency_key"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	PublishedAt      pgtype.Timestamptz `json:"published_at"`
+	PublishAttempts  int32              `json:"publish_attempts"`
+	LastError        pgtype.Text        `json:"last_error"`
 }
 
 type PayrollAccountMapping struct {
@@ -3188,6 +3625,24 @@ type PlanningRule struct {
 	CreatedBy            int64              `json:"created_by"`
 }
 
+type PmSchedule struct {
+	ID               int64              `json:"id"`
+	CompanyID        int64              `json:"company_id"`
+	AssetID          int64              `json:"asset_id"`
+	Name             string             `json:"name"`
+	Description      pgtype.Text        `json:"description"`
+	FrequencyType    string             `json:"frequency_type"`
+	FrequencyValue   int32              `json:"frequency_value"`
+	MeterReadingType pgtype.Text        `json:"meter_reading_type"`
+	TaskTemplateID   pgtype.Int8        `json:"task_template_id"`
+	NextDueDate      pgtype.Date        `json:"next_due_date"`
+	NextDueMeter     pgtype.Float8      `json:"next_due_meter"`
+	Active           bool               `json:"active"`
+	Status           string             `json:"status"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Po struct {
 	ID                  int64              `json:"id"`
 	Number              string             `json:"number"`
@@ -3426,6 +3881,73 @@ type ProjectTask struct {
 	Status    string `json:"status"`
 }
 
+type QmsHold struct {
+	ID              int64              `json:"id"`
+	CompanyID       int64              `json:"company_id"`
+	ReferenceModule string             `json:"reference_module"`
+	ReferenceID     int64              `json:"reference_id"`
+	Reason          string             `json:"reason"`
+	Status          string             `json:"status"`
+	CreatedBy       int64              `json:"created_by"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	ReleasedBy      pgtype.Int8        `json:"released_by"`
+	ReleasedAt      pgtype.Timestamptz `json:"released_at"`
+}
+
+type QmsInspection struct {
+	ID              int64              `json:"id"`
+	CompanyID       int64              `json:"company_id"`
+	Name            string             `json:"name"`
+	Description     pgtype.Text        `json:"description"`
+	ReferenceModule pgtype.Text        `json:"reference_module"`
+	ReferenceID     pgtype.Int8        `json:"reference_id"`
+	Status          string             `json:"status"`
+	InspectorID     pgtype.Int8        `json:"inspector_id"`
+	ScheduledAt     pgtype.Timestamptz `json:"scheduled_at"`
+	StartedAt       pgtype.Timestamptz `json:"started_at"`
+	CompletedAt     pgtype.Timestamptz `json:"completed_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	CreatedBy       int64              `json:"created_by"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	UpdatedBy       int64              `json:"updated_by"`
+}
+
+type QmsInspectionPlan struct {
+	ID              int64              `json:"id"`
+	CompanyID       int64              `json:"company_id"`
+	Name            string             `json:"name"`
+	Description     pgtype.Text        `json:"description"`
+	ReferenceModule pgtype.Text        `json:"reference_module"`
+	ReferenceID     pgtype.Int8        `json:"reference_id"`
+	IsActive        bool               `json:"is_active"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	CreatedBy       int64              `json:"created_by"`
+}
+
+type QmsInspectionPlanStep struct {
+	ID           int64              `json:"id"`
+	PlanID       int64              `json:"plan_id"`
+	StepSequence int32              `json:"step_sequence"`
+	Name         string             `json:"name"`
+	Instructions pgtype.Text        `json:"instructions"`
+	IsRequired   bool               `json:"is_required"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type QmsInspectionResult struct {
+	ID                 int64              `json:"id"`
+	CompanyID          int64              `json:"company_id"`
+	InspectionID       int64              `json:"inspection_id"`
+	CharacteristicName string             `json:"characteristic_name"`
+	ExpectedValue      pgtype.Text        `json:"expected_value"`
+	ActualValue        pgtype.Text        `json:"actual_value"`
+	IsConforming       bool               `json:"is_conforming"`
+	Notes              pgtype.Text        `json:"notes"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	CreatedBy          int64              `json:"created_by"`
+}
+
 type QualityCapa struct {
 	ID        int64              `json:"id"`
 	CompanyID int64              `json:"company_id"`
@@ -3434,7 +3956,6 @@ type QualityCapa struct {
 	CreatedBy int64              `json:"created_by"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
-	Index     interface{}        `json:"index"`
 }
 
 type QualityHold struct {
@@ -3447,7 +3968,6 @@ type QualityHold struct {
 	CreatedBy    int64              `json:"created_by"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
-	Index        interface{}        `json:"index"`
 }
 
 type QualityInspection struct {
@@ -3462,7 +3982,6 @@ type QualityInspection struct {
 	ResultVersion    pgtype.Text        `json:"result_version"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
-	Index            interface{}        `json:"index"`
 }
 
 type QualityNcr struct {
@@ -3473,7 +3992,34 @@ type QualityNcr struct {
 	CreatedBy int64              `json:"created_by"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
-	Index     interface{}        `json:"index"`
+}
+
+type QualityObjective struct {
+	ID           int64              `json:"id"`
+	CompanyID    int64              `json:"company_id"`
+	Name         string             `json:"name"`
+	Description  pgtype.Text        `json:"description"`
+	MetricType   string             `json:"metric_type"`
+	TargetValue  float64            `json:"target_value"`
+	CurrentValue float64            `json:"current_value"`
+	Unit         pgtype.Text        `json:"unit"`
+	Frequency    string             `json:"frequency"`
+	OwnerID      int64              `json:"owner_id"`
+	Status       string             `json:"status"`
+	StartDate    pgtype.Date        `json:"start_date"`
+	EndDate      pgtype.Date        `json:"end_date"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+type QualityObjectiveMeasurement struct {
+	ID              int64              `json:"id"`
+	ObjectiveID     int64              `json:"objective_id"`
+	Value           float64            `json:"value"`
+	MeasurementDate pgtype.Date        `json:"measurement_date"`
+	Notes           pgtype.Text        `json:"notes"`
+	RecordedBy      int64              `json:"recorded_by"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 }
 
 type Quotation struct {
@@ -3576,6 +4122,21 @@ type ReportScheduleDelivery struct {
 	Status     string             `json:"status"`
 	Detail     string             `json:"detail"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type RetentionPolicy struct {
+	ID                  int64              `json:"id"`
+	CompanyID           int64              `json:"company_id"`
+	Code                string             `json:"code"`
+	Name                string             `json:"name"`
+	Description         pgtype.Text        `json:"description"`
+	TriggerEvent        string             `json:"trigger_event"`
+	RetentionPeriodDays int32              `json:"retention_period_days"`
+	ClassificationIds   []int64            `json:"classification_ids"`
+	CategoryIds         []int64            `json:"category_ids"`
+	Active              bool               `json:"active"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	CreatedBy           int64              `json:"created_by"`
 }
 
 type ReturnDeliveryOrder struct {
@@ -3877,7 +4438,6 @@ type SignatureChallenge struct {
 	ReauthenticationRequired bool               `json:"reauthentication_required"`
 	Used                     bool               `json:"used"`
 	CreatedAt                pgtype.Timestamptz `json:"created_at"`
-	Index                    interface{}        `json:"index"`
 }
 
 type SourceLink struct {
@@ -3886,6 +4446,43 @@ type SourceLink struct {
 	RefID     pgtype.UUID        `json:"ref_id"`
 	JeID      int64              `json:"je_id"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type SparePart struct {
+	ID            int64              `json:"id"`
+	CompanyID     int64              `json:"company_id"`
+	Code          string             `json:"code"`
+	Name          string             `json:"name"`
+	Description   pgtype.Text        `json:"description"`
+	Category      pgtype.Text        `json:"category"`
+	UnitOfMeasure string             `json:"unit_of_measure"`
+	MinQuantity   float64            `json:"min_quantity"`
+	MaxQuantity   float64            `json:"max_quantity"`
+	ReorderPoint  float64            `json:"reorder_point"`
+	LeadTimeDays  int32              `json:"lead_time_days"`
+	UnitCost      float64            `json:"unit_cost"`
+	CriticalSpare bool               `json:"critical_spare"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+type StorageBlob struct {
+	ID                  int64              `json:"id"`
+	CompanyID           int64              `json:"company_id"`
+	StorageKey          string             `json:"storage_key"`
+	StorageDriver       string             `json:"storage_driver"`
+	Bucket              pgtype.Text        `json:"bucket"`
+	SizeBytes           int64              `json:"size_bytes"`
+	ChecksumSha256      string             `json:"checksum_sha256"`
+	DeclaredContentType pgtype.Text        `json:"declared_content_type"`
+	DetectedContentType pgtype.Text        `json:"detected_content_type"`
+	EncryptionMetadata  []byte             `json:"encryption_metadata"`
+	MalwareScanStatus   string             `json:"malware_scan_status"`
+	MalwareScanDetails  []byte             `json:"malware_scan_details"`
+	Metadata            []byte             `json:"metadata"`
+	ReferenceCount      int32              `json:"reference_count"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	CreatedBy           int64              `json:"created_by"`
 }
 
 type SubcontractReceipt struct {
@@ -3898,7 +4495,6 @@ type SubcontractReceipt struct {
 	ReceivedQty pgtype.Numeric     `json:"received_qty"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
-	Index       interface{}        `json:"index"`
 }
 
 type Supplier struct {
@@ -3912,6 +4508,24 @@ type Supplier struct {
 	// Tenant isolation: company that owns this supplier
 	CompanyID pgtype.Int8 `json:"company_id"`
 	TaxID     string      `json:"tax_id"`
+}
+
+type SupplierAudit struct {
+	ID            int64              `json:"id"`
+	CompanyID     int64              `json:"company_id"`
+	SupplierID    int64              `json:"supplier_id"`
+	AuditNumber   pgtype.Text        `json:"audit_number"`
+	AuditType     string             `json:"audit_type"`
+	Status        string             `json:"status"`
+	Standard      pgtype.Text        `json:"standard"`
+	PlannedDate   pgtype.Date        `json:"planned_date"`
+	ActualDate    pgtype.Date        `json:"actual_date"`
+	Score         float64            `json:"score"`
+	LeadAuditorID int64              `json:"lead_auditor_id"`
+	ReportNumber  pgtype.Text        `json:"report_number"`
+	CreatedBy     int64              `json:"created_by"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
 }
 
 type SupplierContract struct {
@@ -3934,6 +4548,23 @@ type SupplierContract struct {
 	Note                   string             `json:"note"`
 	CreatedAt              pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SupplierQuality struct {
+	ID            int64              `json:"id"`
+	CompanyID     int64              `json:"company_id"`
+	SupplierID    int64              `json:"supplier_id"`
+	Status        string             `json:"status"`
+	QualityRating float64            `json:"quality_rating"`
+	RiskLevel     string             `json:"risk_level"`
+	ApprovedDate  pgtype.Date        `json:"approved_date"`
+	ExpiryDate    pgtype.Date        `json:"expiry_date"`
+	LastAuditDate pgtype.Date        `json:"last_audit_date"`
+	NextAuditDate pgtype.Date        `json:"next_audit_date"`
+	Notes         pgtype.Text        `json:"notes"`
+	CreatedBy     int64              `json:"created_by"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
 }
 
 type SupplierScorecard struct {
@@ -3964,6 +4595,30 @@ type SupplierScorecard struct {
 	Note                        string             `json:"note"`
 	CreatedBy                   int64              `json:"created_by"`
 	CreatedAt                   pgtype.Timestamptz `json:"created_at"`
+}
+
+type TaskTemplate struct {
+	ID             int64              `json:"id"`
+	CompanyID      int64              `json:"company_id"`
+	Name           string             `json:"name"`
+	Description    pgtype.Text        `json:"description"`
+	Category       pgtype.Text        `json:"category"`
+	EstimatedHours float64            `json:"estimated_hours"`
+	Instructions   pgtype.Text        `json:"instructions"`
+	SafetyNotes    pgtype.Text        `json:"safety_notes"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type TaskTemplateStep struct {
+	ID             int64              `json:"id"`
+	TaskTemplateID int64              `json:"task_template_id"`
+	Sequence       int32              `json:"sequence"`
+	Title          string             `json:"title"`
+	Description    pgtype.Text        `json:"description"`
+	EstimatedHours float64            `json:"estimated_hours"`
+	Instructions   pgtype.Text        `json:"instructions"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
 type Tax struct {
@@ -4553,4 +5208,56 @@ type WmsPickWafe struct {
 	ReleasedAt  pgtype.Timestamptz `json:"released_at"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type WorkOrder struct {
+	ID             int64              `json:"id"`
+	CompanyID      int64              `json:"company_id"`
+	Number         string             `json:"number"`
+	Title          string             `json:"title"`
+	Description    pgtype.Text        `json:"description"`
+	AssetID        pgtype.Int8        `json:"asset_id"`
+	LocationID     pgtype.Int8        `json:"location_id"`
+	Priority       string             `json:"priority"`
+	Status         string             `json:"status"`
+	Category       string             `json:"category"`
+	RequesterID    int64              `json:"requester_id"`
+	AssigneeID     pgtype.Int8        `json:"assignee_id"`
+	PlannedStart   pgtype.Timestamptz `json:"planned_start"`
+	PlannedEnd     pgtype.Timestamptz `json:"planned_end"`
+	ActualStart    pgtype.Timestamptz `json:"actual_start"`
+	ActualEnd      pgtype.Timestamptz `json:"actual_end"`
+	EstimatedHours float64            `json:"estimated_hours"`
+	ActualHours    float64            `json:"actual_hours"`
+	PmScheduleID   pgtype.Int8        `json:"pm_schedule_id"`
+	CreatedBy      int64              `json:"created_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type WorkOrderSparePart struct {
+	ID          int64              `json:"id"`
+	WorkOrderID int64              `json:"work_order_id"`
+	SparePartID int64              `json:"spare_part_id"`
+	Quantity    float64            `json:"quantity"`
+	UnitCost    float64            `json:"unit_cost"`
+	TotalCost   float64            `json:"total_cost"`
+	IssuedAt    pgtype.Timestamptz `json:"issued_at"`
+	IssuedBy    pgtype.Int8        `json:"issued_by"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type WorkOrderTask struct {
+	ID             int64              `json:"id"`
+	WorkOrderID    int64              `json:"work_order_id"`
+	Sequence       int32              `json:"sequence"`
+	Title          string             `json:"title"`
+	Description    pgtype.Text        `json:"description"`
+	Status         string             `json:"status"`
+	AssigneeID     pgtype.Int8        `json:"assignee_id"`
+	EstimatedHours float64            `json:"estimated_hours"`
+	ActualHours    float64            `json:"actual_hours"`
+	CompletedAt    pgtype.Timestamptz `json:"completed_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }

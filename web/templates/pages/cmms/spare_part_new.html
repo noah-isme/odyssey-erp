@@ -1,0 +1,52 @@
+{{ define "content" }}
+<div class="container mt-4 max-w-4xl mx-auto">
+  <div class="card shadow-sm">
+    <div class="card-header bg-warning py-3">
+      <h2 class="h5 mb-0"><i class="bi bi-gear"></i> Register Spare Part</h2>
+    </div>
+    <div class="card-body p-4">
+      <form action="/cmms/spare-parts" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+        
+        <div class="row mb-3">
+          <div class="col-md-4">
+            <label class="form-label fw-bold">Code</label>
+            <input type="text" name="code" class="form-input" required placeholder="PART-001">
+          </div>
+          <div class="col-md-8">
+            <label class="form-label fw-bold">Name</label>
+            <input type="text" name="name" class="form-input" required>
+          </div>
+        </div>
+
+        <div class="row mb-3">
+          <div class="col-md-4">
+            <label class="form-label fw-bold">Category</label>
+            <input type="text" name="category" class="form-input" placeholder="e.g. Electrical">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-bold">Unit of Measure</label>
+            <select name="unit_of_measure" class="form-select">
+              {{ range .UOMs }}<option value="{{ . }}">{{ . }}</option>{{ end }}
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-bold">Unit Cost</label>
+            <input type="number" step="0.01" name="unit_cost" class="form-input" value="0.00">
+          </div>
+        </div>
+
+        <div class="mb-3 form-check">
+          <input type="checkbox" class="checkbox-input" id="critical" name="critical_spare" value="true">
+          <label class="form-check-label fw-bold" for="critical">Critical Spare Part (Required for operations)</label>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2 mt-4">
+          <a href="/cmms/spare-parts" class="btn btn-light border">Cancel</a>
+          <button type="submit" class="btn btn-warning">Save Part</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{{ end }}

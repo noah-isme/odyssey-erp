@@ -1,6 +1,8 @@
 package portal
 
 import (
+	"bytes"
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
@@ -14,6 +16,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/odyssey-erp/odyssey-erp/internal/documents"
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 	"golang.org/x/crypto/bcrypt"
@@ -22,6 +25,10 @@ import (
 type Handler struct {
 	pool *pgxpool.Pool
 	rbac rbac.Middleware
+	docs interface {
+		Create(ctx context.Context, req documents.CreateDocumentRequest) (documents.Document, error)
+		UploadAndCreateVersion(ctx context.Context, file io.Reader, size int64, mimeType string, req documents.CreateVersionRequest) (documents.DocumentVersion, error)
+	}
 }
 
 func NewHandler(pool *pgxpool.Pool, middleware ...rbac.Middleware) *Handler {
@@ -30,6 +37,13 @@ func NewHandler(pool *pgxpool.Pool, middleware ...rbac.Middleware) *Handler {
 		m = middleware[0]
 	}
 	return &Handler{pool: pool, rbac: m}
+}
+
+func (h *Handler) SetDocumentsService(docs interface {
+	Create(ctx context.Context, req documents.CreateDocumentRequest) (documents.Document, error)
+	UploadAndCreateVersion(ctx context.Context, file io.Reader, size int64, mimeType string, req documents.CreateVersionRequest) (documents.DocumentVersion, error)
+}) {
+	h.docs = docs
 }
 
 func (h *Handler) MountRoutes(r chi.Router) {
@@ -553,6 +567,52 @@ func (h *Handler) uploadDocument(w http.ResponseWriter, r *http.Request, kind st
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
+	if h.docs != nil {
+		var classID int64
+		_ = h.pool.QueryRow(r.Context(), `SELECT id FROM document_classifications WHERE company_id = $1 AND code = 'INTERNAL'`, cid).Scan(&classID)
+
+		var catID int64
+		err := h.pool.QueryRow(r.Context(), `SELECT id FROM document_categories WHERE company_id = $1 AND code = 'PORTAL'`, cid).Scan(&catID)
+		if err != nil {
+			_ = h.pool.QueryRow(r.Context(), `INSERT INTO document_categories (company_id, code, name, created_by) VALUES ($1, 'PORTAL', 'Portal Uploads', $2) ON CONFLICT DO NOTHING RETURNING id`, cid, uid).Scan(&catID)
+			if catID == 0 {
+				_ = h.pool.QueryRow(r.Context(), `SELECT id FROM document_categories WHERE company_id = $1 AND code = 'PORTAL'`, cid).Scan(&catID)
+			}
+		}
+
+		docReq := documents.CreateDocumentRequest{
+			CompanyID:        cid,
+			Title:            header.Filename,
+			Description:      "Uploaded via portal: " + kind,
+			CategoryID:       catID,
+			ClassificationID: classID,
+			OwnerID:          uid,
+			ActorID:          uid,
+		}
+		doc, err := h.docs.Create(r.Context(), docReq)
+		if err != nil {
+			http.Error(w, "failed to create document: "+err.Error(), 500)
+			return
+		}
+
+		verReq := documents.CreateVersionRequest{
+			CompanyID:        cid,
+			DocumentID:       doc.ID,
+			ClassificationID: classID,
+			Description:      "Initial upload",
+			ActorID:          uid,
+		}
+		
+		_, err = h.docs.UploadAndCreateVersion(r.Context(), bytes.NewReader(content), int64(len(content)), contentType, verReq)
+		if err != nil {
+			http.Error(w, "failed to upload document version: "+err.Error(), 500)
+			return
+		}
+
+		portalJSON(w, map[string]any{"id": doc.ID, "filename": header.Filename, "content_type": contentType})
+		return
+	}
+
 	var id int64
 	if err := h.pool.QueryRow(r.Context(), `INSERT INTO portal_documents(company_id,user_id,portal_type,filename,content_type,content) VALUES($1,$2,$3,$4,$5,$6) RETURNING id`, cid, uid, kind, header.Filename, contentType, content).Scan(&id); err != nil {
 		http.Error(w, http.StatusText(500), 500)

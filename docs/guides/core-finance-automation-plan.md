@@ -410,7 +410,7 @@ and historical-read tests pass; current assets can be imported/reconciled safely
 The asset-ledger and capitalization boundaries in this section remain authoritative.
 The broader operational maintenance module, including non-capitalized equipment, is
 defined in the
-[`CMMS, QMS, and Document Management Execution Plan`](missing-modules-cmms-qms-documents-plan.md).
+[`CMMS, QMS, and Document Management Execution Plan`](../archive/completed-missing-modules-cmms-qms-documents-plan.md).
 
 - Add transfer request, approval, dispatch, receipt, cancellation, condition evidence,
   custody update, and timeline.

@@ -18,6 +18,7 @@ type Querier interface {
 	AgingAR(ctx context.Context, arg AgingARParams) ([]AgingARRow, error)
 	ApprovePOVariance(ctx context.Context, arg ApprovePOVarianceParams) error
 	ApproveSupplierContract(ctx context.Context, arg ApproveSupplierContractParams) error
+	AreAllReviewStepsApproved(ctx context.Context, documentVersionID int64) (bool, error)
 	AssignRoleToUser(ctx context.Context, arg AssignRoleToUserParams) error
 	AttachPermissionToRole(ctx context.Context, arg AttachPermissionToRoleParams) error
 	AuditTimelineAll(ctx context.Context, arg AuditTimelineAllParams) ([]AuditTimelineAllRow, error)
@@ -28,12 +29,17 @@ type Querier interface {
 	CancelGoodsReturnGRN(ctx context.Context, arg CancelGoodsReturnGRNParams) error
 	CheckWarehouseExists(ctx context.Context, id int64) (bool, error)
 	CompareMonthlyNetRevenue(ctx context.Context, arg CompareMonthlyNetRevenueParams) ([]CompareMonthlyNetRevenueRow, error)
+	CompleteWorkOrderTask(ctx context.Context, arg CompleteWorkOrderTaskParams) error
 	ConfirmGoodsReturnGRN(ctx context.Context, arg ConfirmGoodsReturnGRNParams) error
 	ConsolBalancesByType(ctx context.Context, arg ConsolBalancesByTypeParams) ([]ConsolBalancesByTypeRow, error)
 	ContributionByBranch(ctx context.Context, arg ContributionByBranchParams) ([]ContributionByBranchRow, error)
 	CountARInvoicesByDelivery(ctx context.Context, deliveryOrderID pgtype.Int8) (int64, error)
+	CountAuditsWithPrefix(ctx context.Context, arg CountAuditsWithPrefixParams) (int64, error)
+	CountCAPAsWithPrefix(ctx context.Context, arg CountCAPAsWithPrefixParams) (int64, error)
+	CountNCRsWithPrefix(ctx context.Context, arg CountNCRsWithPrefixParams) (int64, error)
 	CountPendingChecklistItems(ctx context.Context, periodCloseRunID int64) (int64, error)
 	CountRuns(ctx context.Context) (int64, error)
+	CountWorkOrdersWithPrefix(ctx context.Context, arg CountWorkOrdersWithPrefixParams) (int64, error)
 	// =============================================================================
 	// AP DEBIT NOTES
 	// =============================================================================
@@ -51,7 +57,7 @@ type Querier interface {
 	// =============================================================================
 	// AUDIT EVENTS
 	// =============================================================================
-	CreateAuditEvent(ctx context.Context, arg CreateAuditEventParams) (CreateAuditEventRow, error)
+	CreateAuditEvent(ctx context.Context, arg CreateAuditEventParams) (AuditEvent, error)
 	CreateBankAccount(ctx context.Context, arg CreateBankAccountParams) (BankAccount, error)
 	CreateBankStatement(ctx context.Context, arg CreateBankStatementParams) (BankStatement, error)
 	CreateBankStatementLine(ctx context.Context, arg CreateBankStatementLineParams) (BankStatementLine, error)
@@ -62,13 +68,13 @@ type Querier interface {
 	// =============================================================================
 	// COMPLIANCE DECISIONS
 	// =============================================================================
-	CreateComplianceDecision(ctx context.Context, arg CreateComplianceDecisionParams) (CreateComplianceDecisionRow, error)
+	CreateComplianceDecision(ctx context.Context, arg CreateComplianceDecisionParams) (ComplianceDecision, error)
 	CreateCustomer(ctx context.Context, arg CreateCustomerParams) (int64, error)
 	CreateDeliveryOrder(ctx context.Context, arg CreateDeliveryOrderParams) (int64, error)
 	// =============================================================================
 	// EVIDENCE RECORDS
 	// =============================================================================
-	CreateEvidenceRecord(ctx context.Context, arg CreateEvidenceRecordParams) (CreateEvidenceRecordRow, error)
+	CreateEvidenceRecord(ctx context.Context, arg CreateEvidenceRecordParams) (EvidenceRecord, error)
 	CreateFreightAuditLog(ctx context.Context, arg CreateFreightAuditLogParams) error
 	CreateFreightCharge(ctx context.Context, arg CreateFreightChargeParams) (FreightCharge, error)
 	// =============================================================================
@@ -100,19 +106,19 @@ type Querier interface {
 	// =============================================================================
 	// QUALITY CAPAs
 	// =============================================================================
-	CreateQualityCAPA(ctx context.Context, arg CreateQualityCAPAParams) (CreateQualityCAPARow, error)
+	CreateQualityCAPA(ctx context.Context, arg CreateQualityCAPAParams) (QualityCapa, error)
 	// =============================================================================
 	// QUALITY HOLDS
 	// =============================================================================
-	CreateQualityHold(ctx context.Context, arg CreateQualityHoldParams) (CreateQualityHoldRow, error)
+	CreateQualityHold(ctx context.Context, arg CreateQualityHoldParams) (QualityHold, error)
 	// =============================================================================
 	// QUALITY INSPECTIONS
 	// =============================================================================
-	CreateQualityInspection(ctx context.Context, arg CreateQualityInspectionParams) (CreateQualityInspectionRow, error)
+	CreateQualityInspection(ctx context.Context, arg CreateQualityInspectionParams) (QualityInspection, error)
 	// =============================================================================
 	// QUALITY NCRs
 	// =============================================================================
-	CreateQualityNCR(ctx context.Context, arg CreateQualityNCRParams) (CreateQualityNCRRow, error)
+	CreateQualityNCR(ctx context.Context, arg CreateQualityNCRParams) (QualityNcr, error)
 	CreateQuotation(ctx context.Context, arg CreateQuotationParams) (int64, error)
 	// Phase 6: Freight Finance SQL Queries
 	CreateRateCard(ctx context.Context, arg CreateRateCardParams) (RateCard, error)
@@ -122,11 +128,11 @@ type Querier interface {
 	// =============================================================================
 	// SIGNATURE CHALLENGES
 	// =============================================================================
-	CreateSignatureChallenge(ctx context.Context, arg CreateSignatureChallengeParams) (CreateSignatureChallengeRow, error)
+	CreateSignatureChallenge(ctx context.Context, arg CreateSignatureChallengeParams) (SignatureChallenge, error)
 	// =============================================================================
 	// SUBCONTRACT RECEIPTS
 	// =============================================================================
-	CreateSubcontractReceipt(ctx context.Context, arg CreateSubcontractReceiptParams) (CreateSubcontractReceiptRow, error)
+	CreateSubcontractReceipt(ctx context.Context, arg CreateSubcontractReceiptParams) (SubcontractReceipt, error)
 	CreateSupplier(ctx context.Context, arg CreateSupplierParams) (CreateSupplierRow, error)
 	// =============================================================================
 	// SUPPLIER CONTRACTS (Phase 3: Vendor Intelligence)
@@ -146,6 +152,9 @@ type Querier interface {
 	DeleteCompany(ctx context.Context, id int64) error
 	DeleteConsolBalances(ctx context.Context, arg DeleteConsolBalancesParams) error
 	DeleteContractPriceLines(ctx context.Context, contractID int64) error
+	DeleteDocument(ctx context.Context, id int64) error
+	DeleteDocumentACL(ctx context.Context, id int64) error
+	DeleteDocumentLink(ctx context.Context, id int64) error
 	DeleteLines(ctx context.Context, deliveryOrderID int64) error
 	DeleteProduct(ctx context.Context, id int64) error
 	DeleteQuotationLines(ctx context.Context, quotationID int64) error
@@ -188,7 +197,10 @@ type Querier interface {
 	GetAdjustment(ctx context.Context, id int64) (GetAdjustmentRow, error)
 	GetAdjustmentLines(ctx context.Context, adjustmentID int64) ([]GetAdjustmentLinesRow, error)
 	GetApplicableRateCard(ctx context.Context, arg GetApplicableRateCardParams) (RateCard, error)
-	GetAuditEvent(ctx context.Context, id int64) (GetAuditEventRow, error)
+	GetAsset(ctx context.Context, id int64) (GetAssetRow, error)
+	GetAudit(ctx context.Context, id int64) (Audit, error)
+	GetAuditEvent(ctx context.Context, id int64) (AuditEvent, error)
+	GetAuditFinding(ctx context.Context, id int64) (AuditFinding, error)
 	GetBalanceForUpdate(ctx context.Context, arg GetBalanceForUpdateParams) (InventoryBalance, error)
 	GetBankAccount(ctx context.Context, id int64) (BankAccount, error)
 	GetBankStatement(ctx context.Context, id int64) (BankStatement, error)
@@ -202,13 +214,14 @@ type Querier interface {
 	GetBudget(ctx context.Context, arg GetBudgetParams) (AccountingBudget, error)
 	GetByDocNumber(ctx context.Context, arg GetByDocNumberParams) (DeliveryOrder, error)
 	GetByID(ctx context.Context, id int64) (DeliveryOrder, error)
+	GetCAPA(ctx context.Context, id int64) (Capa, error)
 	// =============================================================================
 	// CATEGORIES (id, code, name, created_at, updated_at, parent_id nullable)
 	// =============================================================================
 	GetCategory(ctx context.Context, id int64) (GetCategoryRow, error)
 	GetCompany(ctx context.Context, id int64) (GetCompanyRow, error)
-	GetComplianceDecision(ctx context.Context, id int64) (GetComplianceDecisionRow, error)
-	GetComplianceDecisionByUUID(ctx context.Context, decisionID pgtype.UUID) (GetComplianceDecisionByUUIDRow, error)
+	GetComplianceDecision(ctx context.Context, id int64) (ComplianceDecision, error)
+	GetComplianceDecisionByUUID(ctx context.Context, decisionID pgtype.UUID) (ComplianceDecision, error)
 	GetContractPriceLineForProduct(ctx context.Context, arg GetContractPriceLineForProductParams) (ContractPriceLine, error)
 	GetContractPriceLines(ctx context.Context, contractID int64) ([]ContractPriceLine, error)
 	// =============================================================================
@@ -216,8 +229,19 @@ type Querier interface {
 	// =============================================================================
 	GetCustomer(ctx context.Context, id int64) (Customer, error)
 	GetCustomerByCode(ctx context.Context, arg GetCustomerByCodeParams) (Customer, error)
+	GetCustomerComplaint(ctx context.Context, id int64) (GetCustomerComplaintRow, error)
+	GetDefaultNumberingRule(ctx context.Context, companyID int64) (DocumentNumberingRule, error)
 	GetDeliverableSOLines(ctx context.Context, salesOrderID int64) ([]GetDeliverableSOLinesRow, error)
-	GetEvidenceRecordsForDecision(ctx context.Context, decisionID int64) ([]GetEvidenceRecordsForDecisionRow, error)
+	GetDocument(ctx context.Context, id int64) (GetDocumentRow, error)
+	GetDocumentCategory(ctx context.Context, id int64) (DocumentCategory, error)
+	GetDocumentClassification(ctx context.Context, id int64) (DocumentClassification, error)
+	// =============================================================================
+	// DOCUMENT REVIEW STEPS
+	// =============================================================================
+	GetDocumentReviewStepsForDocument(ctx context.Context, documentID int64) ([]DocumentReviewStep, error)
+	GetDocumentSignatureChallenge(ctx context.Context, challengeID pgtype.UUID) (GetDocumentSignatureChallengeRow, error)
+	GetDocumentVersion(ctx context.Context, id int64) (GetDocumentVersionRow, error)
+	GetEvidenceRecordsForDecision(ctx context.Context, decisionID int64) ([]EvidenceRecord, error)
 	GetFreightCharge(ctx context.Context, arg GetFreightChargeParams) (FreightCharge, error)
 	GetGRN(ctx context.Context, id int64) (GetGRNRow, error)
 	// =============================================================================
@@ -231,15 +255,26 @@ type Querier interface {
 	GetInvoiceBalance(ctx context.Context, id int64) (GetInvoiceBalanceRow, error)
 	GetLandedCost(ctx context.Context, arg GetLandedCostParams) (LandedCost, error)
 	GetLandedCostByShipment(ctx context.Context, arg GetLandedCostByShipmentParams) (LandedCost, error)
+	GetLatestDocumentVersion(ctx context.Context, documentID int64) (GetLatestDocumentVersionRow, error)
 	GetLatestSupplierScorecard(ctx context.Context, arg GetLatestSupplierScorecardParams) (SupplierScorecard, error)
 	GetLines(ctx context.Context, deliveryOrderID int64) ([]DeliveryOrderLine, error)
 	GetLinesWithDetails(ctx context.Context, deliveryOrderID int64) ([]GetLinesWithDetailsRow, error)
+	GetLocation(ctx context.Context, id int64) (Location, error)
+	GetMeterReading(ctx context.Context, id int64) (MeterReading, error)
+	GetNCR(ctx context.Context, id int64) (Ncr, error)
+	GetNCRDisposition(ctx context.Context, ncrID int64) (NcrDisposition, error)
+	GetNumberingRuleForCategory(ctx context.Context, arg GetNumberingRuleForCategoryParams) (DocumentNumberingRule, error)
 	GetOpenPeriodByDate(ctx context.Context, startDate pgtype.Date) (Period, error)
+	GetPMSchedule(ctx context.Context, id int64) (GetPMScheduleRow, error)
 	GetPO(ctx context.Context, id int64) (GetPORow, error)
 	GetPOLines(ctx context.Context, poID int64) ([]GetPOLinesRow, error)
 	GetPOVariance(ctx context.Context, id int64) (PoContractVariance, error)
 	GetPR(ctx context.Context, id int64) (GetPRRow, error)
 	GetPRLines(ctx context.Context, prID int64) ([]PrLine, error)
+	// =============================================================================
+	// DISPOSITION REQUESTS
+	// =============================================================================
+	GetPendingDispositions(ctx context.Context) ([]DispositionRequest, error)
 	GetPeriod(ctx context.Context, id int64) (GetPeriodRow, error)
 	GetPriceHistoryBySource(ctx context.Context, arg GetPriceHistoryBySourceParams) ([]PriceHistory, error)
 	// =============================================================================
@@ -247,10 +282,14 @@ type Querier interface {
 	// Note: uses 'sku' instead of 'code', no 'cost', no created/updated_at
 	// =============================================================================
 	GetProduct(ctx context.Context, id int64) (GetProductRow, error)
-	GetQualityCAPA(ctx context.Context, id int64) (GetQualityCAPARow, error)
-	GetQualityHold(ctx context.Context, id int64) (GetQualityHoldRow, error)
-	GetQualityInspection(ctx context.Context, id int64) (GetQualityInspectionRow, error)
-	GetQualityNCR(ctx context.Context, id int64) (GetQualityNCRRow, error)
+	GetQMSInspection(ctx context.Context, id int64) (GetQMSInspectionRow, error)
+	GetQMSInspectionPlan(ctx context.Context, id int64) (QmsInspectionPlan, error)
+	GetQualityCAPA(ctx context.Context, id int64) (QualityCapa, error)
+	GetQualityHold(ctx context.Context, id int64) (QualityHold, error)
+	GetQualityInspection(ctx context.Context, id int64) (QualityInspection, error)
+	GetQualityNCR(ctx context.Context, id int64) (QualityNcr, error)
+	GetQualityObjective(ctx context.Context, id int64) (QualityObjective, error)
+	GetQualityObjectiveMeasurement(ctx context.Context, id int64) (QualityObjectiveMeasurement, error)
 	// =============================================================================
 	// QUOTATIONS
 	// =============================================================================
@@ -268,21 +307,30 @@ type Querier interface {
 	GetSalesOrderByDocNumber(ctx context.Context, docNumber string) (SalesOrder, error)
 	GetSalesOrderDetails(ctx context.Context, id int64) (GetSalesOrderDetailsRow, error)
 	GetSalesOrderLines(ctx context.Context, salesOrderID int64) ([]GetSalesOrderLinesRow, error)
-	GetSignatureChallenge(ctx context.Context, challengeID pgtype.UUID) (GetSignatureChallengeRow, error)
+	GetSignatureChallenge(ctx context.Context, challengeID pgtype.UUID) (SignatureChallenge, error)
 	GetSnapshot(ctx context.Context, id int64) (GetSnapshotRow, error)
+	GetSparePart(ctx context.Context, id int64) (SparePart, error)
 	GetStockBalance(ctx context.Context, arg GetStockBalanceParams) (InventoryBalance, error)
 	GetStockCard(ctx context.Context, arg GetStockCardParams) ([]GetStockCardRow, error)
 	GetStockTake(ctx context.Context, id int64) (GetStockTakeRow, error)
 	GetStockTakeLines(ctx context.Context, stockTakeID int64) ([]GetStockTakeLinesRow, error)
 	GetStockValuation(ctx context.Context, warehouseID int64) ([]GetStockValuationRow, error)
-	GetSubcontractReceipt(ctx context.Context, id int64) (GetSubcontractReceiptRow, error)
+	// =============================================================================
+	// STORAGE BLOBS
+	// =============================================================================
+	GetStorageBlob(ctx context.Context, id int64) (StorageBlob, error)
+	GetSubcontractReceipt(ctx context.Context, id int64) (SubcontractReceipt, error)
 	// =============================================================================
 	// SUPPLIERS (id, code, name, phone, email, address, is_active) - no timestamps
 	// =============================================================================
 	GetSupplier(ctx context.Context, id int64) (GetSupplierRow, error)
+	GetSupplierAudit(ctx context.Context, id int64) (SupplierAudit, error)
 	GetSupplierContract(ctx context.Context, id int64) (SupplierContract, error)
 	GetSupplierContractByVersion(ctx context.Context, arg GetSupplierContractByVersionParams) (SupplierContract, error)
+	GetSupplierQuality(ctx context.Context, id int64) (SupplierQuality, error)
+	GetSupplierQualityBySupplier(ctx context.Context, arg GetSupplierQualityBySupplierParams) (SupplierQuality, error)
 	GetSupplierScorecard(ctx context.Context, id int64) (SupplierScorecard, error)
+	GetTaskTemplate(ctx context.Context, id int64) (TaskTemplate, error)
 	// =============================================================================
 	// TAXES (id, code, name, rate) - no timestamps in schema
 	// =============================================================================
@@ -292,16 +340,42 @@ type Querier interface {
 	// UNITS (id, code, name, created_at, updated_at)
 	// =============================================================================
 	GetUnit(ctx context.Context, id int64) (Unit, error)
+	GetUnpublishedOutboxEvents(ctx context.Context, arg GetUnpublishedOutboxEventsParams) ([]OutboxEvent, error)
+	// =============================================================================
+	// USER ROLES (for ACL checking)
+	// =============================================================================
+	GetUserRoles(ctx context.Context, userID int64) ([]int64, error)
 	GetVarianceSnapshot(ctx context.Context, id int64) (GetVarianceSnapshotRow, error)
 	// =============================================================================
 	// WAREHOUSES (id, branch_id, code, name, address, created_at, updated_at)
 	// =============================================================================
 	GetWarehouse(ctx context.Context, id int64) (Warehouse, error)
 	GetWithDetails(ctx context.Context, id int64) (GetWithDetailsRow, error)
+	GetWorkOrder(ctx context.Context, id int64) (GetWorkOrderRow, error)
+	GetWorkOrderSparePart(ctx context.Context, id int64) (WorkOrderSparePart, error)
+	GetWorkOrderTask(ctx context.Context, id int64) (WorkOrderTask, error)
+	HasActiveLegalHold(ctx context.Context, companyID int64) (bool, error)
+	IncrementNumberingSequence(ctx context.Context, id int64) error
 	InsertAccountingPeriod(ctx context.Context, arg InsertAccountingPeriodParams) (int64, error)
 	InsertAdjustment(ctx context.Context, arg InsertAdjustmentParams) (int64, error)
 	InsertAdjustmentLine(ctx context.Context, arg InsertAdjustmentLineParams) error
+	// =============================================================================
+	// ASSETS
+	// =============================================================================
+	InsertAsset(ctx context.Context, arg InsertAssetParams) (int64, error)
+	// =============================================================================
+	// AUDITS
+	// =============================================================================
+	InsertAudit(ctx context.Context, arg InsertAuditParams) (int64, error)
+	// =============================================================================
+	// AUDIT FINDINGS
+	// =============================================================================
+	InsertAuditFinding(ctx context.Context, arg InsertAuditFindingParams) (int64, error)
 	InsertBoardPack(ctx context.Context, arg InsertBoardPackParams) (int64, error)
+	// =============================================================================
+	// CORRECTIVE ACTIONS (CAPA)
+	// =============================================================================
+	InsertCAPA(ctx context.Context, arg InsertCAPAParams) (int64, error)
 	InsertCardEntry(ctx context.Context, arg InsertCardEntryParams) error
 	InsertChecklistItem(ctx context.Context, arg InsertChecklistItemParams) (PeriodCloseChecklistItem, error)
 	InsertCloseRun(ctx context.Context, arg InsertCloseRunParams) (InsertCloseRunRow, error)
@@ -309,20 +383,145 @@ type Querier interface {
 	// CONTRACT PRICE LINES
 	// =============================================================================
 	InsertContractPriceLine(ctx context.Context, arg InsertContractPriceLineParams) error
+	// =============================================================================
+	// CUSTOMER COMPLAINTS
+	// =============================================================================
+	InsertCustomerComplaint(ctx context.Context, arg InsertCustomerComplaintParams) (int64, error)
+	// =============================================================================
+	// DOCUMENTS
+	// =============================================================================
+	InsertDocument(ctx context.Context, arg InsertDocumentParams) (int64, error)
+	// =============================================================================
+	// DOCUMENT ACLS
+	// =============================================================================
+	InsertDocumentACL(ctx context.Context, arg InsertDocumentACLParams) (int64, error)
+	// =============================================================================
+	// DOCUMENT ACCESS EVENTS
+	// =============================================================================
+	InsertDocumentAccessEvent(ctx context.Context, arg InsertDocumentAccessEventParams) error
+	InsertDocumentCategory(ctx context.Context, arg InsertDocumentCategoryParams) (DocumentCategory, error)
+	// =============================================================================
+	// DOCUMENT LINKS
+	// =============================================================================
+	InsertDocumentLink(ctx context.Context, arg InsertDocumentLinkParams) (int64, error)
+	// =============================================================================
+	// DOCUMENT RETENTION
+	// =============================================================================
+	InsertDocumentRetention(ctx context.Context, arg InsertDocumentRetentionParams) error
+	InsertDocumentReviewStep(ctx context.Context, arg InsertDocumentReviewStepParams) error
+	InsertDocumentSignature(ctx context.Context, arg InsertDocumentSignatureParams) (DocumentSignature, error)
+	// =============================================================================
+	// DOCUMENT SIGNATURES
+	// =============================================================================
+	InsertDocumentSignatureChallenge(ctx context.Context, arg InsertDocumentSignatureChallengeParams) (pgtype.UUID, error)
+	// =============================================================================
+	// DOCUMENT VERSIONS
+	// =============================================================================
+	InsertDocumentVersion(ctx context.Context, arg InsertDocumentVersionParams) (int64, error)
 	InsertGRNLine(ctx context.Context, arg InsertGRNLineParams) error
+	// =============================================================================
+	// LEGAL HOLDS
+	// =============================================================================
+	InsertLegalHold(ctx context.Context, arg InsertLegalHoldParams) (int64, error)
 	InsertLine(ctx context.Context, arg InsertLineParams) (int64, error)
+	// =============================================================================
+	// LOCATIONS
+	// =============================================================================
+	InsertLocation(ctx context.Context, arg InsertLocationParams) (int64, error)
+	// =============================================================================
+	// METER READINGS
+	// =============================================================================
+	InsertMeterReading(ctx context.Context, arg InsertMeterReadingParams) (int64, error)
+	// =============================================================================
+	// QMS NON-CONFORMANCE REPORTS
+	// =============================================================================
+	InsertNCR(ctx context.Context, arg InsertNCRParams) (int64, error)
+	// =============================================================================
+	// NCR DISPOSITIONS
+	// =============================================================================
+	InsertNCRDisposition(ctx context.Context, arg InsertNCRDispositionParams) (int64, error)
+	// =============================================================================
+	// CROSS-MODULE OUTBOX EVENTS
+	// =============================================================================
+	InsertOutboxEvent(ctx context.Context, arg InsertOutboxEventParams) (int64, error)
+	// =============================================================================
+	// PREVENTIVE MAINTENANCE SCHEDULES
+	// =============================================================================
+	InsertPMSchedule(ctx context.Context, arg InsertPMScheduleParams) (int64, error)
 	InsertPOLine(ctx context.Context, arg InsertPOLineParams) error
 	InsertPRLine(ctx context.Context, arg InsertPRLineParams) error
 	InsertPeriodLegacy(ctx context.Context, arg InsertPeriodLegacyParams) (InsertPeriodLegacyRow, error)
+	// =============================================================================
+	// QMS HOLDS
+	// =============================================================================
+	InsertQMSHold(ctx context.Context, arg InsertQMSHoldParams) (int64, error)
+	// =============================================================================
+	// QMS INSPECTIONS
+	// =============================================================================
+	InsertQMSInspection(ctx context.Context, arg InsertQMSInspectionParams) (int64, error)
+	// =============================================================================
+	// QMS INSPECTION PLANS
+	// =============================================================================
+	InsertQMSInspectionPlan(ctx context.Context, arg InsertQMSInspectionPlanParams) (int64, error)
+	// =============================================================================
+	// QMS INSPECTION RESULTS
+	// =============================================================================
+	InsertQMSInspectionResult(ctx context.Context, arg InsertQMSInspectionResultParams) (int64, error)
+	// =============================================================================
+	// QUALITY OBJECTIVES
+	// =============================================================================
+	InsertQualityObjective(ctx context.Context, arg InsertQualityObjectiveParams) (int64, error)
+	// =============================================================================
+	// QUALITY OBJECTIVE MEASUREMENTS
+	// =============================================================================
+	InsertQualityObjectiveMeasurement(ctx context.Context, arg InsertQualityObjectiveMeasurementParams) (int64, error)
 	InsertQuotationLine(ctx context.Context, arg InsertQuotationLineParams) (int64, error)
+	// =============================================================================
+	// DOCUMENT REVIEW DECISIONS
+	// =============================================================================
+	InsertReviewDecision(ctx context.Context, arg InsertReviewDecisionParams) (int64, error)
 	InsertRun(ctx context.Context, arg InsertRunParams) (EliminationRun, error)
 	InsertSalesOrderLine(ctx context.Context, arg InsertSalesOrderLineParams) (int64, error)
 	InsertSnapshot(ctx context.Context, arg InsertSnapshotParams) (VarianceSnapshot, error)
+	// =============================================================================
+	// SPARE PARTS
+	// =============================================================================
+	InsertSparePart(ctx context.Context, arg InsertSparePartParams) (int64, error)
 	InsertStockTake(ctx context.Context, arg InsertStockTakeParams) (int64, error)
 	InsertStockTakeLine(ctx context.Context, arg InsertStockTakeLineParams) error
+	InsertStorageBlob(ctx context.Context, arg InsertStorageBlobParams) (int64, error)
+	// =============================================================================
+	// SUPPLIER AUDITS
+	// =============================================================================
+	InsertSupplierAudit(ctx context.Context, arg InsertSupplierAuditParams) (int64, error)
+	// =============================================================================
+	// SUPPLIER QUALITY
+	// =============================================================================
+	InsertSupplierQuality(ctx context.Context, arg InsertSupplierQualityParams) (int64, error)
+	// =============================================================================
+	// TASK TEMPLATES
+	// =============================================================================
+	InsertTaskTemplate(ctx context.Context, arg InsertTaskTemplateParams) (int64, error)
+	// =============================================================================
+	// TASK TEMPLATE STEPS
+	// =============================================================================
+	InsertTaskTemplateStep(ctx context.Context, arg InsertTaskTemplateStepParams) error
 	InsertTransaction(ctx context.Context, arg InsertTransactionParams) (int64, error)
 	InsertTransactionLine(ctx context.Context, arg InsertTransactionLineParams) error
+	// =============================================================================
+	// CMMS WORK ORDERS
+	// =============================================================================
+	InsertWorkOrder(ctx context.Context, arg InsertWorkOrderParams) (int64, error)
+	// =============================================================================
+	// WORK ORDER SPARE PARTS
+	// =============================================================================
+	InsertWorkOrderSparePart(ctx context.Context, arg InsertWorkOrderSparePartParams) (int64, error)
+	// =============================================================================
+	// WORK ORDER TASKS
+	// =============================================================================
+	InsertWorkOrderTask(ctx context.Context, arg InsertWorkOrderTaskParams) (int64, error)
 	IsAPPaymentPosted(ctx context.Context, arg IsAPPaymentPostedParams) (bool, error)
+	IssueWorkOrderSparePart(ctx context.Context, arg IssueWorkOrderSparePartParams) error
 	KpiSummary(ctx context.Context, arg KpiSummaryParams) (KpiSummaryRow, error)
 	ListAPDebitNoteAllocations(ctx context.Context, apDebitNoteID int64) ([]ApDebitNoteAllocation, error)
 	ListAPDebitNoteLines(ctx context.Context, apDebitNoteID int64) ([]ApDebitNoteLine, error)
@@ -344,8 +543,12 @@ type Querier interface {
 	ListARPayments(ctx context.Context) ([]ListARPaymentsRow, error)
 	ListActiveContractsBySupplier(ctx context.Context, arg ListActiveContractsBySupplierParams) ([]SupplierContract, error)
 	ListAdjustments(ctx context.Context) ([]ListAdjustmentsRow, error)
-	ListAuditEventsByCompany(ctx context.Context, arg ListAuditEventsByCompanyParams) ([]ListAuditEventsByCompanyRow, error)
-	ListAuditEventsByCorrelation(ctx context.Context, correlationID pgtype.UUID) ([]ListAuditEventsByCorrelationRow, error)
+	ListAllDuePMSchedules(ctx context.Context) ([]ListAllDuePMSchedulesRow, error)
+	ListAssets(ctx context.Context, arg ListAssetsParams) ([]ListAssetsRow, error)
+	ListAuditEventsByCompany(ctx context.Context, arg ListAuditEventsByCompanyParams) ([]AuditEvent, error)
+	ListAuditEventsByCorrelation(ctx context.Context, correlationID pgtype.UUID) ([]AuditEvent, error)
+	ListAuditFindings(ctx context.Context, auditID int64) ([]AuditFinding, error)
+	ListAudits(ctx context.Context, arg ListAuditsParams) ([]Audit, error)
 	ListBankAccounts(ctx context.Context, companyID int64) ([]BankAccount, error)
 	ListBankStatementLines(ctx context.Context, statementID int64) ([]BankStatementLine, error)
 	ListBankStatements(ctx context.Context, arg ListBankStatementsParams) ([]BankStatement, error)
@@ -353,22 +556,45 @@ type Querier interface {
 	ListBoardPacks(ctx context.Context, arg ListBoardPacksParams) ([]ListBoardPacksRow, error)
 	ListBudgetsByPeriod(ctx context.Context, arg ListBudgetsByPeriodParams) ([]AccountingBudget, error)
 	ListBudgetsByYear(ctx context.Context, periodYear int32) ([]AccountingBudget, error)
-	ListCAPAsByCompany(ctx context.Context, companyID int64) ([]ListCAPAsByCompanyRow, error)
+	ListCAPAs(ctx context.Context, arg ListCAPAsParams) ([]Capa, error)
+	ListCAPAsByCompany(ctx context.Context, companyID int64) ([]QualityCapa, error)
 	ListChecklistItems(ctx context.Context, periodCloseRunID int64) ([]PeriodCloseChecklistItem, error)
 	ListCompanies(ctx context.Context) ([]ListCompaniesRow, error)
-	ListDecisionsByCompany(ctx context.Context, arg ListDecisionsByCompanyParams) ([]ListDecisionsByCompanyRow, error)
-	ListDecisionsByRecord(ctx context.Context, arg ListDecisionsByRecordParams) ([]ListDecisionsByRecordRow, error)
-	ListExpiredChallenges(ctx context.Context, limit int32) ([]ListExpiredChallengesRow, error)
+	ListCustomerComplaints(ctx context.Context, arg ListCustomerComplaintsParams) ([]ListCustomerComplaintsRow, error)
+	ListDecisionsByCompany(ctx context.Context, arg ListDecisionsByCompanyParams) ([]ComplianceDecision, error)
+	ListDecisionsByRecord(ctx context.Context, arg ListDecisionsByRecordParams) ([]ComplianceDecision, error)
+	ListDocumentACLs(ctx context.Context, arg ListDocumentACLsParams) ([]DocumentAcl, error)
+	// =============================================================================
+	// DOCUMENT CATEGORIES
+	// =============================================================================
+	ListDocumentCategories(ctx context.Context, companyID int64) ([]DocumentCategory, error)
+	// =============================================================================
+	// DOCUMENT CLASSIFICATIONS
+	// =============================================================================
+	ListDocumentClassifications(ctx context.Context) ([]DocumentClassification, error)
+	ListDocumentLinks(ctx context.Context, documentVersionID int64) ([]DocumentLink, error)
+	// =============================================================================
+	// DOCUMENT NUMBERING RULES
+	// =============================================================================
+	ListDocumentNumberingRules(ctx context.Context, companyID int64) ([]DocumentNumberingRule, error)
+	ListDocumentVersions(ctx context.Context, arg ListDocumentVersionsParams) ([]ListDocumentVersionsRow, error)
+	ListDocuments(ctx context.Context, arg ListDocumentsParams) ([]ListDocumentsRow, error)
+	ListDuePMSchedules(ctx context.Context, companyID int64) ([]ListDuePMSchedulesRow, error)
+	ListExpiredChallenges(ctx context.Context, limit int32) ([]SignatureChallenge, error)
 	ListFreightAuditLogs(ctx context.Context, arg ListFreightAuditLogsParams) ([]FreightAuditLog, error)
 	ListFreightCharges(ctx context.Context, arg ListFreightChargesParams) ([]FreightCharge, error)
 	ListGoodsReturnGRNLines(ctx context.Context, goodsReturnGrnID int64) ([]GoodsReturnGrnLine, error)
 	ListGoodsReturnGRNs(ctx context.Context) ([]GoodsReturnGrn, error)
 	ListGroupIDs(ctx context.Context) ([]int64, error)
-	ListInspectionsByWorkOrder(ctx context.Context, workOrderID pgtype.Int8) ([]ListInspectionsByWorkOrderRow, error)
+	ListInspectionsByWorkOrder(ctx context.Context, workOrderID pgtype.Int8) ([]QualityInspection, error)
 	ListInvoicePayments(ctx context.Context, arInvoiceID int64) ([]ListInvoicePaymentsRow, error)
 	ListLandedCosts(ctx context.Context, arg ListLandedCostsParams) ([]LandedCost, error)
-	ListNCRsByCompany(ctx context.Context, companyID int64) ([]ListNCRsByCompanyRow, error)
-	ListOpenHolds(ctx context.Context, companyID int64) ([]ListOpenHoldsRow, error)
+	ListLocations(ctx context.Context, companyID int64) ([]Location, error)
+	ListMeterReadings(ctx context.Context, arg ListMeterReadingsParams) ([]MeterReading, error)
+	ListNCRs(ctx context.Context, arg ListNCRsParams) ([]Ncr, error)
+	ListNCRsByCompany(ctx context.Context, companyID int64) ([]QualityNcr, error)
+	ListOpenHolds(ctx context.Context, companyID int64) ([]QualityHold, error)
+	ListPMSchedules(ctx context.Context, assetID int64) ([]ListPMSchedulesRow, error)
 	ListPOVariancesByPO(ctx context.Context, poID int64) ([]PoContractVariance, error)
 	ListPaymentAllocations(ctx context.Context, arPaymentID int64) ([]ListPaymentAllocationsRow, error)
 	ListPendingVariances(ctx context.Context, companyID int64) ([]PoContractVariance, error)
@@ -377,19 +603,32 @@ type Querier interface {
 	ListPoliciesByCompany(ctx context.Context, companyID int64) ([]PolicyVersion, error)
 	ListPriceHistoryBySupplierProduct(ctx context.Context, arg ListPriceHistoryBySupplierProductParams) ([]PriceHistory, error)
 	ListPriceHistoryTrend(ctx context.Context, arg ListPriceHistoryTrendParams) ([]ListPriceHistoryTrendRow, error)
+	ListQMSHolds(ctx context.Context, arg ListQMSHoldsParams) ([]QmsHold, error)
+	ListQMSInspectionResults(ctx context.Context, inspectionID int64) ([]ListQMSInspectionResultsRow, error)
+	ListQMSInspections(ctx context.Context, arg ListQMSInspectionsParams) ([]ListQMSInspectionsRow, error)
+	ListQualityObjectiveMeasurements(ctx context.Context, arg ListQualityObjectiveMeasurementsParams) ([]QualityObjectiveMeasurement, error)
+	ListQualityObjectives(ctx context.Context, arg ListQualityObjectivesParams) ([]QualityObjective, error)
 	ListRateCards(ctx context.Context, arg ListRateCardsParams) ([]RateCard, error)
 	ListRateSurcharges(ctx context.Context, rateCardID int64) ([]RateSurcharge, error)
 	ListRecentPeriods(ctx context.Context, arg ListRecentPeriodsParams) ([]ListRecentPeriodsRow, error)
 	ListRolePermissions(ctx context.Context, roleID int64) ([]Permission, error)
 	ListRuns(ctx context.Context, arg ListRunsParams) ([]ListRunsRow, error)
 	ListSnapshots(ctx context.Context, arg ListSnapshotsParams) ([]ListSnapshotsRow, error)
+	ListSpareParts(ctx context.Context, companyID int64) ([]SparePart, error)
 	ListStockTakes(ctx context.Context) ([]ListStockTakesRow, error)
-	ListSubcontractsByWorkOrder(ctx context.Context, workOrderID int64) ([]ListSubcontractsByWorkOrderRow, error)
+	ListSubcontractsByWorkOrder(ctx context.Context, workOrderID int64) ([]SubcontractReceipt, error)
+	ListSupplierAudits(ctx context.Context, arg ListSupplierAuditsParams) ([]SupplierAudit, error)
 	ListSupplierContracts(ctx context.Context, companyID int64) ([]SupplierContract, error)
+	ListSupplierQuality(ctx context.Context, arg ListSupplierQualityParams) ([]SupplierQuality, error)
 	ListSupplierScorecards(ctx context.Context, arg ListSupplierScorecardsParams) ([]SupplierScorecard, error)
+	ListTaskTemplateSteps(ctx context.Context, taskTemplateID int64) ([]TaskTemplateStep, error)
+	ListTaskTemplates(ctx context.Context, companyID int64) ([]TaskTemplate, error)
 	ListTemplates(ctx context.Context, dollar_1 bool) ([]ListTemplatesRow, error)
 	ListUsers(ctx context.Context) ([]ListUsersRow, error)
 	ListVarianceSnapshots(ctx context.Context, arg ListVarianceSnapshotsParams) ([]ListVarianceSnapshotsRow, error)
+	ListWorkOrderSpareParts(ctx context.Context, workOrderID int64) ([]WorkOrderSparePart, error)
+	ListWorkOrderTasks(ctx context.Context, workOrderID int64) ([]WorkOrderTask, error)
+	ListWorkOrders(ctx context.Context, arg ListWorkOrdersParams) ([]ListWorkOrdersRow, error)
 	LoadCloseRun(ctx context.Context, id int64) (LoadCloseRunRow, error)
 	LoadCloseRunForUpdate(ctx context.Context, id int64) (LoadCloseRunForUpdateRow, error)
 	LoadPayload(ctx context.Context, id int64) ([]byte, error)
@@ -401,6 +640,8 @@ type Querier interface {
 	MarkChallengeUsed(ctx context.Context, id int64) error
 	MarkFailed(ctx context.Context, arg MarkFailedParams) error
 	MarkInProgress(ctx context.Context, id int64) error
+	MarkOutboxEventFailed(ctx context.Context, arg MarkOutboxEventFailedParams) error
+	MarkOutboxEventPublished(ctx context.Context, id int64) error
 	MarkReady(ctx context.Context, arg MarkReadyParams) error
 	MarkRunPosted(ctx context.Context, arg MarkRunPostedParams) error
 	// =============================================================================
@@ -419,6 +660,8 @@ type Querier interface {
 	PostAPInvoice(ctx context.Context, arg PostAPInvoiceParams) error
 	PostARInvoice(ctx context.Context, arg PostARInvoiceParams) error
 	PublishSupplierScorecard(ctx context.Context, arg PublishSupplierScorecardParams) error
+	QMSUpdateCAPAStatus(ctx context.Context, arg QMSUpdateCAPAStatusParams) error
+	QMSUpdateNCRStatus(ctx context.Context, arg QMSUpdateNCRStatusParams) error
 	RbacCreateRole(ctx context.Context, arg RbacCreateRoleParams) (Role, error)
 	RbacListRoles(ctx context.Context) ([]Role, error)
 	// =============================================================================
@@ -426,12 +669,15 @@ type Querier interface {
 	// =============================================================================
 	RecordPriceHistory(ctx context.Context, arg RecordPriceHistoryParams) (int64, error)
 	RejectPOVariance(ctx context.Context, arg RejectPOVarianceParams) error
+	ReleaseLegalHold(ctx context.Context, arg ReleaseLegalHoldParams) error
+	ReleaseQMSHold(ctx context.Context, arg ReleaseQMSHoldParams) error
 	RemoveRoleFromUser(ctx context.Context, arg RemoveRoleFromUserParams) error
 	RolesCreateRole(ctx context.Context, arg RolesCreateRoleParams) (Role, error)
 	RolesListRoles(ctx context.Context, arg RolesListRolesParams) ([]Role, error)
 	SavePayload(ctx context.Context, arg SavePayloadParams) error
 	SaveRunSimulation(ctx context.Context, arg SaveRunSimulationParams) error
 	SetContractExpiryNotificationSent(ctx context.Context, id int64) error
+	SetCurrentDocumentVersion(ctx context.Context, arg SetCurrentDocumentVersionParams) error
 	SetPOApproval(ctx context.Context, arg SetPOApprovalParams) error
 	SoftDeleteProduct(ctx context.Context, arg SoftDeleteProductParams) error
 	SumAccountBalance(ctx context.Context, arg SumAccountBalanceParams) (float64, error)
@@ -440,16 +686,25 @@ type Querier interface {
 	UpdateARStatus(ctx context.Context, arg UpdateARStatusParams) error
 	UpdateAccountingPeriodStatus(ctx context.Context, arg UpdateAccountingPeriodStatusParams) error
 	UpdateAdjustmentStatus(ctx context.Context, arg UpdateAdjustmentStatusParams) error
+	UpdateAsset(ctx context.Context, arg UpdateAssetParams) error
+	UpdateAudit(ctx context.Context, arg UpdateAuditParams) error
+	UpdateAuditFinding(ctx context.Context, arg UpdateAuditFindingParams) error
 	UpdateBankAccount(ctx context.Context, arg UpdateBankAccountParams) error
 	UpdateBankStatementLineStatus(ctx context.Context, arg UpdateBankStatementLineStatusParams) error
 	UpdateBankStatementStatus(ctx context.Context, arg UpdateBankStatementStatusParams) error
 	UpdateBankTransactionStatus(ctx context.Context, arg UpdateBankTransactionStatusParams) error
 	UpdateBranch(ctx context.Context, arg UpdateBranchParams) error
+	UpdateCAPA(ctx context.Context, arg UpdateCAPAParams) error
 	UpdateCAPAStatus(ctx context.Context, arg UpdateCAPAStatusParams) error
 	UpdateCategory(ctx context.Context, arg UpdateCategoryParams) error
 	UpdateChecklistStatus(ctx context.Context, arg UpdateChecklistStatusParams) (PeriodCloseChecklistItem, error)
 	UpdateCompany(ctx context.Context, arg UpdateCompanyParams) error
 	UpdateCustomer(ctx context.Context, arg UpdateCustomerParams) error
+	UpdateCustomerComplaint(ctx context.Context, arg UpdateCustomerComplaintParams) error
+	UpdateCustomerComplaintStatus(ctx context.Context, arg UpdateCustomerComplaintStatusParams) error
+	UpdateDispositionExecution(ctx context.Context, arg UpdateDispositionExecutionParams) error
+	UpdateDocument(ctx context.Context, arg UpdateDocumentParams) error
+	UpdateDocumentVersionStatus(ctx context.Context, arg UpdateDocumentVersionStatusParams) error
 	UpdateFreightCharge(ctx context.Context, arg UpdateFreightChargeParams) (FreightCharge, error)
 	UpdateFreightChargeStatus(ctx context.Context, arg UpdateFreightChargeStatusParams) error
 	UpdateGRNStatus(ctx context.Context, arg UpdateGRNStatusParams) error
@@ -458,13 +713,18 @@ type Querier interface {
 	UpdateInspectionStatus(ctx context.Context, arg UpdateInspectionStatusParams) error
 	UpdateLegacyPeriodStatus(ctx context.Context, arg UpdateLegacyPeriodStatusParams) error
 	UpdateLineQuantity(ctx context.Context, arg UpdateLineQuantityParams) error
+	UpdateNCR(ctx context.Context, arg UpdateNCRParams) error
 	UpdateNCRStatus(ctx context.Context, arg UpdateNCRStatusParams) error
+	UpdatePMScheduleNextDue(ctx context.Context, arg UpdatePMScheduleNextDueParams) error
 	UpdatePOStatus(ctx context.Context, arg UpdatePOStatusParams) error
 	UpdatePRStatus(ctx context.Context, arg UpdatePRStatusParams) error
 	UpdatePolicyStatus(ctx context.Context, arg UpdatePolicyStatusParams) error
 	UpdateProduct(ctx context.Context, arg UpdateProductParams) error
+	UpdateQMSInspectionStatus(ctx context.Context, arg UpdateQMSInspectionStatusParams) error
+	UpdateQualityObjective(ctx context.Context, arg UpdateQualityObjectiveParams) error
 	UpdateQuotationStatus(ctx context.Context, arg UpdateQuotationStatusParams) error
 	UpdateRateCard(ctx context.Context, arg UpdateRateCardParams) (RateCard, error)
+	UpdateReviewStepStatus(ctx context.Context, arg UpdateReviewStepStatusParams) error
 	UpdateRole(ctx context.Context, arg UpdateRoleParams) (Role, error)
 	UpdateRunStatus(ctx context.Context, arg UpdateRunStatusParams) error
 	UpdateSalesOrderLineDelivered(ctx context.Context, arg UpdateSalesOrderLineDeliveredParams) error
@@ -476,9 +736,13 @@ type Querier interface {
 	UpdateSubcontractReceiptStatus(ctx context.Context, arg UpdateSubcontractReceiptStatusParams) error
 	UpdateSupplier(ctx context.Context, arg UpdateSupplierParams) error
 	UpdateSupplierContractStatus(ctx context.Context, arg UpdateSupplierContractStatusParams) error
+	UpdateSupplierQuality(ctx context.Context, arg UpdateSupplierQualityParams) error
 	UpdateTax(ctx context.Context, arg UpdateTaxParams) error
 	UpdateUnit(ctx context.Context, arg UpdateUnitParams) error
 	UpdateWarehouse(ctx context.Context, arg UpdateWarehouseParams) error
+	UpdateWorkOrder(ctx context.Context, arg UpdateWorkOrderParams) error
+	UpdateWorkOrderStatus(ctx context.Context, arg UpdateWorkOrderStatusParams) error
+	UpdateWorkOrderTask(ctx context.Context, arg UpdateWorkOrderTaskParams) error
 	UpsertAdminUser(ctx context.Context, arg UpsertAdminUserParams) (int64, error)
 	UpsertBalance(ctx context.Context, arg UpsertBalanceParams) error
 	UpsertBudget(ctx context.Context, arg UpsertBudgetParams) (AccountingBudget, error)

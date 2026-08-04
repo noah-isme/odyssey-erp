@@ -29,6 +29,10 @@ DROP TABLE IF EXISTS planning_rules CASCADE;
 DROP TABLE IF EXISTS planning_horizons CASCADE;
 
 -- Remove RBAC permissions
-DELETE FROM rbac_permissions WHERE permission_code LIKE 'distribution.%';
+DELETE FROM role_permissions WHERE permission_id IN (
+    SELECT id FROM permissions WHERE name LIKE 'distribution.%'
+);
+
+DELETE FROM permissions WHERE name LIKE 'distribution.%';
 
 COMMIT;

@@ -1,0 +1,87 @@
+{{ define "content" }}
+
+
+<div class="container-fluid mt-4">
+  <div class="qms-header-capa d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h1 class="h3 mb-1 fw-bold text-dark">
+        <i class="bi bi-journal-medical me-2"></i> Corrective & Preventive Actions
+      </h1>
+      <p class="text-muted mb-0 small">Investigate root causes and implement permanent fixes via CAPAs.</p>
+    </div>
+    <a href="/qms/capas/new" class="qms-btn-capa text-decoration-none">
+      <i class="bi bi-plus-circle me-1"></i> Initiate CAPA
+    </a>
+  </div>
+
+  <div class="qms-card p-0 overflow-hidden mb-5">
+    <div class="table-responsive">
+      <table class="table qms-table mb-0 align-middle">
+        <thead>
+          <tr>
+            <th class="ps-4 py-3">CAPA Details</th>
+            <th class="py-3">Source</th>
+            <th class="py-3">Priority</th>
+            <th class="py-3">Target Date</th>
+            <th class="py-3">Status</th>
+            <th class="pe-4 py-3 text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{ if .CAPAs }}
+            {{ range .CAPAs }}
+            <tr>
+              <td class="ps-4 py-3">
+                <div class="d-flex align-items-center">
+                  <div class="rounded p-2 me-3">
+                    <i class="bi bi-shield-shaded"></i>
+                  </div>
+                  <div>
+                    <div class="fw-bold text-dark">{{ .Number }}</div>
+                    <div class="small text-muted text-truncate">{{ .Title }}</div>
+                  </div>
+                </div>
+              </td>
+              <td class="py-3">
+                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill px-2 py-1">
+                  {{ .SourceType }}
+                </span>
+              </td>
+              <td class="py-3">
+                <span class="qms-badge">{{ .Priority }}</span>
+              </td>
+              <td class="py-3 text-muted small">
+                {{ if .TargetDate }}
+                  <i class="bi bi-calendar3 me-1"></i>{{ .TargetDate.Format "Jan 02, 2006" }}
+                {{ else }}
+                  <span class="text-black-50">-</span>
+                {{ end }}
+              </td>
+              <td class="py-3">
+                <span class="badge bg-light text-dark border px-2 py-1 rounded-pill">{{ .Status }}</span>
+              </td>
+              <td class="pe-4 py-3 text-end">
+                <a href="/qms/capas/{{ .ID }}" class="btn btn-sm btn-light border shadow-sm rounded-pill px-3 fw-500 hover-lift">
+                  Track <i class="bi bi-arrow-right ms-1"></i>
+                </a>
+              </td>
+            </tr>
+            {{ end }}
+          {{ else }}
+            <tr>
+              <td colspan="6" class="text-center py-5">
+                <div class="text-muted mb-3">
+                  <i class="bi bi-journal-check fs-1 text-black-50"></i>
+                </div>
+                <h5 class="fw-bold text-dark">No Active CAPAs</h5>
+                <p class="text-muted small">Quality is under control. There are no CAPAs currently logged.</p>
+              </td>
+            </tr>
+          {{ end }}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{{ end }}

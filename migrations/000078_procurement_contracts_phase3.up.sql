@@ -126,15 +126,15 @@ CREATE INDEX idx_po_contract_variances_company ON po_contract_variances(company_
 -- Price history source references are immutable and audited via creation
 
 -- Permissions for Phase 3: Vendor Intelligence
-INSERT INTO permissions (module, action, description) VALUES
-    ('procurement.contract.create', 'Create supplier contracts', 'Create draft supplier contracts'),
-    ('procurement.contract.submit', 'Submit contracts for approval', 'Submit contracts to approval workflow'),
-    ('procurement.contract.approve', 'Approve supplier contracts', 'Approve contracts to activate'),
-    ('procurement.contract.terminate', 'Terminate contracts', 'Terminate active contracts'),
-    ('procurement.supplier_rating.view', 'View supplier ratings', 'View supplier performance scorecards'),
-    ('procurement.supplier_rating.create', 'Create supplier ratings', 'Create draft scorecards'),
-    ('procurement.supplier_rating.publish', 'Publish ratings', 'Publish supplier scorecards'),
-    ('procurement.price_history.view', 'View price history', 'View supplier/product price trends'),
-    ('procurement.variance.view', 'View PO variances', 'View contract variance exceptions'),
-    ('procurement.variance.approve', 'Approve PO variances', 'Approve variance exceptions')
-ON CONFLICT (module, action) DO NOTHING;
+INSERT INTO permissions (name, description) VALUES
+    ('procurement.contract.create', 'Create supplier contracts'),
+    ('procurement.contract.submit', 'Submit contracts for approval'),
+    ('procurement.contract.approve', 'Approve supplier contracts'),
+    ('procurement.contract.terminate', 'Terminate contracts'),
+    ('procurement.supplier_rating.view', 'View supplier ratings'),
+    ('procurement.supplier_rating.create', 'Create supplier ratings'),
+    ('procurement.supplier_rating.publish', 'Publish ratings'),
+    ('procurement.price_history.view', 'View price history'),
+    ('procurement.variance.view', 'View PO variances'),
+    ('procurement.variance.approve', 'Approve PO variances')
+ON CONFLICT (name) DO UPDATE SET description = EXCLUDED.description;

@@ -1,0 +1,43 @@
+{{ define "content" }}
+<div class="container-fluid mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 text-warning"><i class="bi bi-gear"></i> Spare Parts</h1>
+    <a href="/cmms/spare-parts/new" class="btn btn-warning shadow-sm"><i class="bi bi-plus"></i> Add Part</a>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-hover table-striped mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Code</th>
+            <th>Name</th>
+            <th>Category</th>
+            <th>Unit Cost</th>
+            <th>Critical</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{ if .Parts }}
+            {{ range .Parts }}
+            <tr>
+              <td><strong>{{ .Code }}</strong></td>
+              <td>{{ .Name }}</td>
+              <td>{{ .Category }}</td>
+              <td>${{ .UnitCost }}</td>
+              <td>{{ if .CriticalSpare }}<span class="badge bg-danger">Yes</span>{{ else }}No{{ end }}</td>
+              <td>
+                <button class="btn btn-sm btn-outline-warning">View</button>
+              </td>
+            </tr>
+            {{ end }}
+          {{ else }}
+            <tr><td colspan="6" class="text-center text-muted py-4">No spare parts found.</td></tr>
+          {{ end }}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{{ end }}
