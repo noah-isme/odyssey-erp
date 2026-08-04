@@ -232,6 +232,12 @@ func seedRBAC(ctx context.Context, pool *pgxpool.Pool) error {
 			description string
 		}{permission.Name, permission.Description})
 	}
+	for _, permission := range shared.CMMSQMSDocumentsPermissions {
+		perms = append(perms, struct {
+			name        string
+			description string
+		}{permission.Name, permission.Description})
+	}
 
 	tx, err := pool.Begin(ctx)
 	if err != nil {

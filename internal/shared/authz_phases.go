@@ -94,8 +94,11 @@ var Phase1To6Permissions = []PermissionSpec{
 // Phase1To6PermissionNames returns a copy so callers cannot mutate the
 // authoritative inventory accidentally.
 func Phase1To6PermissionNames() []string {
-	names := make([]string, 0, len(Phase1To6Permissions))
+	names := make([]string, 0, len(Phase1To6Permissions)+len(CMMSQMSDocumentsPermissions))
 	for _, permission := range Phase1To6Permissions {
+		names = append(names, permission.Name)
+	}
+	for _, permission := range CMMSQMSDocumentsPermissions {
 		names = append(names, permission.Name)
 	}
 	return names
