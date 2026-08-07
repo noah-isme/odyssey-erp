@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"reflect"
 	"time"
 
 	"github.com/google/uuid"
@@ -136,6 +137,42 @@ func NewEngine() (*Engine, error) {
 			}
 			return t.Format("02 Jan 2006")
 		},
+		
+		"val": func(v any) any {
+			if v == nil {
+				return nil
+			}
+			// actually let's use reflect
+			val := reflect.ValueOf(v)
+			if val.Kind() == reflect.Ptr {
+				if val.IsNil() {
+					return nil
+				}
+				return val.Elem().Interface()
+			}
+			return v
+		},
+		"eqStr": func(a, b any) bool {
+			valA := a
+			valB := b
+			
+			// Quick reflection to dereference
+			if a != nil {
+				va := reflect.ValueOf(a)
+				if va.Kind() == reflect.Ptr && !va.IsNil() {
+					valA = va.Elem().Interface()
+				}
+			}
+			if b != nil {
+				vb := reflect.ValueOf(b)
+				if vb.Kind() == reflect.Ptr && !vb.IsNil() {
+					valB = vb.Elem().Interface()
+				}
+			}
+			
+			return fmt.Sprintf("%v", valA) == fmt.Sprintf("%v", valB)
+		},
+
 		"deref": func(s *string) string {
 			if s == nil {
 				return ""

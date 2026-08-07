@@ -2,7 +2,9 @@ package ar
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strconv"
 	"time"
@@ -43,6 +45,9 @@ type RepositoryPort interface {
 	GeneratePaymentNumber(ctx context.Context) (string, error)
 	ListARPayments(ctx context.Context) ([]ARPayment, error)
 	ListInvoicePayments(ctx context.Context, invoiceID int64) ([]ARPaymentSummary, error)
+
+	// Integration operations
+	EnqueueConnectorCommand(ctx context.Context, companyID int64, connectionID int64, commandType string, correlationID string, payload []byte) error
 
 	// Aging operations
 	ListAROutstanding(ctx context.Context) ([]ARInvoice, error)
@@ -682,4 +687,48 @@ func (s *Service) CalculateARAging(ctx context.Context, asOf time.Time) (ARAging
 		}
 	}
 	return ARAgingBucket{Current: legacyFloat(current), Bucket30: legacyFloat(bucket30), Bucket60: legacyFloat(bucket60), Bucket90: legacyFloat(bucket90), Bucket120: legacyFloat(bucket120)}, nil
+}
+
+// InitiateOnlinePayment triggers an async payment via an external connector (e.g. Stripe)
+func (s *Service) InitiateOnlinePayment(ctx context.Context, input InitiateOnlinePaymentInput) error {
+	invoice, err := s.repo.GetARInvoice(ctx, input.InvoiceID)
+	if err != nil {
+		return err
+	}
+	if invoice == nil {
+		return ErrInvoiceNotFound
+	}
+	if invoice.Status != ARStatusPosted {
+		return ErrInvalidStatus
+	}
+
+	// Calculate remaining balance
+	_, _, balance, err := s.repo.GetInvoiceBalance(ctx, input.InvoiceID)
+	if err != nil {
+		return err
+	}
+	if balance <= 0 {
+		return errors.New("ar: invoice is already fully paid")
+	}
+
+	// Prepare payload for the connectors module (e.g., Stripe charge)
+	// We convert the float64 balance into integer cents/smallest-unit based on currency, assuming standard 2 decimals for now.
+	amountCents := int64(balance * 100)
+
+	payload := map[string]any{
+		"amount":      amountCents,
+		"currency":    invoice.Currency,
+		"source":      input.SourceToken,
+		"description": "Payment for Invoice " + invoice.Number,
+	}
+	
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	// Correlation ID binds the external event back to this AR invoice
+	correlationID := fmt.Sprintf("inv_%d_%d", invoice.ID, time.Now().Unix())
+
+	return s.repo.EnqueueConnectorCommand(ctx, input.CompanyID, input.ConnectionID, "payment.charge", correlationID, payloadBytes)
 }

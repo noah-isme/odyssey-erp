@@ -8,6 +8,8 @@ type User struct {
 	Email        string
 	PasswordHash string
 	IsActive     bool
+	MFAEnabled   bool
+	TOTPSecret   string
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }

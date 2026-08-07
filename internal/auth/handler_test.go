@@ -49,7 +49,7 @@ func newAuthHandler(t *testing.T, repo auth.Repository) (*auth.Handler, *shared.
 	if err != nil {
 		t.Fatalf("templates: %v", err)
 	}
-	handler := auth.NewHandler(nil, auth.NewService(repo), templates, sessionManager, csrfManager)
+	handler := auth.NewHandler(nil, auth.NewService(repo), templates, sessionManager, csrfManager, nil)
 	return handler, sessionManager, csrfManager
 }
 

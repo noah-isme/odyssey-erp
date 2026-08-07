@@ -209,5 +209,5 @@ During MRP→QMS migration:
 ## References
 - [ADR-001: Module Boundaries](./adr-001-module-boundaries.md)
 - [Threat Model](./threat-model-documents-cmms-qms.md)
-- [Missing Modules Plan](../archive/completed-../archive/completed-missing-modules-cmms-qms-documents-plan.md)
-- [RBAC Documentation](../../archive/phase9/RBAC_QUICK_START.md)
+- [Missing Modules Plan](../guides/cmms.md)
+- [RBAC Documentation](../reference/rbac.md)

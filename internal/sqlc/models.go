@@ -1544,6 +1544,58 @@ type ComplianceDecision struct {
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 }
 
+type ConnectorCanonicalEvent struct {
+	ID            int64              `json:"id"`
+	CompanyID     int64              `json:"company_id"`
+	ConnectionID  int64              `json:"connection_id"`
+	EventType     string             `json:"event_type"`
+	EventTime     pgtype.Timestamptz `json:"event_time"`
+	CorrelationID string             `json:"correlation_id"`
+	CausationID   string             `json:"causation_id"`
+	Payload       []byte             `json:"payload"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
+type ConnectorConnection struct {
+	ID          int64              `json:"id"`
+	CompanyID   int64              `json:"company_id"`
+	Provider    string             `json:"provider"`
+	Type        string             `json:"type"`
+	Name        string             `json:"name"`
+	SecretRef   string             `json:"secret_ref"`
+	Status      string             `json:"status"`
+	LastSync    pgtype.Timestamptz `json:"last_sync"`
+	LastError   pgtype.Text        `json:"last_error"`
+	TokenExpiry pgtype.Timestamptz `json:"token_expiry"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ConnectorInboxEvent struct {
+	ID              int64              `json:"id"`
+	CompanyID       int64              `json:"company_id"`
+	ConnectionID    int64              `json:"connection_id"`
+	ProviderEventID string             `json:"provider_event_id"`
+	RawPayload      []byte             `json:"raw_payload"`
+	Processed       bool               `json:"processed"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	ProcessedAt     pgtype.Timestamptz `json:"processed_at"`
+}
+
+type ConnectorOutboxCommand struct {
+	ID            int64              `json:"id"`
+	CompanyID     int64              `json:"company_id"`
+	ConnectionID  int64              `json:"connection_id"`
+	CommandType   string             `json:"command_type"`
+	CorrelationID string             `json:"correlation_id"`
+	Payload       []byte             `json:"payload"`
+	State         string             `json:"state"`
+	Attempts      int32              `json:"attempts"`
+	NextAttempt   pgtype.Timestamptz `json:"next_attempt"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
 type ConsolGroup struct {
 	ID                int64              `json:"id"`
 	Name              string             `json:"name"`
@@ -4956,6 +5008,8 @@ type User struct {
 	UiTheme         string             `json:"ui_theme"`
 	UiLanguage      string             `json:"ui_language"`
 	UiNotifications bool               `json:"ui_notifications"`
+	MfaEnabled      bool               `json:"mfa_enabled"`
+	TotpSecret      pgtype.Text        `json:"totp_secret"`
 }
 
 type UserRole struct {

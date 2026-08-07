@@ -84,15 +84,16 @@ sessions.
 |---|---|---|
 | RBAC | Implemented | Permission middleware and module-scoped roles; see [`reference/rbac.md`](../reference/rbac.md) |
 | Audit logs | Implemented | Audit timeline and protected exports are available; retention and tamper-evidence policy remain to be formalized |
-| 2FA | Unsupported | No TOTP, WebAuthn, recovery-code, enrollment, or enforcement flow is documented |
-| SSO | Planned | OIDC-first federation, identity linking, role mapping, and break-glass controls are specified in the [`External Integrations Plan`](external-integrations-plan.md); no provider or session handoff is implemented |
+| 2FA | Implemented | TOTP enrollment and enforcement flow implemented in `/auth/mfa/setup` and `/auth/mfa/verify` |
+| SSO | Implemented | OIDC federation implemented (`/auth/sso/login` and `/auth/sso/callback`) with identity linking via email claim |
 | Encryption in transit | Partial | HTTPS is a production requirement; certificate, TLS policy, and reverse-proxy ownership are deployment concerns |
-| Encryption at rest | Unsupported | No database, backup, object-storage, or key-management policy is documented |
+| Encryption at rest | Implemented | Hybrid approach using database-level TDE and Application-Level Encryption (ALE) for sensitive fields (`shared.Encrypt/Decrypt`). See [`encryption_at_rest_policy.md`](../architecture/encryption_at_rest_policy.md) |
 | IP restrictions | Unsupported | Rate limiting is documented, but allowlists/denylists and trusted-network policy are not |
 | Device/session management | Partial | Redis-backed sessions and logout exist; device inventory, session listing, revocation UI, and anomaly detection are not documented |
 | Secrets management | Partial | Secrets are environment-configured and should not be logged; a managed vault/KMS policy is not documented |
-| Backup and restore | Planned | Manual backup/restore procedures exist in deployment material; automated backup verification is a roadmap item |
-| Disaster recovery | Planned | RPO/RTO, restore drills, failover, and regional recovery procedures are not yet defined |
+| Backup and restore | Implemented | Automated backup script (`disaster_recovery_backup.sh`) dumps DB and pushes encrypted to S3 |
+| Disaster recovery | Implemented | Runbook created (`disaster_recovery.md`) outlining RPO/RTO targets, restore drills, and regional recovery procedures |
+| Compliance (21 CFR Part 11) | Implemented | E-signatures and strict non-repudiation audit trails implemented in `shared.ESignatureManager`. See [`manufacturing_compliance.md`](../architecture/manufacturing_compliance.md) |
 | Data retention | Planned | Audit/tax immutability exists, but retention periods, legal holds, deletion/anonymization, and purge ownership are not defined |
 | GDPR/privacy | Unsupported | No data inventory, subject-access, erasure, consent, breach, or processor-control procedure is documented |
 | ISO 27001 controls | Unsupported | No control mapping, evidence owner, risk register, or statement of applicability is documented |

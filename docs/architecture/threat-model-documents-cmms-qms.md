@@ -183,5 +183,5 @@ Threats: Hold bypass (MRP queries QMS before completion/receipt), disposition wi
 
 ## References
 - [ADR-001: Module Boundaries](./adr-001-module-boundaries.md)
-- [Missing Modules Plan](../archive/completed-../archive/completed-missing-modules-cmms-qms-documents-plan.md)
+- [Missing Modules Plan](../guides/cmms.md)
 - [OWASP ASVS 4.0](https://owasp.org/www-project-application-security-verification-standard/)

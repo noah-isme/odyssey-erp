@@ -14,8 +14,7 @@ Close two manufacturing governance gaps:
 Quality remains embedded within manufacturing execution. This plan strengthens
 inspections, holds, NCRs, CAPAs, subcontract acceptance, and genealogy, but does not
 create a standalone QMS. The separate enterprise QMS and controlled-document migration
-are defined in the
-[`CMMS, QMS, and Document Management Execution Plan`](../archive/completed-missing-modules-cmms-qms-documents-plan.md).
+are defined in the respective guides: [`QMS`](qms.md) and [`Document Management`](documents.md).
 
 ## 1. Policy and decision model
 
@@ -182,7 +181,7 @@ Explicitly exclude from this program:
 
 These exclusions are planned as a separate top-level QMS rather than being added to
 the MRP ownership boundary; see the
-[`CMMS, QMS, and Document Management Execution Plan`](../archive/completed-missing-modules-cmms-qms-documents-plan.md).
+[`CMMS`](cmms.md), [`QMS`](qms.md), and [`Document Management`](documents.md) guides.
 
 ## 6. RBAC and interfaces
 

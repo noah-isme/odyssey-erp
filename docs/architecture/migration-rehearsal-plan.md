@@ -318,7 +318,7 @@ Each rehearsal must produce:
 - [ ] Updated rollback procedure if changed
 
 ## References
-- [Missing Modules Plan](../archive/completed-../archive/completed-missing-modules-cmms-qms-documents-plan.md) Section 7, 8
+- [Missing Modules Plan](../guides/cmms.md) Section 7, 8
 - [ADR-001: Module Boundaries](./adr-001-module-boundaries.md)
 - [Threat Model](./threat-model-documents-cmms-qms.md)
 - [Permission Matrix](./permission-matrix-documents-cmms-qms.md)

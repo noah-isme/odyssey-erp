@@ -34,6 +34,18 @@ func (s *Service) Authenticate(ctx context.Context, email, password string) (*Us
 	return user, nil
 }
 
+// AuthenticateSSO validates email directly for trusted SSO providers.
+func (s *Service) AuthenticateSSO(ctx context.Context, email string) (*User, error) {
+	user, err := s.repo.FindByEmail(ctx, email)
+	if err != nil {
+		return nil, shared.ErrInvalidCredentials
+	}
+	if !user.IsActive {
+		return nil, shared.ErrInvalidCredentials
+	}
+	return user, nil
+}
+
 // RegisterSession persists the session metadata in postgres.
 func (s *Service) RegisterSession(ctx context.Context, id string, userID int64, expiresAt time.Time, ip, ua string) error {
 	return s.repo.CreateSession(ctx, id, userID, expiresAt, ip, ua)

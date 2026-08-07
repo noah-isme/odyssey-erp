@@ -25,6 +25,7 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 |----------|-------------|
 | [Handler Guidelines](guides/handlers.md) | Pola handler HTTP |
 | [Testing Guide](guides/testing-runbook.md) | Menjalankan tests |
+| [E2E Browser Testing](guides/e2e-browser-testing.md) | Setup Playwright, test data, dan CI integration |
 
 ### Operations
 | Document | Description |
@@ -48,7 +49,11 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 | [CRM](guides/crm.md) | Leads, pipeline, activities, reminders, ownership, conversion, dan win/loss |
 | [Manufacturing / MRP](guides/manufacturing-mrp.md) | BOM revisions, planning, WIP, scheduling, quality, analytics, and documented compliance boundaries |
 | [Manufacturing Governance Plan](guides/manufacturing-governance-plan.md) | Mandatory controlled decisions, manufacturing quality boundaries, and staging certification |
-| [CMMS, QMS, and Document Management Plan](archive/completed-../archive/completed-missing-modules-cmms-qms-documents-plan.md) | Standalone maintenance, quality, managed storage, versioning, e-signature, retention, and document permissions |
+| [CMMS](guides/cmms.md) | Standalone maintenance, assets, and work orders |
+| [QMS](guides/qms.md) | Enterprise quality management, inspections, NCRs, and CAPAs |
+| [Document Management](guides/documents.md) | Managed storage, versioning, e-signature, retention, and permissions |
+| [WMS](guides/wms.md) | Warehouse management, bins, picking, and barcode aliases |
+| [Portal](guides/portal.md) | Customer, supplier, and employee portals |
 | [Product Workflow Depth Plan](guides/product-workflow-depth-plan.md) | Project planning/budgeting, POS value programs/hardware, HR talent workflows, and CRM campaigns/segmentation |
 | [Reporting and Administration Depth Plan](guides/reporting-administration-depth-plan.md) | Governed report builder/widgets, operational and HR coverage, role matrix, locale, timezone, and fiscal policy |
 | [Projects](guides/projects.md) | Projects, tasks, members, timesheets, and scope boundaries |
@@ -87,6 +92,7 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 | [ADR-0007](decisions/ADR-0007-payment-execution-and-settlement.md) | Payment Execution and Settlement |
 | [ADR-0008](decisions/ADR-0008-p2p-matching-and-exceptions.md) | P2P Matching and Exceptions |
 | [ADR-0009](decisions/ADR-0009-asset-capitalization-and-operations.md) | Asset Capitalization and Operations |
+| [ADR-0010](decisions/ADR-0010-external-integrations-foundation.md) | External Integrations Foundation |
 
 ## 📦 Releases
 

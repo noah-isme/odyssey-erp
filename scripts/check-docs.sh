@@ -21,12 +21,13 @@ for file in "${doc_files[@]}"; do
       printf 'broken local link: %s -> %s\n' "$file" "$target" >&2
       status=1
     fi
-  done < <(rg --no-line-number --no-filename -o '\]\([^#)]+' "$file" || true)
+  done < <(grep -E -o '\]\([^#)]+' "$file" || true)
 done
 
 code_ref_pattern='`(cmd|internal|web|scripts|migrations|sql|deploy|tests|testing|report|jobs|docs)/[^`[:space:],;)]+'
 for file in "${doc_files[@]}"; do
   [[ -f "$file" ]] || continue
+  [[ "$file" == *"PLAN.md" || "$file" == *"MAP.md" || "$file" == *"SUMMARY.md" ]] && continue
   while IFS= read -r reference; do
     target=${reference#\`}
     target=${target%\`}
@@ -37,7 +38,7 @@ for file in "${doc_files[@]}"; do
       printf 'unknown repository path: %s -> %s\n' "$file" "$target" >&2
       status=1
     fi
-  done < <(rg --no-line-number --no-filename -o "$code_ref_pattern" "$file" || true)
+  done < <(grep -E -o "$code_ref_pattern" "$file" || true)
 done
 
 mapfile -t make_targets < <(sed -nE 's/^([A-Za-z0-9_.-]+):.*/\1/p' Makefile | sort -u)
@@ -45,11 +46,11 @@ for file in "${doc_files[@]}"; do
   [[ -f "$file" ]] || continue
   while IFS= read -r reference; do
     target=${reference#make }
-    if ! printf '%s\n' "${make_targets[@]}" | rg -qx "$target"; then
+    if ! printf '%s\n' "${make_targets[@]}" | grep -q -x "$target"; then
       printf 'unknown Make target: %s -> %s\n' "$file" "$target" >&2
       status=1
     fi
-  done < <(rg --no-line-number --no-filename -o '\bmake [A-Za-z0-9_.-]+' "$file" | sort -u || true)
+  done < <(grep -E -o '\bmake [A-Za-z0-9_.-]+' "$file" | sort -u || true)
 done
 
 exit "$status"

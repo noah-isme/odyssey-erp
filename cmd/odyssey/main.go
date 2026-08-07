@@ -44,6 +44,10 @@ import (
 	cmmshttp "github.com/odyssey-erp/odyssey-erp/internal/cmms/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/consol"
 	consolhttp "github.com/odyssey-erp/odyssey-erp/internal/consol/http"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/mockpay"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/oidc"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/stripe"
 	"github.com/odyssey-erp/odyssey-erp/internal/crm"
 	"github.com/odyssey-erp/odyssey-erp/internal/dashboard"
 	"github.com/odyssey-erp/odyssey-erp/internal/documents"
@@ -225,7 +229,7 @@ func main() {
 
 	authRepo := auth.NewRepository(dbpool)
 	authService := auth.NewService(authRepo)
-	authHandler := auth.NewHandler(logger, authService, templates, sessionManager, csrfManager)
+	authHandler := auth.NewHandler(logger, authService, templates, sessionManager, csrfManager, sqlc.New(dbpool))
 
 	auditLogger := shared.NewAuditLogger(dbpool)
 	approvalRecorder := shared.NewApprovalRecorder(dbpool, logger)
@@ -483,6 +487,13 @@ func main() {
 	
 	mrpHandler.SetQMSService(qmsService)
 
+	connectorsRegistry := connectors.NewRegistry()
+	connectorsRegistry.Register("mockpay", mockpay.NewAdapter(logger))
+	connectorsRegistry.Register("stripe", stripe.NewAdapter(logger))
+	connectorsRegistry.Register("oidc", oidc.NewAdapter(logger))
+	connectorsProcessor := connectors.NewInboxProcessor(sqlc.New(dbpool), connectorsRegistry, outboxRepo, logger)
+	connectorsHandler := connectors.NewWebhookHandler(connectorsProcessor)
+
 	router := app.NewRouter(app.RouterParams{
 		Logger:                 logger,
 		Config:                 cfg,
@@ -534,6 +545,7 @@ func main() {
 		DocumentsHandler:       documentsHandler,
 		CMMSHandler:            cmmsHandler,
 		QMSHandler:             qmsHandler,
+		ConnectorsHandler:      connectorsHandler,
 	})
 
 	// Route dump mode: print the real routing table and exit without serving.

@@ -216,8 +216,16 @@ type CreateARPaymentInput struct {
 
 // PaymentAllocationInput for allocating payment to invoices.
 type PaymentAllocationInput struct {
-	ARInvoiceID int64
-	Amount      float64
+	ARInvoiceID int64   `json:"ar_invoice_id"`
+	Amount      float64 `json:"amount"`
+}
+
+// InitiateOnlinePaymentInput for processing card charges via integrations like Stripe.
+type InitiateOnlinePaymentInput struct {
+	CompanyID    int64
+	InvoiceID    int64
+	ConnectionID int64
+	SourceToken  string
 }
 
 // ListARInvoicesRequest for filtering invoices.

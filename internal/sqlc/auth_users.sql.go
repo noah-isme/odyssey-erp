@@ -12,7 +12,7 @@ import (
 )
 
 const authGetUserByEmail = `-- name: AuthGetUserByEmail :one
-SELECT id, email, password_hash, is_active, created_at, updated_at
+SELECT id, email, password_hash, is_active, mfa_enabled, totp_secret, created_at, updated_at
 FROM users
 WHERE email = $1
 `
@@ -22,6 +22,8 @@ type AuthGetUserByEmailRow struct {
 	Email        string             `json:"email"`
 	PasswordHash string             `json:"password_hash"`
 	IsActive     bool               `json:"is_active"`
+	MfaEnabled   bool               `json:"mfa_enabled"`
+	TotpSecret   pgtype.Text        `json:"totp_secret"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }
@@ -34,6 +36,41 @@ func (q *Queries) AuthGetUserByEmail(ctx context.Context, email string) (AuthGet
 		&i.Email,
 		&i.PasswordHash,
 		&i.IsActive,
+		&i.MfaEnabled,
+		&i.TotpSecret,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const authGetUserByID = `-- name: AuthGetUserByID :one
+SELECT id, email, password_hash, is_active, mfa_enabled, totp_secret, created_at, updated_at
+FROM users
+WHERE id = $1
+`
+
+type AuthGetUserByIDRow struct {
+	ID           int64              `json:"id"`
+	Email        string             `json:"email"`
+	PasswordHash string             `json:"password_hash"`
+	IsActive     bool               `json:"is_active"`
+	MfaEnabled   bool               `json:"mfa_enabled"`
+	TotpSecret   pgtype.Text        `json:"totp_secret"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) AuthGetUserByID(ctx context.Context, id int64) (AuthGetUserByIDRow, error) {
+	row := q.db.QueryRow(ctx, authGetUserByID, id)
+	var i AuthGetUserByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.IsActive,
+		&i.MfaEnabled,
+		&i.TotpSecret,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -57,6 +94,23 @@ func (q *Queries) CreateAdminUser(ctx context.Context, arg CreateAdminUserParams
 	var id int64
 	err := row.Scan(&id)
 	return id, err
+}
+
+const updateUserMFA = `-- name: UpdateUserMFA :exec
+UPDATE users
+SET mfa_enabled = $2, totp_secret = $3, updated_at = NOW()
+WHERE id = $1
+`
+
+type UpdateUserMFAParams struct {
+	ID         int64       `json:"id"`
+	MfaEnabled bool        `json:"mfa_enabled"`
+	TotpSecret pgtype.Text `json:"totp_secret"`
+}
+
+func (q *Queries) UpdateUserMFA(ctx context.Context, arg UpdateUserMFAParams) error {
+	_, err := q.db.Exec(ctx, updateUserMFA, arg.ID, arg.MfaEnabled, arg.TotpSecret)
+	return err
 }
 
 const upsertAdminUser = `-- name: UpsertAdminUser :one

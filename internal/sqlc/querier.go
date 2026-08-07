@@ -24,6 +24,7 @@ type Querier interface {
 	AuditTimelineAll(ctx context.Context, arg AuditTimelineAllParams) ([]AuditTimelineAllRow, error)
 	AuditTimelineWindow(ctx context.Context, arg AuditTimelineWindowParams) ([]AuditTimelineWindowRow, error)
 	AuthGetUserByEmail(ctx context.Context, email string) (AuthGetUserByEmailRow, error)
+	AuthGetUserByID(ctx context.Context, id int64) (AuthGetUserByIDRow, error)
 	Balances(ctx context.Context, arg BalancesParams) ([]BalancesRow, error)
 	CalculateConsolBalances(ctx context.Context, arg CalculateConsolBalancesParams) error
 	CancelGoodsReturnGRN(ctx context.Context, arg CancelGoodsReturnGRNParams) error
@@ -69,6 +70,7 @@ type Querier interface {
 	// COMPLIANCE DECISIONS
 	// =============================================================================
 	CreateComplianceDecision(ctx context.Context, arg CreateComplianceDecisionParams) (ComplianceDecision, error)
+	CreateConnection(ctx context.Context, arg CreateConnectionParams) (ConnectorConnection, error)
 	CreateCustomer(ctx context.Context, arg CreateCustomerParams) (int64, error)
 	CreateDeliveryOrder(ctx context.Context, arg CreateDeliveryOrderParams) (int64, error)
 	// =============================================================================
@@ -172,6 +174,7 @@ type Querier interface {
 	ElimListRecentPeriods(ctx context.Context, limit int32) ([]ElimListRecentPeriodsRow, error)
 	ElimListRules(ctx context.Context, limit int32) ([]EliminationRule, error)
 	ElimLoadAccountingPeriod(ctx context.Context, id int64) (ElimLoadAccountingPeriodRow, error)
+	EnqueueOutboxCommand(ctx context.Context, arg EnqueueOutboxCommandParams) (ConnectorOutboxCommand, error)
 	FindPeriodID(ctx context.Context, code string) (int64, error)
 	FindUnpaidARInvoicesForMatching(ctx context.Context, total pgtype.Numeric) ([]FindUnpaidARInvoicesForMatchingRow, error)
 	FxRateForPeriod(ctx context.Context, arg FxRateForPeriodParams) (FxRateForPeriodRow, error)
@@ -222,6 +225,7 @@ type Querier interface {
 	GetCompany(ctx context.Context, id int64) (GetCompanyRow, error)
 	GetComplianceDecision(ctx context.Context, id int64) (ComplianceDecision, error)
 	GetComplianceDecisionByUUID(ctx context.Context, decisionID pgtype.UUID) (ComplianceDecision, error)
+	GetConnection(ctx context.Context, arg GetConnectionParams) (ConnectorConnection, error)
 	GetContractPriceLineForProduct(ctx context.Context, arg GetContractPriceLineForProductParams) (ContractPriceLine, error)
 	GetContractPriceLines(ctx context.Context, contractID int64) ([]ContractPriceLine, error)
 	// =============================================================================
@@ -275,6 +279,7 @@ type Querier interface {
 	// DISPOSITION REQUESTS
 	// =============================================================================
 	GetPendingDispositions(ctx context.Context) ([]DispositionRequest, error)
+	GetPendingOutboxCommands(ctx context.Context, limit int32) ([]ConnectorOutboxCommand, error)
 	GetPeriod(ctx context.Context, id int64) (GetPeriodRow, error)
 	GetPriceHistoryBySource(ctx context.Context, arg GetPriceHistoryBySourceParams) ([]PriceHistory, error)
 	// =============================================================================
@@ -340,6 +345,7 @@ type Querier interface {
 	// UNITS (id, code, name, created_at, updated_at)
 	// =============================================================================
 	GetUnit(ctx context.Context, id int64) (Unit, error)
+	GetUnprocessedInboxEvents(ctx context.Context, arg GetUnprocessedInboxEventsParams) ([]ConnectorInboxEvent, error)
 	GetUnpublishedOutboxEvents(ctx context.Context, arg GetUnpublishedOutboxEventsParams) ([]OutboxEvent, error)
 	// =============================================================================
 	// USER ROLES (for ACL checking)
@@ -376,6 +382,7 @@ type Querier interface {
 	// CORRECTIVE ACTIONS (CAPA)
 	// =============================================================================
 	InsertCAPA(ctx context.Context, arg InsertCAPAParams) (int64, error)
+	InsertCanonicalEvent(ctx context.Context, arg InsertCanonicalEventParams) (ConnectorCanonicalEvent, error)
 	InsertCardEntry(ctx context.Context, arg InsertCardEntryParams) error
 	InsertChecklistItem(ctx context.Context, arg InsertChecklistItemParams) (PeriodCloseChecklistItem, error)
 	InsertCloseRun(ctx context.Context, arg InsertCloseRunParams) (InsertCloseRunRow, error)
@@ -419,6 +426,7 @@ type Querier interface {
 	// =============================================================================
 	InsertDocumentVersion(ctx context.Context, arg InsertDocumentVersionParams) (int64, error)
 	InsertGRNLine(ctx context.Context, arg InsertGRNLineParams) error
+	InsertInboxEvent(ctx context.Context, arg InsertInboxEventParams) (ConnectorInboxEvent, error)
 	// =============================================================================
 	// LEGAL HOLDS
 	// =============================================================================
@@ -560,6 +568,7 @@ type Querier interface {
 	ListCAPAsByCompany(ctx context.Context, companyID int64) ([]QualityCapa, error)
 	ListChecklistItems(ctx context.Context, periodCloseRunID int64) ([]PeriodCloseChecklistItem, error)
 	ListCompanies(ctx context.Context) ([]ListCompaniesRow, error)
+	ListConnections(ctx context.Context, companyID int64) ([]ConnectorConnection, error)
 	ListCustomerComplaints(ctx context.Context, arg ListCustomerComplaintsParams) ([]ListCustomerComplaintsRow, error)
 	ListDecisionsByCompany(ctx context.Context, arg ListDecisionsByCompanyParams) ([]ComplianceDecision, error)
 	ListDecisionsByRecord(ctx context.Context, arg ListDecisionsByRecordParams) ([]ComplianceDecision, error)
@@ -640,6 +649,7 @@ type Querier interface {
 	MarkChallengeUsed(ctx context.Context, id int64) error
 	MarkFailed(ctx context.Context, arg MarkFailedParams) error
 	MarkInProgress(ctx context.Context, id int64) error
+	MarkInboxEventProcessed(ctx context.Context, id int64) error
 	MarkOutboxEventFailed(ctx context.Context, arg MarkOutboxEventFailedParams) error
 	MarkOutboxEventPublished(ctx context.Context, id int64) error
 	MarkReady(ctx context.Context, arg MarkReadyParams) error
@@ -699,6 +709,7 @@ type Querier interface {
 	UpdateCategory(ctx context.Context, arg UpdateCategoryParams) error
 	UpdateChecklistStatus(ctx context.Context, arg UpdateChecklistStatusParams) (PeriodCloseChecklistItem, error)
 	UpdateCompany(ctx context.Context, arg UpdateCompanyParams) error
+	UpdateConnectionStatus(ctx context.Context, arg UpdateConnectionStatusParams) (ConnectorConnection, error)
 	UpdateCustomer(ctx context.Context, arg UpdateCustomerParams) error
 	UpdateCustomerComplaint(ctx context.Context, arg UpdateCustomerComplaintParams) error
 	UpdateCustomerComplaintStatus(ctx context.Context, arg UpdateCustomerComplaintStatusParams) error
@@ -715,6 +726,7 @@ type Querier interface {
 	UpdateLineQuantity(ctx context.Context, arg UpdateLineQuantityParams) error
 	UpdateNCR(ctx context.Context, arg UpdateNCRParams) error
 	UpdateNCRStatus(ctx context.Context, arg UpdateNCRStatusParams) error
+	UpdateOutboxCommandState(ctx context.Context, arg UpdateOutboxCommandStateParams) (ConnectorOutboxCommand, error)
 	UpdatePMScheduleNextDue(ctx context.Context, arg UpdatePMScheduleNextDueParams) error
 	UpdatePOStatus(ctx context.Context, arg UpdatePOStatusParams) error
 	UpdatePRStatus(ctx context.Context, arg UpdatePRStatusParams) error
@@ -739,6 +751,7 @@ type Querier interface {
 	UpdateSupplierQuality(ctx context.Context, arg UpdateSupplierQualityParams) error
 	UpdateTax(ctx context.Context, arg UpdateTaxParams) error
 	UpdateUnit(ctx context.Context, arg UpdateUnitParams) error
+	UpdateUserMFA(ctx context.Context, arg UpdateUserMFAParams) error
 	UpdateWarehouse(ctx context.Context, arg UpdateWarehouseParams) error
 	UpdateWorkOrder(ctx context.Context, arg UpdateWorkOrderParams) error
 	UpdateWorkOrderStatus(ctx context.Context, arg UpdateWorkOrderStatusParams) error

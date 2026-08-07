@@ -1,7 +1,12 @@
 -- name: AuthGetUserByEmail :one
-SELECT id, email, password_hash, is_active, created_at, updated_at
+SELECT id, email, password_hash, is_active, mfa_enabled, totp_secret, created_at, updated_at
 FROM users
 WHERE email = $1;
+
+-- name: AuthGetUserByID :one
+SELECT id, email, password_hash, is_active, mfa_enabled, totp_secret, created_at, updated_at
+FROM users
+WHERE id = $1;
 
 -- name: UpsertAdminUser :one
 INSERT INTO users (email, password_hash, is_active, created_at, updated_at)
@@ -15,3 +20,8 @@ INSERT INTO users (email, password_hash, is_active, created_at, updated_at)
 VALUES ($1, $2, TRUE, NOW(), NOW())
 ON CONFLICT (email) DO NOTHING
 RETURNING id;
+
+-- name: UpdateUserMFA :exec
+UPDATE users
+SET mfa_enabled = $2, totp_secret = $3, updated_at = NOW()
+WHERE id = $1;

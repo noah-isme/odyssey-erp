@@ -2,7 +2,7 @@
 
 ## Current status
 
-**Partial.** Odyssey documents WMS and fulfillment foundations, not a complete transportation-management suite.
+**Partial.** Odyssey documents [WMS](wms.md) and fulfillment foundations, not a complete transportation-management suite.
 
 ## Supported scope
 

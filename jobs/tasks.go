@@ -31,6 +31,8 @@ const (
 
 	// TaskOutboxSweep processes pending cross-module outbox events.
 	TaskOutboxSweep = "outbox:sweep"
+	// TaskConnectorOutboxSweep processes pending external connector outbox events.
+	TaskConnectorOutboxSweep = "connectors:outbox_sweep"
 	// TaskCRMReminderDispatch sends due and overdue CRM activity notifications.
 	TaskCRMReminderDispatch     = "crm:reminder_dispatch"
 	TaskWebhookDeliveryDispatch = "webhook:delivery_dispatch"
@@ -246,4 +248,9 @@ func NewBoardPackTask(boardPackID int64) (*asynq.Task, error) {
 		return nil, err
 	}
 	return asynq.NewTask(TaskBoardPackGenerate, body, asynq.Queue(QueueDefault)), nil
+}
+
+// NewConnectorOutboxSweepTask creates a task to sweep the external connectors outbox.
+func NewConnectorOutboxSweepTask() (*asynq.Task, error) {
+	return asynq.NewTask(TaskConnectorOutboxSweep, nil, asynq.Queue(QueueDefault)), nil
 }

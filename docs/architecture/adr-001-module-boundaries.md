@@ -41,4 +41,6 @@ Odyssey needs to introduce three new top-level modules: Document Management, CMM
 - Testing must verify company isolation at every layer
 
 ## References
-- [Missing Modules Plan](../archive/completed-../archive/completed-missing-modules-cmms-qms-documents-plan.md)
+- [CMMS Guide](../guides/cmms.md)
+- [QMS Guide](../guides/qms.md)
+- [Document Management Guide](../guides/documents.md)

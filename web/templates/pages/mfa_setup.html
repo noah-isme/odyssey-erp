@@ -1,0 +1,108 @@
+{{ define "pages/mfa_setup.html" }}
+{{ template "layouts/public.html" . }}
+{{ end }}
+
+{{ define "title" }}Setup MFA · Odyssey ERP{{ end }}
+
+{{ define "content" }}
+<div class="login-page">
+    <div class="login-bg">
+        <div class="login-gradient"></div>
+        <div class="login-glow"></div>
+    </div>
+    
+    <div class="login-wrapper">
+        <div class="login-branding">
+            <div class="branding-content">
+                <a href="/welcome" class="login-logo-large">
+                    <svg class="logo-icon" viewBox="0 0 32 32" fill="none">
+                        <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="2" />
+                        <path d="M16 6C10.477 6 6 10.477 6 16s4.477 10 10 10 10-4.477 10-10" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                        <circle cx="16" cy="16" r="4" fill="currentColor" />
+                    </svg>
+                </a>
+                <span class="branding-eyebrow">OPERATIONS PLATFORM</span>
+                <h2 class="branding-title">Odyssey ERP</h2>
+                <p class="branding-tagline">Satu workspace untuk mengelola penjualan, persediaan, dan keuangan perusahaan.</p>
+
+                <div class="branding-features">
+                    <div class="branding-feature">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12" /></svg>
+                        Keamanan Berlapis
+                    </div>
+                    <div class="branding-feature">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12" /></svg>
+                        Autentikasi 2-Langkah
+                    </div>
+                </div>
+
+                <p class="branding-caption">© Odyssey ERP · Workspace aman untuk tim Anda.</p>
+            </div>
+        </div>
+
+        <div class="login-form-panel">
+            <div class="login-form-container">
+                <a href="/" class="login-back">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="19" y1="12" x2="5" y2="12" />
+                        <polyline points="12 19 5 12 12 5" />
+                    </svg>
+                    Batal
+                </a>
+
+                <div class="login-card">
+                    <div class="login-header">
+                        <div class="login-logo-mobile">
+                            <svg class="logo-icon" viewBox="0 0 32 32" fill="none">
+                                <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="2" />
+                                <path d="M16 6C10.477 6 6 10.477 6 16s4.477 10 10 10 10-4.477 10-10" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                                <circle cx="16" cy="16" r="4" fill="currentColor" />
+                            </svg>
+                        </div>
+                        <h1 class="login-title">Setup 2-Langkah</h1>
+                        <p class="login-subtitle">Masukkan kode Setup Key ini ke aplikasi authenticator Anda (seperti Google Authenticator atau Authy).</p>
+                    </div>
+
+                    {{ if .Flash }}
+                    <div class="login-alert">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="12" y1="8" x2="12" y2="12" />
+                            <line x1="12" y1="16" x2="12.01" y2="16" />
+                        </svg>
+                        <span>{{ .Flash.Message }}</span>
+                    </div>
+                    {{ end }}
+
+                    <div style="background: var(--color-gray-50); padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem; border: 1px solid var(--color-gray-200); text-align: center;">
+                        <span style="font-family: monospace; font-size: 1.25rem; font-weight: 600; letter-spacing: 0.1em; color: var(--color-gray-800);">{{ .Data.Secret }}</span>
+                        <p style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--color-gray-500);">Setup Key rahasia</p>
+                    </div>
+
+                    <form method="post" action="/auth/mfa/setup" class="login-form">
+                        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+                        
+                        <div class="form-group">
+                            <label for="code" class="form-label">Konfirmasi Kode OTP</label>
+                            <div class="input-wrapper">
+                                <input type="text" id="code" name="code" placeholder="000000" pattern="[0-9]{6}" required autofocus autocomplete="off" class="form-input" style="letter-spacing: 0.5em; text-align: center; font-size: 1.25rem;">
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn--primary btn-login">
+                            Aktifkan MFA
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                            </svg>
+                        </button>
+                    </form>
+                </div>
+
+                <p class="login-footer">
+                    &copy; 2024 Odyssey ERP. All rights reserved.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}

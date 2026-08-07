@@ -3,13 +3,13 @@
 P7 is the current MVP foundation for multi-company Horizon workflows. It provides
 shared persistence, isolation, idempotency, and lifecycle controls for:
 
-- WMS bins, barcode aliases, pick waves, pick tasks, and scans.
+- [WMS](wms.md) bins, barcode aliases, pick waves, pick tasks, and scans.
 - MRP BOMs and work orders.
 - POS terminals, sessions, tickets, payments, refunds, and voids.
 - Projects, tasks, members, timesheets, and FX snapshots.
 - Public API keys, scopes, idempotent project creation, and stable JSON errors.
 - Webhook subscriptions, encrypted secrets, signatures, retries, and deduplication.
-- Customer, supplier, and employee portals with company-scoped access.
+- Customer, supplier, and employee [portals](portal.md) with company-scoped access.
 
 ## Local certification
 

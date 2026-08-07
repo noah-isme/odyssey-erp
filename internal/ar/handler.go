@@ -77,6 +77,7 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Post("/invoices/{id}/post", h.postInvoice)
 		r.Post("/invoices/{id}/void", h.voidInvoice)
 		r.Post("/invoices/{id}/email", h.emailInvoice)
+		r.Post("/invoices/{id}/pay-online", h.initiateOnlinePayment)
 	})
 	r.Group(func(r chi.Router) {
 		r.Use(h.rbac.RequireAll(shared.PermFinanceARCreditNotePost))
@@ -464,4 +465,47 @@ func getUserID(sess *shared.Session) int64 {
 	}
 	id, _ := strconv.ParseInt(userStr, 10, 64)
 	return id
+}
+
+// initiateOnlinePayment handles form submission to initiate a Stripe/gateway charge.
+func (h *Handler) initiateOnlinePayment(w http.ResponseWriter, r *http.Request) {
+	invoiceID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		h.logger.Warn("invalid invoice ID", slog.Any("error", err))
+		http.Redirect(w, r, "/finance/ar/invoices", http.StatusSeeOther)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		h.logger.Warn("parse form", slog.Any("error", err))
+		http.Redirect(w, r, fmt.Sprintf("/finance/ar/invoices/%d", invoiceID), http.StatusSeeOther)
+		return
+	}
+
+	connectionID, err := strconv.ParseInt(r.FormValue("connection_id"), 10, 64)
+	if err != nil || connectionID == 0 {
+		h.redirectWithFlash(w, r, fmt.Sprintf("/finance/ar/invoices/%d", invoiceID), "error", "Invalid or missing connection ID")
+		return
+	}
+	
+	sourceToken := r.FormValue("source_token")
+	if sourceToken == "" {
+		h.redirectWithFlash(w, r, fmt.Sprintf("/finance/ar/invoices/%d", invoiceID), "error", "Payment token is required")
+		return
+	}
+
+	err = h.service.InitiateOnlinePayment(r.Context(), InitiateOnlinePaymentInput{
+		CompanyID:    1, // Default company ID for single tenant MVP
+		InvoiceID:    invoiceID,
+		ConnectionID: connectionID,
+		SourceToken:  sourceToken,
+	})
+
+	if err != nil {
+		h.logger.Error("initiate online payment failed", slog.Any("error", err))
+		h.redirectWithFlash(w, r, fmt.Sprintf("/finance/ar/invoices/%d", invoiceID), "error", err.Error())
+		return
+	}
+
+	h.redirectWithFlash(w, r, fmt.Sprintf("/finance/ar/invoices/%d", invoiceID), "success", "Payment processing initiated via external gateway")
 }

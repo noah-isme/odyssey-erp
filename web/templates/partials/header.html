@@ -153,14 +153,22 @@
                     </svg>
                     <span data-i18n="settings">Pengaturan</span>
                 </a>
+                <a href="/auth/mfa/setup" class="dropdown-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    </svg>
+                    <span>Setup MFA</span>
+                </a>
+                
                 <div class="dropdown-divider"></div>
-                <form method="post" action="/auth/logout">
+
+                <form action="/auth/logout" method="post" style="margin:0;">
                     <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
-                    <button type="submit" class="btn dropdown-item text-error">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                            <polyline points="16 17 21 12 16 7" />
-                            <line x1="21" y1="12" x2="9" y2="12" />
+                    <button type="submit" class="dropdown-item dropdown-item--danger">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                            <polyline points="16 17 21 12 16 7"></polyline>
+                            <line x1="21" y1="12" x2="9" y2="12"></line>
                         </svg>
                         <span data-i18n="logout">Keluar</span>
                     </button>

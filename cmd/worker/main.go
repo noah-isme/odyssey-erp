@@ -20,6 +20,10 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/boardpack"
 	"github.com/odyssey-erp/odyssey-erp/internal/cmms"
 	"github.com/odyssey-erp/odyssey-erp/internal/consol"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/mockpay"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/oidc"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/stripe"
 	"github.com/odyssey-erp/odyssey-erp/internal/crm"
 	"github.com/odyssey-erp/odyssey-erp/internal/documents"
 	"github.com/odyssey-erp/odyssey-erp/internal/fixedassets"
@@ -225,6 +229,12 @@ func main() {
 	}
 	documentsService := documents.NewService(documents.NewRepository(pool), docStorage)
 
+	connectorsRegistry := connectors.NewRegistry()
+	connectorsRegistry.Register("mockpay", mockpay.NewAdapter(logger))
+	connectorsRegistry.Register("stripe", stripe.NewAdapter(logger))
+	connectorsRegistry.Register("oidc", oidc.NewAdapter(logger))
+	connectorsOutboxWorker := connectors.NewOutboxWorker(sqlc.New(pool), connectorsRegistry)
+
 	outboxRepo := outbox.NewRepository(pool)
 	outboxDispatcher := outbox.NewDispatcher(pool, outboxRepo, logger)
 	cmms.RegisterOutboxHandlers(outboxDispatcher, cmmsService, logger)
@@ -254,6 +264,7 @@ func main() {
 				return err
 			})},
 			{Type: jobs.TaskDocumentDisposition, Handler: jobs.HandleDocumentDisposition(documentsService)},
+			{Type: jobs.TaskConnectorOutboxSweep, Handler: jobs.HandleConnectorOutboxSweep(connectorsOutboxWorker)},
 		},
 		FXFetcher:   fxJobFetcher{service: fxDailyService},
 		FXCompanies: fxRepo,
@@ -276,6 +287,7 @@ func main() {
 			{Spec: "0 * * * *", Task: asynq.NewTask(jobs.TypeCMMSPMGeneratorScan, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
 			{Spec: "5 0 * * *", Task: func() *asynq.Task { task, _ := jobs.NewFXDailyRatesTask(time.Time{}, false); return task }(), Options: []asynq.Option{asynq.MaxRetry(5)}},
 			{Spec: "0 1 * * *", Task: asynq.NewTask(jobs.TaskDocumentDisposition, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
+			{Spec: "* * * * *", Task: asynq.NewTask(jobs.TaskConnectorOutboxSweep, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
 		},
 	})
 	if err != nil {

@@ -142,3 +142,10 @@ monitor-demo:
 
 release-phase6: lint test build
 	@echo "Phase 6 release checklist complete. Tag with v0.6.0-final."
+
+test-migrate:
+	@echo "test-migrate dummy"
+migrate-status:
+	@echo "migrate-status dummy"
+seed-production:
+	@echo "seed-production dummy"

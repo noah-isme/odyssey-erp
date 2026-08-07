@@ -28,6 +28,7 @@ import (
 	closehttp "github.com/odyssey-erp/odyssey-erp/internal/close/http"
 	cmmshttp "github.com/odyssey-erp/odyssey-erp/internal/cmms/http"
 	consolhttp "github.com/odyssey-erp/odyssey-erp/internal/consol/http"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors"
 	"github.com/odyssey-erp/odyssey-erp/internal/crm"
 	"github.com/odyssey-erp/odyssey-erp/internal/dashboard"
 	documentshttp "github.com/odyssey-erp/odyssey-erp/internal/documents/http"
@@ -118,6 +119,7 @@ type RouterParams struct {
 	DocumentsHandler       *documentshttp.Handler
 	CMMSHandler            *cmmshttp.Handler
 	QMSHandler             *qmshttp.Handler
+	ConnectorsHandler      *connectors.WebhookHandler
 }
 
 type workspaceUser struct {
@@ -540,6 +542,9 @@ func NewRouter(params RouterParams) http.Handler {
 	}
 	if params.QMSHandler != nil {
 		r.Route("/qms", params.QMSHandler.MountRoutes)
+	}
+	if params.ConnectorsHandler != nil {
+		r.Route("/webhooks/connectors", params.ConnectorsHandler.MountRoutes)
 	}
 	r.Route("/delivery", func(r chi.Router) {
 		delivery.MountRoutes(r, params.Pool, params.Logger, params.Templates, params.CSRFManager, params.RBACMiddleware, params.InventoryService)

@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	accountingmoney "github.com/odyssey-erp/odyssey-erp/internal/accounting/money"
 	"github.com/odyssey-erp/odyssey-erp/internal/fx"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 // Repository provides PostgreSQL backed persistence for AR.
@@ -676,6 +677,19 @@ func (r *Repository) ListInvoicePayments(ctx context.Context, invoiceID int64) (
 	}
 
 	return payments, nil
+}
+
+// EnqueueConnectorCommand adds a command to the connector outbox queue.
+func (r *Repository) EnqueueConnectorCommand(ctx context.Context, companyID int64, connectionID int64, commandType string, correlationID string, payload []byte) error {
+	queries := sqlc.New(r.pool)
+	_, err := queries.EnqueueOutboxCommand(ctx, sqlc.EnqueueOutboxCommandParams{
+		CompanyID:     companyID,
+		ConnectionID:  connectionID,
+		CommandType:   commandType,
+		CorrelationID: correlationID,
+		Payload:       payload,
+	})
+	return err
 }
 
 // GeneratePaymentNumber generates a unique payment number.

@@ -18,16 +18,16 @@
           <select name="status" class="form-select">
             <option value="">All Statuses</option>
             {{ range .Data.Statuses }}
-            <option value="{{ . }}" {{ if eq $.Data.Filter.Status . }}selected{{ end }}>{{ . }}</option>
+            <option value="{{ . }}" {{ if eqStr $.Data.Filter.Status . }}selected{{ end }}>{{ . }}</option>
             {{ end }}
           </select>
         </div>
         <div class="col-md-3">
           <select name="category" class="form-select">
             <option value="">All Categories</option>
-            <option value="PREVENTIVE" {{ if eq .Data.Filter.Category "PREVENTIVE" }}selected{{ end }}>Preventive</option>
-            <option value="CORRECTIVE" {{ if eq .Data.Filter.Category "CORRECTIVE" }}selected{{ end }}>Corrective</option>
-            <option value="INSPECTION" {{ if eq .Data.Filter.Category "INSPECTION" }}selected{{ end }}>Inspection</option>
+            <option value="PREVENTIVE" {{ if eqStr .Data.Filter.Category "PREVENTIVE" }}selected{{ end }}>Preventive</option>
+            <option value="CORRECTIVE" {{ if eqStr .Data.Filter.Category "CORRECTIVE" }}selected{{ end }}>Corrective</option>
+            <option value="INSPECTION" {{ if eqStr .Data.Filter.Category "INSPECTION" }}selected{{ end }}>Inspection</option>
           </select>
         </div>
         <div class="col-md-2">

@@ -15,6 +15,8 @@ import (
 // Repository defines persistence operations for auth module.
 type Repository interface {
 	FindByEmail(ctx context.Context, email string) (*User, error)
+	FindByID(ctx context.Context, id int64) (*User, error)
+	UpdateMFA(ctx context.Context, id int64, mfaEnabled bool, totpSecret string) error
 	CreateSession(ctx context.Context, id string, userID int64, expiresAt time.Time, ip, ua string) error
 	DeleteSession(ctx context.Context, id string) error
 }
@@ -38,15 +40,60 @@ func (r *PGRepository) FindByEmail(ctx context.Context, email string) (*User, er
 		}
 		return nil, err
 	}
+	totpSecret := ""
+	if record.TotpSecret.Valid {
+		totpSecret = record.TotpSecret.String
+	}
 	user := &User{
 		ID:           record.ID,
 		Email:        record.Email,
 		PasswordHash: record.PasswordHash,
 		IsActive:     record.IsActive,
+		MFAEnabled:   record.MfaEnabled,
+		TOTPSecret:   totpSecret,
 		CreatedAt:    record.CreatedAt.Time,
 		UpdatedAt:    record.UpdatedAt.Time,
 	}
 	return user, nil
+}
+
+// FindByID fetches a user by ID.
+func (r *PGRepository) FindByID(ctx context.Context, id int64) (*User, error) {
+	record, err := r.queries.AuthGetUserByID(ctx, id)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, shared.ErrNotFound
+		}
+		return nil, err
+	}
+	totpSecret := ""
+	if record.TotpSecret.Valid {
+		totpSecret = record.TotpSecret.String
+	}
+	user := &User{
+		ID:           record.ID,
+		Email:        record.Email,
+		PasswordHash: record.PasswordHash,
+		IsActive:     record.IsActive,
+		MFAEnabled:   record.MfaEnabled,
+		TOTPSecret:   totpSecret,
+		CreatedAt:    record.CreatedAt.Time,
+		UpdatedAt:    record.UpdatedAt.Time,
+	}
+	return user, nil
+}
+
+// UpdateMFA updates the MFA settings for a user.
+func (r *PGRepository) UpdateMFA(ctx context.Context, id int64, mfaEnabled bool, totpSecret string) error {
+	secretNull := pgtype.Text{Valid: false}
+	if totpSecret != "" {
+		secretNull = pgtype.Text{String: totpSecret, Valid: true}
+	}
+	return r.queries.UpdateUserMFA(ctx, sqlc.UpdateUserMFAParams{
+		ID:         id,
+		MfaEnabled: mfaEnabled,
+		TotpSecret: secretNull,
+	})
 }
 
 // CreateSession persists a new login session in the database for auditing.
