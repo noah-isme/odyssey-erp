@@ -471,9 +471,13 @@ governed AI connectors.
    - Document the supported lifecycle and integration contracts for current modules
 
 3. **Medium-term (3 months)**
-   - ✅ **COMPLETED**: Major operational investments (Projects, POS depth, CMMS, Advanced QMS, Advanced WMS, Portal depth, HR benefits, and integrations) have been fully implemented.
+   - 📝 **IN PROGRESS**: Projects, POS, CMMS, and WMS depth remains partial (milestones/budgets,
+     POS hardware/loyalty/gift cards, CMMS predictive AI/IoT/mobile, WMS put-away/cross-dock/MHE
+     are not implemented). HR benefits are done; advanced QMS (SPC/ATE/calibration/LIMS), Portal
+     depth (profiles/RFQ/chat/analytics), and provider connectors are not.
    - Enforce manufacturing controlled-record policies at approval and release decision
-     points; add document management, 2FA/SSO, and enterprise compliance controls
+     points; add document management depth (OCR/collaboration/search are backend-only),
+     2FA/SSO, and enterprise compliance controls
 
 ---
 
