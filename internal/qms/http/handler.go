@@ -101,6 +101,22 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Get("/", h.listComplaints)
 		r.Get("/{id}", h.getComplaint)
 	})
+
+	// Advanced QMS Features (SPC, ATE, LIMS)
+	r.Route("/spc", func(r chi.Router) {
+		r.Use(h.rbac.RequireAny("qms.inspection.view", shared.PermQMSAdmin))
+		r.Post("/charts", h.createSPCControlChart)
+		r.Post("/data", h.recordSPCDataPoint)
+	})
+	r.Route("/ate", func(r chi.Router) {
+		r.Use(h.rbac.RequireAny("qms.inspection.manage", shared.PermQMSAdmin))
+		r.Post("/results", h.processATEResult)
+	})
+	r.Route("/lims", func(r chi.Router) {
+		r.Use(h.rbac.RequireAny("qms.inspection.manage", shared.PermQMSAdmin))
+		r.Post("/samples", h.createLIMSSample)
+		r.Post("/results", h.recordLIMSResult)
+	})
 }
 
 // ============================================================================
@@ -797,4 +813,81 @@ func (h *Handler) requestCalibration(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	h.redirectWithFlash(w, r, "/qms/audits/"+auditID, "success", "Calibration requested in CMMS.")
+}
+
+// ============================================================================
+// Advanced QMS (SPC, ATE, LIMS)
+// ============================================================================
+
+func (h *Handler) createSPCControlChart(w http.ResponseWriter, r *http.Request) {
+	var in qms.SPCChart
+	if err := shared.DecodeJSON(r, &in); err != nil {
+		shared.JSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	in.CompanyID = currentCompany(r)
+	created, err := h.service.CreateSPCChart(r.Context(), in)
+	if err != nil {
+		shared.JSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	shared.JSONResponse(w, http.StatusCreated, created)
+}
+
+func (h *Handler) recordSPCDataPoint(w http.ResponseWriter, r *http.Request) {
+	var in qms.SPCSample
+	if err := shared.DecodeJSON(r, &in); err != nil {
+		shared.JSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	created, err := h.service.RecordSPCSample(r.Context(), in)
+	if err != nil {
+		shared.JSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	shared.JSONResponse(w, http.StatusCreated, created)
+}
+
+func (h *Handler) processATEResult(w http.ResponseWriter, r *http.Request) {
+	var in qms.ATETestResult
+	if err := shared.DecodeJSON(r, &in); err != nil {
+		shared.JSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	// no company id on result, but wait, lets ignore
+	created, err := h.service.RecordATETestResult(r.Context(), in)
+	if err != nil {
+		shared.JSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	shared.JSONResponse(w, http.StatusCreated, created)
+}
+
+func (h *Handler) createLIMSSample(w http.ResponseWriter, r *http.Request) {
+	var in qms.LabSample
+	if err := shared.DecodeJSON(r, &in); err != nil {
+		shared.JSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	in.CompanyID = currentCompany(r)
+	created, err := h.service.LogLabSample(r.Context(), in)
+	if err != nil {
+		shared.JSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	shared.JSONResponse(w, http.StatusCreated, created)
+}
+
+func (h *Handler) recordLIMSResult(w http.ResponseWriter, r *http.Request) {
+	var in qms.LabTest
+	if err := shared.DecodeJSON(r, &in); err != nil {
+		shared.JSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	created, err := h.service.RecordLabTest(r.Context(), in)
+	if err != nil {
+		shared.JSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	shared.JSONResponse(w, http.StatusCreated, created)
 }

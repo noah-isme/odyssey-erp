@@ -1,0 +1,143 @@
+{{ define "pages/integrations.html" }}{{ template "layouts/base.html" . }}{{ end }}
+{{ define "title" }}Integrations{{ end }}
+{{ define "content" }}
+<div class="page-container integrations-page">
+    <header class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-title">Platform Integrations</h1>
+            <p class="page-subtitle">Connect Odyssey ERP with your favorite external services and platforms.</p>
+        </div>
+        <div class="page-header__actions">
+            <button class="btn btn--primary" onclick="alert('Feature coming soon')">+ New Integration</button>
+        </div>
+    </header>
+
+    <div class="integrations-grid">
+        {{ range .Data.Providers }}
+        <div class="integration-card {{ if .Active }}active{{ else }}inactive{{ end }}">
+            <div class="integration-card__header">
+                <div class="integration-icon-wrapper">
+                    <span class="integration-icon">{{ .Icon }}</span>
+                </div>
+                <div class="integration-status">
+                    {{ if .Active }}
+                        <span class="badge badge--success">Connected</span>
+                    {{ else }}
+                        <span class="badge badge--neutral">Not Configured</span>
+                    {{ end }}
+                </div>
+            </div>
+            
+            <div class="integration-card__body">
+                <h3 class="integration-name">{{ .Name }}</h3>
+                <p class="integration-desc">{{ .Description }}</p>
+            </div>
+            
+            <div class="integration-card__footer">
+                {{ if .Active }}
+                    <button class="btn btn--secondary btn--sm">Configure</button>
+                    <button class="btn btn--danger btn--sm btn--outline">Disconnect</button>
+                {{ else }}
+                    <button class="btn btn--primary btn--sm">Connect</button>
+                {{ end }}
+            </div>
+        </div>
+        {{ end }}
+    </div>
+</div>
+
+<style>
+.integrations-page {
+    animation: fadeIn 0.4s ease-out;
+}
+
+.integrations-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+}
+
+.integration-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.integration-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+    background: var(--border);
+    transition: background 0.3s ease;
+}
+
+.integration-card.active::before {
+    background: var(--primary);
+}
+
+.integration-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+    border-color: var(--primary-light, var(--primary));
+}
+
+.integration-card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.integration-icon-wrapper {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: var(--surface-hover);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: var(--text-primary);
+}
+
+.integration-name {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.integration-desc {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    flex-grow: 1;
+}
+
+.integration-card__footer {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: auto;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border-light, var(--border));
+}
+
+.integration-card__footer .btn {
+    flex: 1;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+</style>
+{{ end }}

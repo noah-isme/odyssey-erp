@@ -1,0 +1,47 @@
+{{ define "pages/cmms/dashboard.html" }}
+{{ template "layouts/base.html" . }}
+{{ define "title" }}CMMS IoT Dashboard{{ end }}
+{{ define "content" }}
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-title">Predictive Maintenance & IoT</h1>
+            <p class="page-subtitle">Real-time sensor ingestion and failure predictions</p>
+        </div>
+        <div class="page-header__actions">
+            <button class="btn btn--primary">Connect Sensor</button>
+        </div>
+    </header>
+
+    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-top: 1.5rem;">
+        <!-- IoT Live Feed -->
+        <div class="card" style="padding: 1.5rem;">
+            <h3>Live Sensor Telemetry</h3>
+            <div style="height: 300px; background: var(--surface-hover); border-radius: 8px; display: flex; align-items: flex-end; padding: 1rem; gap: 10px;" id="sensorChart">
+                <!-- Simulated bars -->
+                <div style="width: 10%; background: #3b82f6; height: 60%;"></div>
+                <div style="width: 10%; background: #3b82f6; height: 80%;"></div>
+                <div style="width: 10%; background: #3b82f6; height: 50%;"></div>
+                <div style="width: 10%; background: #ef4444; height: 95%;"></div>
+                <div style="width: 10%; background: #3b82f6; height: 40%;"></div>
+            </div>
+            <p class="text-muted" style="margin-top: 1rem;">Anomaly detected on Motor A (Vibration threshold exceeded)</p>
+        </div>
+
+        <!-- Predictive Algo -->
+        <div class="card" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
+            <h3>AI Predictions</h3>
+            <div style="padding: 1rem; border-left: 4px solid #ef4444; background: #fef2f2;">
+                <strong>Motor A Failure Risk</strong>
+                <p style="margin: 0.5rem 0 0 0; color: #991b1b;">92% probability of bearing failure in next 48h.</p>
+                <button class="btn btn--danger btn--sm" style="margin-top: 1rem;">Generate Work Order</button>
+            </div>
+            <div style="padding: 1rem; border-left: 4px solid #f59e0b; background: #fffbeb;">
+                <strong>HVAC Unit 3</strong>
+                <p style="margin: 0.5rem 0 0 0; color: #92400e;">Efficiency drop detected. Schedule filter replacement.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}
+{{ end }}

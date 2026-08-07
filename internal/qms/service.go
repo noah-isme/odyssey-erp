@@ -180,6 +180,8 @@ func (s *Service) ListAudits(ctx context.Context, companyID int64, status *Statu
 	return s.repo.ListAudits(ctx, companyID, status, auditType, limit, offset)
 }
 
+// ============================================================================
+
 // UpdateAudit updates an audit.
 func (s *Service) UpdateAudit(ctx context.Context, id int64, req UpdateAuditRequest) (Audit, error) {
 	return s.repo.UpdateAudit(ctx, id, req)

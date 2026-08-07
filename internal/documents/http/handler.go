@@ -55,6 +55,16 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.With(h.rbac.RequireAny(shared.PermDocumentsSign)).Post("/{id}/versions/{versionID}/challenge", h.createChallenge)
 		r.With(h.rbac.RequireAny(shared.PermDocumentsSign)).Post("/{id}/versions/{versionID}/sign", h.signVersion)
 		r.With(h.rbac.RequireAny(shared.PermDocumentsAdmin)).Post("/{id}/versions/{versionID}/retention", h.applyRetention)
+
+		// Advanced Documents
+		r.Post("/{id}/versions/{versionID}/ocr", h.processOCR)
+		r.Post("/{id}/sessions", h.createCollaborationSession)
+		r.Post("/{id}/sessions/{sessionID}/changes", h.recordCollaborationChange)
+	})
+
+	r.Route("/search", func(r chi.Router) {
+		r.Use(h.rbac.RequireAny(shared.PermDocumentsView))
+		r.Get("/", h.searchContent)
 	})
 
 	// Categories management
@@ -433,4 +443,59 @@ func parseInt64(value string) int64 {
 		return 0
 	}
 	return v
+}
+
+// ============================================================================
+// Advanced Documents (OCR, Collaboration, Search)
+// ============================================================================
+
+func (h *Handler) processOCR(w http.ResponseWriter, r *http.Request) {
+	// Usually this is an async job. Mocking it here.
+	versionID, _ := strconv.ParseInt(chi.URLParam(r, "versionID"), 10, 64)
+	err := h.service.ProcessOCR(r.Context(), versionID)
+	if err != nil {
+		shared.JSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	shared.JSONResponse(w, http.StatusOK, map[string]string{"status": "processing"})
+}
+
+func (h *Handler) createCollaborationSession(w http.ResponseWriter, r *http.Request) {
+	var in documents.CollaborationSession
+	if err := shared.DecodeJSON(r, &in); err != nil {
+		shared.JSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	in.CompanyID = currentCompany(r)
+	created, err := h.service.CreateCollaborationSession(r.Context(), in)
+	if err != nil {
+		shared.JSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	shared.JSONResponse(w, http.StatusCreated, created)
+}
+
+func (h *Handler) recordCollaborationChange(w http.ResponseWriter, r *http.Request) {
+	var in documents.CollaborationChange
+	if err := shared.DecodeJSON(r, &in); err != nil {
+		shared.JSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	created, err := h.service.RecordCollaborationChange(r.Context(), in)
+	if err != nil {
+		shared.JSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	shared.JSONResponse(w, http.StatusCreated, created)
+}
+
+func (h *Handler) searchContent(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query().Get("q")
+	companyID := currentCompany(r)
+	results, err := h.service.SearchContent(r.Context(), companyID, query)
+	if err != nil {
+		shared.JSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	shared.JSONResponse(w, http.StatusOK, results)
 }

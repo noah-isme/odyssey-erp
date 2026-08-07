@@ -253,6 +253,25 @@ type LegalHold struct {
 	UpdatedAt    time.Time
 }
 
+// Advanced Documents Features (Collaboration)
+
+type CollaborationSession struct {
+	ID        int64
+	CompanyID int64
+	VersionID int64
+	Status    string // ACTIVE, CLOSED
+	CreatedAt time.Time
+}
+
+type CollaborationChange struct {
+	ID        int64
+	SessionID int64
+	ActorID   int64
+	Operation string // INSERT, DELETE, REPLACE
+	Payload   string
+	Timestamp time.Time
+}
+
 // LegalHoldReference represents a document under legal hold.
 type LegalHoldReference struct {
 	ID                int64

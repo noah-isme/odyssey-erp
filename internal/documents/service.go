@@ -791,3 +791,22 @@ func validateStatusTransition(newStatus Status) error {
 	}
 	return fmt.Errorf("documents: invalid status %s", newStatus)
 }
+// ============================================================================
+// Advanced Documents (OCR, Collaboration, Search)
+// ============================================================================
+
+func (s *Service) ProcessOCR(ctx context.Context, versionID int64) error {
+	return errors.New("documents: process ocr not implemented")
+}
+
+func (s *Service) CreateCollaborationSession(ctx context.Context, req CollaborationSession) (CollaborationSession, error) {
+	return CollaborationSession{}, errors.New("documents: advanced repository not implemented")
+}
+
+func (s *Service) RecordCollaborationChange(ctx context.Context, req CollaborationChange) (CollaborationChange, error) {
+	return CollaborationChange{}, errors.New("documents: advanced repository not implemented")
+}
+
+func (s *Service) SearchContent(ctx context.Context, companyID int64, query string) ([]Document, error) {
+	return nil, errors.New("documents: search content not implemented")
+}

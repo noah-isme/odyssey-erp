@@ -1,0 +1,351 @@
+{{ define "pages/portal_app.html" }}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ .Title }} · Odyssey B2B Portal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg: #f9fafb;
+            --surface: #ffffff;
+            --text-main: #111827;
+            --text-muted: #6b7280;
+            --border: #e5e7eb;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg);
+            color: var(--text-main);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 280px;
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 1.5rem;
+        }
+
+        .brand {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .nav-link {
+            padding: 0.875rem 1rem;
+            border-radius: 8px;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            transition: all 0.2s;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 2rem 3rem;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 2rem;
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .avatar {
+            width: 40px; height: 40px;
+            background: var(--primary);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-weight: bold;
+        }
+
+        /* Glassmorphism Card */
+        .card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            margin-bottom: 1.5rem;
+            animation: slideUp 0.4s ease-out;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        /* Forms */
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-group label {
+            display: block; margin-bottom: 0.5rem; font-weight: 500; color: var(--text-muted);
+        }
+        .form-control {
+            width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 8px; font-family: 'Outfit';
+        }
+        .btn {
+            background: var(--primary); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 8px; cursor: pointer; font-weight: 600; transition: 0.2s;
+        }
+        .btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
+
+        /* Chat styles */
+        .chat-box {
+            height: 400px; border: 1px solid var(--border); border-radius: 12px; display: flex; flex-direction: column; background: white;
+        }
+        .chat-messages {
+            flex: 1; padding: 1rem; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem;
+        }
+        .msg {
+            max-width: 80%; padding: 1rem; border-radius: 12px;
+        }
+        .msg.received { background: #f3f4f6; align-self: flex-start; border-bottom-left-radius: 0; }
+        .msg.sent { background: var(--primary); color: white; align-self: flex-end; border-bottom-right-radius: 0; }
+        .chat-input {
+            padding: 1rem; border-top: 1px solid var(--border); display: flex; gap: 0.5rem;
+        }
+        .chat-input input { flex: 1; }
+
+        /* Hide views by default */
+        .view { display: none; }
+        .view.active { display: block; }
+    </style>
+</head>
+<body>
+    <aside class="sidebar">
+        <div class="brand">🚀 Odyssey Portal</div>
+        <a class="nav-link active" onclick="switchTab('dashboard')">Dashboard</a>
+        <a class="nav-link" onclick="switchTab('profile')">My Profile</a>
+        <a class="nav-link" onclick="switchTab('rfq')">RFQ Negotiations</a>
+        <a class="nav-link" onclick="switchTab('chat')">Messages</a>
+    </aside>
+
+    <main class="main-content">
+        <div class="header">
+            <h1 id="pageTitle">Welcome back, Partner!</h1>
+            <div class="user-profile">
+                <span>Jane Doe</span>
+                <div class="avatar">JD</div>
+            </div>
+        </div>
+
+        <!-- Dashboard View -->
+        <div id="view-dashboard" class="view active">
+            <div class="grid">
+                <div class="card">
+                    <h3>Pending RFQs</h3>
+                    <h2 style="font-size: 2.5rem; color: var(--primary); margin: 0.5rem 0;">3</h2>
+                    <p class="text-muted">Requires your attention</p>
+                </div>
+                <div class="card">
+                    <h3>Unread Messages</h3>
+                    <h2 style="font-size: 2.5rem; color: var(--primary); margin: 0.5rem 0;">1</h2>
+                    <p class="text-muted">From purchasing team</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Profile View -->
+        <div id="view-profile" class="view">
+            <div class="card" style="max-width: 500px;">
+                <h3>Update Profile</h3>
+                <form id="profileForm">
+                    <div class="form-group">
+                        <label>Display Name</label>
+                        <input type="text" id="profName" class="form-control" value="Jane Doe">
+                    </div>
+                    <div class="form-group">
+                        <label>Phone Number</label>
+                        <input type="text" id="profPhone" class="form-control" value="+62 812 3456 7890">
+                    </div>
+                    <button type="submit" class="btn">Save Changes</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- RFQ View -->
+        <div id="view-rfq" class="view">
+            <div class="card">
+                <h3>Active Negotiations</h3>
+                <table style="width: 100%; border-collapse: collapse; margin-top: 1rem;">
+                    <tr style="border-bottom: 1px solid var(--border); text-align: left;">
+                        <th style="padding: 1rem;">RFQ Ref</th>
+                        <th style="padding: 1rem;">Item</th>
+                        <th style="padding: 1rem;">Target Price</th>
+                        <th style="padding: 1rem;">Your Offer</th>
+                        <th style="padding: 1rem;">Action</th>
+                    </tr>
+                    <tr style="border-bottom: 1px solid var(--border);">
+                        <td style="padding: 1rem;">RFQ-2026-001</td>
+                        <td style="padding: 1rem;">Industrial Steel Pipe</td>
+                        <td style="padding: 1rem;">$500.00</td>
+                        <td style="padding: 1rem;">$520.00</td>
+                        <td style="padding: 1rem;">
+                            <button class="btn" style="padding: 0.5rem 1rem;" onclick="negotiate(1)">Revise Offer</button>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- Chat View -->
+        <div id="view-chat" class="view">
+            <div class="chat-box">
+                <div class="chat-messages" id="chatList">
+                    <div class="msg received">Hello! Please review the attached specs for the new RFQ.</div>
+                    <div class="msg sent">Got it. I'll send over a revised quote by tomorrow.</div>
+                </div>
+                <form class="chat-input" id="chatForm">
+                    <input type="text" id="chatMsg" class="form-control" placeholder="Type a message..." required>
+                    <button type="submit" class="btn">Send</button>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Track analytics automatically
+        function trackEvent(eventType, metadata = {}) {
+            fetch('/portal/analytics/event', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ event_type: eventType, metadata: metadata })
+            }).catch(e => console.error("Analytics skipped", e));
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
+            
+            document.getElementById('view-' + tabId).classList.add('active');
+            event.currentTarget.classList.add('active');
+            
+            const titles = {
+                'dashboard': 'Welcome back, Partner!',
+                'profile': 'My Profile',
+                'rfq': 'RFQ Negotiations',
+                'chat': 'Messages'
+            };
+            document.getElementById('pageTitle').textContent = titles[tabId];
+            trackEvent('page_view', { page: tabId });
+        }
+
+        // Profile Form
+        document.getElementById('profileForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = e.target.querySelector('.btn');
+            btn.textContent = 'Saving...';
+            
+            try {
+                await fetch('/portal/profile', {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        display_name: document.getElementById('profName').value,
+                        phone: document.getElementById('profPhone').value
+                    })
+                });
+                btn.textContent = 'Saved!';
+                setTimeout(() => btn.textContent = 'Save Changes', 2000);
+                trackEvent('profile_updated');
+            } catch (err) {
+                alert("Failed to update profile");
+                btn.textContent = 'Save Changes';
+            }
+        });
+
+        // Chat Form
+        document.getElementById('chatForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const input = document.getElementById('chatMsg');
+            const msg = input.value;
+            if (!msg) return;
+
+            // Optimistic UI
+            const chatList = document.getElementById('chatList');
+            chatList.innerHTML += `<div class="msg sent">${msg}</div>`;
+            chatList.scrollTop = chatList.scrollHeight;
+            input.value = '';
+
+            try {
+                await fetch('/portal/chat', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ context: 'general', message: msg })
+                });
+                trackEvent('chat_sent');
+            } catch (err) {
+                console.error("Chat failed to send");
+            }
+        });
+
+        // RFQ Negotation
+        async function negotiate(rfqId) {
+            const price = prompt("Enter your proposed price:");
+            if (!price) return;
+
+            try {
+                await fetch('/portal/rfq/negotiate', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ rfq_id: rfqId, supplier_id: 1, proposed_price: parseFloat(price) })
+                });
+                alert("Proposal sent successfully!");
+                trackEvent('rfq_negotiated', { rfq_id: rfqId, price: price });
+            } catch (err) {
+                alert("Failed to send proposal");
+            }
+        }
+
+        // Initial tracking
+        trackEvent('portal_login');
+    </script>
+</body>
+</html>
+{{ end }}

@@ -20,6 +20,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 	"golang.org/x/crypto/bcrypt"
+	"github.com/odyssey-erp/odyssey-erp/internal/view"
 )
 
 type Handler struct {
@@ -29,6 +30,7 @@ type Handler struct {
 		Create(ctx context.Context, req documents.CreateDocumentRequest) (documents.Document, error)
 		UploadAndCreateVersion(ctx context.Context, file io.Reader, size int64, mimeType string, req documents.CreateVersionRequest) (documents.DocumentVersion, error)
 	}
+	templates *view.Engine
 }
 
 // =============================================================================
@@ -155,12 +157,12 @@ func (h *Handler) recordAnalyticsEvent(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-func NewHandler(pool *pgxpool.Pool, middleware ...rbac.Middleware) *Handler {
+func NewHandler(pool *pgxpool.Pool, templates *view.Engine, middleware ...rbac.Middleware) *Handler {
 	var m rbac.Middleware
 	if len(middleware) > 0 {
 		m = middleware[0]
 	}
-	return &Handler{pool: pool, rbac: m}
+	return &Handler{pool: pool, templates: templates, rbac: m}
 }
 
 func (h *Handler) SetDocumentsService(docs interface {
@@ -172,6 +174,10 @@ func (h *Handler) SetDocumentsService(docs interface {
 
 func (h *Handler) MountRoutes(r chi.Router) {
 	r.Route("/portal", func(r chi.Router) {
+		r.Get("/app", func(w http.ResponseWriter, r *http.Request) {
+			_ = h.templates.Render(w, "pages/portal_app.html", view.TemplateData{Title: "Portal"})
+		})
+		
 		r.Group(func(r chi.Router) {
 			r.Use(h.rbac.RequireAny("portal.manage"))
 			r.Post("/admin/invitations", h.createInvitation)

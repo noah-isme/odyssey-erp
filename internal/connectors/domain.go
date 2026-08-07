@@ -3,6 +3,8 @@ package connectors
 import (
 	"context"
 	"time"
+
+	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 )
 
 // ConnectionStatus represents the health and state of a provider connection.
@@ -29,6 +31,24 @@ type Connection struct {
 	TokenExpiry    *time.Time
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
+}
+
+// GetCredentials securely decrypts the SecretRef using the application Vault.
+func (c *Connection) GetCredentials(vault *shared.Vault) (string, error) {
+	if c.SecretRef == "" {
+		return "", nil
+	}
+	return vault.DecryptSecure(c.SecretRef)
+}
+
+// SetCredentials encrypts the plaintext API key/secret and stores it in SecretRef.
+func (c *Connection) SetCredentials(vault *shared.Vault, plaintext string) error {
+	cipher, err := vault.EncryptSecure(plaintext)
+	if err != nil {
+		return err
+	}
+	c.SecretRef = cipher
+	return nil
 }
 
 // ProviderAdapter defines the common interface every external provider must implement.

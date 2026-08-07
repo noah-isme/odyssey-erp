@@ -24,6 +24,9 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/mockpay"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/oidc"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/stripe"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/whatsapp"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/openai"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/dhl"
 	"github.com/odyssey-erp/odyssey-erp/internal/crm"
 	"github.com/odyssey-erp/odyssey-erp/internal/documents"
 	"github.com/odyssey-erp/odyssey-erp/internal/fixedassets"
@@ -233,6 +236,9 @@ func main() {
 	connectorsRegistry.Register("mockpay", mockpay.NewAdapter(logger))
 	connectorsRegistry.Register("stripe", stripe.NewAdapter(logger))
 	connectorsRegistry.Register("oidc", oidc.NewAdapter(logger))
+	connectorsRegistry.Register("whatsapp", whatsapp.NewAdapter(logger))
+	connectorsRegistry.Register("openai", openai.NewAdapter(logger))
+	connectorsRegistry.Register("dhl", dhl.NewAdapter(logger))
 	connectorsOutboxWorker := connectors.NewOutboxWorker(sqlc.New(pool), connectorsRegistry)
 
 	outboxRepo := outbox.NewRepository(pool)

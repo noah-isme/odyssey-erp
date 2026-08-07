@@ -45,6 +45,11 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Post("/pick-tasks/{id}/scan", h.scan)
 		r.Post("/pick-tasks/{id}/pack", h.pack)
 		r.Post("/pick-tasks/{id}/ship", h.ship)
+
+		// Advanced WMS
+		r.Post("/putaway", h.createPutAwayTask)
+		r.Post("/crossdocking", h.createCrossDockingPlan)
+		r.Post("/mhe", h.createMHEEquipment)
 	})
 }
 
@@ -297,4 +302,68 @@ func (h *Handler) ship(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	h.transition(w, r, "SHIPPED")
+}
+
+// ============================================================================
+// Advanced WMS
+// ============================================================================
+
+func (h *Handler) createPutAwayTask(w http.ResponseWriter, r *http.Request) {
+	_, cid, ok := sessionIDs(r)
+	if !ok {
+		shared.WriteHTTPError(w, http.StatusForbidden, "")
+		return
+	}
+	var in PutAwayTask
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	in.CompanyID = cid
+	created, err := h.service.CreatePutAwayTask(r.Context(), in)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	shared.JSONResponse(w, http.StatusCreated, created)
+}
+
+func (h *Handler) createCrossDockingPlan(w http.ResponseWriter, r *http.Request) {
+	_, cid, ok := sessionIDs(r)
+	if !ok {
+		shared.WriteHTTPError(w, http.StatusForbidden, "")
+		return
+	}
+	var in CrossDockingPlan
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	in.CompanyID = cid
+	created, err := h.service.CreateCrossDockingPlan(r.Context(), in)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	shared.JSONResponse(w, http.StatusCreated, created)
+}
+
+func (h *Handler) createMHEEquipment(w http.ResponseWriter, r *http.Request) {
+	_, cid, ok := sessionIDs(r)
+	if !ok {
+		shared.WriteHTTPError(w, http.StatusForbidden, "")
+		return
+	}
+	var in MHEEquipment
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	in.CompanyID = cid
+	created, err := h.service.CreateMHEEquipment(r.Context(), in)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	shared.JSONResponse(w, http.StatusCreated, created)
 }

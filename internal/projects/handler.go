@@ -36,6 +36,11 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Post("/timesheets/{id}/approve", h.approve)
 		r.Post("/timesheets/{id}/reject", h.reject)
 		r.Post("/timesheets/{id}/lock", h.lock)
+
+		// Advanced Projects
+		r.Post("/{id}/milestones", h.createMilestone)
+		r.Post("/{id}/resources", h.allocateResource)
+		r.Post("/{id}/expenses", h.submitExpense)
 	})
 }
 
@@ -180,3 +185,61 @@ func (h *Handler) reject(w http.ResponseWriter, r *http.Request) {
 	h.transition(w, r, h.service.Reject)
 }
 func (h *Handler) lock(w http.ResponseWriter, r *http.Request) { h.transition(w, r, h.service.Lock) }
+
+// ============================================================================
+// Advanced Projects
+// ============================================================================
+
+func (h *Handler) createMilestone(w http.ResponseWriter, r *http.Request) {
+	_, _, ok := ids(r)
+	if !ok {
+		http.Error(w, "unauthorized", 401)
+		return
+	}
+	var in ProjectMilestone
+	if !decode(w, r, &in) {
+		return
+	}
+	created, err := h.service.CreateMilestone(r.Context(), in)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	shared.JSONResponse(w, http.StatusCreated, created)
+}
+
+func (h *Handler) allocateResource(w http.ResponseWriter, r *http.Request) {
+	_, _, ok := ids(r)
+	if !ok {
+		http.Error(w, "unauthorized", 401)
+		return
+	}
+	var in ResourceAllocation
+	if !decode(w, r, &in) {
+		return
+	}
+	created, err := h.service.AllocateResource(r.Context(), in)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	shared.JSONResponse(w, http.StatusCreated, created)
+}
+
+func (h *Handler) submitExpense(w http.ResponseWriter, r *http.Request) {
+	_, _, ok := ids(r)
+	if !ok {
+		http.Error(w, "unauthorized", 401)
+		return
+	}
+	var in ProjectExpense
+	if !decode(w, r, &in) {
+		return
+	}
+	created, err := h.service.SubmitExpense(r.Context(), in)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	shared.JSONResponse(w, http.StatusCreated, created)
+}

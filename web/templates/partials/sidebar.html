@@ -42,6 +42,7 @@
                     <a href="/sales/quotations" class="nav-item{{ if isActive .CurrentPath "/sales/quotations" }} active{{ end }}" data-tooltip="Penawaran"><span class="nav-item-text">Penawaran</span></a>
                     <a href="/sales/orders" class="nav-item{{ if isActive .CurrentPath "/sales/orders" }} active{{ end }}" data-tooltip="Sales Order"><span class="nav-item-text">Sales Order</span></a>
                     <a href="/delivery/orders" class="nav-item{{ if isActive .CurrentPath "/delivery/orders" }} active{{ end }}" data-tooltip="Delivery Order"><span class="nav-item-text">Delivery Order</span></a>
+                    <a href="/pos/terminal" class="nav-item{{ if isActive .CurrentPath "/pos/terminal" }} active{{ end }}" data-tooltip="POS Terminal"><span class="nav-item-text">POS Terminal</span></a>
                 </div>
             </details>
 
@@ -62,6 +63,7 @@
                     <a href="/inventory/transfers" class="nav-item{{ if isActive .CurrentPath "/inventory/transfers" }} active{{ end }}" data-tooltip="Transfer Stok"><span class="nav-item-text">Transfer Stok</span></a>
                     <a href="/inventory/stock-takes" class="nav-item{{ if isActive .CurrentPath "/inventory/stock-takes" }} active{{ end }}" data-tooltip="Stock Opname"><span class="nav-item-text">Stock Opname</span></a>
                     <a href="/inventory/valuation" class="nav-item{{ if isActive .CurrentPath "/inventory/valuation" }} active{{ end }}" data-tooltip="Valuasi Stok"><span class="nav-item-text">Valuasi Stok</span></a>
+                    <a href="/wms/operations" class="nav-item{{ if isActive .CurrentPath "/wms/operations" }} active{{ end }}" data-tooltip="WMS Operations"><span class="nav-item-text">WMS Operations</span></a>
                 </div>
             </details>
 
@@ -86,6 +88,7 @@
                     <a href="/qms/capas" class="nav-item{{ if isActive .CurrentPath "/qms/capas" }} active{{ end }}" data-tooltip="CAPAs"><span class="nav-item-text">CAPAs</span></a>
                     <a href="/qms/audits" class="nav-item{{ if isActive .CurrentPath "/qms/audits" }} active{{ end }}" data-tooltip="Audits"><span class="nav-item-text">Audits</span></a>
                     <a href="/qms/supplier-quality" class="nav-item{{ if isActive .CurrentPath "/qms/supplier-quality" }} active{{ end }}" data-tooltip="Supplier Quality"><span class="nav-item-text">Supplier Quality</span></a>
+                    <a href="/qms/dashboard" class="nav-item{{ if isActive .CurrentPath "/qms/dashboard" }} active{{ end }}" data-tooltip="SPC & Calibration"><span class="nav-item-text">SPC &amp; Calibration</span></a>
                 </div>
             </details>
 
@@ -96,6 +99,21 @@
                     <a href="/cmms/work-orders" class="nav-item{{ if isActive .CurrentPath "/cmms/work-orders" }} active{{ end }}" data-tooltip="Work Orders"><span class="nav-item-text">Work Orders</span></a>
                     <a href="/cmms/pm-schedules" class="nav-item{{ if isActive .CurrentPath "/cmms/pm-schedules" }} active{{ end }}" data-tooltip="PM Schedules"><span class="nav-item-text">PM Schedules</span></a>
                     <a href="/cmms/spare-parts" class="nav-item{{ if isActive .CurrentPath "/cmms/spare-parts" }} active{{ end }}" data-tooltip="Spare Parts"><span class="nav-item-text">Spare Parts</span></a>
+                    <a href="/cmms/dashboard" class="nav-item{{ if isActive .CurrentPath "/cmms/dashboard" }} active{{ end }}" data-tooltip="IoT Dashboard"><span class="nav-item-text">IoT Dashboard</span></a>
+                </div>
+            </details>
+
+            <details class="sidebar-menu" data-sidebar-menu{{ if or (isActive .CurrentPath "/documents/workspace") }} open{{ end }}>
+                <summary data-tooltip="Documents"><span class="nav-item-icon">📄</span><span class="nav-item-text">Documents</span><span class="sidebar-menu__arrow">⌄</span></summary>
+                <div class="sidebar-menu__items">
+                    <a href="/documents/workspace" class="nav-item{{ if isActive .CurrentPath "/documents/workspace" }} active{{ end }}" data-tooltip="Workspace"><span class="nav-item-text">Workspace</span></a>
+                </div>
+            </details>
+
+            <details class="sidebar-menu" data-sidebar-menu{{ if or (isActive .CurrentPath "/projects/gantt") }} open{{ end }}>
+                <summary data-tooltip="Projects"><span class="nav-item-icon">🏗️</span><span class="nav-item-text">Projects</span><span class="sidebar-menu__arrow">⌄</span></summary>
+                <div class="sidebar-menu__items">
+                    <a href="/projects/gantt" class="nav-item{{ if isActive .CurrentPath "/projects/gantt" }} active{{ end }}" data-tooltip="Gantt Chart"><span class="nav-item-text">Gantt Chart</span></a>
                 </div>
             </details>
 
@@ -108,7 +126,8 @@
                 </div>
             </details>
 
-
+            <span class="sidebar-section-title">External Channels</span>
+            <a href="/portal/app" target="_blank" class="nav-item" data-tooltip="B2B Portal"><span class="nav-item-icon">🌐</span><span class="nav-item-text">B2B Portal App</span></a>
 
             <span class="sidebar-section-title">Finance</span>
             <a href="/tax" class="nav-item{{ if isActive .CurrentPath "/tax" }} active{{ end }}" data-tooltip="Tax Compliance"><span class="nav-item-icon">Tx</span><span class="nav-item-text">Tax Compliance</span></a>
@@ -171,6 +190,7 @@
                     <a href="/permissions" class="nav-item{{ if isActive .CurrentPath "/permissions" }} active{{ end }}" data-tooltip="Permissions"><span class="nav-item-text">Permissions</span></a>
                     <a href="/jobs" class="nav-item{{ if isActive .CurrentPath "/jobs" }} active{{ end }}" data-tooltip="Jobs"><span class="nav-item-text">Jobs</span></a>
                     <a href="/metrics" class="nav-item{{ if isActive .CurrentPath "/metrics" }} active{{ end }}" data-tooltip="Metrics"><span class="nav-item-text">Metrics</span></a>
+                    <a href="/settings/integrations" class="nav-item{{ if isActive .CurrentPath "/settings/integrations" }} active{{ end }}" data-tooltip="Integrations"><span class="nav-item-text">Integrations</span></a>
                     <a href="/report/ping" class="nav-item{{ if isActive .CurrentPath "/report/ping" }} active{{ end }}" data-tooltip="Report Ping"><span class="nav-item-text">Report Ping</span></a>
                 </div>
             </details>

@@ -90,7 +90,24 @@ func VerifyWebhookSignature(secret string, payload []byte, timestamp, signature 
 
 func (h *Handler) MountRoutes(r chi.Router) {
 	r.Route("/api/v1", func(r chi.Router) {
-		r.Get("/openapi.json", h.openapi)
+		r.Get("/openapi.json", h.openapiV1)
+		r.Get("/me", h.me)
+		r.Get("/projects", h.listProjects)
+		r.Post("/projects", h.createProject)
+		r.Post("/keys", h.createKey)
+		r.Post("/keys/bootstrap", h.bootstrapKey)
+		r.Post("/keys/{id}/revoke", h.revokeKey)
+		r.Post("/webhooks", h.createWebhook)
+		r.Get("/webhooks", h.listWebhooks)
+		r.Post("/webhooks/{id}/replay", h.replayWebhook)
+	})
+
+	// Public API v2 with robust rate limiting (60 requests/sec, burst 100)
+	r.Route("/api/v2", func(r chi.Router) {
+		r.Use(RateLimitMiddleware(60, 100))
+		
+		r.Get("/openapi.json", h.openapiV2)
+		
 		r.Get("/me", h.me)
 		r.Get("/projects", h.listProjects)
 		r.Post("/projects", h.createProject)
@@ -103,7 +120,7 @@ func (h *Handler) MountRoutes(r chi.Router) {
 	})
 }
 
-func (h *Handler) openapi(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) openapiV1(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"openapi": "3.0.3", "info": map[string]string{"title": "Odyssey Public API", "version": "1.0.0"},
 		"security":   []map[string][]string{{"apiKey": {}}},
@@ -113,6 +130,25 @@ func (h *Handler) openapi(w http.ResponseWriter, r *http.Request) {
 			"/api/v1/projects": map[string]any{"get": map[string]any{"responses": map[string]any{"200": map[string]string{"description": "Company projects"}}}, "post": map[string]any{"parameters": []map[string]any{{"name": "Idempotency-Key", "in": "header", "required": true}}, "responses": map[string]any{"201": map[string]string{"description": "Created project"}}}},
 			"/api/v1/keys":     map[string]any{"post": map[string]any{"responses": map[string]any{"201": map[string]string{"description": "Created API key; plaintext returned once"}}}},
 			"/api/v1/webhooks": map[string]any{"post": map[string]any{"responses": map[string]any{"201": map[string]string{"description": "Created webhook subscription"}}}},
+		},
+	})
+}
+
+func (h *Handler) openapiV2(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{
+		"openapi": "3.1.0", 
+		"info": map[string]string{
+			"title": "Odyssey Public API v2", 
+			"version": "2.0.0",
+			"description": "Rate-limited Odyssey ERP API.",
+		},
+		"security":   []map[string][]string{{"apiKey": {}}},
+		"components": map[string]any{"securitySchemes": map[string]any{"apiKey": map[string]string{"type": "apiKey", "in": "header", "name": "X-API-Key"}}},
+		"paths": map[string]any{
+			"/api/v2/me":       map[string]any{"get": map[string]any{"responses": map[string]any{"200": map[string]string{"description": "Authenticated integration"}}}},
+			"/api/v2/projects": map[string]any{"get": map[string]any{"responses": map[string]any{"200": map[string]string{"description": "Company projects"}}}, "post": map[string]any{"parameters": []map[string]any{{"name": "Idempotency-Key", "in": "header", "required": true}}, "responses": map[string]any{"201": map[string]string{"description": "Created project"}}}},
+			"/api/v2/keys":     map[string]any{"post": map[string]any{"responses": map[string]any{"201": map[string]string{"description": "Created API key; plaintext returned once"}}}},
+			"/api/v2/webhooks": map[string]any{"post": map[string]any{"responses": map[string]any{"201": map[string]string{"description": "Created webhook subscription"}}}},
 		},
 	})
 }

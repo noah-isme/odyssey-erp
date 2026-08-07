@@ -49,6 +49,9 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/oidc"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/shopify"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/stripe"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/whatsapp"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/openai"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/dhl"
 	"github.com/odyssey-erp/odyssey-erp/internal/crm"
 	"github.com/odyssey-erp/odyssey-erp/internal/dashboard"
 	"github.com/odyssey-erp/odyssey-erp/internal/documents"
@@ -453,7 +456,7 @@ func main() {
 	wmsHandler := wms.NewHandler(wms.NewService(wms.NewRepository(dbpool)), rbacMiddleware, dbpool)
 	wmsHandler.SetInventoryService(inventoryService)
 	apiHandler := apihttp.NewHandler(dbpool, []byte(cfg.SessionSecret))
-	portalHandler := portal.NewHandler(dbpool, rbacMiddleware)
+	portalHandler := portal.NewHandler(dbpool, templates, rbacMiddleware)
 	posHandler := pos.NewHandler(pos.NewService(pos.NewRepository(dbpool)), rbacMiddleware, dbpool)
 	posHandler.SetInventoryService(inventoryService)
 	posHandler.SetAccountingService(integrationHooks)
@@ -493,6 +496,9 @@ func main() {
 	connectorsRegistry.Register("stripe", stripe.NewAdapter(logger))
 	connectorsRegistry.Register("oidc", oidc.NewAdapter(logger))
 	connectorsRegistry.Register("shopify", shopify.NewAdapter(logger))
+	connectorsRegistry.Register("whatsapp", whatsapp.NewAdapter(logger))
+	connectorsRegistry.Register("openai", openai.NewAdapter(logger))
+	connectorsRegistry.Register("dhl", dhl.NewAdapter(logger))
 	connectorsProcessor := connectors.NewInboxProcessor(sqlc.New(dbpool), connectorsRegistry, outboxRepo, logger)
 	connectorsHandler := connectors.NewWebhookHandler(connectorsProcessor)
 

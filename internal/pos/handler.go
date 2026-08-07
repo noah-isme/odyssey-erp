@@ -50,6 +50,12 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Post("/terminals", h.createTerminal)
 		r.Post("/terminals/{id}/open", h.openSession)
 		r.Post("/sessions/{id}/close", h.closeSession)
+
+		// Advanced POS
+		r.Post("/hardware", h.createHardware)
+		r.Post("/loyalty", h.createLoyaltyMember)
+		r.Post("/giftcards", h.createGiftCard)
+
 		r.Post("/tickets", h.createTicket)
 		r.Post("/tickets/{id}/payments", h.payment)
 		r.Post("/tickets/{id}/refund", h.refund)
@@ -331,4 +337,68 @@ func (h *Handler) refund(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	out(w, 200, t)
+}
+
+// ============================================================================
+// Advanced POS
+// ============================================================================
+
+func (h *Handler) createHardware(w http.ResponseWriter, r *http.Request) {
+	_, cid, ok := ids(r)
+	if !ok {
+		http.Error(w, "unauthorized", 401)
+		return
+	}
+	var in POSHardware
+	if err := shared.DecodeJSON(r, &in); err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	_ = cid // POSHardware doesn't have CompanyID currently
+	created, err := h.service.CreatePOSHardware(r.Context(), in)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	shared.JSONResponse(w, 201, created)
+}
+
+func (h *Handler) createLoyaltyMember(w http.ResponseWriter, r *http.Request) {
+	_, cid, ok := ids(r)
+	if !ok {
+		http.Error(w, "unauthorized", 401)
+		return
+	}
+	var in LoyaltyMember
+	if err := shared.DecodeJSON(r, &in); err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	in.CompanyID = cid
+	created, err := h.service.CreateLoyaltyMember(r.Context(), in)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	shared.JSONResponse(w, 201, created)
+}
+
+func (h *Handler) createGiftCard(w http.ResponseWriter, r *http.Request) {
+	_, cid, ok := ids(r)
+	if !ok {
+		http.Error(w, "unauthorized", 401)
+		return
+	}
+	var in GiftCard
+	if err := shared.DecodeJSON(r, &in); err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	in.CompanyID = cid
+	created, err := h.service.CreateGiftCard(r.Context(), in)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	shared.JSONResponse(w, 201, created)
 }

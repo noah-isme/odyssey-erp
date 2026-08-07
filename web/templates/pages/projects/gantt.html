@@ -1,0 +1,90 @@
+{{ define "pages/projects/gantt.html" }}
+{{ template "layouts/base.html" . }}
+{{ define "title" }}Project Management{{ end }}
+{{ define "content" }}
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-title">Project Alpha</h1>
+            <p class="page-subtitle">Milestones, Dependencies, Budgets, and Cost Accounting</p>
+        </div>
+        <div class="page-header__actions">
+            <button class="btn btn--primary">+ New Task</button>
+        </div>
+    </header>
+
+    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-top: 1.5rem;">
+        <!-- Gantt Chart View -->
+        <div class="card" style="padding: 1.5rem; overflow-x: auto;">
+            <h3>Gantt Schedule</h3>
+            <div style="min-width: 600px; padding: 1rem 0;">
+                <!-- Timeline Header -->
+                <div style="display: flex; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 1rem; color: var(--text-secondary); font-size: 0.875rem;">
+                    <div style="width: 200px;">Task Name</div>
+                    <div style="flex: 1; display: flex; justify-content: space-between;">
+                        <span>Week 1</span><span>Week 2</span><span>Week 3</span><span>Week 4</span>
+                    </div>
+                </div>
+
+                <!-- Task 1 -->
+                <div style="display: flex; align-items: center; margin-bottom: 1rem;">
+                    <div style="width: 200px; font-weight: 500;">1. Foundation Phase</div>
+                    <div style="flex: 1; background: #e5e7eb; border-radius: 4px; height: 24px; position: relative;">
+                        <div style="position: absolute; left: 0; width: 40%; height: 100%; background: #3b82f6; border-radius: 4px;"></div>
+                    </div>
+                </div>
+
+                <!-- Task 2 (Dependency) -->
+                <div style="display: flex; align-items: center; margin-bottom: 1rem;">
+                    <div style="width: 200px; font-weight: 500; padding-left: 1rem; position: relative;">
+                        <span style="position: absolute; left: 0; top: -10px; border-left: 2px solid #9ca3af; border-bottom: 2px solid #9ca3af; width: 10px; height: 22px;"></span>
+                        2. Structural Core
+                    </div>
+                    <div style="flex: 1; background: #e5e7eb; border-radius: 4px; height: 24px; position: relative;">
+                        <div style="position: absolute; left: 40%; width: 30%; height: 100%; background: #f59e0b; border-radius: 4px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Budget & Cost Accounting -->
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+            <div class="card" style="padding: 1.5rem;">
+                <h3>Project Budget</h3>
+                <div style="margin-bottom: 1rem;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                        <span>Allocated</span>
+                        <strong>$150,000.00</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; color: var(--text-secondary);">
+                        <span>Spent (Actuals)</span>
+                        <span>$45,250.00</span>
+                    </div>
+                </div>
+                <div style="width: 100%; background: #e5e7eb; height: 8px; border-radius: 4px; overflow: hidden;">
+                    <div style="width: 30%; background: #10b981; height: 100%;"></div>
+                </div>
+            </div>
+
+            <div class="card" style="padding: 1.5rem;">
+                <h3>Cost Accounting Codes</h3>
+                <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem;">
+                    <li style="display: flex; justify-content: space-between; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border);">
+                        <span>Materials (Code 4001)</span>
+                        <strong>$25,000</strong>
+                    </li>
+                    <li style="display: flex; justify-content: space-between; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border);">
+                        <span>Labor (Code 5020)</span>
+                        <strong>$18,000</strong>
+                    </li>
+                    <li style="display: flex; justify-content: space-between; padding-bottom: 0.5rem;">
+                        <span>Overhead (Code 6010)</span>
+                        <strong>$2,250</strong>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}
+{{ end }}

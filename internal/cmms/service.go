@@ -547,3 +547,16 @@ func (s *Service) EvaluatePredictiveAlerts(ctx context.Context, companyID, asset
 	}
 	return nil
 }
+
+func (s *Service) RecordIoTReading(ctx context.Context, reading IoTReading) (IoTReading, error) {
+	return IoTReading{}, errors.New("cmms: advanced repository not implemented")
+}
+
+func (s *Service) CreatePredictiveModel(ctx context.Context, model PredictiveModel) (PredictiveModel, error) {
+	return PredictiveModel{}, errors.New("cmms: advanced repository not implemented")
+}
+
+func (s *Service) EvaluatePredictiveAlertsBatch(ctx context.Context, companyID int64) ([]PredictiveAlert, error) {
+	return nil, errors.New("cmms: advanced repository not implemented")
+}
+
