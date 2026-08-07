@@ -490,3 +490,60 @@ func validateWorkOrderStatusTransition(newStatus Status) error {
 	}
 	return fmt.Errorf("cmms: invalid status %s", newStatus)
 }
+
+// =============================================================================
+// Advanced CMMS Features (Predictive Maintenance, IoT)
+// =============================================================================
+
+// RegisterIoTSensor registers a new IoT sensor attached to an asset.
+func (s *Service) RegisterIoTSensor(ctx context.Context, sensor IoTSensor) (IoTSensor, error) {
+	if sensor.CompanyID <= 0 || sensor.AssetID <= 0 || sensor.SensorCode == "" {
+		return IoTSensor{}, errors.New("cmms: invalid sensor data")
+	}
+	sensor.Status = "ACTIVE"
+	
+	id, err := s.repo.CreateIoTSensor(ctx, sensor)
+	if err != nil {
+		return IoTSensor{}, fmt.Errorf("cmms: failed to register IoT sensor: %w", err)
+	}
+	sensor.ID = id
+	return sensor, nil
+}
+
+// ProcessIoTReading ingests a time-series reading from an IoT sensor and updates its latest state.
+func (s *Service) ProcessIoTReading(ctx context.Context, sensorID int64, value float64) error {
+	ts := s.now()
+	_, err := s.repo.InsertIoTReading(ctx, sensorID, value)
+	if err != nil {
+		return fmt.Errorf("cmms: failed to insert IoT reading: %w", err)
+	}
+	
+	// Update sensor's latest reading
+	err = s.repo.UpdateIoTSensorReading(ctx, sensorID, value, ts)
+	if err != nil {
+		return fmt.Errorf("cmms: failed to update sensor latest reading: %w", err)
+	}
+	
+	return nil
+}
+
+// EvaluatePredictiveAlerts runs a simplified heuristic model evaluation over incoming sensor data.
+// In a real system, this would call out to an external ML inference service or rule engine.
+func (s *Service) EvaluatePredictiveAlerts(ctx context.Context, companyID, assetID int64, modelID int64, sensorID int64, reading float64) error {
+	// Dummy rule: if reading exceeds an arbitrary threshold, create a predictive alert.
+	if reading > 1000.0 {
+		alert := PredictiveAlert{
+			CompanyID:   companyID,
+			AssetID:     assetID,
+			SensorID:    &sensorID,
+			ModelID:     &modelID,
+			Severity:    "CRITICAL",
+			Description: fmt.Sprintf("Predictive Model detected anomaly in sensor reading: %f", reading),
+		}
+		_, err := s.repo.CreatePredictiveAlert(ctx, alert)
+		if err != nil {
+			return fmt.Errorf("cmms: failed to generate predictive alert: %w", err)
+		}
+	}
+	return nil
+}

@@ -1,0 +1,29 @@
+CREATE TABLE pos_hardware (
+    id BIGSERIAL PRIMARY KEY,
+    terminal_id BIGINT NOT NULL REFERENCES pos_terminals(id) ON DELETE CASCADE,
+    device_type VARCHAR(50) NOT NULL, -- PRINTER, SCANNER
+    device_ip VARCHAR(50),
+    device_config JSONB,
+    status VARCHAR(50) NOT NULL DEFAULT 'ONLINE'
+);
+
+CREATE TABLE pos_loyalty_members (
+    id BIGSERIAL PRIMARY KEY,
+    company_id BIGINT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    customer_name VARCHAR(255) NOT NULL,
+    phone VARCHAR(50) NOT NULL,
+    points BIGINT NOT NULL DEFAULT 0,
+    tier VARCHAR(50) NOT NULL DEFAULT 'STANDARD',
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE pos_gift_cards (
+    id BIGSERIAL PRIMARY KEY,
+    company_id BIGINT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    code VARCHAR(100) NOT NULL UNIQUE,
+    balance NUMERIC(15, 4) NOT NULL DEFAULT 0,
+    currency CHAR(3) NOT NULL DEFAULT 'IDR',
+    status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
+    expires_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);

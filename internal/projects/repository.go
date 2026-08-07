@@ -65,4 +65,26 @@ func (r *SQLRepository) UpdateTimesheet(ctx context.Context, s Timesheet) error 
 	return nil
 }
 
-var _ Repository = (*SQLRepository)(nil)
+// =============================================================================
+// Advanced Project Features (Milestones, Resource Allocation, Expenses)
+// =============================================================================
+
+func (r *SQLRepository) CreateMilestone(ctx context.Context, milestone ProjectMilestone) (ProjectMilestone, error) {
+	err := r.pool.QueryRow(ctx, `INSERT INTO project_milestones (project_id, name, description, due_date, status) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+		milestone.ProjectID, milestone.Name, milestone.Description, milestone.DueDate, milestone.Status).Scan(&milestone.ID)
+	return milestone, err
+}
+
+func (r *SQLRepository) AllocateResource(ctx context.Context, allocation ResourceAllocation) (ResourceAllocation, error) {
+	err := r.pool.QueryRow(ctx, `INSERT INTO project_resource_allocations (project_id, employee_id, allocated_hours, start_date, end_date) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+		allocation.ProjectID, allocation.EmployeeID, allocation.AllocatedHours, allocation.StartDate, allocation.EndDate).Scan(&allocation.ID)
+	return allocation, err
+}
+
+func (r *SQLRepository) SubmitExpense(ctx context.Context, expense ProjectExpense) (ProjectExpense, error) {
+	err := r.pool.QueryRow(ctx, `INSERT INTO project_expenses (project_id, employee_id, amount, currency, description, receipt_url, status) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+		expense.ProjectID, expense.EmployeeID, expense.Amount, expense.Currency, expense.Description, expense.ReceiptURL, expense.Status).Scan(&expense.ID)
+	return expense, err
+}
+
+var _ AdvancedRepository = (*SQLRepository)(nil)

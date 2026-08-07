@@ -46,6 +46,10 @@ type Repository interface {
 	HasScan(context.Context, int64, int64, string) (bool, error)
 	RecordScan(context.Context, int64, int64, string, float64, int64, string) (int64, bool, error)
 	UpdatePickTask(context.Context, PickTask) error
+	
+	CreatePutAwayTask(context.Context, PutAwayTask) (PutAwayTask, error)
+	CreateCrossDockingPlan(context.Context, CrossDockingPlan) (CrossDockingPlan, error)
+	CreateMHEEquipment(context.Context, MHEEquipment) (MHEEquipment, error)
 }
 
 type Service struct{ repo Repository }
@@ -149,4 +153,75 @@ func (s *Service) Scan(ctx context.Context, companyID, taskID, actorID int64, ba
 		return ScanResult{}, err
 	}
 	return ScanResult{Task: task, ScanID: scanID, ScannedAt: time.Now().UTC()}, nil
+}
+
+// =============================================================================
+// Advanced WMS Features (Put-away, Cross-docking, MHE)
+// =============================================================================
+
+type Wave struct {
+	ID        int64
+	CompanyID int64
+	Status    string // DRAFT, RELEASED, IN_PROGRESS, COMPLETED
+	CreatedAt time.Time
+}
+
+type PutAwayTask struct {
+	ID        int64
+	CompanyID int64
+	ProductID int64
+	BinID     int64
+	Quantity  float64
+	Status    string // PENDING, IN_PROGRESS, COMPLETED
+}
+
+type CrossDockingPlan struct {
+	ID              int64
+	CompanyID       int64
+	ProductID       int64
+	SourceReceiptID int64
+	TargetOrderID   int64
+	Quantity        float64
+	Status          string // PENDING, EXECUTED
+}
+
+type MHEEquipment struct {
+	ID        int64
+	CompanyID int64
+	Name      string
+	Type      string // FORKLIFT, CONVEYOR, AGV
+	Status    string // ACTIVE, MAINTENANCE, OFFLINE
+}
+
+func (s *Service) CreatePutAwayTask(ctx context.Context, task PutAwayTask) (PutAwayTask, error) {
+	if s == nil || s.repo == nil {
+		return PutAwayTask{}, errors.New("wms: repository is required")
+	}
+	if task.CompanyID == 0 || task.ProductID == 0 || task.BinID == 0 || task.Quantity <= 0 {
+		return PutAwayTask{}, ErrInvalidQuantity
+	}
+	task.Status = "PENDING"
+	return s.repo.CreatePutAwayTask(ctx, task)
+}
+
+func (s *Service) CreateCrossDockingPlan(ctx context.Context, plan CrossDockingPlan) (CrossDockingPlan, error) {
+	if s == nil || s.repo == nil {
+		return CrossDockingPlan{}, errors.New("wms: repository is required")
+	}
+	if plan.CompanyID == 0 || plan.ProductID == 0 || plan.SourceReceiptID == 0 || plan.TargetOrderID == 0 || plan.Quantity <= 0 {
+		return CrossDockingPlan{}, ErrInvalidQuantity
+	}
+	plan.Status = "PENDING"
+	return s.repo.CreateCrossDockingPlan(ctx, plan)
+}
+
+func (s *Service) CreateMHEEquipment(ctx context.Context, equip MHEEquipment) (MHEEquipment, error) {
+	if s == nil || s.repo == nil {
+		return MHEEquipment{}, errors.New("wms: repository is required")
+	}
+	if equip.CompanyID == 0 || equip.Name == "" || equip.Type == "" {
+		return MHEEquipment{}, errors.New("wms: invalid mhe equipment data")
+	}
+	equip.Status = "ACTIVE"
+	return s.repo.CreateMHEEquipment(ctx, equip)
 }

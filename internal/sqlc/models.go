@@ -1491,6 +1491,48 @@ type Category struct {
 	CompanyID pgtype.Int8        `json:"company_id"`
 }
 
+type CmmsIotReading struct {
+	ID        int64              `json:"id"`
+	SensorID  int64              `json:"sensor_id"`
+	Value     pgtype.Numeric     `json:"value"`
+	Timestamp pgtype.Timestamptz `json:"timestamp"`
+}
+
+type CmmsIotSensor struct {
+	ID               int64              `json:"id"`
+	CompanyID        int64              `json:"company_id"`
+	AssetID          int64              `json:"asset_id"`
+	SensorCode       string             `json:"sensor_code"`
+	SensorType       string             `json:"sensor_type"`
+	Status           string             `json:"status"`
+	LastReadingAt    pgtype.Timestamptz `json:"last_reading_at"`
+	LastReadingValue pgtype.Numeric     `json:"last_reading_value"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
+type CmmsPredictiveAlert struct {
+	ID          int64              `json:"id"`
+	CompanyID   int64              `json:"company_id"`
+	AssetID     int64              `json:"asset_id"`
+	SensorID    pgtype.Int8        `json:"sensor_id"`
+	ModelID     pgtype.Int8        `json:"model_id"`
+	Severity    string             `json:"severity"`
+	Description string             `json:"description"`
+	GeneratedAt pgtype.Timestamptz `json:"generated_at"`
+	ResolvedAt  pgtype.Timestamptz `json:"resolved_at"`
+}
+
+type CmmsPredictiveModel struct {
+	ID         int64              `json:"id"`
+	CompanyID  int64              `json:"company_id"`
+	AssetType  string             `json:"asset_type"`
+	ModelName  string             `json:"model_name"`
+	Version    string             `json:"version"`
+	Accuracy   pgtype.Numeric     `json:"accuracy"`
+	IsActive   bool               `json:"is_active"`
+	DeployedAt pgtype.Timestamptz `json:"deployed_at"`
+}
+
 type Company struct {
 	// Primary key (BIGINT for consistency)
 	ID           int64              `json:"id"`
@@ -1862,6 +1904,39 @@ type DispositionRequest struct {
 	ExecutionEvidence []byte             `json:"execution_evidence"`
 	ErrorMessage      pgtype.Text        `json:"error_message"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+}
+
+type DocCollaborationSession struct {
+	ID                int64              `json:"id"`
+	CompanyID         int64              `json:"company_id"`
+	DocumentVersionID int64              `json:"document_version_id"`
+	SessionToken      string             `json:"session_token"`
+	HostUserID        int64              `json:"host_user_id"`
+	Active            bool               `json:"active"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt         pgtype.Timestamptz `json:"expires_at"`
+}
+
+type DocOcrJob struct {
+	ID                int64              `json:"id"`
+	CompanyID         int64              `json:"company_id"`
+	DocumentVersionID int64              `json:"document_version_id"`
+	BlobID            int64              `json:"blob_id"`
+	Status            string             `json:"status"`
+	ExtractedText     pgtype.Text        `json:"extracted_text"`
+	ErrorMessage      pgtype.Text        `json:"error_message"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	CompletedAt       pgtype.Timestamptz `json:"completed_at"`
+}
+
+type DocSearchIndex struct {
+	ID                int64              `json:"id"`
+	DocumentID        int64              `json:"document_id"`
+	DocumentVersionID int64              `json:"document_version_id"`
+	Title             string             `json:"title"`
+	Content           string             `json:"content"`
+	Keywords          pgtype.Text        `json:"keywords"`
+	IndexedAt         pgtype.Timestamptz `json:"indexed_at"`
 }
 
 type Document struct {
@@ -2464,6 +2539,16 @@ type HrAttendanceImport struct {
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 }
 
+type HrBenefit struct {
+	ID          int64              `json:"id"`
+	CompanyID   int64              `json:"company_id"`
+	Name        string             `json:"name"`
+	Description pgtype.Text        `json:"description"`
+	Provider    string             `json:"provider"`
+	Cost        pgtype.Numeric     `json:"cost"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
 type HrDepartment struct {
 	ID        int64              `json:"id"`
 	CompanyID int64              `json:"company_id"`
@@ -2487,6 +2572,14 @@ type HrEmployee struct {
 	Status         string             `json:"status"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type HrEmployeeBenefit struct {
+	ID         int64              `json:"id"`
+	EmployeeID int64              `json:"employee_id"`
+	BenefitID  int64              `json:"benefit_id"`
+	Status     string             `json:"status"`
+	EnrolledAt pgtype.Timestamptz `json:"enrolled_at"`
 }
 
 type HrLeaveBalance struct {
@@ -2520,6 +2613,16 @@ type HrLeaveType struct {
 	Name        string         `json:"name"`
 	DefaultDays pgtype.Numeric `json:"default_days"`
 	IsActive    bool           `json:"is_active"`
+}
+
+type HrPerformanceReview struct {
+	ID           int64              `json:"id"`
+	EmployeeID   int64              `json:"employee_id"`
+	ReviewerID   int64              `json:"reviewer_id"`
+	ReviewPeriod string             `json:"review_period"`
+	Rating       int32              `json:"rating"`
+	Comments     pgtype.Text        `json:"comments"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 }
 
 type HrPosition struct {
@@ -2820,6 +2923,27 @@ type Location struct {
 	Active      bool               `json:"active"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type LogisticsRouteOptimizationJob struct {
+	ID           int64              `json:"id"`
+	CompanyID    int64              `json:"company_id"`
+	TripID       int64              `json:"trip_id"`
+	Status       string             `json:"status"`
+	Engine       string             `json:"engine"`
+	StartedAt    pgtype.Timestamptz `json:"started_at"`
+	CompletedAt  pgtype.Timestamptz `json:"completed_at"`
+	ErrorMessage pgtype.Text        `json:"error_message"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type LogisticsRouteSequence struct {
+	ID                  int64              `json:"id"`
+	OptimizationJobID   int64              `json:"optimization_job_id"`
+	TripStopID          int64              `json:"trip_stop_id"`
+	OptimizedSequence   int32              `json:"optimized_sequence"`
+	EstimatedArrivalAt  pgtype.Timestamptz `json:"estimated_arrival_at"`
+	EstimatedDistanceKm pgtype.Numeric     `json:"estimated_distance_km"`
 }
 
 type MeterReading struct {
@@ -3933,6 +4057,27 @@ type ProjectTask struct {
 	Status    string `json:"status"`
 }
 
+type QmsAteIntegration struct {
+	ID            int64              `json:"id"`
+	CompanyID     int64              `json:"company_id"`
+	EquipmentName string             `json:"equipment_name"`
+	IpAddress     string             `json:"ip_address"`
+	Protocol      string             `json:"protocol"`
+	Status        string             `json:"status"`
+	LastPingAt    pgtype.Timestamptz `json:"last_ping_at"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
+type QmsAteTestResult struct {
+	ID            int64              `json:"id"`
+	EquipmentID   int64              `json:"equipment_id"`
+	ProductSerial string             `json:"product_serial"`
+	TestSequence  string             `json:"test_sequence"`
+	Pass          bool               `json:"pass"`
+	RawData       string             `json:"raw_data"`
+	TestedAt      pgtype.Timestamptz `json:"tested_at"`
+}
+
 type QmsHold struct {
 	ID              int64              `json:"id"`
 	CompanyID       int64              `json:"company_id"`
@@ -3998,6 +4143,57 @@ type QmsInspectionResult struct {
 	Notes              pgtype.Text        `json:"notes"`
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 	CreatedBy          int64              `json:"created_by"`
+}
+
+type QmsLabSample struct {
+	ID           int64              `json:"id"`
+	CompanyID    int64              `json:"company_id"`
+	SampleNumber string             `json:"sample_number"`
+	SourceType   string             `json:"source_type"`
+	SourceID     int64              `json:"source_id"`
+	Status       string             `json:"status"`
+	Priority     string             `json:"priority"`
+	AssignedLab  string             `json:"assigned_lab"`
+	CollectedBy  int64              `json:"collected_by"`
+	CollectedAt  pgtype.Timestamptz `json:"collected_at"`
+	CompletedAt  pgtype.Timestamptz `json:"completed_at"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type QmsLabTest struct {
+	ID          int64              `json:"id"`
+	SampleID    int64              `json:"sample_id"`
+	TestName    string             `json:"test_name"`
+	Method      string             `json:"method"`
+	ResultValue string             `json:"result_value"`
+	IsPass      bool               `json:"is_pass"`
+	TestedBy    int64              `json:"tested_by"`
+	TestedAt    pgtype.Timestamptz `json:"tested_at"`
+}
+
+type QmsSpcChart struct {
+	ID                int64              `json:"id"`
+	CompanyID         int64              `json:"company_id"`
+	Name              string             `json:"name"`
+	Characteristic    string             `json:"characteristic"`
+	Ucl               pgtype.Numeric     `json:"ucl"`
+	Lcl               pgtype.Numeric     `json:"lcl"`
+	Uwl               pgtype.Numeric     `json:"uwl"`
+	Lwl               pgtype.Numeric     `json:"lwl"`
+	TargetValue       pgtype.Numeric     `json:"target_value"`
+	SampleIntervalMin int32              `json:"sample_interval_min"`
+	IsActive          bool               `json:"is_active"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+}
+
+type QmsSpcSample struct {
+	ID         int64              `json:"id"`
+	ChartID    int64              `json:"chart_id"`
+	Value      pgtype.Numeric     `json:"value"`
+	SampledAt  pgtype.Timestamptz `json:"sampled_at"`
+	OperatorID int64              `json:"operator_id"`
+	IsOutlier  bool               `json:"is_outlier"`
+	Notes      pgtype.Text        `json:"notes"`
 }
 
 type QualityCapa struct {

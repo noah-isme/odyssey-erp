@@ -47,6 +47,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/mockpay"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/oidc"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/shopify"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/stripe"
 	"github.com/odyssey-erp/odyssey-erp/internal/crm"
 	"github.com/odyssey-erp/odyssey-erp/internal/dashboard"
@@ -491,6 +492,7 @@ func main() {
 	connectorsRegistry.Register("mockpay", mockpay.NewAdapter(logger))
 	connectorsRegistry.Register("stripe", stripe.NewAdapter(logger))
 	connectorsRegistry.Register("oidc", oidc.NewAdapter(logger))
+	connectorsRegistry.Register("shopify", shopify.NewAdapter(logger))
 	connectorsProcessor := connectors.NewInboxProcessor(sqlc.New(dbpool), connectorsRegistry, outboxRepo, logger)
 	connectorsHandler := connectors.NewWebhookHandler(connectorsProcessor)
 

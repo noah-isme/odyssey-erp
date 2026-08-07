@@ -472,3 +472,70 @@ type FleetUtilization struct {
 	ActiveTrips    int
 	ActiveShipments int
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ROUTE OPTIMIZATION
+// ═══════════════════════════════════════════════════════════════════════════
+
+// OptimizeRoute initiates a route optimization for a given trip
+func (s *Service) OptimizeRoute(ctx context.Context, tripID int64, engine string) (*RouteOptimizationJob, error) {
+	// 1. Fetch trip and stops
+	trip, err := s.repo.GetTrip(ctx, tripID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch trip: %w", err)
+	}
+
+	stops, err := s.repo.GetTripStops(ctx, tripID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch trip stops: %w", err)
+	}
+
+	if len(stops) < 2 {
+		return nil, fmt.Errorf("route optimization requires at least 2 stops")
+	}
+
+	// 2. Create the Optimization Job
+	now := time.Now()
+	job := RouteOptimizationJob{
+		CompanyID: trip.CompanyID,
+		TripID:    trip.ID,
+		Status:    "PROCESSING",
+		Engine:    engine,
+		StartedAt: &now,
+	}
+
+	jobID, err := s.repo.CreateRouteOptimizationJob(ctx, job)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create optimization job: %w", err)
+	}
+
+	// 3. Simulate Routing Engine
+	// Since we don't have a real external engine configured (like OSRM), 
+	// we use a simple heuristic to demonstrate integration: 
+	// keeping sequence and adding 30 mins between stops.
+	for i, stop := range stops {
+		arrival := now.Add(time.Duration(i*30) * time.Minute)
+		seq := RouteSequence{
+			OptimizationJobID:  jobID,
+			TripStopID:         stop.ID,
+			OptimizedSequence:  i + 1,
+			EstimatedArrivalAt: &arrival,
+		}
+		
+		_, err := s.repo.CreateRouteSequence(ctx, seq)
+		if err != nil {
+			_ = s.repo.UpdateRouteOptimizationJobStatus(ctx, jobID, "FAILED", err.Error(), nil)
+			return nil, fmt.Errorf("failed to save route sequence: %w", err)
+		}
+	}
+
+	// 4. Update job to COMPLETED
+	completedAt := time.Now()
+	err = s.repo.UpdateRouteOptimizationJobStatus(ctx, jobID, "COMPLETED", "", &completedAt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update optimization job status: %w", err)
+	}
+
+	// 5. Return updated job
+	return s.repo.GetRouteOptimizationJob(ctx, jobID)
+}

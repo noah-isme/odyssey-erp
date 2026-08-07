@@ -534,3 +534,85 @@ func NormaliseStatus(v string) Status {
 		return NCRStatusOpen
 	}
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ADVANCED QMS (SPC, ATE, LIMS)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// SPCChart represents a statistical process control chart definition (SPC)
+type SPCChart struct {
+	ID                int64
+	CompanyID         int64
+	Name              string
+	Characteristic    string
+	UCL               float64 // Upper Control Limit
+	LCL               float64 // Lower Control Limit
+	UWL               float64 // Upper Warning Limit
+	LWL               float64 // Lower Warning Limit
+	TargetValue       float64
+	SampleIntervalMin int
+	IsActive          bool
+	CreatedAt         time.Time
+}
+
+// SPCSample represents a data point on an SPC chart
+type SPCSample struct {
+	ID            int64
+	ChartID       int64
+	Value         float64
+	SampledAt     time.Time
+	OperatorID    int64
+	IsOutlier     bool
+	Notes         string
+}
+
+// ATEIntegration represents a configuration for Automated Test Equipment (ATE)
+type ATEIntegration struct {
+	ID            int64
+	CompanyID     int64
+	EquipmentName string
+	IPAddress     string
+	Protocol      string // TCP/IP, SECS/GEM, REST
+	Status        string // ONLINE, OFFLINE, ERROR
+	LastPingAt    *time.Time
+	CreatedAt     time.Time
+}
+
+// ATETestResult represents a result transmitted by ATE
+type ATETestResult struct {
+	ID            int64
+	EquipmentID   int64
+	ProductSerial string
+	TestSequence  string
+	Pass          bool
+	RawData       string // JSON payload from ATE
+	TestedAt      time.Time
+}
+
+// LabSample represents a sample sent to the laboratory for testing (LIMS)
+type LabSample struct {
+	ID               int64
+	CompanyID        int64
+	SampleNumber     string
+	SourceType       string // INCOMING_MATERIAL, WIP, FINISHED_GOODS
+	SourceID         int64
+	Status           string // LOGGED, IN_TESTING, COMPLETED, DISCARDED
+	Priority         string // ROUTINE, URGENT
+	AssignedLab      string
+	CollectedBy      int64
+	CollectedAt      time.Time
+	CompletedAt      *time.Time
+	CreatedAt        time.Time
+}
+
+// LabTest represents a specific test run on a LabSample (LIMS)
+type LabTest struct {
+	ID             int64
+	SampleID       int64
+	TestName       string
+	Method         string
+	ResultValue    string
+	IsPass         bool
+	TestedBy       int64
+	TestedAt       time.Time
+}

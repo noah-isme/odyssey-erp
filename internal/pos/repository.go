@@ -72,4 +72,26 @@ func (r *SQLRepository) UpdateTicket(ctx context.Context, t Ticket) error {
 	return nil
 }
 
+// =============================================================================
+// Advanced POS Features (Hardware, Loyalty, Gift Cards, Split Tender)
+// =============================================================================
+
+func (r *SQLRepository) CreatePOSHardware(ctx context.Context, h POSHardware) (POSHardware, error) {
+	err := r.pool.QueryRow(ctx, `INSERT INTO pos_hardware (terminal_id, device_type, device_ip, device_config, status) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+		h.TerminalID, h.DeviceType, h.DeviceIP, h.DeviceConfig, h.Status).Scan(&h.ID)
+	return h, err
+}
+
+func (r *SQLRepository) CreateLoyaltyMember(ctx context.Context, lm LoyaltyMember) (LoyaltyMember, error) {
+	err := r.pool.QueryRow(ctx, `INSERT INTO pos_loyalty_members (company_id, customer_name, phone, points, tier) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+		lm.CompanyID, lm.CustomerName, lm.Phone, lm.Points, lm.Tier).Scan(&lm.ID)
+	return lm, err
+}
+
+func (r *SQLRepository) CreateGiftCard(ctx context.Context, gc GiftCard) (GiftCard, error) {
+	err := r.pool.QueryRow(ctx, `INSERT INTO pos_gift_cards (company_id, code, balance, currency, status) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+		gc.CompanyID, gc.Code, gc.Balance, gc.Currency, gc.Status).Scan(&gc.ID)
+	return gc, err
+}
+
 var _ Repository = (*SQLRepository)(nil)

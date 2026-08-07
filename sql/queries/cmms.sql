@@ -299,3 +299,42 @@ WHERE asset_id = $1
   AND ($2::text IS NULL OR reading_type = $2)
 ORDER BY reading_date DESC
 LIMIT $3;
+
+
+-- name: CreateIoTSensor :one
+INSERT INTO cmms_iot_sensors (
+    company_id, asset_id, sensor_code, sensor_type, status
+) VALUES (
+    $1, $2, $3, $4, $5
+) RETURNING id;
+
+-- name: UpdateIoTSensorReading :exec
+UPDATE cmms_iot_sensors
+SET last_reading_at = $2, last_reading_value = $3
+WHERE id = $1;
+
+-- name: InsertIoTReading :one
+INSERT INTO cmms_iot_readings (
+    sensor_id, value, timestamp
+) VALUES (
+    $1, $2, NOW()
+) RETURNING id;
+
+-- name: CreatePredictiveModel :one
+INSERT INTO cmms_predictive_models (
+    company_id, asset_type, model_name, version, accuracy, is_active
+) VALUES (
+    $1, $2, $3, $4, $5, $6
+) RETURNING id;
+
+-- name: CreatePredictiveAlert :one
+INSERT INTO cmms_predictive_alerts (
+    company_id, asset_id, sensor_id, model_id, severity, description
+) VALUES (
+    $1, $2, $3, $4, $5, $6
+) RETURNING id;
+
+-- name: ResolvePredictiveAlert :exec
+UPDATE cmms_predictive_alerts
+SET resolved_at = NOW()
+WHERE id = $1;

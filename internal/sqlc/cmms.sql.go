@@ -43,6 +43,97 @@ func (q *Queries) CountWorkOrdersWithPrefix(ctx context.Context, arg CountWorkOr
 	return count, err
 }
 
+const createIoTSensor = `-- name: CreateIoTSensor :one
+INSERT INTO cmms_iot_sensors (
+    company_id, asset_id, sensor_code, sensor_type, status
+) VALUES (
+    $1, $2, $3, $4, $5
+) RETURNING id
+`
+
+type CreateIoTSensorParams struct {
+	CompanyID  int64  `json:"company_id"`
+	AssetID    int64  `json:"asset_id"`
+	SensorCode string `json:"sensor_code"`
+	SensorType string `json:"sensor_type"`
+	Status     string `json:"status"`
+}
+
+func (q *Queries) CreateIoTSensor(ctx context.Context, arg CreateIoTSensorParams) (int64, error) {
+	row := q.db.QueryRow(ctx, createIoTSensor,
+		arg.CompanyID,
+		arg.AssetID,
+		arg.SensorCode,
+		arg.SensorType,
+		arg.Status,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const createPredictiveAlert = `-- name: CreatePredictiveAlert :one
+INSERT INTO cmms_predictive_alerts (
+    company_id, asset_id, sensor_id, model_id, severity, description
+) VALUES (
+    $1, $2, $3, $4, $5, $6
+) RETURNING id
+`
+
+type CreatePredictiveAlertParams struct {
+	CompanyID   int64       `json:"company_id"`
+	AssetID     int64       `json:"asset_id"`
+	SensorID    pgtype.Int8 `json:"sensor_id"`
+	ModelID     pgtype.Int8 `json:"model_id"`
+	Severity    string      `json:"severity"`
+	Description string      `json:"description"`
+}
+
+func (q *Queries) CreatePredictiveAlert(ctx context.Context, arg CreatePredictiveAlertParams) (int64, error) {
+	row := q.db.QueryRow(ctx, createPredictiveAlert,
+		arg.CompanyID,
+		arg.AssetID,
+		arg.SensorID,
+		arg.ModelID,
+		arg.Severity,
+		arg.Description,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const createPredictiveModel = `-- name: CreatePredictiveModel :one
+INSERT INTO cmms_predictive_models (
+    company_id, asset_type, model_name, version, accuracy, is_active
+) VALUES (
+    $1, $2, $3, $4, $5, $6
+) RETURNING id
+`
+
+type CreatePredictiveModelParams struct {
+	CompanyID int64          `json:"company_id"`
+	AssetType string         `json:"asset_type"`
+	ModelName string         `json:"model_name"`
+	Version   string         `json:"version"`
+	Accuracy  pgtype.Numeric `json:"accuracy"`
+	IsActive  bool           `json:"is_active"`
+}
+
+func (q *Queries) CreatePredictiveModel(ctx context.Context, arg CreatePredictiveModelParams) (int64, error) {
+	row := q.db.QueryRow(ctx, createPredictiveModel,
+		arg.CompanyID,
+		arg.AssetType,
+		arg.ModelName,
+		arg.Version,
+		arg.Accuracy,
+		arg.IsActive,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const getAsset = `-- name: GetAsset :one
 SELECT id, company_id, code, name, description, asset_type, parent_id, location_id,
        manufacturer, model, serial_number, install_date, warranty_expiry,
@@ -408,6 +499,26 @@ func (q *Queries) InsertAsset(ctx context.Context, arg InsertAssetParams) (int64
 		arg.Status,
 		arg.Criticality,
 	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const insertIoTReading = `-- name: InsertIoTReading :one
+INSERT INTO cmms_iot_readings (
+    sensor_id, value, timestamp
+) VALUES (
+    $1, $2, NOW()
+) RETURNING id
+`
+
+type InsertIoTReadingParams struct {
+	SensorID int64          `json:"sensor_id"`
+	Value    pgtype.Numeric `json:"value"`
+}
+
+func (q *Queries) InsertIoTReading(ctx context.Context, arg InsertIoTReadingParams) (int64, error) {
+	row := q.db.QueryRow(ctx, insertIoTReading, arg.SensorID, arg.Value)
 	var id int64
 	err := row.Scan(&id)
 	return id, err
@@ -1453,6 +1564,17 @@ func (q *Queries) ListWorkOrders(ctx context.Context, arg ListWorkOrdersParams) 
 	return items, nil
 }
 
+const resolvePredictiveAlert = `-- name: ResolvePredictiveAlert :exec
+UPDATE cmms_predictive_alerts
+SET resolved_at = NOW()
+WHERE id = $1
+`
+
+func (q *Queries) ResolvePredictiveAlert(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, resolvePredictiveAlert, id)
+	return err
+}
+
 const updateAsset = `-- name: UpdateAsset :exec
 UPDATE assets
 SET name = $2, description = $3, location_id = $4, manufacturer = $5, model = $6,
@@ -1486,6 +1608,23 @@ func (q *Queries) UpdateAsset(ctx context.Context, arg UpdateAssetParams) error 
 		arg.Status,
 		arg.Criticality,
 	)
+	return err
+}
+
+const updateIoTSensorReading = `-- name: UpdateIoTSensorReading :exec
+UPDATE cmms_iot_sensors
+SET last_reading_at = $2, last_reading_value = $3
+WHERE id = $1
+`
+
+type UpdateIoTSensorReadingParams struct {
+	ID               int64              `json:"id"`
+	LastReadingAt    pgtype.Timestamptz `json:"last_reading_at"`
+	LastReadingValue pgtype.Numeric     `json:"last_reading_value"`
+}
+
+func (q *Queries) UpdateIoTSensorReading(ctx context.Context, arg UpdateIoTSensorReadingParams) error {
+	_, err := q.db.Exec(ctx, updateIoTSensorReading, arg.ID, arg.LastReadingAt, arg.LastReadingValue)
 	return err
 }
 

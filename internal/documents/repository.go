@@ -998,7 +998,6 @@ func (r *Repository) InsertRetention(ctx context.Context, companyID, versionID, 
 	trigger.Valid = true
 	expiry.Time = expiryDate
 	expiry.Valid = true
-	
 	return r.queries.InsertDocumentRetention(ctx, sqlc.InsertDocumentRetentionParams{
 		CompanyID:         companyID,
 		DocumentVersionID: versionID,
@@ -1006,4 +1005,105 @@ func (r *Repository) InsertRetention(ctx context.Context, companyID, versionID, 
 		TriggerDate:       trigger,
 		ExpiryDate:        expiry,
 	})
+}
+
+func (r *Repository) DeleteRetention(ctx context.Context, id, companyID int64) error {
+	return r.queries.DeleteDocumentRetention(ctx, sqlc.DeleteDocumentRetentionParams{
+		ID:        id,
+		CompanyID: companyID,
+	})
+}
+
+// =============================================================================
+// Advanced Features (OCR, Collaboration, Search)
+// =============================================================================
+
+func (r *Repository) CreateOCRJob(ctx context.Context, job DocumentOCRJob) (int64, error) {
+	return r.queries.CreateDocumentOCRJob(ctx, sqlc.CreateDocumentOCRJobParams{
+		CompanyID:         job.CompanyID,
+		DocumentVersionID: job.DocumentVersionID,
+		BlobID:            job.BlobID,
+		Status:            job.Status,
+	})
+}
+
+func (r *Repository) UpdateOCRJob(ctx context.Context, id int64, status, text, errMsg string, completedAt *time.Time) error {
+	var extracted pgtype.Text
+	if text != "" {
+		extracted = pgtype.Text{String: text, Valid: true}
+	}
+	var errorMsg pgtype.Text
+	if errMsg != "" {
+		errorMsg = pgtype.Text{String: errMsg, Valid: true}
+	}
+	var compAt pgtype.Timestamptz
+	if completedAt != nil {
+		compAt = pgtype.Timestamptz{Time: *completedAt, Valid: true}
+	}
+
+	return r.queries.UpdateDocumentOCRJob(ctx, sqlc.UpdateDocumentOCRJobParams{
+		ID:            id,
+		Status:        status,
+		ExtractedText: extracted,
+		ErrorMessage:  errorMsg,
+		CompletedAt:   compAt,
+	})
+}
+
+func (r *Repository) CreateCollaborationSession(ctx context.Context, session DocumentCollaborationSession) (int64, error) {
+	return r.queries.CreateCollaborationSession(ctx, sqlc.CreateCollaborationSessionParams{
+		CompanyID:         session.CompanyID,
+		DocumentVersionID: session.DocumentVersionID,
+		SessionToken:      session.SessionToken,
+		HostUserID:        session.HostUserID,
+		Active:            session.Active,
+		ExpiresAt:         pgtype.Timestamptz{Time: session.ExpiresAt, Valid: true},
+	})
+}
+
+func (r *Repository) IndexDocumentSearch(ctx context.Context, docID, docVersionID int64, title, content, keywords string) (int64, error) {
+	var kws pgtype.Text
+	if keywords != "" {
+		kws = pgtype.Text{String: keywords, Valid: true}
+	}
+	return r.queries.IndexDocumentSearch(ctx, sqlc.IndexDocumentSearchParams{
+		DocumentID:        docID,
+		DocumentVersionID: docVersionID,
+		Title:             title,
+		Content:           content,
+		Keywords:          kws,
+	})
+}
+
+func (r *Repository) SearchDocumentsFullText(ctx context.Context, companyID int64, query string, limit int32) ([]Document, error) {
+	rows, err := r.queries.SearchDocumentsFullText(ctx, sqlc.SearchDocumentsFullTextParams{
+		CompanyID: companyID,
+		PlaintoTsquery: query,
+		Limit: limit,
+	})
+	if err != nil {
+		return nil, err
+	}
+	var results []Document
+	for _, row := range rows {
+		catID := int64(0)
+		if row.CategoryID.Valid {
+			catID = row.CategoryID.Int64
+		}
+		
+		results = append(results, Document{
+			ID:               row.ID,
+			CompanyID:        row.CompanyID,
+			Number:           row.DocumentNumber,
+			Title:            row.Title,
+			Description:      row.Description.String,
+			CategoryID:       catID,
+			ClassificationID: row.ClassificationID,
+			OwnerID:          row.OwnerID,
+			Status:           Status(row.Status),
+			CreatedAt:        row.CreatedAt.Time,
+			UpdatedAt:        row.UpdatedAt.Time,
+		})
+	}
+	return results, nil
 }

@@ -27,6 +27,64 @@ func (q *Queries) AreAllReviewStepsApproved(ctx context.Context, documentVersion
 	return not_exists, err
 }
 
+const createCollaborationSession = `-- name: CreateCollaborationSession :one
+INSERT INTO doc_collaboration_sessions (
+    company_id, document_version_id, session_token, host_user_id, active, expires_at
+) VALUES (
+    $1, $2, $3, $4, $5, $6
+) RETURNING id
+`
+
+type CreateCollaborationSessionParams struct {
+	CompanyID         int64              `json:"company_id"`
+	DocumentVersionID int64              `json:"document_version_id"`
+	SessionToken      string             `json:"session_token"`
+	HostUserID        int64              `json:"host_user_id"`
+	Active            bool               `json:"active"`
+	ExpiresAt         pgtype.Timestamptz `json:"expires_at"`
+}
+
+func (q *Queries) CreateCollaborationSession(ctx context.Context, arg CreateCollaborationSessionParams) (int64, error) {
+	row := q.db.QueryRow(ctx, createCollaborationSession,
+		arg.CompanyID,
+		arg.DocumentVersionID,
+		arg.SessionToken,
+		arg.HostUserID,
+		arg.Active,
+		arg.ExpiresAt,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const createDocumentOCRJob = `-- name: CreateDocumentOCRJob :one
+INSERT INTO doc_ocr_jobs (
+    company_id, document_version_id, blob_id, status, created_at
+) VALUES (
+    $1, $2, $3, $4, NOW()
+) RETURNING id
+`
+
+type CreateDocumentOCRJobParams struct {
+	CompanyID         int64  `json:"company_id"`
+	DocumentVersionID int64  `json:"document_version_id"`
+	BlobID            int64  `json:"blob_id"`
+	Status            string `json:"status"`
+}
+
+func (q *Queries) CreateDocumentOCRJob(ctx context.Context, arg CreateDocumentOCRJobParams) (int64, error) {
+	row := q.db.QueryRow(ctx, createDocumentOCRJob,
+		arg.CompanyID,
+		arg.DocumentVersionID,
+		arg.BlobID,
+		arg.Status,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const deleteDocument = `-- name: DeleteDocument :exec
 UPDATE documents
 SET status = 'ARCHIVED', updated_at = NOW()
@@ -54,6 +112,50 @@ DELETE FROM document_links WHERE id = $1
 func (q *Queries) DeleteDocumentLink(ctx context.Context, id int64) error {
 	_, err := q.db.Exec(ctx, deleteDocumentLink, id)
 	return err
+}
+
+const deleteDocumentRetention = `-- name: DeleteDocumentRetention :exec
+DELETE FROM document_retention
+WHERE id = $1 AND company_id = $2
+`
+
+type DeleteDocumentRetentionParams struct {
+	ID        int64 `json:"id"`
+	CompanyID int64 `json:"company_id"`
+}
+
+func (q *Queries) DeleteDocumentRetention(ctx context.Context, arg DeleteDocumentRetentionParams) error {
+	_, err := q.db.Exec(ctx, deleteDocumentRetention, arg.ID, arg.CompanyID)
+	return err
+}
+
+const disableCollaborationSession = `-- name: DisableCollaborationSession :exec
+UPDATE doc_collaboration_sessions SET active = false WHERE id = $1
+`
+
+func (q *Queries) DisableCollaborationSession(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, disableCollaborationSession, id)
+	return err
+}
+
+const getCollaborationSession = `-- name: GetCollaborationSession :one
+SELECT id, company_id, document_version_id, session_token, host_user_id, active, created_at, expires_at FROM doc_collaboration_sessions WHERE session_token = $1 AND active = true
+`
+
+func (q *Queries) GetCollaborationSession(ctx context.Context, sessionToken string) (DocCollaborationSession, error) {
+	row := q.db.QueryRow(ctx, getCollaborationSession, sessionToken)
+	var i DocCollaborationSession
+	err := row.Scan(
+		&i.ID,
+		&i.CompanyID,
+		&i.DocumentVersionID,
+		&i.SessionToken,
+		&i.HostUserID,
+		&i.Active,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+	)
+	return i, err
 }
 
 const getDefaultNumberingRule = `-- name: GetDefaultNumberingRule :one
@@ -207,6 +309,27 @@ func (q *Queries) GetDocumentClassification(ctx context.Context, id int64) (Docu
 		&i.Active,
 		&i.CreatedAt,
 		&i.CreatedBy,
+	)
+	return i, err
+}
+
+const getDocumentOCRJob = `-- name: GetDocumentOCRJob :one
+SELECT id, company_id, document_version_id, blob_id, status, extracted_text, error_message, created_at, completed_at FROM doc_ocr_jobs WHERE id = $1
+`
+
+func (q *Queries) GetDocumentOCRJob(ctx context.Context, id int64) (DocOcrJob, error) {
+	row := q.db.QueryRow(ctx, getDocumentOCRJob, id)
+	var i DocOcrJob
+	err := row.Scan(
+		&i.ID,
+		&i.CompanyID,
+		&i.DocumentVersionID,
+		&i.BlobID,
+		&i.Status,
+		&i.ExtractedText,
+		&i.ErrorMessage,
+		&i.CreatedAt,
+		&i.CompletedAt,
 	)
 	return i, err
 }
@@ -589,6 +712,35 @@ WHERE id = $1
 func (q *Queries) IncrementNumberingSequence(ctx context.Context, id int64) error {
 	_, err := q.db.Exec(ctx, incrementNumberingSequence, id)
 	return err
+}
+
+const indexDocumentSearch = `-- name: IndexDocumentSearch :one
+INSERT INTO doc_search_indices (
+    document_id, document_version_id, title, content, keywords, indexed_at
+) VALUES (
+    $1, $2, $3, $4, $5, NOW()
+) RETURNING id
+`
+
+type IndexDocumentSearchParams struct {
+	DocumentID        int64       `json:"document_id"`
+	DocumentVersionID int64       `json:"document_version_id"`
+	Title             string      `json:"title"`
+	Content           string      `json:"content"`
+	Keywords          pgtype.Text `json:"keywords"`
+}
+
+func (q *Queries) IndexDocumentSearch(ctx context.Context, arg IndexDocumentSearchParams) (int64, error) {
+	row := q.db.QueryRow(ctx, indexDocumentSearch,
+		arg.DocumentID,
+		arg.DocumentVersionID,
+		arg.Title,
+		arg.Content,
+		arg.Keywords,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
 }
 
 const insertDocument = `-- name: InsertDocument :one
@@ -1506,6 +1658,87 @@ func (q *Queries) ReleaseLegalHold(ctx context.Context, arg ReleaseLegalHoldPara
 	return err
 }
 
+const searchDocumentsFullText = `-- name: SearchDocumentsFullText :many
+SELECT d.id, d.company_id, d.category_id, d.classification_id, d.numbering_rule_id, d.document_number, d.title, d.description, d.owner_id, d.status, d.effective_from, d.effective_to, d.current_version_id, d.migration_source, d.migration_source_id, d.created_at, d.created_by, d.updated_at, d.updated_by, v.version_number
+FROM doc_search_indices i
+JOIN documents d ON i.document_id = d.id
+JOIN document_versions v ON i.document_version_id = v.id
+WHERE d.company_id = $1
+AND to_tsvector('english', i.content) @@ plainto_tsquery('english', $2)
+ORDER BY ts_rank(to_tsvector('english', i.content), plainto_tsquery('english', $2)) DESC
+LIMIT $3
+`
+
+type SearchDocumentsFullTextParams struct {
+	CompanyID      int64  `json:"company_id"`
+	PlaintoTsquery string `json:"plainto_tsquery"`
+	Limit          int32  `json:"limit"`
+}
+
+type SearchDocumentsFullTextRow struct {
+	ID                int64              `json:"id"`
+	CompanyID         int64              `json:"company_id"`
+	CategoryID        pgtype.Int8        `json:"category_id"`
+	ClassificationID  int64              `json:"classification_id"`
+	NumberingRuleID   pgtype.Int8        `json:"numbering_rule_id"`
+	DocumentNumber    string             `json:"document_number"`
+	Title             string             `json:"title"`
+	Description       pgtype.Text        `json:"description"`
+	OwnerID           int64              `json:"owner_id"`
+	Status            string             `json:"status"`
+	EffectiveFrom     pgtype.Timestamptz `json:"effective_from"`
+	EffectiveTo       pgtype.Timestamptz `json:"effective_to"`
+	CurrentVersionID  pgtype.Int8        `json:"current_version_id"`
+	MigrationSource   pgtype.Text        `json:"migration_source"`
+	MigrationSourceID pgtype.Text        `json:"migration_source_id"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	CreatedBy         int64              `json:"created_by"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	UpdatedBy         int64              `json:"updated_by"`
+	VersionNumber     int32              `json:"version_number"`
+}
+
+func (q *Queries) SearchDocumentsFullText(ctx context.Context, arg SearchDocumentsFullTextParams) ([]SearchDocumentsFullTextRow, error) {
+	rows, err := q.db.Query(ctx, searchDocumentsFullText, arg.CompanyID, arg.PlaintoTsquery, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SearchDocumentsFullTextRow
+	for rows.Next() {
+		var i SearchDocumentsFullTextRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.CompanyID,
+			&i.CategoryID,
+			&i.ClassificationID,
+			&i.NumberingRuleID,
+			&i.DocumentNumber,
+			&i.Title,
+			&i.Description,
+			&i.OwnerID,
+			&i.Status,
+			&i.EffectiveFrom,
+			&i.EffectiveTo,
+			&i.CurrentVersionID,
+			&i.MigrationSource,
+			&i.MigrationSourceID,
+			&i.CreatedAt,
+			&i.CreatedBy,
+			&i.UpdatedAt,
+			&i.UpdatedBy,
+			&i.VersionNumber,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const setCurrentDocumentVersion = `-- name: SetCurrentDocumentVersion :exec
 UPDATE documents
 SET current_version_id = $2, updated_at = NOW()
@@ -1575,6 +1808,31 @@ func (q *Queries) UpdateDocument(ctx context.Context, arg UpdateDocumentParams) 
 		arg.ClassificationID,
 		arg.OwnerID,
 		arg.UpdatedBy,
+	)
+	return err
+}
+
+const updateDocumentOCRJob = `-- name: UpdateDocumentOCRJob :exec
+UPDATE doc_ocr_jobs 
+SET status = $2, extracted_text = $3, error_message = $4, completed_at = $5
+WHERE id = $1
+`
+
+type UpdateDocumentOCRJobParams struct {
+	ID            int64              `json:"id"`
+	Status        string             `json:"status"`
+	ExtractedText pgtype.Text        `json:"extracted_text"`
+	ErrorMessage  pgtype.Text        `json:"error_message"`
+	CompletedAt   pgtype.Timestamptz `json:"completed_at"`
+}
+
+func (q *Queries) UpdateDocumentOCRJob(ctx context.Context, arg UpdateDocumentOCRJobParams) error {
+	_, err := q.db.Exec(ctx, updateDocumentOCRJob,
+		arg.ID,
+		arg.Status,
+		arg.ExtractedText,
+		arg.ErrorMessage,
+		arg.CompletedAt,
 	)
 	return err
 }

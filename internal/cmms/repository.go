@@ -3,6 +3,7 @@ package cmms
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -1128,4 +1129,76 @@ func toPMScheduleFromAllDueListRow(row sqlc.ListAllDuePMSchedulesRow) Preventive
 		CreatedAt:        row.CreatedAt.Time,
 		UpdatedAt:        row.UpdatedAt.Time,
 	}
+}
+
+// =============================================================================
+// Advanced CMMS Features (Predictive Maintenance, IoT)
+// =============================================================================
+
+func (r *Repository) CreateIoTSensor(ctx context.Context, sensor IoTSensor) (int64, error) {
+	return r.queries.CreateIoTSensor(ctx, sqlc.CreateIoTSensorParams{
+		CompanyID:  sensor.CompanyID,
+		AssetID:    sensor.AssetID,
+		SensorCode: sensor.SensorCode,
+		SensorType: sensor.SensorType,
+		Status:     sensor.Status,
+	})
+}
+
+func (r *Repository) InsertIoTReading(ctx context.Context, sensorID int64, value float64) (int64, error) {
+	val := pgtype.Numeric{}
+	val.Scan(fmt.Sprintf("%f", value))
+	return r.queries.InsertIoTReading(ctx, sqlc.InsertIoTReadingParams{
+		SensorID: sensorID,
+		Value:    val,
+	})
+}
+
+func (r *Repository) UpdateIoTSensorReading(ctx context.Context, sensorID int64, val float64, ts time.Time) error {
+	numericVal := pgtype.Numeric{}
+	numericVal.Scan(fmt.Sprintf("%f", val))
+	var lastReading pgtype.Timestamptz
+	lastReading.Time = ts
+	lastReading.Valid = true
+	return r.queries.UpdateIoTSensorReading(ctx, sqlc.UpdateIoTSensorReadingParams{
+		ID:               sensorID,
+		LastReadingAt:    lastReading,
+		LastReadingValue: numericVal,
+	})
+}
+
+func (r *Repository) CreatePredictiveModel(ctx context.Context, model PredictiveModel) (int64, error) {
+	acc := pgtype.Numeric{}
+	acc.Scan(fmt.Sprintf("%f", model.Accuracy))
+	return r.queries.CreatePredictiveModel(ctx, sqlc.CreatePredictiveModelParams{
+		CompanyID: model.CompanyID,
+		AssetType: model.AssetType,
+		ModelName: model.ModelName,
+		Version:   model.Version,
+		Accuracy:  acc,
+		IsActive:  model.IsActive,
+	})
+}
+
+func (r *Repository) CreatePredictiveAlert(ctx context.Context, alert PredictiveAlert) (int64, error) {
+	var sensorID pgtype.Int8
+	if alert.SensorID != nil {
+		sensorID = pgtype.Int8{Int64: *alert.SensorID, Valid: true}
+	}
+	var modelID pgtype.Int8
+	if alert.ModelID != nil {
+		modelID = pgtype.Int8{Int64: *alert.ModelID, Valid: true}
+	}
+	return r.queries.CreatePredictiveAlert(ctx, sqlc.CreatePredictiveAlertParams{
+		CompanyID:   alert.CompanyID,
+		AssetID:     alert.AssetID,
+		SensorID:    sensorID,
+		ModelID:     modelID,
+		Severity:    alert.Severity,
+		Description: alert.Description,
+	})
+}
+
+func (r *Repository) ResolvePredictiveAlert(ctx context.Context, id int64) error {
+	return r.queries.ResolvePredictiveAlert(ctx, id)
 }

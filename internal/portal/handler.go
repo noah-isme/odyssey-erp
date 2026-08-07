@@ -31,6 +31,130 @@ type Handler struct {
 	}
 }
 
+// =============================================================================
+// Advanced Portal Features (Profile Updates, RFQ Negotiation, Chat, Analytics)
+// =============================================================================
+
+func (h *Handler) updateProfile(w http.ResponseWriter, r *http.Request) {
+	uid, cid, ok := portalUser(r)
+	if !ok {
+		http.Error(w, "unauthorized", 401)
+		return
+	}
+	var in struct {
+		DisplayName string `json:"display_name"`
+		Phone       string `json:"phone"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	_, err := h.pool.Exec(r.Context(), `UPDATE users SET display_name=$1 WHERE id=$2 AND company_id=$3`, in.DisplayName, uid, cid)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *Handler) sendChatMessage(w http.ResponseWriter, r *http.Request) {
+	uid, cid, ok := portalUser(r)
+	if !ok {
+		http.Error(w, "unauthorized", 401)
+		return
+	}
+	var in struct {
+		Context string `json:"context"`
+		Message string `json:"message"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	_, err := h.pool.Exec(r.Context(), `INSERT INTO portal_chat_messages(company_id, sender_id, context, message) VALUES($1,$2,$3,$4)`, cid, uid, in.Context, in.Message)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+}
+
+func (h *Handler) getChatMessages(w http.ResponseWriter, r *http.Request) {
+	_, cid, ok := portalUser(r)
+	if !ok {
+		http.Error(w, "unauthorized", 401)
+		return
+	}
+	ctxStr := r.URL.Query().Get("context")
+	rows, err := h.pool.Query(r.Context(), `SELECT sender_id, message, created_at FROM portal_chat_messages WHERE company_id=$1 AND context=$2 ORDER BY created_at ASC`, cid, ctxStr)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	defer rows.Close()
+	type msg struct {
+		SenderID  int64     `json:"sender_id"`
+		Message   string    `json:"message"`
+		CreatedAt time.Time `json:"created_at"`
+	}
+	var out []msg
+	for rows.Next() {
+		var m msg
+		if err := rows.Scan(&m.SenderID, &m.Message, &m.CreatedAt); err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		out = append(out, m)
+	}
+	json.NewEncoder(w).Encode(out)
+}
+
+func (h *Handler) negotiateRFQ(w http.ResponseWriter, r *http.Request) {
+	_, cid, ok := portalUser(r)
+	if !ok {
+		http.Error(w, "unauthorized", 401)
+		return
+	}
+	var in struct {
+		RFQID         int64   `json:"rfq_id"`
+		SupplierID    int64   `json:"supplier_id"`
+		ProposedPrice float64 `json:"proposed_price"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	_, err := h.pool.Exec(r.Context(), `INSERT INTO portal_rfq_negotiations(company_id, rfq_id, supplier_id, proposed_price) VALUES($1,$2,$3,$4)`, cid, in.RFQID, in.SupplierID, in.ProposedPrice)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+}
+
+func (h *Handler) recordAnalyticsEvent(w http.ResponseWriter, r *http.Request) {
+	uid, cid, ok := portalUser(r)
+	if !ok {
+		http.Error(w, "unauthorized", 401)
+		return
+	}
+	var in struct {
+		EventType string         `json:"event_type"`
+		Metadata  map[string]any `json:"metadata"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	meta, _ := json.Marshal(in.Metadata)
+	_, err := h.pool.Exec(r.Context(), `INSERT INTO portal_analytics_events(company_id, user_id, event_type, metadata) VALUES($1,$2,$3,$4)`, cid, uid, in.EventType, meta)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+}
+
 func NewHandler(pool *pgxpool.Pool, middleware ...rbac.Middleware) *Handler {
 	var m rbac.Middleware
 	if len(middleware) > 0 {
@@ -67,6 +191,13 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Get("/employee/payslips", h.employeePayslips)
 		r.Get("/employee/leave", h.employeeLeave)
 		r.Get("/employee/attendance", h.employeeAttendance)
+		
+		// Advanced Portal Features
+		r.Put("/profile", h.updateProfile)
+		r.Post("/chat", h.sendChatMessage)
+		r.Get("/chat", h.getChatMessages)
+		r.Post("/rfq/negotiate", h.negotiateRFQ)
+		r.Post("/analytics/event", h.recordAnalyticsEvent)
 	})
 }
 

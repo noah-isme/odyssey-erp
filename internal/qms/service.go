@@ -637,3 +637,134 @@ func (s *Service) ReleaseQualityHold(ctx context.Context, id, companyID, actorID
 	}
 	return s.repo.ReleaseQualityHold(ctx, id, companyID, actorID)
 }
+
+// =============================================================================
+// Advanced QMS (SPC, ATE, LIMS)
+// =============================================================================
+
+// CreateSPCChart creates a new SPC Chart for statistical process control
+func (s *Service) CreateSPCChart(ctx context.Context, chart SPCChart) (SPCChart, error) {
+	if chart.Name == "" || chart.Characteristic == "" {
+		return SPCChart{}, fmt.Errorf("qms: chart name and characteristic are required")
+	}
+	if chart.UCL <= chart.LCL {
+		return SPCChart{}, fmt.Errorf("qms: UCL must be greater than LCL")
+	}
+	
+	// Default values if not specified
+	if chart.SampleIntervalMin <= 0 {
+		chart.SampleIntervalMin = 60 // 1 hour
+	}
+	
+	return s.repo.InsertSPCChart(ctx, chart)
+}
+
+// RecordSPCSample records a data point on an SPC chart
+func (s *Service) RecordSPCSample(ctx context.Context, sample SPCSample) (SPCSample, error) {
+	// 1. Fetch the corresponding chart
+	chart, err := s.repo.GetSPCChart(ctx, sample.ChartID)
+	if err != nil {
+		return SPCSample{}, fmt.Errorf("qms: failed to fetch SPC chart: %w", err)
+	}
+	
+	// 2. Business Logic: evaluate if the sample is out of control limits (outlier)
+	if sample.Value > chart.UCL || sample.Value < chart.LCL {
+		sample.IsOutlier = true
+		sample.Notes = fmt.Sprintf("OUT OF CONTROL LIMITS: Value %f is outside [%f, %f]. %s", 
+			sample.Value, chart.LCL, chart.UCL, sample.Notes)
+	} else if sample.Value > chart.UWL || sample.Value < chart.LWL {
+		// Not an outlier, but a warning
+		sample.Notes = fmt.Sprintf("WARNING: Value %f is outside warning limits [%f, %f]. %s", 
+			sample.Value, chart.LWL, chart.UWL, sample.Notes)
+	}
+	
+	if sample.SampledAt.IsZero() {
+		sample.SampledAt = s.now()
+	}
+	
+	// 3. Save to repository
+	saved, err := s.repo.InsertSPCSample(ctx, sample)
+	if err != nil {
+		return SPCSample{}, err
+	}
+	
+	// 4. (Optional) Auto-create NCR if it's an outlier
+	if saved.IsOutlier {
+		// Just a side-effect demo; ideally we'd trigger an event or queue a task.
+		// For now, we return it normally but it is flagged as an outlier.
+	}
+	
+	return saved, nil
+}
+
+// RegisterATEIntegration registers a new automated test equipment
+func (s *Service) RegisterATEIntegration(ctx context.Context, ate ATEIntegration) (ATEIntegration, error) {
+	if ate.EquipmentName == "" {
+		return ATEIntegration{}, fmt.Errorf("qms: equipment name is required")
+	}
+	if ate.Status == "" {
+		ate.Status = "ONLINE"
+	}
+	return s.repo.InsertATEIntegration(ctx, ate)
+}
+
+// RecordATETestResult processes a test result received from ATE
+func (s *Service) RecordATETestResult(ctx context.Context, result ATETestResult) (ATETestResult, error) {
+	if result.EquipmentID <= 0 {
+		return ATETestResult{}, fmt.Errorf("qms: equipment ID is required")
+	}
+	if result.TestedAt.IsZero() {
+		result.TestedAt = s.now()
+	}
+	
+	saved, err := s.repo.InsertATETestResult(ctx, result)
+	if err != nil {
+		return ATETestResult{}, err
+	}
+	
+	if !saved.Pass {
+		// Ideally we would queue a task to create an NCR automatically here, e.g.:
+		// s.CreateNCR(ctx, CreateNCRRequest{Title: "ATE Test Failure", Description: saved.RawData})
+	}
+	
+	return saved, nil
+}
+
+// LogLabSample registers a new sample into the Laboratory Information Management System (LIMS)
+func (s *Service) LogLabSample(ctx context.Context, sample LabSample) (LabSample, error) {
+	if sample.SampleNumber == "" {
+		return LabSample{}, fmt.Errorf("qms: sample number is required")
+	}
+	if sample.Status == "" {
+		sample.Status = "LOGGED"
+	}
+	if sample.CollectedAt.IsZero() {
+		sample.CollectedAt = s.now()
+	}
+	return s.repo.InsertLabSample(ctx, sample)
+}
+
+// RecordLabTest records a test run against a LabSample
+func (s *Service) RecordLabTest(ctx context.Context, test LabTest) (LabTest, error) {
+	if test.SampleID <= 0 {
+		return LabTest{}, fmt.Errorf("qms: sample ID is required")
+	}
+	if test.TestedAt.IsZero() {
+		test.TestedAt = s.now()
+	}
+	
+	// Ensure the sample exists and update its status to IN_TESTING
+	sample, err := s.repo.GetLabSample(ctx, test.SampleID)
+	if err != nil {
+		return LabTest{}, fmt.Errorf("qms: failed to fetch lab sample: %w", err)
+	}
+	
+	if sample.Status == "LOGGED" {
+		err = s.repo.UpdateLabSampleStatus(ctx, sample.ID, "IN_TESTING", nil)
+		if err != nil {
+			return LabTest{}, err
+		}
+	}
+	
+	return s.repo.InsertLabTest(ctx, test)
+}

@@ -99,4 +99,27 @@ func (r *SQLRepository) UpdatePickTask(ctx context.Context, task PickTask) error
 	return nil
 }
 
+// =============================================================================
+// Advanced WMS Features (Put-away, Cross-docking, MHE)
+// =============================================================================
+
+func (r *SQLRepository) CreatePutAwayTask(ctx context.Context, task PutAwayTask) (PutAwayTask, error) {
+	err := r.pool.QueryRow(ctx, `INSERT INTO wms_putaway_tasks (company_id, product_id, bin_id, quantity, status) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+		task.CompanyID, task.ProductID, task.BinID, task.Quantity, task.Status).Scan(&task.ID)
+	return task, err
+}
+
+func (r *SQLRepository) CreateCrossDockingPlan(ctx context.Context, plan CrossDockingPlan) (CrossDockingPlan, error) {
+	err := r.pool.QueryRow(ctx, `INSERT INTO wms_cross_docking_plans (company_id, product_id, source_receipt_id, target_order_id, quantity, status) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+		plan.CompanyID, plan.ProductID, plan.SourceReceiptID, plan.TargetOrderID, plan.Quantity, plan.Status).Scan(&plan.ID)
+	return plan, err
+}
+
+func (r *SQLRepository) CreateMHEEquipment(ctx context.Context, equip MHEEquipment) (MHEEquipment, error) {
+	err := r.pool.QueryRow(ctx, `INSERT INTO wms_mhe_equipment (company_id, name, type, status) VALUES ($1, $2, $3, $4) RETURNING id`,
+		equip.CompanyID, equip.Name, equip.Type, equip.Status).Scan(&equip.ID)
+	return equip, err
+}
+
 var _ Repository = (*SQLRepository)(nil)
+

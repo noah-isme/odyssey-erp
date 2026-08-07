@@ -406,6 +406,63 @@ UPDATE qms_holds
 SET status = 'RELEASED', released_by = $2, released_at = NOW()
 WHERE id = $1 AND company_id = $3 AND status = 'ACTIVE';
 
+-- name: CreateSPCChart :one
+INSERT INTO qms_spc_charts (
+    company_id, name, characteristic, ucl, lcl, uwl, lwl, target_value, sample_interval_min, is_active
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+) RETURNING id;
+
+-- name: GetSPCChart :one
+SELECT * FROM qms_spc_charts WHERE id = $1;
+
+-- name: CreateSPCSample :one
+INSERT INTO qms_spc_samples (
+    chart_id, value, sampled_at, operator_id, is_outlier, notes
+) VALUES (
+    $1, $2, $3, $4, $5, $6
+) RETURNING id;
+
+-- name: GetSPCSamples :many
+SELECT * FROM qms_spc_samples WHERE chart_id = $1 ORDER BY sampled_at DESC LIMIT $2;
+
+-- name: CreateATEIntegration :one
+INSERT INTO qms_ate_integrations (
+    company_id, equipment_name, ip_address, protocol, status, last_ping_at
+) VALUES (
+    $1, $2, $3, $4, $5, $6
+) RETURNING id;
+
+-- name: GetATEIntegration :one
+SELECT * FROM qms_ate_integrations WHERE id = $1;
+
+-- name: CreateATETestResult :one
+INSERT INTO qms_ate_test_results (
+    equipment_id, product_serial, test_sequence, pass, raw_data, tested_at
+) VALUES (
+    $1, $2, $3, $4, $5, $6
+) RETURNING id;
+
+-- name: CreateLabSample :one
+INSERT INTO qms_lab_samples (
+    company_id, sample_number, source_type, source_id, status, priority, assigned_lab, collected_by, collected_at
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9
+) RETURNING id;
+
+-- name: GetLabSample :one
+SELECT * FROM qms_lab_samples WHERE id = $1;
+
+-- name: UpdateLabSampleStatus :exec
+UPDATE qms_lab_samples SET status = $2, completed_at = $3 WHERE id = $1;
+
+-- name: CreateLabTest :one
+INSERT INTO qms_lab_tests (
+    sample_id, test_name, method, result_value, is_pass, tested_by, tested_at
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7
+) RETURNING id;
+
 -- name: ListQMSHolds :many
 SELECT id, company_id, reference_module, reference_id, reason, status, created_by, created_at, released_by, released_at
 FROM qms_holds

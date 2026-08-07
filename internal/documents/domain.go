@@ -364,6 +364,42 @@ type ListVersionsFilter struct {
 	Offset       int
 }
 
+// DocumentOCRJob represents a background job to extract text from a document blob.
+type DocumentOCRJob struct {
+	ID                int64
+	CompanyID         int64
+	DocumentVersionID int64
+	BlobID            int64
+	Status            string // PENDING, PROCESSING, COMPLETED, FAILED
+	ExtractedText     string
+	ErrorMessage      string
+	CreatedAt         time.Time
+	CompletedAt       *time.Time
+}
+
+// DocumentCollaborationSession represents a real-time editing/viewing session.
+type DocumentCollaborationSession struct {
+	ID                int64
+	CompanyID         int64
+	DocumentVersionID int64
+	SessionToken      string
+	HostUserID        int64
+	Active            bool
+	CreatedAt         time.Time
+	ExpiresAt         time.Time
+}
+
+// DocumentSearchIndex represents a full-text search index for a document.
+type DocumentSearchIndex struct {
+	ID                int64
+	DocumentID        int64
+	DocumentVersionID int64
+	Title             string
+	Content           string // Includes OCR extracted text + user inputs
+	Keywords          string
+	IndexedAt         time.Time
+}
+
 
 var (
 	ErrDocumentNotFound      = errors.New("documents: document not found")

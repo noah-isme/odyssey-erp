@@ -59,6 +59,228 @@ func (q *Queries) CountNCRsWithPrefix(ctx context.Context, arg CountNCRsWithPref
 	return count, err
 }
 
+const createATEIntegration = `-- name: CreateATEIntegration :one
+INSERT INTO qms_ate_integrations (
+    company_id, equipment_name, ip_address, protocol, status, last_ping_at
+) VALUES (
+    $1, $2, $3, $4, $5, $6
+) RETURNING id
+`
+
+type CreateATEIntegrationParams struct {
+	CompanyID     int64              `json:"company_id"`
+	EquipmentName string             `json:"equipment_name"`
+	IpAddress     string             `json:"ip_address"`
+	Protocol      string             `json:"protocol"`
+	Status        string             `json:"status"`
+	LastPingAt    pgtype.Timestamptz `json:"last_ping_at"`
+}
+
+func (q *Queries) CreateATEIntegration(ctx context.Context, arg CreateATEIntegrationParams) (int64, error) {
+	row := q.db.QueryRow(ctx, createATEIntegration,
+		arg.CompanyID,
+		arg.EquipmentName,
+		arg.IpAddress,
+		arg.Protocol,
+		arg.Status,
+		arg.LastPingAt,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const createATETestResult = `-- name: CreateATETestResult :one
+INSERT INTO qms_ate_test_results (
+    equipment_id, product_serial, test_sequence, pass, raw_data, tested_at
+) VALUES (
+    $1, $2, $3, $4, $5, $6
+) RETURNING id
+`
+
+type CreateATETestResultParams struct {
+	EquipmentID   int64              `json:"equipment_id"`
+	ProductSerial string             `json:"product_serial"`
+	TestSequence  string             `json:"test_sequence"`
+	Pass          bool               `json:"pass"`
+	RawData       string             `json:"raw_data"`
+	TestedAt      pgtype.Timestamptz `json:"tested_at"`
+}
+
+func (q *Queries) CreateATETestResult(ctx context.Context, arg CreateATETestResultParams) (int64, error) {
+	row := q.db.QueryRow(ctx, createATETestResult,
+		arg.EquipmentID,
+		arg.ProductSerial,
+		arg.TestSequence,
+		arg.Pass,
+		arg.RawData,
+		arg.TestedAt,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const createLabSample = `-- name: CreateLabSample :one
+INSERT INTO qms_lab_samples (
+    company_id, sample_number, source_type, source_id, status, priority, assigned_lab, collected_by, collected_at
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9
+) RETURNING id
+`
+
+type CreateLabSampleParams struct {
+	CompanyID    int64              `json:"company_id"`
+	SampleNumber string             `json:"sample_number"`
+	SourceType   string             `json:"source_type"`
+	SourceID     int64              `json:"source_id"`
+	Status       string             `json:"status"`
+	Priority     string             `json:"priority"`
+	AssignedLab  string             `json:"assigned_lab"`
+	CollectedBy  int64              `json:"collected_by"`
+	CollectedAt  pgtype.Timestamptz `json:"collected_at"`
+}
+
+func (q *Queries) CreateLabSample(ctx context.Context, arg CreateLabSampleParams) (int64, error) {
+	row := q.db.QueryRow(ctx, createLabSample,
+		arg.CompanyID,
+		arg.SampleNumber,
+		arg.SourceType,
+		arg.SourceID,
+		arg.Status,
+		arg.Priority,
+		arg.AssignedLab,
+		arg.CollectedBy,
+		arg.CollectedAt,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const createLabTest = `-- name: CreateLabTest :one
+INSERT INTO qms_lab_tests (
+    sample_id, test_name, method, result_value, is_pass, tested_by, tested_at
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7
+) RETURNING id
+`
+
+type CreateLabTestParams struct {
+	SampleID    int64              `json:"sample_id"`
+	TestName    string             `json:"test_name"`
+	Method      string             `json:"method"`
+	ResultValue string             `json:"result_value"`
+	IsPass      bool               `json:"is_pass"`
+	TestedBy    int64              `json:"tested_by"`
+	TestedAt    pgtype.Timestamptz `json:"tested_at"`
+}
+
+func (q *Queries) CreateLabTest(ctx context.Context, arg CreateLabTestParams) (int64, error) {
+	row := q.db.QueryRow(ctx, createLabTest,
+		arg.SampleID,
+		arg.TestName,
+		arg.Method,
+		arg.ResultValue,
+		arg.IsPass,
+		arg.TestedBy,
+		arg.TestedAt,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const createSPCChart = `-- name: CreateSPCChart :one
+INSERT INTO qms_spc_charts (
+    company_id, name, characteristic, ucl, lcl, uwl, lwl, target_value, sample_interval_min, is_active
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+) RETURNING id
+`
+
+type CreateSPCChartParams struct {
+	CompanyID         int64          `json:"company_id"`
+	Name              string         `json:"name"`
+	Characteristic    string         `json:"characteristic"`
+	Ucl               pgtype.Numeric `json:"ucl"`
+	Lcl               pgtype.Numeric `json:"lcl"`
+	Uwl               pgtype.Numeric `json:"uwl"`
+	Lwl               pgtype.Numeric `json:"lwl"`
+	TargetValue       pgtype.Numeric `json:"target_value"`
+	SampleIntervalMin int32          `json:"sample_interval_min"`
+	IsActive          bool           `json:"is_active"`
+}
+
+func (q *Queries) CreateSPCChart(ctx context.Context, arg CreateSPCChartParams) (int64, error) {
+	row := q.db.QueryRow(ctx, createSPCChart,
+		arg.CompanyID,
+		arg.Name,
+		arg.Characteristic,
+		arg.Ucl,
+		arg.Lcl,
+		arg.Uwl,
+		arg.Lwl,
+		arg.TargetValue,
+		arg.SampleIntervalMin,
+		arg.IsActive,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const createSPCSample = `-- name: CreateSPCSample :one
+INSERT INTO qms_spc_samples (
+    chart_id, value, sampled_at, operator_id, is_outlier, notes
+) VALUES (
+    $1, $2, $3, $4, $5, $6
+) RETURNING id
+`
+
+type CreateSPCSampleParams struct {
+	ChartID    int64              `json:"chart_id"`
+	Value      pgtype.Numeric     `json:"value"`
+	SampledAt  pgtype.Timestamptz `json:"sampled_at"`
+	OperatorID int64              `json:"operator_id"`
+	IsOutlier  bool               `json:"is_outlier"`
+	Notes      pgtype.Text        `json:"notes"`
+}
+
+func (q *Queries) CreateSPCSample(ctx context.Context, arg CreateSPCSampleParams) (int64, error) {
+	row := q.db.QueryRow(ctx, createSPCSample,
+		arg.ChartID,
+		arg.Value,
+		arg.SampledAt,
+		arg.OperatorID,
+		arg.IsOutlier,
+		arg.Notes,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const getATEIntegration = `-- name: GetATEIntegration :one
+SELECT id, company_id, equipment_name, ip_address, protocol, status, last_ping_at, created_at FROM qms_ate_integrations WHERE id = $1
+`
+
+func (q *Queries) GetATEIntegration(ctx context.Context, id int64) (QmsAteIntegration, error) {
+	row := q.db.QueryRow(ctx, getATEIntegration, id)
+	var i QmsAteIntegration
+	err := row.Scan(
+		&i.ID,
+		&i.CompanyID,
+		&i.EquipmentName,
+		&i.IpAddress,
+		&i.Protocol,
+		&i.Status,
+		&i.LastPingAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getAudit = `-- name: GetAudit :one
 SELECT id, company_id, number, title, description, audit_type, status, standard,
        scope, lead_auditor_id, audit_team_ids, auditee_id,
@@ -219,6 +441,30 @@ func (q *Queries) GetCustomerComplaint(ctx context.Context, id int64) (GetCustom
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getLabSample = `-- name: GetLabSample :one
+SELECT id, company_id, sample_number, source_type, source_id, status, priority, assigned_lab, collected_by, collected_at, completed_at, created_at FROM qms_lab_samples WHERE id = $1
+`
+
+func (q *Queries) GetLabSample(ctx context.Context, id int64) (QmsLabSample, error) {
+	row := q.db.QueryRow(ctx, getLabSample, id)
+	var i QmsLabSample
+	err := row.Scan(
+		&i.ID,
+		&i.CompanyID,
+		&i.SampleNumber,
+		&i.SourceType,
+		&i.SourceID,
+		&i.Status,
+		&i.Priority,
+		&i.AssignedLab,
+		&i.CollectedBy,
+		&i.CollectedAt,
+		&i.CompletedAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -406,6 +652,67 @@ func (q *Queries) GetQualityObjectiveMeasurement(ctx context.Context, id int64) 
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const getSPCChart = `-- name: GetSPCChart :one
+SELECT id, company_id, name, characteristic, ucl, lcl, uwl, lwl, target_value, sample_interval_min, is_active, created_at FROM qms_spc_charts WHERE id = $1
+`
+
+func (q *Queries) GetSPCChart(ctx context.Context, id int64) (QmsSpcChart, error) {
+	row := q.db.QueryRow(ctx, getSPCChart, id)
+	var i QmsSpcChart
+	err := row.Scan(
+		&i.ID,
+		&i.CompanyID,
+		&i.Name,
+		&i.Characteristic,
+		&i.Ucl,
+		&i.Lcl,
+		&i.Uwl,
+		&i.Lwl,
+		&i.TargetValue,
+		&i.SampleIntervalMin,
+		&i.IsActive,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getSPCSamples = `-- name: GetSPCSamples :many
+SELECT id, chart_id, value, sampled_at, operator_id, is_outlier, notes FROM qms_spc_samples WHERE chart_id = $1 ORDER BY sampled_at DESC LIMIT $2
+`
+
+type GetSPCSamplesParams struct {
+	ChartID int64 `json:"chart_id"`
+	Limit   int32 `json:"limit"`
+}
+
+func (q *Queries) GetSPCSamples(ctx context.Context, arg GetSPCSamplesParams) ([]QmsSpcSample, error) {
+	rows, err := q.db.Query(ctx, getSPCSamples, arg.ChartID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []QmsSpcSample
+	for rows.Next() {
+		var i QmsSpcSample
+		if err := rows.Scan(
+			&i.ID,
+			&i.ChartID,
+			&i.Value,
+			&i.SampledAt,
+			&i.OperatorID,
+			&i.IsOutlier,
+			&i.Notes,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getSupplierAudit = `-- name: GetSupplierAudit :one
@@ -2051,6 +2358,21 @@ type UpdateCustomerComplaintStatusParams struct {
 
 func (q *Queries) UpdateCustomerComplaintStatus(ctx context.Context, arg UpdateCustomerComplaintStatusParams) error {
 	_, err := q.db.Exec(ctx, updateCustomerComplaintStatus, arg.ID, arg.Status, arg.ClosedAt)
+	return err
+}
+
+const updateLabSampleStatus = `-- name: UpdateLabSampleStatus :exec
+UPDATE qms_lab_samples SET status = $2, completed_at = $3 WHERE id = $1
+`
+
+type UpdateLabSampleStatusParams struct {
+	ID          int64              `json:"id"`
+	Status      string             `json:"status"`
+	CompletedAt pgtype.Timestamptz `json:"completed_at"`
+}
+
+func (q *Queries) UpdateLabSampleStatus(ctx context.Context, arg UpdateLabSampleStatusParams) error {
+	_, err := q.db.Exec(ctx, updateLabSampleStatus, arg.ID, arg.Status, arg.CompletedAt)
 	return err
 }
 

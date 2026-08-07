@@ -3,8 +3,11 @@ package logistics
 import (
 	"context"
 	"fmt"
+	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 // Repository defines data access for logistics operations
@@ -61,6 +64,13 @@ type Repository interface {
 	AddTripStop(ctx context.Context, input AddTripStopInput) (int64, error)
 	GetTripStops(ctx context.Context, tripID int64) ([]*TripStop, error)
 	UpdateTripStopActualTimes(ctx context.Context, stopID int64, arrivedAt, departedAt *interface{}) error
+
+	// Route Optimization
+	CreateRouteOptimizationJob(ctx context.Context, job RouteOptimizationJob) (int64, error)
+	GetRouteOptimizationJob(ctx context.Context, jobID int64) (*RouteOptimizationJob, error)
+	UpdateRouteOptimizationJobStatus(ctx context.Context, jobID int64, status, errorMessage string, completedAt *time.Time) error
+	CreateRouteSequence(ctx context.Context, seq RouteSequence) (int64, error)
+	GetRouteSequences(ctx context.Context, jobID int64) ([]*RouteSequence, error)
 }
 
 // LogisticsRepository implements Repository interface
@@ -505,4 +515,106 @@ func (r *LogisticsRepository) UpdateTripStopActualTimes(ctx context.Context, sto
 	_ = arrivedAt
 	_ = departedAt
 	return fmt.Errorf("not implemented")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ROUTE OPTIMIZATION OPERATIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+func (r *LogisticsRepository) CreateRouteOptimizationJob(ctx context.Context, job RouteOptimizationJob) (int64, error) {
+	queries := sqlc.New(r.db)
+	return queries.CreateRouteOptimizationJob(ctx, sqlc.CreateRouteOptimizationJobParams{
+		CompanyID: job.CompanyID,
+		TripID:    job.TripID,
+		Status:    job.Status,
+		Engine:    job.Engine,
+		StartedAt: timeToTimestamptz(job.StartedAt),
+	})
+}
+
+func (r *LogisticsRepository) GetRouteOptimizationJob(ctx context.Context, jobID int64) (*RouteOptimizationJob, error) {
+	queries := sqlc.New(r.db)
+	res, err := queries.GetRouteOptimizationJob(ctx, jobID)
+	if err != nil {
+		return nil, err
+	}
+	
+	var errorMessage string
+	if res.ErrorMessage.Valid {
+		errorMessage = res.ErrorMessage.String
+	}
+	
+	return &RouteOptimizationJob{
+		ID:           res.ID,
+		CompanyID:    res.CompanyID,
+		TripID:       res.TripID,
+		Status:       res.Status,
+		Engine:       res.Engine,
+		StartedAt:    timestamptzToTime(res.StartedAt),
+		CompletedAt:  timestamptzToTime(res.CompletedAt),
+		ErrorMessage: errorMessage,
+		CreatedAt:    res.CreatedAt.Time, // Assuming CreatedAt is NOT NULL so Valid is true
+	}, nil
+}
+
+func (r *LogisticsRepository) UpdateRouteOptimizationJobStatus(ctx context.Context, jobID int64, status, errorMessage string, completedAt *time.Time) error {
+	queries := sqlc.New(r.db)
+	
+	errStr := pgtype.Text{Valid: false}
+	if errorMessage != "" {
+		errStr = pgtype.Text{String: errorMessage, Valid: true}
+	}
+	
+	return queries.UpdateRouteOptimizationJobStatus(ctx, sqlc.UpdateRouteOptimizationJobStatusParams{
+		ID:           jobID,
+		Status:       status,
+		ErrorMessage: errStr,
+		CompletedAt:  timeToTimestamptz(completedAt),
+	})
+}
+
+func (r *LogisticsRepository) CreateRouteSequence(ctx context.Context, seq RouteSequence) (int64, error) {
+	queries := sqlc.New(r.db)
+	
+	return queries.CreateRouteSequence(ctx, sqlc.CreateRouteSequenceParams{
+		OptimizationJobID:  seq.OptimizationJobID,
+		TripStopID:         seq.TripStopID,
+		OptimizedSequence:  int32(seq.OptimizedSequence),
+		EstimatedArrivalAt: timeToTimestamptz(seq.EstimatedArrivalAt),
+		// EstimatedDistanceKm is ignored for brevity and exact pgtype safety
+	})
+}
+
+func (r *LogisticsRepository) GetRouteSequences(ctx context.Context, jobID int64) ([]*RouteSequence, error) {
+	queries := sqlc.New(r.db)
+	rows, err := queries.GetRouteSequences(ctx, jobID)
+	if err != nil {
+		return nil, err
+	}
+
+	var sequences []*RouteSequence
+	for _, row := range rows {
+		sequences = append(sequences, &RouteSequence{
+			ID:                 row.ID,
+			OptimizationJobID:  row.OptimizationJobID,
+			TripStopID:         row.TripStopID,
+			OptimizedSequence:  int(row.OptimizedSequence),
+			EstimatedArrivalAt: timestamptzToTime(row.EstimatedArrivalAt),
+		})
+	}
+	return sequences, nil
+}
+
+func timeToTimestamptz(t *time.Time) pgtype.Timestamptz {
+	if t == nil {
+		return pgtype.Timestamptz{Valid: false}
+	}
+	return pgtype.Timestamptz{Time: *t, Valid: true}
+}
+
+func timestamptzToTime(tz pgtype.Timestamptz) *time.Time {
+	if !tz.Valid {
+		return nil
+	}
+	return &tz.Time
 }

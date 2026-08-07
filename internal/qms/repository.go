@@ -3,6 +3,7 @@ package qms
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -971,4 +972,250 @@ func (r *Repository) GetInspectionPlan(ctx context.Context, id int64) (Inspectio
 		UpdatedAt:       row.UpdatedAt.Time,
 		CreatedBy:       row.CreatedBy,
 	}, nil
+}
+
+// =============================================================================
+// SPC (Statistical Process Control)
+// =============================================================================
+
+func (r *Repository) InsertSPCChart(ctx context.Context, chart SPCChart) (SPCChart, error) {
+	id, err := r.queries.CreateSPCChart(ctx, sqlc.CreateSPCChartParams{
+		CompanyID:         chart.CompanyID,
+		Name:              chart.Name,
+		Characteristic:    chart.Characteristic,
+		Ucl:               floatToNumeric(chart.UCL),
+		Lcl:               floatToNumeric(chart.LCL),
+		Uwl:               floatToNumeric(chart.UWL),
+		Lwl:               floatToNumeric(chart.LWL),
+		TargetValue:       floatToNumeric(chart.TargetValue),
+		SampleIntervalMin: int32(chart.SampleIntervalMin),
+		IsActive:          chart.IsActive,
+	})
+	if err != nil {
+		return SPCChart{}, err
+	}
+	return r.GetSPCChart(ctx, id)
+}
+
+func (r *Repository) GetSPCChart(ctx context.Context, id int64) (SPCChart, error) {
+	row, err := r.queries.GetSPCChart(ctx, id)
+	if err != nil {
+		return SPCChart{}, err
+	}
+	return SPCChart{
+		ID:                row.ID,
+		CompanyID:         row.CompanyID,
+		Name:              row.Name,
+		Characteristic:    row.Characteristic,
+		UCL:               numericToFloat(row.Ucl),
+		LCL:               numericToFloat(row.Lcl),
+		UWL:               numericToFloat(row.Uwl),
+		LWL:               numericToFloat(row.Lwl),
+		TargetValue:       numericToFloat(row.TargetValue),
+		SampleIntervalMin: int(row.SampleIntervalMin),
+		IsActive:          row.IsActive,
+		CreatedAt:         row.CreatedAt.Time,
+	}, nil
+}
+
+func (r *Repository) InsertSPCSample(ctx context.Context, sample SPCSample) (SPCSample, error) {
+	notes := pgtype.Text{Valid: false}
+	if sample.Notes != "" {
+		notes = pgtype.Text{String: sample.Notes, Valid: true}
+	}
+	id, err := r.queries.CreateSPCSample(ctx, sqlc.CreateSPCSampleParams{
+		ChartID:    sample.ChartID,
+		Value:      floatToNumeric(sample.Value),
+		SampledAt:  pgtype.Timestamptz{Time: sample.SampledAt, Valid: true},
+		OperatorID: sample.OperatorID,
+		IsOutlier:  sample.IsOutlier,
+		Notes:      notes,
+	})
+	if err != nil {
+		return SPCSample{}, err
+	}
+	
+	// We just return the input mutated with the ID. 
+	sample.ID = id
+	return sample, nil
+}
+
+func (r *Repository) GetSPCSamples(ctx context.Context, chartID int64, limit int32) ([]SPCSample, error) {
+	rows, err := r.queries.GetSPCSamples(ctx, sqlc.GetSPCSamplesParams{
+		ChartID: chartID,
+		Limit:   limit,
+	})
+	if err != nil {
+		return nil, err
+	}
+	
+	var samples []SPCSample
+	for _, row := range rows {
+		notes := ""
+		if row.Notes.Valid {
+			notes = row.Notes.String
+		}
+		samples = append(samples, SPCSample{
+			ID:         row.ID,
+			ChartID:    row.ChartID,
+			Value:      numericToFloat(row.Value),
+			SampledAt:  row.SampledAt.Time,
+			OperatorID: row.OperatorID,
+			IsOutlier:  row.IsOutlier,
+			Notes:      notes,
+		})
+	}
+	return samples, nil
+}
+
+// floatToNumeric safely parses a float64 into pgtype.Numeric
+func floatToNumeric(f float64) pgtype.Numeric {
+	var n pgtype.Numeric
+	_ = n.Scan(fmt.Sprintf("%f", f))
+	return n
+}
+
+// numericToFloat safely unwraps pgtype.Numeric to float64
+func numericToFloat(n pgtype.Numeric) float64 {
+	if !n.Valid {
+		return 0
+	}
+	v, _ := n.Float64Value()
+	return v.Float64
+}
+
+// =============================================================================
+// ATE (Automated Test Equipment)
+// =============================================================================
+
+func (r *Repository) InsertATEIntegration(ctx context.Context, ate ATEIntegration) (ATEIntegration, error) {
+	var lastPing pgtype.Timestamptz
+	if ate.LastPingAt != nil {
+		lastPing = pgtype.Timestamptz{Time: *ate.LastPingAt, Valid: true}
+	}
+	id, err := r.queries.CreateATEIntegration(ctx, sqlc.CreateATEIntegrationParams{
+		CompanyID:     ate.CompanyID,
+		EquipmentName: ate.EquipmentName,
+		IpAddress:     ate.IPAddress,
+		Protocol:      ate.Protocol,
+		Status:        ate.Status,
+		LastPingAt:    lastPing,
+	})
+	if err != nil {
+		return ATEIntegration{}, err
+	}
+	return r.GetATEIntegration(ctx, id)
+}
+
+func (r *Repository) GetATEIntegration(ctx context.Context, id int64) (ATEIntegration, error) {
+	row, err := r.queries.GetATEIntegration(ctx, id)
+	if err != nil {
+		return ATEIntegration{}, err
+	}
+	var lastPing *time.Time
+	if row.LastPingAt.Valid {
+		lastPing = &row.LastPingAt.Time
+	}
+	return ATEIntegration{
+		ID:            row.ID,
+		CompanyID:     row.CompanyID,
+		EquipmentName: row.EquipmentName,
+		IPAddress:     row.IpAddress,
+		Protocol:      row.Protocol,
+		Status:        row.Status,
+		LastPingAt:    lastPing,
+		CreatedAt:     row.CreatedAt.Time,
+	}, nil
+}
+
+func (r *Repository) InsertATETestResult(ctx context.Context, res ATETestResult) (ATETestResult, error) {
+	id, err := r.queries.CreateATETestResult(ctx, sqlc.CreateATETestResultParams{
+		EquipmentID:   res.EquipmentID,
+		ProductSerial: res.ProductSerial,
+		TestSequence:  res.TestSequence,
+		Pass:          res.Pass,
+		RawData:       res.RawData,
+		TestedAt:      pgtype.Timestamptz{Time: res.TestedAt, Valid: true},
+	})
+	if err != nil {
+		return ATETestResult{}, err
+	}
+	res.ID = id
+	return res, nil
+}
+
+// =============================================================================
+// LIMS (Laboratory Information Management System)
+// =============================================================================
+
+func (r *Repository) InsertLabSample(ctx context.Context, sample LabSample) (LabSample, error) {
+	id, err := r.queries.CreateLabSample(ctx, sqlc.CreateLabSampleParams{
+		CompanyID:    sample.CompanyID,
+		SampleNumber: sample.SampleNumber,
+		SourceType:   sample.SourceType,
+		SourceID:     sample.SourceID,
+		Status:       sample.Status,
+		Priority:     sample.Priority,
+		AssignedLab:  sample.AssignedLab,
+		CollectedBy:  sample.CollectedBy,
+		CollectedAt:  pgtype.Timestamptz{Time: sample.CollectedAt, Valid: true},
+	})
+	if err != nil {
+		return LabSample{}, err
+	}
+	return r.GetLabSample(ctx, id)
+}
+
+func (r *Repository) GetLabSample(ctx context.Context, id int64) (LabSample, error) {
+	row, err := r.queries.GetLabSample(ctx, id)
+	if err != nil {
+		return LabSample{}, err
+	}
+	var completedAt *time.Time
+	if row.CompletedAt.Valid {
+		completedAt = &row.CompletedAt.Time
+	}
+	return LabSample{
+		ID:           row.ID,
+		CompanyID:    row.CompanyID,
+		SampleNumber: row.SampleNumber,
+		SourceType:   row.SourceType,
+		SourceID:     row.SourceID,
+		Status:       row.Status,
+		Priority:     row.Priority,
+		AssignedLab:  row.AssignedLab,
+		CollectedBy:  row.CollectedBy,
+		CollectedAt:  row.CollectedAt.Time,
+		CompletedAt:  completedAt,
+		CreatedAt:    row.CreatedAt.Time,
+	}, nil
+}
+
+func (r *Repository) UpdateLabSampleStatus(ctx context.Context, id int64, status string, completedAt *time.Time) error {
+	var compAt pgtype.Timestamptz
+	if completedAt != nil {
+		compAt = pgtype.Timestamptz{Time: *completedAt, Valid: true}
+	}
+	return r.queries.UpdateLabSampleStatus(ctx, sqlc.UpdateLabSampleStatusParams{
+		ID:          id,
+		Status:      status,
+		CompletedAt: compAt,
+	})
+}
+
+func (r *Repository) InsertLabTest(ctx context.Context, test LabTest) (LabTest, error) {
+	id, err := r.queries.CreateLabTest(ctx, sqlc.CreateLabTestParams{
+		SampleID:    test.SampleID,
+		TestName:    test.TestName,
+		Method:      test.Method,
+		ResultValue: test.ResultValue,
+		IsPass:      test.IsPass,
+		TestedBy:    test.TestedBy,
+		TestedAt:    pgtype.Timestamptz{Time: test.TestedAt, Valid: true},
+	})
+	if err != nil {
+		return LabTest{}, err
+	}
+	test.ID = id
+	return test, nil
 }

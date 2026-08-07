@@ -411,12 +411,12 @@ func (h *Handler) handleMFAVerify(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) showMFASetup(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	sess := shared.SessionFromContext(ctx)
-	if sess == nil || !sess.IsAuthenticated() {
+	if sess == nil || sess.User() == "" {
 		http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
 		return
 	}
 
-	userID, _ := strconv.ParseInt(sess.UserID(), 10, 64)
+	userID, _ := strconv.ParseInt(sess.User(), 10, 64)
 	user, err := h.service.repo.FindByID(ctx, userID)
 	if err != nil {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
@@ -463,7 +463,7 @@ func (h *Handler) showMFASetup(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) handleMFASetup(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	sess := shared.SessionFromContext(ctx)
-	if sess == nil || !sess.IsAuthenticated() {
+	if sess == nil || sess.User() == "" {
 		http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
 		return
 	}
@@ -483,7 +483,7 @@ func (h *Handler) handleMFASetup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Save to DB
-	userID, _ := strconv.ParseInt(sess.UserID(), 10, 64)
+	userID, _ := strconv.ParseInt(sess.User(), 10, 64)
 	if err := h.service.repo.UpdateMFA(ctx, userID, true, secret); err != nil {
 		h.logger.Error("failed to update mfa", slog.Any("error", err))
 		sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Gagal menyimpan MFA."})

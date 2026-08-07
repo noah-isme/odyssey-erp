@@ -335,3 +335,30 @@ const (
 	StopTypeDelivery  StopType = "DELIVERY"
 	StopTypeTransfer  StopType = "TRANSFER"
 )
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ROUTE OPTIMIZATION DOMAIN TYPES
+// ═══════════════════════════════════════════════════════════════════════════
+
+// RouteOptimizationJob represents a request to optimize a delivery route
+type RouteOptimizationJob struct {
+	ID            int64
+	CompanyID     int64
+	TripID        int64
+	Status        string // PENDING, PROCESSING, COMPLETED, FAILED
+	Engine        string // OSRM, GOOGLE_MAPS, HEURISTIC
+	StartedAt     *time.Time
+	CompletedAt   *time.Time
+	ErrorMessage  string
+	CreatedAt     time.Time
+}
+
+// RouteSequence represents an optimized sequence for TripStops
+type RouteSequence struct {
+	ID                   int64
+	OptimizationJobID    int64
+	TripStopID           int64
+	OptimizedSequence    int
+	EstimatedArrivalAt   *time.Time
+	EstimatedDistanceKm  *float64
+}

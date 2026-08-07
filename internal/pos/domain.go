@@ -37,6 +37,10 @@ type Repository interface {
 	HasPayment(context.Context, int64, string) (bool, error)
 	RecordPayment(context.Context, Payment) (Payment, bool, error)
 	UpdateTicket(context.Context, Ticket) error
+
+	CreatePOSHardware(context.Context, POSHardware) (POSHardware, error)
+	CreateLoyaltyMember(context.Context, LoyaltyMember) (LoyaltyMember, error)
+	CreateGiftCard(context.Context, GiftCard) (GiftCard, error)
 }
 
 type Service struct{ repo Repository }
@@ -123,4 +127,73 @@ func (s *Service) Refund(ctx context.Context, companyID, ticketID int64) (Ticket
 		return Ticket{}, err
 	}
 	return ticket, nil
+}
+
+// =============================================================================
+// Advanced POS Features (Hardware, Loyalty, Gift Cards, Split Tender)
+// =============================================================================
+
+type POSHardware struct {
+	ID           int64
+	TerminalID   int64
+	DeviceType   string // PRINTER, SCANNER
+	DeviceIP     string
+	DeviceConfig string
+	Status       string
+}
+
+type LoyaltyMember struct {
+	ID           int64
+	CompanyID    int64
+	CustomerName string
+	Phone        string
+	Points       int64
+	Tier         string
+}
+
+type GiftCard struct {
+	ID        int64
+	CompanyID int64
+	Code      string
+	Balance   float64
+	Currency  string
+	Status    string
+}
+
+func (s *Service) CreatePOSHardware(ctx context.Context, h POSHardware) (POSHardware, error) {
+	if s == nil || s.repo == nil {
+		return POSHardware{}, errors.New("pos: repository is required")
+	}
+	if h.TerminalID == 0 || h.DeviceType == "" {
+		return POSHardware{}, errors.New("pos: terminal_id and device_type are required")
+	}
+	h.Status = "ONLINE"
+	return s.repo.CreatePOSHardware(ctx, h)
+}
+
+func (s *Service) CreateLoyaltyMember(ctx context.Context, lm LoyaltyMember) (LoyaltyMember, error) {
+	if s == nil || s.repo == nil {
+		return LoyaltyMember{}, errors.New("pos: repository is required")
+	}
+	if lm.CompanyID == 0 || lm.CustomerName == "" || lm.Phone == "" {
+		return LoyaltyMember{}, errors.New("pos: invalid loyalty member data")
+	}
+	if lm.Tier == "" {
+		lm.Tier = "STANDARD"
+	}
+	return s.repo.CreateLoyaltyMember(ctx, lm)
+}
+
+func (s *Service) CreateGiftCard(ctx context.Context, gc GiftCard) (GiftCard, error) {
+	if s == nil || s.repo == nil {
+		return GiftCard{}, errors.New("pos: repository is required")
+	}
+	if gc.CompanyID == 0 || gc.Code == "" {
+		return GiftCard{}, errors.New("pos: invalid gift card data")
+	}
+	gc.Status = "ACTIVE"
+	if gc.Currency == "" {
+		gc.Currency = "IDR"
+	}
+	return s.repo.CreateGiftCard(ctx, gc)
 }

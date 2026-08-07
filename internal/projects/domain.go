@@ -111,3 +111,78 @@ func (s *Service) transition(ctx context.Context, companyID, actorID, id int64, 
 	}
 	return sheet, nil
 }
+
+// =============================================================================
+// Advanced Project Features (Milestones, Resource Allocation, Expenses)
+// =============================================================================
+
+type ProjectMilestone struct {
+	ID          int64
+	ProjectID   int64
+	Name        string
+	Description string
+	DueDate     string
+	Status      string
+}
+
+type ResourceAllocation struct {
+	ID             int64
+	ProjectID      int64
+	EmployeeID     int64
+	AllocatedHours float64
+	StartDate      string
+	EndDate        string
+}
+
+type ProjectExpense struct {
+	ID          int64
+	ProjectID   int64
+	EmployeeID  int64
+	Amount      float64
+	Currency    string
+	Description string
+	ReceiptURL  string
+	Status      string
+}
+
+func (s *Service) CreateMilestone(ctx context.Context, milestone ProjectMilestone) (ProjectMilestone, error) {
+	if s == nil || s.repo == nil {
+		return ProjectMilestone{}, errors.New("projects: repository is required")
+	}
+	if milestone.ProjectID == 0 || milestone.Name == "" {
+		return ProjectMilestone{}, errors.New("projects: invalid milestone data")
+	}
+	milestone.Status = "PENDING"
+	return s.repo.(AdvancedRepository).CreateMilestone(ctx, milestone)
+}
+
+func (s *Service) AllocateResource(ctx context.Context, allocation ResourceAllocation) (ResourceAllocation, error) {
+	if s == nil || s.repo == nil {
+		return ResourceAllocation{}, errors.New("projects: repository is required")
+	}
+	if allocation.ProjectID == 0 || allocation.EmployeeID == 0 || allocation.AllocatedHours <= 0 {
+		return ResourceAllocation{}, errors.New("projects: invalid allocation data")
+	}
+	return s.repo.(AdvancedRepository).AllocateResource(ctx, allocation)
+}
+
+func (s *Service) SubmitExpense(ctx context.Context, expense ProjectExpense) (ProjectExpense, error) {
+	if s == nil || s.repo == nil {
+		return ProjectExpense{}, errors.New("projects: repository is required")
+	}
+	if expense.ProjectID == 0 || expense.EmployeeID == 0 || expense.Amount <= 0 {
+		return ProjectExpense{}, errors.New("projects: invalid expense data")
+	}
+	expense.Status = "SUBMITTED"
+	if expense.Currency == "" {
+		expense.Currency = "IDR"
+	}
+	return s.repo.(AdvancedRepository).SubmitExpense(ctx, expense)
+}
+
+type AdvancedRepository interface {
+	Repository
+	CreateMilestone(context.Context, ProjectMilestone) (ProjectMilestone, error)
+	AllocateResource(context.Context, ResourceAllocation) (ResourceAllocation, error)
+	SubmitExpense(context.Context, ProjectExpense) (ProjectExpense, error)
+}

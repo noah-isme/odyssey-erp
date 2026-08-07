@@ -354,3 +354,52 @@ INSERT INTO storage_blobs (
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
 ) RETURNING id;
+
+-- name: CreateDocumentOCRJob :one
+INSERT INTO doc_ocr_jobs (
+    company_id, document_version_id, blob_id, status, created_at
+) VALUES (
+    $1, $2, $3, $4, NOW()
+) RETURNING id;
+
+-- name: DeleteDocumentRetention :exec
+DELETE FROM document_retention
+WHERE id = $1 AND company_id = $2;
+
+-- name: GetDocumentOCRJob :one
+SELECT * FROM doc_ocr_jobs WHERE id = $1;
+
+-- name: UpdateDocumentOCRJob :exec
+UPDATE doc_ocr_jobs 
+SET status = $2, extracted_text = $3, error_message = $4, completed_at = $5
+WHERE id = $1;
+
+-- name: CreateCollaborationSession :one
+INSERT INTO doc_collaboration_sessions (
+    company_id, document_version_id, session_token, host_user_id, active, expires_at
+) VALUES (
+    $1, $2, $3, $4, $5, $6
+) RETURNING id;
+
+-- name: GetCollaborationSession :one
+SELECT * FROM doc_collaboration_sessions WHERE session_token = $1 AND active = true;
+
+-- name: DisableCollaborationSession :exec
+UPDATE doc_collaboration_sessions SET active = false WHERE id = $1;
+
+-- name: IndexDocumentSearch :one
+INSERT INTO doc_search_indices (
+    document_id, document_version_id, title, content, keywords, indexed_at
+) VALUES (
+    $1, $2, $3, $4, $5, NOW()
+) RETURNING id;
+
+-- name: SearchDocumentsFullText :many
+SELECT d.*, v.version_number
+FROM doc_search_indices i
+JOIN documents d ON i.document_id = d.id
+JOIN document_versions v ON i.document_version_id = v.id
+WHERE d.company_id = $1
+AND to_tsvector('english', i.content) @@ plainto_tsquery('english', $2)
+ORDER BY ts_rank(to_tsvector('english', i.content), plainto_tsquery('english', $2)) DESC
+LIMIT $3;

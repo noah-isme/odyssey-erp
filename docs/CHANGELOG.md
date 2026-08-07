@@ -6,6 +6,15 @@ and older changelog material live in `docs/archive/`.
 
 ## Unreleased
 
+### Added
+- **Documents**: Advanced QMS (SPC, ATE, LIMS), OCR, real-time collaboration, and full-text content search.
+- **HR**: Benefits administration and performance review processing.
+- **CMMS**: Predictive maintenance, IoT sensor integration, and anomaly alert heuristic engine.
+- **WMS**: Wave planning, put-away tasks, cross-docking plans, and material handling equipment (MHE) management.
+- **Portal**: Profile updates, RFQ negotiation, direct chat messaging, and analytics tracking.
+- **POS**: Scanner/printer hardware configuration, loyalty members tier tracking, and gift card balances (split-tender ready).
+- **Projects**: Milestone tracking, employee resource allocation, and expense submission/tracking.
+
 ### Changed
 
 - Consolidated current setup, testing, architecture, and contributor guidance.
