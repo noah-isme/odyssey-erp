@@ -48,3 +48,8 @@ tests/e2e/test-screenshots/
 # Build
 /bin/
 /dist/
+
+# Compiled binaries at root (any name, any arch)
+/odyssey_bin
+/worker_bin
+/bootstrap-admin_bin
