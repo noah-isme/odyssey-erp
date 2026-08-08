@@ -35,73 +35,68 @@ func (s *ScorecardService) CreateDraftScorecard(ctx context.Context, input Creat
 // Requires external data source (GRN receipts with delivery dates and requested quantities)
 // This is a placeholder for integration with delivery service
 func (s *ScorecardService) CalculateOTIFScore(ctx context.Context, companyID, supplierID int64, periodStart, periodEnd time.Time) (score accountingmoney.Money, sampleSize int, err error) {
-	// TODO: Implement with actual DB query:
-	// SELECT COUNT(*) as total_receipts,
-	//        SUM(CASE WHEN received_date <= expected_date THEN 1 ELSE 0 END) as ontime_receipts
-	// FROM grns g
-	// WHERE g.supplier_id = ? AND g.company_id = ? AND g.received_date >= ? AND g.received_date <= ?
-	// OTIF_pct = (ontime_receipts / total_receipts) * 100
-	
-	// For now, return placeholder value of 85%
-	score = accountingmoney.Must("85.00", 2)
-	sampleSize = 1 // Placeholder
-	return
+	ontime, total, err := s.repo.CalculateOTIFScore(ctx, companyID, supplierID, periodStart, periodEnd)
+	if err != nil {
+		return accountingmoney.Money{}, 0, err
+	}
+	sampleSize = int(total)
+	if total == 0 {
+		return accountingmoney.Must("0.00", 2), 0, nil
+	}
+	pct := (float64(ontime) / float64(total)) * 100.0
+	score = accountingmoney.Must(fmt.Sprintf("%.2f", pct), 2)
+	return score, sampleSize, nil
 }
 
 // CalculateQualityScore calculates acceptance quality based on returns
 // Quality = accepted receipts / (accepted + returned)
 // Requires external data source (GRN receipts and supplier returns)
 func (s *ScorecardService) CalculateQualityScore(ctx context.Context, companyID, supplierID int64, periodStart, periodEnd time.Time) (score accountingmoney.Money, sampleSize int, err error) {
-	// TODO: Implement with actual DB query:
-	// SELECT SUM(CASE WHEN gl.status='ACCEPTED' THEN gl.quantity ELSE 0 END) as accepted_qty,
-	//        SUM(CASE WHEN gl.status IN ('REJECTED','RETURNED') THEN gl.quantity ELSE 0 END) as rejected_qty
-	// FROM grn_lines gl
-	// JOIN grns g ON g.id = gl.grn_id
-	// WHERE g.supplier_id = ? AND g.company_id = ? AND g.received_at >= ? AND g.received_at <= ?
-	// Quality_pct = (accepted_qty / (accepted_qty + rejected_qty)) * 100
-	
-	// For now, return placeholder value of 90%
-	score = accountingmoney.Must("90.00", 2)
-	sampleSize = 1 // Placeholder
-	return
+	accepted, total, err := s.repo.CalculateQualityScore(ctx, companyID, supplierID, periodStart, periodEnd)
+	if err != nil {
+		return accountingmoney.Money{}, 0, err
+	}
+	sampleSize = int(total)
+	if total == 0 {
+		return accountingmoney.Must("0.00", 2), 0, nil
+	}
+	pct := (float64(accepted) / float64(total)) * 100.0
+	score = accountingmoney.Must(fmt.Sprintf("%.2f", pct), 2)
+	return score, sampleSize, nil
 }
 
 // CalculatePriceAdherenceScore calculates price variance performance
 // Price Adherence = purchase orders within contract price / total POs
 // Requires integration with PO and variance tracking
 func (s *ScorecardService) CalculatePriceAdherenceScore(ctx context.Context, companyID, supplierID int64, periodStart, periodEnd time.Time) (score accountingmoney.Money, sampleSize int, err error) {
-	// TODO: Implement with actual DB query:
-	// SELECT COUNT(*) as total_pos,
-	//        COUNT(CASE WHEN pcv.variance_type IS NULL THEN 1 ELSE 0 END) as compliant_pos
-	// FROM po_lines pl
-	// JOIN pos p ON p.id = pl.po_id
-	// LEFT JOIN po_contract_variances pcv ON pcv.po_line_id = pl.id AND pcv.approval_status='PENDING'
-	// WHERE p.supplier_id = ? AND p.company_id = ? AND p.created_at >= ? AND p.created_at <= ?
-	// Price_Adherence_pct = (compliant_pos / total_pos) * 100
-	
-	// For now, return placeholder value of 88%
-	score = accountingmoney.Must("88.00", 2)
-	sampleSize = 1 // Placeholder
-	return
+	compliant, total, err := s.repo.CalculatePriceAdherenceScore(ctx, companyID, supplierID, periodStart, periodEnd)
+	if err != nil {
+		return accountingmoney.Money{}, 0, err
+	}
+	sampleSize = int(total)
+	if total == 0 {
+		return accountingmoney.Must("0.00", 2), 0, nil
+	}
+	pct := (float64(compliant) / float64(total)) * 100.0
+	score = accountingmoney.Must(fmt.Sprintf("%.2f", pct), 2)
+	return score, sampleSize, nil
 }
 
 // CalculateRFQResponsivenessScore calculates supplier response rate to RFQs
 // Responsiveness = RFQs with bids submitted / total RFQs invited
 // Requires integration with RFQ/bid tables
 func (s *ScorecardService) CalculateRFQResponsivenessScore(ctx context.Context, companyID, supplierID int64, periodStart, periodEnd time.Time) (score accountingmoney.Money, sampleSize int, err error) {
-	// TODO: Implement with actual DB query:
-	// SELECT COUNT(*) as total_rfqs,
-	//        SUM(CASE WHEN rb.bid_id IS NOT NULL THEN 1 ELSE 0 END) as responded_rfqs
-	// FROM rfq_suppliers rs
-	// JOIN rfqs r ON r.id = rs.rfq_id
-	// LEFT JOIN rfq_bids rb ON rb.rfq_id = r.id AND rb.supplier_id = ?
-	// WHERE rs.supplier_id = ? AND r.company_id = ? AND r.sent_at >= ? AND r.sent_at <= ?
-	// Responsiveness_pct = (responded_rfqs / total_rfqs) * 100
-	
-	// For now, return placeholder value of 80%
-	score = accountingmoney.Must("80.00", 2)
-	sampleSize = 1 // Placeholder
-	return
+	responded, total, err := s.repo.CalculateRFQResponsivenessScore(ctx, companyID, supplierID, periodStart, periodEnd)
+	if err != nil {
+		return accountingmoney.Money{}, 0, err
+	}
+	sampleSize = int(total)
+	if total == 0 {
+		return accountingmoney.Must("0.00", 2), 0, nil
+	}
+	pct := (float64(responded) / float64(total)) * 100.0
+	score = accountingmoney.Must(fmt.Sprintf("%.2f", pct), 2)
+	return score, sampleSize, nil
 }
 
 // CalculateOverallScore computes weighted overall score

@@ -81,15 +81,18 @@ type ScorecardCalculationInput struct {
 // POApprovalHook checks if PO can be approved based on variance status
 // Called before PO approval is allowed
 func (s *ContractService) CanApprovePO(ctx context.Context, poID int64, companyID int64) (bool, error) {
-	// TODO: Implement with actual DB:
-	// 1. Query po_contract_variances where po_id = ? AND approval_status = 'PENDING'
-	// 2. If any PENDING variances exist, return false
-	// 3. Return true if all variances are APPROVED or REJECTED
+	variances, err := s.repo.ListPOVariancesByPO(ctx, poID)
+	if err != nil {
+		return false, fmt.Errorf("failed to get po variances: %w", err)
+	}
+
+	for _, v := range variances {
+		if v.ApprovalStatus == "PENDING" {
+			return false, nil
+		}
+	}
 	
-	_ = ctx
-	_ = poID
-	_ = companyID
-	return true, nil // Placeholder
+	return true, nil
 }
 
 // RecordPOPriceObservation records the PO line price in price history

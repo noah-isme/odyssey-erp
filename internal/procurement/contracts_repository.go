@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	accountingmoney "github.com/odyssey-erp/odyssey-erp/internal/accounting/money"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 // ContractRepository handles database operations for supplier contracts
@@ -472,4 +474,94 @@ func (r *ContractRepository) ApprovePOVariance(ctx context.Context, varianceID i
 		return fmt.Errorf("failed to approve variance: %w", err)
 	}
 	return nil
+}
+
+func (r *ContractRepository) ListPOVariancesByPO(ctx context.Context, poID int64) ([]POContractVariance, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT id, company_id, po_id, po_line_id, contract_id,
+		       variance_type, variance_percentage, variance_reason,
+		       approval_status, approved_by, approved_at, note,
+		       created_at, updated_at
+		FROM po_contract_variances
+		WHERE po_id = $1
+		ORDER BY po_line_id
+	`, poID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query variances: %w", err)
+	}
+	defer rows.Close()
+
+	var variances []POContractVariance
+	for rows.Next() {
+		var variance POContractVariance
+		var varianceTypeStr string
+		var variancePctStr *string
+
+		err := rows.Scan(
+			&variance.ID, &variance.CompanyID, &variance.POID, &variance.POLineID, &variance.ContractID,
+			&varianceTypeStr, &variancePctStr, &variance.VarianceReason,
+			&variance.ApprovalStatus, &variance.ApprovedBy, &variance.ApprovedAt, &variance.Note,
+			&variance.CreatedAt, &variance.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan variance: %w", err)
+		}
+
+		variance.VarianceType = VarianceType(varianceTypeStr)
+		if variancePctStr != nil {
+			pct, _ := accountingmoney.Parse(*variancePctStr, 2)
+			variance.VariancePercentage = &pct
+		}
+		variances = append(variances, variance)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
+
+	return variances, nil
+}
+
+func (r *ContractRepository) CalculateOTIFScore(ctx context.Context, companyID, supplierID int64, start, end time.Time) (int64, int64, error) {
+	queries := sqlc.New(r.db)
+	row, err := queries.CalculateOTIFScore(ctx, sqlc.CalculateOTIFScoreParams{
+		CompanyID:  pgtype.Int8{Int64: companyID, Valid: true},
+		SupplierID: supplierID,
+		ReceivedAt: pgtype.Timestamptz{Time: start, Valid: true},
+		ReceivedAt_2: pgtype.Timestamptz{Time: end, Valid: true},
+	})
+	return row.OntimeReceipts, row.TotalReceipts, err
+}
+
+func (r *ContractRepository) CalculateQualityScore(ctx context.Context, companyID, supplierID int64, start, end time.Time) (int64, int64, error) {
+	queries := sqlc.New(r.db)
+	row, err := queries.CalculateQualityScore(ctx, sqlc.CalculateQualityScoreParams{
+		CompanyID:  pgtype.Int8{Int64: companyID, Valid: true},
+		SupplierID: supplierID,
+		ReceivedAt: pgtype.Timestamptz{Time: start, Valid: true},
+		ReceivedAt_2: pgtype.Timestamptz{Time: end, Valid: true},
+	})
+	return row.AcceptedQty, row.AcceptedQty + row.RejectedQty, err
+}
+
+func (r *ContractRepository) CalculatePriceAdherenceScore(ctx context.Context, companyID, supplierID int64, start, end time.Time) (int64, int64, error) {
+	queries := sqlc.New(r.db)
+	row, err := queries.CalculatePriceAdherenceScore(ctx, sqlc.CalculatePriceAdherenceScoreParams{
+		CompanyID:  pgtype.Int8{Int64: companyID, Valid: true},
+		SupplierID: supplierID,
+		CreatedAt:  pgtype.Timestamptz{Time: start, Valid: true},
+		CreatedAt_2: pgtype.Timestamptz{Time: end, Valid: true},
+	})
+	return row.CompliantPos, row.TotalPos, err
+}
+
+func (r *ContractRepository) CalculateRFQResponsivenessScore(ctx context.Context, companyID, supplierID int64, start, end time.Time) (int64, int64, error) {
+	queries := sqlc.New(r.db)
+	row, err := queries.CalculateRFQResponsivenessScore(ctx, sqlc.CalculateRFQResponsivenessScoreParams{
+		CompanyID:  companyID,
+		SupplierID: supplierID,
+		CreatedAt:  pgtype.Timestamptz{Time: start, Valid: true},
+		CreatedAt_2: pgtype.Timestamptz{Time: end, Valid: true},
+	})
+	return row.RespondedRfqs, row.TotalRfqs, err
 }
