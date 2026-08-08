@@ -2,7 +2,7 @@
 
 **Priority:** High
 
-**Status:** Planned
+**Status:** In Progress — Phase 0 (foundation) and Phase A1 (Midtrans payment gateway) implemented
 
 **Scope:** Payment gateways, shipping/carrier services, marketplace synchronization,
 WhatsApp/SMS/push delivery, external BI, identity providers, and AI connectors.
