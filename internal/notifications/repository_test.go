@@ -78,9 +78,9 @@ func TestRepositoryChannelsUsesPreferenceValues(t *testing.T) {
 	defer db.Close()
 	repo := NewRepository(db)
 
-	db.ExpectQuery("SELECT in_app_enabled").WithArgs(int64(3), TypePasswordReset).WillReturnRows(pgxmock.NewRows([]string{"in_app_enabled", "email_enabled"}).AddRow(false, true))
+	db.ExpectQuery("SELECT in_app_enabled").WithArgs(int64(3), TypePasswordReset).WillReturnRows(pgxmock.NewRows([]string{"in_app_enabled", "email_enabled", "sms_enabled", "whatsapp_enabled"}).AddRow(false, true, false, false))
 	channels, err := repo.Channels(context.Background(), 3, TypePasswordReset)
 	require.NoError(t, err)
-	require.Equal(t, Channels{InApp: false, Email: true}, channels)
+	require.Equal(t, Channels{InApp: false, Email: true, SMS: false, WhatsApp: false}, channels)
 	require.NoError(t, db.ExpectationsWereMet())
 }

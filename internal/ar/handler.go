@@ -1,6 +1,7 @@
 package ar
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -27,6 +28,11 @@ type Handler struct {
 	asynqClient   *asynq.Client
 	creditNotePDF CreditNotePDFRenderer
 	notifications *notifications.Dispatcher
+	checkouts     CheckoutService
+}
+
+type CheckoutService interface {
+	CreateCheckoutIntent(ctx context.Context, companyID, connectionID int64, sourceType string, sourceID int64, amount float64, currency, customerName, customerEmail, orderID string) (string, error)
 }
 
 func (h *Handler) SetNotificationDispatcher(dispatcher *notifications.Dispatcher) {
@@ -34,8 +40,8 @@ func (h *Handler) SetNotificationDispatcher(dispatcher *notifications.Dispatcher
 }
 
 // NewHandler builds Handler instance.
-func NewHandler(logger *slog.Logger, service *Service, templates *view.Engine, csrf *shared.CSRFManager, sessions *shared.SessionManager, rbac rbac.Middleware, asynqClient *asynq.Client) *Handler {
-	return &Handler{logger: logger, service: service, templates: templates, csrf: csrf, sessions: sessions, rbac: rbac, asynqClient: asynqClient}
+func NewHandler(logger *slog.Logger, service *Service, templates *view.Engine, csrf *shared.CSRFManager, sessions *shared.SessionManager, rbac rbac.Middleware, asynqClient *asynq.Client, checkouts CheckoutService) *Handler {
+	return &Handler{logger: logger, service: service, templates: templates, csrf: csrf, sessions: sessions, rbac: rbac, asynqClient: asynqClient, checkouts: checkouts}
 }
 
 // MountRoutes registers AR routes.
@@ -467,7 +473,7 @@ func getUserID(sess *shared.Session) int64 {
 	return id
 }
 
-// initiateOnlinePayment handles form submission to initiate a Stripe/gateway charge.
+// initiateOnlinePayment handles form submission to initiate a gateway charge.
 func (h *Handler) initiateOnlinePayment(w http.ResponseWriter, r *http.Request) {
 	invoiceID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil {
@@ -487,19 +493,35 @@ func (h *Handler) initiateOnlinePayment(w http.ResponseWriter, r *http.Request) 
 		h.redirectWithFlash(w, r, fmt.Sprintf("/finance/ar/invoices/%d", invoiceID), "error", "Invalid or missing connection ID")
 		return
 	}
-	
-	sourceToken := r.FormValue("source_token")
-	if sourceToken == "" {
-		h.redirectWithFlash(w, r, fmt.Sprintf("/finance/ar/invoices/%d", invoiceID), "error", "Payment token is required")
+
+	invoice, err := h.service.GetARInvoiceWithDetails(r.Context(), invoiceID)
+	if err != nil || invoice == nil {
+		h.redirectWithFlash(w, r, fmt.Sprintf("/finance/ar/invoices/%d", invoiceID), "error", "Invoice not found")
 		return
 	}
 
-	err = h.service.InitiateOnlinePayment(r.Context(), InitiateOnlinePaymentInput{
-		CompanyID:    1, // Default company ID for single tenant MVP
-		InvoiceID:    invoiceID,
-		ConnectionID: connectionID,
-		SourceToken:  sourceToken,
-	})
+	if invoice.Balance <= 0 {
+		h.redirectWithFlash(w, r, fmt.Sprintf("/finance/ar/invoices/%d", invoiceID), "error", "Invoice is already paid")
+		return
+	}
+
+	if h.checkouts == nil {
+		h.redirectWithFlash(w, r, fmt.Sprintf("/finance/ar/invoices/%d", invoiceID), "error", "Checkout service is not configured")
+		return
+	}
+
+	checkoutURL, err := h.checkouts.CreateCheckoutIntent(
+		r.Context(),
+		1, // Default CompanyID
+		connectionID,
+		"ar_invoice",
+		invoiceID,
+		invoice.Balance,
+		invoice.Currency,
+		invoice.CustomerName,
+		"", // We don't have customer email in invoice easily, passing blank for now
+		fmt.Sprintf("inv-%d-%d", invoiceID, time.Now().Unix()),
+	)
 
 	if err != nil {
 		h.logger.Error("initiate online payment failed", slog.Any("error", err))
@@ -507,5 +529,6 @@ func (h *Handler) initiateOnlinePayment(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	h.redirectWithFlash(w, r, fmt.Sprintf("/finance/ar/invoices/%d", invoiceID), "success", "Payment processing initiated via external gateway")
+	// Redirect to the external checkout URL
+	http.Redirect(w, r, checkoutURL, http.StatusSeeOther)
 }

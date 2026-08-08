@@ -57,6 +57,86 @@ func (q *Queries) CreateConnection(ctx context.Context, arg CreateConnectionPara
 	return i, err
 }
 
+const createObjectMapping = `-- name: CreateObjectMapping :one
+INSERT INTO connector_object_mappings (
+    company_id, connection_id, local_entity_type, local_entity_id, remote_entity_type, remote_entity_id
+) VALUES (
+    $1, $2, $3, $4, $5, $6
+) RETURNING id, company_id, connection_id, local_entity_type, local_entity_id, remote_entity_type, remote_entity_id, created_at, updated_at
+`
+
+type CreateObjectMappingParams struct {
+	CompanyID        int64  `json:"company_id"`
+	ConnectionID     int64  `json:"connection_id"`
+	LocalEntityType  string `json:"local_entity_type"`
+	LocalEntityID    int64  `json:"local_entity_id"`
+	RemoteEntityType string `json:"remote_entity_type"`
+	RemoteEntityID   string `json:"remote_entity_id"`
+}
+
+func (q *Queries) CreateObjectMapping(ctx context.Context, arg CreateObjectMappingParams) (ConnectorObjectMapping, error) {
+	row := q.db.QueryRow(ctx, createObjectMapping,
+		arg.CompanyID,
+		arg.ConnectionID,
+		arg.LocalEntityType,
+		arg.LocalEntityID,
+		arg.RemoteEntityType,
+		arg.RemoteEntityID,
+	)
+	var i ConnectorObjectMapping
+	err := row.Scan(
+		&i.ID,
+		&i.CompanyID,
+		&i.ConnectionID,
+		&i.LocalEntityType,
+		&i.LocalEntityID,
+		&i.RemoteEntityType,
+		&i.RemoteEntityID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createSyncRun = `-- name: CreateSyncRun :one
+INSERT INTO connector_sync_runs (
+    company_id, connection_id, sync_type, status, cursor_value
+) VALUES (
+    $1, $2, $3, $4, $5
+) RETURNING id, company_id, connection_id, sync_type, status, cursor_value, started_at, completed_at, error_message
+`
+
+type CreateSyncRunParams struct {
+	CompanyID    int64       `json:"company_id"`
+	ConnectionID int64       `json:"connection_id"`
+	SyncType     string      `json:"sync_type"`
+	Status       string      `json:"status"`
+	CursorValue  pgtype.Text `json:"cursor_value"`
+}
+
+func (q *Queries) CreateSyncRun(ctx context.Context, arg CreateSyncRunParams) (ConnectorSyncRun, error) {
+	row := q.db.QueryRow(ctx, createSyncRun,
+		arg.CompanyID,
+		arg.ConnectionID,
+		arg.SyncType,
+		arg.Status,
+		arg.CursorValue,
+	)
+	var i ConnectorSyncRun
+	err := row.Scan(
+		&i.ID,
+		&i.CompanyID,
+		&i.ConnectionID,
+		&i.SyncType,
+		&i.Status,
+		&i.CursorValue,
+		&i.StartedAt,
+		&i.CompletedAt,
+		&i.ErrorMessage,
+	)
+	return i, err
+}
+
 const enqueueOutboxCommand = `-- name: EnqueueOutboxCommand :one
 INSERT INTO connector_outbox_commands (
     company_id, connection_id, command_type, correlation_id, payload
@@ -122,6 +202,74 @@ func (q *Queries) GetConnection(ctx context.Context, arg GetConnectionParams) (C
 		&i.LastSync,
 		&i.LastError,
 		&i.TokenExpiry,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getObjectMappingByLocal = `-- name: GetObjectMappingByLocal :one
+SELECT id, company_id, connection_id, local_entity_type, local_entity_id, remote_entity_type, remote_entity_id, created_at, updated_at FROM connector_object_mappings
+WHERE company_id = $1 AND connection_id = $2 AND local_entity_type = $3 AND local_entity_id = $4
+`
+
+type GetObjectMappingByLocalParams struct {
+	CompanyID       int64  `json:"company_id"`
+	ConnectionID    int64  `json:"connection_id"`
+	LocalEntityType string `json:"local_entity_type"`
+	LocalEntityID   int64  `json:"local_entity_id"`
+}
+
+func (q *Queries) GetObjectMappingByLocal(ctx context.Context, arg GetObjectMappingByLocalParams) (ConnectorObjectMapping, error) {
+	row := q.db.QueryRow(ctx, getObjectMappingByLocal,
+		arg.CompanyID,
+		arg.ConnectionID,
+		arg.LocalEntityType,
+		arg.LocalEntityID,
+	)
+	var i ConnectorObjectMapping
+	err := row.Scan(
+		&i.ID,
+		&i.CompanyID,
+		&i.ConnectionID,
+		&i.LocalEntityType,
+		&i.LocalEntityID,
+		&i.RemoteEntityType,
+		&i.RemoteEntityID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getObjectMappingByRemote = `-- name: GetObjectMappingByRemote :one
+SELECT id, company_id, connection_id, local_entity_type, local_entity_id, remote_entity_type, remote_entity_id, created_at, updated_at FROM connector_object_mappings
+WHERE company_id = $1 AND connection_id = $2 AND remote_entity_type = $3 AND remote_entity_id = $4
+`
+
+type GetObjectMappingByRemoteParams struct {
+	CompanyID        int64  `json:"company_id"`
+	ConnectionID     int64  `json:"connection_id"`
+	RemoteEntityType string `json:"remote_entity_type"`
+	RemoteEntityID   string `json:"remote_entity_id"`
+}
+
+func (q *Queries) GetObjectMappingByRemote(ctx context.Context, arg GetObjectMappingByRemoteParams) (ConnectorObjectMapping, error) {
+	row := q.db.QueryRow(ctx, getObjectMappingByRemote,
+		arg.CompanyID,
+		arg.ConnectionID,
+		arg.RemoteEntityType,
+		arg.RemoteEntityID,
+	)
+	var i ConnectorObjectMapping
+	err := row.Scan(
+		&i.ID,
+		&i.CompanyID,
+		&i.ConnectionID,
+		&i.LocalEntityType,
+		&i.LocalEntityID,
+		&i.RemoteEntityType,
+		&i.RemoteEntityID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -410,6 +558,44 @@ func (q *Queries) UpdateOutboxCommandState(ctx context.Context, arg UpdateOutbox
 		&i.NextAttempt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateSyncRun = `-- name: UpdateSyncRun :one
+UPDATE connector_sync_runs
+SET status = $2, cursor_value = $3, completed_at = $4, error_message = $5
+WHERE id = $1
+RETURNING id, company_id, connection_id, sync_type, status, cursor_value, started_at, completed_at, error_message
+`
+
+type UpdateSyncRunParams struct {
+	ID           int64              `json:"id"`
+	Status       string             `json:"status"`
+	CursorValue  pgtype.Text        `json:"cursor_value"`
+	CompletedAt  pgtype.Timestamptz `json:"completed_at"`
+	ErrorMessage pgtype.Text        `json:"error_message"`
+}
+
+func (q *Queries) UpdateSyncRun(ctx context.Context, arg UpdateSyncRunParams) (ConnectorSyncRun, error) {
+	row := q.db.QueryRow(ctx, updateSyncRun,
+		arg.ID,
+		arg.Status,
+		arg.CursorValue,
+		arg.CompletedAt,
+		arg.ErrorMessage,
+	)
+	var i ConnectorSyncRun
+	err := row.Scan(
+		&i.ID,
+		&i.CompanyID,
+		&i.ConnectionID,
+		&i.SyncType,
+		&i.Status,
+		&i.CursorValue,
+		&i.StartedAt,
+		&i.CompletedAt,
+		&i.ErrorMessage,
 	)
 	return i, err
 }

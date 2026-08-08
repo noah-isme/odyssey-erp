@@ -38,6 +38,10 @@ func (r *memoryRepo) UpdateTicket(_ context.Context, t Ticket) error {
 	r.updated = append(r.updated, t)
 	return nil
 }
+
+func (r *memoryRepo) CreatePOSHardware(_ context.Context, h POSHardware) (POSHardware, error) { return h, nil }
+func (r *memoryRepo) CreateLoyaltyMember(_ context.Context, m LoyaltyMember) (LoyaltyMember, error) { return m, nil }
+func (r *memoryRepo) CreateGiftCard(_ context.Context, g GiftCard) (GiftCard, error) { return g, nil }
 func TestTicketPaymentAndRefund(t *testing.T) {
 	r := &memoryRepo{payments: map[string]Payment{}}
 	s := NewService(r)

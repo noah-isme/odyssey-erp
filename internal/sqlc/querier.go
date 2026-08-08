@@ -107,6 +107,7 @@ type Querier interface {
 	CreateMatchingPolicy(ctx context.Context, arg CreateMatchingPolicyParams) (int64, error)
 	CreateMatchingRun(ctx context.Context, arg CreateMatchingRunParams) (int64, error)
 	CreateMatchingRunLine(ctx context.Context, arg CreateMatchingRunLineParams) (int64, error)
+	CreateObjectMapping(ctx context.Context, arg CreateObjectMappingParams) (ConnectorObjectMapping, error)
 	// =============================================================================
 	// PURCHASE ORDERS (PO)
 	// =============================================================================
@@ -120,6 +121,9 @@ type Querier interface {
 	// =============================================================================
 	CreatePR(ctx context.Context, arg CreatePRParams) (int64, error)
 	CreatePaymentAllocation(ctx context.Context, arg CreatePaymentAllocationParams) (int64, error)
+	CreatePaymentDispute(ctx context.Context, arg CreatePaymentDisputeParams) (PaymentDispute, error)
+	CreatePaymentIntent(ctx context.Context, arg CreatePaymentIntentParams) (PaymentIntent, error)
+	CreatePaymentRefund(ctx context.Context, arg CreatePaymentRefundParams) (PaymentRefund, error)
 	CreatePermission(ctx context.Context, arg CreatePermissionParams) (Permission, error)
 	// =============================================================================
 	// POLICY VERSIONS
@@ -172,6 +176,7 @@ type Querier interface {
 	// SUPPLIER SCORECARDS
 	// =============================================================================
 	CreateSupplierScorecard(ctx context.Context, arg CreateSupplierScorecardParams) (int64, error)
+	CreateSyncRun(ctx context.Context, arg CreateSyncRunParams) (ConnectorSyncRun, error)
 	CreateTax(ctx context.Context, arg CreateTaxParams) (Tax, error)
 	CreateTreasuryPaymentBatch(ctx context.Context, arg CreateTreasuryPaymentBatchParams) (TreasuryPaymentBatch, error)
 	CreateTreasuryPaymentBatchItem(ctx context.Context, arg CreateTreasuryPaymentBatchItemParams) (TreasuryPaymentBatchItem, error)
@@ -314,6 +319,8 @@ type Querier interface {
 	GetNCR(ctx context.Context, id int64) (Ncr, error)
 	GetNCRDisposition(ctx context.Context, ncrID int64) (NcrDisposition, error)
 	GetNumberingRuleForCategory(ctx context.Context, arg GetNumberingRuleForCategoryParams) (DocumentNumberingRule, error)
+	GetObjectMappingByLocal(ctx context.Context, arg GetObjectMappingByLocalParams) (ConnectorObjectMapping, error)
+	GetObjectMappingByRemote(ctx context.Context, arg GetObjectMappingByRemoteParams) (ConnectorObjectMapping, error)
 	GetOpenPeriodByDate(ctx context.Context, startDate pgtype.Date) (Period, error)
 	GetPMSchedule(ctx context.Context, id int64) (GetPMScheduleRow, error)
 	GetPO(ctx context.Context, id int64) (GetPORow, error)
@@ -322,6 +329,8 @@ type Querier interface {
 	GetPOVariance(ctx context.Context, id int64) (PoContractVariance, error)
 	GetPR(ctx context.Context, id int64) (GetPRRow, error)
 	GetPRLines(ctx context.Context, prID int64) ([]PrLine, error)
+	GetPaymentIntent(ctx context.Context, arg GetPaymentIntentParams) (PaymentIntent, error)
+	GetPaymentIntentByProviderRef(ctx context.Context, arg GetPaymentIntentByProviderRefParams) (PaymentIntent, error)
 	// =============================================================================
 	// DISPOSITION REQUESTS
 	// =============================================================================
@@ -514,6 +523,7 @@ type Querier interface {
 	InsertPMSchedule(ctx context.Context, arg InsertPMScheduleParams) (int64, error)
 	InsertPOLine(ctx context.Context, arg InsertPOLineParams) error
 	InsertPRLine(ctx context.Context, arg InsertPRLineParams) error
+	InsertPaymentIntentTransition(ctx context.Context, arg InsertPaymentIntentTransitionParams) (PaymentIntentTransition, error)
 	InsertPeriodLegacy(ctx context.Context, arg InsertPeriodLegacyParams) (InsertPeriodLegacyRow, error)
 	// =============================================================================
 	// QMS HOLDS
@@ -810,6 +820,9 @@ type Querier interface {
 	UpdatePMScheduleNextDue(ctx context.Context, arg UpdatePMScheduleNextDueParams) error
 	UpdatePOStatus(ctx context.Context, arg UpdatePOStatusParams) error
 	UpdatePRStatus(ctx context.Context, arg UpdatePRStatusParams) error
+	UpdatePaymentDisputeStatus(ctx context.Context, arg UpdatePaymentDisputeStatusParams) (PaymentDispute, error)
+	UpdatePaymentIntentStatus(ctx context.Context, arg UpdatePaymentIntentStatusParams) (PaymentIntent, error)
+	UpdatePaymentRefundStatus(ctx context.Context, arg UpdatePaymentRefundStatusParams) (PaymentRefund, error)
 	UpdatePolicyStatus(ctx context.Context, arg UpdatePolicyStatusParams) error
 	UpdateProduct(ctx context.Context, arg UpdateProductParams) error
 	UpdateQMSInspectionStatus(ctx context.Context, arg UpdateQMSInspectionStatusParams) error
@@ -830,6 +843,7 @@ type Querier interface {
 	UpdateSupplier(ctx context.Context, arg UpdateSupplierParams) error
 	UpdateSupplierContractStatus(ctx context.Context, arg UpdateSupplierContractStatusParams) error
 	UpdateSupplierQuality(ctx context.Context, arg UpdateSupplierQualityParams) error
+	UpdateSyncRun(ctx context.Context, arg UpdateSyncRunParams) (ConnectorSyncRun, error)
 	UpdateTax(ctx context.Context, arg UpdateTaxParams) error
 	UpdateTreasuryPaymentBatchExport(ctx context.Context, arg UpdateTreasuryPaymentBatchExportParams) (TreasuryPaymentBatch, error)
 	UpdateTreasuryPaymentBatchRevision(ctx context.Context, arg UpdateTreasuryPaymentBatchRevisionParams) (TreasuryPaymentBatch, error)

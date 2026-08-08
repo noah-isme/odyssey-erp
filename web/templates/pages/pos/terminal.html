@@ -46,16 +46,16 @@
             </div>
         </div>
         <div class="cart-total">
-            <button class="loyalty-btn" onclick="scanLoyalty()">💳 Scan Loyalty / Gift Card</button>
+            <button class="btn btn--secondary" onclick="scanLoyalty()">💳 Scan Loyalty / Gift Card</button>
             <div class="total-row"><span>Total:</span> <span>$25.00</span></div>
-            <button class="pay-btn" onclick="processPayment()">Process Payment 🖨️</button>
+            <button class="btn btn--primary" onclick="processPayment()">Process Payment 🖨️</button>
         </div>
     </div>
     
     <div class="product-section">
         <div class="scanner-bar">
-            <input type="text" class="scanner-input" placeholder="Scan barcode..." autofocus>
-            <button class="pay-btn" style="padding: 1rem 2rem;">Search</button>
+            <input type="text" class="form-input" placeholder="Scan barcode..." autofocus>
+            <button class="btn btn--primary" style="padding: 1rem 2rem;">Search</button>
         </div>
         <div class="product-grid">
             <div class="product-card" onclick="addToCart('Keyboard', 45.00)">

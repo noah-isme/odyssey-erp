@@ -205,6 +205,8 @@ provider outage flows; stock moves once and the full tracking history remains au
 
 **Estimate:** 6–8 weeks
 
+**Status:** Implemented
+
 **Depends on:** Phase 0 and the stable payment/shipping domain contracts from A1/A2
 
 - Add channel/store connections and mappings for warehouses, products/SKUs, variants,

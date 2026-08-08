@@ -23,6 +23,15 @@
         </div>
         <div class="page-header__actions">
             {{ if or (eq (printf "%s" $inv.Status) "POSTED") (eq (printf "%s" $inv.Status) "PAID") }}<a href="/delivery/orders/{{ $inv.DeliveryOrderID }}/returns/new" class="btn btn--primary">Create Return</a>{{ end }}
+            {{ if eq (printf "%s" $inv.Status) "POSTED" }}
+            {{ if gt $inv.Balance 0.0 }}
+            <form action="/finance/ar/invoices/{{ $inv.ID }}/pay-online" method="POST" class="inline-block">
+                {{ $.CSRFToken }}
+                <input type="hidden" name="connection_id" value="1">
+                <button type="submit" class="btn btn--primary bg-green-600 hover:bg-green-700">Pay Online</button>
+            </form>
+            {{ end }}
+            {{ end }}
             <a href="/finance/ar/credit-notes?invoice_id={{ $inv.ID }}" class="btn btn--secondary">Credit Notes</a>
             <a href="/finance/ar/invoices" class="btn btn--secondary">Back to List</a>
         </div>

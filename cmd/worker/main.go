@@ -30,6 +30,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/stripe"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/whatsapp"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/openai"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/awss3"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/dhl"
 	"github.com/odyssey-erp/odyssey-erp/internal/crm"
 	"github.com/odyssey-erp/odyssey-erp/internal/documents"
@@ -41,6 +42,9 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/platform/cache"
 	"github.com/odyssey-erp/odyssey-erp/internal/platform/db"
 	"github.com/odyssey-erp/odyssey-erp/internal/qms"
+	"github.com/odyssey-erp/odyssey-erp/internal/sales/customers"
+	"github.com/odyssey-erp/odyssey-erp/internal/sales/orders"
+	"github.com/odyssey-erp/odyssey-erp/internal/sales/quotations"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 	"github.com/odyssey-erp/odyssey-erp/internal/storage"
@@ -213,7 +217,7 @@ func main() {
 	}()
 	notificationRepo := notifications.NewRepository(pool)
 	notificationService := notifications.NewService(notificationRepo)
-	notificationDispatcher := notifications.NewDispatcher(notificationService, notificationRepo, notificationEmailQueue{client: asynqClient})
+	notificationDispatcher := notifications.NewDispatcher(notificationService, notificationRepo, notificationEmailQueue{client: asynqClient}, nil)
 	payrollOutbox := payroll.NewOutboxDispatcher(payrollRepo, payrollDeliveryQueue{client: asynqClient})
 	taxService := tax.NewService(tax.NewRepository(pool), nil)
 	crmService := crm.NewService(crm.NewRepository(pool), nil, nil, crm.NewNotificationAdapter(notificationDispatcher))
@@ -240,15 +244,31 @@ func main() {
 	connectorsRegistry.Register("mockpay", mockpay.NewAdapter(logger))
 	connectorsRegistry.Register("stripe", stripe.NewAdapter(logger))
 	connectorsRegistry.Register("oidc", oidc.NewAdapter(logger))
-	connectorsRegistry.Register("whatsapp", whatsapp.NewAdapter(logger))
+	connectorsRegistry.Register("whatsapp", whatsapp.NewAdapter(logger, nil))
 	connectorsRegistry.Register("openai", openai.NewAdapter(logger))
 	connectorsRegistry.Register("dhl", dhl.NewAdapter(logger))
+	connectorsRegistry.Register("awss3", awss3.NewAdapter(logger, nil))
 	connectorsOutboxWorker := connectors.NewOutboxWorker(sqlc.New(pool), connectorsRegistry)
+
+	vault, err := shared.NewVault()
+	if err != nil {
+		logger.Error("init vault", slog.Any("error", err))
+		os.Exit(1)
+	}
+	connectorsService := connectors.NewService(pool, vault, connectorsRegistry)
 
 	outboxRepo := outbox.NewRepository(pool)
 	outboxDispatcher := outbox.NewDispatcher(pool, outboxRepo, logger)
 	cmms.RegisterOutboxHandlers(outboxDispatcher, cmmsService, logger)
 	qms.RegisterOutboxHandlers(outboxDispatcher, qmsService, logger)
+	
+	// Marketplace outbox routing
+	salesCustRepo := customers.NewRepository(pool)
+	salesQuoteRepo := quotations.NewRepository(pool)
+	salesOrdersRepo := orders.NewRepository(pool)
+	salesOrdersSvc := orders.NewService(salesOrdersRepo, salesCustRepo, salesQuoteRepo)
+	marketplaceProc := orders.NewMarketplaceProcessor(logger, salesOrdersSvc, sqlc.New(pool))
+	orders.RegisterOutboxHandlers(outboxDispatcher, marketplaceProc)
 
 	bankfeedsRepo := bankfeeds.NewPGRepository(pool)
 	bankingRepo := banking.NewRepository(pool)
@@ -306,6 +326,8 @@ func main() {
 		FXCompanies: fxRepo,
 		FXLocation:  mustLocation("Asia/Jakarta"),
 		FXLogger:    logger,
+		Analytics:   analyticsService,
+		Connectors:  connectorsService,
 		Cron: []jobs.CronRegistration{
 			{Spec: "15 1 * * *", Task: warmupTask, Options: []asynq.Option{asynq.MaxRetry(3)}},
 			{Spec: "30 1 * * *", Task: anomalyTask, Options: []asynq.Option{asynq.MaxRetry(3)}},

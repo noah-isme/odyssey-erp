@@ -12,7 +12,7 @@ import (
 
 func TestNotificationAdapterDispatchesApprovalEvents(t *testing.T) {
 	store := &notificationsTestStore{memoryStore: &notificationsMemoryStore{}}
-	dispatcher := notifications.NewDispatcher(notifications.NewService(store.memoryStore), notificationsPreferenceFake{channels: notifications.Channels{InApp: true, Email: false}}, nil)
+	dispatcher := notifications.NewDispatcher(notifications.NewService(store.memoryStore), notificationsPreferenceFake{channels: notifications.Channels{InApp: true, Email: false}}, nil, nil)
 	adapter := NewNotificationAdapter(dispatcher)
 	req := Request{ID: 12, CurrentStep: 3, Module: "PO", DocumentID: 99}
 
@@ -68,6 +68,10 @@ func (p notificationsPreferenceFake) Channels(context.Context, int64, string) (n
 }
 
 func (notificationsPreferenceFake) UserEmail(context.Context, int64) (string, error) {
+	return "", nil
+}
+
+func (notificationsPreferenceFake) UserPhone(context.Context, int64) (string, error) {
 	return "", nil
 }
 

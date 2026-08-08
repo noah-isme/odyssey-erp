@@ -12,51 +12,53 @@
         </div>
     </header>
 
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 1.5rem;">
+    <div>
         <!-- SPC Chart -->
-        <div class="card" style="padding: 1.5rem;">
+        <div class="card">
             <h3>Statistical Process Control (X-Bar)</h3>
-            <div style="position: relative; height: 250px; background: repeating-linear-gradient(0deg, transparent, transparent 49px, #e5e7eb 50px);">
+            <div>
                 <!-- UCL -->
-                <div style="position: absolute; top: 10%; width: 100%; border-top: 2px dashed #ef4444; color: #ef4444; font-size: 0.8rem;">UCL</div>
+                <div>UCL</div>
                 <!-- Mean -->
-                <div style="position: absolute; top: 50%; width: 100%; border-top: 2px solid #10b981; color: #10b981; font-size: 0.8rem;">Mean</div>
+                <div>Mean</div>
                 <!-- LCL -->
-                <div style="position: absolute; top: 90%; width: 100%; border-top: 2px dashed #ef4444; color: #ef4444; font-size: 0.8rem;">LCL</div>
+                <div>LCL</div>
                 
                 <!-- Data Points (Mocked) -->
-                <div style="position: absolute; left: 10%; top: 45%; width: 8px; height: 8px; background: #3b82f6; border-radius: 50%;"></div>
-                <div style="position: absolute; left: 30%; top: 30%; width: 8px; height: 8px; background: #3b82f6; border-radius: 50%;"></div>
-                <div style="position: absolute; left: 50%; top: 55%; width: 8px; height: 8px; background: #3b82f6; border-radius: 50%;"></div>
-                <div style="position: absolute; left: 70%; top: 8%; width: 8px; height: 8px; background: #ef4444; border-radius: 50%; box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.2);"></div>
+                <div></div>
+                <div></div>
+                <div></div>
+                <div></div>
             </div>
-            <p style="color: #ef4444; font-weight: bold; margin-top: 1rem;">Warning: Sample 4 exceeds Upper Control Limit.</p>
+            <p>Warning: Sample 4 exceeds Upper Control Limit.</p>
         </div>
 
         <!-- Calibration & LIMS -->
-        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
-            <div class="card" style="padding: 1.5rem;">
+        <div>
+            <div class="card">
                 <h3>LIMS Integration</h3>
-                <div style="display: flex; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid var(--border);">
+                <div>
                     <span>Batch #B2026-001 Viscosity</span>
                     <span class="badge badge--success">PASS</span>
                 </div>
-                <div style="display: flex; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid var(--border);">
+                <div>
                     <span>Batch #B2026-002 Tensile</span>
                     <span class="badge badge--danger">FAIL</span>
                 </div>
             </div>
 
-            <div class="card" style="padding: 1.5rem;">
+            <div class="card">
                 <h3>Equipment Calibration</h3>
-                <table style="width: 100%; text-align: left;">
-                    <tr><th>Equipment</th><th>Next Due</th><th>Status</th></tr>
-                    <tr>
-                        <td style="padding: 0.5rem 0;">Micrometer A</td>
-                        <td>2026-08-10</td>
-                        <td><span class="badge badge--warning">Due Soon</span></td>
-                    </tr>
-                </table>
+                <div class="table-responsive">
+                    <table class="table">
+                        <tr><th>Equipment</th><th>Next Due</th><th>Status</th></tr>
+                        <tr>
+                            <td>Micrometer A</td>
+                            <td>2026-08-10</td>
+                            <td><span class="badge badge--warning">Due Soon</span></td>
+                        </tr>
+                    </table>
+                </div>
             </div>
         </div>
     </div>

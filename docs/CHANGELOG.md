@@ -13,6 +13,7 @@ and older changelog material live in `docs/archive/`.
 - **WMS**: Wave planning, put-away tasks, cross-docking plans, and material handling equipment (MHE) management.
 - **Portal**: Profile updates, RFQ negotiation, direct chat messaging, and analytics tracking.
 - **POS**: Scanner/printer hardware configuration, loyalty members tier tracking, and gift card balances (split-tender ready).
+- **Connectors**: Marketplace synchronization (Shopify) including inbound sales orders, outbox event bridging, and outbound inventory available-to-promise sync.
 - **Projects**: Milestone tracking, employee resource allocation, and expense submission/tracking.
 
 ### Changed

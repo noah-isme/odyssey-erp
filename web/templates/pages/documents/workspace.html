@@ -10,56 +10,56 @@
             <h1 class="page-title">Workspace</h1>
             <p class="page-subtitle">OCR Extraction & Collaborative Editing</p>
         </div>
-        <div class="page-header__actions" style="display: flex; gap: 1rem;">
-            <input type="text" placeholder="Full-text search..." style="padding: 0.5rem 1rem; border-radius: 8px; border: 1px solid var(--border); width: 250px;">
+        <div class="page-header__actions">
+            <input type="text" placeholder="Full-text search..." class="form-input">
             <button class="btn btn--primary">Upload Document</button>
         </div>
     </header>
 
-    <div style="display: grid; grid-template-columns: 300px 1fr; gap: 1.5rem; margin-top: 1.5rem; height: calc(100vh - 200px);">
+    <div class="grid">
         <!-- File Tree -->
-        <div class="card" style="padding: 1rem; overflow-y: auto;">
-            <h3 style="margin-top: 0;">Drive</h3>
-            <ul style="list-style: none; padding: 0; margin: 0;">
-                <li style="padding: 0.5rem; cursor: pointer; background: var(--surface-hover); border-radius: 6px;">📄 Invoice_INV2026.pdf (OCR Pending)</li>
-                <li style="padding: 0.5rem; cursor: pointer;">📄 Vendor_Agreement.docx</li>
-                <li style="padding: 0.5rem; cursor: pointer;">📄 Employee_Handbook.md</li>
+        <div class="card">
+            <h3>Drive</h3>
+            <ul>
+                <li>📄 Invoice_INV2026.pdf (OCR Pending)</li>
+                <li>📄 Vendor_Agreement.docx</li>
+                <li>📄 Employee_Handbook.md</li>
             </ul>
         </div>
 
         <!-- Editor/OCR View -->
-        <div class="card" style="padding: 0; display: flex; flex-direction: column;">
-            <div style="padding: 1rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between;">
+        <div class="card">
+            <div>
                 <strong>Invoice_INV2026.pdf</strong>
                 <div>
                     <span class="badge badge--warning">Running OCR</span>
-                    <button class="btn btn--sm btn--secondary" style="margin-left: 1rem;">Run AI Extraction</button>
+                    <button class="btn btn--sm btn--secondary">Run AI Extraction</button>
                 </div>
             </div>
             
-            <div style="flex: 1; display: flex;">
+            <div>
                 <!-- PDF Preview -->
-                <div style="flex: 1; background: #e5e7eb; display: flex; align-items: center; justify-content: center; color: #6b7280;">
+                <div>
                     [ PDF Viewer Plugin placeholder ]
                 </div>
                 <!-- Collaborative Metadata Editor -->
-                <div style="width: 350px; border-left: 1px solid var(--border); padding: 1.5rem;">
-                    <h3 style="margin-top: 0;">Extracted Data</h3>
-                    <div style="margin-bottom: 1rem;">
-                        <label style="display: block; font-size: 0.875rem; color: var(--text-secondary);">Vendor Name</label>
-                        <input type="text" value="Acme Corp" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px;">
+                <div>
+                    <h3>Extracted Data</h3>
+                    <div class="form-group">
+                        <label class="form-label">Vendor Name</label>
+                        <input type="text" value="Acme Corp" class="form-input">
                     </div>
-                    <div style="margin-bottom: 1rem;">
-                        <label style="display: block; font-size: 0.875rem; color: var(--text-secondary);">Total Amount</label>
-                        <input type="text" value="$4,500.00" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px;">
+                    <div class="form-group">
+                        <label class="form-label">Total Amount</label>
+                        <input type="text" value="$4,500.00" class="form-input">
                     </div>
-                    <button class="btn btn--primary" style="width: 100%;">Sync to AP Module</button>
+                    <button class="btn btn--primary">Sync to AP Module</button>
 
-                    <div style="margin-top: 2rem;">
-                        <h4 style="margin-bottom: 0.5rem;">Active Collaborators</h4>
-                        <div style="display: flex; gap: 0.5rem;">
-                            <div style="width: 32px; height: 32px; border-radius: 50%; background: #3b82f6; color: white; display: flex; align-items: center; justify-content: center; font-size: 0.75rem;">ND</div>
-                            <div style="width: 32px; height: 32px; border-radius: 50%; background: #10b981; color: white; display: flex; align-items: center; justify-content: center; font-size: 0.75rem;">AS</div>
+                    <div>
+                        <h4>Active Collaborators</h4>
+                        <div>
+                            <div>ND</div>
+                            <div>AS</div>
                         </div>
                     </div>
                 </div>

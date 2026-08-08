@@ -36,7 +36,7 @@ func arRequest(t *testing.T, method, path string) *http.Request {
 
 func TestCreditNoteRouteRequiresPermission(t *testing.T) {
 	router := chi.NewRouter()
-	handler := NewHandler(slog.Default(), &Service{}, nil, nil, nil, rbac.Middleware{Service: arPermissionReader{}}, nil)
+	handler := NewHandler(slog.Default(), &Service{}, nil, nil, nil, rbac.Middleware{Service: arPermissionReader{}}, nil, nil)
 	router.Route("/finance/ar", handler.MountRoutes)
 
 	rec := httptest.NewRecorder()
@@ -54,7 +54,7 @@ func TestShowCreditNoteRendersSSR(t *testing.T) {
 	repo := newCreditNoteMemoryRepo()
 	repo.notes[1] = &ARCreditNote{ID: 1, Number: "CN-1", CustomerID: 5, ARInvoiceID: 9, Currency: "IDR", Reason: "Damaged", Status: ARCreditNoteStatusDraft}
 	repo.lines[1] = []ARCreditNoteLine{{ID: 11, ARCreditNoteID: 1, ProductID: 7, Description: "Returned part", Quantity: 2, UnitPrice: 15, Total: 30}}
-	handler := NewHandler(slog.Default(), &Service{creditNotes: repo}, templates, nil, nil, rbac.Middleware{Service: arPermissionReader{permissions: []string{"finance.ar.credit_note.view"}}}, nil)
+	handler := NewHandler(slog.Default(), &Service{creditNotes: repo}, templates, nil, nil, rbac.Middleware{Service: arPermissionReader{permissions: []string{"finance.ar.credit_note.view"}}}, nil, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/finance/ar/credit-notes/1", nil)
 	route := chi.NewRouteContext()
@@ -82,7 +82,7 @@ func TestCreditNotePDFDownloadReturnsPDF(t *testing.T) {
 	repo := newCreditNoteMemoryRepo()
 	repo.notes[1] = &ARCreditNote{ID: 1, Number: "CN-2", CustomerID: 5, ARInvoiceID: 9, Currency: "IDR", Reason: "Damaged", Status: ARCreditNoteStatusDraft}
 	repo.lines[1] = []ARCreditNoteLine{{ID: 11, ARCreditNoteID: 1, ProductID: 7, Description: "Returned part", Quantity: 2, UnitPrice: 15, Total: 30}}
-	handler := NewHandler(slog.Default(), &Service{creditNotes: repo}, nil, nil, nil, rbac.Middleware{}, nil)
+	handler := NewHandler(slog.Default(), &Service{creditNotes: repo}, nil, nil, nil, rbac.Middleware{}, nil, nil)
 	renderer, err := NewCreditNotePDFRenderer(creditNotePDFFake{})
 	if err != nil {
 		t.Fatal(err)
@@ -115,7 +115,7 @@ func TestPostInvoiceDispatchesNotification(t *testing.T) {
 	repo := newMemoryARRepo()
 	repo.invoices[1] = &ARInvoice{ID: 1, Number: "INV-1", CustomerID: 5, Currency: "IDR", Status: ARStatusDraft}
 	store := &arNotificationsStore{}
-	dispatcher := notifications.NewDispatcher(notifications.NewService(store), arNotificationPrefs{channels: notifications.Channels{InApp: true, Email: false}}, nil)
+	dispatcher := notifications.NewDispatcher(notifications.NewService(store), arNotificationPrefs{channels: notifications.Channels{InApp: true, Email: false}}, nil, nil)
 	handler := &Handler{service: &Service{repo: repo}, notifications: dispatcher}
 
 	manager := shared.NewSessionManager(nil, "session", "secret", time.Hour, false)
@@ -153,6 +153,7 @@ func (p arNotificationPrefs) Channels(context.Context, int64, string) (notificat
 }
 
 func (arNotificationPrefs) UserEmail(context.Context, int64) (string, error) { return "", nil }
+func (arNotificationPrefs) UserPhone(context.Context, int64) (string, error) { return "", nil }
 
 type arNotificationsStore struct {
 	items []notifications.Notification

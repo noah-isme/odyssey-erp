@@ -53,7 +53,8 @@ func (a *Adapter) RefreshToken(ctx context.Context, conn *connectors.Connection)
 }
 
 // VerifyCallbackSignature verifies a Stripe webhook signature (Stripe-Signature header).
-func (a *Adapter) VerifyCallbackSignature(ctx context.Context, payload []byte, signature string) error {
+func (a *Adapter) VerifyCallbackSignature(ctx context.Context, headers map[string]string, payload []byte) error {
+	_ = headers["X-Provider-Signature"]; signature := headers["X-Provider-Signature"]; _ = signature
 	// The Webhook Secret (whsec_...) would normally be fetched from the vault.
 	webhookSecret := "whsec_simulated" 
 	
@@ -117,7 +118,8 @@ func (a *Adapter) ExecuteCommand(ctx context.Context, conn *connectors.Connectio
 }
 
 // TranslateWebhook parses the Stripe webhook and emits canonical domain events.
-func (a *Adapter) TranslateWebhook(ctx context.Context, conn *connectors.Connection, providerEventID string, payload []byte) ([]*connectors.CanonicalEvent, error) {
+func (a *Adapter) TranslateWebhook(ctx context.Context, conn *connectors.Connection, headers map[string]string, payload []byte) ([]*connectors.CanonicalEvent, error) {
+	_ = headers["X-Provider-Event-Id"]; providerEventID := headers["X-Provider-Event-Id"]; _ = providerEventID
 	var event stripe.Event
 	if err := json.Unmarshal(payload, &event); err != nil {
 		return nil, fmt.Errorf("stripe: failed to unmarshal webhook event: %w", err)

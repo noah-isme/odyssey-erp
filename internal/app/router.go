@@ -126,6 +126,7 @@ type RouterParams struct {
 	CMMSHandler            *cmmshttp.Handler
 	QMSHandler             *qmshttp.Handler
 	ConnectorsHandler      *connectors.WebhookHandler
+	ConnectorsAdminHandler *connectors.AdminHandler
 }
 
 type workspaceUser struct {
@@ -343,28 +344,32 @@ func NewRouter(params RouterParams) http.Handler {
 		_ = params.Templates.Render(w, "pages/settings.html", view.TemplateData{Title: "Pengaturan", CSRFToken: csrfToken, Flash: sess.PopFlash(), Data: map[string]any{"User": user}})
 	})
 
-	r.Get("/settings/integrations", func(w http.ResponseWriter, r *http.Request) {
-		sess := shared.SessionFromContext(r.Context())
-		if sess == nil || sess.User() == "" {
-			http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
-			return
-		}
-		
-		providers := []map[string]any{
-			{"Name": "Stripe", "Icon": "💳", "Description": "Process payments and subscriptions.", "Active": true},
-			{"Name": "MockPay", "Icon": "💵", "Description": "Test payment gateway for sandbox environments.", "Active": true},
-			{"Name": "Shopify", "Icon": "🛍️", "Description": "Sync products, orders, and customers.", "Active": false},
-			{"Name": "WhatsApp", "Icon": "💬", "Description": "Send notifications and chat with customers.", "Active": false},
-			{"Name": "OpenAI", "Icon": "🧠", "Description": "AI generation and automation features.", "Active": false},
-			{"Name": "DHL", "Icon": "📦", "Description": "Book shipments and track deliveries.", "Active": false},
-			{"Name": "OIDC/SSO", "Icon": "🔐", "Description": "Single Sign-On and directory sync.", "Active": true},
-		}
+	if params.ConnectorsAdminHandler != nil {
+		r.Route("/settings/integrations", params.ConnectorsAdminHandler.MountSettingsRoutes)
+	} else {
+		r.Get("/settings/integrations", func(w http.ResponseWriter, r *http.Request) {
+			sess := shared.SessionFromContext(r.Context())
+			if sess == nil || sess.User() == "" {
+				http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
+				return
+			}
+			
+			providers := []map[string]any{
+				{"Name": "Stripe", "Icon": "💳", "Description": "Process payments and subscriptions.", "Active": true},
+				{"Name": "MockPay", "Icon": "💵", "Description": "Test payment gateway for sandbox environments.", "Active": true},
+				{"Name": "Shopify", "Icon": "🛍️", "Description": "Sync products, orders, and customers.", "Active": false},
+				{"Name": "WhatsApp", "Icon": "💬", "Description": "Send notifications and chat with customers.", "Active": false},
+				{"Name": "OpenAI", "Icon": "🧠", "Description": "AI generation and automation features.", "Active": false},
+				{"Name": "DHL", "Icon": "📦", "Description": "Book shipments and track deliveries.", "Active": false},
+				{"Name": "OIDC/SSO", "Icon": "🔐", "Description": "Single Sign-On and directory sync.", "Active": true},
+			}
 
-		_ = params.Templates.Render(w, "pages/integrations.html", view.TemplateData{
-			Title: "Integrations", 
-			Data: map[string]any{"Providers": providers},
+			_ = params.Templates.Render(w, "pages/integrations.html", view.TemplateData{
+				Title: "Integrations", 
+				Data: map[string]any{"Providers": providers},
+			})
 		})
-	})
+	}
 
 	// Module UI Frontend Endpoints
 	r.Get("/pos/terminal", func(w http.ResponseWriter, r *http.Request) {

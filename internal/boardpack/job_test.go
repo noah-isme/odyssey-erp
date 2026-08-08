@@ -76,6 +76,7 @@ func (boardPackPrefs) Channels(context.Context, int64, string) (notifications.Ch
 }
 
 func (boardPackPrefs) UserEmail(context.Context, int64) (string, error) { return "", nil }
+func (boardPackPrefs) UserPhone(context.Context, int64) (string, error) { return "", nil }
 
 func boardPackGetRow(status string, filePath string) []any {
 	sections, _ := json.Marshal([]TemplateSection{{Type: SectionExecSummary, Title: "Executive"}})
@@ -149,7 +150,7 @@ func TestJobDispatchesReportDeliveredNotification(t *testing.T) {
 	require.NoError(t, err)
 	store := &boardPackStorageFake{}
 	notifStore := &boardPackNotificationStore{}
-	dispatcher := notifications.NewDispatcher(notifications.NewService(notifStore), boardPackPrefs{}, nil)
+	dispatcher := notifications.NewDispatcher(notifications.NewService(notifStore), boardPackPrefs{}, nil, nil)
 	job := NewJob(JobConfig{Service: service, Builder: builder, Renderer: renderer, Storage: store, Notifications: dispatcher})
 
 	task, err := jobs.NewBoardPackTask(1)

@@ -236,6 +236,10 @@ func (r *memoryARRepo) GeneratePaymentNumber(ctx context.Context) (string, error
 	return "PAY-TEST-" + string(rune('0'+r.paymentCounter)), nil
 }
 
+func (r *memoryARRepo) EnqueueConnectorCommand(ctx context.Context, companyID int64, connectionID int64, commandType string, correlationID string, payload []byte) error {
+	return nil
+}
+
 func (r *memoryARRepo) ListAROutstanding(ctx context.Context) ([]ARInvoice, error) {
 	var out []ARInvoice
 	for _, inv := range r.invoices {

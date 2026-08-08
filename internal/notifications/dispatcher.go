@@ -9,6 +9,7 @@ import (
 type PreferenceStore interface {
 	Channels(context.Context, int64, string) (Channels, error)
 	UserEmail(context.Context, int64) (string, error)
+	UserPhone(context.Context, int64) (string, error)
 }
 
 type Email struct {
@@ -20,13 +21,25 @@ type EmailEnqueuer interface {
 }
 
 type Dispatcher struct {
-	service *Service
-	prefs   PreferenceStore
-	email   EmailEnqueuer
+	service   *Service
+	prefs     PreferenceStore
+	email     EmailEnqueuer
+	messaging MessagingEnqueuer
 }
 
-func NewDispatcher(service *Service, prefs PreferenceStore, email EmailEnqueuer) *Dispatcher {
-	return &Dispatcher{service: service, prefs: prefs, email: email}
+type OutboundMessage struct {
+	To            string
+	Content       string
+	Channel       string // "sms" or "whatsapp"
+	CorrelationID string
+}
+
+type MessagingEnqueuer interface {
+	EnqueueMessage(context.Context, OutboundMessage) error
+}
+
+func NewDispatcher(service *Service, prefs PreferenceStore, email EmailEnqueuer, messaging MessagingEnqueuer) *Dispatcher {
+	return &Dispatcher{service: service, prefs: prefs, email: email, messaging: messaging}
 }
 
 func (d *Dispatcher) Dispatch(ctx context.Context, msg Message) error {
@@ -61,6 +74,34 @@ func (d *Dispatcher) Dispatch(ctx context.Context, msg Message) error {
 		}
 		if err := d.email.EnqueueEmail(ctx, Email{To: address, Subject: msg.Title, Body: body, CorrelationID: correlationID}); err != nil {
 			return err
+		}
+	}
+	
+	if (channels.SMS || channels.WhatsApp) && d.messaging != nil {
+		phone, err := d.prefs.UserPhone(ctx, msg.RecipientID)
+		if err != nil {
+			return err
+		}
+		if phone != "" {
+			channel := "sms"
+			if channels.WhatsApp {
+				channel = "whatsapp"
+			}
+			
+			correlationID := fmt.Sprintf("notification-msg-%d", notificationID)
+			if notificationID == 0 {
+				sum := sha256.Sum256([]byte(fmt.Sprintf("%d:%s:%s", msg.RecipientID, msg.Type, msg.DedupeKey)))
+				correlationID = fmt.Sprintf("notification-msg-%x", sum)
+			}
+			
+			if err := d.messaging.EnqueueMessage(ctx, OutboundMessage{
+				To:            phone,
+				Content:       fmt.Sprintf("%s\n\n%s", msg.Title, msg.Body),
+				Channel:       channel,
+				CorrelationID: correlationID,
+			}); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

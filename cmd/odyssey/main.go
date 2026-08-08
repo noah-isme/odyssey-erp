@@ -51,7 +51,9 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/stripe"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/whatsapp"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/openai"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/awss3"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/dhl"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/midtrans"
 	"github.com/odyssey-erp/odyssey-erp/internal/crm"
 	"github.com/odyssey-erp/odyssey-erp/internal/dashboard"
 	"github.com/odyssey-erp/odyssey-erp/internal/documents"
@@ -310,9 +312,31 @@ func main() {
 			logger.Warn("close job client", slog.Any("error", err))
 		}
 	}()
+	outboxRepo := outbox.NewRepository(dbpool)
+	connectorsRegistry := connectors.NewRegistry()
+	connectorsRegistry.Register("mockpay", mockpay.NewAdapter(logger))
+	vault, err := shared.NewVault()
+	if err != nil {
+		logger.Error("init vault", slog.Any("error", err))
+	}
+	connectorsRegistry.Register("stripe", stripe.NewAdapter(logger))
+	connectorsRegistry.Register("oidc", oidc.NewAdapter(logger))
+	connectorsRegistry.Register("shopify", shopify.NewAdapter(logger))
+	connectorsRegistry.Register("whatsapp", whatsapp.NewAdapter(logger, vault))
+	connectorsRegistry.Register("openai", openai.NewAdapter(logger))
+	connectorsRegistry.Register("dhl", dhl.NewAdapter(logger))
+	connectorsRegistry.Register("awss3", awss3.NewAdapter(logger, vault))
+	connectorsRegistry.Register("midtrans", midtrans.NewAdapter(logger, vault))
+	connectorsProcessor := connectors.NewInboxProcessor(sqlc.New(dbpool), connectorsRegistry, outboxRepo, logger)
+	connectorsHandler := connectors.NewWebhookHandler(connectorsProcessor)
+
+	connectorsService := connectors.NewService(dbpool, vault, connectorsRegistry)
+	integrationHooks.SetConnectorsService(connectorsService)
+	connectorsAdminHandler := connectors.NewAdminHandler(connectorsService, logger, templates)
+
 	notificationRepo := notifications.NewRepository(dbpool)
 	notificationService := notifications.NewService(notificationRepo)
-	notificationDispatcher := notifications.NewDispatcher(notificationService, notificationRepo, notificationEmailQueue{client: jobClient})
+	notificationDispatcher := notifications.NewDispatcher(notificationService, notificationRepo, notificationEmailQueue{client: jobClient}, messagingAdapter{svc: connectorsService})
 	notificationHandler := notifications.NewHandler(notificationService)
 	approvalRepo := approvalengine.NewRepository(dbpool)
 	approvalService := approvalengine.NewService(approvalRepo, approvalengine.NewNotificationAdapter(notificationDispatcher))
@@ -342,7 +366,9 @@ func main() {
 	arService.SetReturnDeliveryService(arInvoicing)
 	arService.SetAccountingService(integrationHooks)
 	arService.SetTaxService(taxService)
-	arHandler := ar.NewHandler(logger, arService, templates, csrfManager, sessionManager, rbacMiddleware, jobClient.AsynqClient())
+	arService.SetTaxService(taxService)
+
+	arHandler := ar.NewHandler(logger, arService, templates, csrfManager, sessionManager, rbacMiddleware, jobClient.AsynqClient(), checkoutAdapter{svc: connectorsService})
 	arHandler.SetNotificationDispatcher(notificationDispatcher)
 
 	apRepo := ap.NewRepository(dbpool)
@@ -488,8 +514,6 @@ func main() {
 	mrpHandler.SetInventoryService(inventoryService)
 	mrpHandler.SetManufacturingAccounting(integrationHooks)
 	mrpHandler.SetUI(templates, csrfManager)
-	
-	outboxRepo := outbox.NewRepository(dbpool)
 	mrpHandler.SetOutboxRepository(outboxRepo)
 
 	documentsRepo := documents.NewRepository(dbpool)
@@ -513,17 +537,6 @@ func main() {
 	qmsHandler := qmshttp.NewHandler(logger, qmsService, templates, csrfManager, rbacMiddleware, dbpool, outboxRepo)
 	
 	mrpHandler.SetQMSService(qmsService)
-
-	connectorsRegistry := connectors.NewRegistry()
-	connectorsRegistry.Register("mockpay", mockpay.NewAdapter(logger))
-	connectorsRegistry.Register("stripe", stripe.NewAdapter(logger))
-	connectorsRegistry.Register("oidc", oidc.NewAdapter(logger))
-	connectorsRegistry.Register("shopify", shopify.NewAdapter(logger))
-	connectorsRegistry.Register("whatsapp", whatsapp.NewAdapter(logger))
-	connectorsRegistry.Register("openai", openai.NewAdapter(logger))
-	connectorsRegistry.Register("dhl", dhl.NewAdapter(logger))
-	connectorsProcessor := connectors.NewInboxProcessor(sqlc.New(dbpool), connectorsRegistry, outboxRepo, logger)
-	connectorsHandler := connectors.NewWebhookHandler(connectorsProcessor)
 
 	router := app.NewRouter(app.RouterParams{
 		Logger:                 logger,
@@ -580,6 +593,7 @@ func main() {
 		CMMSHandler:            cmmsHandler,
 		QMSHandler:             qmsHandler,
 		ConnectorsHandler:      connectorsHandler,
+		ConnectorsAdminHandler: connectorsAdminHandler,
 	})
 
 	// Route dump mode: print the real routing table and exit without serving.
@@ -676,4 +690,35 @@ func (o opsAdapter) Status(ctx context.Context, date time.Time) ([]fxcli.FXRateS
 		result[i] = fxcli.FXRateStatus{BaseCurrency: row.BaseCurrency, QuoteCurrency: row.QuoteCurrency, Source: row.Source, Status: row.Status, Rate: row.Rate, RateDate: row.RateDate}
 	}
 	return result, nil
+}
+
+type checkoutAdapter struct {
+	svc *connectors.Service
+}
+
+func (c checkoutAdapter) CreateCheckoutIntent(ctx context.Context, companyID, connectionID int64, sourceType string, sourceID int64, amount float64, currency, customerName, customerEmail, orderID string) (string, error) {
+	res, err := c.svc.CreateCheckoutIntent(ctx, connectors.CreateCheckoutIntentRequest{
+		CompanyID:     companyID,
+		ConnectionID:  connectionID,
+		SourceType:    sourceType,
+		SourceID:      sourceID,
+		Amount:        amount,
+		Currency:      currency,
+		CustomerName:  customerName,
+		CustomerEmail: customerEmail,
+		OrderID:       orderID,
+	})
+	if err != nil {
+		return "", err
+	}
+	return res.RedirectURL, nil
+}
+
+type messagingAdapter struct {
+	svc *connectors.Service
+}
+
+func (m messagingAdapter) EnqueueMessage(ctx context.Context, msg notifications.OutboundMessage) error {
+	// We'll assume CompanyID = 1 for system notifications.
+	return m.svc.EnqueueMessage(ctx, 1, msg.Channel, msg.To, msg.Content, msg.CorrelationID)
 }

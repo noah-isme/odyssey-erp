@@ -40,6 +40,8 @@ type Message struct {
 }
 
 type Channels struct {
-	InApp bool
-	Email bool
+	InApp    bool
+	Email    bool
+	SMS      bool
+	WhatsApp bool
 }

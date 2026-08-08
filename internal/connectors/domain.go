@@ -63,13 +63,13 @@ type ProviderAdapter interface {
 	RefreshToken(ctx context.Context, conn *Connection) error
 	
 	// VerifyCallbackSignature ensures an incoming webhook is authentic.
-	VerifyCallbackSignature(ctx context.Context, payload []byte, signature string) error
+	VerifyCallbackSignature(ctx context.Context, headers map[string]string, payload []byte) error
 
 	// ExecuteCommand handles an outbound command for this provider.
 	ExecuteCommand(ctx context.Context, conn *Connection, cmd *OutboxCommand) error
 
 	// TranslateWebhook parses a raw provider webhook into zero or more canonical events.
-	TranslateWebhook(ctx context.Context, conn *Connection, providerEventID string, payload []byte) ([]*CanonicalEvent, error)
+	TranslateWebhook(ctx context.Context, conn *Connection, headers map[string]string, payload []byte) ([]*CanonicalEvent, error)
 }
 
 // CanonicalEvent represents a provider-neutral event produced for domain modules.
@@ -110,4 +110,30 @@ type InboxEvent struct {
 	Processed       bool
 	CreatedAt       time.Time
 	ProcessedAt     *time.Time
+}
+
+// ObjectMapping links a local Odyssey entity (e.g., product, order) to a remote provider entity.
+type ObjectMapping struct {
+	ID               int64
+	CompanyID        int64
+	ConnectionID     int64
+	LocalEntityType  string
+	LocalEntityID    int64
+	RemoteEntityType string
+	RemoteEntityID   string
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
+// SyncRun tracks the execution and cursor state of an incremental synchronization.
+type SyncRun struct {
+	ID           int64
+	CompanyID    int64
+	ConnectionID int64
+	SyncType     string
+	Status       string
+	CursorValue  *string
+	StartedAt    time.Time
+	CompletedAt  *time.Time
+	ErrorMessage *string
 }

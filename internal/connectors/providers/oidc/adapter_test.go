@@ -57,7 +57,7 @@ func TestOIDCAdapter_TranslateWebhook(t *testing.T) {
 	conn := &connectors.Connection{CompanyID: 1, ID: 10}
 	
 	validPayload := []byte("logout_token=eyJhbGciOiJSUzI1...")
-	events, err := adapter.TranslateWebhook(context.Background(), conn, "evt_123", validPayload)
+	events, err := adapter.TranslateWebhook(context.Background(), conn, map[string]string{"X-Provider-Event-Id": "evt_123"}, validPayload)
 	if err != nil {
 		t.Errorf("expected no error for valid payload, got %v", err)
 	}
@@ -69,7 +69,7 @@ func TestOIDCAdapter_TranslateWebhook(t *testing.T) {
 	}
 
 	invalidPayload := []byte("some_other_data=123")
-	_, err = adapter.TranslateWebhook(context.Background(), conn, "evt_123", invalidPayload)
+	_, err = adapter.TranslateWebhook(context.Background(), conn, map[string]string{"X-Provider-Event-Id": "evt_123"}, invalidPayload)
 	if err == nil {
 		t.Errorf("expected error for payload missing logout_token")
 	}

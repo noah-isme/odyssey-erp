@@ -92,9 +92,9 @@ func (r *Repository) MarkAllRead(ctx context.Context, recipientID int64, at time
 }
 
 func (r *Repository) Channels(ctx context.Context, recipientID int64, notificationType string) (Channels, error) {
-	channels := Channels{InApp: true, Email: true}
-	err := r.db.QueryRow(ctx, `SELECT in_app_enabled, email_enabled FROM notification_preferences
-		WHERE user_id=$1 AND notification_type=$2`, recipientID, notificationType).Scan(&channels.InApp, &channels.Email)
+	channels := Channels{InApp: true, Email: true, SMS: false, WhatsApp: false}
+	err := r.db.QueryRow(ctx, `SELECT in_app_enabled, email_enabled, sms_enabled, whatsapp_enabled FROM notification_preferences
+		WHERE user_id=$1 AND notification_type=$2`, recipientID, notificationType).Scan(&channels.InApp, &channels.Email, &channels.SMS, &channels.WhatsApp)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return channels, nil
 	}
@@ -105,4 +105,16 @@ func (r *Repository) UserEmail(ctx context.Context, recipientID int64) (string, 
 	var email string
 	err := r.db.QueryRow(ctx, `SELECT email FROM users WHERE id=$1 AND is_active=TRUE`, recipientID).Scan(&email)
 	return email, err
+}
+
+func (r *Repository) UserPhone(ctx context.Context, recipientID int64) (string, error) {
+	var phone *string
+	err := r.db.QueryRow(ctx, `SELECT phone FROM users WHERE id=$1 AND is_active=TRUE`, recipientID).Scan(&phone)
+	if err != nil {
+		return "", err
+	}
+	if phone == nil {
+		return "", nil
+	}
+	return *phone, nil
 }

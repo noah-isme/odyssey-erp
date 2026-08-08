@@ -22,6 +22,7 @@ import (
 
 type stubRepo struct {
 	user *auth.User
+	err  error
 }
 
 func (s *stubRepo) FindByEmail(ctx context.Context, email string) (*auth.User, error) {
@@ -36,6 +37,17 @@ func (s *stubRepo) CreateSession(ctx context.Context, id string, userID int64, e
 }
 
 func (s *stubRepo) DeleteSession(ctx context.Context, id string) error {
+	return nil
+}
+
+func (s *stubRepo) FindByID(ctx context.Context, id int64) (*auth.User, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	return s.user, nil
+}
+
+func (s *stubRepo) UpdateMFA(ctx context.Context, userID int64, enabled bool, secret string) error {
 	return nil
 }
 

@@ -1741,6 +1741,18 @@ type ConnectorInboxEvent struct {
 	ProcessedAt     pgtype.Timestamptz `json:"processed_at"`
 }
 
+type ConnectorObjectMapping struct {
+	ID               int64              `json:"id"`
+	CompanyID        int64              `json:"company_id"`
+	ConnectionID     int64              `json:"connection_id"`
+	LocalEntityType  string             `json:"local_entity_type"`
+	LocalEntityID    int64              `json:"local_entity_id"`
+	RemoteEntityType string             `json:"remote_entity_type"`
+	RemoteEntityID   string             `json:"remote_entity_id"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
 type ConnectorOutboxCommand struct {
 	ID            int64              `json:"id"`
 	CompanyID     int64              `json:"company_id"`
@@ -1753,6 +1765,18 @@ type ConnectorOutboxCommand struct {
 	NextAttempt   pgtype.Timestamptz `json:"next_attempt"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ConnectorSyncRun struct {
+	ID           int64              `json:"id"`
+	CompanyID    int64              `json:"company_id"`
+	ConnectionID int64              `json:"connection_id"`
+	SyncType     string             `json:"sync_type"`
+	Status       string             `json:"status"`
+	CursorValue  pgtype.Text        `json:"cursor_value"`
+	StartedAt    pgtype.Timestamptz `json:"started_at"`
+	CompletedAt  pgtype.Timestamptz `json:"completed_at"`
+	ErrorMessage pgtype.Text        `json:"error_message"`
 }
 
 type ConsolGroup struct {
@@ -3678,6 +3702,55 @@ type OutboxEvent struct {
 	PublishedAt      pgtype.Timestamptz `json:"published_at"`
 	PublishAttempts  int32              `json:"publish_attempts"`
 	LastError        pgtype.Text        `json:"last_error"`
+}
+
+type PaymentDispute struct {
+	ID                int64              `json:"id"`
+	PaymentIntentID   int64              `json:"payment_intent_id"`
+	Amount            pgtype.Numeric     `json:"amount"`
+	Currency          string             `json:"currency"`
+	Reason            pgtype.Text        `json:"reason"`
+	Status            string             `json:"status"`
+	ProviderReference pgtype.Text        `json:"provider_reference"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type PaymentIntent struct {
+	ID                int64              `json:"id"`
+	CompanyID         int64              `json:"company_id"`
+	ConnectionID      int64              `json:"connection_id"`
+	SourceType        string             `json:"source_type"`
+	SourceID          int64              `json:"source_id"`
+	Amount            pgtype.Numeric     `json:"amount"`
+	Currency          string             `json:"currency"`
+	Status            string             `json:"status"`
+	ProviderReference pgtype.Text        `json:"provider_reference"`
+	CheckoutUrl       pgtype.Text        `json:"checkout_url"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type PaymentIntentTransition struct {
+	ID              int64              `json:"id"`
+	PaymentIntentID int64              `json:"payment_intent_id"`
+	FromStatus      string             `json:"from_status"`
+	ToStatus        string             `json:"to_status"`
+	ProviderEventID pgtype.Text        `json:"provider_event_id"`
+	OccurredAt      pgtype.Timestamptz `json:"occurred_at"`
+	RawPayload      []byte             `json:"raw_payload"`
+}
+
+type PaymentRefund struct {
+	ID                int64              `json:"id"`
+	PaymentIntentID   int64              `json:"payment_intent_id"`
+	Amount            pgtype.Numeric     `json:"amount"`
+	Currency          string             `json:"currency"`
+	Reason            pgtype.Text        `json:"reason"`
+	Status            string             `json:"status"`
+	ProviderReference pgtype.Text        `json:"provider_reference"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
 
 type PayrollAccountMapping struct {

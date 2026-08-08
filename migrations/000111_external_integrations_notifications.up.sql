@@ -1,0 +1,5 @@
+ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT;
+
+ALTER TABLE notification_preferences
+    ADD COLUMN IF NOT EXISTS sms_enabled BOOLEAN NOT NULL DEFAULT false,
+    ADD COLUMN IF NOT EXISTS whatsapp_enabled BOOLEAN NOT NULL DEFAULT false;

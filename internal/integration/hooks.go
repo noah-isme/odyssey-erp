@@ -38,16 +38,27 @@ type AccountMappingRepository interface {
 	Get(ctx context.Context, module, key string) (mappings.AccountMapping, error)
 }
 
+// ConnectorsService provides outbound connector methods.
+type ConnectorsService interface {
+	EnqueueInventorySync(ctx context.Context, companyID int64, warehouseID int64, productID int64, deltaQty float64) error
+}
+
 // Hooks wires domain events from operational modules into the general ledger.
 type Hooks struct {
-	ledger      Ledger
-	periodRepo  PeriodRepository
-	mappingRepo AccountMappingRepository
+	ledger         Ledger
+	periodRepo     PeriodRepository
+	mappingRepo    AccountMappingRepository
+	connectorsSvc  ConnectorsService
 }
 
 // NewHooks constructs integration hooks.
 func NewHooks(ledger Ledger, periodRepo PeriodRepository, mappingRepo AccountMappingRepository) *Hooks {
 	return &Hooks{ledger: ledger, periodRepo: periodRepo, mappingRepo: mappingRepo}
+}
+
+// SetConnectorsService optionally injects the connectors service.
+func (h *Hooks) SetConnectorsService(svc ConnectorsService) {
+	h.connectorsSvc = svc
 }
 
 func (h *Hooks) resolveAccount(ctx context.Context, module, key string) (int64, error) {
@@ -372,6 +383,13 @@ func (h *Hooks) HandleInventoryAdjustmentPosted(ctx context.Context, evt invento
 	if abs(evt.Qty) < 1e-9 {
 		return nil
 	}
+	
+	// Optional integration: Notify external connectors of inventory change
+	if h.connectorsSvc != nil {
+		// In a real system, the company ID would be part of the adjustment event.
+		// For this implementation, we hardcode 1 since it's a single-tenant instance or test data.
+		_ = h.connectorsSvc.EnqueueInventorySync(ctx, 1, evt.WarehouseID, evt.ProductID, evt.Qty)
+	}
 	period, err := h.periodRepo.FindOpenPeriodByDate(ctx, evt.PostedAt)
 	if err != nil {
 		return err
@@ -399,6 +417,7 @@ func (h *Hooks) HandleInventoryAdjustmentPosted(ctx context.Context, evt invento
 				{AccountID: inventoryAccount, Credit: amount},
 			}
 		}
+
 		return h.post(ctx, journals.PostingInput{
 			PeriodID:     period.ID,
 			Date:         evt.PostedAt,

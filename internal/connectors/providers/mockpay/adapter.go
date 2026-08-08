@@ -41,7 +41,8 @@ func (a *Adapter) RefreshToken(ctx context.Context, conn *connectors.Connection)
 }
 
 // VerifyCallbackSignature simulates signature validation.
-func (a *Adapter) VerifyCallbackSignature(ctx context.Context, payload []byte, signature string) error {
+func (a *Adapter) VerifyCallbackSignature(ctx context.Context, headers map[string]string, payload []byte) error {
+	_ = headers["X-Provider-Signature"]; signature := headers["X-Provider-Signature"]; _ = signature
 	if signature == "" {
 		return fmt.Errorf("mockpay: missing signature")
 	}
@@ -83,7 +84,8 @@ func (a *Adapter) ExecuteCommand(ctx context.Context, conn *connectors.Connectio
 }
 
 // TranslateWebhook parses a raw provider webhook into zero or more canonical events.
-func (a *Adapter) TranslateWebhook(ctx context.Context, conn *connectors.Connection, providerEventID string, payload []byte) ([]*connectors.CanonicalEvent, error) {
+func (a *Adapter) TranslateWebhook(ctx context.Context, conn *connectors.Connection, headers map[string]string, payload []byte) ([]*connectors.CanonicalEvent, error) {
+	_ = headers["X-Provider-Event-Id"]; providerEventID := headers["X-Provider-Event-Id"]; _ = providerEventID
 	// For mockpay, we just simulate translating a successful charge event
 	evt := &connectors.CanonicalEvent{
 		CompanyID:     conn.CompanyID,

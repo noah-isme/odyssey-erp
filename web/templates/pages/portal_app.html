@@ -198,11 +198,11 @@
                 <form id="profileForm">
                     <div class="form-group">
                         <label>Display Name</label>
-                        <input type="text" id="profName" class="form-control" value="Jane Doe">
+                        <input type="text" id="profName" class="form-input" value="Jane Doe">
                     </div>
                     <div class="form-group">
                         <label>Phone Number</label>
-                        <input type="text" id="profPhone" class="form-control" value="+62 812 3456 7890">
+                        <input type="text" id="profPhone" class="form-input" value="+62 812 3456 7890">
                     </div>
                     <button type="submit" class="btn">Save Changes</button>
                 </form>
@@ -213,24 +213,26 @@
         <div id="view-rfq" class="view">
             <div class="card">
                 <h3>Active Negotiations</h3>
-                <table style="width: 100%; border-collapse: collapse; margin-top: 1rem;">
-                    <tr style="border-bottom: 1px solid var(--border); text-align: left;">
-                        <th style="padding: 1rem;">RFQ Ref</th>
-                        <th style="padding: 1rem;">Item</th>
-                        <th style="padding: 1rem;">Target Price</th>
-                        <th style="padding: 1rem;">Your Offer</th>
-                        <th style="padding: 1rem;">Action</th>
-                    </tr>
-                    <tr style="border-bottom: 1px solid var(--border);">
-                        <td style="padding: 1rem;">RFQ-2026-001</td>
-                        <td style="padding: 1rem;">Industrial Steel Pipe</td>
-                        <td style="padding: 1rem;">$500.00</td>
-                        <td style="padding: 1rem;">$520.00</td>
-                        <td style="padding: 1rem;">
-                            <button class="btn" style="padding: 0.5rem 1rem;" onclick="negotiate(1)">Revise Offer</button>
-                        </td>
-                    </tr>
-                </table>
+                <div class="table-responsive">
+                    <table class="table">
+                        <tr style="border-bottom: 1px solid var(--border); text-align: left;">
+                            <th style="padding: 1rem;">RFQ Ref</th>
+                            <th style="padding: 1rem;">Item</th>
+                            <th style="padding: 1rem;">Target Price</th>
+                            <th style="padding: 1rem;">Your Offer</th>
+                            <th style="padding: 1rem;">Action</th>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--border);">
+                            <td style="padding: 1rem;">RFQ-2026-001</td>
+                            <td style="padding: 1rem;">Industrial Steel Pipe</td>
+                            <td style="padding: 1rem;">$500.00</td>
+                            <td style="padding: 1rem;">$520.00</td>
+                            <td style="padding: 1rem;">
+                                <button class="btn" style="padding: 0.5rem 1rem;" onclick="negotiate(1)">Revise Offer</button>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
             </div>
         </div>
 
@@ -242,7 +244,7 @@
                     <div class="msg sent">Got it. I'll send over a revised quote by tomorrow.</div>
                 </div>
                 <form class="chat-input" id="chatForm">
-                    <input type="text" id="chatMsg" class="form-control" placeholder="Type a message..." required>
+                    <input type="text" id="chatMsg" class="form-input" placeholder="Type a message..." required>
                     <button type="submit" class="btn">Send</button>
                 </form>
             </div>

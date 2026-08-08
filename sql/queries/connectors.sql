@@ -68,3 +68,32 @@ INSERT INTO connector_canonical_events (
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7
 ) RETURNING *;
+
+-- name: CreateObjectMapping :one
+INSERT INTO connector_object_mappings (
+    company_id, connection_id, local_entity_type, local_entity_id, remote_entity_type, remote_entity_id
+) VALUES (
+    $1, $2, $3, $4, $5, $6
+) RETURNING *;
+
+-- name: GetObjectMappingByLocal :one
+SELECT * FROM connector_object_mappings
+WHERE company_id = $1 AND connection_id = $2 AND local_entity_type = $3 AND local_entity_id = $4;
+
+-- name: GetObjectMappingByRemote :one
+SELECT * FROM connector_object_mappings
+WHERE company_id = $1 AND connection_id = $2 AND remote_entity_type = $3 AND remote_entity_id = $4;
+
+-- name: CreateSyncRun :one
+INSERT INTO connector_sync_runs (
+    company_id, connection_id, sync_type, status, cursor_value
+) VALUES (
+    $1, $2, $3, $4, $5
+) RETURNING *;
+
+-- name: UpdateSyncRun :one
+UPDATE connector_sync_runs
+SET status = $2, cursor_value = $3, completed_at = $4, error_message = $5
+WHERE id = $1
+RETURNING *;
+

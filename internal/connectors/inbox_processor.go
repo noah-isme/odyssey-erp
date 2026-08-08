@@ -32,7 +32,7 @@ func NewInboxProcessor(queries *sqlc.Queries, registry *DefaultRegistry, outboxR
 }
 
 // ProcessWebhook receives a raw webhook, validates its signature, deduplicates it, and translates it to canonical events.
-func (p *InboxProcessor) ProcessWebhook(ctx context.Context, connectionID int64, companyID int64, providerEventID string, payload []byte, signature string) error {
+func (p *InboxProcessor) ProcessWebhook(ctx context.Context, connectionID int64, companyID int64, headers map[string]string, payload []byte) error {
 	// 1. Get the connection to identify the provider
 	connRec, err := p.queries.GetConnection(ctx, sqlc.GetConnectionParams{
 		ID:        connectionID,
@@ -49,8 +49,18 @@ func (p *InboxProcessor) ProcessWebhook(ctx context.Context, connectionID int64,
 	}
 
 	// 3. Validate signature
-	if err := adapter.VerifyCallbackSignature(ctx, payload, signature); err != nil {
+	if err := adapter.VerifyCallbackSignature(ctx, headers, payload); err != nil {
 		return fmt.Errorf("connectors: invalid webhook signature: %w", err)
+	}
+
+	providerEventID := headers["X-Provider-Event-Id"]
+	if providerEventID == "" {
+		// e.g. Shopify sends X-Shopify-Webhook-Id
+		if shopifyID := headers["X-Shopify-Webhook-Id"]; shopifyID != "" {
+			providerEventID = shopifyID
+		} else {
+			providerEventID = uuid.NewString() // fallback
+		}
 	}
 
 	// 4. Durably store the raw event for deduplication (Inbox)
@@ -82,7 +92,7 @@ func (p *InboxProcessor) ProcessWebhook(ctx context.Context, connectionID int64,
 	}
 
 	// 5. Translate raw payload into CanonicalEvents
-	events, err := adapter.TranslateWebhook(ctx, conn, providerEventID, payload)
+	events, err := adapter.TranslateWebhook(ctx, conn, headers, payload)
 	if err != nil {
 		return fmt.Errorf("connectors: failed to translate webhook: %w", err)
 	}

@@ -388,7 +388,7 @@ func TestPolicyResolutionCoversModuleAmountCompanyAndApproverKinds(t *testing.T)
 func TestApprovalServiceEmitsPhase2NotificationsAcrossWorkflow(t *testing.T) {
 	store := newPhase3ApprovalStore(Policy{ID: 1, Module: "PO", Steps: []PolicyStep{{Order: 1, ApproverUserID: ptr(int64(10))}}})
 	notificationStore := &notificationsTestStore{memoryStore: &notificationsMemoryStore{}}
-	dispatcher := notifications.NewDispatcher(notifications.NewService(notificationStore.memoryStore), notificationsPreferenceFake{channels: notifications.Channels{InApp: true}}, nil)
+	dispatcher := notifications.NewDispatcher(notifications.NewService(notificationStore.memoryStore), notificationsPreferenceFake{channels: notifications.Channels{InApp: true}}, nil, nil)
 	service := NewService(store, NewNotificationAdapter(dispatcher))
 	req, err := service.Submit(context.Background(), Submission{Module: "PO", DocumentID: 88, RequesterID: 7})
 	require.NoError(t, err)

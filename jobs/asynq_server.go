@@ -11,6 +11,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/hibiken/asynq"
 
+	"github.com/odyssey-erp/odyssey-erp/internal/analytics"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 )
 
@@ -47,6 +49,8 @@ type WorkerConfig struct {
 	FXCompanies    FXCompanyCurrencies
 	FXLocation     *time.Location
 	FXLogger       *slog.Logger
+	Analytics      *analytics.Service
+	Connectors     *connectors.Service
 }
 
 // NewWorker constructs a Worker instance.
@@ -65,6 +69,10 @@ func NewWorker(cfg WorkerConfig) (*Worker, error) {
 	mux.HandleFunc(TaskProcurementReindex, HandleProcurementReindexTask)
 	if cfg.FXFetcher != nil && cfg.FXCompanies != nil {
 		mux.HandleFunc(TaskFXDailyRates, HandleFXDailyRatesTask(cfg.FXFetcher, cfg.FXCompanies, cfg.FXLocation, cfg.FXLogger))
+	}
+	if cfg.Analytics != nil && cfg.Connectors != nil {
+		biExportJob := NewBIExportJob(cfg.Analytics, cfg.Connectors)
+		mux.HandleFunc(TaskBIExport, biExportJob.Handle)
 	}
 	for _, h := range cfg.Handlers {
 		if h.Type == "" || h.Handler == nil {

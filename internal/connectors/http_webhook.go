@@ -54,7 +54,7 @@ func (h *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		providerEventID = "req-" + strconv.FormatInt(time.Now().UnixNano(), 10)
 	}
 
-	signature := r.Header.Get("X-Provider-Signature")
+
 
 	// Read the raw payload for signature verification
 	payload, err := io.ReadAll(r.Body)
@@ -64,8 +64,15 @@ func (h *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
+	headers := make(map[string]string)
+	for k, v := range r.Header {
+		if len(v) > 0 {
+			headers[k] = v[0]
+		}
+	}
+
 	// Process the webhook
-	err = h.processor.ProcessWebhook(ctx, connectionID, companyID, providerEventID, payload, signature)
+	err = h.processor.ProcessWebhook(ctx, connectionID, companyID, headers, payload)
 	if err != nil {
 		h.processor.logger.Error("webhook processing failed", "error", err)
 		// We return a 400 or 500. Usually returning 400 prevents providers from aggressively retrying

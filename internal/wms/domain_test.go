@@ -43,6 +43,10 @@ func (m *memoryRepo) UpdatePickTask(_ context.Context, task PickTask) error {
 	return nil
 }
 
+func (m *memoryRepo) CreatePutAwayTask(context.Context, PutAwayTask) (PutAwayTask, error) { return PutAwayTask{}, nil }
+func (m *memoryRepo) CreateCrossDockingPlan(context.Context, CrossDockingPlan) (CrossDockingPlan, error) { return CrossDockingPlan{}, nil }
+func (m *memoryRepo) CreateMHEEquipment(context.Context, MHEEquipment) (MHEEquipment, error) { return MHEEquipment{}, nil }
+
 func TestScanCompletesTaskAndIsIdempotent(t *testing.T) {
 	repo := &memoryRepo{task: PickTask{ID: 7, CompanyID: 3, ProductID: 11, RequestedQty: 2, Status: "OPEN"}, target: BarcodeTarget{ProductID: 11}, scans: map[string]int64{}}
 	svc := NewService(repo)
