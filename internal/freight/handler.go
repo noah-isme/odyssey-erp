@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	accountingmoney "github.com/odyssey-erp/odyssey-erp/internal/accounting/money"
 )
 
@@ -19,6 +20,23 @@ type Handler struct {
 
 func NewHandler(svc Service) *Handler {
 	return &Handler{svc: svc}
+}
+
+func (h *Handler) RegisterRoutes(r chi.Router) {
+	r.Route("/api/freight", func(r chi.Router) {
+		r.Post("/rate-cards", h.CreateRateCard)
+		r.Get("/rate-cards", h.ListRateCards)
+		r.Get("/rate-cards/{id}", h.GetRateCard)
+		
+		r.Post("/charges/calculate", h.CalculateFreightCharge)
+		r.Get("/charges", h.ListFreightCharges)
+		r.Get("/charges/{id}", h.GetFreightCharge)
+		r.Post("/charges/{id}/invoice", h.MarkFreightChargeInvoiced)
+		r.Post("/charges/{id}/pay", h.MarkFreightChargePaid)
+
+		r.Post("/cost-centers", h.CreateCostCenter)
+		r.Get("/cost-centers", h.ListCostCenters)
+	})
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
