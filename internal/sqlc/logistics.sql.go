@@ -11,6 +11,302 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const addShipmentLine = `-- name: AddShipmentLine :one
+INSERT INTO shipment_lines (
+    company_id, shipment_id, product_id, quantity, weight_kg, volume_cbm
+) VALUES (
+    $1, $2, $3, $4, $5, $6
+) RETURNING id
+`
+
+type AddShipmentLineParams struct {
+	CompanyID  int64          `json:"company_id"`
+	ShipmentID int64          `json:"shipment_id"`
+	ProductID  int64          `json:"product_id"`
+	Quantity   pgtype.Numeric `json:"quantity"`
+	WeightKg   pgtype.Numeric `json:"weight_kg"`
+	VolumeCbm  pgtype.Numeric `json:"volume_cbm"`
+}
+
+func (q *Queries) AddShipmentLine(ctx context.Context, arg AddShipmentLineParams) (int64, error) {
+	row := q.db.QueryRow(ctx, addShipmentLine,
+		arg.CompanyID,
+		arg.ShipmentID,
+		arg.ProductID,
+		arg.Quantity,
+		arg.WeightKg,
+		arg.VolumeCbm,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const addTripStop = `-- name: AddTripStop :one
+INSERT INTO trip_stops (
+    company_id, trip_id, shipment_id, stop_sequence, stop_type,
+    warehouse_id, location_address, location_city,
+    location_lat, location_lon, contact_name, contact_phone,
+    planned_arrival_at
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+) RETURNING id
+`
+
+type AddTripStopParams struct {
+	CompanyID        int64              `json:"company_id"`
+	TripID           int64              `json:"trip_id"`
+	ShipmentID       pgtype.Int8        `json:"shipment_id"`
+	StopSequence     int32              `json:"stop_sequence"`
+	StopType         string             `json:"stop_type"`
+	WarehouseID      pgtype.Int8        `json:"warehouse_id"`
+	LocationAddress  pgtype.Text        `json:"location_address"`
+	LocationCity     pgtype.Text        `json:"location_city"`
+	LocationLat      pgtype.Numeric     `json:"location_lat"`
+	LocationLon      pgtype.Numeric     `json:"location_lon"`
+	ContactName      pgtype.Text        `json:"contact_name"`
+	ContactPhone     pgtype.Text        `json:"contact_phone"`
+	PlannedArrivalAt pgtype.Timestamptz `json:"planned_arrival_at"`
+}
+
+func (q *Queries) AddTripStop(ctx context.Context, arg AddTripStopParams) (int64, error) {
+	row := q.db.QueryRow(ctx, addTripStop,
+		arg.CompanyID,
+		arg.TripID,
+		arg.ShipmentID,
+		arg.StopSequence,
+		arg.StopType,
+		arg.WarehouseID,
+		arg.LocationAddress,
+		arg.LocationCity,
+		arg.LocationLat,
+		arg.LocationLon,
+		arg.ContactName,
+		arg.ContactPhone,
+		arg.PlannedArrivalAt,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const assignShipmentTransportCarrier = `-- name: AssignShipmentTransportCarrier :exec
+UPDATE shipments
+SET carrier_id = $2, carrier_service_type = $3, vehicle_id = NULL, driver_id = NULL, updated_at = NOW()
+WHERE id = $1
+`
+
+type AssignShipmentTransportCarrierParams struct {
+	ID                 int64       `json:"id"`
+	CarrierID          pgtype.Int8 `json:"carrier_id"`
+	CarrierServiceType pgtype.Text `json:"carrier_service_type"`
+}
+
+func (q *Queries) AssignShipmentTransportCarrier(ctx context.Context, arg AssignShipmentTransportCarrierParams) error {
+	_, err := q.db.Exec(ctx, assignShipmentTransportCarrier, arg.ID, arg.CarrierID, arg.CarrierServiceType)
+	return err
+}
+
+const assignShipmentTransportFleet = `-- name: AssignShipmentTransportFleet :exec
+UPDATE shipments
+SET vehicle_id = $2, driver_id = $3, carrier_id = NULL, carrier_service_type = NULL, updated_at = NOW()
+WHERE id = $1
+`
+
+type AssignShipmentTransportFleetParams struct {
+	ID        int64       `json:"id"`
+	VehicleID pgtype.Int8 `json:"vehicle_id"`
+	DriverID  pgtype.Int8 `json:"driver_id"`
+}
+
+func (q *Queries) AssignShipmentTransportFleet(ctx context.Context, arg AssignShipmentTransportFleetParams) error {
+	_, err := q.db.Exec(ctx, assignShipmentTransportFleet, arg.ID, arg.VehicleID, arg.DriverID)
+	return err
+}
+
+const createCarrier = `-- name: CreateCarrier :one
+
+INSERT INTO carriers (
+    company_id, carrier_name, carrier_code, contact_name, contact_email, contact_phone,
+    insurance_provider, insurance_policy_number, insurance_expires_at, created_by, updated_by
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+) RETURNING id
+`
+
+type CreateCarrierParams struct {
+	CompanyID             int64              `json:"company_id"`
+	CarrierName           string             `json:"carrier_name"`
+	CarrierCode           string             `json:"carrier_code"`
+	ContactName           pgtype.Text        `json:"contact_name"`
+	ContactEmail          pgtype.Text        `json:"contact_email"`
+	ContactPhone          pgtype.Text        `json:"contact_phone"`
+	InsuranceProvider     pgtype.Text        `json:"insurance_provider"`
+	InsurancePolicyNumber pgtype.Text        `json:"insurance_policy_number"`
+	InsuranceExpiresAt    pgtype.Timestamptz `json:"insurance_expires_at"`
+	CreatedBy             int64              `json:"created_by"`
+	UpdatedBy             int64              `json:"updated_by"`
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CARRIERS & RATE CARDS
+// ═══════════════════════════════════════════════════════════════════════════
+func (q *Queries) CreateCarrier(ctx context.Context, arg CreateCarrierParams) (int64, error) {
+	row := q.db.QueryRow(ctx, createCarrier,
+		arg.CompanyID,
+		arg.CarrierName,
+		arg.CarrierCode,
+		arg.ContactName,
+		arg.ContactEmail,
+		arg.ContactPhone,
+		arg.InsuranceProvider,
+		arg.InsurancePolicyNumber,
+		arg.InsuranceExpiresAt,
+		arg.CreatedBy,
+		arg.UpdatedBy,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const createCarrierRateCard = `-- name: CreateCarrierRateCard :one
+INSERT INTO carrier_rate_cards (
+    company_id, carrier_id, route_from_city, route_to_city, weight_from, weight_to,
+    volume_from, volume_to, rate_per_unit, rate_unit, currency, effective_from, effective_to,
+    minimum_charge, fuel_surcharge_pct
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+) RETURNING id
+`
+
+type CreateCarrierRateCardParams struct {
+	CompanyID        int64          `json:"company_id"`
+	CarrierID        int64          `json:"carrier_id"`
+	RouteFromCity    string         `json:"route_from_city"`
+	RouteToCity      string         `json:"route_to_city"`
+	WeightFrom       pgtype.Numeric `json:"weight_from"`
+	WeightTo         pgtype.Numeric `json:"weight_to"`
+	VolumeFrom       pgtype.Numeric `json:"volume_from"`
+	VolumeTo         pgtype.Numeric `json:"volume_to"`
+	RatePerUnit      pgtype.Numeric `json:"rate_per_unit"`
+	RateUnit         string         `json:"rate_unit"`
+	Currency         string         `json:"currency"`
+	EffectiveFrom    pgtype.Date    `json:"effective_from"`
+	EffectiveTo      pgtype.Date    `json:"effective_to"`
+	MinimumCharge    pgtype.Numeric `json:"minimum_charge"`
+	FuelSurchargePct pgtype.Numeric `json:"fuel_surcharge_pct"`
+}
+
+func (q *Queries) CreateCarrierRateCard(ctx context.Context, arg CreateCarrierRateCardParams) (int64, error) {
+	row := q.db.QueryRow(ctx, createCarrierRateCard,
+		arg.CompanyID,
+		arg.CarrierID,
+		arg.RouteFromCity,
+		arg.RouteToCity,
+		arg.WeightFrom,
+		arg.WeightTo,
+		arg.VolumeFrom,
+		arg.VolumeTo,
+		arg.RatePerUnit,
+		arg.RateUnit,
+		arg.Currency,
+		arg.EffectiveFrom,
+		arg.EffectiveTo,
+		arg.MinimumCharge,
+		arg.FuelSurchargePct,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const createDriver = `-- name: CreateDriver :one
+
+INSERT INTO drivers (
+    company_id, driver_name, driver_code, email, phone, license_number,
+    license_class, license_expires_at, emergency_contact_name, emergency_contact_phone,
+    notes, created_by
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+) RETURNING id
+`
+
+type CreateDriverParams struct {
+	CompanyID             int64              `json:"company_id"`
+	DriverName            string             `json:"driver_name"`
+	DriverCode            string             `json:"driver_code"`
+	Email                 pgtype.Text        `json:"email"`
+	Phone                 pgtype.Text        `json:"phone"`
+	LicenseNumber         string             `json:"license_number"`
+	LicenseClass          pgtype.Text        `json:"license_class"`
+	LicenseExpiresAt      pgtype.Timestamptz `json:"license_expires_at"`
+	EmergencyContactName  pgtype.Text        `json:"emergency_contact_name"`
+	EmergencyContactPhone pgtype.Text        `json:"emergency_contact_phone"`
+	Notes                 pgtype.Text        `json:"notes"`
+	CreatedBy             int64              `json:"created_by"`
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DRIVERS
+// ═══════════════════════════════════════════════════════════════════════════
+func (q *Queries) CreateDriver(ctx context.Context, arg CreateDriverParams) (int64, error) {
+	row := q.db.QueryRow(ctx, createDriver,
+		arg.CompanyID,
+		arg.DriverName,
+		arg.DriverCode,
+		arg.Email,
+		arg.Phone,
+		arg.LicenseNumber,
+		arg.LicenseClass,
+		arg.LicenseExpiresAt,
+		arg.EmergencyContactName,
+		arg.EmergencyContactPhone,
+		arg.Notes,
+		arg.CreatedBy,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const createFleet = `-- name: CreateFleet :one
+
+INSERT INTO fleets (
+    company_id, fleet_name, fleet_code, fleet_type, warehouse_id, home_city, created_by
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7
+) RETURNING id
+`
+
+type CreateFleetParams struct {
+	CompanyID   int64       `json:"company_id"`
+	FleetName   string      `json:"fleet_name"`
+	FleetCode   string      `json:"fleet_code"`
+	FleetType   string      `json:"fleet_type"`
+	WarehouseID pgtype.Int8 `json:"warehouse_id"`
+	HomeCity    pgtype.Text `json:"home_city"`
+	CreatedBy   int64       `json:"created_by"`
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FLEETS & VEHICLES
+// ═══════════════════════════════════════════════════════════════════════════
+func (q *Queries) CreateFleet(ctx context.Context, arg CreateFleetParams) (int64, error) {
+	row := q.db.QueryRow(ctx, createFleet,
+		arg.CompanyID,
+		arg.FleetName,
+		arg.FleetCode,
+		arg.FleetType,
+		arg.WarehouseID,
+		arg.HomeCity,
+		arg.CreatedBy,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const createRouteOptimizationJob = `-- name: CreateRouteOptimizationJob :one
 INSERT INTO logistics_route_optimization_jobs (
     company_id, trip_id, status, engine, started_at
@@ -71,6 +367,280 @@ func (q *Queries) CreateRouteSequence(ctx context.Context, arg CreateRouteSequen
 	return id, err
 }
 
+const createShipment = `-- name: CreateShipment :one
+
+INSERT INTO shipments (
+    company_id, shipment_number, shipment_type, origin_warehouse_id, 
+    destination_warehouse_id, destination_address, destination_city, destination_country,
+    destination_contact_name, destination_contact_phone,
+    planned_dispatch_at, planned_delivery_at, created_by
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+) RETURNING id
+`
+
+type CreateShipmentParams struct {
+	CompanyID               int64              `json:"company_id"`
+	ShipmentNumber          string             `json:"shipment_number"`
+	ShipmentType            string             `json:"shipment_type"`
+	OriginWarehouseID       pgtype.Int8        `json:"origin_warehouse_id"`
+	DestinationWarehouseID  pgtype.Int8        `json:"destination_warehouse_id"`
+	DestinationAddress      pgtype.Text        `json:"destination_address"`
+	DestinationCity         pgtype.Text        `json:"destination_city"`
+	DestinationCountry      pgtype.Text        `json:"destination_country"`
+	DestinationContactName  pgtype.Text        `json:"destination_contact_name"`
+	DestinationContactPhone pgtype.Text        `json:"destination_contact_phone"`
+	PlannedDispatchAt       pgtype.Timestamptz `json:"planned_dispatch_at"`
+	PlannedDeliveryAt       pgtype.Timestamptz `json:"planned_delivery_at"`
+	CreatedBy               int64              `json:"created_by"`
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SHIPMENTS
+// ═══════════════════════════════════════════════════════════════════════════
+func (q *Queries) CreateShipment(ctx context.Context, arg CreateShipmentParams) (int64, error) {
+	row := q.db.QueryRow(ctx, createShipment,
+		arg.CompanyID,
+		arg.ShipmentNumber,
+		arg.ShipmentType,
+		arg.OriginWarehouseID,
+		arg.DestinationWarehouseID,
+		arg.DestinationAddress,
+		arg.DestinationCity,
+		arg.DestinationCountry,
+		arg.DestinationContactName,
+		arg.DestinationContactPhone,
+		arg.PlannedDispatchAt,
+		arg.PlannedDeliveryAt,
+		arg.CreatedBy,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const createTrip = `-- name: CreateTrip :one
+
+INSERT INTO trips (
+    company_id, trip_number, vehicle_id, driver_id, fleet_id,
+    origin_warehouse_id, planned_start_at, planned_end_at, created_by
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9
+) RETURNING id
+`
+
+type CreateTripParams struct {
+	CompanyID         int64              `json:"company_id"`
+	TripNumber        string             `json:"trip_number"`
+	VehicleID         int64              `json:"vehicle_id"`
+	DriverID          int64              `json:"driver_id"`
+	FleetID           pgtype.Int8        `json:"fleet_id"`
+	OriginWarehouseID pgtype.Int8        `json:"origin_warehouse_id"`
+	PlannedStartAt    pgtype.Timestamptz `json:"planned_start_at"`
+	PlannedEndAt      pgtype.Timestamptz `json:"planned_end_at"`
+	CreatedBy         int64              `json:"created_by"`
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TRIPS & STOPS
+// ═══════════════════════════════════════════════════════════════════════════
+func (q *Queries) CreateTrip(ctx context.Context, arg CreateTripParams) (int64, error) {
+	row := q.db.QueryRow(ctx, createTrip,
+		arg.CompanyID,
+		arg.TripNumber,
+		arg.VehicleID,
+		arg.DriverID,
+		arg.FleetID,
+		arg.OriginWarehouseID,
+		arg.PlannedStartAt,
+		arg.PlannedEndAt,
+		arg.CreatedBy,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const createVehicle = `-- name: CreateVehicle :one
+INSERT INTO vehicles (
+    company_id, fleet_id, vehicle_registration, vehicle_type, license_plate, vin, 
+    make, model, year_manufactured, max_weight_kg, max_volume_cbm, insurance_expires_at, 
+    gps_device_id, created_by
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
+) RETURNING id
+`
+
+type CreateVehicleParams struct {
+	CompanyID           int64              `json:"company_id"`
+	FleetID             int64              `json:"fleet_id"`
+	VehicleRegistration string             `json:"vehicle_registration"`
+	VehicleType         string             `json:"vehicle_type"`
+	LicensePlate        string             `json:"license_plate"`
+	Vin                 pgtype.Text        `json:"vin"`
+	Make                pgtype.Text        `json:"make"`
+	Model               pgtype.Text        `json:"model"`
+	YearManufactured    pgtype.Int4        `json:"year_manufactured"`
+	MaxWeightKg         pgtype.Numeric     `json:"max_weight_kg"`
+	MaxVolumeCbm        pgtype.Numeric     `json:"max_volume_cbm"`
+	InsuranceExpiresAt  pgtype.Timestamptz `json:"insurance_expires_at"`
+	GpsDeviceID         pgtype.Text        `json:"gps_device_id"`
+	CreatedBy           int64              `json:"created_by"`
+}
+
+func (q *Queries) CreateVehicle(ctx context.Context, arg CreateVehicleParams) (int64, error) {
+	row := q.db.QueryRow(ctx, createVehicle,
+		arg.CompanyID,
+		arg.FleetID,
+		arg.VehicleRegistration,
+		arg.VehicleType,
+		arg.LicensePlate,
+		arg.Vin,
+		arg.Make,
+		arg.Model,
+		arg.YearManufactured,
+		arg.MaxWeightKg,
+		arg.MaxVolumeCbm,
+		arg.InsuranceExpiresAt,
+		arg.GpsDeviceID,
+		arg.CreatedBy,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const getCarrier = `-- name: GetCarrier :one
+SELECT id, company_id, carrier_name, carrier_code, status, contact_name, contact_email, contact_phone, insurance_provider, insurance_policy_number, insurance_expires_at, created_at, updated_at, created_by, updated_by FROM carriers WHERE id = $1
+`
+
+func (q *Queries) GetCarrier(ctx context.Context, id int64) (Carrier, error) {
+	row := q.db.QueryRow(ctx, getCarrier, id)
+	var i Carrier
+	err := row.Scan(
+		&i.ID,
+		&i.CompanyID,
+		&i.CarrierName,
+		&i.CarrierCode,
+		&i.Status,
+		&i.ContactName,
+		&i.ContactEmail,
+		&i.ContactPhone,
+		&i.InsuranceProvider,
+		&i.InsurancePolicyNumber,
+		&i.InsuranceExpiresAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.CreatedBy,
+		&i.UpdatedBy,
+	)
+	return i, err
+}
+
+const getCarrierApplicableRateCard = `-- name: GetCarrierApplicableRateCard :one
+SELECT id, company_id, carrier_id, route_from_city, route_to_city, weight_from, weight_to, volume_from, volume_to, rate_per_unit, rate_unit, currency, effective_from, effective_to, minimum_charge, fuel_surcharge_pct, created_at FROM carrier_rate_cards
+WHERE carrier_id = $1
+  AND route_from_city = $2
+  AND route_to_city = $3
+  AND weight_from <= $4 AND weight_to >= $4
+  AND volume_from <= $5 AND volume_to >= $5
+  AND effective_from <= CURRENT_DATE
+  AND (effective_to IS NULL OR effective_to >= CURRENT_DATE)
+ORDER BY effective_from DESC
+LIMIT 1
+`
+
+type GetCarrierApplicableRateCardParams struct {
+	CarrierID     int64          `json:"carrier_id"`
+	RouteFromCity string         `json:"route_from_city"`
+	RouteToCity   string         `json:"route_to_city"`
+	WeightFrom    pgtype.Numeric `json:"weight_from"`
+	VolumeFrom    pgtype.Numeric `json:"volume_from"`
+}
+
+func (q *Queries) GetCarrierApplicableRateCard(ctx context.Context, arg GetCarrierApplicableRateCardParams) (CarrierRateCard, error) {
+	row := q.db.QueryRow(ctx, getCarrierApplicableRateCard,
+		arg.CarrierID,
+		arg.RouteFromCity,
+		arg.RouteToCity,
+		arg.WeightFrom,
+		arg.VolumeFrom,
+	)
+	var i CarrierRateCard
+	err := row.Scan(
+		&i.ID,
+		&i.CompanyID,
+		&i.CarrierID,
+		&i.RouteFromCity,
+		&i.RouteToCity,
+		&i.WeightFrom,
+		&i.WeightTo,
+		&i.VolumeFrom,
+		&i.VolumeTo,
+		&i.RatePerUnit,
+		&i.RateUnit,
+		&i.Currency,
+		&i.EffectiveFrom,
+		&i.EffectiveTo,
+		&i.MinimumCharge,
+		&i.FuelSurchargePct,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getDriver = `-- name: GetDriver :one
+SELECT id, company_id, driver_name, driver_code, status, email, phone, license_number, license_class, license_expires_at, emergency_contact_name, emergency_contact_phone, notes, created_at, updated_at, created_by FROM drivers WHERE id = $1
+`
+
+func (q *Queries) GetDriver(ctx context.Context, id int64) (Driver, error) {
+	row := q.db.QueryRow(ctx, getDriver, id)
+	var i Driver
+	err := row.Scan(
+		&i.ID,
+		&i.CompanyID,
+		&i.DriverName,
+		&i.DriverCode,
+		&i.Status,
+		&i.Email,
+		&i.Phone,
+		&i.LicenseNumber,
+		&i.LicenseClass,
+		&i.LicenseExpiresAt,
+		&i.EmergencyContactName,
+		&i.EmergencyContactPhone,
+		&i.Notes,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.CreatedBy,
+	)
+	return i, err
+}
+
+const getFleet = `-- name: GetFleet :one
+SELECT id, company_id, fleet_name, fleet_code, fleet_type, status, warehouse_id, home_city, notes, created_at, updated_at, created_by FROM fleets WHERE id = $1
+`
+
+func (q *Queries) GetFleet(ctx context.Context, id int64) (Fleet, error) {
+	row := q.db.QueryRow(ctx, getFleet, id)
+	var i Fleet
+	err := row.Scan(
+		&i.ID,
+		&i.CompanyID,
+		&i.FleetName,
+		&i.FleetCode,
+		&i.FleetType,
+		&i.Status,
+		&i.WarehouseID,
+		&i.HomeCity,
+		&i.Notes,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.CreatedBy,
+	)
+	return i, err
+}
+
 const getRouteOptimizationJob = `-- name: GetRouteOptimizationJob :one
 SELECT id, company_id, trip_id, status, engine, started_at, completed_at, error_message, created_at FROM logistics_route_optimization_jobs WHERE id = $1
 `
@@ -123,6 +693,627 @@ func (q *Queries) GetRouteSequences(ctx context.Context, optimizationJobID int64
 	return items, nil
 }
 
+const getShipment = `-- name: GetShipment :one
+SELECT id, company_id, shipment_number, status, shipment_type, origin_warehouse_id, destination_warehouse_id, destination_address, destination_city, destination_country, destination_contact_name, destination_contact_phone, vehicle_id, driver_id, carrier_id, carrier_service_type, planned_dispatch_at, planned_delivery_at, actual_dispatch_at, actual_delivery_at, total_weight_kg, total_volume_cbm, freight_charge, freight_currency, notes, created_at, updated_at, created_by FROM shipments WHERE id = $1
+`
+
+func (q *Queries) GetShipment(ctx context.Context, id int64) (Shipment, error) {
+	row := q.db.QueryRow(ctx, getShipment, id)
+	var i Shipment
+	err := row.Scan(
+		&i.ID,
+		&i.CompanyID,
+		&i.ShipmentNumber,
+		&i.Status,
+		&i.ShipmentType,
+		&i.OriginWarehouseID,
+		&i.DestinationWarehouseID,
+		&i.DestinationAddress,
+		&i.DestinationCity,
+		&i.DestinationCountry,
+		&i.DestinationContactName,
+		&i.DestinationContactPhone,
+		&i.VehicleID,
+		&i.DriverID,
+		&i.CarrierID,
+		&i.CarrierServiceType,
+		&i.PlannedDispatchAt,
+		&i.PlannedDeliveryAt,
+		&i.ActualDispatchAt,
+		&i.ActualDeliveryAt,
+		&i.TotalWeightKg,
+		&i.TotalVolumeCbm,
+		&i.FreightCharge,
+		&i.FreightCurrency,
+		&i.Notes,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.CreatedBy,
+	)
+	return i, err
+}
+
+const getTrip = `-- name: GetTrip :one
+SELECT id, company_id, trip_number, status, vehicle_id, driver_id, fleet_id, origin_warehouse_id, planned_start_at, planned_end_at, actual_start_at, actual_end_at, total_distance_km, fuel_used_liters, notes, created_at, updated_at, created_by FROM trips WHERE id = $1
+`
+
+func (q *Queries) GetTrip(ctx context.Context, id int64) (Trip, error) {
+	row := q.db.QueryRow(ctx, getTrip, id)
+	var i Trip
+	err := row.Scan(
+		&i.ID,
+		&i.CompanyID,
+		&i.TripNumber,
+		&i.Status,
+		&i.VehicleID,
+		&i.DriverID,
+		&i.FleetID,
+		&i.OriginWarehouseID,
+		&i.PlannedStartAt,
+		&i.PlannedEndAt,
+		&i.ActualStartAt,
+		&i.ActualEndAt,
+		&i.TotalDistanceKm,
+		&i.FuelUsedLiters,
+		&i.Notes,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.CreatedBy,
+	)
+	return i, err
+}
+
+const getVehicle = `-- name: GetVehicle :one
+SELECT id, company_id, fleet_id, vehicle_registration, vehicle_type, status, max_weight_kg, max_volume_cbm, license_plate, vin, make, model, year_manufactured, last_maintenance_at, next_maintenance_due, insurance_expires_at, gps_device_id, notes, created_at, updated_at, created_by FROM vehicles WHERE id = $1
+`
+
+func (q *Queries) GetVehicle(ctx context.Context, id int64) (Vehicle, error) {
+	row := q.db.QueryRow(ctx, getVehicle, id)
+	var i Vehicle
+	err := row.Scan(
+		&i.ID,
+		&i.CompanyID,
+		&i.FleetID,
+		&i.VehicleRegistration,
+		&i.VehicleType,
+		&i.Status,
+		&i.MaxWeightKg,
+		&i.MaxVolumeCbm,
+		&i.LicensePlate,
+		&i.Vin,
+		&i.Make,
+		&i.Model,
+		&i.YearManufactured,
+		&i.LastMaintenanceAt,
+		&i.NextMaintenanceDue,
+		&i.InsuranceExpiresAt,
+		&i.GpsDeviceID,
+		&i.Notes,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.CreatedBy,
+	)
+	return i, err
+}
+
+const listAvailableVehicles = `-- name: ListAvailableVehicles :many
+SELECT id, company_id, fleet_id, vehicle_registration, vehicle_type, status, max_weight_kg, max_volume_cbm, license_plate, vin, make, model, year_manufactured, last_maintenance_at, next_maintenance_due, insurance_expires_at, gps_device_id, notes, created_at, updated_at, created_by FROM vehicles 
+WHERE company_id = $1 
+  AND status = 'AVAILABLE'
+ORDER BY vehicle_registration ASC
+`
+
+func (q *Queries) ListAvailableVehicles(ctx context.Context, companyID int64) ([]Vehicle, error) {
+	rows, err := q.db.Query(ctx, listAvailableVehicles, companyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Vehicle
+	for rows.Next() {
+		var i Vehicle
+		if err := rows.Scan(
+			&i.ID,
+			&i.CompanyID,
+			&i.FleetID,
+			&i.VehicleRegistration,
+			&i.VehicleType,
+			&i.Status,
+			&i.MaxWeightKg,
+			&i.MaxVolumeCbm,
+			&i.LicensePlate,
+			&i.Vin,
+			&i.Make,
+			&i.Model,
+			&i.YearManufactured,
+			&i.LastMaintenanceAt,
+			&i.NextMaintenanceDue,
+			&i.InsuranceExpiresAt,
+			&i.GpsDeviceID,
+			&i.Notes,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.CreatedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCarrierRateCards = `-- name: ListCarrierRateCards :many
+SELECT id, company_id, carrier_id, route_from_city, route_to_city, weight_from, weight_to, volume_from, volume_to, rate_per_unit, rate_unit, currency, effective_from, effective_to, minimum_charge, fuel_surcharge_pct, created_at FROM carrier_rate_cards
+WHERE carrier_id = $1
+  AND effective_from <= CURRENT_DATE
+ORDER BY effective_from DESC
+`
+
+func (q *Queries) ListCarrierRateCards(ctx context.Context, carrierID int64) ([]CarrierRateCard, error) {
+	rows, err := q.db.Query(ctx, listCarrierRateCards, carrierID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CarrierRateCard
+	for rows.Next() {
+		var i CarrierRateCard
+		if err := rows.Scan(
+			&i.ID,
+			&i.CompanyID,
+			&i.CarrierID,
+			&i.RouteFromCity,
+			&i.RouteToCity,
+			&i.WeightFrom,
+			&i.WeightTo,
+			&i.VolumeFrom,
+			&i.VolumeTo,
+			&i.RatePerUnit,
+			&i.RateUnit,
+			&i.Currency,
+			&i.EffectiveFrom,
+			&i.EffectiveTo,
+			&i.MinimumCharge,
+			&i.FuelSurchargePct,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCarriers = `-- name: ListCarriers :many
+SELECT id, company_id, carrier_name, carrier_code, status, contact_name, contact_email, contact_phone, insurance_provider, insurance_policy_number, insurance_expires_at, created_at, updated_at, created_by, updated_by FROM carriers 
+WHERE company_id = $1 
+  AND ($2::text IS NULL OR status = $2)
+ORDER BY carrier_name ASC
+`
+
+type ListCarriersParams struct {
+	CompanyID int64  `json:"company_id"`
+	Column2   string `json:"column_2"`
+}
+
+func (q *Queries) ListCarriers(ctx context.Context, arg ListCarriersParams) ([]Carrier, error) {
+	rows, err := q.db.Query(ctx, listCarriers, arg.CompanyID, arg.Column2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Carrier
+	for rows.Next() {
+		var i Carrier
+		if err := rows.Scan(
+			&i.ID,
+			&i.CompanyID,
+			&i.CarrierName,
+			&i.CarrierCode,
+			&i.Status,
+			&i.ContactName,
+			&i.ContactEmail,
+			&i.ContactPhone,
+			&i.InsuranceProvider,
+			&i.InsurancePolicyNumber,
+			&i.InsuranceExpiresAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.CreatedBy,
+			&i.UpdatedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listDrivers = `-- name: ListDrivers :many
+SELECT id, company_id, driver_name, driver_code, status, email, phone, license_number, license_class, license_expires_at, emergency_contact_name, emergency_contact_phone, notes, created_at, updated_at, created_by FROM drivers 
+WHERE company_id = $1 
+  AND ($2::text IS NULL OR status = $2)
+ORDER BY driver_name ASC
+`
+
+type ListDriversParams struct {
+	CompanyID int64  `json:"company_id"`
+	Column2   string `json:"column_2"`
+}
+
+func (q *Queries) ListDrivers(ctx context.Context, arg ListDriversParams) ([]Driver, error) {
+	rows, err := q.db.Query(ctx, listDrivers, arg.CompanyID, arg.Column2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Driver
+	for rows.Next() {
+		var i Driver
+		if err := rows.Scan(
+			&i.ID,
+			&i.CompanyID,
+			&i.DriverName,
+			&i.DriverCode,
+			&i.Status,
+			&i.Email,
+			&i.Phone,
+			&i.LicenseNumber,
+			&i.LicenseClass,
+			&i.LicenseExpiresAt,
+			&i.EmergencyContactName,
+			&i.EmergencyContactPhone,
+			&i.Notes,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.CreatedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFleets = `-- name: ListFleets :many
+SELECT id, company_id, fleet_name, fleet_code, fleet_type, status, warehouse_id, home_city, notes, created_at, updated_at, created_by FROM fleets 
+WHERE company_id = $1 
+  AND status = 'ACTIVE'
+ORDER BY fleet_name ASC
+`
+
+func (q *Queries) ListFleets(ctx context.Context, companyID int64) ([]Fleet, error) {
+	rows, err := q.db.Query(ctx, listFleets, companyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Fleet
+	for rows.Next() {
+		var i Fleet
+		if err := rows.Scan(
+			&i.ID,
+			&i.CompanyID,
+			&i.FleetName,
+			&i.FleetCode,
+			&i.FleetType,
+			&i.Status,
+			&i.WarehouseID,
+			&i.HomeCity,
+			&i.Notes,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.CreatedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listShipmentLines = `-- name: ListShipmentLines :many
+SELECT id, company_id, shipment_id, product_id, quantity, weight_kg, volume_cbm, lot_number, serial_numbers, created_at FROM shipment_lines WHERE shipment_id = $1
+`
+
+func (q *Queries) ListShipmentLines(ctx context.Context, shipmentID int64) ([]ShipmentLine, error) {
+	rows, err := q.db.Query(ctx, listShipmentLines, shipmentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ShipmentLine
+	for rows.Next() {
+		var i ShipmentLine
+		if err := rows.Scan(
+			&i.ID,
+			&i.CompanyID,
+			&i.ShipmentID,
+			&i.ProductID,
+			&i.Quantity,
+			&i.WeightKg,
+			&i.VolumeCbm,
+			&i.LotNumber,
+			&i.SerialNumbers,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listShipments = `-- name: ListShipments :many
+SELECT id, company_id, shipment_number, status, shipment_type, origin_warehouse_id, destination_warehouse_id, destination_address, destination_city, destination_country, destination_contact_name, destination_contact_phone, vehicle_id, driver_id, carrier_id, carrier_service_type, planned_dispatch_at, planned_delivery_at, actual_dispatch_at, actual_delivery_at, total_weight_kg, total_volume_cbm, freight_charge, freight_currency, notes, created_at, updated_at, created_by FROM shipments 
+WHERE company_id = $1 
+  AND ($2::text IS NULL OR status = $2)
+ORDER BY created_at DESC
+`
+
+type ListShipmentsParams struct {
+	CompanyID int64  `json:"company_id"`
+	Column2   string `json:"column_2"`
+}
+
+func (q *Queries) ListShipments(ctx context.Context, arg ListShipmentsParams) ([]Shipment, error) {
+	rows, err := q.db.Query(ctx, listShipments, arg.CompanyID, arg.Column2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Shipment
+	for rows.Next() {
+		var i Shipment
+		if err := rows.Scan(
+			&i.ID,
+			&i.CompanyID,
+			&i.ShipmentNumber,
+			&i.Status,
+			&i.ShipmentType,
+			&i.OriginWarehouseID,
+			&i.DestinationWarehouseID,
+			&i.DestinationAddress,
+			&i.DestinationCity,
+			&i.DestinationCountry,
+			&i.DestinationContactName,
+			&i.DestinationContactPhone,
+			&i.VehicleID,
+			&i.DriverID,
+			&i.CarrierID,
+			&i.CarrierServiceType,
+			&i.PlannedDispatchAt,
+			&i.PlannedDeliveryAt,
+			&i.ActualDispatchAt,
+			&i.ActualDeliveryAt,
+			&i.TotalWeightKg,
+			&i.TotalVolumeCbm,
+			&i.FreightCharge,
+			&i.FreightCurrency,
+			&i.Notes,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.CreatedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTripStops = `-- name: ListTripStops :many
+SELECT id, company_id, trip_id, shipment_id, stop_sequence, stop_type, warehouse_id, location_address, location_city, location_lat, location_lon, contact_name, contact_phone, planned_arrival_at, actual_arrival_at, actual_departure_at, notes, created_at FROM trip_stops WHERE trip_id = $1 ORDER BY stop_sequence ASC
+`
+
+func (q *Queries) ListTripStops(ctx context.Context, tripID int64) ([]TripStop, error) {
+	rows, err := q.db.Query(ctx, listTripStops, tripID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TripStop
+	for rows.Next() {
+		var i TripStop
+		if err := rows.Scan(
+			&i.ID,
+			&i.CompanyID,
+			&i.TripID,
+			&i.ShipmentID,
+			&i.StopSequence,
+			&i.StopType,
+			&i.WarehouseID,
+			&i.LocationAddress,
+			&i.LocationCity,
+			&i.LocationLat,
+			&i.LocationLon,
+			&i.ContactName,
+			&i.ContactPhone,
+			&i.PlannedArrivalAt,
+			&i.ActualArrivalAt,
+			&i.ActualDepartureAt,
+			&i.Notes,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTrips = `-- name: ListTrips :many
+SELECT id, company_id, trip_number, status, vehicle_id, driver_id, fleet_id, origin_warehouse_id, planned_start_at, planned_end_at, actual_start_at, actual_end_at, total_distance_km, fuel_used_liters, notes, created_at, updated_at, created_by FROM trips 
+WHERE company_id = $1 
+  AND ($2::text IS NULL OR status = $2)
+ORDER BY created_at DESC
+`
+
+type ListTripsParams struct {
+	CompanyID int64  `json:"company_id"`
+	Column2   string `json:"column_2"`
+}
+
+func (q *Queries) ListTrips(ctx context.Context, arg ListTripsParams) ([]Trip, error) {
+	rows, err := q.db.Query(ctx, listTrips, arg.CompanyID, arg.Column2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Trip
+	for rows.Next() {
+		var i Trip
+		if err := rows.Scan(
+			&i.ID,
+			&i.CompanyID,
+			&i.TripNumber,
+			&i.Status,
+			&i.VehicleID,
+			&i.DriverID,
+			&i.FleetID,
+			&i.OriginWarehouseID,
+			&i.PlannedStartAt,
+			&i.PlannedEndAt,
+			&i.ActualStartAt,
+			&i.ActualEndAt,
+			&i.TotalDistanceKm,
+			&i.FuelUsedLiters,
+			&i.Notes,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.CreatedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listVehiclesByFleet = `-- name: ListVehiclesByFleet :many
+SELECT id, company_id, fleet_id, vehicle_registration, vehicle_type, status, max_weight_kg, max_volume_cbm, license_plate, vin, make, model, year_manufactured, last_maintenance_at, next_maintenance_due, insurance_expires_at, gps_device_id, notes, created_at, updated_at, created_by FROM vehicles 
+WHERE fleet_id = $1 
+  AND status IN ('AVAILABLE', 'IN_USE')
+ORDER BY vehicle_registration ASC
+`
+
+func (q *Queries) ListVehiclesByFleet(ctx context.Context, fleetID int64) ([]Vehicle, error) {
+	rows, err := q.db.Query(ctx, listVehiclesByFleet, fleetID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Vehicle
+	for rows.Next() {
+		var i Vehicle
+		if err := rows.Scan(
+			&i.ID,
+			&i.CompanyID,
+			&i.FleetID,
+			&i.VehicleRegistration,
+			&i.VehicleType,
+			&i.Status,
+			&i.MaxWeightKg,
+			&i.MaxVolumeCbm,
+			&i.LicensePlate,
+			&i.Vin,
+			&i.Make,
+			&i.Model,
+			&i.YearManufactured,
+			&i.LastMaintenanceAt,
+			&i.NextMaintenanceDue,
+			&i.InsuranceExpiresAt,
+			&i.GpsDeviceID,
+			&i.Notes,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.CreatedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const updateCarrierStatus = `-- name: UpdateCarrierStatus :exec
+UPDATE carriers 
+SET status = $2, updated_at = NOW() 
+WHERE id = $1
+`
+
+type UpdateCarrierStatusParams struct {
+	ID     int64  `json:"id"`
+	Status string `json:"status"`
+}
+
+func (q *Queries) UpdateCarrierStatus(ctx context.Context, arg UpdateCarrierStatusParams) error {
+	_, err := q.db.Exec(ctx, updateCarrierStatus, arg.ID, arg.Status)
+	return err
+}
+
+const updateDriverStatus = `-- name: UpdateDriverStatus :exec
+UPDATE drivers 
+SET status = $2, updated_at = NOW() 
+WHERE id = $1
+`
+
+type UpdateDriverStatusParams struct {
+	ID     int64  `json:"id"`
+	Status string `json:"status"`
+}
+
+func (q *Queries) UpdateDriverStatus(ctx context.Context, arg UpdateDriverStatusParams) error {
+	_, err := q.db.Exec(ctx, updateDriverStatus, arg.ID, arg.Status)
+	return err
+}
+
+const updateFleetStatus = `-- name: UpdateFleetStatus :exec
+UPDATE fleets 
+SET status = $2, updated_at = NOW() 
+WHERE id = $1
+`
+
+type UpdateFleetStatusParams struct {
+	ID     int64  `json:"id"`
+	Status string `json:"status"`
+}
+
+func (q *Queries) UpdateFleetStatus(ctx context.Context, arg UpdateFleetStatusParams) error {
+	_, err := q.db.Exec(ctx, updateFleetStatus, arg.ID, arg.Status)
+	return err
+}
+
 const updateRouteOptimizationJobStatus = `-- name: UpdateRouteOptimizationJobStatus :exec
 UPDATE logistics_route_optimization_jobs
 SET status = $2, error_message = $3, completed_at = $4
@@ -143,5 +1334,53 @@ func (q *Queries) UpdateRouteOptimizationJobStatus(ctx context.Context, arg Upda
 		arg.ErrorMessage,
 		arg.CompletedAt,
 	)
+	return err
+}
+
+const updateShipmentStatus = `-- name: UpdateShipmentStatus :exec
+UPDATE shipments 
+SET status = $2, updated_at = NOW() 
+WHERE id = $1
+`
+
+type UpdateShipmentStatusParams struct {
+	ID     int64  `json:"id"`
+	Status string `json:"status"`
+}
+
+func (q *Queries) UpdateShipmentStatus(ctx context.Context, arg UpdateShipmentStatusParams) error {
+	_, err := q.db.Exec(ctx, updateShipmentStatus, arg.ID, arg.Status)
+	return err
+}
+
+const updateTripStatus = `-- name: UpdateTripStatus :exec
+UPDATE trips 
+SET status = $2, updated_at = NOW() 
+WHERE id = $1
+`
+
+type UpdateTripStatusParams struct {
+	ID     int64  `json:"id"`
+	Status string `json:"status"`
+}
+
+func (q *Queries) UpdateTripStatus(ctx context.Context, arg UpdateTripStatusParams) error {
+	_, err := q.db.Exec(ctx, updateTripStatus, arg.ID, arg.Status)
+	return err
+}
+
+const updateVehicleStatus = `-- name: UpdateVehicleStatus :exec
+UPDATE vehicles 
+SET status = $2, updated_at = NOW() 
+WHERE id = $1
+`
+
+type UpdateVehicleStatusParams struct {
+	ID     int64  `json:"id"`
+	Status string `json:"status"`
+}
+
+func (q *Queries) UpdateVehicleStatus(ctx context.Context, arg UpdateVehicleStatusParams) error {
+	_, err := q.db.Exec(ctx, updateVehicleStatus, arg.ID, arg.Status)
 	return err
 }

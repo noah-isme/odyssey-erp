@@ -1,0 +1,69 @@
+{{ define "pages/logistics/new_trip.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Plan New Trip{{ end }}
+
+{{ define "content" }}
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-title">Plan New Trip</h1>
+            <p class="page-subtitle">Schedule a vehicle and driver for a dispatch sequence.</p>
+        </div>
+        <div class="page-header__actions">
+            <a href="/logistics/trips" class="btn btn--secondary">Cancel</a>
+        </div>
+    </header>
+
+    <div class="page-content">
+        <div class="card card--lg">
+            <form method="post" action="/logistics/trips/new">
+                {{ .Data.CSRFField }}
+
+                <div class="card__header">
+                    <h2 class="card__title">Trip Details</h2>
+                </div>
+
+                <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                    <div class="form-group">
+                        <label class="form-label" for="trip_number">Trip ID <span class="text-danger">*</span></label>
+                        <input type="text" class="form-input" id="trip_number" name="trip_number" required placeholder="e.g. TRP-2024-001">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="vehicle_id">Assign Vehicle <span class="text-danger">*</span></label>
+                        <select class="form-select" id="vehicle_id" name="vehicle_id" required>
+                            {{ range .Data.Vehicles }}
+                                <option value="{{ .ID }}">{{ .VehicleRegistration }} - {{ .LicensePlate }}</option>
+                            {{ else }}
+                                <option disabled>No vehicles available</option>
+                            {{ end }}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="driver_id">Assign Driver <span class="text-danger">*</span></label>
+                        <select class="form-select" id="driver_id" name="driver_id" required>
+                            {{ range .Data.Drivers }}
+                                <option value="{{ .ID }}">{{ .DriverName }}</option>
+                            {{ else }}
+                                <option disabled>No drivers available</option>
+                            {{ end }}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="planned_start">Planned Start Time</label>
+                        <input type="datetime-local" class="form-input" id="planned_start" name="planned_start">
+                    </div>
+                </div>
+
+                <div class="card__footer" style="margin-top: 2rem;">
+                    <button type="submit" class="btn btn--primary">Plan Trip</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{{ end }}

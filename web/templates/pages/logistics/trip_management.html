@@ -1,0 +1,58 @@
+{{ define "pages/logistics/trip_management.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Trip Management{{ end }}
+
+{{ define "content" }}
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-title">Trip Management</h1>
+            <p class="page-subtitle">Route sequencing and live tracking for active trips.</p>
+        </div>
+        <div class="page-header__actions">
+            <a href="/logistics/trips/new" class="btn btn--primary">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                Plan New Trip
+            </a>
+            <div class="dropdown">
+                <button class="btn btn--secondary dropdown-toggle" aria-expanded="false" aria-haspopup="true">
+                    Options <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div class="page-content">
+        <div class="card table-wrap">
+            <table class="table" aria-label="Active Trips">
+                <thead>
+                    <tr>
+                        <th>Trip ID</th>
+                        <th>Status</th>
+                        <th>Vehicle ID</th>
+                        <th>Driver ID</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ range .Data.Trips }}
+                    <tr>
+                        <td><strong>{{ .TripNumber }}</strong></td>
+                        <td>{{ template "partials/ui/status_badge.html" .Status }}</td>
+                        <td>{{ .VehicleID }}</td>
+                        <td>{{ .DriverID }}</td>
+                        <td><a href="#" class="btn btn--secondary btn--sm">Manage</a></td>
+                    </tr>
+                    {{ else }}
+                    <tr>
+                        <td colspan="5" class="text-center">No active trips found.</td>
+                    </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{{ end }}

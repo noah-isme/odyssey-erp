@@ -3685,6 +3685,8 @@ type NotificationPreference struct {
 	EmailEnabled     bool               `json:"email_enabled"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	SmsEnabled       bool               `json:"sms_enabled"`
+	WhatsappEnabled  bool               `json:"whatsapp_enabled"`
 }
 
 type OutboxEvent struct {
@@ -5647,6 +5649,7 @@ type User struct {
 	UiNotifications bool               `json:"ui_notifications"`
 	MfaEnabled      bool               `json:"mfa_enabled"`
 	TotpSecret      pgtype.Text        `json:"totp_secret"`
+	Phone           pgtype.Text        `json:"phone"`
 }
 
 type UserRole struct {

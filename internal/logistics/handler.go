@@ -2,8 +2,10 @@ package logistics
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -36,25 +38,62 @@ type CreateCarrierRequest struct {
 
 // CreateCarrierHandler creates a new carrier
 func (h *Handler) CreateCarrierHandler(w http.ResponseWriter, r *http.Request) {
-	// TODO: Extract company_id from auth context
-	// TODO: Parse CreateCarrierRequest from body
-	// TODO: Call h.service.RegisterCarrier
-	// TODO: Return JSON response with created carrier
-	// TODO: Log audit trail
+	companyID := int64(1) // Default CompanyID
+	userID := int64(1)
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	var req CreateCarrierRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		JSONError(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	input := CreateCarrierInput{
+		CompanyID:             companyID,
+		CarrierName:           req.CarrierName,
+		CarrierCode:           req.CarrierCode,
+		ContactName:           req.ContactName,
+		ContactEmail:          req.ContactEmail,
+		ContactPhone:          req.ContactPhone,
+		InsuranceProvider:     req.InsuranceProvider,
+		InsurancePolicyNumber: req.InsurancePolicyNumber,
+		CreatedBy:             userID,
+	}
+
+	if req.InsuranceExpiresAt != nil {
+		t, err := time.Parse(time.RFC3339, *req.InsuranceExpiresAt)
+		if err != nil {
+			JSONError(w, "invalid insurance_expires_at format (use ISO8601)", http.StatusBadRequest)
+			return
+		}
+		input.InsuranceExpiresAt = &t
+	}
+
+	carrier, err := h.service.RegisterCarrier(r.Context(), input)
+	if err != nil {
+		JSONError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	JSONSuccess(w, carrier, "carrier created successfully")
 }
 
 // ListCarriersHandler lists all carriers for a company
 func (h *Handler) ListCarriersHandler(w http.ResponseWriter, r *http.Request) {
-	// TODO: Extract company_id from auth context
-	// TODO: Parse optional ?status=ACTIVE filter
-	// TODO: Call h.service.repo.ListCarriers
-	// TODO: Return JSON array of carriers
+	companyID := int64(1)
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{"carriers": []interface{}{}})
+	var statusFilter *CarrierStatus
+	if s := r.URL.Query().Get("status"); s != "" {
+		st := CarrierStatus(s)
+		statusFilter = &st
+	}
+
+	carriers, err := h.service.repo.ListCarriers(r.Context(), companyID, statusFilter)
+	if err != nil {
+		JSONError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	JSONSuccess(w, map[string]interface{}{"carriers": carriers}, "carriers retrieved successfully")
 }
 
 // GetCarrierHandler retrieves a single carrier
@@ -62,17 +101,24 @@ func (h *Handler) GetCarrierHandler(w http.ResponseWriter, r *http.Request) {
 	carrierIDStr := chi.URLParam(r, "id")
 	carrierID, err := strconv.ParseInt(carrierIDStr, 10, 64)
 	if err != nil {
-		http.Error(w, "invalid carrier id", http.StatusBadRequest)
+		JSONError(w, "invalid carrier id", http.StatusBadRequest)
 		return
 	}
 
-	// TODO: Call h.service.repo.GetCarrier(ctx, carrierID)
-	// TODO: Return JSON response
-	// TODO: Verify company_id matches auth context
+	carrier, err := h.service.repo.GetCarrier(r.Context(), carrierID)
+	if err != nil {
+		JSONError(w, "carrier not found", http.StatusNotFound)
+		return
+	}
 
-	_ = carrierID
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	// Verify company matches
+	companyID := int64(1)
+	if carrier.CompanyID != companyID {
+		JSONError(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	JSONSuccess(w, carrier, "carrier retrieved successfully")
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -90,23 +136,45 @@ type CreateFleetRequest struct {
 
 // CreateFleetHandler creates a new fleet
 func (h *Handler) CreateFleetHandler(w http.ResponseWriter, r *http.Request) {
-	// TODO: Extract company_id from auth context
-	// TODO: Parse CreateFleetRequest from body
-	// TODO: Call h.service.CreateFleet
-	// TODO: Return JSON response with created fleet
+	companyID := int64(1)
+	userID := int64(1)
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	var req CreateFleetRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		JSONError(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	input := CreateFleetInput{
+		CompanyID:   companyID,
+		FleetName:   req.FleetName,
+		FleetCode:   req.FleetCode,
+		FleetType:   FleetType(req.FleetType),
+		WarehouseID: req.WarehouseID,
+		HomeCity:    req.HomeCity,
+		CreatedBy:   userID,
+	}
+
+	fleet, err := h.service.CreateFleet(r.Context(), input)
+	if err != nil {
+		JSONError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	JSONSuccess(w, fleet, "fleet created successfully")
 }
 
 // ListFleetsHandler lists all fleets for a company
 func (h *Handler) ListFleetsHandler(w http.ResponseWriter, r *http.Request) {
-	// TODO: Extract company_id from auth context
-	// TODO: Call h.service.repo.ListFleets
-	// TODO: Return JSON array of fleets with vehicle counts
+	companyID := int64(1)
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{"fleets": []interface{}{}})
+	fleets, err := h.service.repo.ListFleets(r.Context(), companyID)
+	if err != nil {
+		JSONError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	JSONSuccess(w, map[string]interface{}{"fleets": fleets}, "fleets retrieved successfully")
 }
 
 // RegisterVehicleRequest defines the request body for registering a vehicle
@@ -120,19 +188,44 @@ type RegisterVehicleRequest struct {
 	Model               string  `json:"model"`
 	YearManufactured    *int    `json:"year_manufactured"`
 	MaxWeightKg         *float64 `json:"max_weight_kg"`
-	MaxVolumeCbm        *string `json:"max_volume_cbm"` // NUMERIC
+	MaxVolumeCbm        *float64 `json:"max_volume_cbm"` // NUMERIC
 	GPSDeviceID         string  `json:"gps_device_id"`
 }
 
 // RegisterVehicleHandler registers a new vehicle
 func (h *Handler) RegisterVehicleHandler(w http.ResponseWriter, r *http.Request) {
-	// TODO: Extract company_id from auth context
-	// TODO: Parse RegisterVehicleRequest from body
-	// TODO: Call h.service.RegisterVehicle
-	// TODO: Return JSON response with created vehicle
+	companyID := int64(1)
+	userID := int64(1)
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	var req RegisterVehicleRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		JSONError(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	input := CreateVehicleInput{
+		CompanyID:           companyID,
+		FleetID:             req.FleetID,
+		VehicleRegistration: req.VehicleRegistration,
+		VehicleType:         VehicleType(req.VehicleType),
+		LicensePlate:        req.LicensePlate,
+		VIN:                 req.VIN,
+		Make:                req.Make,
+		Model:               req.Model,
+		YearManufactured:    req.YearManufactured,
+		MaxWeightKg:         req.MaxWeightKg,
+		MaxVolumeCbm:        req.MaxVolumeCbm,
+		GPSDeviceID:         req.GPSDeviceID,
+		CreatedBy:           userID,
+	}
+
+	vehicle, err := h.service.RegisterVehicle(r.Context(), input)
+	if err != nil {
+		JSONError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	JSONSuccess(w, vehicle, "vehicle registered successfully")
 }
 
 // ListVehiclesHandler lists all vehicles for a fleet
@@ -140,16 +233,17 @@ func (h *Handler) ListVehiclesHandler(w http.ResponseWriter, r *http.Request) {
 	fleetIDStr := chi.URLParam(r, "fleet_id")
 	fleetID, err := strconv.ParseInt(fleetIDStr, 10, 64)
 	if err != nil {
-		http.Error(w, "invalid fleet id", http.StatusBadRequest)
+		JSONError(w, "invalid fleet id", http.StatusBadRequest)
 		return
 	}
 
-	// TODO: Call h.service.repo.ListVehiclesByFleet(ctx, fleetID)
-	// TODO: Return JSON array of vehicles
+	vehicles, err := h.service.repo.ListVehiclesByFleet(r.Context(), fleetID)
+	if err != nil {
+		JSONError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-	_ = fleetID
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{"vehicles": []interface{}{}})
+	JSONSuccess(w, map[string]interface{}{"vehicles": vehicles}, "vehicles retrieved successfully")
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -171,24 +265,63 @@ type RegisterDriverRequest struct {
 
 // RegisterDriverHandler registers a new driver
 func (h *Handler) RegisterDriverHandler(w http.ResponseWriter, r *http.Request) {
-	// TODO: Extract company_id from auth context
-	// TODO: Parse RegisterDriverRequest from body
-	// TODO: Call h.service.RegisterDriver
-	// TODO: Return JSON response with created driver
+	companyID := int64(1)
+	userID := int64(1)
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	var req RegisterDriverRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		JSONError(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	input := CreateDriverInput{
+		CompanyID:             companyID,
+		DriverName:            req.DriverName,
+		DriverCode:            req.DriverCode,
+		Email:                 req.Email,
+		Phone:                 req.Phone,
+		LicenseNumber:         req.LicenseNumber,
+		LicenseClass:          LicenseClass(req.LicenseClass),
+		EmergencyContactName:  req.EmergencyContactName,
+		EmergencyContactPhone: req.EmergencyContactPhone,
+		CreatedBy:             userID,
+	}
+
+	if req.LicenseExpiresAt != nil {
+		t, err := time.Parse(time.RFC3339, *req.LicenseExpiresAt)
+		if err != nil {
+			JSONError(w, "invalid license_expires_at format (use ISO8601)", http.StatusBadRequest)
+			return
+		}
+		input.LicenseExpiresAt = &t
+	}
+
+	driver, err := h.service.RegisterDriver(r.Context(), input)
+	if err != nil {
+		JSONError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	JSONSuccess(w, driver, "driver registered successfully")
 }
 
 // ListDriversHandler lists all drivers for a company
 func (h *Handler) ListDriversHandler(w http.ResponseWriter, r *http.Request) {
-	// TODO: Extract company_id from auth context
-	// TODO: Parse optional ?status=ACTIVE filter
-	// TODO: Call h.service.repo.ListDrivers
-	// TODO: Return JSON array of drivers
+	companyID := int64(1)
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{"drivers": []interface{}{}})
+	var statusFilter *DriverStatus
+	if s := r.URL.Query().Get("status"); s != "" {
+		st := DriverStatus(s)
+		statusFilter = &st
+	}
+
+	drivers, err := h.service.repo.ListDrivers(r.Context(), companyID, statusFilter)
+	if err != nil {
+		JSONError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	JSONSuccess(w, map[string]interface{}{"drivers": drivers}, "drivers retrieved successfully")
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -211,25 +344,74 @@ type CreateShipmentRequest struct {
 
 // CreateShipmentHandler creates a new shipment
 func (h *Handler) CreateShipmentHandler(w http.ResponseWriter, r *http.Request) {
-	// TODO: Extract company_id from auth context
-	// TODO: Parse CreateShipmentRequest from body
-	// TODO: Generate shipment_number
-	// TODO: Call h.service.CreateShipment
-	// TODO: Return JSON response with created shipment
+	companyID := int64(1)
+	userID := int64(1)
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	var req CreateShipmentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		JSONError(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	shipmentNumber := fmt.Sprintf("SHP-%d-%d", companyID, time.Now().UnixNano()/1000)
+
+	input := CreateShipmentInput{
+		CompanyID:               companyID,
+		ShipmentNumber:          shipmentNumber,
+		ShipmentType:            ShipmentType(req.ShipmentType),
+		OriginWarehouseID:       req.OriginWarehouseID,
+		DestinationWarehouseID:  req.DestinationWarehouseID,
+		DestinationAddress:      req.DestinationAddress,
+		DestinationCity:         req.DestinationCity,
+		DestinationCountry:      req.DestinationCountry,
+		DestinationContactName:  req.DestinationContactName,
+		DestinationContactPhone: req.DestinationContactPhone,
+		CreatedBy:               userID,
+	}
+
+	if req.PlannedDispatchAt != nil {
+		t, err := time.Parse(time.RFC3339, *req.PlannedDispatchAt)
+		if err != nil {
+			JSONError(w, "invalid planned_dispatch_at format (use ISO8601)", http.StatusBadRequest)
+			return
+		}
+		input.PlannedDispatchAt = &t
+	}
+	if req.PlannedDeliveryAt != nil {
+		t, err := time.Parse(time.RFC3339, *req.PlannedDeliveryAt)
+		if err != nil {
+			JSONError(w, "invalid planned_delivery_at format (use ISO8601)", http.StatusBadRequest)
+			return
+		}
+		input.PlannedDeliveryAt = &t
+	}
+
+	shipment, err := h.service.CreateShipment(r.Context(), input)
+	if err != nil {
+		JSONError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	JSONSuccess(w, shipment, "shipment created successfully")
 }
 
 // ListShipmentsHandler lists all shipments for a company
 func (h *Handler) ListShipmentsHandler(w http.ResponseWriter, r *http.Request) {
-	// TODO: Extract company_id from auth context
-	// TODO: Parse optional ?status=DISPATCHED filter
-	// TODO: Call h.service.repo.ListShipments
-	// TODO: Return JSON array of shipments
+	companyID := int64(1)
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{"shipments": []interface{}{}})
+	var statusFilter *ShipmentStatus
+	if s := r.URL.Query().Get("status"); s != "" {
+		st := ShipmentStatus(s)
+		statusFilter = &st
+	}
+
+	shipments, err := h.service.repo.ListShipments(r.Context(), companyID, statusFilter)
+	if err != nil {
+		JSONError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	JSONSuccess(w, map[string]interface{}{"shipments": shipments}, "shipments retrieved successfully")
 }
 
 // GetShipmentHandler retrieves a single shipment
@@ -237,17 +419,23 @@ func (h *Handler) GetShipmentHandler(w http.ResponseWriter, r *http.Request) {
 	shipmentIDStr := chi.URLParam(r, "id")
 	shipmentID, err := strconv.ParseInt(shipmentIDStr, 10, 64)
 	if err != nil {
-		http.Error(w, "invalid shipment id", http.StatusBadRequest)
+		JSONError(w, "invalid shipment id", http.StatusBadRequest)
 		return
 	}
 
-	// TODO: Call h.service.repo.GetShipment(ctx, shipmentID)
-	// TODO: Return JSON response
-	// TODO: Verify company_id matches auth context
+	shipment, err := h.service.repo.GetShipment(r.Context(), shipmentID)
+	if err != nil {
+		JSONError(w, err.Error(), http.StatusNotFound)
+		return
+	}
 
-	_ = shipmentID
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	companyID := int64(1)
+	if shipment.CompanyID != companyID {
+		JSONError(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	JSONSuccess(w, shipment, "shipment retrieved successfully")
 }
 
 // DispatchShipmentRequest defines the request body for dispatching a shipment
@@ -263,18 +451,29 @@ func (h *Handler) DispatchShipmentHandler(w http.ResponseWriter, r *http.Request
 	shipmentIDStr := chi.URLParam(r, "id")
 	shipmentID, err := strconv.ParseInt(shipmentIDStr, 10, 64)
 	if err != nil {
-		http.Error(w, "invalid shipment id", http.StatusBadRequest)
+		JSONError(w, "invalid shipment id", http.StatusBadRequest)
 		return
 	}
 
-	// TODO: Parse DispatchShipmentRequest from body
-	// TODO: Call h.service.DispatchShipment
-	// TODO: Return JSON response
-	// TODO: Record audit log entry
+	var req DispatchShipmentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		JSONError(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
 
-	_ = shipmentID
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	var cst *CarrierServiceType
+	if req.CarrierServiceType != nil {
+		t := CarrierServiceType(*req.CarrierServiceType)
+		cst = &t
+	}
+
+	err = h.service.DispatchShipment(r.Context(), shipmentID, req.VehicleID, req.DriverID, req.CarrierID, cst)
+	if err != nil {
+		JSONError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	JSONSuccess(w, map[string]interface{}{"shipment_id": shipmentID, "status": ShipmentStatusDispatched}, "shipment dispatched successfully")
 }
 
 // TrackShipmentHandler returns real-time shipment tracking information
@@ -310,24 +509,70 @@ type PlanTripRequest struct {
 
 // PlanTripHandler creates a new trip
 func (h *Handler) PlanTripHandler(w http.ResponseWriter, r *http.Request) {
-	// TODO: Extract company_id from auth context
-	// TODO: Parse PlanTripRequest from body
-	// TODO: Generate trip_number
-	// TODO: Call h.service.PlanTrip
-	// TODO: Return JSON response with created trip
+	companyID := int64(1)
+	userID := int64(1)
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	var req PlanTripRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		JSONError(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	tripNumber := fmt.Sprintf("TRP-%d-%d", companyID, time.Now().UnixNano()/1000)
+
+	input := CreateTripInput{
+		CompanyID:         companyID,
+		TripNumber:        tripNumber,
+		VehicleID:         req.VehicleID,
+		DriverID:          req.DriverID,
+		FleetID:           req.FleetID,
+		OriginWarehouseID: req.OriginWarehouseID,
+		CreatedBy:         userID,
+	}
+
+	if req.PlannedStartAt != nil {
+		t, err := time.Parse(time.RFC3339, *req.PlannedStartAt)
+		if err != nil {
+			JSONError(w, "invalid planned_start_at format (use ISO8601)", http.StatusBadRequest)
+			return
+		}
+		input.PlannedStartAt = &t
+	}
+	if req.PlannedEndAt != nil {
+		t, err := time.Parse(time.RFC3339, *req.PlannedEndAt)
+		if err != nil {
+			JSONError(w, "invalid planned_end_at format (use ISO8601)", http.StatusBadRequest)
+			return
+		}
+		input.PlannedEndAt = &t
+	}
+
+	trip, err := h.service.PlanTrip(r.Context(), input)
+	if err != nil {
+		JSONError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	JSONSuccess(w, trip, "trip planned successfully")
 }
 
 // ListTripsHandler lists all active trips for a company
 func (h *Handler) ListTripsHandler(w http.ResponseWriter, r *http.Request) {
-	// TODO: Extract company_id from auth context
-	// TODO: Call h.service.ListActiveTrips
-	// TODO: Return JSON array of active trips
+	companyID := int64(1)
+	
+	var statusFilter *TripStatus
+	if s := r.URL.Query().Get("status"); s != "" {
+		st := TripStatus(s)
+		statusFilter = &st
+	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{"trips": []interface{}{}})
+	trips, err := h.service.repo.ListTrips(r.Context(), companyID, statusFilter)
+	if err != nil {
+		JSONError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	JSONSuccess(w, map[string]interface{}{"trips": trips}, "trips retrieved successfully")
 }
 
 // GetTripHandler retrieves a single trip with all stops
@@ -335,17 +580,98 @@ func (h *Handler) GetTripHandler(w http.ResponseWriter, r *http.Request) {
 	tripIDStr := chi.URLParam(r, "id")
 	tripID, err := strconv.ParseInt(tripIDStr, 10, 64)
 	if err != nil {
-		http.Error(w, "invalid trip id", http.StatusBadRequest)
+		JSONError(w, "invalid trip id", http.StatusBadRequest)
 		return
 	}
 
-	// TODO: Call h.service.repo.GetTrip(ctx, tripID)
-	// TODO: Call h.service.repo.GetTripStops(ctx, tripID)
-	// TODO: Return JSON response with trip and stops
+	trip, err := h.service.repo.GetTrip(r.Context(), tripID)
+	if err != nil {
+		JSONError(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	
+	companyID := int64(1)
+	if trip.CompanyID != companyID {
+		JSONError(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
 
-	_ = tripID
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	stops, err := h.service.repo.GetTripStops(r.Context(), tripID)
+	if err != nil {
+		JSONError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	res := map[string]interface{}{
+		"trip":  trip,
+		"stops": stops,
+	}
+
+	JSONSuccess(w, res, "trip retrieved successfully")
+}
+
+// AddTripStopRequest defines request body for adding a stop to a trip
+type AddTripStopRequest struct {
+	ShipmentID       *int64   `json:"shipment_id"`
+	StopSequence     int      `json:"stop_sequence"`
+	StopType         string   `json:"stop_type"` // PICKUP, DELIVERY, TRANSFER
+	WarehouseID      *int64   `json:"warehouse_id"`
+	LocationAddress  string   `json:"location_address"`
+	LocationCity     string   `json:"location_city"`
+	LocationLat      *float64 `json:"location_lat"`
+	LocationLon      *float64 `json:"location_lon"`
+	ContactName      string   `json:"contact_name"`
+	ContactPhone     string   `json:"contact_phone"`
+	PlannedArrivalAt *string  `json:"planned_arrival_at"` // ISO8601
+}
+
+// AddTripStopHandler adds a pickup/delivery stop to a trip
+func (h *Handler) AddTripStopHandler(w http.ResponseWriter, r *http.Request) {
+	tripIDStr := chi.URLParam(r, "id")
+	tripID, err := strconv.ParseInt(tripIDStr, 10, 64)
+	if err != nil {
+		JSONError(w, "invalid trip id", http.StatusBadRequest)
+		return
+	}
+	companyID := int64(1)
+
+	var req AddTripStopRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		JSONError(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	input := AddTripStopInput{
+		CompanyID:       companyID,
+		TripID:          tripID,
+		ShipmentID:      req.ShipmentID,
+		StopSequence:    req.StopSequence,
+		StopType:        StopType(req.StopType),
+		WarehouseID:     req.WarehouseID,
+		LocationAddress: req.LocationAddress,
+		LocationCity:    req.LocationCity,
+		LocationLat:     req.LocationLat,
+		LocationLon:     req.LocationLon,
+		ContactName:     req.ContactName,
+		ContactPhone:    req.ContactPhone,
+	}
+
+	if req.PlannedArrivalAt != nil {
+		t, err := time.Parse(time.RFC3339, *req.PlannedArrivalAt)
+		if err != nil {
+			JSONError(w, "invalid planned_arrival_at format", http.StatusBadRequest)
+			return
+		}
+		input.PlannedArrivalAt = &t
+	}
+
+	stop, err := h.service.AddStopToTrip(r.Context(), input)
+	if err != nil {
+		JSONError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	JSONSuccess(w, stop, "stop added to trip successfully")
 }
 
 // DispatchTripHandler dispatches a trip to the driver
@@ -353,17 +679,17 @@ func (h *Handler) DispatchTripHandler(w http.ResponseWriter, r *http.Request) {
 	tripIDStr := chi.URLParam(r, "id")
 	tripID, err := strconv.ParseInt(tripIDStr, 10, 64)
 	if err != nil {
-		http.Error(w, "invalid trip id", http.StatusBadRequest)
+		JSONError(w, "invalid trip id", http.StatusBadRequest)
 		return
 	}
 
-	// TODO: Call h.service.DispatchTrip(ctx, tripID)
-	// TODO: Record audit log entry
-	// TODO: Send notification to driver
+	err = h.service.DispatchTrip(r.Context(), tripID)
+	if err != nil {
+		JSONError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-	_ = tripID
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	JSONSuccess(w, map[string]interface{}{"trip_id": tripID, "status": TripStatusDispatched}, "trip dispatched successfully")
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

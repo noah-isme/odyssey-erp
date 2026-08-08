@@ -1,0 +1,76 @@
+{{ define "pages/logistics/rate_cards.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Rate Cards - Freight Finance{{ end }}
+
+{{ define "content" }}
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-title">Rate Cards</h1>
+            <p class="page-subtitle">Configure freight pricing by route, carrier, and service level.</p>
+        </div>
+        <div class="page-header__actions">
+            <a href="/logistics/rate-cards/new" class="btn btn--primary">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                New Rate Card
+            </a>
+        </div>
+    </header>
+
+    <div class="page-content">
+        <div class="card table-wrap">
+            <table class="table" aria-label="Rate Cards">
+                <thead>
+                    <tr>
+                        <th>Route</th>
+                        <th>Carrier</th>
+                        <th>Service Level</th>
+                        <th>Base Rate</th>
+                        <th>Per Kg</th>
+                        <th>Per CBM</th>
+                        <th>Weight Range</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ range .Data.RateCards }}
+                    <tr>
+                        <td>
+                            <div style="font-weight: 500;">{{ .OriginCity }} &rarr; {{ .DestinationCity }}</div>
+                            <small style="color: var(--color-gray-500);">{{ .OriginCountry }} - {{ .DestinationCountry }}</small>
+                        </td>
+                        <td>{{ if .CarrierID }}ID: {{ .CarrierID }}{{ else }}All Carriers{{ end }}</td>
+                        <td><span class="badge badge--primary">{{ .ServiceLevel }}</span></td>
+                        <td>{{ .Currency }} {{ .BaseRate }}</td>
+                        <td>{{ if .PerKgRate }}{{ .Currency }} {{ .PerKgRate }}{{ else }}-{{ end }}</td>
+                        <td>{{ if .PerCbmRate }}{{ .Currency }} {{ .PerCbmRate }}{{ else }}-{{ end }}</td>
+                        <td>
+                            <small>{{ if .MinWeightKg }}{{ .MinWeightKg }}kg{{ else }}0kg{{ end }} - {{ if .MaxWeightKg }}{{ .MaxWeightKg }}kg{{ else }}&infin;{{ end }}</small>
+                        </td>
+                        <td>
+                            {{ if .IsActive }}
+                                <span class="badge badge--success">Active</span>
+                            {{ else }}
+                                <span class="badge badge--gray">Inactive</span>
+                            {{ end }}
+                        </td>
+                        <td>
+                            <a href="/logistics/rate-cards/{{ .ID }}" class="btn btn--secondary btn--sm">View</a>
+                        </td>
+                    </tr>
+                    {{ else }}
+                    <tr>
+                        <td colspan="9" style="text-align: center; padding: 2rem;">
+                            <p>No rate cards configured.</p>
+                        </td>
+                    </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{{ end }}

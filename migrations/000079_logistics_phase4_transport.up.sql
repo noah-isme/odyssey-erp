@@ -150,10 +150,10 @@ CREATE TABLE IF NOT EXISTS shipments (
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     created_by BIGINT NOT NULL REFERENCES users(id),
     UNIQUE(company_id, shipment_number),
-    -- Constraint: must have vehicle+driver OR carrier+service, not both
     CONSTRAINT shipment_transport_assignment CHECK (
         (vehicle_id IS NOT NULL AND driver_id IS NOT NULL AND carrier_id IS NULL) OR
-        (vehicle_id IS NULL AND driver_id IS NULL AND carrier_id IS NOT NULL)
+        (vehicle_id IS NULL AND driver_id IS NULL AND carrier_id IS NOT NULL) OR
+        (vehicle_id IS NULL AND driver_id IS NULL AND carrier_id IS NULL)
     )
 );
 

@@ -1,0 +1,80 @@
+{{ define "pages/logistics/fleet_management.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Fleet Management{{ end }}
+
+{{ define "content" }}
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-title">Fleet Command Center</h1>
+            <p class="page-subtitle">Real-time overview and management of your logistics fleet.</p>
+        </div>
+        <div class="page-header__actions">
+            <a href="/logistics/fleet/new" class="btn btn--primary">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                Register Vehicle
+            </a>
+            <div class="dropdown">
+                <button class="btn btn--secondary dropdown-toggle" aria-expanded="false" aria-haspopup="true">
+                    Options <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div class="page-content">
+        <!-- Mock Data Grid for Stats -->
+        <div class="dashboard-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem;">
+            <div class="card card--sm">
+                <div class="card__desc">Total Vehicles</div>
+                <div class="card__title" style="font-size: 2rem; margin-top: 0.5rem;">{{ .Data.Total }}</div>
+            </div>
+            <div class="card card--sm">
+                <div class="card__desc">Available</div>
+                <div class="card__title" style="font-size: 2rem; margin-top: 0.5rem; color: var(--color-success);">{{ .Data.Available }}</div>
+            </div>
+            <div class="card card--sm">
+                <div class="card__desc">In Transit</div>
+                <div class="card__title" style="font-size: 2rem; margin-top: 0.5rem; color: var(--color-primary);">{{ .Data.InTransit }}</div>
+            </div>
+            <div class="card card--sm">
+                <div class="card__desc">In Maintenance</div>
+                <div class="card__title" style="font-size: 2rem; margin-top: 0.5rem; color: var(--color-warning);">{{ .Data.InMaint }}</div>
+            </div>
+        </div>
+
+        <div class="card table-wrap">
+            <table class="table" aria-label="Active Vehicles">
+                <thead>
+                    <tr>
+                        <th>Registration</th>
+                        <th>Type</th>
+                        <th>License Plate</th>
+                        <th>Capacity</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ range .Data.Vehicles }}
+                    <tr>
+                        <td><strong>{{ .VehicleRegistration }}</strong></td>
+                        <td>{{ .VehicleType }}</td>
+                        <td>{{ .LicensePlate }}</td>
+                        <td>{{ if .MaxWeightKg }}{{ .MaxWeightKg }} kg{{ else }}-{{ end }}</td>
+                        <td>{{ template "partials/ui/status_badge.html" .Status }}</td>
+                        <td><a href="#" class="btn btn--secondary btn--sm">View</a></td>
+                    </tr>
+                    {{ else }}
+                    <tr>
+                        <td colspan="6" class="text-center">No vehicles found.</td>
+                    </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{{ end }}

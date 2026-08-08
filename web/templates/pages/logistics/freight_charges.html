@@ -1,0 +1,92 @@
+{{ define "pages/logistics/freight_charges.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Freight Charges - Workbench{{ end }}
+
+{{ define "content" }}
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-title">Freight Charges Workbench</h1>
+            <p class="page-subtitle">Track calculated charges, landed cost allocations, and post to General Ledger.</p>
+        </div>
+        <div class="page-header__actions">
+            <!-- Actions like Bulk Post to GL could go here -->
+            <div class="dropdown">
+                <button class="btn btn--secondary dropdown-toggle" aria-expanded="false" aria-haspopup="true">
+                    Export <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div class="page-content">
+        <div class="card table-wrap">
+            <table class="table" aria-label="Freight Charges">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Reference</th>
+                        <th>Route</th>
+                        <th>Weight / Volume</th>
+                        <th>Base Charge</th>
+                        <th>Surcharges</th>
+                        <th>Total Freight</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ range .Data.FreightCharges }}
+                    <tr>
+                        <td><strong>FC-{{ printf "%05d" .ID }}</strong></td>
+                        <td>
+                            {{ if .ShipmentID }}<a href="/logistics/shipments/{{ .ShipmentID }}">SHP-{{ .ShipmentID }}</a>{{ end }}
+                            {{ if .LoadID }}<a href="/logistics/trips/{{ .LoadID }}">TRP-{{ .LoadID }}</a>{{ end }}
+                        </td>
+                        <td>
+                            <div>{{ .OriginCity }} &rarr; {{ .DestinationCity }}</div>
+                            <small class="badge badge--primary">{{ .ServiceLevel }}</small>
+                        </td>
+                        <td>
+                            <small>{{ .WeightKg }} kg / {{ .VolumeCbm }} cbm</small>
+                        </td>
+                        <td>{{ .Currency }} {{ .BaseCharge }}</td>
+                        <td>{{ if .SurchargeTotal }}{{ .Currency }} {{ .SurchargeTotal }}{{ else }}-{{ end }}</td>
+                        <td><strong>{{ .Currency }} {{ .FreightTotal }}</strong></td>
+                        <td>
+                            {{ if eq .Status "CALCULATED" }}
+                                <span class="badge badge--warning">Calculated</span>
+                            {{ else if eq .Status "INVOICED" }}
+                                <span class="badge badge--primary">Invoiced</span>
+                            {{ else if eq .Status "PAID" }}
+                                <span class="badge badge--success">Paid</span>
+                            {{ else }}
+                                <span class="badge badge--gray">{{ .Status }}</span>
+                            {{ end }}
+                        </td>
+                        <td>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <a href="/logistics/freight/{{ .ID }}" class="btn btn--secondary btn--sm">Details</a>
+                                {{ if eq .Status "CALCULATED" }}
+                                    <form action="/logistics/freight/{{ .ID }}/invoice" method="POST" style="margin: 0;">
+                                        <button type="submit" class="btn btn--primary btn--sm">Invoice &amp; Post to GL</button>
+                                    </form>
+                                {{ end }}
+                            </div>
+                        </td>
+                    </tr>
+                    {{ else }}
+                    <tr>
+                        <td colspan="9" style="text-align: center; padding: 2rem;">
+                            <p>No freight charges found.</p>
+                        </td>
+                    </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{{ end }}

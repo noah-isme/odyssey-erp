@@ -38,11 +38,13 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/banking"
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/forecasting"
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/treasury"
+	"github.com/odyssey-erp/odyssey-erp/internal/freight"
 	hrattendance "github.com/odyssey-erp/odyssey-erp/internal/hr/attendance"
 	hremployees "github.com/odyssey-erp/odyssey-erp/internal/hr/employees"
 	hrleave "github.com/odyssey-erp/odyssey-erp/internal/hr/leave"
 	insightshhtp "github.com/odyssey-erp/odyssey-erp/internal/insights/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/inventory"
+	"github.com/odyssey-erp/odyssey-erp/internal/logistics"
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata"
 	"github.com/odyssey-erp/odyssey-erp/internal/mrp"
 	"github.com/odyssey-erp/odyssey-erp/internal/notifications"
@@ -127,6 +129,8 @@ type RouterParams struct {
 	QMSHandler             *qmshttp.Handler
 	ConnectorsHandler      *connectors.WebhookHandler
 	ConnectorsAdminHandler *connectors.AdminHandler
+	LogisticsService       *logistics.Service
+	FreightService         freight.Service
 }
 
 type workspaceUser struct {
@@ -477,6 +481,128 @@ func NewRouter(params RouterParams) http.Handler {
 		sess.AddFlash(shared.FlashMessage{Kind: "success", Message: "Perusahaan aktif diperbarui"})
 		redirectBackToWorkspace(w, r)
 	})
+	// Register freight routes
+	freight.NewHandler(params.FreightService).RegisterRoutes(r)
+
+	// Register Logistics UI form routes
+	r.Get("/logistics/fleet/new", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		companyID := int64(1)
+		fleets, _ := params.LogisticsService.ListFleets(ctx, companyID)
+		_ = params.Templates.Render(w, "pages/logistics/new_vehicle.html", view.TemplateData{
+			Title:       "Register Vehicle",
+			CurrentPath: "/logistics/fleet",
+			Data: map[string]interface{}{"Fleets": fleets},
+		})
+	})
+	r.Post("/logistics/fleet/new", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		companyID := int64(1)
+		userID := int64(1)
+		_ = r.ParseForm()
+		fleetID, _ := strconv.ParseInt(r.FormValue("fleet_id"), 10, 64)
+		input := logistics.CreateVehicleInput{
+			CompanyID:           companyID,
+			FleetID:             fleetID,
+			VehicleRegistration: r.FormValue("registration"),
+			VehicleType:         logistics.VehicleType(r.FormValue("type")),
+			LicensePlate:        r.FormValue("license_plate"),
+			Make:                r.FormValue("make"),
+			Model:               r.FormValue("model"),
+			VIN:                 r.FormValue("vin"),
+			CreatedBy:           userID,
+		}
+		if maxW := r.FormValue("max_weight"); maxW != "" {
+			w, _ := strconv.ParseFloat(maxW, 64)
+			input.MaxWeightKg = &w
+		}
+		_, err := params.LogisticsService.RegisterVehicle(ctx, input)
+		if err != nil {
+			http.Redirect(w, r, "/logistics/fleet/new?error=1", http.StatusSeeOther)
+			return
+		}
+		http.Redirect(w, r, "/logistics/fleet", http.StatusSeeOther)
+	})
+
+	r.Get("/logistics/trips/new", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		companyID := int64(1)
+		vehicles, _ := params.LogisticsService.ListAvailableVehicles(ctx, companyID)
+		drivers, _ := params.LogisticsService.ListAvailableDrivers(ctx, companyID)
+		_ = params.Templates.Render(w, "pages/logistics/new_trip.html", view.TemplateData{
+			Title:       "Plan New Trip",
+			CurrentPath: "/logistics/trips",
+			Data: map[string]interface{}{"Vehicles": vehicles, "Drivers": drivers},
+		})
+	})
+	r.Post("/logistics/trips/new", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		companyID := int64(1)
+		userID := int64(1)
+		_ = r.ParseForm()
+		vehicleID, _ := strconv.ParseInt(r.FormValue("vehicle_id"), 10, 64)
+		driverID, _ := strconv.ParseInt(r.FormValue("driver_id"), 10, 64)
+		input := logistics.CreateTripInput{
+			CompanyID:  companyID,
+			TripNumber: r.FormValue("trip_number"),
+			VehicleID:  vehicleID,
+			DriverID:   driverID,
+			CreatedBy:  userID,
+		}
+		if startStr := r.FormValue("planned_start"); startStr != "" {
+			if t, err := time.Parse("2006-01-02T15:04", startStr); err == nil {
+				input.PlannedStartAt = &t
+			}
+		}
+		_, err := params.LogisticsService.PlanTrip(ctx, input)
+		if err != nil {
+			http.Redirect(w, r, "/logistics/trips/new?error=1", http.StatusSeeOther)
+			return
+		}
+		http.Redirect(w, r, "/logistics/trips", http.StatusSeeOther)
+	})
+
+	r.Get("/logistics/rate-cards", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		companyID := int64(1)
+		
+		filter := freight.RateCardFilter{} // fetch all
+		rateCards, _ := params.FreightService.ListRateCards(ctx, companyID, filter)
+		_ = params.Templates.Render(w, "pages/logistics/rate_cards.html", view.TemplateData{
+			Title:       "Rate Cards",
+			CurrentPath: "/logistics/rate-cards",
+			Data: map[string]interface{}{"RateCards": rateCards},
+		})
+	})
+
+	r.Get("/logistics/freight", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		companyID := int64(1)
+		
+		filter := freight.FreightChargeFilter{}
+		charges, _ := params.FreightService.ListFreightCharges(ctx, companyID, filter)
+		_ = params.Templates.Render(w, "pages/logistics/freight_charges.html", view.TemplateData{
+			Title:       "Freight Charges",
+			CurrentPath: "/logistics/freight",
+			Data: map[string]interface{}{"FreightCharges": charges},
+		})
+	})
+	
+	r.Post("/logistics/freight/{id}/invoice", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		companyID := int64(1)
+		chargeIDStr := chi.URLParam(r, "id")
+		chargeID, _ := strconv.ParseInt(chargeIDStr, 10, 64)
+		
+		_, err := params.FreightService.MarkFreightChargeInvoiced(ctx, companyID, chargeID)
+		if err != nil {
+			params.Logger.Error("failed to mark freight charge invoiced", "error", err)
+			http.Redirect(w, r, "/logistics/freight?error=1", http.StatusSeeOther)
+			return
+		}
+		http.Redirect(w, r, "/logistics/freight", http.StatusSeeOther)
+	})
+
 	r.Get("/api/me", func(w http.ResponseWriter, r *http.Request) {
 		sess := shared.SessionFromContext(r.Context())
 		if sess == nil || sess.User() == "" {

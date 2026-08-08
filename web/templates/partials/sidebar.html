@@ -67,6 +67,16 @@
                 </div>
             </details>
 
+            <details class="sidebar-menu" data-sidebar-menu{{ if or (isActive .CurrentPath "/logistics/fleet") (isActive .CurrentPath "/logistics/trips") (isActive .CurrentPath "/logistics/rate-cards") (isActive .CurrentPath "/logistics/freight") }} open{{ end }}>
+                <summary data-tooltip="Logistics"><span class="nav-item-icon">🚚</span><span class="nav-item-text">Logistics</span><span class="sidebar-menu__arrow">⌄</span></summary>
+                <div class="sidebar-menu__items">
+                    <a href="/logistics/fleet" class="nav-item{{ if isActive .CurrentPath "/logistics/fleet" }} active{{ end }}" data-tooltip="Fleet Management"><span class="nav-item-text">Fleet Management</span></a>
+                    <a href="/logistics/trips" class="nav-item{{ if isActive .CurrentPath "/logistics/trips" }} active{{ end }}" data-tooltip="Trip Management"><span class="nav-item-text">Trip Management</span></a>
+                    <a href="/logistics/rate-cards" class="nav-item{{ if isActive .CurrentPath "/logistics/rate-cards" }} active{{ end }}" data-tooltip="Rate Cards"><span class="nav-item-text">Rate Cards</span></a>
+                    <a href="/logistics/freight" class="nav-item{{ if isActive .CurrentPath "/logistics/freight" }} active{{ end }}" data-tooltip="Freight Charges"><span class="nav-item-text">Freight Charges</span></a>
+                </div>
+            </details>
+
             <details class="sidebar-menu" data-sidebar-menu{{ if or (isActive .CurrentPath "/mrp/dispatch") (isActive .CurrentPath "/mrp/scheduling") (isActive .CurrentPath "/mrp/exceptions") (isActive .CurrentPath "/mrp/analytics") (isActive .CurrentPath "/mrp/quality") (isActive .CurrentPath "/mrp/wip-locations/manage") }} open{{ end }}>
                 <summary data-tooltip="Manufaktur"><span class="nav-item-icon">M</span><span class="nav-item-text">Manufaktur (MRP)</span><span class="sidebar-menu__arrow">⌄</span></summary>
                 <div class="sidebar-menu__items">
