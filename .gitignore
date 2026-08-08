@@ -53,3 +53,7 @@ tests/e2e/test-screenshots/
 /odyssey_bin
 /worker_bin
 /bootstrap-admin_bin
+
+# Go build and module cache (never commit these)
+.cache/
+/root/.cache/
