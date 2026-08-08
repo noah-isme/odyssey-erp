@@ -38,14 +38,17 @@ type APInvoice struct {
 	Subtotal   float64
 	TaxAmount  float64
 	Total      float64
-	Status     APInvoiceStatus
-	DueAt      time.Time
-	PostedAt   *time.Time
-	PostedBy   *int64
-	VoidedAt   *time.Time
-	VoidedBy   *int64
-	VoidReason *string
-	CreatedBy  int64
+	Status                 APInvoiceStatus
+	DuplicateStatus        string
+	AttachmentHash         *string
+	SupplierDocumentNumber *string
+	DueAt                  time.Time
+	PostedAt               *time.Time
+	PostedBy               *int64
+	VoidedAt               *time.Time
+	VoidedBy               *int64
+	VoidReason             *string
+	CreatedBy              int64
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 }
@@ -55,6 +58,7 @@ type APInvoiceLine struct {
 	ID          int64
 	APInvoiceID int64
 	GRNLineID   *int64
+	POLineID    *int64
 	ProductID   int64
 	Description string
 	Quantity    float64
@@ -188,19 +192,22 @@ type CreateAPInvoiceInput struct {
 	SupplierID int64
 	GRNID      *int64
 	POID       *int64
-	Number     string
-	Currency   string
-	Subtotal   float64
-	TaxAmount  float64
-	Total      float64
-	DueDate    time.Time
-	CreatedBy  int64
-	Lines      []CreateAPInvoiceLineInput
+	Number                 string
+	Currency               string
+	SupplierDocumentNumber *string
+	AttachmentHash         *string
+	Subtotal               float64
+	TaxAmount              float64
+	Total                  float64
+	DueDate                time.Time
+	CreatedBy              int64
+	Lines                  []CreateAPInvoiceLineInput
 }
 
 // CreateAPInvoiceLineInput for invoice line items.
 type CreateAPInvoiceLineInput struct {
 	GRNLineID   *int64
+	POLineID    *int64
 	ProductID   int64
 	Description string
 	Quantity    float64
@@ -265,4 +272,67 @@ type ListAPInvoicesRequest struct {
 	ToDate     time.Time
 	Limit      int
 	Offset     int
+}
+
+// MatchingPolicy defines tolerance rules.
+type MatchingPolicy struct {
+	ID                  int64
+	Name                string
+	CompanyID           *int64
+	SupplierID          *int64
+	CategoryID          *int64
+	QtyTolerancePct     float64
+	PriceTolerancePct   float64
+	TaxTolerancePct     float64
+	FreightTolerancePct float64
+	TotalToleranceAmt   float64
+}
+
+// MatchingRun represents a match execution result.
+type MatchingRun struct {
+	ID                int64
+	APInvoiceID       int64
+	PolicyID          *int64
+	Status            string // MATCHED, WITHIN_TOLERANCE, EXCEPTION, DUPLICATE_REVIEW
+	InvoiceTotal      float64
+	POTotal           *float64
+	GRNTotal          *float64
+	Reasons           []string
+	ActionRecommended string
+	Lines             []MatchingRunLine
+}
+
+// MatchingRunLine represents line-level match result.
+type MatchingRunLine struct {
+	ID               int64
+	MatchingRunID    int64
+	APInvoiceLineID  int64
+	POLineID         *int64
+	GRNLineID        *int64
+	InvoiceQty       float64
+	InvoicePrice     float64
+	POQty            *float64
+	POPrice          *float64
+	GRNQty           *float64
+	Status           string // MATCHED, WITHIN_TOLERANCE, EXCEPTION
+	Reasons          []string
+}
+
+// APException represents an exception requiring review.
+type APException struct {
+	ID              int64
+	APInvoiceID     int64
+	APMatchingRunID *int64
+	ExceptionType   string // MISMATCH, MISSING_MAPPING, SUPPLIER_HOLD, CLOSED_PERIOD, OVERDUE_RECEIPT, DUPLICATE
+	Severity        string // LOW, MEDIUM, HIGH, CRITICAL
+	Status          string // OPEN, IN_REVIEW, RESOLVED, REJECTED
+	OwnerID         *int64
+	SLADueAt        *time.Time
+	Reason          string
+	Evidence        *string
+	Comments        []string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	ResolvedAt      *time.Time
+	ResolvedBy      *int64
 }

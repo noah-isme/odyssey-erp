@@ -39,6 +39,8 @@ const (
 	// TaskFinanceAutomationDispatch claims durable finance commands. Individual
 	// Phase 1+ handlers decide which provider-neutral topic they can execute.
 	TaskFinanceAutomationDispatch = "finance:automation_dispatch"
+	// TaskProcessAPInvoice processes a newly ingested AP invoice.
+	TaskProcessAPInvoice = "ap:invoice_process"
 )
 
 type FinanceAutomationDispatcher interface {

@@ -1,12 +1,14 @@
 -- name: CreateAPInvoice :one
 INSERT INTO ap_invoices (
     number, supplier_id, grn_id, po_id, currency, 
+    supplier_document_number, attachment_hash,
     subtotal, tax_amount, total, status, 
     due_at, created_by, created_at, updated_at
 ) VALUES (
     $1, $2, $3, $4, $5, 
-    $6, $7, $8, $9, 
-    $10, $11, NOW(), NOW()
+    $6, $7,
+    $8, $9, $10, $11, 
+    $12, $13, NOW(), NOW()
 ) RETURNING id;
 
 -- name: UpdateAPStatus :exec
@@ -27,6 +29,7 @@ WHERE id = $1 AND status IN ('DRAFT', 'POSTED');
 -- name: GetAPInvoice :one
 SELECT 
     i.id, i.number, i.supplier_id, s.name AS supplier_name, i.grn_id, i.po_id, i.currency, 
+    i.supplier_document_number, i.attachment_hash, i.duplicate_status,
     subtotal, tax_amount, total, status, due_at, 
     posted_at, posted_by, voided_at, voided_by, void_reason,
     created_by, created_at, updated_at 
@@ -37,6 +40,7 @@ WHERE i.id = $1;
 -- name: GetAPInvoiceByNumber :one
 SELECT 
     i.id, i.number, i.supplier_id, s.name AS supplier_name, i.grn_id, i.po_id, i.currency, 
+    i.supplier_document_number, i.attachment_hash, i.duplicate_status,
     subtotal, tax_amount, total, status, due_at, 
     posted_at, posted_by, voided_at, voided_by, void_reason,
     created_by, created_at, updated_at 
@@ -46,17 +50,17 @@ WHERE i.number = $1;
 
 -- name: CreateAPInvoiceLine :one
 INSERT INTO ap_invoice_lines (
-    ap_invoice_id, grn_line_id, product_id, description,
+    ap_invoice_id, grn_line_id, po_line_id, product_id, description,
     quantity, unit_price, discount_pct, tax_pct,
     subtotal, tax_amount, total, created_at
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW()
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW()
 ) RETURNING id;
 
 -- name: ListAPInvoiceLines :many
 SELECT 
-    id, ap_invoice_id, grn_line_id, product_id,
-    description, quantity, unit_price, discount_pct, tax_pct,
+    id, ap_invoice_id, grn_line_id, po_line_id, product_id, description,
+    quantity, unit_price, discount_pct, tax_pct,
     subtotal, tax_amount, total, created_at
 FROM ap_invoice_lines
 WHERE ap_invoice_id = $1

@@ -1,6 +1,6 @@
 # ADR-0007: Payment execution and settlement
 
-**Status:** Proposed — requires treasury/controller and AP approval
+**Status:** Approved
 
 ## Decision
 

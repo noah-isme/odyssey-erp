@@ -34,7 +34,10 @@ import (
 	documentshttp "github.com/odyssey-erp/odyssey-erp/internal/documents/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/delivery"
 	eliminationhttp "github.com/odyssey-erp/odyssey-erp/internal/elimination/http"
+	"github.com/odyssey-erp/odyssey-erp/internal/finance/bankfeeds"
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/banking"
+	"github.com/odyssey-erp/odyssey-erp/internal/finance/forecasting"
+	"github.com/odyssey-erp/odyssey-erp/internal/finance/treasury"
 	hrattendance "github.com/odyssey-erp/odyssey-erp/internal/hr/attendance"
 	hremployees "github.com/odyssey-erp/odyssey-erp/internal/hr/employees"
 	hrleave "github.com/odyssey-erp/odyssey-erp/internal/hr/leave"
@@ -100,6 +103,9 @@ type RouterParams struct {
 	DashboardHandler       *dashboard.Handler
 	SearchHandler          *search.Handler
 	BankingHandler         *banking.Handler
+	BankFeedsHandler       *bankfeeds.Handler
+	ForecastingHandler     *forecasting.Handler
+	TreasuryHandler        *treasury.Handler
 	InventoryService       *inventory.Service
 	NotificationHandler    *notifications.Handler
 	NotificationDispatcher *notifications.Dispatcher
@@ -599,6 +605,9 @@ func NewRouter(params RouterParams) http.Handler {
 	}
 	if params.BankingHandler != nil {
 		r.Route("/finance/banking", params.BankingHandler.MountRoutes)
+		r.Route("/finance/bankfeeds", params.BankFeedsHandler.MountRoutes)
+		r.Route("/finance/forecasting", params.ForecastingHandler.MountRoutes)
+		r.Route("/finance/treasury", params.TreasuryHandler.MountRoutes)
 	}
 	r.Route("/jobs", params.JobHandler.MountRoutes)
 	if params.AnalyticsHandler != nil {

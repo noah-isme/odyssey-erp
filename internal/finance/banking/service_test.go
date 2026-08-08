@@ -120,14 +120,30 @@ func (m *mockRepo) FindOpenPeriod(context.Context, int64, time.Time) (int64, err
 	return 1, nil
 }
 
-func (m *mockRepo) BankTransactionExists(_ context.Context, bankAccountID int64, date time.Time, amount float64, reference string) (bool, error) {
+func (m *mockRepo) BankTransactionExists(_ context.Context, bankAccountID int64, externalRef string, fingerprint string) (bool, error) {
 	for _, transaction := range m.transactions {
-		value, _ := transaction.Amount.Float64Value()
-		if transaction.BankAccountID == bankAccountID && transaction.Date.Time.Equal(date) && value.Valid && value.Float64 == amount && transaction.Reference.String == reference {
-			return true, nil
+		if transaction.BankAccountID == bankAccountID {
+			if externalRef != "" && transaction.ExternalReference.String == externalRef {
+				return true, nil
+			}
+			if fingerprint != "" && transaction.Fingerprint.String == fingerprint {
+				return true, nil
+			}
 		}
 	}
 	return false, nil
+}
+
+func (m *mockRepo) CreateStatementImportRun(ctx context.Context, arg sqlc.CreateStatementImportRunParams) (sqlc.StatementImportRun, error) {
+	return sqlc.StatementImportRun{ID: 1}, nil
+}
+
+func (m *mockRepo) CreateBankStatement(ctx context.Context, arg sqlc.CreateBankStatementParams) (sqlc.BankStatement, error) {
+	return sqlc.BankStatement{ID: 1}, nil
+}
+
+func (m *mockRepo) CreateBankStatementLine(ctx context.Context, arg sqlc.CreateBankStatementLineParams) (sqlc.BankStatementLine, error) {
+	return sqlc.BankStatementLine{ID: 1}, nil
 }
 
 type mockPoster struct {

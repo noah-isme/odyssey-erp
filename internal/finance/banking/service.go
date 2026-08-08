@@ -22,8 +22,11 @@ type Repository interface {
 	GetBankTransaction(ctx context.Context, id pgtype.UUID) (sqlc.BankTransaction, error)
 	ListBankTransactions(ctx context.Context, bankAccountID int64) ([]sqlc.BankTransaction, error)
 	UpdateBankTransactionStatus(ctx context.Context, arg sqlc.UpdateBankTransactionStatusParams) error
+	CreateStatementImportRun(ctx context.Context, arg sqlc.CreateStatementImportRunParams) (sqlc.StatementImportRun, error)
+	CreateBankStatement(ctx context.Context, arg sqlc.CreateBankStatementParams) (sqlc.BankStatement, error)
+	CreateBankStatementLine(ctx context.Context, arg sqlc.CreateBankStatementLineParams) (sqlc.BankStatementLine, error)
 	FindOpenPeriod(ctx context.Context, companyID int64, date time.Time) (int64, error)
-	BankTransactionExists(ctx context.Context, bankAccountID int64, date time.Time, amount float64, reference string) (bool, error)
+	BankTransactionExists(ctx context.Context, bankAccountID int64, externalRef, fingerprint string) (bool, error)
 }
 
 // BankAccountSummary pairs an account with its ledger balance.
@@ -382,10 +385,41 @@ func (s *Service) ResolveOpenPeriod(ctx context.Context, companyID int64, date t
 
 // ImportStatement records statement rows as pending transactions. Pending imports
 // deliberately do not post GL entries until a finance user chooses a contra account.
-func (s *Service) ImportStatement(ctx context.Context, account sqlc.BankAccount, entries []StatementEntry) (ImportResult, error) {
+func (s *Service) ImportStatement(ctx context.Context, account sqlc.BankAccount, entries []NormalizedStatementEntry, filename string, contentHash string) (ImportResult, error) {
 	result := ImportResult{}
+
+	// 1. Create statement import run
+	importRun, err := s.repo.CreateStatementImportRun(ctx, sqlc.CreateStatementImportRunParams{
+		CompanyID:     account.CompanyID,
+		BankAccountID: account.ID,
+		Filename:      filename,
+		ContentHash:   contentHash,
+	})
+	if err != nil {
+		return result, fmt.Errorf("failed to create import run: %w", err)
+	}
+
+	// 2. We also want to create an accounting bank statement, using the earliest date as statement date.
+	statementDate := time.Now()
+	if len(entries) > 0 {
+		statementDate = entries[0].Date
+	}
+	for _, e := range entries {
+		if e.Date.After(statementDate) {
+			statementDate = e.Date
+		}
+	}
+
+	bankStatement, err := s.repo.CreateBankStatement(ctx, sqlc.CreateBankStatementParams{
+		BankAccountID: account.ID,
+		StatementDate: pgtype.Date{Time: statementDate, Valid: true},
+	})
+	if err != nil {
+		return result, fmt.Errorf("failed to create bank statement: %w", err)
+	}
+
 	for _, entry := range entries {
-		exists, err := s.repo.BankTransactionExists(ctx, account.ID, entry.Date, entry.Amount, entry.Reference)
+		exists, err := s.repo.BankTransactionExists(ctx, account.ID, entry.Reference, entry.Fingerprint)
 		if err != nil {
 			return result, err
 		}
@@ -393,18 +427,37 @@ func (s *Service) ImportStatement(ctx context.Context, account sqlc.BankAccount,
 			result.Skipped++
 			continue
 		}
+
+		var numericAmount pgtype.Numeric
+		_ = numericAmount.Scan(entry.Amount.Amount.Amount)
+
 		_, err = s.repo.CreateBankTransaction(ctx, sqlc.CreateBankTransactionParams{
-			ID:            pgtype.UUID{Bytes: uuid.New(), Valid: true},
-			BankAccountID: account.ID,
-			Date:          pgtype.Date{Time: entry.Date, Valid: true},
-			Amount:        numericOf(entry.Amount),
-			Description:   entry.Description,
-			Reference:     pgtype.Text{String: entry.Reference, Valid: entry.Reference != ""},
-			Status:        "PENDING",
+			ID:                pgtype.UUID{Bytes: uuid.New(), Valid: true},
+			BankAccountID:     account.ID,
+			Date:              pgtype.Date{Time: entry.Date, Valid: true},
+			Amount:            numericAmount,
+			Description:       entry.Description,
+			Reference:         pgtype.Text{String: entry.Reference, Valid: entry.Reference != ""},
+			Status:            "PENDING",
+			ImportRunID:       pgtype.Int8{Int64: importRun.ID, Valid: true},
+			ExternalReference: pgtype.Text{String: entry.Reference, Valid: entry.Reference != ""},
+			Fingerprint:       pgtype.Text{String: entry.Fingerprint, Valid: entry.Fingerprint != ""},
 		})
 		if err != nil {
 			return result, err
 		}
+
+		_, err = s.repo.CreateBankStatementLine(ctx, sqlc.CreateBankStatementLineParams{
+			StatementID:     bankStatement.ID,
+			TrxDate:         pgtype.Date{Time: entry.Date, Valid: true},
+			Description:     entry.Description,
+			Amount:          numericAmount,
+			ReferenceNumber: pgtype.Text{String: entry.Reference, Valid: entry.Reference != ""},
+		})
+		if err != nil {
+			return result, err
+		}
+
 		result.Imported++
 	}
 	return result, nil

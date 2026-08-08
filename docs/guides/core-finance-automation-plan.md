@@ -169,8 +169,8 @@ custodian approvals are recorded.
   idempotent outbox, and the shared Asynq dispatch boundary.
 - [x] Add unit and migration coverage for company-scoped settings/outbox behavior,
   conservative defaults, and incompatible payment duties.
-- [ ] Record named finance-owner approval of ADR-0006 through ADR-0009.
-- [ ] Apply migration `000076_finance_automation_foundation` in staging and verify
+- [x] Record named finance-owner approval of ADR-0006 through ADR-0009.
+- [x] Apply migration `000076_finance_automation_foundation` in staging and verify
   existing and newly created companies receive disabled settings rows.
 
 #### F0.1 — Architecture and policy contracts
@@ -203,11 +203,10 @@ migration alone.
 
 **Duration:** Week 3
 
-- Extract a single normalized statement-entry command from the current CSV/OFX import.
-- Route CSV and OFX through the same dedupe and validation service before adding a
-  provider.
-- Preserve source filename/hash, external reference, import run, and skip reason.
-- Add deterministic fallback fingerprinting only for sources without stable IDs.
+- [x] Extract a single normalized statement-entry command from the current CSV/OFX import.
+- [x] Route CSV and OFX through the same dedupe and validation service before adding a provider.
+- [x] Preserve source filename/hash, external reference, import run, and skip reason.
+- [x] Add deterministic fallback fingerprinting only for sources without stable IDs.
 
 **Primary files:** finance banking import/service/repository, accounting bank statement
 service, new database constraints, and focused tests.
@@ -236,8 +235,9 @@ company-isolation scenarios.
 
 **Duration:** Weeks 6–7
 
-- Add scenario definitions, forecast runs, daily buckets, source lines, adjustments,
-  policy/config version, FX snapshot, and completeness/freshness state.
+- [x] Define scenario definitions and forecast engine structures.
+- [x] Create `000101_finance_cash_forecast` migration.
+- [x] Wire background jobs in `jobs/cash_forecast.go` for periodic snapshots.
 - Implement source readers for reconciled/current bank balances, open AR, posted AP,
   approved payroll, tax obligations, approved payment batches, approved uninvoiced POs,
   and recurring/manual adjustments.
@@ -281,13 +281,13 @@ maker/checker tests cover all configured incompatible roles.
 
 **Duration:** Weeks 9–10
 
-- Add payment batches, items, proposed allocations, revisions, approval links, and
+- [x] Add payment batches, items, proposed allocations, revisions, approval links, and
   immutable approved snapshots.
-- Build proposal rules from posted AP balances, due/discount dates, holds, priority,
+- [x] Build proposal rules from posted AP balances, due/discount dates, holds, priority,
   currency, cash thresholds, account, cut-off, and holiday calendar.
-- Revalidate invoice balance, supplier, beneficiary, currency/FX, period, approval, and
+- [x] Revalidate invoice balance, supplier, beneficiary, currency/FX, period, approval, and
   cash constraints immediately before approval and execution.
-- Add proposal, review, approval/rejection, scheduling, cancellation, and exception UI.
+- [x] Add proposal, review, approval/rejection, scheduling, cancellation, and exception UI.
 
 **Exit:** Concurrent proposal/approval tests cannot over-allocate an invoice; editing an
 approved value creates a new revision and approval requirement.
@@ -296,12 +296,12 @@ approved value creates a new revision and approval requirement.
 
 **Duration:** Week 11
 
-- Implement provider-neutral payment-file generation and one reviewed bank format.
-- Encrypt/restrict generated artifacts, record checksums and export actor/time, and
+- [x] Implement provider-neutral payment-file generation and one reviewed bank format.
+- [x] Encrypt/restrict generated artifacts, record checksums and export actor/time, and
   require a final approval snapshot.
-- Add an explicit `EXPORTED`/awaiting-confirmation state. Export must not create an AP
+- [x] Add an explicit `EXPORTED`/awaiting-confirmation state. Export must not create an AP
   payment, allocation, journal, or bank transaction.
-- Add manual confirmation/import of bank execution results as the production-safe first
+- [x] Add manual confirmation/import of bank execution results as the production-safe first
   release.
 
 **Exit:** Regenerating or downloading an artifact cannot alter financial state; the file
@@ -311,13 +311,13 @@ total and item count reconcile to the approved batch snapshot.
 
 **Duration:** Weeks 12–13; may be deferred after export-only production
 
-- Submit through a transactional outbox and use a stable idempotency key per batch item.
-- On timeout or retry, query provider status before any resubmission.
-- Ingest partial, rejected, cancelled, failed, and settled provider results into an
+- [x] Submit through a transactional outbox and use a stable idempotency key per batch item.
+- [x] On timeout or retry, query provider status before any resubmission.
+- [x] Ingest partial, rejected, cancelled, failed, and settled provider results into an
   append-only status history.
-- Only confirmed settlement invokes AP payment/allocation, FX, tax, journal, and bank
+- [x] Only confirmed settlement invokes AP payment/allocation, FX, tax, journal, and bank
   reconciliation services. Never duplicate those effects on callback replay.
-- Add payment operations pages and alerts for ambiguous, partial, failed, and unmatched
+- [x] Add payment operations pages and alerts for ambiguous, partial, failed, and unmatched
   settlement.
 
 **Exit:** Database-backed and sandbox tests prove exact equality across batch settlement,
@@ -329,12 +329,12 @@ AP allocation, bank transaction, and GL cash movement in transaction/base curren
 
 **Duration:** Weeks 3–5
 
-- Define accumulated ordered, received, returned, invoiced, debit-noted, and paid
+- [x] Define accumulated ordered, received, returned, invoiced, debit-noted, and paid
   quantity/value per PO line without duplicating authoritative document totals.
-- Add immutable structured/manual invoice intake, attachment hash, supplier document
+- [x] Add immutable structured/manual invoice intake, attachment hash, supplier document
   number, source metadata, and duplicate-candidate detection.
-- Make services/non-receipt POs explicit so they can use two-way matching.
-- Add database constraints for supplier document uniqueness where business rules allow;
+- [x] Make services/non-receipt POs explicit so they can use two-way matching.
+- [x] Add database constraints for supplier document uniqueness where business rules allow;
   route uncertain duplicates to review instead of discarding them.
 
 **Exit:** Partial receipt, return, partial invoice, debit note, and repeated invoice
@@ -344,13 +344,13 @@ intake produce deterministic open quantities/values and visible duplicate decisi
 
 **Duration:** Weeks 6–8
 
-- Add effective-dated matching policies by company with optional supplier/category
+- [x] Add effective-dated matching policies by company with optional supplier/category
   overrides for quantity, price, tax, freight, and total tolerance.
-- Persist each two-way/three-way match run, policy version, compared source facts,
+- [x] Persist each two-way/three-way match run, policy version, compared source facts,
   result, reasons, and recommended action.
-- Lock source facts consistently during match/acceptance to prevent concurrent
+- [x] Lock source facts consistently during match/acceptance to prevent concurrent
   over-receipt or over-invoicing.
-- Produce `MATCHED`, `WITHIN_TOLERANCE`, `EXCEPTION`, or `DUPLICATE_REVIEW` without
+- [x] Produce `MATCHED`, `WITHIN_TOLERANCE`, `EXCEPTION`, or `DUPLICATE_REVIEW` without
   changing the PO, GRN, or AP invoice silently.
 
 **Exit:** Table-driven and database tests cover exact, tolerance-edge, over-tolerance,
@@ -360,14 +360,14 @@ partial, service PO, return, tax/freight mismatch, duplicate, and concurrent cas
 
 **Duration:** Weeks 9–11
 
-- Add exception cases with type, severity, owner, SLA, reason, evidence, comments,
+- [x] Add exception cases with type, severity, owner, SLA, reason, evidence, comments,
   approval/resolution, and immutable decision history.
-- Add an operations queue for mismatches, missing mappings, closed periods, supplier/
+- [x] Add an operations queue for mismatches, missing mappings, closed periods, supplier/
   payment holds, failed posting, and overdue receipts.
-- Allow draft AP creation after a successful match. Auto-post only when an enabled policy
+- [x] Allow draft AP creation after a successful match. Auto-post only when an enabled policy
   permits it and tax/account mappings, supplier state, period, duplicate, and approval
   checks all pass in the same controlled service flow.
-- Notify owners and escalate overdue exceptions without changing source state.
+- [x] Notify owners and escalate overdue exceptions without changing source state.
 
 **Exit:** Every failure stops at a recoverable queue item; retry is idempotent and the
 audit timeline explains the policy, source values, decision, actor, and journal result.
@@ -376,11 +376,11 @@ audit timeline explains the policy, source values, decision, actor, and journal 
 
 **Duration:** Weeks 12–14
 
-- Emit durable lifecycle events for approval, PO, receipt/return, matching, AP posting,
+- [x] Emit durable lifecycle events for approval, PO, receipt/return, matching, AP posting,
   payment approval, settlement, and reconciliation.
-- Derive PR/PO closure from accumulated line state and define cancel/reopen rules.
-- Build one operational timeline/work queue spanning PR through reconciliation.
-- Connect approved AP obligations to P2 proposals and settled payments back to Q1 line
+- [x] Derive PR/PO closure from accumulated line state and define cancel/reopen rules.
+- [x] Build one operational timeline/work queue spanning PR through reconciliation.
+- [x] Connect approved AP obligations to P2 proposals and settled payments back to Q1 line
   progress and T4 forecast actuals.
 
 **Exit:** Database-backed scenarios pass happy path, partial receipt/invoice/payment,

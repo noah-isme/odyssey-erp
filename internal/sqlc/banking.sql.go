@@ -57,21 +57,25 @@ func (q *Queries) CreateBankAccount(ctx context.Context, arg CreateBankAccountPa
 
 const createBankTransaction = `-- name: CreateBankTransaction :one
 INSERT INTO bank_transactions (
-    id, bank_account_id, date, amount, description, reference, status, gl_journal_id
+    id, bank_account_id, date, amount, description, reference, status, gl_journal_id, import_run_id, external_reference, fingerprint, skip_reason
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8
-) RETURNING id, bank_account_id, date, amount, description, reference, status, gl_journal_id, created_at, updated_at
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+) RETURNING id, bank_account_id, date, amount, description, reference, status, gl_journal_id, created_at, updated_at, import_run_id, external_reference, fingerprint, skip_reason
 `
 
 type CreateBankTransactionParams struct {
-	ID            pgtype.UUID    `json:"id"`
-	BankAccountID int64          `json:"bank_account_id"`
-	Date          pgtype.Date    `json:"date"`
-	Amount        pgtype.Numeric `json:"amount"`
-	Description   string         `json:"description"`
-	Reference     pgtype.Text    `json:"reference"`
-	Status        string         `json:"status"`
-	GlJournalID   pgtype.Int8    `json:"gl_journal_id"`
+	ID                pgtype.UUID    `json:"id"`
+	BankAccountID     int64          `json:"bank_account_id"`
+	Date              pgtype.Date    `json:"date"`
+	Amount            pgtype.Numeric `json:"amount"`
+	Description       string         `json:"description"`
+	Reference         pgtype.Text    `json:"reference"`
+	Status            string         `json:"status"`
+	GlJournalID       pgtype.Int8    `json:"gl_journal_id"`
+	ImportRunID       pgtype.Int8    `json:"import_run_id"`
+	ExternalReference pgtype.Text    `json:"external_reference"`
+	Fingerprint       pgtype.Text    `json:"fingerprint"`
+	SkipReason        pgtype.Text    `json:"skip_reason"`
 }
 
 func (q *Queries) CreateBankTransaction(ctx context.Context, arg CreateBankTransactionParams) (BankTransaction, error) {
@@ -84,6 +88,10 @@ func (q *Queries) CreateBankTransaction(ctx context.Context, arg CreateBankTrans
 		arg.Reference,
 		arg.Status,
 		arg.GlJournalID,
+		arg.ImportRunID,
+		arg.ExternalReference,
+		arg.Fingerprint,
+		arg.SkipReason,
 	)
 	var i BankTransaction
 	err := row.Scan(
@@ -97,6 +105,47 @@ func (q *Queries) CreateBankTransaction(ctx context.Context, arg CreateBankTrans
 		&i.GlJournalID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ImportRunID,
+		&i.ExternalReference,
+		&i.Fingerprint,
+		&i.SkipReason,
+	)
+	return i, err
+}
+
+const createStatementImportRun = `-- name: CreateStatementImportRun :one
+INSERT INTO statement_import_runs (
+    company_id, bank_account_id, filename, content_hash, imported_by
+) VALUES (
+    $1, $2, $3, $4, $5
+) RETURNING id, company_id, bank_account_id, filename, content_hash, imported_by, imported_at
+`
+
+type CreateStatementImportRunParams struct {
+	CompanyID     int64       `json:"company_id"`
+	BankAccountID int64       `json:"bank_account_id"`
+	Filename      string      `json:"filename"`
+	ContentHash   string      `json:"content_hash"`
+	ImportedBy    pgtype.Int8 `json:"imported_by"`
+}
+
+func (q *Queries) CreateStatementImportRun(ctx context.Context, arg CreateStatementImportRunParams) (StatementImportRun, error) {
+	row := q.db.QueryRow(ctx, createStatementImportRun,
+		arg.CompanyID,
+		arg.BankAccountID,
+		arg.Filename,
+		arg.ContentHash,
+		arg.ImportedBy,
+	)
+	var i StatementImportRun
+	err := row.Scan(
+		&i.ID,
+		&i.CompanyID,
+		&i.BankAccountID,
+		&i.Filename,
+		&i.ContentHash,
+		&i.ImportedBy,
+		&i.ImportedAt,
 	)
 	return i, err
 }
@@ -124,7 +173,7 @@ func (q *Queries) GetBankAccount(ctx context.Context, id int64) (BankAccount, er
 }
 
 const getBankTransaction = `-- name: GetBankTransaction :one
-SELECT id, bank_account_id, date, amount, description, reference, status, gl_journal_id, created_at, updated_at FROM bank_transactions WHERE id = $1
+SELECT id, bank_account_id, date, amount, description, reference, status, gl_journal_id, created_at, updated_at, import_run_id, external_reference, fingerprint, skip_reason FROM bank_transactions WHERE id = $1
 `
 
 func (q *Queries) GetBankTransaction(ctx context.Context, id pgtype.UUID) (BankTransaction, error) {
@@ -141,6 +190,10 @@ func (q *Queries) GetBankTransaction(ctx context.Context, id pgtype.UUID) (BankT
 		&i.GlJournalID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ImportRunID,
+		&i.ExternalReference,
+		&i.Fingerprint,
+		&i.SkipReason,
 	)
 	return i, err
 }
@@ -183,7 +236,7 @@ func (q *Queries) ListBankAccounts(ctx context.Context, companyID int64) ([]Bank
 }
 
 const listBankTransactions = `-- name: ListBankTransactions :many
-SELECT id, bank_account_id, date, amount, description, reference, status, gl_journal_id, created_at, updated_at FROM bank_transactions
+SELECT id, bank_account_id, date, amount, description, reference, status, gl_journal_id, created_at, updated_at, import_run_id, external_reference, fingerprint, skip_reason FROM bank_transactions
 WHERE bank_account_id = $1
 ORDER BY date DESC, created_at DESC
 `
@@ -208,6 +261,10 @@ func (q *Queries) ListBankTransactions(ctx context.Context, bankAccountID int64)
 			&i.GlJournalID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ImportRunID,
+			&i.ExternalReference,
+			&i.Fingerprint,
+			&i.SkipReason,
 		); err != nil {
 			return nil, err
 		}

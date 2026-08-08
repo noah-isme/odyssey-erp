@@ -20,9 +20,9 @@ WHERE id = $1;
 
 -- name: CreateBankTransaction :one
 INSERT INTO bank_transactions (
-    id, bank_account_id, date, amount, description, reference, status, gl_journal_id
+    id, bank_account_id, date, amount, description, reference, status, gl_journal_id, import_run_id, external_reference, fingerprint, skip_reason
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
 ) RETURNING *;
 
 -- name: GetBankTransaction :one
@@ -37,3 +37,10 @@ ORDER BY date DESC, created_at DESC;
 UPDATE bank_transactions
 SET status = $2, gl_journal_id = $3
 WHERE id = $1;
+
+-- name: CreateStatementImportRun :one
+INSERT INTO statement_import_runs (
+    company_id, bank_account_id, filename, content_hash, imported_by
+) VALUES (
+    $1, $2, $3, $4, $5
+) RETURNING *;

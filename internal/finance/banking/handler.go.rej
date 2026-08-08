@@ -1,0 +1,25 @@
+--- internal/finance/banking/handler.go
++++ internal/finance/banking/handler.go
+@@ -3,6 +3,8 @@
+ import (
++	"crypto/sha256"
+ 	"encoding/json"
++	"encoding/hex"
+ 	"io"
+ 	"net/http"
+ 	"strconv"
+ 
+@@ -70,9 +72,11 @@
+ 		h.redirectWithFlash(w, r, "/finance/banking/accounts/"+strconv.FormatInt(accountID, 10), "error", "File statement tidak dapat dibaca")
+ 		return
+ 	}
+-	entries, err := parseStatement(header.Filename, content)
++	hash := sha256.Sum256(content)
++	contentHash := hex.EncodeToString(hash[:])
++	entries, err := parseStatement(header.Filename, content, account.Currency, account.ID)
+ 	if err != nil {
+ 		h.redirectWithFlash(w, r, "/finance/banking/accounts/"+strconv.FormatInt(accountID, 10), "error", err.Error())
+ 		return
+ 	}
+-	result, err := h.service.ImportStatement(r.Context(), account, entries)
++	result, err := h.service.ImportStatement(r.Context(), account, entries, header.Filename, contentHash)

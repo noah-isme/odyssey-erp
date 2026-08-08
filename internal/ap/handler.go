@@ -24,6 +24,7 @@ type Handler struct {
 	sessions     *shared.SessionManager
 	rbac         rbac.Middleware
 	debitNotePDF DebitNotePDFRenderer
+	enqueueJob   func(int64, int64) error
 }
 
 // NewHandler builds Handler instance.
@@ -194,7 +195,18 @@ func (h *Handler) createAPInvoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if h.enqueueJob != nil {
+		if err := h.enqueueJob(invoice.ID, invoice.CreatedBy); err != nil {
+			h.logger.Error("failed to enqueue AP invoice processing", slog.Any("error", err))
+		}
+	}
+
 	h.redirectWithFlash(w, r, "/finance/ap/invoices/"+strconv.FormatInt(invoice.ID, 10), "success", "AP Invoice created")
+}
+
+// SetEnqueueJob sets the callback for enqueuing AP jobs.
+func (h *Handler) SetEnqueueJob(fn func(int64, int64) error) {
+	h.enqueueJob = fn
 }
 
 // createInvoiceFromGRN creates invoice from goods receipt.

@@ -59,7 +59,10 @@ import (
 	deliveryorders "github.com/odyssey-erp/odyssey-erp/internal/delivery/orders"
 	eliminationpkg "github.com/odyssey-erp/odyssey-erp/internal/elimination"
 	eliminationhttp "github.com/odyssey-erp/odyssey-erp/internal/elimination/http"
+	"github.com/odyssey-erp/odyssey-erp/internal/finance/bankfeeds"
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/banking"
+	"github.com/odyssey-erp/odyssey-erp/internal/finance/forecasting"
+	"github.com/odyssey-erp/odyssey-erp/internal/finance/treasury"
 	fxservice "github.com/odyssey-erp/odyssey-erp/internal/fx"
 	hrattendance "github.com/odyssey-erp/odyssey-erp/internal/hr/attendance"
 	hremployees "github.com/odyssey-erp/odyssey-erp/internal/hr/employees"
@@ -253,6 +256,23 @@ func main() {
 	bankingService := banking.NewService(bankingRepo, logger, journalService)
 	bankingHandler := banking.NewHandler(logger, bankingService, templates, csrfManager)
 
+	bankfeedsRepo := bankfeeds.NewPGRepository(dbpool)
+	bankfeedsService := bankfeeds.NewService(bankfeedsRepo, bankingService, nil)
+	bankFeedsHandler := bankfeeds.NewHandler(bankfeedsService, logger)
+
+	forecastRepo := forecasting.NewPGRepository(dbpool)
+	forecastReaders := []forecasting.SourceReader{
+		forecasting.NewMockReader("mock_ar", forecasting.SourceTypeOpenAR, false),
+		forecasting.NewMockReader("mock_ap", forecasting.SourceTypePostedAP, true),
+		forecasting.NewMockReader("mock_payroll", forecasting.SourceTypeApprovedPayroll, true),
+	}
+	forecastService := forecasting.NewService(forecastRepo, forecastReaders, logger)
+	forecastHandler := forecasting.NewHandler(forecastService)
+
+	treasuryRepo := treasury.NewPGRepository(dbpool)
+	treasuryService := treasury.NewService(treasuryRepo, nil, logger)
+	treasuryHandler := treasury.NewHandler(treasuryService)
+
 	inventoryRepo := inventory.NewRepository(dbpool)
 	inventoryService := inventory.NewService(inventoryRepo, auditLogger, idempotencyStore, inventory.ServiceConfig{}, integrationHooks)
 
@@ -330,6 +350,9 @@ func main() {
 	apService.SetIntegrationHandler(integrationHooks)
 	apService.SetTaxService(taxService)
 	apHandler := ap.NewHandler(logger, apService, templates, csrfManager, sessionManager, rbacMiddleware)
+	apHandler.SetEnqueueJob(func(invoiceID, createdBy int64) error {
+		return jobs.EnqueueProcessAPInvoice(jobClient.AsynqClient(), invoiceID, createdBy)
+	})
 
 	closeHandler := closehttp.NewHandler(logger, closeService, templates, csrfManager, rbacMiddleware)
 	eliminationRepo := eliminationpkg.NewRepository(dbpool)
@@ -532,6 +555,9 @@ func main() {
 		AuditHandler:           auditHandler,
 		PermissionsHandler:     permissionsHandler,
 		BankingHandler:         bankingHandler,
+		BankFeedsHandler:       bankFeedsHandler,
+		ForecastingHandler:     forecastHandler,
+		TreasuryHandler:        treasuryHandler,
 		InventoryService:       inventoryService,
 		Metrics:                metrics,
 		DashboardHandler:       dashboardHandler,

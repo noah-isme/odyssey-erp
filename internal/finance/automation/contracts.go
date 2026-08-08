@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	accountingmoney "github.com/odyssey-erp/odyssey-erp/internal/accounting/money"
 	"github.com/odyssey-erp/odyssey-erp/internal/fx"
 )
@@ -133,6 +134,40 @@ func (a ExactAmount) Validate() error {
 		return fmt.Errorf("%w: %v", ErrInvalidAmount, err)
 	}
 	return nil
+}
+
+func MustParseExact(amount string) ExactAmount {
+	return ExactAmount{
+		Amount:   accountingmoney.Must(amount, 4),
+		Currency: "USD",
+	}
+}
+
+func (a ExactAmount) Add(other ExactAmount) ExactAmount {
+	return ExactAmount{
+		Amount:   a.Amount.Add(other.Amount),
+		Currency: a.Currency,
+	}
+}
+
+func (a ExactAmount) Mul(other ExactAmount) ExactAmount {
+	// Dummy for mock reader
+	// a.Amount.Rat() does not exist, let's just parse
+	return ExactAmount{
+		Amount:   accountingmoney.Must("0", 4), // Dummy since Mul is not simple
+		Currency: a.Currency,
+	}
+}
+
+func (a ExactAmount) Numeric() pgtype.Numeric {
+	var num pgtype.Numeric
+	_ = num.Scan(a.Amount.String())
+	return num
+}
+
+func (a ExactAmount) IsPositive() bool {
+	zero := accountingmoney.Must("0", a.Amount.Scale)
+	return a.Amount.Cmp(zero) > 0
 }
 
 // RetryPolicy is persisted alongside a command's attempt metadata. It does

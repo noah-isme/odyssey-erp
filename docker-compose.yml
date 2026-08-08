@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: odyssey
       POSTGRES_DB: odyssey
     ports:
-      - "5432:5432"
+      - "5434:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -19,7 +19,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6380:6379"
+      - "6382:6379"
 
   mailpit:
     image: axllent/mailpit:latest
@@ -32,7 +32,7 @@ services:
     environment:
       DISABLE_GOOGLE_CHROME: "0"
     ports:
-      - "3000:3000"
+      - "3001:3000"
 
   app:
     build: .

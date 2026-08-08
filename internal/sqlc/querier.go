@@ -28,6 +28,7 @@ type Querier interface {
 	Balances(ctx context.Context, arg BalancesParams) ([]BalancesRow, error)
 	CalculateConsolBalances(ctx context.Context, arg CalculateConsolBalancesParams) error
 	CancelGoodsReturnGRN(ctx context.Context, arg CancelGoodsReturnGRNParams) error
+	CheckDuplicateInvoice(ctx context.Context, arg CheckDuplicateInvoiceParams) (CheckDuplicateInvoiceRow, error)
 	CheckWarehouseExists(ctx context.Context, id int64) (bool, error)
 	CompareMonthlyNetRevenue(ctx context.Context, arg CompareMonthlyNetRevenueParams) ([]CompareMonthlyNetRevenueRow, error)
 	CompleteWorkOrderTask(ctx context.Context, arg CompleteWorkOrderTaskParams) error
@@ -47,6 +48,7 @@ type Querier interface {
 	CreateAPDebitNote(ctx context.Context, arg CreateAPDebitNoteParams) (int64, error)
 	CreateAPDebitNoteAllocation(ctx context.Context, arg CreateAPDebitNoteAllocationParams) (int64, error)
 	CreateAPDebitNoteLine(ctx context.Context, arg CreateAPDebitNoteLineParams) (int64, error)
+	CreateAPException(ctx context.Context, arg CreateAPExceptionParams) (int64, error)
 	CreateAPInvoice(ctx context.Context, arg CreateAPInvoiceParams) (int64, error)
 	CreateAPInvoiceLine(ctx context.Context, arg CreateAPInvoiceLineParams) (int64, error)
 	CreateAPPayment(ctx context.Context, arg CreateAPPaymentParams) (int64, error)
@@ -62,6 +64,10 @@ type Querier interface {
 	// =============================================================================
 	CreateAuditEvent(ctx context.Context, arg CreateAuditEventParams) (AuditEvent, error)
 	CreateBankAccount(ctx context.Context, arg CreateBankAccountParams) (BankAccount, error)
+	CreateBankConnection(ctx context.Context, arg CreateBankConnectionParams) (BankConnection, error)
+	CreateBankConnectionAccount(ctx context.Context, arg CreateBankConnectionAccountParams) (BankConnectionAccount, error)
+	CreateBankFeedEvent(ctx context.Context, arg CreateBankFeedEventParams) (BankFeedEvent, error)
+	CreateBankFeedSyncRun(ctx context.Context, arg CreateBankFeedSyncRunParams) (BankFeedSyncRun, error)
 	CreateBankStatement(ctx context.Context, arg CreateBankStatementParams) (BankStatement, error)
 	CreateBankStatementLine(ctx context.Context, arg CreateBankStatementLineParams) (BankStatementLine, error)
 	CreateBankTransaction(ctx context.Context, arg CreateBankTransactionParams) (BankTransaction, error)
@@ -81,6 +87,11 @@ type Querier interface {
 	// EVIDENCE RECORDS
 	// =============================================================================
 	CreateEvidenceRecord(ctx context.Context, arg CreateEvidenceRecordParams) (EvidenceRecord, error)
+	CreateForecastAdjustment(ctx context.Context, arg CreateForecastAdjustmentParams) (ForecastAdjustment, error)
+	CreateForecastDailyBucket(ctx context.Context, arg CreateForecastDailyBucketParams) (ForecastDailyBucket, error)
+	CreateForecastRun(ctx context.Context, arg CreateForecastRunParams) (ForecastRun, error)
+	CreateForecastScenario(ctx context.Context, arg CreateForecastScenarioParams) (ForecastScenario, error)
+	CreateForecastSourceLine(ctx context.Context, arg CreateForecastSourceLineParams) (ForecastSourceLine, error)
 	CreateFreightAuditLog(ctx context.Context, arg CreateFreightAuditLogParams) error
 	CreateFreightCharge(ctx context.Context, arg CreateFreightChargeParams) (FreightCharge, error)
 	// =============================================================================
@@ -93,6 +104,9 @@ type Querier interface {
 	CreateLabSample(ctx context.Context, arg CreateLabSampleParams) (int64, error)
 	CreateLabTest(ctx context.Context, arg CreateLabTestParams) (int64, error)
 	CreateLandedCost(ctx context.Context, arg CreateLandedCostParams) (LandedCost, error)
+	CreateMatchingPolicy(ctx context.Context, arg CreateMatchingPolicyParams) (int64, error)
+	CreateMatchingRun(ctx context.Context, arg CreateMatchingRunParams) (int64, error)
+	CreateMatchingRunLine(ctx context.Context, arg CreateMatchingRunLineParams) (int64, error)
 	// =============================================================================
 	// PURCHASE ORDERS (PO)
 	// =============================================================================
@@ -144,6 +158,7 @@ type Querier interface {
 	// SIGNATURE CHALLENGES
 	// =============================================================================
 	CreateSignatureChallenge(ctx context.Context, arg CreateSignatureChallengeParams) (SignatureChallenge, error)
+	CreateStatementImportRun(ctx context.Context, arg CreateStatementImportRunParams) (StatementImportRun, error)
 	// =============================================================================
 	// SUBCONTRACT RECEIPTS
 	// =============================================================================
@@ -158,6 +173,9 @@ type Querier interface {
 	// =============================================================================
 	CreateSupplierScorecard(ctx context.Context, arg CreateSupplierScorecardParams) (int64, error)
 	CreateTax(ctx context.Context, arg CreateTaxParams) (Tax, error)
+	CreateTreasuryPaymentBatch(ctx context.Context, arg CreateTreasuryPaymentBatchParams) (TreasuryPaymentBatch, error)
+	CreateTreasuryPaymentBatchItem(ctx context.Context, arg CreateTreasuryPaymentBatchItemParams) (TreasuryPaymentBatchItem, error)
+	CreateTreasurySupplierBankAccount(ctx context.Context, arg CreateTreasurySupplierBankAccountParams) (TreasurySupplierBankAccount, error)
 	CreateUnit(ctx context.Context, arg CreateUnitParams) (Unit, error)
 	CreateWarehouse(ctx context.Context, arg CreateWarehouseParams) (Warehouse, error)
 	DeactivateRateCard(ctx context.Context, arg DeactivateRateCardParams) error
@@ -202,6 +220,7 @@ type Querier interface {
 	GenerateDocNumber(ctx context.Context, arg GenerateDocNumberParams) (string, error)
 	GenerateGoodsReturnGRNNumber(ctx context.Context) (string, error)
 	GetAPDebitNote(ctx context.Context, id int64) (GetAPDebitNoteRow, error)
+	GetAPException(ctx context.Context, id int64) (ApException, error)
 	GetAPInvoice(ctx context.Context, id int64) (GetAPInvoiceRow, error)
 	GetAPInvoiceBalance(ctx context.Context, id int64) (GetAPInvoiceBalanceRow, error)
 	GetAPInvoiceBalanceWithDebitNotes(ctx context.Context, id int64) (GetAPInvoiceBalanceWithDebitNotesRow, error)
@@ -212,6 +231,7 @@ type Querier interface {
 	GetARInvoiceByNumber(ctx context.Context, number string) (GetARInvoiceByNumberRow, error)
 	GetATEIntegration(ctx context.Context, id int64) (QmsAteIntegration, error)
 	GetAccounts(ctx context.Context) ([]GetAccountsRow, error)
+	GetActiveMatchingPolicy(ctx context.Context, arg GetActiveMatchingPolicyParams) (ApMatchingPolicy, error)
 	GetActivePolicyForDecision(ctx context.Context, arg GetActivePolicyForDecisionParams) (PolicyVersion, error)
 	GetAdjustment(ctx context.Context, id int64) (GetAdjustmentRow, error)
 	GetAdjustmentLines(ctx context.Context, adjustmentID int64) ([]GetAdjustmentLinesRow, error)
@@ -222,6 +242,8 @@ type Querier interface {
 	GetAuditFinding(ctx context.Context, id int64) (AuditFinding, error)
 	GetBalanceForUpdate(ctx context.Context, arg GetBalanceForUpdateParams) (InventoryBalance, error)
 	GetBankAccount(ctx context.Context, id int64) (BankAccount, error)
+	GetBankConnection(ctx context.Context, id int64) (BankConnection, error)
+	GetBankConnectionAccount(ctx context.Context, arg GetBankConnectionAccountParams) (BankConnectionAccount, error)
 	GetBankStatement(ctx context.Context, id int64) (BankStatement, error)
 	GetBankStatementLine(ctx context.Context, id int64) (BankStatementLine, error)
 	GetBankTransaction(ctx context.Context, id pgtype.UUID) (BankTransaction, error)
@@ -264,6 +286,8 @@ type Querier interface {
 	GetDocumentSignatureChallenge(ctx context.Context, challengeID pgtype.UUID) (GetDocumentSignatureChallengeRow, error)
 	GetDocumentVersion(ctx context.Context, id int64) (GetDocumentVersionRow, error)
 	GetEvidenceRecordsForDecision(ctx context.Context, decisionID int64) ([]EvidenceRecord, error)
+	GetForecastRun(ctx context.Context, id int64) (ForecastRun, error)
+	GetForecastScenario(ctx context.Context, id int64) (ForecastScenario, error)
 	GetFreightCharge(ctx context.Context, arg GetFreightChargeParams) (FreightCharge, error)
 	GetGRN(ctx context.Context, id int64) (GetGRNRow, error)
 	// =============================================================================
@@ -279,10 +303,13 @@ type Querier interface {
 	GetLandedCost(ctx context.Context, arg GetLandedCostParams) (LandedCost, error)
 	GetLandedCostByShipment(ctx context.Context, arg GetLandedCostByShipmentParams) (LandedCost, error)
 	GetLatestDocumentVersion(ctx context.Context, documentID int64) (GetLatestDocumentVersionRow, error)
+	GetLatestForecastRun(ctx context.Context, arg GetLatestForecastRunParams) (ForecastRun, error)
+	GetLatestMatchingRun(ctx context.Context, apInvoiceID int64) (ApMatchingRun, error)
 	GetLatestSupplierScorecard(ctx context.Context, arg GetLatestSupplierScorecardParams) (SupplierScorecard, error)
 	GetLines(ctx context.Context, deliveryOrderID int64) ([]DeliveryOrderLine, error)
 	GetLinesWithDetails(ctx context.Context, deliveryOrderID int64) ([]GetLinesWithDetailsRow, error)
 	GetLocation(ctx context.Context, id int64) (Location, error)
+	GetMatchingRun(ctx context.Context, id int64) (ApMatchingRun, error)
 	GetMeterReading(ctx context.Context, id int64) (MeterReading, error)
 	GetNCR(ctx context.Context, id int64) (Ncr, error)
 	GetNCRDisposition(ctx context.Context, ncrID int64) (NcrDisposition, error)
@@ -290,6 +317,7 @@ type Querier interface {
 	GetOpenPeriodByDate(ctx context.Context, startDate pgtype.Date) (Period, error)
 	GetPMSchedule(ctx context.Context, id int64) (GetPMScheduleRow, error)
 	GetPO(ctx context.Context, id int64) (GetPORow, error)
+	GetPOLineProgress(ctx context.Context, poID int64) ([]PoLineProgress, error)
 	GetPOLines(ctx context.Context, poID int64) ([]GetPOLinesRow, error)
 	GetPOVariance(ctx context.Context, id int64) (PoContractVariance, error)
 	GetPR(ctx context.Context, id int64) (GetPRRow, error)
@@ -364,6 +392,9 @@ type Querier interface {
 	// =============================================================================
 	GetTax(ctx context.Context, id int64) (Tax, error)
 	GetTemplate(ctx context.Context, id int64) (GetTemplateRow, error)
+	GetTreasuryPaymentBatch(ctx context.Context, id int64) (TreasuryPaymentBatch, error)
+	GetTreasuryPaymentPolicy(ctx context.Context, companyID int64) (TreasuryPaymentPolicy, error)
+	GetTreasurySupplierBankAccount(ctx context.Context, id int64) (TreasurySupplierBankAccount, error)
 	// =============================================================================
 	// UNITS (id, code, name, created_at, updated_at)
 	// =============================================================================
@@ -561,7 +592,8 @@ type Querier interface {
 	ListAPDebitNotes(ctx context.Context) ([]ListAPDebitNotesRow, error)
 	ListAPDebitNotesByStatus(ctx context.Context, status ApDebitNoteStatus) ([]ListAPDebitNotesByStatusRow, error)
 	ListAPDebitNotesBySupplier(ctx context.Context, supplierID int64) ([]ListAPDebitNotesBySupplierRow, error)
-	ListAPInvoiceLines(ctx context.Context, apInvoiceID int64) ([]ApInvoiceLine, error)
+	ListAPExceptions(ctx context.Context, arg ListAPExceptionsParams) ([]ApException, error)
+	ListAPInvoiceLines(ctx context.Context, apInvoiceID int64) ([]ListAPInvoiceLinesRow, error)
 	ListAPInvoicePayments(ctx context.Context, apInvoiceID int64) ([]ListAPInvoicePaymentsRow, error)
 	ListAPInvoices(ctx context.Context) ([]ListAPInvoicesRow, error)
 	ListAPInvoicesByStatus(ctx context.Context, status string) ([]ListAPInvoicesByStatusRow, error)
@@ -583,6 +615,8 @@ type Querier interface {
 	ListAuditFindings(ctx context.Context, auditID int64) ([]AuditFinding, error)
 	ListAudits(ctx context.Context, arg ListAuditsParams) ([]Audit, error)
 	ListBankAccounts(ctx context.Context, companyID int64) ([]BankAccount, error)
+	ListBankConnectionAccounts(ctx context.Context, connectionID int64) ([]BankConnectionAccount, error)
+	ListBankConnections(ctx context.Context, companyID int64) ([]BankConnection, error)
 	ListBankStatementLines(ctx context.Context, statementID int64) ([]BankStatementLine, error)
 	ListBankStatements(ctx context.Context, arg ListBankStatementsParams) ([]BankStatement, error)
 	ListBankTransactions(ctx context.Context, bankAccountID int64) ([]BankTransaction, error)
@@ -615,6 +649,11 @@ type Querier interface {
 	ListDocuments(ctx context.Context, arg ListDocumentsParams) ([]ListDocumentsRow, error)
 	ListDuePMSchedules(ctx context.Context, companyID int64) ([]ListDuePMSchedulesRow, error)
 	ListExpiredChallenges(ctx context.Context, limit int32) ([]SignatureChallenge, error)
+	ListForecastAdjustments(ctx context.Context, scenarioID int64) ([]ForecastAdjustment, error)
+	ListForecastDailyBuckets(ctx context.Context, runID int64) ([]ForecastDailyBucket, error)
+	ListForecastDailyBucketsByRun(ctx context.Context, runID int64) ([]ForecastDailyBucket, error)
+	ListForecastScenarios(ctx context.Context, companyID int64) ([]ForecastScenario, error)
+	ListForecastSourceLines(ctx context.Context, arg ListForecastSourceLinesParams) ([]ForecastSourceLine, error)
 	ListFreightAuditLogs(ctx context.Context, arg ListFreightAuditLogsParams) ([]FreightAuditLog, error)
 	ListFreightCharges(ctx context.Context, arg ListFreightChargesParams) ([]FreightCharge, error)
 	ListGoodsReturnGRNLines(ctx context.Context, goodsReturnGrnID int64) ([]GoodsReturnGrnLine, error)
@@ -624,6 +663,7 @@ type Querier interface {
 	ListInvoicePayments(ctx context.Context, arInvoiceID int64) ([]ListInvoicePaymentsRow, error)
 	ListLandedCosts(ctx context.Context, arg ListLandedCostsParams) ([]LandedCost, error)
 	ListLocations(ctx context.Context, companyID int64) ([]Location, error)
+	ListMatchingRunLines(ctx context.Context, apMatchingRunID int64) ([]ApMatchingRunLine, error)
 	ListMeterReadings(ctx context.Context, arg ListMeterReadingsParams) ([]MeterReading, error)
 	ListNCRs(ctx context.Context, arg ListNCRsParams) ([]Ncr, error)
 	ListNCRsByCompany(ctx context.Context, companyID int64) ([]QualityNcr, error)
@@ -658,6 +698,8 @@ type Querier interface {
 	ListTaskTemplateSteps(ctx context.Context, taskTemplateID int64) ([]TaskTemplateStep, error)
 	ListTaskTemplates(ctx context.Context, companyID int64) ([]TaskTemplate, error)
 	ListTemplates(ctx context.Context, dollar_1 bool) ([]ListTemplatesRow, error)
+	ListTreasuryPaymentBatchItems(ctx context.Context, batchID int64) ([]TreasuryPaymentBatchItem, error)
+	ListTreasurySupplierBankAccounts(ctx context.Context, arg ListTreasurySupplierBankAccountsParams) ([]TreasurySupplierBankAccount, error)
 	ListUsers(ctx context.Context) ([]ListUsersRow, error)
 	ListVarianceSnapshots(ctx context.Context, arg ListVarianceSnapshotsParams) ([]ListVarianceSnapshotsRow, error)
 	ListWorkOrderSpareParts(ctx context.Context, workOrderID int64) ([]WorkOrderSparePart, error)
@@ -707,6 +749,7 @@ type Querier interface {
 	ReleaseLegalHold(ctx context.Context, arg ReleaseLegalHoldParams) error
 	ReleaseQMSHold(ctx context.Context, arg ReleaseQMSHoldParams) error
 	RemoveRoleFromUser(ctx context.Context, arg RemoveRoleFromUserParams) error
+	RemoveTreasuryPaymentBatchItem(ctx context.Context, id int64) error
 	ResolvePredictiveAlert(ctx context.Context, id int64) error
 	RolesCreateRole(ctx context.Context, arg RolesCreateRoleParams) (Role, error)
 	RolesListRoles(ctx context.Context, arg RolesListRolesParams) ([]Role, error)
@@ -719,6 +762,8 @@ type Querier interface {
 	SoftDeleteProduct(ctx context.Context, arg SoftDeleteProductParams) error
 	SumAccountBalance(ctx context.Context, arg SumAccountBalanceParams) (float64, error)
 	TerminateSupplierContract(ctx context.Context, id int64) error
+	UpdateAPExceptionStatus(ctx context.Context, arg UpdateAPExceptionStatusParams) error
+	UpdateAPInvoiceDuplicateStatus(ctx context.Context, arg UpdateAPInvoiceDuplicateStatusParams) error
 	UpdateAPStatus(ctx context.Context, arg UpdateAPStatusParams) error
 	UpdateARStatus(ctx context.Context, arg UpdateARStatusParams) error
 	UpdateAccountingPeriodStatus(ctx context.Context, arg UpdateAccountingPeriodStatusParams) error
@@ -727,6 +772,10 @@ type Querier interface {
 	UpdateAudit(ctx context.Context, arg UpdateAuditParams) error
 	UpdateAuditFinding(ctx context.Context, arg UpdateAuditFindingParams) error
 	UpdateBankAccount(ctx context.Context, arg UpdateBankAccountParams) error
+	UpdateBankConnectionAccountCursor(ctx context.Context, arg UpdateBankConnectionAccountCursorParams) error
+	UpdateBankConnectionStatus(ctx context.Context, arg UpdateBankConnectionStatusParams) error
+	UpdateBankFeedEventStatus(ctx context.Context, arg UpdateBankFeedEventStatusParams) error
+	UpdateBankFeedSyncRun(ctx context.Context, arg UpdateBankFeedSyncRunParams) error
 	UpdateBankStatementLineStatus(ctx context.Context, arg UpdateBankStatementLineStatusParams) error
 	UpdateBankStatementStatus(ctx context.Context, arg UpdateBankStatementStatusParams) error
 	UpdateBankTransactionStatus(ctx context.Context, arg UpdateBankTransactionStatusParams) error
@@ -744,6 +793,7 @@ type Querier interface {
 	UpdateDocument(ctx context.Context, arg UpdateDocumentParams) error
 	UpdateDocumentOCRJob(ctx context.Context, arg UpdateDocumentOCRJobParams) error
 	UpdateDocumentVersionStatus(ctx context.Context, arg UpdateDocumentVersionStatusParams) error
+	UpdateForecastRunStatus(ctx context.Context, arg UpdateForecastRunStatusParams) error
 	UpdateFreightCharge(ctx context.Context, arg UpdateFreightChargeParams) (FreightCharge, error)
 	UpdateFreightChargeStatus(ctx context.Context, arg UpdateFreightChargeStatusParams) error
 	UpdateGRNStatus(ctx context.Context, arg UpdateGRNStatusParams) error
@@ -781,6 +831,11 @@ type Querier interface {
 	UpdateSupplierContractStatus(ctx context.Context, arg UpdateSupplierContractStatusParams) error
 	UpdateSupplierQuality(ctx context.Context, arg UpdateSupplierQualityParams) error
 	UpdateTax(ctx context.Context, arg UpdateTaxParams) error
+	UpdateTreasuryPaymentBatchExport(ctx context.Context, arg UpdateTreasuryPaymentBatchExportParams) (TreasuryPaymentBatch, error)
+	UpdateTreasuryPaymentBatchRevision(ctx context.Context, arg UpdateTreasuryPaymentBatchRevisionParams) (TreasuryPaymentBatch, error)
+	UpdateTreasuryPaymentBatchSettlement(ctx context.Context, arg UpdateTreasuryPaymentBatchSettlementParams) (TreasuryPaymentBatch, error)
+	UpdateTreasuryPaymentBatchStatus(ctx context.Context, arg UpdateTreasuryPaymentBatchStatusParams) (TreasuryPaymentBatch, error)
+	UpdateTreasurySupplierBankAccountVerification(ctx context.Context, arg UpdateTreasurySupplierBankAccountVerificationParams) (TreasurySupplierBankAccount, error)
 	UpdateUnit(ctx context.Context, arg UpdateUnitParams) error
 	UpdateUserMFA(ctx context.Context, arg UpdateUserMFAParams) error
 	UpdateWarehouse(ctx context.Context, arg UpdateWarehouseParams) error

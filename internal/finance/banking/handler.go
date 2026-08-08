@@ -1,6 +1,8 @@
 package banking
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"io"
 	"log/slog"
 	"net/http"
@@ -70,12 +72,14 @@ func (h *Handler) handleImportStatement(w http.ResponseWriter, r *http.Request) 
 		h.redirectWithFlash(w, r, "/finance/banking/accounts/"+strconv.FormatInt(accountID, 10), "error", "File statement tidak dapat dibaca")
 		return
 	}
-	entries, err := parseStatement(header.Filename, content)
+	hash := sha256.Sum256(content)
+	contentHash := hex.EncodeToString(hash[:])
+	entries, err := parseStatement(header.Filename, content, account.Currency, account.ID)
 	if err != nil {
 		h.redirectWithFlash(w, r, "/finance/banking/accounts/"+strconv.FormatInt(accountID, 10), "error", err.Error())
 		return
 	}
-	result, err := h.service.ImportStatement(r.Context(), account, entries)
+	result, err := h.service.ImportStatement(r.Context(), account, entries, header.Filename, contentHash)
 	if err != nil {
 		h.logger.Error("import bank statement", slog.Any("error", err))
 		h.redirectWithFlash(w, r, "/finance/banking/accounts/"+strconv.FormatInt(accountID, 10), "error", "Statement tidak dapat diimpor")

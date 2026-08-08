@@ -134,6 +134,18 @@ func (s *Service) CreateAPInvoice(ctx context.Context, input CreateAPInvoiceInpu
 			input.Number = num
 		}
 
+		if input.SupplierDocumentNumber != nil && *input.SupplierDocumentNumber != "" {
+			isDuplicate, err := s.repo.CheckDuplicateInvoice(ctx, input.SupplierID, *input.SupplierDocumentNumber)
+			if err != nil {
+				return err
+			}
+			if isDuplicate {
+				// According to Q1, we can return an error or flag it. The db has a unique constraint anyway, 
+				// but let's prevent the DB constraint error and return a clear error.
+				return errors.New("duplicate supplier document number detected")
+			}
+		}
+
 		// Calculate totals from lines
 		subtotal, taxAmount := fx.MustDecimal("0"), fx.MustDecimal("0")
 		hundred := fx.MustDecimal("100")
@@ -291,7 +303,9 @@ func (s *Service) CreateAPInvoiceFromPO(ctx context.Context, input CreateAPInvoi
 		if desc == "" {
 			desc = fmt.Sprintf("Product %d", l.ProductID)
 		}
+		lineID := l.ID
 		invInput.Lines = append(invInput.Lines, CreateAPInvoiceLineInput{
+			POLineID:    &lineID,
 			ProductID:   l.ProductID,
 			Description: desc,
 			Quantity:    l.Qty,
@@ -316,6 +330,19 @@ func (s *Service) PostAPInvoice(ctx context.Context, input PostAPInvoiceInput) e
 	if inv.Status != APStatusDraft {
 		return ErrInvalidStatus
 	}
+
+	// Q3 Validation: Ensure invoice has passed matching
+	matchRun, err := s.repo.GetLatestMatchingRun(ctx, input.InvoiceID)
+	if err != nil {
+		return fmt.Errorf("failed to check matching status: %w", err)
+	}
+	if matchRun == nil {
+		return errors.New("cannot post invoice: matching has not been run")
+	}
+	if matchRun.Status != "MATCHED" && matchRun.Status != "WITHIN_TOLERANCE" {
+		return fmt.Errorf("cannot post invoice: matching status is %s", matchRun.Status)
+	}
+
 	valuation, err := s.resolveInvoiceValuation(ctx, inv)
 	if err != nil {
 		return err

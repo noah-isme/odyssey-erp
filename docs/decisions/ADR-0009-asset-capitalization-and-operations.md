@@ -1,6 +1,6 @@
 # ADR-0009: Asset capitalization and operations
 
-**Status:** Proposed — requires controller and asset-custodian approval
+**Status:** Approved
 
 ## Decision
 

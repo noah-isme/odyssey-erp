@@ -18,7 +18,7 @@ BRANCH_ID?=
 BRANCH_QUERY=$(if $(BRANCH_ID),&branch_id=$(BRANCH_ID),)
 
 export APP_ENV?=development
-export PG_DSN?=postgres://odyssey:odyssey@localhost:5432/odyssey?sslmode=disable
+export PG_DSN?=postgres://odyssey:odyssey@localhost:5434/odyssey?sslmode=disable
 
 .PHONY: dev air lint vet vet-consol test build docs-check migrate-up migrate-down sqlc-gen seed seed-phase3 seed-phase4 refresh-mv reports-demo pdf-sample export-demo fx-tools analytics-dashboard analytics-dashboard-pdf analytics-dashboard-csv prom-up grafana-load alert-test monitor-demo release-phase6
 

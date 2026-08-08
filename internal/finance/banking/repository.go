@@ -55,6 +55,18 @@ func (r *PGRepository) UpdateBankTransactionStatus(ctx context.Context, arg sqlc
 	return r.queries.UpdateBankTransactionStatus(ctx, arg)
 }
 
+func (r *PGRepository) CreateStatementImportRun(ctx context.Context, arg sqlc.CreateStatementImportRunParams) (sqlc.StatementImportRun, error) {
+	return r.queries.CreateStatementImportRun(ctx, arg)
+}
+
+func (r *PGRepository) CreateBankStatement(ctx context.Context, arg sqlc.CreateBankStatementParams) (sqlc.BankStatement, error) {
+	return r.queries.CreateBankStatement(ctx, arg)
+}
+
+func (r *PGRepository) CreateBankStatementLine(ctx context.Context, arg sqlc.CreateBankStatementLineParams) (sqlc.BankStatementLine, error) {
+	return r.queries.CreateBankStatementLine(ctx, arg)
+}
+
 func (r *PGRepository) FindOpenPeriod(ctx context.Context, companyID int64, date time.Time) (int64, error) {
 	var periodID int64
 	err := r.pool.QueryRow(ctx, `
@@ -67,13 +79,14 @@ func (r *PGRepository) FindOpenPeriod(ctx context.Context, companyID int64, date
 	return periodID, err
 }
 
-func (r *PGRepository) BankTransactionExists(ctx context.Context, bankAccountID int64, date time.Time, amount float64, reference string) (bool, error) {
+func (r *PGRepository) BankTransactionExists(ctx context.Context, bankAccountID int64, externalRef string, fingerprint string) (bool, error) {
 	var exists bool
 	err := r.pool.QueryRow(ctx, `
 		SELECT EXISTS(
 			SELECT 1 FROM bank_transactions
-			WHERE bank_account_id = $1 AND date = $2 AND amount = $3
-			  AND COALESCE(reference, '') = $4
-		)`, bankAccountID, date, amount, reference).Scan(&exists)
+			WHERE bank_account_id = $1 
+			  AND ((external_reference = $2 AND external_reference IS NOT NULL AND external_reference != '')
+			       OR (fingerprint = $3 AND fingerprint IS NOT NULL AND fingerprint != ''))
+		)`, bankAccountID, externalRef, fingerprint).Scan(&exists)
 	return exists, err
 }

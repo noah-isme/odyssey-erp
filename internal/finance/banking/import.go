@@ -2,31 +2,36 @@ package banking
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/csv"
+	"encoding/hex"
 	"fmt"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
+
+	"github.com/odyssey-erp/odyssey-erp/internal/accounting/money"
+	"github.com/odyssey-erp/odyssey-erp/internal/finance/automation"
 )
 
-// StatementEntry is a normalized statement row ready for persistence.
-type StatementEntry struct {
+// NormalizedStatementEntry is a normalized statement row ready for persistence.
+type NormalizedStatementEntry struct {
 	Date        time.Time
-	Amount      float64
+	Amount      automation.ExactAmount
 	Description string
 	Reference   string
+	Fingerprint string
 }
 
-func parseStatement(filename string, content []byte) ([]StatementEntry, error) {
+func parseStatement(filename string, content []byte, currency string, accountID int64) ([]NormalizedStatementEntry, error) {
 	ext := strings.ToLower(filename)
 	if strings.HasSuffix(ext, ".ofx") || strings.HasSuffix(ext, ".qfx") {
-		return parseOFX(content)
+		return parseOFX(content, currency, accountID)
 	}
-	return parseCSV(content)
+	return parseCSV(content, currency, accountID)
 }
 
-func parseCSV(content []byte) ([]StatementEntry, error) {
+func parseCSV(content []byte, currency string, accountID int64) ([]NormalizedStatementEntry, error) {
 	reader := csv.NewReader(bytes.NewReader(content))
 	records, err := reader.ReadAll()
 	if err != nil || len(records) < 2 {
@@ -46,7 +51,7 @@ func parseCSV(content []byte) ([]StatementEntry, error) {
 	}
 	descriptionColumn, _ := findColumn(columns, "description", "deskripsi", "memo", "narration")
 	referenceColumn, _ := findColumn(columns, "reference", "referensi", "fitid", "id")
-	entries := make([]StatementEntry, 0, len(records)-1)
+	entries := make([]NormalizedStatementEntry, 0, len(records)-1)
 	for line, record := range records[1:] {
 		if len(record) <= maxIndex(dateColumn, amountColumn, descriptionColumn, referenceColumn) {
 			return nil, fmt.Errorf("baris %d tidak lengkap", line+2)
@@ -55,11 +60,11 @@ func parseCSV(content []byte) ([]StatementEntry, error) {
 		if err != nil {
 			return nil, fmt.Errorf("baris %d: %w", line+2, err)
 		}
-		amount, err := parseStatementAmount(record[amountColumn])
-		if err != nil || amount == 0 {
+		amount, err := parseStatementAmount(record[amountColumn], currency)
+		if err != nil || amount.Amount.Amount == "0" {
 			return nil, fmt.Errorf("baris %d: jumlah tidak valid", line+2)
 		}
-		entry := StatementEntry{Date: date, Amount: amount}
+		entry := NormalizedStatementEntry{Date: date, Amount: amount}
 		if descriptionColumn >= 0 {
 			entry.Description = strings.TrimSpace(record[descriptionColumn])
 		}
@@ -69,6 +74,9 @@ func parseCSV(content []byte) ([]StatementEntry, error) {
 		if entry.Description == "" {
 			entry.Description = "Imported bank statement"
 		}
+		if entry.Reference == "" {
+			entry.Fingerprint = generateFingerprint(accountID, entry.Date, entry.Amount.Amount.Amount, entry.Reference)
+		}
 		entries = append(entries, entry)
 	}
 	return entries, nil
@@ -76,12 +84,12 @@ func parseCSV(content []byte) ([]StatementEntry, error) {
 
 var ofxField = regexp.MustCompile(`(?is)<([A-Z0-9]+)>([^<\r\n]+)`)
 
-func parseOFX(content []byte) ([]StatementEntry, error) {
+func parseOFX(content []byte, currency string, accountID int64) ([]NormalizedStatementEntry, error) {
 	parts := strings.Split(string(content), "<STMTTRN>")
 	if len(parts) < 2 {
 		return nil, fmt.Errorf("file OFX tidak memiliki transaksi")
 	}
-	entries := make([]StatementEntry, 0, len(parts)-1)
+	entries := make([]NormalizedStatementEntry, 0, len(parts)-1)
 	for _, part := range parts[1:] {
 		body := []byte(part)
 		if end := bytes.Index(body, []byte("</STMTTRN>")); end >= 0 {
@@ -97,8 +105,8 @@ func parseOFX(content []byte) ([]StatementEntry, error) {
 		if err != nil {
 			return nil, fmt.Errorf("tanggal OFX tidak valid: %w", err)
 		}
-		amount, err := parseStatementAmount(fields["TRNAMT"])
-		if err != nil || amount == 0 {
+		amount, err := parseStatementAmount(fields["TRNAMT"], currency)
+		if err != nil || amount.Amount.Amount == "0" {
 			return nil, fmt.Errorf("jumlah OFX tidak valid")
 		}
 		description := fields["NAME"]
@@ -108,7 +116,11 @@ func parseOFX(content []byte) ([]StatementEntry, error) {
 		if description == "" {
 			description = "Imported bank statement"
 		}
-		entries = append(entries, StatementEntry{Date: date, Amount: amount, Description: description, Reference: fields["FITID"]})
+		entry := NormalizedStatementEntry{Date: date, Amount: amount, Description: description, Reference: fields["FITID"]}
+		if entry.Reference == "" {
+			entry.Fingerprint = generateFingerprint(accountID, entry.Date, entry.Amount.Amount.Amount, entry.Reference)
+		}
+		entries = append(entries, entry)
 	}
 	return entries, nil
 }
@@ -147,7 +159,7 @@ func parseStatementDate(value string) (time.Time, error) {
 	return time.Time{}, fmt.Errorf("tanggal %q tidak dikenali", value)
 }
 
-func parseStatementAmount(value string) (float64, error) {
+func parseStatementAmount(value string, currency string) (automation.ExactAmount, error) {
 	value = strings.TrimSpace(strings.ReplaceAll(value, " ", ""))
 	if strings.Count(value, ",") == 1 && strings.Count(value, ".") >= 1 {
 		value = strings.ReplaceAll(value, ".", "")
@@ -155,5 +167,15 @@ func parseStatementAmount(value string) (float64, error) {
 	} else {
 		value = strings.ReplaceAll(value, ",", "")
 	}
-	return strconv.ParseFloat(value, 64)
+	m, err := money.Parse(value, 2)
+	if err != nil {
+		return automation.ExactAmount{}, err
+	}
+	return automation.ExactAmount{Amount: m, Currency: currency}, nil
+}
+
+func generateFingerprint(accountID int64, date time.Time, amount string, reference string) string {
+	data := fmt.Sprintf("%d|%s|%s|%s", accountID, date.Format("2006-01-02"), amount, reference)
+	hash := sha256.Sum256([]byte(data))
+	return hex.EncodeToString(hash[:])
 }

@@ -2,6 +2,7 @@ package ap
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -33,6 +34,19 @@ type Repository interface {
 	ListAPDebitNotes(ctx context.Context, req ListAPDebitNotesRequest) ([]APDebitNote, error)
 	PostAPDebitNote(ctx context.Context, id, invoiceID, postedBy int64, amount float64) error
 	VoidAPDebitNote(ctx context.Context, id, voidedBy int64, reason string) error
+
+	// Q1 Additions
+	CheckDuplicateInvoice(ctx context.Context, supplierID int64, docNumber string) (bool, error)
+	UpdateAPInvoiceDuplicateStatus(ctx context.Context, id int64, status string) error
+
+	// Q2 Additions
+	GetActiveMatchingPolicy(ctx context.Context, companyID, supplierID, categoryID *int64) (*MatchingPolicy, error)
+	GetPOLineProgressByPO(ctx context.Context, poID int64) (map[int64]*sqlc.PoLineProgress, error)
+
+	// Q3 Additions
+	GetAPException(ctx context.Context, id int64) (APException, error)
+	ListAPExceptions(ctx context.Context, status string, ownerID, invoiceID int64, limit, offset int) ([]APException, error)
+	GetLatestMatchingRun(ctx context.Context, invoiceID int64) (*MatchingRun, error)
 }
 
 // TxRepository defines operations within a transaction.
@@ -49,6 +63,14 @@ type TxRepository interface {
 	// Helper for generating numbers
 	GenerateAPInvoiceNumber(ctx context.Context) (string, error)
 	GenerateAPPaymentNumber(ctx context.Context) (string, error)
+
+	// Q2 Additions
+	CreateMatchingRun(ctx context.Context, run MatchingRun) (int64, error)
+	CreateMatchingRunLine(ctx context.Context, line MatchingRunLine) error
+
+	// Q3 Additions
+	CreateAPException(ctx context.Context, exc APException) (int64, error)
+	UpdateAPExceptionStatus(ctx context.Context, id int64, status string, resolvedBy *int64) error
 }
 
 // Ensure implementation
@@ -102,33 +124,192 @@ func (r *pgRepository) PostAPInvoiceWithValuation(ctx context.Context, input Pos
 	return tx.Commit(ctx)
 }
 
+func (r *pgRepository) CheckDuplicateInvoice(ctx context.Context, supplierID int64, docNumber string) (bool, error) {
+	_, err := r.q.CheckDuplicateInvoice(ctx, sqlc.CheckDuplicateInvoiceParams{
+		SupplierID:             supplierID,
+		SupplierDocumentNumber: toNullString(&docNumber),
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
+func (r *pgRepository) UpdateAPInvoiceDuplicateStatus(ctx context.Context, id int64, status string) error {
+	return r.q.UpdateAPInvoiceDuplicateStatus(ctx, sqlc.UpdateAPInvoiceDuplicateStatusParams{
+		ID:              id,
+		DuplicateStatus: status,
+	})
+}
+
+func (r *pgRepository) GetActiveMatchingPolicy(ctx context.Context, companyID, supplierID, categoryID *int64) (*MatchingPolicy, error) {
+	pol, err := r.q.GetActiveMatchingPolicy(ctx, sqlc.GetActiveMatchingPolicyParams{
+		CompanyID:  toNullInt64(companyID),
+		SupplierID: toNullInt64(supplierID),
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrMatchingPolicyNotFound
+		}
+		return nil, err
+	}
+	return &MatchingPolicy{
+		ID:                  pol.ID,
+		Name:                pol.Name,
+		CompanyID:           toInt64Ptr(pol.CompanyID),
+		SupplierID:          toInt64Ptr(pol.SupplierID),
+		CategoryID:          toInt64Ptr(pol.CategoryID),
+		QtyTolerancePct:     numericToFloat(pol.QtyTolerancePct),
+		PriceTolerancePct:   numericToFloat(pol.PriceTolerancePct),
+		TaxTolerancePct:     numericToFloat(pol.TaxTolerancePct),
+		FreightTolerancePct: numericToFloat(pol.FreightTolerancePct),
+		TotalToleranceAmt:   numericToFloat(pol.TotalToleranceAmt),
+	}, nil
+}
+
+func (r *pgRepository) GetPOLineProgressByPO(ctx context.Context, poID int64) (map[int64]*sqlc.PoLineProgress, error) {
+	rows, err := r.q.GetPOLineProgress(ctx, poID)
+	if err != nil {
+		return nil, err
+	}
+	res := make(map[int64]*sqlc.PoLineProgress)
+	for i := range rows {
+		row := rows[i]
+		res[row.PoLineID] = &row
+	}
+	return res, nil
+}
+
+func (r *pgRepository) GetAPException(ctx context.Context, id int64) (APException, error) {
+	row, err := r.q.GetAPException(ctx, id)
+	if err != nil {
+		return APException{}, err
+	}
+	var sla *time.Time
+	if row.SlaDueAt.Valid {
+		sla = &row.SlaDueAt.Time
+	}
+	var resolvedAt *time.Time
+	if row.ResolvedAt.Valid {
+		resolvedAt = &row.ResolvedAt.Time
+	}
+	return APException{
+		ID:              row.ID,
+		APInvoiceID:     row.ApInvoiceID,
+		APMatchingRunID: toInt64Ptr(row.ApMatchingRunID),
+		ExceptionType:   row.ExceptionType,
+		Severity:        row.Severity,
+		Status:          row.Status,
+		OwnerID:         toInt64Ptr(row.OwnerID),
+		SLADueAt:        sla,
+		Reason:          row.Reason,
+		Evidence:        toStringPtr(row.Evidence),
+		Comments:        row.Comments,
+		CreatedAt:       row.CreatedAt.Time,
+		UpdatedAt:       row.UpdatedAt.Time,
+		ResolvedAt:      resolvedAt,
+		ResolvedBy:      toInt64Ptr(row.ResolvedBy),
+	}, nil
+}
+
+func (r *pgRepository) ListAPExceptions(ctx context.Context, status string, ownerID, invoiceID int64, limit, offset int) ([]APException, error) {
+	rows, err := r.q.ListAPExceptions(ctx, sqlc.ListAPExceptionsParams{
+		Column1: status,
+		Column2: ownerID,
+		Column3: invoiceID,
+		Limit:   int32(limit),
+		Offset:  int32(offset),
+	})
+	if err != nil {
+		return nil, err
+	}
+	var res []APException
+	for _, row := range rows {
+		var sla *time.Time
+		if row.SlaDueAt.Valid {
+			sla = &row.SlaDueAt.Time
+		}
+		var resolvedAt *time.Time
+		if row.ResolvedAt.Valid {
+			resolvedAt = &row.ResolvedAt.Time
+		}
+		res = append(res, APException{
+			ID:              row.ID,
+			APInvoiceID:     row.ApInvoiceID,
+			APMatchingRunID: toInt64Ptr(row.ApMatchingRunID),
+			ExceptionType:   row.ExceptionType,
+			Severity:        row.Severity,
+			Status:          row.Status,
+			OwnerID:         toInt64Ptr(row.OwnerID),
+			SLADueAt:        sla,
+			Reason:          row.Reason,
+			Evidence:        toStringPtr(row.Evidence),
+			Comments:        row.Comments,
+			CreatedAt:       row.CreatedAt.Time,
+			UpdatedAt:       row.UpdatedAt.Time,
+			ResolvedAt:      resolvedAt,
+			ResolvedBy:      toInt64Ptr(row.ResolvedBy),
+		})
+	}
+	return res, nil
+}
+
+func (r *pgRepository) GetLatestMatchingRun(ctx context.Context, invoiceID int64) (*MatchingRun, error) {
+	row, err := r.q.GetLatestMatchingRun(ctx, invoiceID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	poTotal := numericToFloat(row.PoTotal)
+	grnTotal := numericToFloat(row.GrnTotal)
+	return &MatchingRun{
+		ID:                row.ID,
+		APInvoiceID:       row.ApInvoiceID,
+		PolicyID:          toInt64Ptr(row.PolicyID),
+		Status:            row.Status,
+		InvoiceTotal:      numericToFloat(row.InvoiceTotal),
+		POTotal:           &poTotal,
+		GRNTotal:          &grnTotal,
+		Reasons:           row.Reasons,
+		ActionRecommended: row.ActionRecommended,
+	}, nil
+}
+
 func (r *pgRepository) GetAPInvoice(ctx context.Context, id int64) (APInvoice, error) {
-	row, err := r.q.GetAPInvoice(ctx, id)
+	dbInv, err := r.q.GetAPInvoice(ctx, id)
 	if err != nil {
 		return APInvoice{}, err
 	}
 
 	result := APInvoice{
-		ID:           row.ID,
-		Number:       row.Number,
-		SupplierID:   row.SupplierID,
-		SupplierName: row.SupplierName,
-		GRNID:        toInt64Ptr(row.GrnID),
-		POID:         toInt64Ptr(row.PoID),
-		Currency:     row.Currency,
-		Subtotal:     numericToFloat(row.Subtotal),
-		TaxAmount:    numericToFloat(row.TaxAmount),
-		Total:        numericToFloat(row.Total),
-		Status:       APInvoiceStatus(row.Status),
-		DueAt:        dateToTime(row.DueAt),
-		PostedAt:     timestampToTime(row.PostedAt),
-		PostedBy:     toInt64Ptr(row.PostedBy),
-		VoidedAt:     timestampToTime(row.VoidedAt),
-		VoidedBy:     toInt64Ptr(row.VoidedBy),
-		VoidReason:   toStrPtr(row.VoidReason),
-		CreatedBy:    row.CreatedBy.Int64,
-		CreatedAt:    safeTime(row.CreatedAt),
-		UpdatedAt:    safeTime(row.UpdatedAt),
+		ID:                     dbInv.ID,
+		Number:                 dbInv.Number,
+		SupplierID:             dbInv.SupplierID,
+		SupplierName:           dbInv.SupplierName,
+		GRNID:                  toInt64Ptr(dbInv.GrnID),
+		POID:                   toInt64Ptr(dbInv.PoID),
+		Currency:               dbInv.Currency,
+		Subtotal:               numericToFloat(dbInv.Subtotal),
+		TaxAmount:              numericToFloat(dbInv.TaxAmount),
+		Total:                  numericToFloat(dbInv.Total),
+		Status:                 APInvoiceStatus(dbInv.Status),
+		DuplicateStatus:        dbInv.DuplicateStatus,
+		AttachmentHash:         toStrPtr(dbInv.AttachmentHash),
+		SupplierDocumentNumber: toStrPtr(dbInv.SupplierDocumentNumber),
+		DueAt:                  dbInv.DueAt.Time,
+		PostedAt:               timestampToTime(dbInv.PostedAt),
+		PostedBy:               toInt64Ptr(dbInv.PostedBy),
+		VoidedAt:               timestampToTime(dbInv.VoidedAt),
+		VoidedBy:               toInt64Ptr(dbInv.VoidedBy),
+		VoidReason:             toStrPtr(dbInv.VoidReason),
+		CreatedBy:              dbInv.CreatedBy.Int64,
+		CreatedAt:              safeTime(dbInv.CreatedAt),
+		UpdatedAt:              safeTime(dbInv.UpdatedAt),
 	}
 	if err := r.loadInvoiceValuation(ctx, id, &result); err != nil {
 		return APInvoice{}, err
@@ -216,24 +397,24 @@ func (r *pgRepository) GetAPInvoiceWithDetails(ctx context.Context, id int64) (A
 		return APInvoiceWithDetails{}, err
 	}
 
-	lines := make([]APInvoiceLine, len(linesRows))
-	for i, l := range linesRows {
+	var lines []APInvoiceLine
+	for _, line := range linesRows {
 		// Mapping sqlc.ApInvoiceLine to ap.APInvoiceLine
-		lines[i] = APInvoiceLine{
-			ID:          l.ID,
-			APInvoiceID: l.ApInvoiceID,
-			GRNLineID:   toInt64Ptr(l.GrnLineID),
-			ProductID:   l.ProductID,
-			Description: l.Description,
-			Quantity:    numericToFloat(l.Quantity),
-			UnitPrice:   numericToFloat(l.UnitPrice),
-			DiscountPct: numericToFloat(l.DiscountPct),
-			TaxPct:      numericToFloat(l.TaxPct),
-			Subtotal:    numericToFloat(l.Subtotal),
-			TaxAmount:   numericToFloat(l.TaxAmount),
-			Total:       numericToFloat(l.Total),
-			CreatedAt:   safeTime(l.CreatedAt),
-		}
+		lines = append(lines, APInvoiceLine{
+			ID:          line.ID,
+			APInvoiceID: line.ApInvoiceID,
+			GRNLineID:   toInt64Ptr(line.GrnLineID),
+			POLineID:    toInt64Ptr(line.PoLineID),
+			ProductID:   line.ProductID,
+			Description: line.Description,
+			Quantity:    numericToFloat(line.Quantity),
+			UnitPrice:   numericToFloat(line.UnitPrice),
+			DiscountPct: numericToFloat(line.DiscountPct),
+			TaxPct:      numericToFloat(line.TaxPct),
+			Subtotal:    numericToFloat(line.Subtotal),
+			TaxAmount:   numericToFloat(line.TaxAmount),
+			Total:       numericToFloat(line.Total),
+		})
 	}
 
 	// 3. Get Payments
@@ -500,20 +681,21 @@ func (tx *pgTxRepository) UpdateAPAllocationValuation(ctx context.Context, payme
 	_, err := tx.tx.Exec(ctx, `UPDATE ap_payment_allocations SET original_currency_amount=$3, base_amount=$4, currency=$5, base_currency=$6, fx_rate=$7, fx_rate_date=$8, fx_rate_source=$9, fx_rate_locked_at=$10 WHERE ap_payment_id=$1 AND ap_invoice_id=$2`, paymentID, invoiceID, v.OriginalAmount.String(), v.BaseAmount.String(), v.Currency, v.BaseCurrency, v.Rate.String(), v.RateDate, v.Source, v.LockedAt)
 	return err
 }
-
 func (tx *pgTxRepository) CreateAPInvoice(ctx context.Context, input CreateAPInvoiceInput) (int64, error) {
 	return tx.q.CreateAPInvoice(ctx, sqlc.CreateAPInvoiceParams{
-		Number:     input.Number,
-		SupplierID: input.SupplierID,
-		GrnID:      toNullInt64(input.GRNID),
-		PoID:       toNullInt64(input.POID),
-		Currency:   input.Currency,
-		Subtotal:   floatToNumeric(input.Subtotal),
-		TaxAmount:  floatToNumeric(input.TaxAmount),
-		Total:      floatToNumeric(input.Total),
-		Status:     string(APStatusDraft),
-		DueAt:      timeToDate(input.DueDate),
-		CreatedBy:  toNullInt64(&input.CreatedBy),
+		Number:                 input.Number,
+		SupplierID:             input.SupplierID,
+		GrnID:                  toNullInt64(input.GRNID),
+		PoID:                   toNullInt64(input.POID),
+		Currency:               input.Currency,
+		SupplierDocumentNumber: toNullString(input.SupplierDocumentNumber),
+		AttachmentHash:         toNullString(input.AttachmentHash),
+		Subtotal:               floatToNumeric(input.Subtotal),
+		TaxAmount:              floatToNumeric(input.TaxAmount),
+		Total:                  floatToNumeric(input.Total),
+		Status:                 string(APStatusDraft),
+		DueAt:                  timeToDate(input.DueDate),
+		CreatedBy:              toNullInt64(&input.CreatedBy),
 	})
 }
 
@@ -541,6 +723,7 @@ func (tx *pgTxRepository) CreateAPInvoiceLine(ctx context.Context, input CreateA
 	_, err = tx.q.CreateAPInvoiceLine(ctx, sqlc.CreateAPInvoiceLineParams{
 		ApInvoiceID: invoiceID,
 		GrnLineID:   toNullInt64(input.GRNLineID),
+		PoLineID:    toNullInt64(input.POLineID),
 		ProductID:   input.ProductID,
 		Description: input.Description,
 		Quantity:    floatToNumeric(input.Quantity),
@@ -552,6 +735,73 @@ func (tx *pgTxRepository) CreateAPInvoiceLine(ctx context.Context, input CreateA
 		Total:       decimalToNumeric(lineTotal),
 	})
 	return err
+}
+
+func (tx *pgTxRepository) CreateMatchingRun(ctx context.Context, run MatchingRun) (int64, error) {
+	return tx.q.CreateMatchingRun(ctx, sqlc.CreateMatchingRunParams{
+		ApInvoiceID:       run.APInvoiceID,
+		PolicyID:          toNullInt64(run.PolicyID),
+		Status:            run.Status,
+		InvoiceTotal:      floatToNumeric(run.InvoiceTotal),
+		PoTotal:           floatToNumeric(*run.POTotal),
+		GrnTotal:          floatToNumeric(*run.GRNTotal),
+		Reasons:           run.Reasons,
+		ActionRecommended: run.ActionRecommended,
+	})
+}
+
+func (tx *pgTxRepository) CreateMatchingRunLine(ctx context.Context, line MatchingRunLine) error {
+	var poQty, poPrice, grnQty float64
+	if line.POQty != nil {
+		poQty = *line.POQty
+	}
+	if line.POPrice != nil {
+		poPrice = *line.POPrice
+	}
+	if line.GRNQty != nil {
+		grnQty = *line.GRNQty
+	}
+	_, err := tx.q.CreateMatchingRunLine(ctx, sqlc.CreateMatchingRunLineParams{
+		ApMatchingRunID: line.MatchingRunID,
+		ApInvoiceLineID: line.APInvoiceLineID,
+		PoLineID:        toNullInt64(line.POLineID),
+		GrnLineID:       toNullInt64(line.GRNLineID),
+		InvoiceQty:      floatToNumeric(line.InvoiceQty),
+		InvoicePrice:    floatToNumeric(line.InvoicePrice),
+		PoQty:           floatToNumeric(poQty),
+		PoPrice:         floatToNumeric(poPrice),
+		GrnQty:          floatToNumeric(grnQty),
+		Status:          line.Status,
+		Reasons:         line.Reasons,
+	})
+	return err
+}
+
+func (tx *pgTxRepository) CreateAPException(ctx context.Context, exc APException) (int64, error) {
+	var slaDue pgtype.Timestamptz
+	if exc.SLADueAt != nil {
+		slaDue = pgtype.Timestamptz{Time: *exc.SLADueAt, Valid: true}
+	}
+	return tx.q.CreateAPException(ctx, sqlc.CreateAPExceptionParams{
+		ApInvoiceID:     exc.APInvoiceID,
+		ApMatchingRunID: toNullInt64(exc.APMatchingRunID),
+		ExceptionType:   exc.ExceptionType,
+		Severity:        exc.Severity,
+		Status:          exc.Status,
+		OwnerID:         toNullInt64(exc.OwnerID),
+		SlaDueAt:        slaDue,
+		Reason:          exc.Reason,
+		Evidence:        toNullString(exc.Evidence),
+		Comments:        exc.Comments,
+	})
+}
+
+func (tx *pgTxRepository) UpdateAPExceptionStatus(ctx context.Context, id int64, status string, resolvedBy *int64) error {
+	return tx.q.UpdateAPExceptionStatus(ctx, sqlc.UpdateAPExceptionStatusParams{
+		ID:         id,
+		Status:     status,
+		ResolvedBy: toNullInt64(resolvedBy),
+	})
 }
 
 func (tx *pgTxRepository) UpdateAPStatus(ctx context.Context, id int64, status APInvoiceStatus) error {
@@ -703,4 +953,17 @@ func toStrPtr(t pgtype.Text) *string {
 	}
 	s := t.String
 	return &s
+}
+func toNullString(s *string) pgtype.Text {
+	if s == nil {
+		return pgtype.Text{Valid: false}
+	}
+	return pgtype.Text{String: *s, Valid: true}
+}
+
+func toStringPtr(t pgtype.Text) *string {
+	if !t.Valid {
+		return nil
+	}
+	return &t.String
 }

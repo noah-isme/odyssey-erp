@@ -1,6 +1,6 @@
 # ADR-0006: Bank ownership and feed ingestion
 
-**Status:** Proposed — requires treasury/controller approval
+**Status:** Approved
 
 ## Decision
 

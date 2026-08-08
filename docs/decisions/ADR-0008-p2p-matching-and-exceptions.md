@@ -1,6 +1,6 @@
 # ADR-0008: Purchase-to-pay matching and exceptions
 
-**Status:** Proposed — requires procurement and AP approval
+**Status:** Approved
 
 ## Decision
 

@@ -14,12 +14,16 @@ import (
 	"github.com/hibiken/asynq"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/journals"
+	"github.com/odyssey-erp/odyssey-erp/internal/ap"
 	"github.com/odyssey-erp/odyssey-erp/internal/analytics"
 	apihttp "github.com/odyssey-erp/odyssey-erp/internal/api"
 	"github.com/odyssey-erp/odyssey-erp/internal/app"
 	"github.com/odyssey-erp/odyssey-erp/internal/boardpack"
 	"github.com/odyssey-erp/odyssey-erp/internal/cmms"
 	"github.com/odyssey-erp/odyssey-erp/internal/consol"
+	"github.com/odyssey-erp/odyssey-erp/internal/finance/bankfeeds"
+	"github.com/odyssey-erp/odyssey-erp/internal/finance/banking"
+	"github.com/odyssey-erp/odyssey-erp/internal/finance/forecasting"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/mockpay"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/oidc"
@@ -246,6 +250,28 @@ func main() {
 	cmms.RegisterOutboxHandlers(outboxDispatcher, cmmsService, logger)
 	qms.RegisterOutboxHandlers(outboxDispatcher, qmsService, logger)
 
+	bankfeedsRepo := bankfeeds.NewPGRepository(pool)
+	bankingRepo := banking.NewRepository(pool)
+	// We don't have a poster in worker, but ImportStatement doesn't post to GL directly.
+	bankingService := banking.NewService(bankingRepo, logger, nil)
+	bankfeedsService := bankfeeds.NewService(bankfeedsRepo, bankingService, nil)
+	bankFeedsProcessor := jobs.NewBankFeedsProcessor(bankfeedsService, logger)
+
+	forecastRepo := forecasting.NewPGRepository(pool)
+	forecastReaders := []forecasting.SourceReader{
+		forecasting.NewMockReader("mock_ar", forecasting.SourceTypeOpenAR, false),
+		forecasting.NewMockReader("mock_ap", forecasting.SourceTypePostedAP, true),
+		forecasting.NewMockReader("mock_payroll", forecasting.SourceTypeApprovedPayroll, true),
+	}
+	forecastService := forecasting.NewService(forecastRepo, forecastReaders, logger)
+	forecastProcessor := jobs.NewCashForecastProcessor(forecastService, logger)
+
+	apRepo := ap.NewRepository(pool)
+	apService := ap.NewService(apRepo, nil) // Dependencies omitted for simplicity in worker
+	matchingService := ap.NewMatchingService(apRepo)
+	exceptionService := ap.NewExceptionService(apRepo)
+	apOrchestrator := ap.NewOrchestrator(matchingService, exceptionService, apService)
+
 	worker, err := jobs.NewWorker(jobs.WorkerConfig{
 		RedisOpts: redisOpts,
 		Logger:    logger,
@@ -265,12 +291,16 @@ func main() {
 			{Type: jobs.TaskCRMReminderDispatch, Handler: jobs.HandleCRMReminderDispatch(crmService)},
 			{Type: jobs.TaskWebhookDeliveryDispatch, Handler: jobs.HandleWebhookDeliveryDispatch(webhookDispatcher{handler: apiHandler})},
 			{Type: jobs.TaskOutboxSweep, Handler: jobs.HandleOutboxSweep(outboxDispatcher)},
+			{Type: jobs.TypeBankFeedsSync, Handler: bankFeedsProcessor.ProcessSyncTask},
+			{Type: jobs.TypeBankFeedsEvent, Handler: bankFeedsProcessor.ProcessEventTask},
+			{Type: jobs.TypeCashForecastRefresh, Handler: forecastProcessor.ProcessRefreshTask},
 			{Type: jobs.TypeCMMSPMGeneratorScan, Handler: jobs.HandleCMMSPMGeneratorScanTask(logger, func(ctx context.Context) error {
 				_, err := cmmsService.GenerateAllPMWorkOrders(ctx)
 				return err
 			})},
 			{Type: jobs.TaskDocumentDisposition, Handler: jobs.HandleDocumentDisposition(documentsService)},
 			{Type: jobs.TaskConnectorOutboxSweep, Handler: jobs.HandleConnectorOutboxSweep(connectorsOutboxWorker)},
+			{Type: jobs.TaskProcessAPInvoice, Handler: jobs.HandleProcessAPInvoice(apOrchestrator.ProcessInvoice)},
 		},
 		FXFetcher:   fxJobFetcher{service: fxDailyService},
 		FXCompanies: fxRepo,

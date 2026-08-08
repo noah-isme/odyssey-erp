@@ -3,6 +3,7 @@ package ap
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 	"testing"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/procurement"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 type memoryAPRepo struct {
@@ -94,6 +96,47 @@ func (r *memoryAPRepo) GetAPInvoiceWithDetails(ctx context.Context, id int64) (A
 		PaidAmount: paid,
 		Balance:    inv.Total - paid,
 	}, nil
+}
+
+func (m *memoryAPRepo) CheckDuplicateInvoice(ctx context.Context, supplierID int64, docNumber string) (bool, error) {
+	for _, inv := range m.invoices {
+		if inv.SupplierID == supplierID && inv.SupplierDocumentNumber != nil && *inv.SupplierDocumentNumber == docNumber {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (m *memoryAPRepo) UpdateAPInvoiceDuplicateStatus(ctx context.Context, id int64, status string) error {
+	for i, inv := range m.invoices {
+		if inv.ID == id {
+			invCopy := inv
+			invCopy.DuplicateStatus = status
+			m.invoices[i] = invCopy
+			return nil
+		}
+	}
+	return errors.New("invoice not found")
+}
+
+func (m *memoryAPRepo) GetActiveMatchingPolicy(ctx context.Context, companyID, supplierID, categoryID *int64) (*MatchingPolicy, error) {
+	return &MatchingPolicy{ID: 1, Name: "Global"}, nil
+}
+
+func (m *memoryAPRepo) GetPOLineProgressByPO(ctx context.Context, poID int64) (map[int64]*sqlc.PoLineProgress, error) {
+	return make(map[int64]*sqlc.PoLineProgress), nil
+}
+
+func (m *memoryAPRepo) GetLatestMatchingRun(ctx context.Context, invoiceID int64) (*MatchingRun, error) {
+	return &MatchingRun{Status: "MATCHED"}, nil
+}
+
+func (m *memoryAPRepo) GetAPException(ctx context.Context, id int64) (APException, error) {
+	return APException{}, errors.New("not implemented")
+}
+
+func (m *memoryAPRepo) ListAPExceptions(ctx context.Context, status string, ownerID, invoiceID int64, limit, offset int) ([]APException, error) {
+	return nil, nil
 }
 
 func (r *memoryAPRepo) ListAPInvoices(ctx context.Context, req ListAPInvoicesRequest) ([]APInvoice, error) {
@@ -404,9 +447,35 @@ func (tx *memoryAPTx) GenerateAPInvoiceNumber(ctx context.Context) (string, erro
 	return "INV-TEST-" + time.Now().Format("20060102") + "-" + fmtInt(tx.repo.numberCursor), nil
 }
 
-func (tx *memoryAPTx) GenerateAPPaymentNumber(ctx context.Context) (string, error) {
-	tx.repo.numberCursor++
-	return "PAY-TEST-" + time.Now().Format("20060102") + "-" + fmtInt(tx.repo.numberCursor), nil
+func (t *memoryAPTx) GenerateAPPaymentNumber(ctx context.Context) (string, error) {
+	return fmt.Sprintf("PAY-%d", time.Now().UnixNano()), nil
+}
+
+func (t *memoryAPTx) CreateMatchingRun(ctx context.Context, run MatchingRun) (int64, error) {
+	return 1, nil
+}
+
+func (t *memoryAPTx) CreateMatchingRunLine(ctx context.Context, line MatchingRunLine) error {
+	return nil
+}
+
+func (t *memoryAPTx) CreateAPException(ctx context.Context, exc APException) (int64, error) {
+	return 1, nil
+}
+
+func (t *memoryAPTx) UpdateAPExceptionStatus(ctx context.Context, id int64, status string, resolvedBy *int64) error {
+	return nil
+}
+
+func (t *memoryAPTx) GetActiveMatchingPolicy(ctx context.Context) (MatchingPolicy, error) {
+	return MatchingPolicy{}, nil
+}
+
+func (t *memoryAPTx) GetPOLineProgressByPO(ctx context.Context, poID int64) (map[int64]float64, error) {
+	return nil, nil
+}
+
+func TestService_CreateAPInvoice(t *testing.T) {
 }
 
 type stubProcRepo struct {

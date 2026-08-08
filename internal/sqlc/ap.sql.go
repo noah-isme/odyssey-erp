@@ -124,27 +124,31 @@ func (q *Queries) CreateAPDebitNoteLine(ctx context.Context, arg CreateAPDebitNo
 const createAPInvoice = `-- name: CreateAPInvoice :one
 INSERT INTO ap_invoices (
     number, supplier_id, grn_id, po_id, currency, 
+    supplier_document_number, attachment_hash,
     subtotal, tax_amount, total, status, 
     due_at, created_by, created_at, updated_at
 ) VALUES (
     $1, $2, $3, $4, $5, 
-    $6, $7, $8, $9, 
-    $10, $11, NOW(), NOW()
+    $6, $7,
+    $8, $9, $10, $11, 
+    $12, $13, NOW(), NOW()
 ) RETURNING id
 `
 
 type CreateAPInvoiceParams struct {
-	Number     string         `json:"number"`
-	SupplierID int64          `json:"supplier_id"`
-	GrnID      pgtype.Int8    `json:"grn_id"`
-	PoID       pgtype.Int8    `json:"po_id"`
-	Currency   string         `json:"currency"`
-	Subtotal   pgtype.Numeric `json:"subtotal"`
-	TaxAmount  pgtype.Numeric `json:"tax_amount"`
-	Total      pgtype.Numeric `json:"total"`
-	Status     string         `json:"status"`
-	DueAt      pgtype.Date    `json:"due_at"`
-	CreatedBy  pgtype.Int8    `json:"created_by"`
+	Number                 string         `json:"number"`
+	SupplierID             int64          `json:"supplier_id"`
+	GrnID                  pgtype.Int8    `json:"grn_id"`
+	PoID                   pgtype.Int8    `json:"po_id"`
+	Currency               string         `json:"currency"`
+	SupplierDocumentNumber pgtype.Text    `json:"supplier_document_number"`
+	AttachmentHash         pgtype.Text    `json:"attachment_hash"`
+	Subtotal               pgtype.Numeric `json:"subtotal"`
+	TaxAmount              pgtype.Numeric `json:"tax_amount"`
+	Total                  pgtype.Numeric `json:"total"`
+	Status                 string         `json:"status"`
+	DueAt                  pgtype.Date    `json:"due_at"`
+	CreatedBy              pgtype.Int8    `json:"created_by"`
 }
 
 func (q *Queries) CreateAPInvoice(ctx context.Context, arg CreateAPInvoiceParams) (int64, error) {
@@ -154,6 +158,8 @@ func (q *Queries) CreateAPInvoice(ctx context.Context, arg CreateAPInvoiceParams
 		arg.GrnID,
 		arg.PoID,
 		arg.Currency,
+		arg.SupplierDocumentNumber,
+		arg.AttachmentHash,
 		arg.Subtotal,
 		arg.TaxAmount,
 		arg.Total,
@@ -168,17 +174,18 @@ func (q *Queries) CreateAPInvoice(ctx context.Context, arg CreateAPInvoiceParams
 
 const createAPInvoiceLine = `-- name: CreateAPInvoiceLine :one
 INSERT INTO ap_invoice_lines (
-    ap_invoice_id, grn_line_id, product_id, description,
+    ap_invoice_id, grn_line_id, po_line_id, product_id, description,
     quantity, unit_price, discount_pct, tax_pct,
     subtotal, tax_amount, total, created_at
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW()
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW()
 ) RETURNING id
 `
 
 type CreateAPInvoiceLineParams struct {
 	ApInvoiceID int64          `json:"ap_invoice_id"`
 	GrnLineID   pgtype.Int8    `json:"grn_line_id"`
+	PoLineID    pgtype.Int8    `json:"po_line_id"`
 	ProductID   int64          `json:"product_id"`
 	Description string         `json:"description"`
 	Quantity    pgtype.Numeric `json:"quantity"`
@@ -194,6 +201,7 @@ func (q *Queries) CreateAPInvoiceLine(ctx context.Context, arg CreateAPInvoiceLi
 	row := q.db.QueryRow(ctx, createAPInvoiceLine,
 		arg.ApInvoiceID,
 		arg.GrnLineID,
+		arg.PoLineID,
 		arg.ProductID,
 		arg.Description,
 		arg.Quantity,
@@ -368,6 +376,7 @@ func (q *Queries) GetAPDebitNote(ctx context.Context, id int64) (GetAPDebitNoteR
 const getAPInvoice = `-- name: GetAPInvoice :one
 SELECT 
     i.id, i.number, i.supplier_id, s.name AS supplier_name, i.grn_id, i.po_id, i.currency, 
+    i.supplier_document_number, i.attachment_hash, i.duplicate_status,
     subtotal, tax_amount, total, status, due_at, 
     posted_at, posted_by, voided_at, voided_by, void_reason,
     created_by, created_at, updated_at 
@@ -377,26 +386,29 @@ WHERE i.id = $1
 `
 
 type GetAPInvoiceRow struct {
-	ID           int64              `json:"id"`
-	Number       string             `json:"number"`
-	SupplierID   int64              `json:"supplier_id"`
-	SupplierName string             `json:"supplier_name"`
-	GrnID        pgtype.Int8        `json:"grn_id"`
-	PoID         pgtype.Int8        `json:"po_id"`
-	Currency     string             `json:"currency"`
-	Subtotal     pgtype.Numeric     `json:"subtotal"`
-	TaxAmount    pgtype.Numeric     `json:"tax_amount"`
-	Total        pgtype.Numeric     `json:"total"`
-	Status       string             `json:"status"`
-	DueAt        pgtype.Date        `json:"due_at"`
-	PostedAt     pgtype.Timestamptz `json:"posted_at"`
-	PostedBy     pgtype.Int8        `json:"posted_by"`
-	VoidedAt     pgtype.Timestamptz `json:"voided_at"`
-	VoidedBy     pgtype.Int8        `json:"voided_by"`
-	VoidReason   pgtype.Text        `json:"void_reason"`
-	CreatedBy    pgtype.Int8        `json:"created_by"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	ID                     int64              `json:"id"`
+	Number                 string             `json:"number"`
+	SupplierID             int64              `json:"supplier_id"`
+	SupplierName           string             `json:"supplier_name"`
+	GrnID                  pgtype.Int8        `json:"grn_id"`
+	PoID                   pgtype.Int8        `json:"po_id"`
+	Currency               string             `json:"currency"`
+	SupplierDocumentNumber pgtype.Text        `json:"supplier_document_number"`
+	AttachmentHash         pgtype.Text        `json:"attachment_hash"`
+	DuplicateStatus        string             `json:"duplicate_status"`
+	Subtotal               pgtype.Numeric     `json:"subtotal"`
+	TaxAmount              pgtype.Numeric     `json:"tax_amount"`
+	Total                  pgtype.Numeric     `json:"total"`
+	Status                 string             `json:"status"`
+	DueAt                  pgtype.Date        `json:"due_at"`
+	PostedAt               pgtype.Timestamptz `json:"posted_at"`
+	PostedBy               pgtype.Int8        `json:"posted_by"`
+	VoidedAt               pgtype.Timestamptz `json:"voided_at"`
+	VoidedBy               pgtype.Int8        `json:"voided_by"`
+	VoidReason             pgtype.Text        `json:"void_reason"`
+	CreatedBy              pgtype.Int8        `json:"created_by"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
 }
 
 func (q *Queries) GetAPInvoice(ctx context.Context, id int64) (GetAPInvoiceRow, error) {
@@ -410,6 +422,9 @@ func (q *Queries) GetAPInvoice(ctx context.Context, id int64) (GetAPInvoiceRow, 
 		&i.GrnID,
 		&i.PoID,
 		&i.Currency,
+		&i.SupplierDocumentNumber,
+		&i.AttachmentHash,
+		&i.DuplicateStatus,
 		&i.Subtotal,
 		&i.TaxAmount,
 		&i.Total,
@@ -534,6 +549,7 @@ func (q *Queries) GetAPInvoiceBalancesBatch(ctx context.Context) ([]GetAPInvoice
 const getAPInvoiceByNumber = `-- name: GetAPInvoiceByNumber :one
 SELECT 
     i.id, i.number, i.supplier_id, s.name AS supplier_name, i.grn_id, i.po_id, i.currency, 
+    i.supplier_document_number, i.attachment_hash, i.duplicate_status,
     subtotal, tax_amount, total, status, due_at, 
     posted_at, posted_by, voided_at, voided_by, void_reason,
     created_by, created_at, updated_at 
@@ -543,26 +559,29 @@ WHERE i.number = $1
 `
 
 type GetAPInvoiceByNumberRow struct {
-	ID           int64              `json:"id"`
-	Number       string             `json:"number"`
-	SupplierID   int64              `json:"supplier_id"`
-	SupplierName string             `json:"supplier_name"`
-	GrnID        pgtype.Int8        `json:"grn_id"`
-	PoID         pgtype.Int8        `json:"po_id"`
-	Currency     string             `json:"currency"`
-	Subtotal     pgtype.Numeric     `json:"subtotal"`
-	TaxAmount    pgtype.Numeric     `json:"tax_amount"`
-	Total        pgtype.Numeric     `json:"total"`
-	Status       string             `json:"status"`
-	DueAt        pgtype.Date        `json:"due_at"`
-	PostedAt     pgtype.Timestamptz `json:"posted_at"`
-	PostedBy     pgtype.Int8        `json:"posted_by"`
-	VoidedAt     pgtype.Timestamptz `json:"voided_at"`
-	VoidedBy     pgtype.Int8        `json:"voided_by"`
-	VoidReason   pgtype.Text        `json:"void_reason"`
-	CreatedBy    pgtype.Int8        `json:"created_by"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	ID                     int64              `json:"id"`
+	Number                 string             `json:"number"`
+	SupplierID             int64              `json:"supplier_id"`
+	SupplierName           string             `json:"supplier_name"`
+	GrnID                  pgtype.Int8        `json:"grn_id"`
+	PoID                   pgtype.Int8        `json:"po_id"`
+	Currency               string             `json:"currency"`
+	SupplierDocumentNumber pgtype.Text        `json:"supplier_document_number"`
+	AttachmentHash         pgtype.Text        `json:"attachment_hash"`
+	DuplicateStatus        string             `json:"duplicate_status"`
+	Subtotal               pgtype.Numeric     `json:"subtotal"`
+	TaxAmount              pgtype.Numeric     `json:"tax_amount"`
+	Total                  pgtype.Numeric     `json:"total"`
+	Status                 string             `json:"status"`
+	DueAt                  pgtype.Date        `json:"due_at"`
+	PostedAt               pgtype.Timestamptz `json:"posted_at"`
+	PostedBy               pgtype.Int8        `json:"posted_by"`
+	VoidedAt               pgtype.Timestamptz `json:"voided_at"`
+	VoidedBy               pgtype.Int8        `json:"voided_by"`
+	VoidReason             pgtype.Text        `json:"void_reason"`
+	CreatedBy              pgtype.Int8        `json:"created_by"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
 }
 
 func (q *Queries) GetAPInvoiceByNumber(ctx context.Context, number string) (GetAPInvoiceByNumberRow, error) {
@@ -576,6 +595,9 @@ func (q *Queries) GetAPInvoiceByNumber(ctx context.Context, number string) (GetA
 		&i.GrnID,
 		&i.PoID,
 		&i.Currency,
+		&i.SupplierDocumentNumber,
+		&i.AttachmentHash,
+		&i.DuplicateStatus,
 		&i.Subtotal,
 		&i.TaxAmount,
 		&i.Total,
@@ -979,27 +1001,45 @@ func (q *Queries) ListAPDebitNotesBySupplier(ctx context.Context, supplierID int
 
 const listAPInvoiceLines = `-- name: ListAPInvoiceLines :many
 SELECT 
-    id, ap_invoice_id, grn_line_id, product_id,
-    description, quantity, unit_price, discount_pct, tax_pct,
+    id, ap_invoice_id, grn_line_id, po_line_id, product_id, description,
+    quantity, unit_price, discount_pct, tax_pct,
     subtotal, tax_amount, total, created_at
 FROM ap_invoice_lines
 WHERE ap_invoice_id = $1
 ORDER BY id
 `
 
-func (q *Queries) ListAPInvoiceLines(ctx context.Context, apInvoiceID int64) ([]ApInvoiceLine, error) {
+type ListAPInvoiceLinesRow struct {
+	ID          int64              `json:"id"`
+	ApInvoiceID int64              `json:"ap_invoice_id"`
+	GrnLineID   pgtype.Int8        `json:"grn_line_id"`
+	PoLineID    pgtype.Int8        `json:"po_line_id"`
+	ProductID   int64              `json:"product_id"`
+	Description string             `json:"description"`
+	Quantity    pgtype.Numeric     `json:"quantity"`
+	UnitPrice   pgtype.Numeric     `json:"unit_price"`
+	DiscountPct pgtype.Numeric     `json:"discount_pct"`
+	TaxPct      pgtype.Numeric     `json:"tax_pct"`
+	Subtotal    pgtype.Numeric     `json:"subtotal"`
+	TaxAmount   pgtype.Numeric     `json:"tax_amount"`
+	Total       pgtype.Numeric     `json:"total"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) ListAPInvoiceLines(ctx context.Context, apInvoiceID int64) ([]ListAPInvoiceLinesRow, error) {
 	rows, err := q.db.Query(ctx, listAPInvoiceLines, apInvoiceID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ApInvoiceLine
+	var items []ListAPInvoiceLinesRow
 	for rows.Next() {
-		var i ApInvoiceLine
+		var i ListAPInvoiceLinesRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ApInvoiceID,
 			&i.GrnLineID,
+			&i.PoLineID,
 			&i.ProductID,
 			&i.Description,
 			&i.Quantity,
