@@ -30,7 +30,7 @@ func TestShopifyAdapter_VerifyCallbackSignature(t *testing.T) {
 		headers := map[string]string{
 			"X-Shopify-Hmac-Sha256": validSignature,
 		}
-		err := adapter.VerifyCallbackSignature(context.Background(), headers, payload)
+		err := adapter.VerifyCallbackSignature(context.Background(), &connectors.Connection{SecretRef: "secret"}, headers, payload)
 		if err != nil {
 			t.Errorf("expected no error for valid signature, got %v", err)
 		}
@@ -38,7 +38,7 @@ func TestShopifyAdapter_VerifyCallbackSignature(t *testing.T) {
 
 	t.Run("missing signature header", func(t *testing.T) {
 		headers := map[string]string{}
-		err := adapter.VerifyCallbackSignature(context.Background(), headers, payload)
+		err := adapter.VerifyCallbackSignature(context.Background(), &connectors.Connection{SecretRef: "secret"}, headers, payload)
 		if err == nil {
 			t.Error("expected error for missing signature header")
 		}
@@ -48,7 +48,7 @@ func TestShopifyAdapter_VerifyCallbackSignature(t *testing.T) {
 		headers := map[string]string{
 			"X-Shopify-Hmac-Sha256": "invalid_signature",
 		}
-		err := adapter.VerifyCallbackSignature(context.Background(), headers, payload)
+		err := adapter.VerifyCallbackSignature(context.Background(), &connectors.Connection{SecretRef: "secret"}, headers, payload)
 		// Our mock logs a warning but returns nil. 
 		// If it were production, it should return an error.
 		if err != nil {

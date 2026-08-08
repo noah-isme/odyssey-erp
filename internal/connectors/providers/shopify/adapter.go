@@ -41,7 +41,7 @@ func (a *Adapter) RefreshToken(ctx context.Context, conn *connectors.Connection)
 }
 
 // VerifyCallbackSignature verifies a Shopify webhook signature.
-func (a *Adapter) VerifyCallbackSignature(ctx context.Context, headers map[string]string, payload []byte) error {
+func (a *Adapter) VerifyCallbackSignature(ctx context.Context, conn *connectors.Connection, headers map[string]string, payload []byte) error {
 	signature := headers["X-Shopify-Hmac-Sha256"]
 	if signature == "" {
 		return fmt.Errorf("shopify: missing signature header (X-Shopify-Hmac-Sha256)")

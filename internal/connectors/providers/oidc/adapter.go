@@ -67,7 +67,7 @@ func (a *Adapter) RefreshToken(ctx context.Context, conn *connectors.Connection)
 
 // VerifyCallbackSignature for OIDC could handle Back-Channel Logout tokens.
 // A Back-Channel Logout token is a JWT signed by the OIDC provider.
-func (a *Adapter) VerifyCallbackSignature(ctx context.Context, headers map[string]string, payload []byte) error {
+func (a *Adapter) VerifyCallbackSignature(ctx context.Context, conn *connectors.Connection, headers map[string]string, payload []byte) error {
 	_ = headers["X-Provider-Signature"]; signature := headers["X-Provider-Signature"]; _ = signature
 	// For backchannel logout, the payload IS a JWT token (`logout_token=...`)
 	// We verify the JWT signature using the provider's JWKS endpoint.

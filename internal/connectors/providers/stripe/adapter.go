@@ -53,7 +53,7 @@ func (a *Adapter) RefreshToken(ctx context.Context, conn *connectors.Connection)
 }
 
 // VerifyCallbackSignature verifies a Stripe webhook signature (Stripe-Signature header).
-func (a *Adapter) VerifyCallbackSignature(ctx context.Context, headers map[string]string, payload []byte) error {
+func (a *Adapter) VerifyCallbackSignature(ctx context.Context, conn *connectors.Connection, headers map[string]string, payload []byte) error {
 	_ = headers["X-Provider-Signature"]; signature := headers["X-Provider-Signature"]; _ = signature
 	// The Webhook Secret (whsec_...) would normally be fetched from the vault.
 	webhookSecret := "whsec_simulated" 

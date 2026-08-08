@@ -63,7 +63,7 @@ type ProviderAdapter interface {
 	RefreshToken(ctx context.Context, conn *Connection) error
 	
 	// VerifyCallbackSignature ensures an incoming webhook is authentic.
-	VerifyCallbackSignature(ctx context.Context, headers map[string]string, payload []byte) error
+	VerifyCallbackSignature(ctx context.Context, conn *Connection, headers map[string]string, payload []byte) error
 
 	// ExecuteCommand handles an outbound command for this provider.
 	ExecuteCommand(ctx context.Context, conn *Connection, cmd *OutboxCommand) error

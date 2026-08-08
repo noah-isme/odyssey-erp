@@ -55,7 +55,7 @@ func (a *Adapter) RefreshToken(ctx context.Context, conn *connectors.Connection)
 	return nil
 }
 
-func (a *Adapter) VerifyCallbackSignature(ctx context.Context, headers map[string]string, payload []byte) error {
+func (a *Adapter) VerifyCallbackSignature(ctx context.Context, conn *connectors.Connection, headers map[string]string, payload []byte) error {
 	return nil
 }
 

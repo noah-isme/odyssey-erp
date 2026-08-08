@@ -48,8 +48,19 @@ func (p *InboxProcessor) ProcessWebhook(ctx context.Context, connectionID int64,
 		return fmt.Errorf("connectors: provider adapter not found: %w", err)
 	}
 
+	// Build domain connection object
+	conn := &Connection{
+		ID:        connRec.ID,
+		CompanyID: connRec.CompanyID,
+		Provider:  connRec.Provider,
+		Type:      connRec.Type,
+		Name:      connRec.Name,
+		SecretRef: connRec.SecretRef,
+		Status:    ConnectionStatus(connRec.Status),
+	}
+
 	// 3. Validate signature
-	if err := adapter.VerifyCallbackSignature(ctx, headers, payload); err != nil {
+	if err := adapter.VerifyCallbackSignature(ctx, conn, headers, payload); err != nil {
 		return fmt.Errorf("connectors: invalid webhook signature: %w", err)
 	}
 
@@ -78,17 +89,6 @@ func (p *InboxProcessor) ProcessWebhook(ctx context.Context, connectionID int64,
 	if inboxEvt.ID == 0 {
 		p.logger.Info("connectors: webhook event deduplicated, ignoring", slog.String("provider_event_id", providerEventID))
 		return nil
-	}
-
-	// Build domain connection object
-	conn := &Connection{
-		ID:        connRec.ID,
-		CompanyID: connRec.CompanyID,
-		Provider:  connRec.Provider,
-		Type:      connRec.Type,
-		Name:      connRec.Name,
-		SecretRef: connRec.SecretRef,
-		Status:    ConnectionStatus(connRec.Status),
 	}
 
 	// 5. Translate raw payload into CanonicalEvents

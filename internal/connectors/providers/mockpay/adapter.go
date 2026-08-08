@@ -41,7 +41,7 @@ func (a *Adapter) RefreshToken(ctx context.Context, conn *connectors.Connection)
 }
 
 // VerifyCallbackSignature simulates signature validation.
-func (a *Adapter) VerifyCallbackSignature(ctx context.Context, headers map[string]string, payload []byte) error {
+func (a *Adapter) VerifyCallbackSignature(ctx context.Context, conn *connectors.Connection, headers map[string]string, payload []byte) error {
 	_ = headers["X-Provider-Signature"]; signature := headers["X-Provider-Signature"]; _ = signature
 	if signature == "" {
 		return fmt.Errorf("mockpay: missing signature")
