@@ -73,6 +73,8 @@ import (
 	insightshhtp "github.com/odyssey-erp/odyssey-erp/internal/insights/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/integration"
 	"github.com/odyssey-erp/odyssey-erp/internal/inventory"
+	"github.com/odyssey-erp/odyssey-erp/internal/freight"
+	"github.com/odyssey-erp/odyssey-erp/internal/logistics"
 	jobmetrics "github.com/odyssey-erp/odyssey-erp/internal/jobs"
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata"
 	"github.com/odyssey-erp/odyssey-erp/internal/mrp"
@@ -538,6 +540,14 @@ func main() {
 	
 	mrpHandler.SetQMSService(qmsService)
 
+	logisticsService := logistics.NewService(dbpool)
+	
+	// Init Freight Module
+	freightQueries := sqlc.New(dbpool)
+	freightRepo := freight.NewPostgresRepository(freightQueries)
+	// freightGL is internally initialized in NewFreightService or separated. Actually let's just use NewFreightService
+	freightService := freight.NewFreightService(freightRepo)
+
 	router := app.NewRouter(app.RouterParams{
 		Logger:                 logger,
 		Config:                 cfg,
@@ -572,6 +582,8 @@ func main() {
 		ForecastingHandler:     forecastHandler,
 		TreasuryHandler:        treasuryHandler,
 		InventoryService:       inventoryService,
+		LogisticsService:       logisticsService,
+		FreightService:         freightService,
 		Metrics:                metrics,
 		DashboardHandler:       dashboardHandler,
 		NotificationHandler:    notificationHandler,

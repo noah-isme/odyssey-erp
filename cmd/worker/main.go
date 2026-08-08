@@ -24,7 +24,9 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/bankfeeds"
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/banking"
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/forecasting"
+	"github.com/odyssey-erp/odyssey-erp/internal/ar"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/midtrans"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/mockpay"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/oidc"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/stripe"
@@ -240,27 +242,32 @@ func main() {
 	}
 	documentsService := documents.NewService(documents.NewRepository(pool), docStorage)
 
-	connectorsRegistry := connectors.NewRegistry()
-	connectorsRegistry.Register("mockpay", mockpay.NewAdapter(logger))
-	connectorsRegistry.Register("stripe", stripe.NewAdapter(logger))
-	connectorsRegistry.Register("oidc", oidc.NewAdapter(logger))
-	connectorsRegistry.Register("whatsapp", whatsapp.NewAdapter(logger, nil))
-	connectorsRegistry.Register("openai", openai.NewAdapter(logger))
-	connectorsRegistry.Register("dhl", dhl.NewAdapter(logger))
-	connectorsRegistry.Register("awss3", awss3.NewAdapter(logger, nil))
-	connectorsOutboxWorker := connectors.NewOutboxWorker(sqlc.New(pool), connectorsRegistry)
-
 	vault, err := shared.NewVault()
 	if err != nil {
 		logger.Error("init vault", slog.Any("error", err))
 		os.Exit(1)
 	}
+
+	connectorsRegistry := connectors.NewRegistry()
+	connectorsRegistry.Register("mockpay", mockpay.NewAdapter(logger))
+	connectorsRegistry.Register("stripe", stripe.NewAdapter(logger))
+	connectorsRegistry.Register("oidc", oidc.NewAdapter(logger))
+	connectorsRegistry.Register("whatsapp", whatsapp.NewAdapter(logger, vault))
+	connectorsRegistry.Register("openai", openai.NewAdapter(logger))
+	connectorsRegistry.Register("dhl", dhl.NewAdapter(logger))
+	connectorsRegistry.Register("awss3", awss3.NewAdapter(logger, vault))
+	connectorsRegistry.Register("midtrans", midtrans.NewAdapter(logger, vault))
+	connectorsOutboxWorker := connectors.NewOutboxWorker(sqlc.New(pool), connectorsRegistry)
 	connectorsService := connectors.NewService(pool, vault, connectorsRegistry)
 
 	outboxRepo := outbox.NewRepository(pool)
 	outboxDispatcher := outbox.NewDispatcher(pool, outboxRepo, logger)
 	cmms.RegisterOutboxHandlers(outboxDispatcher, cmmsService, logger)
 	qms.RegisterOutboxHandlers(outboxDispatcher, qmsService, logger)
+	
+	arRepo := ar.NewRepository(pool)
+	arService := ar.NewService(arRepo)
+	ar.RegisterOutboxHandlers(outboxDispatcher, arService, logger)
 	
 	// Marketplace outbox routing
 	salesCustRepo := customers.NewRepository(pool)
