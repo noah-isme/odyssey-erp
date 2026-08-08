@@ -44,15 +44,21 @@ func (a *Adapter) RefreshToken(ctx context.Context, conn *connectors.Connection)
 	return nil
 }
 
-func (a *Adapter) VerifyCallbackSignature(ctx context.Context, headers map[string]string, payload []byte) error {
-	// Midtrans webhook verification expects:
-	// signature_key = SHA512(order_id + status_code + gross_amount + ServerKey)
-	// This requires parsing the payload first to extract order_id, status_code, and gross_amount,
-	// and we also need the ServerKey from the connection. This implies the caller needs to provide 
-	// the Connection or ServerKey to this function, but the interface doesn't pass conn.
-	// 
-	// For scaffolding, we will return nil here and implement the full secure signature validation 
-	// in a specialized method or by adjusting the interface to pass the Connection.
+func (a *Adapter) VerifyCallbackSignature(ctx context.Context, conn *connectors.Connection, headers map[string]string, payload []byte) error {
+	var notif WebhookNotification
+	if err := json.Unmarshal(payload, &notif); err != nil {
+		return err
+	}
+
+	serverKey, err := conn.GetCredentials(a.vault)
+	if err != nil {
+		return err
+	}
+
+	if !notif.VerifySignature(serverKey) {
+		return errors.New("midtrans: signature validation failed")
+	}
+
 	return nil
 }
 
