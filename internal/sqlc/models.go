@@ -1720,6 +1720,7 @@ type ComplianceDecision struct {
 	RecordVersion   pgtype.Text        `json:"record_version"`
 	RecordHash      pgtype.Text        `json:"record_hash"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	SnapshotID      pgtype.Int8        `json:"snapshot_id"`
 }
 
 type ConnectorCanonicalEvent struct {
@@ -3302,12 +3303,14 @@ type MrpCapa struct {
 }
 
 type MrpControlledRecordPolicy struct {
-	ID                int64  `json:"id"`
-	CompanyID         int64  `json:"company_id"`
-	RecordType        string `json:"record_type"`
-	RequiresSignature bool   `json:"requires_signature"`
-	RetentionDays     int32  `json:"retention_days"`
-	Active            bool   `json:"active"`
+	ID                       int64    `json:"id"`
+	CompanyID                int64    `json:"company_id"`
+	RecordType               string   `json:"record_type"`
+	RequiresSignature        bool     `json:"requires_signature"`
+	RetentionDays            int32    `json:"retention_days"`
+	Active                   bool     `json:"active"`
+	ApproverRoles            []string `json:"approver_roles"`
+	ReauthenticationRequired bool     `json:"reauthentication_required"`
 }
 
 type MrpElectronicSignature struct {
@@ -3321,6 +3324,8 @@ type MrpElectronicSignature struct {
 	SignerID                 int64              `json:"signer_id"`
 	ReauthenticationEvidence string             `json:"reauthentication_evidence"`
 	CreatedAt                pgtype.Timestamptz `json:"created_at"`
+	SnapshotID               pgtype.Int8        `json:"snapshot_id"`
+	AuthMethod               pgtype.Text        `json:"auth_method"`
 }
 
 type MrpException struct {
@@ -3497,6 +3502,19 @@ type MrpQualityHold struct {
 	ReleasedBy   pgtype.Int8        `json:"released_by"`
 	ReleasedAt   pgtype.Timestamptz `json:"released_at"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type MrpRecordSnapshot struct {
+	ID             int64              `json:"id"`
+	CompanyID      int64              `json:"company_id"`
+	RecordType     string             `json:"record_type"`
+	RecordID       int64              `json:"record_id"`
+	RecordVersion  string             `json:"record_version"`
+	Snapshot       []byte             `json:"snapshot"`
+	RecordHash     string             `json:"record_hash"`
+	CapturedBy     int64              `json:"captured_by"`
+	CapturedAt     pgtype.Timestamptz `json:"captured_at"`
+	RetentionUntil pgtype.Timestamptz `json:"retention_until"`
 }
 
 type MrpRouting struct {
@@ -5156,6 +5174,12 @@ type SignatureChallenge struct {
 	ReauthenticationRequired bool               `json:"reauthentication_required"`
 	Used                     bool               `json:"used"`
 	CreatedAt                pgtype.Timestamptz `json:"created_at"`
+	CompanyID                pgtype.Int8        `json:"company_id"`
+	RecordType               pgtype.Text        `json:"record_type"`
+	SignerID                 pgtype.Int8        `json:"signer_id"`
+	RecordHash               pgtype.Text        `json:"record_hash"`
+	ReauthenticationMethod   pgtype.Text        `json:"reauthentication_method"`
+	ReauthenticatedAt        pgtype.Timestamptz `json:"reauthenticated_at"`
 }
 
 type SourceLink struct {

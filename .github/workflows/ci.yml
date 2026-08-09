@@ -43,8 +43,8 @@ jobs:
 
       - name: Install tools
         run: |
-          go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
-          go install -tags postgres github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+          go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
+          go install -tags postgres github.com/golang-migrate/migrate/v4/cmd/migrate@v4.18.3
 
       - name: Go mod download
         run: go mod download
@@ -56,10 +56,10 @@ jobs:
         run: make pdf-release-check
 
       - name: Lint
-        uses: golangci/golangci-lint-action@v4
+        uses: golangci/golangci-lint-action@v9
         with:
-          version: v1.64.8
-          args: --timeout=5m --out-format=colored-line-number
+          version: v2.12
+          args: --timeout=5m
 
       - name: Vet
         run: make vet
