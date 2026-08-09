@@ -696,7 +696,7 @@ func (h *Handler) uploadDocument(w http.ResponseWriter, r *http.Request, kind st
 		http.Error(w, "file is required", 400)
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	content, err := io.ReadAll(io.LimitReader(file, 10<<20+1))
 	if err != nil || len(content) > 10<<20 {
 		http.Error(w, "file must be <= 10 MB", 400)

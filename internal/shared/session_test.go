@@ -14,7 +14,11 @@ import (
 func TestFlashPersistsAcrossRedirectAndClearsAfterRead(t *testing.T) {
 	mr := miniredis.RunT(t)
 	client := redis.NewClient(&redis.Options{Addr: mr.Addr()})
-	defer client.Close()
+	t.Cleanup(func() {
+		if err := client.Close(); err != nil {
+			t.Errorf("close redis client: %v", err)
+		}
+	})
 
 	manager := NewSessionManager(client, "odyssey_session", "test-secret", time.Hour, false)
 	ctx := context.Background()

@@ -48,7 +48,7 @@ func WriteErrorStatus(w http.ResponseWriter, status int, err error) {
 
 // DecodeJSON decodes the JSON body of the request into v.
 func DecodeJSON(r *http.Request, v interface{}) error {
-	defer r.Body.Close()
+	defer func() { _ = r.Body.Close() }()
 	return json.NewDecoder(r.Body).Decode(v)
 }
 

@@ -114,7 +114,7 @@ func (s *Service) ProcessOCRJob(ctx context.Context, jobID int64) error {
 	if err != nil {
 		return failed(fmt.Errorf("documents: load OCR blob: %w", err))
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	extractor := s.ocrExtractor
 	if extractor == nil {

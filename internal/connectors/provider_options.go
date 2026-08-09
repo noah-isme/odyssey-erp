@@ -139,7 +139,9 @@ func DoWithRetry(ctx context.Context, client *http.Client, method, url string, b
 		}
 
 		responseBody, readErr := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		if closeErr := resp.Body.Close(); closeErr != nil && readErr == nil {
+			readErr = closeErr
+		}
 		if readErr != nil {
 			lastErr = readErr
 			if attempt == policy.MaxAttempts {

@@ -38,6 +38,13 @@ func (s *LocalStorage) objectPath(companyID int64, key string) string {
 	return filepath.Join(s.companyPath(companyID), key)
 }
 
+func removeTempFile(path string) error {
+	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return nil
+}
+
 func (s *LocalStorage) Put(ctx context.Context, input PutInput) (string, error) {
 	if input.Data == nil {
 		return "", errors.New("storage: nil data reader")
@@ -70,15 +77,24 @@ func (s *LocalStorage) Put(ctx context.Context, input PutInput) (string, error) 
 
 	written, err := io.Copy(multiWriter, input.Data)
 	if err != nil {
-		file.Close()
-		os.Remove(tmpPath)
+		_ = file.Close()
+		if cleanupErr := removeTempFile(tmpPath); cleanupErr != nil {
+			return "", fmt.Errorf("storage: write data: %w (cleanup: %v)", err, cleanupErr)
+		}
 		return "", fmt.Errorf("storage: write data: %w", err)
 	}
-	file.Close()
+	if err := file.Close(); err != nil {
+		if cleanupErr := removeTempFile(tmpPath); cleanupErr != nil {
+			return "", fmt.Errorf("storage: close temp file: %w (cleanup: %v)", err, cleanupErr)
+		}
+		return "", fmt.Errorf("storage: close temp file: %w", err)
+	}
 
 	// Verify size
 	if input.Size > 0 && written != input.Size {
-		os.Remove(tmpPath)
+		if cleanupErr := removeTempFile(tmpPath); cleanupErr != nil {
+			return "", fmt.Errorf("storage: size mismatch: expected %d, got %d (cleanup: %v)", input.Size, written, cleanupErr)
+		}
 		return "", fmt.Errorf("storage: size mismatch: expected %d, got %d", input.Size, written)
 	}
 
@@ -86,14 +102,18 @@ func (s *LocalStorage) Put(ctx context.Context, input PutInput) (string, error) 
 	if input.ChecksumSHA256 != "" {
 		actual := hex.EncodeToString(hasher.Sum(nil))
 		if !strings.EqualFold(actual, input.ChecksumSHA256) {
-			os.Remove(tmpPath)
+			if cleanupErr := removeTempFile(tmpPath); cleanupErr != nil {
+				return "", fmt.Errorf("storage: checksum mismatch: %w (cleanup: %v)", ErrChecksumMismatch{Expected: input.ChecksumSHA256, Actual: actual}, cleanupErr)
+			}
 			return "", ErrChecksumMismatch{Expected: input.ChecksumSHA256, Actual: actual}
 		}
 	}
 
 	// Atomically move to final location
 	if err := os.Rename(tmpPath, finalPath); err != nil {
-		os.Remove(tmpPath)
+		if cleanupErr := removeTempFile(tmpPath); cleanupErr != nil {
+			return "", fmt.Errorf("storage: finalize: %w (cleanup: %v)", err, cleanupErr)
+		}
 		return "", fmt.Errorf("storage: finalize: %w", err)
 	}
 
@@ -151,7 +171,7 @@ func (s *LocalStorage) Stat(ctx context.Context, key string) (ObjectInfo, error)
 	if err != nil {
 		return ObjectInfo{}, fmt.Errorf("storage: open for checksum: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	hasher := sha256.New()
 	if _, err := io.Copy(hasher, file); err != nil {
@@ -159,11 +179,11 @@ func (s *LocalStorage) Stat(ctx context.Context, key string) (ObjectInfo, error)
 	}
 
 	return ObjectInfo{
-		Key:            key,
-		Size:           info.Size(),
-		ContentType:    "", // Would need magic detection
-		ChecksumSHA256: hex.EncodeToString(hasher.Sum(nil)),
-		CreatedAt:      info.ModTime().Format(time.RFC3339),
+		Key:               key,
+		Size:              info.Size(),
+		ContentType:       "", // Would need magic detection
+		ChecksumSHA256:    hex.EncodeToString(hasher.Sum(nil)),
+		CreatedAt:         info.ModTime().Format(time.RFC3339),
 		MalwareScanStatus: MalwareScanSkipped,
 	}, nil
 }
