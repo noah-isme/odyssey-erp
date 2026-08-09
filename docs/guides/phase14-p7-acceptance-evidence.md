@@ -1,8 +1,10 @@
 # Phase 14 and P7 Local Acceptance Evidence
 
-**Status:** ALL gates complete; staging and production certification successfully passed.
+**Status:** Local acceptance evidence recorded; staging and production certification remain pending.
 
-**Schema:** Clean database migrated successfully through version 61.
+**Schema:** This historical evidence run used a clean database migrated through version 61.
+Current releases must apply and verify all migrations, including the migrations added
+after this evidence was collected.
 
 ## Gate results
 
@@ -14,7 +16,7 @@
 | `make build` | Pass |
 | FX, AR, AP, integration, and jobs unit tests | Pass |
 | WMS, MRP, POS, projects, API, and portal unit tests | Pass |
-| `go test -tags=integration ./...` | Pass |
+| `go test -tags=integration ./...` | Historical local pass; rerun for the current release |
 | Full `go test ./...` suite | Pass |
 | AR/AP FX columns | Pass, 7 columns each |
 | Timesheet FX snapshot columns | Pass, 3 columns |
@@ -31,15 +33,24 @@ live-provider smoke test.
 
 ## Production Release Evidence
 
-The following release gates blocking production have been officially cleared:
+This file is not a staging or production certification record. The following gates
+remain open and must be attached to the release record before the relevant matrix rows
+can become `production-certified: yes`:
 
-- ✅ Staging execution of migrations `000053`, `000054`, `000055`, `000056`, and `000060` verified and successfully passed.
-- ✅ Staging verification of the four FX mappings and Horizon permissions passed.
-- ✅ Production worker confirmation for the daily FX job in `Asia/Jakarta` passed. (Cross-feature USD scenarios verified).
-- ✅ Webhook delivery, retry, signature, duplicate-event, and secret-protection evidence certified.
-- ✅ Cross-feature smoke scenario: USD project/timesheet FX snapshot, FX rate change, foreign-currency POS sale, WMS fulfillment, AR payment, and revaluation verified.
-- ✅ Production migration and post-migration smoke-test evidence verified without rollbacks.
-- ✅ Tax Compliance (P5): DJP Coretax schema versions successfully proven and reconciled against official XSD via `coretax_validation_test.go`.
-- ✅ Manufacturing Governance: Mandatory controlled-record ENFORCE mode activated via `ComplianceGateService`.
+- [ ] Staging execution of migrations `000053`, `000054`, `000055`, `000056`, `000060`,
+  and all subsequent migrations, with rollback evidence.
+- [ ] Staging verification of FX mappings, Horizon permissions, and tenant isolation.
+- [ ] Production worker confirmation for the daily FX job in `Asia/Jakarta`.
+- [ ] Provider evidence for webhook delivery, retry, signature, duplicate-event, and
+  secret-protection behavior.
+- [ ] Cross-feature smoke scenario covering FX, project/timesheet, POS, WMS, AR, and
+  revaluation flows.
+- [ ] Production migration and post-migration smoke-test evidence without rollbacks.
+- [ ] Tax and manufacturing governance sign-off for the exact deployed schema and
+  policy configuration.
+
+The [authoritative feature matrix](../reference/feature-matrix.md) is the release
+status authority. Local test results here must not be copied into a production release
+note as certification.
 
 P7 is an MVP foundation. Full vertical capabilities remain future scope.

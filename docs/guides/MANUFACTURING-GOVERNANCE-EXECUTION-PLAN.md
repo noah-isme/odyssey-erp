@@ -1,6 +1,7 @@
 # Manufacturing Governance Execution Plan - Detailed Implementation Guide
 
-**Status:** Planning phase complete. Ready for Phase 1 implementation.
+**Status:** Planning baseline complete. Implementation and production certification
+are tracked in the [authoritative feature matrix](../reference/feature-matrix.md).
 
 **Last Updated:** 2026-08-03
 
@@ -580,4 +581,3 @@ Then:
 9. Deploy to staging in WARN mode
 10. Collect evidence and obtain sign-offs
 11. Enable ENFORCE per production company
-

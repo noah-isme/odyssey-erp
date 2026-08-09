@@ -1,25 +1,29 @@
 # Integration Boundaries
 
-The [module catalog](../reference/module-catalog.md) is the authoritative capability-status source. In this guide, **Implemented** is available in the current code/documentation; **Planned** appears as a committed roadmap item but is not a production connector; **Unsupported** has no current connector or committed interface. The cross-connector architecture, sequencing, and acceptance gates are defined in the [External Integrations Plan](external-integrations-plan.md).
+The [authoritative feature matrix](../reference/feature-matrix.md) is the release
+status source. The [module catalog](../reference/module-catalog.md) is the capability
+inventory. In this guide, **Implemented** means a scoped code path exists; it does not
+mean integration-complete or production-certified. The cross-connector architecture,
+sequencing, and acceptance gates are defined in the [External Integrations Plan](external-integrations-plan.md).
 
 | Integration | Status | Boundary |
 |---|---|---|
 | Public REST API | Implemented | `/api/v1`; API keys, scopes, authenticated `/me`, and idempotent project creation |
 | Webhooks | Implemented | Signed secrets, retries, deduplication, and company-scoped subscriptions |
 | SMTP/email | Implemented | Worker-owned SMTP delivery for transactional email; credentials remain environment configuration |
-| PDF/Gotenberg | Implemented | Server-side document rendering; external Gotenberg endpoint required in deployment |
-| Indonesian tax/Coretax export | Implemented, release validation pending | Versioned XML export and hashes; official portal/XSD acceptance remains an external gate |
-| Banking statement import | Implemented | CSV/OFX statement import; no live bank API connection |
-| **Connector foundation** | **Implemented** | Provider-neutral `ProviderAdapter` interface, vault-encrypted `SecretRef`, transactional outbox/inbox, deduplication, canonical event routing to domain modules, and `/settings/integrations` administration UI |
-| **Payment gateways — Midtrans** | **Implemented** | Snap checkout intent, SHA-512 webhook signature verification, `payment.captured/authorized/failed` canonical events, and automatic AR invoice allocation via worker outbox. Sandbox mode default; production requires `isProd=true`. 17-test suite covers signature, translation, and lifecycle. |
-| **Payment gateways — Stripe** | **Implemented** | Vault-resolved API/webhook secrets, live balance and charge calls, Stripe webhook verification, stable outbox idempotency keys, and canonical payment events. |
-| **Payment gateways — MockPay** | **Implemented** | Test-only adapter for local and CI environments |
-| **E-commerce — Shopify** | **Implemented** | Vault-resolved shop credentials, signed webhook verification, live order/inventory API calls, stable command keys, and `ecommerce.order.*` canonical events. Provider object mappings are required for inventory commands. |
-| **Shipping — DHL** | **Implemented** | Vault-resolved API credentials, HTTPS production endpoint enforcement, authenticated shipment booking, HMAC callback verification, retry policy, and tracking-status translation. |
-| **AI gateway — OpenAI** | **Implemented (stub)** | Adapter scaffolded; governed AI use-cases not yet implemented |
-| **Object storage — AWS S3** | **Implemented** | Board-pack/document storage plus live connector exports through S3-compatible `PutObject`; vault credentials and deterministic object keys prevent simulated success in production. |
-| **OIDC / identity providers** | **Implemented** | Vault-resolved issuer/client configuration, live discovery/JWKS verification for back-channel logout, and SCIM provisioning/deprovisioning calls. |
-| **WhatsApp** | **Implemented** | Vault-resolved Cloud API credentials, HMAC callback verification, live message delivery, retry policy, and stable command keys. |
+| PDF/Gotenberg | Partial; release tag required | Server-side document rendering; the default non-production build disables the exporter and may return 503. CI verifies `production pdf` tags. |
+| Indonesian tax/Coretax export | Code-complete; release validation pending | Versioned XML export and hashes; official portal/XSD acceptance remains an external gate |
+| Banking statement import | Code-complete | CSV/OFX statement import; no live bank API connection |
+| **Connector foundation** | **Code-complete; integration partial** | Provider-neutral `ProviderAdapter` interface, vault-encrypted `SecretRef`, transactional outbox/inbox, deduplication, canonical event routing to domain modules, and `/settings/integrations` administration UI |
+| **Payment gateways — Midtrans** | **Code-complete; certification pending** | Snap checkout intent, SHA-512 webhook signature verification, `payment.captured/authorized/failed` canonical events, and automatic AR invoice allocation via worker outbox. Sandbox mode default; production requires `isProd=true`. |
+| **Payment gateways — Stripe** | **Code-complete; certification pending** | Vault-resolved API/webhook secrets, live balance and charge calls, Stripe webhook verification, stable outbox idempotency keys, and canonical payment events. |
+| **Payment gateways — MockPay** | **Development-only** | Test-only adapter for local and CI environments |
+| **E-commerce — Shopify** | **Code-complete; integration partial** | Vault-resolved shop credentials, signed webhook verification, live order/inventory API calls, stable command keys, and `ecommerce.order.*` canonical events. Provider object mappings and reconciliation remain. |
+| **Shipping — DHL** | **Code-complete; certification pending** | Vault-resolved API credentials, HTTPS production endpoint enforcement, authenticated shipment booking, HMAC callback verification, retry policy, and tracking-status translation. |
+| **AI gateway — OpenAI** | **Planned / stub** | Adapter scaffolded; governed AI use-cases are not implemented |
+| **Object storage — AWS S3** | **Code-complete; integration partial** | Board-pack/document storage plus live connector exports through S3-compatible `PutObject`; provider rollout and operational evidence remain. |
+| **OIDC / identity providers** | **Code-complete; certification pending** | Vault-resolved issuer/client configuration, live discovery/JWKS verification for back-channel logout, and SCIM provisioning/deprovisioning calls. |
+| **WhatsApp** | **Code-complete; certification pending** | Vault-resolved Cloud API credentials, HMAC callback verification, live message delivery, retry policy, and stable command keys. |
 | SMS or push providers | Planned | SMS fallback and client-dependent push delivery are specified; no provider is implemented |
 | External BI tools | Planned | Versioned, company-scoped export contracts are specified; no managed BI connector is implemented |
 

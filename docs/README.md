@@ -78,7 +78,8 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 | [Period Policy](reference/period-policy.md) | Kebijakan periode accounting |
 | [Observability](reference/observability.md) | Monitoring & metrics |
 | [SLO Finance](reference/slo-finance.md) | Service Level Objectives |
-| [Module Catalog](reference/module-catalog.md) | Authoritative status for the ERP requirement inventory |
+| [Authoritative Feature Matrix](reference/feature-matrix.md) | Four-dimensional release status: code, integration, production certification, and documentation |
+| [Module Catalog](reference/module-catalog.md) | Capability inventory and guide navigation |
 | [Reporting Catalog](reference/reporting-catalog.md) | Reports, KPIs, routes, data sources, filters, and exports |
 
 ## 📝 Architecture Decision Records

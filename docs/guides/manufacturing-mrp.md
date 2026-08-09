@@ -2,7 +2,10 @@
 
 ## Current status
 
-**Implemented manufacturing planning and execution workflow, with compliance-control foundations.** Routes are mounted under `/mrp`; local acceptance evidence is linked from [`horizon-mvp.md`](horizon-mvp.md).
+**Foundation implemented; integration and production certification remain partial.**
+Routes are mounted under `/mrp`; local acceptance evidence is linked from
+[`horizon-mvp.md`](horizon-mvp.md). Use the [feature matrix](../reference/feature-matrix.md)
+for the release status of each capability.
 
 Mandatory decision enforcement and staging certification are specified in the
 [`Manufacturing Governance Execution Plan`](manufacturing-governance-plan.md).
@@ -25,14 +28,14 @@ Mandatory decision enforcement and staging certification are specified in the
 - Inspection plans and results, quality holds/releases, NCRs, CAPAs, and subcontract-operation send/receive records. Open holds prevent operation completion and finished-goods receipt.
 - Lot/serial references on material issue and finished-goods receipt, with component-to-finished-good genealogy exposed through the MRP API.
 - Live manufacturing analytics for operation yield/scrap/time variance, WIP value/aging inputs, schedule adherence, and work-center utilization, including CSV export.
-- Controlled-record policies, captured electronic signatures, immutable manufacturing audit events, retention settings, audit CSV export, and dedicated manufacturing planner/operator/quality/manager permissions.
+- Controlled-record decisions now lock live MRP rows, persist canonical JSONB snapshots with server-derived versions and SHA-256 hashes, enforce active approver roles/separation-of-duties/evidence policy, consume actor-bound one-time challenges, and append immutable audit evidence. Direct signatures use the same server snapshot boundary and verify the actor password or TOTP code.
 - Dispatcher APIs and screens for BOM revisions, WIP-location administration, work-order execution, scheduling, exceptions, quality, and manufacturing analytics.
 - Explicit fulfillment warehouse on every newly created or updated sales-order line. Delivery orders may use only lines assigned to their header warehouse.
 
 ## Not currently documented as supported
 
-- Automatic enforcement of every controlled-record policy at each approval, quality disposition, schedule override, subcontract receipt, and work-order-close decision point.
-- Re-authentication, signature-to-record-version hashing, and regulator-specific electronic-signature validation.
+- Automatic enforcement of every controlled-record policy at each quality disposition, schedule override, subcontract receipt, and work-order-close decision point.
+- Regulator-specific electronic-signature validation and external identity-provider reauthentication.
 - Automated retention/export jobs and a full compliance-reporting suite.
 - Advanced quality workflows such as statistical process control, calibration, and supplier-quality scorecards.
 
@@ -44,4 +47,4 @@ Mandatory decision enforcement and staging certification are specified in the
 - A WIP issue or return is limited to a BOM component of its work order. A completion fails atomically if its issued-minus-returned WIP quantity cannot cover the receipt.
 - Scheduling is a planning aid: dispatchers may manually reschedule or split an operation, and the next scheduler run preserves manual schedules.
 - Quality holds block operation completion and finished-goods receipt until an authorized release. Material issue and receipt references are retained for genealogy.
-- Electronic signatures and immutable audit events are captured as compliance foundations; organizations must configure and enforce their own approval policy before relying on them for regulated certification.
+- Compliance policies remain deployment configuration: organizations must define approver roles, retention periods, and required evidence before relying on the controls for regulated certification. Snapshot retention/export jobs and a full compliance-reporting suite remain planned.

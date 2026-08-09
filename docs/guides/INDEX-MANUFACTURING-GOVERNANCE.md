@@ -1,6 +1,6 @@
 # Manufacturing Governance - Documentation Index
 
-**Status:** Planning Phase Complete ✓  
+**Status:** Planning baseline complete; implementation and certification remain tracked in the feature matrix
 **Date:** 2026-08-03  
 **Ready for:** Phase 1 Implementation
 

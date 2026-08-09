@@ -8,7 +8,8 @@ the repository workflow:
 ```bash
 export ODYSSEY_TEST_MODE=1
 export GOTENBERG_URL='http://127.0.0.1:0'
-make docs-check
+make release-check
+make pdf-release-check
 make vet
 go test ./...
 go build ./...
@@ -80,4 +81,5 @@ definition as the authoritative invocation.
 Some release checks deliberately require external evidence. See the
 [Coretax validation sign-off guide](tax-staff-coretax-validation.md) and
 [Phase 14/P7 acceptance evidence](phase14-p7-acceptance-evidence.md) before
-claiming staging or production certification.
+claiming staging or production certification. The [authoritative feature matrix](../reference/feature-matrix.md)
+is the release-status source; the Phase 14/P7 document is local evidence only.

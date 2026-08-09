@@ -33,7 +33,7 @@ capture instructions.
 
 For deploying to Render, see the [Production Deployment Guide](docs/guides/deploy-render.md).
 
-See the [CHANGELOG](docs/CHANGELOG.md), [version and progress report](docs/releases/VERSION_HISTORY.md), [release notes](docs/releases/), and [authoritative module catalog](docs/reference/module-catalog.md).
+See the [CHANGELOG](docs/CHANGELOG.md), [version and progress report](docs/releases/VERSION_HISTORY.md), [release notes](docs/releases/), and the [authoritative feature matrix](docs/reference/feature-matrix.md).
 
 ## Feature overview
 
@@ -123,8 +123,9 @@ Create Delivery Order / select warehouse
                                       reports/read models update through their jobs
 ```
 
-For feature-level status, supported lifecycle states, report routes, and integration
-boundaries, see the [module catalog](docs/reference/module-catalog.md),
+For feature-level release status, supported lifecycle states, report routes, and
+integration boundaries, see the [authoritative feature matrix](docs/reference/feature-matrix.md),
+[module catalog](docs/reference/module-catalog.md),
 [lifecycle reference](docs/architecture/lifecycles.md),
 [reporting catalog](docs/reference/reporting-catalog.md), and
 [integration boundaries](docs/guides/integrations.md).

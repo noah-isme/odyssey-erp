@@ -49,8 +49,11 @@ jobs:
       - name: Go mod download
         run: go mod download
 
-      - name: Check documentation
-        run: make docs-check
+      - name: Check documentation and release claims
+        run: make release-check
+
+      - name: Verify production PDF build tags
+        run: make pdf-release-check
 
       - name: Lint
         uses: golangci/golangci-lint-action@v4

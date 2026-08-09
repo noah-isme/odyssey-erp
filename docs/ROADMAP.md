@@ -10,10 +10,13 @@
 **Revised:** 2026-08-02 (external integrations implementation plan)
 **Revised:** 2026-08-02 (linked execution plans for remaining module depth and administration)
 **Revised:** 2026-08-09 (repository persistence boundaries and shared HTTP error policy)
+**Revised:** 2026-08-09 (document processing and CMMS telemetry foundations)
+**Revised:** 2026-08-09 (MRP canonical compliance snapshots and reauthentication hardening)
 **Current Version:** v0.9.1
 
-> For current capability status, use the [Module Catalog](reference/module-catalog.md).
-> This roadmap tracks sequencing and release gates; it is not a second feature-status
+> For current release status, use the [Authoritative Feature Matrix](reference/feature-matrix.md).
+> The [Module Catalog](reference/module-catalog.md) is the capability inventory. This
+> roadmap tracks sequencing and release gates; it is not a second feature-status
 > authority.
 
 ## Executive Summary
@@ -29,8 +32,9 @@ to re-prioritise the genuinely remaining work.
 The following guides are the implementation plans for the remaining depth and control
 work. They contain ownership boundaries, lifecycles, permissions, data migrations,
 integration contracts, rollout gates, and acceptance criteria. The
-[`Module Catalog`](reference/module-catalog.md) remains authoritative for current
-capability status.
+[`Feature Matrix`](reference/feature-matrix.md) remains authoritative for current
+release status, while the [`Module Catalog`](reference/module-catalog.md) provides
+capability navigation.
 
 | Plan | Scope |
 |---|---|
@@ -58,7 +62,7 @@ capability status.
 | Phase 13 — Fixed Assets | ✅ Implemented | Register, straight-line depreciation worker, disposal accounting, and category setup |
 | Phase 14 — Transaction-level multi-currency | 🟡 Locally certified; staging/production verification pending | `internal/fx/`, AR/AP valuation, realized FX, revaluation/reversal, migrations `000053/000054`; local acceptance evidence in `docs/guides/phase14-p7-acceptance-evidence.md` |
 | P7 — Multi-Currency and Horizon MVP foundation | 🟡 Locally certified; staging/production verification pending | WMS, MRP, POS, projects/timesheets, API/webhooks, portals; migrations `000055/000056/000060`; local acceptance evidence in `docs/guides/phase14-p7-acceptance-evidence.md` |
-| Manufacturing / MRP expansion | 🟡 Locally verified; staging and regulated-policy enforcement pending | Approved BOM revisions, planning/firming, WIP cost transfer, finite-capacity scheduling, exceptions, quality/genealogy, analytics, and compliance foundations; migrations `000062`–`000075`; [`manufacturing-mrp.md`](guides/manufacturing-mrp.md) |
+| Manufacturing / MRP expansion | 🟡 Locally verified; downstream staging and regulated-policy validation pending | Approved BOM revisions, planning/firming, WIP cost transfer, finite-capacity scheduling, exceptions, quality/genealogy, analytics, canonical immutable compliance snapshots, role checks, real reauthentication, and audit evidence; migrations `000062`–`000075`, `000118`; [`manufacturing-mrp.md`](guides/manufacturing-mrp.md) |
 | Phase 15 — Reporting enhancements | 🟡 Partial | P&L and Budget vs Actual support department/cost-center filters, native `.xlsx`, and scheduled email; report builder/widgets remain |
 | Connector foundation (Phase 0) | ✅ Implemented | `internal/connectors/` — `ProviderAdapter` interface, vault-encrypted `SecretRef`, transactional outbox/inbox, deduplication, canonical event routing, `/settings/integrations` UI; migrations `000076`+ |
 | Payment gateway — Midtrans (Phase A1) | ✅ Implemented | Snap checkout, SHA-512 webhook signature verification, `payment.captured/authorized/failed` canonical events, automatic AR invoice allocation; `internal/connectors/providers/midtrans/`; 17-test suite |
@@ -481,12 +485,13 @@ governed AI connectors.
 
 3. **Medium-term (3 months)**
    - 📝 **IN PROGRESS**: Projects, POS, CMMS, and WMS depth remains partial (milestones/budgets,
-     POS hardware/loyalty/gift cards, CMMS predictive AI/IoT/mobile, WMS put-away/cross-dock/MHE
-     are not implemented). HR benefits are done; advanced QMS (SPC/ATE/calibration/LIMS), Portal
+     POS hardware/loyalty/gift cards, CMMS calibrated predictive AI/streaming/mobile, and WMS
+     put-away/cross-dock/MHE remain). CMMS IoT readings and deterministic anomaly alerts now have
+     persisted service paths. HR benefits are done; advanced QMS (SPC/ATE/calibration/LIMS), Portal
      depth (profiles/RFQ/chat/analytics), and provider connectors are not.
    - Enforce manufacturing controlled-record policies at approval and release decision
-     points; add document management depth (OCR/collaboration/search are backend-only),
-     2FA/SSO, and enterprise compliance controls
+     points; add document OCR providers and realtime collaboration transport on top of the
+     document processing/search backend, plus 2FA/SSO and enterprise compliance controls
 
 ---
 

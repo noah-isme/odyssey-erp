@@ -221,7 +221,8 @@ provider outage flows; stock moves once and the full tracking history remains au
 
 **Estimate:** 6–8 weeks
 
-**Status:** Implemented
+**Status:** Partial — adapter transport exists; end-to-end marketplace synchronization,
+reconciliation, and production certification remain.
 
 **Depends on:** Phase 0 and the stable payment/shipping domain contracts from A1/A2
 

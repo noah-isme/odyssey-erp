@@ -2,11 +2,20 @@
 
 All notable released changes are recorded here at a summary level. Detailed
 release notes are immutable records under `docs/releases/`; completed phase logs
-and older changelog material live in `docs/archive/`.
+and older changelog material live in `docs/archive/`. Release readiness is tracked
+only in the [authoritative feature matrix](reference/feature-matrix.md).
 
 ## Unreleased
 
 ### Added
+- **MRP compliance hardening**: Added server-generated canonical snapshots with immutable JSONB/hash/version evidence, actor-bound one-time challenges, active policy-role and separation-of-duties checks, password/TOTP reauthentication, retention metadata, and immutable decision/signature/audit guards. Migration `000118` adds the evidence boundary and challenge bindings; downstream staging flows and regulator-specific validation remain planned.
+- **Document and CMMS advanced foundations**: Added a durable Asynq OCR task with
+  text extraction and search-index updates, persisted collaboration changes,
+  tenant-scoped full-text search, retention-expiry to disposition processing, and
+  company-checked CMMS IoT readings, predictive-model records, and idempotent anomaly
+  alerts. Migration `000117` adds collaboration-change/search constraints and fixes
+  the CMMS advanced foreign keys to the existing `assets` table. Scanned-document OCR
+  and real ML inference still require injected providers.
 - **Finance automation**: Added tenant-scoped treasury batch controls with SQL-backed
   active-item totals, verified bank-feed event inbox processing, database-backed rolling
   forecasts with FX snapshots, and an idempotent finance outbox dispatcher. Live bank-feed
@@ -14,15 +23,14 @@ and older changelog material live in `docs/archive/`.
 - **Distribution**: Added authenticated `/distribution` routes for planning horizons,
   load/shipment lifecycle, dispatch, delivery inventory posting, manual routes, and
   transfer orders. Added a database-backed opt-in lifecycle test.
-- **Documents**: Advanced QMS (SPC, ATE, LIMS), OCR, real-time collaboration, and full-text content search.
-- **HR**: Benefits administration and performance review processing.
-- **CMMS**: Predictive maintenance, IoT sensor integration, and anomaly alert heuristic engine.
-- **WMS**: Wave planning, put-away tasks, cross-docking plans, and material handling equipment (MHE) management.
-- **Portal**: Profile updates, RFQ negotiation, direct chat messaging, and analytics tracking.
-- **POS**: Scanner/printer hardware configuration, loyalty members tier tracking, and gift card balances (split-tender ready).
-- **Connectors**: Marketplace synchronization (Shopify) including inbound sales orders, outbox event bridging, and outbound inventory available-to-promise sync.
-- **Connector hardening**: Replaced simulated Stripe, S3, WhatsApp, DHL, Shopify, and OIDC success paths with vault-resolved provider calls, fail-closed signature verification, retry/idempotency handling, deterministic webhook replay keys, and provider contract tests. Development fakes now require `CONNECTORS_DEVELOPMENT_MODE=true`.
-- **Projects**: Milestone tracking, employee resource allocation, and expense submission/tracking.
+- **Capability status hygiene**: Reclassified advanced documents, CMMS telemetry,
+  WMS, portal, POS, marketplace, and project depth as partial or planned where their
+  end-to-end workflows are not complete. See the [feature matrix](reference/feature-matrix.md)
+  for the current release dimensions.
+- **Connector hardening**: Provider transport now has vault-resolved configuration,
+  fail-closed production behavior, retry/idempotency controls, deterministic webhook
+  replay keys, and contract-test seams. This does not certify every provider or
+  channel workflow; development fakes require `CONNECTORS_DEVELOPMENT_MODE=true`.
 
 ### Changed
 
