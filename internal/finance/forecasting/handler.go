@@ -24,10 +24,9 @@ func (h *Handler) MountRoutes(r chi.Router) {
 }
 
 func (h *Handler) GetLatestRun(w http.ResponseWriter, r *http.Request) {
-	companyIDStr := r.URL.Query().Get("company_id")
-	companyID, _ := strconv.ParseInt(companyIDStr, 10, 64)
-	if companyID == 0 {
-		http.Error(w, "missing company_id", http.StatusBadRequest)
+	identity, ok := shared.IdentityFromContext(r.Context())
+	if !ok {
+		http.Error(w, "authentication required", http.StatusUnauthorized)
 		return
 	}
 
@@ -39,7 +38,7 @@ func (h *Handler) GetLatestRun(w http.ResponseWriter, r *http.Request) {
 	}
 
 	run, err := h.service.repo.GetLatestForecastRun(r.Context(), ForecastRunQuery{
-		CompanyID:  companyID,
+		CompanyID:  identity.CompanyID,
 		ScenarioID: scenarioID,
 	})
 	if err != nil {
@@ -70,18 +69,21 @@ func (h *Handler) GetLatestRun(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) TriggerRun(w http.ResponseWriter, r *http.Request) {
-	companyIDStr := r.URL.Query().Get("company_id")
-	companyID, _ := strconv.ParseInt(companyIDStr, 10, 64)
+	identity, ok := shared.IdentityFromContext(r.Context())
+	if !ok {
+		http.Error(w, "authentication required", http.StatusUnauthorized)
+		return
+	}
 
 	scenarioIDStr := r.URL.Query().Get("scenario_id")
 	scenarioID, _ := strconv.ParseInt(scenarioIDStr, 10, 64)
 
-	if companyID == 0 || scenarioID == 0 {
-		http.Error(w, "missing company_id or scenario_id", http.StatusBadRequest)
+	if scenarioID <= 0 {
+		http.Error(w, "missing scenario_id", http.StatusBadRequest)
 		return
 	}
 
-	err := h.service.GenerateSnapshot(r.Context(), companyID, scenarioID)
+	err := h.service.GenerateSnapshot(r.Context(), identity.CompanyID, scenarioID)
 	if err != nil {
 		shared.WriteErrorStatus(w, http.StatusInternalServerError, err)
 		return

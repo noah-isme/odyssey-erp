@@ -20,6 +20,13 @@ func NewPGRepository(db *pgxpool.Pool) *PGRepository {
 	return &PGRepository{queries: sqlc.New(db)}
 }
 
+func (r *PGRepository) SupplierBelongsToCompany(ctx context.Context, supplierID, companyID int64) (bool, error) {
+	return r.queries.SupplierBelongsToCompany(ctx, sqlc.SupplierBelongsToCompanyParams{
+		ID:        supplierID,
+		CompanyID: pgtype.Int8{Int64: companyID, Valid: companyID > 0},
+	})
+}
+
 func (r *PGRepository) CreateSupplierBankAccount(ctx context.Context, input SupplierBankAccountCreate) (SupplierBankAccount, error) {
 	row, err := r.queries.CreateTreasurySupplierBankAccount(ctx, sqlc.CreateTreasurySupplierBankAccountParams{
 		CompanyID:     input.CompanyID,
@@ -83,6 +90,15 @@ func (r *PGRepository) GetPaymentPolicy(ctx context.Context, companyID int64) (P
 	return PaymentPolicy{RequiresMakerChecker: row.RequiresMakerChecker}, nil
 }
 
+func (r *PGRepository) APInvoiceEligibleForPayment(ctx context.Context, invoiceID, supplierID, companyID int64, currency string) (bool, error) {
+	return r.queries.APInvoiceEligibleForTreasuryPayment(ctx, sqlc.APInvoiceEligibleForTreasuryPaymentParams{
+		ID:         invoiceID,
+		SupplierID: supplierID,
+		CompanyID:  pgtype.Int8{Int64: companyID, Valid: companyID > 0},
+		Currency:   currency,
+	})
+}
+
 func (r *PGRepository) CreatePaymentBatch(ctx context.Context, input PaymentBatchCreate) (PaymentBatch, error) {
 	row, err := r.queries.CreateTreasuryPaymentBatch(ctx, sqlc.CreateTreasuryPaymentBatchParams{
 		CompanyID:     input.CompanyID,
@@ -119,7 +135,18 @@ func (r *PGRepository) UpdatePaymentBatchStatus(ctx context.Context, input Payme
 
 func (r *PGRepository) UpdatePaymentBatchRevision(ctx context.Context, input PaymentBatchRevisionUpdate) (PaymentBatch, error) {
 	row, err := r.queries.UpdateTreasuryPaymentBatchRevision(ctx, sqlc.UpdateTreasuryPaymentBatchRevisionParams{
-		ID:          input.ID,
+		BatchID:     input.ID,
+		TotalAmount: numericOf(input.TotalAmount),
+	})
+	if err != nil {
+		return PaymentBatch{}, err
+	}
+	return mapPaymentBatch(row)
+}
+
+func (r *PGRepository) UpdatePaymentBatchTotal(ctx context.Context, input PaymentBatchTotalUpdate) (PaymentBatch, error) {
+	row, err := r.queries.UpdateTreasuryPaymentBatchTotal(ctx, sqlc.UpdateTreasuryPaymentBatchTotalParams{
+		BatchID:     input.ID,
 		TotalAmount: numericOf(input.TotalAmount),
 	})
 	if err != nil {

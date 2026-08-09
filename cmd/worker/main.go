@@ -34,6 +34,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/consol"
 	"github.com/odyssey-erp/odyssey-erp/internal/crm"
 	"github.com/odyssey-erp/odyssey-erp/internal/documents"
+	"github.com/odyssey-erp/odyssey-erp/internal/finance/automation"
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/bankfeeds"
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/banking"
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/forecasting"
@@ -290,14 +291,20 @@ func main() {
 	bankingService := banking.NewService(bankingRepo, logger, nil)
 	bankfeedsService := bankfeeds.NewService(bankfeedsRepo, bankingService, nil)
 	bankFeedsProcessor := jobs.NewBankFeedsProcessor(bankfeedsService, logger)
+	financeAutomationDispatcher := automation.NewDispatcher(
+		automation.NewOutboxRepository(pool),
+		fmt.Sprintf("finance-worker-%d", os.Getpid()),
+		logger,
+	)
 
 	forecastRepo := forecasting.NewPGRepository(pool)
-	forecastReaders := []forecasting.SourceReader{
-		forecasting.NewMockReader("mock_ar", forecasting.SourceTypeOpenAR, false),
-		forecasting.NewMockReader("mock_ap", forecasting.SourceTypePostedAP, true),
-		forecasting.NewMockReader("mock_payroll", forecasting.SourceTypeApprovedPayroll, true),
-	}
-	forecastService := forecasting.NewService(forecastRepo, forecastReaders, logger)
+	forecastReaders := forecasting.NewDatabaseReaders(pool)
+	forecastService := forecasting.NewServiceWithFXResolver(
+		forecastRepo,
+		forecastReaders,
+		fxservice.Resolver{Repo: fxRepo, MaxAge: cfg.FXMaxRateAge},
+		logger,
+	)
 	forecastProcessor := jobs.NewCashForecastProcessor(forecastService, logger)
 
 	apRepo := ap.NewRepository(pool)
@@ -325,6 +332,7 @@ func main() {
 			{Type: jobs.TaskCRMReminderDispatch, Handler: jobs.HandleCRMReminderDispatch(crmService)},
 			{Type: jobs.TaskWebhookDeliveryDispatch, Handler: jobs.HandleWebhookDeliveryDispatch(webhookDispatcher{handler: apiHandler})},
 			{Type: jobs.TaskOutboxSweep, Handler: jobs.HandleOutboxSweep(outboxDispatcher)},
+			{Type: jobs.TaskFinanceAutomationDispatch, Handler: jobs.HandleFinanceAutomationDispatch(financeAutomationDispatcher)},
 			{Type: jobs.TypeBankFeedsSync, Handler: bankFeedsProcessor.ProcessSyncTask},
 			{Type: jobs.TypeBankFeedsEvent, Handler: bankFeedsProcessor.ProcessEventTask},
 			{Type: jobs.TypeCashForecastRefresh, Handler: forecastProcessor.ProcessRefreshTask},
@@ -355,6 +363,7 @@ func main() {
 			{Spec: "* * * * *", Task: asynq.NewTask(jobs.TaskCRMReminderDispatch, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
 			{Spec: "* * * * *", Task: asynq.NewTask(jobs.TaskWebhookDeliveryDispatch, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
 			{Spec: "* * * * *", Task: asynq.NewTask(jobs.TaskOutboxSweep, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
+			{Spec: "* * * * *", Task: asynq.NewTask(jobs.TaskFinanceAutomationDispatch, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
 			// Run CMMS PM generator hourly
 			{Spec: "0 * * * *", Task: asynq.NewTask(jobs.TypeCMMSPMGeneratorScan, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
 			{Spec: "5 0 * * *", Task: func() *asynq.Task { task, _ := jobs.NewFXDailyRatesTask(time.Time{}, false); return task }(), Options: []asynq.Option{asynq.MaxRetry(5)}},

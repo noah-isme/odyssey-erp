@@ -265,12 +265,14 @@ func main() {
 	bankFeedsHandler := bankfeeds.NewHandler(bankfeedsService, logger)
 
 	forecastRepo := forecasting.NewPGRepository(dbpool)
-	forecastReaders := []forecasting.SourceReader{
-		forecasting.NewMockReader("mock_ar", forecasting.SourceTypeOpenAR, false),
-		forecasting.NewMockReader("mock_ap", forecasting.SourceTypePostedAP, true),
-		forecasting.NewMockReader("mock_payroll", forecasting.SourceTypeApprovedPayroll, true),
-	}
-	forecastService := forecasting.NewService(forecastRepo, forecastReaders, logger)
+	forecastReaders := forecasting.NewDatabaseReaders(dbpool)
+	forecastFXRepo := fxservice.NewRepository(dbpool)
+	forecastService := forecasting.NewServiceWithFXResolver(
+		forecastRepo,
+		forecastReaders,
+		fxservice.Resolver{Repo: forecastFXRepo, MaxAge: cfg.FXMaxRateAge},
+		logger,
+	)
 	forecastHandler := forecasting.NewHandler(forecastService)
 
 	treasuryRepo := treasury.NewPGRepository(dbpool)
@@ -314,6 +316,10 @@ func main() {
 			logger.Warn("close job client", slog.Any("error", err))
 		}
 	}()
+	bankFeedsHandler.SetEventEnqueuer(func(ctx context.Context, eventID int64) error {
+		_, err := jobClient.EnqueueBankFeedsEvent(ctx, eventID)
+		return err
+	})
 	outboxRepo := outbox.NewRepository(dbpool)
 	connectorsRegistry := connectors.NewRegistry()
 	if cfg.ConnectorDevelopmentMode {
@@ -551,6 +557,7 @@ func main() {
 	mrpHandler.SetQMSService(qmsService)
 
 	logisticsService := logistics.NewService(dbpool)
+	distributionHandler := app.NewDistributionHandler(dbpool, logisticsService, inventoryService)
 
 	// Init Freight Module
 	freightQueries := sqlc.New(dbpool)
@@ -593,6 +600,7 @@ func main() {
 		TreasuryHandler:        treasuryHandler,
 		InventoryService:       inventoryService,
 		LogisticsService:       logisticsService,
+		DistributionHandler:    distributionHandler,
 		FreightService:         freightService,
 		Metrics:                metrics,
 		DashboardHandler:       dashboardHandler,

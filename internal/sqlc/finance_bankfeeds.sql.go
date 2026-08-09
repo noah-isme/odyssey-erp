@@ -11,6 +11,24 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const claimBankFeedEvent = `-- name: ClaimBankFeedEvent :execrows
+UPDATE bank_feed_events
+SET status = 'PROCESSING', updated_at = NOW()
+WHERE id = $1
+  AND (
+      status IN ('PENDING', 'FAILED')
+      OR (status = 'PROCESSING' AND updated_at < NOW() - INTERVAL '15 minutes')
+  )
+`
+
+func (q *Queries) ClaimBankFeedEvent(ctx context.Context, id int64) (int64, error) {
+	result, err := q.db.Exec(ctx, claimBankFeedEvent, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const createBankConnection = `-- name: CreateBankConnection :one
 INSERT INTO bank_connections (
     company_id, provider_id, connection_ref, status, consent_expires_at, health_status
@@ -85,24 +103,31 @@ func (q *Queries) CreateBankConnectionAccount(ctx context.Context, arg CreateBan
 
 const createBankFeedEvent = `-- name: CreateBankFeedEvent :one
 INSERT INTO bank_feed_events (
-    provider_id, event_type, payload, occurred_at
+    connection_id, provider_id, event_type, payload, payload_hash, occurred_at
 ) VALUES (
-    $1, $2, $3, $4
-) RETURNING id, provider_id, event_type, payload, status, error_details, occurred_at, created_at, updated_at
+    $1, $2, $3, $4, $5, $6
+)
+ON CONFLICT (connection_id, payload_hash) WHERE payload_hash <> ''
+DO UPDATE SET updated_at = bank_feed_events.updated_at
+RETURNING id, provider_id, event_type, payload, status, error_details, occurred_at, created_at, updated_at, connection_id, payload_hash
 `
 
 type CreateBankFeedEventParams struct {
-	ProviderID string             `json:"provider_id"`
-	EventType  string             `json:"event_type"`
-	Payload    []byte             `json:"payload"`
-	OccurredAt pgtype.Timestamptz `json:"occurred_at"`
+	ConnectionID pgtype.Int8        `json:"connection_id"`
+	ProviderID   string             `json:"provider_id"`
+	EventType    string             `json:"event_type"`
+	Payload      []byte             `json:"payload"`
+	PayloadHash  string             `json:"payload_hash"`
+	OccurredAt   pgtype.Timestamptz `json:"occurred_at"`
 }
 
 func (q *Queries) CreateBankFeedEvent(ctx context.Context, arg CreateBankFeedEventParams) (BankFeedEvent, error) {
 	row := q.db.QueryRow(ctx, createBankFeedEvent,
+		arg.ConnectionID,
 		arg.ProviderID,
 		arg.EventType,
 		arg.Payload,
+		arg.PayloadHash,
 		arg.OccurredAt,
 	)
 	var i BankFeedEvent
@@ -116,6 +141,8 @@ func (q *Queries) CreateBankFeedEvent(ctx context.Context, arg CreateBankFeedEve
 		&i.OccurredAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ConnectionID,
+		&i.PayloadHash,
 	)
 	return i, err
 }
@@ -190,6 +217,29 @@ func (q *Queries) GetBankConnectionAccount(ctx context.Context, arg GetBankConne
 		&i.LastSyncedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getBankFeedEvent = `-- name: GetBankFeedEvent :one
+SELECT id, provider_id, event_type, payload, status, error_details, occurred_at, created_at, updated_at, connection_id, payload_hash FROM bank_feed_events WHERE id = $1
+`
+
+func (q *Queries) GetBankFeedEvent(ctx context.Context, id int64) (BankFeedEvent, error) {
+	row := q.db.QueryRow(ctx, getBankFeedEvent, id)
+	var i BankFeedEvent
+	err := row.Scan(
+		&i.ID,
+		&i.ProviderID,
+		&i.EventType,
+		&i.Payload,
+		&i.Status,
+		&i.ErrorDetails,
+		&i.OccurredAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ConnectionID,
+		&i.PayloadHash,
 	)
 	return i, err
 }

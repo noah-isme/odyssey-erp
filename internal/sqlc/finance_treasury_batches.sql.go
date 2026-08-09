@@ -171,19 +171,23 @@ const updateTreasuryPaymentBatchRevision = `-- name: UpdateTreasuryPaymentBatchR
 UPDATE treasury_payment_batches
 SET revision_number = revision_number + 1,
     status = 'DRAFT',
-    total_amount = $2,
+    total_amount = COALESCE((
+        SELECT SUM(amount)
+        FROM treasury_payment_batch_items
+        WHERE batch_id = $1 AND status = 'ACTIVE'
+    ), $2),
     updated_at = NOW()
 WHERE id = $1
 RETURNING id, company_id, reference_code, status, currency, total_amount, revision_number, proposed_by, approved_by, approved_at, created_at, updated_at, exported_file_hash, exported_at, exported_by, settled_at, settled_by
 `
 
 type UpdateTreasuryPaymentBatchRevisionParams struct {
-	ID          int64          `json:"id"`
+	BatchID     int64          `json:"batch_id"`
 	TotalAmount pgtype.Numeric `json:"total_amount"`
 }
 
 func (q *Queries) UpdateTreasuryPaymentBatchRevision(ctx context.Context, arg UpdateTreasuryPaymentBatchRevisionParams) (TreasuryPaymentBatch, error) {
-	row := q.db.QueryRow(ctx, updateTreasuryPaymentBatchRevision, arg.ID, arg.TotalAmount)
+	row := q.db.QueryRow(ctx, updateTreasuryPaymentBatchRevision, arg.BatchID, arg.TotalAmount)
 	var i TreasuryPaymentBatch
 	err := row.Scan(
 		&i.ID,
@@ -231,6 +235,48 @@ func (q *Queries) UpdateTreasuryPaymentBatchStatus(ctx context.Context, arg Upda
 		arg.ApprovedBy,
 		arg.ApprovedAt,
 	)
+	var i TreasuryPaymentBatch
+	err := row.Scan(
+		&i.ID,
+		&i.CompanyID,
+		&i.ReferenceCode,
+		&i.Status,
+		&i.Currency,
+		&i.TotalAmount,
+		&i.RevisionNumber,
+		&i.ProposedBy,
+		&i.ApprovedBy,
+		&i.ApprovedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ExportedFileHash,
+		&i.ExportedAt,
+		&i.ExportedBy,
+		&i.SettledAt,
+		&i.SettledBy,
+	)
+	return i, err
+}
+
+const updateTreasuryPaymentBatchTotal = `-- name: UpdateTreasuryPaymentBatchTotal :one
+UPDATE treasury_payment_batches
+SET total_amount = COALESCE((
+        SELECT SUM(amount)
+        FROM treasury_payment_batch_items
+        WHERE batch_id = $1 AND status = 'ACTIVE'
+    ), $2),
+    updated_at = NOW()
+WHERE id = $1
+RETURNING id, company_id, reference_code, status, currency, total_amount, revision_number, proposed_by, approved_by, approved_at, created_at, updated_at, exported_file_hash, exported_at, exported_by, settled_at, settled_by
+`
+
+type UpdateTreasuryPaymentBatchTotalParams struct {
+	BatchID     int64          `json:"batch_id"`
+	TotalAmount pgtype.Numeric `json:"total_amount"`
+}
+
+func (q *Queries) UpdateTreasuryPaymentBatchTotal(ctx context.Context, arg UpdateTreasuryPaymentBatchTotalParams) (TreasuryPaymentBatch, error) {
+	row := q.db.QueryRow(ctx, updateTreasuryPaymentBatchTotal, arg.BatchID, arg.TotalAmount)
 	var i TreasuryPaymentBatch
 	err := row.Scan(
 		&i.ID,

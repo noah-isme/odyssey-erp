@@ -10,10 +10,17 @@ import (
 )
 
 type mockRepo struct {
-	accounts   []treasury.SupplierBankAccount
-	policy     treasury.PaymentPolicy
-	batches    []treasury.PaymentBatch
-	batchItems []treasury.PaymentBatchItem
+	accounts       []treasury.SupplierBankAccount
+	policy         treasury.PaymentPolicy
+	batches        []treasury.PaymentBatch
+	batchItems     []treasury.PaymentBatchItem
+	rejectInvoices map[int64]bool
+}
+
+func (m *mockRepo) SupplierBelongsToCompany(_ context.Context, supplierID, companyID int64) (bool, error) {
+	// The test repository models the supplier fixture used by the treasury
+	// tests without importing the supplier module's persistence types.
+	return supplierID == 100 && companyID == 1, nil
 }
 
 func (m *mockRepo) CreateSupplierBankAccount(_ context.Context, input treasury.SupplierBankAccountCreate) (treasury.SupplierBankAccount, error) {
@@ -73,6 +80,10 @@ func (m *mockRepo) GetPaymentPolicy(context.Context, int64) (treasury.PaymentPol
 	return m.policy, nil
 }
 
+func (m *mockRepo) APInvoiceEligibleForPayment(_ context.Context, invoiceID, _ int64, _ int64, _ string) (bool, error) {
+	return !m.rejectInvoices[invoiceID], nil
+}
+
 func (m *mockRepo) CreatePaymentBatch(_ context.Context, input treasury.PaymentBatchCreate) (treasury.PaymentBatch, error) {
 	batch := treasury.PaymentBatch{
 		ID:             int64(len(m.batches) + 1),
@@ -113,11 +124,31 @@ func (m *mockRepo) UpdatePaymentBatchRevision(_ context.Context, input treasury.
 		if batch.ID == input.ID {
 			m.batches[i].RevisionNumber++
 			m.batches[i].Status = "DRAFT"
-			m.batches[i].TotalAmount = input.TotalAmount
+			m.batches[i].TotalAmount = batchTotal(m.batchItems, input.ID)
 			return m.batches[i], nil
 		}
 	}
 	return treasury.PaymentBatch{}, nil
+}
+
+func (m *mockRepo) UpdatePaymentBatchTotal(_ context.Context, input treasury.PaymentBatchTotalUpdate) (treasury.PaymentBatch, error) {
+	for i, batch := range m.batches {
+		if batch.ID == input.ID {
+			m.batches[i].TotalAmount = batchTotal(m.batchItems, input.ID)
+			return m.batches[i], nil
+		}
+	}
+	return treasury.PaymentBatch{}, nil
+}
+
+func batchTotal(items []treasury.PaymentBatchItem, batchID int64) float64 {
+	var total float64
+	for _, item := range items {
+		if item.BatchID == batchID && item.Status == "ACTIVE" {
+			total += item.Amount
+		}
+	}
+	return total
 }
 
 func (m *mockRepo) UpdatePaymentBatchExport(_ context.Context, input treasury.PaymentBatchExportUpdate) (treasury.PaymentBatch, error) {
@@ -188,10 +219,10 @@ func TestServiceApproveBankAccount(t *testing.T) {
 	if account.VerificationStatus != "PENDING_APPROVAL" || !account.HoldPayments {
 		t.Fatalf("new account should be pending and held: %+v", account)
 	}
-	if _, err = svc.ApproveBankAccount(ctx, account.ID, 42); err == nil || err.Error() != "maker checker violation: creator cannot approve" {
+	if _, err = svc.ApproveBankAccount(ctx, 1, account.ID, 42); err == nil || err.Error() != "maker checker violation: creator cannot approve" {
 		t.Fatalf("expected maker checker violation, got %v", err)
 	}
-	approved, err := svc.ApproveBankAccount(ctx, account.ID, 43)
+	approved, err := svc.ApproveBankAccount(ctx, 1, account.ID, 43)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -222,21 +253,59 @@ func TestServiceBatchApproval(t *testing.T) {
 	svc := treasury.NewService(repo, nil, slog.Default())
 	ctx := context.Background()
 	account, _ := svc.AddBankAccount(ctx, 1, 100, 42, "Chase", "123", "021", "USD", "doc")
-	_, _ = svc.ApproveBankAccount(ctx, account.ID, 43)
+	_, _ = svc.ApproveBankAccount(ctx, 1, account.ID, 43)
 	batch, _ := svc.CreatePaymentBatch(ctx, 1, "BATCH-001", "USD", 44)
-	if _, err := svc.AddBatchItem(ctx, batch.ID, 100, account.ID, 100.50, 10); err != nil {
+	if _, err := svc.AddBatchItem(ctx, 1, batch.ID, 100, account.ID, 100.50, 10); err != nil {
 		t.Fatalf("unexpected error adding item: %v", err)
 	}
-	if _, err := svc.ApproveBatch(ctx, batch.ID, 45); err == nil || err.Error() != "batch is not pending approval" {
+	if _, err := svc.ApproveBatch(ctx, 1, batch.ID, 45); err == nil || err.Error() != "batch is not pending approval" {
 		t.Fatalf("expected batch not pending approval error, got %v", err)
 	}
 	_, _ = repo.UpdatePaymentBatchStatus(ctx, treasury.PaymentBatchStatusUpdate{ID: batch.ID, Status: "PENDING_APPROVAL"})
-	if _, err := svc.ApproveBatch(ctx, batch.ID, 44); err == nil || err.Error() != "maker checker violation: proposer cannot approve" {
+	if _, err := svc.ApproveBatch(ctx, 1, batch.ID, 44); err == nil || err.Error() != "maker checker violation: proposer cannot approve" {
 		t.Fatalf("expected maker checker violation, got %v", err)
 	}
-	approved, err := svc.ApproveBatch(ctx, batch.ID, 45)
+	approved, err := svc.ApproveBatch(ctx, 1, batch.ID, 45)
 	if err != nil || approved.Status != "APPROVED" {
 		t.Fatalf("expected approved batch, batch=%+v err=%v", approved, err)
+	}
+}
+
+func TestServiceBatchTotalsUseAllActiveItems(t *testing.T) {
+	repo := &mockRepo{}
+	svc := treasury.NewService(repo, nil, slog.Default())
+	ctx := context.Background()
+	account, _ := svc.AddBankAccount(ctx, 1, 100, 42, "Chase", "123", "021", "USD", "doc")
+	_, _ = svc.ApproveBankAccount(ctx, 1, account.ID, 43)
+	batch, _ := svc.CreatePaymentBatch(ctx, 1, "BATCH-MULTI", "USD", 44)
+	if _, err := svc.AddBatchItem(ctx, 1, batch.ID, 100, account.ID, 100, 0); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.AddBatchItem(ctx, 1, batch.ID, 100, account.ID, 25, 0); err != nil {
+		t.Fatal(err)
+	}
+	if repo.batches[0].TotalAmount != 125 {
+		t.Fatalf("batch total after two items = %v, want 125", repo.batches[0].TotalAmount)
+	}
+	_, _ = repo.UpdatePaymentBatchStatus(ctx, treasury.PaymentBatchStatusUpdate{ID: batch.ID, Status: "PENDING_APPROVAL"})
+	approved, err := svc.ApproveBatch(ctx, 1, batch.ID, 45)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if approved.TotalAmount != 125 || approved.Status != "APPROVED" {
+		t.Fatalf("approved batch = %+v, want total 125 and APPROVED", approved)
+	}
+}
+
+func TestServiceRejectsForeignOrPaidAPInvoice(t *testing.T) {
+	repo := &mockRepo{rejectInvoices: map[int64]bool{77: true}}
+	svc := treasury.NewService(repo, nil, slog.Default())
+	ctx := context.Background()
+	account, _ := svc.AddBankAccount(ctx, 1, 100, 42, "Chase", "123", "021", "USD", "doc")
+	_, _ = svc.ApproveBankAccount(ctx, 1, account.ID, 43)
+	batch, _ := svc.CreatePaymentBatch(ctx, 1, "BATCH-INVOICE", "USD", 44)
+	if _, err := svc.AddBatchItem(ctx, 1, batch.ID, 100, account.ID, 25, 77); err == nil {
+		t.Fatal("expected ineligible AP invoice to be rejected")
 	}
 }
 
@@ -245,11 +314,11 @@ func TestServiceExportBatch(t *testing.T) {
 	svc := treasury.NewService(repo, nil, slog.Default())
 	ctx := context.Background()
 	account, _ := svc.AddBankAccount(ctx, 1, 100, 42, "Chase", "123", "021", "USD", "doc")
-	_, _ = svc.ApproveBankAccount(ctx, account.ID, 43)
+	_, _ = svc.ApproveBankAccount(ctx, 1, account.ID, 43)
 	batch, _ := svc.CreatePaymentBatch(ctx, 1, "BATCH-002", "USD", 44)
-	_, _ = svc.AddBatchItem(ctx, batch.ID, 100, account.ID, 250, 11)
+	_, _ = svc.AddBatchItem(ctx, 1, batch.ID, 100, account.ID, 250, 11)
 	_, _ = repo.UpdatePaymentBatchStatus(ctx, treasury.PaymentBatchStatusUpdate{ID: batch.ID, Status: "APPROVED"})
-	payload, err := svc.ExportBatch(ctx, batch.ID, 46, &treasury.CSVEncoder{})
+	payload, err := svc.ExportBatch(ctx, 1, batch.ID, 46, &treasury.CSVEncoder{})
 	if err != nil || len(payload) == 0 {
 		t.Fatalf("expected export payload, len=%d err=%v", len(payload), err)
 	}
@@ -268,12 +337,12 @@ func TestServiceSettleBatch(t *testing.T) {
 	svc := treasury.NewService(repo, ap, slog.Default())
 	ctx := context.Background()
 	account, _ := svc.AddBankAccount(ctx, 1, 100, 42, "Chase", "123", "021", "USD", "doc")
-	_, _ = svc.ApproveBankAccount(ctx, account.ID, 43)
+	_, _ = svc.ApproveBankAccount(ctx, 1, account.ID, 43)
 	batch, _ := svc.CreatePaymentBatch(ctx, 1, "BATCH-003", "USD", 44)
-	_, _ = svc.AddBatchItem(ctx, batch.ID, 100, account.ID, 300, 99)
+	_, _ = svc.AddBatchItem(ctx, 1, batch.ID, 100, account.ID, 300, 99)
 	_, _ = repo.UpdatePaymentBatchStatus(ctx, treasury.PaymentBatchStatusUpdate{ID: batch.ID, Status: "EXPORTED"})
 
-	settled, err := svc.SettleBatch(ctx, batch.ID, 47)
+	settled, err := svc.SettleBatch(ctx, 1, batch.ID, 47)
 	if err != nil || settled.Status != "SETTLED" {
 		t.Fatalf("expected settled batch, batch=%+v err=%v", settled, err)
 	}

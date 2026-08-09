@@ -1437,6 +1437,8 @@ type BankFeedEvent struct {
 	OccurredAt   pgtype.Timestamptz `json:"occurred_at"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	ConnectionID pgtype.Int8        `json:"connection_id"`
+	PayloadHash  string             `json:"payload_hash"`
 }
 
 type BankFeedSyncRun struct {

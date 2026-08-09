@@ -2,7 +2,8 @@
 
 ## Current status
 
-**Partial.** Odyssey documents [WMS](wms.md) and fulfillment foundations, not a complete transportation-management suite.
+**Partial.** Odyssey provides WMS/fulfillment foundations and a core distribution
+load lifecycle, but not a complete transportation-management suite.
 
 ## Supported scope
 
@@ -11,7 +12,11 @@
 - Procurement-to-receipt and delivery-to-inventory links.
 - Supplier master data and warehouse isolation.
 - Shipping/delivery orders and tracking fields where provided by the delivery module.
+- Distribution planning horizons, company-scoped loads, linked logistics shipments,
+  carrier/fleet dispatch, delivery completion, and outbound inventory posting;
+  see [Distribution planning](distribution.md).
 
 ## Gaps
 
-Fleet management, carrier management, route optimization, distribution planning, freight costing, and external carrier execution are not implemented or documented as supported.
+Transfer inventory/GL posting, distance-based route optimization, freight costing,
+proof of delivery, and external carrier execution remain incomplete.

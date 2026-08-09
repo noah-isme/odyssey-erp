@@ -36,6 +36,7 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 | [External Integrations Plan](guides/external-integrations-plan.md) | Payment, carrier, marketplace, messaging, BI, identity, dan AI connectors |
 | [Procurement SOP](guides/procurement.md) | Prosedur procurement |
 | [Procurement and Logistics Depth Plan](guides/procurement-logistics-depth-plan.md) | RFQ, supplier intelligence, fleet, distribution planning, dan freight-cost execution plan |
+| [Distribution planning](guides/distribution.md) | Planning horizons, load/shipment lifecycle, dispatch, delivery, inventory posting, and remaining gaps |
 | [Board Pack](guides/howto-boardpack.md) | Generate board pack |
 | [Profil & Pengaturan](guides/user-profile-settings.md) | Panduan pengguna untuk profil, tema, bahasa, notifikasi, dan password |
 | [Runbook Preferensi Pengguna](guides/runbook-user-preferences.md) | Deployment dan troubleshooting pengaturan UI |

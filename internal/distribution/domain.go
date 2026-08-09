@@ -12,45 +12,45 @@ import (
 
 // PlanningHorizon defines the time window for distribution planning at a warehouse
 type PlanningHorizon struct {
-	ID               int64
-	CompanyID        int64
-	WarehouseID      int64
+	ID                int64
+	CompanyID         int64
+	WarehouseID       int64
 	PlanningStartDate time.Time
 	PlanningEndDate   time.Time
-	FrozenUntilDate  *time.Time // Planned orders frozen until this date
-	Status           HorizonStatus
-	Notes            string
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
-	CreatedBy        int64
+	FrozenUntilDate   *time.Time // Planned orders frozen until this date
+	Status            HorizonStatus
+	Notes             string
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+	CreatedBy         int64
 }
 
 type HorizonStatus string
 
 const (
-	HorizonStatusActive   HorizonStatus = "ACTIVE"
-	HorizonStatusArchived HorizonStatus = "ARCHIVED"
+	HorizonStatusActive    HorizonStatus = "ACTIVE"
+	HorizonStatusArchived  HorizonStatus = "ARCHIVED"
 	HorizonStatusCancelled HorizonStatus = "CANCELLED"
 )
 
 // PlanningRule defines constraints for load planning (capacity, weight, time, etc.)
 type PlanningRule struct {
-	ID                    int64
-	CompanyID             int64
-	WarehouseID           int64
-	RuleName              string
-	RuleType              RuleType
-	MaxLoadWeightKg       *accountingmoney.Money
-	MaxLoadVolumeCbm      *accountingmoney.Money
-	MaxItemsPerLoad       *int
-	TimeWindowStart       *time.Time
-	TimeWindowEnd         *time.Time
-	VehicleTypeRequired   string
-	CustomRuleExpression  string
-	Priority              int
-	IsActive              bool
-	CreatedAt             time.Time
-	CreatedBy             int64
+	ID                   int64
+	CompanyID            int64
+	WarehouseID          int64
+	RuleName             string
+	RuleType             RuleType
+	MaxLoadWeightKg      *accountingmoney.Money
+	MaxLoadVolumeCbm     *accountingmoney.Money
+	MaxItemsPerLoad      *int
+	TimeWindowStart      *time.Time
+	TimeWindowEnd        *time.Time
+	VehicleTypeRequired  string
+	CustomRuleExpression string
+	Priority             int
+	IsActive             bool
+	CreatedAt            time.Time
+	CreatedBy            int64
 }
 
 type RuleType string
@@ -69,36 +69,36 @@ const (
 
 // Load represents consolidated shipments ready for transport
 type Load struct {
-	ID                    int64
-	CompanyID             int64
-	LoadNumber            string
-	Status                LoadStatus
-	OriginWarehouseID     int64
+	ID                     int64
+	CompanyID              int64
+	LoadNumber             string
+	Status                 LoadStatus
+	OriginWarehouseID      int64
 	DestinationWarehouseID *int64
-	DestinationAddress    string
-	DestinationCity       string
-	DestinationCountry    string
+	DestinationAddress     string
+	DestinationCity        string
+	DestinationCountry     string
 	// Transport assignment: either vehicle+driver OR carrier+service
-	VehicleID             *int64
-	DriverID              *int64
-	CarrierID             *int64
-	CarrierServiceType    *string
+	VehicleID          *int64
+	DriverID           *int64
+	CarrierID          *int64
+	CarrierServiceType *string
 	// Load metrics
-	TotalWeightKg         *accountingmoney.Money
-	TotalVolumeCbm        *accountingmoney.Money
-	TotalItems            *int
+	TotalWeightKg  *accountingmoney.Money
+	TotalVolumeCbm *accountingmoney.Money
+	TotalItems     *int
 	// Planning dates
-	PlannedPickupDate     *time.Time
-	PlannedDeliveryDate   *time.Time
-	ActualDispatchAt      *time.Time
-	ActualDeliveryAt      *time.Time
+	PlannedPickupDate   *time.Time
+	PlannedDeliveryDate *time.Time
+	ActualDispatchAt    *time.Time
+	ActualDeliveryAt    *time.Time
 	// Costs
-	FreightCharge         *accountingmoney.Money
-	FreightCurrency       string
-	Notes                 string
-	CreatedAt             time.Time
-	UpdatedAt             time.Time
-	CreatedBy             int64
+	FreightCharge   *accountingmoney.Money
+	FreightCurrency string
+	Notes           string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	CreatedBy       int64
 }
 
 type LoadStatus string
@@ -132,52 +132,52 @@ type LoadItem struct {
 
 // DeliveryRoute represents an optimized sequence of stops for a load
 type DeliveryRoute struct {
-	ID                  int64
-	CompanyID           int64
-	RouteNumber         string
-	Status              RouteStatus
-	LoadID              int64
-	TotalDistanceKm     *float64
+	ID                       int64
+	CompanyID                int64
+	RouteNumber              string
+	Status                   RouteStatus
+	LoadID                   int64
+	TotalDistanceKm          *float64
 	EstimatedDurationMinutes *int
-	OptimizationScore   *accountingmoney.Money // 0-100 efficiency metric
-	CreatedAt           time.Time
-	UpdatedAt           time.Time
-	CreatedBy           int64
+	OptimizationScore        *accountingmoney.Money // 0-100 efficiency metric
+	CreatedAt                time.Time
+	UpdatedAt                time.Time
+	CreatedBy                int64
 }
 
 type RouteStatus string
 
 const (
-	RouteStatusDraft      RouteStatus = "DRAFT"
-	RouteStatusOptimized  RouteStatus = "OPTIMIZED"
-	RouteStatusApproved   RouteStatus = "APPROVED"
-	RouteStatusActive     RouteStatus = "ACTIVE"
-	RouteStatusCompleted  RouteStatus = "COMPLETED"
-	RouteStatusCancelled  RouteStatus = "CANCELLED"
+	RouteStatusDraft     RouteStatus = "DRAFT"
+	RouteStatusOptimized RouteStatus = "OPTIMIZED"
+	RouteStatusApproved  RouteStatus = "APPROVED"
+	RouteStatusActive    RouteStatus = "ACTIVE"
+	RouteStatusCompleted RouteStatus = "COMPLETED"
+	RouteStatusCancelled RouteStatus = "CANCELLED"
 )
 
 // RouteStop represents a single stop in a delivery route
 type RouteStop struct {
-	ID                 int64
-	CompanyID          int64
-	RouteID            int64
-	StopSequence       int
-	StopType           StopType
-	WarehouseID        *int64
-	CustomerID         *int64
-	CustomerAddress    string
-	CustomerCity       string
-	LocationLat        *float64
-	LocationLon        *float64
-	ContactName        string
-	ContactPhone       string
-	PlannedArrivalTime *time.Time
+	ID                   int64
+	CompanyID            int64
+	RouteID              int64
+	StopSequence         int
+	StopType             StopType
+	WarehouseID          *int64
+	CustomerID           *int64
+	CustomerAddress      string
+	CustomerCity         string
+	LocationLat          *float64
+	LocationLon          *float64
+	ContactName          string
+	ContactPhone         string
+	PlannedArrivalTime   *time.Time
 	PlannedDepartureTime *time.Time
-	ActualArrivalAt    *time.Time
-	ActualDepartureAt  *time.Time
-	ItemsDelivered     *int
-	Notes              string
-	CreatedAt          time.Time
+	ActualArrivalAt      *time.Time
+	ActualDepartureAt    *time.Time
+	ItemsDelivered       *int
+	Notes                string
+	CreatedAt            time.Time
 }
 
 type StopType string
@@ -194,35 +194,35 @@ const (
 
 // TransferOrder represents inter-warehouse inventory transfers
 type TransferOrder struct {
-	ID                     int64
-	CompanyID              int64
-	TransferNumber         string
-	Status                 TransferStatus
-	FromWarehouseID        int64
-	ToWarehouseID          int64
+	ID              int64
+	CompanyID       int64
+	TransferNumber  string
+	Status          TransferStatus
+	FromWarehouseID int64
+	ToWarehouseID   int64
 	// Transport assignment
-	LoadID                 *int64
-	VehicleID              *int64
-	DriverID               *int64
-	CarrierID              *int64
-	CarrierServiceType     *string
+	LoadID             *int64
+	VehicleID          *int64
+	DriverID           *int64
+	CarrierID          *int64
+	CarrierServiceType *string
 	// Scheduling
-	PlannedDispatchDate    *time.Time
-	PlannedArrivalDate     *time.Time
-	ActualDispatchAt       *time.Time
-	ActualArrivalAt        *time.Time
+	PlannedDispatchDate *time.Time
+	PlannedArrivalDate  *time.Time
+	ActualDispatchAt    *time.Time
+	ActualArrivalAt     *time.Time
 	// Tracking
-	TotalWeightKg          *accountingmoney.Money
-	TotalVolumeCbm         *accountingmoney.Money
-	TotalItems             *int
-	InTransitQuantity      *accountingmoney.Money
+	TotalWeightKg     *accountingmoney.Money
+	TotalVolumeCbm    *accountingmoney.Money
+	TotalItems        *int
+	InTransitQuantity *accountingmoney.Money
 	// Costs
-	TransferCost           *accountingmoney.Money
-	TransferCostCurrency   string
-	Notes                  string
-	CreatedAt              time.Time
-	UpdatedAt              time.Time
-	CreatedBy              int64
+	TransferCost         *accountingmoney.Money
+	TransferCostCurrency string
+	Notes                string
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
+	CreatedBy            int64
 }
 
 type TransferStatus string

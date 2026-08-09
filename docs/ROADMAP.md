@@ -65,6 +65,7 @@ capability status.
 | Payment gateway — Stripe (Phase A1) | ✅ Implemented | Vault-resolved live API calls, webhook verification, stable charge idempotency keys, and full AR webhook allocation; `internal/connectors/providers/stripe/` |
 | Freight charge workbench | 🟡 Partial | Rate cards, surcharges, freight charge calculation, landed costs, cost centers, GL posting; `internal/freight/`; 5-test suite with mock repository |
 | Logistics UI (fleet/trip/dispatch) | 🟡 Partial | Fleet, vehicle, driver, trip, and cargo management screens implemented; `internal/logistics/`; rate cards and freight charges UI linked from sidebar |
+| Distribution planning and load execution | 🟡 Partial | `/distribution` planning horizons, loads, shipment linkage, dispatch/delivery, manual routes, and transfer orders; transfer inventory accounting, route optimization, freight execution, and workbenches remain |
 
 The phase descriptions below are retained for reference. **Completed phases (10, 11, and
 most of 12) are kept for historical context; focus new work on the "Remaining Priorities"
@@ -98,8 +99,10 @@ section near the end.**
 ## Phase 11: Bank & Cash Management — ✅ DONE (auto bank feed pending)
 
 **Status:** Bank accounts, transactions, transfers, reconciliation, cash flow reporting,
-and manual CSV/OFX statement import are implemented (`internal/finance/banking/`,
-`internal/accounting/banks/`). A scheduled/provider-backed bank feed remains outstanding.
+manual CSV/OFX statement import, and the provider-neutral bank-feed connection/event
+consumer are implemented (`internal/finance/banking/`, `internal/accounting/banks/`,
+`internal/finance/bankfeeds/`). Provider adapters and sandbox certification remain
+outstanding.
 **Priority:** ~~🔴 High~~
 **Estimated Effort:** ~~2-3 weeks~~
 
@@ -110,7 +113,7 @@ and manual CSV/OFX statement import are implemented (`internal/finance/banking/`
 | Bank Transactions | Record deposits, withdrawals, transfers | High |
 | Bank Reconciliation | Match transactions with bank statement | High |
 | Cash Flow Report | Actual cash flow from transactions | Medium |
-| Scheduled Bank Feed | Automatically fetch/import statements from a provider | Low |
+| Scheduled Bank Feed | Provider-backed incremental sync and verified event ingestion | Medium |
 
 ### Technical Notes
 - New entity `bank_accounts` with `company_id`

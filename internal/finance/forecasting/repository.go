@@ -22,6 +22,21 @@ func NewPGRepository(db *pgxpool.Pool) *PGRepository {
 	}
 }
 
+func (r *PGRepository) ScenarioBelongsToCompany(ctx context.Context, scenarioID, companyID int64) (bool, error) {
+	return r.queries.ForecastScenarioBelongsToCompany(ctx, sqlc.ForecastScenarioBelongsToCompanyParams{
+		ID:        scenarioID,
+		CompanyID: companyID,
+	})
+}
+
+func (r *PGRepository) CompanyBaseCurrency(ctx context.Context, companyID int64) (string, error) {
+	var currency string
+	if err := r.db.QueryRow(ctx, `SELECT base_currency FROM companies WHERE id = $1`, companyID).Scan(&currency); err != nil {
+		return "", err
+	}
+	return currency, nil
+}
+
 func (r *PGRepository) CreateForecastRun(ctx context.Context, input CreateForecastRunInput) (ForecastRun, error) {
 	row, err := r.queries.CreateForecastRun(ctx, sqlc.CreateForecastRunParams{
 		CompanyID:  input.CompanyID,
@@ -38,12 +53,14 @@ func (r *PGRepository) UpdateForecastRunStatus(ctx context.Context, update Forec
 		Status:       update.Status,
 		CompletedAt:  nullableTime(update.CompletedAt),
 		ErrorDetails: nullableText(update.ErrorDetails),
+		FxSnapshot:   update.FxSnapshot,
 	})
 }
 
 func (r *PGRepository) CreateForecastDailyBucket(ctx context.Context, input CreateForecastDailyBucketInput) (ForecastDailyBucket, error) {
 	row, err := r.queries.CreateForecastDailyBucket(ctx, sqlc.CreateForecastDailyBucketParams{
 		RunID:          input.RunID,
+		BankAccountID:  pgtype.Int8{},
 		Currency:       input.Currency,
 		BucketDate:     nullableDate(input.BucketDate),
 		OpeningBalance: exactAmountNumeric(input.OpeningBalance),

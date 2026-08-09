@@ -101,6 +101,11 @@ type PaymentBatchRevisionUpdate struct {
 	TotalAmount float64
 }
 
+type PaymentBatchTotalUpdate struct {
+	ID          int64
+	TotalAmount float64
+}
+
 type PaymentBatchExportUpdate struct {
 	ID               int64
 	ExportedFileHash string

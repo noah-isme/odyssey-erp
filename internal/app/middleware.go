@@ -73,6 +73,14 @@ func MiddlewareStack(cfg MiddlewareConfig) []func(http.Handler) http.Handler {
 
 	sessionMiddleware := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Provider callbacks are authenticated by the bank-feed adapter's
+			// signature verifier, not by a browser session. Keep them outside the
+			// session lifecycle so an external provider does not need Redis or a
+			// session cookie just to deliver an event.
+			if isBankFeedWebhookPath(r.URL.Path) {
+				next.ServeHTTP(w, r)
+				return
+			}
 			ctx := r.Context()
 			sess, err := cfg.SessionManager.Load(ctx, r)
 			if err != nil {
@@ -97,6 +105,13 @@ func MiddlewareStack(cfg MiddlewareConfig) []func(http.Handler) http.Handler {
 
 	csrfMiddleware := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// The bank-feed handler performs provider-specific verification before
+			// persisting the raw event. Browser CSRF tokens are not applicable to
+			// these machine-to-machine callbacks.
+			if isBankFeedWebhookPath(r.URL.Path) {
+				next.ServeHTTP(w, r)
+				return
+			}
 			if r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions {
 				next.ServeHTTP(w, r)
 				return
@@ -150,6 +165,11 @@ func MiddlewareStack(cfg MiddlewareConfig) []func(http.Handler) http.Handler {
 		})
 	}
 	return middlewares
+}
+
+func isBankFeedWebhookPath(path string) bool {
+	const prefix = "/finance/bankfeeds/webhooks/"
+	return strings.HasPrefix(path, prefix) && strings.TrimPrefix(path, prefix) != ""
 }
 
 // conditionalRateLimiter returns a rate limiting middleware that skips static files.

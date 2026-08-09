@@ -7,6 +7,13 @@ and older changelog material live in `docs/archive/`.
 ## Unreleased
 
 ### Added
+- **Finance automation**: Added tenant-scoped treasury batch controls with SQL-backed
+  active-item totals, verified bank-feed event inbox processing, database-backed rolling
+  forecasts with FX snapshots, and an idempotent finance outbox dispatcher. Live bank-feed
+  provider adapters and payment operation handlers remain deployment work.
+- **Distribution**: Added authenticated `/distribution` routes for planning horizons,
+  load/shipment lifecycle, dispatch, delivery inventory posting, manual routes, and
+  transfer orders. Added a database-backed opt-in lifecycle test.
 - **Documents**: Advanced QMS (SPC, ATE, LIMS), OCR, real-time collaboration, and full-text content search.
 - **HR**: Benefits administration and performance review processing.
 - **CMMS**: Predictive maintenance, IoT sensor integration, and anomaly alert heuristic engine.

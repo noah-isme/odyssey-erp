@@ -27,12 +27,13 @@ import (
 	boardpackhttp "github.com/odyssey-erp/odyssey-erp/internal/boardpack/http"
 	closehttp "github.com/odyssey-erp/odyssey-erp/internal/close/http"
 	cmmshttp "github.com/odyssey-erp/odyssey-erp/internal/cmms/http"
-	consolhttp "github.com/odyssey-erp/odyssey-erp/internal/consol/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors"
+	consolhttp "github.com/odyssey-erp/odyssey-erp/internal/consol/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/crm"
 	"github.com/odyssey-erp/odyssey-erp/internal/dashboard"
-	documentshttp "github.com/odyssey-erp/odyssey-erp/internal/documents/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/delivery"
+	"github.com/odyssey-erp/odyssey-erp/internal/distribution"
+	documentshttp "github.com/odyssey-erp/odyssey-erp/internal/documents/http"
 	eliminationhttp "github.com/odyssey-erp/odyssey-erp/internal/elimination/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/bankfeeds"
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/banking"
@@ -130,6 +131,7 @@ type RouterParams struct {
 	ConnectorsHandler      *connectors.WebhookHandler
 	ConnectorsAdminHandler *connectors.AdminHandler
 	LogisticsService       *logistics.Service
+	DistributionHandler    *distribution.Handler
 	FreightService         freight.Service
 }
 
@@ -357,7 +359,7 @@ func NewRouter(params RouterParams) http.Handler {
 				http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
 				return
 			}
-			
+
 			providers := []map[string]any{
 				{"Name": "Stripe", "Icon": "💳", "Description": "Process payments and subscriptions.", "Active": true},
 				{"Name": "MockPay", "Icon": "💵", "Description": "Test payment gateway for sandbox environments.", "Active": true},
@@ -369,8 +371,8 @@ func NewRouter(params RouterParams) http.Handler {
 			}
 
 			_ = params.Templates.Render(w, "pages/integrations.html", view.TemplateData{
-				Title: "Integrations", 
-				Data: map[string]any{"Providers": providers},
+				Title: "Integrations",
+				Data:  map[string]any{"Providers": providers},
 			})
 		})
 	}
@@ -492,7 +494,7 @@ func NewRouter(params RouterParams) http.Handler {
 		_ = params.Templates.Render(w, "pages/logistics/new_vehicle.html", view.TemplateData{
 			Title:       "Register Vehicle",
 			CurrentPath: "/logistics/fleet",
-			Data: map[string]interface{}{"Fleets": fleets},
+			Data:        map[string]interface{}{"Fleets": fleets},
 		})
 	})
 	r.Post("/logistics/fleet/new", func(w http.ResponseWriter, r *http.Request) {
@@ -532,7 +534,7 @@ func NewRouter(params RouterParams) http.Handler {
 		_ = params.Templates.Render(w, "pages/logistics/new_trip.html", view.TemplateData{
 			Title:       "Plan New Trip",
 			CurrentPath: "/logistics/trips",
-			Data: map[string]interface{}{"Vehicles": vehicles, "Drivers": drivers},
+			Data:        map[string]interface{}{"Vehicles": vehicles, "Drivers": drivers},
 		})
 	})
 	r.Post("/logistics/trips/new", func(w http.ResponseWriter, r *http.Request) {
@@ -565,35 +567,35 @@ func NewRouter(params RouterParams) http.Handler {
 	r.Get("/logistics/rate-cards", func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		companyID := int64(1)
-		
+
 		filter := freight.RateCardFilter{} // fetch all
 		rateCards, _ := params.FreightService.ListRateCards(ctx, companyID, filter)
 		_ = params.Templates.Render(w, "pages/logistics/rate_cards.html", view.TemplateData{
 			Title:       "Rate Cards",
 			CurrentPath: "/logistics/rate-cards",
-			Data: map[string]interface{}{"RateCards": rateCards},
+			Data:        map[string]interface{}{"RateCards": rateCards},
 		})
 	})
 
 	r.Get("/logistics/freight", func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		companyID := int64(1)
-		
+
 		filter := freight.FreightChargeFilter{}
 		charges, _ := params.FreightService.ListFreightCharges(ctx, companyID, filter)
 		_ = params.Templates.Render(w, "pages/logistics/freight_charges.html", view.TemplateData{
 			Title:       "Freight Charges",
 			CurrentPath: "/logistics/freight",
-			Data: map[string]interface{}{"FreightCharges": charges},
+			Data:        map[string]interface{}{"FreightCharges": charges},
 		})
 	})
-	
+
 	r.Post("/logistics/freight/{id}/invoice", func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		companyID := int64(1)
 		chargeIDStr := chi.URLParam(r, "id")
 		chargeID, _ := strconv.ParseInt(chargeIDStr, 10, 64)
-		
+
 		_, err := params.FreightService.MarkFreightChargeInvoiced(ctx, companyID, chargeID)
 		if err != nil {
 			params.Logger.Error("failed to mark freight charge invoiced", "error", err)
@@ -690,6 +692,9 @@ func NewRouter(params RouterParams) http.Handler {
 		params.VarianceHandler.MountRoutes(r)
 	}
 	r.Route("/inventory", params.InventoryHandler.MountRoutes)
+	if params.DistributionHandler != nil {
+		r.Route("/distribution", params.DistributionHandler.MountRoutes)
+	}
 	r.Route("/procurement", params.ProcurementHandler.MountRoutes)
 	if params.SalesHandler != nil {
 		r.Route("/sales", params.SalesHandler.MountRoutes)

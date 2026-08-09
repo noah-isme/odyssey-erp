@@ -177,6 +177,20 @@ func (c *Client) EnqueueBoardPack(ctx context.Context, boardPackID int64) (*asyn
 	return c.client.EnqueueContext(ctx, task, asynq.Queue(QueueDefault))
 }
 
+// EnqueueBankFeedsEvent enqueues a callback consumer with a stable task ID so
+// duplicate provider deliveries do not create duplicate worker work.
+func (c *Client) EnqueueBankFeedsEvent(ctx context.Context, eventID int64) (*asynq.TaskInfo, error) {
+	task, err := NewBankFeedsEventTask(eventID)
+	if err != nil {
+		return nil, err
+	}
+	info, err := c.client.EnqueueContext(ctx, task, asynq.Queue(QueueDefault), asynq.MaxRetry(10), asynq.TaskID("bank-feed-event:"+strconv.FormatInt(eventID, 10)))
+	if errors.Is(err, asynq.ErrTaskIDConflict) {
+		return nil, nil
+	}
+	return info, err
+}
+
 // Close releases client resources.
 func (c *Client) Close() error {
 	return c.client.Close()

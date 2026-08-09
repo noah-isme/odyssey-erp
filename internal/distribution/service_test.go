@@ -4,6 +4,9 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
+
+	accountingmoney "github.com/odyssey-erp/odyssey-erp/internal/accounting/money"
 )
 
 func TestServiceRejectsInvalidPlanningInputsWithoutRepository(t *testing.T) {
@@ -37,5 +40,78 @@ func TestServiceRejectsInvalidPlanningInputsWithoutRepository(t *testing.T) {
 				t.Fatalf("error=%v want %q", err, tt.want)
 			}
 		})
+	}
+}
+
+func TestServiceCompletesDistributionLoadLifecycle(t *testing.T) {
+	ctx := context.Background()
+	repo := newFakeDistributionRepository()
+	shipments := newFakeShipmentGateway()
+	inventory := &fakeInventoryGateway{}
+	svc := NewServiceWithDependencies(repo, Dependencies{Shipments: shipments, Inventory: inventory})
+
+	repo.loads[1] = &Load{
+		ID:                 1,
+		CompanyID:          7,
+		LoadNumber:         "LOAD-1",
+		Status:             LoadStatusDraft,
+		OriginWarehouseID:  10,
+		DestinationCity:    "Jakarta",
+		DestinationCountry: "ID",
+		CreatedBy:          42,
+	}
+	repo.nextID = 2
+
+	shipmentID, err := svc.CreateShipmentForLoad(ctx, 1, ShipmentCreateInput{}, []ShipmentLineInput{{ProductID: 99, Quantity: 3}})
+	if err != nil {
+		t.Fatalf("create shipment: %v", err)
+	}
+	if err := assertNoError(svc.MarkLoadReady(ctx, 1)); err != nil {
+		t.Fatal(err)
+	}
+	vehicleID, driverID := int64(21), int64(22)
+	if err := svc.DispatchLoad(ctx, 1, &vehicleID, &driverID, nil, nil); err != nil {
+		t.Fatalf("dispatch load: %v", err)
+	}
+	if err := svc.DeliverLoad(ctx, 1, 42, time.Date(2026, time.August, 9, 10, 0, 0, 0, time.UTC)); err != nil {
+		t.Fatalf("deliver load: %v", err)
+	}
+
+	if got := repo.loads[1].Status; got != LoadStatusDelivered {
+		t.Fatalf("load status=%s want %s", got, LoadStatusDelivered)
+	}
+	if got := shipments.statuses[shipmentID]; got != "DELIVERED" {
+		t.Fatalf("shipment status=%s want DELIVERED", got)
+	}
+	if len(inventory.adjustments) != 1 {
+		t.Fatalf("inventory adjustments=%d want 1", len(inventory.adjustments))
+	}
+	adjustment := inventory.adjustments[0]
+	if adjustment.Quantity != -3 || adjustment.WarehouseID != 10 || adjustment.ProductID != 99 {
+		t.Fatalf("unexpected inventory adjustment: %+v", adjustment)
+	}
+	if adjustment.RefModule != "DISTRIBUTION" {
+		t.Fatalf("ref module=%q", adjustment.RefModule)
+	}
+}
+
+func assertNoError(_ []string, err error) error {
+	return err
+}
+
+func TestValidateLoadAgainstRulesReportsCapacityViolation(t *testing.T) {
+	repo := newFakeDistributionRepository()
+	repo.loads[1] = &Load{ID: 1, OriginWarehouseID: 10, Status: LoadStatusDraft}
+	repo.items[1] = []*LoadItem{{ID: 2, LoadID: 1, ProductID: 5, Quantity: accountingmoney.Must("3", 4)}}
+	maxItems := 2
+	repo.rules[3] = &PlanningRule{ID: 3, WarehouseID: 10, RuleName: "small truck", RuleType: RuleTypeCapacity, MaxItemsPerLoad: &maxItems, IsActive: true}
+	svc := NewServiceWithDependencies(repo, Dependencies{})
+
+	valid, violations, err := svc.ValidateLoadAgainstRules(context.Background(), 1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if valid || len(violations) != 1 || !strings.Contains(violations[0], "exceeds maximum") {
+		t.Fatalf("valid=%v violations=%v", valid, violations)
 	}
 }

@@ -126,15 +126,30 @@ func (r *PGRepository) UpdateBankFeedSyncRun(ctx context.Context, input UpdateBa
 
 func (r *PGRepository) CreateBankFeedEvent(ctx context.Context, input CreateBankFeedEventInput) (BankFeedEvent, error) {
 	row, err := r.queries.CreateBankFeedEvent(ctx, sqlc.CreateBankFeedEventParams{
-		ProviderID: input.ProviderID,
-		EventType:  input.EventType,
-		Payload:    input.Payload,
-		OccurredAt: pgtype.Timestamptz{Time: input.OccurredAt, Valid: true},
+		ConnectionID: pgtype.Int8{Int64: input.ConnectionID, Valid: input.ConnectionID > 0},
+		ProviderID:   input.ProviderID,
+		EventType:    input.EventType,
+		Payload:      input.Payload,
+		PayloadHash:  input.PayloadHash,
+		OccurredAt:   pgtype.Timestamptz{Time: input.OccurredAt, Valid: true},
 	})
 	if err != nil {
 		return BankFeedEvent{}, err
 	}
 	return mapBankFeedEvent(row), nil
+}
+
+func (r *PGRepository) GetBankFeedEvent(ctx context.Context, id int64) (BankFeedEvent, error) {
+	row, err := r.queries.GetBankFeedEvent(ctx, id)
+	if err != nil {
+		return BankFeedEvent{}, err
+	}
+	return mapBankFeedEvent(row), nil
+}
+
+func (r *PGRepository) ClaimBankFeedEvent(ctx context.Context, id int64) (bool, error) {
+	rows, err := r.queries.ClaimBankFeedEvent(ctx, id)
+	return rows == 1, err
 }
 
 func (r *PGRepository) UpdateBankFeedEventStatus(ctx context.Context, input UpdateBankFeedEventStatusInput) error {
@@ -210,9 +225,11 @@ func mapBankFeedSyncRun(row sqlc.BankFeedSyncRun) BankFeedSyncRun {
 func mapBankFeedEvent(row sqlc.BankFeedEvent) BankFeedEvent {
 	return BankFeedEvent{
 		ID:           row.ID,
+		ConnectionID: row.ConnectionID.Int64,
 		ProviderID:   row.ProviderID,
 		EventType:    row.EventType,
 		Payload:      row.Payload,
+		PayloadHash:  row.PayloadHash,
 		Status:       row.Status,
 		ErrorDetails: row.ErrorDetails.String,
 		OccurredAt:   row.OccurredAt.Time,
