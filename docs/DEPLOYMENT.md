@@ -1,8 +1,9 @@
 # ODYSSEY ERP: PRODUCTION DEPLOYMENT GUIDE
 
-**Version:** 1.0.0  
-**Date:** 2026-08-02  
-**Status:** Production Ready  
+**Version:** 1.1.0
+**Date:** 2026-08-10
+**Deployment target:** Self-managed VPS
+**Status:** Production runbook; operator sign-off required
 
 ---
 

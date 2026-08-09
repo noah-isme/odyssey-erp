@@ -2,8 +2,12 @@
 
 **Reviewed:** 2026-08-10
 
-**Current release candidate:** `v0.10.0-rc.2`. This candidate is not
+**Current release candidate:** `v0.10.0-rc.3`. This candidate is not
 production-certified; the matrix below remains the authority for promotion evidence.
+
+**Deployment target:** self-managed VPS using the [VPS production deployment
+guide](../DEPLOYMENT.md). Hosting choice does not automatically change a
+capability's production-certification status.
 
 This is the single release-status authority for current product capabilities. The
 [module catalog](module-catalog.md) remains the capability inventory and links to
@@ -18,8 +22,8 @@ Each capability is assessed independently across four dimensions:
 - `code-complete` — the scoped behavior has an implementation and focused tests;
 - `integration-complete` — the behavior is wired through its route, worker, persistence,
   and cross-module boundary for the supported lifecycle;
-- `production-certified` — staging/production evidence, operational controls, and any
-  required provider or build-tag checks are recorded;
+- `production-certified` — VPS staging/production evidence, operational controls,
+  backups, rollback, and any required provider or build-tag checks are recorded;
 - `documented` — active documentation describes the supported scope and its remaining
   gaps without implying a stronger status.
 
@@ -56,7 +60,8 @@ Do not describe a capability as production-ready solely because `code-complete` 
 `yes`. A production release requires all four columns to be `yes`, plus the route,
 provider, migration, and operational evidence named in the final column. In particular,
 the Phase 14/P7 evidence guide records local verification; it does not certify staging
-or production.
+or production. The VPS deployment target satisfies the infrastructure selection only;
+it does not certify incomplete feature workflows.
 
 Run the same checks locally and in CI:
 

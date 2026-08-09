@@ -5,13 +5,13 @@
 ## How to read the version numbers
 
 `v0.9.1` is the latest named production release in the repository. It is primarily
-a UI/UX release dated 2026-05-28. `v0.10.0-rc.2` is the current release candidate
+a UI/UX release dated 2026-05-28. `v0.10.0-rc.3` is the current release candidate
 for the post-v0.9.1 platform work; it is not production-certified.
 
 In other words:
 
 - **Latest named production release:** v0.9.1.
-- **Current release candidate:** v0.10.0-rc.2 (2026-08-10).
+- **Current release candidate:** v0.10.0-rc.3 (2026-08-10).
 - **Latest documented implementation progress:** Phase 10–14 and P7 work, reviewed 2026-08-01.
 - **Next final release:** v0.10.0, pending production certification. The release
   gates are tracked in the [Production Release Checklist](production-release-checklist.md).
@@ -28,7 +28,8 @@ notes define the packaged scope without claiming production certification.
 | v0.9.0 | 2026-01-11 | Sales and AR | Quotations, sales orders, delivery orders, AR invoices, payment allocation, aging | Still the functional baseline for Sales and AR |
 | v0.9.1 | 2026-05-28 | Enterprise UI/UX | Standardized forms, filters, tables, responsive layouts, and Midnight Ledger styling across core operations | Latest named release documented in this repository; mostly presentation and usability improvements |
 | v0.10.0-rc.1 | 2026-08-10 | Platform foundations and release controls | Advanced documents, CMMS telemetry/prediction foundations, MRP compliance hardening, distribution/finance/connectors work, and production gates | Superseded candidate; staging, provider, and operational certification remain open |
-| v0.10.0-rc.2 | 2026-08-10 | Coretax and PPh 21 release-test completion | Fail-closed Coretax transport/validation, export-to-GL contract evidence, and annual last-tax-period PPh 21 reconciliation from a PMK 168/2023 fixture | Current release candidate; official tax, staging, provider, and operational certification remain open |
+| v0.10.0-rc.2 | 2026-08-10 | Coretax and PPh 21 release-test completion | Fail-closed Coretax transport/validation, export-to-GL contract evidence, and annual last-tax-period PPh 21 reconciliation from a PMK 168/2023 fixture | Superseded candidate; official tax, staging, provider, and operational certification remain open |
+| v0.10.0-rc.3 | 2026-08-10 | VPS deployment target and release-gate cleanup | Self-managed VPS runbook, removal of the obsolete hosted blueprint, and evidence-based feature matrix | Current release candidate; feature, provider, and operational certification remain open |
 
 ## Detailed version reports
 
@@ -120,7 +121,14 @@ contract evidence as official authority or production certification.
 
 See the [v0.10.0-rc.2 release notes](v0.10.0-rc.2.md).
 
-## Follow-up work after v0.10.0-rc.2
+### v0.10.0-rc.3 — VPS deployment target and release-gate cleanup
+
+**Primary purpose:** align production deployment and release checks with
+self-managed VPS operation.
+
+See the [v0.10.0-rc.3 release notes](v0.10.0-rc.3.md).
+
+## Follow-up work after v0.10.0-rc.3
 
 This work is documented in the current [roadmap](../ROADMAP.md) and [module catalog](../reference/module-catalog.md); the candidate packages the current scope, while final promotion remains pending.
 

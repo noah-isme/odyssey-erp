@@ -33,7 +33,7 @@ if ! git describe --exact-match --tags HEAD >/dev/null 2>&1; then
 	fail "HEAD has no release tag; assign a version and create the reviewed release tag only after all gates pass"
 fi
 
-if ! grep -Fq '**Current release candidate:** v0.10.0-rc.2' docs/releases/VERSION_HISTORY.md; then
+if ! grep -Fq '**Current release candidate:** v0.10.0-rc.3' docs/releases/VERSION_HISTORY.md; then
 	fail "docs/releases/VERSION_HISTORY.md does not identify the current release candidate"
 fi
 
@@ -65,8 +65,15 @@ for target in cmd/odyssey cmd/worker cmd/bootstrap-admin scripts/seed; do
 	fi
 done
 
-if grep -Eq '^[[:space:]]+plan:[[:space:]]+free[[:space:]]*$' render.yaml 2>/dev/null; then
-	fail "render.yaml is a demo/staging Free blueprint, not a production infrastructure definition"
+vps_guide="docs/DEPLOYMENT.md"
+if [[ ! -f "$vps_guide" ]]; then
+	fail "missing self-managed VPS deployment guide: $vps_guide"
+else
+	for requirement in systemd nginx backup rollback; do
+		if ! grep -Eiq "$requirement" "$vps_guide"; then
+			fail "$vps_guide does not document the VPS $requirement control"
+		fi
+	done
 fi
 
 if [[ $status -eq 0 ]]; then

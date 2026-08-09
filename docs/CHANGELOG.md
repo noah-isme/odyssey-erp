@@ -7,7 +7,20 @@ only in the [authoritative feature matrix](reference/feature-matrix.md).
 
 ## Unreleased
 
-No changes have been added after `v0.10.0-rc.2`.
+No changes have been added after `v0.10.0-rc.3`.
+
+## v0.10.0-rc.3 — 2026-08-10
+
+Self-managed VPS deployment target and release-gate cleanup on top of the
+`v0.10.0-rc.2` candidate. See the [release notes](releases/v0.10.0-rc.3.md).
+Production certification remains pending.
+
+### Changed
+
+- Removed the obsolete Render configuration, deployment guide, and blueprint test.
+- Updated the production release gate to verify the self-managed VPS runbook.
+- Documented the VPS deployment target and kept feature certification explicitly
+  evidence-based in the authoritative feature matrix.
 
 ## v0.10.0-rc.2 — 2026-08-10
 

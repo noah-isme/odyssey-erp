@@ -105,10 +105,11 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 
 | Version | Notes |
 |---------|-------|
-| [v0.10.0-rc.2](releases/v0.10.0-rc.2.md) | **Current release candidate** — Coretax/PPh 21 release-test completion and post-v0.9.1 platform work (2026-08-10); not production-certified |
+| [v0.10.0-rc.3](releases/v0.10.0-rc.3.md) | **Current release candidate** — VPS deployment target and hosted-blueprint removal on top of Coretax/PPh 21 release-test completion (2026-08-10); not production-certified |
 | [v0.9.1](releases/v0.9.1.md) | **Latest named release** — Enterprise UI/UX overhaul (2026-05-28) |
 | [Version and Progress Report](releases/VERSION_HISTORY.md) | Differences between releases and post-v0.9.1 implementation progress |
 | [Production Release Checklist](releases/production-release-checklist.md) | Code, certification, operations, deployment, and rollback gates |
+| [VPS Production Deployment](DEPLOYMENT.md) | Self-managed VPS runbook for systemd, Nginx, backups, health checks, and rollback |
 | [v0.9.0](releases/v0.9.0.md) | Phase 9 — Sales & AR complete |
 | [v0.8.0](releases/v0.8.0.md) | Phase 8 — Board Pack |
 | [v0.7.0](releases/v0.7.0.md) | Phase 7 |

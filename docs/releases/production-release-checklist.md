@@ -1,6 +1,6 @@
 # Production Release Checklist
 
-**State:** `v0.10.0-rc.2` candidate prepared; production promotion and final tag
+**State:** `v0.10.0-rc.3` candidate prepared; production promotion and final tag
 approval are still pending.
 
 **Reviewed:** 2026-08-10
@@ -21,7 +21,7 @@ its `production-certified` evidence is recorded there.
 - [ ] Record the commit, image digest, migration range, and rollback target in
       the release notes.
 
-The `v0.10.0-rc.2` candidate is a packaging checkpoint, not a production approval.
+The `v0.10.0-rc.3` candidate is a packaging checkpoint, not a production approval.
 The final gate remains intentionally blocked until its scope and evidence are
 certified by the release owner.
 
@@ -57,8 +57,8 @@ make production-release-check
 ```
 
 It intentionally fails when the candidate is not tagged, release-gated tests are
-blocked, matrix certification is missing, the Render Free blueprint is present,
-or the candidate has uncommitted non-Graphify changes.
+blocked, matrix certification is missing, the VPS runbook is incomplete, or the
+candidate has uncommitted non-Graphify changes.
 
 ## 3. Database and migration evidence
 
@@ -122,13 +122,13 @@ or the candidate has uncommitted non-Graphify changes.
 
 The current repository deliberately does not claim production release readiness:
 
-- `v0.10.0-rc.2` is a release candidate, not a production-certified final release;
+- `v0.10.0-rc.3` is a release candidate, not a production-certified final release;
 - the feature matrix records `production-certified=no` for the current capability
   rows until staging/provider/operational evidence is supplied;
 - local Coretax and annual PPh 21 release tests pass, but official Coretax
   staging/import and payroll/legal production evidence remain outstanding;
-- `render.yaml` is a Free demo/staging blueprint without a worker, persistent
-  Redis, managed Gotenberg, or production database backup guarantees;
+- the self-managed VPS deployment still requires completed backup/restore,
+  TLS, monitoring, smoke, and rollback evidence;
 - final staging, provider, security, migration, and operational evidence is still
   required before promoting the candidate to `v0.10.0`.
 
