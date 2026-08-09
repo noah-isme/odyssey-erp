@@ -8,23 +8,23 @@ import (
 
 // StagingGate represents a multi-stage certification gate for manufacturing decisions
 type StagingGate struct {
-	ID           int64
-	Name         string
-	Description  string
+	ID            int64
+	Name          string
+	Description   string
 	RequiredRoles []string // e.g., ["QUALITY_LEAD", "ENGINEERING", "PRODUCTION_MANAGER"]
-	Signatures   []SignatureRecord
-	Status       string // PENDING, SIGNED, APPROVED, REJECTED
-	CreatedAt    time.Time
+	Signatures    []SignatureRecord
+	Status        string // PENDING, SIGNED, APPROVED, REJECTED
+	CreatedAt     time.Time
 }
 
 // SignatureRecord tracks who signed and when
 type SignatureRecord struct {
-	ActorID    int64
-	ActorRole  string
-	Timestamp  time.Time
-	Signature  string // Challenge response
-	Decision   string // APPROVE or REJECT
-	Comment    string
+	ActorID   int64
+	ActorRole string
+	Timestamp time.Time
+	Signature string // Challenge response
+	Decision  string // APPROVE or REJECT
+	Comment   string
 }
 
 // BOMApprovalGate manages multi-signature approval for BOM changes
@@ -233,9 +233,10 @@ func (g *HoldReleaseGate) AddSignature(ctx context.Context, gate *StagingGate, r
 	record.Timestamp = time.Now()
 	gate.Signatures = append(gate.Signatures, record)
 
-	if record.Decision == "APPROVE" {
+	switch record.Decision {
+	case "APPROVE":
 		gate.Status = "APPROVED"
-	} else if record.Decision == "REJECT" {
+	case "REJECT":
 		gate.Status = "REJECTED"
 	}
 

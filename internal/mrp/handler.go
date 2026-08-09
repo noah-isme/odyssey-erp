@@ -912,7 +912,9 @@ func (h *Handler) analyticsExport(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/csv")
 	w.Header().Set("Content-Disposition", "attachment; filename=manufacturing-analytics.csv")
-	_, _ = w.Write([]byte(fmt.Sprintf("good_quantity,scrap_quantity,wip_value,on_time_operations,completed_operations\n%.4f,%.4f,%.4f,%d,%d\n", metrics.GoodQuantity, metrics.ScrapQuantity, metrics.WIPValue, metrics.OnTimeOperations, metrics.CompletedOperations)))
+	if _, err := fmt.Fprintf(w, "good_quantity,scrap_quantity,wip_value,on_time_operations,completed_operations\n%.4f,%.4f,%.4f,%d,%d\n", metrics.GoodQuantity, metrics.ScrapQuantity, metrics.WIPValue, metrics.OnTimeOperations, metrics.CompletedOperations); err != nil {
+		return
+	}
 }
 func (h *Handler) signControlledRecord(w http.ResponseWriter, r *http.Request) {
 	u, c, ok := ids(r)
@@ -953,7 +955,9 @@ func (h *Handler) complianceAuditExport(w http.ResponseWriter, r *http.Request) 
 		if err := rows.Scan(&recordType, &recordID, &eventType, &actorID, &at, &detail); err != nil {
 			return
 		}
-		_, _ = w.Write([]byte(fmt.Sprintf("%q,%d,%q,%d,%q,%q\n", recordType, recordID, eventType, actorID, at.Format(time.RFC3339), detail)))
+		if _, err := fmt.Fprintf(w, "%q,%d,%q,%d,%q,%q\n", recordType, recordID, eventType, actorID, at.Format(time.RFC3339), detail); err != nil {
+			return
+		}
 	}
 }
 func (h *Handler) createQualityHold(w http.ResponseWriter, r *http.Request) {

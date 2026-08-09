@@ -85,7 +85,7 @@ func buildHTML(payload DashboardPayload) string {
 	b.WriteString("<html><head><meta charset=\"utf-8\"><style>")
 	b.WriteString("body{font-family:sans-serif;margin:24px;}h1{font-size:20px;}table{width:100%;border-collapse:collapse;margin-bottom:16px;}th,td{border:1px solid #ddd;padding:6px;text-align:right;}th{text-align:left;background:#f5f5f5;}section{margin-bottom:24px;} .metric-label{text-align:left;}")
 	b.WriteString("</style></head><body>")
-	b.WriteString(fmt.Sprintf("<h1>Finance Analytics – %s</h1>", templateEscape(payload.Period)))
+	_, _ = fmt.Fprintf(&b, "<h1>Finance Analytics – %s</h1>", templateEscape(payload.Period))
 
 	b.WriteString("<section><h2>KPI Summary</h2><table><tbody>")
 	writeMetricRow(&b, "Net Profit", payload.Summary.NetProfit)

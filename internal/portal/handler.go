@@ -40,7 +40,7 @@ type Handler struct {
 func (h *Handler) updateProfile(w http.ResponseWriter, r *http.Request) {
 	uid, cid, ok := portalUser(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	var in struct {
@@ -62,7 +62,7 @@ func (h *Handler) updateProfile(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) sendChatMessage(w http.ResponseWriter, r *http.Request) {
 	uid, cid, ok := portalUser(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	var in struct {
@@ -84,7 +84,7 @@ func (h *Handler) sendChatMessage(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) getChatMessages(w http.ResponseWriter, r *http.Request) {
 	_, cid, ok := portalUser(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	ctxStr := r.URL.Query().Get("context")
@@ -116,7 +116,7 @@ func (h *Handler) getChatMessages(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) negotiateRFQ(w http.ResponseWriter, r *http.Request) {
 	_, cid, ok := portalUser(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	var in struct {
@@ -139,7 +139,7 @@ func (h *Handler) negotiateRFQ(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) recordAnalyticsEvent(w http.ResponseWriter, r *http.Request) {
 	uid, cid, ok := portalUser(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	var in struct {
@@ -220,12 +220,12 @@ func invitationToken() (string, string, error) {
 }
 func (h *Handler) createInvitation(w http.ResponseWriter, r *http.Request) {
 	if h.pool == nil {
-		http.Error(w, "portal database is unavailable", 503)
+		http.Error(w, "portal database is unavailable", http.StatusServiceUnavailable)
 		return
 	}
 	uid, cid, ok := portalUser(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	var in struct {
@@ -237,14 +237,14 @@ func (h *Handler) createInvitation(w http.ResponseWriter, r *http.Request) {
 		ExpiresHours int    `json:"expires_hours"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-		http.Error(w, "invalid JSON", 400)
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
 		return
 	}
 	if in.ExpiresHours <= 0 || in.ExpiresHours > 168 {
 		in.ExpiresHours = 72
 	}
 	if in.Email == "" {
-		http.Error(w, "email is required", 400)
+		http.Error(w, "email is required", http.StatusBadRequest)
 		return
 	}
 	plain, hash, err := invitationToken()
@@ -262,12 +262,12 @@ func (h *Handler) createInvitation(w http.ResponseWriter, r *http.Request) {
 }
 func (h *Handler) acceptInvitation(w http.ResponseWriter, r *http.Request) {
 	if h.pool == nil {
-		http.Error(w, "portal database is unavailable", 503)
+		http.Error(w, "portal database is unavailable", http.StatusServiceUnavailable)
 		return
 	}
 	var in struct{ Token, Password string }
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil || len(in.Password) < 12 {
-		http.Error(w, "token and password of at least 12 characters are required", 400)
+		http.Error(w, "token and password of at least 12 characters are required", http.StatusBadRequest)
 		return
 	}
 	sum := sha256.Sum256([]byte(in.Token))
@@ -285,7 +285,7 @@ func (h *Handler) acceptInvitation(w http.ResponseWriter, r *http.Request) {
 	}
 	err = tx.QueryRow(r.Context(), `SELECT id,company_id,email,display_name,portal_type,customer_id,supplier_id FROM portal_invitations WHERE token_hash=$1 AND accepted_at IS NULL AND expires_at>NOW()`, hash).Scan(&inv.ID, &inv.CompanyID, &inv.Email, &inv.DisplayName, &inv.PortalType, &inv.CustomerID, &inv.SupplierID)
 	if err != nil {
-		http.Error(w, "invalid or expired invitation", 400)
+		http.Error(w, "invalid or expired invitation", http.StatusBadRequest)
 		return
 	}
 	pw, err := bcrypt.GenerateFromPassword([]byte(in.Password), bcrypt.DefaultCost)
@@ -384,7 +384,7 @@ func (h *Handler) customer(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var x invoice
 		if err := rows.Scan(&x.Number, &x.Total, &x.Status); err != nil {
-			http.Error(w, http.StatusText(500), 500)
+			http.Error(w, http.StatusText(500), http.StatusInternalServerError)
 			return
 		}
 		invoices = append(invoices, x)
@@ -399,7 +399,7 @@ func (h *Handler) supplier(w http.ResponseWriter, r *http.Request) {
 	}
 	rows, err := h.pool.Query(r.Context(), `SELECT i.number,i.total::float8,i.status FROM ap_invoices i JOIN suppliers s ON s.id=i.supplier_id WHERE i.supplier_id=$1 AND s.company_id=$2 ORDER BY i.id DESC LIMIT 100`, id, cid)
 	if err != nil {
-		http.Error(w, http.StatusText(500), 500)
+		http.Error(w, http.StatusText(500), http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
@@ -412,7 +412,7 @@ func (h *Handler) supplier(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var x invoice
 		if err := rows.Scan(&x.Number, &x.Total, &x.Status); err != nil {
-			http.Error(w, http.StatusText(500), 500)
+			http.Error(w, http.StatusText(500), http.StatusInternalServerError)
 			return
 		}
 		invoices = append(invoices, x)
@@ -427,7 +427,7 @@ func (h *Handler) employee(w http.ResponseWriter, r *http.Request) {
 	}
 	rows, err := h.pool.Query(r.Context(), `SELECT id,project_id,task_id,work_date::text,hours::float8,status FROM timesheets WHERE company_id=$1 AND employee_id=$2 ORDER BY work_date DESC LIMIT 100`, cid, uid)
 	if err != nil {
-		http.Error(w, http.StatusText(500), 500)
+		http.Error(w, http.StatusText(500), http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
@@ -441,7 +441,7 @@ func (h *Handler) employee(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var x sheet
 		if err := rows.Scan(&x.ID, &x.ProjectID, &x.TaskID, &x.WorkDate, &x.Hours, &x.Status); err != nil {
-			http.Error(w, http.StatusText(500), 500)
+			http.Error(w, http.StatusText(500), http.StatusInternalServerError)
 			return
 		}
 		sheets = append(sheets, x)
@@ -452,12 +452,12 @@ func (h *Handler) employee(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) customerOrders(w http.ResponseWriter, r *http.Request) {
 	_, cid, customerID, err := h.access(r, "CUSTOMER")
 	if err != nil {
-		http.Error(w, http.StatusText(401), 401)
+		http.Error(w, http.StatusText(401), http.StatusUnauthorized)
 		return
 	}
 	rows, err := h.pool.Query(r.Context(), `SELECT o.id,o.doc_number,o.order_date::text,o.status::text,o.currency,o.total_amount,COALESCE(string_agg(d.status::text,',' ORDER BY d.id),'') FROM sales_orders o LEFT JOIN delivery_orders d ON d.sales_order_id=o.id WHERE o.company_id=$1 AND o.customer_id=$2 GROUP BY o.id ORDER BY o.id DESC LIMIT 100`, cid, customerID)
 	if err != nil {
-		http.Error(w, http.StatusText(500), 500)
+		http.Error(w, http.StatusText(500), http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
@@ -471,7 +471,7 @@ func (h *Handler) customerOrders(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var x order
 		if err := rows.Scan(&x.ID, &x.Number, &x.Date, &x.Status, &x.Currency, &x.Total, &x.DeliveryStatus); err != nil {
-			http.Error(w, http.StatusText(500), 500)
+			http.Error(w, http.StatusText(500), http.StatusInternalServerError)
 			return
 		}
 		items = append(items, x)
@@ -482,12 +482,12 @@ func (h *Handler) customerOrders(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) customerPayments(w http.ResponseWriter, r *http.Request) {
 	_, cid, customerID, err := h.access(r, "CUSTOMER")
 	if err != nil {
-		http.Error(w, http.StatusText(401), 401)
+		http.Error(w, http.StatusText(401), http.StatusUnauthorized)
 		return
 	}
 	rows, err := h.pool.Query(r.Context(), `SELECT p.number,p.amount,p.paid_at::text,p.method FROM ar_payments p JOIN ar_invoices i ON i.id=p.ar_invoice_id JOIN customers c ON c.id=i.customer_id WHERE i.customer_id=$1 AND c.company_id=$2 ORDER BY p.paid_at DESC LIMIT 100`, customerID, cid)
 	if err != nil {
-		http.Error(w, http.StatusText(500), 500)
+		http.Error(w, http.StatusText(500), http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
@@ -499,7 +499,7 @@ func (h *Handler) customerPayments(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var x payment
 		if err := rows.Scan(&x.Number, &x.Amount, &x.Date, &x.Method); err != nil {
-			http.Error(w, http.StatusText(500), 500)
+			http.Error(w, http.StatusText(500), http.StatusInternalServerError)
 			return
 		}
 		items = append(items, x)
@@ -510,12 +510,12 @@ func (h *Handler) customerPayments(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) employeePayslips(w http.ResponseWriter, r *http.Request) {
 	uid, cid, _, err := h.access(r, "EMPLOYEE")
 	if err != nil {
-		http.Error(w, http.StatusText(401), 401)
+		http.Error(w, http.StatusText(401), http.StatusUnauthorized)
 		return
 	}
 	rows, err := h.pool.Query(r.Context(), `SELECT p.id,p.document_key,p.generated_at::text,l.net_pay FROM payroll_payslips p JOIN payroll_run_lines l ON l.id=p.run_line_id JOIN hr_employees e ON e.id=l.employee_id WHERE e.user_id=$1 AND e.company_id=$2 ORDER BY p.generated_at DESC LIMIT 100`, uid, cid)
 	if err != nil {
-		http.Error(w, http.StatusText(500), 500)
+		http.Error(w, http.StatusText(500), http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
@@ -528,7 +528,7 @@ func (h *Handler) employeePayslips(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var x slip
 		if err := rows.Scan(&x.ID, &x.DocumentKey, &x.GeneratedAt, &x.NetPay); err != nil {
-			http.Error(w, http.StatusText(500), 500)
+			http.Error(w, http.StatusText(500), http.StatusInternalServerError)
 			return
 		}
 		items = append(items, x)
@@ -539,12 +539,12 @@ func (h *Handler) employeePayslips(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) employeeLeave(w http.ResponseWriter, r *http.Request) {
 	uid, cid, _, err := h.access(r, "EMPLOYEE")
 	if err != nil {
-		http.Error(w, http.StatusText(401), 401)
+		http.Error(w, http.StatusText(401), http.StatusUnauthorized)
 		return
 	}
 	rows, err := h.pool.Query(r.Context(), `SELECT l.id,t.code,l.start_date::text,l.end_date::text,l.days,l.status FROM hr_leave_requests l JOIN hr_employees e ON e.id=l.employee_id JOIN hr_leave_types t ON t.id=l.leave_type_id WHERE e.user_id=$1 AND e.company_id=$2 ORDER BY l.start_date DESC LIMIT 100`, uid, cid)
 	if err != nil {
-		http.Error(w, http.StatusText(500), 500)
+		http.Error(w, http.StatusText(500), http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
@@ -557,7 +557,7 @@ func (h *Handler) employeeLeave(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var x leave
 		if err := rows.Scan(&x.ID, &x.Type, &x.Start, &x.End, &x.Days, &x.Status); err != nil {
-			http.Error(w, http.StatusText(500), 500)
+			http.Error(w, http.StatusText(500), http.StatusInternalServerError)
 			return
 		}
 		items = append(items, x)
@@ -568,12 +568,12 @@ func (h *Handler) employeeLeave(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) employeeAttendance(w http.ResponseWriter, r *http.Request) {
 	uid, cid, _, err := h.access(r, "EMPLOYEE")
 	if err != nil {
-		http.Error(w, http.StatusText(401), 401)
+		http.Error(w, http.StatusText(401), http.StatusUnauthorized)
 		return
 	}
 	rows, err := h.pool.Query(r.Context(), `SELECT a.attendance_date::text,a.check_in,a.check_out,a.status FROM hr_attendance a JOIN hr_employees e ON e.id=a.employee_id WHERE e.user_id=$1 AND e.company_id=$2 ORDER BY a.attendance_date DESC LIMIT 100`, uid, cid)
 	if err != nil {
-		http.Error(w, http.StatusText(500), 500)
+		http.Error(w, http.StatusText(500), http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
@@ -585,7 +585,7 @@ func (h *Handler) employeeAttendance(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var x attendance
 		if err := rows.Scan(&x.Date, &x.CheckIn, &x.CheckOut, &x.Status); err != nil {
-			http.Error(w, http.StatusText(500), 500)
+			http.Error(w, http.StatusText(500), http.StatusInternalServerError)
 			return
 		}
 		items = append(items, x)
@@ -596,12 +596,12 @@ func (h *Handler) employeeAttendance(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) customerCreditNotes(w http.ResponseWriter, r *http.Request) {
 	_, cid, customerID, err := h.access(r, "CUSTOMER")
 	if err != nil {
-		http.Error(w, http.StatusText(401), 401)
+		http.Error(w, http.StatusText(401), http.StatusUnauthorized)
 		return
 	}
 	rows, err := h.pool.Query(r.Context(), `SELECT n.number,n.total::float8,n.status FROM ar_credit_notes n JOIN customers c ON c.id=n.customer_id WHERE n.customer_id=$1 AND c.company_id=$2 ORDER BY n.id DESC LIMIT 100`, customerID, cid)
 	if err != nil {
-		http.Error(w, http.StatusText(500), 500)
+		http.Error(w, http.StatusText(500), http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
@@ -614,7 +614,7 @@ func (h *Handler) customerCreditNotes(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var x note
 		if err := rows.Scan(&x.Number, &x.Total, &x.Status); err != nil {
-			http.Error(w, http.StatusText(500), 500)
+			http.Error(w, http.StatusText(500), http.StatusInternalServerError)
 			return
 		}
 		items = append(items, x)
@@ -625,12 +625,12 @@ func (h *Handler) customerCreditNotes(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) supplierOrders(w http.ResponseWriter, r *http.Request) {
 	_, cid, supplierID, err := h.access(r, "SUPPLIER")
 	if err != nil {
-		http.Error(w, http.StatusText(401), 401)
+		http.Error(w, http.StatusText(401), http.StatusUnauthorized)
 		return
 	}
 	rows, err := h.pool.Query(r.Context(), `SELECT p.number,p.status,p.currency FROM pos p JOIN suppliers s ON s.id=p.supplier_id WHERE p.supplier_id=$1 AND s.company_id=$2 ORDER BY p.id DESC LIMIT 100`, supplierID, cid)
 	if err != nil {
-		http.Error(w, http.StatusText(500), 500)
+		http.Error(w, http.StatusText(500), http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
@@ -639,7 +639,7 @@ func (h *Handler) supplierOrders(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var x order
 		if err := rows.Scan(&x.Number, &x.Status, &x.Currency); err != nil {
-			http.Error(w, http.StatusText(500), 500)
+			http.Error(w, http.StatusText(500), http.StatusInternalServerError)
 			return
 		}
 		items = append(items, x)
@@ -650,12 +650,12 @@ func (h *Handler) supplierOrders(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) supplierDeliveries(w http.ResponseWriter, r *http.Request) {
 	_, cid, supplierID, err := h.access(r, "SUPPLIER")
 	if err != nil {
-		http.Error(w, http.StatusText(401), 401)
+		http.Error(w, http.StatusText(401), http.StatusUnauthorized)
 		return
 	}
 	rows, err := h.pool.Query(r.Context(), `SELECT g.number,g.status,g.received_at::text,g.warehouse_id FROM grns g JOIN suppliers s ON s.id=g.supplier_id WHERE g.supplier_id=$1 AND s.company_id=$2 ORDER BY g.id DESC LIMIT 100`, supplierID, cid)
 	if err != nil {
-		http.Error(w, http.StatusText(500), 500)
+		http.Error(w, http.StatusText(500), http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
@@ -667,7 +667,7 @@ func (h *Handler) supplierDeliveries(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var x delivery
 		if err := rows.Scan(&x.Number, &x.Status, &x.ReceivedAt, &x.WarehouseID); err != nil {
-			http.Error(w, http.StatusText(500), 500)
+			http.Error(w, http.StatusText(500), http.StatusInternalServerError)
 			return
 		}
 		items = append(items, x)
@@ -684,22 +684,22 @@ func (h *Handler) uploadSupplierDocument(w http.ResponseWriter, r *http.Request)
 func (h *Handler) uploadDocument(w http.ResponseWriter, r *http.Request, kind string) {
 	uid, cid, _, err := h.access(r, kind)
 	if err != nil {
-		http.Error(w, http.StatusText(401), 401)
+		http.Error(w, http.StatusText(401), http.StatusUnauthorized)
 		return
 	}
 	if err := r.ParseMultipartForm(10 << 20); err != nil {
-		http.Error(w, "multipart form must be <= 10 MB", 400)
+		http.Error(w, "multipart form must be <= 10 MB", http.StatusBadRequest)
 		return
 	}
 	file, header, err := r.FormFile("file")
 	if err != nil {
-		http.Error(w, "file is required", 400)
+		http.Error(w, "file is required", http.StatusBadRequest)
 		return
 	}
 	defer func() { _ = file.Close() }()
 	content, err := io.ReadAll(io.LimitReader(file, 10<<20+1))
 	if err != nil || len(content) > 10<<20 {
-		http.Error(w, "file must be <= 10 MB", 400)
+		http.Error(w, "file must be <= 10 MB", http.StatusBadRequest)
 		return
 	}
 	contentType := header.Header.Get("Content-Type")
@@ -754,7 +754,7 @@ func (h *Handler) uploadDocument(w http.ResponseWriter, r *http.Request, kind st
 
 	var id int64
 	if err := h.pool.QueryRow(r.Context(), `INSERT INTO portal_documents(company_id,user_id,portal_type,filename,content_type,content) VALUES($1,$2,$3,$4,$5,$6) RETURNING id`, cid, uid, kind, header.Filename, contentType, content).Scan(&id); err != nil {
-		http.Error(w, http.StatusText(500), 500)
+		http.Error(w, http.StatusText(500), http.StatusInternalServerError)
 		return
 	}
 	portalJSON(w, map[string]any{"id": id, "filename": header.Filename, "content_type": contentType})
@@ -763,12 +763,12 @@ func (h *Handler) uploadDocument(w http.ResponseWriter, r *http.Request, kind st
 func (h *Handler) supplierDebitNotes(w http.ResponseWriter, r *http.Request) {
 	_, cid, supplierID, err := h.access(r, "SUPPLIER")
 	if err != nil {
-		http.Error(w, http.StatusText(401), 401)
+		http.Error(w, http.StatusText(401), http.StatusUnauthorized)
 		return
 	}
 	rows, err := h.pool.Query(r.Context(), `SELECT n.number,n.total::float8,n.status FROM ap_debit_notes n JOIN suppliers s ON s.id=n.supplier_id WHERE n.supplier_id=$1 AND s.company_id=$2 ORDER BY n.id DESC LIMIT 100`, supplierID, cid)
 	if err != nil {
-		http.Error(w, http.StatusText(500), 500)
+		http.Error(w, http.StatusText(500), http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
@@ -781,7 +781,7 @@ func (h *Handler) supplierDebitNotes(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var x note
 		if err := rows.Scan(&x.Number, &x.Total, &x.Status); err != nil {
-			http.Error(w, http.StatusText(500), 500)
+			http.Error(w, http.StatusText(500), http.StatusInternalServerError)
 			return
 		}
 		items = append(items, x)

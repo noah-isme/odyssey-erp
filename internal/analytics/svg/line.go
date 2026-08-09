@@ -71,9 +71,9 @@ func Line(width, height int, series []float64, labels []string, opts LineOpts) (
 		y := padding + chartHeight - normalized
 		if i == 0 {
 			firstX = x
-			path.WriteString(fmt.Sprintf("M%.2f %.2f", x, y))
+			writeSVG(&path, "M%.2f %.2f", x, y)
 		} else {
-			path.WriteString(fmt.Sprintf(" L%.2f %.2f", x, y))
+			writeSVG(&path, " L%.2f %.2f", x, y)
 		}
 		lastX = x
 	}
@@ -82,33 +82,33 @@ func Line(width, height int, series []float64, labels []string, opts LineOpts) (
 	descID := makeID(opts.Title, "line-desc")
 
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 %d %d\" role=\"img\" aria-labelledby=\"%s %s\">", width, height, titleID, descID))
-	b.WriteString(fmt.Sprintf("<title id=\"%s\">%s</title>", titleID, template.HTMLEscapeString(fallback(opts.Title, "Line chart"))))
-	b.WriteString(fmt.Sprintf("<desc id=\"%s\">%s</desc>", descID, template.HTMLEscapeString(fallback(opts.Description, "Trend data"))))
+	writeSVG(&b, "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 %d %d\" role=\"img\" aria-labelledby=\"%s %s\">", width, height, titleID, descID)
+	writeSVG(&b, "<title id=\"%s\">%s</title>", titleID, template.HTMLEscapeString(fallback(opts.Title, "Line chart")))
+	writeSVG(&b, "<desc id=\"%s\">%s</desc>", descID, template.HTMLEscapeString(fallback(opts.Description, "Trend data")))
 
 	// Grid lines and ticks
 	for i := 0; i <= tickCount; i++ {
 		ratio := float64(i) / float64(tickCount)
 		y := padding + chartHeight - ratio*chartHeight
 		value := minVal + (maxVal-minVal)*ratio
-		b.WriteString(fmt.Sprintf("<line x1=\"%.2f\" y1=\"%.2f\" x2=\"%.2f\" y2=\"%.2f\" stroke=\"%s\" stroke-width=\"0.5\" stroke-dasharray=\"2,4\" aria-hidden=\"true\"></line>", padding, y, padding+chartWidth, y, gridColor))
-		b.WriteString(fmt.Sprintf("<text x=\"%.2f\" y=\"%.2f\" fill=\"%s\" font-size=\"10\" text-anchor=\"end\">%s</text>", padding-6, y+4, axisColor, template.HTMLEscapeString(formatTick(value))))
+		writeSVG(&b, "<line x1=\"%.2f\" y1=\"%.2f\" x2=\"%.2f\" y2=\"%.2f\" stroke=\"%s\" stroke-width=\"0.5\" stroke-dasharray=\"2,4\" aria-hidden=\"true\"></line>", padding, y, padding+chartWidth, y, gridColor)
+		writeSVG(&b, "<text x=\"%.2f\" y=\"%.2f\" fill=\"%s\" font-size=\"10\" text-anchor=\"end\">%s</text>", padding-6, y+4, axisColor, template.HTMLEscapeString(formatTick(value)))
 	}
 
 	// Axes
-	b.WriteString(fmt.Sprintf("<g stroke=\"%s\" aria-label=\"Sumbu\">", axisColor))
-	b.WriteString(fmt.Sprintf("<line x1=\"%.2f\" y1=\"%.2f\" x2=\"%.2f\" y2=\"%.2f\" stroke-width=\"1\"></line>", padding, padding, padding, padding+chartHeight))
-	b.WriteString(fmt.Sprintf("<line x1=\"%.2f\" y1=\"%.2f\" x2=\"%.2f\" y2=\"%.2f\" stroke-width=\"1\"></line>", padding, padding+chartHeight, padding+chartWidth, padding+chartHeight))
+	writeSVG(&b, "<g stroke=\"%s\" aria-label=\"Sumbu\">", axisColor)
+	writeSVG(&b, "<line x1=\"%.2f\" y1=\"%.2f\" x2=\"%.2f\" y2=\"%.2f\" stroke-width=\"1\"></line>", padding, padding, padding, padding+chartHeight)
+	writeSVG(&b, "<line x1=\"%.2f\" y1=\"%.2f\" x2=\"%.2f\" y2=\"%.2f\" stroke-width=\"1\"></line>", padding, padding+chartHeight, padding+chartWidth, padding+chartHeight)
 	b.WriteString("</g>")
 
 	// Area under line
 	if fillColor != "" {
 		base := padding + chartHeight
 		area := fmt.Sprintf("%s L%.2f %.2f L%.2f %.2f Z", path.String(), lastX, base, firstX, base)
-		b.WriteString(fmt.Sprintf("<path d=\"%s\" fill=\"%s\" stroke=\"none\" aria-hidden=\"true\"></path>", area, fillColor))
+		writeSVG(&b, "<path d=\"%s\" fill=\"%s\" stroke=\"none\" aria-hidden=\"true\"></path>", area, fillColor)
 	}
 
-	b.WriteString(fmt.Sprintf("<path d=\"%s\" fill=\"none\" stroke=\"%s\" stroke-width=\"2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"></path>", path.String(), strokeColor))
+	writeSVG(&b, "<path d=\"%s\" fill=\"none\" stroke=\"%s\" stroke-width=\"2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"></path>", path.String(), strokeColor)
 
 	if opts.ShowDots {
 		for i, value := range series {
@@ -120,7 +120,7 @@ func Line(width, height int, series []float64, labels []string, opts LineOpts) (
 			}
 			normalized := (value - minVal) * scale
 			y := padding + chartHeight - normalized
-			b.WriteString(fmt.Sprintf("<circle cx=\"%.2f\" cy=\"%.2f\" r=\"3\" fill=\"%s\"></circle>", x, y, strokeColor))
+			writeSVG(&b, "<circle cx=\"%.2f\" cy=\"%.2f\" r=\"3\" fill=\"%s\"></circle>", x, y, strokeColor)
 		}
 	}
 
@@ -132,7 +132,7 @@ func Line(width, height int, series []float64, labels []string, opts LineOpts) (
 		} else {
 			x += chartWidth / 2
 		}
-		b.WriteString(fmt.Sprintf("<text x=\"%.2f\" y=\"%.2f\" fill=\"%s\" font-size=\"10\" text-anchor=\"middle\">%s</text>", x, padding+chartHeight+14, axisColor, template.HTMLEscapeString(label)))
+		writeSVG(&b, "<text x=\"%.2f\" y=\"%.2f\" fill=\"%s\" font-size=\"10\" text-anchor=\"middle\">%s</text>", x, padding+chartHeight+14, axisColor, template.HTMLEscapeString(label))
 	}
 
 	b.WriteString("</svg>")
