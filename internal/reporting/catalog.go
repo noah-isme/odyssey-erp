@@ -88,13 +88,7 @@ func (c *Catalog) GetDataset(ctx context.Context, companyID uuid.UUID, key strin
 
 	fields := make(map[string]DatasetField)
 	for _, f := range fieldsRow {
-		fields[f.Name] = DatasetField{
-			Name:           f.Name,
-			Type:           f.Type,
-			Classification: f.Classification,
-			IsDimension:    f.IsDimension,
-			IsMeasure:      f.IsMeasure,
-		}
+		fields[f.Name] = DatasetField(f)
 	}
 
 	// Assuming the source table is statically mapped by the dataset key or stored in a column

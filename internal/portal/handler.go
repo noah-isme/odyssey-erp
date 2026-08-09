@@ -108,7 +108,9 @@ func (h *Handler) getChatMessages(w http.ResponseWriter, r *http.Request) {
 		}
 		out = append(out, m)
 	}
-	json.NewEncoder(w).Encode(out)
+	if err := json.NewEncoder(w).Encode(out); err != nil {
+		return
+	}
 }
 
 func (h *Handler) negotiateRFQ(w http.ResponseWriter, r *http.Request) {

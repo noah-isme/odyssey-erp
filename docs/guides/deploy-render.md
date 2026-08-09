@@ -1,4 +1,4 @@
-# Deploy Gratis ke Render
+# Render Demo/Staging Blueprint
 
 `render.yaml` menyediakan Blueprint minimal dengan hanya dua resource Render:
 

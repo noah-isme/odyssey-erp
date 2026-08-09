@@ -233,7 +233,7 @@ func (r *DistributionRepository) CreateLoad(ctx context.Context, input CreateLoa
 	if err != nil {
 		return 0, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	const insert = `
 		INSERT INTO loads
@@ -392,7 +392,7 @@ func (r *DistributionRepository) CreateRoute(ctx context.Context, input CreateRo
 	if err != nil {
 		return 0, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	const insert = `
 		INSERT INTO delivery_routes
@@ -554,7 +554,7 @@ func (r *DistributionRepository) CreateTransferOrder(ctx context.Context, input 
 	if err != nil {
 		return 0, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	const insert = `
 		INSERT INTO transfer_orders

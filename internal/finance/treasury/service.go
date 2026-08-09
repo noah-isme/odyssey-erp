@@ -325,12 +325,6 @@ func (s *Service) RemoveBatchItem(ctx context.Context, companyID, batchID, itemI
 	if err := s.repo.RemovePaymentBatchItem(ctx, itemID); err != nil {
 		return err
 	}
-	remaining := make([]PaymentBatchItem, 0, len(items)-1)
-	for _, item := range items {
-		if item.ID != itemID {
-			remaining = append(remaining, item)
-		}
-	}
 	_, err = s.repo.UpdatePaymentBatchRevision(ctx, PaymentBatchRevisionUpdate{ID: batchID})
 	return err
 }

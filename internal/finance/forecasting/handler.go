@@ -90,5 +90,5 @@ func (h *Handler) TriggerRun(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte(`{"status": "completed"}`))
+	_, _ = w.Write([]byte(`{"status": "completed"}`))
 }

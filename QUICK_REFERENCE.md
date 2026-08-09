@@ -45,6 +45,8 @@ make test                         # Run all tests
 make lint                         # Run linter
 make build                        # Build binaries
 make docs-check                   # Validate current docs links and Make targets
+make production-build-check       # Run production-tagged builds plus tests and vet
+make production-release-check     # Final tagged/certified release gate
 go test -v ./internal/auth/...    # Test specific package
 go test -cover ./...              # With coverage
 ```

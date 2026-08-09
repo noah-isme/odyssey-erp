@@ -57,3 +57,6 @@ tests/e2e/test-screenshots/
 # Go build and module cache (never commit these)
 .cache/
 /root/.cache/
+/.go-cache/
+/.go-tmp/
+/.golangci-cache/

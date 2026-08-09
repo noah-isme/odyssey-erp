@@ -27,11 +27,7 @@ func (s *Service) GetCashflowTrend(ctx context.Context, filter TrendFilter) ([]C
 		}
 		points := make([]CashflowTrendPoint, 0, len(rows))
 		for _, row := range rows {
-			points = append(points, CashflowTrendPoint{
-				Period: row.Period,
-				In:     row.In,
-				Out:    row.Out,
-			})
+			points = append(points, CashflowTrendPoint(row))
 		}
 		return points, nil
 	}

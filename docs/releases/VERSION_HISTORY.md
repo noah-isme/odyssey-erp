@@ -1,6 +1,6 @@
 # Odyssey ERP Version and Progress Report
 
-**Reviewed:** 2026-08-01
+**Reviewed:** 2026-08-10
 
 ## How to read the version numbers
 
@@ -12,7 +12,8 @@ In other words:
 
 - **Latest release:** v0.9.1.
 - **Latest documented implementation progress:** Phase 10–14 and P7 work, reviewed 2026-08-01.
-- **Next release number:** not assigned yet.
+- **Next release number:** not assigned yet. Production-release preparation is tracked
+  in the [Production Release Checklist](production-release-checklist.md).
 
 The roadmap and module catalog describe post-v0.9.1 progress without pretending that
 it has already been packaged as a new release.
@@ -145,5 +146,6 @@ of post-v0.9.1 work is packaged. Until then, use:
 
 - `README.md` for the latest named release and current high-level status.
 - This report for differences between releases and post-release progress.
-- [`docs/reference/module-catalog.md`](../reference/module-catalog.md) for feature status.
+- [`docs/reference/feature-matrix.md`](../reference/feature-matrix.md) for release status.
+- [`docs/reference/module-catalog.md`](../reference/module-catalog.md) for feature inventory.
 - [`docs/ROADMAP.md`](../ROADMAP.md) for sequencing and release gates.

@@ -590,6 +590,6 @@ For questions or issues related to inventory integration:
 
 ---
 
-**Last Updated:** 2024-01-15  
-**Author:** Odyssey ERP Development Team  
-**Status:** Production Ready ✅
+**Last Updated:** 2026-08-09
+**Author:** Odyssey ERP Development Team
+**Status:** Historical integration reference; current release status is governed by the [authoritative feature matrix](feature-matrix.md).

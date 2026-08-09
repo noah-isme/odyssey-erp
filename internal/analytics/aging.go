@@ -46,7 +46,7 @@ func (s *Service) fetchAging(ctx context.Context, filter AgingFilter, ar bool) (
 			}
 			buckets := make([]AgingBucket, 0, len(rows))
 			for _, row := range rows {
-				buckets = append(buckets, AgingBucket{Bucket: row.Bucket, Amount: row.Amount})
+				buckets = append(buckets, AgingBucket(row))
 			}
 			return buckets, nil
 		}
@@ -56,7 +56,7 @@ func (s *Service) fetchAging(ctx context.Context, filter AgingFilter, ar bool) (
 		}
 		buckets := make([]AgingBucket, 0, len(rows))
 		for _, row := range rows {
-			buckets = append(buckets, AgingBucket{Bucket: row.Bucket, Amount: row.Amount})
+			buckets = append(buckets, AgingBucket(row))
 		}
 		return buckets, nil
 	}

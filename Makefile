@@ -20,7 +20,7 @@ BRANCH_QUERY=$(if $(BRANCH_ID),&branch_id=$(BRANCH_ID),)
 export APP_ENV?=development
 export PG_DSN?=postgres://odyssey:odyssey@localhost:5434/odyssey?sslmode=disable
 
-.PHONY: dev air lint vet vet-consol test build docs-check release-check pdf-release-check migrate-up migrate-down sqlc-gen seed seed-phase3 seed-phase4 refresh-mv reports-demo pdf-sample export-demo fx-tools analytics-dashboard analytics-dashboard-pdf analytics-dashboard-csv prom-up grafana-load alert-test monitor-demo release-phase6
+.PHONY: dev air lint vet vet-consol test build docs-check release-check pdf-release-check production-build-check production-release-check migrate-up migrate-down sqlc-gen seed seed-phase3 seed-phase4 refresh-mv reports-demo pdf-sample export-demo fx-tools analytics-dashboard analytics-dashboard-pdf analytics-dashboard-csv prom-up grafana-load alert-test monitor-demo release-phase6
 
 dev:
 	docker compose up --build
@@ -30,7 +30,7 @@ air:
 	$(AIR_BIN)
 
 lint:
-	golangci-lint run ./...
+	golangci-lint run --timeout=5m ./...
 
 vet:
 	@echo "==> go vet"
@@ -65,6 +65,16 @@ release-check: docs-check
 pdf-release-check:
 	$(GO_BIN) test -tags "production pdf" ./internal/consol/http
 	$(GO_BIN) build -tags "production pdf" ./...
+
+production-build-check: release-check
+	$(GO_BIN) test ./...
+	$(GO_BIN) vet ./...
+	CGO_ENABLED=0 GOOS=linux $(GO_BIN) build -tags production ./...
+	$(GO_BIN) test -tags "production pdf" ./internal/consol/http
+	CGO_ENABLED=0 GOOS=linux $(GO_BIN) build -tags "production pdf" ./...
+
+production-release-check: production-build-check
+	bash scripts/check-production-release.sh
 
 migrate-up:
 	$(MIGRATE_BIN) -path migrations -database "$(PG_DSN)" up

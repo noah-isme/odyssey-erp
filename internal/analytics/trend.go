@@ -39,13 +39,7 @@ func (s *Service) GetPLTrend(ctx context.Context, filter TrendFilter) ([]PLTrend
 		}
 		points := make([]PLTrendPoint, 0, len(rows))
 		for _, row := range rows {
-			points = append(points, PLTrendPoint{
-				Period:  row.Period,
-				Revenue: row.Revenue,
-				COGS:    row.COGS,
-				Opex:    row.Opex,
-				Net:     row.Net,
-			})
+			points = append(points, PLTrendPoint(row))
 		}
 		return points, nil
 	}

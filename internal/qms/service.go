@@ -325,15 +325,15 @@ func (r UpdateCAPARequest) Validate() error {
 
 // UpdateAuditRequest defines the payload for updating an audit.
 type UpdateAuditRequest struct {
-	Title        string
-	Description  string
-	Scope        string
+	Title         string
+	Description   string
+	Scope         string
 	LeadAuditorID *int64
-	AuditTeamIDs []int64
-	AuditeeID    *int64
-	PlannedStart *time.Time
-	PlannedEnd   *time.Time
-	ActorID      int64
+	AuditTeamIDs  []int64
+	AuditeeID     *int64
+	PlannedStart  *time.Time
+	PlannedEnd    *time.Time
+	ActorID       int64
 }
 
 // CreateFindingRequest defines the payload for creating an audit finding.
@@ -409,13 +409,13 @@ func (r CreateSupplierQualityRequest) Validate() error {
 
 // CreateSupplierAuditRequest defines the payload for creating a supplier audit.
 type CreateSupplierAuditRequest struct {
-	CompanyID    int64
-	SupplierID   int64
-	AuditType    string
-	Standard     string
-	PlannedDate  *time.Time
+	CompanyID     int64
+	SupplierID    int64
+	AuditType     string
+	Standard      string
+	PlannedDate   *time.Time
 	LeadAuditorID int64
-	ActorID      int64
+	ActorID       int64
 }
 
 func (r CreateSupplierAuditRequest) Validate() error {
@@ -551,14 +551,14 @@ func (s *Service) ListInspections(ctx context.Context, companyID int64, status, 
 func (s *Service) UpdateInspectionStatus(ctx context.Context, id int64, status string) error {
 	var startedAt, completedAt *time.Time
 	now := s.now()
-	
+
 	switch status {
 	case "IN_PROGRESS":
 		startedAt = &now
 	case "PASSED", "FAILED":
 		completedAt = &now
 	}
-	
+
 	return s.repo.UpdateInspectionStatus(ctx, id, status, startedAt, completedAt)
 }
 
@@ -571,9 +571,9 @@ func (s *Service) CreateComplaint(ctx context.Context, req CreateComplaintReques
 	if err := req.Validate(); err != nil {
 		return CustomerComplaint{}, err
 	}
-	
+
 	number := fmt.Sprintf("CMPL-%d-%d", time.Now().Year(), time.Now().UnixNano()%10000)
-	
+
 	return s.repo.InsertComplaint(ctx, req, number)
 }
 
@@ -594,7 +594,7 @@ func (s *Service) UpdateComplaintStatus(ctx context.Context, id int64, status st
 		now := s.now()
 		closedAt = &now
 	}
-	
+
 	return s.repo.UpdateComplaintStatus(ctx, id, status, closedAt)
 }
 
@@ -652,12 +652,12 @@ func (s *Service) CreateSPCChart(ctx context.Context, chart SPCChart) (SPCChart,
 	if chart.UCL <= chart.LCL {
 		return SPCChart{}, fmt.Errorf("qms: UCL must be greater than LCL")
 	}
-	
+
 	// Default values if not specified
 	if chart.SampleIntervalMin <= 0 {
 		chart.SampleIntervalMin = 60 // 1 hour
 	}
-	
+
 	return s.repo.InsertSPCChart(ctx, chart)
 }
 
@@ -668,34 +668,28 @@ func (s *Service) RecordSPCSample(ctx context.Context, sample SPCSample) (SPCSam
 	if err != nil {
 		return SPCSample{}, fmt.Errorf("qms: failed to fetch SPC chart: %w", err)
 	}
-	
+
 	// 2. Business Logic: evaluate if the sample is out of control limits (outlier)
 	if sample.Value > chart.UCL || sample.Value < chart.LCL {
 		sample.IsOutlier = true
-		sample.Notes = fmt.Sprintf("OUT OF CONTROL LIMITS: Value %f is outside [%f, %f]. %s", 
+		sample.Notes = fmt.Sprintf("OUT OF CONTROL LIMITS: Value %f is outside [%f, %f]. %s",
 			sample.Value, chart.LCL, chart.UCL, sample.Notes)
 	} else if sample.Value > chart.UWL || sample.Value < chart.LWL {
 		// Not an outlier, but a warning
-		sample.Notes = fmt.Sprintf("WARNING: Value %f is outside warning limits [%f, %f]. %s", 
+		sample.Notes = fmt.Sprintf("WARNING: Value %f is outside warning limits [%f, %f]. %s",
 			sample.Value, chart.LWL, chart.UWL, sample.Notes)
 	}
-	
+
 	if sample.SampledAt.IsZero() {
 		sample.SampledAt = s.now()
 	}
-	
+
 	// 3. Save to repository
 	saved, err := s.repo.InsertSPCSample(ctx, sample)
 	if err != nil {
 		return SPCSample{}, err
 	}
-	
-	// 4. (Optional) Auto-create NCR if it's an outlier
-	if saved.IsOutlier {
-		// Just a side-effect demo; ideally we'd trigger an event or queue a task.
-		// For now, we return it normally but it is flagged as an outlier.
-	}
-	
+
 	return saved, nil
 }
 
@@ -718,17 +712,12 @@ func (s *Service) RecordATETestResult(ctx context.Context, result ATETestResult)
 	if result.TestedAt.IsZero() {
 		result.TestedAt = s.now()
 	}
-	
+
 	saved, err := s.repo.InsertATETestResult(ctx, result)
 	if err != nil {
 		return ATETestResult{}, err
 	}
-	
-	if !saved.Pass {
-		// Ideally we would queue a task to create an NCR automatically here, e.g.:
-		// s.CreateNCR(ctx, CreateNCRRequest{Title: "ATE Test Failure", Description: saved.RawData})
-	}
-	
+
 	return saved, nil
 }
 
@@ -754,19 +743,19 @@ func (s *Service) RecordLabTest(ctx context.Context, test LabTest) (LabTest, err
 	if test.TestedAt.IsZero() {
 		test.TestedAt = s.now()
 	}
-	
+
 	// Ensure the sample exists and update its status to IN_TESTING
 	sample, err := s.repo.GetLabSample(ctx, test.SampleID)
 	if err != nil {
 		return LabTest{}, fmt.Errorf("qms: failed to fetch lab sample: %w", err)
 	}
-	
+
 	if sample.Status == "LOGGED" {
 		err = s.repo.UpdateLabSampleStatus(ctx, sample.ID, "IN_TESTING", nil)
 		if err != nil {
 			return LabTest{}, err
 		}
 	}
-	
+
 	return s.repo.InsertLabTest(ctx, test)
 }

@@ -274,7 +274,12 @@ func TestMidtransAdapter_ExecuteCommand_CreateCheckout_OK(t *testing.T) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(snapResp)
+		payload, err := json.Marshal(snapResp)
+		if err != nil {
+			http.Error(w, "failed to encode response", http.StatusInternalServerError)
+			return
+		}
+		_, _ = w.Write(payload)
 	}))
 	defer srv.Close()
 

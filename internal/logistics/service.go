@@ -292,10 +292,6 @@ func (s *Service) MarkShipmentDelivered(ctx context.Context, shipmentID int64, d
 		return fmt.Errorf("can only mark IN_TRANSIT shipments as delivered, current status: %s", shipment.Status)
 	}
 
-	if deliveredAt.IsZero() {
-		deliveredAt = time.Now().UTC()
-	}
-
 	err = s.repo.UpdateShipmentStatus(ctx, shipmentID, ShipmentStatusDelivered)
 	if err != nil {
 		return fmt.Errorf("failed to mark shipment delivered: %w", err)

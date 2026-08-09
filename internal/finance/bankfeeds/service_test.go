@@ -14,7 +14,6 @@ type bankFeedRepoFake struct {
 	event      BankFeedEvent
 	accounts   []BankConnectionAccount
 	claimed    bool
-	imports    int
 }
 
 func (r *bankFeedRepoFake) CreateBankConnection(context.Context, CreateBankConnectionInput) (BankConnection, error) {

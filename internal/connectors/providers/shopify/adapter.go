@@ -2,9 +2,6 @@ package shopify
 
 import (
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -100,10 +97,7 @@ func (a *Adapter) VerifyCallbackSignature(ctx context.Context, conn *connectors.
 	if signature == "" {
 		return errors.New("shopify: missing X-Shopify-Hmac-Sha256 header")
 	}
-	mac := hmac.New(sha256.New, []byte(secret))
-	_, _ = mac.Write(payload)
-	decoded, err := base64.StdEncoding.DecodeString(signature)
-	if err != nil || !hmac.Equal(decoded, mac.Sum(nil)) {
+	if !verifyWebhookSignature(secret, signature, payload) {
 		return errors.New("shopify: invalid webhook signature")
 	}
 	return nil

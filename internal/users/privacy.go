@@ -49,7 +49,7 @@ func (s *PrivacyService) RightToBeForgotten(ctx context.Context, userID int64) e
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	// Anonymize the user record (rather than hard delete, to preserve foreign keys in financial records)
 	_, err = tx.Exec(ctx, `

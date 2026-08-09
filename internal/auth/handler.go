@@ -346,7 +346,13 @@ func (h *Handler) handleSSOCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sess.SetUser(fmt.Sprintf("%d", user.ID))
-	h.service.RegisterSession(ctx, sess.ID, user.ID, time.Now().Add(24*time.Hour), r.RemoteAddr, r.UserAgent())
+	if err := h.service.RegisterSession(ctx, sess.ID, user.ID, time.Now().Add(24*time.Hour), r.RemoteAddr, r.UserAgent()); err != nil {
+		h.logger.Error("failed to register SSO session", slog.Any("error", err))
+		sess.SetUser("")
+		sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Sesi tidak dapat dibuat. Silakan coba lagi."})
+		http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
+		return
+	}
 
 	http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
 }
@@ -399,7 +405,13 @@ func (h *Handler) handleMFAVerify(w http.ResponseWriter, r *http.Request) {
 	// Login successful
 	sess.Delete("mfa_pending_user_id")
 	sess.SetUser(fmt.Sprintf("%d", user.ID))
-	h.service.RegisterSession(ctx, sess.ID, user.ID, time.Now().Add(24*time.Hour), r.RemoteAddr, r.UserAgent())
+	if err := h.service.RegisterSession(ctx, sess.ID, user.ID, time.Now().Add(24*time.Hour), r.RemoteAddr, r.UserAgent()); err != nil {
+		h.logger.Error("failed to register MFA session", slog.Any("error", err))
+		sess.SetUser("")
+		sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Sesi tidak dapat dibuat. Silakan coba lagi."})
+		http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
+		return
+	}
 
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
