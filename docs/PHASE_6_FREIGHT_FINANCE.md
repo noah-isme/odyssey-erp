@@ -2,24 +2,30 @@
 
 ## Overview
 
-Phase 6 extends Odyssey ERP with comprehensive freight finance capabilities. It integrates with Phase 4 (Transport Execution) and Phase 5 (Distribution Planning) to calculate, track, and post freight charges to the general ledger.
+Phase 6 extends Odyssey ERP with freight finance capabilities. It integrates with
+Phase 4 (Transport Execution), Phase 5 (Distribution Planning), procurement receipts,
+AP, and accounting. The current slice calculates and persists freight data; the final
+AP/GL transaction boundary is still being integrated.
 
-**Status**: ✅ Core Implementation Complete (95% ready for production)
+**Status**: Core rate-card, freight-charge, landed-cost, audit persistence, exact
+calculation, and invoice/payment state transitions are implemented. Production AP/GL
+orchestration, landed-cost allocation, and journal reconciliation remain.
 
 ## Architecture
 
 ### Data Flow
 
 ```
-1. Shipment created in Phase 4
-2. Route assigned (origin, destination, weight, volume)
-3. Rate lookup: GetApplicableRateCard(route, weight, service_level)
-4. Calculate freight: base + (weight × per_kg_rate) + (volume × per_cbm_rate) + surcharges
-5. Create FreightCharge (status: CALCULATED)
-6. Calculate LandedCost: product_cost + freight_cost + duties + taxes + insurance
-7. Post to GL: Debit Expense (6100), Credit Payable (2100)
-8. Transition: CALCULATED → INVOICED (on invoice) → PAID (on payment)
-9. Reconcile GL posting
+1. PO, receipt, or shipment supplies the freight context.
+2. Route assigned (origin, destination, weight, volume).
+3. Rate lookup: `GetApplicableRateCard(route, weight, service_level)`.
+4. Calculate freight: base + (weight × per_kg_rate) + (volume × per_cbm_rate) + surcharges.
+5. Persist `FreightCharge` with status `CALCULATED`.
+6. Persist `LandedCost` inputs; receipt-line allocation is still an integration task.
+7. Pending production integration: create a real AP invoice and balanced journal.
+8. Transition: `CALCULATED → INVOICED` on invoice acceptance → `PAID` on payment.
+9. Pending production integration: verify the journal by ID, company, amount, and
+   account before marking reconciliation complete.
 ```
 
 ### Package Structure
@@ -30,7 +36,7 @@ internal/freight/
 ├── repository.go      # Repository interface + Mock
 ├── rate_calculator.go # Calculation engine (CalculateFreight, CalculateLandedCost)
 ├── service.go         # Business logic service (rate cards, surcharges, charges)
-├── gl_posting.go      # GL integration (PostFreightToGL, reconciliation)
+├── gl_posting.go      # GL integration seam and reconciliation checks
 ├── handler.go         # HTTP endpoints (CRUD, filtering)
 
 sql/queries/
@@ -41,7 +47,8 @@ web/templates/freight/
 ├── charges.html       # Charge tracking & detail view
 
 migrations/
-├── 000081_phase6_freight_finance.sql # 6 tables, indexes, constraints
+├── 000086_phase6_freight_finance.up.sql # 5 freight tables, indexes, constraints
+├── 000116_freight_cost_center_attributes.up.sql # freight cost-center attributes
 ```
 
 ## Key Components
@@ -105,7 +112,11 @@ Comprehensive cost calculation for inventory valuation.
 
 ### 4. GL Posting
 
-Automatic general ledger entries.
+The package exposes the GL posting boundary, but the current adapter does not create a
+journal in the accounting module yet. Its generated posting ID is a temporary reference
+and reconciliation currently verifies only that a reference is present. Do not enable
+this path as production accounting until it creates an idempotent debit/credit journal,
+stores the real journal ID, and verifies company, amount, currency, and account mapping.
 
 **Entry Pair**:
 1. **Debit**: Freight Expense (6100) or cost center GL account
@@ -113,7 +124,7 @@ Automatic general ledger entries.
 
 **Features**:
 - Cost center allocation
-- GL posting ID linking
+- GL posting ID linking (integration seam; real journal ID pending)
 - Reconciliation audit trail
 - Reference tracking (invoice numbers)
 
@@ -188,9 +199,9 @@ AuditType:
 - Track load-level expenses
 
 ### Phase 1: General Ledger
-- Post GL entries to GL accounts
-- Map cost centers to GL accounts
-- Support GL reconciliation
+- Pending: post balanced entries through the accounting service
+- Map cost centers to GL accounts (cost-center attributes are persisted)
+- Pending: verify journal identity and amount during reconciliation
 
 ## Examples
 
@@ -374,16 +385,17 @@ CREATE INDEX idx_freight_charges_load ON freight_charges(load_id);
 
 ## Deployment Checklist
 
-- [ ] Run database migration (000081_phase6_freight_finance.sql)
+- [x] Run database migrations `000086_phase6_freight_finance.up.sql` and
+  `000116_freight_cost_center_attributes.up.sql`
 - [ ] Wire FreightService into app context
-- [ ] Implement Repository layer (currently interface only)
+- [x] Implement the freight repository layer and generated SQL bindings
 - [ ] Configure database connection
 - [ ] Set up GL account mapping
 - [ ] Enable RBAC middleware
-- [ ] Configure audit logging
-- [ ] Test rate card creation
-- [ ] Test freight calculation
-- [ ] Verify GL posting
+- [x] Configure freight audit persistence
+- [x] Test rate card/charge calculation and status transitions
+- [ ] Implement and verify real AP/GL posting
+- [ ] Implement receipt-line landed-cost allocation and clearing/COGS entries
 - [ ] Run E2E test suite
 - [ ] Deploy to staging
 - [ ] Train operations team
@@ -391,26 +403,27 @@ CREATE INDEX idx_freight_charges_load ON freight_charges(load_id);
 
 ## Next Steps
 
-### Optional (Post-Launch)
-1. **Integration Tests** (4-5 hours)
-   - Rate calculation accuracy
-   - GL posting verification
-   - Status transition tests
+### Remaining implementation
+1. **Accounting and AP integration**
+   - Replace the simulated GL posting reference with an accounting-service journal
+   - Create/link the carrier AP invoice idempotently
+   - Verify journal company, amount, currency, debit, and credit during reconciliation
 
-2. **E2E Tests** (1-2 hours)
+2. **Receipt and landed-cost integration**
+   - Allocate freight to receipt lines using weight/value/quantity fallbacks
+   - Capitalize on-hand inventory and post consumed inventory to COGS variance
+   - Clear the freight-clearing account exactly once
+
+3. **Integration and E2E tests**
    - End-to-end workflows
+   - PO → freight charge → receipt → landed cost → AP invoice → payment
    - RBAC permission tests
    - Error scenarios
 
-3. **Documentation** (1-2 hours)
+4. **Operations documentation**
    - API documentation (Swagger)
-   - Operational runbooks
-   - Rate card best practices
-
-4. **Repository Implementation** (3-4 hours)
-   - SQL implementation for all 30+ methods
-   - Database connection pooling
-   - Query optimization
+   - Reconciliation runbook
+   - Rate card and exception-approval guidance
 
 ### Future Enhancements
 - Multi-currency conversion
@@ -436,10 +449,11 @@ CREATE INDEX idx_freight_charges_load ON freight_charges(load_id);
 - Review calculation breakdown
 
 **GL Posting Failed**
-- Verify GL account exists
-- Check cost center GL account mapping
+- Confirm the accounting-service integration is enabled; the current adapter is an
+  explicit pending integration seam.
+- Verify GL account and cost-center mapping
 - Ensure company GL account configuration
-- Review audit log for errors
+- Review the freight audit log and AP idempotency key
 
 ## References
 

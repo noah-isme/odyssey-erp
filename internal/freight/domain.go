@@ -12,58 +12,58 @@ import (
 
 // RateCard represents a freight rate for a specific route and carrier
 type RateCard struct {
-	ID              int64
-	CompanyID       int64
-	CarrierID       *int64
-	OriginCity      string
-	OriginCountry   string
-	DestinationCity string
+	ID                 int64
+	CompanyID          int64
+	CarrierID          *int64
+	OriginCity         string
+	OriginCountry      string
+	DestinationCity    string
 	DestinationCountry string
-	ServiceLevel    ServiceLevel // STANDARD, EXPRESS, OVERNIGHT, ECONOMY
-	MinWeightKg     *accountingmoney.Money
-	MaxWeightKg     *accountingmoney.Money
-	BaseRate        accountingmoney.Money
-	PerKgRate       *accountingmoney.Money
-	PerCbmRate      *accountingmoney.Money
-	Currency        string
-	EffectiveDate   time.Time
-	ExpirationDate  *time.Time
-	IsActive        bool
-	CreatedBy       int64
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	ServiceLevel       ServiceLevel // STANDARD, EXPRESS, OVERNIGHT, ECONOMY
+	MinWeightKg        *accountingmoney.Money
+	MaxWeightKg        *accountingmoney.Money
+	BaseRate           accountingmoney.Money
+	PerKgRate          *accountingmoney.Money
+	PerCbmRate         *accountingmoney.Money
+	Currency           string
+	EffectiveDate      time.Time
+	ExpirationDate     *time.Time
+	IsActive           bool
+	CreatedBy          int64
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
 }
 
 type ServiceLevel string
 
 const (
-	ServiceLevelStandard   ServiceLevel = "STANDARD"
-	ServiceLevelExpress    ServiceLevel = "EXPRESS"
-	ServiceLevelOvernight  ServiceLevel = "OVERNIGHT"
-	ServiceLevelEconomy    ServiceLevel = "ECONOMY"
+	ServiceLevelStandard  ServiceLevel = "STANDARD"
+	ServiceLevelExpress   ServiceLevel = "EXPRESS"
+	ServiceLevelOvernight ServiceLevel = "OVERNIGHT"
+	ServiceLevelEconomy   ServiceLevel = "ECONOMY"
 )
 
 // RateSurcharge represents an additional charge to a rate card
 type RateSurcharge struct {
-	ID              int64
-	CompanyID       int64
-	RateCardID      int64
-	SurchargeType   SurchargeType // FUEL, HOLIDAY, ZONE, HANDLING, INSURANCE
-	SurchargeName   string
-	SurchargeAmount *accountingmoney.Money
+	ID               int64
+	CompanyID        int64
+	RateCardID       int64
+	SurchargeType    SurchargeType // FUEL, HOLIDAY, ZONE, HANDLING, INSURANCE
+	SurchargeName    string
+	SurchargeAmount  *accountingmoney.Money
 	SurchargePercent *float64 // Percentage of base rate
-	EffectiveDate   time.Time
-	ExpirationDate  *time.Time
-	CreatedAt       time.Time
+	EffectiveDate    time.Time
+	ExpirationDate   *time.Time
+	CreatedAt        time.Time
 }
 
 type SurchargeType string
 
 const (
-	SurchargeTypeFuel     SurchargeType = "FUEL"
-	SurchargeTypeHoliday  SurchargeType = "HOLIDAY"
-	SurchargeTypeZone     SurchargeType = "ZONE"
-	SurchargeTypeHandling SurchargeType = "HANDLING"
+	SurchargeTypeFuel      SurchargeType = "FUEL"
+	SurchargeTypeHoliday   SurchargeType = "HOLIDAY"
+	SurchargeTypeZone      SurchargeType = "ZONE"
+	SurchargeTypeHandling  SurchargeType = "HANDLING"
 	SurchargeTypeInsurance SurchargeType = "INSURANCE"
 )
 
@@ -105,8 +105,8 @@ type FreightChargeStatus string
 
 const (
 	FreightChargeStatusCalculated FreightChargeStatus = "CALCULATED"
-	FreightChargeStatusInvoiced    FreightChargeStatus = "INVOICED"
-	FreightChargeStatusPaid        FreightChargeStatus = "PAID"
+	FreightChargeStatusInvoiced   FreightChargeStatus = "INVOICED"
+	FreightChargeStatusPaid       FreightChargeStatus = "PAID"
 )
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -150,23 +150,23 @@ const (
 
 // CostCenter represents a business unit for cost allocation
 type CostCenter struct {
-	ID              int64
-	CompanyID       int64
-	CostCenterCode  string
-	CostCenterName  string
-	CostCenterType  CostCenterType
-	WarehouseID     *int64
-	GLAccount       *string
-	ManagerID       *int64
-	IsActive        bool
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	ID             int64
+	CompanyID      int64
+	CostCenterCode string
+	CostCenterName string
+	CostCenterType CostCenterType
+	WarehouseID    *int64
+	GLAccount      *string
+	ManagerID      *int64
+	IsActive       bool
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 type CostCenterType string
 
 const (
-	CostCenterTypeWarehouse CostCenterType = "WAREHOUSE"
+	CostCenterTypeWarehouse  CostCenterType = "WAREHOUSE"
 	CostCenterTypeDepartment CostCenterType = "DEPARTMENT"
 	CostCenterTypeProject    CostCenterType = "PROJECT"
 	CostCenterTypeLocation   CostCenterType = "LOCATION"
@@ -192,11 +192,11 @@ type FreightAuditLog struct {
 type AuditType string
 
 const (
-	AuditTypeCreated     AuditType = "CREATED"
-	AuditTypeCalculated  AuditType = "CALCULATED"
-	AuditTypeInvoiced    AuditType = "INVOICED"
-	AuditTypePosted      AuditType = "POSTED"
-	AuditTypeReconciled  AuditType = "RECONCILED"
+	AuditTypeCreated    AuditType = "CREATED"
+	AuditTypeCalculated AuditType = "CALCULATED"
+	AuditTypeInvoiced   AuditType = "INVOICED"
+	AuditTypePosted     AuditType = "POSTED"
+	AuditTypeReconciled AuditType = "RECONCILED"
 )
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -204,22 +204,22 @@ const (
 // ═══════════════════════════════════════════════════════════════════════════
 
 type CreateRateCardInput struct {
-	CompanyID        int64
-	CarrierID        *int64
-	OriginCity       string
-	OriginCountry    string
-	DestinationCity  string
+	CompanyID          int64
+	CarrierID          *int64
+	OriginCity         string
+	OriginCountry      string
+	DestinationCity    string
 	DestinationCountry string
-	ServiceLevel     ServiceLevel
-	MinWeightKg      *accountingmoney.Money
-	MaxWeightKg      *accountingmoney.Money
-	BaseRate         accountingmoney.Money
-	PerKgRate        *accountingmoney.Money
-	PerCbmRate       *accountingmoney.Money
-	Currency         string
-	EffectiveDate    time.Time
-	ExpirationDate   *time.Time
-	CreatedBy        int64
+	ServiceLevel       ServiceLevel
+	MinWeightKg        *accountingmoney.Money
+	MaxWeightKg        *accountingmoney.Money
+	BaseRate           accountingmoney.Money
+	PerKgRate          *accountingmoney.Money
+	PerCbmRate         *accountingmoney.Money
+	Currency           string
+	EffectiveDate      time.Time
+	ExpirationDate     *time.Time
+	CreatedBy          int64
 }
 
 type CalculateFreightInput struct {
@@ -236,27 +236,28 @@ type CalculateFreightInput struct {
 }
 
 type CalculateFreightOutput struct {
-	BaseCharge      accountingmoney.Money
-	WeightCharge    *accountingmoney.Money
-	VolumeCharge    *accountingmoney.Money
-	SurchargeTotal  *accountingmoney.Money
-	FreightTotal    accountingmoney.Money
-	Currency        string
-	Breakdown       string // Human-readable breakdown of charges
+	RateCardID     int64
+	BaseCharge     accountingmoney.Money
+	WeightCharge   *accountingmoney.Money
+	VolumeCharge   *accountingmoney.Money
+	SurchargeTotal *accountingmoney.Money
+	FreightTotal   accountingmoney.Money
+	Currency       string
+	Breakdown      string // Human-readable breakdown of charges
 }
 
 type CalculateLandedCostInput struct {
-	ShipmentID      int64
-	LoadID          *int64
-	POID            *int64
-	ProductCost     accountingmoney.Money
-	FreightChargeID int64
-	DutyCost        *accountingmoney.Money
-	TaxCost         *accountingmoney.Money
-	InsuranceCost   *accountingmoney.Money
-	OtherCost       *accountingmoney.Money
+	ShipmentID       int64
+	LoadID           *int64
+	POID             *int64
+	ProductCost      accountingmoney.Money
+	FreightChargeID  int64
+	DutyCost         *accountingmoney.Money
+	TaxCost          *accountingmoney.Money
+	InsuranceCost    *accountingmoney.Money
+	OtherCost        *accountingmoney.Money
 	AllocationMethod AllocationMethod
-	CompanyID       int64
+	CompanyID        int64
 }
 
 type PostFreightToGLInput struct {

@@ -1,28 +1,47 @@
 -- name: CalculateOTIFScore :one
 SELECT COUNT(*) as total_receipts,
-       SUM(CASE WHEN received_at <= expected_date THEN 1 ELSE 0 END) as ontime_receipts
-FROM grns
-WHERE company_id = $1 AND supplier_id = $2 AND received_at >= $3 AND received_at <= $4;
+       COALESCE(SUM(CASE WHEN g.received_at::date <= p.expected_date THEN 1 ELSE 0 END), 0)::BIGINT as ontime_receipts
+FROM grns g
+JOIN pos p ON p.id = g.po_id
+WHERE g.company_id = $1 AND g.supplier_id = $2
+  AND g.status = 'POSTED'
+  AND p.expected_date IS NOT NULL
+  AND g.received_at >= $3 AND g.received_at <= $4;
 
 -- name: CalculateQualityScore :one
-SELECT SUM(CASE WHEN gl.status='ACCEPTED' THEN gl.quantity ELSE 0 END) as accepted_qty,
-       SUM(CASE WHEN gl.status IN ('REJECTED','RETURNED') THEN gl.quantity ELSE 0 END) as rejected_qty
+SELECT COALESCE(SUM(gl.qty - COALESCE(returned.quantity_returned, 0)), 0)::BIGINT as accepted_qty,
+       COALESCE(SUM(COALESCE(returned.quantity_returned, 0)), 0)::BIGINT as rejected_qty
 FROM grn_lines gl
 JOIN grns g ON g.id = gl.grn_id
-WHERE g.company_id = $1 AND g.supplier_id = $2 AND g.received_at >= $3 AND g.received_at <= $4;
+LEFT JOIN (
+    SELECT rgl.grn_line_id, SUM(rgl.quantity_returned) AS quantity_returned
+    FROM goods_return_grn_lines rgl
+    JOIN goods_return_grns r ON r.id = rgl.goods_return_grn_id
+    WHERE r.status = 'CONFIRMED'
+    GROUP BY rgl.grn_line_id
+) returned ON returned.grn_line_id = gl.id
+WHERE g.company_id = $1 AND g.supplier_id = $2
+  AND g.status = 'POSTED'
+  AND g.received_at >= $3 AND g.received_at <= $4;
 
 -- name: CalculatePriceAdherenceScore :one
 SELECT COUNT(*) as total_pos,
-       SUM(CASE WHEN pcv.variance_type IS NULL THEN 1 ELSE 0 END) as compliant_pos
+       COALESCE(SUM(CASE WHEN NOT EXISTS (
+           SELECT 1
+           FROM po_contract_variances pending
+           WHERE pending.po_line_id = pl.id
+             AND pending.approval_status = 'PENDING'
+       ) THEN 1 ELSE 0 END), 0)::BIGINT as compliant_pos
 FROM po_lines pl
 JOIN pos p ON p.id = pl.po_id
-LEFT JOIN po_contract_variances pcv ON pcv.po_line_id = pl.id AND pcv.approval_status='PENDING'
-WHERE p.company_id = $1 AND p.supplier_id = $2 AND p.created_at >= $3 AND p.created_at <= $4;
+WHERE p.company_id = $1 AND p.supplier_id = $2
+  AND p.status <> 'CANCELLED'
+  AND p.created_at >= $3 AND p.created_at <= $4;
 
 -- name: CalculateRFQResponsivenessScore :one
 SELECT COUNT(*) as total_rfqs,
-       SUM(CASE WHEN rb.id IS NOT NULL THEN 1 ELSE 0 END) as responded_rfqs
+       COALESCE(SUM(CASE WHEN rb.id IS NOT NULL THEN 1 ELSE 0 END), 0)::BIGINT as responded_rfqs
 FROM rfq_suppliers rs
 JOIN rfqs r ON r.id = rs.rfq_id
-LEFT JOIN rfq_bids rb ON rb.rfq_id = r.id AND rb.supplier_id = rs.supplier_id
+LEFT JOIN rfq_bids rb ON rb.rfq_id = r.id AND rb.supplier_id = rs.supplier_id AND rb.status = 'SUBMITTED'
 WHERE r.company_id = $1 AND rs.supplier_id = $2 AND r.created_at >= $3 AND r.created_at <= $4;

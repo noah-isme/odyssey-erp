@@ -3,6 +3,7 @@ package freight
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -61,15 +62,15 @@ type Repository interface {
 // ═══════════════════════════════════════════════════════════════════════════
 
 type RateCardFilter struct {
-	CarrierID          *int64
-	OriginCity         *string
-	DestinationCity    *string
-	ServiceLevel       *ServiceLevel
-	IncludeInactive    bool
-	EffectiveDateFrom  *time.Time
-	EffectiveDateTo    *time.Time
-	Limit              int
-	Offset             int
+	CarrierID         *int64
+	OriginCity        *string
+	DestinationCity   *string
+	ServiceLevel      *ServiceLevel
+	IncludeInactive   bool
+	EffectiveDateFrom *time.Time
+	EffectiveDateTo   *time.Time
+	Limit             int
+	Offset            int
 }
 
 type RateCardUpdate struct {
@@ -81,13 +82,13 @@ type RateCardUpdate struct {
 }
 
 type RateLookup struct {
-	CarrierID          *int64
-	OriginCity         string
-	DestinationCity    string
-	ServiceLevel       ServiceLevel
-	WeightKg           *accountingmoney.Money
-	VolumeCbm          *accountingmoney.Money
-	AsOfDate           time.Time
+	CarrierID       *int64
+	OriginCity      string
+	DestinationCity string
+	ServiceLevel    ServiceLevel
+	WeightKg        *accountingmoney.Money
+	VolumeCbm       *accountingmoney.Money
+	AsOfDate        time.Time
 }
 
 type CreateRateSurchargeInput struct {
@@ -100,16 +101,16 @@ type CreateRateSurchargeInput struct {
 }
 
 type FreightChargeFilter struct {
-	ShipmentID    *int64
-	LoadID        *int64
-	CarrierID     *int64
-	Status        *FreightChargeStatus
-	OriginCity    *string
+	ShipmentID      *int64
+	LoadID          *int64
+	CarrierID       *int64
+	Status          *FreightChargeStatus
+	OriginCity      *string
 	DestinationCity *string
-	CreatedAfter  *time.Time
-	CreatedBefore *time.Time
-	Limit         int
-	Offset        int
+	CreatedAfter    *time.Time
+	CreatedBefore   *time.Time
+	Limit           int
+	Offset          int
 }
 
 type FreightChargeUpdate struct {
@@ -121,22 +122,22 @@ type FreightChargeUpdate struct {
 }
 
 type LandedCostFilter struct {
-	ShipmentID *int64
-	LoadID     *int64
-	POID       *int64
-	CreatedAfter *time.Time
+	ShipmentID    *int64
+	LoadID        *int64
+	POID          *int64
+	CreatedAfter  *time.Time
 	CreatedBefore *time.Time
-	Limit      int
-	Offset     int
+	Limit         int
+	Offset        int
 }
 
 type CreateCostCenterInput struct {
-	CostCenterCode  string
-	CostCenterName  string
-	CostCenterType  CostCenterType
-	WarehouseID     *int64
-	GLAccount       *string
-	ManagerID       *int64
+	CostCenterCode string
+	CostCenterName string
+	CostCenterType CostCenterType
+	WarehouseID    *int64
+	GLAccount      *string
+	ManagerID      *int64
 }
 
 type CostCenterUpdate struct {
@@ -145,7 +146,6 @@ type CostCenterUpdate struct {
 	ManagerID      *int64
 	IsActive       *bool
 }
-
 
 type postgresRepository struct {
 	q *sqlc.Queries
@@ -172,22 +172,38 @@ func moneyToNumericVal(m accountingmoney.Money) pgtype.Numeric {
 }
 
 func numericToMoney(n pgtype.Numeric, scale int) *accountingmoney.Money {
-	if !n.Valid {
+	if !n.Valid || n.Int == nil || n.NaN || n.InfinityModifier != pgtype.Finite {
 		return nil
 	}
-	f, _ := n.Float64Value()
-	m, _ := accountingmoney.Parse(fmt.Sprintf("%f", f.Float64), scale)
+	m, err := accountingmoney.Parse(numericExactString(n, scale), scale)
+	if err != nil {
+		return nil
+	}
 	return &m
 }
 
 func numericToMoneyVal(n pgtype.Numeric, scale int) accountingmoney.Money {
-	if !n.Valid {
+	if !n.Valid || n.Int == nil || n.NaN || n.InfinityModifier != pgtype.Finite {
 		m, _ := accountingmoney.Parse("0", scale)
 		return m
 	}
-	f, _ := n.Float64Value()
-	m, _ := accountingmoney.Parse(fmt.Sprintf("%f", f.Float64), scale)
+	m, err := accountingmoney.Parse(numericExactString(n, scale), scale)
+	if err != nil {
+		m, _ = accountingmoney.Parse("0", scale)
+	}
 	return m
+}
+
+func numericExactString(n pgtype.Numeric, scale int) string {
+	rat := new(big.Rat).SetInt(n.Int)
+	if n.Exp >= 0 {
+		factor := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(n.Exp)), nil)
+		rat.Mul(rat, new(big.Rat).SetInt(factor))
+	} else {
+		factor := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(-n.Exp)), nil)
+		rat.Quo(rat, new(big.Rat).SetInt(factor))
+	}
+	return rat.FloatString(scale)
 }
 
 func timeToTimestamp(t *time.Time) pgtype.Timestamp {
@@ -234,26 +250,26 @@ func mapRateCard(s sqlc.RateCard) *RateCard {
 	}
 
 	return &RateCard{
-		ID:              s.ID,
-		CompanyID:       s.CompanyID,
-		CarrierID:       carrierID,
-		OriginCity:      s.OriginCity,
-		OriginCountry:   s.OriginCountry,
-		DestinationCity: s.DestinationCity,
+		ID:                 s.ID,
+		CompanyID:          s.CompanyID,
+		CarrierID:          carrierID,
+		OriginCity:         s.OriginCity,
+		OriginCountry:      s.OriginCountry,
+		DestinationCity:    s.DestinationCity,
 		DestinationCountry: s.DestinationCountry,
-		ServiceLevel:    ServiceLevel(s.ServiceLevel),
-		MinWeightKg:     numericToMoney(s.MinWeight, 4),
-		MaxWeightKg:     numericToMoney(s.MaxWeight, 4),
-		BaseRate:        numericToMoneyVal(s.BaseRate, 2),
-		PerKgRate:       numericToMoney(s.PerKgRate, 2),
-		PerCbmRate:      numericToMoney(s.PerCbmRate, 2),
-		Currency:        s.Currency,
-		EffectiveDate:   s.EffectiveDate.Time,
-		ExpirationDate:  expDate,
-		IsActive:        s.IsActive,
-		CreatedBy:       s.CreatedBy,
-		CreatedAt:       s.CreatedAt.Time,
-		UpdatedAt:       s.UpdatedAt.Time,
+		ServiceLevel:       ServiceLevel(s.ServiceLevel),
+		MinWeightKg:        numericToMoney(s.MinWeight, 4),
+		MaxWeightKg:        numericToMoney(s.MaxWeight, 4),
+		BaseRate:           numericToMoneyVal(s.BaseRate, 2),
+		PerKgRate:          numericToMoney(s.PerKgRate, 2),
+		PerCbmRate:         numericToMoney(s.PerCbmRate, 2),
+		Currency:           s.Currency,
+		EffectiveDate:      s.EffectiveDate.Time,
+		ExpirationDate:     expDate,
+		IsActive:           s.IsActive,
+		CreatedBy:          s.CreatedBy,
+		CreatedAt:          s.CreatedAt.Time,
+		UpdatedAt:          s.UpdatedAt.Time,
 	}
 }
 
@@ -460,67 +476,454 @@ func (r *postgresRepository) GetFreightCharge(ctx context.Context, companyID, ch
 	return mapFreightCharge(res), nil
 }
 
-// Unimplemented methods
+func mapRateSurcharge(s sqlc.RateSurcharge) *RateSurcharge {
+	var expirationDate *time.Time
+	if s.ExpirationDate.Valid {
+		expirationDate = &s.ExpirationDate.Time
+	}
+	var surchargePercent *float64
+	if s.SurchargePercent.Valid {
+		value, err := s.SurchargePercent.Float64Value()
+		if err == nil && value.Valid {
+			surchargePercent = &value.Float64
+		}
+	}
+	return &RateSurcharge{
+		ID:               s.ID,
+		CompanyID:        s.CompanyID,
+		RateCardID:       s.RateCardID,
+		SurchargeType:    SurchargeType(s.SurchargeType),
+		SurchargeName:    s.SurchargeName,
+		SurchargeAmount:  numericToMoney(s.SurchargeAmount, 2),
+		SurchargePercent: surchargePercent,
+		EffectiveDate:    s.EffectiveDate.Time,
+		ExpirationDate:   expirationDate,
+		CreatedAt:        s.CreatedAt.Time,
+	}
+}
+
+func mapLandedCost(s sqlc.LandedCost) *LandedCost {
+	var loadID, poID *int64
+	if s.LoadID.Valid {
+		loadID = &s.LoadID.Int64
+	}
+	if s.PoID.Valid {
+		poID = &s.PoID.Int64
+	}
+	return &LandedCost{
+		ID:               s.ID,
+		CompanyID:        s.CompanyID,
+		ShipmentID:       s.ShipmentID,
+		LoadID:           loadID,
+		FreightChargeID:  s.FreightChargeID,
+		POID:             poID,
+		ProductCost:      numericToMoneyVal(s.ProductCost, 2),
+		FreightCost:      numericToMoneyVal(s.FreightCost, 2),
+		DutyCost:         numericToMoney(s.DutyCost, 2),
+		TaxCost:          numericToMoney(s.TaxCost, 2),
+		InsuranceCost:    numericToMoney(s.InsuranceCost, 2),
+		OtherCost:        numericToMoney(s.OtherCost, 2),
+		TotalLandedCost:  numericToMoneyVal(s.TotalLandedCost, 2),
+		CostPerUnit:      numericToMoney(s.CostPerUnit, 2),
+		Currency:         s.Currency,
+		AllocationMethod: AllocationMethod(s.AllocationMethod),
+		CreatedAt:        s.CreatedAt.Time,
+		UpdatedAt:        s.UpdatedAt.Time,
+	}
+}
+
+func mapFreightAuditLog(s sqlc.FreightAuditLog) *FreightAuditLog {
+	var reason *string
+	if s.Reason.Valid {
+		reason = &s.Reason.String
+	}
+	return &FreightAuditLog{
+		ID:              s.ID,
+		CompanyID:       s.CompanyID,
+		FreightChargeID: s.FreightChargeID,
+		AuditType:       AuditType(s.AuditType),
+		OldValue:        numericToMoney(s.OldValue, 2),
+		NewValue:        numericToMoney(s.NewValue, 2),
+		Reason:          reason,
+		UserID:          s.UserID,
+		CreatedAt:       s.CreatedAt.Time,
+	}
+}
+
+func mapCostCenterValues(
+	id, companyID int64,
+	departmentID pgtype.Int8,
+	code, name, centerType string,
+	warehouseID pgtype.Int8,
+	glAccount pgtype.Text,
+	managerID pgtype.Int8,
+	isActive bool,
+	createdAt, updatedAt pgtype.Timestamptz,
+) *CostCenter {
+	_ = departmentID
+	var warehouse, manager *int64
+	if warehouseID.Valid {
+		warehouse = &warehouseID.Int64
+	}
+	if managerID.Valid {
+		manager = &managerID.Int64
+	}
+	var account *string
+	if glAccount.Valid {
+		account = &glAccount.String
+	}
+	return &CostCenter{
+		ID:             id,
+		CompanyID:      companyID,
+		CostCenterCode: code,
+		CostCenterName: name,
+		CostCenterType: CostCenterType(centerType),
+		WarehouseID:    warehouse,
+		GLAccount:      account,
+		ManagerID:      manager,
+		IsActive:       isActive,
+		CreatedAt:      createdAt.Time,
+		UpdatedAt:      updatedAt.Time,
+	}
+}
+
 func (r *postgresRepository) UpdateRateCard(ctx context.Context, companyID, rateCardID int64, updates RateCardUpdate) (*RateCard, error) {
-	return nil, fmt.Errorf("not implemented")
+	current, err := r.GetRateCard(ctx, companyID, rateCardID)
+	if err != nil {
+		return nil, err
+	}
+	active := current.IsActive
+	if updates.IsActive != nil {
+		active = *updates.IsActive
+	}
+	res, err := r.q.UpdateRateCard(ctx, sqlc.UpdateRateCardParams{
+		ID:             rateCardID,
+		CompanyID:      companyID,
+		BaseRate:       moneyToNumeric(updates.BaseRate),
+		PerKgRate:      moneyToNumeric(updates.PerKgRate),
+		PerCbmRate:     moneyToNumeric(updates.PerCbmRate),
+		ExpirationDate: timeToDate(updates.ExpirationDate),
+		IsActive:       active,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return mapRateCard(res), nil
 }
 func (r *postgresRepository) DeactivateRateCard(ctx context.Context, companyID, rateCardID int64) error {
-	return fmt.Errorf("not implemented")
+	return r.q.DeactivateRateCard(ctx, sqlc.DeactivateRateCardParams{ID: rateCardID, CompanyID: companyID})
 }
 func (r *postgresRepository) GetApplicableRateCard(ctx context.Context, companyID int64, lookup RateLookup) (*RateCard, error) {
-	return nil, fmt.Errorf("not implemented")
+	cards, err := r.ListApplicableRateCards(ctx, companyID, lookup)
+	if err != nil {
+		return nil, err
+	}
+	if len(cards) == 0 {
+		return nil, fmt.Errorf("no applicable rate card found")
+	}
+	return cards[0], nil
 }
 func (r *postgresRepository) ListApplicableRateCards(ctx context.Context, companyID int64, lookup RateLookup) ([]*RateCard, error) {
-	return nil, fmt.Errorf("not implemented")
+	asOf := lookup.AsOfDate
+	if asOf.IsZero() {
+		asOf = time.Now()
+	}
+	asOfDate := time.Date(asOf.Year(), asOf.Month(), asOf.Day(), 0, 0, 0, 0, asOf.Location())
+	origin, destination, serviceLevel := lookup.OriginCity, lookup.DestinationCity, lookup.ServiceLevel
+	filter := RateCardFilter{
+		CarrierID:       lookup.CarrierID,
+		OriginCity:      &origin,
+		DestinationCity: &destination,
+		ServiceLevel:    &serviceLevel,
+		EffectiveDateTo: &asOfDate,
+		Limit:           1000,
+	}
+	cards, err := r.ListRateCards(ctx, companyID, filter)
+	if err != nil {
+		return nil, err
+	}
+	applicable := make([]*RateCard, 0, len(cards))
+	for _, card := range cards {
+		if !card.IsActive || card.EffectiveDate.After(asOfDate) {
+			continue
+		}
+		if card.ExpirationDate != nil && card.ExpirationDate.Before(asOfDate) {
+			continue
+		}
+		if lookup.WeightKg != nil {
+			if card.MinWeightKg != nil && lookup.WeightKg.Cmp(*card.MinWeightKg) < 0 {
+				continue
+			}
+			if card.MaxWeightKg != nil && lookup.WeightKg.Cmp(*card.MaxWeightKg) > 0 {
+				continue
+			}
+		}
+		applicable = append(applicable, card)
+	}
+	return applicable, nil
 }
 func (r *postgresRepository) CreateRateSurcharge(ctx context.Context, companyID, rateCardID int64, input CreateRateSurchargeInput) (*RateSurcharge, error) {
-	return nil, fmt.Errorf("not implemented")
+	amount := input.SurchargeAmount
+	if amount == nil {
+		zero := accountingmoney.Must("0", 2)
+		amount = &zero
+	}
+	var percent pgtype.Numeric
+	if input.SurchargePercent != nil {
+		_ = percent.Scan(fmt.Sprintf("%.4f", *input.SurchargePercent))
+	}
+	res, err := r.q.CreateRateSurcharge(ctx, sqlc.CreateRateSurchargeParams{
+		CompanyID:        companyID,
+		RateCardID:       rateCardID,
+		SurchargeType:    string(input.SurchargeType),
+		SurchargeName:    input.SurchargeName,
+		SurchargeAmount:  moneyToNumericVal(*amount),
+		SurchargePercent: percent,
+		EffectiveDate:    timeToDateVal(input.EffectiveDate),
+		ExpirationDate:   timeToDate(input.ExpirationDate),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return mapRateSurcharge(res), nil
 }
 func (r *postgresRepository) ListRateSurcharges(ctx context.Context, rateCardID int64) ([]*RateSurcharge, error) {
-	return nil, fmt.Errorf("not implemented")
+	rows, err := r.q.ListRateSurcharges(ctx, rateCardID)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]*RateSurcharge, 0, len(rows))
+	for _, row := range rows {
+		result = append(result, mapRateSurcharge(row))
+	}
+	return result, nil
 }
 func (r *postgresRepository) DeleteRateSurcharge(ctx context.Context, surchargeID int64) error {
-	return fmt.Errorf("not implemented")
+	return r.q.DeleteRateSurcharge(ctx, surchargeID)
 }
 func (r *postgresRepository) ListFreightCharges(ctx context.Context, companyID int64, filter FreightChargeFilter) ([]*FreightCharge, error) {
-	return nil, fmt.Errorf("not implemented")
+	var shipmentID, loadID, carrierID int64
+	if filter.ShipmentID != nil {
+		shipmentID = *filter.ShipmentID
+	}
+	if filter.LoadID != nil {
+		loadID = *filter.LoadID
+	}
+	if filter.CarrierID != nil {
+		carrierID = *filter.CarrierID
+	}
+	var status, origin, destination string
+	if filter.Status != nil {
+		status = string(*filter.Status)
+	}
+	if filter.OriginCity != nil {
+		origin = *filter.OriginCity
+	}
+	if filter.DestinationCity != nil {
+		destination = *filter.DestinationCity
+	}
+	limit := filter.Limit
+	if limit <= 0 {
+		limit = 100
+	}
+	rows, err := r.q.ListFreightCharges(ctx, sqlc.ListFreightChargesParams{
+		CompanyID: companyID,
+		Column2:   shipmentID, Column3: loadID, Column4: carrierID,
+		Column5: status, Column6: origin, Column7: destination,
+		Column8: timeToTimestamp(filter.CreatedAfter), Column9: timeToTimestamp(filter.CreatedBefore),
+		Limit: int32(limit), Offset: int32(maxInt(filter.Offset, 0)),
+	})
+	if err != nil {
+		return nil, err
+	}
+	result := make([]*FreightCharge, 0, len(rows))
+	for _, row := range rows {
+		result = append(result, mapFreightCharge(row))
+	}
+	return result, nil
 }
 func (r *postgresRepository) UpdateFreightCharge(ctx context.Context, companyID, chargeID int64, updates FreightChargeUpdate) (*FreightCharge, error) {
-	return nil, fmt.Errorf("not implemented")
+	current, err := r.GetFreightCharge(ctx, companyID, chargeID)
+	if err != nil {
+		return nil, err
+	}
+	status := string(current.Status)
+	if updates.Status != nil {
+		status = string(*updates.Status)
+	}
+	res, err := r.q.UpdateFreightCharge(ctx, sqlc.UpdateFreightChargeParams{
+		ID:            chargeID,
+		CompanyID:     companyID,
+		Status:        status,
+		InvoiceNumber: stringToText(updates.InvoiceNumber),
+		InvoiceDate:   timeToDate(updates.InvoiceDate),
+		GlPostingID:   int64ToInt8(updates.GLPostingID),
+		Notes:         stringToText(updates.Notes),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return mapFreightCharge(res), nil
 }
 func (r *postgresRepository) UpdateFreightChargeStatus(ctx context.Context, companyID, chargeID int64, status FreightChargeStatus) error {
-	return fmt.Errorf("not implemented")
+	return r.q.UpdateFreightChargeStatus(ctx, sqlc.UpdateFreightChargeStatusParams{
+		ID: chargeID, CompanyID: companyID, Status: string(status),
+	})
 }
 func (r *postgresRepository) CreateLandedCost(ctx context.Context, cost *LandedCost) (*LandedCost, error) {
-	return nil, fmt.Errorf("not implemented")
+	res, err := r.q.CreateLandedCost(ctx, sqlc.CreateLandedCostParams{
+		CompanyID:        cost.CompanyID,
+		ShipmentID:       cost.ShipmentID,
+		LoadID:           int64ToInt8(cost.LoadID),
+		FreightChargeID:  cost.FreightChargeID,
+		PoID:             int64ToInt8(cost.POID),
+		ProductCost:      moneyToNumericVal(cost.ProductCost),
+		FreightCost:      moneyToNumericVal(cost.FreightCost),
+		DutyCost:         moneyToNumeric(cost.DutyCost),
+		TaxCost:          moneyToNumeric(cost.TaxCost),
+		InsuranceCost:    moneyToNumeric(cost.InsuranceCost),
+		OtherCost:        moneyToNumeric(cost.OtherCost),
+		TotalLandedCost:  moneyToNumericVal(cost.TotalLandedCost),
+		CostPerUnit:      moneyToNumeric(cost.CostPerUnit),
+		Currency:         cost.Currency,
+		AllocationMethod: string(cost.AllocationMethod),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return mapLandedCost(res), nil
 }
 func (r *postgresRepository) GetLandedCost(ctx context.Context, companyID, costID int64) (*LandedCost, error) {
-	return nil, fmt.Errorf("not implemented")
+	res, err := r.q.GetLandedCost(ctx, sqlc.GetLandedCostParams{ID: costID, CompanyID: companyID})
+	if err != nil {
+		return nil, err
+	}
+	return mapLandedCost(res), nil
 }
 func (r *postgresRepository) ListLandedCosts(ctx context.Context, companyID int64, filter LandedCostFilter) ([]*LandedCost, error) {
-	return nil, fmt.Errorf("not implemented")
+	var shipmentID, loadID, poID int64
+	if filter.ShipmentID != nil {
+		shipmentID = *filter.ShipmentID
+	}
+	if filter.LoadID != nil {
+		loadID = *filter.LoadID
+	}
+	if filter.POID != nil {
+		poID = *filter.POID
+	}
+	limit := filter.Limit
+	if limit <= 0 {
+		limit = 100
+	}
+	rows, err := r.q.ListLandedCosts(ctx, sqlc.ListLandedCostsParams{
+		CompanyID: companyID, Column2: shipmentID, Column3: loadID, Column4: poID,
+		Column5: timeToTimestamp(filter.CreatedAfter), Column6: timeToTimestamp(filter.CreatedBefore),
+		Limit: int32(limit), Offset: int32(maxInt(filter.Offset, 0)),
+	})
+	if err != nil {
+		return nil, err
+	}
+	result := make([]*LandedCost, 0, len(rows))
+	for _, row := range rows {
+		result = append(result, mapLandedCost(row))
+	}
+	return result, nil
 }
 func (r *postgresRepository) GetLandedCostByShipment(ctx context.Context, companyID, shipmentID int64) (*LandedCost, error) {
-	return nil, fmt.Errorf("not implemented")
+	res, err := r.q.GetLandedCostByShipment(ctx, sqlc.GetLandedCostByShipmentParams{
+		ShipmentID: shipmentID, CompanyID: companyID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return mapLandedCost(res), nil
 }
 func (r *postgresRepository) CreateCostCenter(ctx context.Context, companyID int64, input CreateCostCenterInput) (*CostCenter, error) {
-	return nil, fmt.Errorf("not implemented")
+	centerType := input.CostCenterType
+	if centerType == "" {
+		centerType = CostCenterTypeDepartment
+	}
+	res, err := r.q.CreateFreightCostCenter(ctx, sqlc.CreateFreightCostCenterParams{
+		CompanyID: companyID, Code: input.CostCenterCode, Name: input.CostCenterName,
+		CostCenterType: string(centerType), WarehouseID: int64ToInt8(input.WarehouseID),
+		GlAccount: stringToText(input.GLAccount), ManagerID: int64ToInt8(input.ManagerID),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return mapCostCenterValues(res.ID, res.CompanyID, res.DepartmentID, res.Code, res.Name, res.CostCenterType, res.WarehouseID, res.GlAccount, res.ManagerID, res.IsActive, res.CreatedAt, res.UpdatedAt), nil
 }
 func (r *postgresRepository) GetCostCenter(ctx context.Context, companyID, costCenterID int64) (*CostCenter, error) {
-	return nil, fmt.Errorf("not implemented")
+	res, err := r.q.GetFreightCostCenter(ctx, sqlc.GetFreightCostCenterParams{ID: costCenterID, CompanyID: companyID})
+	if err != nil {
+		return nil, err
+	}
+	return mapCostCenterValues(res.ID, res.CompanyID, res.DepartmentID, res.Code, res.Name, res.CostCenterType, res.WarehouseID, res.GlAccount, res.ManagerID, res.IsActive, res.CreatedAt, res.UpdatedAt), nil
 }
 func (r *postgresRepository) GetCostCenterByCode(ctx context.Context, companyID int64, code string) (*CostCenter, error) {
-	return nil, fmt.Errorf("not implemented")
+	res, err := r.q.GetFreightCostCenterByCode(ctx, sqlc.GetFreightCostCenterByCodeParams{CompanyID: companyID, Code: code})
+	if err != nil {
+		return nil, err
+	}
+	return mapCostCenterValues(res.ID, res.CompanyID, res.DepartmentID, res.Code, res.Name, res.CostCenterType, res.WarehouseID, res.GlAccount, res.ManagerID, res.IsActive, res.CreatedAt, res.UpdatedAt), nil
 }
 func (r *postgresRepository) ListCostCenters(ctx context.Context, companyID int64) ([]*CostCenter, error) {
-	return nil, fmt.Errorf("not implemented")
+	rows, err := r.q.ListFreightCostCenters(ctx, companyID)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]*CostCenter, 0, len(rows))
+	for _, res := range rows {
+		result = append(result, mapCostCenterValues(res.ID, res.CompanyID, res.DepartmentID, res.Code, res.Name, res.CostCenterType, res.WarehouseID, res.GlAccount, res.ManagerID, res.IsActive, res.CreatedAt, res.UpdatedAt))
+	}
+	return result, nil
 }
 func (r *postgresRepository) UpdateCostCenter(ctx context.Context, companyID, costCenterID int64, updates CostCenterUpdate) (*CostCenter, error) {
-	return nil, fmt.Errorf("not implemented")
+	current, err := r.GetCostCenter(ctx, companyID, costCenterID)
+	if err != nil {
+		return nil, err
+	}
+	name := current.CostCenterName
+	if updates.CostCenterName != nil {
+		name = *updates.CostCenterName
+	}
+	centerType := string(current.CostCenterType)
+	active := current.IsActive
+	if updates.IsActive != nil {
+		active = *updates.IsActive
+	}
+	res, err := r.q.UpdateFreightCostCenter(ctx, sqlc.UpdateFreightCostCenterParams{
+		ID: costCenterID, CompanyID: companyID, Name: name, CostCenterType: centerType,
+		WarehouseID: int64ToInt8(current.WarehouseID), GlAccount: stringToText(updates.GLAccount),
+		ManagerID: int64ToInt8(updates.ManagerID), IsActive: active,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return mapCostCenterValues(res.ID, res.CompanyID, res.DepartmentID, res.Code, res.Name, res.CostCenterType, res.WarehouseID, res.GlAccount, res.ManagerID, res.IsActive, res.CreatedAt, res.UpdatedAt), nil
 }
 func (r *postgresRepository) CreateAuditLog(ctx context.Context, log *FreightAuditLog) error {
-	return fmt.Errorf("not implemented")
+	return r.q.CreateFreightAuditLog(ctx, sqlc.CreateFreightAuditLogParams{
+		CompanyID: log.CompanyID, FreightChargeID: log.FreightChargeID, AuditType: string(log.AuditType),
+		OldValue: moneyToNumeric(log.OldValue), NewValue: moneyToNumeric(log.NewValue),
+		Reason: stringToText(log.Reason), UserID: log.UserID,
+	})
 }
 func (r *postgresRepository) ListAuditLogs(ctx context.Context, companyID, freightChargeID int64) ([]*FreightAuditLog, error) {
-	return nil, fmt.Errorf("not implemented")
+	rows, err := r.q.ListFreightAuditLogs(ctx, sqlc.ListFreightAuditLogsParams{CompanyID: companyID, FreightChargeID: freightChargeID})
+	if err != nil {
+		return nil, err
+	}
+	result := make([]*FreightAuditLog, 0, len(rows))
+	for _, row := range rows {
+		result = append(result, mapFreightAuditLog(row))
+	}
+	return result, nil
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }

@@ -167,6 +167,40 @@ func TestStatusTransition_InvoicedToPaid(t *testing.T) {
 	}
 }
 
+func TestStatusTransitionsDoNotMoveChargesBackwards(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewFreightService(repo)
+	ctx := context.Background()
+	baseRate := accountingmoney.Must("100.00", 2)
+	_, err := svc.CreateRateCard(ctx, CreateRateCardInput{
+		CompanyID:       1,
+		OriginCity:      "A",
+		DestinationCity: "B",
+		ServiceLevel:    ServiceLevelStandard,
+		BaseRate:        baseRate,
+		Currency:        "USD",
+		EffectiveDate:   time.Now(),
+	})
+	if err != nil {
+		t.Fatalf("CreateRateCard failed: %v", err)
+	}
+	charge, err := svc.CalculateAndCreateFreightCharge(ctx, CalculateFreightInput{
+		CompanyID:       1,
+		OriginCity:      "A",
+		DestinationCity: "B",
+		ServiceLevel:    ServiceLevelStandard,
+	})
+	if err != nil {
+		t.Fatalf("CalculateAndCreateFreightCharge failed: %v", err)
+	}
+	if _, err := svc.MarkFreightChargePaid(ctx, 1, charge.ID); err == nil {
+		t.Fatal("expected payment before invoicing to fail")
+	}
+	if _, err := svc.UpdateFreightChargeInvoice(ctx, 1, charge.ID, "", time.Time{}); err == nil {
+		t.Fatal("expected empty invoice number to fail")
+	}
+}
+
 func TestRateCardValidation_WeightBounds(t *testing.T) {
 	repo := NewMockRepository()
 	calc := NewRateCalculator(repo)
@@ -176,10 +210,10 @@ func TestRateCardValidation_WeightBounds(t *testing.T) {
 	maxWeight := accountingmoney.Must("5000", 2)
 
 	rateCard := &RateCard{
-		ID:              1,
-		BaseRate:        accountingmoney.Must("500.00", 2),
-		MinWeightKg:     &minWeight,
-		MaxWeightKg:     &maxWeight,
+		ID:          1,
+		BaseRate:    accountingmoney.Must("500.00", 2),
+		MinWeightKg: &minWeight,
+		MaxWeightKg: &maxWeight,
 	}
 
 	// Test valid weight

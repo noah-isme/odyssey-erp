@@ -486,12 +486,12 @@ func (h *Handler) TrackShipmentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Call h.service.GetShipmentTracking(ctx, shipmentID)
-	// TODO: Return JSON with current location, status, ETA
-
-	_ = shipmentID
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	tracking, err := h.service.GetShipmentTracking(r.Context(), shipmentID)
+	if err != nil {
+		JSONErrorFrom(w, err, http.StatusInternalServerError)
+		return
+	}
+	JSONSuccess(w, tracking, "shipment tracking retrieved successfully")
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

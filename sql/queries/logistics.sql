@@ -43,7 +43,7 @@ SELECT * FROM carriers WHERE id = $1;
 -- name: ListCarriers :many
 SELECT * FROM carriers 
 WHERE company_id = $1 
-  AND ($2::text IS NULL OR status = $2)
+  AND ($2::text = '' OR status = $2)
 ORDER BY carrier_name ASC;
 
 -- name: UpdateCarrierStatus :exec
@@ -118,7 +118,7 @@ SELECT * FROM vehicles WHERE id = $1;
 -- name: ListVehiclesByFleet :many
 SELECT * FROM vehicles 
 WHERE fleet_id = $1 
-  AND status IN ('AVAILABLE', 'IN_USE')
+  AND status IN ('AVAILABLE', 'IN_USE', 'MAINTENANCE')
 ORDER BY vehicle_registration ASC;
 
 -- name: ListAvailableVehicles :many
@@ -151,7 +151,7 @@ SELECT * FROM drivers WHERE id = $1;
 -- name: ListDrivers :many
 SELECT * FROM drivers 
 WHERE company_id = $1 
-  AND ($2::text IS NULL OR status = $2)
+  AND ($2::text = '' OR status = $2)
 ORDER BY driver_name ASC;
 
 -- name: UpdateDriverStatus :exec
@@ -179,12 +179,21 @@ SELECT * FROM shipments WHERE id = $1;
 -- name: ListShipments :many
 SELECT * FROM shipments 
 WHERE company_id = $1 
-  AND ($2::text IS NULL OR status = $2)
+  AND ($2::text = '' OR status = $2)
 ORDER BY created_at DESC;
 
 -- name: UpdateShipmentStatus :exec
 UPDATE shipments 
-SET status = $2, updated_at = NOW() 
+SET status = $2,
+    actual_dispatch_at = CASE
+        WHEN $2 IN ('DISPATCHED', 'IN_TRANSIT') THEN COALESCE(actual_dispatch_at, NOW())
+        ELSE actual_dispatch_at
+    END,
+    actual_delivery_at = CASE
+        WHEN $2 = 'DELIVERED' THEN COALESCE(actual_delivery_at, NOW())
+        ELSE actual_delivery_at
+    END,
+    updated_at = NOW()
 WHERE id = $1;
 
 -- name: AssignShipmentTransportCarrier :exec
@@ -225,7 +234,7 @@ SELECT * FROM trips WHERE id = $1;
 -- name: ListTrips :many
 SELECT * FROM trips 
 WHERE company_id = $1 
-  AND ($2::text IS NULL OR status = $2)
+  AND ($2::text = '' OR status = $2)
 ORDER BY created_at DESC;
 
 -- name: UpdateTripStatus :exec
@@ -245,4 +254,3 @@ INSERT INTO trip_stops (
 
 -- name: ListTripStops :many
 SELECT * FROM trip_stops WHERE trip_id = $1 ORDER BY stop_sequence ASC;
-

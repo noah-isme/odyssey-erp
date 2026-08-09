@@ -2,9 +2,11 @@ package procurement
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	accountingmoney "github.com/odyssey-erp/odyssey-erp/internal/accounting/money"
@@ -130,6 +132,52 @@ func (r *ContractRepository) ListActiveContracts(ctx context.Context, companyID,
 		return nil, fmt.Errorf("error iterating contracts: %w", err)
 	}
 
+	return contracts, nil
+}
+
+// ListContracts returns company-scoped contract headers for the procurement
+// workbench. Optional filters use zero/empty sentinels so callers do not have
+// to build SQL and tenant isolation remains part of the repository contract.
+func (r *ContractRepository) ListContracts(ctx context.Context, companyID, supplierID int64, status string, limit, offset int) ([]SupplierContract, error) {
+	if companyID == 0 {
+		return nil, fmt.Errorf("company ID is required")
+	}
+	if limit <= 0 {
+		limit = 100
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	rows, err := r.db.Query(ctx, `
+		SELECT id, company_id, supplier_id, version, status, currency,
+		       effective_from, effective_to, payment_terms, incoterms,
+		       renewal_notice_days, expiry_notification_sent,
+		       created_by, approved_by, approved_at, terminated_at, note,
+		       created_at, updated_at
+		FROM supplier_contracts
+		WHERE company_id = $1
+		  AND ($2 = 0 OR supplier_id = $2)
+		  AND ($3 = '' OR status = $3)
+		ORDER BY supplier_id, version DESC
+		LIMIT $4 OFFSET $5
+	`, companyID, supplierID, status, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list contracts: %w", err)
+	}
+	defer rows.Close()
+
+	contracts := make([]SupplierContract, 0)
+	for rows.Next() {
+		contract, err := scanSupplierContract(rows)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan contract: %w", err)
+		}
+		contracts = append(contracts, contract)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate contracts: %w", err)
+	}
 	return contracts, nil
 }
 
@@ -338,17 +386,21 @@ func (r *ContractRepository) ListPriceHistory(ctx context.Context, companyID, su
 // CreateScorecard creates a new supplier scorecard
 func (r *ContractRepository) CreateScorecard(ctx context.Context, input CreateScorecardInput) (int64, error) {
 	var id int64
+	reviewerScore := "0"
+	if input.ReviewerAssessmentScore != nil {
+		reviewerScore = input.ReviewerAssessmentScore.String()
+	}
 	err := r.db.QueryRow(ctx, `
 		INSERT INTO supplier_scorecards (
 			company_id, supplier_id, version, period_start, period_end,
-			status, created_by, created_at
+			status, reviewer_assessment_score, note, created_by, created_at
 		) VALUES ($1, $2, (
-			SELECT COALESCE(MAX(version), 0) + 1
-			FROM supplier_scorecards
-			WHERE company_id = $1 AND supplier_id = $2
-		), $3, $4, 'DRAFT', $5, NOW())
+				SELECT COALESCE(MAX(version), 0) + 1
+				FROM supplier_scorecards
+				WHERE company_id = $1 AND supplier_id = $2
+		), $3, $4, 'DRAFT', $5, $6, $7, NOW())
 		RETURNING id
-	`, input.CompanyID, input.SupplierID, input.PeriodStart, input.PeriodEnd, input.CreatedBy).Scan(&id)
+	`, input.CompanyID, input.SupplierID, input.PeriodStart, input.PeriodEnd, reviewerScore, input.Note, input.CreatedBy).Scan(&id)
 
 	if err != nil {
 		return 0, fmt.Errorf("failed to create scorecard: %w", err)
@@ -397,7 +449,7 @@ func (r *ContractRepository) GetScorecard(ctx context.Context, scorecardID int64
 
 // PublishScorecard publishes a scorecard (immutable after publication)
 func (r *ContractRepository) PublishScorecard(ctx context.Context, scorecardID int64, publishedBy int64) error {
-	_, err := r.db.Exec(ctx, `
+	tag, err := r.db.Exec(ctx, `
 		UPDATE supplier_scorecards
 		SET status = 'PUBLISHED', published_by = $2, published_at = NOW()
 		WHERE id = $1 AND status = 'DRAFT'
@@ -405,6 +457,70 @@ func (r *ContractRepository) PublishScorecard(ctx context.Context, scorecardID i
 
 	if err != nil {
 		return fmt.Errorf("failed to publish scorecard: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("scorecard %d was not found or is no longer a draft", scorecardID)
+	}
+	return nil
+}
+
+// GetLatestPublishedScorecard returns the latest immutable scorecard for a
+// supplier within a company. Drafts are intentionally excluded from supplier
+// performance consumers.
+func (r *ContractRepository) GetLatestPublishedScorecard(ctx context.Context, companyID, supplierID int64) (*SupplierScorecard, error) {
+	var id int64
+	err := r.db.QueryRow(ctx, `
+		SELECT id
+		FROM supplier_scorecards
+		WHERE company_id = $1 AND supplier_id = $2 AND status = 'PUBLISHED'
+		ORDER BY period_end DESC, version DESC
+		LIMIT 1
+	`, companyID, supplierID).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to find latest published scorecard: %w", err)
+	}
+	return r.GetScorecard(ctx, id)
+}
+
+// UpdateScorecardScores fills a draft scorecard while preserving its status.
+// The status predicate makes publication and calculation race-safe: published
+// scorecards cannot be changed after the reviewer has released them.
+func (r *ContractRepository) UpdateScorecardScores(
+	ctx context.Context,
+	scorecardID int64,
+	deliveryScore accountingmoney.Money, deliverySampleSize int,
+	qualityScore accountingmoney.Money, qualitySampleSize int,
+	priceScore accountingmoney.Money, priceSampleSize int,
+	rfqScore accountingmoney.Money, rfqSampleSize int,
+	reviewerScore, overallScore accountingmoney.Money,
+) error {
+	tag, err := r.db.Exec(ctx, `
+		UPDATE supplier_scorecards
+		SET delivery_otif_score = $2,
+		    delivery_otif_sample_size = $3,
+		    quality_score = $4,
+		    quality_sample_size = $5,
+		    price_adherence_score = $6,
+		    price_adherence_sample_size = $7,
+		    rfq_responsiveness_score = $8,
+		    rfq_responsiveness_sample_size = $9,
+		    reviewer_assessment_score = $10,
+		    overall_score = $11
+		WHERE id = $1 AND status = 'DRAFT'
+	`, scorecardID,
+		deliveryScore.String(), deliverySampleSize,
+		qualityScore.String(), qualitySampleSize,
+		priceScore.String(), priceSampleSize,
+		rfqScore.String(), rfqSampleSize,
+		reviewerScore.String(), overallScore.String())
+	if err != nil {
+		return fmt.Errorf("failed to update scorecard scores: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("scorecard %d was not found or is no longer a draft", scorecardID)
 	}
 	return nil
 }
@@ -522,12 +638,95 @@ func (r *ContractRepository) ListPOVariancesByPO(ctx context.Context, poID int64
 	return variances, nil
 }
 
+// ListPendingPOVariances returns only unresolved, company-scoped variance
+// exceptions. It is the read side used by the approval workbench.
+func (r *ContractRepository) ListPendingPOVariances(ctx context.Context, companyID int64, limit, offset int) ([]POContractVariance, error) {
+	if companyID == 0 {
+		return nil, fmt.Errorf("company ID is required")
+	}
+	if limit <= 0 {
+		limit = 100
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	rows, err := r.db.Query(ctx, `
+		SELECT id, company_id, po_id, po_line_id, contract_id,
+		       variance_type, variance_percentage, variance_reason,
+		       approval_status, approved_by, approved_at, note,
+		       created_at, updated_at
+		FROM po_contract_variances
+		WHERE company_id = $1 AND approval_status = 'PENDING'
+		ORDER BY created_at DESC, id DESC
+		LIMIT $2 OFFSET $3
+	`, companyID, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list pending variances: %w", err)
+	}
+	defer rows.Close()
+
+	variances := make([]POContractVariance, 0)
+	for rows.Next() {
+		variance, err := scanPOContractVariance(rows)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan pending variance: %w", err)
+		}
+		variances = append(variances, variance)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate pending variances: %w", err)
+	}
+	return variances, nil
+}
+
+type rowScanner interface {
+	Scan(dest ...any) error
+}
+
+func scanSupplierContract(row rowScanner) (SupplierContract, error) {
+	var contract SupplierContract
+	err := row.Scan(
+		&contract.ID, &contract.CompanyID, &contract.SupplierID, &contract.Version,
+		&contract.Status, &contract.Currency, &contract.EffectiveFrom, &contract.EffectiveTo,
+		&contract.PaymentTerms, &contract.Incoterms, &contract.RenewalNoticeDays,
+		&contract.ExpiryNotificationSent, &contract.CreatedBy, &contract.ApprovedBy,
+		&contract.ApprovedAt, &contract.TerminatedAt, &contract.Note,
+		&contract.CreatedAt, &contract.UpdatedAt,
+	)
+	return contract, err
+}
+
+func scanPOContractVariance(row rowScanner) (POContractVariance, error) {
+	var variance POContractVariance
+	var varianceType string
+	var variancePercentage *string
+	err := row.Scan(
+		&variance.ID, &variance.CompanyID, &variance.POID, &variance.POLineID, &variance.ContractID,
+		&varianceType, &variancePercentage, &variance.VarianceReason,
+		&variance.ApprovalStatus, &variance.ApprovedBy, &variance.ApprovedAt, &variance.Note,
+		&variance.CreatedAt, &variance.UpdatedAt,
+	)
+	if err != nil {
+		return variance, err
+	}
+	variance.VarianceType = VarianceType(varianceType)
+	if variancePercentage != nil {
+		pct, err := accountingmoney.Parse(*variancePercentage, 2)
+		if err != nil {
+			return variance, fmt.Errorf("invalid variance percentage: %w", err)
+		}
+		variance.VariancePercentage = &pct
+	}
+	return variance, nil
+}
+
 func (r *ContractRepository) CalculateOTIFScore(ctx context.Context, companyID, supplierID int64, start, end time.Time) (int64, int64, error) {
 	queries := sqlc.New(r.db)
 	row, err := queries.CalculateOTIFScore(ctx, sqlc.CalculateOTIFScoreParams{
-		CompanyID:  pgtype.Int8{Int64: companyID, Valid: true},
-		SupplierID: supplierID,
-		ReceivedAt: pgtype.Timestamptz{Time: start, Valid: true},
+		CompanyID:    pgtype.Int8{Int64: companyID, Valid: true},
+		SupplierID:   supplierID,
+		ReceivedAt:   pgtype.Timestamptz{Time: start, Valid: true},
 		ReceivedAt_2: pgtype.Timestamptz{Time: end, Valid: true},
 	})
 	return row.OntimeReceipts, row.TotalReceipts, err
@@ -536,9 +735,9 @@ func (r *ContractRepository) CalculateOTIFScore(ctx context.Context, companyID, 
 func (r *ContractRepository) CalculateQualityScore(ctx context.Context, companyID, supplierID int64, start, end time.Time) (int64, int64, error) {
 	queries := sqlc.New(r.db)
 	row, err := queries.CalculateQualityScore(ctx, sqlc.CalculateQualityScoreParams{
-		CompanyID:  pgtype.Int8{Int64: companyID, Valid: true},
-		SupplierID: supplierID,
-		ReceivedAt: pgtype.Timestamptz{Time: start, Valid: true},
+		CompanyID:    pgtype.Int8{Int64: companyID, Valid: true},
+		SupplierID:   supplierID,
+		ReceivedAt:   pgtype.Timestamptz{Time: start, Valid: true},
 		ReceivedAt_2: pgtype.Timestamptz{Time: end, Valid: true},
 	})
 	return row.AcceptedQty, row.AcceptedQty + row.RejectedQty, err
@@ -547,9 +746,9 @@ func (r *ContractRepository) CalculateQualityScore(ctx context.Context, companyI
 func (r *ContractRepository) CalculatePriceAdherenceScore(ctx context.Context, companyID, supplierID int64, start, end time.Time) (int64, int64, error) {
 	queries := sqlc.New(r.db)
 	row, err := queries.CalculatePriceAdherenceScore(ctx, sqlc.CalculatePriceAdherenceScoreParams{
-		CompanyID:  pgtype.Int8{Int64: companyID, Valid: true},
-		SupplierID: supplierID,
-		CreatedAt:  pgtype.Timestamptz{Time: start, Valid: true},
+		CompanyID:   pgtype.Int8{Int64: companyID, Valid: true},
+		SupplierID:  supplierID,
+		CreatedAt:   pgtype.Timestamptz{Time: start, Valid: true},
 		CreatedAt_2: pgtype.Timestamptz{Time: end, Valid: true},
 	})
 	return row.CompliantPos, row.TotalPos, err
@@ -558,9 +757,9 @@ func (r *ContractRepository) CalculatePriceAdherenceScore(ctx context.Context, c
 func (r *ContractRepository) CalculateRFQResponsivenessScore(ctx context.Context, companyID, supplierID int64, start, end time.Time) (int64, int64, error) {
 	queries := sqlc.New(r.db)
 	row, err := queries.CalculateRFQResponsivenessScore(ctx, sqlc.CalculateRFQResponsivenessScoreParams{
-		CompanyID:  companyID,
-		SupplierID: supplierID,
-		CreatedAt:  pgtype.Timestamptz{Time: start, Valid: true},
+		CompanyID:   companyID,
+		SupplierID:  supplierID,
+		CreatedAt:   pgtype.Timestamptz{Time: start, Valid: true},
 		CreatedAt_2: pgtype.Timestamptz{Time: end, Valid: true},
 	})
 	return row.RespondedRfqs, row.TotalRfqs, err

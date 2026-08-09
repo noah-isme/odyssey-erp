@@ -1837,14 +1837,18 @@ type ContractPriceLine struct {
 }
 
 type CostCenter struct {
-	ID           int64              `json:"id"`
-	CompanyID    int64              `json:"company_id"`
-	DepartmentID pgtype.Int8        `json:"department_id"`
-	Code         string             `json:"code"`
-	Name         string             `json:"name"`
-	IsActive     bool               `json:"is_active"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	ID             int64              `json:"id"`
+	CompanyID      int64              `json:"company_id"`
+	DepartmentID   pgtype.Int8        `json:"department_id"`
+	Code           string             `json:"code"`
+	Name           string             `json:"name"`
+	IsActive       bool               `json:"is_active"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	CostCenterType string             `json:"cost_center_type"`
+	WarehouseID    pgtype.Int8        `json:"warehouse_id"`
+	GlAccount      pgtype.Text        `json:"gl_account"`
+	ManagerID      pgtype.Int8        `json:"manager_id"`
 }
 
 type CrmActivity struct {

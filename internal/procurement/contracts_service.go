@@ -2,9 +2,12 @@ package procurement
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"math/big"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	accountingmoney "github.com/odyssey-erp/odyssey-erp/internal/accounting/money"
 )
@@ -38,6 +41,19 @@ func (s *ContractService) CreateContractDraft(ctx context.Context, input CreateC
 
 	// Fetch and return the created contract
 	return s.repo.GetContract(ctx, contractID)
+}
+
+// ListContracts returns the company-scoped contract headers used by the
+// procurement workbench. Price lines are intentionally loaded only when a
+// single contract is requested.
+func (s *ContractService) ListContracts(ctx context.Context, companyID, supplierID int64, status string, limit, offset int) ([]SupplierContract, error) {
+	return s.repo.ListContracts(ctx, companyID, supplierID, status, limit, offset)
+}
+
+// ListPendingVariances returns unresolved PO contract exceptions for the
+// current company.
+func (s *ContractService) ListPendingVariances(ctx context.Context, companyID int64, limit, offset int) ([]POContractVariance, error) {
+	return s.repo.ListPendingPOVariances(ctx, companyID, limit, offset)
 }
 
 // SubmitContractForApproval transitions contract to APPROVAL status
@@ -104,13 +120,16 @@ func (s *ContractService) GetApplicableContractForPO(ctx context.Context, compan
 		return nil, err
 	}
 
-	if len(contracts) == 0 {
-		return nil, nil // No applicable contract
+	for i := range contracts {
+		if _, err := s.repo.GetApplicablePriceLine(ctx, contracts[i].ID, productID, qty); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				continue
+			}
+			return nil, err
+		}
+		return &contracts[i], nil
 	}
-
-	// Return the most recent (first) active contract
-	// In case of multiple versions, prefer the latest
-	return &contracts[0], nil
+	return nil, nil // No active contract covers this product and quantity.
 }
 
 // GetPriceForPOLine retrieves the contract price and terms applicable to a PO line
@@ -152,6 +171,9 @@ func (s *ContractService) CheckPOVariances(ctx context.Context, input CheckPOVar
 	if err != nil {
 		return nil, err
 	}
+	if contract.CompanyID != input.CompanyID || contract.SupplierID != input.SupplierID {
+		return nil, fmt.Errorf("contract does not belong to the purchase order supplier/company")
+	}
 
 	// Check if contract is expired
 	if contract.EffectiveTo != nil && contract.EffectiveTo.Before(time.Now()) {
@@ -185,27 +207,30 @@ func (s *ContractService) CheckPOVariances(ctx context.Context, input CheckPOVar
 	if len(input.POPrice) > 0 && len(contract.PriceLines) > 0 {
 		priceLine, err := s.repo.GetApplicablePriceLine(ctx, *input.ContractID, input.ProductID, input.Quantity)
 		if err == nil && priceLine != nil {
-			poPrice, _ := accountingmoney.Parse(input.POPrice, 4)
-			
+			poPrice, err := accountingmoney.Parse(input.POPrice, 4)
+			if err != nil {
+				return nil, fmt.Errorf("invalid PO price: %w", err)
+			}
+
 			// Calculate variance percentage
 			contractPrice := priceLine.UnitPrice
 			if contractPrice.Cmp(accountingmoney.Must("0", 0)) > 0 {
 				variance := poPrice.Sub(contractPrice)
 				if variance.Cmp(accountingmoney.Must("0", 0)) != 0 {
-					// variance / contract_price * 100
-					variancePct, _ := accountingmoney.Parse(
-						fmt.Sprintf("%.2f", float64(accountingmoney.Must(variance.String(), 4).Cmp(accountingmoney.Must("0", 0))), 
-					), 2)
-					
+					variancePct, err := percentageDifference(variance, contractPrice)
+					if err != nil {
+						return nil, err
+					}
+
 					v := POContractVariance{
-						CompanyID:       input.CompanyID,
-						POID:            input.POID,
-						POLineID:        input.POLineID,
-						ContractID:      input.ContractID,
-						VarianceType:    VarianceTypePriceVariance,
+						CompanyID:          input.CompanyID,
+						POID:               input.POID,
+						POLineID:           input.POLineID,
+						ContractID:         input.ContractID,
+						VarianceType:       VarianceTypePriceVariance,
 						VariancePercentage: &variancePct,
-						VarianceReason:  fmt.Sprintf("PO price %s differs from contract price %s", poPrice.String(), contractPrice.String()),
-						ApprovalStatus:  ApprovalStatusPending,
+						VarianceReason:     fmt.Sprintf("PO price %s differs from contract price %s", poPrice.String(), contractPrice.String()),
+						ApprovalStatus:     ApprovalStatusPending,
 					}
 					variances = append(variances, v)
 				}
@@ -214,6 +239,23 @@ func (s *ContractService) CheckPOVariances(ctx context.Context, input CheckPOVar
 	}
 
 	return variances, nil
+}
+
+// percentageDifference returns (difference / base) * 100 without passing
+// through float64. PO and contract prices are NUMERIC values, so a rounded
+// comparison here can otherwise approve a materially different purchase price.
+func percentageDifference(difference, base accountingmoney.Money) (accountingmoney.Money, error) {
+	baseRat, ok := new(big.Rat).SetString(base.String())
+	if !ok || baseRat.Sign() == 0 {
+		return accountingmoney.Money{}, fmt.Errorf("contract price must be greater than zero")
+	}
+	differenceRat, ok := new(big.Rat).SetString(difference.String())
+	if !ok {
+		return accountingmoney.Money{}, fmt.Errorf("invalid price difference")
+	}
+	percentage := new(big.Rat).Quo(differenceRat, baseRat)
+	percentage.Mul(percentage, big.NewRat(100, 1))
+	return accountingmoney.Parse(percentage.FloatString(2), 2)
 }
 
 // RecordContractPriceObservation records this contract into price history for trend tracking

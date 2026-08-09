@@ -51,13 +51,13 @@ type Service interface {
 }
 
 type freightService struct {
-	repo      Repository
+	repo       Repository
 	calculator RateCalculator
 }
 
 func NewFreightService(repo Repository) Service {
 	return &freightService{
-		repo:      repo,
+		repo:       repo,
 		calculator: NewRateCalculator(repo),
 	}
 }
@@ -181,10 +181,17 @@ func (fs *freightService) CalculateAndCreateFreightCharge(ctx context.Context, i
 
 	// Create freight charge record
 	charge := &FreightCharge{
-		CompanyID:       input.CompanyID,
-		ShipmentID:      input.ShipmentID,
-		LoadID:          input.LoadID,
-		CarrierID:       input.CarrierID,
+		CompanyID:  input.CompanyID,
+		ShipmentID: input.ShipmentID,
+		LoadID:     input.LoadID,
+		CarrierID:  input.CarrierID,
+		RateCardID: func() *int64 {
+			if calcOutput.RateCardID == 0 {
+				return nil
+			}
+			id := calcOutput.RateCardID
+			return &id
+		}(),
 		OriginCity:      input.OriginCity,
 		DestinationCity: input.DestinationCity,
 		ServiceLevel:    &input.ServiceLevel,
@@ -234,6 +241,22 @@ func (fs *freightService) UpdateFreightChargeInvoice(ctx context.Context, compan
 	if companyID == 0 || chargeID == 0 {
 		return nil, fmt.Errorf("company_id and charge_id are required")
 	}
+	if invoiceNumber == "" {
+		return nil, fmt.Errorf("invoice_number is required")
+	}
+	if invoiceDate.IsZero() {
+		invoiceDate = time.Now().UTC()
+	}
+	charge, err := fs.repo.GetFreightCharge(ctx, companyID, chargeID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load freight charge: %w", err)
+	}
+	if charge.Status == FreightChargeStatusPaid {
+		return nil, fmt.Errorf("paid freight charge cannot be invoiced")
+	}
+	if charge.Status != FreightChargeStatusCalculated && charge.Status != FreightChargeStatusInvoiced {
+		return nil, fmt.Errorf("freight charge %d cannot be invoiced from status %s", chargeID, charge.Status)
+	}
 
 	updates := FreightChargeUpdate{
 		Status:        func() *FreightChargeStatus { s := FreightChargeStatusInvoiced; return &s }(),
@@ -241,7 +264,7 @@ func (fs *freightService) UpdateFreightChargeInvoice(ctx context.Context, compan
 		InvoiceDate:   &invoiceDate,
 	}
 
-	charge, err := fs.repo.UpdateFreightCharge(ctx, companyID, chargeID, updates)
+	charge, err = fs.repo.UpdateFreightCharge(ctx, companyID, chargeID, updates)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update freight charge: %w", err)
 	}
@@ -256,7 +279,17 @@ func (fs *freightService) MarkFreightChargeInvoiced(ctx context.Context, company
 		return nil, fmt.Errorf("company_id and charge_id are required")
 	}
 
-	err := fs.repo.UpdateFreightChargeStatus(ctx, companyID, chargeID, FreightChargeStatusInvoiced)
+	charge, err := fs.repo.GetFreightCharge(ctx, companyID, chargeID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load freight charge: %w", err)
+	}
+	if charge.Status == FreightChargeStatusInvoiced {
+		return charge, nil
+	}
+	if charge.Status != FreightChargeStatusCalculated {
+		return nil, fmt.Errorf("freight charge %d cannot be invoiced from status %s", chargeID, charge.Status)
+	}
+	err = fs.repo.UpdateFreightChargeStatus(ctx, companyID, chargeID, FreightChargeStatusInvoiced)
 	if err != nil {
 		return nil, fmt.Errorf("failed to mark charge as invoiced: %w", err)
 	}
@@ -269,12 +302,25 @@ func (fs *freightService) MarkFreightChargePaid(ctx context.Context, companyID, 
 		return nil, fmt.Errorf("company_id and charge_id are required")
 	}
 
-	err := fs.repo.UpdateFreightChargeStatus(ctx, companyID, chargeID, FreightChargeStatusPaid)
+	charge, err := fs.repo.GetFreightCharge(ctx, companyID, chargeID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load freight charge: %w", err)
+	}
+	if charge.Status == FreightChargeStatusPaid {
+		return charge, nil
+	}
+	if charge.Status != FreightChargeStatusInvoiced {
+		return nil, fmt.Errorf("freight charge %d cannot be paid from status %s", chargeID, charge.Status)
+	}
+	err = fs.repo.UpdateFreightChargeStatus(ctx, companyID, chargeID, FreightChargeStatusPaid)
 	if err != nil {
 		return nil, fmt.Errorf("failed to mark charge as paid: %w", err)
 	}
 
-	charge, _ := fs.repo.GetFreightCharge(ctx, companyID, chargeID)
+	charge, err = fs.repo.GetFreightCharge(ctx, companyID, chargeID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to reload paid freight charge: %w", err)
+	}
 	fs.logAudit(ctx, chargeID, AuditTypePosted, nil, &charge.FreightTotal, "Freight charge paid", companyID)
 
 	return charge, nil

@@ -91,12 +91,24 @@ func (h *Handler) getContract(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) listContracts(w http.ResponseWriter, r *http.Request) {
-	_ = currentCompany(r)               // companyID
-	_ = queryInt64(r, "supplier_id", 0) // supplierID
-
-	// TODO: Implement pagination and filtering
-	// For now, return empty list as placeholder
-	writeContractJSON(w, http.StatusOK, []SupplierContract{})
+	if h.contractUnavailable(w) {
+		return
+	}
+	limit := queryInt64(r, "limit", 100)
+	offset := queryInt64(r, "offset", 0)
+	contracts, err := h.contracts.ListContracts(
+		r.Context(),
+		currentCompany(r),
+		queryInt64(r, "supplier_id", 0),
+		r.URL.Query().Get("status"),
+		int(limit),
+		int(offset),
+	)
+	if err != nil {
+		h.contractError(w, err)
+		return
+	}
+	writeContractJSON(w, http.StatusOK, contracts)
 }
 
 func (h *Handler) approveContract(w http.ResponseWriter, r *http.Request) {
@@ -276,11 +288,17 @@ func (h *Handler) approvePOVariance(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) listPendingVariances(w http.ResponseWriter, r *http.Request) {
-	_ = currentCompany(r) // companyID
-
-	// TODO: Implement pagination and filtering
-	// For now, return empty list as placeholder
-	writeContractJSON(w, http.StatusOK, []POContractVariance{})
+	if h.contractUnavailable(w) {
+		return
+	}
+	limit := queryInt64(r, "limit", 100)
+	offset := queryInt64(r, "offset", 0)
+	variances, err := h.contracts.ListPendingVariances(r.Context(), currentCompany(r), int(limit), int(offset))
+	if err != nil {
+		h.contractError(w, err)
+		return
+	}
+	writeContractJSON(w, http.StatusOK, variances)
 }
 
 // Helper functions

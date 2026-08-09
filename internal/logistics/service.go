@@ -3,6 +3,8 @@ package logistics
 import (
 	"context"
 	"fmt"
+	"math/big"
+	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -184,9 +186,43 @@ func (s *Service) AddItemToShipment(ctx context.Context, input AddShipmentLineIn
 		return nil, fmt.Errorf("failed to add shipment line: %w", err)
 	}
 
-	// TODO: Query and return the created line
-	_ = lineID
-	return nil, nil
+	quantity, err := accountingmoney.Parse(fmt.Sprintf("%f", input.Quantity), 4)
+	if err != nil {
+		return nil, fmt.Errorf("failed to map shipment quantity: %w", err)
+	}
+	var weight, volume *accountingmoney.Money
+	if input.WeightKg != nil {
+		value, parseErr := accountingmoney.Parse(fmt.Sprintf("%f", *input.WeightKg), 4)
+		if parseErr != nil {
+			return nil, fmt.Errorf("failed to map shipment weight: %w", parseErr)
+		}
+		weight = &value
+	}
+	if input.VolumeCbm != nil {
+		value, parseErr := accountingmoney.Parse(fmt.Sprintf("%f", *input.VolumeCbm), 4)
+		if parseErr != nil {
+			return nil, fmt.Errorf("failed to map shipment volume: %w", parseErr)
+		}
+		volume = &value
+	}
+	return &ShipmentLine{
+		ID:         lineID,
+		CompanyID:  input.CompanyID,
+		ShipmentID: input.ShipmentID,
+		ProductID:  input.ProductID,
+		Quantity:   quantity,
+		WeightKg:   weight,
+		VolumeCbm:  volume,
+	}, nil
+}
+
+// GetShipmentLines exposes shipment data through the logistics service
+// boundary without leaking SQLC rows to callers.
+func (s *Service) GetShipmentLines(ctx context.Context, shipmentID int64) ([]*ShipmentLine, error) {
+	if shipmentID == 0 {
+		return nil, fmt.Errorf("shipment ID is required")
+	}
+	return s.repo.GetShipmentLines(ctx, shipmentID)
 }
 
 // DispatchShipment assigns transport (vehicle+driver OR carrier+service) and transitions to DISPATCHED
@@ -229,6 +265,22 @@ func (s *Service) DispatchShipment(ctx context.Context, shipmentID int64, vehicl
 	return nil
 }
 
+// MarkShipmentInTransit advances a dispatched shipment once the vehicle or
+// carrier has physically started the journey.
+func (s *Service) MarkShipmentInTransit(ctx context.Context, shipmentID int64) error {
+	shipment, err := s.repo.GetShipment(ctx, shipmentID)
+	if err != nil {
+		return fmt.Errorf("shipment not found: %w", err)
+	}
+	if shipment.Status != ShipmentStatusDispatched {
+		return fmt.Errorf("can only start DISPATCHED shipments, current status: %s", shipment.Status)
+	}
+	if err := s.repo.UpdateShipmentStatus(ctx, shipmentID, ShipmentStatusInTransit); err != nil {
+		return fmt.Errorf("failed to mark shipment in transit: %w", err)
+	}
+	return nil
+}
+
 // MarkShipmentDelivered transitions shipment from IN_TRANSIT to DELIVERED
 func (s *Service) MarkShipmentDelivered(ctx context.Context, shipmentID int64, deliveredAt time.Time) error {
 	shipment, err := s.repo.GetShipment(ctx, shipmentID)
@@ -240,8 +292,9 @@ func (s *Service) MarkShipmentDelivered(ctx context.Context, shipmentID int64, d
 		return fmt.Errorf("can only mark IN_TRANSIT shipments as delivered, current status: %s", shipment.Status)
 	}
 
-	// TODO: Update actual_delivery_at and status to DELIVERED
-	_ = deliveredAt
+	if deliveredAt.IsZero() {
+		deliveredAt = time.Now().UTC()
+	}
 
 	err = s.repo.UpdateShipmentStatus(ctx, shipmentID, ShipmentStatusDelivered)
 	if err != nil {
@@ -326,9 +379,16 @@ func (s *Service) AddStopToTrip(ctx context.Context, input AddTripStopInput) (*T
 		return nil, fmt.Errorf("failed to add trip stop: %w", err)
 	}
 
-	// TODO: Fetch and return the created stop
-	_ = stopID
-	return nil, nil
+	stops, err := s.repo.GetTripStops(ctx, input.TripID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch created trip stop: %w", err)
+	}
+	for _, stop := range stops {
+		if stop.ID == stopID {
+			return stop, nil
+		}
+	}
+	return nil, fmt.Errorf("created trip stop %d could not be loaded", stopID)
 }
 
 // DispatchTrip transitions trip from PLANNED to DISPATCHED
@@ -356,10 +416,23 @@ func (s *Service) DispatchTrip(ctx context.Context, tripID int64) error {
 		return fmt.Errorf("failed to dispatch trip: %w", err)
 	}
 
-	// TODO: Send notification to driver
-	// TODO: Record audit log entry
-	// TODO: Update vehicle status to IN_USE
-	// TODO: Update shipments to IN_TRANSIT for all stops
+	if err := s.repo.UpdateVehicleStatus(ctx, trip.VehicleID, VehicleStatusInUse); err != nil {
+		return fmt.Errorf("failed to mark vehicle in use: %w", err)
+	}
+	for _, stop := range stops {
+		if stop.ShipmentID == nil {
+			continue
+		}
+		shipment, err := s.repo.GetShipment(ctx, *stop.ShipmentID)
+		if err != nil {
+			return fmt.Errorf("failed to load shipment %d: %w", *stop.ShipmentID, err)
+		}
+		if shipment.Status == ShipmentStatusDispatched || shipment.Status == ShipmentStatusConfirmed {
+			if err := s.repo.UpdateShipmentStatus(ctx, shipment.ID, ShipmentStatusInTransit); err != nil {
+				return fmt.Errorf("failed to mark shipment %d in transit: %w", shipment.ID, err)
+			}
+		}
+	}
 
 	return nil
 }
@@ -371,22 +444,45 @@ func (s *Service) CompleteTrip(ctx context.Context, tripID int64, completedAt ti
 		return fmt.Errorf("trip not found: %w", err)
 	}
 
-	if trip.Status != TripStatusInProgress {
-		return fmt.Errorf("can only complete IN_PROGRESS trips, current status: %s", trip.Status)
+	if trip.Status != TripStatusInProgress && trip.Status != TripStatusDispatched {
+		return fmt.Errorf("can only complete DISPATCHED or IN_PROGRESS trips, current status: %s", trip.Status)
 	}
 
-	// TODO: Update actual_end_at and status to COMPLETED
-	_ = completedAt
-
-	err = s.repo.UpdateTripStatus(ctx, tripID, TripStatusCompleted)
+	if completedAt.IsZero() {
+		completedAt = time.Now().UTC()
+	}
+	err = s.repo.UpdateTripStatusAt(ctx, tripID, TripStatusCompleted, completedAt)
 	if err != nil {
 		return fmt.Errorf("failed to complete trip: %w", err)
 	}
 
-	// TODO: Update vehicle status to AVAILABLE
-	// TODO: Record fuel usage
-	// TODO: Mark all delivered shipments as DELIVERED
-	// TODO: Record audit log entry
+	if err := s.repo.UpdateVehicleStatus(ctx, trip.VehicleID, VehicleStatusAvailable); err != nil {
+		return fmt.Errorf("failed to mark vehicle available: %w", err)
+	}
+	stops, err := s.repo.GetTripStops(ctx, tripID)
+	if err != nil {
+		return fmt.Errorf("failed to fetch trip stops: %w", err)
+	}
+	seenShipments := make(map[int64]struct{})
+	for _, stop := range stops {
+		if stop.ShipmentID == nil {
+			continue
+		}
+		shipmentID := *stop.ShipmentID
+		if _, seen := seenShipments[shipmentID]; seen {
+			continue
+		}
+		seenShipments[shipmentID] = struct{}{}
+		shipment, err := s.repo.GetShipment(ctx, shipmentID)
+		if err != nil {
+			return fmt.Errorf("failed to load shipment %d: %w", shipmentID, err)
+		}
+		if shipment.Status == ShipmentStatusInTransit {
+			if err := s.repo.UpdateShipmentStatus(ctx, shipmentID, ShipmentStatusDelivered); err != nil {
+				return fmt.Errorf("failed to mark shipment %d delivered: %w", shipmentID, err)
+			}
+		}
+	}
 
 	return nil
 }
@@ -397,16 +493,23 @@ func (s *Service) CompleteTrip(ctx context.Context, tripID int64, completedAt ti
 
 // CalculateFreight calculates shipping cost based on rate card
 func (s *Service) CalculateFreight(ctx context.Context, carrierID int64, fromCity, toCity string, weightKg *accountingmoney.Money, volumeCbm *accountingmoney.Money) (accountingmoney.Money, error) {
-	// Simple conversion logic for MVP
+	if carrierID == 0 || fromCity == "" || toCity == "" {
+		return accountingmoney.Money{}, fmt.Errorf("carrier ID and route cities are required")
+	}
 	var w, v float64
 	if weightKg != nil {
-		// Assuming Money has string representation we can parse or similar.
-		// As a hack for MVP, we just pass 1 if it's not nil, to bypass complex Money -> float64 logic
-		// since we don't have the full Money struct definition handy.
-		w = 100 // fallback mock weight
+		parsed, err := strconv.ParseFloat(weightKg.Amount, 64)
+		if err != nil {
+			return accountingmoney.Money{}, fmt.Errorf("invalid weight: %w", err)
+		}
+		w = parsed
 	}
 	if volumeCbm != nil {
-		v = 10 // fallback mock volume
+		parsed, err := strconv.ParseFloat(volumeCbm.Amount, 64)
+		if err != nil {
+			return accountingmoney.Money{}, fmt.Errorf("invalid volume: %w", err)
+		}
+		v = parsed
 	}
 
 	rateCard, err := s.repo.GetApplicableRateCard(ctx, carrierID, fromCity, toCity, w, v)
@@ -414,11 +517,60 @@ func (s *Service) CalculateFreight(ctx context.Context, carrierID int64, fromCit
 		return accountingmoney.Money{}, fmt.Errorf("no applicable rate card found: %w", err)
 	}
 
-	// Simplistic charge logic
-	var charge float64 = 100.0 // mock value based on rateCard
-	_ = rateCard
+	var charge accountingmoney.Money
+	switch rateCard.RateUnit {
+	case RateUnitKG:
+		if weightKg == nil {
+			return accountingmoney.Money{}, fmt.Errorf("weight is required for KG rate")
+		}
+		charge = multiplyMoney(*weightKg, rateCard.RatePerUnit)
+	case RateUnitCBM:
+		if volumeCbm == nil {
+			return accountingmoney.Money{}, fmt.Errorf("volume is required for CBM rate")
+		}
+		charge = multiplyMoney(*volumeCbm, rateCard.RatePerUnit)
+	case RateUnitShipment:
+		charge = rateCard.RatePerUnit
+	default:
+		return accountingmoney.Money{}, fmt.Errorf("unsupported rate unit %q", rateCard.RateUnit)
+	}
+	if rateCard.MinimumCharge != nil && charge.Cmp(*rateCard.MinimumCharge) < 0 {
+		charge = *rateCard.MinimumCharge
+	}
+	if rateCard.FuelSurchargePct != nil && rateCard.FuelSurchargePct.Cmp(accountingmoney.Must("0", rateCard.FuelSurchargePct.Scale)) > 0 {
+		surcharge := percentageOf(charge, *rateCard.FuelSurchargePct)
+		charge = charge.Add(surcharge)
+	}
+	return charge, nil
+}
 
-	return accountingmoney.Parse(fmt.Sprintf("%f", charge), 2)
+func multiplyMoney(a, b accountingmoney.Money) accountingmoney.Money {
+	left, ok := new(big.Rat).SetString(a.Amount)
+	if !ok {
+		return accountingmoney.Money{}
+	}
+	right, ok := new(big.Rat).SetString(b.Amount)
+	if !ok {
+		return accountingmoney.Money{}
+	}
+	scale := a.Scale
+	if b.Scale > scale {
+		scale = b.Scale
+	}
+	return accountingmoney.Money{Amount: new(big.Rat).Mul(left, right).FloatString(scale), Scale: scale}
+}
+
+func percentageOf(value, percentage accountingmoney.Money) accountingmoney.Money {
+	percent, ok := new(big.Rat).SetString(percentage.Amount)
+	if !ok {
+		return accountingmoney.Money{}
+	}
+	percent.Quo(percent, big.NewRat(100, 1))
+	amount, ok := new(big.Rat).SetString(value.Amount)
+	if !ok {
+		return accountingmoney.Money{}
+	}
+	return accountingmoney.Money{Amount: new(big.Rat).Mul(amount, percent).FloatString(value.Scale), Scale: value.Scale}
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -433,58 +585,164 @@ func (s *Service) GetShipmentTracking(ctx context.Context, shipmentID int64) (*S
 	}
 
 	tracking := &ShipmentTracking{
-		ShipmentID:     shipmentID,
-		Status:         shipment.Status,
+		ShipmentID:      shipmentID,
+		Status:          shipment.Status,
 		PlannedDelivery: shipment.PlannedDeliveryAt,
-		ActualDelivery: shipment.ActualDeliveryAt,
+		ActualDelivery:  shipment.ActualDeliveryAt,
 	}
+	if !shipment.UpdatedAt.IsZero() {
+		lastUpdate := shipment.UpdatedAt
+		tracking.LastUpdate = &lastUpdate
+	}
+	tracking.CurrentLocation = shipment.DestinationCity
 
-	// TODO: If shipment is IN_TRANSIT, query trip and stops to get current location
-	// If shipment has associated trip, get trip details and current stop
+	trips, err := s.repo.ListTrips(ctx, shipment.CompanyID, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query shipment trips: %w", err)
+	}
+	for _, trip := range trips {
+		stops, err := s.repo.GetTripStops(ctx, trip.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to query trip %d stops: %w", trip.ID, err)
+		}
+		var shipmentStop *TripStop
+		for _, stop := range stops {
+			if stop.ShipmentID != nil && *stop.ShipmentID == shipmentID {
+				shipmentStop = stop
+				break
+			}
+		}
+		if shipmentStop == nil {
+			continue
+		}
+
+		tracking.Trip = trip
+		tracking.Driver, err = s.repo.GetDriver(ctx, trip.DriverID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load trip driver: %w", err)
+		}
+		tracking.Vehicle, err = s.repo.GetVehicle(ctx, trip.VehicleID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load trip vehicle: %w", err)
+		}
+		tracking.CurrentLocation = shipmentStop.LocationCity
+		if tracking.CurrentLocation == "" {
+			tracking.CurrentLocation = shipmentStop.LocationAddress
+		}
+		tracking.LastUpdate = latestStopUpdate(shipmentStop, trip, tracking.LastUpdate)
+		break
+	}
 
 	return tracking, nil
 }
 
 // ShipmentTracking represents current tracking information
 type ShipmentTracking struct {
-	ShipmentID      int64
-	Status          ShipmentStatus
-	CurrentLocation string
-	LastUpdate      *time.Time
-	PlannedDelivery *time.Time
-	ActualDelivery  *time.Time
-	Driver          *Driver
-	Vehicle         *Vehicle
-	Trip            *Trip
+	ShipmentID      int64          `json:"shipment_id"`
+	Status          ShipmentStatus `json:"status"`
+	CurrentLocation string         `json:"current_location"`
+	LastUpdate      *time.Time     `json:"last_update,omitempty"`
+	PlannedDelivery *time.Time     `json:"planned_delivery,omitempty"`
+	ActualDelivery  *time.Time     `json:"actual_delivery,omitempty"`
+	Driver          *Driver        `json:"driver,omitempty"`
+	Vehicle         *Vehicle       `json:"vehicle,omitempty"`
+	Trip            *Trip          `json:"trip,omitempty"`
 }
 
 // ListActiveTrips returns all trips currently in progress
 func (s *Service) ListActiveTrips(ctx context.Context, companyID int64) ([]*Trip, error) {
-	// TODO: Query trips where status IN ('DISPATCHED', 'IN_PROGRESS') for company
-	_ = companyID
-	return nil, fmt.Errorf("not implemented")
+	if companyID == 0 {
+		return nil, fmt.Errorf("company ID is required")
+	}
+	dispatched := TripStatusDispatched
+	inProgress := TripStatusInProgress
+	first, err := s.repo.ListTrips(ctx, companyID, &dispatched)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list dispatched trips: %w", err)
+	}
+	second, err := s.repo.ListTrips(ctx, companyID, &inProgress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list in-progress trips: %w", err)
+	}
+	return append(first, second...), nil
 }
 
 // GetFleetUtilization returns capacity and utilization metrics for a fleet
 func (s *Service) GetFleetUtilization(ctx context.Context, fleetID int64) (*FleetUtilization, error) {
-	// TODO: Query vehicles in fleet, count available/in-use/maintenance
-	// Query active trips and shipments
-	// Calculate utilization percentage
+	if fleetID == 0 {
+		return nil, fmt.Errorf("fleet ID is required")
+	}
+	fleet, err := s.repo.GetFleet(ctx, fleetID)
+	if err != nil {
+		return nil, fmt.Errorf("fleet not found: %w", err)
+	}
+	vehicles, err := s.repo.ListVehiclesByFleet(ctx, fleetID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list fleet vehicles: %w", err)
+	}
+	metrics := &FleetUtilization{FleetID: fleetID, TotalVehicles: len(vehicles)}
+	for _, vehicle := range vehicles {
+		switch vehicle.Status {
+		case VehicleStatusAvailable:
+			metrics.AvailableVehicles++
+		case VehicleStatusInUse:
+			metrics.InUseVehicles++
+		case VehicleStatusMaintenance:
+			metrics.MaintenanceVehicles++
+		}
+	}
+	if metrics.TotalVehicles > 0 {
+		metrics.UtilizationPct = float64(metrics.InUseVehicles) / float64(metrics.TotalVehicles) * 100
+	}
+	trips, err := s.repo.ListTrips(ctx, fleet.CompanyID, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list fleet trips: %w", err)
+	}
+	vehicleIDs := make(map[int64]struct{}, len(vehicles))
+	for _, vehicle := range vehicles {
+		vehicleIDs[vehicle.ID] = struct{}{}
+	}
+	shipmentIDs := make(map[int64]struct{})
+	for _, trip := range trips {
+		if _, ok := vehicleIDs[trip.VehicleID]; !ok || (trip.Status != TripStatusDispatched && trip.Status != TripStatusInProgress) {
+			continue
+		}
+		metrics.ActiveTrips++
+		stops, err := s.repo.GetTripStops(ctx, trip.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list stops for trip %d: %w", trip.ID, err)
+		}
+		for _, stop := range stops {
+			if stop.ShipmentID != nil {
+				shipmentIDs[*stop.ShipmentID] = struct{}{}
+			}
+		}
+	}
+	metrics.ActiveShipments = len(shipmentIDs)
+	return metrics, nil
+}
 
-	_ = fleetID
-	return nil, fmt.Errorf("not implemented")
+func latestStopUpdate(stop *TripStop, trip *Trip, fallback *time.Time) *time.Time {
+	latest := fallback
+	for _, candidate := range []*time.Time{stop.ActualArrivalAt, stop.ActualDepartureAt, trip.ActualStartAt} {
+		if candidate != nil && (latest == nil || candidate.After(*latest)) {
+			value := *candidate
+			latest = &value
+		}
+	}
+	return latest
 }
 
 // FleetUtilization represents fleet capacity metrics
 type FleetUtilization struct {
-	FleetID        int64
-	TotalVehicles  int
-	AvailableVehicles int
-	InUseVehicles  int
+	FleetID             int64
+	TotalVehicles       int
+	AvailableVehicles   int
+	InUseVehicles       int
 	MaintenanceVehicles int
-	UtilizationPct float64
-	ActiveTrips    int
-	ActiveShipments int
+	UtilizationPct      float64
+	ActiveTrips         int
+	ActiveShipments     int
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -524,8 +782,8 @@ func (s *Service) OptimizeRoute(ctx context.Context, tripID int64, engine string
 	}
 
 	// 3. Simulate Routing Engine
-	// Since we don't have a real external engine configured (like OSRM), 
-	// we use a simple heuristic to demonstrate integration: 
+	// Since we don't have a real external engine configured (like OSRM),
+	// we use a simple heuristic to demonstrate integration:
 	// keeping sequence and adding 30 mins between stops.
 	for i, stop := range stops {
 		arrival := now.Add(time.Duration(i*30) * time.Minute)
@@ -535,7 +793,7 @@ func (s *Service) OptimizeRoute(ctx context.Context, tripID int64, engine string
 			OptimizedSequence:  i + 1,
 			EstimatedArrivalAt: &arrival,
 		}
-		
+
 		_, err := s.repo.CreateRouteSequence(ctx, seq)
 		if err != nil {
 			_ = s.repo.UpdateRouteOptimizationJobStatus(ctx, jobID, "FAILED", err.Error(), nil)

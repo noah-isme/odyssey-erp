@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	accountingmoney "github.com/odyssey-erp/odyssey-erp/internal/accounting/money"
 	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
@@ -59,11 +60,12 @@ type Repository interface {
 	GetTrip(ctx context.Context, tripID int64) (*Trip, error)
 	ListTrips(ctx context.Context, companyID int64, status *TripStatus) ([]*Trip, error)
 	UpdateTripStatus(ctx context.Context, tripID int64, status TripStatus) error
+	UpdateTripStatusAt(ctx context.Context, tripID int64, status TripStatus, at time.Time) error
 
 	// Trip Stops
 	AddTripStop(ctx context.Context, input AddTripStopInput) (int64, error)
 	GetTripStops(ctx context.Context, tripID int64) ([]*TripStop, error)
-	UpdateTripStopActualTimes(ctx context.Context, stopID int64, arrivedAt, departedAt *interface{}) error
+	UpdateTripStopActualTimes(ctx context.Context, stopID int64, arrivedAt, departedAt *time.Time) error
 
 	// Route Optimization
 	CreateRouteOptimizationJob(ctx context.Context, job RouteOptimizationJob) (int64, error)
@@ -252,17 +254,17 @@ func mapRateCard(c sqlc.CarrierRateCard) *CarrierRateCard {
 	// Normally we'd do a real parse. For this system, we parse as string.
 	// accountingmoney.Parse is usually something like: amount, _ := accountingmoney.Parse("...", 4)
 	return &CarrierRateCard{
-		ID:               c.ID,
-		CompanyID:        c.CompanyID,
-		CarrierID:        c.CarrierID,
-		RouteFromCity:    c.RouteFromCity,
-		RouteTCity:       c.RouteToCity,
+		ID:            c.ID,
+		CompanyID:     c.CompanyID,
+		CarrierID:     c.CarrierID,
+		RouteFromCity: c.RouteFromCity,
+		RouteTCity:    c.RouteToCity,
 		// Omitted mapping the money fields cleanly for brevity; would use proper numeric->Money conversion
-		RateUnit:         RateUnit(c.RateUnit),
-		Currency:         c.Currency,
-		EffectiveFrom:    c.EffectiveFrom.Time,
-		EffectiveTo:      optDateToTime(c.EffectiveTo),
-		CreatedAt:        c.CreatedAt.Time,
+		RateUnit:      RateUnit(c.RateUnit),
+		Currency:      c.Currency,
+		EffectiveFrom: c.EffectiveFrom.Time,
+		EffectiveTo:   optDateToTime(c.EffectiveTo),
+		CreatedAt:     c.CreatedAt.Time,
 	}
 }
 
@@ -282,12 +284,12 @@ type CreateFleetInput struct {
 
 func (r *LogisticsRepository) CreateFleet(ctx context.Context, input CreateFleetInput) (int64, error) {
 	queries := sqlc.New(r.db)
-	
+
 	var whID pgtype.Int8
 	if input.WarehouseID != nil {
 		whID = pgtype.Int8{Int64: *input.WarehouseID, Valid: true}
 	}
-	
+
 	return queries.CreateFleet(ctx, sqlc.CreateFleetParams{
 		CompanyID:   input.CompanyID,
 		FleetName:   input.FleetName,
@@ -356,30 +358,30 @@ func mapFleet(f sqlc.Fleet) *Fleet {
 // ═══════════════════════════════════════════════════════════════════════════
 
 type CreateVehicleInput struct {
-	CompanyID             int64
-	FleetID               int64
-	VehicleRegistration   string
-	VehicleType           VehicleType
-	LicensePlate          string
-	VIN                   string
-	Make                  string
-	Model                 string
-	YearManufactured      *int
-	MaxWeightKg           *float64
-	MaxVolumeCbm          *float64
-	InsuranceExpiresAt    *time.Time
-	GPSDeviceID           string
-	CreatedBy             int64
+	CompanyID           int64
+	FleetID             int64
+	VehicleRegistration string
+	VehicleType         VehicleType
+	LicensePlate        string
+	VIN                 string
+	Make                string
+	Model               string
+	YearManufactured    *int
+	MaxWeightKg         *float64
+	MaxVolumeCbm        *float64
+	InsuranceExpiresAt  *time.Time
+	GPSDeviceID         string
+	CreatedBy           int64
 }
 
 func (r *LogisticsRepository) CreateVehicle(ctx context.Context, input CreateVehicleInput) (int64, error) {
 	queries := sqlc.New(r.db)
-	
+
 	var year pgtype.Int4
 	if input.YearManufactured != nil {
 		year = pgtype.Int4{Int32: int32(*input.YearManufactured), Valid: true}
 	}
-	
+
 	return queries.CreateVehicle(ctx, sqlc.CreateVehicleParams{
 		CompanyID:           input.CompanyID,
 		FleetID:             input.FleetID,
@@ -450,12 +452,12 @@ func mapVehicle(v sqlc.Vehicle) *Vehicle {
 		year = &y
 	}
 	return &Vehicle{
-		ID:                 v.ID,
-		CompanyID:          v.CompanyID,
-		FleetID:            v.FleetID,
+		ID:                  v.ID,
+		CompanyID:           v.CompanyID,
+		FleetID:             v.FleetID,
 		VehicleRegistration: v.VehicleRegistration,
-		VehicleType:        VehicleType(v.VehicleType),
-		Status:             VehicleStatus(v.Status),
+		VehicleType:         VehicleType(v.VehicleType),
+		Status:              VehicleStatus(v.Status),
 		// Leaving MaxWeightKg / MaxVolumeCbm out of map for brevity if numeric parsing gets complex
 		LicensePlate:       v.LicensePlate,
 		VIN:                v.Vin.String,
@@ -478,17 +480,17 @@ func mapVehicle(v sqlc.Vehicle) *Vehicle {
 // ═══════════════════════════════════════════════════════════════════════════
 
 type CreateDriverInput struct {
-	CompanyID                int64
-	DriverName               string
-	DriverCode               string
-	Email                    string
-	Phone                    string
-	LicenseNumber            string
-	LicenseClass             LicenseClass
-	LicenseExpiresAt         *time.Time
-	EmergencyContactName     string
-	EmergencyContactPhone    string
-	CreatedBy                int64
+	CompanyID             int64
+	DriverName            string
+	DriverCode            string
+	Email                 string
+	Phone                 string
+	LicenseNumber         string
+	LicenseClass          LicenseClass
+	LicenseExpiresAt      *time.Time
+	EmergencyContactName  string
+	EmergencyContactPhone string
+	CreatedBy             int64
 }
 
 func (r *LogisticsRepository) CreateDriver(ctx context.Context, input CreateDriverInput) (int64, error) {
@@ -577,19 +579,19 @@ func mapDriver(d sqlc.Driver) *Driver {
 // ═══════════════════════════════════════════════════════════════════════════
 
 type CreateShipmentInput struct {
-	CompanyID                  int64
-	ShipmentNumber             string
-	ShipmentType               ShipmentType
-	OriginWarehouseID          *int64
-	DestinationWarehouseID     *int64
-	DestinationAddress         string
-	DestinationCity            string
-	DestinationCountry         string
-	DestinationContactName     string
-	DestinationContactPhone    string
-	PlannedDispatchAt          *time.Time
-	PlannedDeliveryAt          *time.Time
-	CreatedBy                  int64
+	CompanyID               int64
+	ShipmentNumber          string
+	ShipmentType            ShipmentType
+	OriginWarehouseID       *int64
+	DestinationWarehouseID  *int64
+	DestinationAddress      string
+	DestinationCity         string
+	DestinationCountry      string
+	DestinationContactName  string
+	DestinationContactPhone string
+	PlannedDispatchAt       *time.Time
+	PlannedDeliveryAt       *time.Time
+	CreatedBy               int64
 }
 
 func (r *LogisticsRepository) CreateShipment(ctx context.Context, input CreateShipmentInput) (int64, error) {
@@ -681,18 +683,33 @@ func coalesceInt64(ptr *int64) int64 {
 
 func mapShipment(s sqlc.Shipment) *Shipment {
 	var origin, dest, vID, dID, cID *int64
-	if s.OriginWarehouseID.Valid { v := s.OriginWarehouseID.Int64; origin = &v }
-	if s.DestinationWarehouseID.Valid { v := s.DestinationWarehouseID.Int64; dest = &v }
-	if s.VehicleID.Valid { v := s.VehicleID.Int64; vID = &v }
-	if s.DriverID.Valid { v := s.DriverID.Int64; dID = &v }
-	if s.CarrierID.Valid { v := s.CarrierID.Int64; cID = &v }
-	
+	if s.OriginWarehouseID.Valid {
+		v := s.OriginWarehouseID.Int64
+		origin = &v
+	}
+	if s.DestinationWarehouseID.Valid {
+		v := s.DestinationWarehouseID.Int64
+		dest = &v
+	}
+	if s.VehicleID.Valid {
+		v := s.VehicleID.Int64
+		vID = &v
+	}
+	if s.DriverID.Valid {
+		v := s.DriverID.Int64
+		dID = &v
+	}
+	if s.CarrierID.Valid {
+		v := s.CarrierID.Int64
+		cID = &v
+	}
+
 	var cst *CarrierServiceType
 	if s.CarrierServiceType.Valid {
 		v := CarrierServiceType(s.CarrierServiceType.String)
 		cst = &v
 	}
-	
+
 	return &Shipment{
 		ID:                      s.ID,
 		CompanyID:               s.CompanyID,
@@ -757,12 +774,26 @@ func (r *LogisticsRepository) GetShipmentLines(ctx context.Context, shipmentID i
 
 	var res []*ShipmentLine
 	for _, row := range rows {
+		quantity, err := numericToMoney(row.Quantity, 4)
+		if err != nil {
+			return nil, err
+		}
+		weight, err := optionalNumericToMoney(row.WeightKg, 4)
+		if err != nil {
+			return nil, err
+		}
+		volume, err := optionalNumericToMoney(row.VolumeCbm, 4)
+		if err != nil {
+			return nil, err
+		}
 		res = append(res, &ShipmentLine{
 			ID:         row.ID,
 			CompanyID:  row.CompanyID,
 			ShipmentID: row.ShipmentID,
 			ProductID:  row.ProductID,
-			// For brevity, skipping exact numeric mapping
+			Quantity:   quantity,
+			WeightKg:   weight,
+			VolumeCbm:  volume,
 			LotNumber:  row.LotNumber.String,
 			CreatedAt:  row.CreatedAt.Time,
 		})
@@ -775,15 +806,15 @@ func (r *LogisticsRepository) GetShipmentLines(ctx context.Context, shipmentID i
 // ═══════════════════════════════════════════════════════════════════════════
 
 type CreateTripInput struct {
-	CompanyID          int64
-	TripNumber         string
-	VehicleID          int64
-	DriverID           int64
-	FleetID            *int64
-	OriginWarehouseID  *int64
-	PlannedStartAt     *time.Time
-	PlannedEndAt       *time.Time
-	CreatedBy          int64
+	CompanyID         int64
+	TripNumber        string
+	VehicleID         int64
+	DriverID          int64
+	FleetID           *int64
+	OriginWarehouseID *int64
+	PlannedStartAt    *time.Time
+	PlannedEndAt      *time.Time
+	CreatedBy         int64
 }
 
 func (r *LogisticsRepository) CreateTrip(ctx context.Context, input CreateTripInput) (int64, error) {
@@ -839,10 +870,34 @@ func (r *LogisticsRepository) UpdateTripStatus(ctx context.Context, tripID int64
 	})
 }
 
+func (r *LogisticsRepository) UpdateTripStatusAt(ctx context.Context, tripID int64, status TripStatus, at time.Time) error {
+	_, err := r.db.Exec(ctx, `
+		UPDATE trips
+		SET status = $2,
+		    actual_start_at = CASE
+		        WHEN $2 = 'IN_PROGRESS' THEN COALESCE(actual_start_at, $3)
+		        ELSE actual_start_at
+		    END,
+		    actual_end_at = CASE
+		        WHEN $2 = 'COMPLETED' THEN COALESCE(actual_end_at, $3)
+		        ELSE actual_end_at
+		    END,
+		    updated_at = NOW()
+		WHERE id = $1
+	`, tripID, string(status), at.UTC())
+	return err
+}
+
 func mapTrip(t sqlc.Trip) *Trip {
 	var fleet, origin *int64
-	if t.FleetID.Valid { v := t.FleetID.Int64; fleet = &v }
-	if t.OriginWarehouseID.Valid { v := t.OriginWarehouseID.Int64; origin = &v }
+	if t.FleetID.Valid {
+		v := t.FleetID.Int64
+		fleet = &v
+	}
+	if t.OriginWarehouseID.Valid {
+		v := t.OriginWarehouseID.Int64
+		origin = &v
+	}
 
 	return &Trip{
 		ID:                t.ID,
@@ -869,19 +924,19 @@ func mapTrip(t sqlc.Trip) *Trip {
 // ═══════════════════════════════════════════════════════════════════════════
 
 type AddTripStopInput struct {
-	CompanyID         int64
-	TripID            int64
-	ShipmentID        *int64
-	StopSequence      int
-	StopType          StopType
-	WarehouseID       *int64
-	LocationAddress   string
-	LocationCity      string
-	LocationLat       *float64
-	LocationLon       *float64
-	ContactName       string
-	ContactPhone      string
-	PlannedArrivalAt  *time.Time
+	CompanyID        int64
+	TripID           int64
+	ShipmentID       *int64
+	StopSequence     int
+	StopType         StopType
+	WarehouseID      *int64
+	LocationAddress  string
+	LocationCity     string
+	LocationLat      *float64
+	LocationLon      *float64
+	ContactName      string
+	ContactPhone     string
+	PlannedArrivalAt *time.Time
 }
 
 func (r *LogisticsRepository) AddTripStop(ctx context.Context, input AddTripStopInput) (int64, error) {
@@ -913,38 +968,45 @@ func (r *LogisticsRepository) GetTripStops(ctx context.Context, tripID int64) ([
 	var res []*TripStop
 	for _, row := range rows {
 		var sID, wID *int64
-		if row.ShipmentID.Valid { v := row.ShipmentID.Int64; sID = &v }
-		if row.WarehouseID.Valid { v := row.WarehouseID.Int64; wID = &v }
-		
+		if row.ShipmentID.Valid {
+			v := row.ShipmentID.Int64
+			sID = &v
+		}
+		if row.WarehouseID.Valid {
+			v := row.WarehouseID.Int64
+			wID = &v
+		}
+
 		res = append(res, &TripStop{
-			ID:               row.ID,
-			CompanyID:        row.CompanyID,
-			TripID:           row.TripID,
-			ShipmentID:       sID,
-			StopSequence:     int(row.StopSequence),
-			StopType:         StopType(row.StopType),
-			WarehouseID:      wID,
-			LocationAddress:  row.LocationAddress.String,
-			LocationCity:     row.LocationCity.String,
-			ContactName:      row.ContactName.String,
-			ContactPhone:     row.ContactPhone.String,
-			PlannedArrivalAt: timestamptzToTime(row.PlannedArrivalAt),
-			ActualArrivalAt:  timestamptzToTime(row.ActualArrivalAt),
+			ID:                row.ID,
+			CompanyID:         row.CompanyID,
+			TripID:            row.TripID,
+			ShipmentID:        sID,
+			StopSequence:      int(row.StopSequence),
+			StopType:          StopType(row.StopType),
+			WarehouseID:       wID,
+			LocationAddress:   row.LocationAddress.String,
+			LocationCity:      row.LocationCity.String,
+			ContactName:       row.ContactName.String,
+			ContactPhone:      row.ContactPhone.String,
+			PlannedArrivalAt:  timestamptzToTime(row.PlannedArrivalAt),
+			ActualArrivalAt:   timestamptzToTime(row.ActualArrivalAt),
 			ActualDepartureAt: timestamptzToTime(row.ActualDepartureAt),
-			Notes:            row.Notes.String,
-			CreatedAt:        row.CreatedAt.Time,
+			Notes:             row.Notes.String,
+			CreatedAt:         row.CreatedAt.Time,
 		})
 	}
 	return res, nil
 }
 
-func (r *LogisticsRepository) UpdateTripStopActualTimes(ctx context.Context, stopID int64, arrivedAt, departedAt *interface{}) error {
-	// TODO: UPDATE trip_stops SET actual_arrival_at = ?, actual_departure_at = ? WHERE id = ?
-	_ = ctx
-	_ = stopID
-	_ = arrivedAt
-	_ = departedAt
-	return fmt.Errorf("not implemented")
+func (r *LogisticsRepository) UpdateTripStopActualTimes(ctx context.Context, stopID int64, arrivedAt, departedAt *time.Time) error {
+	_, err := r.db.Exec(ctx, `
+		UPDATE trip_stops
+		SET actual_arrival_at = COALESCE($2, actual_arrival_at),
+		    actual_departure_at = COALESCE($3, actual_departure_at)
+		WHERE id = $1
+	`, stopID, arrivedAt, departedAt)
+	return err
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -968,12 +1030,12 @@ func (r *LogisticsRepository) GetRouteOptimizationJob(ctx context.Context, jobID
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var errorMessage string
 	if res.ErrorMessage.Valid {
 		errorMessage = res.ErrorMessage.String
 	}
-	
+
 	return &RouteOptimizationJob{
 		ID:           res.ID,
 		CompanyID:    res.CompanyID,
@@ -989,12 +1051,12 @@ func (r *LogisticsRepository) GetRouteOptimizationJob(ctx context.Context, jobID
 
 func (r *LogisticsRepository) UpdateRouteOptimizationJobStatus(ctx context.Context, jobID int64, status, errorMessage string, completedAt *time.Time) error {
 	queries := sqlc.New(r.db)
-	
+
 	errStr := pgtype.Text{Valid: false}
 	if errorMessage != "" {
 		errStr = pgtype.Text{String: errorMessage, Valid: true}
 	}
-	
+
 	return queries.UpdateRouteOptimizationJobStatus(ctx, sqlc.UpdateRouteOptimizationJobStatusParams{
 		ID:           jobID,
 		Status:       status,
@@ -1005,7 +1067,7 @@ func (r *LogisticsRepository) UpdateRouteOptimizationJobStatus(ctx context.Conte
 
 func (r *LogisticsRepository) CreateRouteSequence(ctx context.Context, seq RouteSequence) (int64, error) {
 	queries := sqlc.New(r.db)
-	
+
 	return queries.CreateRouteSequence(ctx, sqlc.CreateRouteSequenceParams{
 		OptimizationJobID:  seq.OptimizationJobID,
 		TripStopID:         seq.TripStopID,
@@ -1082,3 +1144,27 @@ func optFloatToNumeric(f *float64) pgtype.Numeric {
 	return n
 }
 
+func numericToMoney(n pgtype.Numeric, scale int) (accountingmoney.Money, error) {
+	if !n.Valid {
+		return accountingmoney.Money{}, nil
+	}
+	f, err := n.Float64Value()
+	if err != nil {
+		return accountingmoney.Money{}, err
+	}
+	if !f.Valid {
+		return accountingmoney.Money{}, nil
+	}
+	return accountingmoney.Parse(fmt.Sprintf("%.*f", scale, f.Float64), scale)
+}
+
+func optionalNumericToMoney(n pgtype.Numeric, scale int) (*accountingmoney.Money, error) {
+	if !n.Valid {
+		return nil, nil
+	}
+	m, err := numericToMoney(n, scale)
+	if err != nil {
+		return nil, err
+	}
+	return &m, nil
+}

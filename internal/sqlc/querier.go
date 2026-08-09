@@ -115,6 +115,9 @@ type Querier interface {
 	CreateForecastSourceLine(ctx context.Context, arg CreateForecastSourceLineParams) (ForecastSourceLine, error)
 	CreateFreightAuditLog(ctx context.Context, arg CreateFreightAuditLogParams) error
 	CreateFreightCharge(ctx context.Context, arg CreateFreightChargeParams) (FreightCharge, error)
+	// Cost centers are shared with accounting dimensions. Freight keeps its
+	// company-scoped access here so GL posting never crosses tenant boundaries.
+	CreateFreightCostCenter(ctx context.Context, arg CreateFreightCostCenterParams) (CreateFreightCostCenterRow, error)
 	// =============================================================================
 	// GOODS RECEIPTS (GRN)
 	// =============================================================================
@@ -331,6 +334,8 @@ type Querier interface {
 	GetForecastRun(ctx context.Context, id int64) (ForecastRun, error)
 	GetForecastScenario(ctx context.Context, id int64) (ForecastScenario, error)
 	GetFreightCharge(ctx context.Context, arg GetFreightChargeParams) (FreightCharge, error)
+	GetFreightCostCenter(ctx context.Context, arg GetFreightCostCenterParams) (GetFreightCostCenterRow, error)
+	GetFreightCostCenterByCode(ctx context.Context, arg GetFreightCostCenterByCodeParams) (GetFreightCostCenterByCodeRow, error)
 	GetGRN(ctx context.Context, id int64) (GetGRNRow, error)
 	// =============================================================================
 	// GOODS RETURNS (from GRN)
@@ -712,6 +717,7 @@ type Querier interface {
 	ListForecastSourceLines(ctx context.Context, arg ListForecastSourceLinesParams) ([]ForecastSourceLine, error)
 	ListFreightAuditLogs(ctx context.Context, arg ListFreightAuditLogsParams) ([]FreightAuditLog, error)
 	ListFreightCharges(ctx context.Context, arg ListFreightChargesParams) ([]FreightCharge, error)
+	ListFreightCostCenters(ctx context.Context, companyID int64) ([]ListFreightCostCentersRow, error)
 	ListGoodsReturnGRNLines(ctx context.Context, goodsReturnGrnID int64) ([]GoodsReturnGrnLine, error)
 	ListGoodsReturnGRNs(ctx context.Context) ([]GoodsReturnGrn, error)
 	ListGroupIDs(ctx context.Context) ([]int64, error)
@@ -862,6 +868,7 @@ type Querier interface {
 	UpdateForecastRunStatus(ctx context.Context, arg UpdateForecastRunStatusParams) error
 	UpdateFreightCharge(ctx context.Context, arg UpdateFreightChargeParams) (FreightCharge, error)
 	UpdateFreightChargeStatus(ctx context.Context, arg UpdateFreightChargeStatusParams) error
+	UpdateFreightCostCenter(ctx context.Context, arg UpdateFreightCostCenterParams) (UpdateFreightCostCenterRow, error)
 	UpdateGRNStatus(ctx context.Context, arg UpdateGRNStatusParams) error
 	UpdateGoodsReturnGRNStatus(ctx context.Context, arg UpdateGoodsReturnGRNStatusParams) error
 	UpdateHoldStatus(ctx context.Context, arg UpdateHoldStatusParams) error

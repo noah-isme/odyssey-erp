@@ -17,10 +17,10 @@ WHERE id = $1 AND company_id = $2;
 -- name: ListRateCards :many
 SELECT * FROM rate_cards
 WHERE company_id = $1
-  AND ($2::BIGINT IS NULL OR carrier_id = $2)
-  AND ($3::VARCHAR IS NULL OR origin_city = $3)
-  AND ($4::VARCHAR IS NULL OR destination_city = $4)
-  AND ($5::VARCHAR IS NULL OR service_level = $5)
+  AND ($2::BIGINT = 0 OR carrier_id = $2)
+  AND ($3::VARCHAR = '' OR origin_city = $3)
+  AND ($4::VARCHAR = '' OR destination_city = $4)
+  AND ($5::VARCHAR = '' OR service_level = $5)
   AND ($6::BOOLEAN IS FALSE OR is_active = TRUE)
   AND ($7::DATE IS NULL OR effective_date >= $7)
   AND ($8::DATE IS NULL OR effective_date <= $8)
@@ -93,12 +93,12 @@ WHERE id = $1 AND company_id = $2;
 -- name: ListFreightCharges :many
 SELECT * FROM freight_charges
 WHERE company_id = $1
-  AND ($2::BIGINT IS NULL OR shipment_id = $2)
-  AND ($3::BIGINT IS NULL OR load_id = $3)
-  AND ($4::BIGINT IS NULL OR carrier_id = $4)
-  AND ($5::VARCHAR IS NULL OR status = $5)
-  AND ($6::VARCHAR IS NULL OR origin_city = $6)
-  AND ($7::VARCHAR IS NULL OR destination_city = $7)
+  AND ($2::BIGINT = 0 OR shipment_id = $2)
+  AND ($3::BIGINT = 0 OR load_id = $3)
+  AND ($4::BIGINT = 0 OR carrier_id = $4)
+  AND ($5::VARCHAR = '' OR status = $5)
+  AND ($6::VARCHAR = '' OR origin_city = $6)
+  AND ($7::VARCHAR = '' OR destination_city = $7)
   AND ($8::TIMESTAMP IS NULL OR created_at >= $8)
   AND ($9::TIMESTAMP IS NULL OR created_at <= $9)
 ORDER BY created_at DESC, id DESC
@@ -141,9 +141,9 @@ LIMIT 1;
 -- name: ListLandedCosts :many
 SELECT * FROM landed_costs
 WHERE company_id = $1
-  AND ($2::BIGINT IS NULL OR shipment_id = $2)
-  AND ($3::BIGINT IS NULL OR load_id = $3)
-  AND ($4::BIGINT IS NULL OR po_id = $4)
+  AND ($2::BIGINT = 0 OR shipment_id = $2)
+  AND ($3::BIGINT = 0 OR load_id = $3)
+  AND ($4::BIGINT = 0 OR po_id = $4)
   AND ($5::TIMESTAMP IS NULL OR created_at >= $5)
   AND ($6::TIMESTAMP IS NULL OR created_at <= $6)
 ORDER BY created_at DESC, id DESC
@@ -158,3 +158,44 @@ INSERT INTO freight_audit_log (
 SELECT * FROM freight_audit_log
 WHERE company_id = $1 AND freight_charge_id = $2
 ORDER BY created_at DESC;
+
+-- Cost centers are shared with accounting dimensions. Freight keeps its
+-- company-scoped access here so GL posting never crosses tenant boundaries.
+-- name: CreateFreightCostCenter :one
+INSERT INTO cost_centers (
+  company_id, code, name, cost_center_type, warehouse_id, gl_account, manager_id, is_active
+) VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE)
+RETURNING id, company_id, department_id, code, name, cost_center_type, warehouse_id,
+          gl_account, manager_id, is_active, created_at, updated_at;
+
+-- name: GetFreightCostCenter :one
+SELECT id, company_id, department_id, code, name, cost_center_type, warehouse_id,
+       gl_account, manager_id, is_active, created_at, updated_at
+FROM cost_centers
+WHERE id = $1 AND company_id = $2;
+
+-- name: GetFreightCostCenterByCode :one
+SELECT id, company_id, department_id, code, name, cost_center_type, warehouse_id,
+       gl_account, manager_id, is_active, created_at, updated_at
+FROM cost_centers
+WHERE company_id = $1 AND code = $2;
+
+-- name: ListFreightCostCenters :many
+SELECT id, company_id, department_id, code, name, cost_center_type, warehouse_id,
+       gl_account, manager_id, is_active, created_at, updated_at
+FROM cost_centers
+WHERE company_id = $1
+ORDER BY code ASC, id ASC;
+
+-- name: UpdateFreightCostCenter :one
+UPDATE cost_centers
+SET name = COALESCE($3, name),
+    cost_center_type = COALESCE($4, cost_center_type),
+    warehouse_id = COALESCE($5, warehouse_id),
+    gl_account = COALESCE($6, gl_account),
+    manager_id = COALESCE($7, manager_id),
+    is_active = COALESCE($8, is_active),
+    updated_at = NOW()
+WHERE id = $1 AND company_id = $2
+RETURNING id, company_id, department_id, code, name, cost_center_type, warehouse_id,
+          gl_account, manager_id, is_active, created_at, updated_at;
