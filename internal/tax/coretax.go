@@ -141,7 +141,7 @@ func (s *CoretaxService) postJSONWithContentType(ctx context.Context, path strin
 	if err != nil {
 		return CoretaxValidationResult{}, fmt.Errorf("tax: Coretax request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	responseBody, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
 		return CoretaxValidationResult{}, fmt.Errorf("tax: read Coretax response: %w", err)

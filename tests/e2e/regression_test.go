@@ -43,7 +43,7 @@ func TestRegressionFlow(t *testing.T) {
 	if response.StatusCode != http.StatusSeeOther {
 		t.Fatalf("login status = %d, want %d", response.StatusCode, http.StatusSeeOther)
 	}
-	response.Body.Close()
+	_ = response.Body.Close()
 
 	gotenbergURL := os.Getenv("GOTENBERG_URL")
 	screenshotDir := os.Getenv("ODYSSEY_E2E_SCREENSHOT_DIR")
@@ -146,7 +146,7 @@ func TestRegressionFlow(t *testing.T) {
 	for _, path := range []string{"/accounting/pnl/export.xlsx", "/accounting/budget/export.xlsx"} {
 		response = get(t, client, baseURL+path)
 		payload, _ := io.ReadAll(response.Body)
-		response.Body.Close()
+		_ = response.Body.Close()
 		if response.StatusCode != http.StatusOK {
 			t.Fatalf("GET %s status = %d, want 200", path, response.StatusCode)
 		}
@@ -423,7 +423,7 @@ func fetchPage(t *testing.T, client *http.Client, pageURL string) (finalURL stri
 	for hop := 0; ; hop++ {
 		response := get(t, client, current)
 		payload, err := io.ReadAll(response.Body)
-		response.Body.Close()
+		_ = response.Body.Close()
 		if err != nil {
 			t.Fatalf("GET %s: read body: %v", current, err)
 		}
@@ -479,7 +479,7 @@ func assertWorkspaceAPI(t *testing.T, client *http.Client, baseURL string) {
 	t.Helper()
 	response := get(t, client, baseURL+"/api/me")
 	payload, err := io.ReadAll(response.Body)
-	response.Body.Close()
+	_ = response.Body.Close()
 	if err != nil {
 		t.Fatalf("GET /api/me: read body: %v", err)
 	}
@@ -595,7 +595,7 @@ func assertMutationsRequireCSRF(t *testing.T, client *http.Client, baseURL strin
 				t.Fatalf("%s: %v", name, err)
 			}
 			_, _ = io.Copy(io.Discard, response.Body)
-			response.Body.Close()
+			_ = response.Body.Close()
 
 			if response.StatusCode != http.StatusForbidden {
 				t.Errorf("%s without a CSRF token returned %d, want 403; "+
@@ -623,7 +623,7 @@ func assertGuardedMutationSucceedsWithToken(t *testing.T, client *http.Client, b
 		"csrf_token": {token},
 	})
 	_, _ = io.Copy(io.Discard, response.Body)
-	response.Body.Close()
+	_ = response.Body.Close()
 	if response.StatusCode >= 400 {
 		t.Fatalf("POST %s with a valid token returned %d, want a success or redirect",
 			listPath, response.StatusCode)
@@ -709,7 +709,7 @@ func fetchCSRF(t *testing.T, client *http.Client, endpoint string) string {
 	t.Helper()
 	response := get(t, client, endpoint)
 	body, _ := io.ReadAll(response.Body)
-	response.Body.Close()
+	_ = response.Body.Close()
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("GET login status = %d", response.StatusCode)
 	}
@@ -772,7 +772,7 @@ func get(t *testing.T, client *http.Client, endpoint string) *http.Response {
 	// Absorb a throttle once rather than reporting it as a page failure.
 	if response.StatusCode == http.StatusTooManyRequests {
 		wait := retryAfter(response)
-		response.Body.Close()
+		_ = response.Body.Close()
 		t.Logf("rate limited on %s, retrying in %s", endpoint, wait)
 		time.Sleep(wait)
 		pace()
@@ -885,7 +885,7 @@ func TakePageScreenshot(t *testing.T, client *http.Client, cookieURL, pageURL, g
 	if err != nil {
 		return fmt.Errorf("gotenberg request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 400 {
 		respBody, _ := io.ReadAll(resp.Body)
@@ -900,7 +900,7 @@ func TakePageScreenshot(t *testing.T, client *http.Client, cookieURL, pageURL, g
 	if err != nil {
 		return fmt.Errorf("create output file: %w", err)
 	}
-	defer outFile.Close()
+	defer func() { _ = outFile.Close() }()
 
 	if _, err := io.Copy(outFile, resp.Body); err != nil {
 		return fmt.Errorf("save screenshot: %w", err)

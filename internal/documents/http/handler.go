@@ -240,7 +240,7 @@ func (h *Handler) createVersion(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "File upload missing or invalid", http.StatusBadRequest)
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	mimeType := header.Header.Get("Content-Type")
 	if mimeType == "" {

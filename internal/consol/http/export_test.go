@@ -16,7 +16,7 @@ import (
 func TestGotenbergPDFClientRetriesOnBadGateway(t *testing.T) {
 	var calls int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		defer r.Body.Close()
+		defer func() { _ = r.Body.Close() }()
 		_, _ = io.Copy(io.Discard, r.Body)
 		attempt := atomic.AddInt32(&calls, 1)
 		if attempt == 1 {
@@ -52,7 +52,7 @@ func TestGotenbergPDFClientRetriesOnBadGateway(t *testing.T) {
 
 func TestGotenbergPDFClientFailsWhenTooSmall(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		defer r.Body.Close()
+		defer func() { _ = r.Body.Close() }()
 		_, _ = io.Copy(io.Discard, r.Body)
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("small"))
@@ -76,7 +76,7 @@ func TestGotenbergPDFClientFailsWhenTooSmall(t *testing.T) {
 
 func TestGotenbergPDFClientTimeout(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		defer r.Body.Close()
+		defer func() { _ = r.Body.Close() }()
 		_, _ = io.Copy(io.Discard, r.Body)
 		time.Sleep(50 * time.Millisecond)
 		w.WriteHeader(http.StatusOK)

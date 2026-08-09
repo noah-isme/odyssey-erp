@@ -29,13 +29,13 @@ func testStorage(ctx context.Context, t *testing.T, s Storage) {
 	checksumHex := hex.EncodeToString(checksum[:])
 
 	key, err := s.Put(ctx, PutInput{
-		Data:                 strings.NewReader(string(content)),
-		Size:                 int64(len(content)),
-		DeclaredContentType:  "text/plain",
-		ChecksumSHA256:       checksumHex,
-		CompanyID:            companyID,
-		Classification:       "INTERNAL",
-		Metadata:             map[string]string{"test": "value"},
+		Data:                strings.NewReader(string(content)),
+		Size:                int64(len(content)),
+		DeclaredContentType: "text/plain",
+		ChecksumSHA256:      checksumHex,
+		CompanyID:           companyID,
+		Classification:      "INTERNAL",
+		Metadata:            map[string]string{"test": "value"},
 	})
 	if err != nil {
 		t.Fatalf("Put failed: %v", err)
@@ -65,7 +65,7 @@ func testStorage(ctx context.Context, t *testing.T, s Storage) {
 	if err != nil {
 		t.Fatalf("Get failed: %v", err)
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	readContent, err := io.ReadAll(reader)
 	if err != nil {
@@ -225,14 +225,14 @@ func TestStorageCompanyIsolation(t *testing.T) {
 		t.Fatalf("Get key1 failed: %v", err)
 	}
 	data1, _ := io.ReadAll(reader1)
-	reader1.Close()
+	_ = reader1.Close()
 
 	reader2, err := s.Get(ctx, key2)
 	if err != nil {
 		t.Fatalf("Get key2 failed: %v", err)
 	}
 	data2, _ := io.ReadAll(reader2)
-	reader2.Close()
+	_ = reader2.Close()
 
 	if string(data1) == string(data2) {
 		t.Error("Company data should be isolated")
@@ -321,7 +321,7 @@ func BenchmarkStorageGet(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		reader, _ := s.Get(ctx, key)
 		_, _ = io.ReadAll(reader)
-		reader.Close()
+		_ = reader.Close()
 	}
 }
 
@@ -356,7 +356,7 @@ func TestStorageRandomData(t *testing.T) {
 		}
 
 		readData, err := io.ReadAll(reader)
-		reader.Close()
+		_ = reader.Close()
 		if err != nil {
 			t.Fatalf("Read failed for size %d: %v", size, err)
 		}

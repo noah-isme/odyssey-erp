@@ -66,7 +66,7 @@ func (h *Handler) handleImportStatement(w http.ResponseWriter, r *http.Request) 
 		h.redirectWithFlash(w, r, "/finance/banking/accounts/"+strconv.FormatInt(accountID, 10), "error", "Pilih file CSV atau OFX")
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	content, err := io.ReadAll(io.LimitReader(file, 5<<20))
 	if err != nil {
 		h.redirectWithFlash(w, r, "/finance/banking/accounts/"+strconv.FormatInt(accountID, 10), "error", "File statement tidak dapat dibaca")

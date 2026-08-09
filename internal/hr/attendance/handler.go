@@ -47,7 +47,7 @@ func (h *Handler) importCSV(w http.ResponseWriter, r *http.Request) {
 		file, header, e := r.FormFile("file")
 		err = e
 		if e == nil {
-			defer file.Close()
+			defer func() { _ = file.Close() }()
 			result, err = h.service.Import(r.Context(), company, user, header.Filename, file)
 		}
 	}

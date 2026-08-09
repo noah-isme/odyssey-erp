@@ -40,10 +40,10 @@ func TestVisualSalesOrderFlow(t *testing.T) {
 		"csrf_token": {csrf},
 	})
 	if response.StatusCode != http.StatusSeeOther {
-		response.Body.Close()
+		_ = response.Body.Close()
 		t.Fatalf("login status = %d, want %d", response.StatusCode, http.StatusSeeOther)
 	}
-	response.Body.Close()
+	_ = response.Body.Close()
 
 	screenshotDir := os.Getenv("ODYSSEY_E2E_SCREENSHOT_DIR")
 	if screenshotDir == "" {
