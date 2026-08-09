@@ -1,0 +1,218 @@
+name: Deploy Staging
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+    branches:
+      - staging
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'staging' }}
+
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+
+    steps:
+      - name: Checkout tested commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build Odyssey staging artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+
+          # The production build tag selects the deployable release build; the
+          # deployment target for this workflow is the staging environment.
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+            go build \
+            -trimpath \
+            -tags production \
+            -ldflags='-s -w' \
+            -o dist/odyssey \
+            ./cmd/odyssey
+
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+            go build \
+            -trimpath \
+            -tags production \
+            -ldflags='-s -w' \
+            -o dist/worker \
+            ./cmd/worker
+
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+            go build \
+            -trimpath \
+            -tags production \
+            -ldflags='-s -w' \
+            -o dist/bootstrap-admin \
+            ./cmd/bootstrap-admin
+
+      - name: Build migration tool
+        shell: bash
+        run: |
+          set -euo pipefail
+          GOBIN="$PWD/dist" \
+            go install \
+            -tags postgres \
+            github.com/golang-migrate/migrate/v4/cmd/migrate@v4.18.3
+
+      - name: Prepare release
+        env:
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/migrations dist/web
+
+          cp -a migrations/. dist/migrations/
+          cp -a web/. dist/web/
+
+          printf '%s\n' "$SHA" > dist/REVISION
+          (
+            cd dist
+            sha256sum odyssey worker bootstrap-admin migrate
+          ) > dist/SHA256SUMS
+
+      - name: Configure SSH
+        env:
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${STAGING_HOST:?STAGING_HOST secret is required}"
+          : "${STAGING_SSH_KEY:?STAGING_SSH_KEY secret is required}"
+
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$STAGING_SSH_KEY" | tr -d '\r' > "$HOME/.ssh/deploy_key"
+          chmod 600 "$HOME/.ssh/deploy_key"
+
+          ssh-keyscan -T 10 -H "$STAGING_HOST" > "$HOME/.ssh/known_hosts"
+
+      - name: Upload release
+        env:
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_USER: ${{ secrets.STAGING_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${STAGING_HOST:?STAGING_HOST secret is required}"
+          : "${STAGING_USER:?STAGING_USER secret is required}"
+
+          short_sha="${SHA:0:7}"
+          release_dir="/opt/odyssey-staging/releases/${short_sha}"
+          ssh_opts=(-i "$HOME/.ssh/deploy_key" -o BatchMode=yes -o StrictHostKeyChecking=yes)
+          remote="${STAGING_USER}@${STAGING_HOST}"
+
+          ssh "${ssh_opts[@]}" "$remote" "install -d -m 0755 '$release_dir'"
+          rsync \
+            -az \
+            --delete \
+            -e "ssh ${ssh_opts[*]}" \
+            dist/ \
+            "${remote}:${release_dir}/"
+
+      - name: Deploy release
+        env:
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_USER: ${{ secrets.STAGING_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${STAGING_HOST:?STAGING_HOST secret is required}"
+          : "${STAGING_USER:?STAGING_USER secret is required}"
+
+          short_sha="${SHA:0:7}"
+          ssh_opts=(-i "$HOME/.ssh/deploy_key" -o BatchMode=yes -o StrictHostKeyChecking=yes)
+          remote="${STAGING_USER}@${STAGING_HOST}"
+
+          ssh "${ssh_opts[@]}" "$remote" bash -s -- "$short_sha" <<'REMOTE'
+          set -euo pipefail
+
+          short_sha="$1"
+          release="/opt/odyssey-staging/releases/${short_sha}"
+
+          test -f "$release/odyssey"
+          test -f "$release/worker"
+          test -f "$release/bootstrap-admin"
+          test -f "$release/migrate"
+          test -f "$release/REVISION"
+          test -d "$release/migrations"
+          test -d "$release/web"
+
+          chmod +x \
+            "$release/odyssey" \
+            "$release/worker" \
+            "$release/bootstrap-admin" \
+            "$release/migrate"
+
+          test -x "$release/odyssey"
+          test -x "$release/worker"
+          test -x "$release/bootstrap-admin"
+          test -x "$release/migrate"
+
+          (
+            cd "$release"
+            sha256sum -c SHA256SUMS
+          )
+
+          set -a
+          . /opt/odyssey-staging/.env
+          set +a
+          : "${PG_DSN:?PG_DSN must be set in /opt/odyssey-staging/.env}"
+
+          "$release/migrate" \
+            -path "$release/migrations" \
+            -database "$PG_DSN" \
+            up
+
+          ln -sfn "$release" /opt/odyssey-staging/current
+
+          sudo -n systemctl restart odyssey-staging.service
+          sudo -n systemctl restart odyssey-staging-worker.service
+
+          for attempt in $(seq 1 30); do
+            if curl -fsS --max-time 5 \
+              http://127.0.0.1:8180/healthz \
+              >/dev/null; then
+              echo 'Odyssey deployment healthy'
+              exit 0
+            fi
+
+            sleep 2
+          done
+
+          echo 'Health check failed'
+          sudo -n systemctl --no-pager --full status odyssey-staging.service || true
+          sudo -n systemctl --no-pager --full status odyssey-staging-worker.service || true
+          exit 1
+          REMOTE
+
+      - name: Cleanup SSH credentials
+        if: ${{ always() }}
+        shell: bash
+        run: rm -f "$HOME/.ssh/deploy_key"

@@ -109,7 +109,8 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 | [v0.9.1](releases/v0.9.1.md) | **Latest named release** — Enterprise UI/UX overhaul (2026-05-28) |
 | [Version and Progress Report](releases/VERSION_HISTORY.md) | Differences between releases and post-v0.9.1 implementation progress |
 | [Production Release Checklist](releases/production-release-checklist.md) | Code, certification, operations, deployment, and rollback gates |
-| [VPS Production Deployment](DEPLOYMENT.md) | Self-managed VPS runbook for systemd, Nginx, backups, health checks, and rollback |
+| [VPS Production Deployment](DEPLOYMENT.md) | Self-managed production VPS runbook for systemd, Nginx, backups, health checks, and rollback |
+| [VPS Staging Deployment](STAGING_DEPLOYMENT.md) | Isolated `staging` branch deployment contract, systemd services, health checks, and rollback |
 | [v0.9.0](releases/v0.9.0.md) | Phase 9 — Sales & AR complete |
 | [v0.8.0](releases/v0.8.0.md) | Phase 8 — Board Pack |
 | [v0.7.0](releases/v0.7.0.md) | Phase 7 |

@@ -32,6 +32,7 @@ the [E2E Browser Testing guide](docs/guides/e2e-browser-testing.md) for setup an
 capture instructions.
 
 For self-managed VPS deployment, use the [VPS production deployment guide](docs/DEPLOYMENT.md).
+The `staging` branch uses the isolated [staging VPS deployment guide](docs/STAGING_DEPLOYMENT.md).
 
 The current release candidate is [v0.10.0-rc.3](docs/releases/v0.10.0-rc.3.md).
 For production promotion, use the [Production Release Checklist](docs/releases/production-release-checklist.md);

@@ -5,6 +5,11 @@
 **Deployment target:** Self-managed VPS
 **Status:** Production runbook; operator sign-off required
 
+> This runbook is production-only. The `staging` branch deploys through the
+> isolated staging contract in [STAGING_DEPLOYMENT.md](STAGING_DEPLOYMENT.md);
+> it does not use the production host, paths, services, or secrets described
+> below.
+
 ---
 
 ## Table of Contents
@@ -51,107 +56,36 @@
 
 ### Environment Variables
 
-Create `.env.production`:
+Create `/opt/odyssey/.env` on the VPS. This file stays outside release
+directories, is never committed, and is sourced by both systemd services and
+the native deployment workflow:
 
 ```bash
 # Application
-ENVIRONMENT=production
-PORT=8080
-LOG_LEVEL=info
-ENABLE_PROFILING=false
+APP_ENV=production
+APP_ADDR=:8080
+LOG_FORMAT=json
 
 # Database
-DB_DSN=postgres://user:password@db-host:5432/odyssey?sslmode=require
-DB_MAX_CONNECTIONS=25
-DB_CONN_TIMEOUT=30s
+PG_DSN=postgres://user:password@db-host:5432/odyssey?sslmode=require
+
+# Cache / job queue
+REDIS_ADDR=redis-host:6379
 
 # Session Management
-SESSION_TIMEOUT=1h
-SESSION_SECURE_COOKIE=true
-SESSION_SAME_SITE=Strict
+SESSION_SECRET=replace-with-a-long-random-secret
+SESSION_TTL=720h
+CSRF_SECRET=replace-with-a-different-long-random-secret
 
-# TLS/HTTPS
-TLS_ENABLED=true
-TLS_CERT_FILE=/etc/odyssey/certs/server.crt
-TLS_KEY_FILE=/etc/odyssey/certs/server.key
-
-# Cache Configuration
-CACHE_ENABLED=true
-CACHE_TTL_SHORT=15m
-CACHE_TTL_MEDIUM=1h
-CACHE_TTL_LONG=6h
-
-# Monitoring
-METRICS_ENABLED=true
-TRACES_ENABLED=true
-JAEGER_ENDPOINT=http://jaeger:14268/api/traces
-
-# Security
-CORS_ALLOWED_ORIGINS=https://app.odyssey.com
-CSRF_TOKEN_LENGTH=32
-RATE_LIMIT_REQUESTS=100
-RATE_LIMIT_WINDOW=1m
+# Production connector policy and PDF service
+CONNECTORS_DEVELOPMENT_MODE=false
+GOTENBERG_URL=http://127.0.0.1:3000
 ```
 
-### Configuration File
-
-`config/production.yaml`:
-
-```yaml
-app:
-  name: Odyssey ERP
-  environment: production
-  version: 1.0.0
-
-database:
-  driver: postgres
-  connection:
-    host: db-host
-    port: 5432
-    database: odyssey
-    ssl: require
-  pool:
-    min_connections: 5
-    max_connections: 25
-    idle_timeout: 5m
-    lifetime: 30m
-  query:
-    timeout: 30s
-    slow_query_threshold: 100ms
-
-server:
-  host: 0.0.0.0
-  port: 8080
-  read_timeout: 30s
-  write_timeout: 30s
-  idle_timeout: 120s
-  max_header_bytes: 1048576
-
-tls:
-  enabled: true
-  cert_file: /etc/odyssey/certs/server.crt
-  key_file: /etc/odyssey/certs/server.key
-  min_version: "1.2"
-
-logging:
-  level: info
-  format: json
-  output: stdout
-
-cache:
-  enabled: true
-  ttl:
-    short: 15m
-    medium: 1h
-    long: 6h
-  max_size: 1000
-
-security:
-  session_timeout: 1h
-  secure_cookie: true
-  csrf_protection: true
-  rate_limiting: true
-```
+The application reads runtime configuration from environment variables through
+`internal/app/config.go`; there is no checked-in `config/production.yaml` to
+copy into a release. Set `SESSION_SECRET` and `CSRF_SECRET` to unique secret
+values and keep `CONNECTORS_DEVELOPMENT_MODE=false` in production.
 
 ---
 
@@ -228,68 +162,56 @@ psql $PG_DSN -c "SELECT COUNT(*) as warehouse_count FROM warehouses;"
 
 ## Deployment Steps
 
-### 1. Build Binary
+### 1. Native release layout
+
+Production uses the following native release layout. The
+`.github/workflows/deploy-native.yml` file on the `staging` branch is
+intentionally a staging workflow; follow
+[STAGING_DEPLOYMENT.md](STAGING_DEPLOYMENT.md) for that branch. Do not point
+the staging workflow at the production paths below.
 
 ```bash
-# Build for production
-make build
-
-# Verify binary
-./odyssey-erp version
-
-# Expected: Version 1.0.0 (production)
+sudo install -d -o odyssey -g odyssey -m 0755 /opt/odyssey/releases
+sudo install -d -o odyssey -g odyssey -m 0755 /opt/odyssey
+sudo install -o odyssey -g odyssey -m 0600 /dev/null /opt/odyssey/.env
 ```
 
-### 2. Prepare Application Directory
+Each release is uploaded to `/opt/odyssey/releases/<short-sha>` and contains
+`odyssey`, `worker`, `bootstrap-admin`, `migrate`, `migrations/`, `web/`, and
+checksum/revision metadata. The workflow switches the atomic
+`/opt/odyssey/current` symlink only after migrations and checksum verification.
+Configure these repository secrets before enabling the workflow:
+`PRODUCTION_HOST`, `PRODUCTION_USER`, and `PRODUCTION_SSH_KEY`. Configure a
+GitHub `production` environment with required reviewers if deployment approval
+is needed. `PRODUCTION_USER` must be able to write the release/current paths
+and run the two systemd commands with passwordless `sudo -n`.
 
-```bash
-# Create application directories
-mkdir -p /opt/odyssey/{bin,config,certs,logs}
-
-# Copy binary
-cp odyssey-erp /opt/odyssey/bin/
-chmod +x /opt/odyssey/bin/odyssey-erp
-
-# Copy configuration
-cp config/production.yaml /opt/odyssey/config/
-cp .env.production /opt/odyssey/
-
-# Copy TLS certificates
-cp /path/to/certs/* /opt/odyssey/certs/
-chmod 600 /opt/odyssey/certs/*
-
-# Set permissions
-chown -R odyssey:odyssey /opt/odyssey
-chmod 755 /opt/odyssey/bin/odyssey-erp
-```
-
-### 3. Create Systemd Service
+### 2. Create systemd services
 
 Create `/etc/systemd/system/odyssey.service`:
 
 ```ini
 [Unit]
 Description=Odyssey ERP Application
-After=network.target postgresql.service
-Requires=postgresql.service
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
 User=odyssey
 Group=odyssey
-WorkingDirectory=/opt/odyssey
+WorkingDirectory=/opt/odyssey/current
 
 # Load environment
-EnvironmentFile=/opt/odyssey/.env.production
+EnvironmentFile=/opt/odyssey/.env
 
 # Start command
-ExecStart=/opt/odyssey/bin/odyssey-erp \
-  -config /opt/odyssey/config/production.yaml
+ExecStart=/opt/odyssey/current/odyssey
 
 # Restart policy
 Restart=on-failure
 RestartSec=10
-StartLimitInterval=60
+StartLimitIntervalSec=60
 StartLimitBurst=3
 
 # Process management
@@ -310,28 +232,58 @@ NoNewPrivileges=true
 WantedBy=multi-user.target
 ```
 
-### 4. Start Service
+Create `/etc/systemd/system/odyssey-worker.service` with the same unit policy
+and environment, but run the background worker:
+
+```ini
+[Unit]
+Description=Odyssey ERP Worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=odyssey
+Group=odyssey
+WorkingDirectory=/opt/odyssey/current
+EnvironmentFile=/opt/odyssey/.env
+ExecStart=/opt/odyssey/current/worker
+Restart=on-failure
+RestartSec=10
+StartLimitIntervalSec=60
+StartLimitBurst=3
+KillMode=process
+KillSignal=SIGTERM
+TimeoutStopSec=30
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=odyssey-worker
+PrivateTmp=yes
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
+```
+
+### 3. Enable services
 
 ```bash
 # Reload systemd
 sudo systemctl daemon-reload
 
-# Enable on boot
-sudo systemctl enable odyssey
-
-# Start service
-sudo systemctl start odyssey
+# Enable and start both processes
+sudo systemctl enable --now odyssey.service odyssey-worker.service
 
 # Check status
-sudo systemctl status odyssey
+sudo systemctl status odyssey.service odyssey-worker.service
 
 # View logs
-sudo journalctl -u odyssey -f
+sudo journalctl -u odyssey.service -u odyssey-worker.service -f
 
 # Expected: Service started successfully, listening on :8080
 ```
 
-### 5. Configure Reverse Proxy (Nginx)
+### 4. Configure Reverse Proxy (Nginx)
 
 Create `/etc/nginx/sites-available/odyssey`:
 
@@ -414,7 +366,7 @@ sudo systemctl reload nginx
 
 ```bash
 # Basic health check
-curl -s https://app.odyssey.com/health | jq .
+curl -s https://app.odyssey.com/healthz | jq .
 
 # Expected response:
 # {
@@ -455,13 +407,13 @@ curl -H "Authorization: Bearer $TOKEN" \
 
 ```bash
 # View application logs
-sudo journalctl -u odyssey -n 100
+sudo journalctl -u odyssey.service -u odyssey-worker.service -n 100
 
 # Tail logs in real-time
-sudo journalctl -u odyssey -f
+sudo journalctl -u odyssey.service -u odyssey-worker.service -f
 
 # Filter by log level
-sudo journalctl -u odyssey --priority err
+sudo journalctl -u odyssey.service -u odyssey-worker.service --priority err
 
 # Set retention
 echo "SystemMaxUse=1G" | sudo tee -a /etc/systemd/journald.conf
@@ -513,17 +465,14 @@ expr: cache_hit_ratio < 0.7
 ### Quick Rollback (< 5 minutes)
 
 ```bash
-# Stop current version
-sudo systemctl stop odyssey
+# Point the current symlink at a previously verified release
+sudo ln -sfn /opt/odyssey/releases/<previous-short-sha> /opt/odyssey/current
 
-# Restore previous binary
-cp /opt/odyssey/backups/odyssey-erp.previous /opt/odyssey/bin/odyssey-erp
-
-# Start previous version
-sudo systemctl start odyssey
+# Restart both processes
+sudo systemctl restart odyssey.service odyssey-worker.service
 
 # Verify health
-curl -s https://app.odyssey.com/health
+curl -fsS https://app.odyssey.com/healthz
 ```
 
 ### Database Rollback (if migrations failed)
@@ -548,12 +497,11 @@ ls -la /opt/odyssey/backups/
 # Restore database from backup (if needed)
 pg_restore -d odyssey /opt/odyssey/backups/odyssey.sql.gz
 
-# Restore application binary and config
-rm -rf /opt/odyssey/bin /opt/odyssey/config
-cp -r /opt/odyssey/backups/previous/* /opt/odyssey/
+# Restore the application symlink and restart both processes
+sudo ln -sfn /opt/odyssey/releases/<previous-short-sha> /opt/odyssey/current
 
 # Restart
-sudo systemctl restart odyssey
+sudo systemctl restart odyssey.service odyssey-worker.service
 ```
 
 ---
@@ -662,7 +610,7 @@ psql -c "SELECT count(*) FROM pg_stat_activity WHERE state = 'active';"
 ### Incident Response
 
 1. **Check logs:** `sudo journalctl -u odyssey -f`
-2. **Verify health:** `curl https://app.odyssey.com/health`
+2. **Verify health:** `curl https://app.odyssey.com/healthz`
 3. **Check database:** `psql $PG_DSN -c "SELECT 1"`
 4. **Restart if needed:** `sudo systemctl restart odyssey`
 5. **Document in runbook**
@@ -702,4 +650,4 @@ psql -c "SELECT count(*) FROM pg_stat_activity WHERE state = 'active';"
 
 ---
 
-**Deployment Status: READY FOR PRODUCTION** ✅
+**Deployment Status:** VPS runbook; operator sign-off and production evidence required.
