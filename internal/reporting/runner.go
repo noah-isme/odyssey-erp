@@ -29,7 +29,7 @@ func NewRunner(repo ReportRunRepository, executor QueryExecutor) *Runner {
 	}
 }
 
-func (r *Runner) RunQuery(ctx context.Context, companyID, datasetID, actorID uuid.UUID, plan *CompiledPlan) error {
+func (r *Runner) RunQuery(ctx context.Context, companyID, actorID int64, datasetID uuid.UUID, plan *CompiledPlan) error {
 	// 1. Create Run Metadata
 	runID, err := r.repo.CreateReportRun(ctx, ReportRunCreateInput{
 		CompanyID:         companyID,

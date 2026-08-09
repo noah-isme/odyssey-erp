@@ -32,6 +32,12 @@ advertised integrated route sources. `make pdf-release-check` explicitly compile
 tests the production PDF implementation with `production pdf` build tags. The default
 non-production PDF build is intentionally disabled and may return HTTP 503.
 
+The current CI-equivalent verification also records unresolved application-level E2E
+blockers in the [HTTP E2E regression guide](docs/guides/e2e-regression.md). Static,
+database, unit-test, build, and PDF gates may be green while the full route sweep is
+still red; that state is not release-ready and must not be hidden by weakening the
+test or reclassifying partial features as integrated.
+
 ## Recommended development sequence
 
 1. Keep the matrix current as each capability moves from code to integration.

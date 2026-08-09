@@ -1677,7 +1677,7 @@ type CompanyModuleFeature struct {
 }
 
 type CompanyPolicy struct {
-	CompanyID pgtype.UUID        `json:"company_id"`
+	CompanyID int64              `json:"company_id"`
 	Timezone  string             `json:"timezone"`
 	Locale    string             `json:"locale"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
@@ -1685,7 +1685,7 @@ type CompanyPolicy struct {
 
 type CompanyRole struct {
 	ID         pgtype.UUID        `json:"id"`
-	CompanyID  pgtype.UUID        `json:"company_id"`
+	CompanyID  int64              `json:"company_id"`
 	TemplateID pgtype.UUID        `json:"template_id"`
 	Name       string             `json:"name"`
 	Status     string             `json:"status"`
@@ -2438,7 +2438,7 @@ type FinanceAutomationSetting struct {
 
 type FiscalCalendar struct {
 	ID        pgtype.UUID        `json:"id"`
-	CompanyID pgtype.UUID        `json:"company_id"`
+	CompanyID int64              `json:"company_id"`
 	Name      string             `json:"name"`
 	Status    string             `json:"status"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
@@ -4778,9 +4778,9 @@ type RateSurcharge struct {
 
 type ReportRun struct {
 	ID                pgtype.UUID        `json:"id"`
-	CompanyID         pgtype.UUID        `json:"company_id"`
+	CompanyID         int64              `json:"company_id"`
 	DatasetID         pgtype.UUID        `json:"dataset_id"`
-	ActorID           pgtype.UUID        `json:"actor_id"`
+	ActorID           int64              `json:"actor_id"`
 	Status            string             `json:"status"`
 	RowCount          pgtype.Int4        `json:"row_count"`
 	ErrorMessage      pgtype.Text        `json:"error_message"`
@@ -4817,11 +4817,11 @@ type ReportScheduleDelivery struct {
 
 type ReportingDataset struct {
 	ID             pgtype.UUID        `json:"id"`
-	CompanyID      pgtype.UUID        `json:"company_id"`
+	CompanyID      int64              `json:"company_id"`
 	Version        int32              `json:"version"`
 	Key            string             `json:"key"`
-	BusinessOwner  pgtype.UUID        `json:"business_owner"`
-	TechnicalOwner pgtype.UUID        `json:"technical_owner"`
+	BusinessOwner  pgtype.Int8        `json:"business_owner"`
+	TechnicalOwner pgtype.Int8        `json:"technical_owner"`
 	Status         string             `json:"status"`
 	Description    pgtype.Text        `json:"description"`
 	Grain          pgtype.Text        `json:"grain"`
@@ -5102,10 +5102,10 @@ type SalesOrderLine struct {
 
 type ScopedUserRole struct {
 	ID        pgtype.UUID        `json:"id"`
-	CompanyID pgtype.UUID        `json:"company_id"`
-	UserID    pgtype.UUID        `json:"user_id"`
+	CompanyID int64              `json:"company_id"`
+	UserID    int64              `json:"user_id"`
 	RoleID    pgtype.UUID        `json:"role_id"`
-	BranchID  pgtype.UUID        `json:"branch_id"`
+	BranchID  pgtype.Int8        `json:"branch_id"`
 	ValidFrom pgtype.Timestamptz `json:"valid_from"`
 	ValidTo   pgtype.Timestamptz `json:"valid_to"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`

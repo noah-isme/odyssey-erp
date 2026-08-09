@@ -43,9 +43,9 @@ func NewRepository(pool *pgxpool.Pool) *PGRepository {
 	return &PGRepository{queries: sqlc.New(pool)}
 }
 
-func (r *PGRepository) GetDataset(ctx context.Context, companyID uuid.UUID, key string, version int) (DatasetRecord, error) {
+func (r *PGRepository) GetDataset(ctx context.Context, companyID int64, key string, version int) (DatasetRecord, error) {
 	row, err := r.queries.GetReportingDataset(ctx, sqlc.GetReportingDatasetParams{
-		CompanyID: pgtype.UUID{Bytes: companyID, Valid: true},
+		CompanyID: companyID,
 		Key:       key,
 		Version:   int32(version),
 	})
@@ -79,9 +79,9 @@ func (r *PGRepository) ListDatasetFields(ctx context.Context, datasetID uuid.UUI
 
 // ReportRunCreateInput is the persistence-neutral input for a report run.
 type ReportRunCreateInput struct {
-	CompanyID         uuid.UUID
+	CompanyID         int64
 	DatasetID         uuid.UUID
-	ActorID           uuid.UUID
+	ActorID           int64
 	Status            string
 	QueryCostEstimate int
 }
@@ -99,9 +99,9 @@ type ReportRunStatusUpdate struct {
 
 func (r *PGRepository) CreateReportRun(ctx context.Context, input ReportRunCreateInput) (uuid.UUID, error) {
 	row, err := r.queries.CreateReportRun(ctx, sqlc.CreateReportRunParams{
-		CompanyID:         pgtype.UUID{Bytes: input.CompanyID, Valid: true},
+		CompanyID:         input.CompanyID,
 		DatasetID:         pgtype.UUID{Bytes: input.DatasetID, Valid: true},
-		ActorID:           pgtype.UUID{Bytes: input.ActorID, Valid: true},
+		ActorID:           input.ActorID,
 		Status:            input.Status,
 		QueryCostEstimate: pgtype.Int4{Int32: int32(input.QueryCostEstimate), Valid: true},
 	})

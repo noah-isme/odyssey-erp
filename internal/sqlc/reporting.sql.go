@@ -24,9 +24,9 @@ INSERT INTO report_runs (
 `
 
 type CreateReportRunParams struct {
-	CompanyID         pgtype.UUID `json:"company_id"`
+	CompanyID         int64       `json:"company_id"`
 	DatasetID         pgtype.UUID `json:"dataset_id"`
-	ActorID           pgtype.UUID `json:"actor_id"`
+	ActorID           int64       `json:"actor_id"`
 	Status            string      `json:"status"`
 	QueryCostEstimate pgtype.Int4 `json:"query_cost_estimate"`
 }
@@ -74,11 +74,11 @@ INSERT INTO reporting_datasets (
 `
 
 type CreateReportingDatasetParams struct {
-	CompanyID      pgtype.UUID `json:"company_id"`
+	CompanyID      int64       `json:"company_id"`
 	Version        int32       `json:"version"`
 	Key            string      `json:"key"`
-	BusinessOwner  pgtype.UUID `json:"business_owner"`
-	TechnicalOwner pgtype.UUID `json:"technical_owner"`
+	BusinessOwner  pgtype.Int8 `json:"business_owner"`
+	TechnicalOwner pgtype.Int8 `json:"technical_owner"`
 	Status         string      `json:"status"`
 	Description    pgtype.Text `json:"description"`
 	Grain          pgtype.Text `json:"grain"`
@@ -163,9 +163,9 @@ WHERE company_id = $1 AND key = $2 AND version = $3
 `
 
 type GetReportingDatasetParams struct {
-	CompanyID pgtype.UUID `json:"company_id"`
-	Key       string      `json:"key"`
-	Version   int32       `json:"version"`
+	CompanyID int64  `json:"company_id"`
+	Key       string `json:"key"`
+	Version   int32  `json:"version"`
 }
 
 func (q *Queries) GetReportingDataset(ctx context.Context, arg GetReportingDatasetParams) (ReportingDataset, error) {
@@ -228,7 +228,7 @@ WHERE company_id = $1 AND status = 'PUBLISHED'
 ORDER BY key ASC, version DESC
 `
 
-func (q *Queries) ListReportingDatasets(ctx context.Context, companyID pgtype.UUID) ([]ReportingDataset, error) {
+func (q *Queries) ListReportingDatasets(ctx context.Context, companyID int64) ([]ReportingDataset, error) {
 	rows, err := q.db.Query(ctx, listReportingDatasets, companyID)
 	if err != nil {
 		return nil, err

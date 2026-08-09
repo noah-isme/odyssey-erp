@@ -28,6 +28,7 @@ jobs:
       REDIS_ADDR: localhost:6379
       ODYSSEY_TEST_MODE: "1"
       GOTENBERG_URL: http://127.0.0.1:0
+      APP_MASTER_KEY: ci-master-key-not-for-production
       GOPROXY: https://proxy.golang.org
       GOSUMDB: sum.golang.org
       GOFLAGS: -mod=readonly

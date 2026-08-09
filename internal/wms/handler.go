@@ -97,7 +97,7 @@ func (h *Handler) cancelWave(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) createWave(w http.ResponseWriter, r *http.Request) {
 	if h.pool == nil {
-		http.Error(w, "WMS database is unavailable", 503)
+		http.Error(w, "WMS database is unavailable", http.StatusServiceUnavailable)
 		return
 	}
 	uid, cid, ok := sessionIDs(r)

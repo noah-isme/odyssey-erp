@@ -5,11 +5,11 @@
 -- 1. Governed Reporting Datasets
 CREATE TABLE reporting_datasets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    company_id UUID NOT NULL REFERENCES companies(id),
+    company_id BIGINT NOT NULL REFERENCES companies(id),
     version INT NOT NULL DEFAULT 1,
     key VARCHAR(255) NOT NULL,
-    business_owner UUID REFERENCES users(id),
-    technical_owner UUID REFERENCES users(id),
+    business_owner BIGINT REFERENCES users(id),
+    technical_owner BIGINT REFERENCES users(id),
     status VARCHAR(50) NOT NULL DEFAULT 'DRAFT',
     description TEXT,
     grain VARCHAR(255),
@@ -42,7 +42,7 @@ CREATE TABLE role_templates (
 
 CREATE TABLE company_roles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    company_id UUID NOT NULL REFERENCES companies(id),
+    company_id BIGINT NOT NULL REFERENCES companies(id),
     template_id UUID REFERENCES role_templates(id),
     name VARCHAR(255) NOT NULL,
     status VARCHAR(50) NOT NULL DEFAULT 'DRAFT',
@@ -53,10 +53,10 @@ CREATE TABLE company_roles (
 
 CREATE TABLE scoped_user_roles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    company_id UUID NOT NULL REFERENCES companies(id),
-    user_id UUID NOT NULL REFERENCES users(id),
+    company_id BIGINT NOT NULL REFERENCES companies(id),
+    user_id BIGINT NOT NULL REFERENCES users(id),
     role_id UUID NOT NULL REFERENCES company_roles(id),
-    branch_id UUID, -- Optional branch scope
+    branch_id BIGINT, -- Optional branch scope
     valid_from TIMESTAMPTZ,
     valid_to TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -66,7 +66,7 @@ CREATE TABLE scoped_user_roles (
 -- 3. Fiscal Calendars
 CREATE TABLE fiscal_calendars (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    company_id UUID NOT NULL REFERENCES companies(id),
+    company_id BIGINT NOT NULL REFERENCES companies(id),
     name VARCHAR(255) NOT NULL,
     status VARCHAR(50) NOT NULL DEFAULT 'DRAFT',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -89,7 +89,7 @@ CREATE TABLE fiscal_periods (
 
 -- 4. Company Policies (Timezone & Locale)
 CREATE TABLE company_policies (
-    company_id UUID PRIMARY KEY REFERENCES companies(id),
+    company_id BIGINT PRIMARY KEY REFERENCES companies(id),
     timezone VARCHAR(100) NOT NULL DEFAULT 'UTC',
     locale VARCHAR(20) NOT NULL DEFAULT 'id-ID',
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

@@ -7,7 +7,12 @@ only in the [authoritative feature matrix](reference/feature-matrix.md).
 
 ## Unreleased
 
-No changes have been added after `v0.10.0-rc.3`.
+- CI now supplies a non-production encryption key for route-dump/server smoke tests,
+  aligns reporting and project migrations with the existing BIGINT company/user
+  schema, and regenerates the reporting SQLC boundary accordingly.
+- The remaining full HTTP E2E blockers and their acceptance criteria are recorded in
+  the [HTTP E2E regression guide](guides/e2e-regression.md). The release candidate is
+  not certified while that sweep remains red.
 
 ## v0.10.0-rc.3 — 2026-08-10
 

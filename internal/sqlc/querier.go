@@ -765,7 +765,7 @@ type Querier interface {
 	ListRateSurcharges(ctx context.Context, rateCardID int64) ([]RateSurcharge, error)
 	ListRecentPeriods(ctx context.Context, arg ListRecentPeriodsParams) ([]ListRecentPeriodsRow, error)
 	ListReportingDatasetFields(ctx context.Context, datasetID pgtype.UUID) ([]ReportingDatasetField, error)
-	ListReportingDatasets(ctx context.Context, companyID pgtype.UUID) ([]ReportingDataset, error)
+	ListReportingDatasets(ctx context.Context, companyID int64) ([]ReportingDataset, error)
 	ListRolePermissions(ctx context.Context, roleID int64) ([]Permission, error)
 	ListRuns(ctx context.Context, arg ListRunsParams) ([]ListRunsRow, error)
 	ListShipmentLines(ctx context.Context, shipmentID int64) ([]ShipmentLine, error)

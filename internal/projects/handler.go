@@ -46,12 +46,12 @@ func (h *Handler) MountRoutes(r chi.Router) {
 
 func (h *Handler) createProject(w http.ResponseWriter, r *http.Request) {
 	if h.pool == nil {
-		http.Error(w, "projects database is unavailable", 503)
+		http.Error(w, "projects database is unavailable", http.StatusServiceUnavailable)
 		return
 	}
 	u, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	var in struct {
@@ -81,12 +81,12 @@ func (h *Handler) createProject(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) createTask(w http.ResponseWriter, r *http.Request) {
 	if h.pool == nil {
-		http.Error(w, "projects database is unavailable", 503)
+		http.Error(w, "projects database is unavailable", http.StatusServiceUnavailable)
 		return
 	}
 	_, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	projectID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
@@ -137,7 +137,7 @@ func jsonOut(w http.ResponseWriter, status int, v any) {
 func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 	u, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	var s Timesheet
@@ -156,7 +156,7 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) transition(w http.ResponseWriter, r *http.Request, fn func(context.Context, int64, int64, int64) (Timesheet, error)) {
 	u, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	id, e := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
@@ -193,7 +193,7 @@ func (h *Handler) lock(w http.ResponseWriter, r *http.Request) { h.transition(w,
 func (h *Handler) createMilestone(w http.ResponseWriter, r *http.Request) {
 	_, _, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	var in ProjectMilestone
@@ -211,7 +211,7 @@ func (h *Handler) createMilestone(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) allocateResource(w http.ResponseWriter, r *http.Request) {
 	_, _, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	var in ResourceAllocation
@@ -229,7 +229,7 @@ func (h *Handler) allocateResource(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) submitExpense(w http.ResponseWriter, r *http.Request) {
 	_, _, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	var in ProjectExpense
