@@ -1,7 +1,7 @@
 # Production Release Checklist
 
-**State:** preparation only; no release number, tag, or deployment approval has
-been assigned.
+**State:** `v0.10.0-rc.1` candidate prepared; production promotion and final tag
+approval are still pending.
 
 **Reviewed:** 2026-08-10
 
@@ -12,18 +12,18 @@ its `production-certified` evidence is recorded there.
 
 ## 1. Release identity and scope
 
-- [ ] Choose the release number and date after reviewing the exact commit.
+- [x] Choose the release candidate number and date after reviewing the exact commit.
 - [ ] Define the capability scope. Update the feature matrix only with evidence
       for that scope; do not promote partial capabilities by implication.
 - [ ] Confirm the working tree is clean, excluding generated `graphify-out/`
       state, and review every migration, configuration, and documentation change.
-- [ ] Create a signed release tag only after all required gates below pass.
+- [ ] Create a signed final release tag only after all required gates below pass.
 - [ ] Record the commit, image digest, migration range, and rollback target in
       the release notes.
 
-The repository currently has no release tag for the post-v0.9.1 work. The final
-gate therefore remains intentionally blocked until a release owner assigns the
-version and scope.
+The `v0.10.0-rc.1` candidate is a packaging checkpoint, not a production approval.
+The final gate remains intentionally blocked until its scope and evidence are
+certified by the release owner.
 
 ## 2. Repeatable repository gates
 
@@ -56,7 +56,7 @@ Before release, run the final gate from a clean, tagged checkout:
 make production-release-check
 ```
 
-It intentionally fails when the version is unassigned, release-gated tests are
+It intentionally fails when the candidate is not tagged, release-gated tests are
 blocked, matrix certification is missing, the Render Free blueprint is present,
 or the candidate has uncommitted non-Graphify changes.
 
@@ -118,14 +118,14 @@ or the candidate has uncommitted non-Graphify changes.
 
 The current repository deliberately does not claim production release readiness:
 
-- post-v0.9.1 work has no assigned release number or tag;
+- `v0.10.0-rc.1` is a release candidate, not a production-certified final release;
 - the feature matrix records `production-certified=no` for the current capability
   rows until staging/provider/operational evidence is supplied;
 - Coretax and annual PPh 21 release tests are explicit blocked gates;
 - `render.yaml` is a Free demo/staging blueprint without a worker, persistent
   Redis, managed Gotenberg, or production database backup guarantees;
-- the active worktree still contains uncommitted Documents/CMMS/MRP implementation
-  changes that must be reviewed and packaged before a release tag.
+- final staging, provider, security, migration, and operational evidence is still
+  required before promoting the candidate to `v0.10.0`.
 
 These are release controls, not suggestions to bypass. Complete the evidence,
 then update the matrix and release notes together.

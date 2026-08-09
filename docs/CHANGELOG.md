@@ -7,12 +7,18 @@ only in the [authoritative feature matrix](reference/feature-matrix.md).
 
 ## Unreleased
 
+No changes have been added after `v0.10.0-rc.1`.
+
+## v0.10.0-rc.1 — 2026-08-10
+
+Release candidate for the post-v0.9.1 platform work. See the
+[release notes](releases/v0.10.0-rc.1.md). Production certification remains pending.
+
 ### Added
 - **Production release gates**: Added a repeatable production build check, a final
   tagged/certified release gate, and a release checklist covering migrations,
-  external certification, runtime controls, deployment, and rollback. The current
-  post-v0.9.1 work remains preparation-only until its release scope and evidence are
-  assigned.
+  external certification, runtime controls, deployment, and rollback. The candidate
+  remains non-production-certified until its evidence gates are complete.
 - **MRP compliance hardening**: Added server-generated canonical snapshots with immutable JSONB/hash/version evidence, actor-bound one-time challenges, active policy-role and separation-of-duties checks, password/TOTP reauthentication, retention metadata, and immutable decision/signature/audit guards. Migration `000118` adds the evidence boundary and challenge bindings; downstream staging flows and regulator-specific validation remain planned.
 - **Document and CMMS advanced foundations**: Added a durable Asynq OCR task with
   text extraction and search-index updates, persisted collaboration changes,

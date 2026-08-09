@@ -4,19 +4,20 @@
 
 ## How to read the version numbers
 
-`v0.9.1` is the latest named release in the repository. It is primarily a UI/UX
-release dated 2026-05-28. Development continued after that tag, so the latest
-implementation progress is newer than the latest release number.
+`v0.9.1` is the latest named production release in the repository. It is primarily
+a UI/UX release dated 2026-05-28. `v0.10.0-rc.1` is the current release candidate
+for the post-v0.9.1 platform work; it is not production-certified.
 
 In other words:
 
-- **Latest release:** v0.9.1.
+- **Latest named production release:** v0.9.1.
+- **Current release candidate:** v0.10.0-rc.1 (2026-08-10).
 - **Latest documented implementation progress:** Phase 10–14 and P7 work, reviewed 2026-08-01.
-- **Next release number:** not assigned yet. Production-release preparation is tracked
-  in the [Production Release Checklist](production-release-checklist.md).
+- **Next final release:** v0.10.0, pending production certification. The release
+  gates are tracked in the [Production Release Checklist](production-release-checklist.md).
 
-The roadmap and module catalog describe post-v0.9.1 progress without pretending that
-it has already been packaged as a new release.
+The roadmap and module catalog describe post-v0.9.1 progress; the candidate release
+notes define the packaged scope without claiming production certification.
 
 ## At-a-glance comparison
 
@@ -26,7 +27,7 @@ it has already been packaged as a new release.
 | v0.8.0 | Phase 8 | Board packs | Async executive PDF packs with templates, KPIs, variance sections, lifecycle, storage, and RBAC | Still a current finance/reporting capability |
 | v0.9.0 | 2026-01-11 | Sales and AR | Quotations, sales orders, delivery orders, AR invoices, payment allocation, aging | Still the functional baseline for Sales and AR |
 | v0.9.1 | 2026-05-28 | Enterprise UI/UX | Standardized forms, filters, tables, responsive layouts, and Midnight Ledger styling across core operations | Latest named release documented in this repository; mostly presentation and usability improvements |
-| Post-v0.9.1 progress | 2026-08-01 review | ERP capability expansion | AP, banking, reconciliation, cash flow, inventory enhancements, fixed assets, FX, tax, CRM, HR/payroll, WMS, MRP, POS, projects, APIs, webhooks, and portals | Implemented or locally certified, but not yet represented by a new version number |
+| v0.10.0-rc.1 | 2026-08-10 | Platform foundations and release controls | Advanced documents, CMMS telemetry/prediction foundations, MRP compliance hardening, distribution/finance/connectors work, and production gates | Current release candidate; staging, provider, and operational certification remain open |
 
 ## Detailed version reports
 
@@ -104,9 +105,16 @@ module. It mainly improved the UI of existing modules.
 
 See the [v0.9.1 release notes](v0.9.1.md).
 
-## Post-v0.9.1 implementation progress
+### v0.10.0-rc.1 — Platform foundations and release controls
 
-This work is documented in the current [roadmap](../ROADMAP.md) and [module catalog](../reference/module-catalog.md), but does not yet have a new release number.
+**Primary purpose:** package the post-v0.9.1 implementation work as a reviewable
+release candidate while keeping production certification evidence explicit.
+
+See the [v0.10.0-rc.1 release notes](v0.10.0-rc.1.md).
+
+## Follow-up work after v0.10.0-rc.1
+
+This work is documented in the current [roadmap](../ROADMAP.md) and [module catalog](../reference/module-catalog.md); the candidate packages the current scope, while final promotion remains pending.
 
 ### Finance and operations
 
@@ -133,7 +141,8 @@ This work is documented in the current [roadmap](../ROADMAP.md) and [module cata
 
 ### Remaining release work
 
-- Assign a new release number and release date after packaging the post-v0.9.1 work.
+- Promote `v0.10.0` only after the candidate passes staging, provider, security,
+  migration, and operational certification gates.
 - Complete staging/production acceptance for FX and Horizon features.
 - Complete external Coretax validation.
 - Decide scope for the next release: manufacturing depth, projects, POS, integrations,
@@ -142,9 +151,9 @@ This work is documented in the current [roadmap](../ROADMAP.md) and [module cata
 ## Versioning rule going forward
 
 The repository should update the release notes and version number when a coherent set
-of post-v0.9.1 work is packaged. Until then, use:
+of work is packaged. Until final promotion, use:
 
-- `README.md` for the latest named release and current high-level status.
+- `README.md` for the current release candidate and high-level status.
 - This report for differences between releases and post-release progress.
 - [`docs/reference/feature-matrix.md`](../reference/feature-matrix.md) for release status.
 - [`docs/reference/module-catalog.md`](../reference/module-catalog.md) for feature inventory.

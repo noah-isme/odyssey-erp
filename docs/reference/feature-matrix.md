@@ -1,6 +1,9 @@
 # Authoritative Feature Matrix
 
-**Reviewed:** 2026-08-09
+**Reviewed:** 2026-08-10
+
+**Current release candidate:** `v0.10.0-rc.1`. This candidate is not
+production-certified; the matrix below remains the authority for promotion evidence.
 
 This is the single release-status authority for current product capabilities. The
 [module catalog](module-catalog.md) remains the capability inventory and links to

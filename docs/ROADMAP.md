@@ -12,7 +12,8 @@
 **Revised:** 2026-08-09 (repository persistence boundaries and shared HTTP error policy)
 **Revised:** 2026-08-09 (document processing and CMMS telemetry foundations)
 **Revised:** 2026-08-09 (MRP canonical compliance snapshots and reauthentication hardening)
-**Current Version:** v0.9.1
+**Revised:** 2026-08-10 (v0.10.0-rc.1 release candidate packaging)
+**Current Version:** v0.10.0-rc.1
 
 > For current release status, use the [Authoritative Feature Matrix](reference/feature-matrix.md).
 > The [Module Catalog](reference/module-catalog.md) is the capability inventory. This
