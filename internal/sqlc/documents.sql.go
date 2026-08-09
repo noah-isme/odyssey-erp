@@ -27,6 +27,49 @@ func (q *Queries) AreAllReviewStepsApproved(ctx context.Context, documentVersion
 	return not_exists, err
 }
 
+const createCollaborationChange = `-- name: CreateCollaborationChange :one
+INSERT INTO doc_collaboration_changes (session_id, actor_id, operation, payload, occurred_at)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, session_id, actor_id, operation, payload, occurred_at AS timestamp
+`
+
+type CreateCollaborationChangeParams struct {
+	SessionID  int64              `json:"session_id"`
+	ActorID    int64              `json:"actor_id"`
+	Operation  string             `json:"operation"`
+	Payload    string             `json:"payload"`
+	OccurredAt pgtype.Timestamptz `json:"occurred_at"`
+}
+
+type CreateCollaborationChangeRow struct {
+	ID        int64              `json:"id"`
+	SessionID int64              `json:"session_id"`
+	ActorID   int64              `json:"actor_id"`
+	Operation string             `json:"operation"`
+	Payload   string             `json:"payload"`
+	Timestamp pgtype.Timestamptz `json:"timestamp"`
+}
+
+func (q *Queries) CreateCollaborationChange(ctx context.Context, arg CreateCollaborationChangeParams) (CreateCollaborationChangeRow, error) {
+	row := q.db.QueryRow(ctx, createCollaborationChange,
+		arg.SessionID,
+		arg.ActorID,
+		arg.Operation,
+		arg.Payload,
+		arg.OccurredAt,
+	)
+	var i CreateCollaborationChangeRow
+	err := row.Scan(
+		&i.ID,
+		&i.SessionID,
+		&i.ActorID,
+		&i.Operation,
+		&i.Payload,
+		&i.Timestamp,
+	)
+	return i, err
+}
+
 const createCollaborationSession = `-- name: CreateCollaborationSession :one
 INSERT INTO doc_collaboration_sessions (
     company_id, document_version_id, session_token, host_user_id, active, expires_at
@@ -56,6 +99,47 @@ func (q *Queries) CreateCollaborationSession(ctx context.Context, arg CreateColl
 	var id int64
 	err := row.Scan(&id)
 	return id, err
+}
+
+const createDispositionRequest = `-- name: CreateDispositionRequest :one
+INSERT INTO disposition_requests (company_id, document_version_id, requested_by, reason)
+VALUES ($1, $2, $3, $4)
+RETURNING id, company_id, document_version_id, requested_by, reason, status,
+          approved_by, approved_at, executed_at, executed_by, execution_evidence,
+          error_message, created_at
+`
+
+type CreateDispositionRequestParams struct {
+	CompanyID         int64  `json:"company_id"`
+	DocumentVersionID int64  `json:"document_version_id"`
+	RequestedBy       int64  `json:"requested_by"`
+	Reason            string `json:"reason"`
+}
+
+func (q *Queries) CreateDispositionRequest(ctx context.Context, arg CreateDispositionRequestParams) (DispositionRequest, error) {
+	row := q.db.QueryRow(ctx, createDispositionRequest,
+		arg.CompanyID,
+		arg.DocumentVersionID,
+		arg.RequestedBy,
+		arg.Reason,
+	)
+	var i DispositionRequest
+	err := row.Scan(
+		&i.ID,
+		&i.CompanyID,
+		&i.DocumentVersionID,
+		&i.RequestedBy,
+		&i.Reason,
+		&i.Status,
+		&i.ApprovedBy,
+		&i.ApprovedAt,
+		&i.ExecutedAt,
+		&i.ExecutedBy,
+		&i.ExecutionEvidence,
+		&i.ErrorMessage,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const createDocumentOCRJob = `-- name: CreateDocumentOCRJob :one
@@ -138,12 +222,64 @@ func (q *Queries) DisableCollaborationSession(ctx context.Context, id int64) err
 	return err
 }
 
+const getActiveRetentionPolicyForVersion = `-- name: GetActiveRetentionPolicyForVersion :one
+SELECT rp.id, rp.retention_period_days
+FROM retention_policies rp
+JOIN document_versions dv ON dv.company_id = rp.company_id
+JOIN documents d ON d.id = dv.document_id
+WHERE dv.id = $1
+  AND rp.active = TRUE
+  AND (rp.classification_ids IS NULL OR dv.classification_id = ANY(rp.classification_ids))
+  AND (rp.category_ids IS NULL OR d.category_id = ANY(rp.category_ids))
+ORDER BY
+    (CASE WHEN rp.classification_ids IS NULL THEN 0 ELSE 1 END
+     + CASE WHEN rp.category_ids IS NULL THEN 0 ELSE 1 END) DESC,
+    rp.retention_period_days DESC,
+    rp.id
+LIMIT 1
+`
+
+type GetActiveRetentionPolicyForVersionRow struct {
+	ID                  int64 `json:"id"`
+	RetentionPeriodDays int32 `json:"retention_period_days"`
+}
+
+func (q *Queries) GetActiveRetentionPolicyForVersion(ctx context.Context, id int64) (GetActiveRetentionPolicyForVersionRow, error) {
+	row := q.db.QueryRow(ctx, getActiveRetentionPolicyForVersion, id)
+	var i GetActiveRetentionPolicyForVersionRow
+	err := row.Scan(&i.ID, &i.RetentionPeriodDays)
+	return i, err
+}
+
 const getCollaborationSession = `-- name: GetCollaborationSession :one
-SELECT id, company_id, document_version_id, session_token, host_user_id, active, created_at, expires_at FROM doc_collaboration_sessions WHERE session_token = $1 AND active = true
+SELECT id, company_id, document_version_id, session_token, host_user_id, active, created_at, expires_at FROM doc_collaboration_sessions
+WHERE session_token = $1 AND active = true AND expires_at > NOW()
 `
 
 func (q *Queries) GetCollaborationSession(ctx context.Context, sessionToken string) (DocCollaborationSession, error) {
 	row := q.db.QueryRow(ctx, getCollaborationSession, sessionToken)
+	var i DocCollaborationSession
+	err := row.Scan(
+		&i.ID,
+		&i.CompanyID,
+		&i.DocumentVersionID,
+		&i.SessionToken,
+		&i.HostUserID,
+		&i.Active,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+	)
+	return i, err
+}
+
+const getCollaborationSessionByID = `-- name: GetCollaborationSessionByID :one
+SELECT id, company_id, document_version_id, session_token, host_user_id, active, created_at, expires_at
+FROM doc_collaboration_sessions
+WHERE id = $1
+`
+
+func (q *Queries) GetCollaborationSessionByID(ctx context.Context, id int64) (DocCollaborationSession, error) {
+	row := q.db.QueryRow(ctx, getCollaborationSessionByID, id)
 	var i DocCollaborationSession
 	err := row.Scan(
 		&i.ID,
@@ -183,6 +319,35 @@ func (q *Queries) GetDefaultNumberingRule(ctx context.Context, companyID int64) 
 		&i.Active,
 		&i.CreatedAt,
 		&i.CreatedBy,
+	)
+	return i, err
+}
+
+const getDispositionRequest = `-- name: GetDispositionRequest :one
+SELECT id, company_id, document_version_id, requested_by, reason, status,
+       approved_by, approved_at, executed_at, executed_by, execution_evidence,
+       error_message, created_at
+FROM disposition_requests
+WHERE id = $1
+`
+
+func (q *Queries) GetDispositionRequest(ctx context.Context, id int64) (DispositionRequest, error) {
+	row := q.db.QueryRow(ctx, getDispositionRequest, id)
+	var i DispositionRequest
+	err := row.Scan(
+		&i.ID,
+		&i.CompanyID,
+		&i.DocumentVersionID,
+		&i.RequestedBy,
+		&i.Reason,
+		&i.Status,
+		&i.ApprovedBy,
+		&i.ApprovedAt,
+		&i.ExecutedAt,
+		&i.ExecutedBy,
+		&i.ExecutionEvidence,
+		&i.ErrorMessage,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -578,6 +743,37 @@ func (q *Queries) GetNumberingRuleForCategory(ctx context.Context, arg GetNumber
 	return i, err
 }
 
+const getOpenDispositionRequestForVersion = `-- name: GetOpenDispositionRequestForVersion :one
+SELECT id, company_id, document_version_id, requested_by, reason, status,
+       approved_by, approved_at, executed_at, executed_by, execution_evidence,
+       error_message, created_at
+FROM disposition_requests
+WHERE document_version_id = $1 AND status IN ('PENDING', 'APPROVED')
+ORDER BY created_at DESC
+LIMIT 1
+`
+
+func (q *Queries) GetOpenDispositionRequestForVersion(ctx context.Context, documentVersionID int64) (DispositionRequest, error) {
+	row := q.db.QueryRow(ctx, getOpenDispositionRequestForVersion, documentVersionID)
+	var i DispositionRequest
+	err := row.Scan(
+		&i.ID,
+		&i.CompanyID,
+		&i.DocumentVersionID,
+		&i.RequestedBy,
+		&i.Reason,
+		&i.Status,
+		&i.ApprovedBy,
+		&i.ApprovedAt,
+		&i.ExecutedAt,
+		&i.ExecutedBy,
+		&i.ExecutionEvidence,
+		&i.ErrorMessage,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getPendingDispositions = `-- name: GetPendingDispositions :many
 
 SELECT id, company_id, document_version_id, requested_by, reason, status, approved_by, approved_at, executed_at, executed_by, execution_evidence, error_message, created_at
@@ -622,6 +818,30 @@ func (q *Queries) GetPendingDispositions(ctx context.Context) ([]DispositionRequ
 		return nil, err
 	}
 	return items, nil
+}
+
+const getRetentionPolicyForCompany = `-- name: GetRetentionPolicyForCompany :one
+SELECT id, company_id, retention_period_days
+FROM retention_policies
+WHERE id = $1 AND company_id = $2 AND active = TRUE
+`
+
+type GetRetentionPolicyForCompanyParams struct {
+	ID        int64 `json:"id"`
+	CompanyID int64 `json:"company_id"`
+}
+
+type GetRetentionPolicyForCompanyRow struct {
+	ID                  int64 `json:"id"`
+	CompanyID           int64 `json:"company_id"`
+	RetentionPeriodDays int32 `json:"retention_period_days"`
+}
+
+func (q *Queries) GetRetentionPolicyForCompany(ctx context.Context, arg GetRetentionPolicyForCompanyParams) (GetRetentionPolicyForCompanyRow, error) {
+	row := q.db.QueryRow(ctx, getRetentionPolicyForCompany, arg.ID, arg.CompanyID)
+	var i GetRetentionPolicyForCompanyRow
+	err := row.Scan(&i.ID, &i.CompanyID, &i.RetentionPeriodDays)
+	return i, err
 }
 
 const getStorageBlob = `-- name: GetStorageBlob :one
@@ -703,6 +923,67 @@ func (q *Queries) HasActiveLegalHold(ctx context.Context, companyID int64) (bool
 	return exists, err
 }
 
+const hasActiveLegalHoldForVersion = `-- name: HasActiveLegalHoldForVersion :one
+SELECT EXISTS (
+    SELECT 1
+    FROM document_versions dv
+    JOIN documents d ON d.id = dv.document_id
+    WHERE dv.id = $1
+      AND (
+        EXISTS (
+          SELECT 1
+          FROM legal_holds lh
+          WHERE lh.company_id = dv.company_id
+            AND lh.status = 'ACTIVE'
+            AND (
+                (lh.scope_type = 'DOCUMENT_VERSION' AND lh.scope_id = dv.id)
+                OR (lh.scope_type = 'DOCUMENT' AND lh.scope_id = dv.document_id)
+                OR (lh.scope_type = 'CLASSIFICATION' AND lh.scope_id = dv.classification_id)
+                OR (lh.scope_type = 'CATEGORY' AND lh.scope_id = d.category_id)
+                OR (lh.scope_type = 'COMPANY' AND lh.scope_id = dv.company_id)
+            )
+        )
+        OR EXISTS (
+          SELECT 1
+          FROM legal_hold_references lhr
+          JOIN legal_holds lh ON lh.id = lhr.legal_hold_id
+          WHERE lhr.document_version_id = dv.id
+            AND lhr.company_id = dv.company_id
+            AND lh.status = 'ACTIVE'
+        )
+      )
+)
+`
+
+func (q *Queries) HasActiveLegalHoldForVersion(ctx context.Context, id int64) (bool, error) {
+	row := q.db.QueryRow(ctx, hasActiveLegalHoldForVersion, id)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const hasOtherDocumentBlobReferences = `-- name: HasOtherDocumentBlobReferences :one
+SELECT EXISTS (
+    SELECT 1
+    FROM document_versions
+    WHERE blob_id = $1
+      AND id <> $2
+      AND status <> 'DISPOSED'
+)
+`
+
+type HasOtherDocumentBlobReferencesParams struct {
+	BlobID int64 `json:"blob_id"`
+	ID     int64 `json:"id"`
+}
+
+func (q *Queries) HasOtherDocumentBlobReferences(ctx context.Context, arg HasOtherDocumentBlobReferencesParams) (bool, error) {
+	row := q.db.QueryRow(ctx, hasOtherDocumentBlobReferences, arg.BlobID, arg.ID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const incrementNumberingSequence = `-- name: IncrementNumberingSequence :exec
 UPDATE document_numbering_rules
 SET sequence_current = sequence_current + 1
@@ -715,6 +996,9 @@ func (q *Queries) IncrementNumberingSequence(ctx context.Context, id int64) erro
 }
 
 const indexDocumentSearch = `-- name: IndexDocumentSearch :one
+WITH removed AS (
+    DELETE FROM doc_search_indices WHERE document_version_id = $2
+)
 INSERT INTO doc_search_indices (
     document_id, document_version_id, title, content, keywords, indexed_at
 ) VALUES (
@@ -937,6 +1221,11 @@ const insertDocumentRetention = `-- name: InsertDocumentRetention :exec
 
 INSERT INTO document_retention (company_id, document_version_id, policy_id, trigger_date, expiry_date)
 VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (document_version_id, policy_id) DO UPDATE
+SET trigger_date = EXCLUDED.trigger_date,
+    expiry_date = EXCLUDED.expiry_date,
+    status = 'ACTIVE',
+    calculated_at = NOW()
 `
 
 type InsertDocumentRetentionParams struct {
@@ -1642,6 +1931,57 @@ func (q *Queries) ListDocuments(ctx context.Context, arg ListDocumentsParams) ([
 	return items, nil
 }
 
+const listExpiredDocumentRetention = `-- name: ListExpiredDocumentRetention :many
+SELECT id, company_id, document_version_id, policy_id
+FROM document_retention
+WHERE status = 'ACTIVE' AND expiry_date <= NOW()
+ORDER BY expiry_date, id
+LIMIT 100
+`
+
+type ListExpiredDocumentRetentionRow struct {
+	ID                int64 `json:"id"`
+	CompanyID         int64 `json:"company_id"`
+	DocumentVersionID int64 `json:"document_version_id"`
+	PolicyID          int64 `json:"policy_id"`
+}
+
+func (q *Queries) ListExpiredDocumentRetention(ctx context.Context) ([]ListExpiredDocumentRetentionRow, error) {
+	rows, err := q.db.Query(ctx, listExpiredDocumentRetention)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListExpiredDocumentRetentionRow
+	for rows.Next() {
+		var i ListExpiredDocumentRetentionRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.CompanyID,
+			&i.DocumentVersionID,
+			&i.PolicyID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const markDocumentRetentionExpired = `-- name: MarkDocumentRetentionExpired :exec
+UPDATE document_retention
+SET status = 'EXPIRED', calculated_at = NOW()
+WHERE id = $1 AND status = 'ACTIVE'
+`
+
+func (q *Queries) MarkDocumentRetentionExpired(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, markDocumentRetentionExpired, id)
+	return err
+}
+
 const releaseLegalHold = `-- name: ReleaseLegalHold :exec
 UPDATE legal_holds
 SET status = 'RELEASED', released_by = $2, released_at = NOW()
@@ -1664,8 +2004,12 @@ FROM doc_search_indices i
 JOIN documents d ON i.document_id = d.id
 JOIN document_versions v ON i.document_version_id = v.id
 WHERE d.company_id = $1
-AND to_tsvector('english', i.content) @@ plainto_tsquery('english', $2)
-ORDER BY ts_rank(to_tsvector('english', i.content), plainto_tsquery('english', $2)) DESC
+AND to_tsvector('english', coalesce(i.title, '') || ' ' || coalesce(i.content, '') || ' ' || coalesce(i.keywords, ''))
+    @@ plainto_tsquery('english', $2)
+ORDER BY ts_rank(
+    to_tsvector('english', coalesce(i.title, '') || ' ' || coalesce(i.content, '') || ' ' || coalesce(i.keywords, '')),
+    plainto_tsquery('english', $2)
+) DESC
 LIMIT $3
 `
 
@@ -1780,6 +2124,44 @@ func (q *Queries) UpdateDispositionExecution(ctx context.Context, arg UpdateDisp
 		arg.ErrorMessage,
 	)
 	return err
+}
+
+const updateDispositionRequest = `-- name: UpdateDispositionRequest :one
+UPDATE disposition_requests
+SET status = $2,
+    approved_by = CASE WHEN $2 = 'APPROVED' THEN $3 ELSE approved_by END,
+    approved_at = CASE WHEN $2 = 'APPROVED' THEN NOW() ELSE approved_at END
+WHERE id = $1 AND status = 'PENDING'
+RETURNING id, company_id, document_version_id, requested_by, reason, status,
+          approved_by, approved_at, executed_at, executed_by, execution_evidence,
+          error_message, created_at
+`
+
+type UpdateDispositionRequestParams struct {
+	ID         int64       `json:"id"`
+	Status     string      `json:"status"`
+	ApprovedBy pgtype.Int8 `json:"approved_by"`
+}
+
+func (q *Queries) UpdateDispositionRequest(ctx context.Context, arg UpdateDispositionRequestParams) (DispositionRequest, error) {
+	row := q.db.QueryRow(ctx, updateDispositionRequest, arg.ID, arg.Status, arg.ApprovedBy)
+	var i DispositionRequest
+	err := row.Scan(
+		&i.ID,
+		&i.CompanyID,
+		&i.DocumentVersionID,
+		&i.RequestedBy,
+		&i.Reason,
+		&i.Status,
+		&i.ApprovedBy,
+		&i.ApprovedAt,
+		&i.ExecutedAt,
+		&i.ExecutedBy,
+		&i.ExecutionEvidence,
+		&i.ErrorMessage,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const updateDocument = `-- name: UpdateDocument :exec

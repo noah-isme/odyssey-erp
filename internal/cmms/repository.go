@@ -68,17 +68,17 @@ func (r *Repository) GetWorkOrder(ctx context.Context, id int64) (WorkOrder, err
 
 func (r *Repository) ListWorkOrders(ctx context.Context, filter ListWorkOrdersFilter) ([]WorkOrder, error) {
 	rows, err := r.queries.ListWorkOrders(ctx, sqlc.ListWorkOrdersParams{
-		CompanyID:   filter.CompanyID,
-		Column2:     valueOrZero(filter.AssetID),
-		Column3:     valueOrZero(filter.LocationID),
-		Column4:     valueOrZero(filter.AssigneeID),
-		Column5:     statusStringOrEmpty(filter.Status),
-		Column6:     priorityStringOrEmpty(filter.Priority),
-		Column7:     filter.Category,
-		Column8:     pgtype.Timestamptz{Time: valueOrZeroTime(filter.DateFrom), Valid: filter.DateFrom != nil},
-		Column9:     pgtype.Timestamptz{Time: valueOrZeroTime(filter.DateTo), Valid: filter.DateTo != nil},
-		Limit:       int32(filter.Limit),
-		Offset:      int32(filter.Offset),
+		CompanyID: filter.CompanyID,
+		Column2:   valueOrZero(filter.AssetID),
+		Column3:   valueOrZero(filter.LocationID),
+		Column4:   valueOrZero(filter.AssigneeID),
+		Column5:   statusStringOrEmpty(filter.Status),
+		Column6:   priorityStringOrEmpty(filter.Priority),
+		Column7:   filter.Category,
+		Column8:   pgtype.Timestamptz{Time: valueOrZeroTime(filter.DateFrom), Valid: filter.DateFrom != nil},
+		Column9:   pgtype.Timestamptz{Time: valueOrZeroTime(filter.DateTo), Valid: filter.DateTo != nil},
+		Limit:     int32(filter.Limit),
+		Offset:    int32(filter.Offset),
 	})
 	if err != nil {
 		return nil, err
@@ -134,13 +134,13 @@ func (r *Repository) CountWorkOrdersWithPrefix(ctx context.Context, companyID in
 
 func (r *Repository) InsertTask(ctx context.Context, req CreateTaskRequest) (WorkOrderTask, error) {
 	id, err := r.queries.InsertWorkOrderTask(ctx, sqlc.InsertWorkOrderTaskParams{
-		WorkOrderID:     req.WorkOrderID,
-		Sequence:        int32(req.Sequence),
-		Title:           req.Title,
-		Description:     pgtype.Text{String: req.Description, Valid: req.Description != ""},
-		Status:          string(WorkOrderStatusDraft),
-		AssigneeID:      pgtype.Int8{Int64: valueOrZero(req.AssigneeID), Valid: req.AssigneeID != nil},
-		EstimatedHours:  req.EstimatedHours,
+		WorkOrderID:    req.WorkOrderID,
+		Sequence:       int32(req.Sequence),
+		Title:          req.Title,
+		Description:    pgtype.Text{String: req.Description, Valid: req.Description != ""},
+		Status:         string(WorkOrderStatusDraft),
+		AssigneeID:     pgtype.Int8{Int64: valueOrZero(req.AssigneeID), Valid: req.AssigneeID != nil},
+		EstimatedHours: req.EstimatedHours,
 	})
 	if err != nil {
 		return WorkOrderTask{}, err
@@ -187,8 +187,8 @@ func (r *Repository) UpdateTask(ctx context.Context, id int64, req UpdateTaskReq
 
 func (r *Repository) CompleteTask(ctx context.Context, id int64, actorID int64, actualHours float64) (WorkOrderTask, error) {
 	err := r.queries.CompleteWorkOrderTask(ctx, sqlc.CompleteWorkOrderTaskParams{
-		ID:            id,
-		ActualHours:   actualHours,
+		ID:          id,
+		ActualHours: actualHours,
 	})
 	if err != nil {
 		return WorkOrderTask{}, err
@@ -236,13 +236,13 @@ func (r *Repository) GetAsset(ctx context.Context, id int64) (Asset, error) {
 
 func (r *Repository) ListAssets(ctx context.Context, filter ListAssetsFilter) ([]Asset, error) {
 	rows, err := r.queries.ListAssets(ctx, sqlc.ListAssetsParams{
-		CompanyID:  filter.CompanyID,
-		Column2:    valueOrZero(filter.LocationID),
-		Column3:    filter.AssetType,
-		Column4:    filter.Status,
-		Column5:    filter.Search,
-		Limit:      int32(filter.Limit),
-		Offset:     int32(filter.Offset),
+		CompanyID: filter.CompanyID,
+		Column2:   valueOrZero(filter.LocationID),
+		Column3:   filter.AssetType,
+		Column4:   filter.Status,
+		Column5:   filter.Search,
+		Limit:     int32(filter.Limit),
+		Offset:    int32(filter.Offset),
 	})
 	if err != nil {
 		return nil, err
@@ -279,15 +279,15 @@ func (r *Repository) UpdateAsset(ctx context.Context, id int64, req UpdateAssetR
 
 func (r *Repository) InsertLocation(ctx context.Context, req CreateLocationRequest) (Location, error) {
 	id, err := r.queries.InsertLocation(ctx, sqlc.InsertLocationParams{
-		CompanyID:  req.CompanyID,
-		Code:       req.Code,
-		Name:       req.Name,
+		CompanyID:   req.CompanyID,
+		Code:        req.Code,
+		Name:        req.Name,
 		Description: pgtype.Text{String: req.Description, Valid: req.Description != ""},
-		ParentID:   pgtype.Int8{Int64: valueOrZero(req.ParentID), Valid: req.ParentID != nil},
-		Address:    pgtype.Text{String: req.Address, Valid: req.Address != ""},
-		GpsLat:     pgtype.Float8{Float64: valueOrZeroFloat(req.GPSLat), Valid: req.GPSLat != nil},
-		GpsLng:     pgtype.Float8{Float64: valueOrZeroFloat(req.GPSLng), Valid: req.GPSLng != nil},
-		Active:     req.Active,
+		ParentID:    pgtype.Int8{Int64: valueOrZero(req.ParentID), Valid: req.ParentID != nil},
+		Address:     pgtype.Text{String: req.Address, Valid: req.Address != ""},
+		GpsLat:      pgtype.Float8{Float64: valueOrZeroFloat(req.GPSLat), Valid: req.GPSLat != nil},
+		GpsLng:      pgtype.Float8{Float64: valueOrZeroFloat(req.GPSLng), Valid: req.GPSLng != nil},
+		Active:      req.Active,
 	})
 	if err != nil {
 		return Location{}, err
@@ -324,17 +324,17 @@ func (r *Repository) ListLocations(ctx context.Context, companyID int64) ([]Loca
 
 func (r *Repository) InsertPMSchedule(ctx context.Context, req CreatePMScheduleRequest) (PreventiveMaintenanceSchedule, error) {
 	id, err := r.queries.InsertPMSchedule(ctx, sqlc.InsertPMScheduleParams{
-		CompanyID:         req.CompanyID,
-		AssetID:           req.AssetID,
-		Name:              req.Name,
-		Description:       pgtype.Text{String: req.Description, Valid: req.Description != ""},
-		FrequencyType:     req.FrequencyType,
-		FrequencyValue:    int32(req.FrequencyValue),
-		MeterReadingType:  pgtype.Text{String: req.MeterReadingType, Valid: req.MeterReadingType != ""},
-		TaskTemplateID:    pgtype.Int8{Int64: valueOrZero(req.TaskTemplateID), Valid: req.TaskTemplateID != nil},
-		NextDueDate:       pgtype.Date{Time: time.Now(), Valid: false},
-		NextDueMeter:      pgtype.Float8{Float64: 0, Valid: false},
-		Active:            req.Active,
+		CompanyID:        req.CompanyID,
+		AssetID:          req.AssetID,
+		Name:             req.Name,
+		Description:      pgtype.Text{String: req.Description, Valid: req.Description != ""},
+		FrequencyType:    req.FrequencyType,
+		FrequencyValue:   int32(req.FrequencyValue),
+		MeterReadingType: pgtype.Text{String: req.MeterReadingType, Valid: req.MeterReadingType != ""},
+		TaskTemplateID:   pgtype.Int8{Int64: valueOrZero(req.TaskTemplateID), Valid: req.TaskTemplateID != nil},
+		NextDueDate:      pgtype.Date{Time: time.Now(), Valid: false},
+		NextDueMeter:     pgtype.Float8{Float64: 0, Valid: false},
+		Active:           req.Active,
 	})
 	if err != nil {
 		return PreventiveMaintenanceSchedule{}, err
@@ -383,13 +383,13 @@ func (r *Repository) ListDuePMSchedules(ctx context.Context, companyID int64) ([
 
 func (r *Repository) InsertTaskTemplate(ctx context.Context, companyID int64, name, description, category string, estimatedHours float64, instructions, safetyNotes string, actorID int64) (TaskTemplate, error) {
 	id, err := r.queries.InsertTaskTemplate(ctx, sqlc.InsertTaskTemplateParams{
-		CompanyID:       companyID,
-		Name:            name,
-		Description:     pgtype.Text{String: description, Valid: description != ""},
-		Category:        pgtype.Text{String: category, Valid: category != ""},
-		EstimatedHours:  estimatedHours,
-		Instructions:    pgtype.Text{String: instructions, Valid: instructions != ""},
-		SafetyNotes:     pgtype.Text{String: safetyNotes, Valid: safetyNotes != ""},
+		CompanyID:      companyID,
+		Name:           name,
+		Description:    pgtype.Text{String: description, Valid: description != ""},
+		Category:       pgtype.Text{String: category, Valid: category != ""},
+		EstimatedHours: estimatedHours,
+		Instructions:   pgtype.Text{String: instructions, Valid: instructions != ""},
+		SafetyNotes:    pgtype.Text{String: safetyNotes, Valid: safetyNotes != ""},
 	})
 	if err != nil {
 		return TaskTemplate{}, err
@@ -422,12 +422,12 @@ func (r *Repository) ListTaskTemplates(ctx context.Context, companyID int64) ([]
 
 func (r *Repository) InsertTaskTemplateStep(ctx context.Context, taskTemplateID int64, sequence int, title, description string, estimatedHours float64, instructions string) error {
 	return r.queries.InsertTaskTemplateStep(ctx, sqlc.InsertTaskTemplateStepParams{
-		TaskTemplateID:  taskTemplateID,
-		Sequence:        int32(sequence),
-		Title:           title,
-		Description:     pgtype.Text{String: description, Valid: description != ""},
-		EstimatedHours:  estimatedHours,
-		Instructions:    pgtype.Text{String: instructions, Valid: instructions != ""},
+		TaskTemplateID: taskTemplateID,
+		Sequence:       int32(sequence),
+		Title:          title,
+		Description:    pgtype.Text{String: description, Valid: description != ""},
+		EstimatedHours: estimatedHours,
+		Instructions:   pgtype.Text{String: instructions, Valid: instructions != ""},
 	})
 }
 
@@ -449,18 +449,18 @@ func (r *Repository) ListTaskTemplateSteps(ctx context.Context, taskTemplateID i
 
 func (r *Repository) InsertSparePart(ctx context.Context, req CreateSparePartRequest) (SparePart, error) {
 	id, err := r.queries.InsertSparePart(ctx, sqlc.InsertSparePartParams{
-		CompanyID:       req.CompanyID,
-		Code:            req.Code,
-		Name:            req.Name,
-		Description:     pgtype.Text{String: req.Description, Valid: req.Description != ""},
-		Category:        pgtype.Text{String: req.Category, Valid: req.Category != ""},
-		UnitOfMeasure:   req.UnitOfMeasure,
-		MinQuantity:     req.MinQuantity,
-		MaxQuantity:     req.MaxQuantity,
-		ReorderPoint:    req.ReorderPoint,
-		LeadTimeDays:    int32(req.LeadTimeDays),
-		UnitCost:        req.UnitCost,
-		CriticalSpare:   req.CriticalSpare,
+		CompanyID:     req.CompanyID,
+		Code:          req.Code,
+		Name:          req.Name,
+		Description:   pgtype.Text{String: req.Description, Valid: req.Description != ""},
+		Category:      pgtype.Text{String: req.Category, Valid: req.Category != ""},
+		UnitOfMeasure: req.UnitOfMeasure,
+		MinQuantity:   req.MinQuantity,
+		MaxQuantity:   req.MaxQuantity,
+		ReorderPoint:  req.ReorderPoint,
+		LeadTimeDays:  int32(req.LeadTimeDays),
+		UnitCost:      req.UnitCost,
+		CriticalSpare: req.CriticalSpare,
 	})
 	if err != nil {
 		return SparePart{}, err
@@ -549,12 +549,12 @@ func (r *Repository) IssueSparePart(ctx context.Context, id int64, actorID int64
 
 func (r *Repository) InsertMeterReading(ctx context.Context, req CreateMeterReadingRequest) (MeterReading, error) {
 	id, err := r.queries.InsertMeterReading(ctx, sqlc.InsertMeterReadingParams{
-		AssetID:      req.AssetID,
-		ReadingType:  req.ReadingType,
-		Value:        req.Value,
-		ReadingDate:  pgtype.Date{Time: req.ReadingDate, Valid: !req.ReadingDate.IsZero()},
-		EnteredBy:    req.EnteredBy,
-		Notes:        pgtype.Text{String: req.Notes, Valid: req.Notes != ""},
+		AssetID:     req.AssetID,
+		ReadingType: req.ReadingType,
+		Value:       req.Value,
+		ReadingDate: pgtype.Date{Time: req.ReadingDate, Valid: !req.ReadingDate.IsZero()},
+		EnteredBy:   req.EnteredBy,
+		Notes:       pgtype.Text{String: req.Notes, Valid: req.Notes != ""},
 	})
 	if err != nil {
 		return MeterReading{}, err
@@ -575,9 +575,9 @@ func (r *Repository) GetMeterReading(ctx context.Context, id int64) (MeterReadin
 
 func (r *Repository) GetMeterReadings(ctx context.Context, assetID int64, readingType string, limit int) ([]MeterReading, error) {
 	rows, err := r.queries.ListMeterReadings(ctx, sqlc.ListMeterReadingsParams{
-		AssetID:     assetID,
-		Column2:     readingType,
-		Limit:       int32(limit),
+		AssetID: assetID,
+		Column2: readingType,
+		Limit:   int32(limit),
 	})
 	if err != nil {
 		return nil, err
@@ -697,18 +697,18 @@ func toWorkOrderTask(row sqlc.WorkOrderTask) WorkOrderTask {
 		completedAt = &row.CompletedAt.Time
 	}
 	return WorkOrderTask{
-		ID:              row.ID,
-		WorkOrderID:     row.WorkOrderID,
-		Sequence:        int(row.Sequence),
-		Title:           row.Title,
-		Description:     row.Description.String,
-		Status:          Status(row.Status),
-		AssigneeID:      assigneeID,
-		EstimatedHours:  row.EstimatedHours,
-		ActualHours:     row.ActualHours,
-		CompletedAt:     completedAt,
-		CreatedAt:       row.CreatedAt.Time,
-		UpdatedAt:       row.UpdatedAt.Time,
+		ID:             row.ID,
+		WorkOrderID:    row.WorkOrderID,
+		Sequence:       int(row.Sequence),
+		Title:          row.Title,
+		Description:    row.Description.String,
+		Status:         Status(row.Status),
+		AssigneeID:     assigneeID,
+		EstimatedHours: row.EstimatedHours,
+		ActualHours:    row.ActualHours,
+		CompletedAt:    completedAt,
+		CreatedAt:      row.CreatedAt.Time,
+		UpdatedAt:      row.UpdatedAt.Time,
 	}
 }
 
@@ -728,23 +728,23 @@ func toAsset(row sqlc.GetAssetRow) Asset {
 		warrantyExpiry = &row.WarrantyExpiry.Time
 	}
 	return Asset{
-		ID:              row.ID,
-		CompanyID:       row.CompanyID,
-		Code:            row.Code,
-		Name:            row.Name,
-		Description:     row.Description.String,
-		AssetType:       row.AssetType,
-		ParentID:        parentID,
-		LocationID:      locationID,
-		Manufacturer:    row.Manufacturer.String,
-		Model:           row.Model.String,
-		SerialNumber:    row.SerialNumber.String,
-		InstallDate:     installDate,
-		WarrantyExpiry:  warrantyExpiry,
-		Status:          row.Status,
-		Criticality:     row.Criticality,
-		CreatedAt:       row.CreatedAt.Time,
-		UpdatedAt:       row.UpdatedAt.Time,
+		ID:             row.ID,
+		CompanyID:      row.CompanyID,
+		Code:           row.Code,
+		Name:           row.Name,
+		Description:    row.Description.String,
+		AssetType:      row.AssetType,
+		ParentID:       parentID,
+		LocationID:     locationID,
+		Manufacturer:   row.Manufacturer.String,
+		Model:          row.Model.String,
+		SerialNumber:   row.SerialNumber.String,
+		InstallDate:    installDate,
+		WarrantyExpiry: warrantyExpiry,
+		Status:         row.Status,
+		Criticality:    row.Criticality,
+		CreatedAt:      row.CreatedAt.Time,
+		UpdatedAt:      row.UpdatedAt.Time,
 	}
 }
 
@@ -790,20 +790,20 @@ func toPMSchedule(row sqlc.GetPMScheduleRow) PreventiveMaintenanceSchedule {
 		nextDueMeter = &row.NextDueMeter.Float64
 	}
 	return PreventiveMaintenanceSchedule{
-		ID:                row.ID,
-		CompanyID:         row.CompanyID,
-		AssetID:           row.AssetID,
-		Name:              row.Name,
-		Description:       row.Description.String,
-		FrequencyType:     row.FrequencyType,
-		FrequencyValue:    int(row.FrequencyValue),
-		MeterReadingType:  row.MeterReadingType.String,
-		TaskTemplateID:    taskTemplateID,
-		NextDueDate:       nextDueDate,
-		NextDueMeter:      nextDueMeter,
-		Active:            row.Active,
-		CreatedAt:         row.CreatedAt.Time,
-		UpdatedAt:         row.UpdatedAt.Time,
+		ID:               row.ID,
+		CompanyID:        row.CompanyID,
+		AssetID:          row.AssetID,
+		Name:             row.Name,
+		Description:      row.Description.String,
+		FrequencyType:    row.FrequencyType,
+		FrequencyValue:   int(row.FrequencyValue),
+		MeterReadingType: row.MeterReadingType.String,
+		TaskTemplateID:   taskTemplateID,
+		NextDueDate:      nextDueDate,
+		NextDueMeter:     nextDueMeter,
+		Active:           row.Active,
+		CreatedAt:        row.CreatedAt.Time,
+		UpdatedAt:        row.UpdatedAt.Time,
 	}
 }
 
@@ -847,29 +847,29 @@ func toAssetFromListRow(row sqlc.ListAssetsRow) Asset {
 
 func toTaskTemplate(row sqlc.TaskTemplate) TaskTemplate {
 	return TaskTemplate{
-		ID:              row.ID,
-		CompanyID:       row.CompanyID,
-		Name:            row.Name,
-		Description:     row.Description.String,
-		Category:        row.Category.String,
-		EstimatedHours:  row.EstimatedHours,
-		Instructions:    row.Instructions.String,
-		SafetyNotes:     row.SafetyNotes.String,
-		CreatedAt:       row.CreatedAt.Time,
-		UpdatedAt:       row.UpdatedAt.Time,
+		ID:             row.ID,
+		CompanyID:      row.CompanyID,
+		Name:           row.Name,
+		Description:    row.Description.String,
+		Category:       row.Category.String,
+		EstimatedHours: row.EstimatedHours,
+		Instructions:   row.Instructions.String,
+		SafetyNotes:    row.SafetyNotes.String,
+		CreatedAt:      row.CreatedAt.Time,
+		UpdatedAt:      row.UpdatedAt.Time,
 	}
 }
 
 func toTaskTemplateStep(row sqlc.TaskTemplateStep) TaskTemplateStep {
 	return TaskTemplateStep{
-		ID:               row.ID,
-		TaskTemplateID:   row.TaskTemplateID,
-		Sequence:         int(row.Sequence),
-		Title:            row.Title,
-		Description:      row.Description.String,
-		EstimatedHours:   row.EstimatedHours,
-		Instructions:     row.Instructions.String,
-		CreatedAt:        row.CreatedAt.Time,
+		ID:             row.ID,
+		TaskTemplateID: row.TaskTemplateID,
+		Sequence:       int(row.Sequence),
+		Title:          row.Title,
+		Description:    row.Description.String,
+		EstimatedHours: row.EstimatedHours,
+		Instructions:   row.Instructions.String,
+		CreatedAt:      row.CreatedAt.Time,
 	}
 }
 
@@ -939,21 +939,21 @@ func toPMScheduleFromDueListRow(row sqlc.ListDuePMSchedulesRow) PreventiveMainte
 
 func toSparePart(row sqlc.SparePart) SparePart {
 	return SparePart{
-		ID:             row.ID,
-		CompanyID:      row.CompanyID,
-		Code:           row.Code,
-		Name:           row.Name,
-		Description:    row.Description.String,
-		Category:       row.Category.String,
-		UnitOfMeasure:  row.UnitOfMeasure,
-		MinQuantity:    row.MinQuantity,
-		MaxQuantity:    row.MaxQuantity,
-		ReorderPoint:   row.ReorderPoint,
-		LeadTimeDays:   int(row.LeadTimeDays),
-		UnitCost:       row.UnitCost,
-		CriticalSpare:  row.CriticalSpare,
-		CreatedAt:      row.CreatedAt.Time,
-		UpdatedAt:      row.UpdatedAt.Time,
+		ID:            row.ID,
+		CompanyID:     row.CompanyID,
+		Code:          row.Code,
+		Name:          row.Name,
+		Description:   row.Description.String,
+		Category:      row.Category.String,
+		UnitOfMeasure: row.UnitOfMeasure,
+		MinQuantity:   row.MinQuantity,
+		MaxQuantity:   row.MaxQuantity,
+		ReorderPoint:  row.ReorderPoint,
+		LeadTimeDays:  int(row.LeadTimeDays),
+		UnitCost:      row.UnitCost,
+		CriticalSpare: row.CriticalSpare,
+		CreatedAt:     row.CreatedAt.Time,
+		UpdatedAt:     row.UpdatedAt.Time,
 	}
 }
 
@@ -981,14 +981,14 @@ func toWorkOrderSparePart(row sqlc.WorkOrderSparePart) WorkOrderSparePart {
 
 func toMeterReading(row sqlc.MeterReading) MeterReading {
 	return MeterReading{
-		ID:           row.ID,
-		AssetID:      row.AssetID,
-		ReadingType:  row.ReadingType,
-		Value:        row.Value,
-		ReadingDate:  row.ReadingDate.Time,
-		EnteredBy:    row.EnteredBy,
-		Notes:        row.Notes.String,
-		CreatedAt:    row.CreatedAt.Time,
+		ID:          row.ID,
+		AssetID:     row.AssetID,
+		ReadingType: row.ReadingType,
+		Value:       row.Value,
+		ReadingDate: row.ReadingDate.Time,
+		EnteredBy:   row.EnteredBy,
+		Notes:       row.Notes.String,
+		CreatedAt:   row.CreatedAt.Time,
 	}
 }
 
@@ -1013,8 +1013,6 @@ func valueOrZeroFloat(ptr *float64) float64 {
 	}
 	return *ptr
 }
-
-
 
 func statusStringOrEmpty(s *Status) string {
 	if s == nil {
@@ -1104,7 +1102,7 @@ func (r *Repository) UpdatePMScheduleNextDue(ctx context.Context, id int64, next
 	if nextMeter > 0 {
 		nextMeterPg = pgtype.Float8{Float64: nextMeter, Valid: true}
 	}
-	
+
 	return r.queries.UpdatePMScheduleNextDue(ctx, sqlc.UpdatePMScheduleNextDueParams{
 		ID:           id,
 		NextDueDate:  nextDatePg,
@@ -1123,11 +1121,23 @@ func toPMScheduleFromAllDueListRow(row sqlc.ListAllDuePMSchedulesRow) Preventive
 		FrequencyValue:   int(row.FrequencyValue),
 		MeterReadingType: row.MeterReadingType.String,
 		TaskTemplateID:   &row.TaskTemplateID.Int64, // simplified handling for brevity
-		NextDueDate:      func() *time.Time { if row.NextDueDate.Valid { return &row.NextDueDate.Time } else { return nil } }(),
-		NextDueMeter:     func() *float64 { if row.NextDueMeter.Valid { return &row.NextDueMeter.Float64 } else { return nil } }(),
-		Active:           row.Active,
-		CreatedAt:        row.CreatedAt.Time,
-		UpdatedAt:        row.UpdatedAt.Time,
+		NextDueDate: func() *time.Time {
+			if row.NextDueDate.Valid {
+				return &row.NextDueDate.Time
+			} else {
+				return nil
+			}
+		}(),
+		NextDueMeter: func() *float64 {
+			if row.NextDueMeter.Valid {
+				return &row.NextDueMeter.Float64
+			} else {
+				return nil
+			}
+		}(),
+		Active:    row.Active,
+		CreatedAt: row.CreatedAt.Time,
+		UpdatedAt: row.UpdatedAt.Time,
 	}
 }
 
@@ -1145,18 +1155,67 @@ func (r *Repository) CreateIoTSensor(ctx context.Context, sensor IoTSensor) (int
 	})
 }
 
+func (r *Repository) GetIoTSensor(ctx context.Context, id int64) (IoTSensor, error) {
+	row, err := r.queries.GetIoTSensor(ctx, id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return IoTSensor{}, errors.New("cmms: IoT sensor not found")
+		}
+		return IoTSensor{}, err
+	}
+	var lastReadingAt *time.Time
+	if row.LastReadingAt.Valid {
+		lastReadingAt = &row.LastReadingAt.Time
+	}
+	var lastReadingValue *float64
+	if row.LastReadingValue.Valid {
+		value, valueErr := row.LastReadingValue.Float64Value()
+		if valueErr == nil {
+			lastReading := value.Float64
+			lastReadingValue = &lastReading
+		}
+	}
+	return IoTSensor{
+		ID:               row.ID,
+		CompanyID:        row.CompanyID,
+		AssetID:          row.AssetID,
+		SensorCode:       row.SensorCode,
+		SensorType:       row.SensorType,
+		Status:           row.Status,
+		LastReadingAt:    lastReadingAt,
+		LastReadingValue: lastReadingValue,
+		CreatedAt:        row.CreatedAt.Time,
+	}, nil
+}
+
 func (r *Repository) InsertIoTReading(ctx context.Context, sensorID int64, value float64) (int64, error) {
 	val := pgtype.Numeric{}
-	val.Scan(fmt.Sprintf("%f", value))
+	if err := val.Scan(fmt.Sprintf("%f", value)); err != nil {
+		return 0, err
+	}
 	return r.queries.InsertIoTReading(ctx, sqlc.InsertIoTReadingParams{
 		SensorID: sensorID,
 		Value:    val,
 	})
 }
 
+func (r *Repository) InsertIoTReadingAt(ctx context.Context, sensorID int64, value float64, timestamp time.Time) (int64, error) {
+	val := pgtype.Numeric{}
+	if err := val.Scan(fmt.Sprintf("%f", value)); err != nil {
+		return 0, err
+	}
+	return r.queries.InsertIoTReadingAt(ctx, sqlc.InsertIoTReadingAtParams{
+		SensorID:  sensorID,
+		Value:     val,
+		Timestamp: pgtype.Timestamptz{Time: timestamp, Valid: true},
+	})
+}
+
 func (r *Repository) UpdateIoTSensorReading(ctx context.Context, sensorID int64, val float64, ts time.Time) error {
 	numericVal := pgtype.Numeric{}
-	numericVal.Scan(fmt.Sprintf("%f", val))
+	if err := numericVal.Scan(fmt.Sprintf("%f", val)); err != nil {
+		return err
+	}
 	var lastReading pgtype.Timestamptz
 	lastReading.Time = ts
 	lastReading.Valid = true
@@ -1169,7 +1228,9 @@ func (r *Repository) UpdateIoTSensorReading(ctx context.Context, sensorID int64,
 
 func (r *Repository) CreatePredictiveModel(ctx context.Context, model PredictiveModel) (int64, error) {
 	acc := pgtype.Numeric{}
-	acc.Scan(fmt.Sprintf("%f", model.Accuracy))
+	if err := acc.Scan(fmt.Sprintf("%f", model.Accuracy)); err != nil {
+		return 0, err
+	}
 	return r.queries.CreatePredictiveModel(ctx, sqlc.CreatePredictiveModelParams{
 		CompanyID: model.CompanyID,
 		AssetType: model.AssetType,
@@ -1197,6 +1258,29 @@ func (r *Repository) CreatePredictiveAlert(ctx context.Context, alert Predictive
 		Severity:    alert.Severity,
 		Description: alert.Description,
 	})
+}
+
+func (r *Repository) ListPredictiveAnomalies(ctx context.Context, companyID int64) ([]PredictiveAnomaly, error) {
+	rows, err := r.queries.ListPredictiveAnomalies(ctx, companyID)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]PredictiveAnomaly, len(rows))
+	for i, row := range rows {
+		value, valueErr := row.Value.Float64Value()
+		if valueErr != nil {
+			return nil, fmt.Errorf("cmms: convert predictive reading: %w", valueErr)
+		}
+		items[i] = PredictiveAnomaly{
+			CompanyID: companyID,
+			AssetID:   row.AssetID,
+			SensorID:  row.SensorID,
+			ModelID:   row.ModelID,
+			Value:     value.Float64,
+			Timestamp: row.Timestamp.Time,
+		}
+	}
+	return items, nil
 }
 
 func (r *Repository) ResolvePredictiveAlert(ctx context.Context, id int64) error {

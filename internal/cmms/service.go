@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 )
@@ -262,17 +263,17 @@ func (s *Service) IssueSparePart(ctx context.Context, id int64, actorID int64) (
 
 // UpdateWorkOrderRequest defines the payload for updating a work order.
 type UpdateWorkOrderRequest struct {
-	Title           string
-	Description     string
-	AssetID         *int64
-	LocationID      *int64
-	Priority        *Priority
-	Category        string
-	AssigneeID      *int64
-	PlannedStart    *time.Time
-	PlannedEnd      *time.Time
-	EstimatedHours  float64
-	ActorID         int64
+	Title          string
+	Description    string
+	AssetID        *int64
+	LocationID     *int64
+	Priority       *Priority
+	Category       string
+	AssigneeID     *int64
+	PlannedStart   *time.Time
+	PlannedEnd     *time.Time
+	EstimatedHours float64
+	ActorID        int64
 }
 
 func (r UpdateWorkOrderRequest) Validate() error {
@@ -284,13 +285,13 @@ func (r UpdateWorkOrderRequest) Validate() error {
 
 // CreateTaskRequest defines the payload for creating a task.
 type CreateTaskRequest struct {
-	WorkOrderID     int64
-	Sequence        int
-	Title           string
-	Description     string
-	AssigneeID      *int64
-	EstimatedHours  float64
-	ActorID         int64
+	WorkOrderID    int64
+	Sequence       int
+	Title          string
+	Description    string
+	AssigneeID     *int64
+	EstimatedHours float64
+	ActorID        int64
 }
 
 func (r CreateTaskRequest) Validate() error {
@@ -421,19 +422,19 @@ func (r CreateMeterReadingRequest) Validate() error {
 
 // CreateSparePartRequest defines the payload for creating a spare part.
 type CreateSparePartRequest struct {
-	CompanyID      int64
-	Code           string
-	Name           string
-	Description    string
-	Category       string
-	UnitOfMeasure  string
-	MinQuantity    float64
-	MaxQuantity    float64
-	ReorderPoint   float64
-	LeadTimeDays   int
-	UnitCost       float64
-	CriticalSpare  bool
-	ActorID        int64
+	CompanyID     int64
+	Code          string
+	Name          string
+	Description   string
+	Category      string
+	UnitOfMeasure string
+	MinQuantity   float64
+	MaxQuantity   float64
+	ReorderPoint  float64
+	LeadTimeDays  int
+	UnitCost      float64
+	CriticalSpare bool
+	ActorID       int64
 }
 
 func (r CreateSparePartRequest) Validate() error {
@@ -500,8 +501,15 @@ func (s *Service) RegisterIoTSensor(ctx context.Context, sensor IoTSensor) (IoTS
 	if sensor.CompanyID <= 0 || sensor.AssetID <= 0 || sensor.SensorCode == "" {
 		return IoTSensor{}, errors.New("cmms: invalid sensor data")
 	}
+	asset, err := s.repo.GetAsset(ctx, sensor.AssetID)
+	if err != nil {
+		return IoTSensor{}, fmt.Errorf("cmms: load sensor asset: %w", err)
+	}
+	if asset.CompanyID != sensor.CompanyID {
+		return IoTSensor{}, errors.New("cmms: sensor asset does not belong to company")
+	}
 	sensor.Status = "ACTIVE"
-	
+
 	id, err := s.repo.CreateIoTSensor(ctx, sensor)
 	if err != nil {
 		return IoTSensor{}, fmt.Errorf("cmms: failed to register IoT sensor: %w", err)
@@ -512,19 +520,8 @@ func (s *Service) RegisterIoTSensor(ctx context.Context, sensor IoTSensor) (IoTS
 
 // ProcessIoTReading ingests a time-series reading from an IoT sensor and updates its latest state.
 func (s *Service) ProcessIoTReading(ctx context.Context, sensorID int64, value float64) error {
-	ts := s.now()
-	_, err := s.repo.InsertIoTReading(ctx, sensorID, value)
-	if err != nil {
-		return fmt.Errorf("cmms: failed to insert IoT reading: %w", err)
-	}
-	
-	// Update sensor's latest reading
-	err = s.repo.UpdateIoTSensorReading(ctx, sensorID, value, ts)
-	if err != nil {
-		return fmt.Errorf("cmms: failed to update sensor latest reading: %w", err)
-	}
-	
-	return nil
+	_, err := s.RecordIoTReading(ctx, IoTReading{SensorID: sensorID, Value: value, Timestamp: s.now()})
+	return err
 }
 
 // EvaluatePredictiveAlerts runs a simplified heuristic model evaluation over incoming sensor data.
@@ -549,14 +546,84 @@ func (s *Service) EvaluatePredictiveAlerts(ctx context.Context, companyID, asset
 }
 
 func (s *Service) RecordIoTReading(ctx context.Context, reading IoTReading) (IoTReading, error) {
-	return IoTReading{}, errors.New("cmms: advanced repository not implemented")
+	if reading.SensorID <= 0 {
+		return IoTReading{}, errors.New("cmms: sensor id required")
+	}
+	if math.IsNaN(reading.Value) || math.IsInf(reading.Value, 0) {
+		return IoTReading{}, errors.New("cmms: IoT reading must be finite")
+	}
+	sensor, err := s.repo.GetIoTSensor(ctx, reading.SensorID)
+	if err != nil {
+		return IoTReading{}, fmt.Errorf("cmms: load IoT sensor: %w", err)
+	}
+	if sensor.Status != "ACTIVE" {
+		return IoTReading{}, errors.New("cmms: IoT sensor is not active")
+	}
+	if reading.CompanyID > 0 && sensor.CompanyID != reading.CompanyID {
+		return IoTReading{}, errors.New("cmms: IoT sensor does not belong to company")
+	}
+	if reading.Timestamp.IsZero() {
+		reading.Timestamp = s.now()
+	}
+	reading.ID, err = s.repo.InsertIoTReadingAt(ctx, reading.SensorID, reading.Value, reading.Timestamp)
+	if err != nil {
+		return IoTReading{}, fmt.Errorf("cmms: insert IoT reading: %w", err)
+	}
+	if err := s.repo.UpdateIoTSensorReading(ctx, reading.SensorID, reading.Value, reading.Timestamp); err != nil {
+		return IoTReading{}, fmt.Errorf("cmms: update IoT sensor state: %w", err)
+	}
+	reading.CompanyID = sensor.CompanyID
+	return reading, nil
 }
 
 func (s *Service) CreatePredictiveModel(ctx context.Context, model PredictiveModel) (PredictiveModel, error) {
-	return PredictiveModel{}, errors.New("cmms: advanced repository not implemented")
+	if model.CompanyID <= 0 || strings.TrimSpace(model.AssetType) == "" || strings.TrimSpace(model.ModelName) == "" || strings.TrimSpace(model.Version) == "" {
+		return PredictiveModel{}, errors.New("cmms: company, asset type, model name, and version are required")
+	}
+	if model.Accuracy < 0 || model.Accuracy > 1 || math.IsNaN(model.Accuracy) || math.IsInf(model.Accuracy, 0) {
+		return PredictiveModel{}, errors.New("cmms: model accuracy must be between 0 and 1")
+	}
+	model.AssetType = strings.TrimSpace(model.AssetType)
+	model.ModelName = strings.TrimSpace(model.ModelName)
+	model.Version = strings.TrimSpace(model.Version)
+	if model.DeployedAt.IsZero() {
+		model.DeployedAt = s.now()
+	}
+	id, err := s.repo.CreatePredictiveModel(ctx, model)
+	if err != nil {
+		return PredictiveModel{}, fmt.Errorf("cmms: create predictive model: %w", err)
+	}
+	model.ID = id
+	return model, nil
 }
 
 func (s *Service) EvaluatePredictiveAlertsBatch(ctx context.Context, companyID int64) ([]PredictiveAlert, error) {
-	return nil, errors.New("cmms: advanced repository not implemented")
+	if companyID <= 0 {
+		return nil, errors.New("cmms: company id required")
+	}
+	anomalies, err := s.repo.ListPredictiveAnomalies(ctx, companyID)
+	if err != nil {
+		return nil, fmt.Errorf("cmms: list predictive anomalies: %w", err)
+	}
+	alerts := make([]PredictiveAlert, 0, len(anomalies))
+	for _, anomaly := range anomalies {
+		alert := PredictiveAlert{
+			CompanyID:   anomaly.CompanyID,
+			AssetID:     anomaly.AssetID,
+			SensorID:    &anomaly.SensorID,
+			ModelID:     &anomaly.ModelID,
+			Severity:    "CRITICAL",
+			Description: fmt.Sprintf("Predictive model reading %.4f exceeded the configured anomaly threshold", anomaly.Value),
+			GeneratedAt: anomaly.Timestamp,
+		}
+		alert.ID, err = s.repo.CreatePredictiveAlert(ctx, alert)
+		if err != nil {
+			return alerts, fmt.Errorf("cmms: create predictive alert: %w", err)
+		}
+		if alert.GeneratedAt.IsZero() {
+			alert.GeneratedAt = s.now()
+		}
+		alerts = append(alerts, alert)
+	}
+	return alerts, nil
 }
-

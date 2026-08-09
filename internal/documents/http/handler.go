@@ -450,14 +450,35 @@ func parseInt64(value string) int64 {
 // ============================================================================
 
 func (h *Handler) processOCR(w http.ResponseWriter, r *http.Request) {
-	// Usually this is an async job. Mocking it here.
-	versionID, _ := strconv.ParseInt(chi.URLParam(r, "versionID"), 10, 64)
-	err := h.service.ProcessOCR(r.Context(), versionID)
+	versionID := parseInt64(chi.URLParam(r, "versionID"))
+	if versionID <= 0 {
+		shared.JSONErrorFrom(w, http.StatusBadRequest, errors.New("documents: valid version id required"))
+		return
+	}
+	if h.jobs == nil {
+		shared.JSONErrorFrom(w, http.StatusServiceUnavailable, errors.New("documents: OCR worker is not configured"))
+		return
+	}
+	version, err := h.service.GetVersion(r.Context(), versionID)
+	if err != nil {
+		shared.JSONErrorFrom(w, http.StatusNotFound, err)
+		return
+	}
+	companyID := currentCompany(r)
+	if companyID <= 0 || version.CompanyID != companyID || version.BlobID == nil {
+		shared.JSONErrorFrom(w, http.StatusBadRequest, errors.New("documents: version is not available for this company"))
+		return
+	}
+	jobID, err := h.service.InitiateOCRJob(r.Context(), companyID, versionID, *version.BlobID)
 	if err != nil {
 		shared.JSONErrorFrom(w, http.StatusInternalServerError, err)
 		return
 	}
-	shared.JSONResponse(w, http.StatusOK, map[string]string{"status": "processing"})
+	if _, err := h.jobs.EnqueueDocumentOCR(r.Context(), jobID); err != nil {
+		shared.JSONErrorFrom(w, http.StatusServiceUnavailable, err)
+		return
+	}
+	shared.JSONResponse(w, http.StatusAccepted, map[string]any{"job_id": jobID, "status": "PENDING"})
 }
 
 func (h *Handler) createCollaborationSession(w http.ResponseWriter, r *http.Request) {
@@ -467,6 +488,7 @@ func (h *Handler) createCollaborationSession(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	in.CompanyID = currentCompany(r)
+	in.HostUserID = currentUser(r)
 	created, err := h.service.CreateCollaborationSession(r.Context(), in)
 	if err != nil {
 		shared.JSONErrorFrom(w, http.StatusInternalServerError, err)
@@ -481,6 +503,9 @@ func (h *Handler) recordCollaborationChange(w http.ResponseWriter, r *http.Reque
 		shared.JSONErrorFrom(w, http.StatusBadRequest, err)
 		return
 	}
+	in.CompanyID = currentCompany(r)
+	in.ActorID = currentUser(r)
+	in.SessionID = parseInt64(chi.URLParam(r, "sessionID"))
 	created, err := h.service.RecordCollaborationChange(r.Context(), in)
 	if err != nil {
 		shared.JSONErrorFrom(w, http.StatusInternalServerError, err)
@@ -492,6 +517,10 @@ func (h *Handler) recordCollaborationChange(w http.ResponseWriter, r *http.Reque
 func (h *Handler) searchContent(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query().Get("q")
 	companyID := currentCompany(r)
+	if companyID <= 0 || strings.TrimSpace(query) == "" {
+		shared.JSONErrorFrom(w, http.StatusBadRequest, errors.New("documents: company and search query are required"))
+		return
+	}
 	results, err := h.service.SearchContent(r.Context(), companyID, query)
 	if err != nil {
 		shared.JSONErrorFrom(w, http.StatusInternalServerError, err)

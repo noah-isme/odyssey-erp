@@ -2070,6 +2070,15 @@ type DispositionRequest struct {
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 }
 
+type DocCollaborationChange struct {
+	ID         int64              `json:"id"`
+	SessionID  int64              `json:"session_id"`
+	ActorID    int64              `json:"actor_id"`
+	Operation  string             `json:"operation"`
+	Payload    string             `json:"payload"`
+	OccurredAt pgtype.Timestamptz `json:"occurred_at"`
+}
+
 type DocCollaborationSession struct {
 	ID                int64              `json:"id"`
 	CompanyID         int64              `json:"company_id"`

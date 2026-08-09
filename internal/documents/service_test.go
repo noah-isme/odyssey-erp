@@ -18,6 +18,10 @@ func TestServiceRejectsInvalidRequestsWithoutRepository(t *testing.T) {
 		{"update", func() error { _, err := svc.Update(ctx, 1, UpdateDocumentRequest{}); return err }},
 		{"version", func() error { _, err := svc.CreateVersion(ctx, CreateVersionRequest{}); return err }},
 		{"disposition", func() error { _, err := svc.CreateDisposition(ctx, CreateDispositionRequest{}); return err }},
+		{"OCR", func() error { return svc.ProcessOCR(ctx, 0) }},
+		{"collaboration session", func() error { _, err := svc.CreateCollaborationSession(ctx, CollaborationSession{}); return err }},
+		{"collaboration change", func() error { _, err := svc.RecordCollaborationChange(ctx, CollaborationChange{}); return err }},
+		{"content search", func() error { _, err := svc.SearchContent(ctx, 0, ""); return err }},
 	}
 
 	for _, tt := range tests {

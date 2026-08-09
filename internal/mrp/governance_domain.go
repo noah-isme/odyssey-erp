@@ -15,6 +15,8 @@ type DecisionRequest struct {
 	ActorID     int64
 	Reason      string
 	ChallengeID string // UUID of one-time signature challenge
+	ReauthToken string // Current password or TOTP code; never persisted
+	Evidence    map[string]interface{}
 }
 
 // DecisionGrant represents approval from the compliance gate
@@ -51,6 +53,7 @@ type ComplianceDecision struct {
 	ID              int64
 	CompanyID       int64
 	PolicyVersionID int64
+	SnapshotID      *int64
 	RecordType      string
 	RecordID        int64
 	Action          string
@@ -67,11 +70,17 @@ type SignatureChallenge struct {
 	ID                       int64
 	ChallengeID              uuid.UUID
 	PolicyVersionID          int64
+	CompanyID                int64
+	RecordType               string
+	SignerID                 int64
 	RecordID                 int64
 	RecordVersion            *string
+	RecordHash               *string
 	Expiry                   time.Time
 	ReauthenticationRequired bool
 	Used                     bool
+	ReauthenticationMethod   *string
+	ReauthenticatedAt        *time.Time
 	CreatedAt                time.Time
 }
 

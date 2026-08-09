@@ -23,6 +23,9 @@ func TestServiceRejectsInvalidRequestsWithoutRepository(t *testing.T) {
 		{"spare part", func() error { _, err := svc.CreateSparePart(ctx, CreateSparePartRequest{}); return err }},
 		{"work order spare part", func() error { _, err := svc.AddSparePartToWorkOrder(ctx, AddSparePartRequest{}); return err }},
 		{"invalid status", func() error { _, err := svc.UpdateWorkOrderStatus(ctx, 1, Status("UNKNOWN"), 1); return err }},
+		{"IoT reading", func() error { _, err := svc.RecordIoTReading(ctx, IoTReading{}); return err }},
+		{"predictive model", func() error { _, err := svc.CreatePredictiveModel(ctx, PredictiveModel{}); return err }},
+		{"predictive alerts", func() error { _, err := svc.EvaluatePredictiveAlertsBatch(ctx, 0); return err }},
 	}
 
 	for _, tt := range tests {

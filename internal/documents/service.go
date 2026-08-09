@@ -2,6 +2,8 @@ package documents
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -14,20 +16,30 @@ import (
 
 // Service implements Document Management business logic.
 type Service struct {
-	repo    *Repository
-	storage storage.Storage
-	now     func() time.Time
+	repo         *Repository
+	storage      storage.Storage
+	now          func() time.Time
+	ocrExtractor OCRExtractor
 }
 
 // NewService constructs a Service instance.
 func NewService(repo *Repository, storage storage.Storage) *Service {
-	return &Service{repo: repo, storage: storage, now: time.Now}
+	return &Service{repo: repo, storage: storage, now: time.Now, ocrExtractor: PlainTextOCRExtractor{}}
 }
 
 // WithNow overrides the clock for deterministic tests.
 func (s *Service) WithNow(now func() time.Time) {
 	if now != nil {
 		s.now = now
+	}
+}
+
+// WithOCRExtractor replaces the default text extractor with a provider such
+// as a Tesseract or cloud OCR adapter. The worker remains responsible for
+// invoking it asynchronously.
+func (s *Service) WithOCRExtractor(extractor OCRExtractor) {
+	if extractor != nil {
+		s.ocrExtractor = extractor
 	}
 }
 
@@ -130,6 +142,19 @@ func (s *Service) Delete(ctx context.Context, id int64, actorID int64) error {
 
 // InitiateOCRJob queues a document version for Optical Character Recognition (OCR) text extraction.
 func (s *Service) InitiateOCRJob(ctx context.Context, companyID, versionID, blobID int64) (int64, error) {
+	if companyID <= 0 || versionID <= 0 || blobID <= 0 {
+		return 0, errors.New("documents: company, version, and blob ids are required")
+	}
+	version, err := s.repo.GetDocumentVersion(ctx, versionID)
+	if err != nil {
+		return 0, err
+	}
+	if version.CompanyID != companyID {
+		return 0, errors.New("documents: document version does not belong to company")
+	}
+	if version.BlobID == nil || *version.BlobID != blobID {
+		return 0, errors.New("documents: OCR blob does not belong to document version")
+	}
 	job := DocumentOCRJob{
 		CompanyID:         companyID,
 		DocumentVersionID: versionID,
@@ -142,15 +167,27 @@ func (s *Service) InitiateOCRJob(ctx context.Context, companyID, versionID, blob
 		return 0, fmt.Errorf("documents: failed to create OCR job: %w", err)
 	}
 
-	// Ideally, this would dispatch an asynchronous message to an OCR worker worker-pool.
-	// We'll leave the actual extraction task to the worker queue.
 	return jobID, nil
 }
 
 // StartCollaborationSession creates a real-time editing session token for a document.
 func (s *Service) StartCollaborationSession(ctx context.Context, companyID, versionID, hostUserID int64) (string, error) {
-	// Generate a simple unique token for the session (in real life, a cryptographically secure random string or JWT)
-	token := fmt.Sprintf("session-%d-%d-%d", companyID, versionID, time.Now().UnixNano())
+	if companyID <= 0 || versionID <= 0 || hostUserID <= 0 {
+		return "", errors.New("documents: company, version, and host user ids are required")
+	}
+	version, err := s.repo.GetDocumentVersion(ctx, versionID)
+	if err != nil {
+		return "", err
+	}
+	if version.CompanyID != companyID {
+		return "", errors.New("documents: document version does not belong to company")
+	}
+
+	tokenBytes := make([]byte, 32)
+	if _, err := rand.Read(tokenBytes); err != nil {
+		return "", fmt.Errorf("documents: generate collaboration token: %w", err)
+	}
+	token := base64.RawURLEncoding.EncodeToString(tokenBytes)
 
 	session := DocumentCollaborationSession{
 		CompanyID:         companyID,
@@ -161,7 +198,7 @@ func (s *Service) StartCollaborationSession(ctx context.Context, companyID, vers
 		ExpiresAt:         s.now().Add(24 * time.Hour), // 24-hour max session
 	}
 
-	_, err := s.repo.CreateCollaborationSession(ctx, session)
+	_, err = s.repo.CreateCollaborationSession(ctx, session)
 	if err != nil {
 		return "", fmt.Errorf("documents: failed to start collaboration session: %w", err)
 	}
@@ -551,17 +588,23 @@ func (s *Service) SignDocument(ctx context.Context, req SignDocumentRequest) (Do
 
 // ApplyRetention applies retention policies to a document version.
 func (s *Service) ApplyRetention(ctx context.Context, versionID int64) error {
+	if versionID <= 0 {
+		return errors.New("documents: version id required")
+	}
 	version, err := s.repo.GetDocumentVersion(ctx, versionID)
 	if err != nil {
 		return err
 	}
+	policyID, retentionDays, err := s.repo.GetActiveRetentionPolicyForVersion(ctx, versionID)
+	if err != nil {
+		return fmt.Errorf("documents: no active retention policy for version: %w", err)
+	}
+	if retentionDays <= 0 {
+		return errors.New("documents: retention policy has invalid duration")
+	}
 
-	// Example calculation: 7 years from Trigger Date (Now)
-	// In a complete implementation, this would look up the specific policy ID rules.
-	policyID := int64(1) // Default Fallback Policy
-
-	triggerDate := time.Now()
-	expiryDate := triggerDate.AddDate(7, 0, 0)
+	triggerDate := s.now()
+	expiryDate := triggerDate.AddDate(0, 0, retentionDays)
 
 	return s.repo.InsertRetention(ctx, version.CompanyID, versionID, policyID, triggerDate, expiryDate)
 }
@@ -576,16 +619,6 @@ func (s *Service) ReleaseLegalHold(ctx context.Context, holdID, releasedBy int64
 	return s.repo.ReleaseLegalHold(ctx, holdID, releasedBy)
 }
 
-// CreateDisposition creates a disposition request.
-func (s *Service) CreateDisposition(ctx context.Context, req CreateDispositionRequest) (DispositionRequest, error) {
-	return DispositionRequest{}, errors.New("documents: disposition not implemented")
-}
-
-// UpdateDispositionRequest updates a disposition request status.
-func (s *Service) UpdateDispositionRequest(ctx context.Context, id int64, status string, actorID int64) (DispositionRequest, error) {
-	return DispositionRequest{}, errors.New("documents: disposition not implemented")
-}
-
 // ExecuteApprovedDispositions processes approved disposition requests.
 func (s *Service) ExecuteApprovedDispositions(ctx context.Context) error {
 	dispositions, err := s.repo.GetPendingDispositions(ctx)
@@ -593,15 +626,13 @@ func (s *Service) ExecuteApprovedDispositions(ctx context.Context) error {
 		return fmt.Errorf("documents: failed to get pending dispositions: %w", err)
 	}
 
+	var failures []error
 	for _, req := range dispositions {
-		err := s.executeDisposition(ctx, req)
-		if err != nil {
-			// Log error but continue with other requests
-			fmt.Printf("failed to execute disposition %d: %v\n", req.ID, err)
+		if err := s.executeDisposition(ctx, req); err != nil {
+			failures = append(failures, fmt.Errorf("disposition %d: %w", req.ID, err))
 		}
 	}
-
-	return nil
+	return errors.Join(failures...)
 }
 
 func (s *Service) executeDisposition(ctx context.Context, req DispositionRequest) error {
@@ -612,8 +643,11 @@ func (s *Service) executeDisposition(ctx context.Context, req DispositionRequest
 	}
 
 	// 2. Check for active legal holds
-	hasHold, err := s.repo.HasActiveLegalHold(ctx, version.CompanyID)
-	if err == nil && hasHold {
+	hasHold, err := s.repo.HasActiveLegalHoldForVersion(ctx, version.ID)
+	if err != nil {
+		return s.failDisposition(ctx, req.ID, fmt.Sprintf("failed to check legal hold: %v", err))
+	}
+	if hasHold {
 		return s.failDisposition(ctx, req.ID, "blocked by active legal hold")
 	}
 
@@ -621,12 +655,26 @@ func (s *Service) executeDisposition(ctx context.Context, req DispositionRequest
 	var evidence string
 	if version.BlobID != nil {
 		blob, err := s.repo.GetBlob(ctx, *version.BlobID)
-		if err == nil && blob.StorageKey != "" {
-			err = s.storage.Delete(ctx, blob.StorageKey)
-			if err != nil {
-				return s.failDisposition(ctx, req.ID, fmt.Sprintf("storage delete failed: %v", err))
+		if err != nil {
+			return s.failDisposition(ctx, req.ID, fmt.Sprintf("failed to load blob: %v", err))
+		}
+		if blob.StorageKey != "" {
+			if s.storage == nil {
+				return s.failDisposition(ctx, req.ID, "document storage is not configured")
 			}
-			evidence = fmt.Sprintf("{\"deleted_blob_id\": %d, \"deleted_key\": \"%s\"}", blob.ID, blob.StorageKey)
+			shared, refErr := s.repo.HasOtherBlobReferences(ctx, blob.ID, version.ID)
+			if refErr != nil {
+				return s.failDisposition(ctx, req.ID, fmt.Sprintf("failed to check blob references: %v", refErr))
+			}
+			if shared {
+				evidence = fmt.Sprintf("{\"blob_retained\": true, \"blob_id\": %d}", blob.ID)
+			} else {
+				err = s.storage.Delete(ctx, blob.StorageKey)
+				if err != nil {
+					return s.failDisposition(ctx, req.ID, fmt.Sprintf("storage delete failed: %v", err))
+				}
+				evidence = fmt.Sprintf("{\"deleted_blob_id\": %d, \"deleted_key\": \"%s\"}", blob.ID, blob.StorageKey)
+			}
 		} else {
 			evidence = "{\"status\": \"no_blob_found\"}"
 		}
@@ -635,20 +683,23 @@ func (s *Service) executeDisposition(ctx context.Context, req DispositionRequest
 	}
 
 	// 4. Set document version to ARCHIVED/DELETED
-	_, err = s.repo.SetVersionStatus(ctx, req.DocumentVersionID, StatusArchived, 1) // System actor
+	actorID := req.RequestedBy
+	if actorID <= 0 {
+		actorID = 1
+	}
+	_, err = s.repo.SetVersionStatus(ctx, req.DocumentVersionID, StatusArchived, actorID)
 	if err != nil {
 		return s.failDisposition(ctx, req.ID, fmt.Sprintf("failed to update version status: %v", err))
 	}
 
 	// 5. Update request to EXECUTED
-	now := time.Now()
-	var actor int64 = 1 // System actor
+	now := s.now()
 
 	err = s.repo.UpdateDispositionExecution(ctx, DispositionExecutionUpdate{
 		ID:                req.ID,
 		Status:            "EXECUTED",
 		ExecutedAt:        &now,
-		ExecutedBy:        &actor,
+		ExecutedBy:        &actorID,
 		ExecutionEvidence: []byte(evidence),
 	})
 
@@ -773,6 +824,7 @@ type CreateDispositionRequest struct {
 	DocumentVersionID int64
 	PolicyID          int64
 	RequestedBy       int64
+	Reason            string
 }
 
 // validateStatusTransition validates if a status transition is allowed.
@@ -784,24 +836,4 @@ func validateStatusTransition(newStatus Status) error {
 		}
 	}
 	return fmt.Errorf("documents: invalid status %s", newStatus)
-}
-
-// ============================================================================
-// Advanced Documents (OCR, Collaboration, Search)
-// ============================================================================
-
-func (s *Service) ProcessOCR(ctx context.Context, versionID int64) error {
-	return errors.New("documents: process ocr not implemented")
-}
-
-func (s *Service) CreateCollaborationSession(ctx context.Context, req CollaborationSession) (CollaborationSession, error) {
-	return CollaborationSession{}, errors.New("documents: advanced repository not implemented")
-}
-
-func (s *Service) RecordCollaborationChange(ctx context.Context, req CollaborationChange) (CollaborationChange, error) {
-	return CollaborationChange{}, errors.New("documents: advanced repository not implemented")
-}
-
-func (s *Service) SearchContent(ctx context.Context, companyID int64, query string) ([]Document, error) {
-	return nil, errors.New("documents: search content not implemented")
 }

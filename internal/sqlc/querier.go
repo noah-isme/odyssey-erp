@@ -88,6 +88,7 @@ type Querier interface {
 	CreateCarrier(ctx context.Context, arg CreateCarrierParams) (int64, error)
 	CreateCarrierRateCard(ctx context.Context, arg CreateCarrierRateCardParams) (int64, error)
 	CreateCategory(ctx context.Context, arg CreateCategoryParams) (CreateCategoryRow, error)
+	CreateCollaborationChange(ctx context.Context, arg CreateCollaborationChangeParams) (CreateCollaborationChangeRow, error)
 	CreateCollaborationSession(ctx context.Context, arg CreateCollaborationSessionParams) (int64, error)
 	CreateCompany(ctx context.Context, arg CreateCompanyParams) (CreateCompanyRow, error)
 	// =============================================================================
@@ -97,6 +98,7 @@ type Querier interface {
 	CreateConnection(ctx context.Context, arg CreateConnectionParams) (ConnectorConnection, error)
 	CreateCustomer(ctx context.Context, arg CreateCustomerParams) (int64, error)
 	CreateDeliveryOrder(ctx context.Context, arg CreateDeliveryOrderParams) (int64, error)
+	CreateDispositionRequest(ctx context.Context, arg CreateDispositionRequestParams) (DispositionRequest, error)
 	CreateDocumentOCRJob(ctx context.Context, arg CreateDocumentOCRJobParams) (int64, error)
 	// ═══════════════════════════════════════════════════════════════════════════
 	// DRIVERS
@@ -277,6 +279,7 @@ type Querier interface {
 	GetAccounts(ctx context.Context) ([]GetAccountsRow, error)
 	GetActiveMatchingPolicy(ctx context.Context, arg GetActiveMatchingPolicyParams) (ApMatchingPolicy, error)
 	GetActivePolicyForDecision(ctx context.Context, arg GetActivePolicyForDecisionParams) (PolicyVersion, error)
+	GetActiveRetentionPolicyForVersion(ctx context.Context, id int64) (GetActiveRetentionPolicyForVersionRow, error)
 	GetAdjustment(ctx context.Context, id int64) (GetAdjustmentRow, error)
 	GetAdjustmentLines(ctx context.Context, adjustmentID int64) ([]GetAdjustmentLinesRow, error)
 	GetApplicableRateCard(ctx context.Context, arg GetApplicableRateCardParams) (RateCard, error)
@@ -308,6 +311,7 @@ type Querier interface {
 	// =============================================================================
 	GetCategory(ctx context.Context, id int64) (GetCategoryRow, error)
 	GetCollaborationSession(ctx context.Context, sessionToken string) (DocCollaborationSession, error)
+	GetCollaborationSessionByID(ctx context.Context, id int64) (DocCollaborationSession, error)
 	GetCompany(ctx context.Context, id int64) (GetCompanyRow, error)
 	GetComplianceDecision(ctx context.Context, id int64) (ComplianceDecision, error)
 	GetComplianceDecisionByUUID(ctx context.Context, decisionID pgtype.UUID) (ComplianceDecision, error)
@@ -322,6 +326,7 @@ type Querier interface {
 	GetCustomerComplaint(ctx context.Context, id int64) (GetCustomerComplaintRow, error)
 	GetDefaultNumberingRule(ctx context.Context, companyID int64) (DocumentNumberingRule, error)
 	GetDeliverableSOLines(ctx context.Context, salesOrderID int64) ([]GetDeliverableSOLinesRow, error)
+	GetDispositionRequest(ctx context.Context, id int64) (DispositionRequest, error)
 	GetDocument(ctx context.Context, id int64) (GetDocumentRow, error)
 	GetDocumentCategory(ctx context.Context, id int64) (DocumentCategory, error)
 	GetDocumentClassification(ctx context.Context, id int64) (DocumentClassification, error)
@@ -350,6 +355,7 @@ type Querier interface {
 	GetGroup(ctx context.Context, id int64) (GetGroupRow, error)
 	GetInboundHistory(ctx context.Context, arg GetInboundHistoryParams) ([]GetInboundHistoryRow, error)
 	GetInvoiceBalance(ctx context.Context, id int64) (GetInvoiceBalanceRow, error)
+	GetIoTSensor(ctx context.Context, id int64) (CmmsIotSensor, error)
 	GetLabSample(ctx context.Context, id int64) (QmsLabSample, error)
 	GetLandedCost(ctx context.Context, arg GetLandedCostParams) (LandedCost, error)
 	GetLandedCostByShipment(ctx context.Context, arg GetLandedCostByShipmentParams) (LandedCost, error)
@@ -367,6 +373,7 @@ type Querier interface {
 	GetNumberingRuleForCategory(ctx context.Context, arg GetNumberingRuleForCategoryParams) (DocumentNumberingRule, error)
 	GetObjectMappingByLocal(ctx context.Context, arg GetObjectMappingByLocalParams) (ConnectorObjectMapping, error)
 	GetObjectMappingByRemote(ctx context.Context, arg GetObjectMappingByRemoteParams) (ConnectorObjectMapping, error)
+	GetOpenDispositionRequestForVersion(ctx context.Context, documentVersionID int64) (DispositionRequest, error)
 	GetOpenPeriodByDate(ctx context.Context, startDate pgtype.Date) (Period, error)
 	GetPMSchedule(ctx context.Context, id int64) (GetPMScheduleRow, error)
 	GetPO(ctx context.Context, id int64) (GetPORow, error)
@@ -406,6 +413,7 @@ type Querier interface {
 	GetRateCard(ctx context.Context, arg GetRateCardParams) (RateCard, error)
 	GetReorderAlerts(ctx context.Context) ([]GetReorderAlertsRow, error)
 	GetReportingDataset(ctx context.Context, arg GetReportingDatasetParams) (ReportingDataset, error)
+	GetRetentionPolicyForCompany(ctx context.Context, arg GetRetentionPolicyForCompanyParams) (GetRetentionPolicyForCompanyRow, error)
 	GetRole(ctx context.Context, id int64) (Role, error)
 	GetRouteOptimizationJob(ctx context.Context, id int64) (LogisticsRouteOptimizationJob, error)
 	GetRouteSequences(ctx context.Context, optimizationJobID int64) ([]LogisticsRouteSequence, error)
@@ -474,6 +482,8 @@ type Querier interface {
 	GetWorkOrderSparePart(ctx context.Context, id int64) (WorkOrderSparePart, error)
 	GetWorkOrderTask(ctx context.Context, id int64) (WorkOrderTask, error)
 	HasActiveLegalHold(ctx context.Context, companyID int64) (bool, error)
+	HasActiveLegalHoldForVersion(ctx context.Context, id int64) (bool, error)
+	HasOtherDocumentBlobReferences(ctx context.Context, arg HasOtherDocumentBlobReferencesParams) (bool, error)
 	IncrementNumberingSequence(ctx context.Context, id int64) error
 	IndexDocumentSearch(ctx context.Context, arg IndexDocumentSearchParams) (int64, error)
 	InsertAccountingPeriod(ctx context.Context, arg InsertAccountingPeriodParams) (int64, error)
@@ -542,6 +552,7 @@ type Querier interface {
 	InsertGRNLine(ctx context.Context, arg InsertGRNLineParams) error
 	InsertInboxEvent(ctx context.Context, arg InsertInboxEventParams) (ConnectorInboxEvent, error)
 	InsertIoTReading(ctx context.Context, arg InsertIoTReadingParams) (int64, error)
+	InsertIoTReadingAt(ctx context.Context, arg InsertIoTReadingAtParams) (int64, error)
 	// =============================================================================
 	// LEGAL HOLDS
 	// =============================================================================
@@ -713,6 +724,7 @@ type Querier interface {
 	ListDrivers(ctx context.Context, arg ListDriversParams) ([]Driver, error)
 	ListDuePMSchedules(ctx context.Context, companyID int64) ([]ListDuePMSchedulesRow, error)
 	ListExpiredChallenges(ctx context.Context, limit int32) ([]SignatureChallenge, error)
+	ListExpiredDocumentRetention(ctx context.Context) ([]ListExpiredDocumentRetentionRow, error)
 	ListFleets(ctx context.Context, companyID int64) ([]Fleet, error)
 	ListForecastAdjustments(ctx context.Context, scenarioID int64) ([]ForecastAdjustment, error)
 	ListForecastDailyBuckets(ctx context.Context, runID int64) ([]ForecastDailyBucket, error)
@@ -741,6 +753,7 @@ type Querier interface {
 	ListPeriods(ctx context.Context, arg ListPeriodsParams) ([]ListPeriodsRow, error)
 	ListPermissions(ctx context.Context) ([]Permission, error)
 	ListPoliciesByCompany(ctx context.Context, companyID int64) ([]PolicyVersion, error)
+	ListPredictiveAnomalies(ctx context.Context, companyID int64) ([]ListPredictiveAnomaliesRow, error)
 	ListPriceHistoryBySupplierProduct(ctx context.Context, arg ListPriceHistoryBySupplierProductParams) ([]PriceHistory, error)
 	ListPriceHistoryTrend(ctx context.Context, arg ListPriceHistoryTrendParams) ([]ListPriceHistoryTrendRow, error)
 	ListQMSHolds(ctx context.Context, arg ListQMSHoldsParams) ([]QmsHold, error)
@@ -787,6 +800,7 @@ type Querier interface {
 	LockChecklistItemRun(ctx context.Context, id int64) (int64, error)
 	LookupAccountID(ctx context.Context, code string) (int64, error)
 	MarkChallengeUsed(ctx context.Context, id int64) error
+	MarkDocumentRetentionExpired(ctx context.Context, id int64) error
 	MarkFailed(ctx context.Context, arg MarkFailedParams) error
 	MarkInProgress(ctx context.Context, id int64) error
 	MarkInboxEventProcessed(ctx context.Context, id int64) error
@@ -865,6 +879,7 @@ type Querier interface {
 	UpdateCustomerComplaint(ctx context.Context, arg UpdateCustomerComplaintParams) error
 	UpdateCustomerComplaintStatus(ctx context.Context, arg UpdateCustomerComplaintStatusParams) error
 	UpdateDispositionExecution(ctx context.Context, arg UpdateDispositionExecutionParams) error
+	UpdateDispositionRequest(ctx context.Context, arg UpdateDispositionRequestParams) (DispositionRequest, error)
 	UpdateDocument(ctx context.Context, arg UpdateDocumentParams) error
 	UpdateDocumentOCRJob(ctx context.Context, arg UpdateDocumentOCRJobParams) error
 	UpdateDocumentVersionStatus(ctx context.Context, arg UpdateDocumentVersionStatusParams) error

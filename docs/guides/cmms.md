@@ -2,7 +2,11 @@
 
 ## Current status
 
-**Full Implementation.** The Horizon foundation supports a comprehensive CMMS module for managing maintenance operations. The core logic is located in `internal/cmms/`.
+**Core implementation with advanced telemetry foundations.** The Horizon foundation
+supports maintenance operations in `internal/cmms/`. IoT readings, predictive-model
+metadata, and idempotent anomaly alerts are now persisted and exposed through the
+service boundary; these are deterministic foundations, not a replacement for a
+calibrated ML platform.
 
 ## Supported scope
 
@@ -13,7 +17,16 @@
 - **Task Templates:** Reusable task templates with step-by-step instructions and safety notes for standardized maintenance procedures.
 - **Spare Parts:** Inventory tracking for maintenance spares, including reorder points, min/max quantities, and usage tracking on work orders.
 - **Meter Readings:** Tracking of usage or environmental metrics (e.g., hours, temperature, pressure) against assets.
+- **IoT Readings:** Company-checked sensor readings are persisted with their event
+  timestamp and update the sensor's latest state.
+- **Predictive Models and Alerts:** Active model metadata is stored per company. The
+  scheduled/batch evaluator selects the latest reading and creates at most one open
+  critical alert per sensor/model anomaly, so retries are safe.
 
 ## Gaps
 
-Advanced predictive maintenance algorithms, IoT sensor integrations for real-time telemetry, detailed project-based cost accounting, and a dedicated mobile offline-first execution app for field technicians are not currently supported out-of-the-box.
+Advanced predictive inference, model training, configurable per-sensor thresholds,
+real-time streaming dashboards, detailed project-based cost accounting, and a
+dedicated mobile offline-first execution app for field technicians are not currently
+supported out-of-the-box. The current evaluator is a deliberately explicit heuristic
+(`reading > 1000`) until a real model/rules provider is configured.

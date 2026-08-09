@@ -1,7 +1,7 @@
 CREATE TABLE cmms_iot_sensors (
     id BIGSERIAL PRIMARY KEY,
     company_id BIGINT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-    asset_id BIGINT NOT NULL REFERENCES cmms_assets(id) ON DELETE CASCADE,
+    asset_id BIGINT NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
     sensor_code VARCHAR(100) NOT NULL,
     sensor_type VARCHAR(50) NOT NULL,
     status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
@@ -32,7 +32,7 @@ CREATE TABLE cmms_predictive_models (
 CREATE TABLE cmms_predictive_alerts (
     id BIGSERIAL PRIMARY KEY,
     company_id BIGINT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-    asset_id BIGINT NOT NULL REFERENCES cmms_assets(id) ON DELETE CASCADE,
+    asset_id BIGINT NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
     sensor_id BIGINT REFERENCES cmms_iot_sensors(id) ON DELETE SET NULL,
     model_id BIGINT REFERENCES cmms_predictive_models(id) ON DELETE SET NULL,
     severity VARCHAR(50) NOT NULL,

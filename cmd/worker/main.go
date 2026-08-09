@@ -340,6 +340,7 @@ func main() {
 				_, err := cmmsService.GenerateAllPMWorkOrders(ctx)
 				return err
 			})},
+			{Type: jobs.TaskDocumentOCR, Handler: jobs.HandleDocumentOCR(documentsService)},
 			{Type: jobs.TaskDocumentDisposition, Handler: jobs.HandleDocumentDisposition(documentsService)},
 			{Type: jobs.TaskConnectorOutboxSweep, Handler: jobs.HandleConnectorOutboxSweep(connectorsOutboxWorker)},
 			{Type: jobs.TaskProcessAPInvoice, Handler: jobs.HandleProcessAPInvoice(apOrchestrator.ProcessInvoice)},

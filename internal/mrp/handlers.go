@@ -129,7 +129,15 @@ func (h *DecisionSubmissionHandler) processDecision(ctx context.Context, req Dec
 
 // ChallengeVerificationHandler handles signature challenge verification
 type ChallengeVerificationHandler struct {
-	repo *SQLRepository
+	repo     *SQLRepository
+	verifier ChallengeVerifier
+}
+
+// ChallengeVerifier is the transactional signature challenge boundary. The
+// legacy repository constructor remains for compatibility, but verification
+// is fail-closed until a real service is supplied.
+type ChallengeVerifier interface {
+	VerifyChallenge(context.Context, VerifyChallengeInput) (*VerifyChallengeResult, error)
 }
 
 // NewChallengeVerificationHandler creates a new challenge verification handler
@@ -139,13 +147,23 @@ func NewChallengeVerificationHandler(repo *SQLRepository) *ChallengeVerification
 	}
 }
 
+func NewChallengeVerificationHandlerWithService(verifier ChallengeVerifier) *ChallengeVerificationHandler {
+	return &ChallengeVerificationHandler{verifier: verifier}
+}
+
 // ChallengeVerificationRequest represents a signature verification request
 type ChallengeVerificationRequest struct {
-	ChallengeID string                 `json:"challenge_id"`
-	Signature   string                 `json:"signature"`
-	Decision    string                 `json:"decision"` // APPROVE or REJECT
-	Comment     string                 `json:"comment"`
-	Evidence    map[string]interface{} `json:"evidence"`
+	ChallengeID   string                 `json:"challenge_id"`
+	Signature     string                 `json:"signature"`
+	Decision      string                 `json:"decision"` // APPROVE or REJECT
+	Comment       string                 `json:"comment"`
+	Evidence      map[string]interface{} `json:"evidence"`
+	CompanyID     int64                  `json:"company_id"`
+	RecordType    string                 `json:"record_type"`
+	RecordID      int64                  `json:"record_id"`
+	RecordVersion string                 `json:"record_version"`
+	ActorID       int64                  `json:"actor_id"`
+	ReauthToken   string                 `json:"reauth_token"`
 }
 
 // ChallengeVerificationResponse represents the verification result
@@ -179,12 +197,13 @@ func (h *ChallengeVerificationHandler) ServeHTTP(w http.ResponseWriter, r *http.
 
 // verifyChallengeAndDecide verifies the challenge and records the decision
 func (h *ChallengeVerificationHandler) verifyChallengeAndDecide(ctx context.Context, req ChallengeVerificationRequest) ChallengeVerificationResponse {
-	// In production, would verify challenge via SignatureChallengeService
-	// For now, accept any non-empty challenge and signature
-	if req.ChallengeID == "" || req.Signature == "" {
+	if h == nil || h.verifier == nil {
+		return ChallengeVerificationResponse{Success: false, Error: "Challenge verification service unavailable"}
+	}
+	if req.ChallengeID == "" || req.RecordID <= 0 || req.ActorID <= 0 || req.ReauthToken == "" {
 		return ChallengeVerificationResponse{
 			Success: false,
-			Error:   "Challenge ID and signature are required",
+			Error:   "Challenge ID, record, actor, and reauthentication are required",
 		}
 	}
 
@@ -196,11 +215,23 @@ func (h *ChallengeVerificationHandler) verifyChallengeAndDecide(ctx context.Cont
 		}
 	}
 
-	return ChallengeVerificationResponse{
-		Success:    true,
-		Message:    fmt.Sprintf("Decision recorded: %s", req.Decision),
-		GateStatus: "SIGNED",
+	result, err := h.verifier.VerifyChallenge(ctx, VerifyChallengeInput{
+		ChallengeID:   req.ChallengeID,
+		CompanyID:     req.CompanyID,
+		RecordType:    req.RecordType,
+		RecordID:      req.RecordID,
+		RecordVersion: req.RecordVersion,
+		ReauthToken:   req.ReauthToken,
+		ActorID:       req.ActorID,
+	})
+	if err != nil || result == nil || !result.Valid {
+		message := "Challenge verification failed"
+		if result != nil && result.Message != "" {
+			message = result.Message
+		}
+		return ChallengeVerificationResponse{Success: false, Error: message}
 	}
+	return ChallengeVerificationResponse{Success: true, Message: fmt.Sprintf("Decision recorded: %s", req.Decision), GateStatus: "SIGNED"}
 }
 
 // AuditLogHandler handles audit event queries

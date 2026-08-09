@@ -194,6 +194,15 @@ SELECT id, company_id, storage_key, storage_driver, bucket, size_bytes,
 FROM storage_blobs
 WHERE id = $1;
 
+-- name: HasOtherDocumentBlobReferences :one
+SELECT EXISTS (
+    SELECT 1
+    FROM document_versions
+    WHERE blob_id = $1
+      AND id <> $2
+      AND status <> 'DISPOSED'
+);
+
 -- =============================================================================
 -- DOCUMENT ACLS
 -- =============================================================================
@@ -304,13 +313,70 @@ SELECT EXISTS (
     WHERE lh.company_id = $1 AND lh.status = 'ACTIVE'
 );
 
+-- name: HasActiveLegalHoldForVersion :one
+SELECT EXISTS (
+    SELECT 1
+    FROM document_versions dv
+    JOIN documents d ON d.id = dv.document_id
+    WHERE dv.id = $1
+      AND (
+        EXISTS (
+          SELECT 1
+          FROM legal_holds lh
+          WHERE lh.company_id = dv.company_id
+            AND lh.status = 'ACTIVE'
+            AND (
+                (lh.scope_type = 'DOCUMENT_VERSION' AND lh.scope_id = dv.id)
+                OR (lh.scope_type = 'DOCUMENT' AND lh.scope_id = dv.document_id)
+                OR (lh.scope_type = 'CLASSIFICATION' AND lh.scope_id = dv.classification_id)
+                OR (lh.scope_type = 'CATEGORY' AND lh.scope_id = d.category_id)
+                OR (lh.scope_type = 'COMPANY' AND lh.scope_id = dv.company_id)
+            )
+        )
+        OR EXISTS (
+          SELECT 1
+          FROM legal_hold_references lhr
+          JOIN legal_holds lh ON lh.id = lhr.legal_hold_id
+          WHERE lhr.document_version_id = dv.id
+            AND lhr.company_id = dv.company_id
+            AND lh.status = 'ACTIVE'
+        )
+      )
+);
+
 -- =============================================================================
 -- DOCUMENT RETENTION
 -- =============================================================================
 
 -- name: InsertDocumentRetention :exec
 INSERT INTO document_retention (company_id, document_version_id, policy_id, trigger_date, expiry_date)
-VALUES ($1, $2, $3, $4, $5);
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (document_version_id, policy_id) DO UPDATE
+SET trigger_date = EXCLUDED.trigger_date,
+    expiry_date = EXCLUDED.expiry_date,
+    status = 'ACTIVE',
+    calculated_at = NOW();
+
+-- name: GetActiveRetentionPolicyForVersion :one
+SELECT rp.id, rp.retention_period_days
+FROM retention_policies rp
+JOIN document_versions dv ON dv.company_id = rp.company_id
+JOIN documents d ON d.id = dv.document_id
+WHERE dv.id = $1
+  AND rp.active = TRUE
+  AND (rp.classification_ids IS NULL OR dv.classification_id = ANY(rp.classification_ids))
+  AND (rp.category_ids IS NULL OR d.category_id = ANY(rp.category_ids))
+ORDER BY
+    (CASE WHEN rp.classification_ids IS NULL THEN 0 ELSE 1 END
+     + CASE WHEN rp.category_ids IS NULL THEN 0 ELSE 1 END) DESC,
+    rp.retention_period_days DESC,
+    rp.id
+LIMIT 1;
+
+-- name: GetRetentionPolicyForCompany :one
+SELECT id, company_id, retention_period_days
+FROM retention_policies
+WHERE id = $1 AND company_id = $2 AND active = TRUE;
 
 -- =============================================================================
 -- DOCUMENT SIGNATURES
@@ -342,10 +408,55 @@ WHERE status = 'APPROVED'
 ORDER BY created_at
 LIMIT 50;
 
+-- name: CreateDispositionRequest :one
+INSERT INTO disposition_requests (company_id, document_version_id, requested_by, reason)
+VALUES ($1, $2, $3, $4)
+RETURNING id, company_id, document_version_id, requested_by, reason, status,
+          approved_by, approved_at, executed_at, executed_by, execution_evidence,
+          error_message, created_at;
+
+-- name: GetDispositionRequest :one
+SELECT id, company_id, document_version_id, requested_by, reason, status,
+       approved_by, approved_at, executed_at, executed_by, execution_evidence,
+       error_message, created_at
+FROM disposition_requests
+WHERE id = $1;
+
+-- name: GetOpenDispositionRequestForVersion :one
+SELECT id, company_id, document_version_id, requested_by, reason, status,
+       approved_by, approved_at, executed_at, executed_by, execution_evidence,
+       error_message, created_at
+FROM disposition_requests
+WHERE document_version_id = $1 AND status IN ('PENDING', 'APPROVED')
+ORDER BY created_at DESC
+LIMIT 1;
+
+-- name: UpdateDispositionRequest :one
+UPDATE disposition_requests
+SET status = $2,
+    approved_by = CASE WHEN $2 = 'APPROVED' THEN $3 ELSE approved_by END,
+    approved_at = CASE WHEN $2 = 'APPROVED' THEN NOW() ELSE approved_at END
+WHERE id = $1 AND status = 'PENDING'
+RETURNING id, company_id, document_version_id, requested_by, reason, status,
+          approved_by, approved_at, executed_at, executed_by, execution_evidence,
+          error_message, created_at;
+
 -- name: UpdateDispositionExecution :exec
 UPDATE disposition_requests
 SET status = $2, executed_at = $3, executed_by = $4, execution_evidence = $5, error_message = $6
 WHERE id = $1;
+
+-- name: ListExpiredDocumentRetention :many
+SELECT id, company_id, document_version_id, policy_id
+FROM document_retention
+WHERE status = 'ACTIVE' AND expiry_date <= NOW()
+ORDER BY expiry_date, id
+LIMIT 100;
+
+-- name: MarkDocumentRetentionExpired :exec
+UPDATE document_retention
+SET status = 'EXPIRED', calculated_at = NOW()
+WHERE id = $1 AND status = 'ACTIVE';
 
 -- name: InsertStorageBlob :one
 INSERT INTO storage_blobs (
@@ -382,12 +493,26 @@ INSERT INTO doc_collaboration_sessions (
 ) RETURNING id;
 
 -- name: GetCollaborationSession :one
-SELECT * FROM doc_collaboration_sessions WHERE session_token = $1 AND active = true;
+SELECT * FROM doc_collaboration_sessions
+WHERE session_token = $1 AND active = true AND expires_at > NOW();
+
+-- name: GetCollaborationSessionByID :one
+SELECT id, company_id, document_version_id, session_token, host_user_id, active, created_at, expires_at
+FROM doc_collaboration_sessions
+WHERE id = $1;
 
 -- name: DisableCollaborationSession :exec
 UPDATE doc_collaboration_sessions SET active = false WHERE id = $1;
 
+-- name: CreateCollaborationChange :one
+INSERT INTO doc_collaboration_changes (session_id, actor_id, operation, payload, occurred_at)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, session_id, actor_id, operation, payload, occurred_at AS timestamp;
+
 -- name: IndexDocumentSearch :one
+WITH removed AS (
+    DELETE FROM doc_search_indices WHERE document_version_id = $2
+)
 INSERT INTO doc_search_indices (
     document_id, document_version_id, title, content, keywords, indexed_at
 ) VALUES (
@@ -400,6 +525,10 @@ FROM doc_search_indices i
 JOIN documents d ON i.document_id = d.id
 JOIN document_versions v ON i.document_version_id = v.id
 WHERE d.company_id = $1
-AND to_tsvector('english', i.content) @@ plainto_tsquery('english', $2)
-ORDER BY ts_rank(to_tsvector('english', i.content), plainto_tsquery('english', $2)) DESC
+AND to_tsvector('english', coalesce(i.title, '') || ' ' || coalesce(i.content, '') || ' ' || coalesce(i.keywords, ''))
+    @@ plainto_tsquery('english', $2)
+ORDER BY ts_rank(
+    to_tsvector('english', coalesce(i.title, '') || ' ' || coalesce(i.content, '') || ' ' || coalesce(i.keywords, '')),
+    plainto_tsquery('english', $2)
+) DESC
 LIMIT $3;

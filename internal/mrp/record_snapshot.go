@@ -117,7 +117,6 @@ func (rss *RecordSnapshotService) SnapshotBOM(ctx context.Context, bomID int64) 
 		"record_type": "BOM",
 		"bom":         bom,
 		"lines":       lines,
-		"snapshot_at": time.Now(),
 	}
 
 	// Marshal to canonical JSON (sorted keys)
@@ -156,19 +155,19 @@ func (rss *RecordSnapshotService) SnapshotWorkOrder(ctx context.Context, woID in
 	row := rss.db.QueryRow(ctx, query, woID)
 
 	type woData struct {
-		ID              int64      `json:"id"`
-		CompanyID       int64      `json:"company_id"`
-		ProductID       int64      `json:"product_id"`
-		BomID           int64      `json:"bom_id"`
-		WarehouseID     int64      `json:"warehouse_id"`
-		PlannedQty      float64    `json:"planned_qty"`
-		CompletedQty    float64    `json:"completed_qty"`
-		Status          string     `json:"status"`
-		ScheduledStart  *time.Time `json:"scheduled_start"`
-		ScheduledEnd    *time.Time `json:"scheduled_end"`
-		CreatedBy       int64      `json:"created_by"`
-		CreatedAt       time.Time  `json:"created_at"`
-		UpdatedAt       time.Time  `json:"updated_at"`
+		ID             int64      `json:"id"`
+		CompanyID      int64      `json:"company_id"`
+		ProductID      int64      `json:"product_id"`
+		BomID          int64      `json:"bom_id"`
+		WarehouseID    int64      `json:"warehouse_id"`
+		PlannedQty     float64    `json:"planned_qty"`
+		CompletedQty   float64    `json:"completed_qty"`
+		Status         string     `json:"status"`
+		ScheduledStart *time.Time `json:"scheduled_start"`
+		ScheduledEnd   *time.Time `json:"scheduled_end"`
+		CreatedBy      int64      `json:"created_by"`
+		CreatedAt      time.Time  `json:"created_at"`
+		UpdatedAt      time.Time  `json:"updated_at"`
 	}
 
 	var wo woData
@@ -189,7 +188,6 @@ func (rss *RecordSnapshotService) SnapshotWorkOrder(ctx context.Context, woID in
 	snapshot := map[string]interface{}{
 		"record_type": "WorkOrder",
 		"work_order":  wo,
-		"snapshot_at": time.Now(),
 	}
 
 	jsonData, err := json.Marshal(snapshot)
@@ -207,7 +205,7 @@ func (rss *RecordSnapshotService) SnapshotWorkOrder(ctx context.Context, woID in
 	return &SnapshotResult{
 		CanonicalJSON: jsonData,
 		Hash:          hashHex,
-		Version:       "1",
+		Version:       wo.UpdatedAt.UTC().Format(time.RFC3339Nano),
 		Timestamp:     time.Now(),
 	}, nil
 }
@@ -273,7 +271,6 @@ func (rss *RecordSnapshotService) SnapshotOperation(ctx context.Context, opID in
 	snapshot := map[string]interface{}{
 		"record_type": "Operation",
 		"operation":   op,
-		"snapshot_at": time.Now(),
 	}
 
 	jsonData, err := json.Marshal(snapshot)
@@ -291,7 +288,7 @@ func (rss *RecordSnapshotService) SnapshotOperation(ctx context.Context, opID in
 	return &SnapshotResult{
 		CanonicalJSON: jsonData,
 		Hash:          hashHex,
-		Version:       "1",
+		Version:       op.UpdatedAt.UTC().Format(time.RFC3339Nano),
 		Timestamp:     time.Now(),
 	}, nil
 }
@@ -308,15 +305,15 @@ func (rss *RecordSnapshotService) SnapshotHold(ctx context.Context, holdID int64
 	row := rss.db.QueryRow(ctx, query, holdID)
 
 	type holdData struct {
-		ID            int64      `json:"id"`
-		CompanyID     int64      `json:"company_id"`
-		InspectionID  *int64     `json:"inspection_id"`
-		RecordType    *string    `json:"record_type"`
-		RecordID      *int64     `json:"record_id"`
-		Status        string     `json:"status"`
-		CreatedBy     int64      `json:"created_by"`
-		CreatedAt     time.Time  `json:"created_at"`
-		UpdatedAt     time.Time  `json:"updated_at"`
+		ID           int64     `json:"id"`
+		CompanyID    int64     `json:"company_id"`
+		InspectionID *int64    `json:"inspection_id"`
+		RecordType   *string   `json:"record_type"`
+		RecordID     *int64    `json:"record_id"`
+		Status       string    `json:"status"`
+		CreatedBy    int64     `json:"created_by"`
+		CreatedAt    time.Time `json:"created_at"`
+		UpdatedAt    time.Time `json:"updated_at"`
 	}
 
 	var hold holdData
@@ -334,7 +331,6 @@ func (rss *RecordSnapshotService) SnapshotHold(ctx context.Context, holdID int64
 	snapshot := map[string]interface{}{
 		"record_type": "Hold",
 		"hold":        hold,
-		"snapshot_at": time.Now(),
 	}
 
 	jsonData, err := json.Marshal(snapshot)
@@ -352,7 +348,7 @@ func (rss *RecordSnapshotService) SnapshotHold(ctx context.Context, holdID int64
 	return &SnapshotResult{
 		CanonicalJSON: jsonData,
 		Hash:          hashHex,
-		Version:       "1",
+		Version:       hold.UpdatedAt.UTC().Format(time.RFC3339Nano),
 		Timestamp:     time.Now(),
 	}, nil
 }
@@ -391,7 +387,6 @@ func (rss *RecordSnapshotService) SnapshotNCR(ctx context.Context, ncrID int64) 
 	snapshot := map[string]interface{}{
 		"record_type": "NCR",
 		"ncr":         ncr,
-		"snapshot_at": time.Now(),
 	}
 
 	jsonData, err := json.Marshal(snapshot)
@@ -409,7 +404,7 @@ func (rss *RecordSnapshotService) SnapshotNCR(ctx context.Context, ncrID int64) 
 	return &SnapshotResult{
 		CanonicalJSON: jsonData,
 		Hash:          hashHex,
-		Version:       "1",
+		Version:       ncr.UpdatedAt.UTC().Format(time.RFC3339Nano),
 		Timestamp:     time.Now(),
 	}, nil
 }
@@ -448,7 +443,6 @@ func (rss *RecordSnapshotService) SnapshotCAPA(ctx context.Context, capaID int64
 	snapshot := map[string]interface{}{
 		"record_type": "CAPA",
 		"capa":        capa,
-		"snapshot_at": time.Now(),
 	}
 
 	jsonData, err := json.Marshal(snapshot)
@@ -466,14 +460,16 @@ func (rss *RecordSnapshotService) SnapshotCAPA(ctx context.Context, capaID int64
 	return &SnapshotResult{
 		CanonicalJSON: jsonData,
 		Hash:          hashHex,
-		Version:       "1",
+		Version:       capa.UpdatedAt.UTC().Format(time.RFC3339Nano),
 		Timestamp:     time.Now(),
 	}, nil
 }
 
 // VerifyHash verifies that a snapshot matches its hash
 func (rss *RecordSnapshotService) VerifyHash(snapshotJSON []byte, expectedHash string) bool {
-	hash := sha256.Sum256(snapshotJSON)
-	hashHex := hex.EncodeToString(hash[:])
-	return hashHex == expectedHash
+	canonical, err := canonicalizeJSON(snapshotJSON)
+	if err != nil {
+		return false
+	}
+	return hashCanonicalJSON(canonical) == expectedHash
 }

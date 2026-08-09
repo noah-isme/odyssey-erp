@@ -308,16 +308,30 @@ INSERT INTO cmms_iot_sensors (
     $1, $2, $3, $4, $5
 ) RETURNING id;
 
+-- name: GetIoTSensor :one
+SELECT id, company_id, asset_id, sensor_code, sensor_type, status,
+       last_reading_at, last_reading_value, created_at
+FROM cmms_iot_sensors
+WHERE id = $1;
+
 -- name: UpdateIoTSensorReading :exec
 UPDATE cmms_iot_sensors
 SET last_reading_at = $2, last_reading_value = $3
-WHERE id = $1;
+WHERE id = $1
+  AND (last_reading_at IS NULL OR last_reading_at <= $2);
 
 -- name: InsertIoTReading :one
 INSERT INTO cmms_iot_readings (
     sensor_id, value, timestamp
 ) VALUES (
     $1, $2, NOW()
+) RETURNING id;
+
+-- name: InsertIoTReadingAt :one
+INSERT INTO cmms_iot_readings (
+    sensor_id, value, timestamp
+) VALUES (
+    $1, $2, $3
 ) RETURNING id;
 
 -- name: CreatePredictiveModel :one
@@ -338,3 +352,36 @@ INSERT INTO cmms_predictive_alerts (
 UPDATE cmms_predictive_alerts
 SET resolved_at = NOW()
 WHERE id = $1;
+
+-- name: ListPredictiveAnomalies :many
+SELECT s.company_id, s.asset_id, s.id AS sensor_id, m.id AS model_id,
+       r.value, r.timestamp
+FROM cmms_iot_sensors s
+JOIN assets a ON a.id = s.asset_id AND a.company_id = s.company_id
+JOIN LATERAL (
+    SELECT value, timestamp
+    FROM cmms_iot_readings r
+    WHERE r.sensor_id = s.id
+    ORDER BY r.timestamp DESC, r.id DESC
+    LIMIT 1
+) r ON TRUE
+JOIN LATERAL (
+    SELECT pm.id
+    FROM cmms_predictive_models pm
+    WHERE pm.company_id = s.company_id
+      AND pm.is_active = TRUE
+      AND (pm.asset_type = '' OR pm.asset_type = a.asset_type)
+    ORDER BY pm.deployed_at DESC, pm.id DESC
+    LIMIT 1
+) m ON TRUE
+WHERE s.company_id = $1
+  AND r.value > 1000
+  AND NOT EXISTS (
+      SELECT 1
+      FROM cmms_predictive_alerts pa
+      WHERE pa.company_id = s.company_id
+        AND pa.asset_id = s.asset_id
+        AND pa.sensor_id = s.id
+        AND pa.model_id = m.id
+        AND pa.resolved_at IS NULL
+  );

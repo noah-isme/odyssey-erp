@@ -269,6 +269,15 @@ type DocumentRetention struct {
 	CalculatedAt      time.Time
 }
 
+// ExpiredRetention is the minimal tenant-scoped input consumed by the
+// retention worker when it creates disposition requests.
+type ExpiredRetention struct {
+	ID                int64
+	CompanyID         int64
+	DocumentVersionID int64
+	PolicyID          int64
+}
+
 // LegalHold represents a legal hold on documents.
 type LegalHold struct {
 	ID          int64
@@ -289,15 +298,19 @@ type LegalHold struct {
 // Advanced Documents Features (Collaboration)
 
 type CollaborationSession struct {
-	ID        int64
-	CompanyID int64
-	VersionID int64
-	Status    string // ACTIVE, CLOSED
-	CreatedAt time.Time
+	ID           int64
+	CompanyID    int64
+	VersionID    int64
+	HostUserID   int64
+	SessionToken string
+	Status       string // ACTIVE, CLOSED
+	CreatedAt    time.Time
+	ExpiresAt    time.Time
 }
 
 type CollaborationChange struct {
 	ID        int64
+	CompanyID int64
 	SessionID int64
 	ActorID   int64
 	Operation string // INSERT, DELETE, REPLACE
@@ -319,6 +332,7 @@ type DispositionRequest struct {
 	CompanyID         int64
 	DocumentVersionID int64
 	RequestedBy       int64
+	Reason            string
 	Status            string
 }
 
@@ -472,6 +486,7 @@ var (
 	ErrInvalidStatus           = errors.New("documents: invalid status transition")
 	ErrAccessDenied            = errors.New("documents: access denied")
 	ErrVersionConflict         = errors.New("documents: version conflict (optimistic lock)")
+	ErrNoOpenDisposition       = errors.New("documents: no open disposition request")
 )
 
 // NormaliseStatus uppercases and trims the provided status string.
