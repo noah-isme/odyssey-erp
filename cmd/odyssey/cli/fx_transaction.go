@@ -33,18 +33,26 @@ func RunTransactionFXFetch(ctx context.Context, ops TransactionFXOperations, opt
 	}
 	date, err := parseFXDate(opts.Date)
 	if err != nil {
-		fmt.Fprintln(opts.Stderr, err)
+		if _, writeErr := fmt.Fprintln(opts.Stderr, err); writeErr != nil {
+			return 1
+		}
 		return 1
 	}
 	if ops == nil {
-		fmt.Fprintln(opts.Stderr, "fx fetch: operations are not configured")
+		if _, err := fmt.Fprintln(opts.Stderr, "fx fetch: operations are not configured"); err != nil {
+			return 1
+		}
 		return 1
 	}
 	if err := ops.Fetch(ctx, date, opts.Force); err != nil {
-		fmt.Fprintf(opts.Stderr, "fx fetch: %v\n", err)
+		if _, writeErr := fmt.Fprintf(opts.Stderr, "fx fetch: %v\n", err); writeErr != nil {
+			return 1
+		}
 		return 1
 	}
-	fmt.Fprintf(opts.Stdout, "FX rates fetched for %s\n", date.Format("2006-01-02"))
+	if _, err := fmt.Fprintf(opts.Stdout, "FX rates fetched for %s\n", date.Format("2006-01-02")); err != nil {
+		return 1
+	}
 	return 0
 }
 func RunTransactionFXStatus(ctx context.Context, ops TransactionFXOperations, opts TransactionFXCommandOptions) int {
@@ -56,20 +64,28 @@ func RunTransactionFXStatus(ctx context.Context, ops TransactionFXOperations, op
 	}
 	date, err := parseFXDate(opts.Date)
 	if err != nil {
-		fmt.Fprintln(opts.Stderr, err)
+		if _, writeErr := fmt.Fprintln(opts.Stderr, err); writeErr != nil {
+			return 1
+		}
 		return 1
 	}
 	if ops == nil {
-		fmt.Fprintln(opts.Stderr, "fx status: operations are not configured")
+		if _, err := fmt.Fprintln(opts.Stderr, "fx status: operations are not configured"); err != nil {
+			return 1
+		}
 		return 1
 	}
 	rows, err := ops.Status(ctx, date)
 	if err != nil {
-		fmt.Fprintf(opts.Stderr, "fx status: %v\n", err)
+		if _, writeErr := fmt.Fprintf(opts.Stderr, "fx status: %v\n", err); writeErr != nil {
+			return 1
+		}
 		return 1
 	}
 	for _, row := range rows {
-		fmt.Fprintf(opts.Stdout, "%s/%s %s %s %s\n", row.BaseCurrency, row.QuoteCurrency, row.Rate, row.Source, row.Status)
+		if _, err := fmt.Fprintf(opts.Stdout, "%s/%s %s %s %s\n", row.BaseCurrency, row.QuoteCurrency, row.Rate, row.Source, row.Status); err != nil {
+			return 1
+		}
 	}
 	return 0
 }

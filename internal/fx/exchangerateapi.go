@@ -69,7 +69,7 @@ func (p *ExchangeRateAPI) DailyRates(ctx context.Context, baseCurrency string, d
 		}
 		return FXQuoteSet{}, &ProviderError{Kind: ErrorTimeout, Err: fmt.Errorf("provider request failed")}
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 	if err != nil {
 		return FXQuoteSet{}, &ProviderError{Kind: ErrorMalformed, StatusCode: resp.StatusCode, Err: fmt.Errorf("provider response could not be read")}

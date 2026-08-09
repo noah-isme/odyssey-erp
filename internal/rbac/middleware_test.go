@@ -27,7 +27,11 @@ func authorizedRequest(t *testing.T, userID string) *http.Request {
 	t.Helper()
 	mr := miniredis.RunT(t)
 	client := redis.NewClient(&redis.Options{Addr: mr.Addr()})
-	t.Cleanup(func() { client.Close() })
+	t.Cleanup(func() {
+		if err := client.Close(); err != nil {
+			t.Errorf("close redis client: %v", err)
+		}
+	})
 	manager := shared.NewSessionManager(client, "test", "secret", time.Hour, false)
 	session, err := manager.Load(context.Background(), httptest.NewRequest(http.MethodGet, "/", nil))
 	if err != nil {

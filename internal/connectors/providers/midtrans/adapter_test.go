@@ -323,7 +323,9 @@ func TestMidtransAdapter_ExecuteCommand_CreateCheckout_APIError(t *testing.T) {
 	// Fake server returns 401 Unauthorized.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
-		fmt.Fprintln(w, `{"error_messages":["Access denied"]}`)
+		if _, err := fmt.Fprintln(w, `{"error_messages":["Access denied"]}`); err != nil {
+			t.Errorf("write fake Midtrans response: %v", err)
+		}
 	}))
 	defer srv.Close()
 
@@ -434,6 +436,8 @@ var _ connectors.ProviderAdapter = (*midtrans.Adapter)(nil)
 
 func TestMain(m *testing.M) {
 	// Ensure the test binary is not accidentally running against production.
-	os.Setenv("APP_MASTER_KEY", "test-master-key-for-unit-tests-only")
+	if err := os.Setenv("APP_MASTER_KEY", "test-master-key-for-unit-tests-only"); err != nil {
+		panic(err)
+	}
 	os.Exit(m.Run())
 }
