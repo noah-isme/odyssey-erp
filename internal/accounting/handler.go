@@ -282,7 +282,7 @@ func (h *Handler) createFixedAssetCategory(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	h.auditRecord(r, "create", "fixed_asset_category", r.PostFormValue("code"))
-	http.Redirect(w, r, "/accounting/fixed-assets/categories", 303)
+	http.Redirect(w, r, "/accounting/fixed-assets/categories", http.StatusSeeOther)
 }
 
 func (h *Handler) showFixedAssetForm(w http.ResponseWriter, r *http.Request) {
@@ -325,7 +325,7 @@ func (h *Handler) createFixedAsset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.auditRecord(r, "create", "fixed_asset", r.PostFormValue("number"))
-	http.Redirect(w, r, "/accounting/fixed-assets", 303)
+	http.Redirect(w, r, "/accounting/fixed-assets", http.StatusSeeOther)
 }
 
 func (h *Handler) disposeFixedAsset(w http.ResponseWriter, r *http.Request) {
@@ -341,7 +341,7 @@ func (h *Handler) disposeFixedAsset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.auditRecord(r, "dispose", "fixed_asset", strconv.FormatInt(id, 10))
-	http.Redirect(w, r, "/accounting/fixed-assets", 303)
+	http.Redirect(w, r, "/accounting/fixed-assets", http.StatusSeeOther)
 }
 
 func (h *Handler) toggleReportSchedule(w http.ResponseWriter, r *http.Request) {

@@ -140,7 +140,7 @@ func (s *Service) CreateAPInvoice(ctx context.Context, input CreateAPInvoiceInpu
 				return err
 			}
 			if isDuplicate {
-				// According to Q1, we can return an error or flag it. The db has a unique constraint anyway, 
+				// According to Q1, we can return an error or flag it. The db has a unique constraint anyway,
 				// but let's prevent the DB constraint error and return a clear error.
 				return errors.New("duplicate supplier document number detected")
 			}
@@ -594,7 +594,7 @@ func (s *Service) RegisterAPPayment(ctx context.Context, input CreateAPPaymentIn
 
 	var paymentID int64
 	var allocationInvoiceID int64
-	var paymentValuation APPaymentValuation = paymentVal
+	paymentValuation := paymentVal
 	err = s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
 		if input.Number == "" {
 			num, err := tx.GenerateAPPaymentNumber(ctx)

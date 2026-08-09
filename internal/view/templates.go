@@ -6,9 +6,9 @@ import (
 	"html/template"
 	"io/fs"
 	"net/http"
+	"reflect"
 	"sort"
 	"strings"
-	"reflect"
 	"time"
 
 	"github.com/google/uuid"
@@ -137,14 +137,14 @@ func NewEngine() (*Engine, error) {
 			}
 			return t.Format("02 Jan 2006")
 		},
-		
+
 		"val": func(v any) any {
 			if v == nil {
 				return nil
 			}
 			// actually let's use reflect
 			val := reflect.ValueOf(v)
-			if val.Kind() == reflect.Ptr {
+			if val.Kind() == reflect.Pointer {
 				if val.IsNil() {
 					return nil
 				}
@@ -155,21 +155,21 @@ func NewEngine() (*Engine, error) {
 		"eqStr": func(a, b any) bool {
 			valA := a
 			valB := b
-			
+
 			// Quick reflection to dereference
 			if a != nil {
 				va := reflect.ValueOf(a)
-				if va.Kind() == reflect.Ptr && !va.IsNil() {
+				if va.Kind() == reflect.Pointer && !va.IsNil() {
 					valA = va.Elem().Interface()
 				}
 			}
 			if b != nil {
 				vb := reflect.ValueOf(b)
-				if vb.Kind() == reflect.Ptr && !vb.IsNil() {
+				if vb.Kind() == reflect.Pointer && !vb.IsNil() {
 					valB = vb.Elem().Interface()
 				}
 			}
-			
+
 			return fmt.Sprintf("%v", valA) == fmt.Sprintf("%v", valB)
 		},
 

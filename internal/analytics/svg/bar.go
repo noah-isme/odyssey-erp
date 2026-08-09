@@ -69,22 +69,22 @@ func Bars(width, height int, seriesA, seriesB []float64, labels []string, opts B
 	descID := makeID(opts.Title, "bar-desc")
 
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 %d %d\" role=\"img\" aria-labelledby=\"%s %s\">", width, height, titleID, descID))
-	b.WriteString(fmt.Sprintf("<title id=\"%s\">%s</title>", titleID, template.HTMLEscapeString(fallback(opts.Title, "Bar chart"))))
-	b.WriteString(fmt.Sprintf("<desc id=\"%s\">%s</desc>", descID, template.HTMLEscapeString(fallback(opts.Description, "Grouped bar comparison"))))
+	writeSVG(&b, "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 %d %d\" role=\"img\" aria-labelledby=\"%s %s\">", width, height, titleID, descID)
+	writeSVG(&b, "<title id=\"%s\">%s</title>", titleID, template.HTMLEscapeString(fallback(opts.Title, "Bar chart")))
+	writeSVG(&b, "<desc id=\"%s\">%s</desc>", descID, template.HTMLEscapeString(fallback(opts.Description, "Grouped bar comparison")))
 
 	for i := 0; i <= tickCount; i++ {
 		ratio := float64(i) / float64(tickCount)
 		value := minVal + (maxVal-minVal)*ratio
 		y := padding + chartHeight - ratio*chartHeight
-		b.WriteString(fmt.Sprintf("<line x1=\"%.2f\" y1=\"%.2f\" x2=\"%.2f\" y2=\"%.2f\" stroke=\"%s\" stroke-width=\"0.5\" stroke-dasharray=\"2,4\" aria-hidden=\"true\"></line>", padding, y, padding+chartWidth, y, gridColor))
-		b.WriteString(fmt.Sprintf("<text x=\"%.2f\" y=\"%.2f\" fill=\"%s\" font-size=\"10\" text-anchor=\"end\">%s</text>", padding-6, y+4, axisColor, template.HTMLEscapeString(formatTick(value))))
+		writeSVG(&b, "<line x1=\"%.2f\" y1=\"%.2f\" x2=\"%.2f\" y2=\"%.2f\" stroke=\"%s\" stroke-width=\"0.5\" stroke-dasharray=\"2,4\" aria-hidden=\"true\"></line>", padding, y, padding+chartWidth, y, gridColor)
+		writeSVG(&b, "<text x=\"%.2f\" y=\"%.2f\" fill=\"%s\" font-size=\"10\" text-anchor=\"end\">%s</text>", padding-6, y+4, axisColor, template.HTMLEscapeString(formatTick(value)))
 	}
 
 	// Axes
-	b.WriteString(fmt.Sprintf("<g stroke=\"%s\" aria-label=\"Sumbu\">", axisColor))
-	b.WriteString(fmt.Sprintf("<line x1=\"%.2f\" y1=\"%.2f\" x2=\"%.2f\" y2=\"%.2f\" stroke-width=\"1\"></line>", padding, padding, padding, padding+chartHeight))
-	b.WriteString(fmt.Sprintf("<line x1=\"%.2f\" y1=\"%.2f\" x2=\"%.2f\" y2=\"%.2f\" stroke-width=\"1\"></line>", padding, zeroY, padding+chartWidth, zeroY))
+	writeSVG(&b, "<g stroke=\"%s\" aria-label=\"Sumbu\">", axisColor)
+	writeSVG(&b, "<line x1=\"%.2f\" y1=\"%.2f\" x2=\"%.2f\" y2=\"%.2f\" stroke-width=\"1\"></line>", padding, padding, padding, padding+chartHeight)
+	writeSVG(&b, "<line x1=\"%.2f\" y1=\"%.2f\" x2=\"%.2f\" y2=\"%.2f\" stroke-width=\"1\"></line>", padding, zeroY, padding+chartWidth, zeroY)
 	b.WriteString("</g>")
 
 	chartBottom := padding + chartHeight
@@ -93,14 +93,14 @@ func Bars(width, height int, seriesA, seriesB []float64, labels []string, opts B
 		baseX := padding + float64(i)*groupWidth
 		if len(seriesA) > 0 {
 			y, h := barPosition(seriesA[i], scale, zeroY, padding, chartBottom)
-			b.WriteString(fmt.Sprintf("<rect x=\"%.2f\" y=\"%.2f\" width=\"%.2f\" height=\"%.2f\" fill=\"%s\" aria-label=\"%s %s\"></rect>", baseX+barWidth*0.3, y, barWidth, h, colorA, template.HTMLEscapeString(labelA), template.HTMLEscapeString(label)))
+			writeSVG(&b, "<rect x=\"%.2f\" y=\"%.2f\" width=\"%.2f\" height=\"%.2f\" fill=\"%s\" aria-label=\"%s %s\"></rect>", baseX+barWidth*0.3, y, barWidth, h, colorA, template.HTMLEscapeString(labelA), template.HTMLEscapeString(label))
 		}
 		if len(seriesB) > 0 {
 			y, h := barPosition(seriesB[i], scale, zeroY, padding, chartBottom)
-			b.WriteString(fmt.Sprintf("<rect x=\"%.2f\" y=\"%.2f\" width=\"%.2f\" height=\"%.2f\" fill=\"%s\" aria-label=\"%s %s\"></rect>", baseX+barWidth*1.4, y, barWidth, h, colorB, template.HTMLEscapeString(labelB), template.HTMLEscapeString(label)))
+			writeSVG(&b, "<rect x=\"%.2f\" y=\"%.2f\" width=\"%.2f\" height=\"%.2f\" fill=\"%s\" aria-label=\"%s %s\"></rect>", baseX+barWidth*1.4, y, barWidth, h, colorB, template.HTMLEscapeString(labelB), template.HTMLEscapeString(label))
 		}
 		center := baseX + groupWidth/2
-		b.WriteString(fmt.Sprintf("<text x=\"%.2f\" y=\"%.2f\" fill=\"%s\" font-size=\"10\" text-anchor=\"middle\">%s</text>", center, padding+chartHeight+14, axisColor, template.HTMLEscapeString(label)))
+		writeSVG(&b, "<text x=\"%.2f\" y=\"%.2f\" fill=\"%s\" font-size=\"10\" text-anchor=\"middle\">%s</text>", center, padding+chartHeight+14, axisColor, template.HTMLEscapeString(label))
 	}
 
 	// Legend
@@ -110,17 +110,23 @@ func Bars(width, height int, seriesA, seriesB []float64, labels []string, opts B
 	}
 	legendX := padding
 	if len(seriesA) > 0 {
-		b.WriteString(fmt.Sprintf("<rect x=\"%.2f\" y=\"%.2f\" width=\"10\" height=\"10\" fill=\"%s\"></rect>", legendX, legendY-8, colorA))
-		b.WriteString(fmt.Sprintf("<text x=\"%.2f\" y=\"%.2f\" fill=\"%s\" font-size=\"10\" text-anchor=\"start\">%s</text>", legendX+14, legendY, axisColor, template.HTMLEscapeString(labelA)))
+		writeSVG(&b, "<rect x=\"%.2f\" y=\"%.2f\" width=\"10\" height=\"10\" fill=\"%s\"></rect>", legendX, legendY-8, colorA)
+		writeSVG(&b, "<text x=\"%.2f\" y=\"%.2f\" fill=\"%s\" font-size=\"10\" text-anchor=\"start\">%s</text>", legendX+14, legendY, axisColor, template.HTMLEscapeString(labelA))
 		legendX += 90
 	}
 	if len(seriesB) > 0 {
-		b.WriteString(fmt.Sprintf("<rect x=\"%.2f\" y=\"%.2f\" width=\"10\" height=\"10\" fill=\"%s\"></rect>", legendX, legendY-8, colorB))
-		b.WriteString(fmt.Sprintf("<text x=\"%.2f\" y=\"%.2f\" fill=\"%s\" font-size=\"10\" text-anchor=\"start\">%s</text>", legendX+14, legendY, axisColor, template.HTMLEscapeString(labelB)))
+		writeSVG(&b, "<rect x=\"%.2f\" y=\"%.2f\" width=\"10\" height=\"10\" fill=\"%s\"></rect>", legendX, legendY-8, colorB)
+		writeSVG(&b, "<text x=\"%.2f\" y=\"%.2f\" fill=\"%s\" font-size=\"10\" text-anchor=\"start\">%s</text>", legendX+14, legendY, axisColor, template.HTMLEscapeString(labelB))
 	}
 
 	b.WriteString("</svg>")
 	return template.HTML(b.String()), nil
+}
+
+// writeSVG formats directly into the builder. strings.Builder never returns
+// an error, so the intentionally ignored result is safe here.
+func writeSVG(b *strings.Builder, format string, args ...any) {
+	_, _ = fmt.Fprintf(b, format, args...)
 }
 
 func barBounds(a, b []float64) (float64, float64) {
