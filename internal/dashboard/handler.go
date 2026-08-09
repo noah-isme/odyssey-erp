@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -11,16 +12,21 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
 )
 
+type dashboardService interface {
+	GetKPIs(ctx context.Context, companyID int64) (*KPIData, error)
+	GetRecentActivity(ctx context.Context, limit int) ([]RecentActivity, error)
+}
+
 // Handler serves dashboard routes.
 type Handler struct {
 	logger    *slog.Logger
-	service   *Service
+	service   dashboardService
 	templates *view.Engine
 	csrf      *shared.CSRFManager
 }
 
 // NewHandler creates a dashboard handler.
-func NewHandler(logger *slog.Logger, service *Service, templates *view.Engine, csrf *shared.CSRFManager) *Handler {
+func NewHandler(logger *slog.Logger, service dashboardService, templates *view.Engine, csrf *shared.CSRFManager) *Handler {
 	return &Handler{
 		logger:    logger,
 		service:   service,

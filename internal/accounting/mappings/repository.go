@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/shared"
 )
 
@@ -14,11 +13,15 @@ type Repository interface {
 	Get(ctx context.Context, module, key string) (AccountMapping, error)
 }
 
-type repository struct {
-	db *pgxpool.Pool
+type db interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
 }
 
-func NewRepository(db *pgxpool.Pool) Repository {
+type repository struct {
+	db db
+}
+
+func NewRepository(db db) Repository {
 	return &repository{db: db}
 }
 

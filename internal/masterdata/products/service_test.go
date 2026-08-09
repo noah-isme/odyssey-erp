@@ -21,7 +21,11 @@ func newMemoryRepo() *memoryRepo {
 }
 
 func (m *memoryRepo) List(ctx context.Context, filters shared.ListFilters) ([]Product, int, error) {
-	return nil, 0, nil
+	items := make([]Product, 0, len(m.products))
+	for _, product := range m.products {
+		items = append(items, *product)
+	}
+	return items, len(items), nil
 }
 
 func (m *memoryRepo) Get(ctx context.Context, id int64) (Product, error) {
@@ -89,4 +93,51 @@ func TestUpdateProduct(t *testing.T) {
 
 	updated, _ := svc.Get(context.Background(), created.ID)
 	require.Equal(t, "Updated Product", updated.Name)
+}
+
+func TestProductValidationRejectsUnsafeInventorySettings(t *testing.T) {
+	svc := NewService(nil)
+	tests := []struct {
+		name string
+		in   Product
+		want string
+	}{
+		{name: "missing code", in: Product{Name: "Product"}, want: "product code is required"},
+		{name: "missing name", in: Product{Code: "P-1"}, want: "product name is required"},
+		{name: "unsupported cost method", in: Product{Code: "P-1", Name: "Product", CostMethod: "LIFO"}, want: "cost method must be AVG or FIFO"},
+		{name: "negative threshold", in: Product{Code: "P-1", Name: "Product", MinStock: -1}, want: "stock thresholds cannot be negative"},
+		{name: "batch and serial together", in: Product{Code: "P-1", Name: "Product", TrackBatch: true, TrackSerial: true}, want: "a product cannot track both batches and serial numbers"},
+		{name: "valid", in: Product{Code: "P-1", Name: "Product", CostMethod: "FIFO"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := svc.validate(tt.in)
+			if tt.want == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.EqualError(t, err, tt.want)
+		})
+	}
+}
+
+func TestCreateProductDefaultsCostMethod(t *testing.T) {
+	repo := newMemoryRepo()
+	created, err := NewService(repo).Create(context.Background(), Product{Code: "P-AVG", Name: "Average cost"})
+	require.NoError(t, err)
+	require.Equal(t, "AVG", created.CostMethod)
+}
+
+func TestProductListAndDelete(t *testing.T) {
+	repo := newMemoryRepo()
+	svc := NewService(repo)
+	created, err := svc.Create(context.Background(), Product{Code: "P-LIST", Name: "Listed"})
+	require.NoError(t, err)
+	items, total, err := svc.List(context.Background(), shared.ListFilters{})
+	require.NoError(t, err)
+	require.Equal(t, 1, total)
+	require.Equal(t, created.ID, items[0].ID)
+	require.NoError(t, svc.Delete(context.Background(), created.ID))
+	_, err = svc.Get(context.Background(), created.ID)
+	require.ErrorIs(t, err, shared.ErrNotFound)
 }

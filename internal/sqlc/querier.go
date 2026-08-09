@@ -173,6 +173,9 @@ type Querier interface {
 	// Phase 6: Freight Finance SQL Queries
 	CreateRateCard(ctx context.Context, arg CreateRateCardParams) (RateCard, error)
 	CreateRateSurcharge(ctx context.Context, arg CreateRateSurchargeParams) (RateSurcharge, error)
+	CreateReportRun(ctx context.Context, arg CreateReportRunParams) (ReportRun, error)
+	CreateReportingDataset(ctx context.Context, arg CreateReportingDatasetParams) (ReportingDataset, error)
+	CreateReportingDatasetField(ctx context.Context, arg CreateReportingDatasetFieldParams) (ReportingDatasetField, error)
 	CreateRouteOptimizationJob(ctx context.Context, arg CreateRouteOptimizationJobParams) (int64, error)
 	CreateRouteSequence(ctx context.Context, arg CreateRouteSequenceParams) (int64, error)
 	CreateSPCChart(ctx context.Context, arg CreateSPCChartParams) (int64, error)
@@ -393,6 +396,7 @@ type Querier interface {
 	GetQuotationLines(ctx context.Context, quotationID int64) ([]QuotationLine, error)
 	GetRateCard(ctx context.Context, arg GetRateCardParams) (RateCard, error)
 	GetReorderAlerts(ctx context.Context) ([]GetReorderAlertsRow, error)
+	GetReportingDataset(ctx context.Context, arg GetReportingDatasetParams) (ReportingDataset, error)
 	GetRole(ctx context.Context, id int64) (Role, error)
 	GetRouteOptimizationJob(ctx context.Context, id int64) (LogisticsRouteOptimizationJob, error)
 	GetRouteSequences(ctx context.Context, optimizationJobID int64) ([]LogisticsRouteSequence, error)
@@ -737,6 +741,8 @@ type Querier interface {
 	ListRateCards(ctx context.Context, arg ListRateCardsParams) ([]RateCard, error)
 	ListRateSurcharges(ctx context.Context, rateCardID int64) ([]RateSurcharge, error)
 	ListRecentPeriods(ctx context.Context, arg ListRecentPeriodsParams) ([]ListRecentPeriodsRow, error)
+	ListReportingDatasetFields(ctx context.Context, datasetID pgtype.UUID) ([]ReportingDatasetField, error)
+	ListReportingDatasets(ctx context.Context, companyID pgtype.UUID) ([]ReportingDataset, error)
 	ListRolePermissions(ctx context.Context, roleID int64) ([]Permission, error)
 	ListRuns(ctx context.Context, arg ListRunsParams) ([]ListRunsRow, error)
 	ListShipmentLines(ctx context.Context, shipmentID int64) ([]ShipmentLine, error)
@@ -879,6 +885,7 @@ type Querier interface {
 	UpdateQualityObjective(ctx context.Context, arg UpdateQualityObjectiveParams) error
 	UpdateQuotationStatus(ctx context.Context, arg UpdateQuotationStatusParams) error
 	UpdateRateCard(ctx context.Context, arg UpdateRateCardParams) (RateCard, error)
+	UpdateReportRunStatus(ctx context.Context, arg UpdateReportRunStatusParams) error
 	UpdateReviewStepStatus(ctx context.Context, arg UpdateReviewStepStatusParams) error
 	UpdateRole(ctx context.Context, arg UpdateRoleParams) (Role, error)
 	UpdateRouteOptimizationJobStatus(ctx context.Context, arg UpdateRouteOptimizationJobStatusParams) error

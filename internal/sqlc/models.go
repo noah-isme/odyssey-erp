@@ -1674,6 +1674,23 @@ type CompanyModuleFeature struct {
 	EnabledBy       pgtype.Int8        `json:"enabled_by"`
 }
 
+type CompanyPolicy struct {
+	CompanyID pgtype.UUID        `json:"company_id"`
+	Timezone  string             `json:"timezone"`
+	Locale    string             `json:"locale"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type CompanyRole struct {
+	ID         pgtype.UUID        `json:"id"`
+	CompanyID  pgtype.UUID        `json:"company_id"`
+	TemplateID pgtype.UUID        `json:"template_id"`
+	Name       string             `json:"name"`
+	Status     string             `json:"status"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
 type CompanyTaxIdentity struct {
 	ID                int64              `json:"id"`
 	CompanyID         int64              `json:"company_id"`
@@ -2401,6 +2418,27 @@ type FinanceAutomationSetting struct {
 	UpdatedBy                        pgtype.Int8        `json:"updated_by"`
 	CreatedAt                        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt                        pgtype.Timestamptz `json:"updated_at"`
+}
+
+type FiscalCalendar struct {
+	ID        pgtype.UUID        `json:"id"`
+	CompanyID pgtype.UUID        `json:"company_id"`
+	Name      string             `json:"name"`
+	Status    string             `json:"status"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type FiscalPeriod struct {
+	ID             pgtype.UUID        `json:"id"`
+	CalendarID     pgtype.UUID        `json:"calendar_id"`
+	PeriodType     string             `json:"period_type"`
+	PeriodSequence int32              `json:"period_sequence"`
+	StartDate      pgtype.Date        `json:"start_date"`
+	EndDate        pgtype.Date        `json:"end_date"`
+	Status         string             `json:"status"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
 type FixedAsset struct {
@@ -4705,6 +4743,22 @@ type RateSurcharge struct {
 	CreatedAt        pgtype.Timestamp `json:"created_at"`
 }
 
+type ReportRun struct {
+	ID                pgtype.UUID        `json:"id"`
+	CompanyID         pgtype.UUID        `json:"company_id"`
+	DatasetID         pgtype.UUID        `json:"dataset_id"`
+	ActorID           pgtype.UUID        `json:"actor_id"`
+	Status            string             `json:"status"`
+	RowCount          pgtype.Int4        `json:"row_count"`
+	ErrorMessage      pgtype.Text        `json:"error_message"`
+	ExecutedSql       pgtype.Text        `json:"executed_sql"`
+	ExecutionTimeMs   pgtype.Int4        `json:"execution_time_ms"`
+	QueryCostEstimate pgtype.Int4        `json:"query_cost_estimate"`
+	StartedAt         pgtype.Timestamptz `json:"started_at"`
+	CompletedAt       pgtype.Timestamptz `json:"completed_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+}
+
 type ReportSchedule struct {
 	ID                 int64              `json:"id"`
 	CompanyID          pgtype.Int8        `json:"company_id"`
@@ -4726,6 +4780,31 @@ type ReportScheduleDelivery struct {
 	Status     string             `json:"status"`
 	Detail     string             `json:"detail"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type ReportingDataset struct {
+	ID             pgtype.UUID        `json:"id"`
+	CompanyID      pgtype.UUID        `json:"company_id"`
+	Version        int32              `json:"version"`
+	Key            string             `json:"key"`
+	BusinessOwner  pgtype.UUID        `json:"business_owner"`
+	TechnicalOwner pgtype.UUID        `json:"technical_owner"`
+	Status         string             `json:"status"`
+	Description    pgtype.Text        `json:"description"`
+	Grain          pgtype.Text        `json:"grain"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ReportingDatasetField struct {
+	ID             pgtype.UUID        `json:"id"`
+	DatasetID      pgtype.UUID        `json:"dataset_id"`
+	FieldName      string             `json:"field_name"`
+	FieldType      string             `json:"field_type"`
+	Classification string             `json:"classification"`
+	IsDimension    bool               `json:"is_dimension"`
+	IsMeasure      bool               `json:"is_measure"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
 type RetentionPolicy struct {
@@ -4909,6 +4988,15 @@ type RolePermission struct {
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 }
 
+type RoleTemplate struct {
+	ID          pgtype.UUID        `json:"id"`
+	Name        string             `json:"name"`
+	Description pgtype.Text        `json:"description"`
+	Version     int32              `json:"version"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
 type RouteStop struct {
 	ID                   int64              `json:"id"`
 	CompanyID            int64              `json:"company_id"`
@@ -4977,6 +5065,17 @@ type SalesOrderLine struct {
 	CreatedAt              pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
 	FulfillmentWarehouseID pgtype.Int8        `json:"fulfillment_warehouse_id"`
+}
+
+type ScopedUserRole struct {
+	ID        pgtype.UUID        `json:"id"`
+	CompanyID pgtype.UUID        `json:"company_id"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	RoleID    pgtype.UUID        `json:"role_id"`
+	BranchID  pgtype.UUID        `json:"branch_id"`
+	ValidFrom pgtype.Timestamptz `json:"valid_from"`
+	ValidTo   pgtype.Timestamptz `json:"valid_to"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
 type Session struct {

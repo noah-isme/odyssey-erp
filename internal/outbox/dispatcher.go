@@ -10,12 +10,23 @@ import (
 // Handler processes an outbox event.
 type Handler func(ctx context.Context, event Event) error
 
+type eventStore interface {
+	ClaimPending(ctx context.Context, limit int) ([]Event, error)
+	MarkPublished(ctx context.Context, id int64) error
+	MarkFailed(ctx context.Context, id int64, errStr string) error
+}
+
+type postgresEventStore struct {
+	pool *pgxpool.Pool
+}
+
 // Dispatcher polls and routes outbox events to registered handlers.
 type Dispatcher struct {
 	pool     *pgxpool.Pool
 	repo     *Repository
 	logger   *slog.Logger
 	handlers map[string][]Handler
+	store    eventStore
 }
 
 // NewDispatcher constructs a Dispatcher.
@@ -25,6 +36,7 @@ func NewDispatcher(pool *pgxpool.Pool, repo *Repository, logger *slog.Logger) *D
 		repo:     repo,
 		logger:   logger,
 		handlers: make(map[string][]Handler),
+		store:    &postgresEventStore{pool: pool},
 	}
 }
 
@@ -35,10 +47,21 @@ func (d *Dispatcher) Register(eventType string, handler Handler) {
 
 // ProcessPending claims up to limit events and dispatches them.
 func (d *Dispatcher) ProcessPending(ctx context.Context, limit int) error {
+	events, err := d.store.ClaimPending(ctx, limit)
+	if err != nil {
+		return err
+	}
+	for _, e := range events {
+		d.processEvent(ctx, e)
+	}
+	return nil
+}
+
+func (s *postgresEventStore) ClaimPending(ctx context.Context, limit int) ([]Event, error) {
 	// A simple approach: we find all companies, then process events per company.
 	// In a real multi-tenant system we'd iterate over active companies.
 	// For now, let's just use a direct SQL update to claim the oldest unpublished events.
-	rows, err := d.pool.Query(ctx, `
+	rows, err := s.pool.Query(ctx, `
 		WITH claimed AS (
 			SELECT id
 			FROM outbox_events
@@ -55,7 +78,7 @@ func (d *Dispatcher) ProcessPending(ctx context.Context, limit int) error {
 		          o.aggregate_type, o.aggregate_id, o.aggregate_version, o.payload, o.idempotency_key, o.created_at, o.publish_attempts
 	`, limit)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer rows.Close()
 
@@ -66,19 +89,15 @@ func (d *Dispatcher) ProcessPending(ctx context.Context, limit int) error {
 			&e.ID, &e.CompanyID, &e.CorrelationID, &e.CausationID, &e.EventType,
 			&e.AggregateType, &e.AggregateID, &e.AggregateVersion, &e.Payload, &e.IdempotencyKey, &e.CreatedAt, &e.PublishAttempts,
 		); err != nil {
-			return err
+			return nil, err
 		}
 		events = append(events, e)
 	}
 	if err := rows.Err(); err != nil {
-		return err
+		return nil, err
 	}
 	rows.Close() // Close early so we can do further queries
-
-	for _, e := range events {
-		d.processEvent(ctx, e)
-	}
-	return nil
+	return events, nil
 }
 
 func (d *Dispatcher) processEvent(ctx context.Context, e Event) {
@@ -99,7 +118,9 @@ func (d *Dispatcher) processEvent(ctx context.Context, e Event) {
 	}
 
 	if hasError != nil {
-		d.logger.Warn("outbox handler failed", slog.Int64("event_id", e.ID), slog.String("event_type", e.EventType), slog.Any("error", hasError))
+		if d.logger != nil {
+			d.logger.Warn("outbox handler failed", slog.Int64("event_id", e.ID), slog.String("event_type", e.EventType), slog.Any("error", hasError))
+		}
 		d.markFailed(ctx, e.ID, hasError.Error())
 	} else {
 		d.markPublished(ctx, e.ID)
@@ -107,9 +128,11 @@ func (d *Dispatcher) processEvent(ctx context.Context, e Event) {
 }
 
 func (d *Dispatcher) markPublished(ctx context.Context, id int64) {
-	_, err := d.pool.Exec(ctx, "UPDATE outbox_events SET published_at = NOW() WHERE id = $1", id)
+	err := d.store.MarkPublished(ctx, id)
 	if err != nil {
-		d.logger.Error("failed to mark event published", slog.Int64("event_id", id), slog.Any("error", err))
+		if d.logger != nil {
+			d.logger.Error("failed to mark event published", slog.Int64("event_id", id), slog.Any("error", err))
+		}
 	}
 }
 
@@ -118,8 +141,20 @@ func (d *Dispatcher) markFailed(ctx context.Context, id int64, errStr string) {
 	if len(errStr) > 2000 {
 		errStr = errStr[:2000]
 	}
-	_, err := d.pool.Exec(ctx, "UPDATE outbox_events SET last_error = $2 WHERE id = $1", id, errStr)
+	err := d.store.MarkFailed(ctx, id, errStr)
 	if err != nil {
-		d.logger.Error("failed to mark event failed", slog.Int64("event_id", id), slog.Any("error", err))
+		if d.logger != nil {
+			d.logger.Error("failed to mark event failed", slog.Int64("event_id", id), slog.Any("error", err))
+		}
 	}
+}
+
+func (s *postgresEventStore) MarkPublished(ctx context.Context, id int64) error {
+	_, err := s.pool.Exec(ctx, "UPDATE outbox_events SET published_at = NOW() WHERE id = $1", id)
+	return err
+}
+
+func (s *postgresEventStore) MarkFailed(ctx context.Context, id int64, errStr string) error {
+	_, err := s.pool.Exec(ctx, "UPDATE outbox_events SET last_error = $2 WHERE id = $1", id, errStr)
+	return err
 }

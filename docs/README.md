@@ -25,6 +25,7 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 |----------|-------------|
 | [Handler Guidelines](guides/handlers.md) | Pola handler HTTP |
 | [Testing Guide](guides/testing-runbook.md) | Menjalankan tests |
+| [Test Coverage Hardening Audit (2026-08-09)](archive/audits/test-coverage-hardening-2026-08-09.md) | Coverage baseline dan tindak lanjut modul berisiko tinggi |
 | [E2E Browser Testing](guides/e2e-browser-testing.md) | Setup Playwright, test data, dan CI integration |
 
 ### Operations
@@ -93,6 +94,9 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 | [ADR-0008](decisions/ADR-0008-p2p-matching-and-exceptions.md) | P2P Matching and Exceptions |
 | [ADR-0009](decisions/ADR-0009-asset-capitalization-and-operations.md) | Asset Capitalization and Operations |
 | [ADR-0010](decisions/ADR-0010-external-integrations-foundation.md) | External Integrations Foundation |
+| [ADR-0011](decisions/ADR-0011-governed-reporting.md) | Governed Reporting and Dashboards |
+| [ADR-0012](decisions/ADR-0012-scoped-rbac.md) | Scoped Role-Based Access Control |
+| [ADR-0013](decisions/ADR-0013-fiscal-calendar-and-timezone.md) | Fiscal Calendars and Timezone Policy |
 
 ## 📦 Releases
 
