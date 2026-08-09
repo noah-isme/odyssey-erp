@@ -7,7 +7,22 @@ only in the [authoritative feature matrix](reference/feature-matrix.md).
 
 ## Unreleased
 
-No changes have been added after `v0.10.0-rc.1`.
+No changes have been added after `v0.10.0-rc.2`.
+
+## v0.10.0-rc.2 — 2026-08-10
+
+Coretax and Indonesian PPh 21 release-test completion on top of the
+`v0.10.0-rc.1` candidate. See the [release notes](releases/v0.10.0-rc.2.md).
+Production certification remains pending.
+
+### Added
+
+- **Coretax release contract:** Explicit endpoint configuration, fail-closed
+  submission/validation, accepted-response handling, and export/validator/GL
+  reconciliation coverage.
+- **Annual PPh 21 reconciliation:** Versioned progressive annual bands,
+  integer-rupiah taxable-income rounding, last-tax-period corrections, and a
+  PMK 168/2023 worked-example fixture.
 
 ## v0.10.0-rc.1 — 2026-08-10
 

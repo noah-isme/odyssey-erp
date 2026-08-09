@@ -66,6 +66,13 @@ the reviewed schema artifact checksum and XML structure. XML declaration and
 optional elements such as `Sign` are effective schema-version data, not
 hard-coded assumptions; `Sign` is omitted unless that reviewed schema enables it.
 
+The local release suite also exercises the configured Coretax HTTP contract:
+reviewed XML is posted to an explicit validator path, non-2xx or non-accepted
+responses fail closed, and returned record counts/totals are compared with the
+immutable export before a zero-difference GL recap is locked. This deterministic
+contract test does not replace the official DJP XSD/converter and Coretax
+staging/import evidence below.
+
 ### Release gate
 
 Structural validation is not proof that DJP will accept a file. For every schema

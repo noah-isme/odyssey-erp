@@ -12,8 +12,8 @@
 **Revised:** 2026-08-09 (repository persistence boundaries and shared HTTP error policy)
 **Revised:** 2026-08-09 (document processing and CMMS telemetry foundations)
 **Revised:** 2026-08-09 (MRP canonical compliance snapshots and reauthentication hardening)
-**Revised:** 2026-08-10 (v0.10.0-rc.1 release candidate packaging)
-**Current Version:** v0.10.0-rc.1
+**Revised:** 2026-08-10 (v0.10.0-rc.2 release candidate packaging)
+**Current Version:** v0.10.0-rc.2
 
 > For current release status, use the [Authoritative Feature Matrix](reference/feature-matrix.md).
 > The [Module Catalog](reference/module-catalog.md) is the capability inventory. This
@@ -399,9 +399,10 @@ Sizing legend: S <2w · M 2–4w · L 1–2m · XL 2m+ (rough, single team).
 - Calculator, service, HTTP, worker, and migration coverage proves TER categories,
   PTKP evidence, BPJS caps, overtime, THR, negative adjustments, rounding, approval,
   journal balance, repeated-post idempotency, and concealed payslip access.
-- Release boundary: December/last-tax-period annual PPh 21 reconciliation remains
-  blocked until its separate calculation strategy and official examples are
-  reviewed; monthly TER payroll is complete.
+- Release boundary: `CalculateAnnualPPh21` now covers the December/last-tax-period
+  rule with explicit progressive bands, prior-withholding reconciliation, and an
+  official PMK 168/2023 worked-example fixture. Production activation still
+  requires payroll/legal review of the selected effective rule version.
 
 ### P5 — Tax Compliance — 🟡 RELEASE VALIDATION PENDING
 - Reviewed effective-dated PPN/PPh rules, tax codes, NPWP/NITKU identities,
@@ -420,10 +421,11 @@ Sizing legend: S <2w · M 2–4w · L 1–2m · XL 2m+ (rough, single team).
   workers retry tax capture without duplicating immutable documents. Export is
   POST-only and its XML declaration/optional fields belong to the reviewed
   schema version.
-- Remaining release gate: tax staff must validate each version against the
-  current official DJP XSD/converter and prove a representative month imports in
-  Coretax while reconciling to GL to the rupiah. Until that external acceptance
-  is recorded, Phase 5 is implemented but not certified for production filing.
+- Remaining release gate: the local Coretax validator contract and zero-difference
+  GL reconciliation are covered by the release suite, but tax staff must still
+  validate each version against the current official DJP XSD/converter and prove
+  a representative month imports in Coretax. Until that external acceptance is
+  recorded, Phase 5 is implemented but not certified for production filing.
 
 ### P6 — CRM
 - ✅ Company/owner-scoped leads, distinct contacts, ordered opportunities,

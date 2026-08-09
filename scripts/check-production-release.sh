@@ -33,7 +33,7 @@ if ! git describe --exact-match --tags HEAD >/dev/null 2>&1; then
 	fail "HEAD has no release tag; assign a version and create the reviewed release tag only after all gates pass"
 fi
 
-if ! grep -Fq '**Current release candidate:** v0.10.0-rc.1' docs/releases/VERSION_HISTORY.md; then
+if ! grep -Fq '**Current release candidate:** v0.10.0-rc.2' docs/releases/VERSION_HISTORY.md; then
 	fail "docs/releases/VERSION_HISTORY.md does not identify the current release candidate"
 fi
 

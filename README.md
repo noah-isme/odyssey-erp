@@ -1,7 +1,7 @@
 # Odyssey ERP
 
 [![CI](https://github.com/noah-isme/odyssey-erp/actions/workflows/ci.yml/badge.svg)](https://github.com/noah-isme/odyssey-erp/actions/workflows/ci.yml)
-[![Release candidate](https://img.shields.io/badge/release-v0.10.0--rc.1-blue)](docs/releases/v0.10.0-rc.1.md)
+[![Release candidate](https://img.shields.io/badge/release-v0.10.0--rc.2-blue)](docs/releases/v0.10.0-rc.2.md)
 [![Go](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go&logoColor=white)](go.mod)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
@@ -33,7 +33,7 @@ capture instructions.
 
 For a Render demo or light staging deployment, see the [Render demo/staging blueprint guide](docs/guides/deploy-render.md).
 
-The current release candidate is [v0.10.0-rc.1](docs/releases/v0.10.0-rc.1.md).
+The current release candidate is [v0.10.0-rc.2](docs/releases/v0.10.0-rc.2.md).
 For production promotion, use the [Production Release Checklist](docs/releases/production-release-checklist.md);
 this candidate is not production-certified yet.
 

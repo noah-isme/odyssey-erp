@@ -49,4 +49,11 @@ ODYSSEY_TEST_MODE=1 GOTENBERG_URL=http://127.0.0.1:0 go test ./internal/payroll 
 
 Calculator tests cover all TER categories, bracket boundaries, the PP 58 K/0 Rp10m example, BPJS health/JP caps, overtime, prorated/full THR, negative adjustment, and symmetric rounding. Service tests cover approval, balanced journals, deterministic source IDs, and repeated-post idempotency.
 
-The December/last-tax-period annual PPh 21 reconciliation required by PMK 168/2023 must be represented as a separately reviewed tax rule/calculation strategy before a December production payroll is released; the current engine intentionally blocks policy sign-off from being confused with that reconciliation.
+`CalculateAnnualPPh21` applies the PMK 168/2023 last-tax-period rule using
+explicit annual policy bands, integer-rupiah rounding, prior-period withholding,
+and a signed December/termination-month correction. The release suite loads the
+official Tn A worked example from
+[`internal/payroll/testdata/pph21_december_2024_tn_a.json`](../../internal/payroll/testdata/pph21_december_2024_tn_a.json)
+and asserts the annual liability and final-period amount. Production activation
+still requires payroll/legal review of the effective rule version and the
+company's operational evidence.

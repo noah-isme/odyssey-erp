@@ -1,0 +1,34 @@
+{
+  "source": "https://www.jdih.kemenkeu.go.id/dok/pmk-168-tahun-2023/view",
+  "tax_year": 2024,
+  "employee_label": "Tn A",
+  "ptkp_annual": 58500000,
+  "job_expense_rate_bps": 500,
+  "job_expense_cap": 6000000,
+  "pension_contribution": 1200000,
+  "mandatory_religious_contribution": 2400000,
+  "last_tax_period": 12,
+  "periods": [
+    {"month": 1, "gross": 30080000, "withheld": 3910400},
+    {"month": 2, "gross": 35080000, "withheld": 4911200},
+    {"month": 3, "gross": 30080000, "withheld": 3910400},
+    {"month": 4, "gross": 30080000, "withheld": 3910400},
+    {"month": 5, "gross": 35080000, "withheld": 4911200},
+    {"month": 6, "gross": 30080000, "withheld": 3910400},
+    {"month": 7, "gross": 50080000, "withheld": 9014400},
+    {"month": 8, "gross": 30080000, "withheld": 3910400},
+    {"month": 9, "gross": 30080000, "withheld": 3910400},
+    {"month": 10, "gross": 30080000, "withheld": 3910400},
+    {"month": 11, "gross": 30080000, "withheld": 3910400},
+    {"month": 12, "gross": 90080000, "withheld": 0}
+  ],
+  "expected": {
+    "gross_income": 450960000,
+    "job_expense": 6000000,
+    "net_income": 441360000,
+    "taxable_income": 382860000,
+    "annual_pph21": 64715000,
+    "withheld_before_last_tax_period": 50120000,
+    "last_tax_period_pph21": 14595000
+  }
+}

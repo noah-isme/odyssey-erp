@@ -1,6 +1,6 @@
 # Production Release Checklist
 
-**State:** `v0.10.0-rc.1` candidate prepared; production promotion and final tag
+**State:** `v0.10.0-rc.2` candidate prepared; production promotion and final tag
 approval are still pending.
 
 **Reviewed:** 2026-08-10
@@ -21,7 +21,7 @@ its `production-certified` evidence is recorded there.
 - [ ] Record the commit, image digest, migration range, and rollback target in
       the release notes.
 
-The `v0.10.0-rc.1` candidate is a packaging checkpoint, not a production approval.
+The `v0.10.0-rc.2` candidate is a packaging checkpoint, not a production approval.
 The final gate remains intentionally blocked until its scope and evidence are
 certified by the release owner.
 
@@ -74,10 +74,14 @@ or the candidate has uncommitted non-Graphify changes.
 
 ## 4. External and regulated certification
 
-- [ ] Supply the official Coretax validator and approved representative-month
-      fixtures, then enable the blocked tax release test.
-- [ ] Supply approved Indonesian December PPh 21 examples and expected results,
-      then enable the blocked payroll release test.
+- [x] Run the deterministic Coretax export/validator/GL reconciliation contract
+      test and retain its export hash and totals in the build evidence.
+- [x] Run the annual PPh 21 release fixture from PMK 168/2023, including the
+      December correction and the signed over-withholding case.
+- [ ] Supply the official Coretax XSD/converter and approved representative-month
+      staging/import evidence; the local contract test is not authority acceptance.
+- [ ] Review the effective annual PPh 21 rule version and company-specific
+      December payroll evidence with payroll/legal owners.
 - [ ] Run provider sandbox/limited-production contract tests for every connector
       included in the release, including signatures, retries, idempotency, and
       replay handling.
@@ -118,10 +122,11 @@ or the candidate has uncommitted non-Graphify changes.
 
 The current repository deliberately does not claim production release readiness:
 
-- `v0.10.0-rc.1` is a release candidate, not a production-certified final release;
+- `v0.10.0-rc.2` is a release candidate, not a production-certified final release;
 - the feature matrix records `production-certified=no` for the current capability
   rows until staging/provider/operational evidence is supplied;
-- Coretax and annual PPh 21 release tests are explicit blocked gates;
+- local Coretax and annual PPh 21 release tests pass, but official Coretax
+  staging/import and payroll/legal production evidence remain outstanding;
 - `render.yaml` is a Free demo/staging blueprint without a worker, persistent
   Redis, managed Gotenberg, or production database backup guarantees;
 - final staging, provider, security, migration, and operational evidence is still
