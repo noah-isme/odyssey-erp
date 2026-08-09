@@ -1070,7 +1070,7 @@ func (r *Repository) InsertSignatureChallenge(ctx context.Context, companyID, ve
 		return "", err
 	}
 
-	var uuidStr [16]byte = challengeID.Bytes
+	uuidStr := challengeID.Bytes
 	// very hacky uuid to string
 	return string(uuidStr[:]), nil
 }

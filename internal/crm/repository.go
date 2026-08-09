@@ -268,9 +268,10 @@ func (r *Repository) Reassign(ctx context.Context, scope Scope, entity string, i
 		return ErrInvalidInput
 	}
 	table := "crm_opportunities"
-	if entity == "LEAD" {
+	switch entity {
+	case "LEAD":
 		table = "crm_leads"
-	} else if entity == "ACTIVITY" {
+	case "ACTIVITY":
 		table = "crm_activities"
 	}
 	where, args := visibility(scope, "company_id", "owner_id")

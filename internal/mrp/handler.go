@@ -127,12 +127,12 @@ func (h *Handler) MountRoutes(r chi.Router) {
 func (h *Handler) listWorkOrderOperations(w http.ResponseWriter, r *http.Request) {
 	_, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil || id <= 0 {
-		http.Error(w, "invalid work order id", 400)
+		http.Error(w, "invalid work order id", http.StatusBadRequest)
 		return
 	}
 	rows, err := h.pool.Query(r.Context(), `SELECT id,company_id,work_order_id,COALESCE(routing_operation_id,0),work_center_id,sequence,code,name,status,planned_setup_minutes::float8,planned_run_minutes::float8,actual_setup_minutes::float8,actual_run_minutes::float8,good_quantity::float8,scrap_quantity::float8,operator_id FROM mrp_work_order_operations WHERE company_id=$1 AND work_order_id=$2 ORDER BY sequence`, c, id)
@@ -155,12 +155,12 @@ func (h *Handler) listWorkOrderOperations(w http.ResponseWriter, r *http.Request
 func (h *Handler) workOrderWIP(w http.ResponseWriter, r *http.Request) {
 	_, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil || id <= 0 {
-		http.Error(w, "invalid work order id", 400)
+		http.Error(w, "invalid work order id", http.StatusBadRequest)
 		return
 	}
 	rows, err := h.pool.Query(r.Context(), `SELECT product_id,COALESCE(SUM(CASE WHEN movement_type='ISSUE' THEN quantity ELSE -quantity END),0)::float8 FROM mrp_material_movements WHERE company_id=$1 AND work_order_id=$2 GROUP BY product_id ORDER BY product_id`, c, id)
@@ -187,7 +187,7 @@ func (h *Handler) workOrderWIP(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) dispatch(w http.ResponseWriter, r *http.Request) {
 	_, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	workCenterID, _ := strconv.ParseInt(r.URL.Query().Get("work_center_id"), 10, 64)
@@ -239,12 +239,12 @@ func (h *Handler) bomRevisionPage(w http.ResponseWriter, r *http.Request) {
 }
 func (h *Handler) wipLocationsPage(w http.ResponseWriter, r *http.Request) {
 	if h.templates == nil {
-		http.Error(w, "WIP UI unavailable", 503)
+		http.Error(w, "WIP UI unavailable", http.StatusServiceUnavailable)
 		return
 	}
 	_, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	items, err := h.service.ListWIPLocations(r.Context(), c)
@@ -253,26 +253,26 @@ func (h *Handler) wipLocationsPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err = h.templates.Render(w, "pages/mrp/wip_locations.html", view.TemplateData{Title: "WIP locations", CurrentPath: r.URL.Path, Data: map[string]any{"Locations": items}}); err != nil {
-		http.Error(w, "render WIP locations", 500)
+		http.Error(w, "render WIP locations", http.StatusInternalServerError)
 	}
 }
 func (h *Handler) dispatchPage(w http.ResponseWriter, r *http.Request) {
 	if h.templates == nil {
-		http.Error(w, "dispatch UI unavailable", 503)
+		http.Error(w, "dispatch UI unavailable", http.StatusServiceUnavailable)
 		return
 	}
 	_, _, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil || id <= 0 {
-		http.Error(w, "invalid work order id", 400)
+		http.Error(w, "invalid work order id", http.StatusBadRequest)
 		return
 	}
 	if err = h.templates.Render(w, "pages/mrp/work_order_dispatch.html", view.TemplateData{Title: "Work order dispatch", CurrentPath: r.URL.Path, Data: map[string]any{"WorkOrderID": id}}); err != nil {
-		http.Error(w, "render dispatch", 500)
+		http.Error(w, "render dispatch", http.StatusInternalServerError)
 	}
 }
 func (h *Handler) createPlanningPolicy(w http.ResponseWriter, r *http.Request) {
@@ -331,18 +331,18 @@ func (h *Handler) runPlanning(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) runScheduling(w http.ResponseWriter, r *http.Request) {
 	u, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	if h.scheduler == nil {
-		http.Error(w, "scheduling unavailable", 503)
+		http.Error(w, "scheduling unavailable", http.StatusServiceUnavailable)
 		return
 	}
 	var in struct {
 		AsOf time.Time `json:"as_of"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-		http.Error(w, "invalid JSON", 400)
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
 		return
 	}
 	issues, err := h.scheduler.Run(r.Context(), c, u, in.AsOf)
@@ -355,12 +355,12 @@ func (h *Handler) runScheduling(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) rescheduleOperation(w http.ResponseWriter, r *http.Request) {
 	u, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil || id <= 0 {
-		http.Error(w, "invalid operation id", 400)
+		http.Error(w, "invalid operation id", http.StatusBadRequest)
 		return
 	}
 	var in struct {
@@ -368,7 +368,7 @@ func (h *Handler) rescheduleOperation(w http.ResponseWriter, r *http.Request) {
 		End   time.Time `json:"end"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-		http.Error(w, "invalid JSON", 400)
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
 		return
 	}
 	if err = h.scheduler.Reschedule(r.Context(), c, u, id, in.Start, in.End); err != nil {
@@ -380,19 +380,19 @@ func (h *Handler) rescheduleOperation(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) splitOperation(w http.ResponseWriter, r *http.Request) {
 	_, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil || id <= 0 {
-		http.Error(w, "invalid operation id", 400)
+		http.Error(w, "invalid operation id", http.StatusBadRequest)
 		return
 	}
 	var in struct {
 		RunMinutes float64 `json:"run_minutes"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil || in.RunMinutes <= 0 {
-		http.Error(w, "invalid split duration", 400)
+		http.Error(w, "invalid split duration", http.StatusBadRequest)
 		return
 	}
 	tx, err := h.pool.Begin(r.Context())
@@ -406,7 +406,7 @@ func (h *Handler) splitOperation(w http.ResponseWriter, r *http.Request) {
 	var run float64
 	err = tx.QueryRow(r.Context(), `SELECT work_order_id,sequence,planned_run_minutes::float8 FROM mrp_work_order_operations WHERE id=$1 AND company_id=$2 FOR UPDATE`, id, c).Scan(&workOrderID, &sequence, &run)
 	if err != nil || in.RunMinutes >= run {
-		http.Error(w, "operation cannot be split", 400)
+		http.Error(w, "operation cannot be split", http.StatusBadRequest)
 		return
 	}
 	if _, err = tx.Exec(r.Context(), `UPDATE mrp_work_order_operations SET sequence=sequence+1 WHERE work_order_id=$1 AND sequence>$2`, workOrderID, sequence); err != nil {
@@ -477,12 +477,12 @@ func (h *Handler) createWorkCenter(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) createWorkCenterShift(w http.ResponseWriter, r *http.Request) {
 	_, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil || id <= 0 {
-		http.Error(w, "invalid work center id", 400)
+		http.Error(w, "invalid work center id", http.StatusBadRequest)
 		return
 	}
 	var in struct {
@@ -491,7 +491,7 @@ func (h *Handler) createWorkCenterShift(w http.ResponseWriter, r *http.Request) 
 		CapacityHours float64 `json:"capacity_hours"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil || in.Weekday < 0 || in.Weekday > 6 || in.CapacityHours <= 0 {
-		http.Error(w, "invalid shift", 400)
+		http.Error(w, "invalid shift", http.StatusBadRequest)
 		return
 	}
 	_, err = h.pool.Exec(r.Context(), `INSERT INTO mrp_work_center_shifts(company_id,work_center_id,weekday,start_time,end_time,capacity_hours) SELECT $1,id,$3,$4::time,$5::time,$6 FROM mrp_work_centers WHERE id=$2 AND company_id=$1`, c, id, in.Weekday, in.Start, in.End, in.CapacityHours)
@@ -504,12 +504,12 @@ func (h *Handler) createWorkCenterShift(w http.ResponseWriter, r *http.Request) 
 func (h *Handler) createCalendarException(w http.ResponseWriter, r *http.Request) {
 	_, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil || id <= 0 {
-		http.Error(w, "invalid work center id", 400)
+		http.Error(w, "invalid work center id", http.StatusBadRequest)
 		return
 	}
 	var in struct {
@@ -519,7 +519,7 @@ func (h *Handler) createCalendarException(w http.ResponseWriter, r *http.Request
 		Note          string    `json:"note"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil || in.Date.IsZero() {
-		http.Error(w, "invalid calendar exception", 400)
+		http.Error(w, "invalid calendar exception", http.StatusBadRequest)
 		return
 	}
 	_, err = h.pool.Exec(r.Context(), `INSERT INTO mrp_work_center_calendar_exceptions(company_id,work_center_id,exception_date,exception_type,capacity_hours,note) SELECT $1,id,$3,$4,$5,$6 FROM mrp_work_centers WHERE id=$2 AND company_id=$1 ON CONFLICT(work_center_id,exception_date) DO UPDATE SET exception_type=EXCLUDED.exception_type,capacity_hours=EXCLUDED.capacity_hours,note=EXCLUDED.note`, c, id, in.Date, in.Type, in.CapacityHours, in.Note)
@@ -531,21 +531,21 @@ func (h *Handler) createCalendarException(w http.ResponseWriter, r *http.Request
 }
 func (h *Handler) schedulingPage(w http.ResponseWriter, r *http.Request) {
 	if h.templates == nil {
-		http.Error(w, "scheduling UI unavailable", 503)
+		http.Error(w, "scheduling UI unavailable", http.StatusServiceUnavailable)
 		return
 	}
 	if _, _, ok := ids(r); !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	if err := h.templates.Render(w, "pages/mrp/scheduling_board.html", view.TemplateData{Title: "Scheduling board", CurrentPath: r.URL.Path}); err != nil {
-		http.Error(w, "render scheduling board", 500)
+		http.Error(w, "render scheduling board", http.StatusInternalServerError)
 	}
 }
 func (h *Handler) exceptionWorkbench(w http.ResponseWriter, r *http.Request) {
 	_, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	items, err := h.exceptions.List(r.Context(), c, strings.TrimSpace(r.URL.Query().Get("status")), strings.TrimSpace(r.URL.Query().Get("severity")))
@@ -558,22 +558,22 @@ func (h *Handler) exceptionWorkbench(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.templates == nil {
-		http.Error(w, "exception UI unavailable", 503)
+		http.Error(w, "exception UI unavailable", http.StatusServiceUnavailable)
 		return
 	}
 	if err = h.templates.Render(w, "pages/mrp/exceptions.html", view.TemplateData{Title: "MRP exceptions", CurrentPath: r.URL.Path, Data: map[string]any{"Exceptions": items}}); err != nil {
-		http.Error(w, "render exceptions", 500)
+		http.Error(w, "render exceptions", http.StatusInternalServerError)
 	}
 }
 func (h *Handler) exceptionAction(w http.ResponseWriter, r *http.Request) {
 	u, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil || id <= 0 {
-		http.Error(w, "invalid exception id", 400)
+		http.Error(w, "invalid exception id", http.StatusBadRequest)
 		return
 	}
 	var in struct {
@@ -581,7 +581,7 @@ func (h *Handler) exceptionAction(w http.ResponseWriter, r *http.Request) {
 		OwnerID         *int64 `json:"owner_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-		http.Error(w, "invalid JSON", 400)
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
 		return
 	}
 	if err = h.exceptions.Act(r.Context(), c, u, id, strings.TrimSpace(in.Action), strings.TrimSpace(in.Comment), in.OwnerID); err != nil {
@@ -593,7 +593,7 @@ func (h *Handler) exceptionAction(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) createInspection(w http.ResponseWriter, r *http.Request) {
 	u, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	var in struct {
@@ -606,7 +606,7 @@ func (h *Handler) createInspection(w http.ResponseWriter, r *http.Request) {
 		Disposition string          `json:"disposition"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil || in.WorkOrderID <= 0 {
-		http.Error(w, "invalid inspection", 400)
+		http.Error(w, "invalid inspection", http.StatusBadRequest)
 		return
 	}
 
@@ -649,7 +649,7 @@ func (h *Handler) createInspection(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) createInspectionPlan(w http.ResponseWriter, r *http.Request) {
 	u, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	var in struct {
@@ -658,7 +658,7 @@ func (h *Handler) createInspectionPlan(w http.ResponseWriter, r *http.Request) {
 		Required                      bool
 	}
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil || in.ProductID <= 0 || strings.TrimSpace(in.Name) == "" {
-		http.Error(w, "invalid inspection plan", 400)
+		http.Error(w, "invalid inspection plan", http.StatusBadRequest)
 		return
 	}
 
@@ -701,7 +701,7 @@ func (h *Handler) createInspectionPlan(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) createNCR(w http.ResponseWriter, r *http.Request) {
 	u, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	var in struct {
@@ -709,7 +709,7 @@ func (h *Handler) createNCR(w http.ResponseWriter, r *http.Request) {
 		Number, Description string
 	}
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil || strings.TrimSpace(in.Number) == "" || strings.TrimSpace(in.Description) == "" {
-		http.Error(w, "invalid non-conformance", 400)
+		http.Error(w, "invalid non-conformance", http.StatusBadRequest)
 		return
 	}
 
@@ -758,7 +758,7 @@ func (h *Handler) createNCR(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) createCAPA(w http.ResponseWriter, r *http.Request) {
 	u, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	var in struct {
@@ -767,7 +767,7 @@ func (h *Handler) createCAPA(w http.ResponseWriter, r *http.Request) {
 		DueDate *time.Time `json:"due_date"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil || in.NCRID <= 0 || strings.TrimSpace(in.Action) == "" {
-		http.Error(w, "invalid CAPA", 400)
+		http.Error(w, "invalid CAPA", http.StatusBadRequest)
 		return
 	}
 
@@ -812,7 +812,7 @@ func (h *Handler) createCAPA(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) createSubcontractOperation(w http.ResponseWriter, r *http.Request) {
 	_, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	var in struct {
@@ -820,7 +820,7 @@ func (h *Handler) createSubcontractOperation(w http.ResponseWriter, r *http.Requ
 		Quantity, Cost          float64
 	}
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil || in.OperationID <= 0 || in.SupplierID <= 0 || in.Quantity <= 0 {
-		http.Error(w, "invalid subcontract operation", 400)
+		http.Error(w, "invalid subcontract operation", http.StatusBadRequest)
 		return
 	}
 	var id int64
@@ -834,12 +834,12 @@ func (h *Handler) createSubcontractOperation(w http.ResponseWriter, r *http.Requ
 func (h *Handler) receiveSubcontractOperation(w http.ResponseWriter, r *http.Request) {
 	_, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil || id <= 0 {
-		http.Error(w, "invalid subcontract id", 400)
+		http.Error(w, "invalid subcontract id", http.StatusBadRequest)
 		return
 	}
 	var in struct {
@@ -847,7 +847,7 @@ func (h *Handler) receiveSubcontractOperation(w http.ResponseWriter, r *http.Req
 		InspectionID int64   `json:"inspection_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil || in.Quantity <= 0 {
-		http.Error(w, "invalid received quantity", 400)
+		http.Error(w, "invalid received quantity", http.StatusBadRequest)
 		return
 	}
 	res, err := h.pool.Exec(r.Context(), `UPDATE mrp_subcontract_operations SET received_quantity=received_quantity+$1,received_at=NOW(),inspection_id=NULLIF($2,0),status='INSPECTING' WHERE id=$3 AND company_id=$4 AND status='SENT'`, in.Quantity, in.InspectionID, id, c)
@@ -856,28 +856,28 @@ func (h *Handler) receiveSubcontractOperation(w http.ResponseWriter, r *http.Req
 		return
 	}
 	if res.RowsAffected() == 0 {
-		http.Error(w, "not found", 404)
+		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
 func (h *Handler) qualityPage(w http.ResponseWriter, r *http.Request) {
 	if h.templates == nil {
-		http.Error(w, "quality UI unavailable", 503)
+		http.Error(w, "quality UI unavailable", http.StatusServiceUnavailable)
 		return
 	}
 	if _, _, ok := ids(r); !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	if err := h.templates.Render(w, "pages/mrp/quality.html", view.TemplateData{Title: "Production quality", CurrentPath: r.URL.Path}); err != nil {
-		http.Error(w, "render quality", 500)
+		http.Error(w, "render quality", http.StatusInternalServerError)
 	}
 }
 func (h *Handler) analyticsDashboard(w http.ResponseWriter, r *http.Request) {
 	_, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	wc, _ := strconv.ParseInt(r.URL.Query().Get("work_center_id"), 10, 64)
@@ -892,17 +892,17 @@ func (h *Handler) analyticsDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.templates == nil {
-		http.Error(w, "analytics UI unavailable", 503)
+		http.Error(w, "analytics UI unavailable", http.StatusServiceUnavailable)
 		return
 	}
 	if err = h.templates.Render(w, "pages/mrp/analytics.html", view.TemplateData{Title: "Manufacturing analytics", CurrentPath: r.URL.Path, Data: metrics}); err != nil {
-		http.Error(w, "render analytics", 500)
+		http.Error(w, "render analytics", http.StatusInternalServerError)
 	}
 }
 func (h *Handler) analyticsExport(w http.ResponseWriter, r *http.Request) {
 	_, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	metrics, err := h.analytics.Metrics(r.Context(), c, 0, 0, time.Time{}, time.Time{})
@@ -917,12 +917,12 @@ func (h *Handler) analyticsExport(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) signControlledRecord(w http.ResponseWriter, r *http.Request) {
 	u, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	var in SignatureInput
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-		http.Error(w, "invalid JSON", 400)
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
 		return
 	}
 	if err := h.compliance.Sign(r.Context(), c, u, in); err != nil {
@@ -934,7 +934,7 @@ func (h *Handler) signControlledRecord(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) complianceAuditExport(w http.ResponseWriter, r *http.Request) {
 	_, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	rows, err := h.pool.Query(r.Context(), `SELECT record_type,record_id,event_type,actor_id,created_at,detail::text FROM mrp_audit_events WHERE company_id=$1 ORDER BY created_at`, c)
@@ -959,7 +959,7 @@ func (h *Handler) complianceAuditExport(w http.ResponseWriter, r *http.Request) 
 func (h *Handler) createQualityHold(w http.ResponseWriter, r *http.Request) {
 	u, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	var in struct {
@@ -967,7 +967,7 @@ func (h *Handler) createQualityHold(w http.ResponseWriter, r *http.Request) {
 		Reason                                 string
 	}
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil || in.WorkOrderID <= 0 || strings.TrimSpace(in.Reason) == "" {
-		http.Error(w, "invalid quality hold", 400)
+		http.Error(w, "invalid quality hold", http.StatusBadRequest)
 		return
 	}
 
@@ -1009,12 +1009,12 @@ func (h *Handler) createQualityHold(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) releaseQualityHold(w http.ResponseWriter, r *http.Request) {
 	u, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil || id <= 0 {
-		http.Error(w, "invalid hold id", 400)
+		http.Error(w, "invalid hold id", http.StatusBadRequest)
 		return
 	}
 
@@ -1056,7 +1056,7 @@ func (h *Handler) releaseQualityHold(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) genealogy(w http.ResponseWriter, r *http.Request) {
 	_, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	lotID, _ := strconv.ParseInt(r.URL.Query().Get("lot_id"), 10, 64)
@@ -1104,12 +1104,12 @@ func (h *Handler) createRouting(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) createBOM(w http.ResponseWriter, r *http.Request) {
 	u, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	var in BOM
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-		http.Error(w, "invalid JSON", 400)
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
 		return
 	}
 	in.CompanyID = c
@@ -1124,7 +1124,7 @@ func (h *Handler) createBOM(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) listWIPLocations(w http.ResponseWriter, r *http.Request) {
 	_, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	items, err := h.service.ListWIPLocations(r.Context(), c)
@@ -1137,12 +1137,12 @@ func (h *Handler) listWIPLocations(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) createWIPLocation(w http.ResponseWriter, r *http.Request) {
 	u, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	var in WIPLocation
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-		http.Error(w, "invalid JSON", 400)
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
 		return
 	}
 	in.CompanyID, in.CreatedBy = c, u
@@ -1156,17 +1156,17 @@ func (h *Handler) createWIPLocation(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) deactivateWIPLocation(w http.ResponseWriter, r *http.Request) {
 	_, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil || id <= 0 {
-		http.Error(w, "invalid WIP location id", 400)
+		http.Error(w, "invalid WIP location id", http.StatusBadRequest)
 		return
 	}
 	if err = h.service.DeactivateWIPLocation(r.Context(), c, id); err != nil {
 		if errors.Is(err, ErrNotFound) {
-			http.Error(w, "not found", 404)
+			http.Error(w, "not found", http.StatusNotFound)
 		} else {
 			shared.WriteErrorStatus(w, 400, err)
 		}
@@ -1251,12 +1251,12 @@ func (h *Handler) approveBOM(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) createWorkOrder(w http.ResponseWriter, r *http.Request) {
 	u, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	var in WorkOrder
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-		http.Error(w, "invalid JSON", 400)
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
 		return
 	}
 	in.CompanyID = c
@@ -1288,17 +1288,17 @@ func out(w http.ResponseWriter, status int, v any) {
 func (h *Handler) transition(w http.ResponseWriter, r *http.Request, fn func(int64, int64) (WorkOrder, error)) {
 	_, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	id, e := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if e != nil {
-		http.Error(w, "invalid work order id", 400)
+		http.Error(w, "invalid work order id", http.StatusBadRequest)
 		return
 	}
 	o, e := fn(c, id)
 	if errors.Is(e, ErrNotFound) {
-		http.Error(w, "not found", 404)
+		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
 	if e != nil {
@@ -1316,12 +1316,12 @@ func (h *Handler) start(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) complete(w http.ResponseWriter, r *http.Request) {
 	u, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	id, e := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if e != nil {
-		http.Error(w, "invalid work order id", 400)
+		http.Error(w, "invalid work order id", http.StatusBadRequest)
 		return
 	}
 	var in struct {
@@ -1330,7 +1330,7 @@ func (h *Handler) complete(w http.ResponseWriter, r *http.Request) {
 		ProducedSerialID int64   `json:"produced_serial_id"`
 	}
 	if e = json.NewDecoder(r.Body).Decode(&in); e != nil {
-		http.Error(w, "invalid JSON", 400)
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
 		return
 	}
 	if h.executor == nil {
@@ -1339,7 +1339,7 @@ func (h *Handler) complete(w http.ResponseWriter, r *http.Request) {
 	}
 	o, e := h.executor.Complete(r.Context(), CompletionInput{CompanyID: c, ActorID: u, WorkOrderID: id, Quantity: in.Quantity, ProducedLotID: in.ProducedLotID, ProducedSerialID: in.ProducedSerialID, IdempotencyKey: strings.TrimSpace(r.Header.Get("Idempotency-Key"))})
 	if errors.Is(e, ErrNotFound) {
-		http.Error(w, "not found", 404)
+		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
 	if errors.Is(e, ErrIdempotencyKeyRequired) {
@@ -1356,17 +1356,17 @@ func (h *Handler) complete(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) reportOperation(w http.ResponseWriter, r *http.Request) {
 	u, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	workOrderID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil || workOrderID <= 0 {
-		http.Error(w, "invalid work order id", 400)
+		http.Error(w, "invalid work order id", http.StatusBadRequest)
 		return
 	}
 	opID, err := strconv.ParseInt(chi.URLParam(r, "operationID"), 10, 64)
 	if err != nil || opID <= 0 {
-		http.Error(w, "invalid operation id", 400)
+		http.Error(w, "invalid operation id", http.StatusBadRequest)
 		return
 	}
 	var in struct {
@@ -1377,11 +1377,11 @@ func (h *Handler) reportOperation(w http.ResponseWriter, r *http.Request) {
 		Complete      bool    `json:"complete"`
 	}
 	if err = json.NewDecoder(r.Body).Decode(&in); err != nil {
-		http.Error(w, "invalid JSON", 400)
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
 		return
 	}
 	if h.executor == nil {
-		http.Error(w, "mrp production service is unavailable", 503)
+		http.Error(w, "mrp production service is unavailable", http.StatusServiceUnavailable)
 		return
 	}
 	outv, err := h.executor.ReportOperation(r.Context(), OperationReportInput{CompanyID: c, ActorID: u, WorkOrderID: workOrderID, OperationID: opID, SetupMinutes: in.SetupMinutes, RunMinutes: in.RunMinutes, GoodQuantity: in.GoodQuantity, ScrapQuantity: in.ScrapQuantity, Complete: in.Complete})
@@ -1397,12 +1397,12 @@ func (h *Handler) returnMaterial(w http.ResponseWriter, r *http.Request) { h.mov
 func (h *Handler) moveMaterial(w http.ResponseWriter, r *http.Request, returning bool) {
 	u, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	workOrderID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil || workOrderID <= 0 {
-		http.Error(w, "invalid work order id", 400)
+		http.Error(w, "invalid work order id", http.StatusBadRequest)
 		return
 	}
 	var in struct {
@@ -1413,11 +1413,11 @@ func (h *Handler) moveMaterial(w http.ResponseWriter, r *http.Request, returning
 		SerialID    int64   `json:"serial_id"`
 	}
 	if err = json.NewDecoder(r.Body).Decode(&in); err != nil {
-		http.Error(w, "invalid JSON", 400)
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
 		return
 	}
 	if h.executor == nil {
-		http.Error(w, "mrp production service is unavailable", 503)
+		http.Error(w, "mrp production service is unavailable", http.StatusServiceUnavailable)
 		return
 	}
 	err = h.executor.MoveMaterial(r.Context(), MaterialMovementInput{CompanyID: c, ActorID: u, WorkOrderID: workOrderID, OperationID: in.OperationID, ProductID: in.ProductID, Quantity: in.Quantity, LotID: in.LotID, SerialID: in.SerialID, Return: returning, IdempotencyKey: strings.TrimSpace(r.Header.Get("Idempotency-Key"))})
@@ -1432,7 +1432,7 @@ func (h *Handler) moveMaterial(w http.ResponseWriter, r *http.Request, returning
 func (h *Handler) decisionSubmissionForm(w http.ResponseWriter, r *http.Request) {
 	u, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 
@@ -1454,7 +1454,7 @@ func (h *Handler) decisionSubmissionForm(w http.ResponseWriter, r *http.Request)
 func (h *Handler) auditLogViewer(w http.ResponseWriter, r *http.Request) {
 	u, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 
@@ -1505,7 +1505,7 @@ func (h *Handler) auditLogViewer(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) gateStatusDisplay(w http.ResponseWriter, r *http.Request) {
 	u, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 
@@ -1522,7 +1522,7 @@ func (h *Handler) gateStatusDisplay(w http.ResponseWriter, r *http.Request) {
 
 	requiredActors, ok := gateRequirements[gateType]
 	if !ok {
-		http.Error(w, "unknown gate type", 400)
+		http.Error(w, "unknown gate type", http.StatusBadRequest)
 		return
 	}
 

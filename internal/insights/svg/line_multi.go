@@ -68,24 +68,24 @@ func LineMulti(width, height int, seriesA, seriesB []float64, labels []string) (
 	descID := idBase + "-desc"
 
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 %d %d\" role=\"img\" aria-labelledby=\"%s %s\">", width, height, titleID, descID))
-	b.WriteString(fmt.Sprintf("<title id=\"%s\">Net dan Revenue 12 bulan</title>", titleID))
-	b.WriteString(fmt.Sprintf("<desc id=\"%s\">Perbandingan performa bulanan</desc>", descID))
+	writeSVG(&b, "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 %d %d\" role=\"img\" aria-labelledby=\"%s %s\">", width, height, titleID, descID)
+	writeSVG(&b, "<title id=\"%s\">Net dan Revenue 12 bulan</title>", titleID)
+	writeSVG(&b, "<desc id=\"%s\">Perbandingan performa bulanan</desc>", descID)
 
 	for i := 0; i <= defaultTicks; i++ {
 		ratio := float64(i) / float64(defaultTicks)
 		y := padding + chartHeight - ratio*chartHeight
 		value := minVal + (maxVal-minVal)*ratio
-		b.WriteString(fmt.Sprintf("<line x1=\"%.2f\" y1=\"%.2f\" x2=\"%.2f\" y2=\"%.2f\" stroke=\"%s\" stroke-width=\"0.5\" stroke-dasharray=\"2,4\" aria-hidden=\"true\"></line>", padding, y, padding+chartWidth, y, gridColor))
-		b.WriteString(fmt.Sprintf("<text x=\"%.2f\" y=\"%.2f\" fill=\"%s\" font-size=\"10\" text-anchor=\"end\">%s</text>", padding-6, y+4, axisColor, formatTick(value)))
+		writeSVG(&b, "<line x1=\"%.2f\" y1=\"%.2f\" x2=\"%.2f\" y2=\"%.2f\" stroke=\"%s\" stroke-width=\"0.5\" stroke-dasharray=\"2,4\" aria-hidden=\"true\"></line>", padding, y, padding+chartWidth, y, gridColor)
+		writeSVG(&b, "<text x=\"%.2f\" y=\"%.2f\" fill=\"%s\" font-size=\"10\" text-anchor=\"end\">%s</text>", padding-6, y+4, axisColor, formatTick(value))
 	}
 
 	// axes
-	b.WriteString(fmt.Sprintf("<line x1=\"%.2f\" y1=\"%.2f\" x2=\"%.2f\" y2=\"%.2f\" stroke=\"%s\" stroke-width=\"1\"></line>", padding, padding, padding, padding+chartHeight, axisColor))
-	b.WriteString(fmt.Sprintf("<line x1=\"%.2f\" y1=\"%.2f\" x2=\"%.2f\" y2=\"%.2f\" stroke=\"%s\" stroke-width=\"1\"></line>", padding, padding+chartHeight, padding+chartWidth, padding+chartHeight, axisColor))
+	writeSVG(&b, "<line x1=\"%.2f\" y1=\"%.2f\" x2=\"%.2f\" y2=\"%.2f\" stroke=\"%s\" stroke-width=\"1\"></line>", padding, padding, padding, padding+chartHeight, axisColor)
+	writeSVG(&b, "<line x1=\"%.2f\" y1=\"%.2f\" x2=\"%.2f\" y2=\"%.2f\" stroke=\"%s\" stroke-width=\"1\"></line>", padding, padding+chartHeight, padding+chartWidth, padding+chartHeight, axisColor)
 
-	b.WriteString(fmt.Sprintf("<path d=\"%s\" fill=\"none\" stroke=\"%s\" stroke-width=\"2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"></path>", pathA, seriesAColor))
-	b.WriteString(fmt.Sprintf("<path d=\"%s\" fill=\"none\" stroke=\"%s\" stroke-width=\"2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"></path>", pathB, seriesBColor))
+	writeSVG(&b, "<path d=\"%s\" fill=\"none\" stroke=\"%s\" stroke-width=\"2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"></path>", pathA, seriesAColor)
+	writeSVG(&b, "<path d=\"%s\" fill=\"none\" stroke=\"%s\" stroke-width=\"2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"></path>", pathB, seriesBColor)
 
 	for i, label := range labels {
 		x := padding
@@ -94,11 +94,17 @@ func LineMulti(width, height int, seriesA, seriesB []float64, labels []string) (
 		} else {
 			x += chartWidth / 2
 		}
-		b.WriteString(fmt.Sprintf("<text x=\"%.2f\" y=\"%.2f\" fill=\"%s\" font-size=\"10\" text-anchor=\"middle\">%s</text>", x, padding+chartHeight+14, axisColor, template.HTMLEscapeString(label)))
+		writeSVG(&b, "<text x=\"%.2f\" y=\"%.2f\" fill=\"%s\" font-size=\"10\" text-anchor=\"middle\">%s</text>", x, padding+chartHeight+14, axisColor, template.HTMLEscapeString(label))
 	}
 
 	b.WriteString("</svg>")
 	return template.HTML(b.String()), nil
+}
+
+// writeSVG formats directly into the builder. strings.Builder never returns
+// an error, so the intentionally ignored result is safe here.
+func writeSVG(b *strings.Builder, format string, args ...any) {
+	_, _ = fmt.Fprintf(b, format, args...)
 }
 
 func buildPath(series []float64, padding, chartWidth, chartHeight, minVal, scale, step float64) string {
@@ -113,9 +119,9 @@ func buildPath(series []float64, padding, chartWidth, chartHeight, minVal, scale
 		normalized := (value - minVal) * scale
 		y := padding + chartHeight - normalized
 		if i == 0 {
-			path.WriteString(fmt.Sprintf("M%.2f %.2f", x, y))
+			writeSVG(&path, "M%.2f %.2f", x, y)
 		} else {
-			path.WriteString(fmt.Sprintf(" L%.2f %.2f", x, y))
+			writeSVG(&path, " L%.2f %.2f", x, y)
 		}
 	}
 	return path.String()
