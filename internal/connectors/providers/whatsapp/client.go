@@ -1,12 +1,13 @@
 package whatsapp
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
+	"strings"
+
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors"
 )
 
 const (
@@ -17,13 +18,25 @@ type Client struct {
 	accessToken   string
 	phoneNumberID string
 	httpClient    *http.Client
+	baseURL       string
+	retryPolicy   connectors.RetryPolicy
 }
 
 func NewClient(accessToken string, phoneNumberID string) *Client {
+	return NewClientWithOptions(accessToken, phoneNumberID, connectors.ProviderOptions{})
+}
+
+func NewClientWithOptions(accessToken string, phoneNumberID string, options connectors.ProviderOptions) *Client {
+	baseURL := graphAPIBaseURL
+	if strings.TrimSpace(options.BaseURL) != "" {
+		baseURL = strings.TrimRight(options.BaseURL, "/")
+	}
 	return &Client{
 		accessToken:   accessToken,
 		phoneNumberID: phoneNumberID,
-		httpClient:    &http.Client{},
+		httpClient:    options.HTTPClientOrDefault(),
+		baseURL:       baseURL,
+		retryPolicy:   options.RetryPolicyOrDefault(),
 	}
 }
 
@@ -50,6 +63,13 @@ type MessageResponse struct {
 }
 
 func (c *Client) SendTextMessage(ctx context.Context, to string, body string) (*MessageResponse, error) {
+	return c.SendTextMessageWithIdempotency(ctx, to, body, "")
+}
+
+func (c *Client) SendTextMessageWithIdempotency(ctx context.Context, to string, body string, idempotencyKey string) (*MessageResponse, error) {
+	if strings.TrimSpace(to) == "" || strings.TrimSpace(body) == "" {
+		return nil, fmt.Errorf("whatsapp: recipient and body are required")
+	}
 	reqData := MessageRequest{
 		MessagingProduct: "whatsapp",
 		To:               to,
@@ -64,30 +84,45 @@ func (c *Client) SendTextMessage(ctx context.Context, to string, body string) (*
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	url := fmt.Sprintf("%s/%s/messages", graphAPIBaseURL, c.phoneNumberID)
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(payload))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create http request: %w", err)
+	url := fmt.Sprintf("%s/%s/messages", strings.TrimRight(c.baseURL, "/"), c.phoneNumberID)
+	headers := http.Header{
+		"Content-Type":  []string{"application/json"},
+		"Authorization": []string{"Bearer " + c.accessToken},
 	}
-
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+c.accessToken)
-
-	resp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to execute http request: %w", err)
+	if strings.TrimSpace(idempotencyKey) != "" {
+		headers.Set("Idempotency-Key", idempotencyKey)
+		headers.Set("X-Odyssey-Correlation-ID", idempotencyKey)
 	}
-	defer resp.Body.Close()
+	resp, responseBody, err := connectors.DoWithRetry(ctx, c.httpClient, http.MethodPost, url, payload, headers, c.retryPolicy)
+	if err != nil {
+		return nil, fmt.Errorf("whatsapp: failed to execute request: %w", err)
+	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		respBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("whatsapp API error (status %d): %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("whatsapp API error (status %d): %s", resp.StatusCode, string(responseBody))
 	}
 
 	var msgResp MessageResponse
-	if err := json.NewDecoder(resp.Body).Decode(&msgResp); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+	if err := json.Unmarshal(responseBody, &msgResp); err != nil {
+		return nil, fmt.Errorf("whatsapp: failed to decode response: %w", err)
+	}
+	if len(msgResp.Messages) == 0 || strings.TrimSpace(msgResp.Messages[0].ID) == "" {
+		return nil, fmt.Errorf("whatsapp: provider response did not contain a message id")
 	}
 
 	return &msgResp, nil
+}
+
+// CheckPhoneNumber performs a real authenticated Graph API request.
+func (c *Client) CheckPhoneNumber(ctx context.Context) error {
+	url := fmt.Sprintf("%s/%s?fields=id", strings.TrimRight(c.baseURL, "/"), c.phoneNumberID)
+	headers := http.Header{"Authorization": []string{"Bearer " + c.accessToken}}
+	resp, body, err := connectors.DoWithRetry(ctx, c.httpClient, http.MethodGet, url, nil, headers, c.retryPolicy)
+	if err != nil {
+		return fmt.Errorf("whatsapp: health request failed: %w", err)
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("whatsapp: health request returned %d: %s", resp.StatusCode, string(body))
+	}
+	return nil
 }

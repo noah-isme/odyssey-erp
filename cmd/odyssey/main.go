@@ -316,18 +316,28 @@ func main() {
 	}()
 	outboxRepo := outbox.NewRepository(dbpool)
 	connectorsRegistry := connectors.NewRegistry()
-	connectorsRegistry.Register("mockpay", mockpay.NewAdapter(logger))
+	if cfg.ConnectorDevelopmentMode {
+		connectorsRegistry.Register("mockpay", mockpay.NewAdapter(logger))
+	}
 	vault, err := shared.NewVault()
 	if err != nil {
 		logger.Error("init vault", slog.Any("error", err))
+		if cfg.IsProduction() {
+			os.Exit(1)
+		}
 	}
-	connectorsRegistry.Register("stripe", stripe.NewAdapter(logger))
-	connectorsRegistry.Register("oidc", oidc.NewAdapter(logger))
-	connectorsRegistry.Register("shopify", shopify.NewAdapter(logger))
-	connectorsRegistry.Register("whatsapp", whatsapp.NewAdapter(logger, vault))
+	providerOptions := connectors.ProviderOptions{
+		Vault:           vault,
+		HTTPClient:      &http.Client{Timeout: 15 * time.Second},
+		DevelopmentMode: cfg.ConnectorDevelopmentMode,
+	}
+	connectorsRegistry.Register("stripe", stripe.NewAdapter(logger, providerOptions))
+	connectorsRegistry.Register("oidc", oidc.NewAdapter(logger, providerOptions))
+	connectorsRegistry.Register("shopify", shopify.NewAdapter(logger, providerOptions))
+	connectorsRegistry.Register("whatsapp", whatsapp.NewAdapter(logger, vault, providerOptions))
 	connectorsRegistry.Register("openai", openai.NewAdapter(logger))
-	connectorsRegistry.Register("dhl", dhl.NewAdapter(logger))
-	connectorsRegistry.Register("awss3", awss3.NewAdapter(logger, vault))
+	connectorsRegistry.Register("dhl", dhl.NewAdapter(logger, providerOptions))
+	connectorsRegistry.Register("awss3", awss3.NewAdapter(logger, vault, providerOptions))
 	connectorsRegistry.Register("midtrans", midtrans.NewAdapter(logger, vault))
 	connectorsProcessor := connectors.NewInboxProcessor(connectors.NewRepository(dbpool), connectorsRegistry, outboxRepo, logger)
 	connectorsHandler := connectors.NewWebhookHandler(connectorsProcessor)

@@ -14,6 +14,7 @@ and older changelog material live in `docs/archive/`.
 - **Portal**: Profile updates, RFQ negotiation, direct chat messaging, and analytics tracking.
 - **POS**: Scanner/printer hardware configuration, loyalty members tier tracking, and gift card balances (split-tender ready).
 - **Connectors**: Marketplace synchronization (Shopify) including inbound sales orders, outbox event bridging, and outbound inventory available-to-promise sync.
+- **Connector hardening**: Replaced simulated Stripe, S3, WhatsApp, DHL, Shopify, and OIDC success paths with vault-resolved provider calls, fail-closed signature verification, retry/idempotency handling, deterministic webhook replay keys, and provider contract tests. Development fakes now require `CONNECTORS_DEVELOPMENT_MODE=true`.
 - **Projects**: Milestone tracking, employee resource allocation, and expense submission/tracking.
 
 ### Changed

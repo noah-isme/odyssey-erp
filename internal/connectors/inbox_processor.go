@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -59,15 +60,7 @@ func (p *InboxProcessor) ProcessWebhook(ctx context.Context, connectionID int64,
 		return fmt.Errorf("connectors: invalid webhook signature: %w", err)
 	}
 
-	providerEventID := headers["X-Provider-Event-Id"]
-	if providerEventID == "" {
-		// e.g. Shopify sends X-Shopify-Webhook-Id
-		if shopifyID := headers["X-Shopify-Webhook-Id"]; shopifyID != "" {
-			providerEventID = shopifyID
-		} else {
-			providerEventID = uuid.NewString() // fallback
-		}
-	}
+	providerEventID := webhookEventID(connRec.Provider, headers, payload)
 
 	// 4. Durably store the raw event for deduplication (Inbox)
 	inboxEvt, err := p.repo.InsertInboxEvent(ctx, InboxEventInput{
@@ -149,4 +142,22 @@ func (p *InboxProcessor) ProcessWebhook(ctx context.Context, connectionID int64,
 	)
 
 	return nil
+}
+
+// webhookEventID returns a provider event identifier without generating a
+// random value. Random fallbacks made identical webhook replays look like new
+// events and defeated the inbox uniqueness constraint.
+func webhookEventID(provider string, headers map[string]string, payload []byte) string {
+	if value := Header(headers, "X-Provider-Event-Id", "X-Shopify-Webhook-Id", "X-DHL-Event-Id", "X-Message-Reference", "X-WhatsApp-Event-Id", "Stripe-Event-Id"); value != "" {
+		return value
+	}
+	if provider == "stripe" {
+		var event struct {
+			ID string `json:"id"`
+		}
+		if json.Unmarshal(payload, &event) == nil && strings.TrimSpace(event.ID) != "" {
+			return event.ID
+		}
+	}
+	return ProviderPayloadID(payload)
 }

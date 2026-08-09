@@ -2,7 +2,7 @@
 
 **Priority:** High
 
-**Status:** In Progress — Phase 0 (foundation) and Phase A1 (Midtrans payment gateway) implemented
+**Status:** In Progress — connector foundation, Midtrans, and provider transport hardening implemented; end-to-end channel workflows and operational rollout remain
 
 **Scope:** Payment gateways, shipping/carrier services, marketplace synchronization,
 WhatsApp/SMS/push delivery, external BI, identity providers, and AI connectors.
@@ -30,6 +30,22 @@ Company connection -> encrypted secret reference + policy + object mappings
 Provider adapters translate only between a provider contract and a versioned Odyssey
 contract. Sales, AR, POS, delivery, inventory, notifications, auth, and analytics
 services remain the owners of business state and invariants.
+
+## Current provider hardening baseline
+
+Stripe, S3 export, WhatsApp Cloud API, DHL, Shopify, and OIDC adapters now resolve
+credentials through the vault and fail closed when production configuration is
+missing. Provider calls use injected HTTP clients, bounded retries, and durable
+command identifiers for idempotency where the provider contract permits it. Signed
+callbacks are verified before translation, and inbox replay keys use provider event
+IDs or deterministic payload hashes instead of random fallbacks. Local simulations
+are available only with `CONNECTORS_DEVELOPMENT_MODE=true`; this flag must remain
+unset/false in production.
+
+The adapter layer is not the same as a complete business-channel rollout: WhatsApp
+notification preferences/templates, Shopify object mapping/reconciliation, DHL
+rate/label lifecycle, OIDC PKCE/linking policy, and BI export scheduling still need
+their respective acceptance gates below.
 
 ## Existing baseline
 

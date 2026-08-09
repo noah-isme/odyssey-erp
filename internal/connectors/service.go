@@ -3,6 +3,7 @@ package connectors
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -108,6 +109,9 @@ func (s *Service) ListConnections(ctx context.Context, companyID int64) ([]Conne
 
 // CreateConnection creates a new connection, encrypting the secret before storage.
 func (s *Service) CreateConnection(ctx context.Context, params CreateConnectionParams) (Connection, error) {
+	if s.vault == nil {
+		return Connection{}, errors.New("connectors: credential vault is unavailable")
+	}
 	cipherText, err := s.vault.EncryptSecure(params.SecretPlaintext)
 	if err != nil {
 		return Connection{}, err

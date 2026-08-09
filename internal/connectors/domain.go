@@ -2,6 +2,7 @@ package connectors
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
@@ -37,6 +38,9 @@ type Connection struct {
 func (c *Connection) GetCredentials(vault *shared.Vault) (string, error) {
 	if c.SecretRef == "" {
 		return "", nil
+	}
+	if vault == nil {
+		return "", errors.New("connectors: credential vault is required")
 	}
 	return vault.DecryptSecure(c.SecretRef)
 }

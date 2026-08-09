@@ -62,7 +62,7 @@ capability status.
 | Phase 15 — Reporting enhancements | 🟡 Partial | P&L and Budget vs Actual support department/cost-center filters, native `.xlsx`, and scheduled email; report builder/widgets remain |
 | Connector foundation (Phase 0) | ✅ Implemented | `internal/connectors/` — `ProviderAdapter` interface, vault-encrypted `SecretRef`, transactional outbox/inbox, deduplication, canonical event routing, `/settings/integrations` UI; migrations `000076`+ |
 | Payment gateway — Midtrans (Phase A1) | ✅ Implemented | Snap checkout, SHA-512 webhook signature verification, `payment.captured/authorized/failed` canonical events, automatic AR invoice allocation; `internal/connectors/providers/midtrans/`; 17-test suite |
-| Payment gateway — Stripe (Phase A1) | 🟡 Partial | Checkout intent and `payment.captured` translation implemented; full AR webhook allocation wired via shared outbox handler; `internal/connectors/providers/stripe/` |
+| Payment gateway — Stripe (Phase A1) | ✅ Implemented | Vault-resolved live API calls, webhook verification, stable charge idempotency keys, and full AR webhook allocation; `internal/connectors/providers/stripe/` |
 | Freight charge workbench | 🟡 Partial | Rate cards, surcharges, freight charge calculation, landed costs, cost centers, GL posting; `internal/freight/`; 5-test suite with mock repository |
 | Logistics UI (fleet/trip/dispatch) | 🟡 Partial | Fleet, vehicle, driver, trip, and cargo management screens implemented; `internal/logistics/`; rate cards and freight charges UI linked from sidebar |
 
