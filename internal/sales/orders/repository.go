@@ -374,10 +374,11 @@ func (r *repository) UpdateStatus(ctx context.Context, id int64, status SalesOrd
 	var confirmedAt, cancelledAt pgtype.Timestamptz
 	var cancellationReason pgtype.Text
 
-	if status == SalesOrderStatusConfirmed {
+	switch status {
+	case SalesOrderStatusConfirmed:
 		confirmedBy = pgtype.Int8{Int64: userID, Valid: true}
 		confirmedAt = pgtype.Timestamptz{Time: time.Now(), Valid: true}
-	} else if status == SalesOrderStatusCancelled {
+	case SalesOrderStatusCancelled:
 		cancelledBy = pgtype.Int8{Int64: userID, Valid: true}
 		cancelledAt = pgtype.Timestamptz{Time: time.Now(), Valid: true}
 		if reason != nil {

@@ -34,37 +34,40 @@ func (c *MailClient) SendEmail(ctx context.Context, to, subject, body string, at
 
 	// Build email headers and body
 	var msg bytes.Buffer
+	write := func(format string, args ...any) {
+		_, _ = fmt.Fprintf(&msg, format, args...)
+	}
 
 	// Use multipart if attachment is present
 	if attachment != nil {
 		boundary := "----=_Part_0_1234567890.1234567890"
-		msg.WriteString(fmt.Sprintf("From: %s\r\n", c.config.From))
-		msg.WriteString(fmt.Sprintf("To: %s\r\n", to))
-		msg.WriteString(fmt.Sprintf("Subject: %s\r\n", subject))
+		write("From: %s\r\n", c.config.From)
+		write("To: %s\r\n", to)
+		write("Subject: %s\r\n", subject)
 		msg.WriteString("MIME-Version: 1.0\r\n")
-		msg.WriteString(fmt.Sprintf("Content-Type: multipart/mixed; boundary=\"%s\"\r\n", boundary))
+		write("Content-Type: multipart/mixed; boundary=\"%s\"\r\n", boundary)
 		msg.WriteString("\r\n")
 
 		// Text part
-		msg.WriteString(fmt.Sprintf("--%s\r\n", boundary))
+		write("--%s\r\n", boundary)
 		msg.WriteString("Content-Type: text/html; charset=\"UTF-8\"\r\n")
 		msg.WriteString("\r\n")
 		msg.WriteString(body)
 		msg.WriteString("\r\n")
 
 		// Attachment part
-		msg.WriteString(fmt.Sprintf("--%s\r\n", boundary))
-		msg.WriteString(fmt.Sprintf("Content-Type: %s; name=\"%s\"\r\n", attachment.ContentType, attachment.Filename))
+		write("--%s\r\n", boundary)
+		write("Content-Type: %s; name=\"%s\"\r\n", attachment.ContentType, attachment.Filename)
 		msg.WriteString("Content-Transfer-Encoding: base64\r\n")
-		msg.WriteString(fmt.Sprintf("Content-Disposition: attachment; filename=\"%s\"\r\n", attachment.Filename))
+		write("Content-Disposition: attachment; filename=\"%s\"\r\n", attachment.Filename)
 		msg.WriteString("\r\n")
 		msg.WriteString(encodeBase64(attachment.Data))
 		msg.WriteString("\r\n")
-		msg.WriteString(fmt.Sprintf("--%s--\r\n", boundary))
+		write("--%s--\r\n", boundary)
 	} else {
-		msg.WriteString(fmt.Sprintf("From: %s\r\n", c.config.From))
-		msg.WriteString(fmt.Sprintf("To: %s\r\n", to))
-		msg.WriteString(fmt.Sprintf("Subject: %s\r\n", subject))
+		write("From: %s\r\n", c.config.From)
+		write("To: %s\r\n", to)
+		write("Subject: %s\r\n", subject)
 		msg.WriteString("MIME-Version: 1.0\r\n")
 		msg.WriteString("Content-Type: text/html; charset=\"UTF-8\"\r\n")
 		msg.WriteString("\r\n")

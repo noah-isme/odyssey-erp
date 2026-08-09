@@ -358,10 +358,11 @@ func (r *repository) UpdateStatus(ctx context.Context, id int64, status Quotatio
 	var approvedAt, rejectedAt pgtype.Timestamptz
 	var rejectionReason pgtype.Text
 
-	if status == QuotationStatusApproved {
+	switch status {
+	case QuotationStatusApproved:
 		approvedBy = pgtype.Int8{Int64: userID, Valid: true}
 		approvedAt = pgtype.Timestamptz{Time: time.Now(), Valid: true}
-	} else if status == QuotationStatusRejected {
+	case QuotationStatusRejected:
 		rejectedBy = pgtype.Int8{Int64: userID, Valid: true}
 		rejectedAt = pgtype.Timestamptz{Time: time.Now(), Valid: true}
 		if reason != nil {

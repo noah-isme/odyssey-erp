@@ -64,12 +64,12 @@ func (h *Handler) MountRoutes(r chi.Router) {
 
 func (h *Handler) createTerminal(w http.ResponseWriter, r *http.Request) {
 	if h.pool == nil {
-		http.Error(w, "POS database is unavailable", 503)
+		http.Error(w, "POS database is unavailable", http.StatusServiceUnavailable)
 		return
 	}
 	_, companyID, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	var in struct {
@@ -78,7 +78,7 @@ func (h *Handler) createTerminal(w http.ResponseWriter, r *http.Request) {
 	}
 	if !body(w, r, &in) || in.Code == "" || in.Name == "" {
 		if in.Code == "" {
-			http.Error(w, "code and name are required", 400)
+			http.Error(w, "code and name are required", http.StatusBadRequest)
 		}
 		return
 	}
@@ -97,17 +97,17 @@ func (h *Handler) createTerminal(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) openSession(w http.ResponseWriter, r *http.Request) {
 	if h.pool == nil {
-		http.Error(w, "POS database is unavailable", 503)
+		http.Error(w, "POS database is unavailable", http.StatusServiceUnavailable)
 		return
 	}
 	uid, companyID, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	terminalID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil {
-		http.Error(w, "invalid terminal id", 400)
+		http.Error(w, "invalid terminal id", http.StatusBadRequest)
 		return
 	}
 	var in struct {
@@ -131,17 +131,17 @@ func (h *Handler) openSession(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) closeSession(w http.ResponseWriter, r *http.Request) {
 	if h.pool == nil {
-		http.Error(w, "POS database is unavailable", 503)
+		http.Error(w, "POS database is unavailable", http.StatusServiceUnavailable)
 		return
 	}
 	uid, companyID, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	sessionID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil {
-		http.Error(w, "invalid session id", 400)
+		http.Error(w, "invalid session id", http.StatusBadRequest)
 		return
 	}
 	var in struct {
@@ -176,7 +176,7 @@ func ids(r *http.Request) (int64, int64, bool) {
 }
 func body(w http.ResponseWriter, r *http.Request, v any) bool {
 	if e := json.NewDecoder(r.Body).Decode(v); e != nil {
-		http.Error(w, "invalid JSON", 400)
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
 		return false
 	}
 	return true
@@ -189,7 +189,7 @@ func out(w http.ResponseWriter, status int, v any) {
 func (h *Handler) createTicket(w http.ResponseWriter, r *http.Request) {
 	u, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	var in Ticket
@@ -208,12 +208,12 @@ func (h *Handler) createTicket(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) payment(w http.ResponseWriter, r *http.Request) {
 	u, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	id, e := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if e != nil {
-		http.Error(w, "invalid ticket id", 400)
+		http.Error(w, "invalid ticket id", http.StatusBadRequest)
 		return
 	}
 	var p Payment
@@ -266,7 +266,7 @@ func (h *Handler) payment(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if rate <= 0 {
-			http.Error(w, "POS currency has no approved FX rate", 400)
+			http.Error(w, "POS currency has no approved FX rate", http.StatusBadRequest)
 			return
 		}
 		baseAmount = amount * rate
@@ -280,17 +280,17 @@ func (h *Handler) payment(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) refund(w http.ResponseWriter, r *http.Request) {
 	u, c, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	id, e := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if e != nil {
-		http.Error(w, "invalid ticket id", 400)
+		http.Error(w, "invalid ticket id", http.StatusBadRequest)
 		return
 	}
 	t, e := h.service.Refund(r.Context(), c, id)
 	if errors.Is(e, ErrNotFound) {
-		http.Error(w, "not found", 404)
+		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
 	if e != nil {
@@ -328,7 +328,7 @@ func (h *Handler) refund(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if rate <= 0 {
-			http.Error(w, "POS currency has no approved FX rate", 400)
+			http.Error(w, "POS currency has no approved FX rate", http.StatusBadRequest)
 			return
 		}
 		if err := h.ledger.HandlePOSRefunded(r.Context(), SalePostedEvent{TicketID: id, CompanyID: c, ActorID: u, Amount: amount, BaseAmount: amount * rate, Currency: currency, BaseCurrency: baseCurrency}); err != nil {
@@ -346,7 +346,7 @@ func (h *Handler) refund(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) createHardware(w http.ResponseWriter, r *http.Request) {
 	_, cid, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	var in POSHardware
@@ -366,7 +366,7 @@ func (h *Handler) createHardware(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) createLoyaltyMember(w http.ResponseWriter, r *http.Request) {
 	_, cid, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	var in LoyaltyMember
@@ -386,7 +386,7 @@ func (h *Handler) createLoyaltyMember(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) createGiftCard(w http.ResponseWriter, r *http.Request) {
 	_, cid, ok := ids(r)
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	var in GiftCard

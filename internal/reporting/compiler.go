@@ -96,7 +96,7 @@ func (c *SafeCompiler) Compile(ctx context.Context, companyID, actorID uuid.UUID
 		if query.RowLimit > 10000 {
 			query.RowLimit = 10000 // quota limit
 		}
-		sqlBuilder.WriteString(fmt.Sprintf(" LIMIT %d", query.RowLimit))
+		_, _ = fmt.Fprintf(&sqlBuilder, " LIMIT %d", query.RowLimit)
 	} else {
 		sqlBuilder.WriteString(" LIMIT 1000") // default quota
 	}
