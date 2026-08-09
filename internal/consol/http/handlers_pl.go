@@ -153,7 +153,7 @@ func (h *ProfitLossHandler) HandleExportCSV(w http.ResponseWriter, r *http.Reque
 	report, warnings, err := h.service.Build(r.Context(), filters)
 	if err != nil {
 		h.logger.Error("build consol pl csv", slog.Any("error", err))
-		http.Error(w, shared.UserSafeMessage(err), http.StatusBadRequest)
+		shared.WriteErrorStatus(w, http.StatusBadRequest, err)
 		return
 	}
 	vm := NewConsolPLViewModel(report, warnings)

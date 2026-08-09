@@ -1,0 +1,1 @@
+{"nodes": [{"id": "$graphify-root$_migrations_000031_finance_insights_permissions_up_sql", "label": "000031_finance_insights_permissions.up.sql", "file_type": "code", "source_file": "migrations/000031_finance_insights_permissions.up.sql", "source_location": null}], "edges": []}

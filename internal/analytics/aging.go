@@ -3,8 +3,6 @@ package analytics
 import (
 	"context"
 	"time"
-
-	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 // AgingFilter scopes AR/AP aging computations.
@@ -16,6 +14,12 @@ type AgingFilter struct {
 
 // AgingBucket summarises an amount inside a time bucket.
 type AgingBucket struct {
+	Bucket string
+	Amount float64
+}
+
+// AgingRow is the storage-neutral result returned by the repository.
+type AgingRow struct {
 	Bucket string
 	Amount float64
 }
@@ -36,11 +40,7 @@ func (s *Service) fetchAging(ctx context.Context, filter AgingFilter, ar bool) (
 	}
 	loader := func(ctx context.Context) (interface{}, error) {
 		if ar {
-			rows, err := s.repo.AgingAR(ctx, sqlc.AgingARParams{
-				AsOf:      dateParam(filter.AsOf),
-				CompanyID: filter.CompanyID,
-				BranchID:  optionalBranch(filter.BranchID),
-			})
+			rows, err := s.repo.AgingAR(ctx, filter)
 			if err != nil {
 				return nil, err
 			}
@@ -50,11 +50,7 @@ func (s *Service) fetchAging(ctx context.Context, filter AgingFilter, ar bool) (
 			}
 			return buckets, nil
 		}
-		rows, err := s.repo.AgingAP(ctx, sqlc.AgingAPParams{
-			AsOf:      dateParam(filter.AsOf),
-			CompanyID: filter.CompanyID,
-			BranchID:  optionalBranch(filter.BranchID),
-		})
+		rows, err := s.repo.AgingAP(ctx, filter)
 		if err != nil {
 			return nil, err
 		}

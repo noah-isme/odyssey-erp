@@ -21,6 +21,18 @@ type Repository interface {
 	DeleteSession(ctx context.Context, id string) error
 }
 
+// OIDCConnection contains only the provider settings needed by the HTTP OIDC flow.
+// The generated connector row remains private to this repository adapter.
+type OIDCConnection struct {
+	Provider  string
+	SecretRef string
+}
+
+// ConnectionReader loads the provider settings used by the SSO boundary.
+type ConnectionReader interface {
+	GetConnection(ctx context.Context, id, companyID int64) (OIDCConnection, error)
+}
+
 // PGRepository implements Repository using PostgreSQL.
 type PGRepository struct {
 	queries *sqlc.Queries
@@ -114,4 +126,14 @@ func (r *PGRepository) DeleteSession(ctx context.Context, id string) error {
 	return r.queries.DeleteSession(ctx, id)
 }
 
+// GetConnection loads a connector configuration for the SSO flow.
+func (r *PGRepository) GetConnection(ctx context.Context, id, companyID int64) (OIDCConnection, error) {
+	row, err := r.queries.GetConnection(ctx, sqlc.GetConnectionParams{ID: id, CompanyID: companyID})
+	if err != nil {
+		return OIDCConnection{}, err
+	}
+	return OIDCConnection{Provider: row.Provider, SecretRef: row.SecretRef}, nil
+}
+
 var _ Repository = (*PGRepository)(nil)
+var _ ConnectionReader = (*PGRepository)(nil)

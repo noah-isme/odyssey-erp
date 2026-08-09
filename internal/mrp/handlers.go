@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 )
 
 // DecisionSubmissionHandler handles incoming governance decision requests
@@ -42,12 +44,12 @@ type DecisionRequestPayload struct {
 
 // DecisionResponse represents the response to a decision request
 type DecisionResponse struct {
-	Success        bool   `json:"success"`
-	Message        string `json:"message"`
-	ChallengeID    string `json:"challenge_id,omitempty"`
-	ChallengeText  string `json:"challenge_text,omitempty"`
+	Success        bool                   `json:"success"`
+	Message        string                 `json:"message"`
+	ChallengeID    string                 `json:"challenge_id,omitempty"`
+	ChallengeText  string                 `json:"challenge_text,omitempty"`
 	ValidationData map[string]interface{} `json:"validation_data,omitempty"`
-	Error          string `json:"error,omitempty"`
+	Error          string                 `json:"error,omitempty"`
 }
 
 // ServeHTTP handles POST /decisions requests
@@ -61,7 +63,7 @@ func (h *DecisionSubmissionHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondJSON(w, http.StatusBadRequest, DecisionResponse{
 			Success: false,
-			Error:   fmt.Sprintf("Invalid request body: %v", err),
+			Error:   "Invalid request body",
 		})
 		return
 	}
@@ -77,7 +79,7 @@ func (h *DecisionSubmissionHandler) processDecision(ctx context.Context, req Dec
 	if err := validateDecisionRequest(req); err != nil {
 		return DecisionResponse{
 			Success: false,
-			Error:   err.Error(),
+			Error:   shared.UserSafeMessage(err),
 		}
 	}
 
@@ -106,9 +108,9 @@ func (h *DecisionSubmissionHandler) processDecision(ctx context.Context, req Dec
 	// Check validation result
 	if !validator.Valid {
 		return DecisionResponse{
-			Success: false,
-			Message: "Pre-conditions not met",
-			Error:   validator.Reason,
+			Success:        false,
+			Message:        "Pre-conditions not met",
+			Error:          validator.Reason,
 			ValidationData: validator.Data,
 		}
 	}
@@ -117,10 +119,10 @@ func (h *DecisionSubmissionHandler) processDecision(ctx context.Context, req Dec
 	challengeID := fmt.Sprintf("challenge-%d-%d", req.RecordID, req.ActorID)
 
 	return DecisionResponse{
-		Success:       true,
-		Message:       fmt.Sprintf("%s ready for decision gate", req.RecordType),
-		ChallengeID:   challengeID,
-		ChallengeText: "Please sign to confirm this decision",
+		Success:        true,
+		Message:        fmt.Sprintf("%s ready for decision gate", req.RecordType),
+		ChallengeID:    challengeID,
+		ChallengeText:  "Please sign to confirm this decision",
 		ValidationData: validator.Data,
 	}
 }
@@ -165,7 +167,7 @@ func (h *ChallengeVerificationHandler) ServeHTTP(w http.ResponseWriter, r *http.
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondJSON(w, http.StatusBadRequest, ChallengeVerificationResponse{
 			Success: false,
-			Error:   fmt.Sprintf("Invalid request body: %v", err),
+			Error:   "Invalid request body",
 		})
 		return
 	}
@@ -225,22 +227,22 @@ type AuditLogQuery struct {
 
 // AuditLogEntry represents a single audit event
 type AuditLogEntry struct {
-	ID        int64                  `json:"id"`
-	EntityID  int64                  `json:"entity_id"`
-	EntityType string                `json:"entity_type"`
-	Action    string                 `json:"action"`
-	ActorID   int64                  `json:"actor_id"`
-	Details   map[string]interface{} `json:"details"`
-	CreatedAt time.Time              `json:"created_at"`
+	ID         int64                  `json:"id"`
+	EntityID   int64                  `json:"entity_id"`
+	EntityType string                 `json:"entity_type"`
+	Action     string                 `json:"action"`
+	ActorID    int64                  `json:"actor_id"`
+	Details    map[string]interface{} `json:"details"`
+	CreatedAt  time.Time              `json:"created_at"`
 }
 
 // AuditLogResponse represents the audit log query response
 type AuditLogResponse struct {
-	Success bool              `json:"success"`
-	Message string            `json:"message"`
-	Events  []AuditLogEntry   `json:"events"`
-	Total   int               `json:"total"`
-	Error   string            `json:"error,omitempty"`
+	Success bool            `json:"success"`
+	Message string          `json:"message"`
+	Events  []AuditLogEntry `json:"events"`
+	Total   int             `json:"total"`
+	Error   string          `json:"error,omitempty"`
 }
 
 // ServeHTTP handles GET /audit-log requests

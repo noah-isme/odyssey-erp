@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
+	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 )
 
 type Handler struct {
@@ -38,27 +38,27 @@ func (h *Handler) GetLatestRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	run, err := h.service.repo.GetLatestForecastRun(r.Context(), sqlc.GetLatestForecastRunParams{
+	run, err := h.service.repo.GetLatestForecastRun(r.Context(), ForecastRunQuery{
 		CompanyID:  companyID,
 		ScenarioID: scenarioID,
 	})
 	if err != nil {
-		http.Error(w, "not found or error: "+err.Error(), http.StatusNotFound)
+		shared.WriteErrorStatus(w, http.StatusNotFound, err)
 		return
 	}
 
 	buckets, err := h.service.repo.ListForecastDailyBucketsByRun(r.Context(), run.ID)
 	if err != nil {
-		http.Error(w, "failed to list buckets: "+err.Error(), http.StatusInternalServerError)
+		shared.WriteErrorStatus(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	isFresh := time.Since(run.CompletedAt.Time) < 24*time.Hour
+	isFresh := time.Since(run.CompletedAt) < 24*time.Hour
 
 	response := struct {
-		Run     sqlc.ForecastRun           `json:"run"`
-		IsFresh bool                       `json:"is_fresh"`
-		Buckets []sqlc.ForecastDailyBucket `json:"buckets"`
+		Run     ForecastRun           `json:"run"`
+		IsFresh bool                  `json:"is_fresh"`
+		Buckets []ForecastDailyBucket `json:"buckets"`
 	}{
 		Run:     run,
 		IsFresh: isFresh,
@@ -83,7 +83,7 @@ func (h *Handler) TriggerRun(w http.ResponseWriter, r *http.Request) {
 
 	err := h.service.GenerateSnapshot(r.Context(), companyID, scenarioID)
 	if err != nil {
-		http.Error(w, "failed to generate snapshot: "+err.Error(), http.StatusInternalServerError)
+		shared.WriteErrorStatus(w, http.StatusInternalServerError, err)
 		return
 	}
 

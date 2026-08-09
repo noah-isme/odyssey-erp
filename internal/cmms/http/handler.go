@@ -541,13 +541,13 @@ func parseFloat64(value string) float64 {
 func (h *Handler) registerIoTSensor(w http.ResponseWriter, r *http.Request) {
 	var in cmms.IoTSensor
 	if err := shared.DecodeJSON(r, &in); err != nil {
-		shared.JSONError(w, http.StatusBadRequest, err.Error())
+		shared.JSONErrorFrom(w, http.StatusBadRequest, err)
 		return
 	}
 	in.CompanyID = currentCompany(r)
 	created, err := h.service.RegisterIoTSensor(r.Context(), in)
 	if err != nil {
-		shared.JSONError(w, http.StatusInternalServerError, err.Error())
+		shared.JSONErrorFrom(w, http.StatusInternalServerError, err)
 		return
 	}
 	shared.JSONResponse(w, http.StatusCreated, created)
@@ -556,14 +556,14 @@ func (h *Handler) registerIoTSensor(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) recordIoTReading(w http.ResponseWriter, r *http.Request) {
 	var in cmms.IoTReading
 	if err := shared.DecodeJSON(r, &in); err != nil {
-		shared.JSONError(w, http.StatusBadRequest, err.Error())
+		shared.JSONErrorFrom(w, http.StatusBadRequest, err)
 		return
 	}
 	// Normally we would infer companyID from token, but readings can be bulk.
 	// For simplicity in this mock, pass directly.
 	created, err := h.service.RecordIoTReading(r.Context(), in)
 	if err != nil {
-		shared.JSONError(w, http.StatusInternalServerError, err.Error())
+		shared.JSONErrorFrom(w, http.StatusInternalServerError, err)
 		return
 	}
 	shared.JSONResponse(w, http.StatusCreated, created)
@@ -572,13 +572,13 @@ func (h *Handler) recordIoTReading(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) createPredictiveModel(w http.ResponseWriter, r *http.Request) {
 	var in cmms.PredictiveModel
 	if err := shared.DecodeJSON(r, &in); err != nil {
-		shared.JSONError(w, http.StatusBadRequest, err.Error())
+		shared.JSONErrorFrom(w, http.StatusBadRequest, err)
 		return
 	}
 	in.CompanyID = currentCompany(r)
 	created, err := h.service.CreatePredictiveModel(r.Context(), in)
 	if err != nil {
-		shared.JSONError(w, http.StatusInternalServerError, err.Error())
+		shared.JSONErrorFrom(w, http.StatusInternalServerError, err)
 		return
 	}
 	shared.JSONResponse(w, http.StatusCreated, created)
@@ -588,7 +588,7 @@ func (h *Handler) evaluatePredictiveAlerts(w http.ResponseWriter, r *http.Reques
 	companyID := currentCompany(r)
 	alerts, err := h.service.EvaluatePredictiveAlertsBatch(r.Context(), companyID)
 	if err != nil {
-		shared.JSONError(w, http.StatusInternalServerError, err.Error())
+		shared.JSONErrorFrom(w, http.StatusInternalServerError, err)
 		return
 	}
 	shared.JSONResponse(w, http.StatusOK, alerts)

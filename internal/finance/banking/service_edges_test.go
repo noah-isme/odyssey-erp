@@ -4,17 +4,16 @@ import (
 	"context"
 	"testing"
 
-	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
 type orderedBankRepo struct {
 	*mockRepo
-	ordered []sqlc.BankTransaction
+	ordered []BankTransaction
 }
 
-func (r *orderedBankRepo) ListBankTransactions(context.Context, int64) ([]sqlc.BankTransaction, error) {
+func (r *orderedBankRepo) ListBankTransactions(context.Context, int64) ([]BankTransaction, error) {
 	return r.ordered, nil
 }
 
@@ -37,11 +36,10 @@ func TestCreateOperationsRejectInvalidInputsBeforeRepository(t *testing.T) {
 
 func TestBankAccountSummariesAddOpeningAndTransactionAmounts(t *testing.T) {
 	repo := newMockRepo()
-	initial := numericOf(1000)
-	account := sqlc.BankAccount{ID: 7, CompanyID: 3, Name: "Operating", InitialBalance: initial}
+	account := BankAccount{ID: 7, CompanyID: 3, Name: "Operating", InitialBalance: 1000}
 	repo.accounts[account.ID] = account
-	id := "txn-1"
-	repo.transactions[id] = sqlc.BankTransaction{ID: pgtype.UUID{Valid: true}, BankAccountID: account.ID, Amount: numericOf(-125)}
+	id := newMockTransactionID()
+	repo.transactions[id.String()] = BankTransaction{ID: id, BankAccountID: account.ID, Amount: -125}
 	service := NewService(repo, nil, &mockPoster{})
 
 	summaries, err := service.ListBankAccountSummaries(context.Background(), 3)
@@ -52,10 +50,11 @@ func TestBankAccountSummariesAddOpeningAndTransactionAmounts(t *testing.T) {
 
 func TestTransactionSummariesReturnFinalAndRunningBalances(t *testing.T) {
 	repo := newMockRepo()
-	account := sqlc.BankAccount{ID: 7, InitialBalance: numericOf(100)}
-	repo.transactions["txn-1"] = sqlc.BankTransaction{ID: pgtype.UUID{Valid: true}, BankAccountID: 7, Amount: numericOf(10)}
-	repo.transactions["txn-2"] = sqlc.BankTransaction{ID: pgtype.UUID{Valid: true}, BankAccountID: 7, Amount: numericOf(-20)}
-	orderedRepo := &orderedBankRepo{mockRepo: repo, ordered: []sqlc.BankTransaction{repo.transactions["txn-1"], repo.transactions["txn-2"]}}
+	account := BankAccount{ID: 7, InitialBalance: 100}
+	first, second := newMockTransactionID(), newMockTransactionID()
+	repo.transactions[first.String()] = BankTransaction{ID: first, BankAccountID: 7, Amount: 10}
+	repo.transactions[second.String()] = BankTransaction{ID: second, BankAccountID: 7, Amount: -20}
+	orderedRepo := &orderedBankRepo{mockRepo: repo, ordered: []BankTransaction{repo.transactions[first.String()], repo.transactions[second.String()]}}
 	service := NewService(orderedRepo, nil, &mockPoster{})
 
 	summaries, balance, err := service.ListBankTransactionSummaries(context.Background(), account)
@@ -65,3 +64,5 @@ func TestTransactionSummariesReturnFinalAndRunningBalances(t *testing.T) {
 	require.Equal(t, 90.0, summaries[0].RunningBalance)
 	require.Equal(t, 80.0, summaries[1].RunningBalance)
 }
+
+func newMockTransactionID() uuid.UUID { return uuid.New() }

@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"math"
-
-	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 var (
@@ -37,7 +35,7 @@ func (s *MatchingService) RunMatch(ctx context.Context, invoiceID int64, runBy i
 	}
 
 	// 2. We need PO line progress to compare with invoice lines
-	var progress map[int64]*sqlc.PoLineProgress
+	var progress map[int64]*POLineProgress
 	if invWithDetails.POID != nil {
 		progress, err = s.repo.GetPOLineProgressByPO(ctx, *invWithDetails.POID)
 		if err != nil {
@@ -45,7 +43,7 @@ func (s *MatchingService) RunMatch(ctx context.Context, invoiceID int64, runBy i
 		}
 	} else {
 		// If no PO, it's an exception (unbacked invoice). Or we just mark as EXCEPTION.
-		progress = make(map[int64]*sqlc.PoLineProgress)
+		progress = make(map[int64]*POLineProgress)
 	}
 
 	run := MatchingRun{
@@ -69,19 +67,19 @@ func (s *MatchingService) RunMatch(ctx context.Context, invoiceID int64, runBy i
 			InvoicePrice:    line.UnitPrice,
 			Status:          "MATCHED",
 		}
-		
-		var p *sqlc.PoLineProgress
+
+		var p *POLineProgress
 		if line.POLineID != nil {
 			p = progress[*line.POLineID]
 		}
-		
+
 		if p == nil {
 			runLine.Status = "EXCEPTION"
 			runLine.Reasons = append(runLine.Reasons, "NO_PO_LINE_LINK")
 			run.Status = "EXCEPTION"
 		} else {
-			poQty := numericToFloat(p.OrderedQty)
-			poPrice := numericToFloat(p.UnitPrice)
+			poQty := p.OrderedQty
+			poPrice := p.UnitPrice
 			runLine.POQty = &poQty
 			runLine.POPrice = &poPrice
 			poTotal += (poQty * poPrice)
@@ -111,7 +109,7 @@ func (s *MatchingService) RunMatch(ctx context.Context, invoiceID int64, runBy i
 					run.Status = "WITHIN_TOLERANCE"
 				}
 			}
-			
+
 			priceDiff := math.Abs(runLine.InvoicePrice - poPrice)
 			priceDiffPct := 0.0
 			if poPrice > 0 {

@@ -105,9 +105,9 @@ func (h *Handler) MountRoutes(r chi.Router) {
 	// Public API v2 with robust rate limiting (60 requests/sec, burst 100)
 	r.Route("/api/v2", func(r chi.Router) {
 		r.Use(RateLimitMiddleware(60, 100))
-		
+
 		r.Get("/openapi.json", h.openapiV2)
-		
+
 		r.Get("/me", h.me)
 		r.Get("/projects", h.listProjects)
 		r.Post("/projects", h.createProject)
@@ -136,10 +136,10 @@ func (h *Handler) openapiV1(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) openapiV2(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
-		"openapi": "3.1.0", 
+		"openapi": "3.1.0",
 		"info": map[string]string{
-			"title": "Odyssey Public API v2", 
-			"version": "2.0.0",
+			"title":       "Odyssey Public API v2",
+			"version":     "2.0.0",
 			"description": "Rate-limited Odyssey ERP API.",
 		},
 		"security":   []map[string][]string{{"apiKey": {}}},
@@ -196,7 +196,16 @@ func apiError(w http.ResponseWriter, err error) {
 	if strings.HasPrefix(err.Error(), "api: ") || errors.Is(err, pgx.ErrNoRows) {
 		status = http.StatusBadRequest
 	}
-	writeJSON(w, status, map[string]any{"error": map[string]string{"code": http.StatusText(status), "message": err.Error()}})
+	publicErr := err
+	switch {
+	case errors.Is(err, ErrUnauthorized):
+		publicErr = shared.ErrUnauthorized
+	case errors.Is(err, ErrForbidden):
+		publicErr = shared.ErrForbidden
+	case status == http.StatusBadRequest:
+		publicErr = shared.ErrInvalidInput
+	}
+	writeJSON(w, status, map[string]any{"error": map[string]string{"code": http.StatusText(status), "message": shared.UserSafeMessage(publicErr)}})
 }
 
 func (h *Handler) createKey(w http.ResponseWriter, r *http.Request) {

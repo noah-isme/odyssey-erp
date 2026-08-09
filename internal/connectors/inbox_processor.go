@@ -8,23 +8,21 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/odyssey-erp/odyssey-erp/internal/outbox"
-	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 // InboxProcessor handles incoming provider webhooks and events safely.
 type InboxProcessor struct {
-	queries    *sqlc.Queries
+	repo       InboxRepository
 	registry   *DefaultRegistry
 	outboxRepo *outbox.Repository
 	logger     *slog.Logger
 }
 
 // NewInboxProcessor creates a new processor for incoming webhooks.
-func NewInboxProcessor(queries *sqlc.Queries, registry *DefaultRegistry, outboxRepo *outbox.Repository, logger *slog.Logger) *InboxProcessor {
+func NewInboxProcessor(repo InboxRepository, registry *DefaultRegistry, outboxRepo *outbox.Repository, logger *slog.Logger) *InboxProcessor {
 	return &InboxProcessor{
-		queries:    queries,
+		repo:       repo,
 		registry:   registry,
 		outboxRepo: outboxRepo,
 		logger:     logger,
@@ -34,10 +32,7 @@ func NewInboxProcessor(queries *sqlc.Queries, registry *DefaultRegistry, outboxR
 // ProcessWebhook receives a raw webhook, validates its signature, deduplicates it, and translates it to canonical events.
 func (p *InboxProcessor) ProcessWebhook(ctx context.Context, connectionID int64, companyID int64, headers map[string]string, payload []byte) error {
 	// 1. Get the connection to identify the provider
-	connRec, err := p.queries.GetConnection(ctx, sqlc.GetConnectionParams{
-		ID:        connectionID,
-		CompanyID: companyID,
-	})
+	connRec, err := p.repo.GetConnection(ctx, companyID, connectionID)
 	if err != nil {
 		return fmt.Errorf("connectors: connection not found: %w", err)
 	}
@@ -75,7 +70,7 @@ func (p *InboxProcessor) ProcessWebhook(ctx context.Context, connectionID int64,
 	}
 
 	// 4. Durably store the raw event for deduplication (Inbox)
-	inboxEvt, err := p.queries.InsertInboxEvent(ctx, sqlc.InsertInboxEventParams{
+	inboxEvt, err := p.repo.InsertInboxEvent(ctx, InboxEventInput{
 		CompanyID:       companyID,
 		ConnectionID:    connectionID,
 		ProviderEventID: providerEventID,
@@ -99,11 +94,11 @@ func (p *InboxProcessor) ProcessWebhook(ctx context.Context, connectionID int64,
 
 	// 6. Save the canonical events
 	for _, evt := range events {
-		_, err = p.queries.InsertCanonicalEvent(ctx, sqlc.InsertCanonicalEventParams{
+		_, err = p.repo.InsertCanonicalEvent(ctx, CanonicalEventInput{
 			CompanyID:     companyID,
 			ConnectionID:  connectionID,
 			EventType:     evt.EventType,
-			EventTime:     pgtype.Timestamptz{Time: evt.EventTime, Valid: true},
+			EventTime:     evt.EventTime,
 			CorrelationID: evt.CorrelationID,
 			CausationID:   evt.CausationID,
 			Payload:       evt.Payload,
@@ -127,7 +122,7 @@ func (p *InboxProcessor) ProcessWebhook(ctx context.Context, connectionID int64,
 				payloadMap = map[string]any{"raw": string(evt.Payload)}
 			}
 
-			_, err = p.outboxRepo.InsertEvent(ctx, p.queries, outbox.PublishRequest{
+			_, err = p.outboxRepo.InsertEvent(ctx, outbox.PublishRequest{
 				CompanyID:     companyID,
 				CorrelationID: corrID,
 				CausationID:   causIDPtr,
@@ -143,7 +138,7 @@ func (p *InboxProcessor) ProcessWebhook(ctx context.Context, connectionID int64,
 	}
 
 	// 7. Mark inbox event as fully processed
-	err = p.queries.MarkInboxEventProcessed(ctx, inboxEvt.ID)
+	err = p.repo.MarkInboxEventProcessed(ctx, inboxEvt.ID)
 	if err != nil {
 		return fmt.Errorf("connectors: failed to mark inbox event as processed: %w", err)
 	}

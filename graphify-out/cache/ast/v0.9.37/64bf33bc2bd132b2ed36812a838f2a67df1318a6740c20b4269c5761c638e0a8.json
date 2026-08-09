@@ -1,0 +1,1 @@
+{"nodes": [{"id": "$graphify-root$_migrations_000055_horizon_mvp_foundation_down_sql", "label": "000055_horizon_mvp_foundation.down.sql", "file_type": "code", "source_file": "migrations/000055_horizon_mvp_foundation.down.sql", "source_location": null}], "edges": []}

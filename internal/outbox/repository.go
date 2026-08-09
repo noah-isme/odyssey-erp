@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -24,13 +25,17 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 	}
 }
 
-// Queries returns the raw sqlc.Queries instance, for use with transactional contexts.
-func (r *Repository) Queries() *sqlc.Queries {
-	return r.queries
+// InsertEvent records a new event using the repository's pool.
+func (r *Repository) InsertEvent(ctx context.Context, req PublishRequest) (int64, error) {
+	return r.insertEvent(ctx, r.queries, req)
 }
 
-// InsertEvent records a new event transactionally if passed the correct DB context.
-func (r *Repository) InsertEvent(ctx context.Context, q *sqlc.Queries, req PublishRequest) (int64, error) {
+// InsertEventTx records a new event on an existing transaction.
+func (r *Repository) InsertEventTx(ctx context.Context, tx pgx.Tx, req PublishRequest) (int64, error) {
+	return r.insertEvent(ctx, sqlc.New(tx), req)
+}
+
+func (r *Repository) insertEvent(ctx context.Context, q *sqlc.Queries, req PublishRequest) (int64, error) {
 	payloadBytes, err := json.Marshal(req.Payload)
 	if err != nil {
 		return 0, err

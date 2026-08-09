@@ -97,6 +97,7 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 | [ADR-0011](decisions/ADR-0011-governed-reporting.md) | Governed Reporting and Dashboards |
 | [ADR-0012](decisions/ADR-0012-scoped-rbac.md) | Scoped Role-Based Access Control |
 | [ADR-0013](decisions/ADR-0013-fiscal-calendar-and-timezone.md) | Fiscal Calendars and Timezone Policy |
+| [ADR-0014](decisions/ADR-0014-repository-and-http-boundaries.md) | Repository-Owned Persistence and HTTP Error Boundaries |
 
 ## 📦 Releases
 

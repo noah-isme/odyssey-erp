@@ -5,9 +5,6 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 func TestForecastHandlerRejectsMissingIdentifiers(t *testing.T) {
@@ -30,7 +27,7 @@ func TestForecastHandlerRejectsMissingIdentifiers(t *testing.T) {
 }
 
 func TestForecastHandlerReturnsLatestRunAndTriggersSnapshot(t *testing.T) {
-	repo := &forecastRepoFake{run: sqlc.ForecastRun{ID: 41, CompanyID: 7, ScenarioID: 3, Status: "COMPLETED", CompletedAt: sqlcTimestamptz(time.Now())}}
+	repo := &forecastRepoFake{run: ForecastRun{ID: 41, CompanyID: 7, ScenarioID: 3, Status: "COMPLETED", CompletedAt: time.Now()}}
 	service := NewService(repo, nil, nil)
 	h := NewHandler(service)
 
@@ -45,10 +42,4 @@ func TestForecastHandlerReturnsLatestRunAndTriggersSnapshot(t *testing.T) {
 	if w.Code != http.StatusCreated {
 		t.Fatalf("TriggerRun() status = %d, body = %s", w.Code, w.Body.String())
 	}
-}
-
-func sqlcTimestamptz(at time.Time) (out pgtype.Timestamptz) {
-	out.Time = at
-	out.Valid = true
-	return out
 }

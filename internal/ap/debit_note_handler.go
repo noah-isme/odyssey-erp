@@ -25,7 +25,7 @@ func (h *Handler) showDebitNote(w http.ResponseWriter, r *http.Request) {
 	}
 	note, err := h.service.GetAPDebitNoteWithDetails(r.Context(), id)
 	if err != nil {
-		http.Error(w, shared.UserSafeMessage(err), http.StatusNotFound)
+		shared.WriteErrorStatus(w, http.StatusNotFound, err)
 		return
 	}
 	h.render(w, r, "pages/ap/ap_debit_note_detail.html", map[string]any{"DebitNote": note}, http.StatusOK)

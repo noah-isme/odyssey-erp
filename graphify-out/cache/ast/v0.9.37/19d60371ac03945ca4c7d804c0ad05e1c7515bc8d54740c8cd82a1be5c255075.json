@@ -1,0 +1,1 @@
+{"nodes": [{"id": "$graphify-root$_migrations_000087_external_integrations_foundation_down_sql", "label": "000087_external_integrations_foundation.down.sql", "file_type": "code", "source_file": "migrations/000087_external_integrations_foundation.down.sql", "source_location": null}], "edges": []}

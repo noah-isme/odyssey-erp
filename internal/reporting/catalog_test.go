@@ -2,8 +2,6 @@ package reporting
 
 import (
 	"testing"
-
-	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 func TestDatasetDefinitionAllowsOnlyDeclaredFieldRoles(t *testing.T) {
@@ -25,7 +23,7 @@ func TestDatasetDefinitionAllowsOnlyDeclaredFieldRoles(t *testing.T) {
 }
 
 func TestCatalogFieldAndSourceMappingHelpers(t *testing.T) {
-	fields := rowToFields([]sqlc.ReportingDatasetField{{FieldName: "revenue", FieldType: "numeric", Classification: "internal", IsMeasure: true}})
+	fields := []DatasetFieldRecord{{Name: "revenue", Type: "numeric", Classification: "internal", IsMeasure: true}}
 	if len(fields) != 1 || fields[0].Name != "revenue" || !fields[0].IsMeasure {
 		t.Fatalf("fields=%+v", fields)
 	}

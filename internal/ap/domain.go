@@ -35,9 +35,9 @@ type APInvoice struct {
 	FXRateLockedAt time.Time
 	// The float fields below are legacy UI compatibility fields. New
 	// accounting calculations must use the exact valuation fields above.
-	Subtotal   float64
-	TaxAmount  float64
-	Total      float64
+	Subtotal               float64
+	TaxAmount              float64
+	Total                  float64
 	Status                 APInvoiceStatus
 	DuplicateStatus        string
 	AttachmentHash         *string
@@ -49,8 +49,8 @@ type APInvoice struct {
 	VoidedBy               *int64
 	VoidReason             *string
 	CreatedBy              int64
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
+	CreatedAt              time.Time
+	UpdatedAt              time.Time
 }
 
 // APInvoiceLine represents a line item on an AP invoice.
@@ -79,6 +79,23 @@ type APInvoiceWithDetails struct {
 	Payments     []APPaymentSummary
 	PaidAmount   float64
 	Balance      float64
+}
+
+// POLineProgress contains the purchase-order quantities needed by invoice
+// matching. It intentionally uses domain-level numeric values rather than
+// generated SQLC/pgtype representations.
+type POLineProgress struct {
+	POLineID       int64
+	POID           int64
+	ProductID      int64
+	OrderedQty     float64
+	UnitPrice      float64
+	OrderedAmount  float64
+	ReceivedQty    float64
+	InvoicedQty    float64
+	InvoicedAmount float64
+	InvoicedTax    float64
+	PaidAmount     float64
 }
 
 // APPayment model.
@@ -189,9 +206,9 @@ type APInvoiceBalance struct {
 
 // CreateAPInvoiceInput for creating AP invoices.
 type CreateAPInvoiceInput struct {
-	SupplierID int64
-	GRNID      *int64
-	POID       *int64
+	SupplierID             int64
+	GRNID                  *int64
+	POID                   *int64
 	Number                 string
 	Currency               string
 	SupplierDocumentNumber *string
@@ -304,18 +321,18 @@ type MatchingRun struct {
 
 // MatchingRunLine represents line-level match result.
 type MatchingRunLine struct {
-	ID               int64
-	MatchingRunID    int64
-	APInvoiceLineID  int64
-	POLineID         *int64
-	GRNLineID        *int64
-	InvoiceQty       float64
-	InvoicePrice     float64
-	POQty            *float64
-	POPrice          *float64
-	GRNQty           *float64
-	Status           string // MATCHED, WITHIN_TOLERANCE, EXCEPTION
-	Reasons          []string
+	ID              int64
+	MatchingRunID   int64
+	APInvoiceLineID int64
+	POLineID        *int64
+	GRNLineID       *int64
+	InvoiceQty      float64
+	InvoicePrice    float64
+	POQty           *float64
+	POPrice         *float64
+	GRNQty          *float64
+	Status          string // MATCHED, WITHIN_TOLERANCE, EXCEPTION
+	Reasons         []string
 }
 
 // APException represents an exception requiring review.

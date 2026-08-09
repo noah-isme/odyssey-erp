@@ -5,11 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/require"
-
-	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
-
 )
 
 type memoryRepo struct {
@@ -68,10 +64,10 @@ func (r *memoryRepo) ListStockTakes(ctx context.Context) ([]StockTake, error) {
 	return res, nil
 }
 
-func (r *memoryRepo) UpdateStockTakeStatus(ctx context.Context, arg sqlc.UpdateStockTakeStatusParams) error {
-	take := r.takes[arg.ID]
-	take.Status = StockTakeStatus(arg.Status)
-	r.takes[arg.ID] = take
+func (r *memoryRepo) UpdateStockTakeStatus(ctx context.Context, update StockTakeStatusUpdate) error {
+	take := r.takes[update.ID]
+	take.Status = update.Status
+	r.takes[update.ID] = take
 	return nil
 }
 
@@ -83,7 +79,7 @@ func (r *memoryRepo) GetReorderAlerts(ctx context.Context) ([]ReorderAlert, erro
 	return nil, nil
 }
 
-func (r *memoryRepo) InsertAdjustment(ctx context.Context, arg sqlc.InsertAdjustmentParams) (int64, error) {
+func (r *memoryRepo) InsertAdjustment(ctx context.Context, arg AdjustmentInsert) (int64, error) {
 	return 1, nil
 }
 
@@ -95,7 +91,7 @@ func (r *memoryRepo) ListAdjustments(ctx context.Context) ([]StockAdjustment, er
 	return nil, nil
 }
 
-func (r *memoryRepo) InsertAdjustmentLine(ctx context.Context, arg sqlc.InsertAdjustmentLineParams) error {
+func (r *memoryRepo) InsertAdjustmentLine(ctx context.Context, arg AdjustmentLineInsert) error {
 	return nil
 }
 
@@ -103,26 +99,23 @@ func (r *memoryRepo) GetAdjustmentLines(ctx context.Context, adjustmentID int64)
 	return nil, nil
 }
 
-func (r *memoryRepo) UpdateAdjustmentStatus(ctx context.Context, arg sqlc.UpdateAdjustmentStatusParams) error {
+func (r *memoryRepo) UpdateAdjustmentStatus(ctx context.Context, arg AdjustmentStatusUpdate) error {
 	return nil
 }
 
-func (r *memoryRepo) GetInboundHistory(ctx context.Context, productID int64, warehouseID int64) ([]sqlc.GetInboundHistoryRow, error) {
+func (r *memoryRepo) GetInboundHistory(ctx context.Context, productID int64, warehouseID int64) ([]InboundHistoryRow, error) {
 	return nil, nil
 }
-func (r *memoryRepo) GetStockBalance(ctx context.Context, arg sqlc.GetStockBalanceParams) (sqlc.InventoryBalance, error) {
+func (r *memoryRepo) GetStockBalance(ctx context.Context, arg StockBalanceQuery) (StockBalanceResult, error) {
 	b, ok := r.balances[key(arg.WarehouseID, arg.ProductID)]
 	if !ok {
-		return sqlc.InventoryBalance{}, nil
+		return StockBalanceResult{}, nil
 	}
-	var qty pgtype.Numeric
-	if err := qty.Scan(fmt.Sprintf("%g", b.Qty)); err != nil {
-		qty = pgtype.Numeric{} // fallback to zero
-	}
-	return sqlc.InventoryBalance{
+	return StockBalanceResult{
 		WarehouseID: b.WarehouseID,
 		ProductID:   b.ProductID,
-		Qty:         qty,
+		Qty:         b.Qty,
+		AvgCost:     b.AvgCost,
 	}, nil
 }
 
@@ -154,23 +147,23 @@ func (tx *memoryTx) InsertCardEntry(ctx context.Context, card StockCardEntry, wa
 	return nil
 }
 
-func (tx *memoryTx) InsertStockTake(ctx context.Context, arg sqlc.InsertStockTakeParams) (int64, error) {
+func (tx *memoryTx) InsertStockTake(ctx context.Context, arg StockTakeInsert) (int64, error) {
 	tx.repo.nextID++
 	tx.repo.takes[tx.repo.nextID] = StockTake{
 		ID:          tx.repo.nextID,
 		Number:      arg.Number,
-		WarehouseID: int64(arg.WarehouseID),
-		Status:      StockTakeStatus(arg.Status),
+		WarehouseID: arg.WarehouseID,
+		Status:      arg.Status,
 	}
 	return tx.repo.nextID, nil
 }
 
-func (tx *memoryTx) InsertStockTakeLine(ctx context.Context, arg sqlc.InsertStockTakeLineParams) error {
+func (tx *memoryTx) InsertStockTakeLine(ctx context.Context, arg StockTakeLineInsert) error {
 	take := tx.repo.takes[arg.StockTakeID]
 	take.Lines = append(take.Lines, StockTakeLine{
 		ProductID:   int64(arg.ProductID),
-		SystemQty:   numericToFloat(arg.SystemQty),
-		PhysicalQty: numericToFloat(arg.PhysicalQty),
+		SystemQty:   arg.SystemQty,
+		PhysicalQty: arg.PhysicalQty,
 	})
 	tx.repo.takes[arg.StockTakeID] = take
 	return nil
@@ -180,10 +173,10 @@ func (tx *memoryTx) GetStockTake(ctx context.Context, id int64) (StockTake, erro
 	return tx.repo.takes[id], nil
 }
 
-func (tx *memoryTx) UpdateStockTakeStatus(ctx context.Context, arg sqlc.UpdateStockTakeStatusParams) error {
-	take := tx.repo.takes[arg.ID]
-	take.Status = StockTakeStatus(arg.Status)
-	tx.repo.takes[arg.ID] = take
+func (tx *memoryTx) UpdateStockTakeStatus(ctx context.Context, update StockTakeStatusUpdate) error {
+	take := tx.repo.takes[update.ID]
+	take.Status = update.Status
+	tx.repo.takes[update.ID] = take
 	return nil
 }
 
@@ -200,7 +193,7 @@ func (tx *memoryTx) CreateSerial(ctx context.Context, productID, warehouseID, lo
 	return nil
 }
 
-func (tx *memoryTx) InsertAdjustment(ctx context.Context, arg sqlc.InsertAdjustmentParams) (int64, error) {
+func (tx *memoryTx) InsertAdjustment(ctx context.Context, arg AdjustmentInsert) (int64, error) {
 	return 1, nil
 }
 
@@ -208,7 +201,7 @@ func (tx *memoryTx) GetAdjustment(ctx context.Context, id int64) (StockAdjustmen
 	return StockAdjustment{}, nil
 }
 
-func (tx *memoryTx) InsertAdjustmentLine(ctx context.Context, arg sqlc.InsertAdjustmentLineParams) error {
+func (tx *memoryTx) InsertAdjustmentLine(ctx context.Context, arg AdjustmentLineInsert) error {
 	return nil
 }
 
@@ -216,7 +209,7 @@ func (tx *memoryTx) GetAdjustmentLines(ctx context.Context, adjustmentID int64) 
 	return nil, nil
 }
 
-func (tx *memoryTx) UpdateAdjustmentStatus(ctx context.Context, arg sqlc.UpdateAdjustmentStatusParams) error {
+func (tx *memoryTx) UpdateAdjustmentStatus(ctx context.Context, arg AdjustmentStatusUpdate) error {
 	return nil
 }
 

@@ -1,0 +1,219 @@
+{
+  "generated_at": "2026-08-09T07:39:38.587850+00:00",
+  "nodes": {
+    "distribution_distributionrepository": {
+      "code_fingerprint": "bc2083908fca2be25869c16d3231c6db10429d15e64fe38375db6d97f150715d",
+      "label": "DistributionRepository",
+      "last": "2026-08-09T06:19:54.856802+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-09T06:19:54.856802+00:00",
+          "outcome": "useful",
+          "q": "$graphify explore documentation or existing main feature code then give report about gaps or missing feature that incomplete and give recommendations for development"
+        }
+      ],
+      "score": 0.998721563,
+      "source_file": "internal/distribution/repository.go",
+      "status": "tentative",
+      "uses": 1
+    },
+    "internal_accounting_money_money_parse": {
+      "code_fingerprint": "f9e9eb8e6cd19be025d7255300820db8dc306990a242b31f280a7da49851bccb",
+      "label": "Parse()",
+      "last": "2026-08-09T07:12:43.483538+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-09T07:12:43.483538+00:00",
+          "outcome": "useful",
+          "q": "$graphify Verify Parse() identity\nAre multiple unrelated functions being merged?\nShow fully qualified symbols and source locations.\nAudit SessionFromContext()\nList direct callers.\nGroup by handler/service/repository/domain/job.\nIdentify inappropriate dependency directions.\nAudit the 257 weakly connected nodes\nEspecially dead code versus intentionally isolated CLI/migration code.\nInspect UserSafeMessage()\nDetermine whether error handling is duplicated across handlers.\nInspect Context\nList fields/dependencies.\nDetermine which modules consume each one.\nOnly then inspect models.go\nSplitting files is considerably less important than fixing dependency boundaries."
+        }
+      ],
+      "score": 0.999568185,
+      "source_file": "internal/accounting/money/money.go",
+      "status": "tentative",
+      "uses": 1
+    },
+    "internal_consol_fx_validate_missingmethods": {
+      "code_fingerprint": "257253994260919c4cb560475e88915502b7e7e465713ef07e1092ef7cdcb04c",
+      "label": "missingMethods()",
+      "last": "2026-08-09T06:19:54.856802+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-09T06:19:54.856802+00:00",
+          "outcome": "useful",
+          "q": "$graphify explore documentation or existing main feature code then give report about gaps or missing feature that incomplete and give recommendations for development"
+        }
+      ],
+      "score": 0.998721563,
+      "source_file": "internal/consol/fx/validate.go",
+      "status": "tentative",
+      "uses": 1
+    },
+    "internal_distribution_handler_test_testplaceholderhandlersreturnjsoncontract": {
+      "code_fingerprint": "cccda715e2811e711ace6dc82d90064db8289cdb3f37f7b02e92117cce4de5b3",
+      "label": "TestPlaceholderHandlersReturnJSONContract()",
+      "last": "2026-08-09T06:19:54.856802+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-09T06:19:54.856802+00:00",
+          "outcome": "useful",
+          "q": "$graphify explore documentation or existing main feature code then give report about gaps or missing feature that incomplete and give recommendations for development"
+        }
+      ],
+      "score": 0.998721563,
+      "source_file": "internal/distribution/handler_test.go",
+      "status": "tentative",
+      "uses": 1
+    },
+    "internal_finance_forecasting_service_test_testgeneratesnapshotmarksrunincompletewhenreaderfails": {
+      "code_fingerprint": "3eb798ea438119df9335d19577079f10c69c5c4bdc1373e639fe29ea62e29d5e",
+      "label": "TestGenerateSnapshotMarksRunIncompleteWhenReaderFails()",
+      "last": "2026-08-09T06:19:54.856802+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-09T06:19:54.856802+00:00",
+          "outcome": "useful",
+          "q": "$graphify explore documentation or existing main feature code then give report about gaps or missing feature that incomplete and give recommendations for development"
+        }
+      ],
+      "score": 0.998721563,
+      "source_file": "internal/finance/forecasting/service_test.go",
+      "status": "tentative",
+      "uses": 1
+    },
+    "internal_shared_context_sessionfromcontext": {
+      "code_fingerprint": "ba7db426d7943cfd9a519aa968ffb3677d3e3b9fdd467a440a7ffa694250c20f",
+      "label": "SessionFromContext()",
+      "last": "2026-08-09T07:33:00.698380+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-09T07:33:00.698380+00:00",
+          "outcome": "useful",
+          "q": "Are the 180 inferred relationships involving SessionFromContext() (e.g. with .auditRecord() and .companyID()) actually correct?"
+        },
+        {
+          "date": "2026-08-09T07:12:43.483538+00:00",
+          "outcome": "useful",
+          "q": "$graphify Verify Parse() identity\nAre multiple unrelated functions being merged?\nShow fully qualified symbols and source locations.\nAudit SessionFromContext()\nList direct callers.\nGroup by handler/service/repository/domain/job.\nIdentify inappropriate dependency directions.\nAudit the 257 weakly connected nodes\nEspecially dead code versus intentionally isolated CLI/migration code.\nInspect UserSafeMessage()\nDetermine whether error handling is duplicated across handlers.\nInspect Context\nList fields/dependencies.\nDetermine which modules consume each one.\nOnly then inspect models.go\nSplitting files is considerably less important than fixing dependency boundaries."
+        }
+      ],
+      "score": 1.999461788,
+      "source_file": "internal/shared/context.go",
+      "status": "preferred",
+      "uses": 2
+    },
+    "internal_shared_csrf_csrftokenfromcontext": {
+      "code_fingerprint": "02b6d3781b9100e173a5a2c66286e41c79507c23511e0a31fd4661469a45a796",
+      "label": "CSRFTokenFromContext()",
+      "last": "2026-08-09T07:33:00.698380+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-09T07:33:00.698380+00:00",
+          "outcome": "useful",
+          "q": "Are the 180 inferred relationships involving SessionFromContext() (e.g. with .auditRecord() and .companyID()) actually correct?"
+        }
+      ],
+      "score": 0.999893603,
+      "source_file": "internal/shared/csrf.go",
+      "status": "tentative",
+      "uses": 1
+    },
+    "internal_shared_errors_usersafemessage": {
+      "code_fingerprint": "dc2065d31167518697b9209ae51fc537af8642755c1ed11d50cb0071c3100664",
+      "label": "UserSafeMessage()",
+      "last": "2026-08-09T07:12:43.483538+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-09T07:12:43.483538+00:00",
+          "outcome": "useful",
+          "q": "$graphify Verify Parse() identity\nAre multiple unrelated functions being merged?\nShow fully qualified symbols and source locations.\nAudit SessionFromContext()\nList direct callers.\nGroup by handler/service/repository/domain/job.\nIdentify inappropriate dependency directions.\nAudit the 257 weakly connected nodes\nEspecially dead code versus intentionally isolated CLI/migration code.\nInspect UserSafeMessage()\nDetermine whether error handling is duplicated across handlers.\nInspect Context\nList fields/dependencies.\nDetermine which modules consume each one.\nOnly then inspect models.go\nSplitting files is considerably less important than fixing dependency boundaries."
+        }
+      ],
+      "score": 0.999568185,
+      "source_file": "internal/shared/errors.go",
+      "status": "tentative",
+      "uses": 1
+    },
+    "internal_sqlc_models": {
+      "code_fingerprint": "49e1711a29e2bab89044bbf3e0e978c9f014d5de545df08239b160cf8caa3abb",
+      "label": "models.go",
+      "last": "2026-08-09T07:12:43.483538+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-09T07:12:43.483538+00:00",
+          "outcome": "useful",
+          "q": "$graphify Verify Parse() identity\nAre multiple unrelated functions being merged?\nShow fully qualified symbols and source locations.\nAudit SessionFromContext()\nList direct callers.\nGroup by handler/service/repository/domain/job.\nIdentify inappropriate dependency directions.\nAudit the 257 weakly connected nodes\nEspecially dead code versus intentionally isolated CLI/migration code.\nInspect UserSafeMessage()\nDetermine whether error handling is duplicated across handlers.\nInspect Context\nList fields/dependencies.\nDetermine which modules consume each one.\nOnly then inspect models.go\nSplitting files is considerably less important than fixing dependency boundaries."
+        }
+      ],
+      "score": 0.999568185,
+      "source_file": "internal/sqlc/models.go",
+      "status": "tentative",
+      "uses": 1
+    },
+    "mrp_compliancegate": {
+      "code_fingerprint": "4b13809f6fc5d2358e6ce255a34fcfaa5fe9f62527606c6365fdc6b7533720fb",
+      "label": "ComplianceGate",
+      "last": "2026-08-09T06:19:54.856802+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-09T06:19:54.856802+00:00",
+          "outcome": "useful",
+          "q": "$graphify explore documentation or existing main feature code then give report about gaps or missing feature that incomplete and give recommendations for development"
+        }
+      ],
+      "score": 0.998721563,
+      "source_file": "internal/mrp/compliance_gate.go",
+      "status": "tentative",
+      "uses": 1
+    },
+    "projects_advancedrepository": {
+      "code_fingerprint": "a654a74e1b23a15cf7e707435368aa275ef2011a5d83e89351291a965158526a",
+      "label": "AdvancedRepository",
+      "last": "2026-08-09T06:19:54.856802+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-09T06:19:54.856802+00:00",
+          "outcome": "useful",
+          "q": "$graphify explore documentation or existing main feature code then give report about gaps or missing feature that incomplete and give recommendations for development"
+        }
+      ],
+      "score": 0.998721563,
+      "source_file": "internal/projects/domain.go",
+      "status": "tentative",
+      "uses": 1
+    },
+    "rbac_middleware": {
+      "code_fingerprint": "a3c71f093b82d9bf34075540a60dc5bd78344a2b9ed84a9b04c5a0bea9cec967",
+      "label": "Middleware",
+      "last": "2026-08-09T07:33:00.698380+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-09T07:33:00.698380+00:00",
+          "outcome": "useful",
+          "q": "Are the 180 inferred relationships involving SessionFromContext() (e.g. with .auditRecord() and .companyID()) actually correct?"
+        }
+      ],
+      "score": 0.999893603,
+      "source_file": "internal/rbac/middleware.go",
+      "status": "tentative",
+      "uses": 1
+    },
+    "sqlc_forecastrun": {
+      "code_fingerprint": "49e1711a29e2bab89044bbf3e0e978c9f014d5de545df08239b160cf8caa3abb",
+      "label": "ForecastRun",
+      "last": "2026-08-09T06:19:54.856802+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-09T06:19:54.856802+00:00",
+          "outcome": "useful",
+          "q": "$graphify explore documentation or existing main feature code then give report about gaps or missing feature that incomplete and give recommendations for development"
+        }
+      ],
+      "score": 0.998721563,
+      "source_file": "internal/sqlc/models.go",
+      "status": "tentative",
+      "uses": 1
+    }
+  },
+  "version": 1
+}

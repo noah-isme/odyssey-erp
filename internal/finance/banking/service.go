@@ -4,40 +4,38 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/journals"
-	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
+	"github.com/odyssey-erp/odyssey-erp/internal/finance/automation"
 )
 
-// Repository describes database operations.
+// Repository describes persistence operations without exposing generated SQL types.
 type Repository interface {
-	CreateBankAccount(ctx context.Context, arg sqlc.CreateBankAccountParams) (sqlc.BankAccount, error)
-	GetBankAccount(ctx context.Context, id int64) (sqlc.BankAccount, error)
-	ListBankAccounts(ctx context.Context, companyID int64) ([]sqlc.BankAccount, error)
-	UpdateBankAccount(ctx context.Context, arg sqlc.UpdateBankAccountParams) error
-	CreateBankTransaction(ctx context.Context, arg sqlc.CreateBankTransactionParams) (sqlc.BankTransaction, error)
-	GetBankTransaction(ctx context.Context, id pgtype.UUID) (sqlc.BankTransaction, error)
-	ListBankTransactions(ctx context.Context, bankAccountID int64) ([]sqlc.BankTransaction, error)
-	UpdateBankTransactionStatus(ctx context.Context, arg sqlc.UpdateBankTransactionStatusParams) error
-	CreateStatementImportRun(ctx context.Context, arg sqlc.CreateStatementImportRunParams) (sqlc.StatementImportRun, error)
-	CreateBankStatement(ctx context.Context, arg sqlc.CreateBankStatementParams) (sqlc.BankStatement, error)
-	CreateBankStatementLine(ctx context.Context, arg sqlc.CreateBankStatementLineParams) (sqlc.BankStatementLine, error)
+	CreateBankAccount(ctx context.Context, input BankAccountCreate) (BankAccount, error)
+	GetBankAccount(ctx context.Context, id int64) (BankAccount, error)
+	ListBankAccounts(ctx context.Context, companyID int64) ([]BankAccount, error)
+	CreateBankTransaction(ctx context.Context, input BankTransactionCreate) (BankTransaction, error)
+	ListBankTransactions(ctx context.Context, bankAccountID int64) ([]BankTransaction, error)
+	UpdateBankTransactionStatus(ctx context.Context, update BankTransactionStatusUpdate) error
+	CreateStatementImportRun(ctx context.Context, input StatementImportRunCreate) (StatementImportRun, error)
+	CreateBankStatement(ctx context.Context, input BankStatementCreate) (BankStatement, error)
+	CreateBankStatementLine(ctx context.Context, input BankStatementLineCreate) error
 	FindOpenPeriod(ctx context.Context, companyID int64, date time.Time) (int64, error)
 	BankTransactionExists(ctx context.Context, bankAccountID int64, externalRef, fingerprint string) (bool, error)
 }
 
 // BankAccountSummary pairs an account with its ledger balance.
 type BankAccountSummary struct {
-	Account sqlc.BankAccount
+	Account BankAccount
 	Balance float64
 }
 
 // BankTransactionSummary adds the running balance after a transaction.
 type BankTransactionSummary struct {
-	Transaction    sqlc.BankTransaction
+	Transaction    BankTransaction
 	RunningBalance float64
 }
 
@@ -61,11 +59,7 @@ type Service struct {
 
 // NewService creates a banking service.
 func NewService(repo Repository, logger *slog.Logger, poster JournalPoster) *Service {
-	return &Service{
-		repo:   repo,
-		logger: logger,
-		poster: poster,
-	}
+	return &Service{repo: repo, logger: logger, poster: poster}
 }
 
 // CreateAccountInput defines payload for creating an account.
@@ -79,29 +73,24 @@ type CreateAccountInput struct {
 }
 
 // CreateBankAccount creates a new bank account.
-func (s *Service) CreateBankAccount(ctx context.Context, input CreateAccountInput) (sqlc.BankAccount, error) {
+func (s *Service) CreateBankAccount(ctx context.Context, input CreateAccountInput) (BankAccount, error) {
 	if input.Name == "" || input.AccountNumber == "" {
-		return sqlc.BankAccount{}, fmt.Errorf("name and account number are required")
+		return BankAccount{}, fmt.Errorf("name and account number are required")
 	}
 
-	arg := sqlc.CreateBankAccountParams{
-		CompanyID:     input.CompanyID,
-		Name:          input.Name,
-		AccountNumber: input.AccountNumber,
-		Currency:      input.Currency,
-		GlAccountID:   input.GLAccountID,
-		IsActive:      true,
-	}
-	// Handle InitialBalance conversion to Numeric
-	bal := numericOf(input.InitialBalance)
-	arg.InitialBalance = bal
-
-	account, err := s.repo.CreateBankAccount(ctx, arg)
+	account, err := s.repo.CreateBankAccount(ctx, BankAccountCreate{
+		CompanyID:      input.CompanyID,
+		Name:           input.Name,
+		AccountNumber:  input.AccountNumber,
+		Currency:       input.Currency,
+		GLAccountID:    input.GLAccountID,
+		InitialBalance: input.InitialBalance,
+		IsActive:       true,
+	})
 	if err != nil {
-		s.logger.Error("failed to create bank account", slog.Any("error", err))
-		return sqlc.BankAccount{}, err
+		s.logError("failed to create bank account", err)
+		return BankAccount{}, err
 	}
-
 	return account, nil
 }
 
@@ -117,66 +106,46 @@ type CreateTransactionInput struct {
 	CreatedBy       int64
 }
 
-// CreateTransaction creates a bank transaction and posts to GL.
-func (s *Service) CreateBankTransaction(ctx context.Context, input CreateTransactionInput) (sqlc.BankTransaction, error) {
+// CreateBankTransaction creates a bank transaction and posts to GL.
+func (s *Service) CreateBankTransaction(ctx context.Context, input CreateTransactionInput) (BankTransaction, error) {
 	if input.BankAccountID == 0 || input.Amount == 0 || input.ContraAccountID == 0 {
-		return sqlc.BankTransaction{}, fmt.Errorf("bank account, amount, and contra account are required")
+		return BankTransaction{}, fmt.Errorf("bank account, amount, and contra account are required")
 	}
 
-	// 1. Get Bank Account to find its GL Account
 	bankAccount, err := s.repo.GetBankAccount(ctx, input.BankAccountID)
 	if err != nil {
-		return sqlc.BankTransaction{}, fmt.Errorf("invalid bank account: %w", err)
+		return BankTransaction{}, fmt.Errorf("invalid bank account: %w", err)
 	}
 
-	// 2. Prepare Transaction Record
 	txnID := uuid.New()
-	amount := numericOf(input.Amount)
-
-	arg := sqlc.CreateBankTransactionParams{
-		ID:            pgtype.UUID{Bytes: txnID, Valid: true},
+	txn, err := s.repo.CreateBankTransaction(ctx, BankTransactionCreate{
+		ID:            txnID,
 		BankAccountID: input.BankAccountID,
-		Date:          pgtype.Date{Time: input.Date, Valid: true},
-		Amount:        amount,
+		Date:          input.Date,
+		Amount:        input.Amount,
 		Description:   input.Description,
-		Reference:     pgtype.Text{String: input.Reference, Valid: input.Reference != ""},
-		Status:        "CLEARED", // Manual entry is considered cleared for now
-	}
-
-	// 3. Create Transaction in DB
-	txn, err := s.repo.CreateBankTransaction(ctx, arg)
+		Reference:     input.Reference,
+		Status:        "CLEARED",
+	})
 	if err != nil {
-		return sqlc.BankTransaction{}, err
+		return BankTransaction{}, err
 	}
 
-	// 4. Post to GL
-	// Logic:
-	// If Amount > 0 (Deposit): Debit Bank GL, Credit Contra GL
-	// If Amount < 0 (Withdrawal): Credit Bank GL, Debit Contra GL (using absolute amount)
-
-	bankLine := journals.PostingLineInput{
-		AccountID: bankAccount.GlAccountID,
-	}
-	contraLine := journals.PostingLineInput{
-		AccountID: input.ContraAccountID,
-	}
-
+	bankLine := journals.PostingLineInput{AccountID: bankAccount.GLAccountID}
+	contraLine := journals.PostingLineInput{AccountID: input.ContraAccountID}
 	absAmount := input.Amount
 	if absAmount < 0 {
 		absAmount = -absAmount
 	}
-
 	if input.Amount > 0 {
-		// Deposit
 		bankLine.Debit = absAmount
 		contraLine.Credit = absAmount
 	} else {
-		// Withdrawal
 		bankLine.Credit = absAmount
 		contraLine.Debit = absAmount
 	}
 
-	glInput := journals.PostingInput{
+	journal, err := s.poster.PostJournal(ctx, journals.PostingInput{
 		PeriodID:     input.PeriodID,
 		Date:         input.Date,
 		SourceModule: "FINANCE.BANKING",
@@ -184,44 +153,31 @@ func (s *Service) CreateBankTransaction(ctx context.Context, input CreateTransac
 		Memo:         input.Description,
 		PostedBy:     input.CreatedBy,
 		Lines:        []journals.PostingLineInput{bankLine, contraLine},
-	}
-
-	journal, err := s.poster.PostJournal(ctx, glInput)
+	})
 	if err != nil {
-		s.logger.Error("failed to post journal for bank txn", slog.Any("error", err), slog.String("txn_id", txnID.String()))
-		// We created the transaction but failed to post. Mark as PENDING or rollback?
-		// For simplicity in this non-tx method, we update status to PENDING
-		_ = s.repo.UpdateBankTransactionStatus(ctx, sqlc.UpdateBankTransactionStatusParams{
-			ID:     pgtype.UUID{Bytes: txnID, Valid: true},
-			Status: "PENDING",
-		})
+		s.logError("failed to post journal for bank txn", err)
+		_ = s.repo.UpdateBankTransactionStatus(ctx, BankTransactionStatusUpdate{ID: txnID, Status: "PENDING"})
 		return txn, fmt.Errorf("transaction created but GL posting failed: %w", err)
 	}
 
-	// 5. Update Transaction with Journal ID
-	err = s.repo.UpdateBankTransactionStatus(ctx, sqlc.UpdateBankTransactionStatusParams{
-		ID:          pgtype.UUID{Bytes: txnID, Valid: true},
+	journalID := journal.ID
+	if err := s.repo.UpdateBankTransactionStatus(ctx, BankTransactionStatusUpdate{
+		ID:          txnID,
 		Status:      "CLEARED",
-		GlJournalID: pgtype.Int8{Int64: journal.ID, Valid: true},
-	})
-	if err != nil {
-		s.logger.Error("failed to link journal to bank txn", slog.Any("error", err))
+		GLJournalID: &journalID,
+	}); err != nil {
+		s.logError("failed to link journal to bank txn", err)
 	}
-
-	txn.GlJournalID = pgtype.Int8{Int64: journal.ID, Valid: true}
+	txn.GLJournalID = &journalID
 	return txn, nil
 }
 
-// UpdateBankTransactionStatus updates the status of a transaction.
+// ReconcileTransaction updates the status of a transaction.
 func (s *Service) ReconcileTransaction(ctx context.Context, id uuid.UUID) error {
-	arg := sqlc.UpdateBankTransactionStatusParams{
-		ID:     pgtype.UUID{Bytes: id, Valid: true},
-		Status: "RECONCILED",
-	}
-	return s.repo.UpdateBankTransactionStatus(ctx, arg)
+	return s.repo.UpdateBankTransactionStatus(ctx, BankTransactionStatusUpdate{ID: id, Status: "RECONCILED"})
 }
 
-// TransferInput defines payload for bank transfer.
+// TransferInput defines payload for a bank transfer.
 type TransferInput struct {
 	FromAccountID int64
 	ToAccountID   int64
@@ -242,7 +198,6 @@ func (s *Service) TransferFunds(ctx context.Context, input TransferInput) error 
 		return fmt.Errorf("transfer amount must be positive")
 	}
 
-	// 1. Get Accounts
 	fromAcct, err := s.repo.GetBankAccount(ctx, input.FromAccountID)
 	if err != nil {
 		return fmt.Errorf("source account not found: %w", err)
@@ -252,65 +207,51 @@ func (s *Service) TransferFunds(ctx context.Context, input TransferInput) error 
 		return fmt.Errorf("destination account not found: %w", err)
 	}
 
-	// 2. Prepare GL Posting
-	// Logic: Debit Destination Bank GL, Credit Source Bank GL
-	glInput := journals.PostingInput{
+	journal, err := s.poster.PostJournal(ctx, journals.PostingInput{
 		PeriodID:     input.PeriodID,
 		Date:         input.Date,
 		SourceModule: "FINANCE.BANKING.TRANSFER",
 		Memo:         input.Description,
 		PostedBy:     input.CreatedBy,
 		Lines: []journals.PostingLineInput{
-			{AccountID: toAcct.GlAccountID, Debit: input.Amount},
-			{AccountID: fromAcct.GlAccountID, Credit: input.Amount},
+			{AccountID: toAcct.GLAccountID, Debit: input.Amount},
+			{AccountID: fromAcct.GLAccountID, Credit: input.Amount},
 		},
-	}
-
-	journal, err := s.poster.PostJournal(ctx, glInput)
+	})
 	if err != nil {
 		return fmt.Errorf("failed to post GL entry for transfer: %w", err)
 	}
 
-	// 3. Create Bank Transactions
-	// Withdrawal from source
-	fromTxnID := uuid.New()
-	fromAmt := numericOf(-input.Amount)
-	_, err = s.repo.CreateBankTransaction(ctx, sqlc.CreateBankTransactionParams{
-		ID:            pgtype.UUID{Bytes: fromTxnID, Valid: true},
+	journalID := journal.ID
+	if _, err = s.repo.CreateBankTransaction(ctx, BankTransactionCreate{
+		ID:            uuid.New(),
 		BankAccountID: input.FromAccountID,
-		Date:          pgtype.Date{Time: input.Date, Valid: true},
-		Amount:        fromAmt,
+		Date:          input.Date,
+		Amount:        -input.Amount,
 		Description:   fmt.Sprintf("Transfer to %s: %s", toAcct.Name, input.Description),
-		Reference:     pgtype.Text{String: input.Reference, Valid: input.Reference != ""},
+		Reference:     input.Reference,
 		Status:        "CLEARED",
-		GlJournalID:   pgtype.Int8{Int64: journal.ID, Valid: true},
-	})
-	if err != nil {
+		GLJournalID:   &journalID,
+	}); err != nil {
 		return fmt.Errorf("failed to record withdrawal: %w", err)
 	}
-
-	// Deposit to destination
-	toTxnID := uuid.New()
-	toAmt := numericOf(input.Amount)
-	_, err = s.repo.CreateBankTransaction(ctx, sqlc.CreateBankTransactionParams{
-		ID:            pgtype.UUID{Bytes: toTxnID, Valid: true},
+	if _, err = s.repo.CreateBankTransaction(ctx, BankTransactionCreate{
+		ID:            uuid.New(),
 		BankAccountID: input.ToAccountID,
-		Date:          pgtype.Date{Time: input.Date, Valid: true},
-		Amount:        toAmt,
+		Date:          input.Date,
+		Amount:        input.Amount,
 		Description:   fmt.Sprintf("Transfer from %s: %s", fromAcct.Name, input.Description),
-		Reference:     pgtype.Text{String: input.Reference, Valid: input.Reference != ""},
+		Reference:     input.Reference,
 		Status:        "CLEARED",
-		GlJournalID:   pgtype.Int8{Int64: journal.ID, Valid: true},
-	})
-	if err != nil {
+		GLJournalID:   &journalID,
+	}); err != nil {
 		return fmt.Errorf("failed to record deposit: %w", err)
 	}
-
 	return nil
 }
 
 // ListBankAccounts returns all accounts for a company.
-func (s *Service) ListBankAccounts(ctx context.Context, companyID int64) ([]sqlc.BankAccount, error) {
+func (s *Service) ListBankAccounts(ctx context.Context, companyID int64) ([]BankAccount, error) {
 	return s.repo.ListBankAccounts(ctx, companyID)
 }
 
@@ -323,20 +264,13 @@ func (s *Service) ListBankAccountSummaries(ctx context.Context, companyID int64)
 	}
 	summaries := make([]BankAccountSummary, 0, len(accounts))
 	for _, account := range accounts {
-		balance, err := numericFloat(account.InitialBalance)
-		if err != nil {
-			return nil, err
-		}
+		balance := account.InitialBalance
 		transactions, err := s.repo.ListBankTransactions(ctx, account.ID)
 		if err != nil {
 			return nil, err
 		}
 		for _, transaction := range transactions {
-			amount, err := numericFloat(transaction.Amount)
-			if err != nil {
-				return nil, err
-			}
-			balance += amount
+			balance += transaction.Amount
 		}
 		summaries = append(summaries, BankAccountSummary{Account: account, Balance: balance})
 	}
@@ -344,36 +278,25 @@ func (s *Service) ListBankAccountSummaries(ctx context.Context, companyID int64)
 }
 
 // ListBankTransactions returns transactions for an account.
-func (s *Service) ListBankTransactions(ctx context.Context, bankAccountID int64) ([]sqlc.BankTransaction, error) {
+func (s *Service) ListBankTransactions(ctx context.Context, bankAccountID int64) ([]BankTransaction, error) {
 	return s.repo.ListBankTransactions(ctx, bankAccountID)
 }
 
 // ListBankTransactionSummaries returns transactions with their running balance.
-func (s *Service) ListBankTransactionSummaries(ctx context.Context, account sqlc.BankAccount) ([]BankTransactionSummary, float64, error) {
+func (s *Service) ListBankTransactionSummaries(ctx context.Context, account BankAccount) ([]BankTransactionSummary, float64, error) {
 	transactions, err := s.repo.ListBankTransactions(ctx, account.ID)
 	if err != nil {
 		return nil, 0, err
 	}
-	balance, err := numericFloat(account.InitialBalance)
-	if err != nil {
-		return nil, 0, err
-	}
+	balance := account.InitialBalance
 	for _, transaction := range transactions {
-		amount, err := numericFloat(transaction.Amount)
-		if err != nil {
-			return nil, 0, err
-		}
-		balance += amount
+		balance += transaction.Amount
 	}
 	running := balance
 	summaries := make([]BankTransactionSummary, 0, len(transactions))
 	for _, transaction := range transactions {
 		summaries = append(summaries, BankTransactionSummary{Transaction: transaction, RunningBalance: running})
-		amount, err := numericFloat(transaction.Amount)
-		if err != nil {
-			return nil, 0, err
-		}
-		running -= amount
+		running -= transaction.Amount
 	}
 	return summaries, balance, nil
 }
@@ -385,11 +308,9 @@ func (s *Service) ResolveOpenPeriod(ctx context.Context, companyID int64, date t
 
 // ImportStatement records statement rows as pending transactions. Pending imports
 // deliberately do not post GL entries until a finance user chooses a contra account.
-func (s *Service) ImportStatement(ctx context.Context, account sqlc.BankAccount, entries []NormalizedStatementEntry, filename string, contentHash string) (ImportResult, error) {
+func (s *Service) ImportStatement(ctx context.Context, account BankAccount, entries []NormalizedStatementEntry, filename string, contentHash string) (ImportResult, error) {
 	result := ImportResult{}
-
-	// 1. Create statement import run
-	importRun, err := s.repo.CreateStatementImportRun(ctx, sqlc.CreateStatementImportRunParams{
+	importRun, err := s.repo.CreateStatementImportRun(ctx, StatementImportRunCreate{
 		CompanyID:     account.CompanyID,
 		BankAccountID: account.ID,
 		Filename:      filename,
@@ -399,20 +320,19 @@ func (s *Service) ImportStatement(ctx context.Context, account sqlc.BankAccount,
 		return result, fmt.Errorf("failed to create import run: %w", err)
 	}
 
-	// 2. We also want to create an accounting bank statement, using the earliest date as statement date.
 	statementDate := time.Now()
 	if len(entries) > 0 {
 		statementDate = entries[0].Date
 	}
-	for _, e := range entries {
-		if e.Date.After(statementDate) {
-			statementDate = e.Date
+	for _, entry := range entries {
+		if entry.Date.After(statementDate) {
+			statementDate = entry.Date
 		}
 	}
-
-	bankStatement, err := s.repo.CreateBankStatement(ctx, sqlc.CreateBankStatementParams{
+	bankStatement, err := s.repo.CreateBankStatement(ctx, BankStatementCreate{
 		BankAccountID: account.ID,
-		StatementDate: pgtype.Date{Time: statementDate, Valid: true},
+		StatementDate: statementDate,
+		Status:        "DRAFT",
 	})
 	if err != nil {
 		return result, fmt.Errorf("failed to create bank statement: %w", err)
@@ -427,54 +347,48 @@ func (s *Service) ImportStatement(ctx context.Context, account sqlc.BankAccount,
 			result.Skipped++
 			continue
 		}
-
-		var numericAmount pgtype.Numeric
-		_ = numericAmount.Scan(entry.Amount.Amount.Amount)
-
-		_, err = s.repo.CreateBankTransaction(ctx, sqlc.CreateBankTransactionParams{
-			ID:                pgtype.UUID{Bytes: uuid.New(), Valid: true},
+		amount, err := exactAmountFloat(entry.Amount)
+		if err != nil {
+			return result, fmt.Errorf("invalid statement amount: %w", err)
+		}
+		_, err = s.repo.CreateBankTransaction(ctx, BankTransactionCreate{
+			ID:                uuid.New(),
 			BankAccountID:     account.ID,
-			Date:              pgtype.Date{Time: entry.Date, Valid: true},
-			Amount:            numericAmount,
+			Date:              entry.Date,
+			Amount:            amount,
 			Description:       entry.Description,
-			Reference:         pgtype.Text{String: entry.Reference, Valid: entry.Reference != ""},
+			Reference:         entry.Reference,
 			Status:            "PENDING",
-			ImportRunID:       pgtype.Int8{Int64: importRun.ID, Valid: true},
-			ExternalReference: pgtype.Text{String: entry.Reference, Valid: entry.Reference != ""},
-			Fingerprint:       pgtype.Text{String: entry.Fingerprint, Valid: entry.Fingerprint != ""},
+			ImportRunID:       int64Ptr(importRun.ID),
+			ExternalReference: entry.Reference,
+			Fingerprint:       entry.Fingerprint,
 		})
 		if err != nil {
 			return result, err
 		}
-
-		_, err = s.repo.CreateBankStatementLine(ctx, sqlc.CreateBankStatementLineParams{
+		if err := s.repo.CreateBankStatementLine(ctx, BankStatementLineCreate{
 			StatementID:     bankStatement.ID,
-			TrxDate:         pgtype.Date{Time: entry.Date, Valid: true},
+			Date:            entry.Date,
 			Description:     entry.Description,
-			Amount:          numericAmount,
-			ReferenceNumber: pgtype.Text{String: entry.Reference, Valid: entry.Reference != ""},
-		})
-		if err != nil {
+			Amount:          amount,
+			ReferenceNumber: entry.Reference,
+			Status:          "UNMATCHED",
+		}); err != nil {
 			return result, err
 		}
-
 		result.Imported++
 	}
 	return result, nil
 }
 
-// numericOf converts a float64 into a pgtype.Numeric. Scanning a formatted
-// finite float cannot fail, so the (impossible) error is deliberately ignored.
-func numericOf(f float64) pgtype.Numeric {
-	var n pgtype.Numeric
-	_ = n.Scan(fmt.Sprintf("%f", f))
-	return n
+func exactAmountFloat(amount automation.ExactAmount) (float64, error) {
+	return strconv.ParseFloat(amount.Amount.Amount, 64)
 }
 
-func numericFloat(n pgtype.Numeric) (float64, error) {
-	value, err := n.Float64Value()
-	if err != nil || !value.Valid {
-		return 0, fmt.Errorf("invalid numeric value")
+func int64Ptr(value int64) *int64 { return &value }
+
+func (s *Service) logError(message string, err error) {
+	if s.logger != nil {
+		s.logger.Error(message, slog.Any("error", err))
 	}
-	return value.Float64, nil
 }

@@ -4,11 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type mockRepo struct {
@@ -30,9 +28,9 @@ func (m *mockRepo) GetActiveMatchingPolicy(ctx context.Context, companyID, suppl
 	return args.Get(0).(*MatchingPolicy), args.Error(1)
 }
 
-func (m *mockRepo) GetPOLineProgressByPO(ctx context.Context, poID int64) (map[int64]*sqlc.PoLineProgress, error) {
+func (m *mockRepo) GetPOLineProgressByPO(ctx context.Context, poID int64) (map[int64]*POLineProgress, error) {
 	args := m.Called(ctx, poID)
-	return args.Get(0).(map[int64]*sqlc.PoLineProgress), args.Error(1)
+	return args.Get(0).(map[int64]*POLineProgress), args.Error(1)
 }
 
 func (m *mockRepo) WithTx(ctx context.Context, fn func(context.Context, TxRepository) error) error {
@@ -66,10 +64,10 @@ func TestMatchingService_RunMatch_ExactMatch(t *testing.T) {
 		},
 		Lines: []APInvoiceLine{
 			{
-				ID:           1,
-				POLineID:     &poLineID,
-				Quantity:     10,
-				UnitPrice:    100,
+				ID:        1,
+				POLineID:  &poLineID,
+				Quantity:  10,
+				UnitPrice: 100,
 			},
 		},
 	}
@@ -81,18 +79,13 @@ func TestMatchingService_RunMatch_ExactMatch(t *testing.T) {
 		TotalToleranceAmt: 0,
 	}
 
-	progress := map[int64]*sqlc.PoLineProgress{
+	progress := map[int64]*POLineProgress{
 		poLineID: {
-			PoLineID:   poLineID,
+			POLineID:   poLineID,
+			OrderedQty: 10,
+			UnitPrice:  100,
 		},
 	}
-	
-	n10 := pgtype.Numeric{}
-	n10.Scan("10")
-	n100 := pgtype.Numeric{}
-	n100.Scan("100")
-	progress[poLineID].OrderedQty = n10
-	progress[poLineID].UnitPrice = n100
 
 	repo.On("GetAPInvoiceWithDetails", ctx, int64(1)).Return(invoice, nil)
 	repo.On("GetActiveMatchingPolicy", ctx, mock.Anything, mock.Anything, mock.Anything).Return(policy, nil)

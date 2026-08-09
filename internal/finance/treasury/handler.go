@@ -54,7 +54,7 @@ func (h *Handler) AddBankAccount(w http.ResponseWriter, r *http.Request) {
 
 	account, err := h.service.AddBankAccount(r.Context(), companyID, supplierID, actorID, payload.BankName, payload.AccountNumber, payload.RoutingNumber, payload.Currency, payload.EvidenceRef)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		shared.WriteErrorStatus(w, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -71,7 +71,7 @@ func (h *Handler) ApproveBankAccount(w http.ResponseWriter, r *http.Request) {
 
 	account, err := h.service.ApproveBankAccount(r.Context(), accountID, approverID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusForbidden)
+		shared.WriteErrorStatus(w, http.StatusForbidden, err)
 		return
 	}
 
@@ -102,7 +102,7 @@ func (h *Handler) CreateBatch(w http.ResponseWriter, r *http.Request) {
 
 	batch, err := h.service.CreatePaymentBatch(r.Context(), companyID, payload.ReferenceCode, payload.Currency, actorID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		shared.WriteErrorStatus(w, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -124,7 +124,7 @@ func (h *Handler) ApproveBatch(w http.ResponseWriter, r *http.Request) {
 
 	batch, err := h.service.ApproveBatch(r.Context(), batchID, approverID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusForbidden)
+		shared.WriteErrorStatus(w, http.StatusForbidden, err)
 		return
 	}
 
@@ -142,7 +142,7 @@ func (h *Handler) ExportBatch(w http.ResponseWriter, r *http.Request) {
 	encoder := &CSVEncoder{} // We can inject/configure this later based on bank policy
 	payload, err := h.service.ExportBatch(r.Context(), batchID, actorID, encoder)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		shared.WriteErrorStatus(w, http.StatusBadRequest, err)
 		return
 	}
 
@@ -160,7 +160,7 @@ func (h *Handler) SettleBatch(w http.ResponseWriter, r *http.Request) {
 
 	batch, err := h.service.SettleBatch(r.Context(), batchID, actorID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		shared.WriteErrorStatus(w, http.StatusBadRequest, err)
 		return
 	}
 

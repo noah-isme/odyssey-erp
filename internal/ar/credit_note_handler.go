@@ -29,7 +29,7 @@ func (h *Handler) showCreditNote(w http.ResponseWriter, r *http.Request) {
 	}
 	note, err := h.service.GetARCreditNoteWithDetails(r.Context(), id)
 	if err != nil {
-		http.Error(w, shared.UserSafeMessage(err), http.StatusNotFound)
+		shared.WriteErrorStatus(w, http.StatusNotFound, err)
 		return
 	}
 	h.render(w, r, "pages/ar/ar_credit_note_detail.html", map[string]any{"CreditNote": note}, http.StatusOK)
@@ -99,7 +99,7 @@ func (h *Handler) creditNotePDFDownload(w http.ResponseWriter, r *http.Request) 
 	}
 	note, err := h.service.GetARCreditNoteWithDetails(r.Context(), id)
 	if err != nil {
-		http.Error(w, shared.UserSafeMessage(err), http.StatusNotFound)
+		shared.WriteErrorStatus(w, http.StatusNotFound, err)
 		return
 	}
 	pdf, err := h.creditNotePDF.Render(r.Context(), *note)

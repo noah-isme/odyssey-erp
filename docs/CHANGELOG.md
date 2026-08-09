@@ -21,6 +21,9 @@ and older changelog material live in `docs/archive/`.
 - Consolidated current setup, testing, architecture, and contributor guidance.
 - Archived obsolete task artifacts, phase test plans, and duplicate setup guides.
 - Added `make docs-check` to validate active documentation links and Make targets.
+- Isolated generated SQLC/database types behind repository adapters and local service contracts.
+- Standardized safe HTTP error classification and response helpers across affected handlers.
+- Documented the repository and HTTP boundary policy in ADR-0014.
 
 ## v0.9.1 — 2026-05-28
 

@@ -4,32 +4,30 @@ import (
 	"context"
 	"math"
 	"testing"
-
-	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 type stubRepo struct {
-	compareRows []sqlc.CompareMonthlyNetRevenueRow
-	contribRows []sqlc.ContributionByBranchRow
+	compareRows []MonthlyNetRevenueRow
+	contribRows []BranchContributionRow
 }
 
-func (s stubRepo) CompareMonthlyNetRevenue(context.Context, sqlc.CompareMonthlyNetRevenueParams) ([]sqlc.CompareMonthlyNetRevenueRow, error) {
+func (s stubRepo) CompareMonthlyNetRevenue(context.Context, RevenueQuery) ([]MonthlyNetRevenueRow, error) {
 	return s.compareRows, nil
 }
 
-func (s stubRepo) ContributionByBranch(context.Context, sqlc.ContributionByBranchParams) ([]sqlc.ContributionByBranchRow, error) {
+func (s stubRepo) ContributionByBranch(context.Context, ContributionQuery) ([]BranchContributionRow, error) {
 	return s.contribRows, nil
 }
 
 func TestServiceLoadAggregatesData(t *testing.T) {
 	repo := stubRepo{
-		compareRows: []sqlc.CompareMonthlyNetRevenueRow{
+		compareRows: []MonthlyNetRevenueRow{
 			{Period: "2023-03", Net: 90, Revenue: 210},
 			{Period: "2024-01", Net: 100, Revenue: 200},
 			{Period: "2024-02", Net: 150, Revenue: 250},
 			{Period: "2024-03", Net: 120, Revenue: 300},
 		},
-		contribRows: []sqlc.ContributionByBranchRow{
+		contribRows: []BranchContributionRow{
 			{BranchID: 1, Net: 70, Revenue: 200},
 			{BranchID: 2, Net: 50, Revenue: 100},
 		},

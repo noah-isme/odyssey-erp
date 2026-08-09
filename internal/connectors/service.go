@@ -6,66 +6,125 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
-	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
+
+type ConnectionCreateInput struct {
+	CompanyID   int64
+	Provider    string
+	Type        string
+	Name        string
+	SecretRef   string
+	TokenExpiry *time.Time
+}
+
+type PaymentIntentInput struct {
+	CompanyID         int64
+	ConnectionID      int64
+	SourceType        string
+	SourceID          int64
+	Amount            float64
+	Currency          string
+	Status            string
+	ProviderReference string
+	CheckoutURL       string
+}
+
+type OutboxEnqueueInput struct {
+	CompanyID     int64
+	ConnectionID  int64
+	CommandType   string
+	CorrelationID string
+	Payload       []byte
+}
+
+type InboxEventInput struct {
+	CompanyID       int64
+	ConnectionID    int64
+	ProviderEventID string
+	RawPayload      []byte
+}
+
+type CanonicalEventInput struct {
+	CompanyID     int64
+	ConnectionID  int64
+	EventType     string
+	EventTime     time.Time
+	CorrelationID string
+	CausationID   string
+	Payload       []byte
+}
+
+type OutboxCommandStateUpdate struct {
+	ID          int64
+	State       string
+	NextAttempt time.Time
+}
+
+type InboxRepository interface {
+	GetConnection(ctx context.Context, companyID, connectionID int64) (Connection, error)
+	InsertInboxEvent(ctx context.Context, input InboxEventInput) (InboxEvent, error)
+	InsertCanonicalEvent(ctx context.Context, input CanonicalEventInput) (int64, error)
+	MarkInboxEventProcessed(ctx context.Context, id int64) error
+}
+
+type OutboxRepository interface {
+	GetConnection(ctx context.Context, companyID, connectionID int64) (Connection, error)
+	GetPendingOutboxCommands(ctx context.Context, limit int32) ([]OutboxCommand, error)
+	UpdateOutboxCommandState(ctx context.Context, update OutboxCommandStateUpdate) error
+}
+
+// Repository is the persistence boundary for connector administration and
+// outbound commands. SQLC types stay inside its PostgreSQL implementation.
+type Repository interface {
+	ListConnections(ctx context.Context, companyID int64) ([]Connection, error)
+	CreateConnection(ctx context.Context, input ConnectionCreateInput) (Connection, error)
+	GetConnection(ctx context.Context, companyID, connectionID int64) (Connection, error)
+	UpdateConnectionStatus(ctx context.Context, companyID, connectionID int64, status string) (Connection, error)
+	CreatePaymentIntent(ctx context.Context, input PaymentIntentInput) (int64, error)
+	EnqueueOutboxCommand(ctx context.Context, input OutboxEnqueueInput) (int64, error)
+}
 
 // Service provides administration and management methods for external connections.
 type Service struct {
-	pool     *pgxpool.Pool
-	queries  sqlc.Querier
+	repo     Repository
 	vault    *shared.Vault
 	registry *DefaultRegistry
 }
 
 // NewService creates a new connectors management service.
-func NewService(pool *pgxpool.Pool, vault *shared.Vault, registry *DefaultRegistry) *Service {
+func NewService(repo Repository, vault *shared.Vault, registry *DefaultRegistry) *Service {
 	return &Service{
-		pool:     pool,
-		queries:  sqlc.New(pool),
+		repo:     repo,
 		vault:    vault,
 		registry: registry,
 	}
 }
 
 // ListConnections returns all connections for the given company.
-func (s *Service) ListConnections(ctx context.Context, companyID int64) ([]sqlc.ConnectorConnection, error) {
-	return s.queries.ListConnections(ctx, companyID)
+func (s *Service) ListConnections(ctx context.Context, companyID int64) ([]Connection, error) {
+	return s.repo.ListConnections(ctx, companyID)
 }
 
 // CreateConnection creates a new connection, encrypting the secret before storage.
-func (s *Service) CreateConnection(ctx context.Context, params CreateConnectionParams) (sqlc.ConnectorConnection, error) {
+func (s *Service) CreateConnection(ctx context.Context, params CreateConnectionParams) (Connection, error) {
 	cipherText, err := s.vault.EncryptSecure(params.SecretPlaintext)
 	if err != nil {
-		return sqlc.ConnectorConnection{}, err
+		return Connection{}, err
 	}
-
-	var tokenExpiry pgtype.Timestamptz
-	if params.TokenExpiry != nil {
-		tokenExpiry = pgtype.Timestamptz{Time: *params.TokenExpiry, Valid: true}
-	}
-
-	return s.queries.CreateConnection(ctx, sqlc.CreateConnectionParams{
+	return s.repo.CreateConnection(ctx, ConnectionCreateInput{
 		CompanyID:   params.CompanyID,
 		Provider:    params.Provider,
 		Type:        params.Type,
 		Name:        params.Name,
 		SecretRef:   cipherText,
-		Status:      "disabled",
-		TokenExpiry: tokenExpiry,
+		TokenExpiry: params.TokenExpiry,
 	})
 }
 
 // UpdateConnectionStatus updates the status of an existing connection.
-func (s *Service) UpdateConnectionStatus(ctx context.Context, companyID int64, connectionID int64, status string) (sqlc.ConnectorConnection, error) {
-	return s.queries.UpdateConnectionStatus(ctx, sqlc.UpdateConnectionStatusParams{
-		ID:        connectionID,
-		CompanyID: companyID,
-		Status:    status,
-		LastError: pgtype.Text{},
-	})
+func (s *Service) UpdateConnectionStatus(ctx context.Context, companyID int64, connectionID int64, status string) (Connection, error) {
+	return s.repo.UpdateConnectionStatus(ctx, companyID, connectionID, status)
 }
 
 // CreateConnectionParams represents the input to create a new connection.
@@ -98,10 +157,7 @@ type CreateCheckoutIntentResult struct {
 
 // CreateCheckoutIntent directly invokes the provider to generate a checkout link and records a Payment Intent.
 func (s *Service) CreateCheckoutIntent(ctx context.Context, req CreateCheckoutIntentRequest) (CreateCheckoutIntentResult, error) {
-	connRec, err := s.queries.GetConnection(ctx, sqlc.GetConnectionParams{
-		ID:        req.ConnectionID,
-		CompanyID: req.CompanyID,
-	})
+	connRec, err := s.repo.GetConnection(ctx, req.CompanyID, req.ConnectionID)
 	if err != nil {
 		return CreateCheckoutIntentResult{}, err
 	}
@@ -150,25 +206,23 @@ func (s *Service) CreateCheckoutIntent(ctx context.Context, req CreateCheckoutIn
 	}
 
 	// Insert Payment Intent
-	var amountNum pgtype.Numeric
-	_ = amountNum.Scan(fmt.Sprintf("%.2f", req.Amount))
-	intent, err := s.queries.CreatePaymentIntent(ctx, sqlc.CreatePaymentIntentParams{
+	intentID, err := s.repo.CreatePaymentIntent(ctx, PaymentIntentInput{
 		CompanyID:         req.CompanyID,
 		ConnectionID:      req.ConnectionID,
 		SourceType:        req.SourceType,
 		SourceID:          req.SourceID,
-		Amount:            amountNum,
+		Amount:            req.Amount,
 		Currency:          req.Currency,
 		Status:            "PENDING",
-		ProviderReference: pgtype.Text{String: req.OrderID, Valid: true},
-		CheckoutUrl:       pgtype.Text{String: result.RedirectURL, Valid: true},
+		ProviderReference: req.OrderID,
+		CheckoutURL:       result.RedirectURL,
 	})
 	if err != nil {
 		return CreateCheckoutIntentResult{}, err
 	}
 
 	return CreateCheckoutIntentResult{
-		PaymentIntentID: intent.ID,
+		PaymentIntentID: intentID,
 		Token:           result.Token,
 		RedirectURL:     result.RedirectURL,
 	}, nil
@@ -176,7 +230,7 @@ func (s *Service) CreateCheckoutIntent(ctx context.Context, req CreateCheckoutIn
 
 // EnqueueInventorySync asynchronously enqueues a command to sync inventory to all commerce connectors.
 func (s *Service) EnqueueInventorySync(ctx context.Context, companyID int64, warehouseID int64, productID int64, deltaQty float64) error {
-	conns, err := s.queries.ListConnections(ctx, companyID)
+	conns, err := s.repo.ListConnections(ctx, companyID)
 	if err != nil {
 		return fmt.Errorf("connectors: failed to list connections: %w", err)
 	}
@@ -191,10 +245,10 @@ func (s *Service) EnqueueInventorySync(ctx context.Context, companyID int64, war
 			"product_id":   productID,
 			"delta_qty":    deltaQty,
 		}
-		
+
 		payloadBytes, _ := json.Marshal(payload)
 
-		_, err := s.queries.EnqueueOutboxCommand(ctx, sqlc.EnqueueOutboxCommandParams{
+		_, err := s.repo.EnqueueOutboxCommand(ctx, OutboxEnqueueInput{
 			CompanyID:     companyID,
 			ConnectionID:  conn.ID,
 			CommandType:   "ecommerce.inventory.sync",
@@ -210,7 +264,7 @@ func (s *Service) EnqueueInventorySync(ctx context.Context, companyID int64, war
 
 // EnqueueMessage asynchronously enqueues a message (SMS or WhatsApp) via the outbox.
 func (s *Service) EnqueueMessage(ctx context.Context, companyID int64, channel string, to string, content string, correlationID string) error {
-	conns, err := s.queries.ListConnections(ctx, companyID)
+	conns, err := s.repo.ListConnections(ctx, companyID)
 	if err != nil {
 		return fmt.Errorf("list connections: %w", err)
 	}
@@ -232,7 +286,7 @@ func (s *Service) EnqueueMessage(ctx context.Context, companyID int64, channel s
 	}
 	payloadBytes, _ := json.Marshal(payload)
 
-	_, err = s.queries.EnqueueOutboxCommand(ctx, sqlc.EnqueueOutboxCommandParams{
+	_, err = s.repo.EnqueueOutboxCommand(ctx, OutboxEnqueueInput{
 		CompanyID:     companyID,
 		ConnectionID:  connID,
 		CommandType:   "messaging.send",
@@ -244,7 +298,7 @@ func (s *Service) EnqueueMessage(ctx context.Context, companyID int64, channel s
 
 // EnqueueBIExport asynchronously enqueues a BI export payload to an object storage provider (e.g. AWS S3).
 func (s *Service) EnqueueBIExport(ctx context.Context, companyID int64, provider string, objectKey string, content string, mimeType string, correlationID string) error {
-	conns, err := s.queries.ListConnections(ctx, companyID)
+	conns, err := s.repo.ListConnections(ctx, companyID)
 	if err != nil {
 		return fmt.Errorf("list connections: %w", err)
 	}
@@ -267,7 +321,7 @@ func (s *Service) EnqueueBIExport(ctx context.Context, companyID int64, provider
 	}
 	payloadBytes, _ := json.Marshal(payload)
 
-	_, err = s.queries.EnqueueOutboxCommand(ctx, sqlc.EnqueueOutboxCommandParams{
+	_, err = s.repo.EnqueueOutboxCommand(ctx, OutboxEnqueueInput{
 		CompanyID:     companyID,
 		ConnectionID:  connID,
 		CommandType:   "bi.export",

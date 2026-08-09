@@ -437,7 +437,7 @@ func (h *Handler) handleCreateStockTake(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		h.logger.Error("create stock take failed", slog.Any("error", err))
 		// render with error...
-		http.Error(w, "Failed: "+err.Error(), http.StatusBadRequest)
+		shared.WriteErrorStatus(w, http.StatusBadRequest, err)
 		return
 	}
 

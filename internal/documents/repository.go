@@ -28,11 +28,6 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 	}
 }
 
-// Queries returns the underlying sqlc queries for transaction/direct use.
-func (r *Repository) Queries() *sqlc.Queries {
-	return r.queries
-}
-
 // Classifications
 
 func (r *Repository) ListClassifications(ctx context.Context) ([]DocumentClassification, error) {
@@ -255,7 +250,7 @@ func (r *Repository) GetDefaultNumberingRule(ctx context.Context, companyID int6
 
 func (r *Repository) IncrementNumberingSequence(ctx context.Context, ruleID int64) error {
 	return r.queries.IncrementNumberingSequence(ctx, ruleID)
-}// Documents
+} // Documents
 
 func (r *Repository) InsertDocument(ctx context.Context, req CreateDocumentRequest, number string) (Document, error) {
 	id, err := r.queries.InsertDocument(ctx, sqlc.InsertDocumentParams{
@@ -535,8 +530,8 @@ func (r *Repository) GetLatestVersion(ctx context.Context, documentID int64) (Do
 
 func (r *Repository) SetCurrentVersion(ctx context.Context, documentID, versionID int64) error {
 	return r.queries.SetCurrentDocumentVersion(ctx, sqlc.SetCurrentDocumentVersionParams{
-		ID:                 documentID,
-		CurrentVersionID:   pgtype.Int8{Int64: versionID, Valid: true},
+		ID:               documentID,
+		CurrentVersionID: pgtype.Int8{Int64: versionID, Valid: true},
 	})
 }
 
@@ -553,13 +548,90 @@ func (r *Repository) SetVersionStatus(ctx context.Context, versionID int64, stat
 
 // Blobs
 
-func (r *Repository) InsertBlob(ctx context.Context, params sqlc.InsertStorageBlobParams) (int64, error) {
-	return r.queries.InsertStorageBlob(ctx, params)
+func (r *Repository) InsertBlob(ctx context.Context, req CreateBlobRequest) (int64, error) {
+	return r.queries.InsertStorageBlob(ctx, sqlc.InsertStorageBlobParams{
+		CompanyID:           req.CompanyID,
+		StorageKey:          req.StorageKey,
+		StorageDriver:       req.StorageDriver,
+		Bucket:              pgtype.Text{String: req.Bucket, Valid: req.Bucket != ""},
+		SizeBytes:           req.SizeBytes,
+		ChecksumSha256:      req.ChecksumSha256,
+		DeclaredContentType: pgtype.Text{String: req.DeclaredContentType, Valid: req.DeclaredContentType != ""},
+		DetectedContentType: pgtype.Text{String: req.DetectedContentType, Valid: req.DetectedContentType != ""},
+		MalwareScanStatus:   req.MalwareScanStatus,
+		CreatedBy:           req.CreatedBy,
+	})
 }
 
-func (r *Repository) GetBlob(ctx context.Context, id int64) (sqlc.StorageBlob, error) {
-	return r.queries.GetStorageBlob(ctx, id)
+func (r *Repository) GetBlob(ctx context.Context, id int64) (Blob, error) {
+	row, err := r.queries.GetStorageBlob(ctx, id)
+	if err != nil {
+		return Blob{}, err
+	}
+	return Blob{
+		ID:                  row.ID,
+		CompanyID:           row.CompanyID,
+		StorageKey:          row.StorageKey,
+		StorageDriver:       row.StorageDriver,
+		Bucket:              row.Bucket.String,
+		SizeBytes:           row.SizeBytes,
+		ChecksumSha256:      row.ChecksumSha256,
+		DeclaredContentType: row.DeclaredContentType.String,
+		DetectedContentType: row.DetectedContentType.String,
+		MalwareScanStatus:   row.MalwareScanStatus,
+		CreatedAt:           row.CreatedAt.Time,
+		CreatedBy:           row.CreatedBy,
+	}, nil
 }
+
+// GetPendingDispositions returns approved requests ready for execution.
+func (r *Repository) GetPendingDispositions(ctx context.Context) ([]DispositionRequest, error) {
+	rows, err := r.queries.GetPendingDispositions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]DispositionRequest, len(rows))
+	for i, row := range rows {
+		items[i] = DispositionRequest{
+			ID:                row.ID,
+			CompanyID:         row.CompanyID,
+			DocumentVersionID: row.DocumentVersionID,
+			RequestedBy:       row.RequestedBy,
+			Status:            row.Status,
+		}
+	}
+	return items, nil
+}
+
+// HasActiveLegalHold reports whether a company has an active legal hold.
+func (r *Repository) HasActiveLegalHold(ctx context.Context, companyID int64) (bool, error) {
+	return r.queries.HasActiveLegalHold(ctx, companyID)
+}
+
+// UpdateDispositionExecution records a disposition execution result.
+func (r *Repository) UpdateDispositionExecution(ctx context.Context, update DispositionExecutionUpdate) error {
+	var executedAt pgtype.Timestamptz
+	if update.ExecutedAt != nil {
+		executedAt = pgtype.Timestamptz{Time: *update.ExecutedAt, Valid: true}
+	}
+	var executedBy pgtype.Int8
+	if update.ExecutedBy != nil {
+		executedBy = pgtype.Int8{Int64: *update.ExecutedBy, Valid: true}
+	}
+	var errorMessage pgtype.Text
+	if update.ErrorMessage != nil {
+		errorMessage = pgtype.Text{String: *update.ErrorMessage, Valid: true}
+	}
+	return r.queries.UpdateDispositionExecution(ctx, sqlc.UpdateDispositionExecutionParams{
+		ID:                update.ID,
+		Status:            update.Status,
+		ExecutedAt:        executedAt,
+		ExecutedBy:        executedBy,
+		ExecutionEvidence: update.ExecutionEvidence,
+		ErrorMessage:      errorMessage,
+	})
+}
+
 // ACLs
 
 func (r *Repository) InsertACL(ctx context.Context, req CreateACLRequest) (DocumentACL, error) {
@@ -794,7 +866,6 @@ func (r *Repository) InsertReviewDecision(ctx context.Context, req ReviewDecisio
 	}, nil
 }
 
-
 // Legal Holds
 
 func (r *Repository) InsertLegalHold(ctx context.Context, req CreateLegalHoldRequest) (LegalHold, error) {
@@ -824,14 +895,12 @@ func (r *Repository) InsertLegalHold(ctx context.Context, req CreateLegalHoldReq
 	}, nil
 }
 
-
 func (r *Repository) ReleaseLegalHold(ctx context.Context, holdID, releasedBy int64) error {
 	return r.queries.ReleaseLegalHold(ctx, sqlc.ReleaseLegalHoldParams{
 		ID:         holdID,
 		ReleasedBy: pgtype.Int8{Int64: releasedBy, Valid: true},
 	})
 }
-
 
 // Access Events
 
@@ -854,6 +923,7 @@ var _ = stringPtr
 var _ = categoryIDOrZero
 var _ = classificationIDOrZero
 var _ = ownerIDOrZero
+
 func int8Ptr(i *int64) pgtype.Int8 {
 	if i == nil {
 		return pgtype.Int8{}
@@ -974,7 +1044,7 @@ func (r *Repository) InsertSignature(ctx context.Context, req SignDocumentReques
 	if err != nil {
 		return DocumentSignature{}, err
 	}
-	
+
 	return DocumentSignature{
 		ID:                row.ID,
 		CompanyID:         row.CompanyID,
@@ -1077,9 +1147,9 @@ func (r *Repository) IndexDocumentSearch(ctx context.Context, docID, docVersionI
 
 func (r *Repository) SearchDocumentsFullText(ctx context.Context, companyID int64, query string, limit int32) ([]Document, error) {
 	rows, err := r.queries.SearchDocumentsFullText(ctx, sqlc.SearchDocumentsFullTextParams{
-		CompanyID: companyID,
+		CompanyID:      companyID,
 		PlaintoTsquery: query,
-		Limit: limit,
+		Limit:          limit,
 	})
 	if err != nil {
 		return nil, err
@@ -1090,7 +1160,7 @@ func (r *Repository) SearchDocumentsFullText(ctx context.Context, companyID int6
 		if row.CategoryID.Valid {
 			catID = row.CategoryID.Int64
 		}
-		
+
 		results = append(results, Document{
 			ID:               row.ID,
 			CompanyID:        row.CompanyID,

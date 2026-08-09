@@ -13,7 +13,6 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/qms"
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
-	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
 	"net/http"
 	"strconv"
@@ -138,7 +137,7 @@ func (h *Handler) listWorkOrderOperations(w http.ResponseWriter, r *http.Request
 	}
 	rows, err := h.pool.Query(r.Context(), `SELECT id,company_id,work_order_id,COALESCE(routing_operation_id,0),work_center_id,sequence,code,name,status,planned_setup_minutes::float8,planned_run_minutes::float8,actual_setup_minutes::float8,actual_run_minutes::float8,good_quantity::float8,scrap_quantity::float8,operator_id FROM mrp_work_order_operations WHERE company_id=$1 AND work_order_id=$2 ORDER BY sequence`, c, id)
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	defer rows.Close()
@@ -146,7 +145,7 @@ func (h *Handler) listWorkOrderOperations(w http.ResponseWriter, r *http.Request
 	for rows.Next() {
 		var item WorkOrderOperation
 		if err := rows.Scan(&item.ID, &item.CompanyID, &item.WorkOrderID, &item.RoutingOperationID, &item.WorkCenterID, &item.Sequence, &item.Code, &item.Name, &item.Status, &item.PlannedSetupMinutes, &item.PlannedRunMinutes, &item.ActualSetupMinutes, &item.ActualRunMinutes, &item.GoodQuantity, &item.ScrapQuantity, &item.OperatorID); err != nil {
-			http.Error(w, err.Error(), 500)
+			shared.WriteErrorStatus(w, 500, err)
 			return
 		}
 		items = append(items, item)
@@ -166,7 +165,7 @@ func (h *Handler) workOrderWIP(w http.ResponseWriter, r *http.Request) {
 	}
 	rows, err := h.pool.Query(r.Context(), `SELECT product_id,COALESCE(SUM(CASE WHEN movement_type='ISSUE' THEN quantity ELSE -quantity END),0)::float8 FROM mrp_material_movements WHERE company_id=$1 AND work_order_id=$2 GROUP BY product_id ORDER BY product_id`, c, id)
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	defer rows.Close()
@@ -178,7 +177,7 @@ func (h *Handler) workOrderWIP(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var item balance
 		if err := rows.Scan(&item.ProductID, &item.Quantity); err != nil {
-			http.Error(w, err.Error(), 500)
+			shared.WriteErrorStatus(w, 500, err)
 			return
 		}
 		items = append(items, item)
@@ -195,7 +194,7 @@ func (h *Handler) dispatch(w http.ResponseWriter, r *http.Request) {
 	status := strings.TrimSpace(r.URL.Query().Get("status"))
 	rows, err := h.pool.Query(r.Context(), `SELECT id,company_id,work_order_id,COALESCE(routing_operation_id,0),work_center_id,sequence,code,name,status,planned_setup_minutes::float8,planned_run_minutes::float8,actual_setup_minutes::float8,actual_run_minutes::float8,good_quantity::float8,scrap_quantity::float8,operator_id FROM mrp_work_order_operations WHERE company_id=$1 AND ($2=0 OR work_center_id=$2) AND ($3='' OR status=$3) ORDER BY work_center_id,sequence,id`, c, workCenterID, status)
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	defer rows.Close()
@@ -203,7 +202,7 @@ func (h *Handler) dispatch(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var item WorkOrderOperation
 		if err := rows.Scan(&item.ID, &item.CompanyID, &item.WorkOrderID, &item.RoutingOperationID, &item.WorkCenterID, &item.Sequence, &item.Code, &item.Name, &item.Status, &item.PlannedSetupMinutes, &item.PlannedRunMinutes, &item.ActualSetupMinutes, &item.ActualRunMinutes, &item.GoodQuantity, &item.ScrapQuantity, &item.OperatorID); err != nil {
-			http.Error(w, err.Error(), 500)
+			shared.WriteErrorStatus(w, 500, err)
 			return
 		}
 		items = append(items, item)
@@ -227,7 +226,7 @@ func (h *Handler) bomRevisionPage(w http.ResponseWriter, r *http.Request) {
 	}
 	revisions, err := h.service.ListBOMRevisions(r.Context(), companyID, productID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		shared.WriteErrorStatus(w, http.StatusBadRequest, err)
 		return
 	}
 	var token string
@@ -250,7 +249,7 @@ func (h *Handler) wipLocationsPage(w http.ResponseWriter, r *http.Request) {
 	}
 	items, err := h.service.ListWIPLocations(r.Context(), c)
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	if err = h.templates.Render(w, "pages/mrp/wip_locations.html", view.TemplateData{Title: "WIP locations", CurrentPath: r.URL.Path, Data: map[string]any{"Locations": items}}); err != nil {
@@ -297,7 +296,7 @@ func (h *Handler) createPlanningPolicy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		shared.WriteErrorStatus(w, http.StatusBadRequest, err)
 		return
 	}
 	out(w, http.StatusCreated, outv)
@@ -324,7 +323,7 @@ func (h *Handler) runPlanning(w http.ResponseWriter, r *http.Request) {
 	}
 	outv, err := h.planner.Run(r.Context(), c, u, in.AsOfDate)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		shared.WriteErrorStatus(w, http.StatusBadRequest, err)
 		return
 	}
 	out(w, http.StatusCreated, outv)
@@ -348,7 +347,7 @@ func (h *Handler) runScheduling(w http.ResponseWriter, r *http.Request) {
 	}
 	issues, err := h.scheduler.Run(r.Context(), c, u, in.AsOf)
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	out(w, 200, issues)
@@ -373,7 +372,7 @@ func (h *Handler) rescheduleOperation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err = h.scheduler.Reschedule(r.Context(), c, u, id, in.Start, in.End); err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -398,7 +397,7 @@ func (h *Handler) splitOperation(w http.ResponseWriter, r *http.Request) {
 	}
 	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
 	defer func() { _ = tx.Rollback(r.Context()) }()
@@ -411,21 +410,21 @@ func (h *Handler) splitOperation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, err = tx.Exec(r.Context(), `UPDATE mrp_work_order_operations SET sequence=sequence+1 WHERE work_order_id=$1 AND sequence>$2`, workOrderID, sequence); err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
 	var newID int64
 	err = tx.QueryRow(r.Context(), `INSERT INTO mrp_work_order_operations(company_id,work_order_id,routing_operation_id,work_center_id,sequence,code,name,status,planned_setup_minutes,planned_run_minutes) SELECT company_id,work_order_id,routing_operation_id,work_center_id,sequence+1,code||'-SPLIT',name||' (split)','PENDING',0,$3 FROM mrp_work_order_operations WHERE id=$1 RETURNING id`, id, c, in.RunMinutes).Scan(&newID)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
 	if _, err = tx.Exec(r.Context(), `UPDATE mrp_work_order_operations SET planned_run_minutes=planned_run_minutes-$2 WHERE id=$1`, id, in.RunMinutes); err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
 	if err = tx.Commit(r.Context()); err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
 	out(w, 201, map[string]int64{"operation_id": newID})
@@ -451,7 +450,7 @@ func (h *Handler) firmPlanningRecommendation(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		shared.WriteErrorStatus(w, http.StatusBadRequest, err)
 		return
 	}
 	out(w, http.StatusCreated, outv)
@@ -470,7 +469,7 @@ func (h *Handler) createWorkCenter(w http.ResponseWriter, r *http.Request) {
 	in.CompanyID, in.CreatedBy = c, u
 	outv, err := h.service.CreateWorkCenter(r.Context(), in)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		shared.WriteErrorStatus(w, http.StatusBadRequest, err)
 		return
 	}
 	out(w, http.StatusCreated, outv)
@@ -497,7 +496,7 @@ func (h *Handler) createWorkCenterShift(w http.ResponseWriter, r *http.Request) 
 	}
 	_, err = h.pool.Exec(r.Context(), `INSERT INTO mrp_work_center_shifts(company_id,work_center_id,weekday,start_time,end_time,capacity_hours) SELECT $1,id,$3,$4::time,$5::time,$6 FROM mrp_work_centers WHERE id=$2 AND company_id=$1`, c, id, in.Weekday, in.Start, in.End, in.CapacityHours)
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -525,7 +524,7 @@ func (h *Handler) createCalendarException(w http.ResponseWriter, r *http.Request
 	}
 	_, err = h.pool.Exec(r.Context(), `INSERT INTO mrp_work_center_calendar_exceptions(company_id,work_center_id,exception_date,exception_type,capacity_hours,note) SELECT $1,id,$3,$4,$5,$6 FROM mrp_work_centers WHERE id=$2 AND company_id=$1 ON CONFLICT(work_center_id,exception_date) DO UPDATE SET exception_type=EXCLUDED.exception_type,capacity_hours=EXCLUDED.capacity_hours,note=EXCLUDED.note`, c, id, in.Date, in.Type, in.CapacityHours, in.Note)
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -551,7 +550,7 @@ func (h *Handler) exceptionWorkbench(w http.ResponseWriter, r *http.Request) {
 	}
 	items, err := h.exceptions.List(r.Context(), c, strings.TrimSpace(r.URL.Query().Get("status")), strings.TrimSpace(r.URL.Query().Get("severity")))
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	if strings.Contains(r.Header.Get("Accept"), "application/json") {
@@ -586,7 +585,7 @@ func (h *Handler) exceptionAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err = h.exceptions.Act(r.Context(), c, u, id, strings.TrimSpace(in.Action), strings.TrimSpace(in.Comment), in.OwnerID); err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -610,14 +609,14 @@ func (h *Handler) createInspection(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid inspection", 400)
 		return
 	}
-	
+
 	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
 	defer func() { _ = tx.Rollback(r.Context()) }()
-	
+
 	req := qms.CreateInspectionRequest{
 		CompanyID:       c,
 		Name:            fmt.Sprintf("MRP Inspection - WO %d", in.WorkOrderID),
@@ -626,8 +625,8 @@ func (h *Handler) createInspection(w http.ResponseWriter, r *http.Request) {
 		ReferenceID:     &in.WorkOrderID,
 		ActorID:         u,
 	}
-	
-	_, err = h.outbox.InsertEvent(r.Context(), sqlc.New(tx), outbox.PublishRequest{
+
+	_, err = h.outbox.InsertEventTx(r.Context(), tx, outbox.PublishRequest{
 		CompanyID:     c,
 		CorrelationID: uuid.New(),
 		EventType:     "mrp.inspection.requested",
@@ -636,15 +635,15 @@ func (h *Handler) createInspection(w http.ResponseWriter, r *http.Request) {
 		Payload:       req,
 	})
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
-	
+
 	if err := tx.Commit(r.Context()); err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
-	
+
 	out(w, 202, map[string]string{"message": "inspection requested"})
 }
 func (h *Handler) createInspectionPlan(w http.ResponseWriter, r *http.Request) {
@@ -662,14 +661,14 @@ func (h *Handler) createInspectionPlan(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid inspection plan", 400)
 		return
 	}
-	
+
 	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
 	defer func() { _ = tx.Rollback(r.Context()) }()
-	
+
 	req := qms.CreateInspectionPlanRequest{
 		CompanyID:       c,
 		Name:            in.Name,
@@ -678,8 +677,8 @@ func (h *Handler) createInspectionPlan(w http.ResponseWriter, r *http.Request) {
 		ReferenceID:     in.ProductID,
 		ActorID:         u,
 	}
-	
-	_, err = h.outbox.InsertEvent(r.Context(), sqlc.New(tx), outbox.PublishRequest{
+
+	_, err = h.outbox.InsertEventTx(r.Context(), tx, outbox.PublishRequest{
 		CompanyID:     c,
 		CorrelationID: uuid.New(),
 		EventType:     "mrp.inspection_plan.requested",
@@ -688,15 +687,15 @@ func (h *Handler) createInspectionPlan(w http.ResponseWriter, r *http.Request) {
 		Payload:       req,
 	})
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
-	
+
 	if err := tx.Commit(r.Context()); err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
-	
+
 	out(w, 202, map[string]string{"message": "inspection plan requested"})
 }
 func (h *Handler) createNCR(w http.ResponseWriter, r *http.Request) {
@@ -713,30 +712,30 @@ func (h *Handler) createNCR(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid non-conformance", 400)
 		return
 	}
-	
+
 	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
 	defer func() { _ = tx.Rollback(r.Context()) }()
-	
+
 	var srcID *int64
 	if in.InspectionID > 0 {
 		srcID = &in.InspectionID
 	}
-	
+
 	req := qms.CreateNCRRequest{
-		CompanyID:       c,
-		Title:           in.Number,
-		Description:     in.Description,
-		SourceType:      "INSPECTION",
-		SourceID:        srcID,
-		DetectedBy:      u,
-		ActorID:         u,
+		CompanyID:   c,
+		Title:       in.Number,
+		Description: in.Description,
+		SourceType:  "INSPECTION",
+		SourceID:    srcID,
+		DetectedBy:  u,
+		ActorID:     u,
 	}
-	
-	_, err = h.outbox.InsertEvent(r.Context(), sqlc.New(tx), outbox.PublishRequest{
+
+	_, err = h.outbox.InsertEventTx(r.Context(), tx, outbox.PublishRequest{
 		CompanyID:     c,
 		CorrelationID: uuid.New(),
 		EventType:     "mrp.ncr.requested",
@@ -745,15 +744,15 @@ func (h *Handler) createNCR(w http.ResponseWriter, r *http.Request) {
 		Payload:       req,
 	})
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
-	
+
 	if err := tx.Commit(r.Context()); err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
-	
+
 	out(w, 202, map[string]string{"message": "ncr requested"})
 }
 func (h *Handler) createCAPA(w http.ResponseWriter, r *http.Request) {
@@ -771,14 +770,14 @@ func (h *Handler) createCAPA(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid CAPA", 400)
 		return
 	}
-	
+
 	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
 	defer func() { _ = tx.Rollback(r.Context()) }()
-	
+
 	req := qms.CreateCAPARequest{
 		CompanyID:   c,
 		Title:       fmt.Sprintf("CAPA for NCR %d", in.NCRID),
@@ -789,8 +788,8 @@ func (h *Handler) createCAPA(w http.ResponseWriter, r *http.Request) {
 		ActorID:     u,
 		OwnerID:     u,
 	}
-	
-	_, err = h.outbox.InsertEvent(r.Context(), sqlc.New(tx), outbox.PublishRequest{
+
+	_, err = h.outbox.InsertEventTx(r.Context(), tx, outbox.PublishRequest{
 		CompanyID:     c,
 		CorrelationID: uuid.New(),
 		EventType:     "mrp.capa.requested",
@@ -799,15 +798,15 @@ func (h *Handler) createCAPA(w http.ResponseWriter, r *http.Request) {
 		Payload:       req,
 	})
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
-	
+
 	if err := tx.Commit(r.Context()); err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
-	
+
 	out(w, 202, map[string]string{"message": "capa requested"})
 }
 func (h *Handler) createSubcontractOperation(w http.ResponseWriter, r *http.Request) {
@@ -827,7 +826,7 @@ func (h *Handler) createSubcontractOperation(w http.ResponseWriter, r *http.Requ
 	var id int64
 	err := h.pool.QueryRow(r.Context(), `INSERT INTO mrp_subcontract_operations(company_id,operation_id,supplier_id,sent_quantity,sent_cost) SELECT $1,op.id,$3,$4,$5 FROM mrp_work_order_operations op WHERE op.id=$2 AND op.company_id=$1 RETURNING id`, c, in.OperationID, in.SupplierID, in.Quantity, in.Cost).Scan(&id)
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	out(w, 201, map[string]int64{"id": id})
@@ -853,7 +852,7 @@ func (h *Handler) receiveSubcontractOperation(w http.ResponseWriter, r *http.Req
 	}
 	res, err := h.pool.Exec(r.Context(), `UPDATE mrp_subcontract_operations SET received_quantity=received_quantity+$1,received_at=NOW(),inspection_id=NULLIF($2,0),status='INSPECTING' WHERE id=$3 AND company_id=$4 AND status='SENT'`, in.Quantity, in.InspectionID, id, c)
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	if res.RowsAffected() == 0 {
@@ -885,7 +884,7 @@ func (h *Handler) analyticsDashboard(w http.ResponseWriter, r *http.Request) {
 	product, _ := strconv.ParseInt(r.URL.Query().Get("product_id"), 10, 64)
 	metrics, err := h.analytics.Metrics(r.Context(), c, wc, product, time.Time{}, time.Time{})
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	if strings.Contains(r.Header.Get("Accept"), "application/json") {
@@ -908,7 +907,7 @@ func (h *Handler) analyticsExport(w http.ResponseWriter, r *http.Request) {
 	}
 	metrics, err := h.analytics.Metrics(r.Context(), c, 0, 0, time.Time{}, time.Time{})
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	w.Header().Set("Content-Type", "text/csv")
@@ -927,7 +926,7 @@ func (h *Handler) signControlledRecord(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.compliance.Sign(r.Context(), c, u, in); err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -940,7 +939,7 @@ func (h *Handler) complianceAuditExport(w http.ResponseWriter, r *http.Request) 
 	}
 	rows, err := h.pool.Query(r.Context(), `SELECT record_type,record_id,event_type,actor_id,created_at,detail::text FROM mrp_audit_events WHERE company_id=$1 ORDER BY created_at`, c)
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	defer rows.Close()
@@ -971,14 +970,14 @@ func (h *Handler) createQualityHold(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid quality hold", 400)
 		return
 	}
-	
+
 	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
 	defer func() { _ = tx.Rollback(r.Context()) }()
-	
+
 	req := qms.CreateQualityHoldRequest{
 		CompanyID:       c,
 		ReferenceModule: "MRP",
@@ -986,8 +985,8 @@ func (h *Handler) createQualityHold(w http.ResponseWriter, r *http.Request) {
 		Reason:          in.Reason,
 		ActorID:         u,
 	}
-	
-	_, err = h.outbox.InsertEvent(r.Context(), sqlc.New(tx), outbox.PublishRequest{
+
+	_, err = h.outbox.InsertEventTx(r.Context(), tx, outbox.PublishRequest{
 		CompanyID:     c,
 		CorrelationID: uuid.New(),
 		EventType:     "mrp.quality_hold.requested",
@@ -996,15 +995,15 @@ func (h *Handler) createQualityHold(w http.ResponseWriter, r *http.Request) {
 		Payload:       req,
 	})
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
-	
+
 	if err := tx.Commit(r.Context()); err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
-	
+
 	out(w, 202, map[string]string{"message": "quality hold requested"})
 }
 func (h *Handler) releaseQualityHold(w http.ResponseWriter, r *http.Request) {
@@ -1018,14 +1017,14 @@ func (h *Handler) releaseQualityHold(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid hold id", 400)
 		return
 	}
-	
+
 	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
 	defer func() { _ = tx.Rollback(r.Context()) }()
-	
+
 	payload := struct {
 		HoldID  int64 `json:"hold_id"`
 		ActorID int64 `json:"actor_id"`
@@ -1033,8 +1032,8 @@ func (h *Handler) releaseQualityHold(w http.ResponseWriter, r *http.Request) {
 		HoldID:  id,
 		ActorID: u,
 	}
-	
-	_, err = h.outbox.InsertEvent(r.Context(), sqlc.New(tx), outbox.PublishRequest{
+
+	_, err = h.outbox.InsertEventTx(r.Context(), tx, outbox.PublishRequest{
 		CompanyID:     c,
 		CorrelationID: uuid.New(),
 		EventType:     "mrp.quality_hold.release_requested",
@@ -1043,15 +1042,15 @@ func (h *Handler) releaseQualityHold(w http.ResponseWriter, r *http.Request) {
 		Payload:       payload,
 	})
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
-	
+
 	if err := tx.Commit(r.Context()); err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
-	
+
 	w.WriteHeader(202)
 }
 func (h *Handler) genealogy(w http.ResponseWriter, r *http.Request) {
@@ -1064,7 +1063,7 @@ func (h *Handler) genealogy(w http.ResponseWriter, r *http.Request) {
 	serialID, _ := strconv.ParseInt(r.URL.Query().Get("serial_id"), 10, 64)
 	rows, err := h.pool.Query(r.Context(), `SELECT id,work_order_id,operation_id,component_product_id,consumed_lot_id,consumed_serial_id,produced_lot_id,produced_serial_id,quantity::float8,created_at FROM mrp_genealogy WHERE company_id=$1 AND ($2=0 OR consumed_lot_id=$2 OR produced_lot_id=$2) AND ($3=0 OR consumed_serial_id=$3 OR produced_serial_id=$3) ORDER BY id`, c, lotID, serialID)
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	defer rows.Close()
@@ -1075,7 +1074,7 @@ func (h *Handler) genealogy(w http.ResponseWriter, r *http.Request) {
 		var qty float64
 		var at time.Time
 		if err := rows.Scan(&id, &wo, &op, &prod, &cl, &cs, &pl, &ps, &qty, &at); err != nil {
-			http.Error(w, err.Error(), 500)
+			shared.WriteErrorStatus(w, 500, err)
 			return
 		}
 		items = append(items, map[string]any{"id": id, "work_order_id": wo, "operation_id": op, "component_product_id": prod, "consumed_lot_id": cl, "consumed_serial_id": cs, "produced_lot_id": pl, "produced_serial_id": ps, "quantity": qty, "created_at": at})
@@ -1096,7 +1095,7 @@ func (h *Handler) createRouting(w http.ResponseWriter, r *http.Request) {
 	in.CompanyID, in.CreatedBy = c, u
 	outv, err := h.service.CreateRouting(r.Context(), in)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		shared.WriteErrorStatus(w, http.StatusBadRequest, err)
 		return
 	}
 	out(w, http.StatusCreated, outv)
@@ -1117,7 +1116,7 @@ func (h *Handler) createBOM(w http.ResponseWriter, r *http.Request) {
 	in.CreatedBy = u
 	outv, err := h.service.CreateBOM(r.Context(), in)
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	out(w, 201, outv)
@@ -1130,7 +1129,7 @@ func (h *Handler) listWIPLocations(w http.ResponseWriter, r *http.Request) {
 	}
 	items, err := h.service.ListWIPLocations(r.Context(), c)
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	out(w, 200, items)
@@ -1149,7 +1148,7 @@ func (h *Handler) createWIPLocation(w http.ResponseWriter, r *http.Request) {
 	in.CompanyID, in.CreatedBy = c, u
 	item, err := h.service.CreateWIPLocation(r.Context(), in)
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	out(w, 201, item)
@@ -1169,7 +1168,7 @@ func (h *Handler) deactivateWIPLocation(w http.ResponseWriter, r *http.Request) 
 		if errors.Is(err, ErrNotFound) {
 			http.Error(w, "not found", 404)
 		} else {
-			http.Error(w, err.Error(), 400)
+			shared.WriteErrorStatus(w, 400, err)
 		}
 		return
 	}
@@ -1188,7 +1187,7 @@ func (h *Handler) listBOMRevisions(w http.ResponseWriter, r *http.Request) {
 	}
 	items, err := h.service.ListBOMRevisions(r.Context(), c, productID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		shared.WriteErrorStatus(w, http.StatusBadRequest, err)
 		return
 	}
 	out(w, http.StatusOK, items)
@@ -1215,7 +1214,7 @@ func (h *Handler) createBOMRevision(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		shared.WriteErrorStatus(w, http.StatusBadRequest, err)
 		return
 	}
 	out(w, http.StatusCreated, bom)
@@ -1244,7 +1243,7 @@ func (h *Handler) approveBOM(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		shared.WriteErrorStatus(w, http.StatusBadRequest, err)
 		return
 	}
 	out(w, http.StatusOK, bom)
@@ -1264,7 +1263,7 @@ func (h *Handler) createWorkOrder(w http.ResponseWriter, r *http.Request) {
 	in.CreatedBy = u
 	outv, err := h.service.CreateWorkOrder(r.Context(), in)
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	out(w, 201, outv)
@@ -1303,7 +1302,7 @@ func (h *Handler) transition(w http.ResponseWriter, r *http.Request, fn func(int
 		return
 	}
 	if e != nil {
-		http.Error(w, e.Error(), 400)
+		shared.WriteErrorStatus(w, 400, e)
 		return
 	}
 	out(w, 200, o)
@@ -1344,11 +1343,11 @@ func (h *Handler) complete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if errors.Is(e, ErrIdempotencyKeyRequired) {
-		http.Error(w, e.Error(), http.StatusBadRequest)
+		shared.WriteErrorStatus(w, http.StatusBadRequest, e)
 		return
 	}
 	if e != nil {
-		http.Error(w, e.Error(), 400)
+		shared.WriteErrorStatus(w, 400, e)
 		return
 	}
 	out(w, 200, o)
@@ -1387,7 +1386,7 @@ func (h *Handler) reportOperation(w http.ResponseWriter, r *http.Request) {
 	}
 	outv, err := h.executor.ReportOperation(r.Context(), OperationReportInput{CompanyID: c, ActorID: u, WorkOrderID: workOrderID, OperationID: opID, SetupMinutes: in.SetupMinutes, RunMinutes: in.RunMinutes, GoodQuantity: in.GoodQuantity, ScrapQuantity: in.ScrapQuantity, Complete: in.Complete})
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	out(w, 200, outv)
@@ -1423,7 +1422,7 @@ func (h *Handler) moveMaterial(w http.ResponseWriter, r *http.Request, returning
 	}
 	err = h.executor.MoveMaterial(r.Context(), MaterialMovementInput{CompanyID: c, ActorID: u, WorkOrderID: workOrderID, OperationID: in.OperationID, ProductID: in.ProductID, Quantity: in.Quantity, LotID: in.LotID, SerialID: in.SerialID, Return: returning, IdempotencyKey: strings.TrimSpace(r.Header.Get("Idempotency-Key"))})
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -1439,15 +1438,15 @@ func (h *Handler) decisionSubmissionForm(w http.ResponseWriter, r *http.Request)
 
 	// Render decision submission template
 	data := map[string]interface{}{
-		"userID":    u,
-		"companyID": c,
+		"userID":      u,
+		"companyID":   c,
 		"recordTypes": []string{"BOM", "WorkOrder", "Operation", "QualityHold", "NCR", "CAPA"},
-		"actions":    []string{"Approve", "Release", "Complete", "Reject", "Revise"},
+		"actions":     []string{"Approve", "Release", "Complete", "Reject", "Revise"},
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := h.renderTemplate(w, "governance/decision_submission.html", data); err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 	}
 }
 
@@ -1473,15 +1472,15 @@ func (h *Handler) auditLogViewer(w http.ResponseWriter, r *http.Request) {
 		// Query audit events (mock for now, would use repository)
 		auditEvents = []map[string]interface{}{
 			{
-				"id":          1,
-				"recordType":  "BOM",
-				"recordID":    1,
-				"action":      "Approve",
-				"actorID":     u,
-				"actorRole":   "QUALITY_LEAD",
-				"timestamp":   "2026-08-03T11:00:00Z",
-				"status":      "APPROVED",
-				"reason":      "BOM structure verified",
+				"id":         1,
+				"recordType": "BOM",
+				"recordID":   1,
+				"action":     "Approve",
+				"actorID":    u,
+				"actorRole":  "QUALITY_LEAD",
+				"timestamp":  "2026-08-03T11:00:00Z",
+				"status":     "APPROVED",
+				"reason":     "BOM structure verified",
 			},
 		}
 	}
@@ -1498,7 +1497,7 @@ func (h *Handler) auditLogViewer(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := h.renderTemplate(w, "governance/audit_log_viewer.html", data); err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 	}
 }
 
@@ -1552,7 +1551,7 @@ func (h *Handler) gateStatusDisplay(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := h.renderTemplate(w, "governance/certification_gate_display.html", data); err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 	}
 }
 

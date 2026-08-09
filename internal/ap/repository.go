@@ -41,7 +41,7 @@ type Repository interface {
 
 	// Q2 Additions
 	GetActiveMatchingPolicy(ctx context.Context, companyID, supplierID, categoryID *int64) (*MatchingPolicy, error)
-	GetPOLineProgressByPO(ctx context.Context, poID int64) (map[int64]*sqlc.PoLineProgress, error)
+	GetPOLineProgressByPO(ctx context.Context, poID int64) (map[int64]*POLineProgress, error)
 
 	// Q3 Additions
 	GetAPException(ctx context.Context, id int64) (APException, error)
@@ -170,15 +170,27 @@ func (r *pgRepository) GetActiveMatchingPolicy(ctx context.Context, companyID, s
 	}, nil
 }
 
-func (r *pgRepository) GetPOLineProgressByPO(ctx context.Context, poID int64) (map[int64]*sqlc.PoLineProgress, error) {
+func (r *pgRepository) GetPOLineProgressByPO(ctx context.Context, poID int64) (map[int64]*POLineProgress, error) {
 	rows, err := r.q.GetPOLineProgress(ctx, poID)
 	if err != nil {
 		return nil, err
 	}
-	res := make(map[int64]*sqlc.PoLineProgress)
+	res := make(map[int64]*POLineProgress)
 	for i := range rows {
 		row := rows[i]
-		res[row.PoLineID] = &row
+		res[row.PoLineID] = &POLineProgress{
+			POLineID:       row.PoLineID,
+			POID:           row.PoID,
+			ProductID:      row.ProductID,
+			OrderedQty:     numericToFloat(row.OrderedQty),
+			UnitPrice:      numericToFloat(row.UnitPrice),
+			OrderedAmount:  float64(row.OrderedAmount),
+			ReceivedQty:    float64(row.ReceivedQty),
+			InvoicedQty:    float64(row.InvoicedQty),
+			InvoicedAmount: float64(row.InvoicedAmount),
+			InvoicedTax:    float64(row.InvoicedTax),
+			PaidAmount:     float64(row.PaidAmount),
+		}
 	}
 	return res, nil
 }

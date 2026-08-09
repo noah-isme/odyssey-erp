@@ -19,8 +19,8 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/documents"
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
-	"golang.org/x/crypto/bcrypt"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type Handler struct {
@@ -48,12 +48,12 @@ func (h *Handler) updateProfile(w http.ResponseWriter, r *http.Request) {
 		Phone       string `json:"phone"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	_, err := h.pool.Exec(r.Context(), `UPDATE users SET display_name=$1 WHERE id=$2 AND company_id=$3`, in.DisplayName, uid, cid)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
@@ -70,12 +70,12 @@ func (h *Handler) sendChatMessage(w http.ResponseWriter, r *http.Request) {
 		Message string `json:"message"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	_, err := h.pool.Exec(r.Context(), `INSERT INTO portal_chat_messages(company_id, sender_id, context, message) VALUES($1,$2,$3,$4)`, cid, uid, in.Context, in.Message)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -90,7 +90,7 @@ func (h *Handler) getChatMessages(w http.ResponseWriter, r *http.Request) {
 	ctxStr := r.URL.Query().Get("context")
 	rows, err := h.pool.Query(r.Context(), `SELECT sender_id, message, created_at FROM portal_chat_messages WHERE company_id=$1 AND context=$2 ORDER BY created_at ASC`, cid, ctxStr)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
 	defer rows.Close()
@@ -103,7 +103,7 @@ func (h *Handler) getChatMessages(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var m msg
 		if err := rows.Scan(&m.SenderID, &m.Message, &m.CreatedAt); err != nil {
-			http.Error(w, err.Error(), 500)
+			shared.WriteErrorStatus(w, 500, err)
 			return
 		}
 		out = append(out, m)
@@ -123,12 +123,12 @@ func (h *Handler) negotiateRFQ(w http.ResponseWriter, r *http.Request) {
 		ProposedPrice float64 `json:"proposed_price"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	_, err := h.pool.Exec(r.Context(), `INSERT INTO portal_rfq_negotiations(company_id, rfq_id, supplier_id, proposed_price) VALUES($1,$2,$3,$4)`, cid, in.RFQID, in.SupplierID, in.ProposedPrice)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -145,13 +145,13 @@ func (h *Handler) recordAnalyticsEvent(w http.ResponseWriter, r *http.Request) {
 		Metadata  map[string]any `json:"metadata"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	meta, _ := json.Marshal(in.Metadata)
 	_, err := h.pool.Exec(r.Context(), `INSERT INTO portal_analytics_events(company_id, user_id, event_type, metadata) VALUES($1,$2,$3,$4)`, cid, uid, in.EventType, meta)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -177,7 +177,7 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Get("/app", func(w http.ResponseWriter, r *http.Request) {
 			_ = h.templates.Render(w, "pages/portal_app.html", view.TemplateData{Title: "Portal"})
 		})
-		
+
 		r.Group(func(r chi.Router) {
 			r.Use(h.rbac.RequireAny("portal.manage"))
 			r.Post("/admin/invitations", h.createInvitation)
@@ -197,7 +197,7 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Get("/employee/payslips", h.employeePayslips)
 		r.Get("/employee/leave", h.employeeLeave)
 		r.Get("/employee/attendance", h.employeeAttendance)
-		
+
 		// Advanced Portal Features
 		r.Put("/profile", h.updateProfile)
 		r.Post("/chat", h.sendChatMessage)
@@ -247,13 +247,13 @@ func (h *Handler) createInvitation(w http.ResponseWriter, r *http.Request) {
 	}
 	plain, hash, err := invitationToken()
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
 	var id int64
 	err = h.pool.QueryRow(r.Context(), `INSERT INTO portal_invitations(company_id,email,display_name,portal_type,customer_id,supplier_id,token_hash,expires_at,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,NOW()+($8||' hours')::interval,$9) RETURNING id`, cid, in.Email, in.DisplayName, in.PortalType, in.CustomerID, in.SupplierID, hash, in.ExpiresHours, uid).Scan(&id)
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	portalJSON(w, map[string]any{"id": id, "email": in.Email, "portal_type": in.PortalType, "token": plain, "expires_in_hours": in.ExpiresHours})
@@ -272,7 +272,7 @@ func (h *Handler) acceptInvitation(w http.ResponseWriter, r *http.Request) {
 	hash := hex.EncodeToString(sum[:])
 	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
 	defer func() { _ = tx.Rollback(r.Context()) }()
@@ -288,26 +288,26 @@ func (h *Handler) acceptInvitation(w http.ResponseWriter, r *http.Request) {
 	}
 	pw, err := bcrypt.GenerateFromPassword([]byte(in.Password), bcrypt.DefaultCost)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
 	var uid int64
 	err = tx.QueryRow(r.Context(), `INSERT INTO users(email,password_hash,is_active) VALUES($1,$2,TRUE) ON CONFLICT(email) DO UPDATE SET password_hash=EXCLUDED.password_hash,is_active=TRUE RETURNING id`, inv.Email, string(pw)).Scan(&uid)
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	_, err = tx.Exec(r.Context(), `INSERT INTO portal_users(company_id,user_id,portal_type,customer_id,supplier_id) VALUES($1,$2,$3,$4,$5) ON CONFLICT(user_id,portal_type) DO UPDATE SET company_id=EXCLUDED.company_id,customer_id=EXCLUDED.customer_id,supplier_id=EXCLUDED.supplier_id,active=TRUE`, inv.CompanyID, uid, inv.PortalType, inv.CustomerID, inv.SupplierID)
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	if _, err = tx.Exec(r.Context(), `UPDATE portal_invitations SET accepted_at=NOW() WHERE id=$1`, inv.ID); err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
 	if err = tx.Commit(r.Context()); err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
 	portalJSON(w, map[string]any{"user_id": uid, "email": inv.Email, "portal_type": inv.PortalType})
@@ -728,7 +728,7 @@ func (h *Handler) uploadDocument(w http.ResponseWriter, r *http.Request, kind st
 		}
 		doc, err := h.docs.Create(r.Context(), docReq)
 		if err != nil {
-			http.Error(w, "failed to create document: "+err.Error(), 500)
+			shared.WriteErrorStatus(w, 500, err)
 			return
 		}
 
@@ -739,10 +739,10 @@ func (h *Handler) uploadDocument(w http.ResponseWriter, r *http.Request, kind st
 			Description:      "Initial upload",
 			ActorID:          uid,
 		}
-		
+
 		_, err = h.docs.UploadAndCreateVersion(r.Context(), bytes.NewReader(content), int64(len(content)), contentType, verReq)
 		if err != nil {
-			http.Error(w, "failed to upload document version: "+err.Error(), 500)
+			shared.WriteErrorStatus(w, 500, err)
 			return
 		}
 

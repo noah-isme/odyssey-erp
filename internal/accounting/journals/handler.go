@@ -78,7 +78,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	_, err = h.service.PostJournal(r.Context(), PostingInput{PeriodID: periodID, Date: date, SourceModule: "MANUAL", SourceID: uuid.New(), Memo: r.PostFormValue("memo"), PostedBy: actorID, Lines: lines})
 	if err != nil {
-		http.Error(w, shared.UserSafeMessage(err), 400)
+		shared.WriteErrorStatus(w, http.StatusBadRequest, err)
 		return
 	}
 	http.Redirect(w, r, "/accounting/journals", http.StatusSeeOther)

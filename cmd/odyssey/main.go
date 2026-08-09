@@ -42,29 +42,30 @@ import (
 	closehttp "github.com/odyssey-erp/odyssey-erp/internal/close/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/cmms"
 	cmmshttp "github.com/odyssey-erp/odyssey-erp/internal/cmms/http"
-	"github.com/odyssey-erp/odyssey-erp/internal/consol"
-	consolhttp "github.com/odyssey-erp/odyssey-erp/internal/consol/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors"
-	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/mockpay"
-	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/oidc"
-	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/shopify"
-	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/stripe"
-	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/whatsapp"
-	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/openai"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/awss3"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/dhl"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/midtrans"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/mockpay"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/oidc"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/openai"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/shopify"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/stripe"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/whatsapp"
+	"github.com/odyssey-erp/odyssey-erp/internal/consol"
+	consolhttp "github.com/odyssey-erp/odyssey-erp/internal/consol/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/crm"
 	"github.com/odyssey-erp/odyssey-erp/internal/dashboard"
+	deliveryorders "github.com/odyssey-erp/odyssey-erp/internal/delivery/orders"
 	"github.com/odyssey-erp/odyssey-erp/internal/documents"
 	documentshttp "github.com/odyssey-erp/odyssey-erp/internal/documents/http"
-	deliveryorders "github.com/odyssey-erp/odyssey-erp/internal/delivery/orders"
 	eliminationpkg "github.com/odyssey-erp/odyssey-erp/internal/elimination"
 	eliminationhttp "github.com/odyssey-erp/odyssey-erp/internal/elimination/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/bankfeeds"
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/banking"
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/forecasting"
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/treasury"
+	"github.com/odyssey-erp/odyssey-erp/internal/freight"
 	fxservice "github.com/odyssey-erp/odyssey-erp/internal/fx"
 	hrattendance "github.com/odyssey-erp/odyssey-erp/internal/hr/attendance"
 	hremployees "github.com/odyssey-erp/odyssey-erp/internal/hr/employees"
@@ -73,9 +74,8 @@ import (
 	insightshhtp "github.com/odyssey-erp/odyssey-erp/internal/insights/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/integration"
 	"github.com/odyssey-erp/odyssey-erp/internal/inventory"
-	"github.com/odyssey-erp/odyssey-erp/internal/freight"
-	"github.com/odyssey-erp/odyssey-erp/internal/logistics"
 	jobmetrics "github.com/odyssey-erp/odyssey-erp/internal/jobs"
+	"github.com/odyssey-erp/odyssey-erp/internal/logistics"
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata"
 	"github.com/odyssey-erp/odyssey-erp/internal/mrp"
 	"github.com/odyssey-erp/odyssey-erp/internal/notifications"
@@ -240,7 +240,7 @@ func main() {
 
 	authRepo := auth.NewRepository(dbpool)
 	authService := auth.NewService(authRepo)
-	authHandler := auth.NewHandler(logger, authService, templates, sessionManager, csrfManager, sqlc.New(dbpool))
+	authHandler := auth.NewHandler(logger, authService, templates, sessionManager, csrfManager, authRepo)
 
 	auditLogger := shared.NewAuditLogger(dbpool)
 	approvalRecorder := shared.NewApprovalRecorder(dbpool, logger)
@@ -291,7 +291,7 @@ func main() {
 		return err
 	})
 
-	rbacService := rbac.NewService(dbpool)
+	rbacService := rbac.NewService(rbac.NewRepository(dbpool))
 	rbacMiddleware := rbac.Middleware{Service: rbacService, Logger: logger}
 
 	usersRepo := users.NewRepository(dbpool)
@@ -329,10 +329,10 @@ func main() {
 	connectorsRegistry.Register("dhl", dhl.NewAdapter(logger))
 	connectorsRegistry.Register("awss3", awss3.NewAdapter(logger, vault))
 	connectorsRegistry.Register("midtrans", midtrans.NewAdapter(logger, vault))
-	connectorsProcessor := connectors.NewInboxProcessor(sqlc.New(dbpool), connectorsRegistry, outboxRepo, logger)
+	connectorsProcessor := connectors.NewInboxProcessor(connectors.NewRepository(dbpool), connectorsRegistry, outboxRepo, logger)
 	connectorsHandler := connectors.NewWebhookHandler(connectorsProcessor)
 
-	connectorsService := connectors.NewService(dbpool, vault, connectorsRegistry)
+	connectorsService := connectors.NewService(connectors.NewRepository(dbpool), vault, connectorsRegistry)
 	integrationHooks.SetConnectorsService(connectorsService)
 	connectorsAdminHandler := connectors.NewAdminHandler(connectorsService, logger, templates)
 
@@ -387,7 +387,7 @@ func main() {
 	eliminationService := eliminationpkg.NewService(eliminationRepo, journalService)
 	eliminationHandler := eliminationhttp.NewHandler(logger, eliminationService, templates, csrfManager, rbacMiddleware)
 
-	analyticsRepo := sqlc.New(dbpool)
+	analyticsRepo := analytics.NewRepository(dbpool)
 	analyticsCache := analytics.NewCache(redisClient, 10*time.Minute)
 	analyticsService := analytics.NewService(analyticsRepo, analyticsCache)
 	pdfExporter := &export.PDFExporter{Endpoint: cfg.GotenbergURL, Client: http.DefaultClient}
@@ -403,10 +403,10 @@ func main() {
 		analyticsValidator,
 	)
 
-	insightsRepo := sqlc.New(dbpool)
+	insightsRepo := insights.NewRepository(dbpool)
 	insightsService := insights.NewService(insightsRepo)
 	insightsHandler := insightshhtp.NewHandler(logger, insightsService, templates, rbacService)
-	auditRepo := sqlc.New(dbpool)
+	auditRepo := audit.NewRepository(dbpool)
 	auditService := audit.NewService(auditRepo)
 	auditExporter := audit.NewExporter(templates)
 	auditHandler := audithttp.NewHandler(logger, auditService, templates, auditExporter, rbacService)
@@ -537,11 +537,11 @@ func main() {
 	qmsRepo := qms.NewRepository(dbpool)
 	qmsService := qms.NewService(qmsRepo)
 	qmsHandler := qmshttp.NewHandler(logger, qmsService, templates, csrfManager, rbacMiddleware, dbpool, outboxRepo)
-	
+
 	mrpHandler.SetQMSService(qmsService)
 
 	logisticsService := logistics.NewService(dbpool)
-	
+
 	// Init Freight Module
 	freightQueries := sqlc.New(dbpool)
 	freightRepo := freight.NewPostgresRepository(freightQueries)

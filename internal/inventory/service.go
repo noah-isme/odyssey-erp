@@ -9,10 +9,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
-	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 // RepositoryPort abstracts repository usage for service.
@@ -21,20 +19,20 @@ type RepositoryPort interface {
 	GetStockCard(ctx context.Context, filter StockCardFilter) ([]StockCardEntry, error)
 	GetStockTake(ctx context.Context, id int64) (StockTake, error)
 	ListStockTakes(ctx context.Context) ([]StockTake, error)
-	UpdateStockTakeStatus(ctx context.Context, arg sqlc.UpdateStockTakeStatusParams) error
+	UpdateStockTakeStatus(ctx context.Context, update StockTakeStatusUpdate) error
 	GetValuation(ctx context.Context, warehouseID int64) ([]ValuationEntry, error)
 	GetReorderAlerts(ctx context.Context) ([]ReorderAlert, error)
-	GetStockBalance(ctx context.Context, arg sqlc.GetStockBalanceParams) (sqlc.InventoryBalance, error)
+	GetStockBalance(ctx context.Context, query StockBalanceQuery) (StockBalanceResult, error)
 
 	// Stock Adjustments
-	InsertAdjustment(ctx context.Context, arg sqlc.InsertAdjustmentParams) (int64, error)
+	InsertAdjustment(ctx context.Context, input AdjustmentInsert) (int64, error)
 	GetAdjustment(ctx context.Context, id int64) (StockAdjustment, error)
 	ListAdjustments(ctx context.Context) ([]StockAdjustment, error)
-	InsertAdjustmentLine(ctx context.Context, arg sqlc.InsertAdjustmentLineParams) error
+	InsertAdjustmentLine(ctx context.Context, input AdjustmentLineInsert) error
 	GetAdjustmentLines(ctx context.Context, adjustmentID int64) ([]StockAdjustmentLine, error)
-	UpdateAdjustmentStatus(ctx context.Context, arg sqlc.UpdateAdjustmentStatusParams) error
+	UpdateAdjustmentStatus(ctx context.Context, update AdjustmentStatusUpdate) error
 
-	GetInboundHistory(ctx context.Context, productID int64, warehouseID int64) ([]sqlc.GetInboundHistoryRow, error)
+	GetInboundHistory(ctx context.Context, productID int64, warehouseID int64) ([]InboundHistoryRow, error)
 }
 
 // AuditPort abstracts audit logging functionality.
@@ -296,7 +294,7 @@ func (s *Service) postTransfer(ctx context.Context, tx TxRepository, input Trans
 
 // CheckAvailability returns the available quantity of a product in a warehouse.
 func (s *Service) CheckAvailability(ctx context.Context, warehouseID, productID int64) (float64, error) {
-	bal, err := s.repo.GetStockBalance(ctx, sqlc.GetStockBalanceParams{
+	bal, err := s.repo.GetStockBalance(ctx, StockBalanceQuery{
 		WarehouseID: warehouseID,
 		ProductID:   productID,
 	})
@@ -310,9 +308,7 @@ func (s *Service) CheckAvailability(ctx context.Context, warehouseID, productID 
 		return 0, nil
 	}
 
-	// Convert pgtype.Numeric to float64
-	f, _ := bal.Qty.Float64Value()
-	return f.Float64, nil
+	return bal.Qty, nil
 }
 
 // GetStockCard lists stock card entries.
@@ -502,12 +498,12 @@ func (s *Service) CreateStockTake(ctx context.Context, input CreateStockTakeInpu
 	var id int64
 	err := s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
 		var err error
-		id, err = tx.InsertStockTake(ctx, sqlc.InsertStockTakeParams{
+		id, err = tx.InsertStockTake(ctx, StockTakeInsert{
 			Number:      number,
-			WarehouseID: int32(input.WarehouseID),
-			Status:      string(StockTakeStatusDraft),
+			WarehouseID: input.WarehouseID,
+			Status:      StockTakeStatusDraft,
 			Note:        input.Note,
-			TakenAt:     pgtype.Timestamptz{Time: input.TakenAt, Valid: true},
+			TakenAt:     input.TakenAt,
 			CreatedBy:   input.CreatedBy,
 		})
 		return err
@@ -536,11 +532,11 @@ func (s *Service) AddStockTakeLine(ctx context.Context, input AddStockTakeLineIn
 			systemQty = bal.Qty
 		}
 
-		return tx.InsertStockTakeLine(ctx, sqlc.InsertStockTakeLineParams{
-			StockTakeID: input.StockTakeID,
-			ProductID:   int32(input.ProductID),
-			SystemQty:   floatToNumeric(systemQty),
-			PhysicalQty: floatToNumeric(input.PhysicalQty),
+			return tx.InsertStockTakeLine(ctx, StockTakeLineInsert{
+				StockTakeID: input.StockTakeID,
+				ProductID:   input.ProductID,
+			SystemQty:   systemQty,
+			PhysicalQty: input.PhysicalQty,
 			Note:        input.Note,
 		})
 	})
@@ -579,11 +575,11 @@ func (s *Service) PostStockTake(ctx context.Context, id int64, postedBy int64) e
 		}
 
 		// 2. Update status
-		return tx.UpdateStockTakeStatus(ctx, sqlc.UpdateStockTakeStatusParams{
+		return tx.UpdateStockTakeStatus(ctx, StockTakeStatusUpdate{
 			ID:       id,
-			Status:   string(StockTakeStatusPosted),
-			PostedBy: pgtype.Int8{Int64: postedBy, Valid: true},
-			PostedAt: pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true},
+			Status:   StockTakeStatusPosted,
+			PostedBy: postedBy,
+			PostedAt: time.Now().UTC(),
 		})
 	})
 }
@@ -659,12 +655,12 @@ type CreateAdjustmentInput struct {
 func (s *Service) CreateAdjustment(ctx context.Context, input CreateAdjustmentInput, userID int64) (int64, error) {
 	number := fmt.Sprintf("ADJ/%s/%d", input.AdjustmentAt.Format("200601"), time.Now().UnixNano()%1000)
 
-	arg := sqlc.InsertAdjustmentParams{
+	arg := AdjustmentInsert{
 		Number:       number,
-		WarehouseID:  int32(input.WarehouseID),
-		Status:       string(StockAdjustmentStatusDraft),
+		WarehouseID:  input.WarehouseID,
+		Status:       StockAdjustmentStatusDraft,
 		Note:         input.Note,
-		AdjustmentAt: pgtype.Timestamptz{Time: input.AdjustmentAt, Valid: true},
+		AdjustmentAt: input.AdjustmentAt,
 		CreatedBy:    userID,
 	}
 
@@ -694,10 +690,10 @@ func (s *Service) AddAdjustmentLine(ctx context.Context, adjustmentID int64, inp
 		return errors.New("cannot add lines to non-draft adjustment")
 	}
 
-	arg := sqlc.InsertAdjustmentLineParams{
+	arg := AdjustmentLineInsert{
 		AdjustmentID: adjustmentID,
-		ProductID:    int32(input.ProductID),
-		Qty:          floatToNumeric(input.Qty),
+		ProductID:    input.ProductID,
+		Qty:          input.Qty,
 		Note:         input.Note,
 	}
 
@@ -735,11 +731,11 @@ func (s *Service) PostAdjustmentDocument(ctx context.Context, id int64, userID i
 		}
 
 		// Update status
-		return tx.UpdateAdjustmentStatus(ctx, sqlc.UpdateAdjustmentStatusParams{
+		return tx.UpdateAdjustmentStatus(ctx, AdjustmentStatusUpdate{
 			ID:       id,
-			Status:   string(StockAdjustmentStatusPosted),
-			PostedBy: pgtype.Int8{Int64: userID, Valid: true},
-			PostedAt: pgtype.Timestamptz{Time: time.Now(), Valid: true},
+			Status:   StockAdjustmentStatusPosted,
+			PostedBy: userID,
+			PostedAt: time.Now(),
 		})
 	})
 }
@@ -777,8 +773,8 @@ func (s *Service) GetFIFOValuation(ctx context.Context, warehouseID int64) ([]Va
 		totalValue := 0.0
 
 		for _, h := range history {
-			qty := numericToFloat(h.Qty)
-			cost := numericToFloat(h.UnitCost)
+			qty := h.Qty
+			cost := h.UnitCost
 
 			if remainingQty <= qty {
 				totalValue += remainingQty * cost

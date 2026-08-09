@@ -4,153 +4,101 @@ import (
 	"context"
 	"errors"
 	"strings"
-	"time"
-
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
-
-	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 // ErrNotFound indicates that the requested record does not exist.
 var ErrNotFound = errors.New("rbac: not found")
 
-// Service orchestrates RBAC operations.
+// Repository is the database-neutral RBAC persistence boundary.
+type Repository interface {
+	ListRoles(ctx context.Context) ([]Role, error)
+	GetRole(ctx context.Context, id int64) (Role, error)
+	CreateRole(ctx context.Context, name, description string) (Role, error)
+	UpdateRole(ctx context.Context, id int64, name, description string) (Role, error)
+	DeleteRole(ctx context.Context, id int64) (bool, error)
+	ListPermissions(ctx context.Context) ([]Permission, error)
+	EnsurePermission(ctx context.Context, name, description string) (Permission, error)
+	ListRolePermissions(ctx context.Context, roleID int64) ([]Permission, error)
+	AttachPermissionToRole(ctx context.Context, roleID, permissionID int64) error
+	DetachPermissionFromRole(ctx context.Context, roleID, permissionID int64) error
+	AssignRoleToUser(ctx context.Context, userID, roleID int64) error
+	RemoveRoleFromUser(ctx context.Context, userID, roleID int64) error
+	EffectivePermissions(ctx context.Context, userID int64) ([]string, error)
+}
+
+// Service orchestrates RBAC operations and validation.
 type Service struct {
-	queries *sqlc.Queries
+	repo Repository
 }
 
-// NewService constructs a Service backed by the provided pool.
-func NewService(pool *pgxpool.Pool) *Service {
-	return &Service{queries: sqlc.New(pool)}
+func NewService(repo Repository) *Service {
+	return &Service{repo: repo}
 }
 
-// ListRoles returns all roles ordered by name.
 func (s *Service) ListRoles(ctx context.Context) ([]Role, error) {
-	rows, err := s.queries.RbacListRoles(ctx)
-	if err != nil {
-		return nil, err
-	}
-	roles := make([]Role, 0, len(rows))
-	for _, row := range rows {
-		roles = append(roles, toDomainRole(row))
-	}
-	return roles, nil
+	return s.repo.ListRoles(ctx)
 }
 
-// GetRole fetches a role by ID.
 func (s *Service) GetRole(ctx context.Context, id int64) (Role, error) {
-	row, err := s.queries.GetRole(ctx, id)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return Role{}, ErrNotFound
-		}
-		return Role{}, err
-	}
-	return toDomainRole(row), nil
+	return s.repo.GetRole(ctx, id)
 }
 
-// CreateRole inserts a new role.
 func (s *Service) CreateRole(ctx context.Context, name, description string) (Role, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return Role{}, errors.New("rbac: role name required")
 	}
-	row, err := s.queries.RbacCreateRole(ctx, sqlc.RbacCreateRoleParams{
-		Name:        name,
-		Description: strings.TrimSpace(description),
-	})
-	if err != nil {
-		return Role{}, err
-	}
-	return toDomainRole(row), nil
+	return s.repo.CreateRole(ctx, name, strings.TrimSpace(description))
 }
 
-// UpdateRole updates an existing role.
 func (s *Service) UpdateRole(ctx context.Context, id int64, name, description string) (Role, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return Role{}, errors.New("rbac: role name required")
 	}
-	row, err := s.queries.UpdateRole(ctx, sqlc.UpdateRoleParams{
-		ID:          id,
-		Name:        name,
-		Description: strings.TrimSpace(description),
-	})
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return Role{}, ErrNotFound
-		}
-		return Role{}, err
-	}
-	return toDomainRole(row), nil
+	return s.repo.UpdateRole(ctx, id, name, strings.TrimSpace(description))
 }
 
-// DeleteRole removes a role by ID. Returns ErrNotFound if nothing was deleted.
 func (s *Service) DeleteRole(ctx context.Context, id int64) error {
-	rows, err := s.queries.DeleteRole(ctx, id)
+	deleted, err := s.repo.DeleteRole(ctx, id)
 	if err != nil {
 		return err
 	}
-	if rows == 0 {
+	if !deleted {
 		return ErrNotFound
 	}
 	return nil
 }
 
-// ListPermissions returns all permissions ordered by name.
 func (s *Service) ListPermissions(ctx context.Context) ([]Permission, error) {
-	rows, err := s.queries.ListPermissions(ctx)
-	if err != nil {
-		return nil, err
-	}
-	perms := make([]Permission, 0, len(rows))
-	for _, row := range rows {
-		perms = append(perms, Permission{
-			ID:          row.ID,
-			Name:        row.Name,
-			Description: row.Description,
-		})
-	}
-	return perms, nil
+	return s.repo.ListPermissions(ctx)
 }
 
-// EnsurePermission upserts a permission ensuring description is stored.
 func (s *Service) EnsurePermission(ctx context.Context, name, description string) (Permission, error) {
-	row, err := s.queries.CreatePermission(ctx, sqlc.CreatePermissionParams{
-		Name:        strings.TrimSpace(name),
-		Description: strings.TrimSpace(description),
-	})
-	if err != nil {
-		return Permission{}, err
-	}
-	return Permission{ID: row.ID, Name: row.Name, Description: row.Description}, nil
+	return s.repo.EnsurePermission(ctx, strings.TrimSpace(name), strings.TrimSpace(description))
 }
 
-// SetRolePermissions replaces permissions for a role.
 func (s *Service) SetRolePermissions(ctx context.Context, roleID int64, permissionIDs []int64) error {
-	// Remove existing assignments not in the new set by simple delete + reinsert approach.
-	// For now we delete everything and reattach to keep logic straightforward.
-	perms, err := s.queries.ListRolePermissions(ctx, roleID)
+	perms, err := s.repo.ListRolePermissions(ctx, roleID)
 	if err != nil {
 		return err
 	}
 	existing := make(map[int64]struct{}, len(perms))
-	for _, p := range perms {
-		existing[p.ID] = struct{}{}
+	for _, permission := range perms {
+		existing[permission.ID] = struct{}{}
 	}
 	keep := make(map[int64]struct{}, len(permissionIDs))
 	for _, id := range permissionIDs {
 		keep[id] = struct{}{}
 		if _, ok := existing[id]; !ok {
-			if err := s.queries.AttachPermissionToRole(ctx, sqlc.AttachPermissionToRoleParams{RoleID: roleID, PermissionID: id}); err != nil {
+			if err := s.repo.AttachPermissionToRole(ctx, roleID, id); err != nil {
 				return err
 			}
 		}
 	}
 	for id := range existing {
 		if _, ok := keep[id]; !ok {
-			if err := s.queries.DetachPermissionFromRole(ctx, sqlc.DetachPermissionFromRoleParams{RoleID: roleID, PermissionID: id}); err != nil {
+			if err := s.repo.DetachPermissionFromRole(ctx, roleID, id); err != nil {
 				return err
 			}
 		}
@@ -158,46 +106,14 @@ func (s *Service) SetRolePermissions(ctx context.Context, roleID int64, permissi
 	return nil
 }
 
-// AssignRole assigns a role to the given user.
 func (s *Service) AssignRole(ctx context.Context, userID, roleID int64) error {
-	return s.queries.AssignRoleToUser(ctx, sqlc.AssignRoleToUserParams{
-		UserID: userID,
-		RoleID: roleID,
-	})
+	return s.repo.AssignRoleToUser(ctx, userID, roleID)
 }
 
-// RemoveRole removes a role from a user.
 func (s *Service) RemoveRole(ctx context.Context, userID, roleID int64) error {
-	return s.queries.RemoveRoleFromUser(ctx, sqlc.RemoveRoleFromUserParams{
-		UserID: userID,
-		RoleID: roleID,
-	})
+	return s.repo.RemoveRoleFromUser(ctx, userID, roleID)
 }
 
-// EffectivePermissions returns deduplicated permission names for a user.
 func (s *Service) EffectivePermissions(ctx context.Context, userID int64) ([]string, error) {
-	rows, err := s.queries.UserEffectivePermissions(ctx, userID)
-	if err != nil {
-		return nil, err
-	}
-	perms := make([]string, len(rows))
-	copy(perms, rows)
-	return perms, nil
-}
-
-func toDomainRole(row sqlc.Role) Role {
-	return Role{
-		ID:          row.ID,
-		Name:        row.Name,
-		Description: row.Description,
-		CreatedAt:   safeTime(row.CreatedAt.Time),
-		UpdatedAt:   safeTime(row.UpdatedAt.Time),
-	}
-}
-
-func safeTime(t time.Time) time.Time {
-	if t.IsZero() {
-		return time.Time{}
-	}
-	return t
+	return s.repo.EffectivePermissions(ctx, userID)
 }

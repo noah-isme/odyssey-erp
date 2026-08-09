@@ -6,367 +6,278 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/treasury"
-	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 type mockRepo struct {
-	accounts    []sqlc.TreasurySupplierBankAccount
-	policy      sqlc.TreasuryPaymentPolicy
-	batches     []sqlc.TreasuryPaymentBatch
-	batchItems  []sqlc.TreasuryPaymentBatchItem
+	accounts   []treasury.SupplierBankAccount
+	policy     treasury.PaymentPolicy
+	batches    []treasury.PaymentBatch
+	batchItems []treasury.PaymentBatchItem
 }
 
-func (m *mockRepo) CreateSupplierBankAccount(ctx context.Context, arg sqlc.CreateTreasurySupplierBankAccountParams) (sqlc.TreasurySupplierBankAccount, error) {
-	acc := sqlc.TreasurySupplierBankAccount{
+func (m *mockRepo) CreateSupplierBankAccount(_ context.Context, input treasury.SupplierBankAccountCreate) (treasury.SupplierBankAccount, error) {
+	account := treasury.SupplierBankAccount{
 		ID:                 int64(len(m.accounts) + 1),
-		CompanyID:          arg.CompanyID,
-		SupplierID:         arg.SupplierID,
-		BankName:           arg.BankName,
-		AccountNumber:      arg.AccountNumber,
-		RoutingNumber:      arg.RoutingNumber,
-		Currency:           arg.Currency,
-		EffectiveFrom:      arg.EffectiveFrom,
-		EffectiveTo:        arg.EffectiveTo,
+		CompanyID:          input.CompanyID,
+		SupplierID:         input.SupplierID,
+		BankName:           input.BankName,
+		AccountNumber:      input.AccountNumber,
+		RoutingNumber:      input.RoutingNumber,
+		Currency:           input.Currency,
+		EffectiveFrom:      input.EffectiveFrom,
+		EffectiveTo:        input.EffectiveTo,
 		VerificationStatus: "PENDING_APPROVAL",
-		EvidenceRef:        arg.EvidenceRef,
+		EvidenceRef:        input.EvidenceRef,
 		HoldPayments:       true,
-		CreatedBy:          arg.CreatedBy,
-		CreatedAt:          pgtype.Timestamptz{Time: time.Now(), Valid: true},
-		UpdatedAt:          pgtype.Timestamptz{Time: time.Now(), Valid: true},
+		CreatedBy:          input.CreatedBy,
+		CreatedAt:          time.Now(),
+		UpdatedAt:          time.Now(),
 	}
-	m.accounts = append(m.accounts, acc)
-	return acc, nil
+	m.accounts = append(m.accounts, account)
+	return account, nil
 }
 
-func (m *mockRepo) UpdateSupplierBankAccountVerification(ctx context.Context, arg sqlc.UpdateTreasurySupplierBankAccountVerificationParams) (sqlc.TreasurySupplierBankAccount, error) {
-	for i, acc := range m.accounts {
-		if acc.ID == arg.ID {
-			m.accounts[i].VerificationStatus = arg.VerificationStatus
-			m.accounts[i].HoldPayments = arg.HoldPayments
-			m.accounts[i].ApprovedBy = arg.ApprovedBy
+func (m *mockRepo) UpdateSupplierBankAccountVerification(_ context.Context, input treasury.SupplierBankAccountVerificationUpdate) (treasury.SupplierBankAccount, error) {
+	for i, account := range m.accounts {
+		if account.ID == input.ID {
+			m.accounts[i].VerificationStatus = input.VerificationStatus
+			m.accounts[i].HoldPayments = input.HoldPayments
+			m.accounts[i].ApprovedBy = input.ApprovedBy
 			return m.accounts[i], nil
 		}
 	}
-	return sqlc.TreasurySupplierBankAccount{}, nil
+	return treasury.SupplierBankAccount{}, nil
 }
 
-func (m *mockRepo) GetSupplierBankAccount(ctx context.Context, id int64) (sqlc.TreasurySupplierBankAccount, error) {
-	for _, acc := range m.accounts {
-		if acc.ID == id {
-			return acc, nil
+func (m *mockRepo) GetSupplierBankAccount(_ context.Context, id int64) (treasury.SupplierBankAccount, error) {
+	for _, account := range m.accounts {
+		if account.ID == id {
+			return account, nil
 		}
 	}
-	return sqlc.TreasurySupplierBankAccount{}, nil
+	return treasury.SupplierBankAccount{}, nil
 }
 
-func (m *mockRepo) ListSupplierBankAccounts(ctx context.Context, arg sqlc.ListTreasurySupplierBankAccountsParams) ([]sqlc.TreasurySupplierBankAccount, error) {
-	var res []sqlc.TreasurySupplierBankAccount
-	for _, acc := range m.accounts {
-		if acc.SupplierID == arg.SupplierID && acc.CompanyID == arg.CompanyID {
-			res = append(res, acc)
+func (m *mockRepo) ListSupplierBankAccounts(_ context.Context, filter treasury.SupplierBankAccountFilter) ([]treasury.SupplierBankAccount, error) {
+	var result []treasury.SupplierBankAccount
+	for _, account := range m.accounts {
+		if account.SupplierID == filter.SupplierID && account.CompanyID == filter.CompanyID {
+			result = append(result, account)
 		}
 	}
-	return res, nil
+	return result, nil
 }
 
-func (m *mockRepo) GetPaymentPolicy(ctx context.Context, companyID int64) (sqlc.TreasuryPaymentPolicy, error) {
+func (m *mockRepo) GetPaymentPolicy(context.Context, int64) (treasury.PaymentPolicy, error) {
 	return m.policy, nil
 }
 
-func (m *mockRepo) CreatePaymentBatch(ctx context.Context, arg sqlc.CreateTreasuryPaymentBatchParams) (sqlc.TreasuryPaymentBatch, error) {
-	batch := sqlc.TreasuryPaymentBatch{
-		ID:            int64(len(m.batches) + 1),
-		CompanyID:     arg.CompanyID,
-		ReferenceCode: arg.ReferenceCode,
-		Currency:      arg.Currency,
-		ProposedBy:    arg.ProposedBy,
-		Status:        "DRAFT",
+func (m *mockRepo) CreatePaymentBatch(_ context.Context, input treasury.PaymentBatchCreate) (treasury.PaymentBatch, error) {
+	batch := treasury.PaymentBatch{
+		ID:             int64(len(m.batches) + 1),
+		CompanyID:      input.CompanyID,
+		ReferenceCode:  input.ReferenceCode,
+		Currency:       input.Currency,
+		ProposedBy:     input.ProposedBy,
+		Status:         "DRAFT",
 		RevisionNumber: 1,
 	}
 	m.batches = append(m.batches, batch)
 	return batch, nil
 }
 
-func (m *mockRepo) GetPaymentBatch(ctx context.Context, id int64) (sqlc.TreasuryPaymentBatch, error) {
-	for _, b := range m.batches {
-		if b.ID == id {
-			return b, nil
+func (m *mockRepo) GetPaymentBatch(_ context.Context, id int64) (treasury.PaymentBatch, error) {
+	for _, batch := range m.batches {
+		if batch.ID == id {
+			return batch, nil
 		}
 	}
-	return sqlc.TreasuryPaymentBatch{}, nil
+	return treasury.PaymentBatch{}, nil
 }
 
-func (m *mockRepo) UpdatePaymentBatchStatus(ctx context.Context, arg sqlc.UpdateTreasuryPaymentBatchStatusParams) (sqlc.TreasuryPaymentBatch, error) {
-	for i, b := range m.batches {
-		if b.ID == arg.ID {
-			m.batches[i].Status = arg.Status
-			m.batches[i].ApprovedBy = arg.ApprovedBy
-			m.batches[i].ApprovedAt = arg.ApprovedAt
+func (m *mockRepo) UpdatePaymentBatchStatus(_ context.Context, input treasury.PaymentBatchStatusUpdate) (treasury.PaymentBatch, error) {
+	for i, batch := range m.batches {
+		if batch.ID == input.ID {
+			m.batches[i].Status = input.Status
+			m.batches[i].ApprovedBy = input.ApprovedBy
+			m.batches[i].ApprovedAt = input.ApprovedAt
 			return m.batches[i], nil
 		}
 	}
-	return sqlc.TreasuryPaymentBatch{}, nil
+	return treasury.PaymentBatch{}, nil
 }
 
-func (m *mockRepo) UpdatePaymentBatchRevision(ctx context.Context, arg sqlc.UpdateTreasuryPaymentBatchRevisionParams) (sqlc.TreasuryPaymentBatch, error) {
-	for i, b := range m.batches {
-		if b.ID == arg.ID {
+func (m *mockRepo) UpdatePaymentBatchRevision(_ context.Context, input treasury.PaymentBatchRevisionUpdate) (treasury.PaymentBatch, error) {
+	for i, batch := range m.batches {
+		if batch.ID == input.ID {
 			m.batches[i].RevisionNumber++
 			m.batches[i].Status = "DRAFT"
-			m.batches[i].TotalAmount = arg.TotalAmount
+			m.batches[i].TotalAmount = input.TotalAmount
 			return m.batches[i], nil
 		}
 	}
-	return sqlc.TreasuryPaymentBatch{}, nil
+	return treasury.PaymentBatch{}, nil
 }
 
-func (m *mockRepo) UpdatePaymentBatchExport(ctx context.Context, arg sqlc.UpdateTreasuryPaymentBatchExportParams) (sqlc.TreasuryPaymentBatch, error) {
-	for i, b := range m.batches {
-		if b.ID == arg.ID {
+func (m *mockRepo) UpdatePaymentBatchExport(_ context.Context, input treasury.PaymentBatchExportUpdate) (treasury.PaymentBatch, error) {
+	for i, batch := range m.batches {
+		if batch.ID == input.ID {
 			m.batches[i].Status = "EXPORTED"
-			m.batches[i].ExportedFileHash = arg.ExportedFileHash
-			m.batches[i].ExportedBy = arg.ExportedBy
+			m.batches[i].ExportedFileHash = input.ExportedFileHash
+			m.batches[i].ExportedBy = input.ExportedBy
 			return m.batches[i], nil
 		}
 	}
-	return sqlc.TreasuryPaymentBatch{}, nil
+	return treasury.PaymentBatch{}, nil
 }
 
-func (m *mockRepo) UpdatePaymentBatchSettlement(ctx context.Context, arg sqlc.UpdateTreasuryPaymentBatchSettlementParams) (sqlc.TreasuryPaymentBatch, error) {
-	for i, b := range m.batches {
-		if b.ID == arg.ID {
+func (m *mockRepo) UpdatePaymentBatchSettlement(_ context.Context, input treasury.PaymentBatchSettlementUpdate) (treasury.PaymentBatch, error) {
+	for i, batch := range m.batches {
+		if batch.ID == input.ID {
 			m.batches[i].Status = "SETTLED"
-			m.batches[i].SettledBy = arg.SettledBy
+			m.batches[i].SettledBy = input.SettledBy
 			return m.batches[i], nil
 		}
 	}
-	return sqlc.TreasuryPaymentBatch{}, nil
+	return treasury.PaymentBatch{}, nil
 }
 
-func (m *mockRepo) CreatePaymentBatchItem(ctx context.Context, arg sqlc.CreateTreasuryPaymentBatchItemParams) (sqlc.TreasuryPaymentBatchItem, error) {
-	item := sqlc.TreasuryPaymentBatchItem{
+func (m *mockRepo) CreatePaymentBatchItem(_ context.Context, input treasury.PaymentBatchItemCreate) (treasury.PaymentBatchItem, error) {
+	item := treasury.PaymentBatchItem{
 		ID:            int64(len(m.batchItems) + 1),
-		BatchID:       arg.BatchID,
-		SupplierID:    arg.SupplierID,
-		BankAccountID: arg.BankAccountID,
-		Amount:        arg.Amount,
-		ApInvoiceID:   arg.ApInvoiceID,
+		BatchID:       input.BatchID,
+		SupplierID:    input.SupplierID,
+		BankAccountID: input.BankAccountID,
+		Amount:        input.Amount,
+		APInvoiceID:   input.APInvoiceID,
 		Status:        "ACTIVE",
 	}
 	m.batchItems = append(m.batchItems, item)
 	return item, nil
 }
 
-func (m *mockRepo) ListPaymentBatchItems(ctx context.Context, batchID int64) ([]sqlc.TreasuryPaymentBatchItem, error) {
-	var res []sqlc.TreasuryPaymentBatchItem
-	for _, it := range m.batchItems {
-		if it.BatchID == batchID && it.Status == "ACTIVE" {
-			res = append(res, it)
+func (m *mockRepo) ListPaymentBatchItems(_ context.Context, batchID int64) ([]treasury.PaymentBatchItem, error) {
+	var result []treasury.PaymentBatchItem
+	for _, item := range m.batchItems {
+		if item.BatchID == batchID && item.Status == "ACTIVE" {
+			result = append(result, item)
 		}
 	}
-	return res, nil
+	return result, nil
 }
 
-func (m *mockRepo) RemovePaymentBatchItem(ctx context.Context, id int64) error {
-	for i, it := range m.batchItems {
-		if it.ID == id {
+func (m *mockRepo) RemovePaymentBatchItem(_ context.Context, id int64) error {
+	for i, item := range m.batchItems {
+		if item.ID == id {
 			m.batchItems[i].Status = "REMOVED"
-			return nil
 		}
 	}
 	return nil
 }
 
-func TestService_ApproveBankAccount(t *testing.T) {
-	repo := &mockRepo{
-		policy: sqlc.TreasuryPaymentPolicy{
-			RequiresMakerChecker: true,
-		},
-	}
+func TestServiceApproveBankAccount(t *testing.T) {
+	repo := &mockRepo{policy: treasury.PaymentPolicy{RequiresMakerChecker: true}}
 	svc := treasury.NewService(repo, nil, slog.Default())
 	ctx := context.Background()
 
-	acc, err := svc.AddBankAccount(ctx, 1, 100, 42, "Chase", "123456", "021000021", "USD", "doc-1")
+	account, err := svc.AddBankAccount(ctx, 1, 100, 42, "Chase", "123456", "021000021", "USD", "doc-1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if acc.VerificationStatus != "PENDING_APPROVAL" {
-		t.Errorf("expected PENDING_APPROVAL, got %s", acc.VerificationStatus)
+	if account.VerificationStatus != "PENDING_APPROVAL" || !account.HoldPayments {
+		t.Fatalf("new account should be pending and held: %+v", account)
 	}
-	if !acc.HoldPayments {
-		t.Errorf("expected payments to be held on new account")
+	if _, err = svc.ApproveBankAccount(ctx, account.ID, 42); err == nil || err.Error() != "maker checker violation: creator cannot approve" {
+		t.Fatalf("expected maker checker violation, got %v", err)
 	}
-
-	// Maker attempts to approve
-	_, err = svc.ApproveBankAccount(ctx, acc.ID, 42)
-	if err == nil || err.Error() != "maker checker violation: creator cannot approve" {
-		t.Errorf("expected maker checker violation, got %v", err)
-	}
-
-	// Checker attempts to approve
-	approvedAcc, err := svc.ApproveBankAccount(ctx, acc.ID, 43)
+	approved, err := svc.ApproveBankAccount(ctx, account.ID, 43)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-
-	if approvedAcc.VerificationStatus != "VERIFIED" {
-		t.Errorf("expected VERIFIED, got %s", approvedAcc.VerificationStatus)
+	if approved.VerificationStatus != "VERIFIED" || approved.HoldPayments {
+		t.Fatalf("account should be verified and released: %+v", approved)
 	}
-	if approvedAcc.HoldPayments {
-		t.Errorf("expected hold payments to be false")
-	}
-
 	canPay, err := svc.CanPaySupplier(ctx, 1, 100)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !canPay {
-		t.Errorf("expected supplier to be payable")
+	if err != nil || !canPay {
+		t.Fatalf("expected supplier to be payable, canPay=%v err=%v", canPay, err)
 	}
 }
 
-func TestService_CanPaySupplier_Holds(t *testing.T) {
+func TestServiceCanPaySupplierHolds(t *testing.T) {
 	repo := &mockRepo{}
 	svc := treasury.NewService(repo, nil, slog.Default())
-	ctx := context.Background()
-
-	_, err := svc.AddBankAccount(ctx, 1, 100, 42, "Chase", "123456", "021000021", "USD", "doc-1")
+	_, err := svc.AddBankAccount(context.Background(), 1, 100, 42, "Chase", "123456", "021000021", "USD", "doc-1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-
-	// Without approval
-	canPay, err := svc.CanPaySupplier(ctx, 1, 100)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if canPay {
-		t.Errorf("expected supplier NOT to be payable")
+	canPay, err := svc.CanPaySupplier(context.Background(), 1, 100)
+	if err != nil || canPay {
+		t.Fatalf("expected supplier not to be payable, canPay=%v err=%v", canPay, err)
 	}
 }
 
-func TestService_BatchApproval(t *testing.T) {
-	repo := &mockRepo{
-		policy: sqlc.TreasuryPaymentPolicy{
-			RequiresMakerChecker: true,
-		},
-	}
+func TestServiceBatchApproval(t *testing.T) {
+	repo := &mockRepo{policy: treasury.PaymentPolicy{RequiresMakerChecker: true}}
 	svc := treasury.NewService(repo, nil, slog.Default())
 	ctx := context.Background()
-
-	// Setup valid supplier
-	acc, _ := svc.AddBankAccount(ctx, 1, 100, 42, "Chase", "123", "021", "USD", "doc")
-	_, _ = svc.ApproveBankAccount(ctx, acc.ID, 43)
-
+	account, _ := svc.AddBankAccount(ctx, 1, 100, 42, "Chase", "123", "021", "USD", "doc")
+	_, _ = svc.ApproveBankAccount(ctx, account.ID, 43)
 	batch, _ := svc.CreatePaymentBatch(ctx, 1, "BATCH-001", "USD", 44)
-
-	var num pgtype.Numeric
-	num.Scan("100.50")
-	_, err := svc.AddBatchItem(ctx, batch.ID, 100, acc.ID, num, 10)
-	if err != nil {
+	if _, err := svc.AddBatchItem(ctx, batch.ID, 100, account.ID, 100.50, 10); err != nil {
 		t.Fatalf("unexpected error adding item: %v", err)
 	}
-
-	// Try to approve without moving to PENDING_APPROVAL
-	_, err = svc.ApproveBatch(ctx, batch.ID, 45)
-	if err == nil || err.Error() != "batch is not pending approval" {
-		t.Errorf("expected batch not pending approval error")
+	if _, err := svc.ApproveBatch(ctx, batch.ID, 45); err == nil || err.Error() != "batch is not pending approval" {
+		t.Fatalf("expected batch not pending approval error, got %v", err)
 	}
-
-	// Move to pending approval
-	repo.UpdatePaymentBatchStatus(ctx, sqlc.UpdateTreasuryPaymentBatchStatusParams{
-		ID:     batch.ID,
-		Status: "PENDING_APPROVAL",
-	})
-
-	// Maker attempts to approve
-	_, err = svc.ApproveBatch(ctx, batch.ID, 44)
-	if err == nil || err.Error() != "maker checker violation: proposer cannot approve" {
-		t.Errorf("expected maker checker violation, got %v", err)
+	_, _ = repo.UpdatePaymentBatchStatus(ctx, treasury.PaymentBatchStatusUpdate{ID: batch.ID, Status: "PENDING_APPROVAL"})
+	if _, err := svc.ApproveBatch(ctx, batch.ID, 44); err == nil || err.Error() != "maker checker violation: proposer cannot approve" {
+		t.Fatalf("expected maker checker violation, got %v", err)
 	}
-
-	// Valid approval
-	approvedBatch, err := svc.ApproveBatch(ctx, batch.ID, 45)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if approvedBatch.Status != "APPROVED" {
-		t.Errorf("expected APPROVED status")
+	approved, err := svc.ApproveBatch(ctx, batch.ID, 45)
+	if err != nil || approved.Status != "APPROVED" {
+		t.Fatalf("expected approved batch, batch=%+v err=%v", approved, err)
 	}
 }
 
-func TestService_ExportBatch(t *testing.T) {
+func TestServiceExportBatch(t *testing.T) {
 	repo := &mockRepo{}
 	svc := treasury.NewService(repo, nil, slog.Default())
 	ctx := context.Background()
-
-	// Setup valid supplier
-	acc, _ := svc.AddBankAccount(ctx, 1, 100, 42, "Chase", "123", "021", "USD", "doc")
-	_, _ = svc.ApproveBankAccount(ctx, acc.ID, 43)
-
+	account, _ := svc.AddBankAccount(ctx, 1, 100, 42, "Chase", "123", "021", "USD", "doc")
+	_, _ = svc.ApproveBankAccount(ctx, account.ID, 43)
 	batch, _ := svc.CreatePaymentBatch(ctx, 1, "BATCH-002", "USD", 44)
-
-	var num pgtype.Numeric
-	num.Scan("250.00")
-	_, _ = svc.AddBatchItem(ctx, batch.ID, 100, acc.ID, num, 11)
-
-	repo.UpdatePaymentBatchStatus(ctx, sqlc.UpdateTreasuryPaymentBatchStatusParams{
-		ID:     batch.ID,
-		Status: "APPROVED",
-	})
-
-	encoder := &treasury.CSVEncoder{}
-	payload, err := svc.ExportBatch(ctx, batch.ID, 46, encoder)
-	if err != nil {
-		t.Fatalf("unexpected error exporting batch: %v", err)
-	}
-
-	if len(payload) == 0 {
-		t.Errorf("expected payload")
+	_, _ = svc.AddBatchItem(ctx, batch.ID, 100, account.ID, 250, 11)
+	_, _ = repo.UpdatePaymentBatchStatus(ctx, treasury.PaymentBatchStatusUpdate{ID: batch.ID, Status: "APPROVED"})
+	payload, err := svc.ExportBatch(ctx, batch.ID, 46, &treasury.CSVEncoder{})
+	if err != nil || len(payload) == 0 {
+		t.Fatalf("expected export payload, len=%d err=%v", len(payload), err)
 	}
 }
 
-type mockAP struct {
-	paid []int64
-}
+type mockAP struct{ paid []int64 }
 
-func (m *mockAP) MarkInvoicePaid(ctx context.Context, invoiceID, batchID int64, amount pgtype.Numeric) error {
+func (m *mockAP) MarkInvoicePaid(_ context.Context, invoiceID, _ int64, _ float64) error {
 	m.paid = append(m.paid, invoiceID)
 	return nil
 }
 
-func TestService_SettleBatch(t *testing.T) {
+func TestServiceSettleBatch(t *testing.T) {
 	repo := &mockRepo{}
 	ap := &mockAP{}
 	svc := treasury.NewService(repo, ap, slog.Default())
 	ctx := context.Background()
-
-	acc, _ := svc.AddBankAccount(ctx, 1, 100, 42, "Chase", "123", "021", "USD", "doc")
-	_, _ = svc.ApproveBankAccount(ctx, acc.ID, 43)
-
+	account, _ := svc.AddBankAccount(ctx, 1, 100, 42, "Chase", "123", "021", "USD", "doc")
+	_, _ = svc.ApproveBankAccount(ctx, account.ID, 43)
 	batch, _ := svc.CreatePaymentBatch(ctx, 1, "BATCH-003", "USD", 44)
-
-	var num pgtype.Numeric
-	num.Scan("300.00")
-	_, _ = svc.AddBatchItem(ctx, batch.ID, 100, acc.ID, num, 99)
-
-	repo.UpdatePaymentBatchStatus(ctx, sqlc.UpdateTreasuryPaymentBatchStatusParams{
-		ID:     batch.ID,
-		Status: "EXPORTED",
-	})
+	_, _ = svc.AddBatchItem(ctx, batch.ID, 100, account.ID, 300, 99)
+	_, _ = repo.UpdatePaymentBatchStatus(ctx, treasury.PaymentBatchStatusUpdate{ID: batch.ID, Status: "EXPORTED"})
 
 	settled, err := svc.SettleBatch(ctx, batch.ID, 47)
-	if err != nil {
-		t.Fatalf("unexpected error settling batch: %v", err)
+	if err != nil || settled.Status != "SETTLED" {
+		t.Fatalf("expected settled batch, batch=%+v err=%v", settled, err)
 	}
-
-	if settled.Status != "SETTLED" {
-		t.Errorf("expected SETTLED status")
-	}
-
 	if len(ap.paid) != 1 || ap.paid[0] != 99 {
-		t.Errorf("expected AP invoice 99 to be marked paid")
+		t.Fatalf("expected AP invoice 99 to be marked paid, got %v", ap.paid)
 	}
 }

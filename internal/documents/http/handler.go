@@ -293,9 +293,9 @@ func (h *Handler) createChallenge(w http.ResponseWriter, r *http.Request) {
 	companyID := currentCompany(r)
 
 	// Issue a 5-minute challenge
-	challenge, err := h.service.CreateSignatureChallenge(r.Context(), companyID, versionID, actorID, 5 * 60 * 1000 * 1000 * 1000)
+	challenge, err := h.service.CreateSignatureChallenge(r.Context(), companyID, versionID, actorID, 5*60*1000*1000*1000)
 	if err != nil {
-		h.redirectWithFlash(w, r, "/documents/library/"+docID+"/versions", "danger", "Failed to create signature challenge: "+err.Error())
+		h.redirectWithFlash(w, r, "/documents/library/"+docID+"/versions", "danger", shared.UserSafeMessage(err))
 		return
 	}
 
@@ -324,7 +324,7 @@ func (h *Handler) signVersion(w http.ResponseWriter, r *http.Request) {
 
 	_, err := h.service.SignDocument(r.Context(), req)
 	if err != nil {
-		h.redirectWithFlash(w, r, "/documents/library/"+docID+"/versions", "danger", "Failed to sign document: "+err.Error())
+		h.redirectWithFlash(w, r, "/documents/library/"+docID+"/versions", "danger", shared.UserSafeMessage(err))
 		return
 	}
 
@@ -337,7 +337,7 @@ func (h *Handler) applyRetention(w http.ResponseWriter, r *http.Request) {
 
 	err := h.service.ApplyRetention(r.Context(), versionID)
 	if err != nil {
-		h.redirectWithFlash(w, r, "/documents/library/"+docID+"/versions", "danger", "Failed to apply retention: "+err.Error())
+		h.redirectWithFlash(w, r, "/documents/library/"+docID+"/versions", "danger", shared.UserSafeMessage(err))
 		return
 	}
 
@@ -454,7 +454,7 @@ func (h *Handler) processOCR(w http.ResponseWriter, r *http.Request) {
 	versionID, _ := strconv.ParseInt(chi.URLParam(r, "versionID"), 10, 64)
 	err := h.service.ProcessOCR(r.Context(), versionID)
 	if err != nil {
-		shared.JSONError(w, http.StatusInternalServerError, err.Error())
+		shared.JSONErrorFrom(w, http.StatusInternalServerError, err)
 		return
 	}
 	shared.JSONResponse(w, http.StatusOK, map[string]string{"status": "processing"})
@@ -463,13 +463,13 @@ func (h *Handler) processOCR(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) createCollaborationSession(w http.ResponseWriter, r *http.Request) {
 	var in documents.CollaborationSession
 	if err := shared.DecodeJSON(r, &in); err != nil {
-		shared.JSONError(w, http.StatusBadRequest, err.Error())
+		shared.JSONErrorFrom(w, http.StatusBadRequest, err)
 		return
 	}
 	in.CompanyID = currentCompany(r)
 	created, err := h.service.CreateCollaborationSession(r.Context(), in)
 	if err != nil {
-		shared.JSONError(w, http.StatusInternalServerError, err.Error())
+		shared.JSONErrorFrom(w, http.StatusInternalServerError, err)
 		return
 	}
 	shared.JSONResponse(w, http.StatusCreated, created)
@@ -478,12 +478,12 @@ func (h *Handler) createCollaborationSession(w http.ResponseWriter, r *http.Requ
 func (h *Handler) recordCollaborationChange(w http.ResponseWriter, r *http.Request) {
 	var in documents.CollaborationChange
 	if err := shared.DecodeJSON(r, &in); err != nil {
-		shared.JSONError(w, http.StatusBadRequest, err.Error())
+		shared.JSONErrorFrom(w, http.StatusBadRequest, err)
 		return
 	}
 	created, err := h.service.RecordCollaborationChange(r.Context(), in)
 	if err != nil {
-		shared.JSONError(w, http.StatusInternalServerError, err.Error())
+		shared.JSONErrorFrom(w, http.StatusInternalServerError, err)
 		return
 	}
 	shared.JSONResponse(w, http.StatusCreated, created)
@@ -494,7 +494,7 @@ func (h *Handler) searchContent(w http.ResponseWriter, r *http.Request) {
 	companyID := currentCompany(r)
 	results, err := h.service.SearchContent(r.Context(), companyID, query)
 	if err != nil {
-		shared.JSONError(w, http.StatusInternalServerError, err.Error())
+		shared.JSONErrorFrom(w, http.StatusInternalServerError, err)
 		return
 	}
 	shared.JSONResponse(w, http.StatusOK, results)

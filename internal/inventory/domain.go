@@ -273,6 +273,72 @@ type AddStockTakeLineInput struct {
 	Note        string
 }
 
+type StockTakeInsert struct {
+	Number      string
+	WarehouseID int64
+	Status      StockTakeStatus
+	Note        string
+	TakenAt     time.Time
+	CreatedBy   int64
+}
+
+type StockTakeLineInsert struct {
+	StockTakeID int64
+	ProductID   int64
+	SystemQty   float64
+	PhysicalQty float64
+	Note        string
+}
+
+type StockTakeStatusUpdate struct {
+	ID       int64
+	Status   StockTakeStatus
+	PostedBy int64
+	PostedAt time.Time
+}
+
+type AdjustmentInsert struct {
+	Number       string
+	WarehouseID  int64
+	Status       StockAdjustmentStatus
+	Note         string
+	AdjustmentAt time.Time
+	CreatedBy    int64
+}
+
+type AdjustmentLineInsert struct {
+	AdjustmentID int64
+	ProductID    int64
+	Qty          float64
+	Note         string
+}
+
+type AdjustmentStatusUpdate struct {
+	ID       int64
+	Status   StockAdjustmentStatus
+	PostedBy int64
+	PostedAt time.Time
+}
+
+type StockBalanceQuery struct {
+	WarehouseID int64
+	ProductID   int64
+}
+
+type StockBalanceResult struct {
+	WarehouseID int64
+	ProductID   int64
+	Qty         float64
+	AvgCost     float64
+	UpdatedAt   time.Time
+}
+
+type InboundHistoryRow struct {
+	Qty      float64
+	UnitCost float64
+	PostedAt time.Time
+}
+
 // ErrNegativeStock triggered when movement would result negative qty.
 var ErrNegativeStock = errors.New("inventory: negative stock not allowed")
 

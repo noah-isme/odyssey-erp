@@ -525,7 +525,7 @@ func (h *Handler) initiateOnlinePayment(w http.ResponseWriter, r *http.Request) 
 
 	if err != nil {
 		h.logger.Error("initiate online payment failed", slog.Any("error", err))
-		h.redirectWithFlash(w, r, fmt.Sprintf("/finance/ar/invoices/%d", invoiceID), "error", err.Error())
+		h.redirectWithFlash(w, r, fmt.Sprintf("/finance/ar/invoices/%d", invoiceID), "error", shared.UserSafeMessage(err))
 		return
 	}
 

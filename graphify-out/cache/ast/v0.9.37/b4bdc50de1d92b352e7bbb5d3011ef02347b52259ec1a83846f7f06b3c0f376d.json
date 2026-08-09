@@ -1,0 +1,1 @@
+{"nodes": [{"id": "$graphify-root$_migrations_000079_logistics_phase4_transport_down_sql", "label": "000079_logistics_phase4_transport.down.sql", "file_type": "code", "source_file": "migrations/000079_logistics_phase4_transport.down.sql", "source_location": null}], "edges": []}

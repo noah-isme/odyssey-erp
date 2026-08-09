@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/outbox"
@@ -173,16 +173,16 @@ func (h *Handler) createNCR(w http.ResponseWriter, r *http.Request) {
 	companyID := currentCompany(r)
 
 	req := qms.CreateNCRRequest{
-		CompanyID:       companyID,
-		Title:           strings.TrimSpace(r.PostFormValue("title")),
-		Description:     strings.TrimSpace(r.PostFormValue("description")),
-		SourceType:      strings.ToUpper(strings.TrimSpace(r.PostFormValue("source_type"))),
-		SourceReference: strings.TrimSpace(r.PostFormValue("source_reference")),
-		Category:        strings.ToUpper(strings.TrimSpace(r.PostFormValue("category"))),
-		Severity:        strings.ToUpper(strings.TrimSpace(r.PostFormValue("severity"))),
-		DetectedBy:      actorID,
+		CompanyID:        companyID,
+		Title:            strings.TrimSpace(r.PostFormValue("title")),
+		Description:      strings.TrimSpace(r.PostFormValue("description")),
+		SourceType:       strings.ToUpper(strings.TrimSpace(r.PostFormValue("source_type"))),
+		SourceReference:  strings.TrimSpace(r.PostFormValue("source_reference")),
+		Category:         strings.ToUpper(strings.TrimSpace(r.PostFormValue("category"))),
+		Severity:         strings.ToUpper(strings.TrimSpace(r.PostFormValue("severity"))),
+		DetectedBy:       actorID,
 		DetectedLocation: strings.TrimSpace(r.PostFormValue("detected_location")),
-		ActorID:         actorID,
+		ActorID:          actorID,
 	}
 	if assigned := parseInt64(r.PostFormValue("assigned_to")); assigned > 0 {
 		req.AssignedTo = &assigned
@@ -215,7 +215,7 @@ func (h *Handler) getNCR(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.render(w, r, "pages/qms/ncr_detail.html", "NCR "+ncr.Number, map[string]any{
-		"NCR": ncr,
+		"NCR":              ncr,
 		"DispositionTypes": []string{"REWORK", "REPAIR", "USE_AS_IS", "SCRAP", "RETURN_TO_SUPPLIER"},
 		"Statuses": []qms.Status{
 			qms.NCRStatusOpen, qms.NCRStatusUnderReview,
@@ -289,8 +289,8 @@ func (h *Handler) listCAPAs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.render(w, r, "pages/qms/capas.html", "Corrective Actions (CAPA)", map[string]any{
-		"CAPAs":  capas,
-		"Filter": filter,
+		"CAPAs":      capas,
+		"Filter":     filter,
 		"Priorities": []string{"LOW", "MEDIUM", "HIGH", "CRITICAL"},
 		"Statuses": []qms.Status{
 			qms.CAPAStatusOpen, qms.CAPAStatusInProgress,
@@ -397,7 +397,7 @@ func (h *Handler) listAudits(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.render(w, r, "pages/qms/audits.html", "Quality Audits", map[string]any{
-		"Audits": audits,
+		"Audits":     audits,
 		"AuditTypes": []string{"INTERNAL", "SUPPLIER", "REGULATORY", "CERTIFICATION", "PROCESS", "PRODUCT"},
 		"Statuses": []qms.Status{
 			qms.AuditStatusPlanned, qms.AuditStatusInProgress,
@@ -465,8 +465,8 @@ func (h *Handler) getAudit(w http.ResponseWriter, r *http.Request) {
 	}
 	findings, _ := h.service.GetFindings(r.Context(), audit.ID)
 	h.render(w, r, "pages/qms/audit_detail.html", "Audit "+audit.Number, map[string]any{
-		"Audit":    audit,
-		"Findings": findings,
+		"Audit":             audit,
+		"Findings":          findings,
 		"FindingCategories": []string{"MAJOR", "MINOR", "OBSERVATION", "OPPORTUNITY"},
 		"RiskLevels":        []string{"HIGH", "MEDIUM", "LOW"},
 	})
@@ -718,7 +718,7 @@ func (h *Handler) createInspection(w http.ResponseWriter, r *http.Request) {
 	_, err := h.service.CreateInspection(r.Context(), req)
 	if err != nil {
 		h.logger.Error("create inspection", slog.Any("error", err))
-		h.redirectWithFlash(w, r, "/qms/inspections/new", "danger", "Failed to plan inspection: "+err.Error())
+		h.redirectWithFlash(w, r, "/qms/inspections/new", "danger", shared.UserSafeMessage(err))
 		return
 	}
 
@@ -777,12 +777,12 @@ func (h *Handler) requestCalibration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	auditID := chi.URLParam(r, "id")
-    
+
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "invalid form", http.StatusBadRequest)
 		return
 	}
-	
+
 	assetID, err := strconv.ParseInt(r.FormValue("asset_id"), 10, 64)
 	if err != nil {
 		h.redirectWithFlash(w, r, "/qms/audits/"+auditID, "danger", "Asset ID is required for calibration.")
@@ -792,26 +792,26 @@ func (h *Handler) requestCalibration(w http.ResponseWriter, r *http.Request) {
 	session := shared.SessionFromContext(ctx)
 	companyID := currentCompany(r)
 	actorID := parseInt64(session.User())
-	
-	_, err = h.outbox.InsertEvent(ctx, h.outbox.Queries(), outbox.PublishRequest{
+
+	_, err = h.outbox.InsertEvent(ctx, outbox.PublishRequest{
 		CompanyID:     companyID,
 		CorrelationID: uuid.New(),
 		EventType:     "qms.calibration.required",
 		AggregateType: "qms_audit_finding",
 		AggregateID:   findingID,
-		Payload:       CalibrationRequestedPayload{
+		Payload: CalibrationRequestedPayload{
 			FindingID: findingID,
 			AssetID:   assetID,
 			ActorID:   actorID,
 		},
 	})
-	
+
 	if err != nil {
 		h.logger.Error("failed to publish calibration event", slog.Any("err", err))
 		h.redirectWithFlash(w, r, "/qms/audits/"+auditID, "danger", "Failed to request calibration.")
 		return
 	}
-	
+
 	h.redirectWithFlash(w, r, "/qms/audits/"+auditID, "success", "Calibration requested in CMMS.")
 }
 
@@ -822,13 +822,13 @@ func (h *Handler) requestCalibration(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) createSPCControlChart(w http.ResponseWriter, r *http.Request) {
 	var in qms.SPCChart
 	if err := shared.DecodeJSON(r, &in); err != nil {
-		shared.JSONError(w, http.StatusBadRequest, err.Error())
+		shared.JSONErrorFrom(w, http.StatusBadRequest, err)
 		return
 	}
 	in.CompanyID = currentCompany(r)
 	created, err := h.service.CreateSPCChart(r.Context(), in)
 	if err != nil {
-		shared.JSONError(w, http.StatusInternalServerError, err.Error())
+		shared.JSONErrorFrom(w, http.StatusInternalServerError, err)
 		return
 	}
 	shared.JSONResponse(w, http.StatusCreated, created)
@@ -837,12 +837,12 @@ func (h *Handler) createSPCControlChart(w http.ResponseWriter, r *http.Request) 
 func (h *Handler) recordSPCDataPoint(w http.ResponseWriter, r *http.Request) {
 	var in qms.SPCSample
 	if err := shared.DecodeJSON(r, &in); err != nil {
-		shared.JSONError(w, http.StatusBadRequest, err.Error())
+		shared.JSONErrorFrom(w, http.StatusBadRequest, err)
 		return
 	}
 	created, err := h.service.RecordSPCSample(r.Context(), in)
 	if err != nil {
-		shared.JSONError(w, http.StatusInternalServerError, err.Error())
+		shared.JSONErrorFrom(w, http.StatusInternalServerError, err)
 		return
 	}
 	shared.JSONResponse(w, http.StatusCreated, created)
@@ -851,13 +851,13 @@ func (h *Handler) recordSPCDataPoint(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) processATEResult(w http.ResponseWriter, r *http.Request) {
 	var in qms.ATETestResult
 	if err := shared.DecodeJSON(r, &in); err != nil {
-		shared.JSONError(w, http.StatusBadRequest, err.Error())
+		shared.JSONErrorFrom(w, http.StatusBadRequest, err)
 		return
 	}
 	// no company id on result, but wait, lets ignore
 	created, err := h.service.RecordATETestResult(r.Context(), in)
 	if err != nil {
-		shared.JSONError(w, http.StatusInternalServerError, err.Error())
+		shared.JSONErrorFrom(w, http.StatusInternalServerError, err)
 		return
 	}
 	shared.JSONResponse(w, http.StatusCreated, created)
@@ -866,13 +866,13 @@ func (h *Handler) processATEResult(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) createLIMSSample(w http.ResponseWriter, r *http.Request) {
 	var in qms.LabSample
 	if err := shared.DecodeJSON(r, &in); err != nil {
-		shared.JSONError(w, http.StatusBadRequest, err.Error())
+		shared.JSONErrorFrom(w, http.StatusBadRequest, err)
 		return
 	}
 	in.CompanyID = currentCompany(r)
 	created, err := h.service.LogLabSample(r.Context(), in)
 	if err != nil {
-		shared.JSONError(w, http.StatusInternalServerError, err.Error())
+		shared.JSONErrorFrom(w, http.StatusInternalServerError, err)
 		return
 	}
 	shared.JSONResponse(w, http.StatusCreated, created)
@@ -881,12 +881,12 @@ func (h *Handler) createLIMSSample(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) recordLIMSResult(w http.ResponseWriter, r *http.Request) {
 	var in qms.LabTest
 	if err := shared.DecodeJSON(r, &in); err != nil {
-		shared.JSONError(w, http.StatusBadRequest, err.Error())
+		shared.JSONErrorFrom(w, http.StatusBadRequest, err)
 		return
 	}
 	created, err := h.service.RecordLabTest(r.Context(), in)
 	if err != nil {
-		shared.JSONError(w, http.StatusInternalServerError, err.Error())
+		shared.JSONErrorFrom(w, http.StatusInternalServerError, err)
 		return
 	}
 	shared.JSONResponse(w, http.StatusCreated, created)

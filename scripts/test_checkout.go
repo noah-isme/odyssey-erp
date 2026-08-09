@@ -30,7 +30,7 @@ func main() {
 	registry := connectors.NewRegistry()
 	registry.Register("midtrans", midtrans.NewAdapter(slog.Default(), vault))
 
-	connectorsService := connectors.NewService(pool, vault, registry)
+	connectorsService := connectors.NewService(connectors.NewRepository(pool), vault, registry)
 
 	// Create a Midtrans connection
 	fmt.Println("1. Creating Midtrans connection...")
@@ -70,7 +70,7 @@ func main() {
 	fmt.Printf("   -> Payment Intent ID: %d\n", result.PaymentIntentID)
 	fmt.Printf("   -> Snap Token: %s\n", result.Token)
 	fmt.Printf("   -> Redirect URL: %s\n", result.RedirectURL)
-	
+
 	// Query the payment_intents table to ensure it persisted correctly
 	fmt.Println("4. Verifying DB persistence...")
 	queries := sqlc.New(pool)
@@ -81,7 +81,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("get payment intent: %v", err)
 	}
-	
+
 	fmt.Printf("   -> Found DB Record: Status=%s, URL=%s\n", intent.Status, intent.CheckoutUrl.String)
 	fmt.Println("E2E Test Passed!")
 }

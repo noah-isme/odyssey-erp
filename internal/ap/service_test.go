@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/procurement"
-	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 type memoryAPRepo struct {
@@ -123,8 +122,8 @@ func (m *memoryAPRepo) GetActiveMatchingPolicy(ctx context.Context, companyID, s
 	return &MatchingPolicy{ID: 1, Name: "Global"}, nil
 }
 
-func (m *memoryAPRepo) GetPOLineProgressByPO(ctx context.Context, poID int64) (map[int64]*sqlc.PoLineProgress, error) {
-	return make(map[int64]*sqlc.PoLineProgress), nil
+func (m *memoryAPRepo) GetPOLineProgressByPO(ctx context.Context, poID int64) (map[int64]*POLineProgress, error) {
+	return make(map[int64]*POLineProgress), nil
 }
 
 func (m *memoryAPRepo) GetLatestMatchingRun(ctx context.Context, invoiceID int64) (*MatchingRun, error) {

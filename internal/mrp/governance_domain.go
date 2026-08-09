@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // DecisionRequest represents a request to make a governed manufacturing decision
@@ -29,22 +28,22 @@ type DecisionGrant struct {
 
 // PolicyVersion represents a versioned, effective-dated governance rule
 type PolicyVersion struct {
-	ID                    int64
-	CompanyID             int64
-	RecordType            string
-	DecisionName          string
-	EffectiveFrom         time.Time
-	EffectiveTo           *time.Time
-	EnforcementMode       string // DISABLED, WARN, ENFORCE
-	SignatureRequired     bool
-	ApproverRoles         []string
-	SeparationOfDuties    *bool
-	RequiredEvidence      []string
-	RetentionPeriodDays   *int
-	Version               int
-	Status                string // DRAFT, ACTIVE, RETIRED
-	CreatedAt             time.Time
-	CreatedBy             int64
+	ID                  int64
+	CompanyID           int64
+	RecordType          string
+	DecisionName        string
+	EffectiveFrom       time.Time
+	EffectiveTo         *time.Time
+	EnforcementMode     string // DISABLED, WARN, ENFORCE
+	SignatureRequired   bool
+	ApproverRoles       []string
+	SeparationOfDuties  *bool
+	RequiredEvidence    []string
+	RetentionPeriodDays *int
+	Version             int
+	Status              string // DRAFT, ACTIVE, RETIRED
+	CreatedAt           time.Time
+	CreatedBy           int64
 }
 
 // ComplianceDecision represents a decision made through the governance gate
@@ -89,8 +88,8 @@ type EvidenceRecord struct {
 type AuditEvent struct {
 	ID            int64
 	CompanyID     int64
-	CorrelationID uuid.UUID     // Groups related decisions
-	CausationID   *uuid.UUID    // Links cause → effect
+	CorrelationID uuid.UUID  // Groups related decisions
+	CausationID   *uuid.UUID // Links cause → effect
 	DecisionID    *int64
 	EntityType    *string
 	EntityID      *int64
@@ -117,15 +116,15 @@ type QualityInspection struct {
 
 // QualityHold represents a quality hold
 type QualityHold struct {
-	ID            int64
-	CompanyID     int64
-	InspectionID  *int64
-	RecordType    *string // work_order, operation, etc.
-	RecordID      *int64
-	Status        string // OPEN, RELEASED
-	CreatedBy     int64
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	ID           int64
+	CompanyID    int64
+	InspectionID *int64
+	RecordType   *string // work_order, operation, etc.
+	RecordID     *int64
+	Status       string // OPEN, RELEASED
+	CreatedBy    int64
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
 
 // QualityNCR represents a nonconformance record
@@ -152,15 +151,15 @@ type QualityCAPA struct {
 
 // SubcontractReceipt represents received subcontract goods
 type SubcontractReceipt struct {
-	ID            int64
-	CompanyID     int64
-	WorkOrderID   int64
-	OperationID   int64
-	Status        string // SENT, RECEIVED, INSPECTING, ACCEPTED, CLOSED
-	SentQty       pgtype.Numeric
-	ReceivedQty   *pgtype.Numeric
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	ID          int64
+	CompanyID   int64
+	WorkOrderID int64
+	OperationID int64
+	Status      string // SENT, RECEIVED, INSPECTING, ACCEPTED, CLOSED
+	SentQty     float64
+	ReceivedQty *float64
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 // EnforcementModes

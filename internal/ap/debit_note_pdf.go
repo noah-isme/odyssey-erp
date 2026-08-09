@@ -60,7 +60,7 @@ func (h *Handler) debitNotePDFDownload(w http.ResponseWriter, r *http.Request) {
 	}
 	note, err := h.service.GetAPDebitNoteWithDetails(r.Context(), id)
 	if err != nil {
-		http.Error(w, shared.UserSafeMessage(err), http.StatusNotFound)
+		shared.WriteErrorStatus(w, http.StatusNotFound, err)
 		return
 	}
 	pdf, err := h.debitNotePDF.Render(r.Context(), *note)

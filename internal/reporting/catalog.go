@@ -5,8 +5,6 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 // DatasetDefinition represents a certified, safe-to-query dataset.
@@ -24,6 +22,29 @@ type DatasetField struct {
 	Classification string
 	IsDimension    bool
 	IsMeasure      bool
+}
+
+// DatasetRecord is the persistence-neutral dataset metadata needed by the
+// catalog. Database null wrappers and generated row types stay in the
+// repository implementation.
+type DatasetRecord struct {
+	ID      uuid.UUID
+	Key     string
+	Version int
+}
+
+type DatasetFieldRecord struct {
+	Name           string
+	Type           string
+	Classification string
+	IsDimension    bool
+	IsMeasure      bool
+}
+
+// CatalogRepository is the persistence boundary used by Catalog.
+type CatalogRepository interface {
+	GetDataset(ctx context.Context, companyID uuid.UUID, key string, version int) (DatasetRecord, error)
+	ListDatasetFields(ctx context.Context, datasetID uuid.UUID) ([]DatasetFieldRecord, error)
 }
 
 // IsDimensionAllowed checks if a dimension is registered.
@@ -46,32 +67,34 @@ func (d *DatasetDefinition) IsFieldAllowed(name string) bool {
 
 // Catalog manages the registration and lookup of datasets.
 type Catalog struct {
-	q *sqlc.Queries
+	repo CatalogRepository
 }
 
-func NewCatalog(q *sqlc.Queries) *Catalog {
-	return &Catalog{q: q}
+func NewCatalog(repo CatalogRepository) *Catalog {
+	return &Catalog{repo: repo}
 }
 
 // GetDataset loads a dataset definition from the database.
 func (c *Catalog) GetDataset(ctx context.Context, companyID uuid.UUID, key string, version int) (*DatasetDefinition, error) {
-	row, err := c.q.GetReportingDataset(ctx, sqlc.GetReportingDatasetParams{
-		CompanyID: pgtype.UUID{Bytes: companyID, Valid: true},
-		Key:       key,
-		Version:   int32(version),
-	})
+	row, err := c.repo.GetDataset(ctx, companyID, key, version)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get dataset: %w", err)
 	}
 
-	fieldsRow, err := c.q.ListReportingDatasetFields(ctx, row.ID)
+	fieldsRow, err := c.repo.ListDatasetFields(ctx, row.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list dataset fields: %w", err)
 	}
 
 	fields := make(map[string]DatasetField)
-	for _, f := range rowToFields(fieldsRow) {
-		fields[f.Name] = f
+	for _, f := range fieldsRow {
+		fields[f.Name] = DatasetField{
+			Name:           f.Name,
+			Type:           f.Type,
+			Classification: f.Classification,
+			IsDimension:    f.IsDimension,
+			IsMeasure:      f.IsMeasure,
+		}
 	}
 
 	// Assuming the source table is statically mapped by the dataset key or stored in a column
@@ -79,26 +102,12 @@ func (c *Catalog) GetDataset(ctx context.Context, companyID uuid.UUID, key strin
 	sourceTable := mapSourceTable(key)
 
 	return &DatasetDefinition{
-		ID:          uuid.UUID(row.ID.Bytes),
+		ID:          row.ID,
 		Key:         row.Key,
-		Version:     int(row.Version),
+		Version:     row.Version,
 		SourceTable: sourceTable,
 		Fields:      fields,
 	}, nil
-}
-
-func rowToFields(rows []sqlc.ReportingDatasetField) []DatasetField {
-	var res []DatasetField
-	for _, r := range rows {
-		res = append(res, DatasetField{
-			Name:           r.FieldName,
-			Type:           r.FieldType,
-			Classification: r.Classification,
-			IsDimension:    r.IsDimension,
-			IsMeasure:      r.IsMeasure,
-		})
-	}
-	return res
 }
 
 func mapSourceTable(key string) string {

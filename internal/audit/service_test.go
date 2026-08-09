@@ -2,34 +2,31 @@ package audit
 
 import (
 	"context"
+	"strconv"
 	"testing"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgtype"
-
-	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 type stubTimelineRepo struct {
-	windowRows     []sqlc.AuditTimelineWindowRow
-	allRows        []sqlc.AuditTimelineAllRow
-	lastWindowCall sqlc.AuditTimelineWindowParams
-	lastAllCall    sqlc.AuditTimelineAllParams
+	windowRows     []TimelineStorageRow
+	allRows        []TimelineStorageRow
+	lastWindowCall TimelineQuery
+	lastAllCall    TimelineQuery
 }
 
-func (s *stubTimelineRepo) AuditTimelineWindow(ctx context.Context, arg sqlc.AuditTimelineWindowParams) ([]sqlc.AuditTimelineWindowRow, error) {
+func (s *stubTimelineRepo) AuditTimelineWindow(ctx context.Context, arg TimelineQuery) ([]TimelineStorageRow, error) {
 	s.lastWindowCall = arg
 	return s.windowRows, nil
 }
 
-func (s *stubTimelineRepo) AuditTimelineAll(ctx context.Context, arg sqlc.AuditTimelineAllParams) ([]sqlc.AuditTimelineAllRow, error) {
+func (s *stubTimelineRepo) AuditTimelineAll(ctx context.Context, arg TimelineQuery) ([]TimelineStorageRow, error) {
 	s.lastAllCall = arg
 	return s.allRows, nil
 }
 
 func TestServiceTimelinePaging(t *testing.T) {
 	repo := &stubTimelineRepo{
-		windowRows: []sqlc.AuditTimelineWindowRow{
+		windowRows: []TimelineStorageRow{
 			mockWindowRow("2024-03-10T10:00:00Z", "user@example.com", "UPDATE", "journal_entries", "1", 1001, "2024-03"),
 			mockWindowRow("2024-03-09T09:00:00Z", "user@example.com", "UPDATE", "periods", "2", 0, "2024-02"),
 			mockWindowRow("2024-03-08T08:00:00Z", "user@example.com", "CREATE", "periods", "3", 0, "2024-01"),
@@ -61,7 +58,7 @@ func TestServiceTimelinePaging(t *testing.T) {
 
 func TestServiceExportReturnsAllRows(t *testing.T) {
 	repo := &stubTimelineRepo{
-		allRows: []sqlc.AuditTimelineAllRow{
+		allRows: []TimelineStorageRow{
 			mockAllRow("2024-03-10T10:00:00Z", "actor", "UPDATE", "journal_entries", "1", 2001, "2024-03"),
 			mockAllRow("2024-03-09T09:00:00Z", "actor", "CREATE", "periods", "2", 0, "2024-02"),
 		},
@@ -74,43 +71,31 @@ func TestServiceExportReturnsAllRows(t *testing.T) {
 	if len(rows) != 2 {
 		t.Fatalf("expected 2 rows, got %d", len(rows))
 	}
-	if repo.lastAllCall.Actor != (pgtype.Text{}) {
+	if repo.lastAllCall.Actor != "" {
 		t.Fatalf("expected actor filter empty")
 	}
 }
 
-func mockWindowRow(ts, actor, action, entity, entityID string, journal int64, period string) sqlc.AuditTimelineWindowRow {
+func mockWindowRow(ts, actor, action, entity, entityID string, journal int64, period string) TimelineStorageRow {
 	tval, _ := time.Parse(time.RFC3339, ts)
-	row := sqlc.AuditTimelineWindowRow{
-		At:       pgtype.Timestamptz{Time: tval, Valid: true},
-		Actor:    actor,
-		Action:   action,
-		Entity:   entity,
-		EntityID: entityID,
+	return TimelineStorageRow{
+		At:         tval,
+		Actor:      actor,
+		Action:     action,
+		Entity:     entity,
+		EntityID:   entityID,
+		JournalNo:  formatJournal(journal),
+		PeriodCode: period,
 	}
-	if journal != 0 {
-		row.JournalNo = pgtype.Int8{Int64: journal, Valid: true}
-	}
-	if period != "" {
-		row.PeriodCode = pgtype.Text{String: period, Valid: true}
-	}
-	return row
 }
 
-func mockAllRow(ts, actor, action, entity, entityID string, journal int64, period string) sqlc.AuditTimelineAllRow {
-	tval, _ := time.Parse(time.RFC3339, ts)
-	row := sqlc.AuditTimelineAllRow{
-		At:       pgtype.Timestamptz{Time: tval, Valid: true},
-		Actor:    actor,
-		Action:   action,
-		Entity:   entity,
-		EntityID: entityID,
+func mockAllRow(ts, actor, action, entity, entityID string, journal int64, period string) TimelineStorageRow {
+	return mockWindowRow(ts, actor, action, entity, entityID, journal, period)
+}
+
+func formatJournal(value int64) string {
+	if value == 0 {
+		return ""
 	}
-	if journal != 0 {
-		row.JournalNo = pgtype.Int8{Int64: journal, Valid: true}
-	}
-	if period != "" {
-		row.PeriodCode = pgtype.Text{String: period, Valid: true}
-	}
-	return row
+	return strconv.FormatInt(value, 10)
 }

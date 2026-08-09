@@ -9,6 +9,7 @@
 **Revised:** 2026-08-02 (manufacturing/MRP execution, planning, quality, analytics, and compliance foundations)
 **Revised:** 2026-08-02 (external integrations implementation plan)
 **Revised:** 2026-08-02 (linked execution plans for remaining module depth and administration)
+**Revised:** 2026-08-09 (repository persistence boundaries and shared HTTP error policy)
 **Current Version:** v0.9.1
 
 > For current capability status, use the [Module Catalog](reference/module-catalog.md).
@@ -301,7 +302,7 @@ These can be implemented in 1-2 days each:
 - [x] ✅ Fix template embedding issue — templates now embedded via `go:embed` (`web/embed.go`, `internal/view/templates.go`)
 - [x] ✅ Add comprehensive unit tests for AR module — `internal/ar/service_test.go` exists
 - [ ] Add integration tests for AR workflows — `internal/integration/` dir exists but is **empty**
-- [ ] Refactor handler error responses to be consistent
+- [x] ✅ Refactor handler error responses to use shared status classification and safe response helpers (`internal/shared/http.go`)
 
 ### Performance
 - [ ] Add database indexes for AR queries

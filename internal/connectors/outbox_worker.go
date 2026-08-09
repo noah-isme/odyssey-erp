@@ -4,9 +4,6 @@ import (
 	"context"
 	"fmt"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 // ProviderRegistry resolves adapters by provider name.
@@ -16,21 +13,21 @@ type ProviderRegistry interface {
 
 // OutboxWorker polls and executes pending connector outbox commands.
 type OutboxWorker struct {
-	queries  *sqlc.Queries
+	repo     OutboxRepository
 	registry ProviderRegistry
 }
 
 // NewOutboxWorker creates a new worker for external connector commands.
-func NewOutboxWorker(queries *sqlc.Queries, registry ProviderRegistry) *OutboxWorker {
+func NewOutboxWorker(repo OutboxRepository, registry ProviderRegistry) *OutboxWorker {
 	return &OutboxWorker{
-		queries:  queries,
+		repo:     repo,
 		registry: registry,
 	}
 }
 
 // ProcessPending polls the database and dispatches commands to the appropriate provider adapter.
 func (w *OutboxWorker) ProcessPending(ctx context.Context, limit int32) error {
-	commands, err := w.queries.GetPendingOutboxCommands(ctx, limit)
+	commands, err := w.repo.GetPendingOutboxCommands(ctx, limit)
 	if err != nil {
 		return fmt.Errorf("failed to fetch pending connector outbox commands: %w", err)
 	}
@@ -42,11 +39,8 @@ func (w *OutboxWorker) ProcessPending(ctx context.Context, limit int32) error {
 	return nil
 }
 
-func (w *OutboxWorker) processCommand(ctx context.Context, sqlCmd *sqlc.ConnectorOutboxCommand) {
-	connRec, err := w.queries.GetConnection(ctx, sqlc.GetConnectionParams{
-		ID:        sqlCmd.ConnectionID,
-		CompanyID: sqlCmd.CompanyID,
-	})
+func (w *OutboxWorker) processCommand(ctx context.Context, sqlCmd *OutboxCommand) {
+	connRec, err := w.repo.GetConnection(ctx, sqlCmd.CompanyID, sqlCmd.ConnectionID)
 	if err != nil {
 		w.markFailure(ctx, sqlCmd, fmt.Errorf("connection not found: %w", err))
 		return
@@ -68,34 +62,16 @@ func (w *OutboxWorker) processCommand(ctx context.Context, sqlCmd *sqlc.Connecto
 		Status:    ConnectionStatus(connRec.Status),
 	}
 
-	domainCmd := &OutboxCommand{
-		ID:            sqlCmd.ID,
-		CompanyID:     sqlCmd.CompanyID,
-		ConnectionID:  sqlCmd.ConnectionID,
-		CommandType:   sqlCmd.CommandType,
-		CorrelationID: sqlCmd.CorrelationID,
-		Payload:       sqlCmd.Payload,
-		State:         sqlCmd.State,
-		Attempts:      int(sqlCmd.Attempts),
-		NextAttempt:   sqlCmd.NextAttempt.Time,
-		CreatedAt:     sqlCmd.CreatedAt.Time,
-		UpdatedAt:     sqlCmd.UpdatedAt.Time,
-	}
-
-	err = adapter.ExecuteCommand(ctx, conn, domainCmd)
+	err = adapter.ExecuteCommand(ctx, conn, sqlCmd)
 	if err != nil {
 		w.markFailure(ctx, sqlCmd, err)
 		return
 	}
 
-	_, _ = w.queries.UpdateOutboxCommandState(ctx, sqlc.UpdateOutboxCommandStateParams{
-		ID:          sqlCmd.ID,
-		State:       "completed",
-		NextAttempt: pgtype.Timestamptz{Time: time.Now(), Valid: true},
-	})
+	_ = w.repo.UpdateOutboxCommandState(ctx, OutboxCommandStateUpdate{ID: sqlCmd.ID, State: "completed", NextAttempt: time.Now()})
 }
 
-func (w *OutboxWorker) markFailure(ctx context.Context, sqlCmd *sqlc.ConnectorOutboxCommand, execErr error) {
+func (w *OutboxWorker) markFailure(ctx context.Context, sqlCmd *OutboxCommand, execErr error) {
 	// Log the execErr in a real system
 	attempts := sqlCmd.Attempts + 1
 	var nextState string
@@ -111,9 +87,5 @@ func (w *OutboxWorker) markFailure(ctx context.Context, sqlCmd *sqlc.ConnectorOu
 		nextAttempt = time.Now().Add(backoffDuration)
 	}
 
-	_, _ = w.queries.UpdateOutboxCommandState(ctx, sqlc.UpdateOutboxCommandStateParams{
-		ID:          sqlCmd.ID,
-		State:       nextState,
-		NextAttempt: pgtype.Timestamptz{Time: nextAttempt, Valid: true},
-	})
+	_ = w.repo.UpdateOutboxCommandState(ctx, OutboxCommandStateUpdate{ID: sqlCmd.ID, State: nextState, NextAttempt: nextAttempt})
 }

@@ -8,40 +8,39 @@ import (
 	"time"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/automation"
-	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 type forecastRepoFake struct {
-	run      sqlc.ForecastRun
-	buckets  []sqlc.CreateForecastDailyBucketParams
-	lines    []sqlc.CreateForecastSourceLineParams
-	statuses []sqlc.UpdateForecastRunStatusParams
+	run      ForecastRun
+	buckets  []CreateForecastDailyBucketInput
+	lines    []CreateForecastSourceLineInput
+	statuses []ForecastRunStatusUpdate
 	bucketID int64
 	lineID   int64
 }
 
-func (r *forecastRepoFake) CreateForecastRun(_ context.Context, arg sqlc.CreateForecastRunParams) (sqlc.ForecastRun, error) {
-	r.run = sqlc.ForecastRun{ID: 41, CompanyID: arg.CompanyID, ScenarioID: arg.ScenarioID, Status: arg.Status}
+func (r *forecastRepoFake) CreateForecastRun(_ context.Context, arg CreateForecastRunInput) (ForecastRun, error) {
+	r.run = ForecastRun{ID: 41, CompanyID: arg.CompanyID, ScenarioID: arg.ScenarioID, Status: arg.Status}
 	return r.run, nil
 }
-func (r *forecastRepoFake) UpdateForecastRunStatus(_ context.Context, arg sqlc.UpdateForecastRunStatusParams) error {
+func (r *forecastRepoFake) UpdateForecastRunStatus(_ context.Context, arg ForecastRunStatusUpdate) error {
 	r.statuses = append(r.statuses, arg)
 	return nil
 }
-func (r *forecastRepoFake) CreateForecastDailyBucket(_ context.Context, arg sqlc.CreateForecastDailyBucketParams) (sqlc.ForecastDailyBucket, error) {
+func (r *forecastRepoFake) CreateForecastDailyBucket(_ context.Context, arg CreateForecastDailyBucketInput) (ForecastDailyBucket, error) {
 	r.bucketID++
 	r.buckets = append(r.buckets, arg)
-	return sqlc.ForecastDailyBucket{ID: r.bucketID, RunID: arg.RunID, Currency: arg.Currency, BucketDate: arg.BucketDate}, nil
+	return ForecastDailyBucket{ID: r.bucketID, RunID: arg.RunID, Currency: arg.Currency, BucketDate: arg.BucketDate}, nil
 }
-func (r *forecastRepoFake) CreateForecastSourceLine(_ context.Context, arg sqlc.CreateForecastSourceLineParams) (sqlc.ForecastSourceLine, error) {
+func (r *forecastRepoFake) CreateForecastSourceLine(_ context.Context, arg CreateForecastSourceLineInput) (int64, error) {
 	r.lineID++
 	r.lines = append(r.lines, arg)
-	return sqlc.ForecastSourceLine{ID: r.lineID, RunID: arg.RunID, DailyBucketID: arg.DailyBucketID}, nil
+	return r.lineID, nil
 }
-func (r *forecastRepoFake) GetLatestForecastRun(context.Context, sqlc.GetLatestForecastRunParams) (sqlc.ForecastRun, error) {
+func (r *forecastRepoFake) GetLatestForecastRun(context.Context, ForecastRunQuery) (ForecastRun, error) {
 	return r.run, nil
 }
-func (r *forecastRepoFake) ListForecastDailyBucketsByRun(context.Context, int64) ([]sqlc.ForecastDailyBucket, error) {
+func (r *forecastRepoFake) ListForecastDailyBucketsByRun(context.Context, int64) ([]ForecastDailyBucket, error) {
 	return nil, nil
 }
 
@@ -76,7 +75,7 @@ func TestGenerateSnapshotAggregatesFlowsAndPersistsSourceLines(t *testing.T) {
 		t.Fatalf("persisted %d buckets and %d lines, want 1 and 3", len(repo.buckets), len(repo.lines))
 	}
 	bucket := repo.buckets[0]
-	if bucket.RunID != 41 || bucket.Currency != "USD" || !bucket.BucketDate.Valid {
+	if bucket.RunID != 41 || bucket.Currency != "USD" || bucket.BucketDate.IsZero() {
 		t.Fatalf("bucket params = %#v", bucket)
 	}
 	if len(repo.statuses) != 1 || repo.statuses[0].Status != "COMPLETED" {
@@ -92,7 +91,7 @@ func TestGenerateSnapshotMarksRunIncompleteWhenReaderFails(t *testing.T) {
 	if err == nil || repo.run.ID != 41 {
 		t.Fatalf("GenerateSnapshot() error = %v, run = %#v", err, repo.run)
 	}
-	if len(repo.statuses) != 1 || repo.statuses[0].Status != "INCOMPLETE" || !repo.statuses[0].ErrorDetails.Valid {
+	if len(repo.statuses) != 1 || repo.statuses[0].Status != "INCOMPLETE" || repo.statuses[0].ErrorDetails == "" {
 		t.Fatalf("failure status = %#v", repo.statuses)
 	}
 }

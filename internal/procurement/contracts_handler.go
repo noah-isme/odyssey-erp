@@ -2,12 +2,12 @@ package procurement
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strconv"
 	"time"
 
 	accountingmoney "github.com/odyssey-erp/odyssey-erp/internal/accounting/money"
+	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 )
 
 // Contract Handlers
@@ -91,7 +91,7 @@ func (h *Handler) getContract(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) listContracts(w http.ResponseWriter, r *http.Request) {
-	_ = currentCompany(r) // companyID
+	_ = currentCompany(r)               // companyID
 	_ = queryInt64(r, "supplier_id", 0) // supplierID
 
 	// TODO: Implement pagination and filtering
@@ -160,12 +160,12 @@ func (h *Handler) createScorecard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	input := CreateScorecardInput{
-		CompanyID:  currentCompany(r),
-		SupplierID: parseInt64(r.PostFormValue("supplier_id")),
+		CompanyID:   currentCompany(r),
+		SupplierID:  parseInt64(r.PostFormValue("supplier_id")),
 		PeriodStart: periodStart,
-		PeriodEnd:  periodEnd,
-		CreatedBy:  currentUser(r),
-		Note:       r.PostFormValue("note"),
+		PeriodEnd:   periodEnd,
+		CreatedBy:   currentUser(r),
+		Note:        r.PostFormValue("note"),
 	}
 
 	// Optional reviewer assessment score
@@ -295,11 +295,11 @@ func (h *Handler) contractUnavailable(w http.ResponseWriter) bool {
 }
 
 func (h *Handler) contractError(w http.ResponseWriter, err error) {
-	http.Error(w, fmt.Sprintf("contract error: %v", err), http.StatusInternalServerError)
+	shared.WriteErrorStatus(w, http.StatusInternalServerError, err)
 }
 
 func (h *Handler) scorecardError(w http.ResponseWriter, err error) {
-	http.Error(w, fmt.Sprintf("scorecard error: %v", err), http.StatusInternalServerError)
+	shared.WriteErrorStatus(w, http.StatusInternalServerError, err)
 }
 
 func writeContractJSON(w http.ResponseWriter, status int, v interface{}) {

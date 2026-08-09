@@ -79,7 +79,7 @@ func (h *Handler) transitionWave(w http.ResponseWriter, r *http.Request, from, t
 		return
 	}
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		shared.WriteErrorStatus(w, http.StatusBadRequest, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, response)
@@ -122,7 +122,7 @@ func (h *Handler) createWave(w http.ResponseWriter, r *http.Request) {
 	}
 	err := h.pool.QueryRow(r.Context(), `INSERT INTO wms_pick_waves(company_id,warehouse_id,number,created_by) SELECT $1,id,$3,$4 FROM warehouses WHERE id=$2 AND company_id=$1 RETURNING id,warehouse_id,number,status,created_by`, cid, in.WarehouseID, in.Number, uid).Scan(&response.ID, &response.WarehouseID, &response.Number, &response.Status, &response.CreatedBy)
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	writeJSON(w, 201, response)
@@ -174,7 +174,7 @@ func (h *Handler) createBin(w http.ResponseWriter, r *http.Request) {
 	}
 	bin, err := h.service.CreateBin(r.Context(), Bin{CompanyID: cid, WarehouseID: input.WarehouseID, Code: input.Code, Name: input.Name, Capacity: input.Capacity, Active: true})
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		shared.WriteErrorStatus(w, http.StatusBadRequest, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, bin)
@@ -208,7 +208,7 @@ func (h *Handler) scan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		shared.WriteErrorStatus(w, http.StatusBadRequest, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, result)
@@ -228,7 +228,7 @@ func (h *Handler) createBarcode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.service.RegisterBarcode(r.Context(), cid, input.Barcode, input.ProductID, input.BinID); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		shared.WriteErrorStatus(w, http.StatusBadRequest, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -249,7 +249,7 @@ func (h *Handler) createPickTask(w http.ResponseWriter, r *http.Request) {
 	}
 	task, err := h.service.CreatePickTask(r.Context(), PickTask{CompanyID: cid, WaveID: input.WaveID, ProductID: input.ProductID, RequestedQty: input.RequestedQty})
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		shared.WriteErrorStatus(w, http.StatusBadRequest, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, task)
@@ -272,7 +272,7 @@ func (h *Handler) transition(w http.ResponseWriter, r *http.Request, status stri
 		return
 	}
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		shared.WriteErrorStatus(w, http.StatusBadRequest, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, task)
@@ -296,7 +296,7 @@ func (h *Handler) ship(w http.ResponseWriter, r *http.Request) {
 		err = h.pool.QueryRow(r.Context(), `SELECT b.warehouse_id,t.product_id,t.picked_qty FROM wms_pick_tasks t JOIN wms_bins b ON b.id=t.source_bin_id WHERE t.company_id=$1 AND t.id=$2`, cid, id).Scan(&warehouse, &product, &qty)
 		if err == nil && qty > 0 {
 			if _, err = h.stock.PostAdjustment(r.Context(), inventory.AdjustmentInput{Code: fmt.Sprintf("WMS-SHIP-%d", id), WarehouseID: warehouse, ProductID: product, Qty: -qty, Note: "WMS shipment", ActorID: uid, RefModule: "WMS"}); err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
+				shared.WriteErrorStatus(w, http.StatusBadRequest, err)
 				return
 			}
 		}
@@ -316,13 +316,13 @@ func (h *Handler) createPutAwayTask(w http.ResponseWriter, r *http.Request) {
 	}
 	var in PutAwayTask
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		shared.WriteErrorStatus(w, http.StatusBadRequest, err)
 		return
 	}
 	in.CompanyID = cid
 	created, err := h.service.CreatePutAwayTask(r.Context(), in)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		shared.WriteErrorStatus(w, http.StatusInternalServerError, err)
 		return
 	}
 	shared.JSONResponse(w, http.StatusCreated, created)
@@ -336,13 +336,13 @@ func (h *Handler) createCrossDockingPlan(w http.ResponseWriter, r *http.Request)
 	}
 	var in CrossDockingPlan
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		shared.WriteErrorStatus(w, http.StatusBadRequest, err)
 		return
 	}
 	in.CompanyID = cid
 	created, err := h.service.CreateCrossDockingPlan(r.Context(), in)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		shared.WriteErrorStatus(w, http.StatusInternalServerError, err)
 		return
 	}
 	shared.JSONResponse(w, http.StatusCreated, created)
@@ -356,13 +356,13 @@ func (h *Handler) createMHEEquipment(w http.ResponseWriter, r *http.Request) {
 	}
 	var in MHEEquipment
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		shared.WriteErrorStatus(w, http.StatusBadRequest, err)
 		return
 	}
 	in.CompanyID = cid
 	created, err := h.service.CreateMHEEquipment(r.Context(), in)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		shared.WriteErrorStatus(w, http.StatusInternalServerError, err)
 		return
 	}
 	shared.JSONResponse(w, http.StatusCreated, created)
