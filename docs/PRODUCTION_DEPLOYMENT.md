@@ -203,6 +203,8 @@ httprate.Limit(100, time.Minute)
 - Database connection pool usage
 - Cache hit/miss rates
 - Queue depth (Asynq jobs)
+- Payment reconciliation, refund recovery, and connector dead-letter counters at
+  the worker metrics endpoint (`WORKER_METRICS_ADDR`, default `:9091`)
 
 **Health Checks**:
 - Database connectivity

@@ -19,10 +19,11 @@ func RegisterOutboxHandlers(dispatcher *outbox.Dispatcher, service *Service, log
 	}
 
 	dispatcher.Register("payment.captured", handler)
+	dispatcher.Register("payment.settled", handler)
 }
 
 func processPaymentCaptured(ctx context.Context, service *Service, logger *slog.Logger, event outbox.Event) error {
-	logger.Info("processing payment.captured event",
+	logger.Info("processing payment confirmation event",
 		slog.String("event_type", event.EventType),
 		slog.String("correlation_id", event.CorrelationID.String()),
 	)
@@ -67,12 +68,15 @@ func processPaymentCaptured(ctx context.Context, service *Service, logger *slog.
 	}
 
 	input := CreateARPaymentInput{
-		Number:   fmt.Sprintf("PAY-ONL-%d", time.Now().Unix()),
-		Currency: invoice.Currency,
-		Amount:   invoice.Balance,
-		PaidAt:   time.Now(),
-		Method:   "online",
-		Note:     fmt.Sprintf("Payment via Provider Ref: %s", orderID),
+		// The provider reference is stable for a retry. A deterministic number
+		// gives the database unique constraint a second line of defence after
+		// inbox/outbox deduplication and avoids time-based duplicate payments.
+		Number:    fmt.Sprintf("PAY-ONL-%d", invoiceID),
+		Currency:  invoice.Currency,
+		Amount:    invoice.Balance,
+		PaidAt:    time.Now(),
+		Method:    "online",
+		Note:      fmt.Sprintf("Payment via Provider Ref: %s", orderID),
 		CreatedBy: 1, // System user
 		Allocations: []PaymentAllocationInput{
 			{

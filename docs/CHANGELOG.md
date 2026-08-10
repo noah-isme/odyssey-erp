@@ -7,6 +7,15 @@ only in the [authoritative feature matrix](reference/feature-matrix.md).
 
 ## Unreleased
 
+- Hardened the Midtrans connector with structured vaulted credentials, explicit
+  sandbox/live endpoint selection, injected transport retries, provider status health
+  checks, strict webhook validation, monotonic payment transitions, refund/status
+  commands, timeout recovery, payout reconciliation, and executable sandbox
+  certification coverage.
+- Operationalized payment recovery with scheduled provider reconciliation, durable
+  unmatched-payment issues and administrator alerts, transactional refund request
+  state persistence, connector dead-letter audit/replay records, and Prometheus
+  recovery metrics.
 - CI now supplies a non-production encryption key for route-dump/server smoke tests,
   aligns reporting and project migrations with the existing BIGINT company/user
   schema, and regenerates the reporting SQLC boundary accordingly.

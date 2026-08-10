@@ -3,11 +3,13 @@ package connectors
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/outbox"
 )
@@ -73,8 +75,10 @@ func (p *InboxProcessor) ProcessWebhook(ctx context.Context, connectionID int64,
 		return fmt.Errorf("connectors: failed to insert inbox event: %w", err)
 	}
 
-	// If ID is 0, ON CONFLICT DO NOTHING triggered, meaning we've already processed this exact event ID.
-	if inboxEvt.ID == 0 {
+	// The inbox insert returns the existing row on a replay. A processed row is
+	// safe to acknowledge; an unprocessed row must be allowed to resume after a
+	// crash between canonical routing and the acknowledgement.
+	if inboxEvt.Processed {
 		p.logger.Info("connectors: webhook event deduplicated, ignoring", slog.String("provider_event_id", providerEventID))
 		return nil
 	}
@@ -86,6 +90,7 @@ func (p *InboxProcessor) ProcessWebhook(ctx context.Context, connectionID int64,
 	}
 
 	// 6. Save the canonical events
+	paymentRepo, hasPaymentRepo := p.repo.(PaymentIntentRepository)
 	for _, evt := range events {
 		_, err = p.repo.InsertCanonicalEvent(ctx, CanonicalEventInput{
 			CompanyID:     companyID,
@@ -100,7 +105,38 @@ func (p *InboxProcessor) ProcessWebhook(ctx context.Context, connectionID int64,
 			return fmt.Errorf("connectors: failed to insert canonical event: %w", err)
 		}
 
-		if p.outboxRepo != nil {
+		// Payment state is advanced before the domain outbox publication. A
+		// stale or repeated callback remains auditable in the canonical event
+		// table but is not allowed to trigger a second AR payment allocation.
+		paymentEventApplied := true
+		if hasPaymentRepo {
+			if _, known := PaymentStatusForEvent(evt.EventType); known {
+				transition, applyErr := paymentRepo.ApplyPaymentIntentEvent(ctx, PaymentIntentEventInput{
+					CompanyID:         companyID,
+					ConnectionID:      connectionID,
+					ProviderReference: evt.CorrelationID,
+					EventType:         evt.EventType,
+					// CausationID can remain stable across a provider's status
+					// updates (Midtrans commonly reuses transaction_id). The
+					// inbox replay key is the event-level ID/hash and must be
+					// used for transition uniqueness instead.
+					ProviderEventID: providerEventID,
+					OccurredAt:      evt.EventTime,
+					RawPayload:      evt.Payload,
+				})
+				if errors.Is(applyErr, pgx.ErrNoRows) {
+					// The callback may race a checkout intent insert. Keep the
+					// canonical event and let reconciliation recover it later.
+					p.logger.Warn("connectors: payment callback has no local intent", slog.String("provider_reference", evt.CorrelationID))
+				} else if applyErr != nil {
+					return fmt.Errorf("connectors: failed to apply payment lifecycle event: %w", applyErr)
+				} else {
+					paymentEventApplied = transition.Applied
+				}
+			}
+		}
+
+		if p.outboxRepo != nil && paymentEventApplied {
 			corrID, err := uuid.Parse(evt.CorrelationID)
 			if err != nil {
 				corrID = uuid.New()

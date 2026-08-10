@@ -85,6 +85,10 @@ candidate has uncommitted non-Graphify changes.
 - [ ] Run provider sandbox/limited-production contract tests for every connector
       included in the release, including signatures, retries, idempotency, and
       replay handling.
+- [x] Run `make midtrans-sandbox-certify` and retain its deterministic evidence for
+      duplicate/out-of-order callbacks, expiry, refunds, payout reconciliation, and
+      timeout recovery; merchant-account and bank-confirmed refund evidence remain
+      external gates.
 - [ ] Verify production connector secrets resolve from the managed secret store;
       `CONNECTORS_DEVELOPMENT_MODE` must remain `false`.
 - [ ] Verify Gotenberg availability and the `production pdf` build artifact if PDF
@@ -99,7 +103,8 @@ candidate has uncommitted non-Graphify changes.
 - [ ] Terminate HTTPS at the owned edge, enforce secure cookies, and document TLS
       renewal and reverse-proxy health checks.
 - [ ] Configure structured logs, metrics, alerts, audit-log access, error-rate
-      thresholds, worker queue monitoring, and database/Redis capacity alerts.
+      thresholds, worker queue monitoring, payment recovery metrics from
+      `WORKER_METRICS_ADDR`, and database/Redis capacity alerts.
 - [ ] Run the backup/restore and disaster-recovery drill, recording measured RPO/RTO.
 - [ ] Confirm rate limits, admin bootstrap controls, RBAC assignments, session
       revocation, and incident-response ownership.

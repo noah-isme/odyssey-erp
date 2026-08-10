@@ -46,7 +46,14 @@ for file in "${doc_files[@]}"; do
   [[ -f "$file" ]] || continue
   while IFS= read -r reference; do
     target=${reference#make }
-    if ! printf '%s\n' "${make_targets[@]}" | grep -q -x "$target"; then
+    found=0
+    for known_target in "${make_targets[@]}"; do
+      if [[ "$known_target" == "$target" ]]; then
+        found=1
+        break
+      fi
+    done
+    if (( found == 0 )); then
       printf 'unknown Make target: %s -> %s\n' "$file" "$target" >&2
       status=1
     fi

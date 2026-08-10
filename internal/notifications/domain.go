@@ -3,17 +3,19 @@ package notifications
 import "time"
 
 const (
-	TypeInvoiceIssued        = "invoice_issued"
-	TypeApprovalRequested    = "approval_requested"
-	TypeReportDelivered      = "report_delivered"
-	TypePasswordReset        = "password_reset"
-	TypeApprovalAssigned     = "approval_assigned"
-	TypeApprovalEscalated    = "approval_escalated"
-	TypeApprovalApproved     = "approval_approved"
-	TypeApprovalRejected     = "approval_rejected"
-	TypeCRMActivityReminder  = "crm_activity_reminder"
-	TypeCRMActivityEscalated = "crm_activity_escalated"
-	TypeCRMOwnerReassigned   = "crm_owner_reassigned"
+	TypeInvoiceIssued                  = "invoice_issued"
+	TypeApprovalRequested              = "approval_requested"
+	TypeReportDelivered                = "report_delivered"
+	TypePasswordReset                  = "password_reset"
+	TypeApprovalAssigned               = "approval_assigned"
+	TypeApprovalEscalated              = "approval_escalated"
+	TypeApprovalApproved               = "approval_approved"
+	TypeApprovalRejected               = "approval_rejected"
+	TypeCRMActivityReminder            = "crm_activity_reminder"
+	TypeCRMActivityEscalated           = "crm_activity_escalated"
+	TypeCRMOwnerReassigned             = "crm_owner_reassigned"
+	TypePaymentReconciliationUnmatched = "payment_reconciliation_unmatched"
+	TypeConnectorDeadLetter            = "connector_dead_letter"
 )
 
 type Notification struct {

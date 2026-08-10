@@ -16,11 +16,13 @@ FX_TO?=2025-12
 FX_SOURCE?=./rates.csv
 BRANCH_ID?=
 BRANCH_QUERY=$(if $(BRANCH_ID),&branch_id=$(BRANCH_ID),)
+CERT_GO_TMP?=/tmp/odyssey-cert-go-tmp
+CERT_GO_CACHE?=/tmp/odyssey-cert-go-cache
 
 export APP_ENV?=development
 export PG_DSN?=postgres://odyssey:odyssey@localhost:5434/odyssey?sslmode=disable
 
-.PHONY: dev air lint vet vet-consol test build docs-check release-check pdf-release-check production-build-check production-release-check migrate-up migrate-down sqlc-gen seed seed-phase3 seed-phase4 refresh-mv reports-demo pdf-sample export-demo fx-tools analytics-dashboard analytics-dashboard-pdf analytics-dashboard-csv prom-up grafana-load alert-test monitor-demo release-phase6
+.PHONY: dev air lint vet vet-consol test build docs-check release-check pdf-release-check production-build-check production-release-check migrate-up migrate-down sqlc-gen midtrans-sandbox-certify seed seed-phase3 seed-phase4 refresh-mv reports-demo pdf-sample export-demo fx-tools analytics-dashboard analytics-dashboard-pdf analytics-dashboard-csv prom-up grafana-load alert-test monitor-demo release-phase6
 
 dev:
 	docker compose up --build
@@ -84,6 +86,10 @@ migrate-down:
 
 sqlc-gen:
 	$(SQLC_BIN) generate
+
+midtrans-sandbox-certify:
+	@mkdir -p "$(CERT_GO_TMP)" "$(CERT_GO_CACHE)"
+	GOTMPDIR="$(CERT_GO_TMP)" GOCACHE="$(CERT_GO_CACHE)" ODYSSEY_TEST_MODE=1 GOTENBERG_URL='http://127.0.0.1:0' $(GO_BIN) test ./internal/connectors/providers/midtrans -run '^TestMidtransSandboxCertification$$' -count=1 -v
 
 seed:
 	$(GO_BIN) run ./scripts/seed/main.go

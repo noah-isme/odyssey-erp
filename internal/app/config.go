@@ -15,6 +15,7 @@ type Config struct {
 	AppReadTimeout    time.Duration `envconfig:"APP_READ_TIMEOUT" default:"15s"`
 	AppWriteTimeout   time.Duration `envconfig:"APP_WRITE_TIMEOUT" default:"15s"`
 	AppRequestTimeout time.Duration `envconfig:"APP_REQUEST_TIMEOUT" default:"30s"`
+	WorkerMetricsAddr string        `envconfig:"WORKER_METRICS_ADDR" default:":9091"`
 
 	LogFormat string `envconfig:"LOG_FORMAT" default:"pretty"`
 

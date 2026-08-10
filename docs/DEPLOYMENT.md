@@ -434,6 +434,9 @@ curl -s https://app.odyssey.com/metrics
 # - Database query times
 # - Cache hit ratio
 # - Active connections
+
+# The worker exposes reconciliation and connector recovery counters separately.
+curl -s http://127.0.0.1:9091/metrics
 ```
 
 ### 3. Alerting Rules

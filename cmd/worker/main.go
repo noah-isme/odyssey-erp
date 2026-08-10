@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,6 +13,8 @@ import (
 	"time"
 
 	"github.com/hibiken/asynq"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/journals"
 	"github.com/odyssey-erp/odyssey-erp/internal/analytics"
@@ -41,6 +44,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/fixedassets"
 	fxservice "github.com/odyssey-erp/odyssey-erp/internal/fx"
 	"github.com/odyssey-erp/odyssey-erp/internal/notifications"
+	"github.com/odyssey-erp/odyssey-erp/internal/observability"
 	"github.com/odyssey-erp/odyssey-erp/internal/outbox"
 	"github.com/odyssey-erp/odyssey-erp/internal/payroll"
 	"github.com/odyssey-erp/odyssey-erp/internal/platform/cache"
@@ -64,6 +68,133 @@ type payrollDeliveryQueue struct{ client *asynq.Client }
 type fxJobFetcher struct{ service *fxservice.Service }
 
 type webhookDispatcher struct{ handler *apihttp.Handler }
+
+type paymentAlertSink struct {
+	pool       *pgxpool.Pool
+	dispatcher interface {
+		Dispatch(context.Context, notifications.Message) error
+	}
+	logger *slog.Logger
+}
+
+func startWorkerMetricsServer(addr string, logger *slog.Logger) (func(context.Context) error, error) {
+	if addr == "" {
+		return func(context.Context) error { return nil }, nil
+	}
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		return nil, fmt.Errorf("listen for worker metrics on %s: %w", addr, err)
+	}
+	metricsMux := http.NewServeMux()
+	metricsMux.Handle("/metrics", promhttp.Handler())
+	server := &http.Server{
+		Handler:           metricsMux,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+	go func() {
+		if err := server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) && logger != nil {
+			logger.Error("worker metrics server stopped", slog.Any("error", err))
+		}
+	}()
+	return server.Shutdown, nil
+}
+
+func (s *paymentAlertSink) recipients(ctx context.Context, companyID int64) ([]int64, error) {
+	if s == nil || s.pool == nil {
+		return nil, nil
+	}
+	rows, err := s.pool.Query(ctx, `
+		SELECT DISTINCT user_id
+		FROM (
+			SELECT u.id AS user_id
+			FROM users u
+			JOIN user_roles ur ON ur.user_id = u.id
+			JOIN roles r ON r.id = ur.role_id
+			WHERE u.is_active AND LOWER(r.name) IN ('admin', 'administrator')
+			UNION
+			SELECT sur.user_id
+			FROM scoped_user_roles sur
+			JOIN company_roles cr ON cr.id = sur.role_id
+			JOIN users u ON u.id = sur.user_id AND u.is_active
+			WHERE sur.company_id = $1 AND LOWER(cr.name) IN ('admin', 'administrator')
+		) recipients
+		ORDER BY user_id`, companyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	ids := make([]int64, 0)
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+func (s *paymentAlertSink) AlertUnmatchedPayment(ctx context.Context, issue connectors.PaymentReconciliationIssue) error {
+	if s == nil || s.dispatcher == nil {
+		return nil
+	}
+	recipients, err := s.recipients(ctx, issue.CompanyID)
+	if err != nil {
+		return err
+	}
+	if len(recipients) == 0 {
+		if s.logger != nil {
+			s.logger.Warn("payment reconciliation issue has no administrator recipient", slog.Int64("company_id", issue.CompanyID), slog.String("provider_reference", issue.ProviderReference))
+		}
+		return nil
+	}
+	var failures []error
+	for _, recipientID := range recipients {
+		err := s.dispatcher.Dispatch(ctx, notifications.Message{
+			RecipientID: recipientID,
+			DedupeKey:   fmt.Sprintf("payment-reconciliation:%d:%d:%s:%s:%d", issue.CompanyID, issue.ConnectionID, issue.ProviderReference, issue.IssueType, time.Now().UTC().Truncate(time.Hour).Unix()),
+			Type:        notifications.TypePaymentReconciliationUnmatched,
+			Title:       "Payment reconciliation requires review",
+			Body:        fmt.Sprintf("Provider %s reported %q for payment %s; local status is %q. %s", issue.Provider, issue.ObservedStatus, issue.ProviderReference, issue.ExpectedStatus, issue.Details),
+			URL:         "/settings/integrations",
+		})
+		if err != nil {
+			failures = append(failures, err)
+		}
+	}
+	return errors.Join(failures...)
+}
+
+func (s *paymentAlertSink) AlertConnectorDeadLetter(ctx context.Context, deadLetter connectors.ConnectorDeadLetter) error {
+	if s == nil || s.dispatcher == nil {
+		return nil
+	}
+	recipients, err := s.recipients(ctx, deadLetter.CompanyID)
+	if err != nil {
+		return err
+	}
+	if len(recipients) == 0 {
+		if s.logger != nil {
+			s.logger.Warn("connector dead letter has no administrator recipient", slog.Int64("company_id", deadLetter.CompanyID), slog.Int64("dead_letter_id", deadLetter.ID))
+		}
+		return nil
+	}
+	var failures []error
+	for _, recipientID := range recipients {
+		err := s.dispatcher.Dispatch(ctx, notifications.Message{
+			RecipientID: recipientID,
+			DedupeKey:   fmt.Sprintf("connector-dead-letter:%d:%d", deadLetter.ID, time.Now().UTC().Truncate(time.Hour).Unix()),
+			Type:        notifications.TypeConnectorDeadLetter,
+			Title:       "Connector command moved to dead letter",
+			Body:        fmt.Sprintf("Provider %s command %s (%s) exhausted retries: %s", deadLetter.Provider, deadLetter.CommandType, deadLetter.CorrelationID, deadLetter.ErrorMessage),
+			URL:         "/settings/integrations",
+		})
+		if err != nil {
+			failures = append(failures, err)
+		}
+	}
+	return errors.Join(failures...)
+}
 
 func (d webhookDispatcher) DispatchWebhookDeliveries(ctx context.Context) error {
 	_, err := d.handler.DeliverDue(ctx, http.DefaultClient, 100)
@@ -263,10 +394,18 @@ func main() {
 	connectorsRegistry.Register("openai", openai.NewAdapter(logger))
 	connectorsRegistry.Register("dhl", dhl.NewAdapter(logger, providerOptions))
 	connectorsRegistry.Register("awss3", awss3.NewAdapter(logger, vault, providerOptions))
-	connectorsRegistry.Register("midtrans", midtrans.NewAdapter(logger, vault))
+	connectorsRegistry.Register("midtrans", midtrans.NewAdapter(logger, vault, providerOptions))
 	connectorsRepo := connectors.NewRepository(pool)
-	connectorsOutboxWorker := connectors.NewOutboxWorker(connectorsRepo, connectorsRegistry)
+	connectorsOutboxWorker := connectors.NewOutboxWorker(connectorsRepo, connectorsRegistry, connectors.WithOutboxWorkerLogger(logger))
 	connectorsService := connectors.NewService(connectorsRepo, vault, connectorsRegistry)
+	recoveryMetrics := observability.NewPaymentRecoveryMetrics(nil)
+	paymentReconciliation := connectors.NewPaymentReconciliationService(
+		connectorsRepo,
+		connectorsRegistry,
+		logger,
+		recoveryMetrics,
+		&paymentAlertSink{pool: pool, dispatcher: notificationDispatcher, logger: logger},
+	)
 
 	outboxRepo := outbox.NewRepository(pool)
 	outboxDispatcher := outbox.NewDispatcher(pool, outboxRepo, logger)
@@ -343,6 +482,8 @@ func main() {
 			{Type: jobs.TaskDocumentOCR, Handler: jobs.HandleDocumentOCR(documentsService)},
 			{Type: jobs.TaskDocumentDisposition, Handler: jobs.HandleDocumentDisposition(documentsService)},
 			{Type: jobs.TaskConnectorOutboxSweep, Handler: jobs.HandleConnectorOutboxSweep(connectorsOutboxWorker)},
+			{Type: jobs.TaskPaymentReconciliation, Handler: jobs.HandlePaymentReconciliation(paymentReconciliation)},
+			{Type: jobs.TaskConnectorDeadLetterAudit, Handler: jobs.HandleConnectorDeadLetterAudit(paymentReconciliation)},
 			{Type: jobs.TaskProcessAPInvoice, Handler: jobs.HandleProcessAPInvoice(apOrchestrator.ProcessInvoice)},
 		},
 		FXFetcher:   fxJobFetcher{service: fxDailyService},
@@ -370,12 +511,26 @@ func main() {
 			{Spec: "5 0 * * *", Task: func() *asynq.Task { task, _ := jobs.NewFXDailyRatesTask(time.Time{}, false); return task }(), Options: []asynq.Option{asynq.MaxRetry(5)}},
 			{Spec: "0 1 * * *", Task: asynq.NewTask(jobs.TaskDocumentDisposition, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
 			{Spec: "* * * * *", Task: asynq.NewTask(jobs.TaskConnectorOutboxSweep, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
+			{Spec: "*/5 * * * *", Task: asynq.NewTask(jobs.TaskPaymentReconciliation, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
+			{Spec: "*/5 * * * *", Task: asynq.NewTask(jobs.TaskConnectorDeadLetterAudit, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
 		},
 	})
 	if err != nil {
 		logger.Error("init worker", slog.Any("error", err))
 		os.Exit(1)
 	}
+	stopMetrics, err := startWorkerMetricsServer(cfg.WorkerMetricsAddr, logger)
+	if err != nil {
+		logger.Error("init worker metrics server", slog.Any("error", err))
+		os.Exit(1)
+	}
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := stopMetrics(shutdownCtx); err != nil {
+			logger.Warn("shutdown worker metrics server", slog.Any("error", err))
+		}
+	}()
 
 	if err := worker.Run(ctx); err != nil && err != context.Canceled {
 		logger.Error("worker run", slog.Any("error", err))

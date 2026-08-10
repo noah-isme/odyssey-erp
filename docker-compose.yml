@@ -63,8 +63,11 @@ services:
       PG_DSN: postgres://odyssey:odyssey@postgres:5432/odyssey?sslmode=disable
       REDIS_ADDR: redis:6379
       ODYSSEY_TEST_MODE: "0"
+      WORKER_METRICS_ADDR: ":9091"
     depends_on:
       - redis
+    ports:
+      - "9091:9091"
 
   setup:
     build: .

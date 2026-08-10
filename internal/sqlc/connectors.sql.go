@@ -406,7 +406,8 @@ INSERT INTO connector_inbox_events (
     company_id, connection_id, provider_event_id, raw_payload
 ) VALUES (
     $1, $2, $3, $4
-) ON CONFLICT (connection_id, provider_event_id) DO NOTHING
+) ON CONFLICT (connection_id, provider_event_id) DO UPDATE
+SET provider_event_id = connector_inbox_events.provider_event_id
 RETURNING id, company_id, connection_id, provider_event_id, raw_payload, processed, created_at, processed_at
 `
 

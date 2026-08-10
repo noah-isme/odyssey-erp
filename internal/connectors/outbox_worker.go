@@ -2,7 +2,9 @@ package connectors
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log/slog"
 	"time"
 )
 
@@ -15,14 +17,32 @@ type ProviderRegistry interface {
 type OutboxWorker struct {
 	repo     OutboxRepository
 	registry ProviderRegistry
+	logger   *slog.Logger
+}
+
+type OutboxWorkerOption func(*OutboxWorker)
+
+func WithOutboxWorkerLogger(logger *slog.Logger) OutboxWorkerOption {
+	return func(worker *OutboxWorker) {
+		if logger != nil {
+			worker.logger = logger
+		}
+	}
 }
 
 // NewOutboxWorker creates a new worker for external connector commands.
-func NewOutboxWorker(repo OutboxRepository, registry ProviderRegistry) *OutboxWorker {
-	return &OutboxWorker{
+func NewOutboxWorker(repo OutboxRepository, registry ProviderRegistry, options ...OutboxWorkerOption) *OutboxWorker {
+	worker := &OutboxWorker{
 		repo:     repo,
 		registry: registry,
+		logger:   slog.Default(),
 	}
+	for _, option := range options {
+		if option != nil {
+			option(worker)
+		}
+	}
+	return worker
 }
 
 // ProcessPending polls the database and dispatches commands to the appropriate provider adapter.
@@ -68,7 +88,16 @@ func (w *OutboxWorker) processCommand(ctx context.Context, sqlCmd *OutboxCommand
 		return
 	}
 
-	_ = w.repo.UpdateOutboxCommandState(ctx, OutboxCommandStateUpdate{ID: sqlCmd.ID, State: "completed", NextAttempt: time.Now()})
+	if refundRepo, ok := w.repo.(PaymentRefundStateRepository); ok && sqlCmd.CommandType == "payment.refund" {
+		if refundKey := refundKeyFromPayload(sqlCmd.Payload); refundKey != "" {
+			if err := refundRepo.MarkPaymentRefundProcessing(ctx, sqlCmd.CompanyID, sqlCmd.ConnectionID, refundKey); err != nil {
+				w.logger.Error("connector refund dispatch state update failed", slog.Int64("outbox_id", sqlCmd.ID), slog.Any("error", err))
+			}
+		}
+	}
+	if err := w.repo.UpdateOutboxCommandState(ctx, OutboxCommandStateUpdate{ID: sqlCmd.ID, State: "completed", NextAttempt: time.Now()}); err != nil {
+		w.logger.Error("connector outbox completion update failed", slog.Int64("outbox_id", sqlCmd.ID), slog.Any("error", err))
+	}
 }
 
 func (w *OutboxWorker) markFailure(ctx context.Context, sqlCmd *OutboxCommand, execErr error) {
@@ -87,5 +116,33 @@ func (w *OutboxWorker) markFailure(ctx context.Context, sqlCmd *OutboxCommand, e
 		nextAttempt = time.Now().Add(backoffDuration)
 	}
 
-	_ = w.repo.UpdateOutboxCommandState(ctx, OutboxCommandStateUpdate{ID: sqlCmd.ID, State: nextState, NextAttempt: nextAttempt})
+	if err := w.repo.UpdateOutboxCommandState(ctx, OutboxCommandStateUpdate{ID: sqlCmd.ID, State: nextState, NextAttempt: nextAttempt}); err != nil {
+		w.logger.Error("connector outbox failure update failed", slog.Int64("outbox_id", sqlCmd.ID), slog.Any("error", err))
+		return
+	}
+	if nextState != "dead_letter" {
+		return
+	}
+	if deadLetterWriter, ok := w.repo.(ConnectorDeadLetterWriter); ok {
+		if err := deadLetterWriter.RecordConnectorDeadLetter(ctx, *sqlCmd, execErr); err != nil {
+			w.logger.Error("connector dead-letter record failed", slog.Int64("outbox_id", sqlCmd.ID), slog.Any("error", err))
+		}
+	}
+	if refundRepo, ok := w.repo.(PaymentRefundStateRepository); ok && sqlCmd.CommandType == "payment.refund" {
+		if refundKey := refundKeyFromPayload(sqlCmd.Payload); refundKey != "" {
+			if err := refundRepo.MarkPaymentRefundFailed(ctx, sqlCmd.CompanyID, sqlCmd.ConnectionID, refundKey, execErr); err != nil {
+				w.logger.Error("connector refund dead-letter state update failed", slog.Int64("outbox_id", sqlCmd.ID), slog.Any("error", err))
+			}
+		}
+	}
+}
+
+func refundKeyFromPayload(payload []byte) string {
+	var value struct {
+		RefundKey string `json:"refund_key"`
+	}
+	if json.Unmarshal(payload, &value) != nil {
+		return ""
+	}
+	return value.RefundKey
 }

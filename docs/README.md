@@ -34,6 +34,7 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 | [Accounting Runbook](guides/accounting.md) | Operasi accounting |
 | [Core Finance Automation Plan](guides/core-finance-automation-plan.md) | Execution-ready plan untuk bank feeds, forecasting, payment, P2P, dan operasi aset |
 | [External Integrations Plan](guides/external-integrations-plan.md) | Payment, carrier, marketplace, messaging, BI, identity, dan AI connectors |
+| [Payment Connector Recovery](guides/payment-recovery.md) | Scheduled reconciliation, unmatched-payment alerts, refund recovery, dead letters, and metrics |
 | [Procurement SOP](guides/procurement.md) | Prosedur procurement |
 | [Procurement and Logistics Depth Plan](guides/procurement-logistics-depth-plan.md) | RFQ, supplier intelligence, fleet, distribution planning, dan freight-cost execution plan |
 | [Distribution planning](guides/distribution.md) | Planning horizons, load/shipment lifecycle, dispatch, delivery, inventory posting, and remaining gaps |

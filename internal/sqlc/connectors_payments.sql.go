@@ -175,16 +175,17 @@ func (q *Queries) GetPaymentIntent(ctx context.Context, arg GetPaymentIntentPara
 
 const getPaymentIntentByProviderRef = `-- name: GetPaymentIntentByProviderRef :one
 SELECT id, company_id, connection_id, source_type, source_id, amount, currency, status, provider_reference, checkout_url, created_at, updated_at FROM payment_intents
-WHERE connection_id = $1 AND provider_reference = $2
+WHERE company_id = $1 AND connection_id = $2 AND provider_reference = $3
 `
 
 type GetPaymentIntentByProviderRefParams struct {
+	CompanyID         int64       `json:"company_id"`
 	ConnectionID      int64       `json:"connection_id"`
 	ProviderReference pgtype.Text `json:"provider_reference"`
 }
 
 func (q *Queries) GetPaymentIntentByProviderRef(ctx context.Context, arg GetPaymentIntentByProviderRefParams) (PaymentIntent, error) {
-	row := q.db.QueryRow(ctx, getPaymentIntentByProviderRef, arg.ConnectionID, arg.ProviderReference)
+	row := q.db.QueryRow(ctx, getPaymentIntentByProviderRef, arg.CompanyID, arg.ConnectionID, arg.ProviderReference)
 	var i PaymentIntent
 	err := row.Scan(
 		&i.ID,
@@ -274,7 +275,7 @@ func (q *Queries) UpdatePaymentDisputeStatus(ctx context.Context, arg UpdatePaym
 const updatePaymentIntentStatus = `-- name: UpdatePaymentIntentStatus :one
 UPDATE payment_intents
 SET status = $2, provider_reference = $3, checkout_url = $4, updated_at = NOW()
-WHERE id = $1
+WHERE id = $1 AND company_id = $5 AND connection_id = $6
 RETURNING id, company_id, connection_id, source_type, source_id, amount, currency, status, provider_reference, checkout_url, created_at, updated_at
 `
 
@@ -283,6 +284,8 @@ type UpdatePaymentIntentStatusParams struct {
 	Status            string      `json:"status"`
 	ProviderReference pgtype.Text `json:"provider_reference"`
 	CheckoutUrl       pgtype.Text `json:"checkout_url"`
+	CompanyID         int64       `json:"company_id"`
+	ConnectionID      int64       `json:"connection_id"`
 }
 
 func (q *Queries) UpdatePaymentIntentStatus(ctx context.Context, arg UpdatePaymentIntentStatusParams) (PaymentIntent, error) {
@@ -291,6 +294,8 @@ func (q *Queries) UpdatePaymentIntentStatus(ctx context.Context, arg UpdatePayme
 		arg.Status,
 		arg.ProviderReference,
 		arg.CheckoutUrl,
+		arg.CompanyID,
+		arg.ConnectionID,
 	)
 	var i PaymentIntent
 	err := row.Scan(

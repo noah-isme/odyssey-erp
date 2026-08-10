@@ -1,0 +1,3 @@
+DROP INDEX IF EXISTS idx_payment_refunds_provider_reference;
+DROP INDEX IF EXISTS idx_payment_intents_connection_reference;
+DROP INDEX IF EXISTS idx_payment_intent_transitions_event;

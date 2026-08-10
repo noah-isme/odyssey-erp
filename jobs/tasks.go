@@ -33,6 +33,12 @@ const (
 	TaskOutboxSweep = "outbox:sweep"
 	// TaskConnectorOutboxSweep processes pending external connector outbox events.
 	TaskConnectorOutboxSweep = "connectors:outbox_sweep"
+	// TaskPaymentReconciliation resolves stale payment intents through provider
+	// status APIs and records unmatched-payment issues.
+	TaskPaymentReconciliation = "payments:reconcile"
+	// TaskConnectorDeadLetterAudit alerts on connector commands that exhausted
+	// their retry budget.
+	TaskConnectorDeadLetterAudit = "connectors:dead_letter_audit"
 	// TaskCRMReminderDispatch sends due and overdue CRM activity notifications.
 	TaskCRMReminderDispatch     = "crm:reminder_dispatch"
 	TaskWebhookDeliveryDispatch = "webhook:delivery_dispatch"

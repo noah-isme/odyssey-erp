@@ -49,7 +49,11 @@ test or reclassifying partial features as integrated.
 
 ## Highest-value remaining work
 
-- Complete live provider workflows and sandbox certification for connectors.
+- Complete live provider workflows and external merchant-account certification for
+  connectors. Midtrans now has deterministic sandbox certification plus scheduled
+  reconciliation, unmatched-payment alerts, refund-state persistence, dead-letter
+  audit/replay, and recovery metrics; live payout and bank-confirmed-refund evidence
+  remains deployment work.
 - Finish finance automation provider adapters, reconciliation, payment execution, and
   outbox operations.
 - Close the procurement, freight, logistics, and distribution lifecycle gaps.

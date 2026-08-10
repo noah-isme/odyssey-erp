@@ -344,7 +344,7 @@ func main() {
 	connectorsRegistry.Register("openai", openai.NewAdapter(logger))
 	connectorsRegistry.Register("dhl", dhl.NewAdapter(logger, providerOptions))
 	connectorsRegistry.Register("awss3", awss3.NewAdapter(logger, vault, providerOptions))
-	connectorsRegistry.Register("midtrans", midtrans.NewAdapter(logger, vault))
+	connectorsRegistry.Register("midtrans", midtrans.NewAdapter(logger, vault, providerOptions))
 	connectorsProcessor := connectors.NewInboxProcessor(connectors.NewRepository(dbpool), connectorsRegistry, outboxRepo, logger)
 	connectorsHandler := connectors.NewWebhookHandler(connectorsProcessor)
 

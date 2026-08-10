@@ -15,7 +15,7 @@ sequencing, and acceptance gates are defined in the [External Integrations Plan]
 | Indonesian tax/Coretax export | Code-complete; release validation pending | Versioned XML export and hashes; official portal/XSD acceptance remains an external gate |
 | Banking statement import | Code-complete | CSV/OFX statement import; no live bank API connection |
 | **Connector foundation** | **Code-complete; integration partial** | Provider-neutral `ProviderAdapter` interface, vault-encrypted `SecretRef`, transactional outbox/inbox, deduplication, canonical event routing to domain modules, and `/settings/integrations` administration UI |
-| **Payment gateways — Midtrans** | **Code-complete; certification pending** | Snap checkout intent, SHA-512 webhook signature verification, `payment.captured/authorized/failed` canonical events, and automatic AR invoice allocation via worker outbox. Sandbox mode default; production requires `isProd=true`. |
+| **Payment gateways — Midtrans** | **Code-complete; certification pending** | Snap checkout intent, SHA-512 webhook signature verification, monotonic payment lifecycle transitions, expiry/refund commands, status recovery, payout equation checks, and automatic AR invoice allocation via worker outbox. Sandbox mode default; production requires structured credentials with `is_prod=true`. |
 | **Payment gateways — Stripe** | **Code-complete; certification pending** | Vault-resolved API/webhook secrets, live balance and charge calls, Stripe webhook verification, stable outbox idempotency keys, and canonical payment events. |
 | **Payment gateways — MockPay** | **Development-only** | Test-only adapter for local and CI environments |
 | **E-commerce — Shopify** | **Code-complete; integration partial** | Vault-resolved shop credentials, signed webhook verification, live order/inventory API calls, stable command keys, and `ecommerce.order.*` canonical events. Provider object mappings and reconciliation remain. |
@@ -41,6 +41,7 @@ The integration administration flow encrypts the provider credential JSON before
 
 | Provider | Required fields | Optional fields |
 |---|---|---|
+| Midtrans | `server_key` | `is_prod` (defaults to `false`), `base_url` (provider-compatible HTTPS endpoint) |
 | Stripe | `api_key`, `webhook_secret` | — |
 | AWS S3 | `access_key_id`, `secret_access_key`, `region`, `bucket` | `session_token`, `endpoint`, `use_path_style` |
 | WhatsApp | `access_token`, `phone_number_id`, `app_secret` | — |
@@ -53,12 +54,14 @@ Provider adapters decrypt these values only while handling a request. They must 
 ## AR Payment Auto-Allocation via Connector Events
 
 When a payment gateway (e.g. Midtrans, Stripe) confirms a successful payment, the
-following pipeline runs automatically in the background worker:
+following pipeline runs automatically in the background worker. `capture` and
+`settlement` are the authoritative confirmation events; expiry, cancellation, and
+refund events advance the payment intent but never create another AR payment:
 
 ```
 Provider webhook
   → InboxProcessor (signature verification, deduplication)
-  → TranslateWebhook → payment.captured CanonicalEvent
+  → TranslateWebhook → payment.captured/payment.settled CanonicalEvent
   → Outbox dispatcher → ar.RegisterOutboxHandlers
   → RegisterARPayment (creates ARPayment record + allocation against invoice)
 ```
@@ -66,6 +69,55 @@ Provider webhook
 The `order_id` / `CorrelationID` encodes the invoice reference using the format
 `inv-{invoiceID}-{unixTimestamp}` so the worker can resolve and fully allocate the
 invoice balance without a separate lookup table.
+
+## Midtrans sandbox certification
+
+Run the deterministic provider-compatible sandbox contract with:
+
+```bash
+make midtrans-sandbox-certify
+```
+
+The gate covers Snap checkout, duplicate and out-of-order callbacks, expiry,
+partial and full refunds, gross/fee/tax/net/payout reconciliation, and recovery
+after a provider-accepted checkout whose response times out. It asserts that a
+callback replay cannot regress a terminal intent or create a second confirmation.
+The test uses an injected sandbox transport and never requires credentials.
+
+External Midtrans certification still requires a merchant sandbox account and
+operator evidence for customer completion, provider expiry timing, refund bank
+confirmation, and payout reporting. Keep those credentials outside the test
+fixtures; the live connector defaults to the Midtrans sandbox unless
+`is_prod=true` is explicitly configured.
+
+## Payment reconciliation operations
+
+See the [Payment Connector Recovery Runbook](payment-recovery.md) for operator
+queries, refund triage, dead-letter replay controls, and metric alerts.
+
+The worker runs `payments:reconcile` and `connectors:dead_letter_audit` every five
+minutes. Reconciliation checks stale `CREATED`, `PENDING`, `AUTHORIZED`, `CAPTURED`,
+`SETTLED`, and `PARTIALLY_REFUNDED` intents through adapters that implement status
+lookup, then applies the same monotonic reducer used by callbacks. Each pass stores
+run counts and duration evidence in `payment_reconciliation_runs`.
+
+Lookup failures, unmapped provider statuses, missing local intents, and invalid state
+transitions are persisted as open `payment_reconciliation_issues`. The worker sends
+deduplicated in-app/email notifications to company administrators and resolves the
+issue when a later provider lookup succeeds.
+
+Refund requests are persisted before their `payment.refund` command is queued. They
+move through `PENDING` → `PROCESSING` → provider-confirmed `PARTIALLY_REFUNDED` or
+`REFUNDED`; a command that exhausts retries becomes `FAILED`. Connector dead letters
+are retained in `connector_dead_letter_events`, alerted once per hour, and require an
+explicit replay decision rather than automatic resubmission.
+
+Recovery counters are exposed on the worker's `WORKER_METRICS_ADDR` endpoint
+(default `:9091`) as Prometheus metrics, including
+`odyssey_payment_recovery_transitions_total`,
+`odyssey_payment_reconciliation_issues_total`,
+`odyssey_payment_refund_status_total`, and
+`odyssey_connector_dead_letters_total`.
 
 ## Adding a New Provider
 

@@ -6,21 +6,19 @@ import (
 	"crypto/sha512"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
-	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/midtrans"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 )
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-// newTestVault builds a Vault using a deterministic test master key.
 func newTestVault(t *testing.T) *shared.Vault {
 	t.Helper()
 	t.Setenv("APP_MASTER_KEY", "test-master-key-for-unit-tests-only")
@@ -31,7 +29,6 @@ func newTestVault(t *testing.T) *shared.Vault {
 	return v
 }
 
-// encryptedConn returns a Connection whose SecretRef is a vault-encrypted serverKey.
 func encryptedConn(t *testing.T, vault *shared.Vault, serverKey string) *connectors.Connection {
 	t.Helper()
 	conn := &connectors.Connection{
@@ -47,395 +44,376 @@ func encryptedConn(t *testing.T, vault *shared.Vault, serverKey string) *connect
 	return conn
 }
 
-// midtransSignature computes SHA-512(orderID + statusCode + grossAmount + serverKey).
+func plaintextConnection(t *testing.T, credentials midtrans.Credentials) *connectors.Connection {
+	t.Helper()
+	payload, err := json.Marshal(credentials)
+	if err != nil {
+		t.Fatalf("marshal credentials: %v", err)
+	}
+	return &connectors.Connection{ID: 1, CompanyID: 42, SecretRef: string(payload)}
+}
+
 func midtransSignature(orderID, statusCode, grossAmount, serverKey string) string {
 	raw := orderID + statusCode + grossAmount + serverKey
 	sum := sha512.Sum512([]byte(raw))
 	return hex.EncodeToString(sum[:])
 }
 
-// silentLogger discards log output so tests stay quiet.
 func silentLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(bytes.NewBuffer(nil), nil))
 }
 
-// ─── VerifyCallbackSignature ────────────────────────────────────────────────
+func response(status int, body string, req *http.Request) *http.Response {
+	return &http.Response{
+		StatusCode: status,
+		Header:     make(http.Header),
+		Body:       io.NopCloser(strings.NewReader(body)),
+		Request:    req,
+	}
+}
 
-func TestMidtransAdapter_VerifyCallbackSignature_Valid(t *testing.T) {
+// VerifyCallbackSignature ---------------------------------------------------
+
+func TestMidtransAdapter_VerifyCallbackSignature(t *testing.T) {
 	vault := newTestVault(t)
 	const serverKey = "SB-Mid-server-test-key"
 	conn := encryptedConn(t, vault, serverKey)
 	adapter := midtrans.NewAdapter(silentLogger(), vault)
 
-	notif := map[string]string{
+	payload, _ := json.Marshal(map[string]string{
 		"order_id":           "inv-100-1700000000",
 		"status_code":        "200",
 		"gross_amount":       "150000.00",
 		"transaction_status": "settlement",
 		"signature_key":      midtransSignature("inv-100-1700000000", "200", "150000.00", serverKey),
-	}
-	payload, _ := json.Marshal(notif)
-
+	})
 	if err := adapter.VerifyCallbackSignature(context.Background(), conn, nil, payload); err != nil {
-		t.Errorf("expected valid signature to pass, got: %v", err)
+		t.Fatalf("valid signature rejected: %v", err)
 	}
-}
 
-func TestMidtransAdapter_VerifyCallbackSignature_Invalid(t *testing.T) {
-	vault := newTestVault(t)
-	const serverKey = "SB-Mid-server-test-key"
-	conn := encryptedConn(t, vault, serverKey)
-	adapter := midtrans.NewAdapter(silentLogger(), vault)
-
-	notif := map[string]string{
-		"order_id":      "inv-100-1700000000",
-		"status_code":   "200",
-		"gross_amount":  "150000.00",
-		"signature_key": "deadbeefdeadbeef", // wrong
-	}
-	payload, _ := json.Marshal(notif)
-
-	if err := adapter.VerifyCallbackSignature(context.Background(), conn, nil, payload); err == nil {
-		t.Error("expected invalid signature to fail, but got nil error")
-	}
-}
-
-func TestMidtransAdapter_VerifyCallbackSignature_WrongKey(t *testing.T) {
-	vault := newTestVault(t)
-	// Conn signed with a different server key than the one used to compute the sig.
-	conn := encryptedConn(t, vault, "wrong-server-key")
-	adapter := midtrans.NewAdapter(silentLogger(), vault)
-
-	notif := map[string]string{
-		"order_id":      "inv-100-1700000000",
-		"status_code":   "200",
-		"gross_amount":  "150000.00",
-		"signature_key": midtransSignature("inv-100-1700000000", "200", "150000.00", "correct-key"),
-	}
-	payload, _ := json.Marshal(notif)
-
-	if err := adapter.VerifyCallbackSignature(context.Background(), conn, nil, payload); err == nil {
-		t.Error("expected signature mismatch when keys differ")
-	}
-}
-
-func TestMidtransAdapter_VerifyCallbackSignature_MalformedPayload(t *testing.T) {
-	vault := newTestVault(t)
-	conn := encryptedConn(t, vault, "some-key")
-	adapter := midtrans.NewAdapter(silentLogger(), vault)
-
-	if err := adapter.VerifyCallbackSignature(context.Background(), conn, nil, []byte("not-json")); err == nil {
-		t.Error("expected error for malformed JSON payload")
-	}
-}
-
-// ─── TranslateWebhook ───────────────────────────────────────────────────────
-
-func TestMidtransAdapter_TranslateWebhook_Settlement(t *testing.T) {
-	vault := newTestVault(t)
-	adapter := midtrans.NewAdapter(silentLogger(), vault)
-	conn := &connectors.Connection{ID: 1, CompanyID: 42}
-
-	payload, _ := json.Marshal(map[string]string{
-		"transaction_id":     "txn-abc",
-		"order_id":           "inv-55-1700000001",
-		"gross_amount":       "200000.00",
-		"transaction_status": "settlement",
-		"status_code":        "200",
-	})
-
-	events, err := adapter.TranslateWebhook(context.Background(), conn, nil, payload)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(events) != 1 {
-		t.Fatalf("expected 1 event, got %d", len(events))
-	}
-	evt := events[0]
-	if evt.EventType != "payment.captured" {
-		t.Errorf("settlement: expected payment.captured, got %q", evt.EventType)
-	}
-	if evt.CorrelationID != "inv-55-1700000001" {
-		t.Errorf("expected correlation_id 'inv-55-1700000001', got %q", evt.CorrelationID)
-	}
-	if evt.CompanyID != 42 {
-		t.Errorf("expected company_id 42, got %d", evt.CompanyID)
-	}
-	if evt.ConnectionID != 1 {
-		t.Errorf("expected connection_id 1, got %d", evt.ConnectionID)
-	}
-}
-
-func TestMidtransAdapter_TranslateWebhook_Capture(t *testing.T) {
-	vault := newTestVault(t)
-	adapter := midtrans.NewAdapter(silentLogger(), vault)
-	conn := &connectors.Connection{ID: 2, CompanyID: 10}
-
-	payload, _ := json.Marshal(map[string]string{
-		"order_id":           "inv-7-1700000002",
-		"transaction_status": "capture",
-		"status_code":        "200",
-	})
-
-	events, err := adapter.TranslateWebhook(context.Background(), conn, nil, payload)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if events[0].EventType != "payment.captured" {
-		t.Errorf("capture: expected payment.captured, got %q", events[0].EventType)
-	}
-}
-
-func TestMidtransAdapter_TranslateWebhook_Pending(t *testing.T) {
-	vault := newTestVault(t)
-	adapter := midtrans.NewAdapter(silentLogger(), vault)
-	conn := &connectors.Connection{ID: 3, CompanyID: 10}
-
-	payload, _ := json.Marshal(map[string]string{
-		"order_id":           "inv-9-1700000003",
-		"transaction_status": "pending",
-	})
-
-	events, err := adapter.TranslateWebhook(context.Background(), conn, nil, payload)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if events[0].EventType != "payment.authorized" {
-		t.Errorf("pending: expected payment.authorized, got %q", events[0].EventType)
-	}
-}
-
-func TestMidtransAdapter_TranslateWebhook_Expired(t *testing.T) {
-	vault := newTestVault(t)
-	adapter := midtrans.NewAdapter(silentLogger(), vault)
-	conn := &connectors.Connection{ID: 4, CompanyID: 10}
-
-	for _, status := range []string{"expire", "cancel", "deny"} {
-		t.Run(status, func(t *testing.T) {
-			payload, _ := json.Marshal(map[string]string{
-				"order_id":           "inv-11-1700000004",
-				"transaction_status": status,
-			})
-
-			events, err := adapter.TranslateWebhook(context.Background(), conn, nil, payload)
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if events[0].EventType != "payment.failed" {
-				t.Errorf("%s: expected payment.failed, got %q", status, events[0].EventType)
+	for name, raw := range map[string][]byte{
+		"wrong signature": []byte(`{"order_id":"inv-100-1700000000","status_code":"200","gross_amount":"150000.00","signature_key":"deadbeef"}`),
+		"malformed":       []byte("not-json"),
+		"missing fields":  []byte(`{"order_id":"inv-100-1700000000","signature_key":"deadbeef"}`),
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := adapter.VerifyCallbackSignature(context.Background(), conn, nil, raw); err == nil {
+				t.Fatal("invalid callback accepted")
 			}
 		})
 	}
 }
 
-func TestMidtransAdapter_TranslateWebhook_UnknownStatus(t *testing.T) {
+func TestMidtransAdapter_VerifyCallbackSignature_WrongKey(t *testing.T) {
 	vault := newTestVault(t)
+	conn := encryptedConn(t, vault, "wrong-server-key")
 	adapter := midtrans.NewAdapter(silentLogger(), vault)
-	conn := &connectors.Connection{ID: 5, CompanyID: 10}
-
 	payload, _ := json.Marshal(map[string]string{
-		"order_id":           "inv-12-1700000005",
-		"transaction_status": "refund", // unknown in our mapping
+		"order_id":      "inv-100-1700000000",
+		"status_code":   "200",
+		"gross_amount":  "150000.00",
+		"signature_key": midtransSignature("inv-100-1700000000", "200", "150000.00", "correct-key"),
 	})
+	if err := adapter.VerifyCallbackSignature(context.Background(), conn, nil, payload); err == nil {
+		t.Fatal("signature generated with another key was accepted")
+	}
+}
 
-	events, err := adapter.TranslateWebhook(context.Background(), conn, nil, payload)
+// TranslateWebhook ----------------------------------------------------------
+
+func TestMidtransAdapter_TranslateWebhook(t *testing.T) {
+	adapter := midtrans.NewAdapter(silentLogger(), newTestVault(t))
+	conn := &connectors.Connection{ID: 1, CompanyID: 42}
+	for status, expected := range map[string]string{
+		"settlement":     "payment.settled",
+		"capture":        "payment.captured",
+		"authorize":      "payment.authorized",
+		"pending":        "payment.pending",
+		"expire":         "payment.expired",
+		"cancel":         "payment.cancelled",
+		"deny":           "payment.failed",
+		"refund":         "payment.refunded",
+		"partial_refund": "payment.partially_refunded",
+	} {
+		t.Run(status, func(t *testing.T) {
+			payload, _ := json.Marshal(map[string]string{
+				"transaction_id":     "txn-abc",
+				"order_id":           "inv-55-1700000001",
+				"gross_amount":       "200000.00",
+				"transaction_status": status,
+				"status_code":        "200",
+				"transaction_time":   "2026-08-10 12:00:00",
+			})
+			events, err := adapter.TranslateWebhook(context.Background(), conn, nil, payload)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if len(events) != 1 || events[0].EventType != expected {
+				t.Fatalf("events = %#v, expected %q", events, expected)
+			}
+			if events[0].CorrelationID != "inv-55-1700000001" || events[0].CausationID != "txn-abc" {
+				t.Fatalf("unexpected event identifiers: %#v", events[0])
+			}
+			if !events[0].EventTime.Equal(time.Date(2026, 8, 10, 5, 0, 0, 0, time.UTC)) {
+				t.Fatalf("unexpected event time: %s", events[0].EventTime)
+			}
+		})
+	}
+}
+
+func TestMidtransAdapter_TranslateWebhook_RejectsIncompletePayload(t *testing.T) {
+	adapter := midtrans.NewAdapter(silentLogger(), newTestVault(t))
+	conn := &connectors.Connection{ID: 1, CompanyID: 42}
+	for _, payload := range [][]byte{[]byte("not-json{{{"), []byte(`{"transaction_status":"settlement"}`)} {
+		if _, err := adapter.TranslateWebhook(context.Background(), conn, nil, payload); err == nil {
+			t.Fatalf("incomplete payload %s was accepted", payload)
+		}
+	}
+}
+
+// ExecuteCommand ------------------------------------------------------------
+
+func TestMidtransAdapter_ExecuteCommand_CreateCheckout(t *testing.T) {
+	var gotMethod, gotPath, gotBody, gotUser string
+	transport := roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		gotMethod, gotPath = req.Method, req.URL.Path
+		gotUser, _, _ = req.BasicAuth()
+		body, _ := io.ReadAll(req.Body)
+		gotBody = string(body)
+		return response(http.StatusCreated, `{"token":"snap-tok-abc","redirect_url":"https://sandbox.invalid/snap/snap-tok-abc"}`, req), nil
+	})
+	adapter := midtrans.NewAdapter(silentLogger(), nil, connectors.ProviderOptions{
+		HTTPClient:                &http.Client{Transport: transport},
+		AllowPlaintextCredentials: true,
+	})
+	cmd := &connectors.OutboxCommand{
+		ID:            11,
+		CommandType:   "payment.create_checkout",
+		CorrelationID: "corr-11",
+		Payload:       []byte(`{"order_id":"inv-100-1700000000","gross_amount":150000,"customer_name":"Ada","customer_email":"ada@example.com"}`),
+	}
+	if err := adapter.ExecuteCommand(context.Background(), plaintextConnection(t, midtrans.Credentials{ServerKey: "SB-Mid-server-abc", BaseURL: "https://sandbox.invalid"}), cmd); err != nil {
+		t.Fatalf("checkout command failed: %v", err)
+	}
+	if gotMethod != http.MethodPost || gotPath != "/snap/v1/transactions" || gotUser != "SB-Mid-server-abc" {
+		t.Fatalf("request = %s %s user=%q", gotMethod, gotPath, gotUser)
+	}
+	if !strings.Contains(gotBody, `"order_id":"inv-100-1700000000"`) || !strings.Contains(gotBody, `"gross_amount":150000`) {
+		t.Fatalf("unexpected request body: %s", gotBody)
+	}
+	var result midtrans.CheckoutResult
+	if err := json.Unmarshal(cmd.Payload, &result); err != nil {
+		t.Fatalf("decode checkout result: %v", err)
+	}
+	if result.Token != "snap-tok-abc" || result.RedirectURL == "" {
+		t.Fatalf("unexpected checkout result: %#v", result)
+	}
+}
+
+func TestMidtransAdapter_ExecuteCommand_RejectsUnsupportedAndMalformed(t *testing.T) {
+	adapter := midtrans.NewAdapter(silentLogger(), newTestVault(t))
+	conn := encryptedConn(t, newTestVault(t), "SB-Mid-server-abc")
+	if err := adapter.ExecuteCommand(context.Background(), conn, &connectors.OutboxCommand{CommandType: "payment.void"}); err == nil {
+		t.Fatal("unsupported command accepted")
+	}
+	if err := adapter.ExecuteCommand(context.Background(), conn, &connectors.OutboxCommand{CommandType: "payment.create_checkout", Payload: []byte("not-json")}); err == nil {
+		t.Fatal("malformed checkout payload accepted")
+	}
+}
+
+func TestMidtransAdapter_ExecuteCommand_RefundAndLookup(t *testing.T) {
+	var refundBody string
+	transport := roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		body, _ := io.ReadAll(req.Body)
+		switch {
+		case req.Method == http.MethodPost && req.URL.Path == "/v2/inv-55/refund":
+			refundBody = string(body)
+			return response(http.StatusOK, `{"order_id":"inv-55","transaction_id":"txn-55","transaction_status":"partial_refund","refund_key":"refund-55","refund_amount":"25000.00"}`, req), nil
+		case req.Method == http.MethodGet && req.URL.Path == "/v2/inv-55/status":
+			return response(http.StatusOK, `{"order_id":"inv-55","transaction_id":"txn-55","transaction_status":"settlement","transaction_time":"2026-08-10 12:00:00"}`, req), nil
+		default:
+			return response(http.StatusNotFound, `{}`, req), nil
+		}
+	})
+	adapter := midtrans.NewAdapter(silentLogger(), nil, connectors.ProviderOptions{
+		HTTPClient:                &http.Client{Transport: transport},
+		AllowPlaintextCredentials: true,
+	})
+	conn := plaintextConnection(t, midtrans.Credentials{ServerKey: "SB-Mid-server-key", BaseURL: "https://sandbox.invalid"})
+
+	refund := &connectors.OutboxCommand{
+		CommandType: "payment.refund",
+		Payload:     []byte(`{"order_id":"inv-55","refund_key":"refund-55","amount":25000,"reason":"sandbox test"}`),
+	}
+	if err := adapter.ExecuteCommand(context.Background(), conn, refund); err != nil {
+		t.Fatalf("refund failed: %v", err)
+	}
+	if !strings.Contains(refundBody, `"refund_key":"refund-55"`) || !strings.Contains(refundBody, `"amount":25000`) {
+		t.Fatalf("refund body = %s", refundBody)
+	}
+	var refundResult midtrans.RefundResult
+	if err := json.Unmarshal(refund.Payload, &refundResult); err != nil {
+		t.Fatal(err)
+	}
+	if refundResult.TransactionStatus != "partial_refund" || refundResult.RefundAmount != "25000.00" {
+		t.Fatalf("refund result = %#v", refundResult)
+	}
+
+	lookup, err := adapter.LookupPaymentStatus(context.Background(), conn, "inv-55")
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf("lookup failed: %v", err)
 	}
-	if events[0].EventType != "payment.unknown" {
-		t.Errorf("unknown status: expected payment.unknown, got %q", events[0].EventType)
-	}
-}
-
-func TestMidtransAdapter_TranslateWebhook_MalformedPayload(t *testing.T) {
-	vault := newTestVault(t)
-	adapter := midtrans.NewAdapter(silentLogger(), vault)
-	conn := &connectors.Connection{}
-
-	_, err := adapter.TranslateWebhook(context.Background(), conn, nil, []byte("not-json{{{"))
-	if err == nil {
-		t.Error("expected error for malformed JSON")
+	if lookup.EventType != "payment.settled" || lookup.ProviderReference != "inv-55" || lookup.TransactionID != "txn-55" {
+		t.Fatalf("lookup result = %#v", lookup)
 	}
 }
 
-// ─── ExecuteCommand ─────────────────────────────────────────────────────────
-
-func TestMidtransAdapter_ExecuteCommand_CreateCheckout_OK(t *testing.T) {
-	// Spin up a fake Midtrans Snap server.
-	snapResp := map[string]string{
-		"token":        "snap-tok-abc",
-		"redirect_url": "https://app.sandbox.midtrans.com/snap/v3/payment/snap-tok-abc",
-	}
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Verify Basic Auth header is set
-		user, _, ok := r.BasicAuth()
-		if !ok || user == "" {
-			w.WriteHeader(http.StatusUnauthorized)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		payload, err := json.Marshal(snapResp)
-		if err != nil {
-			http.Error(w, "failed to encode response", http.StatusInternalServerError)
-			return
-		}
-		_, _ = w.Write(payload)
-	}))
-	defer srv.Close()
-
-	// Override the sandbox URL for this test via env var pattern used in the client.
-	// Since the client hard-codes the URL we need to inject it. We do this by
-	// monkey-patching the env and rebuilding – but the current client doesn't read
-	// the URL from env. Instead, we test at the adapter level by hitting a real-
-	// shaped server and verifying the payload is mutated correctly.
-	// This test therefore validates the full flow in a controlled environment.
-	_ = srv.URL // available if we refactor client to accept a base URL option
-
-	// For now, test that unsupported commands return an error.
-	vault := newTestVault(t)
-	conn := encryptedConn(t, vault, "SB-Mid-server-abc")
-	adapter := midtrans.NewAdapter(silentLogger(), vault)
-
-	badCmd := &connectors.OutboxCommand{
-		CommandType: "payment.refund", // unsupported
-		Payload:     []byte(`{}`),
-	}
-	if err := adapter.ExecuteCommand(context.Background(), conn, badCmd); err == nil {
-		t.Error("expected error for unsupported command type")
-	}
-}
-
-func TestMidtransAdapter_ExecuteCommand_MalformedPayload(t *testing.T) {
-	vault := newTestVault(t)
-	conn := encryptedConn(t, vault, "SB-Mid-server-abc")
-	adapter := midtrans.NewAdapter(silentLogger(), vault)
-
+func TestMidtransAdapter_ExecuteCommand_APIError(t *testing.T) {
+	transport := roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		return response(http.StatusUnauthorized, `{"error_messages":["Access denied"]}`, req), nil
+	})
+	adapter := midtrans.NewAdapter(silentLogger(), nil, connectors.ProviderOptions{
+		HTTPClient:                &http.Client{Transport: transport},
+		AllowPlaintextCredentials: true,
+	})
 	cmd := &connectors.OutboxCommand{
 		CommandType: "payment.create_checkout",
-		Payload:     []byte(`not-json`),
+		Payload:     []byte(`{"order_id":"inv-12-1700000005","gross_amount":100}`),
 	}
-	if err := adapter.ExecuteCommand(context.Background(), conn, cmd); err == nil {
-		t.Error("expected error for malformed checkout payload")
+	err := adapter.ExecuteCommand(context.Background(), plaintextConnection(t, midtrans.Credentials{ServerKey: "bad-key", BaseURL: "https://sandbox.invalid"}), cmd)
+	if err == nil || !strings.Contains(err.Error(), "401") {
+		t.Fatalf("expected provider 401, got %v", err)
 	}
 }
 
-func TestMidtransAdapter_ExecuteCommand_CreateCheckout_APIError(t *testing.T) {
-	// Fake server returns 401 Unauthorized.
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusUnauthorized)
-		if _, err := fmt.Fprintln(w, `{"error_messages":["Access denied"]}`); err != nil {
-			t.Errorf("write fake Midtrans response: %v", err)
+func TestMidtransAdapter_ExecuteCommand_RetriesProviderFailure(t *testing.T) {
+	attempts := 0
+	transport := roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		attempts++
+		if attempts == 1 {
+			return response(http.StatusBadGateway, `{"status_message":"temporary outage"}`, req), nil
 		}
-	}))
-	defer srv.Close()
-
-	// We can't override the hard-coded URL without refactoring, but we test the
-	// error propagation path: when the server key is wrong, Midtrans returns 4xx.
-	// We document this as a contract test skeleton here.
-	t.Log("API-error path covered by integration/sandbox tests; unit coverage for parse errors below")
-
-	vault := newTestVault(t)
-	conn := encryptedConn(t, vault, "bad-key")
-	adapter := midtrans.NewAdapter(silentLogger(), vault)
-
-	// Malformed JSON payload triggers the marshal error path.
+		return response(http.StatusCreated, `{"token":"snap-retried","redirect_url":"https://sandbox.invalid/snap/retried"}`, req), nil
+	})
+	adapter := midtrans.NewAdapter(silentLogger(), nil, connectors.ProviderOptions{
+		HTTPClient:                &http.Client{Transport: transport},
+		AllowPlaintextCredentials: true,
+		RetryPolicy: connectors.RetryPolicy{
+			MaxAttempts: 2,
+			BaseDelay:   time.Nanosecond,
+			MaxDelay:    time.Nanosecond,
+		},
+	})
 	cmd := &connectors.OutboxCommand{
 		CommandType: "payment.create_checkout",
-		Payload:     []byte(`{"order_id": 123}`), // order_id should be string, but this will decode fine
+		Payload:     []byte(`{"order_id":"inv-retry-1","gross_amount":100}`),
 	}
-	// Attempt will fail because it hits the real Midtrans sandbox with a bad key.
-	// We skip the network call and just confirm the command is recognised.
-	_ = adapter
-	_ = cmd
-	_ = conn
+	if err := adapter.ExecuteCommand(context.Background(), plaintextConnection(t, midtrans.Credentials{ServerKey: "SB-Mid-server-key", BaseURL: "https://sandbox.invalid"}), cmd); err != nil {
+		t.Fatalf("retryable checkout failed: %v", err)
+	}
+	if attempts != 2 {
+		t.Fatalf("expected 2 provider attempts, got %d", attempts)
+	}
 }
 
-// ─── CheckHealth / ValidateConnection / RefreshToken ───────────────────────
+// Health and credentials ----------------------------------------------------
 
-func TestMidtransAdapter_CheckHealth(t *testing.T) {
-	vault := newTestVault(t)
-	adapter := midtrans.NewAdapter(silentLogger(), vault)
-	conn := encryptedConn(t, vault, "SB-Mid-server-key")
-
-	status, err := adapter.CheckHealth(context.Background(), conn)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
+func TestMidtransAdapter_CheckHealth_404IsHealthy(t *testing.T) {
+	var gotPath, gotUser string
+	transport := roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		gotPath = req.URL.Path
+		gotUser, _, _ = req.BasicAuth()
+		return response(http.StatusNotFound, `{"status_code":"404"}`, req), nil
+	})
+	adapter := midtrans.NewAdapter(silentLogger(), nil, connectors.ProviderOptions{
+		HTTPClient:                &http.Client{Transport: transport},
+		AllowPlaintextCredentials: true,
+	})
+	status, err := adapter.CheckHealth(context.Background(), &connectors.Connection{
+		ID:        7,
+		SecretRef: plaintextSecret(t, midtrans.Credentials{ServerKey: "SB-Mid-server-key", BaseURL: "https://sandbox.invalid"}),
+	})
+	if err != nil || status != connectors.StatusHealthy {
+		t.Fatalf("CheckHealth() = %v, %v", status, err)
 	}
-	if status != connectors.StatusHealthy {
-		t.Errorf("expected StatusHealthy, got %v", status)
+	if gotPath != "/v2/odyssey-health-check-7/status" || gotUser != "SB-Mid-server-key" {
+		t.Fatalf("health request = %s user=%q", gotPath, gotUser)
+	}
+}
+
+func TestMidtransAdapter_CheckHealth_UsesProductionAPIEndpoint(t *testing.T) {
+	var gotHost string
+	transport := roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		gotHost = req.URL.Host
+		return response(http.StatusOK, `{"status_code":"200","transaction_status":"settlement"}`, req), nil
+	})
+	adapter := midtrans.NewAdapter(silentLogger(), nil, connectors.ProviderOptions{
+		HTTPClient:                &http.Client{Transport: transport},
+		AllowPlaintextCredentials: true,
+	})
+	status, err := adapter.CheckHealth(context.Background(), &connectors.Connection{
+		ID:        8,
+		SecretRef: plaintextSecret(t, midtrans.Credentials{ServerKey: "Mid-server-live-key", IsProd: true}),
+	})
+	if err != nil || status != connectors.StatusHealthy {
+		t.Fatalf("CheckHealth() = %v, %v", status, err)
+	}
+	if gotHost != "api.midtrans.com" {
+		t.Fatalf("production health host = %q", gotHost)
 	}
 }
 
 func TestMidtransAdapter_ValidateConnection(t *testing.T) {
 	vault := newTestVault(t)
 	adapter := midtrans.NewAdapter(silentLogger(), vault)
-
-	// Empty SecretRef is valid to pass through (adapter defers credential validation to first use).
-	conn := &connectors.Connection{}
-	if err := adapter.ValidateConnection(context.Background(), conn); err != nil {
-		t.Errorf("expected nil for empty connection (no-op), got: %v", err)
+	if err := adapter.ValidateConnection(context.Background(), encryptedConn(t, vault, "SB-Mid-server-key")); err != nil {
+		t.Fatalf("valid credentials rejected: %v", err)
+	}
+	if err := adapter.ValidateConnection(context.Background(), &connectors.Connection{}); err == nil {
+		t.Fatal("missing credentials accepted")
 	}
 }
 
 func TestMidtransAdapter_RefreshToken(t *testing.T) {
-	vault := newTestVault(t)
-	adapter := midtrans.NewAdapter(silentLogger(), vault)
-	conn := encryptedConn(t, vault, "SB-Mid-server-key")
-
-	// Midtrans uses server keys (no OAuth expiry), so this should always be a no-op.
-	if err := adapter.RefreshToken(context.Background(), conn); err != nil {
-		t.Errorf("RefreshToken should be no-op, got: %v", err)
+	adapter := midtrans.NewAdapter(silentLogger(), newTestVault(t))
+	if err := adapter.RefreshToken(context.Background(), &connectors.Connection{}); err != nil {
+		t.Fatalf("RefreshToken should be a no-op for server-key auth: %v", err)
 	}
 }
 
-// ─── WebhookNotification.VerifySignature (pure unit) ────────────────────────
-
-func TestWebhookNotification_VerifySignature(t *testing.T) {
-	// Access via exported fields through JSON round-trip.
+func TestWebhookNotificationVerifySignatureThroughAdapter(t *testing.T) {
 	const serverKey = "my-server-key"
-
-	orderID := "ORDER-999"
-	statusCode := "200"
-	grossAmount := "50000.00"
-	sig := midtransSignature(orderID, statusCode, grossAmount, serverKey)
-
-	raw, _ := json.Marshal(map[string]string{
+	orderID, statusCode, grossAmount := "ORDER-999", "200", "50000.00"
+	payload, _ := json.Marshal(map[string]string{
 		"order_id":      orderID,
 		"status_code":   statusCode,
 		"gross_amount":  grossAmount,
-		"signature_key": sig,
+		"signature_key": midtransSignature(orderID, statusCode, grossAmount, serverKey),
 	})
-
-	// Round-trip through the adapter's TranslateWebhook to exercise VerifySignature indirectly.
 	vault := newTestVault(t)
-	conn := encryptedConn(t, vault, serverKey)
 	adapter := midtrans.NewAdapter(silentLogger(), vault)
-
-	if err := adapter.VerifyCallbackSignature(context.Background(), conn, nil, raw); err != nil {
-		t.Errorf("valid signature should pass VerifyCallbackSignature, got: %v", err)
-	}
-
-	// Tamper with gross amount — signature should now fail.
-	tampered, _ := json.Marshal(map[string]string{
-		"order_id":      orderID,
-		"status_code":   statusCode,
-		"gross_amount":  "99999.00", // different!
-		"signature_key": sig,        // still the old sig
-	})
-	if err := adapter.VerifyCallbackSignature(context.Background(), conn, nil, tampered); err == nil {
-		t.Error("tampered gross_amount should cause signature failure")
+	conn := encryptedConn(t, vault, serverKey)
+	if err := adapter.VerifyCallbackSignature(context.Background(), conn, nil, payload); err != nil {
+		t.Fatalf("valid signature rejected: %v", err)
 	}
 }
 
-// ─── ProviderAdapter interface compliance ───────────────────────────────────
+func plaintextSecret(t *testing.T, credentials midtrans.Credentials) string {
+	t.Helper()
+	payload, err := json.Marshal(credentials)
+	if err != nil {
+		t.Fatalf("marshal credentials: %v", err)
+	}
+	return string(payload)
+}
 
-// Compile-time assertion that *Adapter satisfies ProviderAdapter.
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) { return f(req) }
+
 var _ connectors.ProviderAdapter = (*midtrans.Adapter)(nil)
 
-// ─── Environment isolation ──────────────────────────────────────────────────
-
 func TestMain(m *testing.M) {
-	// Ensure the test binary is not accidentally running against production.
 	if err := os.Setenv("APP_MASTER_KEY", "test-master-key-for-unit-tests-only"); err != nil {
 		panic(err)
 	}

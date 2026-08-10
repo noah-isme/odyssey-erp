@@ -11,12 +11,12 @@ WHERE id = $1 AND company_id = $2;
 
 -- name: GetPaymentIntentByProviderRef :one
 SELECT * FROM payment_intents
-WHERE connection_id = $1 AND provider_reference = $2;
+WHERE company_id = $1 AND connection_id = $2 AND provider_reference = $3;
 
 -- name: UpdatePaymentIntentStatus :one
 UPDATE payment_intents
 SET status = $2, provider_reference = $3, checkout_url = $4, updated_at = NOW()
-WHERE id = $1
+WHERE id = $1 AND company_id = $5 AND connection_id = $6
 RETURNING *;
 
 -- name: InsertPaymentIntentTransition :one

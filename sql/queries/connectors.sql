@@ -48,7 +48,8 @@ INSERT INTO connector_inbox_events (
     company_id, connection_id, provider_event_id, raw_payload
 ) VALUES (
     $1, $2, $3, $4
-) ON CONFLICT (connection_id, provider_event_id) DO NOTHING
+) ON CONFLICT (connection_id, provider_event_id) DO UPDATE
+SET provider_event_id = connector_inbox_events.provider_event_id
 RETURNING *;
 
 -- name: GetUnprocessedInboxEvents :many
@@ -96,4 +97,3 @@ UPDATE connector_sync_runs
 SET status = $2, cursor_value = $3, completed_at = $4, error_message = $5
 WHERE id = $1
 RETURNING *;
-

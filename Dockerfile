@@ -45,7 +45,7 @@ RUN chown -R odyssey:odyssey /app
 USER odyssey
 
 # Expose port
-EXPOSE 8080
+EXPOSE 8080 9091
 
 # Run application
 CMD ["/app/odyssey"]
