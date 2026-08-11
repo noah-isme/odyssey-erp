@@ -7,31 +7,31 @@ import (
 )
 
 type MockRepository struct {
-	RateCards       map[int64]*RateCard
-	Surcharges      map[int64]*RateSurcharge
-	Charges         map[int64]*FreightCharge
-	LandedCosts     map[int64]*LandedCost
-	CostCenters     map[int64]*CostCenter
-	AuditLogs       map[int64][]*FreightAuditLog
-	
-	nextRateCardID  int64
-	nextSurchargeID int64
-	nextChargeID    int64
+	RateCards   map[int64]*RateCard
+	Surcharges  map[int64]*RateSurcharge
+	Charges     map[int64]*FreightCharge
+	LandedCosts map[int64]*LandedCost
+	CostCenters map[int64]*CostCenter
+	AuditLogs   map[int64][]*FreightAuditLog
+
+	nextRateCardID   int64
+	nextSurchargeID  int64
+	nextChargeID     int64
 	nextLandedCostID int64
 	nextCostCenterID int64
 }
 
 func NewMockRepository() *MockRepository {
 	return &MockRepository{
-		RateCards:       make(map[int64]*RateCard),
-		Surcharges:      make(map[int64]*RateSurcharge),
-		Charges:         make(map[int64]*FreightCharge),
-		LandedCosts:     make(map[int64]*LandedCost),
-		CostCenters:     make(map[int64]*CostCenter),
-		AuditLogs:       make(map[int64][]*FreightAuditLog),
-		nextRateCardID:  1,
-		nextSurchargeID: 1,
-		nextChargeID:    1,
+		RateCards:        make(map[int64]*RateCard),
+		Surcharges:       make(map[int64]*RateSurcharge),
+		Charges:          make(map[int64]*FreightCharge),
+		LandedCosts:      make(map[int64]*LandedCost),
+		CostCenters:      make(map[int64]*CostCenter),
+		AuditLogs:        make(map[int64][]*FreightAuditLog),
+		nextRateCardID:   1,
+		nextSurchargeID:  1,
+		nextChargeID:     1,
 		nextLandedCostID: 1,
 		nextCostCenterID: 1,
 	}
@@ -62,7 +62,7 @@ func (m *MockRepository) CreateRateCard(ctx context.Context, input CreateRateCar
 	if input.PerCbmRate != nil {
 		rc.PerCbmRate = input.PerCbmRate
 	}
-	
+
 	m.RateCards[rc.ID] = rc
 	m.nextRateCardID++
 	return rc, nil
@@ -102,16 +102,16 @@ func (m *MockRepository) ListApplicableRateCards(ctx context.Context, companyID 
 
 func (m *MockRepository) CreateRateSurcharge(ctx context.Context, companyID, rateCardID int64, input CreateRateSurchargeInput) (*RateSurcharge, error) {
 	s := &RateSurcharge{
-		ID:            m.nextSurchargeID,
-		CompanyID:     companyID,
-		RateCardID:    rateCardID,
-		SurchargeType: input.SurchargeType,
-		SurchargeName: input.SurchargeName,
-		SurchargeAmount: input.SurchargeAmount,
+		ID:               m.nextSurchargeID,
+		CompanyID:        companyID,
+		RateCardID:       rateCardID,
+		SurchargeType:    input.SurchargeType,
+		SurchargeName:    input.SurchargeName,
+		SurchargeAmount:  input.SurchargeAmount,
 		SurchargePercent: input.SurchargePercent,
-		EffectiveDate: input.EffectiveDate,
-		ExpirationDate: input.ExpirationDate,
-		CreatedAt:     time.Now(),
+		EffectiveDate:    input.EffectiveDate,
+		ExpirationDate:   input.ExpirationDate,
+		CreatedAt:        time.Now(),
 	}
 	m.Surcharges[s.ID] = s
 	m.nextSurchargeID++
@@ -250,9 +250,14 @@ func (m *MockRepository) UpdateCostCenter(ctx context.Context, companyID, costCe
 }
 
 func (m *MockRepository) CreateAuditLog(ctx context.Context, log *FreightAuditLog) error {
+	if log == nil {
+		return nil
+	}
+	copyLog := *log
+	m.AuditLogs[log.FreightChargeID] = append(m.AuditLogs[log.FreightChargeID], &copyLog)
 	return nil
 }
 
 func (m *MockRepository) ListAuditLogs(ctx context.Context, companyID, freightChargeID int64) ([]*FreightAuditLog, error) {
-	return nil, nil
+	return m.AuditLogs[freightChargeID], nil
 }

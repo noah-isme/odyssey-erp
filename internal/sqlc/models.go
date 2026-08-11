@@ -4776,6 +4776,31 @@ type RateSurcharge struct {
 	CreatedAt        pgtype.Timestamp `json:"created_at"`
 }
 
+type RbacAccessReview struct {
+	ID              int64              `json:"id"`
+	CompanyID       int64              `json:"company_id"`
+	SubjectUserID   int64              `json:"subject_user_id"`
+	ReviewKey       string             `json:"review_key"`
+	Status          string             `json:"status"`
+	Decision        pgtype.Text        `json:"decision"`
+	OpenedByUserID  int64              `json:"opened_by_user_id"`
+	DecidedByUserID pgtype.Int8        `json:"decided_by_user_id"`
+	DecidedAt       pgtype.Timestamptz `json:"decided_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type RbacUserRoleAssignment struct {
+	ID        int64              `json:"id"`
+	CompanyID int64              `json:"company_id"`
+	UserID    int64              `json:"user_id"`
+	RoleID    int64              `json:"role_id"`
+	BranchID  pgtype.Int8        `json:"branch_id"`
+	ValidFrom pgtype.Timestamptz `json:"valid_from"`
+	ValidTo   pgtype.Timestamptz `json:"valid_to"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type ReportRun struct {
 	ID                pgtype.UUID        `json:"id"`
 	CompanyID         int64              `json:"company_id"`

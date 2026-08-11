@@ -826,8 +826,24 @@ type Querier interface {
 	PublishSupplierScorecard(ctx context.Context, arg PublishSupplierScorecardParams) error
 	QMSUpdateCAPAStatus(ctx context.Context, arg QMSUpdateCAPAStatusParams) error
 	QMSUpdateNCRStatus(ctx context.Context, arg QMSUpdateNCRStatusParams) error
+	RbacCompleteAccessReview(ctx context.Context, arg RbacCompleteAccessReviewParams) (RbacAccessReview, error)
 	RbacCreateRole(ctx context.Context, arg RbacCreateRoleParams) (Role, error)
+	RbacCreateScopedRoleAssignment(ctx context.Context, arg RbacCreateScopedRoleAssignmentParams) (RbacUserRoleAssignment, error)
+	RbacDeleteScopedRoleAssignment(ctx context.Context, arg RbacDeleteScopedRoleAssignmentParams) (int64, error)
+	// Active-scope semantics:
+	//   * valid_from is inclusive;
+	//   * valid_to is exclusive;
+	//   * a NULL branch assignment is company-wide;
+	//   * a branch-scoped assignment is usable only for that branch;
+	//   * a company-level lookup never widens to a branch-scoped assignment.
+	// Legacy user_roles are intentionally not included here. They remain available
+	// through UserEffectivePermissions for compatibility with global callers.
+	RbacEffectivePermissionsInScope(ctx context.Context, arg RbacEffectivePermissionsInScopeParams) ([]string, error)
+	RbacGetAccessReview(ctx context.Context, arg RbacGetAccessReviewParams) (RbacAccessReview, error)
+	RbacListOpenAccessReviews(ctx context.Context, companyID int64) ([]RbacAccessReview, error)
 	RbacListRoles(ctx context.Context) ([]Role, error)
+	RbacListScopedRoleAssignments(ctx context.Context, arg RbacListScopedRoleAssignmentsParams) ([]RbacUserRoleAssignment, error)
+	RbacOpenAccessReview(ctx context.Context, arg RbacOpenAccessReviewParams) (RbacAccessReview, error)
 	// =============================================================================
 	// PRICE HISTORY (Immutable)
 	// =============================================================================

@@ -54,14 +54,18 @@ test or reclassifying partial features as integrated.
   reconciliation, unmatched-payment alerts, refund-state persistence, dead-letter
   audit/replay, and recovery metrics; live payout and bank-confirmed-refund evidence
   remains deployment work.
-- Finish finance automation provider adapters, reconciliation, payment execution, and
-  outbox operations.
-- Close the procurement, freight, logistics, and distribution lifecycle gaps.
+- Integrate the provider-neutral payment execution coordinator with a durable treasury
+  store, the existing finance outbox, settlement-to-AP/accounting effects, live provider
+  adapters, and reconciliation.
+- Close the remaining procurement, landed-cost, logistics, and distribution lifecycle
+  gaps. Freight now has an injectable exact journal-posting boundary, but application
+  wiring and the full PO-to-GL orchestration remain open.
 - Add provider-backed OCR, realtime collaboration delivery, and richer disposition
   operations.
 - Finish CMMS telemetry/predictive operations and the remaining MRP compliance decision
   paths, retention jobs, and regulated-policy validation.
-- Complete scoped RBAC assignments and access-review operations.
+- Wire the scoped RBAC assignment and access-review foundation into tenant-aware
+  middleware, seed/migrate assignments, and finish the newer-module role matrix.
 
 ## Release rule
 

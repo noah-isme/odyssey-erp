@@ -6,9 +6,10 @@ This document describes the Role-Based Access Control (RBAC) system in Odyssey E
 
 **Permissions are catalogued module-by-module:**
 
-Scoped company/branch assignments, newer-module role templates, separation-of-duties
-coverage, access reviews, and the target role matrix are planned in the
-[`Reporting and Administration Depth Execution Plan`](../guides/reporting-administration-depth-plan.md).
+Effective-dated company/branch assignments and company-scoped access-review foundations
+now live in `internal/rbac` and migration `000122`. Tenant-aware middleware wiring,
+newer-module role templates, complete separation-of-duties coverage, and the target role
+matrix remain planned in the [`Reporting and Administration Depth Execution Plan`](../guides/reporting-administration-depth-plan.md).
 
 | Module | Catalog |
 |--------|---------|

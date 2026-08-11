@@ -263,9 +263,13 @@ type CalculateLandedCostInput struct {
 type PostFreightToGLInput struct {
 	CompanyID       int64
 	FreightChargeID int64
-	CostCenterID    int64
-	GLAccount       string
-	FreightAmount   accountingmoney.Money
-	Description     string
-	PostedBy        int64
+	// PeriodID is passed through to the accounting journal service. A direct
+	// accounting.Service poster requires it; custom posters may resolve it
+	// from their own integration context.
+	PeriodID      int64
+	CostCenterID  int64
+	GLAccount     string
+	FreightAmount accountingmoney.Money
+	Description   string
+	PostedBy      int64
 }

@@ -2,6 +2,8 @@
 
 Welcome to the developer documentation for Odyssey ERP! This guide is designed to help you set up your local development environment, understand the project structure, and contribute to the codebase.
 
+For current capability and release status, see the [Authoritative Feature Matrix](reference/feature-matrix.md).
+
 ## Prerequisites & Installation
 
 Before you begin, ensure you have the following installed on your machine:

@@ -2,7 +2,7 @@
 
 **Priority:** High
 
-**Status:** Partially implemented (foundation and first treasury slice)
+**Status:** Partially implemented (foundation, first treasury slice, and provider-neutral payment execution coordinator)
 
 **Scope:** Cash forecasting, automated bank feeds, payment scheduling, end-to-end
 purchase-to-pay automation, and fixed-asset maintenance, transfer, location, and
@@ -86,7 +86,7 @@ Extend the current owners and add narrow packages only where a new domain has no
 | Statements and reconciliation | Accounting banks | `internal/accounting/banks/` |
 | Provider connection and ingestion | New bank-feed application service | Proposed internal/finance/bankfeeds package; provider adapter location follows the external-integrations ADR |
 | Forecast scenarios and snapshots | Treasury forecast service | `internal/finance/forecasting/` |
-| Payment proposals and execution | New treasury payment service | Proposed internal/finance/payments package; confirmed settlement calls `internal/ap/` |
+| Payment proposals and execution | New treasury payment service | `internal/finance/payments/` now provides the provider-neutral coordinator; durable execution storage, outbox wiring, and confirmed settlement calls into `internal/ap/` remain |
 | PO, receipt, return, and line progress | Procurement | `internal/procurement/` |
 | Supplier invoice and allocations | Accounts payable | `internal/ap/` |
 | Matching and P2P exception queue | Procurement/AP boundary | Proposed internal/procurement/matching package, with explicit ports into AP |
@@ -337,13 +337,19 @@ total and item count reconcile to the approved batch snapshot.
 
 **Duration:** Weeks 12–13; may be deferred after export-only production
 
-- [x] Submit through a transactional outbox and use a stable idempotency key per batch item.
+The provider-neutral coordinator in `internal/finance/payments/` now covers exact-money
+proposal, approval, submission, settlement, cancellation, ambiguity lookup, and controlled
+export behind injectable persistence and provider ports. Production completion still
+requires durable treasury storage, live provider adapters, outbox integration, confirmed
+settlement effects in AP/accounting, operations pages, and sandbox certification.
+
+- [ ] Submit through the existing transactional outbox and use a stable idempotency key per batch item in the durable integration.
 - [x] On timeout or retry, query provider status before any resubmission.
 - [x] Ingest partial, rejected, cancelled, failed, and settled provider results into an
   append-only status history.
-- [x] Only confirmed settlement invokes AP payment/allocation, FX, tax, journal, and bank
-  reconciliation services. Never duplicate those effects on callback replay.
-- [x] Add payment operations pages and alerts for ambiguous, partial, failed, and unmatched
+- [ ] Wire only confirmed settlement into AP payment/allocation, FX, tax, journal, and bank
+  reconciliation services, with no duplicate effects on callback replay.
+- [ ] Add payment operations pages and alerts for ambiguous, partial, failed, and unmatched
   settlement.
 
 **Exit:** Database-backed and sandbox tests prove exact equality across batch settlement,

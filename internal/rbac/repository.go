@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
@@ -19,6 +20,8 @@ type PGRepository struct {
 func NewRepository(pool *pgxpool.Pool) *PGRepository {
 	return &PGRepository{queries: sqlc.New(pool)}
 }
+
+var _ ScopedRepository = (*PGRepository)(nil)
 
 func (r *PGRepository) ListRoles(ctx context.Context) ([]Role, error) {
 	rows, err := r.queries.RbacListRoles(ctx)
@@ -119,6 +122,122 @@ func (r *PGRepository) EffectivePermissions(ctx context.Context, userID int64) (
 	return r.queries.UserEffectivePermissions(ctx, userID)
 }
 
+func (r *PGRepository) CreateScopedRoleAssignment(ctx context.Context, input ScopedRoleAssignmentInput) (ScopedRoleAssignment, error) {
+	row, err := r.queries.RbacCreateScopedRoleAssignment(ctx, sqlc.RbacCreateScopedRoleAssignmentParams{
+		CompanyID: input.CompanyID,
+		UserID:    input.UserID,
+		RoleID:    input.RoleID,
+		BranchID:  nullableInt8(input.BranchID),
+		ValidFrom: timestamptz(input.ValidFrom),
+		ValidTo:   nullableTimestamptz(input.ValidTo),
+	})
+	if err != nil {
+		return ScopedRoleAssignment{}, err
+	}
+	return mapScopedRoleAssignment(row), nil
+}
+
+func (r *PGRepository) ListScopedRoleAssignments(ctx context.Context, companyID, userID int64) ([]ScopedRoleAssignment, error) {
+	rows, err := r.queries.RbacListScopedRoleAssignments(ctx, sqlc.RbacListScopedRoleAssignmentsParams{
+		CompanyID: companyID,
+		UserID:    userID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	assignments := make([]ScopedRoleAssignment, len(rows))
+	for i, row := range rows {
+		assignments[i] = mapScopedRoleAssignment(row)
+	}
+	return assignments, nil
+}
+
+func (r *PGRepository) DeleteScopedRoleAssignment(ctx context.Context, companyID, assignmentID int64) (bool, error) {
+	rows, err := r.queries.RbacDeleteScopedRoleAssignment(ctx, sqlc.RbacDeleteScopedRoleAssignmentParams{
+		CompanyID: companyID,
+		ID:        assignmentID,
+	})
+	return rows > 0, err
+}
+
+func (r *PGRepository) EffectivePermissionsInScope(ctx context.Context, userID int64, scope AccessScope, at time.Time) ([]string, error) {
+	return r.queries.RbacEffectivePermissionsInScope(ctx, sqlc.RbacEffectivePermissionsInScopeParams{
+		UserID:    userID,
+		CompanyID: scope.CompanyID,
+		At:        timestamptz(at),
+		BranchID:  nullableInt8(scope.BranchID),
+	})
+}
+
+func (r *PGRepository) OpenAccessReview(ctx context.Context, input OpenAccessReviewInput) (AccessReview, error) {
+	row, err := r.queries.RbacOpenAccessReview(ctx, sqlc.RbacOpenAccessReviewParams{
+		CompanyID:      input.CompanyID,
+		SubjectUserID:  input.SubjectUserID,
+		ReviewKey:      input.ReviewKey,
+		OpenedByUserID: input.OpenedByUserID,
+	})
+	if err != nil {
+		return AccessReview{}, err
+	}
+	return mapAccessReview(row), nil
+}
+
+func (r *PGRepository) GetAccessReview(ctx context.Context, companyID, reviewID int64) (AccessReview, error) {
+	row, err := r.queries.RbacGetAccessReview(ctx, sqlc.RbacGetAccessReviewParams{
+		CompanyID: companyID,
+		ID:        reviewID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return AccessReview{}, ErrNotFound
+	}
+	if err != nil {
+		return AccessReview{}, err
+	}
+	return mapAccessReview(row), nil
+}
+
+func (r *PGRepository) ListOpenAccessReviews(ctx context.Context, companyID int64) ([]AccessReview, error) {
+	rows, err := r.queries.RbacListOpenAccessReviews(ctx, companyID)
+	if err != nil {
+		return nil, err
+	}
+	reviews := make([]AccessReview, len(rows))
+	for i, row := range rows {
+		reviews[i] = mapAccessReview(row)
+	}
+	return reviews, nil
+}
+
+func (r *PGRepository) CompleteAccessReview(ctx context.Context, companyID, reviewID, decidedByUserID int64, decision AccessReviewDecision) (AccessReview, error) {
+	row, err := r.queries.RbacCompleteAccessReview(ctx, sqlc.RbacCompleteAccessReviewParams{
+		Decision:        pgtype.Text{String: string(decision), Valid: true},
+		DecidedByUserID: pgtype.Int8{Int64: decidedByUserID, Valid: true},
+		CompanyID:       companyID,
+		ID:              reviewID,
+	})
+	if err == nil {
+		return mapAccessReview(row), nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return AccessReview{}, err
+	}
+
+	// A retry after a successful concurrent completion is idempotent only when
+	// it repeats the same decision and reviewer. A different decision fails
+	// closed instead of reopening or overwriting the review.
+	existing, getErr := r.GetAccessReview(ctx, companyID, reviewID)
+	if getErr != nil {
+		return AccessReview{}, getErr
+	}
+	if existing.Status == AccessReviewCompleted {
+		if existing.Decision == decision && existing.DecidedByUserID != nil && *existing.DecidedByUserID == decidedByUserID {
+			return existing, nil
+		}
+		return AccessReview{}, ErrAccessReviewClosed
+	}
+	return AccessReview{}, ErrNotFound
+}
+
 func mapRole(row sqlc.Role) Role {
 	return Role{
 		ID:          row.ID,
@@ -134,4 +253,71 @@ func safeTime(t time.Time) time.Time {
 		return time.Time{}
 	}
 	return t
+}
+
+func mapScopedRoleAssignment(row sqlc.RbacUserRoleAssignment) ScopedRoleAssignment {
+	return ScopedRoleAssignment{
+		ID:        row.ID,
+		CompanyID: row.CompanyID,
+		UserID:    row.UserID,
+		RoleID:    row.RoleID,
+		BranchID:  nullableInt64(row.BranchID),
+		ValidFrom: safeTime(row.ValidFrom.Time),
+		ValidTo:   nullableTime(row.ValidTo),
+		CreatedAt: safeTime(row.CreatedAt.Time),
+	}
+}
+
+func mapAccessReview(row sqlc.RbacAccessReview) AccessReview {
+	decision := AccessReviewDecision("")
+	if row.Decision.Valid {
+		decision = AccessReviewDecision(row.Decision.String)
+	}
+	return AccessReview{
+		ID:              row.ID,
+		CompanyID:       row.CompanyID,
+		SubjectUserID:   row.SubjectUserID,
+		ReviewKey:       row.ReviewKey,
+		Status:          AccessReviewStatus(row.Status),
+		Decision:        decision,
+		OpenedByUserID:  row.OpenedByUserID,
+		DecidedByUserID: nullableInt64(row.DecidedByUserID),
+		DecidedAt:       nullableTime(row.DecidedAt),
+		CreatedAt:       safeTime(row.CreatedAt.Time),
+		UpdatedAt:       safeTime(row.UpdatedAt.Time),
+	}
+}
+
+func nullableInt8(value *int64) pgtype.Int8 {
+	if value == nil {
+		return pgtype.Int8{}
+	}
+	return pgtype.Int8{Int64: *value, Valid: true}
+}
+
+func nullableInt64(value pgtype.Int8) *int64 {
+	if !value.Valid {
+		return nil
+	}
+	v := value.Int64
+	return &v
+}
+
+func timestamptz(value time.Time) pgtype.Timestamptz {
+	return pgtype.Timestamptz{Time: value.UTC(), Valid: true}
+}
+
+func nullableTimestamptz(value *time.Time) pgtype.Timestamptz {
+	if value == nil {
+		return pgtype.Timestamptz{}
+	}
+	return timestamptz(*value)
+}
+
+func nullableTime(value pgtype.Timestamptz) *time.Time {
+	if !value.Valid {
+		return nil
+	}
+	v := value.Time
+	return &v
 }

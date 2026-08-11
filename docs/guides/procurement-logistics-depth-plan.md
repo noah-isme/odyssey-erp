@@ -42,9 +42,11 @@ business-critical path:
 
 The remaining integration work is deliberately explicit: a transaction or outbox flow
 must connect approved POs to freight charges, receipts, landed-cost allocation, AP
-invoices, payment, and real journal entries. The current freight GL adapter still has
-an integration seam and must not be treated as production posting until it calls the
-accounting service and verifies journal identity and amount.
+invoices, payment, and real journal entries. Freight GL posting now exposes an injectable
+accounting boundary with exact balanced lines, deterministic source identity, and
+idempotency checks. Application wiring and the end-to-end orchestration remain open, and
+the boundary must call the accounting service and verify journal identity and amount
+before it is treated as production posting.
 
 ## Summary
 
@@ -217,8 +219,8 @@ open integration work.
 Rate-card selection, exact freight calculation, charge/landed-cost persistence, audit
 records, invoice/payment status transitions, and cost-center attributes are implemented.
 Carrier-bill-to-AP creation, receipt-line landed-cost allocation, clearing/COGS journals,
-and real GL reconciliation still need to be connected to the accounting and inventory
-services.
+application-level GL wiring, and real reconciliation still need to be connected to the
+accounting and inventory services.
 
 ## Delivery sequence
 
