@@ -515,10 +515,21 @@ func (h *Handler) recordCollaborationChange(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *Handler) searchContent(w http.ResponseWriter, r *http.Request) {
-	query := r.URL.Query().Get("q")
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
 	companyID := currentCompany(r)
-	if companyID <= 0 || strings.TrimSpace(query) == "" {
+	if companyID <= 0 {
 		shared.JSONErrorFrom(w, http.StatusBadRequest, errors.New("documents: company and search query are required"))
+		return
+	}
+	// The route is linked from browser navigation as well as consumed by the
+	// search client. A bare browser request should land on a usable workspace;
+	// JSON callers receive an empty result set until a query is supplied.
+	if query == "" {
+		if strings.Contains(r.Header.Get("Accept"), "application/json") {
+			shared.JSONResponse(w, http.StatusOK, []documents.Document{})
+			return
+		}
+		h.listDocuments(w, r)
 		return
 	}
 	results, err := h.service.SearchContent(r.Context(), companyID, query)

@@ -221,18 +221,22 @@ func (h *Handler) bomRevisionPage(w http.ResponseWriter, r *http.Request) {
 	}
 	productID, err := strconv.ParseInt(r.URL.Query().Get("product_id"), 10, 64)
 	if err != nil || productID <= 0 {
-		http.Error(w, "product_id is required", http.StatusBadRequest)
-		return
+		// /mrp/boms is a browser page as well as the entry point for the
+		// revision workflow. Pick the first company product when the page is
+		// opened without a query so a bare route remains a useful page.
+		if h.pool != nil {
+			_ = h.pool.QueryRow(r.Context(), `SELECT id FROM products WHERE company_id=$1 ORDER BY id LIMIT 1`, companyID).Scan(&productID)
+		}
 	}
-	revisions, err := h.service.ListBOMRevisions(r.Context(), companyID, productID)
-	if err != nil {
-		shared.WriteErrorStatus(w, http.StatusBadRequest, err)
-		return
+	var revisions []BOM
+	if productID > 0 {
+		revisions, err = h.service.ListBOMRevisions(r.Context(), companyID, productID)
+		if err != nil {
+			shared.WriteErrorStatus(w, http.StatusBadRequest, err)
+			return
+		}
 	}
-	var token string
-	if h.csrf != nil {
-		token, _ = h.csrf.EnsureToken(r.Context(), shared.SessionFromContext(r.Context()))
-	}
+	token := h.csrfToken(r)
 	if err := h.templates.Render(w, "pages/mrp/bom_revisions.html", view.TemplateData{Title: "BOM Revisions", CurrentPath: r.URL.Path, CSRFToken: token, Data: map[string]any{"ProductID": productID, "Revisions": revisions}}); err != nil {
 		http.Error(w, "render BOM revisions", http.StatusInternalServerError)
 	}
@@ -252,7 +256,7 @@ func (h *Handler) wipLocationsPage(w http.ResponseWriter, r *http.Request) {
 		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
-	if err = h.templates.Render(w, "pages/mrp/wip_locations.html", view.TemplateData{Title: "WIP locations", CurrentPath: r.URL.Path, Data: map[string]any{"Locations": items}}); err != nil {
+	if err = h.templates.Render(w, "pages/mrp/wip_locations.html", view.TemplateData{Title: "WIP locations", CurrentPath: r.URL.Path, CSRFToken: h.csrfToken(r), Data: map[string]any{"Locations": items}}); err != nil {
 		http.Error(w, "render WIP locations", http.StatusInternalServerError)
 	}
 }
@@ -271,7 +275,7 @@ func (h *Handler) dispatchPage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid work order id", http.StatusBadRequest)
 		return
 	}
-	if err = h.templates.Render(w, "pages/mrp/work_order_dispatch.html", view.TemplateData{Title: "Work order dispatch", CurrentPath: r.URL.Path, Data: map[string]any{"WorkOrderID": id}}); err != nil {
+	if err = h.templates.Render(w, "pages/mrp/work_order_dispatch.html", view.TemplateData{Title: "Work order dispatch", CurrentPath: r.URL.Path, CSRFToken: h.csrfToken(r), Data: map[string]any{"WorkOrderID": id}}); err != nil {
 		http.Error(w, "render dispatch", http.StatusInternalServerError)
 	}
 }
@@ -538,7 +542,7 @@ func (h *Handler) schedulingPage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
-	if err := h.templates.Render(w, "pages/mrp/scheduling_board.html", view.TemplateData{Title: "Scheduling board", CurrentPath: r.URL.Path}); err != nil {
+	if err := h.templates.Render(w, "pages/mrp/scheduling_board.html", view.TemplateData{Title: "Scheduling board", CurrentPath: r.URL.Path, CSRFToken: h.csrfToken(r)}); err != nil {
 		http.Error(w, "render scheduling board", http.StatusInternalServerError)
 	}
 }
@@ -561,7 +565,7 @@ func (h *Handler) exceptionWorkbench(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "exception UI unavailable", http.StatusServiceUnavailable)
 		return
 	}
-	if err = h.templates.Render(w, "pages/mrp/exceptions.html", view.TemplateData{Title: "MRP exceptions", CurrentPath: r.URL.Path, Data: map[string]any{"Exceptions": items}}); err != nil {
+	if err = h.templates.Render(w, "pages/mrp/exceptions.html", view.TemplateData{Title: "MRP exceptions", CurrentPath: r.URL.Path, CSRFToken: h.csrfToken(r), Data: map[string]any{"Exceptions": items}}); err != nil {
 		http.Error(w, "render exceptions", http.StatusInternalServerError)
 	}
 }
@@ -870,7 +874,7 @@ func (h *Handler) qualityPage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
-	if err := h.templates.Render(w, "pages/mrp/quality.html", view.TemplateData{Title: "Production quality", CurrentPath: r.URL.Path}); err != nil {
+	if err := h.templates.Render(w, "pages/mrp/quality.html", view.TemplateData{Title: "Production quality", CurrentPath: r.URL.Path, CSRFToken: h.csrfToken(r)}); err != nil {
 		http.Error(w, "render quality", http.StatusInternalServerError)
 	}
 }
@@ -895,9 +899,17 @@ func (h *Handler) analyticsDashboard(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "analytics UI unavailable", http.StatusServiceUnavailable)
 		return
 	}
-	if err = h.templates.Render(w, "pages/mrp/analytics.html", view.TemplateData{Title: "Manufacturing analytics", CurrentPath: r.URL.Path, Data: metrics}); err != nil {
+	if err = h.templates.Render(w, "pages/mrp/analytics.html", view.TemplateData{Title: "Manufacturing analytics", CurrentPath: r.URL.Path, CSRFToken: h.csrfToken(r), Data: metrics}); err != nil {
 		http.Error(w, "render analytics", http.StatusInternalServerError)
 	}
+}
+
+func (h *Handler) csrfToken(r *http.Request) string {
+	if h.csrf != nil {
+		token, _ := h.csrf.EnsureToken(r.Context(), shared.SessionFromContext(r.Context()))
+		return token
+	}
+	return shared.CSRFTokenFromContext(r.Context())
 }
 func (h *Handler) analyticsExport(w http.ResponseWriter, r *http.Request) {
 	_, c, ok := ids(r)

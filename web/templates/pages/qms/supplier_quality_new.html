@@ -43,7 +43,7 @@
         <div class="col-md-4">
           <label class="form-label">Risk Level</label>
           <select name="risk_level" class="form-select">
-            {{ range .RiskLevels }}<option value="{{ . }}">{{ . }}</option>{{ end }}
+            {{ range .Data.RiskLevels }}<option value="{{ . }}">{{ . }}</option>{{ end }}
           </select>
         </div>
         <div class="col-md-4">

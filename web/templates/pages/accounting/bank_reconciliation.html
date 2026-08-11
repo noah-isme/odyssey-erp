@@ -10,7 +10,7 @@
         <div class="page-header__content">
             <h1 class="page-title">Bank Reconciliation</h1>
             <p class="page-subtitle">
-                Statement Date: {{ .Data.Statement.StatementDate.Time.Format "02 Jan 2006" }} | 
+                Statement Date: {{ .Data.Statement.StatementDate.Format "02 Jan 2006" }} |
                 Closing Balance: {{ .Data.Statement.EndingBalance | formatCurrency "IDR" }}
             </p>
         </div>
@@ -41,12 +41,12 @@
             <tbody>
                 {{ range .Data.Lines }}
                 <tr>
-                    <td>{{ .TrxDate.Time.Format "02 Jan 2006" }}</td>
+                    <td>{{ .TrxDate.Format "02 Jan 2006" }}</td>
                     <td>{{ .Description }}</td>
                     <td class="numeric-right {{ if gt (.Amount | toFloat) 0.0 }}text-success{{ else }}text-danger{{ end }}">
                         {{ .Amount | formatCurrency "IDR" }}
                     </td>
-                    <td>{{ .ReferenceNumber.String }}</td>
+                    <td>{{ .ReferenceNumber }}</td>
                     <td>
                         {{ if eq .Status "MATCHED" }}
                         {{ template "partials/ui/status_badge.html" "MATCHED" }}
@@ -57,8 +57,8 @@
                         {{ end }}
                     </td>
                     <td>
-                        {{ if .MatchedDocType.Valid }}
-                        <span class="text-primary font-medium">{{ .MatchedDocType.String }} #{{ .MatchedDocID.Int64 }}</span>
+                        {{ if .MatchedDocType }}
+                        <span class="text-primary font-medium">{{ .MatchedDocType }} #{{ .MatchedDocID }}</span>
                         {{ else }}
                         <span class="text-muted">-</span>
                         {{ end }}

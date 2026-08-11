@@ -168,6 +168,10 @@ func TestRegressionFlow(t *testing.T) {
 				"a mutating route ran when it should have been rejected", status)
 		}
 	}
+
+	t.Run("bank-feed webhook uses provider boundary instead of browser CSRF", func(t *testing.T) {
+		assertBankFeedWebhookContract(t, client, baseURL)
+	})
 }
 
 // pageRoute is one HTML page the suite asserts on.
@@ -212,6 +216,27 @@ var nonPagePrefixes = []string{
 	"/readyz",
 	"/debug",
 	"/api",
+}
+
+// nonPageExactPaths are authenticated endpoints whose route names are rooted
+// in the browser application but whose contract is JSON (or a separate
+// terminal application). They are covered by their API/handler tests rather
+// than the app-shell assertions below.
+var nonPageExactPaths = map[string]struct{}{
+	"/distribution/loads":              {},
+	"/distribution/planning/horizons":  {},
+	"/distribution/routes":             {},
+	"/distribution/transfers":          {},
+	"/finance/forecasting/runs/latest": {},
+	"/mrp/boms/revisions":              {},
+	"/mrp/decisions/audit":             {},
+	"/mrp/decisions/form":              {},
+	"/mrp/dispatch":                    {},
+	"/mrp/genealogy":                   {},
+	"/mrp/wip-locations":               {},
+	"/procurement/contracts":           {},
+	"/procurement/variances":           {},
+	"/pos/terminal":                    {},
 }
 
 // nonPageSuffixes are GET routes that return a file or data payload rather
@@ -301,6 +326,9 @@ func servesPage(pattern string) bool {
 	}
 	if pattern == "/" {
 		return true
+	}
+	if _, ok := nonPageExactPaths[pattern]; ok {
+		return false
 	}
 	for _, prefix := range nonPagePrefixes {
 		if pattern == prefix || strings.HasPrefix(pattern, prefix+"/") {
@@ -542,9 +570,34 @@ func mutatingRoutes(entries []routeEntry) []routeEntry {
 		if strings.Contains(entry.Pattern, "*") || strings.HasPrefix(entry.Pattern, "/static") {
 			continue
 		}
+		if isBankFeedWebhookRoute(entry.Pattern) {
+			continue
+		}
 		routes = append(routes, entry)
 	}
 	return routes
+}
+
+func isBankFeedWebhookRoute(pattern string) bool {
+	return strings.HasPrefix(pattern, "/finance/bankfeeds/webhooks/")
+}
+
+func assertBankFeedWebhookContract(t *testing.T, client *http.Client, baseURL string) {
+	t.Helper()
+	request, err := http.NewRequest(http.MethodPost, baseURL+"/finance/bankfeeds/webhooks/stripe", strings.NewReader(`{"type":"e2e.probe"}`))
+	if err != nil {
+		t.Fatalf("build bank-feed webhook request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	response, err := client.Do(request)
+	if err != nil {
+		t.Fatalf("bank-feed webhook request: %v", err)
+	}
+	_, _ = io.Copy(io.Discard, response.Body)
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusBadRequest {
+		t.Errorf("bank-feed webhook without a connection id returned %d, want 400 from provider validation", response.StatusCode)
+	}
 }
 
 // unreachableID stands in for route parameters. It is deliberately an

@@ -36,8 +36,8 @@
             <tbody>
                 {{ range .Data.Statements }}
                 <tr>
-                    <td>{{ .StatementDate.Time.Format "02 Jan 2006" }}</td>
-                    <td>{{ .ImportedAt.Time.Format "02 Jan 2006 15:04" }}</td>
+                    <td>{{ .StatementDate.Format "02 Jan 2006" }}</td>
+                    <td>{{ .ImportedAt.Format "02 Jan 2006 15:04" }}</td>
                     <td class="numeric-right">{{ .StartingBalance | formatCurrency "IDR" }}</td>
                     <td class="numeric-right">{{ .EndingBalance | formatCurrency "IDR" }}</td>
                     <td>

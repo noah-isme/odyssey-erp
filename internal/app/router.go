@@ -371,8 +371,9 @@ func NewRouter(params RouterParams) http.Handler {
 			}
 
 			_ = params.Templates.Render(w, "pages/integrations.html", view.TemplateData{
-				Title: "Integrations",
-				Data:  map[string]any{"Providers": providers},
+				Title:     "Integrations",
+				CSRFToken: shared.CSRFTokenFromContext(r.Context()),
+				Data:      map[string]any{"Providers": providers},
 			})
 		})
 	}
@@ -382,19 +383,19 @@ func NewRouter(params RouterParams) http.Handler {
 		_ = params.Templates.Render(w, "pages/pos/terminal.html", view.TemplateData{Title: "POS Terminal"})
 	})
 	r.Get("/cmms/dashboard", func(w http.ResponseWriter, r *http.Request) {
-		_ = params.Templates.Render(w, "pages/cmms/dashboard.html", view.TemplateData{Title: "CMMS Dashboard", CurrentPath: "/cmms/dashboard"})
+		_ = params.Templates.Render(w, "pages/cmms/dashboard.html", view.TemplateData{Title: "CMMS Dashboard", CSRFToken: shared.CSRFTokenFromContext(r.Context()), CurrentPath: "/cmms/dashboard"})
 	})
 	r.Get("/qms/dashboard", func(w http.ResponseWriter, r *http.Request) {
-		_ = params.Templates.Render(w, "pages/qms/dashboard.html", view.TemplateData{Title: "QMS Dashboard", CurrentPath: "/qms/dashboard"})
+		_ = params.Templates.Render(w, "pages/qms/dashboard.html", view.TemplateData{Title: "QMS Dashboard", CSRFToken: shared.CSRFTokenFromContext(r.Context()), CurrentPath: "/qms/dashboard"})
 	})
 	r.Get("/documents/workspace", func(w http.ResponseWriter, r *http.Request) {
-		_ = params.Templates.Render(w, "pages/documents/workspace.html", view.TemplateData{Title: "Document Workspace", CurrentPath: "/documents/workspace"})
+		_ = params.Templates.Render(w, "pages/documents/workspace.html", view.TemplateData{Title: "Document Workspace", CSRFToken: shared.CSRFTokenFromContext(r.Context()), CurrentPath: "/documents/workspace"})
 	})
 	r.Get("/wms/operations", func(w http.ResponseWriter, r *http.Request) {
-		_ = params.Templates.Render(w, "pages/wms/operations.html", view.TemplateData{Title: "WMS Operations", CurrentPath: "/wms/operations"})
+		_ = params.Templates.Render(w, "pages/wms/operations.html", view.TemplateData{Title: "WMS Operations", CSRFToken: shared.CSRFTokenFromContext(r.Context()), CurrentPath: "/wms/operations"})
 	})
 	r.Get("/projects/gantt", func(w http.ResponseWriter, r *http.Request) {
-		_ = params.Templates.Render(w, "pages/projects/gantt.html", view.TemplateData{Title: "Project Management", CurrentPath: "/projects/gantt"})
+		_ = params.Templates.Render(w, "pages/projects/gantt.html", view.TemplateData{Title: "Project Management", CSRFToken: shared.CSRFTokenFromContext(r.Context()), CurrentPath: "/projects/gantt"})
 	})
 
 	r.Post("/settings", func(w http.ResponseWriter, r *http.Request) {
@@ -493,6 +494,7 @@ func NewRouter(params RouterParams) http.Handler {
 		fleets, _ := params.LogisticsService.ListFleets(ctx, companyID)
 		_ = params.Templates.Render(w, "pages/logistics/new_vehicle.html", view.TemplateData{
 			Title:       "Register Vehicle",
+			CSRFToken:   shared.CSRFTokenFromContext(r.Context()),
 			CurrentPath: "/logistics/fleet",
 			Data:        map[string]interface{}{"Fleets": fleets},
 		})
@@ -533,6 +535,7 @@ func NewRouter(params RouterParams) http.Handler {
 		drivers, _ := params.LogisticsService.ListAvailableDrivers(ctx, companyID)
 		_ = params.Templates.Render(w, "pages/logistics/new_trip.html", view.TemplateData{
 			Title:       "Plan New Trip",
+			CSRFToken:   shared.CSRFTokenFromContext(r.Context()),
 			CurrentPath: "/logistics/trips",
 			Data:        map[string]interface{}{"Vehicles": vehicles, "Drivers": drivers},
 		})
@@ -572,6 +575,7 @@ func NewRouter(params RouterParams) http.Handler {
 		rateCards, _ := params.FreightService.ListRateCards(ctx, companyID, filter)
 		_ = params.Templates.Render(w, "pages/logistics/rate_cards.html", view.TemplateData{
 			Title:       "Rate Cards",
+			CSRFToken:   shared.CSRFTokenFromContext(r.Context()),
 			CurrentPath: "/logistics/rate-cards",
 			Data:        map[string]interface{}{"RateCards": rateCards},
 		})
@@ -585,6 +589,7 @@ func NewRouter(params RouterParams) http.Handler {
 		charges, _ := params.FreightService.ListFreightCharges(ctx, companyID, filter)
 		_ = params.Templates.Render(w, "pages/logistics/freight_charges.html", view.TemplateData{
 			Title:       "Freight Charges",
+			CSRFToken:   shared.CSRFTokenFromContext(r.Context()),
 			CurrentPath: "/logistics/freight",
 			Data:        map[string]interface{}{"FreightCharges": charges},
 		})

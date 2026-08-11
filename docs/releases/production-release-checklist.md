@@ -3,7 +3,7 @@
 **State:** `v0.10.0-rc.3` candidate prepared; production promotion and final tag
 approval are still pending.
 
-**Reviewed:** 2026-08-10
+**Reviewed:** 2026-08-12
 
 This is the final-release runbook for Odyssey ERP. It does not turn local tests
 into production certification. The [authoritative feature matrix](../reference/feature-matrix.md)
@@ -59,6 +59,13 @@ make production-release-check
 It intentionally fails when the candidate is not tagged, release-gated tests are
 blocked, matrix certification is missing, the VPS runbook is incomplete, or the
 candidate has uncommitted non-Graphify changes.
+
+The seeded local HTTP regression sweep was reverified on 2026-08-12: 143 page
+routes, 65 parameterised route patterns, 316 guarded mutation routes, and the
+bank-feed webhook boundary contract passed. This clears the local route
+regressions documented in the [E2E regression guide](../guides/e2e-regression.md);
+it does not replace the staging, provider, security, or operational evidence
+listed below.
 
 ## 3. Database and migration evidence
 

@@ -22,6 +22,15 @@ type Handler struct {
 	csrf      *shared.CSRFManager
 }
 
+// accountDetailData keeps the detail template's nested values concrete. A
+// map[string]any makes the account an interface value to html/template, which
+// prevents field access such as Account.GLAccountID.
+type accountDetailData struct {
+	Account      BankAccount
+	Transactions []BankTransactionSummary
+	Balance      float64
+}
+
 func NewHandler(logger *slog.Logger, service *Service, templates *view.Engine, csrf *shared.CSRFManager) *Handler {
 	return &Handler{
 		logger:    logger,
@@ -169,10 +178,10 @@ func (h *Handler) handleShowAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.render(w, r, "pages/finance/banking/detail.html", map[string]any{
-		"Account":      acct,
-		"Transactions": txns,
-		"Balance":      balance,
+	h.render(w, r, "pages/finance/banking/detail.html", accountDetailData{
+		Account:      acct,
+		Transactions: txns,
+		Balance:      balance,
 	})
 }
 
@@ -308,7 +317,7 @@ func (h *Handler) handleTransferFunds(w http.ResponseWriter, r *http.Request) {
 	h.redirectWithFlash(w, r, "/finance/banking/accounts", "success", "Funds transferred successfully")
 }
 
-func (h *Handler) render(w http.ResponseWriter, r *http.Request, template string, data map[string]any) {
+func (h *Handler) render(w http.ResponseWriter, r *http.Request, template string, data any) {
 	sess := shared.SessionFromContext(r.Context())
 	csrfToken, _ := h.csrf.EnsureToken(r.Context(), sess)
 	var flash *shared.FlashMessage

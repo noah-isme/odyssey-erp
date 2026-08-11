@@ -43,7 +43,7 @@
         <div class="card p-4">
             <div class="text-sm text-muted">GL Account</div>
             <div class="text-lg font-medium mt-1">
-                <a href="/accounting/coa/{{ .Data.Account.GlAccountID }}" class="link">View Account</a>
+                <a href="/accounting/coa/{{ .Data.Account.GLAccountID }}" class="link">View Account</a>
             </div>
         </div>
     </div>
@@ -67,7 +67,7 @@
                     {{ range .Data.Transactions }}
                     <tr>
                         <td>{{ formatDate .Transaction.Date }}</td>
-                        <td>{{ if .Transaction.Reference.Valid }}{{ .Transaction.Reference.String }}{{ else }}-{{ end }}</td>
+                        <td>{{ if .Transaction.Reference }}{{ .Transaction.Reference }}{{ else }}-{{ end }}</td>
                         <td>{{ .Transaction.Description }}</td>
                         <td>
                             <div class="flex items-center justify-between">

@@ -74,7 +74,8 @@ func (h *AdminHandler) handleList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_ = h.templates.Render(w, "pages/integrations.html", view.TemplateData{
-		Title: "Integrations",
+		Title:     "Integrations",
+		CSRFToken: shared.CSRFTokenFromContext(r.Context()),
 		Data: map[string]any{
 			"Connections": connections,
 			"Catalog":     catalog,

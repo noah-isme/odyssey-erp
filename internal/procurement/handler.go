@@ -85,10 +85,10 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Post("/rfq-awards", h.createAward)
 		r.Post("/rfq-awards/{id}/submit", h.submitAward)
 	})
-	
+
 	// Phase 3: Supplier Contracts and Scorecards
 	r.Group(func(r chi.Router) {
-		r.Use(h.rbac.RequireAny("procurement.contract.create"))
+		r.Use(h.rbac.RequireAny(shared.PermProcurementContractView))
 		r.Get("/contracts", h.listContracts)
 		r.Get("/contracts/{id}", h.getContract)
 	})
@@ -102,7 +102,7 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Post("/contracts/{id}/reject", h.rejectContract)
 		r.Post("/contracts/{id}/terminate", h.terminateContract)
 	})
-	
+
 	// Supplier Scorecards
 	r.Group(func(r chi.Router) {
 		r.Use(h.rbac.RequireAny("procurement.supplier_rating.view"))
@@ -116,7 +116,7 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Use(h.rbac.RequireAll("procurement.supplier_rating.publish"))
 		r.Post("/scorecards/{id}/publish", h.publishScorecard)
 	})
-	
+
 	// PO Variances
 	r.Group(func(r chi.Router) {
 		r.Use(h.rbac.RequireAny("procurement.variance.view"))

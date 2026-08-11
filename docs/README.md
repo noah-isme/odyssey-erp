@@ -99,7 +99,7 @@ Typical Go layout is used with modules for domain boundaries.
 When adding a new domain module, follow these steps:
 
 1. **Database Schema:** Create a new migration for the tables needed.
-2. **SQL Queries:** Add the required CRUD queries in `sql/queries/module.sql`.
+2. **SQL Queries:** Add the required CRUD queries in the module-specific file under `sql/queries/`.
 3. **Generate Models:** Run `make sqlc-gen` to generate the Go structs and interface.
 4. **Service Layer:** Create the service incorporating business logic.
 5. **HTTP Handlers:** Create the HTTP handlers to handle web requests. Register the routes.
@@ -107,8 +107,8 @@ When adding a new domain module, follow these steps:
 
 ## Database Development
 
-1. Create a migration file: `migrations/NNNNNN_description.up.sql` and `.down.sql`
-2. Write SQL queries in `sql/queries/module.sql`
+1. Create the next numbered migration files under `migrations/`.
+2. Write SQL queries in the module-specific file under `sql/queries/`.
 3. Run `make sqlc-gen`
 4. Run `make migrate-up`
 

@@ -282,6 +282,6 @@ graph TD
 
 ## Cross-Cutting Concerns
 
-- **Configuration**: Handled by the `internal/shared/config` package, pulling settings exclusively from Environment Variables (12-Factor App methodology).
+- **Configuration**: Handled by `internal/app/config.go`, pulling settings exclusively from environment variables (12-Factor App methodology).
 - **Logging**: High-performance structured JSON logging utilizing `rs/zerolog`. Log lines include request IDs, user IDs (where applicable), and duration.
-- **Error Handling**: A unified custom error system located in `internal/shared/errors`, providing consistent mapping between internal logic failures and HTTP status codes/user-facing messages.
+- **Error Handling**: A unified custom error system located in `internal/shared/errors.go`, providing consistent mapping between internal logic failures and HTTP status codes/user-facing messages.
