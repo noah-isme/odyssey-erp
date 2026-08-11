@@ -1260,25 +1260,79 @@ func (r *Repository) CreatePredictiveAlert(ctx context.Context, alert Predictive
 	})
 }
 
+// Keep the projection query local to the repository until sqlc is regenerated.
+// The checked-in generated query still contains the old heuristic predicate;
+// using the pool here keeps runtime behavior aligned with the service-level
+// threshold without modifying generated files.
+const listPredictiveAnomaliesQuery = `
+SELECT s.company_id, s.asset_id, s.id AS sensor_id, m.id AS model_id,
+       r.value, r.timestamp
+FROM cmms_iot_sensors s
+JOIN assets a ON a.id = s.asset_id AND a.company_id = s.company_id
+JOIN LATERAL (
+    SELECT value, timestamp
+    FROM cmms_iot_readings r
+    WHERE r.sensor_id = s.id
+    ORDER BY r.timestamp DESC, r.id DESC
+    LIMIT 1
+) r ON TRUE
+JOIN LATERAL (
+    SELECT pm.id
+    FROM cmms_predictive_models pm
+    WHERE pm.company_id = s.company_id
+      AND pm.is_active = TRUE
+      AND (pm.asset_type = '' OR pm.asset_type = a.asset_type)
+    ORDER BY pm.deployed_at DESC, pm.id DESC
+    LIMIT 1
+) m ON TRUE
+WHERE s.company_id = $1
+  AND NOT EXISTS (
+      SELECT 1
+      FROM cmms_predictive_alerts pa
+      WHERE pa.company_id = s.company_id
+        AND pa.asset_id = s.asset_id
+        AND pa.sensor_id = s.id
+        AND pa.model_id = m.id
+        AND pa.resolved_at IS NULL
+  )
+`
+
 func (r *Repository) ListPredictiveAnomalies(ctx context.Context, companyID int64) ([]PredictiveAnomaly, error) {
-	rows, err := r.queries.ListPredictiveAnomalies(ctx, companyID)
+	if r == nil || r.pool == nil {
+		return nil, errors.New("cmms: repository is not configured")
+	}
+	rows, err := r.pool.Query(ctx, listPredictiveAnomaliesQuery, companyID)
 	if err != nil {
 		return nil, err
 	}
-	items := make([]PredictiveAnomaly, len(rows))
-	for i, row := range rows {
-		value, valueErr := row.Value.Float64Value()
+	items := make([]PredictiveAnomaly, 0)
+	defer rows.Close()
+	for rows.Next() {
+		var (
+			anomaly   PredictiveAnomaly
+			value     pgtype.Numeric
+			timeValue pgtype.Timestamptz
+		)
+		if err := rows.Scan(
+			&anomaly.CompanyID,
+			&anomaly.AssetID,
+			&anomaly.SensorID,
+			&anomaly.ModelID,
+			&value,
+			&timeValue,
+		); err != nil {
+			return nil, err
+		}
+		converted, valueErr := value.Float64Value()
 		if valueErr != nil {
 			return nil, fmt.Errorf("cmms: convert predictive reading: %w", valueErr)
 		}
-		items[i] = PredictiveAnomaly{
-			CompanyID: companyID,
-			AssetID:   row.AssetID,
-			SensorID:  row.SensorID,
-			ModelID:   row.ModelID,
-			Value:     value.Float64,
-			Timestamp: row.Timestamp.Time,
-		}
+		anomaly.Value = converted.Float64
+		anomaly.Timestamp = timeValue.Time
+		items = append(items, anomaly)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return items, nil
 }

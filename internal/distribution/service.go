@@ -496,9 +496,15 @@ func (s *Service) AddDeliveryStop(ctx context.Context, input AddRouteStopInput) 
 }
 
 func (s *Service) OptimizeRoute(ctx context.Context, routeID int64) error {
+	if routeID <= 0 {
+		return fmt.Errorf("route ID is required")
+	}
 	route, err := s.repo.GetRoute(ctx, routeID)
 	if err != nil {
 		return fmt.Errorf("route not found: %w", err)
+	}
+	if route == nil {
+		return fmt.Errorf("route not found")
 	}
 	if route.Status != RouteStatusDraft {
 		return fmt.Errorf("can only optimize DRAFT routes, current status: %s", route.Status)
@@ -510,8 +516,18 @@ func (s *Service) OptimizeRoute(ctx context.Context, routeID int64) error {
 	if len(stops) == 0 {
 		return fmt.Errorf("cannot optimize a route without stops")
 	}
-	if err := s.repo.UpdateRouteStatus(ctx, routeID, RouteStatusOptimized); err != nil {
-		return fmt.Errorf("failed to update route status: %w", err)
+	plan, err := buildRouteOptimizationPlan(routeID, route.CompanyID, stops)
+	if err != nil {
+		return fmt.Errorf("invalid route for optimization: %w", err)
+	}
+	if err := s.repo.UpdateRouteOptimization(ctx, routeID, RouteOptimizationUpdate{
+		CompanyID:                route.CompanyID,
+		OrderedStopIDs:           plan.OrderedStopIDs,
+		TotalDistanceKm:          &plan.TotalDistanceKm,
+		EstimatedDurationMinutes: &plan.EstimatedDurationMinutes,
+		OptimizationScore:        &plan.OptimizationScore,
+	}); err != nil {
+		return fmt.Errorf("failed to persist route optimization: %w", err)
 	}
 	return nil
 }

@@ -9,15 +9,93 @@ import (
 	"time"
 )
 
+// ServiceRepository is the persistence contract used by the CMMS service.
+// Keeping the contract at the service boundary makes predictive evaluation
+// testable without a database while the SQL repository remains the production
+// implementation.
+type ServiceRepository interface {
+	InsertWorkOrder(context.Context, CreateWorkOrderRequest, string) (WorkOrder, error)
+	GetWorkOrder(context.Context, int64) (WorkOrder, error)
+	ListWorkOrders(context.Context, ListWorkOrdersFilter) ([]WorkOrder, error)
+	UpdateWorkOrder(context.Context, int64, UpdateWorkOrderRequest) (WorkOrder, error)
+	UpdateWorkOrderStatus(context.Context, int64, Status, int64) (WorkOrder, error)
+	CountWorkOrdersWithPrefix(context.Context, int64, string) (int64, error)
+	InsertTask(context.Context, CreateTaskRequest) (WorkOrderTask, error)
+	UpdateTask(context.Context, int64, UpdateTaskRequest) (WorkOrderTask, error)
+	CompleteTask(context.Context, int64, int64, float64) (WorkOrderTask, error)
+	InsertAsset(context.Context, CreateAssetRequest) (Asset, error)
+	GetAsset(context.Context, int64) (Asset, error)
+	ListAssets(context.Context, ListAssetsFilter) ([]Asset, error)
+	UpdateAsset(context.Context, int64, UpdateAssetRequest) (Asset, error)
+	InsertLocation(context.Context, CreateLocationRequest) (Location, error)
+	GetLocation(context.Context, int64) (Location, error)
+	ListLocations(context.Context, int64) ([]Location, error)
+	InsertPMSchedule(context.Context, CreatePMScheduleRequest) (PreventiveMaintenanceSchedule, error)
+	GetPMSchedule(context.Context, int64) (PreventiveMaintenanceSchedule, error)
+	ListPMSchedules(context.Context, int64) ([]PreventiveMaintenanceSchedule, error)
+	ListAllDuePMSchedules(context.Context) ([]PreventiveMaintenanceSchedule, error)
+	GeneratePMWorkOrderTx(context.Context, CreateWorkOrderRequest, string, int64, time.Time, float64) (WorkOrder, error)
+	InsertMeterReading(context.Context, CreateMeterReadingRequest) (MeterReading, error)
+	GetMeterReadings(context.Context, int64, string, int) ([]MeterReading, error)
+	InsertSparePart(context.Context, CreateSparePartRequest) (SparePart, error)
+	GetSparePart(context.Context, int64) (SparePart, error)
+	ListSpareParts(context.Context, int64) ([]SparePart, error)
+	InsertWorkOrderSparePart(context.Context, AddSparePartRequest) (WorkOrderSparePart, error)
+	IssueSparePart(context.Context, int64, int64) (WorkOrderSparePart, error)
+	GetIoTSensor(context.Context, int64) (IoTSensor, error)
+	CreateIoTSensor(context.Context, IoTSensor) (int64, error)
+	InsertIoTReadingAt(context.Context, int64, float64, time.Time) (int64, error)
+	UpdateIoTSensorReading(context.Context, int64, float64, time.Time) error
+	CreatePredictiveModel(context.Context, PredictiveModel) (int64, error)
+	CreatePredictiveAlert(context.Context, PredictiveAlert) (int64, error)
+	ListPredictiveAnomalies(context.Context, int64) ([]PredictiveAnomaly, error)
+}
+
+var _ ServiceRepository = (*Repository)(nil)
+
+// DefaultPredictiveThreshold is the service-level fallback for predictive
+// evaluations. Threshold selection belongs to the service so callers can
+// replace it with a rule that uses the complete anomaly projection.
+const DefaultPredictiveThreshold = 1000.0
+
+// PredictiveThresholdRule resolves the threshold for one predictive anomaly.
+// The service rejects a non-finite value returned by the rule.
+type PredictiveThresholdRule func(PredictiveAnomaly) float64
+
+// PredictiveThreshold is retained as a concise alias for callers that prefer
+// to name the injected dependency as a threshold rather than a rule.
+type PredictiveThreshold = PredictiveThresholdRule
+
+func defaultPredictiveThreshold(_ PredictiveAnomaly) float64 {
+	return DefaultPredictiveThreshold
+}
+
 // Service orchestrates CMMS operations.
 type Service struct {
-	repo *Repository
-	now  func() time.Time
+	repo                ServiceRepository
+	now                 func() time.Time
+	predictiveThreshold PredictiveThresholdRule
 }
 
 // NewService constructs a Service instance.
-func NewService(repo *Repository) *Service {
-	return &Service{repo: repo, now: time.Now}
+func NewService(repo ServiceRepository) *Service {
+	return &Service{repo: repo, now: time.Now, predictiveThreshold: defaultPredictiveThreshold}
+}
+
+// NewServiceWithPredictiveThreshold constructs a Service with an injected
+// threshold rule for predictive evaluations. A nil rule restores the default.
+func NewServiceWithPredictiveThreshold(repo ServiceRepository, rule PredictiveThresholdRule) *Service {
+	service := NewService(repo)
+	if rule != nil {
+		service.predictiveThreshold = rule
+	}
+	return service
+}
+
+// NewServiceWithThresholdRule is an explicit alias for callers that describe
+// the injected threshold dependency as a rule.
+func NewServiceWithThresholdRule(repo ServiceRepository, rule PredictiveThresholdRule) *Service {
+	return NewServiceWithPredictiveThreshold(repo, rule)
 }
 
 // WithNow overrides the clock for deterministic tests.
@@ -527,20 +605,53 @@ func (s *Service) ProcessIoTReading(ctx context.Context, sensorID int64, value f
 // EvaluatePredictiveAlerts runs a simplified heuristic model evaluation over incoming sensor data.
 // In a real system, this would call out to an external ML inference service or rule engine.
 func (s *Service) EvaluatePredictiveAlerts(ctx context.Context, companyID, assetID int64, modelID int64, sensorID int64, reading float64) error {
-	// Dummy rule: if reading exceeds an arbitrary threshold, create a predictive alert.
-	if reading > 1000.0 {
-		alert := PredictiveAlert{
-			CompanyID:   companyID,
-			AssetID:     assetID,
-			SensorID:    &sensorID,
-			ModelID:     &modelID,
-			Severity:    "CRITICAL",
-			Description: fmt.Sprintf("Predictive Model detected anomaly in sensor reading: %f", reading),
-		}
-		_, err := s.repo.CreatePredictiveAlert(ctx, alert)
-		if err != nil {
-			return fmt.Errorf("cmms: failed to generate predictive alert: %w", err)
-		}
+	anomaly := PredictiveAnomaly{
+		CompanyID: companyID,
+		AssetID:   assetID,
+		SensorID:  sensorID,
+		ModelID:   modelID,
+		Value:     reading,
+	}
+	if err := validatePredictiveFinite("reading", anomaly.Value); err != nil {
+		return err
+	}
+	threshold, err := s.predictiveThresholdFor(anomaly)
+	if err != nil {
+		return err
+	}
+	if reading <= threshold {
+		return nil
+	}
+
+	alert := PredictiveAlert{
+		CompanyID:   companyID,
+		AssetID:     assetID,
+		SensorID:    &sensorID,
+		ModelID:     &modelID,
+		Severity:    "CRITICAL",
+		Description: fmt.Sprintf("Predictive Model detected anomaly in sensor reading: %f", reading),
+	}
+	if _, err := s.repo.CreatePredictiveAlert(ctx, alert); err != nil {
+		return fmt.Errorf("cmms: failed to generate predictive alert: %w", err)
+	}
+	return nil
+}
+
+func (s *Service) predictiveThresholdFor(anomaly PredictiveAnomaly) (float64, error) {
+	rule := s.predictiveThreshold
+	if rule == nil {
+		rule = defaultPredictiveThreshold
+	}
+	threshold := rule(anomaly)
+	if err := validatePredictiveFinite("threshold", threshold); err != nil {
+		return 0, err
+	}
+	return threshold, nil
+}
+
+func validatePredictiveFinite(name string, value float64) error {
+	if math.IsNaN(value) || math.IsInf(value, 0) {
+		return fmt.Errorf("cmms: predictive %s must be finite", name)
 	}
 	return nil
 }
@@ -607,6 +718,17 @@ func (s *Service) EvaluatePredictiveAlertsBatch(ctx context.Context, companyID i
 	}
 	alerts := make([]PredictiveAlert, 0, len(anomalies))
 	for _, anomaly := range anomalies {
+		if err := validatePredictiveFinite("anomaly value", anomaly.Value); err != nil {
+			return alerts, err
+		}
+		threshold, err := s.predictiveThresholdFor(anomaly)
+		if err != nil {
+			return alerts, err
+		}
+		if anomaly.Value <= threshold {
+			continue
+		}
+
 		alert := PredictiveAlert{
 			CompanyID:   anomaly.CompanyID,
 			AssetID:     anomaly.AssetID,

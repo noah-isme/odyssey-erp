@@ -86,7 +86,7 @@ Extend the current owners and add narrow packages only where a new domain has no
 | Statements and reconciliation | Accounting banks | `internal/accounting/banks/` |
 | Provider connection and ingestion | New bank-feed application service | Proposed internal/finance/bankfeeds package; provider adapter location follows the external-integrations ADR |
 | Forecast scenarios and snapshots | Treasury forecast service | `internal/finance/forecasting/` |
-| Payment proposals and execution | New treasury payment service | `internal/finance/payments/` now provides the provider-neutral coordinator; durable execution storage, outbox wiring, and confirmed settlement calls into `internal/ap/` remain |
+| Payment proposals and execution | New treasury payment service | `internal/finance/payments/` now provides the provider-neutral coordinator and versioned PostgreSQL execution snapshots; outbox wiring and confirmed settlement calls into `internal/ap/` remain |
 | PO, receipt, return, and line progress | Procurement | `internal/procurement/` |
 | Supplier invoice and allocations | Accounts payable | `internal/ap/` |
 | Matching and P2P exception queue | Procurement/AP boundary | Proposed internal/procurement/matching package, with explicit ports into AP |
@@ -339,11 +339,14 @@ total and item count reconcile to the approved batch snapshot.
 
 The provider-neutral coordinator in `internal/finance/payments/` now covers exact-money
 proposal, approval, submission, settlement, cancellation, ambiguity lookup, and controlled
-export behind injectable persistence and provider ports. Production completion still
-requires durable treasury storage, live provider adapters, outbox integration, confirmed
-settlement effects in AP/accounting, operations pages, and sandbox certification.
+export behind injectable persistence and provider ports. A versioned PostgreSQL JSONB
+execution store now provides the durable snapshot and optimistic-concurrency boundary.
+Production completion still requires wiring it to treasury outbox delivery, live provider
+adapters, confirmed settlement effects in AP/accounting, operations pages, and sandbox
+certification.
 
 - [ ] Submit through the existing transactional outbox and use a stable idempotency key per batch item in the durable integration.
+- [x] Add a company-scoped JSONB execution snapshot store with optimistic version checks.
 - [x] On timeout or retry, query provider status before any resubmission.
 - [x] Ingest partial, rejected, cancelled, failed, and settled provider results into an
   append-only status history.

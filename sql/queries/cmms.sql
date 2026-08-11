@@ -375,7 +375,6 @@ JOIN LATERAL (
     LIMIT 1
 ) m ON TRUE
 WHERE s.company_id = $1
-  AND r.value > 1000
   AND NOT EXISTS (
       SELECT 1
       FROM cmms_predictive_alerts pa

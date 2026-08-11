@@ -18,6 +18,8 @@ type fakeDistributionRepository struct {
 	stops     map[int64][]*RouteStop
 	transfers map[int64]*TransferOrder
 	lines     map[int64][]*TransferOrderLine
+
+	routeOptimizationErr error
 }
 
 func newFakeDistributionRepository() *fakeDistributionRepository {
@@ -178,6 +180,76 @@ func (r *fakeDistributionRepository) ListRoutes(_ context.Context, companyID int
 func (r *fakeDistributionRepository) UpdateRouteStatus(_ context.Context, id int64, status RouteStatus) error {
 	r.routes[id].Status = status
 	return nil
+}
+
+func (r *fakeDistributionRepository) UpdateRouteOptimization(_ context.Context, routeID int64, input RouteOptimizationUpdate) error {
+	if r.routeOptimizationErr != nil {
+		return r.routeOptimizationErr
+	}
+	route, ok := r.routes[routeID]
+	if !ok {
+		return fmt.Errorf("route not found")
+	}
+	if route.CompanyID != input.CompanyID {
+		return fmt.Errorf("route company does not match optimization company")
+	}
+	if route.Status != RouteStatusDraft {
+		return fmt.Errorf("can only optimize DRAFT routes, current status: %s", route.Status)
+	}
+	stops := r.stops[routeID]
+	if len(stops) != len(input.OrderedStopIDs) {
+		return fmt.Errorf("route stop set changed during optimization")
+	}
+	byID := make(map[int64]*RouteStop, len(stops))
+	for _, stop := range stops {
+		byID[stop.ID] = stop
+	}
+	ordered := make([]*RouteStop, len(input.OrderedStopIDs))
+	seen := make(map[int64]struct{}, len(input.OrderedStopIDs))
+	for i, stopID := range input.OrderedStopIDs {
+		stop, ok := byID[stopID]
+		if !ok {
+			return fmt.Errorf("route stop %d was not found for route", stopID)
+		}
+		if _, ok := seen[stopID]; ok {
+			return fmt.Errorf("route stop IDs must be unique")
+		}
+		seen[stopID] = struct{}{}
+		ordered[i] = stop
+	}
+
+	for i, stop := range ordered {
+		stop.StopSequence = i + 1
+	}
+	route.TotalDistanceKm = copyFloat64(input.TotalDistanceKm)
+	route.EstimatedDurationMinutes = copyInt(input.EstimatedDurationMinutes)
+	route.OptimizationScore = copyMoney(input.OptimizationScore)
+	route.Status = RouteStatusOptimized
+	return nil
+}
+
+func copyFloat64(value *float64) *float64 {
+	if value == nil {
+		return nil
+	}
+	result := *value
+	return &result
+}
+
+func copyInt(value *int) *int {
+	if value == nil {
+		return nil
+	}
+	result := *value
+	return &result
+}
+
+func copyMoney(value *accountingmoney.Money) *accountingmoney.Money {
+	if value == nil {
+		return nil
+	}
+	result := *value
+	return &result
 }
 
 func (r *fakeDistributionRepository) AddRouteStop(_ context.Context, input AddRouteStopInput) (int64, error) {

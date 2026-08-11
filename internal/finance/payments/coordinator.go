@@ -100,6 +100,9 @@ type PaymentExecution struct {
 	Transitions    []StateTransition
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
+	// Version is the optimistic-concurrency version maintained by a durable
+	// execution store. A zero version represents a new execution.
+	Version int64
 }
 
 // Execution is a convenient name for PaymentExecution.

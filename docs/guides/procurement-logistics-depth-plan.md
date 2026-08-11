@@ -57,8 +57,8 @@ Extend Odyssey's existing PR → PO → GRN → AP and delivery-order foundation
 - Transportation management: carriers, owned fleet, shipments, trips, routes, freight
   reconciliation, and distribution planning.
 - Distribution demand from customer delivery orders and inter-warehouse transfers.
-- Rules-based planning with manual route sequencing; external route optimization and
-  carrier APIs remain later integrations.
+- Rules-based planning with deterministic v1 route sequencing; live traffic, external
+  route optimization, and carrier APIs remain later integrations.
 - Inbound freight capitalized into inventory and outbound freight posted as delivery
   expense.
 
@@ -178,8 +178,9 @@ notifications and the monthly background calculation coordinator remain follow-u
   - Driver, vehicle, and carrier availability.
   - Delivery windows, carrier cutoffs, and duplicate assignments.
   - Warehouse release and sufficiently picked or packed delivery orders.
-- Use saved zones, lanes, distance, and duration estimates for v1 costing. Do not add
-  geocoding, live traffic, or mathematical route optimization.
+- Use saved zones, lanes, distance, and duration estimates for v1 costing. The current
+  route optimizer may use a deterministic haversine estimate when stop coordinates are
+  complete; do not add geocoding, live traffic, or provider routing in this slice.
 - Replace the immediate-only inventory transfer workflow with transfer orders:
   - `DRAFT → APPROVED → DISPATCHED → RECEIVED`, with `CANCELLED`.
   - Dispatch removes source availability and records in-transit custody.
@@ -189,10 +190,10 @@ notifications and the monthly background calculation coordinator remain follow-u
 - Add planner and dispatcher workbenches under `/logistics/distribution-plans`,
   `/logistics/shipments`, and `/logistics/trips`.
 
-Shipment tracking, trip completion timestamps, active-trip listing, and fleet
-utilization are implemented from persisted transport records. Inventory movement,
-related-order closure, audit/notification side effects, and route optimization remain
-open integration work.
+Shipment tracking, trip completion timestamps, active-trip listing, fleet utilization,
+and deterministic v1 route resequencing are implemented from persisted transport
+records. Inventory movement, related-order closure, audit/notification side effects,
+and provider-backed routing remain open integration work.
 
 ### 6. Freight planning, reconciliation, and accounting
 
@@ -233,9 +234,9 @@ accounting and inventory services.
 4. **Transport execution:** carrier/fleet masters, shipments, trips, stops, tracking,
    and active-trip/fleet metrics are implemented; delivery/WMS side effects remain.
 5. **Distribution planning:** planning horizons, load building, shipment linkage,
-  dispatch/delivery, manual routes, transfer-order lifecycle, and capacity/schedule
-  validation are implemented in the core path; transfer inventory posting and
-  route optimization remain follow-up work.
+  dispatch/delivery, manual routes, deterministic v1 route optimization, transfer-order
+  lifecycle, and capacity/schedule validation are implemented in the core path; transfer
+  inventory posting remains follow-up work.
 6. **Freight finance:** rate cards, estimates, charge/landed-cost persistence, and
    invoice/payment status transitions are implemented; bill reconciliation, AP,
    landed-cost allocation, and real GL integration remain.

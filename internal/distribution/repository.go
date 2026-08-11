@@ -38,6 +38,7 @@ type Repository interface {
 	GetRoute(context.Context, int64) (*DeliveryRoute, error)
 	ListRoutes(context.Context, int64, *RouteStatus) ([]*DeliveryRoute, error)
 	UpdateRouteStatus(context.Context, int64, RouteStatus) error
+	UpdateRouteOptimization(context.Context, int64, RouteOptimizationUpdate) error
 
 	AddRouteStop(context.Context, AddRouteStopInput) (int64, error)
 	GetRouteStop(context.Context, int64) (*RouteStop, error)
@@ -387,6 +388,17 @@ type CreateRouteInput struct {
 	CreatedBy                int64
 }
 
+// RouteOptimizationUpdate is the complete persisted result of a route
+// optimization. UpdateRouteOptimization writes all of it atomically with the
+// route's OPTIMIZED lifecycle transition.
+type RouteOptimizationUpdate struct {
+	CompanyID                int64
+	OrderedStopIDs           []int64
+	TotalDistanceKm          *float64
+	EstimatedDurationMinutes *int
+	OptimizationScore        *accountingmoney.Money
+}
+
 func (r *DistributionRepository) CreateRoute(ctx context.Context, input CreateRouteInput) (int64, error) {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
@@ -454,6 +466,115 @@ func (r *DistributionRepository) ListRoutes(ctx context.Context, companyID int64
 func (r *DistributionRepository) UpdateRouteStatus(ctx context.Context, id int64, status RouteStatus) error {
 	_, err := r.db.Exec(ctx, `UPDATE delivery_routes SET status = $1, updated_at = NOW() WHERE id = $2`, string(status), id)
 	return err
+}
+
+// UpdateRouteOptimization persists the resequenced stops and route metrics in
+// one transaction. The temporary negative sequences avoid collisions with
+// the route_stops (company_id, route_id, stop_sequence) unique constraint
+// while a route is being resequenced.
+func (r *DistributionRepository) UpdateRouteOptimization(ctx context.Context, routeID int64, input RouteOptimizationUpdate) error {
+	if routeID <= 0 {
+		return fmt.Errorf("route ID is required")
+	}
+	if input.CompanyID == 0 {
+		return fmt.Errorf("company ID is required")
+	}
+	if len(input.OrderedStopIDs) == 0 {
+		return fmt.Errorf("at least one route stop is required")
+	}
+	if input.TotalDistanceKm == nil || input.EstimatedDurationMinutes == nil || input.OptimizationScore == nil {
+		return fmt.Errorf("route optimization metrics are required")
+	}
+	seen := make(map[int64]struct{}, len(input.OrderedStopIDs))
+	for _, stopID := range input.OrderedStopIDs {
+		if stopID <= 0 {
+			return fmt.Errorf("route stop ID must be positive")
+		}
+		if _, ok := seen[stopID]; ok {
+			return fmt.Errorf("route stop IDs must be unique")
+		}
+		seen[stopID] = struct{}{}
+	}
+
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var routeCompanyID int64
+	var status string
+	if err := tx.QueryRow(ctx,
+		`SELECT company_id, status FROM delivery_routes WHERE id = $1 FOR UPDATE`,
+		routeID,
+	).Scan(&routeCompanyID, &status); err != nil {
+		return fmt.Errorf("route not found: %w", err)
+	}
+	if routeCompanyID != input.CompanyID {
+		return fmt.Errorf("route company does not match optimization company")
+	}
+	if RouteStatus(status) != RouteStatusDraft {
+		return fmt.Errorf("can only optimize DRAFT routes, current status: %s", status)
+	}
+
+	var stopCount int64
+	if err := tx.QueryRow(ctx,
+		`SELECT COUNT(*) FROM route_stops WHERE route_id = $1 AND company_id = $2`,
+		routeID, input.CompanyID,
+	).Scan(&stopCount); err != nil {
+		return fmt.Errorf("failed to verify route stops: %w", err)
+	}
+	if stopCount != int64(len(input.OrderedStopIDs)) {
+		return fmt.Errorf("route stop set changed during optimization")
+	}
+
+	if _, err := tx.Exec(ctx,
+		`UPDATE route_stops SET stop_sequence = -id WHERE route_id = $1 AND company_id = $2`,
+		routeID, input.CompanyID,
+	); err != nil {
+		return fmt.Errorf("failed to stage route stop sequences: %w", err)
+	}
+	for sequence, stopID := range input.OrderedStopIDs {
+		result, err := tx.Exec(ctx,
+			`UPDATE route_stops
+			 SET stop_sequence = $1
+			 WHERE id = $2 AND route_id = $3 AND company_id = $4`,
+			sequence+1, stopID, routeID, input.CompanyID,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to persist route stop sequence: %w", err)
+		}
+		if result.RowsAffected() != 1 {
+			return fmt.Errorf("route stop %d was not found for route", stopID)
+		}
+	}
+
+	result, err := tx.Exec(ctx,
+		`UPDATE delivery_routes
+		 SET total_distance_km = $1,
+		     estimated_duration_minutes = $2,
+		     optimization_score = $3,
+		     status = $4,
+		     updated_at = NOW()
+		 WHERE id = $5 AND company_id = $6 AND status = $7`,
+		input.TotalDistanceKm,
+		input.EstimatedDurationMinutes,
+		moneyValue(input.OptimizationScore),
+		string(RouteStatusOptimized),
+		routeID,
+		input.CompanyID,
+		string(RouteStatusDraft),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to persist route metrics: %w", err)
+	}
+	if result.RowsAffected() != 1 {
+		return fmt.Errorf("route was not updated")
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit route optimization: %w", err)
+	}
+	return nil
 }
 
 type AddRouteStopInput struct {

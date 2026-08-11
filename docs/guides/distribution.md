@@ -37,7 +37,7 @@ All endpoints require an authenticated session with a `company_id` scope.
 | `GET` | `/distribution/loads/{id}/utilization` | Return weight, volume, and item utilization |
 | `POST` | `/distribution/routes` | Create a route for a ready/planned load |
 | `POST` | `/distribution/routes/{id}/stops` | Add a manually sequenced stop |
-| `POST` | `/distribution/routes/{id}/optimize` | Validate stops and mark a route optimized |
+| `POST` | `/distribution/routes/{id}/optimize` | Calculate deterministic v1 stop order/metrics and mark a route optimized |
 | `POST` | `/distribution/routes/{id}/approve` | Approve an optimized route |
 | `GET` | `/distribution/routes/{id}/metrics` | Return stop completion metrics |
 | `GET` | `/distribution/transfers` | List transfer orders; accepts `status` |
@@ -64,6 +64,12 @@ on undeclared database sequences. Queries also match the actual migration
 columns: the child tables do not have `updated_at`, and routes do not have an
 `actual_duration_minutes` column.
 
+Route optimization persists stop resequencing, estimated distance, duration, and
+coverage score atomically with the `OPTIMIZED` transition. The v1 estimator uses a
+deterministic haversine nearest-neighbor order when coordinates are complete and
+falls back to the saved manual order when they are not; it does not call live traffic
+or carrier routing providers.
+
 ## Inventory and GL behavior
 
 Distribution does not write journals directly. The application adapter calls
@@ -87,6 +93,6 @@ DISTRIBUTION_TEST_DSN="$PG_DSN" \
   -run TestDatabaseLoadLifecycle -v
 ```
 
-Remaining work includes transfer-order inventory movements and GL treatment,
-route distance/resequencing optimization, proof of delivery, carrier API
-execution, freight costing, and planner/dispatcher SSR workbenches.
+Remaining work includes transfer-order inventory movements and GL treatment, proof of
+delivery, carrier API execution, freight costing, and planner/dispatcher SSR
+workbenches.

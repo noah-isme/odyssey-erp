@@ -1,6 +1,6 @@
 # Odyssey ERP: Next Steps and Release Decision Guide
 
-**Reviewed:** 2026-08-09
+**Reviewed:** 2026-08-12
 
 This guide replaces the superseded phase-1-to-5 launch estimate. It does not claim
 that the system is production-ready or that all RBAC work is complete. Use the
@@ -14,6 +14,11 @@ business lifecycles and many partially implemented advanced workflows. Base perm
 middleware and module policies are present, while scoped assignments, access reviews,
 and the newer-module role matrix remain integration work. Production certification is
 still open for the capabilities marked `no` or `partial` in the matrix.
+
+The latest implementation slice adds a versioned PostgreSQL payment-execution snapshot
+store, deterministic v1 distribution route ordering and metrics, injectable CMMS
+predictive thresholds, and company/branch-aware RBAC middleware helpers. These are
+bounded foundations; the cross-module wiring and production evidence below remain open.
 
 ## Immediate verification
 
@@ -54,18 +59,20 @@ test or reclassifying partial features as integrated.
   reconciliation, unmatched-payment alerts, refund-state persistence, dead-letter
   audit/replay, and recovery metrics; live payout and bank-confirmed-refund evidence
   remains deployment work.
-- Integrate the provider-neutral payment execution coordinator with a durable treasury
-  store, the existing finance outbox, settlement-to-AP/accounting effects, live provider
+- Integrate the provider-neutral payment execution coordinator's versioned durable store
+  with the existing finance outbox, settlement-to-AP/accounting effects, live provider
   adapters, and reconciliation.
 - Close the remaining procurement, landed-cost, logistics, and distribution lifecycle
-  gaps. Freight now has an injectable exact journal-posting boundary, but application
-  wiring and the full PO-to-GL orchestration remain open.
+  gaps. Distribution now has deterministic v1 route ordering and metrics; freight still
+  has an injectable exact journal-posting boundary, but application wiring and the full
+  PO-to-GL orchestration remain open.
 - Add provider-backed OCR, realtime collaboration delivery, and richer disposition
   operations.
 - Finish CMMS telemetry/predictive operations and the remaining MRP compliance decision
-  paths, retention jobs, and regulated-policy validation.
-- Wire the scoped RBAC assignment and access-review foundation into tenant-aware
-  middleware, seed/migrate assignments, and finish the newer-module role matrix.
+  paths, retention jobs, and regulated-policy validation. CMMS threshold rules are now
+  injectable, while persisted per-sensor policy and calibrated inference remain open.
+- Adopt the scoped RBAC middleware helpers in eligible route groups, seed/migrate scoped
+  assignments, and finish the newer-module role matrix and access-review operations.
 
 ## Release rule
 

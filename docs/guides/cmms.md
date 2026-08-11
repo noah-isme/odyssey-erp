@@ -21,12 +21,13 @@ calibrated ML platform.
   timestamp and update the sensor's latest state.
 - **Predictive Models and Alerts:** Active model metadata is stored per company. The
   scheduled/batch evaluator selects the latest reading and creates at most one open
-  critical alert per sensor/model anomaly, so retries are safe.
+  critical alert per sensor/model anomaly, so retries are safe. The default anomaly
+  threshold is `1000`; callers can inject a finite anomaly-specific threshold rule.
 
 ## Gaps
 
-Advanced predictive inference, model training, configurable per-sensor thresholds,
-real-time streaming dashboards, detailed project-based cost accounting, and a
-dedicated mobile offline-first execution app for field technicians are not currently
-supported out-of-the-box. The current evaluator is a deliberately explicit heuristic
-(`reading > 1000`) until a real model/rules provider is configured.
+Advanced predictive inference, model training, persisted/configurable per-sensor
+threshold policy, real-time streaming dashboards, detailed project-based cost
+accounting, and a dedicated mobile offline-first execution app for field technicians
+are not currently supported out-of-the-box. The current evaluator is a deliberately
+explicit heuristic (`reading > 1000`) unless an application injects a threshold rule.

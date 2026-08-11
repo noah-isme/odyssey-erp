@@ -517,13 +517,23 @@ func (h *Handler) GetRouteHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) OptimizeRouteHandler(w http.ResponseWriter, r *http.Request) {
-	if _, _, err := requestScope(r); err != nil {
+	companyID, _, err := requestScope(r)
+	if err != nil {
 		respondError(w, err)
 		return
 	}
 	routeID, err := pathID(r, "id")
 	if err != nil {
 		respondClientError(w, err)
+		return
+	}
+	route, err := h.service.repo.GetRoute(r.Context(), routeID)
+	if err != nil {
+		respondError(w, err)
+		return
+	}
+	if route == nil || route.CompanyID != companyID {
+		respondError(w, shared.ErrNotFound)
 		return
 	}
 	if err := h.service.OptimizeRoute(r.Context(), routeID); err != nil {
