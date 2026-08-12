@@ -104,6 +104,17 @@ security, documentation, and staging evidence before it becomes a production cla
    HR/payroll, QMS, POS, MRP, manufacturing, fixed assets, and other partial
    modules only after their workflows and deployment evidence are complete.
 
+### v0.11-finance implementation handoff
+
+The next bounded workstream is represented by `RELEASE_PROFILE=v0.11-finance`.
+The implementation now includes the cumulative profile/route boundary, verified
+statement-transport ingestion through the normalized banking importer, additional
+tax/payment/PO forecast readers, exact decimal treasury amounts, and durable
+payment-result/effect idempotency contracts. It is intentionally not a production
+claim: application worker composition, live provider certification, confirmed
+AP/GL/tax/FX/reconciliation effects, operations views, and staging evidence remain
+open. Keep those gates open in the feature matrix until evidence is recorded.
+
 See [NEXT_STEPS.md](../NEXT_STEPS.md) for the current implementation handoff and
 [docs/releases/VERSION_HISTORY.md](releases/VERSION_HISTORY.md) for candidate
 history. Superseded phase notes belong under `docs/archive/` and are not release

@@ -22,13 +22,20 @@ matrix="docs/reference/feature-matrix.md"
 
 release_profile=${RELEASE_PROFILE:-}
 case "$release_profile" in
-	v0.10-core|full)
+	v0.10-core)
+		scope_column=v010
+		;;
+	v0.11-finance)
+		scope_column=v011
+		;;
+	full)
+		scope_column=all
 		;;
 	'')
-		fail "RELEASE_PROFILE must be set explicitly (v0.10-core or full)"
+		fail "RELEASE_PROFILE must be set explicitly (v0.10-core, v0.11-finance, or full)"
 		;;
 	*)
-		fail "unsupported RELEASE_PROFILE=$release_profile (expected v0.10-core or full)"
+		fail "unsupported RELEASE_PROFILE=$release_profile (expected v0.10-core, v0.11-finance, or full)"
 		;;
 esac
 
@@ -53,23 +60,33 @@ fi
 if [[ ! -f "$matrix" ]]; then
 	fail "missing authoritative feature matrix: $matrix"
 else
-	expected_header='| Capability | v0.10.0 scope | code-complete | integration-complete | production-certified | documented | Advertised production route source | Evidence / remaining gate |'
+	expected_header='| Capability | v0.10.0 scope | v0.11.0 scope | code-complete | integration-complete | production-certified | documented | Advertised production route source | Evidence / remaining gate |'
 	if ! grep -Fqx "$expected_header" "$matrix"; then
 		fail "feature matrix header does not define release scope and all four release statuses"
 	fi
 
 	required_row_count=0
-	while IFS='|' read -r _ capability release_scope code_complete integration_complete production_certified documented _ _; do
+	while IFS='|' read -r _ capability v010_scope v011_scope code_complete integration_complete production_certified documented _ _; do
 		capability=$(trim "${capability:-}")
 		[[ -z "$capability" || "$capability" == "Capability" || "$capability" == '---' ]] && continue
-		release_scope=$(trim "${release_scope:-}")
+		v010_scope=$(trim "${v010_scope:-}")
+		v011_scope=$(trim "${v011_scope:-}")
 		code_complete=$(trim "${code_complete:-}")
 		integration_complete=$(trim "${integration_complete:-}")
 		production_certified=$(trim "${production_certified:-}")
 		documented=$(trim "${documented:-}")
-		if [[ "$release_scope" != yes && "$release_scope" != no ]]; then
-			fail "$capability has invalid v0.10.0 scope value: $release_scope (expected yes or no)"
+		if [[ "$v010_scope" != yes && "$v010_scope" != no ]]; then
+			fail "$capability has invalid v0.10.0 scope value: $v010_scope (expected yes or no)"
 			continue
+		fi
+		if [[ "$v011_scope" != yes && "$v011_scope" != no ]]; then
+			fail "$capability has invalid v0.11.0 scope value: $v011_scope (expected yes or no)"
+			continue
+		fi
+
+		release_scope="$v010_scope"
+		if [[ "$scope_column" == v011 ]]; then
+			release_scope="$v011_scope"
 		fi
 
 		requires_certification=0

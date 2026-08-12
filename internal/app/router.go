@@ -255,13 +255,27 @@ func NewRouter(params RouterParams) http.Handler {
 		// bounded staging/production profile a hard 404 boundary.
 		r.Use(ReleaseProfileMiddleware(params.Config.ReleaseProfile))
 		if profile, err := ParseReleaseProfile(params.Config.ReleaseProfile); err == nil {
-			coreScoped = profile == ReleaseProfileV010Core
+			coreScoped = profile.RequiresScopedAccess()
 		}
 	}
 	useCoreScope := func(router chi.Router, permissions ...string) {
 		if coreScoped {
 			router.Use(rbac.ScopedRoute)
 			router.Use(params.RBACMiddleware.RequireAnyInScope(permissions...))
+		}
+	}
+	useCoreScopeExceptPath := func(router chi.Router, skipPrefix string, permissions ...string) {
+		if coreScoped {
+			router.Use(func(next http.Handler) http.Handler {
+				scoped := params.RBACMiddleware.RequireAnyInScope(permissions...)(rbac.ScopedRoute(next))
+				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					if strings.HasPrefix(r.URL.Path, skipPrefix) {
+						next.ServeHTTP(w, r)
+						return
+					}
+					scoped.ServeHTTP(w, r)
+				})
+			})
 		}
 	}
 
@@ -876,9 +890,33 @@ func NewRouter(params RouterParams) http.Handler {
 	}
 	if params.BankingHandler != nil {
 		r.Route("/finance/banking", params.BankingHandler.MountRoutes)
-		r.Route("/finance/bankfeeds", params.BankFeedsHandler.MountRoutes)
-		r.Route("/finance/forecasting", params.ForecastingHandler.MountRoutes)
-		r.Route("/finance/treasury", params.TreasuryHandler.MountRoutes)
+	}
+	if params.BankFeedsHandler != nil {
+		r.Route("/finance/bankfeeds", func(r chi.Router) {
+			// Provider callbacks are authenticated by their adapter signature and
+			// intentionally bypass browser-session RBAC; all future browser routes
+			// under this prefix remain company/branch scoped.
+			useCoreScopeExceptPath(r, "/finance/bankfeeds/webhooks/", shared.PermFinanceBankFeedManage)
+			params.BankFeedsHandler.MountRoutes(r)
+		})
+	}
+	if params.ForecastingHandler != nil {
+		r.Route("/finance/forecasting", func(r chi.Router) {
+			useCoreScope(r, shared.PermFinanceForecastView, shared.PermFinanceForecastManage)
+			params.ForecastingHandler.MountRoutes(r)
+		})
+	}
+	if params.TreasuryHandler != nil {
+		r.Route("/finance/treasury", func(r chi.Router) {
+			useCoreScope(r,
+				shared.PermFinanceAutomationManage,
+				shared.PermFinancePaymentPropose,
+				shared.PermFinancePaymentApprove,
+				shared.PermFinancePaymentExport,
+				shared.PermFinancePaymentExecute,
+			)
+			params.TreasuryHandler.MountRoutes(r)
+		})
 	}
 	r.Route("/jobs", params.JobHandler.MountRoutes)
 	if params.AnalyticsHandler != nil {

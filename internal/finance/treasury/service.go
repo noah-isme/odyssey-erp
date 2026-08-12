@@ -34,7 +34,7 @@ type Repository interface {
 
 // APService defines the required interoperability hooks into Accounts Payable.
 type APService interface {
-	MarkInvoicePaid(ctx context.Context, invoiceID, batchID int64, amount float64) error
+	MarkInvoicePaid(ctx context.Context, invoiceID, batchID int64, amount Amount) error
 }
 
 type Service struct {
@@ -60,8 +60,8 @@ func (s *Service) AddBankAccount(ctx context.Context, companyID, supplierID, act
 	if strings.TrimSpace(bankName) == "" || strings.TrimSpace(accountNumber) == "" {
 		return SupplierBankAccount{}, errors.New("bank name and account number are required")
 	}
-	currency = strings.ToUpper(strings.TrimSpace(currency))
-	if len(currency) != 3 {
+	currency, err := normalizeCurrency(currency)
+	if err != nil {
 		return SupplierBankAccount{}, errors.New("currency must be a three-letter code")
 	}
 	belongs, err := s.repo.SupplierBelongsToCompany(ctx, supplierID, companyID)
@@ -157,19 +157,23 @@ func (s *Service) CreatePaymentBatch(ctx context.Context, companyID int64, refCo
 	if strings.TrimSpace(refCode) == "" {
 		return PaymentBatch{}, errors.New("reference code is required")
 	}
-	currency = strings.ToUpper(strings.TrimSpace(currency))
-	if len(currency) != 3 {
+	currency, err := normalizeCurrency(currency)
+	if err != nil {
 		return PaymentBatch{}, errors.New("currency must be a three-letter code")
 	}
 	return s.repo.CreatePaymentBatch(ctx, PaymentBatchCreate{CompanyID: companyID, ReferenceCode: refCode, Currency: currency, ProposedBy: actorID})
 }
 
 // AddBatchItem adds an item and revises the batch.
-func (s *Service) AddBatchItem(ctx context.Context, companyID, batchID, supplierID, bankAccountID int64, amount float64, apInvoiceID int64) (PaymentBatchItem, error) {
+func (s *Service) AddBatchItem(ctx context.Context, companyID, batchID, supplierID, bankAccountID int64, amountValue string, apInvoiceID int64) (PaymentBatchItem, error) {
 	if companyID <= 0 || batchID <= 0 || supplierID <= 0 || bankAccountID <= 0 {
 		return PaymentBatchItem{}, errCompanyScopeRequired
 	}
-	if amount <= 0 {
+	amount, err := ParseAmount(amountValue)
+	if err != nil {
+		return PaymentBatchItem{}, fmt.Errorf("payment amount is invalid: %w", err)
+	}
+	if !amount.IsPositive() {
 		return PaymentBatchItem{}, errors.New("payment amount must be greater than zero")
 	}
 	batch, err := s.repo.GetPaymentBatch(ctx, batchID)
@@ -217,7 +221,7 @@ func (s *Service) AddBatchItem(ctx context.Context, companyID, batchID, supplier
 		return PaymentBatchItem{}, err
 	}
 	// The database recomputes the aggregate from ACTIVE rows. The service does
-	// not re-sum float64 values and then race the authoritative SQL total.
+	// not re-sum values and then race the authoritative SQL total.
 	_, err = s.repo.UpdatePaymentBatchRevision(ctx, PaymentBatchRevisionUpdate{ID: batchID})
 	return item, err
 }

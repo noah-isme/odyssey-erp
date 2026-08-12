@@ -86,7 +86,7 @@ Extend the current owners and add narrow packages only where a new domain has no
 | Statements and reconciliation | Accounting banks | `internal/accounting/banks/` |
 | Provider connection and ingestion | New bank-feed application service | Proposed internal/finance/bankfeeds package; provider adapter location follows the external-integrations ADR |
 | Forecast scenarios and snapshots | Treasury forecast service | `internal/finance/forecasting/` |
-| Payment proposals and execution | New treasury payment service | `internal/finance/payments/` now provides the provider-neutral coordinator and versioned PostgreSQL execution snapshots; outbox wiring and confirmed settlement calls into `internal/ap/` remain |
+| Payment proposals and execution | New treasury payment service | `internal/finance/payments/` now provides the provider-neutral coordinator, versioned PostgreSQL execution snapshots, payment/result outbox commands, and durable settlement-result/effect idempotency; application worker composition, provider adapters, and confirmed settlement calls into `internal/ap/` remain |
 | PO, receipt, return, and line progress | Procurement | `internal/procurement/` |
 | Supplier invoice and allocations | Accounts payable | `internal/ap/` |
 | Matching and P2P exception queue | Procurement/AP boundary | Proposed internal/procurement/matching package, with explicit ports into AP |
@@ -168,7 +168,8 @@ custodian approvals are recorded.
   correlation/causation identifiers, typed provider errors, retry policy, and fake-port
   contract coverage.
 - [x] Use exact money/currency contracts for every new finance automation boundary; the
-  F0 automation, bank-feed, and payment packages contain no `float64` fields.
+  F0 automation, bank-feed, payment, and new forecast-reader paths carry exact decimal
+  values. Legacy forecast presentation fields remain an explicit follow-up.
 - [x] Add company-scoped, disabled-by-default settings and feature flags, including
   payment execution's dependency on payment scheduling.
 - [x] Add finance/P2P/fixed-asset permissions, actor-separation validation, a durable
@@ -234,6 +235,9 @@ duplicate statement line or bank transaction and preserves existing behavior.
 - [x] Keep provider callbacks outside browser session/CSRF middleware; require the
   connection-scoped provider verifier and fail closed on expired consent or missing
   banking import dependencies.
+- [x] Add a verified statement-transport boundary that checks account identity,
+  signature state, checksum, cursor progression, and reuses the normalized banking
+  parser/import path for CSV/OFX artifacts.
 - Add scheduled sync, token/consent refresh handling, rate-limit backoff, replay, and
   disconnect behavior.
 - Provider adapters still need to implement `FeedPort` and `WebhookVerifier`; unsigned
@@ -261,8 +265,10 @@ company-isolation scenarios.
   horizon instead of calculating each bucket independently.
 - [x] Validate scenario ownership before creating a run; persist the exact FX rate/date/
   source set used by the run.
-- Add source readers for tax obligations, approved payment batches, approved uninvoiced
-  POs, and recurring/manual adjustments.
+- [x] Add source readers for tax obligations, approved payment batches, and approved
+  uninvoiced POs; each source is company-scoped and emits an exact amount with a stable
+  source key.
+- Add source readers for recurring/manual adjustments.
 - Tag each source as committed or probable and calculate base, conservative, and
   optimistic scenarios without mixing categories invisibly.
 - Use stable source keys to replace an expected item with its actual payment/bank event
@@ -341,15 +347,21 @@ The provider-neutral coordinator in `internal/finance/payments/` now covers exac
 proposal, approval, submission, settlement, cancellation, ambiguity lookup, and controlled
 export behind injectable persistence and provider ports. A versioned PostgreSQL JSONB
 execution store now provides the durable snapshot and optimistic-concurrency boundary.
-Production completion still requires wiring it to treasury outbox delivery, live provider
+Production completion still requires application worker composition, live provider
 adapters, confirmed settlement effects in AP/accounting, operations pages, and sandbox
-certification.
+certification. The payment/result outbox commands, ambiguous-outcome dead-letter policy,
+durable result inbox, and effect-key idempotency boundary are implemented and remain
+provider-neutral.
 
-- [ ] Submit through the existing transactional outbox and use a stable idempotency key per batch item in the durable integration.
+- [x] Define payment execution/result-import outbox commands, stable idempotency keys,
+  handler registration, and a terminal ambiguous-outcome path that prevents blind
+  resubmission.
+- [ ] Compose those handlers into the application/worker with a durable batch-item
+  producer and provider adapter.
 - [x] Add a company-scoped JSONB execution snapshot store with optimistic version checks.
 - [x] On timeout or retry, query provider status before any resubmission.
-- [x] Ingest partial, rejected, cancelled, failed, and settled provider results into an
-  append-only status history.
+- [x] Ingest partial, rejected, cancelled, failed, and settled provider results into a
+  durable, company-scoped result inbox with immutable fingerprints.
 - [ ] Wire only confirmed settlement into AP payment/allocation, FX, tax, journal, and bank
   reconciliation services, with no duplicate effects on callback replay.
 - [ ] Add payment operations pages and alerts for ambiguous, partial, failed, and unmatched

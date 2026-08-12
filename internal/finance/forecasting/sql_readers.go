@@ -28,6 +28,9 @@ func NewDatabaseReaders(db *pgxpool.Pool) []SourceReader {
 		&SQLSourceReader{db: db, kind: SourceTypeOpenAR, name: "open-ar"},
 		&SQLSourceReader{db: db, kind: SourceTypePostedAP, name: "posted-ap"},
 		&SQLSourceReader{db: db, kind: SourceTypeApprovedPayroll, name: "posted-payroll"},
+		&SQLSourceReader{db: db, kind: SourceTypeApprovedPayment, name: "approved-payments"},
+		&SQLSourceReader{db: db, kind: SourceTypeApprovedPO, name: "approved-pos"},
+		&SQLSourceReader{db: db, kind: SourceTypeTaxObligation, name: "tax-obligations"},
 	}
 }
 
@@ -57,9 +60,142 @@ func (r *SQLSourceReader) ReadExpectedFlows(ctx context.Context, companyID int64
 		return r.readPostedAP(ctx, companyID, fromDate, toDate)
 	case SourceTypeApprovedPayroll:
 		return r.readPayroll(ctx, companyID, fromDate, toDate)
+	case SourceTypeApprovedPayment:
+		return r.readApprovedPayments(ctx, companyID, fromDate, toDate)
+	case SourceTypeApprovedPO:
+		return r.readApprovedPOs(ctx, companyID, fromDate, toDate)
+	case SourceTypeTaxObligation:
+		return r.readTaxObligations(ctx, companyID, fromDate, toDate)
 	default:
 		return nil, fmt.Errorf("unsupported forecast source type %s", r.kind)
 	}
+}
+
+func (r *SQLSourceReader) readApprovedPayments(ctx context.Context, companyID int64, fromDate, toDate time.Time) ([]ExpectedCashFlow, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT b.id,
+		       b.currency,
+		       GREATEST(COALESCE(b.approved_at, b.created_at)::date, $2::date),
+		       b.total_amount::text
+		FROM treasury_payment_batches b
+		WHERE b.company_id = $1
+		  AND b.status IN ('APPROVED', 'EXPORTED')
+		  AND COALESCE(b.approved_at, b.created_at)::date < $3
+		  AND b.total_amount > 0
+		ORDER BY COALESCE(b.approved_at, b.created_at), b.id`, companyID, fromDate, toDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var result []ExpectedCashFlow
+	for rows.Next() {
+		var id int64
+		var currency, amountText string
+		var expectedDate time.Time
+		if err := rows.Scan(&id, &currency, &expectedDate, &amountText); err != nil {
+			return nil, err
+		}
+		amount, err := exactAmount("-"+amountText, currency)
+		if err != nil {
+			return nil, fmt.Errorf("payment batch %d: %w", id, err)
+		}
+		result = append(result, ExpectedCashFlow{
+			SourceType: SourceTypeApprovedPayment,
+			SourceRef:  fmt.Sprintf("payment-batch:%d", id),
+			Amount:     amount,
+			Currency:   strings.ToUpper(strings.TrimSpace(currency)),
+			Date:       dateOnlyUTC(expectedDate),
+			Certainty:  CertaintyCommitted,
+		})
+	}
+	return result, rows.Err()
+}
+
+func (r *SQLSourceReader) readApprovedPOs(ctx context.Context, companyID int64, fromDate, toDate time.Time) ([]ExpectedCashFlow, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT p.id,
+		       p.currency,
+		       GREATEST(COALESCE(p.expected_date, p.approved_at::date, p.created_at::date), $2::date),
+		       SUM(GREATEST(progress.ordered_amount - progress.invoiced_amount, 0))::text
+		FROM pos p
+		JOIN po_line_progress progress ON progress.po_id = p.id
+		WHERE p.company_id = $1
+		  AND p.status = 'APPROVED'
+		  AND COALESCE(p.expected_date, p.approved_at::date, p.created_at::date) < $3
+		GROUP BY p.id, p.currency, p.expected_date, p.approved_at, p.created_at
+		HAVING SUM(GREATEST(progress.ordered_amount - progress.invoiced_amount, 0)) > 0
+		ORDER BY COALESCE(p.expected_date, p.approved_at::date, p.created_at::date), p.id`, companyID, fromDate, toDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var result []ExpectedCashFlow
+	for rows.Next() {
+		var id int64
+		var currency, amountText string
+		var expectedDate time.Time
+		if err := rows.Scan(&id, &currency, &expectedDate, &amountText); err != nil {
+			return nil, err
+		}
+		amount, err := exactAmount("-"+amountText, currency)
+		if err != nil {
+			return nil, fmt.Errorf("purchase order %d: %w", id, err)
+		}
+		result = append(result, ExpectedCashFlow{
+			SourceType: SourceTypeApprovedPO,
+			SourceRef:  fmt.Sprintf("purchase-order:%d", id),
+			Amount:     amount,
+			Currency:   strings.ToUpper(strings.TrimSpace(currency)),
+			Date:       dateOnlyUTC(expectedDate),
+			Certainty:  CertaintyProbable,
+		})
+	}
+	return result, rows.Err()
+}
+
+func (r *SQLSourceReader) readTaxObligations(ctx context.Context, companyID int64, fromDate, toDate time.Time) ([]ExpectedCashFlow, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT tp.id,
+		       c.base_currency,
+		       ap.end_date,
+		       SUM(tle.tax_amount * tle.sign)::text
+		FROM tax_periods tp
+		JOIN accounting_periods ap ON ap.id = tp.accounting_period_id
+		JOIN companies c ON c.id = tp.company_id
+		JOIN tax_ledger_entries tle ON tle.tax_period_id = tp.id
+		WHERE tp.company_id = $1
+		  AND tp.status = 'OPEN'
+		  AND ap.end_date >= $2::date
+		  AND ap.end_date < $3
+		GROUP BY tp.id, c.base_currency, ap.end_date
+		HAVING SUM(tle.tax_amount * tle.sign) > 0
+		ORDER BY ap.end_date, tp.id`, companyID, fromDate, toDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var result []ExpectedCashFlow
+	for rows.Next() {
+		var id int64
+		var currency, amountText string
+		var dueDate time.Time
+		if err := rows.Scan(&id, &currency, &dueDate, &amountText); err != nil {
+			return nil, err
+		}
+		amount, err := exactAmount("-"+amountText, currency)
+		if err != nil {
+			return nil, fmt.Errorf("tax period %d: %w", id, err)
+		}
+		result = append(result, ExpectedCashFlow{
+			SourceType: SourceTypeTaxObligation,
+			SourceRef:  fmt.Sprintf("tax-period:%d", id),
+			Amount:     amount,
+			Currency:   strings.ToUpper(strings.TrimSpace(currency)),
+			Date:       dateOnlyUTC(dueDate),
+			Certainty:  CertaintyCommitted,
+		})
+	}
+	return result, rows.Err()
 }
 
 func (r *SQLSourceReader) readBankBalances(ctx context.Context, companyID int64, asOf time.Time) ([]ExpectedCashFlow, error) {
@@ -147,15 +283,26 @@ func (r *SQLSourceReader) readPostedAP(ctx context.Context, companyID int64, fro
 		SELECT i.id,
 		       i.currency,
 		       GREATEST(COALESCE(i.due_at, i.issued_at)::date, $2::date),
-		       (i.total - COALESCE(SUM(pa.amount), 0))::text
+		       (i.total - COALESCE(SUM(pa.amount), 0) -
+		        COALESCE(approved.approved_amount, 0))::text
 		FROM ap_invoices i
 		JOIN suppliers s ON s.id = i.supplier_id
 		LEFT JOIN ap_payment_allocations pa ON pa.ap_invoice_id = i.id
+		LEFT JOIN (
+			SELECT bi.ap_invoice_id, SUM(bi.amount) AS approved_amount
+			FROM treasury_payment_batch_items bi
+			JOIN treasury_payment_batches b ON b.id = bi.batch_id
+			WHERE bi.status = 'ACTIVE'
+			  AND b.status IN ('APPROVED', 'EXPORTED')
+			  AND bi.ap_invoice_id IS NOT NULL
+			GROUP BY bi.ap_invoice_id
+		) approved ON approved.ap_invoice_id = i.id
 		WHERE s.company_id = $1
 		  AND i.status = 'POSTED'
 		  AND COALESCE(i.due_at, i.issued_at) < $3
-		GROUP BY i.id, i.currency, i.due_at, i.issued_at, i.total
-		HAVING i.total - COALESCE(SUM(pa.amount), 0) > 0
+		GROUP BY i.id, i.currency, i.due_at, i.issued_at, i.total, approved.approved_amount
+		HAVING i.total - COALESCE(SUM(pa.amount), 0) -
+		       COALESCE(approved.approved_amount, 0) > 0
 		ORDER BY COALESCE(i.due_at, i.issued_at), i.id`, companyID, fromDate, toDate)
 	if err != nil {
 		return nil, err

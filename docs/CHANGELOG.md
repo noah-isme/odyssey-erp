@@ -7,6 +7,10 @@ only in the [authoritative feature matrix](reference/feature-matrix.md).
 
 ## Unreleased
 
+- Added the cumulative `v0.11-finance` roadmap handoff: scoped finance routes,
+  verified statement transport, tax/payment/PO forecast readers, exact decimal
+  treasury amounts, and durable payment-result/effect idempotency. Production
+  certification remains pending.
 - Hardened the Midtrans connector with structured vaulted credentials, explicit
   sandbox/live endpoint selection, injected transport retries, provider status health
   checks, strict webhook validation, monotonic payment transitions, refund/status

@@ -93,10 +93,14 @@ func (f *transactionFeedFake) Transactions(context.Context, SyncRequest) (Transa
 	}}}, nil
 }
 
-type bankingImportFake struct{ calls int }
+type bankingImportFake struct {
+	calls int
+	hash  string
+}
 
-func (f *bankingImportFake) ImportStatement(context.Context, banking.BankAccount, []banking.NormalizedStatementEntry, string, string) (banking.ImportResult, error) {
+func (f *bankingImportFake) ImportStatement(_ context.Context, _ banking.BankAccount, _ []banking.NormalizedStatementEntry, _ string, contentHash string) (banking.ImportResult, error) {
 	f.calls++
+	f.hash = contentHash
 	return banking.ImportResult{Imported: 1}, nil
 }
 

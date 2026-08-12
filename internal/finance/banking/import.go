@@ -31,6 +31,13 @@ func parseStatement(filename string, content []byte, currency string, accountID 
 	return parseCSV(content, currency, accountID)
 }
 
+// ParseStatement normalizes a CSV, OFX, or QFX statement artifact without
+// persisting anything. Feed adapters use this same parser as manual imports so
+// automated transport cannot introduce a second amount/date interpretation.
+func ParseStatement(filename string, content []byte, currency string, accountID int64) ([]NormalizedStatementEntry, error) {
+	return parseStatement(filename, content, currency, accountID)
+}
+
 func parseCSV(content []byte, currency string, accountID int64) ([]NormalizedStatementEntry, error) {
 	reader := csv.NewReader(bytes.NewReader(content))
 	records, err := reader.ReadAll()

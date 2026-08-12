@@ -16,9 +16,13 @@ its `production-certified` evidence is recorded there.
 - [x] Define the bounded `v0.10-core` scope in the feature matrix. The profile
       includes AR/AP, sales/delivery, inventory/stock-take, document control,
       and CMMS maintenance foundations only.
+- [x] Define the cumulative `v0.11-finance` scope in the feature matrix. It
+      selects the five v0.10 capabilities plus Finance automation, but remains
+      a not-yet-certified scope for the next release cycle.
 - [ ] Confirm the deployment environment sets `RELEASE_PROFILE=v0.10-core`.
-      `full` is allowed only when every matrix row is certified; an unset or
-      unknown profile is a release-gate failure.
+      `v0.11-finance` is not currently approved for promotion, and `full` is
+      allowed only when every matrix row is certified; an unset or unknown
+      profile is a release-gate failure.
 - [ ] Confirm the working tree is clean, excluding generated `graphify-out/`
       state, and review every migration, configuration, and documentation change.
 - [ ] Create a signed final release tag only after all required gates below pass.
@@ -73,6 +77,9 @@ tagged candidate and contain completed evidence rather than the template,
 unchecked-box, pending-result, or placeholder state. For `v0.10-core`, rows marked
 `v0.10.0 scope=no` are not certification requirements; they remain outside the
 production route claim.
+The cumulative `v0.11-finance` profile selects rows marked `v0.11.0 scope=yes`,
+but its production gate remains blocked until the five core rows and Finance
+automation have complete certification evidence.
 
 The seeded local HTTP regression sweep was reverified on 2026-08-12: 143 page
 routes, 65 parameterised route patterns, 316 guarded mutation routes, and the

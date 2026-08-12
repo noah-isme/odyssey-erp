@@ -24,7 +24,7 @@ if [[ ! -f "$matrix" ]]; then
 	exit "$status"
 fi
 
-expected_header='| Capability | v0.10.0 scope | code-complete | integration-complete | production-certified | documented | Advertised production route source | Evidence / remaining gate |'
+expected_header='| Capability | v0.10.0 scope | v0.11.0 scope | code-complete | integration-complete | production-certified | documented | Advertised production route source | Evidence / remaining gate |'
 if ! grep -Fqx "$expected_header" "$matrix"; then
 	fail "feature matrix header does not define release scope and all four release statuses"
 fi
@@ -32,12 +32,14 @@ fi
 declare -A seen_capabilities=()
 row_count=0
 scope_row_count=0
-while IFS='|' read -r _ capability release_scope code_complete integration_complete production_certified documented route_sources evidence _; do
+finance_scope_row_count=0
+while IFS='|' read -r _ capability v010_scope v011_scope code_complete integration_complete production_certified documented route_sources evidence _; do
 	capability=$(trim "${capability:-}")
 	[[ -z "$capability" || "$capability" == "Capability" || "$capability" == '---' ]] && continue
 	[[ "$capability" == \** ]] && continue
 
-	release_scope=$(trim "${release_scope:-}")
+	v010_scope=$(trim "${v010_scope:-}")
+	v011_scope=$(trim "${v011_scope:-}")
 	code_complete=$(trim "${code_complete:-}")
 	integration_complete=$(trim "${integration_complete:-}")
 	production_certified=$(trim "${production_certified:-}")
@@ -51,10 +53,15 @@ while IFS='|' read -r _ capability release_scope code_complete integration_compl
 	fi
 	seen_capabilities["$capability"]=1
 
-	if [[ "$release_scope" != yes && "$release_scope" != no ]]; then
-		fail "$capability has invalid v0.10.0 scope value: $release_scope (expected yes or no)"
-	elif [[ "$release_scope" == yes ]]; then
+	if [[ "$v010_scope" != yes && "$v010_scope" != no ]]; then
+		fail "$capability has invalid v0.10.0 scope value: $v010_scope (expected yes or no)"
+	elif [[ "$v010_scope" == yes ]]; then
 		scope_row_count=$((scope_row_count + 1))
+	fi
+	if [[ "$v011_scope" != yes && "$v011_scope" != no ]]; then
+		fail "$capability has invalid v0.11.0 scope value: $v011_scope (expected yes or no)"
+	elif [[ "$v011_scope" == yes ]]; then
+		finance_scope_row_count=$((finance_scope_row_count + 1))
 	fi
 
 	for field in code_complete integration_complete production_certified documented; do
@@ -103,6 +110,9 @@ if (( row_count == 0 )); then
 fi
 if (( scope_row_count == 0 )); then
 	fail "feature matrix does not identify any v0.10.0 in-scope capability rows"
+fi
+if (( finance_scope_row_count == 0 )); then
+	fail "feature matrix does not identify any v0.11.0 in-scope capability rows"
 fi
 
 for profile_doc in docs/STAGING_DEPLOYMENT.md docs/DEPLOYMENT.md docs/releases/production-release-checklist.md; do

@@ -10,6 +10,10 @@ The v0.10.0 staging certification profile is `v0.10-core`. Complete the
 for the exact candidate before changing any feature-matrix row to
 `production-certified=yes`.
 
+The cumulative `v0.11-finance` profile is reserved for the next finance
+automation certification cycle and is not production-certified. It must not be
+used to promote the bounded v0.10.0 release.
+
 The final release gate checks that this record names the exact candidate tag and
 contains completed evidence. An untouched template, unchecked checklist item,
 pending result, or unreplaced evidence placeholder cannot pass the gate.
@@ -99,9 +103,11 @@ Use a staging-only database and Redis namespace. Never point staging at the
 production `PG_DSN`, `REDIS_ADDR`, session secrets, or connector credentials.
 
 `RELEASE_PROFILE` is required explicitly by the application configuration and
-release gates. Accepted values are `v0.10-core` and `full`; staging uses
-`v0.10-core` so only the five bounded v0.10.0 capabilities are exposed for
-certification. Do not use an unset or ad-hoc profile in a staging evidence run.
+release gates. Accepted values are `v0.10-core`, `v0.11-finance`, and `full`;
+staging uses `v0.10-core` so only the five bounded v0.10.0 capabilities are
+exposed for certification. `v0.11-finance` selects those five capabilities plus
+Finance automation, but remains not production-certified. Do not use an unset or
+ad-hoc profile in a staging evidence run.
 
 ## Systemd services
 

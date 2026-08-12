@@ -11,6 +11,10 @@ release gate requires an explicit `RELEASE_PROFILE`; production promotion uses
 `RELEASE_PROFILE=v0.10-core` unless a separately approved `full` profile has
 certified every matrix row.
 
+The cumulative `v0.11-finance` profile is documented for the next finance
+automation certification cycle, but it is not production-certified and must not
+be used for promotion until its matrix evidence is complete.
+
 > This runbook is production-only. The `staging` branch deploys through the
 > isolated staging contract in [STAGING_DEPLOYMENT.md](STAGING_DEPLOYMENT.md);
 > it does not use the production host, paths, services, or secrets described
@@ -93,9 +97,10 @@ The application reads runtime configuration from environment variables through
 `internal/app/config.go`; there is no checked-in `config/production.yaml` to
 copy into a release. Set `SESSION_SECRET` and `CSRF_SECRET` to unique secret
 values and keep `CONNECTORS_DEVELOPMENT_MODE=false` in production. Accepted
-release profiles are `v0.10-core` and `full`; do not omit the profile or invent
-another value. The selected profile must match the scope and evidence recorded
-in the [authoritative feature matrix](reference/feature-matrix.md).
+release profiles are `v0.10-core`, `v0.11-finance`, and `full`; do not omit the
+profile or invent another value. `v0.11-finance` is not currently certified for
+production. The selected profile must match the scope and evidence recorded in
+the [authoritative feature matrix](reference/feature-matrix.md).
 
 ---
 

@@ -18,9 +18,12 @@ and the newer-module role matrix remain integration work. Production certificati
 still open for the capabilities marked `no` or `partial` in the matrix.
 
 The latest implementation slice adds a versioned PostgreSQL payment-execution snapshot
-store, deterministic v1 distribution route ordering and metrics, injectable CMMS
-predictive thresholds, and company/branch-aware RBAC middleware helpers. These are
-bounded foundations; the cross-module wiring and production evidence below remain open.
+store, durable bank-file result/effect idempotency boundaries, exact decimal treasury
+amounts, verified statement-transport ingestion, additional forecast source readers,
+deterministic v1 distribution route ordering and metrics, injectable CMMS predictive
+thresholds, and company/branch-aware RBAC middleware helpers. These are bounded
+foundations; live-provider wiring, cross-module accounting effects, and production
+evidence below remain open.
 
 The v0.10.0 production claim is limited to AR/AP invoice and payment lifecycle,
 sales order and delivery, inventory movement and stock-take, document control
@@ -78,9 +81,10 @@ certification record](docs/releases/v0.10-core-staging-certification.md).
   access-review evidence. Profile enforcement, compatibility migration, access-review
   APIs, and exact scoped checks are implemented; remaining route adoption and newer
   module role coverage stay on the post-release backlog.
-- Integrate the provider-neutral payment execution coordinator's versioned durable store
-  with finance outbox delivery, live provider adapters, settlement-to-AP/GL effects,
-  and reconciliation.
+- Integrate the provider-neutral payment execution coordinator and durable result inbox
+  with application worker composition, live provider adapters, settlement-to-AP/GL/tax/FX
+  effects, and reconciliation. The provider-neutral outbox commands and ambiguous-outcome
+  dead-letter behavior are now covered; they are not provider or accounting certification.
 - Close the remaining procurement, landed-cost, logistics, and distribution lifecycle
   gaps. Distribution now has deterministic v1 route ordering and metrics; freight still
   has an injectable exact journal-posting boundary, but application wiring and the full
