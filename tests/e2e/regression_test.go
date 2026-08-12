@@ -234,6 +234,8 @@ var nonPageExactPaths = map[string]struct{}{
 	"/mrp/dispatch":                    {},
 	"/mrp/genealogy":                   {},
 	"/mrp/wip-locations":               {},
+	"/permissions/access-reviews":      {},
+	"/permissions/scoped-assignments":  {},
 	"/procurement/contracts":           {},
 	"/procurement/variances":           {},
 	"/pos/terminal":                    {},
@@ -584,6 +586,29 @@ func isBankFeedWebhookRoute(pattern string) bool {
 
 func assertBankFeedWebhookContract(t *testing.T, client *http.Client, baseURL string) {
 	t.Helper()
+	// Bounded release profiles may intentionally omit bank-feed routes. The
+	// route manifest is the source of truth for the running profile; do not
+	// turn an expected profile 404 into a false provider-boundary failure.
+	if routeFile := strings.TrimSpace(os.Getenv("ODYSSEY_E2E_ROUTES")); routeFile != "" {
+		raw, err := os.ReadFile(routeFile)
+		if err != nil {
+			t.Fatalf("read route dump %q for bank-feed contract: %v", routeFile, err)
+		}
+		var entries []routeEntry
+		if err := json.Unmarshal(raw, &entries); err != nil {
+			t.Fatalf("parse route dump %s for bank-feed contract: %v", routeFile, err)
+		}
+		admitted := false
+		for _, entry := range entries {
+			if entry.Method == http.MethodPost && entry.Pattern == "/finance/bankfeeds/webhooks/{provider}" {
+				admitted = true
+				break
+			}
+		}
+		if !admitted {
+			t.Skip("bank-feed webhook is outside the selected release profile")
+		}
+	}
 	request, err := http.NewRequest(http.MethodPost, baseURL+"/finance/bankfeeds/webhooks/stripe", strings.NewReader(`{"type":"e2e.probe"}`))
 	if err != nil {
 		t.Fatalf("build bank-feed webhook request: %v", err)

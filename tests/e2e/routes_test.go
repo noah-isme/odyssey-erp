@@ -37,6 +37,8 @@ func TestIsPageRoute(t *testing.T) {
 		"/accounting/budget/export.xlsx",     // file payload
 		"/report/ping",                       // Gotenberg diagnostic
 		"/finance/reports/trial-balance/pdf", // file payload
+		"/permissions/access-reviews",        // scoped JSON endpoint
+		"/permissions/scoped-assignments",    // scoped JSON endpoint
 	}
 	for _, pattern := range nonPages {
 		if isPageRoute(pattern) {
