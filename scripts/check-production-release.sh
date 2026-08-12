@@ -18,6 +18,23 @@ trim() {
 	printf '%s' "$value"
 }
 
+table_row_result() {
+	local section=$1
+	local row_label=$2
+	printf '%s\n' "$section" | awk -F'|' -v wanted="$row_label" '
+		{
+			label = $2
+			gsub(/^[[:space:]]+|[[:space:]]+$/, "", label)
+			if (label == wanted) {
+				result = $(NF - 1)
+				gsub(/^[[:space:]`]+|[[:space:]`]+$/, "", result)
+				print result
+				exit
+			}
+		}
+	'
+}
+
 matrix="docs/reference/feature-matrix.md"
 
 release_profile=${RELEASE_PROFILE:-}
@@ -111,11 +128,126 @@ else
 	if grep -Fq '**Status:** Evidence template' "$certification_record"; then
 		fail 'v0.10-core staging certification record is still marked as an evidence template'
 	fi
-	if grep -Eq -- '- \[ \]|_record |_record\*|_pending_' "$certification_record"; then
-		fail 'v0.10-core staging certification record contains incomplete checklist or evidence placeholders'
+	if grep -Eiq -- '- \[ \]|_record |_record\*|_pending_|<[^>]+>|\b(TBD|TODO|PLACEHOLDER)\b|\|[[:space:]]*`?PENDING`?[[:space:]]*\|' "$certification_record"; then
+		fail 'v0.10-core staging certification record contains an incomplete checklist, PENDING result, or evidence placeholder'
+	fi
+	if grep -Eq -- '\|[[:space:]]*`?(FAIL|NO-GO)`?[[:space:]]*\|[[:space:]]*$' "$certification_record"; then
+		fail 'v0.10-core staging certification record contains a FAIL or NO-GO result'
 	fi
 	if [[ -n "$candidate_tag" ]] && ! grep -Fq "**Candidate:** $candidate_tag" "$certification_record"; then
 		fail "v0.10-core staging certification record does not identify tagged candidate $candidate_tag"
+	fi
+
+	evidence_section=$(awk '
+		/^## Evidence registry$/ { in_section = 1; next }
+		in_section && /^## / { exit }
+		in_section { print }
+	' "$certification_record")
+	evidence_row_count=0
+	while IFS='|' read -r _ evidence_id evidence_description evidence_url evidence_sha collected_utc evidence_owner evidence_result evidence_reviewer _; do
+		evidence_id=$(trim "${evidence_id:-}")
+		evidence_id=${evidence_id//\`/}
+		[[ "$evidence_id" =~ ^[A-Z][A-Z0-9-]*-[0-9]+$ ]] || continue
+		evidence_row_count=$((evidence_row_count + 1))
+		evidence_description=$(trim "${evidence_description:-}")
+		evidence_url=$(trim "${evidence_url:-}")
+		evidence_sha=$(trim "${evidence_sha:-}")
+		collected_utc=$(trim "${collected_utc:-}")
+		evidence_owner=$(trim "${evidence_owner:-}")
+		evidence_result=$(trim "${evidence_result:-}")
+		evidence_result=${evidence_result//\`/}
+		evidence_reviewer=$(trim "${evidence_reviewer:-}")
+		if [[ -z "$evidence_url" || -z "$collected_utc" || -z "$evidence_owner" || -z "$evidence_reviewer" ]]; then
+			fail "$evidence_id has incomplete evidence metadata"
+		fi
+		if [[ ! "$evidence_sha" =~ ^[0-9a-f]{64}$ ]]; then
+			fail "$evidence_id does not record a valid lowercase SHA-256 digest"
+		fi
+		if [[ "$evidence_result" != PASS && "$evidence_result" != N/A ]]; then
+			fail "$evidence_id evidence result must be PASS or justified N/A (found ${evidence_result:-missing})"
+		fi
+		if [[ "$evidence_result" == N/A && ! "$evidence_description" =~ N/A:[[:space:]].+ ]]; then
+			fail "$evidence_id N/A result must include an 'N/A: reason' justification in Required proof"
+		fi
+		if [[ "$evidence_id" == APR-001 && "$evidence_result" != PASS ]]; then
+			fail "APR-001 approval evidence must be PASS (found ${evidence_result:-missing})"
+		fi
+	done <<< "$evidence_section"
+	if (( evidence_row_count == 0 )); then
+		fail 'v0.10-core staging certification record has no evidence registry rows'
+	fi
+
+	approval_section=$(awk '
+		/^## Approval and promotion decision$/ { in_section = 1; next }
+		in_section && /^## / { exit }
+		in_section { print }
+	' "$certification_record")
+	for approval in 'Test lead' 'Security approver' 'Operations approver' 'Release owner'; do
+		approval_result=$(table_row_result "$approval_section" "$approval")
+		if [[ "$approval_result" != PASS ]]; then
+			fail "$approval result must be PASS (found ${approval_result:-missing})"
+		fi
+	done
+	go_no_go_result=$(table_row_result "$approval_section" 'Go/no-go')
+	if [[ "$go_no_go_result" != GO ]]; then
+		fail "Go/no-go decision must be GO (found ${go_no_go_result:-missing})"
+	fi
+
+	findings_section=$(awk '
+		/^## Findings$/ { in_section = 1; next }
+		in_section && /^## / { exit }
+		in_section { print }
+	' "$certification_record")
+	while IFS='|' read -r _ finding_id severity finding_evidence finding_description finding_owner finding_disposition finding_impact finding_status _; do
+		finding_id=$(trim "${finding_id:-}")
+		finding_id=${finding_id//\`/}
+		[[ "$finding_id" =~ ^FIND-[0-9]+$ ]] || continue
+		severity=$(trim "${severity:-}")
+		severity=${severity//\`/}
+		finding_evidence=$(trim "${finding_evidence:-}")
+		finding_description=$(trim "${finding_description:-}")
+		finding_owner=$(trim "${finding_owner:-}")
+		finding_disposition=$(trim "${finding_disposition:-}")
+		finding_impact=$(trim "${finding_impact:-}")
+		finding_status=$(trim "${finding_status:-}")
+		finding_status=${finding_status//\`/}
+		if [[ ! "$severity" =~ ^(critical|high|medium|low)$ ]]; then
+			fail "$finding_id has invalid severity ${severity:-missing}"
+		fi
+		if [[ -z "$finding_evidence" || -z "$finding_description" || -z "$finding_owner" || -z "$finding_disposition" || -z "$finding_impact" ]]; then
+			fail "$finding_id has incomplete finding evidence or disposition"
+		fi
+		case "$finding_status" in
+			CLOSED|RESOLVED|ACCEPTED)
+				;;
+			*)
+				fail "$finding_id is unresolved (status ${finding_status:-missing})"
+				;;
+		esac
+		if [[ "$severity" =~ ^(critical|high)$ && "$finding_status" == ACCEPTED ]]; then
+			fail "$finding_id is a $severity finding and cannot be accepted for release"
+		fi
+	done <<< "$findings_section"
+fi
+
+if [[ "$release_profile" == v0.10-core ]]; then
+	for direction in up down; do
+		if [[ ! -f "migrations/000124_scoped_rbac_global_compatibility.$direction.sql" ]]; then
+			fail "v0.10-core candidate is missing the 000124 $direction migration"
+		fi
+	done
+	if compgen -G 'migrations/000125_*.sql' >/dev/null; then
+		fail 'v0.10-core candidate contains forbidden migration 000125'
+	fi
+	latest_migration=$(find migrations -maxdepth 1 -type f -name '[0-9][0-9][0-9][0-9][0-9][0-9]_*.up.sql' -printf '%f\n' | sort | tail -n 1)
+	latest_migration_number=${latest_migration%%_*}
+	if [[ -z "$latest_migration" || ! "$latest_migration_number" =~ ^[0-9]{6}$ ]]; then
+		fail 'could not determine the v0.10-core migration ceiling'
+	elif (( 10#$latest_migration_number > 124 )); then
+		fail "v0.10-core migration ceiling exceeds 000124 (found $latest_migration_number)"
+	fi
+	if ! grep -Fq 'Migration `000125` must be absent' "$certification_record"; then
+		fail 'v0.10-core certification record does not preserve the 000124 ceiling / 000125 exclusion'
 	fi
 fi
 profile_config="internal/app/config.go"

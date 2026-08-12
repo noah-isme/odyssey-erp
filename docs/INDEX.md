@@ -128,6 +128,7 @@ Key technical choices are documented as Architecture Decision Records (ADRs).
 * [Version History](./releases/VERSION_HISTORY.md)
 * [Production Release Checklist](./releases/production-release-checklist.md)
 * [v0.10-core Staging Certification Record](./releases/v0.10-core-staging-certification.md)
+* [v0.10.0-rc.4](./releases/v0.10.0-rc.4.md)
 * [v0.10.0-rc.3](./releases/v0.10.0-rc.3.md)
 * [v0.10.0-rc.2](./releases/v0.10.0-rc.2.md)
 * [v0.10.0-rc.1](./releases/v0.10.0-rc.1.md)

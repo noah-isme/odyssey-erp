@@ -2,7 +2,8 @@ name: CI
 
 on:
   push:
-    branches: ["main", "master", "staging"]
+    branches: ["main", "master", "staging", "release/v0.10.0-rc.4"]
+    tags: ["v0.10.0-rc.4"]
   pull_request:
 
 jobs:
@@ -36,7 +37,20 @@ jobs:
       GONOSUMDB: ""
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout tested commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Record exact tested revision
+        id: source
+        shell: bash
+        run: |
+          set -euo pipefail
+          tested_sha=$(git rev-parse HEAD)
+          echo "sha=$tested_sha" >> "$GITHUB_OUTPUT"
+          echo "TESTED_SHA=$tested_sha" >> "$GITHUB_ENV"
 
       - uses: actions/setup-go@v5
         with:
@@ -95,12 +109,24 @@ jobs:
         env:
           ODYSSEY_TEST_MODE: "0"
           ODYSSEY_DUMP_ROUTES: "1"
+          RELEASE_PROFILE: v0.10-core
           SESSION_SECRET: ci-session-secret-not-for-production
           CSRF_SECRET: ci-csrf-secret-not-for-production
         run: |
           ./bin/odyssey > routes.json
           echo "GET page routes discovered:"
           grep -c '"method"' routes.json
+          jq --arg profile "$RELEASE_PROFILE" --arg commit "$TESTED_SHA" \
+            '{profile: $profile, commit: $commit, routes: .}' \
+            routes.json > route-profile.json
+
+      - name: Upload tested route/profile manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: route-profile-${{ steps.source.outputs.sha }}
+          path: route-profile.json
+          if-no-files-found: error
+          retention-days: 90
 
       - name: Start application
         env:

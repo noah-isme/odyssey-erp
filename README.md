@@ -1,7 +1,7 @@
 # Odyssey ERP
 
 [![CI](https://github.com/noah-isme/odyssey-erp/actions/workflows/ci.yml/badge.svg)](https://github.com/noah-isme/odyssey-erp/actions/workflows/ci.yml)
-[![Release candidate](https://img.shields.io/badge/release-v0.10.0--rc.3-blue)](docs/releases/v0.10.0-rc.3.md)
+[![Release candidate](https://img.shields.io/badge/release-v0.10.0--rc.4-blue)](docs/releases/v0.10.0-rc.4.md)
 [![Go](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go&logoColor=white)](go.mod)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
@@ -34,7 +34,7 @@ capture instructions.
 For self-managed VPS deployment, use the [VPS production deployment guide](docs/DEPLOYMENT.md).
 The `staging` branch uses the isolated [staging VPS deployment guide](docs/STAGING_DEPLOYMENT.md).
 
-The current release candidate is [v0.10.0-rc.3](docs/releases/v0.10.0-rc.3.md).
+The current release candidate is [v0.10.0-rc.4](docs/releases/v0.10.0-rc.4.md).
 For production promotion, use the [Production Release Checklist](docs/releases/production-release-checklist.md);
 this candidate is not production-certified yet.
 

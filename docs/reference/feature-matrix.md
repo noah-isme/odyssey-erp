@@ -1,9 +1,16 @@
 # Authoritative Feature Matrix
 
-**Reviewed:** 2026-08-10
+**Reviewed:** 2026-08-12
 
-**Current release candidate:** `v0.10.0-rc.3`. This candidate is not
+**Current release candidate:** `v0.10.0-rc.4`. This candidate is not
 production-certified; the matrix below remains the authority for promotion evidence.
+
+**v0.10.0-rc.4 boundary:** the application baseline is
+`ec65cc08639c184030c63e3407791987eee92804`; the annotated rc.4 tag identifies
+the later candidate commit containing release packaging and documentation. The
+candidate includes migrations through `000124_scoped_rbac_global_compatibility`.
+Commit `1a8343e4499420467ba3dda04a2683782c6c79d7`, migration
+`000125_payment_settlement_results`, and v0.11-only routes are excluded.
 
 **Release profiles:** `v0.10-core` is the bounded v0.10.0 production profile and
 claims only rows marked `yes` in the **v0.10.0 scope** column. `full` is reserved
@@ -27,7 +34,8 @@ Each capability is assessed independently across the release scope and four
 status dimensions:
 
 - `v0.10.0 scope` — `yes` means the capability is part of the bounded
-  `v0.10-core` release claim; `no` means it remains outside that profile. The
+  `v0.10-core` release claim; `no` means it remains outside that profile. A
+  v0.11-only capability or migration is never included by this column. The
   `full` profile evaluates every row regardless of this column;
 - `code-complete` — the scoped behavior has an implementation and focused tests;
 - `integration-complete` — the behavior is wired through its route, worker, persistence,
@@ -75,7 +83,9 @@ same rule to every row. Rows outside the selected profile are not release claims
 must remain unavailable to that profile's production route set. In particular, the
 Phase 14/P7 evidence guide records local verification; it does not certify staging or
 production. The VPS deployment target satisfies the infrastructure selection only; it
-does not certify incomplete feature workflows.
+does not certify incomplete feature workflows. For rc.4, selecting
+`RELEASE_PROFILE=v0.10-core` must not expose v0.11-only routes or apply migration
+`000125`.
 
 Run the same checks locally and in CI:
 

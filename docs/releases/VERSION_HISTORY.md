@@ -1,17 +1,19 @@
 # Odyssey ERP Version and Progress Report
 
-**Reviewed:** 2026-08-10
+**Reviewed:** 2026-08-12
 
 ## How to read the version numbers
 
 `v0.9.1` is the latest named production release in the repository. It is primarily
-a UI/UX release dated 2026-05-28. `v0.10.0-rc.3` is the current release candidate
-for the post-v0.9.1 platform work; it is not production-certified.
+a UI/UX release dated 2026-05-28. `v0.10.0-rc.4` is the current release candidate
+for the post-v0.9.1 platform work; it is not production-certified. Its application
+baseline is `ec65cc08639c184030c63e3407791987eee92804`, it uses the `v0.10-core`
+profile, and its annotated tag identifies the exact packaging commit.
 
 In other words:
 
 - **Latest named production release:** v0.9.1.
-- **Current release candidate:** v0.10.0-rc.3 (2026-08-10).
+- **Current release candidate:** v0.10.0-rc.4 (2026-08-12).
 - **Latest documented implementation progress:** Phase 10–14 and P7 work, reviewed 2026-08-01.
 - **Next final release:** v0.10.0, pending production certification. The release
   gates are tracked in the [Production Release Checklist](production-release-checklist.md).
@@ -29,7 +31,8 @@ notes define the packaged scope without claiming production certification.
 | v0.9.1 | 2026-05-28 | Enterprise UI/UX | Standardized forms, filters, tables, responsive layouts, and Midnight Ledger styling across core operations | Latest named release documented in this repository; mostly presentation and usability improvements |
 | v0.10.0-rc.1 | 2026-08-10 | Platform foundations and release controls | Advanced documents, CMMS telemetry/prediction foundations, MRP compliance hardening, distribution/finance/connectors work, and production gates | Superseded candidate; staging, provider, and operational certification remain open |
 | v0.10.0-rc.2 | 2026-08-10 | Coretax and PPh 21 release-test completion | Fail-closed Coretax transport/validation, export-to-GL contract evidence, and annual last-tax-period PPh 21 reconciliation from a PMK 168/2023 fixture | Superseded candidate; official tax, staging, provider, and operational certification remain open |
-| v0.10.0-rc.3 | 2026-08-10 | VPS deployment target and release-gate cleanup | Self-managed VPS runbook, removal of the obsolete hosted blueprint, and evidence-based feature matrix | Current release candidate; feature, provider, and operational certification remain open |
+| v0.10.0-rc.3 | 2026-08-10 | VPS deployment target and release-gate cleanup | Self-managed VPS runbook, removal of the obsolete hosted blueprint, and evidence-based feature matrix | Superseded candidate; feature, provider, and operational certification remain open |
+| v0.10.0-rc.4 | 2026-08-12 | Exact candidate evidence and migration-safe release gates | Executable migration/seed runbook targets, exact tagged-candidate evidence checks, current generated SQLC bindings, and the final lint fix for the application baseline | Current candidate uses application baseline `ec65cc0`; the tag resolves the packaging commit; staging, provider, and operational certification remain open |
 
 ## Detailed version reports
 
@@ -128,7 +131,21 @@ self-managed VPS operation.
 
 See the [v0.10.0-rc.3 release notes](v0.10.0-rc.3.md).
 
-## Follow-up work after v0.10.0-rc.3
+### v0.10.0-rc.4 — Exact candidate evidence and migration-safe release gates
+
+**Primary purpose:** package the reviewed v0.10-core application baseline
+`ec65cc0` with explicit migration, release-identity, and certification-evidence
+requirements. The annotated tag, rather than the baseline SHA, resolves the exact
+candidate commit.
+
+The candidate ends at migration `000124_scoped_rbac_global_compatibility`.
+The later v0.11-finance implementation commit `1a8343e` and migration
+`000125_payment_settlement_results` are excluded from rc.4 and remain on the
+next-release line. This candidate is not production-certified.
+
+See the [v0.10.0-rc.4 release notes](v0.10.0-rc.4.md).
+
+## Follow-up work after v0.10.0-rc.4
 
 This work is documented in the current [roadmap](../ROADMAP.md) and [module catalog](../reference/module-catalog.md); the candidate packages the current scope, while final promotion remains pending.
 
@@ -157,7 +174,7 @@ This work is documented in the current [roadmap](../ROADMAP.md) and [module cata
 
 ### Remaining release work
 
-- Promote `v0.10.0` only after the candidate passes staging, provider, security,
+- Promote `v0.10.0` only after the rc.4 candidate passes staging, provider, security,
   migration, and operational certification gates.
 - Complete staging/production acceptance for FX and Horizon features.
 - Complete external Coretax validation.

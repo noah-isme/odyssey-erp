@@ -20,10 +20,25 @@ application port, database, and Redis instance.
 
 ## Deployment contract
 
-The workflow runs only after a successful `CI` workflow for the `staging`
-branch. It checks out the tested commit, builds the Linux release artifacts,
-runs migrations, switches the release symlink atomically, restarts the staging
-services, and verifies `http://127.0.0.1:8180/healthz`.
+The workflow deploys automatically after a successful `CI` workflow for the
+`staging` branch. Pushing the annotated `v0.10.0-rc.4` tag also starts the
+release-candidate deployment, so the candidate can run even before this
+workflow reaches the repository's default branch. A manual dispatch using the
+same tag remains available once the workflow is on the default branch. Every
+path verifies that the tag resolves to the checked-out commit and that the same
+commit has a successful `CI` run before building.
+It builds the Linux release artifacts once, creates `SHA256SUMS`, migration and
+web manifests, and an SPDX SBOM, then creates a GitHub build-provenance
+attestation whose subject is the content-addressed release bundle. It retains
+the bundle and recorded digest as a workflow artifact, then uploads that exact
+bundle to the VPS.
+The VPS verifies the digests and profile/migration boundary before running
+migrations, switching the release symlink atomically, restarting the staging
+services, and verifying `http://127.0.0.1:8180/healthz`.
+
+An automatic `workflow_run` deployment is refused when the checked-out commit
+exceeds migration `000124`; use the annotated rc.4 tag path for v0.10-core
+certification instead of allowing the v0.11-finance line to drift into staging.
 
 Configure a GitHub environment named `staging` with these secrets:
 
@@ -32,6 +47,7 @@ Configure a GitHub environment named `staging` with these secrets:
 | `STAGING_HOST` | Staging VPS hostname or IP address |
 | `STAGING_USER` | SSH deployment user |
 | `STAGING_SSH_KEY` | Private key for `STAGING_USER` |
+| `STAGING_KNOWN_HOSTS` | Pre-approved host-key entry for `STAGING_HOST`; verify its fingerprint out of band |
 
 Do not place `PRODUCTION_HOST`, `PRODUCTION_USER`, or
 `PRODUCTION_SSH_KEY` in the staging environment. The workflow must never
@@ -41,6 +57,13 @@ The `production` Go build tag in the workflow selects the deployable release
 build, including production PDF behavior. It is a compile-time build choice;
 the deployment target remains staging and runtime configuration uses
 `APP_ENV=staging` and `RELEASE_PROFILE=v0.10-core`.
+
+For the v0.10-core candidate, the uploaded bundle must contain migrations only
+through `000124_scoped_rbac_global_compatibility`; migration `000125` and
+v0.11-finance-only routes are outside this deployment profile. Keep the workflow
+artifact URL, component and SBOM digests, provenance-attestation URL and
+verification output, and deployment run output in the certification evidence
+record.
 
 ## VPS layout
 

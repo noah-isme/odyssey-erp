@@ -5,6 +5,20 @@ release notes are immutable records under `docs/releases/`; completed phase logs
 and older changelog material live in `docs/archive/`. Release readiness is tracked
 only in the [authoritative feature matrix](reference/feature-matrix.md).
 
+## v0.10.0-rc.4 — 2026-08-12
+
+The `v0.10-core` staging candidate uses reviewed application baseline `ec65cc0`;
+the annotated rc.4 tag identifies the final release-packaging commit. See the
+[release notes](releases/v0.10.0-rc.4.md). Production certification remains
+pending.
+
+### Changed
+
+- Added exact candidate identity, artifact digest/SBOM, migration-boundary, and
+  structured staging-certification evidence requirements.
+- Kept the v0.11-finance implementation and migration `000125` outside the
+  v0.10-core release line.
+
 ## Unreleased
 
 - Hardened the Midtrans connector with structured vaulted credentials, explicit

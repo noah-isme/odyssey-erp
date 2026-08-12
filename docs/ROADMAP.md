@@ -1,7 +1,7 @@
 # Odyssey ERP Project Roadmap
 
 **Reviewed:** 2026-08-12
-**Current candidate:** `v0.10.0-rc.3`
+**Current candidate:** `v0.10.0-rc.4`
 **Release profile:** `v0.10-core`
 
 Odyssey ERP is a Go modular monolith for finance, sales, procurement, inventory,
@@ -9,6 +9,15 @@ governance, and operational workflows. The [authoritative feature
 matrix](reference/feature-matrix.md) is the status authority; this roadmap tracks
 the order in which the release is hardened and the next capabilities are integrated.
 The current candidate is not production-certified.
+
+The `v0.10.0-rc.4` application baseline is
+`ec65cc08639c184030c63e3407791987eee92804`. The eventual annotated rc.4 tag
+identifies the candidate commit after release packaging and documentation are
+committed; that tag is the authority for the exact candidate SHA. The candidate
+is limited to migrations through `000124_scoped_rbac_global_compatibility`.
+Commit `1a8343e4499420467ba3dda04a2683782c6c79d7`, migration
+`000125_payment_settlement_results`, and v0.11-finance routes are outside the
+v0.10 line.
 
 ## v0.10.0 — bounded core release
 
@@ -31,6 +40,10 @@ release prerequisites but are not separate capability claims in the matrix.
       claims.
 - [x] Implement scoped access assignment migration/compatibility, core-route
       adoption, company/branch selection enforcement, and access-review APIs.
+- [x] Freeze the rc.4 application baseline at `ec65cc0` and keep the candidate
+      migration ceiling at `000124`; v0.11-finance routes and migration `000125`
+      remain outside the `v0.10-core` profile. Record the final packaging commit
+      through the annotated candidate tag.
 - [ ] Complete staging evidence for the scoped controls and certify the five core
       journeys before promotion.
 - [ ] Keep the [production release checklist](releases/production-release-checklist.md)
@@ -44,9 +57,10 @@ attached to the certification record.
 
 ### Milestone 2 — Certify the core profile in staging
 
-- [ ] Deploy the exact release commit to an isolated staging VPS with
+- [ ] Deploy the exact `v0.10.0-rc.4` commit to an isolated staging VPS with
       `RELEASE_PROFILE=v0.10-core`, production build tags, separate database,
-      Redis, secrets, storage, and connector configuration.
+      Redis, secrets, storage, and connector configuration. Verify that the
+      migration history stops at `000124` and does not include `000125`.
 - [ ] Rehearse migrations on a production-like clone, exercise the newest
       reversible path, document irreversible recovery, and prove backup restore.
 - [ ] Run lint, release hygiene, production/PDF builds, unit tests, vet, SQL
@@ -65,7 +79,8 @@ or high findings remain, and the evidence record is reproducible.
 ### Milestone 3 — Promote, observe, and close v0.10.0
 
 - [ ] Build and scan immutable web/worker artifacts from the certified commit;
-      retain the image digest, SBOM, and signatures.
+      retain component digests, the SPDX SBOM, and the GitHub provenance
+      attestation for the immutable release bundle.
 - [ ] Verify production secrets, TLS, PostgreSQL, Redis, storage, monitoring,
       alerts, backup schedule, rollback target, and operator ownership.
 - [ ] Take and verify the pre-deploy backup, apply migrations as a controlled
