@@ -2,11 +2,11 @@
 
 **Reviewed:** 2026-08-12
 
-**Current release candidate:** `v0.10.0-rc.4`. This candidate is not
+**Current release candidate:** `v0.10.0-rc.5`. This candidate is not
 production-certified; the matrix below remains the authority for promotion evidence.
 
-**v0.10.0-rc.4 boundary:** the application baseline is
-`ec65cc08639c184030c63e3407791987eee92804`; the annotated rc.4 tag identifies
+**v0.10.0-rc.5 boundary:** the application baseline is
+`ec65cc08639c184030c63e3407791987eee92804`; the annotated rc.5 tag identifies
 the later candidate commit containing release packaging and documentation. The
 candidate includes migrations through `000124_scoped_rbac_global_compatibility`.
 Commit `1a8343e4499420467ba3dda04a2683782c6c79d7`, migration
@@ -83,7 +83,7 @@ same rule to every row. Rows outside the selected profile are not release claims
 must remain unavailable to that profile's production route set. In particular, the
 Phase 14/P7 evidence guide records local verification; it does not certify staging or
 production. The VPS deployment target satisfies the infrastructure selection only; it
-does not certify incomplete feature workflows. For rc.4, selecting
+does not certify incomplete feature workflows. For rc.5, selecting
 `RELEASE_PROFILE=v0.10-core` must not expose v0.11-only routes or apply migration
 `000125`.
 

@@ -5,7 +5,7 @@
 ## How to read the version numbers
 
 `v0.9.1` is the latest named production release in the repository. It is primarily
-a UI/UX release dated 2026-05-28. `v0.10.0-rc.4` is the current release candidate
+a UI/UX release dated 2026-05-28. `v0.10.0-rc.5` is the current release candidate
 for the post-v0.9.1 platform work; it is not production-certified. Its application
 baseline is `ec65cc08639c184030c63e3407791987eee92804`, it uses the `v0.10-core`
 profile, and its annotated tag identifies the exact packaging commit.
@@ -13,7 +13,7 @@ profile, and its annotated tag identifies the exact packaging commit.
 In other words:
 
 - **Latest named production release:** v0.9.1.
-- **Current release candidate:** v0.10.0-rc.4 (2026-08-12).
+- **Current release candidate:** v0.10.0-rc.5 (2026-08-12).
 - **Latest documented implementation progress:** Phase 10–14 and P7 work, reviewed 2026-08-01.
 - **Next final release:** v0.10.0, pending production certification. The release
   gates are tracked in the [Production Release Checklist](production-release-checklist.md).
@@ -32,7 +32,8 @@ notes define the packaged scope without claiming production certification.
 | v0.10.0-rc.1 | 2026-08-10 | Platform foundations and release controls | Advanced documents, CMMS telemetry/prediction foundations, MRP compliance hardening, distribution/finance/connectors work, and production gates | Superseded candidate; staging, provider, and operational certification remain open |
 | v0.10.0-rc.2 | 2026-08-10 | Coretax and PPh 21 release-test completion | Fail-closed Coretax transport/validation, export-to-GL contract evidence, and annual last-tax-period PPh 21 reconciliation from a PMK 168/2023 fixture | Superseded candidate; official tax, staging, provider, and operational certification remain open |
 | v0.10.0-rc.3 | 2026-08-10 | VPS deployment target and release-gate cleanup | Self-managed VPS runbook, removal of the obsolete hosted blueprint, and evidence-based feature matrix | Superseded candidate; feature, provider, and operational certification remain open |
-| v0.10.0-rc.4 | 2026-08-12 | Exact candidate evidence and migration-safe release gates | Executable migration/seed runbook targets, exact tagged-candidate evidence checks, current generated SQLC bindings, and the final lint fix for the application baseline | Current candidate uses application baseline `ec65cc0`; the tag resolves the packaging commit; staging, provider, and operational certification remain open |
+| v0.10.0-rc.4 | 2026-08-12 | Exact candidate evidence and migration-safe release gates | Executable migration/seed runbook targets, exact tagged-candidate evidence checks, current generated SQLC bindings, and the final lint fix for the application baseline | Failed CI E2E route sweep; immutable candidate `eb5ff593`; superseded by rc.5 without deployment or certification |
+| v0.10.0-rc.5 | 2026-08-12 | E2E-gated release retry | Retains the rc.4 application baseline and v0.10-core boundary while requiring a successful full CI route sweep before staging deployment | Current candidate; not production-certified; staging, provider, and operational certification remain open |
 
 ## Detailed version reports
 
@@ -145,7 +146,19 @@ next-release line. This candidate is not production-certified.
 
 See the [v0.10.0-rc.4 release notes](v0.10.0-rc.4.md).
 
-## Follow-up work after v0.10.0-rc.4
+### v0.10.0-rc.5 — E2E-gated release retry
+
+**Primary purpose:** replace the failed rc.4 packaging candidate without changing
+the reviewed `ec65cc0` application baseline, migration ceiling, or v0.10-core
+scope. The rc.5 tag resolves the exact new candidate commit.
+
+Rc.4 remains immutable at candidate commit `eb5ff59386e817e2e03034a0f66667c5da495d82`
+and tag object `e24b404347095d3ca26f804adcbcddb094d70b37`. CI run `31610988259`
+failed at the E2E route sweep, so it was not deployed or certified.
+
+See the [v0.10.0-rc.5 release notes](v0.10.0-rc.5.md).
+
+## Follow-up work after v0.10.0-rc.5
 
 This work is documented in the current [roadmap](../ROADMAP.md) and [module catalog](../reference/module-catalog.md); the candidate packages the current scope, while final promotion remains pending.
 
@@ -174,7 +187,7 @@ This work is documented in the current [roadmap](../ROADMAP.md) and [module cata
 
 ### Remaining release work
 
-- Promote `v0.10.0` only after the rc.4 candidate passes staging, provider, security,
+- Promote `v0.10.0` only after the rc.5 candidate passes staging, provider, security,
   migration, and operational certification gates.
 - Complete staging/production acceptance for FX and Horizon features.
 - Complete external Coretax validation.

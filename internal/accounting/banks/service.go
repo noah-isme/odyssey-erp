@@ -2,8 +2,13 @@ package banks
 
 import (
 	"context"
+	"errors"
 	"time"
 )
+
+// ErrNoBankAccount identifies a valid company that has not configured banking
+// yet. Listing statements treats this as an empty state, not a server failure.
+var ErrNoBankAccount = errors.New("no bank account found for company")
 
 const (
 	BankStatementDraft      = "DRAFT"

@@ -163,7 +163,7 @@ func (r *PGRepository) BankAccountIDForCompany(ctx context.Context, companyID in
 		return 0, err
 	}
 	if len(accounts) == 0 {
-		return 0, fmt.Errorf("no bank account found for company")
+		return 0, ErrNoBankAccount
 	}
 	return accounts[0].ID, nil
 }

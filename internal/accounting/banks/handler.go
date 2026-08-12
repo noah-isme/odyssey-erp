@@ -2,6 +2,7 @@ package banks
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -122,6 +123,10 @@ func (h *Handler) listStatements(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	accountID, err := h.service.BankAccountIDForCompany(r.Context(), companyID)
+	if errors.Is(err, ErrNoBankAccount) {
+		h.renderStatements(w, r, nil)
+		return
+	}
 	if err != nil {
 		h.logger.Error("find bank account for statements", slog.Any("error", err), slog.Int64("company_id", companyID))
 		shared.WriteErrorStatus(w, http.StatusInternalServerError, err)
@@ -135,6 +140,10 @@ func (h *Handler) listStatements(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.renderStatements(w, r, statements)
+}
+
+func (h *Handler) renderStatements(w http.ResponseWriter, r *http.Request, statements []BankStatement) {
 	data := view.TemplateData{
 		CSRFToken: h.csrfToken(r),
 		Data: map[string]any{

@@ -5,12 +5,25 @@ release notes are immutable records under `docs/releases/`; completed phase logs
 and older changelog material live in `docs/archive/`. Release readiness is tracked
 only in the [authoritative feature matrix](reference/feature-matrix.md).
 
+## v0.10.0-rc.5 — 2026-08-12
+
+The active `v0.10-core` candidate retains application baseline `ec65cc0` and
+supersedes rc.4. See the [release notes](releases/v0.10.0-rc.5.md). Production
+certification remains pending.
+
+### Changed
+
+- Retargeted release identity, staging certification, and current-candidate
+  documentation to rc.5.
+- Preserved rc.4's immutable tag and candidate identities while recording its
+  failed E2E route-sweep result.
+
 ## v0.10.0-rc.4 — 2026-08-12
 
-The `v0.10-core` staging candidate uses reviewed application baseline `ec65cc0`;
-the annotated rc.4 tag identifies the final release-packaging commit. See the
-[release notes](releases/v0.10.0-rc.4.md). Production certification remains
-pending.
+This candidate used reviewed application baseline `ec65cc0`. CI run
+`31610988259` failed in the E2E route sweep, so rc.4 was not deployed or
+certified and is superseded by rc.5. Its annotated tag and candidate commit
+remain immutable. See the [release notes](releases/v0.10.0-rc.4.md).
 
 ### Changed
 

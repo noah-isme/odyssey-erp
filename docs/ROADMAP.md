@@ -1,7 +1,7 @@
 # Odyssey ERP Project Roadmap
 
 **Reviewed:** 2026-08-12
-**Current candidate:** `v0.10.0-rc.4`
+**Current candidate:** `v0.10.0-rc.5`
 **Release profile:** `v0.10-core`
 
 Odyssey ERP is a Go modular monolith for finance, sales, procurement, inventory,
@@ -10,8 +10,8 @@ matrix](reference/feature-matrix.md) is the status authority; this roadmap track
 the order in which the release is hardened and the next capabilities are integrated.
 The current candidate is not production-certified.
 
-The `v0.10.0-rc.4` application baseline is
-`ec65cc08639c184030c63e3407791987eee92804`. The eventual annotated rc.4 tag
+The `v0.10.0-rc.5` application baseline is
+`ec65cc08639c184030c63e3407791987eee92804`. The eventual annotated rc.5 tag
 identifies the candidate commit after release packaging and documentation are
 committed; that tag is the authority for the exact candidate SHA. The candidate
 is limited to migrations through `000124_scoped_rbac_global_compatibility`.
@@ -40,7 +40,7 @@ release prerequisites but are not separate capability claims in the matrix.
       claims.
 - [x] Implement scoped access assignment migration/compatibility, core-route
       adoption, company/branch selection enforcement, and access-review APIs.
-- [x] Freeze the rc.4 application baseline at `ec65cc0` and keep the candidate
+- [x] Retain the rc.5 application baseline at `ec65cc0` and keep the candidate
       migration ceiling at `000124`; v0.11-finance routes and migration `000125`
       remain outside the `v0.10-core` profile. Record the final packaging commit
       through the annotated candidate tag.
@@ -57,7 +57,7 @@ attached to the certification record.
 
 ### Milestone 2 — Certify the core profile in staging
 
-- [ ] Deploy the exact `v0.10.0-rc.4` commit to an isolated staging VPS with
+- [ ] Deploy the exact `v0.10.0-rc.5` commit to an isolated staging VPS with
       `RELEASE_PROFILE=v0.10-core`, production build tags, separate database,
       Redis, secrets, storage, and connector configuration. Verify that the
       migration history stops at `000124` and does not include `000125`.

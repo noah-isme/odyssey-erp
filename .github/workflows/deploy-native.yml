@@ -3,11 +3,11 @@ name: Deploy Staging
 on:
   push:
     tags:
-      - v0.10.0-rc.4
+      - v0.10.0-rc.*
   workflow_dispatch:
     inputs:
       candidate_tag:
-        description: Annotated release-candidate tag to deploy (must be v0.10.0-rc.4)
+        description: Annotated v0.10 release-candidate tag to deploy (for example v0.10.0-rc.5)
         required: true
         type: string
   workflow_run:
@@ -63,8 +63,8 @@ jobs:
 
           candidate_sha=$(git rev-parse HEAD)
           if [[ -n "$CANDIDATE_TAG" ]]; then
-            [[ "$CANDIDATE_TAG" == v0.10.0-rc.4 ]] || {
-              echo "candidate tag must be v0.10.0-rc.4" >&2
+            [[ "$CANDIDATE_TAG" =~ ^v0\.10\.0-rc\.[1-9][0-9]*$ ]] || {
+              echo "candidate tag must match v0.10.0-rc.N (N >= 1)" >&2
               exit 1
             }
             git show-ref --verify --quiet "refs/tags/$CANDIDATE_TAG" || {
@@ -81,18 +81,45 @@ jobs:
               exit 1
             }
 
-            ci_runs=$(gh api \
-              "/repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?head_sha=${candidate_sha}&status=success&per_page=100")
-            ci_run_id=$(jq -er --arg sha "$candidate_sha" \
-              '[.workflow_runs[] | select(
-                .head_sha == $sha and
-                .conclusion == "success" and
-                .event == "push" and
-                (.head_branch == "staging" or
-                  .head_branch == "release/v0.10.0-rc.4" or
-                  .head_branch == "v0.10.0-rc.4")
-              )][0].id' <<<"$ci_runs") || {
-              echo "no successful CI run for tagged candidate $candidate_sha" >&2
+            # A tag push starts CI and this deployment workflow concurrently.
+            # Wait for the CI run created by this exact tag/SHA, so deployment
+            # cannot win the tag/CI visibility race or reuse a branch-only run.
+            ci_run_id=''
+            for attempt in $(seq 1 180); do
+              ci_runs=$(gh api \
+                "/repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?head_sha=${candidate_sha}&per_page=100")
+              ci_run=$(jq -cer \
+                --arg sha "$candidate_sha" \
+                --arg tag "$CANDIDATE_TAG" \
+                '[.workflow_runs[] | select(
+                  .head_sha == $sha and
+                  .head_branch == $tag and
+                  .event == "push"
+                )] | sort_by(.created_at) | last // empty' \
+                <<<"$ci_runs" || true)
+
+              if [[ -z "$ci_run" ]]; then
+                echo "waiting for exact-tag CI run (${attempt}/180)"
+                sleep 10
+                continue
+              fi
+
+              ci_status=$(jq -r '.status' <<<"$ci_run")
+              ci_conclusion=$(jq -r '.conclusion // ""' <<<"$ci_run")
+              ci_run_id=$(jq -r '.id' <<<"$ci_run")
+              if [[ "$ci_status" != completed ]]; then
+                echo "waiting for CI run $ci_run_id ($ci_status; ${attempt}/180)"
+                sleep 10
+                continue
+              fi
+              [[ "$ci_conclusion" == success ]] || {
+                echo "exact-tag CI run $ci_run_id concluded $ci_conclusion" >&2
+                exit 1
+              }
+              break
+            done
+            [[ -n "$ci_run_id" && "$ci_status" == completed && "$ci_conclusion" == success ]] || {
+              echo "timed out waiting for successful exact-tag CI for $CANDIDATE_TAG / $candidate_sha" >&2
               exit 1
             }
           else

@@ -1380,29 +1380,52 @@ func seedListingFixtures(ctx context.Context, pool *pgxpool.Pool) error {
 		return nil
 	}
 
-	// Banking: an account, then a statement against it. bank_accounts carries no
-	// unique constraint, so re-runs are guarded by an explicit existence check
-	// rather than ON CONFLICT, which would never fire.
+	// Banking: give every seeded company an account and statement. The active
+	// company can change between E2E sessions, so seeding only the first company
+	// makes the statements route nondeterministic. bank_accounts carries no
+	// unique constraint; the company/account-number predicate makes reruns safe.
 	const seedBankAccountNumber = "1234567890"
-	if companyID != 0 && glAccountID != 0 {
-		if _, err := pool.Exec(ctx, `
-			INSERT INTO bank_accounts (company_id, name, account_number, currency, gl_account_id, initial_balance)
-			SELECT $1, 'BCA Operasional', $3, 'IDR', $2, 50000000
-			WHERE NOT EXISTS (
-				SELECT 1 FROM bank_accounts WHERE company_id = $1 AND account_number = $3
-			)`, companyID, glAccountID, seedBankAccountNumber); err != nil {
-			return fmt.Errorf("bank account: %w", err)
+	if glAccountID != 0 {
+		rows, err := pool.Query(ctx, "SELECT id FROM companies ORDER BY id")
+		if err != nil {
+			return fmt.Errorf("list companies for bank fixtures: %w", err)
 		}
-		var bankAccountID int64
-		_ = pool.QueryRow(ctx,
-			"SELECT id FROM bank_accounts WHERE company_id = $1 AND account_number = $2",
-			companyID, seedBankAccountNumber).Scan(&bankAccountID)
-		if bankAccountID != 0 {
+		companyIDs := make([]int64, 0)
+		for rows.Next() {
+			var fixtureCompanyID int64
+			if err := rows.Scan(&fixtureCompanyID); err != nil {
+				rows.Close()
+				return fmt.Errorf("scan company for bank fixtures: %w", err)
+			}
+			companyIDs = append(companyIDs, fixtureCompanyID)
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return fmt.Errorf("list companies for bank fixtures: %w", err)
+		}
+		rows.Close()
+
+		for _, fixtureCompanyID := range companyIDs {
+			if _, err := pool.Exec(ctx, `
+				INSERT INTO bank_accounts (company_id, name, account_number, currency, gl_account_id, initial_balance)
+				SELECT $1, 'BCA Operasional', $3, 'IDR', $2, 50000000
+				WHERE NOT EXISTS (
+					SELECT 1 FROM bank_accounts WHERE company_id = $1 AND account_number = $3
+				)`, fixtureCompanyID, glAccountID, seedBankAccountNumber); err != nil {
+				return fmt.Errorf("bank account for company %d: %w", fixtureCompanyID, err)
+			}
+			var bankAccountID int64
+			if err := pool.QueryRow(ctx, `
+				SELECT id FROM bank_accounts
+				WHERE company_id = $1 AND account_number = $2
+				ORDER BY id LIMIT 1`, fixtureCompanyID, seedBankAccountNumber).Scan(&bankAccountID); err != nil {
+				return fmt.Errorf("find bank account for company %d: %w", fixtureCompanyID, err)
+			}
 			if _, err := pool.Exec(ctx, `
 				INSERT INTO bank_statements (bank_account_id, statement_date, starting_balance, ending_balance, status)
 				SELECT $1, CURRENT_DATE, 50000000, 62000000, 'DRAFT'
 				WHERE NOT EXISTS (SELECT 1 FROM bank_statements WHERE bank_account_id = $1)`, bankAccountID); err != nil {
-				return fmt.Errorf("bank statement: %w", err)
+				return fmt.Errorf("bank statement for company %d: %w", fixtureCompanyID, err)
 			}
 		}
 	}
