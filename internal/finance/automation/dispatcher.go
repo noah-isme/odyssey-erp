@@ -106,6 +106,12 @@ func (d *Dispatcher) DispatchFinanceAutomation(ctx context.Context, limit int) e
 }
 
 func retryableOutboxError(err error) bool {
+	if errors.Is(err, ErrAmbiguousOutcome) {
+		// The remote side may have accepted the command. Retrying the outbox
+		// message would be an unsafe blind resubmission; operators must first
+		// resolve the provider state and replay deliberately.
+		return false
+	}
 	var providerErr *ProviderError
 	if errors.As(err, &providerErr) {
 		return providerErr.Retryable()

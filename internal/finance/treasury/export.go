@@ -24,7 +24,7 @@ func (e *CSVEncoder) Encode(batch PaymentBatch, items []PaymentBatchItem) ([]byt
 			batch.ReferenceCode,
 			fmt.Sprintf("%d", item.SupplierID),
 			fmt.Sprintf("%d", item.BankAccountID),
-			fmt.Sprintf("%.2f", item.Amount),
+			item.Amount.String(),
 			batch.Currency,
 		}); err != nil {
 			return nil, "", err

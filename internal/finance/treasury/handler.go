@@ -139,10 +139,10 @@ func (h *Handler) AddBatchItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var payload struct {
-		SupplierID    int64   `json:"supplier_id"`
-		BankAccountID int64   `json:"bank_account_id"`
-		Amount        float64 `json:"amount"`
-		APInvoiceID   int64   `json:"ap_invoice_id"`
+		SupplierID    int64  `json:"supplier_id"`
+		BankAccountID int64  `json:"bank_account_id"`
+		Amount        string `json:"amount"`
+		APInvoiceID   int64  `json:"ap_invoice_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		writeTreasuryError(w, http.StatusBadRequest, shared.ErrInvalidInput)

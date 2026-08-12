@@ -239,7 +239,7 @@ func mapSupplierBankAccount(row sqlc.TreasurySupplierBankAccount) SupplierBankAc
 }
 
 func mapPaymentBatch(row sqlc.TreasuryPaymentBatch) (PaymentBatch, error) {
-	amount, err := numericFloat(row.TotalAmount)
+	amount, err := amountFromNumeric(row.TotalAmount)
 	if err != nil {
 		return PaymentBatch{}, err
 	}
@@ -278,7 +278,7 @@ func mapPaymentBatch(row sqlc.TreasuryPaymentBatch) (PaymentBatch, error) {
 }
 
 func mapPaymentBatchItem(row sqlc.TreasuryPaymentBatchItem) (PaymentBatchItem, error) {
-	amount, err := numericFloat(row.Amount)
+	amount, err := amountFromNumeric(row.Amount)
 	if err != nil {
 		return PaymentBatchItem{}, err
 	}
@@ -297,18 +297,25 @@ func mapPaymentBatchItem(row sqlc.TreasuryPaymentBatchItem) (PaymentBatchItem, e
 	return item, nil
 }
 
-func numericOf(value float64) pgtype.Numeric {
+func numericOf(value Amount) pgtype.Numeric {
 	var number pgtype.Numeric
-	_ = number.Scan(fmt.Sprintf("%.6f", value))
+	_ = number.Scan(value.String())
 	return number
 }
 
-func numericFloat(value pgtype.Numeric) (float64, error) {
-	converted, err := value.Float64Value()
-	if err != nil || !converted.Valid {
-		return 0, fmt.Errorf("invalid numeric value")
+func amountFromNumeric(value pgtype.Numeric) (Amount, error) {
+	if !value.Valid || value.NaN || value.InfinityModifier != pgtype.Finite {
+		return "", fmt.Errorf("invalid numeric value")
 	}
-	return converted.Float64, nil
+	encoded, err := value.Value()
+	if err != nil {
+		return "", fmt.Errorf("invalid numeric value: %w", err)
+	}
+	text, ok := encoded.(string)
+	if !ok {
+		return "", fmt.Errorf("invalid numeric value")
+	}
+	return ParseAmount(text)
 }
 
 func optionalText(value string) pgtype.Text {

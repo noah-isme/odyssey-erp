@@ -32,7 +32,7 @@ type PaymentBatch struct {
 	ReferenceCode    string     `json:"reference_code"`
 	Status           string     `json:"status"`
 	Currency         string     `json:"currency"`
-	TotalAmount      float64    `json:"total_amount"`
+	TotalAmount      Amount     `json:"total_amount"`
 	RevisionNumber   int32      `json:"revision_number"`
 	ProposedBy       int64      `json:"proposed_by"`
 	ApprovedBy       *int64     `json:"approved_by,omitempty"`
@@ -51,7 +51,7 @@ type PaymentBatchItem struct {
 	BatchID       int64     `json:"batch_id"`
 	SupplierID    int64     `json:"supplier_id"`
 	BankAccountID int64     `json:"bank_account_id"`
-	Amount        float64   `json:"amount"`
+	Amount        Amount    `json:"amount"`
 	APInvoiceID   *int64    `json:"ap_invoice_id,omitempty"`
 	Status        string    `json:"status"`
 	CreatedAt     time.Time `json:"created_at"`
@@ -98,12 +98,12 @@ type PaymentBatchStatusUpdate struct {
 
 type PaymentBatchRevisionUpdate struct {
 	ID          int64
-	TotalAmount float64
+	TotalAmount Amount
 }
 
 type PaymentBatchTotalUpdate struct {
 	ID          int64
-	TotalAmount float64
+	TotalAmount Amount
 }
 
 type PaymentBatchExportUpdate struct {
@@ -121,6 +121,6 @@ type PaymentBatchItemCreate struct {
 	BatchID       int64
 	SupplierID    int64
 	BankAccountID int64
-	Amount        float64
+	Amount        Amount
 	APInvoiceID   *int64
 }

@@ -15,6 +15,19 @@ import (
 var (
 	ErrInvalidReference = errors.New("finance automation: invalid external reference")
 	ErrInvalidAmount    = errors.New("finance automation: invalid exact amount")
+	// ErrAmbiguousOutcome marks an external operation whose result is not
+	// known. Callers must resolve the remote state before attempting the
+	// operation again; an outbox retry must never blindly resubmit it.
+	ErrAmbiguousOutcome = errors.New("finance automation: ambiguous outcome requires lookup")
+)
+
+// Finance automation operation names are shared by outbox producers and
+// workers. Keeping them here prevents a producer and a dispatcher from
+// silently drifting to different string literals.
+const (
+	OperationPaymentExecute      = "payment.execute"
+	OperationPaymentSubmit       = "payment.submit" // legacy alias
+	OperationPaymentResultImport = "payment.result.import"
 )
 
 // ErrorCategory determines whether a provider failure may be retried safely.

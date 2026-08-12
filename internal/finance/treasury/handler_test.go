@@ -47,14 +47,14 @@ func TestTreasuryHandlersUseTenantIdentityAndImplementFlows(t *testing.T) {
 		t.Fatalf("CreateBatch() status = %d, body = %s", createResp.Code, createResp.Body.String())
 	}
 
-	itemReq := httptest.NewRequest(http.MethodPost, "/batches/1/items", strings.NewReader(`{"supplier_id":100,"bank_account_id":9,"amount":25}`)).WithContext(ctx)
+	itemReq := httptest.NewRequest(http.MethodPost, "/batches/1/items", strings.NewReader(`{"supplier_id":100,"bank_account_id":9,"amount":"25"}`)).WithContext(ctx)
 	itemReq = withTreasuryParams(itemReq, map[string]string{"id": "1"})
 	itemResp := httptest.NewRecorder()
 	h.AddBatchItem(itemResp, itemReq)
 	if itemResp.Code != http.StatusCreated {
 		t.Fatalf("AddBatchItem() status = %d, body = %s", itemResp.Code, itemResp.Body.String())
 	}
-	if repo.batches[0].TotalAmount != 25 {
+	if repo.batches[0].TotalAmount.String() != "25" {
 		t.Fatalf("batch total = %v, want 25", repo.batches[0].TotalAmount)
 	}
 }

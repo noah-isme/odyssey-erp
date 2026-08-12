@@ -17,6 +17,7 @@ const (
 	SourceTypeApprovedPayroll  SourceType = "APPROVED_PAYROLL"
 	SourceTypeTaxObligation    SourceType = "TAX_OBLIGATION"
 	SourceTypeApprovedPO       SourceType = "APPROVED_PO"
+	SourceTypeApprovedPayment  SourceType = "APPROVED_PAYMENT"
 	SourceTypeManualAdjustment SourceType = "MANUAL_ADJUSTMENT"
 
 	CertaintyCommitted Certainty = "COMMITTED"

@@ -14,6 +14,7 @@ func TestParseReleaseProfile(t *testing.T) {
 		ok    bool
 	}{
 		{name: "core", input: "v0.10-core", want: ReleaseProfileV010Core, ok: true},
+		{name: "finance", input: " V0.11-FINANCE ", want: ReleaseProfileV011Finance, ok: true},
 		{name: "full", input: " FULL ", want: ReleaseProfileFull, ok: true},
 		{name: "unknown", input: "preview", ok: false},
 	}
@@ -51,6 +52,47 @@ func TestCoreProfileAllowsOnlyCoreAndSupportPaths(t *testing.T) {
 	} {
 		if got := profile.AllowsPath(test.path); got != test.want {
 			t.Errorf("AllowsPath(%q) = %v, want %v", test.path, got, test.want)
+		}
+	}
+}
+
+func TestFinanceProfileAddsFinanceAutomationToCorePaths(t *testing.T) {
+	profile := ReleaseProfileV011Finance
+	for _, test := range []struct {
+		path string
+		want bool
+	}{
+		{path: "/finance/ar/invoices", want: true},
+		{path: "/finance/ap/invoices", want: true},
+		{path: "/finance/bankfeeds", want: true},
+		{path: "/finance/bankfeeds/imports/1", want: true},
+		{path: "/finance/forecasting", want: true},
+		{path: "/finance/treasury", want: true},
+		{path: "/finance/banking", want: false},
+		{path: "/settings/integrations", want: false},
+		{path: "/mrp", want: false},
+	} {
+		if got := profile.AllowsPath(test.path); got != test.want {
+			t.Errorf("AllowsPath(%q) = %v, want %v", test.path, got, test.want)
+		}
+	}
+}
+
+func TestUnknownReleaseProfileAllowsNoPaths(t *testing.T) {
+	if (ReleaseProfile("preview")).AllowsPath("/") {
+		t.Fatal("unknown release profile allowed the root path")
+	}
+}
+
+func TestBoundedProfilesRequireScopedAccess(t *testing.T) {
+	for profile, want := range map[ReleaseProfile]bool{
+		ReleaseProfileV010Core:    true,
+		ReleaseProfileV011Finance: true,
+		ReleaseProfileFull:        false,
+		ReleaseProfile("preview"): false,
+	} {
+		if got := profile.RequiresScopedAccess(); got != want {
+			t.Errorf("RequiresScopedAccess(%q) = %v, want %v", profile, got, want)
 		}
 	}
 }

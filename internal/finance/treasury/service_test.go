@@ -141,11 +141,15 @@ func (m *mockRepo) UpdatePaymentBatchTotal(_ context.Context, input treasury.Pay
 	return treasury.PaymentBatch{}, nil
 }
 
-func batchTotal(items []treasury.PaymentBatchItem, batchID int64) float64 {
-	var total float64
+func batchTotal(items []treasury.PaymentBatchItem, batchID int64) treasury.Amount {
+	total := treasury.MustParseAmount("0")
 	for _, item := range items {
 		if item.BatchID == batchID && item.Status == "ACTIVE" {
-			total += item.Amount
+			var err error
+			total, err = total.Add(item.Amount)
+			if err != nil {
+				return treasury.Amount("")
+			}
 		}
 	}
 	return total
@@ -255,7 +259,7 @@ func TestServiceBatchApproval(t *testing.T) {
 	account, _ := svc.AddBankAccount(ctx, 1, 100, 42, "Chase", "123", "021", "USD", "doc")
 	_, _ = svc.ApproveBankAccount(ctx, 1, account.ID, 43)
 	batch, _ := svc.CreatePaymentBatch(ctx, 1, "BATCH-001", "USD", 44)
-	if _, err := svc.AddBatchItem(ctx, 1, batch.ID, 100, account.ID, 100.50, 10); err != nil {
+	if _, err := svc.AddBatchItem(ctx, 1, batch.ID, 100, account.ID, "100.50", 10); err != nil {
 		t.Fatalf("unexpected error adding item: %v", err)
 	}
 	if _, err := svc.ApproveBatch(ctx, 1, batch.ID, 45); err == nil || err.Error() != "batch is not pending approval" {
@@ -278,13 +282,13 @@ func TestServiceBatchTotalsUseAllActiveItems(t *testing.T) {
 	account, _ := svc.AddBankAccount(ctx, 1, 100, 42, "Chase", "123", "021", "USD", "doc")
 	_, _ = svc.ApproveBankAccount(ctx, 1, account.ID, 43)
 	batch, _ := svc.CreatePaymentBatch(ctx, 1, "BATCH-MULTI", "USD", 44)
-	if _, err := svc.AddBatchItem(ctx, 1, batch.ID, 100, account.ID, 100, 0); err != nil {
+	if _, err := svc.AddBatchItem(ctx, 1, batch.ID, 100, account.ID, "100", 0); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.AddBatchItem(ctx, 1, batch.ID, 100, account.ID, 25, 0); err != nil {
+	if _, err := svc.AddBatchItem(ctx, 1, batch.ID, 100, account.ID, "25", 0); err != nil {
 		t.Fatal(err)
 	}
-	if repo.batches[0].TotalAmount != 125 {
+	if repo.batches[0].TotalAmount.String() != "125" {
 		t.Fatalf("batch total after two items = %v, want 125", repo.batches[0].TotalAmount)
 	}
 	_, _ = repo.UpdatePaymentBatchStatus(ctx, treasury.PaymentBatchStatusUpdate{ID: batch.ID, Status: "PENDING_APPROVAL"})
@@ -292,7 +296,7 @@ func TestServiceBatchTotalsUseAllActiveItems(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if approved.TotalAmount != 125 || approved.Status != "APPROVED" {
+	if approved.TotalAmount.String() != "125" || approved.Status != "APPROVED" {
 		t.Fatalf("approved batch = %+v, want total 125 and APPROVED", approved)
 	}
 }
@@ -304,7 +308,7 @@ func TestServiceRejectsForeignOrPaidAPInvoice(t *testing.T) {
 	account, _ := svc.AddBankAccount(ctx, 1, 100, 42, "Chase", "123", "021", "USD", "doc")
 	_, _ = svc.ApproveBankAccount(ctx, 1, account.ID, 43)
 	batch, _ := svc.CreatePaymentBatch(ctx, 1, "BATCH-INVOICE", "USD", 44)
-	if _, err := svc.AddBatchItem(ctx, 1, batch.ID, 100, account.ID, 25, 77); err == nil {
+	if _, err := svc.AddBatchItem(ctx, 1, batch.ID, 100, account.ID, "25", 77); err == nil {
 		t.Fatal("expected ineligible AP invoice to be rejected")
 	}
 }
@@ -316,7 +320,7 @@ func TestServiceExportBatch(t *testing.T) {
 	account, _ := svc.AddBankAccount(ctx, 1, 100, 42, "Chase", "123", "021", "USD", "doc")
 	_, _ = svc.ApproveBankAccount(ctx, 1, account.ID, 43)
 	batch, _ := svc.CreatePaymentBatch(ctx, 1, "BATCH-002", "USD", 44)
-	_, _ = svc.AddBatchItem(ctx, 1, batch.ID, 100, account.ID, 250, 11)
+	_, _ = svc.AddBatchItem(ctx, 1, batch.ID, 100, account.ID, "250", 11)
 	_, _ = repo.UpdatePaymentBatchStatus(ctx, treasury.PaymentBatchStatusUpdate{ID: batch.ID, Status: "APPROVED"})
 	payload, err := svc.ExportBatch(ctx, 1, batch.ID, 46, &treasury.CSVEncoder{})
 	if err != nil || len(payload) == 0 {
@@ -326,7 +330,7 @@ func TestServiceExportBatch(t *testing.T) {
 
 type mockAP struct{ paid []int64 }
 
-func (m *mockAP) MarkInvoicePaid(_ context.Context, invoiceID, _ int64, _ float64) error {
+func (m *mockAP) MarkInvoicePaid(_ context.Context, invoiceID, _ int64, _ treasury.Amount) error {
 	m.paid = append(m.paid, invoiceID)
 	return nil
 }
@@ -339,7 +343,7 @@ func TestServiceSettleBatch(t *testing.T) {
 	account, _ := svc.AddBankAccount(ctx, 1, 100, 42, "Chase", "123", "021", "USD", "doc")
 	_, _ = svc.ApproveBankAccount(ctx, 1, account.ID, 43)
 	batch, _ := svc.CreatePaymentBatch(ctx, 1, "BATCH-003", "USD", 44)
-	_, _ = svc.AddBatchItem(ctx, 1, batch.ID, 100, account.ID, 300, 99)
+	_, _ = svc.AddBatchItem(ctx, 1, batch.ID, 100, account.ID, "300", 99)
 	_, _ = repo.UpdatePaymentBatchStatus(ctx, treasury.PaymentBatchStatusUpdate{ID: batch.ID, Status: "EXPORTED"})
 
 	settled, err := svc.SettleBatch(ctx, 1, batch.ID, 47)

@@ -411,7 +411,7 @@ func (c *Coordinator) Submit(ctx context.Context, reference automation.ExternalR
 			if saveErr := c.store.Save(ctx, execution); saveErr != nil {
 				return PaymentExecution{}, saveErr
 			}
-			return execution, fmt.Errorf("%w: %w", ErrAmbiguousSubmission, err)
+			return execution, fmt.Errorf("%w: %w: %w", ErrAmbiguousSubmission, automation.ErrAmbiguousOutcome, err)
 		}
 		return PaymentExecution{}, err
 	}

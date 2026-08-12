@@ -13,8 +13,9 @@ import (
 type ReleaseProfile string
 
 const (
-	ReleaseProfileV010Core ReleaseProfile = "v0.10-core"
-	ReleaseProfileFull     ReleaseProfile = "full"
+	ReleaseProfileV010Core    ReleaseProfile = "v0.10-core"
+	ReleaseProfileV011Finance ReleaseProfile = "v0.11-finance"
+	ReleaseProfileFull        ReleaseProfile = "full"
 )
 
 var ErrInvalidReleaseProfile = errors.New("invalid release profile")
@@ -24,6 +25,8 @@ func ParseReleaseProfile(value string) (ReleaseProfile, error) {
 	switch ReleaseProfile(strings.ToLower(strings.TrimSpace(value))) {
 	case ReleaseProfileV010Core:
 		return ReleaseProfileV010Core, nil
+	case ReleaseProfileV011Finance:
+		return ReleaseProfileV011Finance, nil
 	case ReleaseProfileFull:
 		return ReleaseProfileFull, nil
 	default:
@@ -80,6 +83,15 @@ var coreRoutePrefixes = []string{
 	"/static",
 }
 
+// financeAutomationRoutePrefixes are the finance workflows included by the
+// cumulative v0.11-finance profile. The profile deliberately does not widen
+// access to the other finance surfaces that remain outside its release claim.
+var financeAutomationRoutePrefixes = []string{
+	"/finance/bankfeeds",
+	"/finance/forecasting",
+	"/finance/treasury",
+}
+
 var coreRouteExact = []string{
 	"/",
 	"/healthz",
@@ -105,7 +117,10 @@ func (p ReleaseProfile) AllowedPathPrefixes() []string {
 	if p == ReleaseProfileFull {
 		return []string{"/"}
 	}
-	result := append([]string(nil), coreRoutePrefixes...)
+	result := p.boundedRoutePrefixes()
+	if len(result) == 0 {
+		return nil
+	}
 	sort.Strings(result)
 	return result
 }
@@ -115,9 +130,24 @@ func (p ReleaseProfile) AllowedExactPaths() []string {
 	if p == ReleaseProfileFull {
 		return []string{"/"}
 	}
+	if len(p.boundedRoutePrefixes()) == 0 {
+		return nil
+	}
 	result := append([]string(nil), coreRouteExact...)
 	sort.Strings(result)
 	return result
+}
+
+func (p ReleaseProfile) boundedRoutePrefixes() []string {
+	switch p {
+	case ReleaseProfileV010Core:
+		return append([]string(nil), coreRoutePrefixes...)
+	case ReleaseProfileV011Finance:
+		result := append([]string(nil), coreRoutePrefixes...)
+		return append(result, financeAutomationRoutePrefixes...)
+	default:
+		return nil
+	}
 }
 
 // AllowsPath reports whether a request path belongs to the selected profile.
@@ -125,6 +155,10 @@ func (p ReleaseProfile) AllowedExactPaths() []string {
 func (p ReleaseProfile) AllowsPath(path string) bool {
 	if p == ReleaseProfileFull {
 		return true
+	}
+	allowedPrefixes := p.boundedRoutePrefixes()
+	if len(allowedPrefixes) == 0 {
+		return false
 	}
 	path = pathpkg.Clean(strings.TrimSpace(path))
 	if path == "." {
@@ -147,12 +181,18 @@ func (p ReleaseProfile) AllowsPath(path string) bool {
 			return true
 		}
 	}
-	for _, prefix := range coreRoutePrefixes {
+	for _, prefix := range allowedPrefixes {
 		if path == prefix || strings.HasPrefix(path, prefix+"/") {
 			return true
 		}
 	}
 	return false
+}
+
+// RequiresScopedAccess reports whether a profile is a bounded release profile
+// whose routes must enforce company/branch scope checks.
+func (p ReleaseProfile) RequiresScopedAccess() bool {
+	return p == ReleaseProfileV010Core || p == ReleaseProfileV011Finance
 }
 
 // ReleaseProfileMiddleware turns unsupported preview routes into ordinary 404
