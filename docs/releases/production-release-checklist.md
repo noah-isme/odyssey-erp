@@ -44,6 +44,10 @@ make lint
 
 GOTMPDIR="$PWD/.go-tmp" \
 GOCACHE="$PWD/.go-cache" \
+make test-migrate
+
+GOTMPDIR="$PWD/.go-tmp" \
+GOCACHE="$PWD/.go-cache" \
 GOLANGCI_LINT_CACHE="$PWD/.golangci-cache" \
 ODYSSEY_TEST_MODE=1 \
 GOTENBERG_URL=http://127.0.0.1:0 \
@@ -64,8 +68,11 @@ RELEASE_PROFILE=v0.10-core make production-release-check
 It intentionally fails when the candidate is not tagged, release-gated tests are
 blocked, the selected profile's matrix certification is missing, the VPS runbook
 or profile contract is incomplete, or the candidate has uncommitted non-Graphify
-changes. For `v0.10-core`, rows marked `v0.10.0 scope=no` are not certification
-requirements; they remain outside the production route claim.
+changes. It also requires the staging certification record to identify the exact
+tagged candidate and contain completed evidence rather than the template,
+unchecked-box, pending-result, or placeholder state. For `v0.10-core`, rows marked
+`v0.10.0 scope=no` are not certification requirements; they remain outside the
+production route claim.
 
 The seeded local HTTP regression sweep was reverified on 2026-08-12: 143 page
 routes, 65 parameterised route patterns, 316 guarded mutation routes, and the

@@ -213,12 +213,7 @@ func (a *Adapter) refundPayment(ctx context.Context, conn *connectors.Connection
 	if strings.TrimSpace(reqPayload.OrderID) == "" || strings.TrimSpace(reqPayload.RefundKey) == "" {
 		return errors.New("midtrans: order_id and refund_key are required")
 	}
-	response, err := a.client(creds).RefundTransaction(ctx, RefundRequest{
-		OrderID:   reqPayload.OrderID,
-		RefundKey: reqPayload.RefundKey,
-		Amount:    reqPayload.Amount,
-		Reason:    reqPayload.Reason,
-	})
+	response, err := a.client(creds).RefundTransaction(ctx, RefundRequest(reqPayload))
 	if err != nil {
 		return err
 	}

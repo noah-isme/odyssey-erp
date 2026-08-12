@@ -41,12 +41,13 @@ if [[ -n "$non_graphify_status" ]]; then
 	printf '%s\n' "$non_graphify_status" >&2
 fi
 
-if ! git describe --exact-match --tags HEAD >/dev/null 2>&1; then
+candidate_tag=$(git describe --exact-match --tags HEAD 2>/dev/null || true)
+if [[ -z "$candidate_tag" ]]; then
 	fail "HEAD has no release tag; assign a version and create the reviewed release tag only after all gates pass"
 fi
 
-if ! grep -Fq '**Current release candidate:** v0.10.0-rc.3' docs/releases/VERSION_HISTORY.md; then
-	fail "docs/releases/VERSION_HISTORY.md does not identify the current release candidate"
+if [[ -n "$candidate_tag" ]] && ! grep -Fq "**Current release candidate:** $candidate_tag" docs/releases/VERSION_HISTORY.md; then
+	fail "docs/releases/VERSION_HISTORY.md does not identify tagged candidate $candidate_tag"
 fi
 
 if [[ ! -f "$matrix" ]]; then
@@ -103,8 +104,19 @@ fi
 if ! grep -Fq 'RELEASE_PROFILE=v0.10-core' docs/DEPLOYMENT.md; then
 	fail 'production deployment guide does not document RELEASE_PROFILE=v0.10-core'
 fi
-if [[ ! -f docs/releases/v0.10-core-staging-certification.md ]]; then
-	fail 'missing v0.10-core staging certification checklist'
+certification_record="docs/releases/v0.10-core-staging-certification.md"
+if [[ ! -f "$certification_record" ]]; then
+	fail "missing v0.10-core staging certification checklist"
+else
+	if grep -Fq '**Status:** Evidence template' "$certification_record"; then
+		fail 'v0.10-core staging certification record is still marked as an evidence template'
+	fi
+	if grep -Eq -- '- \[ \]|_record |_record\*|_pending_' "$certification_record"; then
+		fail 'v0.10-core staging certification record contains incomplete checklist or evidence placeholders'
+	fi
+	if [[ -n "$candidate_tag" ]] && ! grep -Fq "**Candidate:** $candidate_tag" "$certification_record"; then
+		fail "v0.10-core staging certification record does not identify tagged candidate $candidate_tag"
+	fi
 fi
 profile_config="internal/app/config.go"
 if [[ ! -f "$profile_config" ]]; then

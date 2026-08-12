@@ -68,10 +68,15 @@ The `Makefile` provides convenient shortcuts for common tasks:
 - `make build` — Compile application binaries.
 - `make test` — Run Go tests.
 - `make lint` — Run `golangci-lint`.
-- `make migrate-up` / `make migrate-down` — Apply or rollback database schema migrations.
-- `make seed` — Load default seed data into the database.
+- `make migrate-up` — Apply all database schema migrations.
+- `make migrate-status` — Print the applied migration version from the configured database.
+- `make test-migrate` — Run repository migration safety tests.
+- `MIGRATION_STEPS=N make migrate-down` — Roll back exactly `N` migrations; the default is one.
+- `make seed` — Load development seed data into the database.
+- `make seed-production` — Load the full seed program with `APP_ENV=production`.
 - `make sqlc-gen` — Regenerate Go bindings from SQL queries using `sqlc`.
 - `make docs-check` — Verify documentation links.
+- `RELEASE_PROFILE=v0.10-core make production-release-check` — Run the final tagged release gate.
 
 ## Docker Compose Architecture
 

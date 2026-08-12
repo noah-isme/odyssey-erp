@@ -1,7 +1,7 @@
 # ODYSSEY ERP: PRODUCTION DEPLOYMENT GUIDE
 
 **Version:** 1.1.0
-**Date:** 2026-08-10
+**Date:** 2026-08-12
 **Deployment target:** Self-managed VPS
 **Status:** Production runbook; operator sign-off required
 
@@ -135,10 +135,13 @@ export PG_DSN="postgres://odyssey_user:password@db-host:5432/odyssey?sslmode=req
 # Run all migrations
 make migrate-up
 
-# Verify migration status
+# Verify the current migration version; this fails if the database is unreachable
 make migrate-status
 
-# Expected output: All migrations applied successfully
+# Run the repository's migration safety tests before a staging rehearsal
+make test-migrate
+
+# Expected output: the latest migration version and passing migration tests
 ```
 
 ### 3. Create Indexes
@@ -495,7 +498,9 @@ curl -fsS https://app.odyssey.com/healthz
 make migrate-status
 
 # Rollback specific migration
-make migrate-down steps=1
+MIGRATION_STEPS=1 make migrate-down
+
+# MIGRATION_STEPS defaults to 1; increase it only after reviewing the recovery plan
 
 # Verify state
 psql $PG_DSN -c "\d"

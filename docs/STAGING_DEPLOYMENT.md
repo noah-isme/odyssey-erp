@@ -10,6 +10,10 @@ The v0.10.0 staging certification profile is `v0.10-core`. Complete the
 for the exact candidate before changing any feature-matrix row to
 `production-certified=yes`.
 
+The final release gate checks that this record names the exact candidate tag and
+contains completed evidence. An untouched template, unchecked checklist item,
+pending result, or unreplaced evidence placeholder cannot pass the gate.
+
 This runbook defines the staging deployment contract. Staging is isolated from
 production by GitHub environment, secrets, filesystem paths, systemd units,
 application port, database, and Redis instance.

@@ -7,6 +7,7 @@ MIGRATE_BIN?=$(HOME)/go/bin/migrate
 AIR_BIN?=$(HOME)/go/bin/air
 PERIOD?=$(shell date +%Y-%m)
 COMPANY_ID?=1
+MIGRATION_STEPS?=1
 GROUP_ID?=1
 ENTITIES?=all
 FX_MODE?=on
@@ -22,7 +23,7 @@ CERT_GO_CACHE?=/tmp/odyssey-cert-go-cache
 export APP_ENV?=development
 export PG_DSN?=postgres://odyssey:odyssey@localhost:5434/odyssey?sslmode=disable
 
-.PHONY: dev air lint vet vet-consol test build docs-check release-check pdf-release-check production-build-check production-release-check migrate-up migrate-down sqlc-gen midtrans-sandbox-certify seed seed-phase3 seed-phase4 refresh-mv reports-demo pdf-sample export-demo fx-tools analytics-dashboard analytics-dashboard-pdf analytics-dashboard-csv prom-up grafana-load alert-test monitor-demo release-phase6
+.PHONY: dev air lint vet vet-consol test build docs-check release-check pdf-release-check production-build-check production-release-check migrate-up migrate-down migrate-status test-migrate sqlc-gen midtrans-sandbox-certify seed seed-production seed-phase3 seed-phase4 refresh-mv reports-demo pdf-sample export-demo fx-tools analytics-dashboard analytics-dashboard-pdf analytics-dashboard-csv prom-up grafana-load alert-test monitor-demo release-phase6
 
 dev:
 	docker compose up --build
@@ -82,7 +83,7 @@ migrate-up:
 	$(MIGRATE_BIN) -path migrations -database "$(PG_DSN)" up
 
 migrate-down:
-	$(MIGRATE_BIN) -path migrations -database "$(PG_DSN)" down 1
+	$(MIGRATE_BIN) -path migrations -database "$(PG_DSN)" down $(MIGRATION_STEPS)
 
 sqlc-gen:
 	$(SQLC_BIN) generate
@@ -166,9 +167,11 @@ monitor-demo:
 release-phase6: lint test build
 	@echo "Phase 6 release checklist complete. Tag with v0.6.0-final."
 
-test-migrate:
-	@echo "test-migrate dummy"
 migrate-status:
-	@echo "migrate-status dummy"
+	$(MIGRATE_BIN) -path migrations -database "$(PG_DSN)" version
+
+test-migrate:
+	$(GO_BIN) test ./migrations
+
 seed-production:
-	@echo "seed-production dummy"
+	APP_ENV=production $(GO_BIN) run ./scripts/seed/main.go

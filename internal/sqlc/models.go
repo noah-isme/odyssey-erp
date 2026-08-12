@@ -1750,6 +1750,22 @@ type ConnectorConnection struct {
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
+type ConnectorDeadLetterEvent struct {
+	ID             int64              `json:"id"`
+	CommandID      int64              `json:"command_id"`
+	CompanyID      int64              `json:"company_id"`
+	ConnectionID   int64              `json:"connection_id"`
+	CommandType    string             `json:"command_type"`
+	CorrelationID  string             `json:"correlation_id"`
+	Attempts       int32              `json:"attempts"`
+	ErrorMessage   string             `json:"error_message"`
+	DeadLetteredAt pgtype.Timestamptz `json:"dead_lettered_at"`
+	AlertedAt      pgtype.Timestamptz `json:"alerted_at"`
+	ReplayedAt     pgtype.Timestamptz `json:"replayed_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
 type ConnectorInboxEvent struct {
 	ID              int64              `json:"id"`
 	CompanyID       int64              `json:"company_id"`
@@ -3789,6 +3805,20 @@ type PaymentDispute struct {
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
 
+type PaymentExecution struct {
+	ID           int64              `json:"id"`
+	CompanyID    int64              `json:"company_id"`
+	ConnectionID int64              `json:"connection_id"`
+	Provider     string             `json:"provider"`
+	ObjectType   string             `json:"object_type"`
+	ObjectID     string             `json:"object_id"`
+	State        string             `json:"state"`
+	Version      int64              `json:"version"`
+	Payload      []byte             `json:"payload"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
 type PaymentIntent struct {
 	ID                int64              `json:"id"`
 	CompanyID         int64              `json:"company_id"`
@@ -3812,6 +3842,43 @@ type PaymentIntentTransition struct {
 	ProviderEventID pgtype.Text        `json:"provider_event_id"`
 	OccurredAt      pgtype.Timestamptz `json:"occurred_at"`
 	RawPayload      []byte             `json:"raw_payload"`
+}
+
+type PaymentReconciliationIssue struct {
+	ID                int64              `json:"id"`
+	CompanyID         int64              `json:"company_id"`
+	ConnectionID      int64              `json:"connection_id"`
+	PaymentIntentID   pgtype.Int8        `json:"payment_intent_id"`
+	Provider          string             `json:"provider"`
+	ProviderReference string             `json:"provider_reference"`
+	IssueType         string             `json:"issue_type"`
+	ExpectedStatus    pgtype.Text        `json:"expected_status"`
+	ObservedStatus    pgtype.Text        `json:"observed_status"`
+	Details           string             `json:"details"`
+	Status            string             `json:"status"`
+	FirstSeenAt       pgtype.Timestamptz `json:"first_seen_at"`
+	LastSeenAt        pgtype.Timestamptz `json:"last_seen_at"`
+	AlertedAt         pgtype.Timestamptz `json:"alerted_at"`
+	ResolvedAt        pgtype.Timestamptz `json:"resolved_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type PaymentReconciliationRun struct {
+	ID               int64              `json:"id"`
+	StartedAt        pgtype.Timestamptz `json:"started_at"`
+	FinishedAt       pgtype.Timestamptz `json:"finished_at"`
+	Status           string             `json:"status"`
+	ScannedCount     int32              `json:"scanned_count"`
+	RecoveredCount   int32              `json:"recovered_count"`
+	MatchedCount     int32              `json:"matched_count"`
+	UnmatchedCount   int32              `json:"unmatched_count"`
+	UnsupportedCount int32              `json:"unsupported_count"`
+	ErrorCount       int32              `json:"error_count"`
+	RefundsPersisted int32              `json:"refunds_persisted"`
+	DeadLetterCount  int32              `json:"dead_letter_count"`
+	ErrorMessage     pgtype.Text        `json:"error_message"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 }
 
 type PaymentRefund struct {
