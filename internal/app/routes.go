@@ -59,6 +59,28 @@ func WriteRoutes(handler http.Handler, w io.Writer) error {
 	if err != nil {
 		return err
 	}
+	return writeRouteEntries(entries, w)
+}
+
+// WriteRoutesForProfile emits only routes admitted by the selected release
+// profile. Route registration remains complete for local development, while
+// route manifests used by bounded CI/deploy profiles describe the surface the
+// running application is actually allowed to serve.
+func WriteRoutesForProfile(handler http.Handler, w io.Writer, profile ReleaseProfile) error {
+	entries, err := WalkRoutes(handler)
+	if err != nil {
+		return err
+	}
+	filtered := entries[:0]
+	for _, entry := range entries {
+		if profile.AllowsPath(entry.Pattern) {
+			filtered = append(filtered, entry)
+		}
+	}
+	return writeRouteEntries(filtered, w)
+}
+
+func writeRouteEntries(entries []RouteEntry, w io.Writer) error {
 	encoder := json.NewEncoder(w)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(entries)

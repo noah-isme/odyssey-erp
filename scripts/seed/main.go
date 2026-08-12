@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 	"golang.org/x/crypto/bcrypt"
@@ -38,6 +39,9 @@ func main() {
 	fmt.Println("→ Seeding master data...")
 	if err := seedMasterData(ctx, pool); err != nil {
 		log.Fatalf("seed master data: %v", err)
+	}
+	if err := syncGlobalRoleAssignments(ctx, pool); err != nil {
+		log.Fatalf("sync global role assignments: %v", err)
 	}
 
 	// Phase 3: Accounting
@@ -109,6 +113,42 @@ func getenv(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+type seedExecutor interface {
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
+}
+
+const syncGlobalRoleAssignmentsSQL = `
+	INSERT INTO rbac_user_role_assignments (
+		company_id,
+		user_id,
+		role_id,
+		branch_id,
+		valid_from,
+		valid_to
+	)
+	SELECT
+		c.id,
+		ur.user_id,
+		ur.role_id,
+		NULL,
+		TIMESTAMPTZ '1970-01-01 00:00:00+00',
+		NULL
+	FROM companies c
+	CROSS JOIN user_roles ur
+	ON CONFLICT (company_id, user_id, role_id, valid_from)
+		WHERE branch_id IS NULL
+	DO NOTHING`
+
+// syncGlobalRoleAssignments preserves the legacy global-role contract after
+// seedMasterData creates companies. Migration 000124 runs before a fresh seed,
+// so its equivalent compatibility insert sees no companies on an empty DB.
+func syncGlobalRoleAssignments(ctx context.Context, db seedExecutor) error {
+	if _, err := db.Exec(ctx, syncGlobalRoleAssignmentsSQL); err != nil {
+		return fmt.Errorf("materialize global roles in company scopes: %w", err)
+	}
+	return nil
 }
 
 // =============================================================================

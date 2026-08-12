@@ -630,9 +630,10 @@ func main() {
 
 	// Route dump mode: print the real routing table and exit without serving.
 	// The E2E suite uses this to derive its page coverage from the router
-	// rather than a hand-maintained list.
+	// rather than a hand-maintained list. Bounded profiles emit only their
+	// admitted surface so the manifest and running server share one contract.
 	if os.Getenv("ODYSSEY_DUMP_ROUTES") != "" {
-		if err := app.WriteRoutes(router, os.Stdout); err != nil {
+		if err := app.WriteRoutesForProfile(router, os.Stdout, app.ReleaseProfile(cfg.ReleaseProfile)); err != nil {
 			logger.Error("dump routes", slog.Any("error", err))
 			os.Exit(1)
 		}

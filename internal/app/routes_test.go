@@ -76,3 +76,21 @@ func TestWriteRoutesEmitsParsableJSON(t *testing.T) {
 		t.Fatalf("unexpected dump: %+v", entries)
 	}
 }
+
+func TestWriteRoutesForProfileFiltersPreviewRoutes(t *testing.T) {
+	router := chi.NewRouter()
+	router.Get("/accounting/pnl", func(http.ResponseWriter, *http.Request) {})
+	router.Get("/analytics", func(http.ResponseWriter, *http.Request) {})
+
+	recorder := httptest.NewRecorder()
+	if err := WriteRoutesForProfile(router, recorder.Body, ReleaseProfileV010Core); err != nil {
+		t.Fatalf("WriteRoutesForProfile() error = %v", err)
+	}
+	var entries []RouteEntry
+	if err := json.Unmarshal(recorder.Body.Bytes(), &entries); err != nil {
+		t.Fatalf("filtered route manifest JSON: %v", err)
+	}
+	if len(entries) != 1 || entries[0].Pattern != "/accounting/pnl" {
+		t.Fatalf("filtered routes = %#v, want only accounting/pnl", entries)
+	}
+}
