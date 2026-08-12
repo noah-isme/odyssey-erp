@@ -13,8 +13,12 @@ its `production-certified` evidence is recorded there.
 ## 1. Release identity and scope
 
 - [x] Choose the release candidate number and date after reviewing the exact commit.
-- [ ] Define the capability scope. Update the feature matrix only with evidence
-      for that scope; do not promote partial capabilities by implication.
+- [x] Define the bounded `v0.10-core` scope in the feature matrix. The profile
+      includes AR/AP, sales/delivery, inventory/stock-take, document control,
+      and CMMS maintenance foundations only.
+- [ ] Confirm the deployment environment sets `RELEASE_PROFILE=v0.10-core`.
+      `full` is allowed only when every matrix row is certified; an unset or
+      unknown profile is a release-gate failure.
 - [ ] Confirm the working tree is clean, excluding generated `graphify-out/`
       state, and review every migration, configuration, and documentation change.
 - [ ] Create a signed final release tag only after all required gates below pass.
@@ -22,8 +26,9 @@ its `production-certified` evidence is recorded there.
       the release notes.
 
 The `v0.10.0-rc.3` candidate is a packaging checkpoint, not a production approval.
-The final gate remains intentionally blocked until its scope and evidence are
-certified by the release owner.
+The [v0.10-core staging certification record](v0.10-core-staging-certification.md)
+is the evidence hook for the bounded profile. The final gate remains intentionally
+blocked until its scope and evidence are certified by the release owner.
 
 ## 2. Repeatable repository gates
 
@@ -47,18 +52,20 @@ make production-build-check
 
 The production build check covers the full unit suite, `go vet`, the Linux
 production build, and the tagged PDF build/test. `make release-check` also
-validates documentation links, the four feature-matrix statuses, and advertised
-route placeholder responses.
+validates documentation links, the release scope and four feature-matrix statuses,
+and advertised route placeholder responses.
 
 Before release, run the final gate from a clean, tagged checkout:
 
 ```bash
-make production-release-check
+RELEASE_PROFILE=v0.10-core make production-release-check
 ```
 
 It intentionally fails when the candidate is not tagged, release-gated tests are
-blocked, matrix certification is missing, the VPS runbook is incomplete, or the
-candidate has uncommitted non-Graphify changes.
+blocked, the selected profile's matrix certification is missing, the VPS runbook
+or profile contract is incomplete, or the candidate has uncommitted non-Graphify
+changes. For `v0.10-core`, rows marked `v0.10.0 scope=no` are not certification
+requirements; they remain outside the production route claim.
 
 The seeded local HTTP regression sweep was reverified on 2026-08-12: 143 page
 routes, 65 parameterised route patterns, 316 guarded mutation routes, and the

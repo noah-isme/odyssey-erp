@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io/fs"
 	"log/slog"
 	"net/http"
@@ -164,8 +165,29 @@ func loadWorkspaceUser(ctx context.Context, pool *pgxpool.Pool, id int64) (works
 	return user, err
 }
 
-func loadWorkspaceCompanies(ctx context.Context, pool *pgxpool.Pool) ([]workspaceCompany, error) {
-	rows, err := pool.Query(ctx, "SELECT id, name FROM companies ORDER BY name, id")
+func loadWorkspaceCompanies(ctx context.Context, pool *pgxpool.Pool, userID int64) ([]workspaceCompany, error) {
+	if pool == nil || userID <= 0 {
+		return nil, errors.New("workspace company lookup requires a database and user")
+	}
+	rows, err := pool.Query(ctx, `
+		SELECT c.id, c.name
+		FROM companies c
+		WHERE EXISTS (
+			SELECT 1
+			FROM rbac_user_role_assignments ura
+			JOIN role_permissions rp ON rp.role_id = ura.role_id
+			WHERE ura.company_id = c.id
+			  AND ura.user_id = $1
+			  AND ura.valid_from <= NOW()
+			  AND (ura.valid_to IS NULL OR ura.valid_to > NOW())
+		)
+		OR EXISTS (
+			SELECT 1
+			FROM user_roles ur
+			JOIN role_permissions rp ON rp.role_id = ur.role_id
+			WHERE ur.user_id = $1
+		)
+		ORDER BY c.name, c.id`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -186,11 +208,16 @@ func activeCompanyMiddleware(pool *pgxpool.Pool, logger *slog.Logger) func(http.
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			sess := shared.SessionFromContext(r.Context())
 			if pool != nil && sess != nil && sess.User() != "" && sess.Get("company_id") == "" {
-				var companyID int64
-				if err := pool.QueryRow(r.Context(), "SELECT id FROM companies ORDER BY id LIMIT 1").Scan(&companyID); err == nil {
-					sess.Set("company_id", strconv.FormatInt(companyID, 10))
+				userID, parseErr := strconv.ParseInt(sess.User(), 10, 64)
+				if parseErr == nil {
+					companies, lookupErr := loadWorkspaceCompanies(r.Context(), pool, userID)
+					if lookupErr == nil && len(companies) > 0 {
+						sess.Set("company_id", strconv.FormatInt(companies[0].ID, 10))
+					} else if logger != nil && lookupErr != nil {
+						logger.Warn("initialize active company", slog.Any("error", lookupErr))
+					}
 				} else if logger != nil {
-					logger.Warn("initialize active company", slog.Any("error", err))
+					logger.Warn("initialize active company: invalid user", slog.Any("error", parseErr))
 				}
 			}
 			next.ServeHTTP(w, r)
@@ -222,6 +249,21 @@ func NewRouter(params RouterParams) http.Handler {
 
 	r.Use(chimw.Logger)
 	r.Use(activeCompanyMiddleware(params.Pool, params.Logger))
+	coreScoped := false
+	if params.Config != nil {
+		// Keep local development on the full route surface while making a
+		// bounded staging/production profile a hard 404 boundary.
+		r.Use(ReleaseProfileMiddleware(params.Config.ReleaseProfile))
+		if profile, err := ParseReleaseProfile(params.Config.ReleaseProfile); err == nil {
+			coreScoped = profile == ReleaseProfileV010Core
+		}
+	}
+	useCoreScope := func(router chi.Router, permissions ...string) {
+		if coreScoped {
+			router.Use(rbac.ScopedRoute)
+			router.Use(params.RBACMiddleware.RequireAnyInScope(permissions...))
+		}
+	}
 
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -468,20 +510,76 @@ func NewRouter(params RouterParams) http.Handler {
 			http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
 			return
 		}
+		userID, userErr := strconv.ParseInt(sess.User(), 10, 64)
 		companyID, err := strconv.ParseInt(r.PostFormValue("company_id"), 10, 64)
-		if err != nil || companyID <= 0 || params.Pool == nil {
+		if userErr != nil || err != nil || companyID <= 0 || params.Pool == nil {
 			sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Perusahaan tidak valid"})
 			redirectBackToWorkspace(w, r)
 			return
 		}
-		var exists bool
-		if err := params.Pool.QueryRow(r.Context(), "SELECT EXISTS(SELECT 1 FROM companies WHERE id = $1)", companyID).Scan(&exists); err != nil || !exists {
+		companies, lookupErr := loadWorkspaceCompanies(r.Context(), params.Pool, userID)
+		allowed := false
+		for _, company := range companies {
+			if company.ID == companyID {
+				allowed = true
+				break
+			}
+		}
+		if lookupErr != nil || !allowed {
 			sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Perusahaan tidak ditemukan"})
 			redirectBackToWorkspace(w, r)
 			return
 		}
 		sess.Set("company_id", strconv.FormatInt(companyID, 10))
+		// A branch belongs to its company. Clear a previous branch selection so
+		// a company switch cannot retain a stale cross-tenant scope.
+		sess.Set("branch_id", "")
 		sess.AddFlash(shared.FlashMessage{Kind: "success", Message: "Perusahaan aktif diperbarui"})
+		redirectBackToWorkspace(w, r)
+	})
+	r.Post("/branch/select", func(w http.ResponseWriter, r *http.Request) {
+		sess := shared.SessionFromContext(r.Context())
+		if sess == nil || sess.User() == "" {
+			http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
+			return
+		}
+		userID, userErr := strconv.ParseInt(sess.User(), 10, 64)
+		companyID, companyErr := strconv.ParseInt(sess.Get("company_id"), 10, 64)
+		branchID, branchErr := strconv.ParseInt(r.PostFormValue("branch_id"), 10, 64)
+		if userErr != nil || companyErr != nil || branchErr != nil || companyID <= 0 || branchID <= 0 || params.Pool == nil {
+			sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Cabang tidak valid"})
+			redirectBackToWorkspace(w, r)
+			return
+		}
+		var allowed bool
+		err := params.Pool.QueryRow(r.Context(), `
+			SELECT EXISTS (
+				SELECT 1
+				FROM branches b
+				WHERE b.id = $1 AND b.company_id = $2
+				  AND (
+					EXISTS (
+						SELECT 1 FROM rbac_user_role_assignments ura
+						JOIN role_permissions rp ON rp.role_id = ura.role_id
+						WHERE ura.user_id = $3 AND ura.company_id = $2
+						  AND (ura.branch_id IS NULL OR ura.branch_id = b.id)
+						  AND ura.valid_from <= NOW()
+						  AND (ura.valid_to IS NULL OR ura.valid_to > NOW())
+					)
+					OR EXISTS (
+						SELECT 1 FROM user_roles ur
+						JOIN role_permissions rp ON rp.role_id = ur.role_id
+						WHERE ur.user_id = $3
+					)
+				  )
+			)`, branchID, companyID, userID).Scan(&allowed)
+		if err != nil || !allowed {
+			sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Cabang tidak ditemukan"})
+			redirectBackToWorkspace(w, r)
+			return
+		}
+		sess.Set("branch_id", strconv.FormatInt(branchID, 10))
+		sess.AddFlash(shared.FlashMessage{Kind: "success", Message: "Cabang aktif diperbarui"})
 		redirectBackToWorkspace(w, r)
 	})
 	// Register freight routes
@@ -626,14 +724,27 @@ func NewRouter(params RouterParams) http.Handler {
 			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 			return
 		}
-		companies, err := loadWorkspaceCompanies(r.Context(), params.Pool)
+		companies, err := loadWorkspaceCompanies(r.Context(), params.Pool, id)
 		if err != nil {
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
 		activeCompanyID, _ := strconv.ParseInt(sess.Get("company_id"), 10, 64)
+		profile := ReleaseProfileFull
+		if params.Config != nil {
+			if parsed, parseErr := ParseReleaseProfile(params.Config.ReleaseProfile); parseErr == nil {
+				profile = parsed
+			}
+		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{"user": user, "companies": companies, "activeCompanyID": activeCompanyID})
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"user":                user,
+			"companies":           companies,
+			"activeCompanyID":     activeCompanyID,
+			"releaseProfile":      string(profile),
+			"allowedPathPrefixes": profile.AllowedPathPrefixes(),
+			"allowedExactPaths":   profile.AllowedExactPaths(),
+		})
 	})
 	if params.NotificationHandler != nil {
 		params.NotificationHandler.MountRoutes(r)
@@ -661,16 +772,19 @@ func NewRouter(params RouterParams) http.Handler {
 	}
 	if params.AccountingHandler != nil {
 		r.Route("/accounting", func(r chi.Router) {
+			useCoreScope(r, shared.PermFinanceGLView)
 			params.AccountingHandler.MountRoutes(r)
 		})
 	}
 	if params.ARHandler != nil {
 		r.Route("/finance/ar", func(r chi.Router) {
+			useCoreScope(r, shared.PermFinanceARView)
 			params.ARHandler.MountRoutes(r)
 		})
 	}
 	if params.APHandler != nil {
 		r.Route("/finance/ap", func(r chi.Router) {
+			useCoreScope(r, shared.PermFinanceAPView)
 			params.APHandler.MountRoutes(r)
 		})
 	}
@@ -696,16 +810,25 @@ func NewRouter(params RouterParams) http.Handler {
 	if params.VarianceHandler != nil {
 		params.VarianceHandler.MountRoutes(r)
 	}
-	r.Route("/inventory", params.InventoryHandler.MountRoutes)
+	r.Route("/inventory", func(r chi.Router) {
+		useCoreScope(r, shared.PermInventoryView)
+		params.InventoryHandler.MountRoutes(r)
+	})
 	if params.DistributionHandler != nil {
 		r.Route("/distribution", params.DistributionHandler.MountRoutes)
 	}
 	r.Route("/procurement", params.ProcurementHandler.MountRoutes)
 	if params.SalesHandler != nil {
-		r.Route("/sales", params.SalesHandler.MountRoutes)
+		r.Route("/sales", func(r chi.Router) {
+			useCoreScope(r, shared.PermCustomerView, shared.PermQuotationView, shared.PermSalesOrderView)
+			params.SalesHandler.MountRoutes(r)
+		})
 	}
 	if params.MasterDataHandler != nil {
-		r.Route("/masterdata", params.MasterDataHandler.MountRoutes)
+		r.Route("/masterdata", func(r chi.Router) {
+			useCoreScope(r, shared.PermMasterView)
+			params.MasterDataHandler.MountRoutes(r)
+		})
 	}
 	if params.WMSHandler != nil {
 		r.Route("/wms", params.WMSHandler.MountRoutes)
@@ -726,10 +849,16 @@ func NewRouter(params RouterParams) http.Handler {
 		r.Route("/mrp", params.MRPHandler.MountRoutes)
 	}
 	if params.DocumentsHandler != nil {
-		r.Route("/documents", params.DocumentsHandler.MountRoutes)
+		r.Route("/documents", func(r chi.Router) {
+			useCoreScope(r, shared.PermDocumentsView)
+			params.DocumentsHandler.MountRoutes(r)
+		})
 	}
 	if params.CMMSHandler != nil {
-		r.Route("/cmms", params.CMMSHandler.MountRoutes)
+		r.Route("/cmms", func(r chi.Router) {
+			useCoreScope(r, shared.PermCMMSAssetView, shared.PermCMMSPlanView, shared.PermCMMSWorkOrderView)
+			params.CMMSHandler.MountRoutes(r)
+		})
 	}
 	if params.QMSHandler != nil {
 		r.Route("/qms", params.QMSHandler.MountRoutes)
@@ -738,6 +867,7 @@ func NewRouter(params RouterParams) http.Handler {
 		r.Route("/webhooks/connectors", params.ConnectorsHandler.MountRoutes)
 	}
 	r.Route("/delivery", func(r chi.Router) {
+		useCoreScope(r, shared.PermDeliveryOrderView)
 		delivery.MountRoutes(r, params.Pool, params.Logger, params.Templates, params.CSRFManager, params.RBACMiddleware, params.InventoryService)
 	})
 	r.Route("/report", params.ReportHandler.MountRoutes)

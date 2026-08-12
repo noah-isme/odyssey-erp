@@ -9,6 +9,11 @@ const (
 	PermRolesEdit = "roles.edit"
 
 	PermPermissionsView = "permissions.view"
+	// Scoped permission administration is intentionally separate from listing
+	// the permission catalog. Assignment and review operations are tenant
+	// scoped and are guarded by the corresponding permission.
+	PermPermissionsAssign = "permissions.assign"
+	PermPermissionsReview = "permissions.review"
 
 	// Organization permissions
 	PermOrgView = "org.view"
@@ -35,10 +40,10 @@ const (
 	PermProcurementEdit = "procurement.edit"
 
 	// Finance AP permissions
-	PermFinanceAPView   = "finance.ap.view"
-	PermFinanceAPCreate = "finance.ap.create"
-	PermFinanceAPPost   = "finance.ap.post"
-	PermFinanceAPVoid   = "finance.ap.void"
+	PermFinanceAPView    = "finance.ap.view"
+	PermFinanceAPCreate  = "finance.ap.create"
+	PermFinanceAPPost    = "finance.ap.post"
+	PermFinanceAPVoid    = "finance.ap.void"
 	PermFinanceAPPayment = "finance.ap.payment"
 )
 
@@ -50,6 +55,8 @@ func CoreScopes() []string {
 		PermRolesView,
 		PermRolesEdit,
 		PermPermissionsView,
+		PermPermissionsAssign,
+		PermPermissionsReview,
 		PermOrgView,
 		PermOrgEdit,
 		PermMasterView,

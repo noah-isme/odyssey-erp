@@ -1,8 +1,14 @@
 # ODYSSEY ERP: PRODUCTION DEPLOYMENT GUIDE
 
-**Status:** Production Ready  
-**Last Updated:** 2026-08-02 19:24 UTC  
-**Phases:** 1-5 Complete (75% Procurement-Logistics)
+**Status:** Superseded historical draft; do not use as a production-readiness claim
+**Last Updated:** 2026-08-12
+**Canonical guide:** [Self-managed VPS production deployment](DEPLOYMENT.md)
+
+> This document contains the earlier phase-1-to-5 deployment notes. Follow
+> `docs/DEPLOYMENT.md` for the current VPS layout, runtime configuration,
+> `RELEASE_PROFILE` contract, migration controls, rollback, and release evidence.
+> The current release candidate is not production-certified until the
+> [production release checklist](releases/production-release-checklist.md) passes.
 
 ---
 

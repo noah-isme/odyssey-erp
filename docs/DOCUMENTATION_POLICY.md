@@ -24,9 +24,9 @@ implementation evidence.
 Update the relevant source when a change affects a route, environment variable,
 Make target, migration, supported capability, or release status. Run
 `make release-check` after documentation or release-status changes. The release
-check validates the four feature-matrix dimensions, scans advertised integrated
-route sources for explicit placeholder responses, and verifies that current docs do
-not revive superseded certification or RBAC claims.
+check validates the feature-matrix release scope and four status dimensions, scans
+advertised integrated route sources for explicit placeholder responses, and verifies
+that current docs do not revive superseded certification or RBAC claims.
 
 ## Historical material
 

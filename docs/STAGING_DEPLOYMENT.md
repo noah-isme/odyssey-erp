@@ -5,6 +5,11 @@
 **Workflow:** `.github/workflows/deploy-native.yml`
 **Status:** Staging runbook; production credentials and data are out of scope
 
+The v0.10.0 staging certification profile is `v0.10-core`. Complete the
+[v0.10-core staging certification record](releases/v0.10-core-staging-certification.md)
+for the exact candidate before changing any feature-matrix row to
+`production-certified=yes`.
+
 This runbook defines the staging deployment contract. Staging is isolated from
 production by GitHub environment, secrets, filesystem paths, systemd units,
 application port, database, and Redis instance.
@@ -31,7 +36,7 @@ target the production environment.
 The `production` Go build tag in the workflow selects the deployable release
 build, including production PDF behavior. It is a compile-time build choice;
 the deployment target remains staging and runtime configuration uses
-`APP_ENV=staging`.
+`APP_ENV=staging` and `RELEASE_PROFILE=v0.10-core`.
 
 ## VPS layout
 
@@ -71,6 +76,7 @@ Create `/opt/odyssey-staging/.env` outside release directories:
 
 ```bash
 APP_ENV=staging
+RELEASE_PROFILE=v0.10-core
 APP_ADDR=:8180
 LOG_FORMAT=json
 
@@ -87,6 +93,11 @@ GOTENBERG_URL=http://127.0.0.1:3000
 
 Use a staging-only database and Redis namespace. Never point staging at the
 production `PG_DSN`, `REDIS_ADDR`, session secrets, or connector credentials.
+
+`RELEASE_PROFILE` is required explicitly by the application configuration and
+release gates. Accepted values are `v0.10-core` and `full`; staging uses
+`v0.10-core` so only the five bounded v0.10.0 capabilities are exposed for
+certification. Do not use an unset or ad-hoc profile in a staging evidence run.
 
 ## Systemd services
 
@@ -184,6 +195,12 @@ curl -fsS http://127.0.0.1:8180/healthz
 sudo systemctl --no-pager --full status odyssey-staging.service odyssey-staging-worker.service
 sudo journalctl -u odyssey-staging.service -u odyssey-staging-worker.service -n 100
 ```
+
+Record the deployment commit, artifact digest, migration/schema checksum,
+backup/restore result, core capability journeys, tenant-isolation tests, and
+the 60-minute observation window in the [staging certification record](releases/v0.10-core-staging-certification.md).
+The deployment health check is only a transport check; it is not feature or
+production certification.
 
 The workflow runs migrations before changing the `current` symlink. To roll
 back application code, point the symlink at a previously verified staging

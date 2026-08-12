@@ -1,95 +1,110 @@
 # Odyssey ERP Project Roadmap
 
-## Vision Statement
-Odyssey ERP aims to be a comprehensive, open-source Enterprise Resource Planning system that empowers businesses of all sizes to manage their operations efficiently. We strive to provide a modern, scalable, and intuitive platform that breaks down silos between departments, from finance and inventory to governance and risk compliance (GRC).
+**Reviewed:** 2026-08-12
+**Current candidate:** `v0.10.0-rc.3`
+**Release profile:** `v0.10-core`
 
-## Phase 1 — Core ERP (Completed ✓)
-The foundational phase of Odyssey ERP is complete, establishing a robust architecture with all essential core modules fully functional.
+Odyssey ERP is a Go modular monolith for finance, sales, procurement, inventory,
+governance, and operational workflows. The [authoritative feature
+matrix](reference/feature-matrix.md) is the status authority; this roadmap tracks
+the order in which the release is hardened and the next capabilities are integrated.
+The current candidate is not production-certified.
 
-- [x] **Auth & User Management**: Secure login, session handling.
-- [x] **Dashboard**: Centralized overview of key metrics.
-- [x] **Sales**: Customers, Invoices, Payments, Credit Notes.
-- [x] **Procurement**: Suppliers, Purchase Orders, Goods Receipts.
-- [x] **Inventory**: Products, Warehouses, Stock Movements, Adjustments.
-- [x] **Finance**: Chart of Accounts, Journal Entries, Ledger, Trial Balance, Balance Sheet, Income Statement.
-- [x] **Governance, Risk, and Compliance (GRC)**: Policies, Risks, Controls, Audits, Incidents, Reviews, Frameworks, Compliance Matrix.
-- [x] **Reports**: Automated PDF generation via Gotenberg.
-- [x] **Admin**: User CRUD operations.
-- [x] **Infrastructure**: 29 database migrations, E2E test coverage, Docker Compose deployment.
+## v0.10.0 — bounded core release
 
-## Phase 2 — Enhanced Core (Planned)
-The next phase focuses on hardening the core application, adding essential operational features, and improving overall user experience and security.
+The v0.10.0 production claim is intentionally limited to five integrated
+capabilities: AR/AP invoice and payment lifecycle, sales order and delivery,
+inventory movement and stock-take, document control foundation, and CMMS
+maintenance foundation. Required authentication, company selection, master data,
+approvals, notifications, administration, health, and accounting support are
+release prerequisites but are not separate capability claims in the matrix.
 
-### High Priority
+### Milestone 1 — Freeze and enforce the core scope
 
-| Feature | Priority | Estimated Effort | Dependencies | Description |
-| :--- | :---: | :---: | :--- | :--- |
-| **Role-Based Access Control (RBAC)** | High | Large | Auth Module | Granular permissions beyond simple admin/user roles. |
-| **Multi-currency Support** | High | Large | Finance, Sales, Procurement | Exchange rates, multi-currency transactions and accounting. |
-| **Audit Trail / Activity Log** | High | Medium | All Modules | Track all entity changes across the system for accountability. |
-| **Email Notifications** | High | Medium | Infrastructure | Invoice reminders, PO approvals, system alerts. |
-| **File Attachments** | High | Medium | Storage / DB | Document management for invoices, POs, policies, etc. |
-| **REST API** | High | Large | Core Services | API endpoints for external integrations and future clients. |
-| **Global Search** | High | Medium | Database Indexing | Cross-module search functionality for quick access. |
+- [x] Keep `v0.10.0 scope=yes` only for the five bounded core rows in the feature
+      matrix; all advanced and partial capabilities remain outside the profile.
+- [x] Enforce an explicit `RELEASE_PROFILE` of `v0.10-core` or `full` in runtime
+      configuration and release gates; staging and v0.10.0 promotion use
+      `v0.10-core`.
+- [x] Expose only the selected capability set in navigation and production route
+      policy; preview and out-of-scope routes return 404 and are not production
+      claims.
+- [x] Implement scoped access assignment migration/compatibility, core-route
+      adoption, company/branch selection enforcement, and access-review APIs.
+- [ ] Complete staging evidence for the scoped controls and certify the five core
+      journeys before promotion.
+- [ ] Keep the [production release checklist](releases/production-release-checklist.md)
+      and [staging certification record](releases/v0.10-core-staging-certification.md)
+      aligned with the exact candidate commit.
 
-### Medium Priority
+**Exit:** release and documentation gates pass; the selected profile is explicit;
+out-of-scope capabilities are not advertised; tenant/company access is fail-closed
+for direct URLs, forms, workers, and company changes; and staging evidence is
+attached to the certification record.
 
-| Feature | Priority | Estimated Effort | Dependencies | Description |
-| :--- | :---: | :---: | :--- | :--- |
-| **Import/Export** | Medium | Medium | CSV Parsing | Bulk data import/export via CSV/Excel formats. |
-| **Recurring Invoices** | Medium | Small | Sales, Cron Jobs | Automated invoice generation on a defined schedule. |
-| **Tax Management** | Medium | Medium | Finance, Sales | Tax rates, tax reports, and compliance tracking. |
-| **CSRF Protection Hardening** | Medium | Small | Security | Ensure all forms have proper CSRF tokens. |
-| **Accessibility Improvements** | Medium | Medium | UI/UX | Skip-to-content, ARIA roles, better focus management. |
+### Milestone 2 — Certify the core profile in staging
 
-## Phase 3 — Extended Modules (Future)
-Phase 3 will expand Odyssey ERP's capabilities into new business domains, making it a true end-to-end enterprise solution.
+- [ ] Deploy the exact release commit to an isolated staging VPS with
+      `RELEASE_PROFILE=v0.10-core`, production build tags, separate database,
+      Redis, secrets, storage, and connector configuration.
+- [ ] Rehearse migrations on a production-like clone, exercise the newest
+      reversible path, document irreversible recovery, and prove backup restore.
+- [ ] Run lint, release hygiene, production/PDF builds, unit tests, vet, SQL
+      generation checks, and the HTTP regression suite from a clean checkout.
+- [ ] Execute the five core journeys, including persistence, worker retries,
+      idempotency, audit evidence, and accounting effects where applicable.
+- [ ] Exercise two-company and branch-scoped negative cases, including direct URL
+      access, form tampering, company changes, expired assignments, and revocation.
+- [ ] Record commit/artifact identity, migration and schema evidence, test outputs,
+      backup/restore results, route manifest, findings, and approver sign-off in the
+      [staging certification record](releases/v0.10-core-staging-certification.md).
 
-- **Accounts Payable / Accounts Receivable (AP/AR)**: Dedicated modules for advanced tracking.
-- **Banking & Treasury**: Bank reconciliation, cash flow forecasting.
-- **CRM**: Leads, Opportunities, and pipeline management.
-- **HR & Payroll**: Employee records, attendance, payroll processing.
-- **Manufacturing (MRP)**: Bill of Materials (BOMs), Production Orders, routing.
-- **Logistics & Freight**: Shipping integration, vehicle tracking.
-- **Quality Management (QMS)**: Quality checks, non-conformance tracking.
-- **Fixed Assets Management**: Asset lifecycle, depreciation scheduling.
-- **Multi-entity Consolidation**: Support for subsidiary companies and consolidated reporting.
-- **Point of Sale (POS)**: Retail front-end integration.
-- **External Portal**: Self-service portals for customers and suppliers.
+**Exit:** staging journeys and security cases pass, restore is proven, no critical
+or high findings remain, and the evidence record is reproducible.
 
-## Phase 4 — Enterprise Features (Vision)
-The long-term vision includes enterprise-grade features for scalability, integration, and advanced automation.
+### Milestone 3 — Promote, observe, and close v0.10.0
 
-- **Connectors**: Native integrations with Stripe, Shopify, DHL, etc.
-- **Advanced Analytics & BI dashboards**: Deep data insights and visualizations.
-- **Workflow Engine**: Customizable, drag-and-drop approval and automation flows.
-- **Multi-tenant Support**: SaaS-ready architecture.
-- **Enterprise Auth**: OAuth / SAML / SSO authentication integrations.
-- **Internationalization (i18n)**: Multi-language support.
-- **UI Themes**: Light theme option and customizable branding.
-- **Mobile-Optimized Views**: Responsive design for on-the-go access.
-- **Real-Time Collaboration**: Collaborative editing and in-app messaging.
-- **Custom Report Builder**: User-defined reports and dynamic queries.
+- [ ] Build and scan immutable web/worker artifacts from the certified commit;
+      retain the image digest, SBOM, and signatures.
+- [ ] Verify production secrets, TLS, PostgreSQL, Redis, storage, monitoring,
+      alerts, backup schedule, rollback target, and operator ownership.
+- [ ] Take and verify the pre-deploy backup, apply migrations as a controlled
+      step, atomically switch the release, and smoke-test health, authentication,
+      each core capability, one worker task, and company isolation.
+- [ ] Observe production for 60 minutes and roll back on failed health checks,
+      sustained 5xx/latency or queue thresholds, migration integrity failure, or
+      any authorization-scope breach.
+- [ ] Attach production evidence, set `production-certified=yes` only for rows
+      with complete evidence, run `RELEASE_PROFILE=v0.10-core make
+      production-release-check`, and create the signed `v0.10.0` tag after go/no-go
+      approval.
 
-## Technical Debt & Known Issues
-To ensure long-term stability, the following technical debt items need addressing:
+**Exit:** the five core rows are certified, the release evidence is attached, the
+observation window is clean, and the final tag and rollback record are complete.
 
-- [ ] **Invoice Status Logic**: Refine and harden transition logic (e.g., Draft -> Sent -> Paid).
-- [ ] **Automated Accounting**: Implement automatic journal entry generation from invoices and payments.
-- [ ] **GRC Scoring**: Finalize and implement compliance scoring calculations in the Governance module.
-- [ ] **Dashboard Flexibility**: Make dashboard widgets configurable per user.
-- [ ] **Reporting Engine**: Expand available report types beyond the current limited set.
-- [ ] **Accessibility (A11y)**:
-  - Add missing `aria-labels` to SVG icons.
-  - Implement a global "skip-to-content" link.
-  - Ensure custom interactive components have correct ARIA roles.
+## Post-v0.10 backlog
 
-## Contributing to the Roadmap
-This roadmap is a living document. We welcome community input to help shape the future of Odyssey ERP! 
+Work stays ordered by end-to-end business value and operational risk. Each item
+must complete persistence, jobs, retries, idempotency, cross-module accounting,
+security, documentation, and staging evidence before it becomes a production claim.
 
-- Have a feature request? Open an issue on our issue tracker.
-- Want to contribute? Check out our `CONTRIBUTING.md` guide and pick up a task from the **Phase 2** or **Technical Debt** lists.
-- For architectural discussions, join our community forums.
+1. **Payment execution and settlement.** Integrate the provider-neutral payment
+   execution coordinator with finance outbox delivery, live provider adapters,
+   settlement-to-AP/GL effects, and reconciliation.
+2. **Procurement and logistics depth.** Complete the purchase-order to freight,
+   receipt, landed-cost, AP, payment, and GL orchestration, then close distribution
+   inventory/GL transfer posting and operational workbenches.
+3. **Scoped access governance.** Extend the exact scoped route pattern to remaining
+   modules, complete newer-module role coverage, and collect production-like access
+   review evidence.
+4. **External integrations and advanced operations.** Certify connector providers,
+   document OCR/realtime delivery, CMMS telemetry/predictive operations, and the
+   remaining MRP compliance decisions.
+5. **Broader enterprise modules.** Expand governed reporting/BI, portals, CRM,
+   HR/payroll, QMS, POS, MRP, manufacturing, fixed assets, and other partial
+   modules only after their workflows and deployment evidence are complete.
 
----
-*Last updated: August 2026*
+See [NEXT_STEPS.md](../NEXT_STEPS.md) for the current implementation handoff and
+[docs/releases/VERSION_HISTORY.md](releases/VERSION_HISTORY.md) for candidate
+history. Superseded phase notes belong under `docs/archive/` and are not release
+status evidence.

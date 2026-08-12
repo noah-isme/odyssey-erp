@@ -2,6 +2,8 @@
 
 **Reviewed:** 2026-08-12
 
+**Release profile:** `v0.10-core` (the bounded v0.10.0 scope)
+
 This guide replaces the superseded phase-1-to-5 launch estimate. It does not claim
 that the system is production-ready or that all RBAC work is complete. Use the
 [authoritative feature matrix](docs/reference/feature-matrix.md) for capability and
@@ -20,6 +22,13 @@ store, deterministic v1 distribution route ordering and metrics, injectable CMMS
 predictive thresholds, and company/branch-aware RBAC middleware helpers. These are
 bounded foundations; the cross-module wiring and production evidence below remain open.
 
+The v0.10.0 production claim is limited to AR/AP invoice and payment lifecycle,
+sales order and delivery, inventory movement and stock-take, document control
+foundation, and CMMS maintenance foundation. The [authoritative feature
+matrix](docs/reference/feature-matrix.md) records this with its `v0.10.0 scope`
+column. Use `RELEASE_PROFILE=v0.10-core` for staging and promotion; `full` requires
+certification of every matrix row.
+
 ## Immediate verification
 
 Run the same release-hygiene checks used by CI before describing a capability as
@@ -37,11 +46,21 @@ advertised integrated route sources. `make pdf-release-check` explicitly compile
 tests the production PDF implementation with `production pdf` build tags. The default
 non-production PDF build is intentionally disabled and may return HTTP 503.
 
+The final tagged gate requires an explicit profile:
+
+```bash
+RELEASE_PROFILE=v0.10-core make production-release-check
+```
+
 The current CI-equivalent verification also records unresolved application-level E2E
 blockers in the [HTTP E2E regression guide](docs/guides/e2e-regression.md). Static,
 database, unit-test, build, and PDF gates may be green while the full route sweep is
 still red; that state is not release-ready and must not be hidden by weakening the
 test or reclassifying partial features as integrated.
+
+For staging and final promotion, record identity, migration, restore, journey,
+security, rollback, and observation evidence in the [v0.10-core staging
+certification record](docs/releases/v0.10-core-staging-certification.md).
 
 ## Recommended development sequence
 
@@ -54,29 +73,31 @@ test or reclassifying partial features as integrated.
 
 ## Highest-value remaining work
 
-- Complete live provider workflows and external merchant-account certification for
-  connectors. Midtrans now has deterministic sandbox certification plus scheduled
-  reconciliation, unmatched-payment alerts, refund-state persistence, dead-letter
-  audit/replay, and recovery metrics; live payout and bank-confirmed-refund evidence
-  remains deployment work.
+- Complete v0.10-core staging certification: deploy the explicit profile, exercise
+  the five journeys, and attach tenant-isolation, migration, restore, rollback, and
+  access-review evidence. Profile enforcement, compatibility migration, access-review
+  APIs, and exact scoped checks are implemented; remaining route adoption and newer
+  module role coverage stay on the post-release backlog.
 - Integrate the provider-neutral payment execution coordinator's versioned durable store
-  with the existing finance outbox, settlement-to-AP/accounting effects, live provider
-  adapters, and reconciliation.
+  with finance outbox delivery, live provider adapters, settlement-to-AP/GL effects,
+  and reconciliation.
 - Close the remaining procurement, landed-cost, logistics, and distribution lifecycle
   gaps. Distribution now has deterministic v1 route ordering and metrics; freight still
   has an injectable exact journal-posting boundary, but application wiring and the full
   PO-to-GL orchestration remain open.
-- Add provider-backed OCR, realtime collaboration delivery, and richer disposition
-  operations.
-- Finish CMMS telemetry/predictive operations and the remaining MRP compliance decision
-  paths, retention jobs, and regulated-policy validation. CMMS threshold rules are now
-  injectable, while persisted per-sensor policy and calibrated inference remain open.
-- Adopt the scoped RBAC middleware helpers in eligible route groups, seed/migrate scoped
-  assignments, and finish the newer-module role matrix and access-review operations.
+- Complete live provider workflows and external merchant-account certification for
+  connectors. Midtrans has deterministic sandbox certification plus scheduled
+  reconciliation, unmatched-payment alerts, refund-state persistence, dead-letter
+  audit/replay, and recovery metrics; live payout and bank-confirmed-refund evidence
+  remains deployment work.
+- Add provider-backed OCR, realtime collaboration delivery, richer disposition
+  operations, CMMS telemetry/predictive operations, and the remaining MRP compliance
+  decision paths, retention jobs, and regulated-policy validation.
 
 ## Release rule
 
-Do not use the superseded launch-time estimate. A release is ready only when
-the relevant matrix row is `yes` for `code-complete`, `integration-complete`,
-`production-certified`, and `documented`, and the CI build/tag and route-placeholder
-checks pass.
+Do not use the superseded launch-time estimate. A `v0.10-core` release is ready only
+when every matrix row with `v0.10.0 scope=yes` is `yes` for `code-complete`,
+`integration-complete`, `production-certified`, and `documented`, the staging
+certification record is complete, and the CI build/tag and route-placeholder checks
+pass. A `full` release applies the same rule to every matrix row.

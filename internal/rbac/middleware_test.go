@@ -131,6 +131,23 @@ func TestRequireAnyInScopeUsesCompanyScope(t *testing.T) {
 	}
 }
 
+func TestScopedRouteMakesLegacyPermissionHelpersTenantAware(t *testing.T) {
+	reader := &stubScopedPermissionReader{scopedPermissions: []string{"inventory.view"}}
+	legacyCheck := Middleware{Service: reader}.RequireAny("inventory.edit")
+	handler := ScopedRoute(legacyCheck(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})))
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, requestWithSession(t, "42", "7", ""))
+
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusForbidden)
+	}
+	if reader.calls != 1 || reader.scope.CompanyID != 7 {
+		t.Fatalf("scoped lookup = calls:%d scope:%+v, want one lookup in company 7", reader.calls, reader.scope)
+	}
+}
+
 func TestRequireAnyInScopeUsesOptionalBranchScope(t *testing.T) {
 	reader := &stubScopedPermissionReader{scopedPermissions: []string{"inventory.view"}}
 	middleware := Middleware{Service: reader}.RequireAnyInScope("inventory.view")

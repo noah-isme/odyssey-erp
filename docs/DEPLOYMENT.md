@@ -5,6 +5,12 @@
 **Deployment target:** Self-managed VPS
 **Status:** Production runbook; operator sign-off required
 
+For the bounded v0.10.0 release, use the [v0.10-core staging certification
+record](releases/v0.10-core-staging-certification.md) before promotion. The
+release gate requires an explicit `RELEASE_PROFILE`; production promotion uses
+`RELEASE_PROFILE=v0.10-core` unless a separately approved `full` profile has
+certified every matrix row.
+
 > This runbook is production-only. The `staging` branch deploys through the
 > isolated staging contract in [STAGING_DEPLOYMENT.md](STAGING_DEPLOYMENT.md);
 > it does not use the production host, paths, services, or secrets described
@@ -63,6 +69,7 @@ the native deployment workflow:
 ```bash
 # Application
 APP_ENV=production
+RELEASE_PROFILE=v0.10-core
 APP_ADDR=:8080
 LOG_FORMAT=json
 
@@ -85,7 +92,10 @@ GOTENBERG_URL=http://127.0.0.1:3000
 The application reads runtime configuration from environment variables through
 `internal/app/config.go`; there is no checked-in `config/production.yaml` to
 copy into a release. Set `SESSION_SECRET` and `CSRF_SECRET` to unique secret
-values and keep `CONNECTORS_DEVELOPMENT_MODE=false` in production.
+values and keep `CONNECTORS_DEVELOPMENT_MODE=false` in production. Accepted
+release profiles are `v0.10-core` and `full`; do not omit the profile or invent
+another value. The selected profile must match the scope and evidence recorded
+in the [authoritative feature matrix](reference/feature-matrix.md).
 
 ---
 

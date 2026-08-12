@@ -31,13 +31,37 @@ type ScopedPermissionReader interface {
 	EffectivePermissionsInScope(ctx context.Context, userID int64, scope AccessScope, at time.Time) ([]string, error)
 }
 
+type scopedRouteContextKey struct{}
+
+// ScopedRoute marks a route group as tenant-scoped. The existing RequireAny
+// and RequireAll helpers keep their global compatibility behavior everywhere
+// else, but enforce the exact permission in the active company/branch when
+// this marker is present. This lets existing module route declarations adopt
+// scoped checks without duplicating every permission string at the router.
+func ScopedRoute(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), scopedRouteContextKey{}, true)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+func isScopedRoute(ctx context.Context) bool {
+	scoped, _ := ctx.Value(scopedRouteContextKey{}).(bool)
+	return scoped
+}
+
 // RequireAny ensures the current user has at least one of the required permissions.
 func (m Middleware) RequireAny(perms ...string) func(http.Handler) http.Handler {
 	normalized := normalizePermissions(perms)
 	return func(next http.Handler) http.Handler {
+		scopedNext := m.RequireAnyInScope(perms...)(next)
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if len(normalized) == 0 {
 				next.ServeHTTP(w, r)
+				return
+			}
+			if isScopedRoute(r.Context()) {
+				scopedNext.ServeHTTP(w, r)
 				return
 			}
 			userID, ok := m.currentUserID(r)
@@ -66,9 +90,14 @@ func (m Middleware) RequireAny(perms ...string) func(http.Handler) http.Handler 
 func (m Middleware) RequireAll(perms ...string) func(http.Handler) http.Handler {
 	normalized := normalizePermissions(perms)
 	return func(next http.Handler) http.Handler {
+		scopedNext := m.RequireAllInScope(perms...)(next)
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if len(normalized) == 0 {
 				next.ServeHTTP(w, r)
+				return
+			}
+			if isScopedRoute(r.Context()) {
+				scopedNext.ServeHTTP(w, r)
 				return
 			}
 			userID, ok := m.currentUserID(r)

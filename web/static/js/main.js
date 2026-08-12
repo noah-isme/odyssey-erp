@@ -108,6 +108,45 @@ function applyShellLanguage(language) {
     });
 }
 
+function applyReleaseProfileVisibility(workspace) {
+    const allowedPathPrefixes = Array.isArray(workspace?.allowedPathPrefixes)
+        ? workspace.allowedPathPrefixes.filter((path) => typeof path === 'string' && path.startsWith('/'))
+        : (Array.isArray(workspace?.allowedPaths) ? workspace.allowedPaths.filter((path) => typeof path === 'string' && path.startsWith('/')) : []);
+    const allowedExactPaths = Array.isArray(workspace?.allowedExactPaths)
+        ? workspace.allowedExactPaths.filter((path) => typeof path === 'string' && path.startsWith('/'))
+        : [];
+    if (allowedPathPrefixes.length === 0 && allowedExactPaths.length === 0) return;
+
+    const isAllowed = (href) => {
+        let pathname;
+        try {
+            pathname = new URL(href, window.location.origin).pathname;
+        } catch (_) {
+            return true;
+        }
+        if (allowedExactPaths.includes(pathname)) return true;
+        if (allowedPathPrefixes.includes('/')) return true;
+        return allowedPathPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+    };
+
+    document.querySelectorAll('.sidebar-nav a[href]').forEach((link) => {
+        link.hidden = !isAllowed(link.getAttribute('href') || '');
+    });
+    document.querySelectorAll('.sidebar-nav details').forEach((menu) => {
+        menu.hidden = !menu.querySelector('a[href]:not([hidden])');
+    });
+    document.querySelectorAll('.sidebar-nav > .sidebar-section').forEach((section) => {
+        section.hidden = !section.querySelector('a[href]:not([hidden])');
+    });
+    document.querySelectorAll('.sidebar-nav > a[href], .sidebar-nav > .sidebar-section-title').forEach((element) => {
+        if (element.matches('a[href]')) {
+            element.hidden = !isAllowed(element.getAttribute('href') || '');
+        } else if (!element.nextElementSibling?.matches('a[href]:not([hidden]), details:not([hidden])')) {
+            element.hidden = true;
+        }
+    });
+}
+
 function applyInitialLanguage() {
     const language = document.documentElement.dataset.uiLanguage || 'id';
     localizeBilingualContent(language);
@@ -121,6 +160,7 @@ async function applyWorkspacePreferences() {
         if (!response.ok) return;
 
         const workspace = await response.json();
+        applyReleaseProfileVisibility(workspace);
         const user = workspace.user;
         const name = user.name || user.email || 'Pengguna';
         const initial = Array.from(name.trim())[0] || 'U';

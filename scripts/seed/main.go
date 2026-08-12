@@ -153,6 +153,8 @@ func seedRBAC(ctx context.Context, pool *pgxpool.Pool) error {
 		{"roles.view", "View roles"},
 		{"roles.edit", "Manage roles"},
 		{"permissions.view", "View permissions"},
+		{"permissions.assign", "Assign roles in a company or branch scope"},
+		{"permissions.review", "Open and decide access reviews"},
 		{"org.view", "View organization data"},
 		{"org.edit", "Manage organization data"},
 		{"master.view", "View master data"},
@@ -272,7 +274,7 @@ func seedRBAC(ctx context.Context, pool *pgxpool.Pool) error {
 		permissions []string
 	}{
 		{"admin", "Full access to all modules", []string{
-			"users.view", "users.edit", "roles.view", "roles.edit", "permissions.view",
+			"users.view", "users.edit", "roles.view", "roles.edit", "permissions.view", "permissions.assign", "permissions.review",
 			"org.view", "org.edit", "master.view", "master.edit", "master.import",
 			"rbac.view", "rbac.edit", "report.view",
 			"inventory.view", "inventory.edit",
