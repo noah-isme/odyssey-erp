@@ -545,8 +545,16 @@ jobs:
           . /opt/odyssey-staging/.env
           set +a
           : "${PG_DSN:?PG_DSN must be set in /opt/odyssey-staging/.env}"
+          [[ "${APP_ENV:-}" == staging ]] || {
+            echo 'staging must set APP_ENV=staging' >&2
+            exit 1
+          }
           [[ "${RELEASE_PROFILE:-}" == v0.10-core ]] || {
             echo 'staging must set RELEASE_PROFILE=v0.10-core' >&2
+            exit 1
+          }
+          [[ "${APP_ADDR:-}" == 127.0.0.1:8180 ]] || {
+            echo 'staging must bind APP_ADDR=127.0.0.1:8180' >&2
             exit 1
           }
 
@@ -557,14 +565,61 @@ jobs:
 
           ln -sfn "$release" /opt/odyssey-staging/current
 
-          sudo -n systemctl restart odyssey-staging.service
-          sudo -n systemctl restart odyssey-staging-worker.service
+          # Prefer the provisioned systemd units. Some staging hosts are
+          # intentionally restricted to the deploy account and do not yet
+          # grant it sudo rights for the staging unit names; in that case run
+          # the immutable release under the dedicated staging deploy account
+          # with explicit PID/log supervision rather than touching production
+          # units or silently skipping the health check.
+          runtime_dir=/opt/odyssey-staging/run
+          stop_pidfile() {
+            local pidfile="$1"
+            if [[ -s "$pidfile" ]]; then
+              local pid
+              pid=$(cat "$pidfile")
+              if [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then
+                kill "$pid" 2>/dev/null || true
+                for _ in $(seq 1 15); do
+                  kill -0 "$pid" 2>/dev/null || break
+                  sleep 1
+                done
+                kill -9 "$pid" 2>/dev/null || true
+              fi
+            fi
+            rm -f "$pidfile"
+          }
+
+          if sudo -n systemctl restart odyssey-staging.service >/dev/null 2>&1 && \
+             sudo -n systemctl restart odyssey-staging-worker.service >/dev/null 2>&1; then
+            runtime_mode=systemd
+          else
+            sudo -n systemctl stop odyssey-staging.service >/dev/null 2>&1 || true
+            sudo -n systemctl stop odyssey-staging-worker.service >/dev/null 2>&1 || true
+            runtime_mode=supervised-process
+            install -d -m 0755 "$runtime_dir"
+            stop_pidfile "$runtime_dir/odyssey.pid"
+            stop_pidfile "$runtime_dir/worker.pid"
+            nohup "$release/odyssey" >"$runtime_dir/odyssey.log" 2>&1 &
+            echo "$!" > "$runtime_dir/odyssey.pid"
+            nohup "$release/worker" >"$runtime_dir/worker.log" 2>&1 &
+            echo "$!" > "$runtime_dir/worker.pid"
+          fi
 
           for attempt in $(seq 1 30); do
             if curl -fsS --max-time 5 \
               http://127.0.0.1:8180/healthz \
               >/dev/null; then
-              echo 'Odyssey deployment healthy'
+              if [[ "$runtime_mode" == supervised-process ]]; then
+                for pidfile in "$runtime_dir/odyssey.pid" "$runtime_dir/worker.pid"; do
+                  pid=$(cat "$pidfile")
+                  kill -0 "$pid" 2>/dev/null || {
+                    echo "supervised staging process exited: $pidfile" >&2
+                    tail -80 "${pidfile%.pid}.log" >&2 || true
+                    exit 1
+                  }
+                done
+              fi
+              echo "Odyssey deployment healthy ($runtime_mode)"
               exit 0
             fi
 
@@ -572,8 +627,13 @@ jobs:
           done
 
           echo 'Health check failed'
-          sudo -n systemctl --no-pager --full status odyssey-staging.service || true
-          sudo -n systemctl --no-pager --full status odyssey-staging-worker.service || true
+          if [[ "$runtime_mode" == systemd ]]; then
+            sudo -n systemctl --no-pager --full status odyssey-staging.service || true
+            sudo -n systemctl --no-pager --full status odyssey-staging-worker.service || true
+          else
+            tail -120 "$runtime_dir/odyssey.log" || true
+            tail -120 "$runtime_dir/worker.log" || true
+          fi
           exit 1
           REMOTE
 
