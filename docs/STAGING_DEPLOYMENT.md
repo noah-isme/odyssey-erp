@@ -24,10 +24,24 @@ application port, database, and Redis instance.
 
 ## Deployment contract
 
-The workflow runs only after a successful `CI` workflow for the `staging`
-branch. It checks out the tested commit, builds the Linux release artifacts,
-runs migrations, switches the release symlink atomically, restarts the staging
-services, and verifies `http://127.0.0.1:8180/healthz`.
+The workflow deploys automatically only after a successful `CI` workflow for
+the `staging` branch. For the current release-candidate certification, use the
+manual workflow dispatch with the annotated `v0.10.0-rc.6` tag. The tag must
+resolve to post-rc.5 commit `d8b02b87fd614edec31e465abc38667ad91f7548`; the
+reviewed application baseline remains `ec65cc08639c184030c63e3407791987eee92804`.
+The workflow verifies that the tag resolves to the checked-out commit and that
+the same commit has a successful `CI` run before building.
+It builds the Linux release artifacts once, creates `SHA256SUMS`, migration and
+web manifests, an SPDX SBOM, and a provenance attestation, retains the bundle
+as an immutable workflow artifact, then uploads that exact bundle to the VPS.
+The VPS verifies the digests and profile/migration boundary before running
+migrations, switching the release symlink atomically, restarting the staging
+services, and verifying `http://127.0.0.1:8180/healthz`.
+
+An automatic `workflow_run` deployment is refused when the checked-out commit
+contains migration `000125`; use the manual candidate-tag dispatch for the
+v0.10-core certification path instead of allowing the v0.11-finance line to
+drift into staging.
 
 Configure a GitHub environment named `staging` with these secrets:
 
@@ -45,6 +59,12 @@ The `production` Go build tag in the workflow selects the deployable release
 build, including production PDF behavior. It is a compile-time build choice;
 the deployment target remains staging and runtime configuration uses
 `APP_ENV=staging` and `RELEASE_PROFILE=v0.10-core`.
+
+For the v0.10-core candidate, the uploaded bundle must contain migrations only
+through `000124_scoped_rbac_global_compatibility`; migration `000125` and
+v0.11-finance-only routes are outside this deployment profile. Keep the workflow
+artifact URL, bundle/SBOM/attestation digests, and deployment run output in the
+certification evidence record.
 
 ## VPS layout
 

@@ -5,6 +5,41 @@ release notes are immutable records under `docs/releases/`; completed phase logs
 and older changelog material live in `docs/archive/`. Release readiness is tracked
 only in the [authoritative feature matrix](reference/feature-matrix.md).
 
+## v0.10.0-rc.6 — 2026-08-14
+
+Exact `v0.10-core` staging candidate at post-rc.5 commit `d8b02b8`, preserving
+the reviewed `ec65cc0` application baseline and `000124` migration ceiling. See
+the [staging certification record](releases/v0.10-core-staging-certification.md).
+Production certification remains pending.
+
+### Changed
+
+- Superseded the immutable rc.5 tag with the post-tag staging supervision fix;
+  the candidate is now rc.6 and still requires exact artifact identity,
+  digest/SBOM, migration-boundary, and structured staging-certification evidence.
+- Kept the v0.11-finance implementation and migration `000125` outside the
+  v0.10-core release line.
+
+## v0.10.0-rc.5 — 2026-08-13
+
+Tagged E2E route-contract checks, core route-manifest/RBAC seed alignment, and
+deployment-gate hardening. The immutable tag is superseded by rc.6 because the
+staging supervision fix landed afterward. Production certification remains
+pending.
+
+## v0.10.0-rc.4 — 2026-08-12
+
+Exact `v0.10-core` staging candidate frozen at the reviewed `ec65cc0` baseline.
+See the [release notes](releases/v0.10.0-rc.4.md). Production certification
+remains pending.
+
+### Changed
+
+- Added exact candidate identity, artifact digest/SBOM, migration-boundary, and
+  structured staging-certification evidence requirements.
+- Kept the v0.11-finance implementation and migration `000125` outside the
+  v0.10-core release line.
+
 ## Unreleased
 
 - Added the cumulative `v0.11-finance` roadmap handoff: scoped finance routes,

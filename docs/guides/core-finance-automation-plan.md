@@ -86,7 +86,7 @@ Extend the current owners and add narrow packages only where a new domain has no
 | Statements and reconciliation | Accounting banks | `internal/accounting/banks/` |
 | Provider connection and ingestion | New bank-feed application service | Proposed internal/finance/bankfeeds package; provider adapter location follows the external-integrations ADR |
 | Forecast scenarios and snapshots | Treasury forecast service | `internal/finance/forecasting/` |
-| Payment proposals and execution | New treasury payment service | `internal/finance/payments/` now provides the provider-neutral coordinator, versioned PostgreSQL execution snapshots, payment/result outbox commands, and durable settlement-result/effect idempotency; application worker composition, provider adapters, and confirmed settlement calls into `internal/ap/` remain |
+| Payment proposals and execution | New treasury payment service | `internal/finance/payments/` now provides the provider-neutral coordinator, versioned PostgreSQL execution snapshots, payment/result outbox commands, durable settlement-result/effect idempotency, and bounded worker registration for `payment.result.import`; live execution/provider adapters and confirmed settlement calls into `internal/ap/` remain |
 | PO, receipt, return, and line progress | Procurement | `internal/procurement/` |
 | Supplier invoice and allocations | Accounts payable | `internal/ap/` |
 | Matching and P2P exception queue | Procurement/AP boundary | Proposed internal/procurement/matching package, with explicit ports into AP |
@@ -347,17 +347,21 @@ The provider-neutral coordinator in `internal/finance/payments/` now covers exac
 proposal, approval, submission, settlement, cancellation, ambiguity lookup, and controlled
 export behind injectable persistence and provider ports. A versioned PostgreSQL JSONB
 execution store now provides the durable snapshot and optimistic-concurrency boundary.
-Production completion still requires application worker composition, live provider
-adapters, confirmed settlement effects in AP/accounting, operations pages, and sandbox
-certification. The payment/result outbox commands, ambiguous-outcome dead-letter policy,
-durable result inbox, and effect-key idempotency boundary are implemented and remain
-provider-neutral.
+Production completion still requires live provider adapters, confirmed settlement
+effects in AP/accounting, operations pages, and sandbox certification. The worker
+composition now wires only the durable `payment.result.import` boundary; live
+execution remains disabled and the unsupported effects adapter fails closed so a
+result cannot claim that AP/GL/tax/FX/bank posting occurred. The payment/result outbox
+commands, ambiguous-outcome dead-letter policy, durable result inbox, and effect-key
+idempotency boundary remain provider-neutral.
 
 - [x] Define payment execution/result-import outbox commands, stable idempotency keys,
   handler registration, and a terminal ambiguous-outcome path that prevents blind
   resubmission.
-- [ ] Compose those handlers into the application/worker with a durable batch-item
-  producer and provider adapter.
+- [x] Compose the durable `payment.result.import` handler into the worker with
+  PostgreSQL execution/result stores; leave live execution unregistered until a
+  provider and accounting-effects adapter are certified.
+- [ ] Add a durable batch-item producer and certified provider adapter for live execution.
 - [x] Add a company-scoped JSONB execution snapshot store with optimistic version checks.
 - [x] On timeout or retry, query provider status before any resubmission.
 - [x] Ingest partial, rejected, cancelled, failed, and settled provider results into a

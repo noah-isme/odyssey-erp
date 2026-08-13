@@ -1,9 +1,18 @@
 # Authoritative Feature Matrix
 
-**Reviewed:** 2026-08-10
+**Reviewed:** 2026-08-14
 
-**Current release candidate:** `v0.10.0-rc.3`. This candidate is not
+**Current release candidate:** `v0.10.0-rc.6`. This candidate is not
 production-certified; the matrix below remains the authority for promotion evidence.
+
+**v0.10.0-rc.6 boundary:** the candidate is frozen at post-rc.5 commit
+`d8b02b87fd614edec31e465abc38667ad91f7548`, while preserving the reviewed
+application baseline `ec65cc08639c184030c63e3407791987eee92804`, and includes
+migrations through `000124_scoped_rbac_global_compatibility`. The v0.11-finance
+implementation commit `1a8343e4499420467ba3dda04a2683782c6c79d7`, migration
+`000125_payment_settlement_results`, and v0.11-only routes are excluded from the
+v0.10-core candidate. The immutable rc.5 tag is superseded by rc.6 and remains
+historical, not a production claim.
 
 **Release profiles:** `v0.10-core` is the bounded v0.10.0 production profile and
 claims only rows marked `yes` in the **v0.10.0 scope** column. `v0.11-finance` is
@@ -30,7 +39,8 @@ Each capability is assessed independently across the release scope and four
 status dimensions:
 
 - `v0.10.0 scope` — `yes` means the capability is part of the bounded
-  `v0.10-core` release claim; `no` means it remains outside that profile;
+  `v0.10-core` release claim; `no` means it remains outside that profile. A
+  v0.11-finance-only capability or migration is never included by this column;
 - `v0.11.0 scope` — `yes` means the capability is part of the cumulative
   `v0.11-finance` release claim; `no` means it remains outside that profile. The
   profile currently defines scope for certification work; it is not a production
@@ -57,7 +67,7 @@ CI checks the source files listed in **Advertised production route source** only
 | Inventory movement and stock-take foundation | yes | yes | yes | yes | no | yes | `/inventory` -> `internal/inventory/handler.go` | Movement, stock-take, adjustment, lot/serial, and AVG/FIFO foundations are available; breadth and production evidence remain open. |
 | Document control foundation | yes | yes | yes | yes | no | yes | `/documents` -> `internal/documents/http/handler.go` | Versions, ACL, review, signatures, retention, and persistence boundaries are wired; provider-backed binary OCR and realtime fan-out are not certified. |
 | CMMS maintenance foundation | yes | yes | yes | yes | no | yes | `/cmms` -> `internal/cmms/http/handler.go` | Work orders, assets, PM, meters, and spares are wired; mobile operations and production rollout evidence remain open. |
-| Finance automation | no | yes | partial | partial | no | yes | `/finance/bankfeeds` -> `internal/finance/bankfeeds/handler.go`; `/finance/forecasting` -> `internal/finance/forecasting/handler.go`; `/finance/treasury` -> `internal/finance/treasury/handler.go` | Tenant-safe bank-feed processing, verified statement transport, rolling forecasts with tax/payment/PO readers, exact-money treasury controls, payment/result outbox contracts, a provider-neutral payment execution coordinator, and durable PostgreSQL execution/result/effect idempotency boundaries exist; application worker composition, live providers, confirmed AP/GL/tax/FX/reconciliation effects, operations views, and full staging evidence remain. |
+| Finance automation | no | yes | partial | partial | no | yes | `/finance/bankfeeds` -> `internal/finance/bankfeeds/handler.go`; `/finance/forecasting` -> `internal/finance/forecasting/handler.go`; `/finance/treasury` -> `internal/finance/treasury/handler.go` | Next-release v0.11-finance work; it is excluded from v0.10-core and rc.6. Tenant-safe bank-feed processing, verified statement transport, rolling forecasts with tax/payment/PO readers, exact-money treasury controls, payment/result outbox contracts, a provider-neutral payment execution coordinator, durable PostgreSQL execution/result/effect idempotency boundaries, and bounded worker registration for `payment.result.import` exist; live providers, confirmed AP/GL/tax/FX/reconciliation effects, operations views, and full staging evidence remain. |
 | Procurement, freight, and logistics execution | no | no | partial | partial | no | yes | `/procurement` -> `internal/procurement/handler.go`; `/logistics` -> `internal/logistics/handler.go`; `/freight` -> `internal/freight/handler.go` | Core records and workbench foundations exist; freight now has an injectable exact balanced journal boundary with deterministic source identity, but the purchase-order to freight, receipt, landed-cost, invoice, payment, and application-wiring loop is not complete. |
 | Distribution lifecycle | no | no | partial | partial | no | yes | `/distribution` -> `internal/distribution/handler.go` | Planning, loads, shipment linkage, dispatch/delivery, transfer foundations, and deterministic v1 route ordering/metrics are present; inventory/GL transfer posting, provider-backed routing, and operational workbenches remain. |
 | Advanced document processing | no | no | partial | partial | no | yes | `/documents/library/{id}/versions/{versionID}/ocr` -> `internal/documents/http/handler.go`; `/documents/search` -> `internal/documents/http/handler.go` | Text extraction, indexing, collaboration persistence, and disposition foundations exist; scanned-file providers, websocket delivery, and richer disposition actions remain. |
@@ -85,7 +95,9 @@ rule to every row. Rows outside the selected profile are not release claims and 
 remain unavailable to that profile's production route set. In particular, the Phase
 14/P7 evidence guide records local verification; it does not certify staging or
 production. The VPS deployment target satisfies the infrastructure selection only;
-it does not certify incomplete feature workflows.
+it does not certify incomplete feature workflows. For rc.6, selecting
+`RELEASE_PROFILE=v0.10-core` must not expose v0.11-finance-only routes or apply
+migration `000125`.
 
 Run the same checks locally and in CI:
 

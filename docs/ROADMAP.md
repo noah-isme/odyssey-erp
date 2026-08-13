@@ -1,7 +1,7 @@
 # Odyssey ERP Project Roadmap
 
-**Reviewed:** 2026-08-12
-**Current candidate:** `v0.10.0-rc.3`
+**Reviewed:** 2026-08-14
+**Current candidate:** `v0.10.0-rc.6`
 **Release profile:** `v0.10-core`
 
 Odyssey ERP is a Go modular monolith for finance, sales, procurement, inventory,
@@ -9,6 +9,15 @@ governance, and operational workflows. The [authoritative feature
 matrix](reference/feature-matrix.md) is the status authority; this roadmap tracks
 the order in which the release is hardened and the next capabilities are integrated.
 The current candidate is not production-certified.
+
+The `v0.10.0-rc.6` candidate is the post-rc.5 release head at commit
+`d8b02b87fd614edec31e465abc38667ad91f7548`. It preserves the reviewed
+application baseline `ec65cc08639c184030c63e3407791987eee92804` and is limited to
+migrations through `000124_scoped_rbac_global_compatibility`. The later v0.11-finance
+implementation commit `1a8343e4499420467ba3dda04a2683782c6c79d7` and migration
+`000125_payment_settlement_results` are explicitly outside the v0.10 line. The
+immutable `v0.10.0-rc.5` tag is superseded because the deployment supervision fix
+landed afterward; production certification remains pending.
 
 ## v0.10.0 — bounded core release
 
@@ -31,6 +40,10 @@ release prerequisites but are not separate capability claims in the matrix.
       claims.
 - [x] Implement scoped access assignment migration/compatibility, core-route
       adoption, company/branch selection enforcement, and access-review APIs.
+- [x] Freeze `v0.10.0-rc.6` at post-rc.5 commit `d8b02b8`, preserve the
+      `ec65cc0` application baseline, and keep the candidate migration ceiling at
+      `000124`; v0.11-finance routes and migration `000125` remain outside the
+      `v0.10-core` profile.
 - [ ] Complete staging evidence for the scoped controls and certify the five core
       journeys before promotion.
 - [ ] Keep the [production release checklist](releases/production-release-checklist.md)
@@ -44,9 +57,10 @@ attached to the certification record.
 
 ### Milestone 2 — Certify the core profile in staging
 
-- [ ] Deploy the exact release commit to an isolated staging VPS with
+- [ ] Deploy the exact `v0.10.0-rc.6` commit (`d8b02b8`) to an isolated staging VPS with
       `RELEASE_PROFILE=v0.10-core`, production build tags, separate database,
-      Redis, secrets, storage, and connector configuration.
+      Redis, secrets, storage, and connector configuration. Verify that the
+      migration history stops at `000124` and does not include `000125`.
 - [ ] Rehearse migrations on a production-like clone, exercise the newest
       reversible path, document irreversible recovery, and prove backup restore.
 - [ ] Run lint, release hygiene, production/PDF builds, unit tests, vet, SQL
@@ -104,16 +118,18 @@ security, documentation, and staging evidence before it becomes a production cla
    HR/payroll, QMS, POS, MRP, manufacturing, fixed assets, and other partial
    modules only after their workflows and deployment evidence are complete.
 
-### v0.11-finance implementation handoff
+### v0.11-finance implementation handoff (post-v0.10; excluded from rc.6)
 
 The next bounded workstream is represented by `RELEASE_PROFILE=v0.11-finance`.
-The implementation now includes the cumulative profile/route boundary, verified
-statement-transport ingestion through the normalized banking importer, additional
-tax/payment/PO forecast readers, exact decimal treasury amounts, and durable
-payment-result/effect idempotency contracts. It is intentionally not a production
-claim: application worker composition, live provider certification, confirmed
-AP/GL/tax/FX/reconciliation effects, operations views, and staging evidence remain
-open. Keep those gates open in the feature matrix until evidence is recorded.
+The implementation handoff includes the cumulative profile/route boundary,
+verified statement-transport ingestion through the normalized banking importer,
+additional tax/payment/PO forecast readers, exact decimal treasury amounts, and
+durable payment-result/effect idempotency contracts. It is intentionally not part
+of `v0.10.0-rc.6` and is not a production claim: the worker now composes the
+durable `payment.result.import` boundary only, while live provider certification,
+confirmed AP/GL/tax/FX/reconciliation effects, operations views, and staging
+evidence remain open. Keep those gates on the next-release line until evidence is
+recorded.
 
 See [NEXT_STEPS.md](../NEXT_STEPS.md) for the current implementation handoff and
 [docs/releases/VERSION_HISTORY.md](releases/VERSION_HISTORY.md) for candidate

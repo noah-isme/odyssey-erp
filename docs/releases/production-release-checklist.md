@@ -1,9 +1,10 @@
 # Production Release Checklist
 
-**State:** `v0.10.0-rc.3` candidate prepared; production promotion and final tag
-approval are still pending.
+**State:** `v0.10.0-rc.6` candidate prepared from `d8b02b8` on the reviewed
+`ec65cc0` application baseline; production promotion and final tag approval are
+still pending.
 
-**Reviewed:** 2026-08-12
+**Reviewed:** 2026-08-14
 
 This is the final-release runbook for Odyssey ERP. It does not turn local tests
 into production certification. The [authoritative feature matrix](../reference/feature-matrix.md)
@@ -12,7 +13,14 @@ its `production-certified` evidence is recorded there.
 
 ## 1. Release identity and scope
 
-- [x] Choose the release candidate number and date after reviewing the exact commit.
+- [x] Freeze `v0.10.0-rc.6` from post-rc.5 release-head commit
+      `d8b02b87fd614edec31e465abc38667ad91f7548` after reviewing the exact
+      release diff; preserve `ec65cc08639c184030c63e3407791987eee92804` as the
+      application baseline.
+- [x] Set the candidate migration ceiling to
+      `000124_scoped_rbac_global_compatibility`; migration
+      `000125_payment_settlement_results`, v0.11-finance routes, and commit
+      `1a8343e4499420467ba3dda04a2683782c6c79d7` are outside this release.
 - [x] Define the bounded `v0.10-core` scope in the feature matrix. The profile
       includes AR/AP, sales/delivery, inventory/stock-take, document control,
       and CMMS maintenance foundations only.
@@ -29,10 +37,12 @@ its `production-certified` evidence is recorded there.
 - [ ] Record the commit, image digest, migration range, and rollback target in
       the release notes.
 
-The `v0.10.0-rc.3` candidate is a packaging checkpoint, not a production approval.
+The `v0.10.0-rc.6` candidate is a packaging checkpoint, not a production approval.
 The [v0.10-core staging certification record](v0.10-core-staging-certification.md)
 is the evidence hook for the bounded profile. The final gate remains intentionally
-blocked until its scope and evidence are certified by the release owner.
+blocked until its scope and evidence are certified by the release owner. The
+candidate tag and exact commit recorded in that evidence must refer to rc.6 and
+`d8b02b8`; the application-baseline field must remain `ec65cc0`.
 
 ## 2. Repeatable repository gates
 
@@ -66,6 +76,8 @@ and advertised route placeholder responses.
 Before release, run the final gate from a clean, tagged checkout:
 
 ```bash
+CERTIFIED_CANDIDATE_TAG=v0.10.0-rc.6 \
+RELEASE_VERSION=v0.10.0 \
 RELEASE_PROFILE=v0.10-core make production-release-check
 ```
 
@@ -99,6 +111,9 @@ listed below.
 - [ ] Confirm PostgreSQL roles, TLS, connection limits, extensions, and tenant
       isolation settings match the deployment environment.
 - [ ] Record the final migration version and schema checksum.
+- [ ] Confirm the staging migration history ends at
+      `000124_scoped_rbac_global_compatibility`; do not apply
+      `000125_payment_settlement_results` to the v0.10-core candidate database.
 
 ## 4. External and regulated certification
 
@@ -121,6 +136,14 @@ listed below.
       `CONNECTORS_DEVELOPMENT_MODE` must remain `false`.
 - [ ] Verify Gotenberg availability and the `production pdf` build artifact if PDF
       routes are in scope.
+
+For rc.6, Coretax authority acceptance, payroll/legal review, and connector checks
+that belong only to the v0.11-finance profile may be recorded as profile-scoped
+`N/A` only when the route manifest and runtime configuration prove that they are
+neither exposed nor required by the five v0.10-core journeys. Record the evidence
+for each `N/A`; it is not a certification result. Any dependency exercised by a
+core journey, including Gotenberg when required by the document workflow, remains
+in scope.
 
 ## 5. Runtime and security controls
 
@@ -155,7 +178,10 @@ listed below.
 
 The current repository deliberately does not claim production release readiness:
 
-- `v0.10.0-rc.3` is a release candidate, not a production-certified final release;
+- `v0.10.0-rc.6` is a release candidate, not a production-certified final release;
+- the candidate is frozen at `d8b02b8` on the `ec65cc0` application baseline and
+  must stop at migration `000124`; the
+  v0.11-finance commit `1a8343e` and migration `000125` are excluded;
 - the feature matrix records `production-certified=no` for the current capability
   rows until staging/provider/operational evidence is supplied;
 - local Coretax and annual PPh 21 release tests pass, but official Coretax
