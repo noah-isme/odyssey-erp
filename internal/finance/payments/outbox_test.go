@@ -17,6 +17,50 @@ type paymentOutboxStoreFake struct {
 	deadLetter []int64
 }
 
+type paymentHandlerRegistrarFake struct {
+	handlers map[string]automation.OperationHandler
+}
+
+func (f *paymentHandlerRegistrarFake) Register(operation string, handler automation.OperationHandler) error {
+	if f.handlers == nil {
+		f.handlers = make(map[string]automation.OperationHandler)
+	}
+	if _, exists := f.handlers[operation]; exists {
+		return errors.New("duplicate payment handler")
+	}
+	f.handlers[operation] = handler
+	return nil
+}
+
+func TestRegisterPaymentExecutionHandlersWiresOnlyConfiguredOperations(t *testing.T) {
+	registrar := &paymentHandlerRegistrarFake{}
+	service, _ := settlementServiceFixture(t, &settlementEffectsFake{})
+	if err := RegisterPaymentExecutionHandlers(registrar, nil, service); err != nil {
+		t.Fatal(err)
+	}
+	if len(registrar.handlers) != 1 {
+		t.Fatalf("registered handlers = %d, want 1", len(registrar.handlers))
+	}
+	if registrar.handlers[automation.OperationPaymentResultImport] == nil {
+		t.Fatalf("missing %q handler", automation.OperationPaymentResultImport)
+	}
+	if _, exists := registrar.handlers[automation.OperationPaymentExecute]; exists {
+		t.Fatalf("live %q handler must remain disabled", automation.OperationPaymentExecute)
+	}
+}
+
+func TestUnsupportedSettlementEffectsDoesNotClaimAccountingApplied(t *testing.T) {
+	service, instruction := settlementServiceFixture(t, NewUnsupportedSettlementEffects())
+	input := settlementInputFor(instruction, "result-unsupported-effects", ResultStatusSettled, "125.50")
+	_, err := service.ImportResult(context.Background(), input)
+	if !errors.Is(err, ErrSettlementEffectsUnavailable) {
+		t.Fatalf("error = %v, want %v", err, ErrSettlementEffectsUnavailable)
+	}
+	if _, err := service.ImportResult(context.Background(), input); !errors.Is(err, ErrSettlementEffectsUnavailable) {
+		t.Fatalf("retry error = %v, want %v", err, ErrSettlementEffectsUnavailable)
+	}
+}
+
 func (f *paymentOutboxStoreFake) Claim(context.Context, string, int, automation.RetryPolicy) ([]automation.OutboxMessage, error) {
 	messages := f.messages
 	f.messages = nil

@@ -41,6 +41,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/bankfeeds"
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/banking"
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/forecasting"
+	"github.com/odyssey-erp/odyssey-erp/internal/finance/payments"
 	"github.com/odyssey-erp/odyssey-erp/internal/fixedassets"
 	fxservice "github.com/odyssey-erp/odyssey-erp/internal/fx"
 	"github.com/odyssey-erp/odyssey-erp/internal/notifications"
@@ -435,6 +436,14 @@ func main() {
 		fmt.Sprintf("finance-worker-%d", os.Getpid()),
 		logger,
 	)
+	// v0.11 wires the durable result-import boundary only. No provider
+	// adapter or payment execution coordinator is registered until provider
+	// certification and confirmed accounting effects are available.
+	financeSettlementService := payments.NewPostgresSettlementService(pool)
+	if err := payments.RegisterPaymentExecutionHandlers(financeAutomationDispatcher, nil, financeSettlementService); err != nil {
+		logger.Error("register payment result-import handler", slog.Any("error", err))
+		os.Exit(1)
+	}
 
 	forecastRepo := forecasting.NewPGRepository(pool)
 	forecastReaders := forecasting.NewDatabaseReaders(pool)
