@@ -1,6 +1,15 @@
 name: Deploy Staging
 
 on:
+  push:
+    tags:
+      - v0.10.0-rc.*
+  workflow_dispatch:
+    inputs:
+      candidate_tag:
+        description: Annotated release-candidate tag to deploy (for example v0.10.0-rc.6)
+        required: true
+        type: string
   workflow_run:
     workflows:
       - CI
@@ -11,6 +20,9 @@ on:
 
 permissions:
   contents: read
+  actions: read
+  id-token: write
+  attestations: write
 
 concurrency:
   group: staging
@@ -18,7 +30,14 @@ concurrency:
 
 jobs:
   deploy:
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'staging' }}
+    if: >-
+      ${{
+        github.event_name == 'push' ||
+        github.event_name == 'workflow_dispatch' ||
+        (github.event_name == 'workflow_run' &&
+          github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.head_branch == 'staging')
+      }}
 
     runs-on: ubuntu-latest
     environment:
@@ -28,8 +47,107 @@ jobs:
       - name: Checkout tested commit
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.event_name == 'push' && github.ref_name || (github.event_name == 'workflow_dispatch' && inputs.candidate_tag || github.event.workflow_run.head_sha) }}
+          fetch-depth: 0
           persist-credentials: false
+
+      - name: Verify exact candidate and CI result
+        env:
+          CANDIDATE_TAG: ${{ github.event_name == 'push' && github.ref_name || (github.event_name == 'workflow_dispatch' && inputs.candidate_tag || '') }}
+          WORKFLOW_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || '' }}
+          WORKFLOW_RUN_ID: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || '' }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          candidate_sha=$(git rev-parse HEAD)
+          if [[ -n "$CANDIDATE_TAG" ]]; then
+            [[ "$CANDIDATE_TAG" =~ ^v0\.10\.0-rc\.[0-9]+$ ]] || {
+              echo "candidate tag must match v0.10.0-rc.N" >&2
+              exit 1
+            }
+            git show-ref --verify --quiet "refs/tags/$CANDIDATE_TAG" || {
+              echo "candidate tag $CANDIDATE_TAG was not checked out" >&2
+              exit 1
+            }
+            [[ "$(git cat-file -t "refs/tags/$CANDIDATE_TAG")" == tag ]] || {
+              echo "candidate tag $CANDIDATE_TAG must be annotated" >&2
+              exit 1
+            }
+            tagged_sha=$(git rev-list -n 1 "$CANDIDATE_TAG")
+            [[ "$tagged_sha" == "$candidate_sha" ]] || {
+              echo "tag $CANDIDATE_TAG does not resolve to the checked-out commit" >&2
+              exit 1
+            }
+
+            ci_run_id=''
+            ci_status=''
+            ci_conclusion=''
+            for attempt in $(seq 1 180); do
+              ci_runs=$(gh api \
+                "/repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?head_sha=${candidate_sha}&per_page=100")
+              ci_run=$(jq -cer \
+                --arg sha "$candidate_sha" \
+                --arg tag "$CANDIDATE_TAG" \
+                '[.workflow_runs[] | select(
+                  .head_sha == $sha and
+                  .event == "push" and
+                  (.head_branch == $tag or .head_branch == null)
+                )] | sort_by(.created_at) | last // empty' \
+                <<<"$ci_runs" || true)
+
+              if [[ -z "$ci_run" ]]; then
+                echo "waiting for exact-tag CI run (${attempt}/180)"
+                sleep 10
+                continue
+              fi
+
+              ci_status=$(jq -r '.status' <<<"$ci_run")
+              ci_conclusion=$(jq -r '.conclusion // ""' <<<"$ci_run")
+              ci_run_id=$(jq -r '.id' <<<"$ci_run")
+              if [[ "$ci_status" != completed ]]; then
+                echo "waiting for CI run $ci_run_id ($ci_status; ${attempt}/180)"
+                sleep 10
+                continue
+              fi
+              [[ "$ci_conclusion" == success ]] || {
+                echo "exact-tag CI run $ci_run_id concluded $ci_conclusion" >&2
+                exit 1
+              }
+              break
+            done
+            [[ -n "$ci_run_id" && "$ci_status" == completed && "$ci_conclusion" == success ]] || {
+              echo "timed out waiting for successful exact-tag CI for $CANDIDATE_TAG / $candidate_sha" >&2
+              exit 1
+            }
+          else
+            [[ -n "$WORKFLOW_SHA" && "$WORKFLOW_SHA" == "$candidate_sha" ]] || {
+              echo "workflow_run SHA does not match the checked-out commit" >&2
+              exit 1
+            }
+            [[ -n "$WORKFLOW_RUN_ID" ]] || {
+              echo 'workflow_run event does not identify its CI run' >&2
+              exit 1
+            }
+            ci_run_id=$WORKFLOW_RUN_ID
+          fi
+
+          max_version=$(find migrations -maxdepth 1 -type f -name '[0-9][0-9][0-9][0-9][0-9][0-9]_*.up.sql' -printf '%f\n' | sed 's/_.*//' | sort | tail -n 1)
+          [[ "$max_version" == 000124 ]] || {
+            echo "staging deployment requires the v0.10-core migration ceiling 000124; found ${max_version:-none}" >&2
+            exit 1
+          }
+          test ! -e migrations/000125_payment_settlement_results.up.sql
+          test ! -e migrations/000125_payment_settlement_results.down.sql
+
+          {
+            echo "CANDIDATE_SHA=$candidate_sha"
+            echo "CANDIDATE_TAG=$CANDIDATE_TAG"
+            echo "CI_RUN_ID=$ci_run_id"
+          } >> "$GITHUB_ENV"
+          printf 'candidate=%s\n' "$candidate_sha"
+          [[ -n "$CANDIDATE_TAG" ]] && printf 'tag=%s\n' "$CANDIDATE_TAG"
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -79,8 +197,6 @@ jobs:
             github.com/golang-migrate/migrate/v4/cmd/migrate@v4.18.3
 
       - name: Prepare release
-        env:
-          SHA: ${{ github.event.workflow_run.head_sha }}
         shell: bash
         run: |
           set -euo pipefail
@@ -89,11 +205,62 @@ jobs:
           cp -a migrations/. dist/migrations/
           cp -a web/. dist/web/
 
-          printf '%s\n' "$SHA" > dist/REVISION
+          printf '%s\n' "$CANDIDATE_SHA" > dist/REVISION
+          {
+            printf 'tag=%s\n' "$CANDIDATE_TAG"
+            printf 'commit=%s\n' "$CANDIDATE_SHA"
+            printf 'profile=v0.10-core\n'
+            printf 'migration_ceiling=000124_scoped_rbac_global_compatibility\n'
+          } > dist/RELEASE_IDENTITY
+          (
+            find migrations -type f -name '*.sql' -print0 |
+              sort -z |
+              xargs -0 sha256sum
+          ) > dist/MIGRATION_SHA256SUMS
+          (
+            find web -type f -print0 |
+              sort -z |
+              xargs -0 sha256sum
+          ) > dist/WEB_SHA256SUMS
+
+      - name: Generate SPDX SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          path: dist
+          format: spdx-json
+          output-file: dist/SBOM.spdx.json
+          upload-artifact: false
+
+      - name: Finalize release digests
+        shell: bash
+        run: |
+          set -euo pipefail
           (
             cd dist
-            sha256sum odyssey worker bootstrap-admin migrate
+            sha256sum \
+              REVISION \
+              RELEASE_IDENTITY \
+              MIGRATION_SHA256SUMS \
+              WEB_SHA256SUMS \
+              SBOM.spdx.json \
+              odyssey \
+              worker \
+              bootstrap-admin \
+              migrate
           ) > dist/SHA256SUMS
+
+      - name: Attest release provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/SHA256SUMS
+
+      - name: Upload immutable staging artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: odyssey-v010-core-${{ github.run_id }}
+          path: dist
+          if-no-files-found: error
+          retention-days: 90
 
       - name: Configure SSH
         env:
@@ -113,7 +280,6 @@ jobs:
 
       - name: Upload release
         env:
-          SHA: ${{ github.event.workflow_run.head_sha }}
           STAGING_HOST: ${{ secrets.STAGING_HOST }}
           STAGING_USER: ${{ secrets.STAGING_USER }}
         shell: bash
@@ -122,7 +288,7 @@ jobs:
           : "${STAGING_HOST:?STAGING_HOST secret is required}"
           : "${STAGING_USER:?STAGING_USER secret is required}"
 
-          short_sha="${SHA:0:7}"
+          short_sha="${CANDIDATE_SHA:0:7}"
           release_dir="/opt/odyssey-staging/releases/${short_sha}"
           ssh_opts=(-i "$HOME/.ssh/deploy_key" -o BatchMode=yes -o StrictHostKeyChecking=yes)
           remote="${STAGING_USER}@${STAGING_HOST}"
@@ -137,7 +303,6 @@ jobs:
 
       - name: Deploy release
         env:
-          SHA: ${{ github.event.workflow_run.head_sha }}
           STAGING_HOST: ${{ secrets.STAGING_HOST }}
           STAGING_USER: ${{ secrets.STAGING_USER }}
         shell: bash
@@ -146,7 +311,7 @@ jobs:
           : "${STAGING_HOST:?STAGING_HOST secret is required}"
           : "${STAGING_USER:?STAGING_USER secret is required}"
 
-          short_sha="${SHA:0:7}"
+          short_sha="${CANDIDATE_SHA:0:7}"
           ssh_opts=(-i "$HOME/.ssh/deploy_key" -o BatchMode=yes -o StrictHostKeyChecking=yes)
           remote="${STAGING_USER}@${STAGING_HOST}"
 
@@ -163,6 +328,10 @@ jobs:
           test -f "$release/REVISION"
           test -d "$release/migrations"
           test -d "$release/web"
+          test -f "$release/SBOM.spdx.json"
+          test -f "$release/RELEASE_IDENTITY"
+          test -f "$release/MIGRATION_SHA256SUMS"
+          test -f "$release/WEB_SHA256SUMS"
 
           chmod +x \
             "$release/odyssey" \
@@ -178,12 +347,24 @@ jobs:
           (
             cd "$release"
             sha256sum -c SHA256SUMS
+            sha256sum -c MIGRATION_SHA256SUMS
+            sha256sum -c WEB_SHA256SUMS
           )
+
+          grep -Fx 'profile=v0.10-core' "$release/RELEASE_IDENTITY"
+          grep -Fx 'migration_ceiling=000124_scoped_rbac_global_compatibility' \
+            "$release/RELEASE_IDENTITY"
+          test ! -e "$release/migrations/000125_payment_settlement_results.up.sql"
+          test ! -e "$release/migrations/000125_payment_settlement_results.down.sql"
 
           set -a
           . /opt/odyssey-staging/.env
           set +a
           : "${PG_DSN:?PG_DSN must be set in /opt/odyssey-staging/.env}"
+          [[ "${RELEASE_PROFILE:-}" == v0.10-core ]] || {
+            echo 'staging must set RELEASE_PROFILE=v0.10-core' >&2
+            exit 1
+          }
 
           "$release/migrate" \
             -path "$release/migrations" \

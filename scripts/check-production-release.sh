@@ -18,7 +18,57 @@ trim() {
 	printf '%s' "$value"
 }
 
+tag_exists() {
+	git show-ref --verify --quiet "refs/tags/$1"
+}
+
+resolve_tag_commit() {
+	git rev-parse --verify "refs/tags/$1^{commit}" 2>/dev/null
+}
+
+tag_type() {
+	git cat-file -t "refs/tags/$1" 2>/dev/null || true
+}
+
+has_exact_tag() {
+	local tags=$1
+	local wanted=$2
+	case $'\n'"$tags"$'\n' in
+		*$'\n'"$wanted"$'\n'*) return 0 ;;
+		*) return 1 ;;
+	esac
+}
+
+closeout_path_allowed() {
+	case "$1" in
+		docs/releases/*|docs/reference/feature-matrix.md|docs/ROADMAP.md|docs/CHANGELOG.md|docs/INDEX.md|docs/README.md|docs/STAGING_DEPLOYMENT.md|docs/DEPLOYMENT.md|README.md)
+			return 0
+			;;
+		*)
+			return 1
+			;;
+	esac
+}
+
 matrix="docs/reference/feature-matrix.md"
+
+certified_candidate_tag=${CERTIFIED_CANDIDATE_TAG:-}
+release_version=${RELEASE_VERSION:-}
+
+if [[ -n "$release_version" && ! "$release_version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+	fail "invalid RELEASE_VERSION=$release_version (expected vMAJOR.MINOR.PATCH)"
+fi
+if [[ -n "$certified_candidate_tag" && ! "$certified_candidate_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]]; then
+	fail "invalid CERTIFIED_CANDIDATE_TAG=$certified_candidate_tag (expected vMAJOR.MINOR.PATCH-rc.N)"
+fi
+
+candidate_release_version=""
+if [[ "$certified_candidate_tag" =~ ^(v[0-9]+\.[0-9]+\.[0-9]+)-rc\.[0-9]+$ ]]; then
+	candidate_release_version=${BASH_REMATCH[1]}
+fi
+if [[ -n "$release_version" && -n "$candidate_release_version" && "$release_version" != "$candidate_release_version" ]]; then
+	fail "CERTIFIED_CANDIDATE_TAG=$certified_candidate_tag belongs to $candidate_release_version, not RELEASE_VERSION=$release_version"
+fi
 
 release_profile=${RELEASE_PROFILE:-}
 case "$release_profile" in
@@ -41,20 +91,112 @@ esac
 
 # Graphify output is generated workspace state and is intentionally excluded
 # from the release cleanliness check. All source, migration, configuration, and
-# documentation changes must still be committed before a tag is created.
-non_graphify_status=$(git status --porcelain=v1 | grep -v 'graphify-out/' || true)
+# documentation changes must still be committed before a tag is created. Use a
+# root-anchored Git pathspec so a similarly named source path cannot be hidden.
+non_graphify_status=$(git status --porcelain=v1 --untracked-files=all -- . ':(exclude)graphify-out/**' || true)
 if [[ -n "$non_graphify_status" ]]; then
 	fail "working tree contains uncommitted changes; review and commit the release candidate first"
 	printf '%s\n' "$non_graphify_status" >&2
 fi
 
-candidate_tag=$(git describe --exact-match --tags HEAD 2>/dev/null || true)
+head_sha=$(git rev-parse --verify HEAD 2>/dev/null || true)
+head_tags=$(git tag --points-at "$head_sha" 2>/dev/null | sort || true)
+
+# CERTIFIED_CANDIDATE_TAG is the immutable artifact identity. When it is not
+# supplied, retain the historical exact-HEAD-tag behavior for local/release
+# checks that predate the explicit candidate contract.
+candidate_tag=$certified_candidate_tag
 if [[ -z "$candidate_tag" ]]; then
-	fail "HEAD has no release tag; assign a version and create the reviewed release tag only after all gates pass"
+	candidate_tag=$(git describe --exact-match --tags "$head_sha" 2>/dev/null || true)
 fi
 
-if [[ -n "$candidate_tag" ]] && ! grep -Fq "**Current release candidate:** $candidate_tag" docs/releases/VERSION_HISTORY.md; then
-	fail "docs/releases/VERSION_HISTORY.md does not identify tagged candidate $candidate_tag"
+candidate_sha=""
+if [[ -z "$candidate_tag" ]]; then
+	fail "HEAD has no release tag; set CERTIFIED_CANDIDATE_TAG or assign a version and create the reviewed release tag only after all gates pass"
+elif ! tag_exists "$candidate_tag"; then
+	fail "candidate tag $candidate_tag does not exist in refs/tags"
+else
+	candidate_sha=$(resolve_tag_commit "$candidate_tag" || true)
+	if [[ -z "$candidate_sha" ]]; then
+		fail "candidate tag $candidate_tag does not resolve to a commit"
+	fi
+	if [[ "$(tag_type "$candidate_tag")" != tag ]]; then
+		fail "candidate tag $candidate_tag must be an annotated tag"
+	fi
+fi
+
+final_sha=""
+head_is_final=0
+
+if [[ -z "$release_version" ]]; then
+	:
+elif ! tag_exists "$release_version"; then
+	fail "RELEASE_VERSION tag $release_version does not exist in refs/tags"
+else
+	final_sha=$(resolve_tag_commit "$release_version" || true)
+	if [[ -z "$final_sha" ]]; then
+		fail "RELEASE_VERSION tag $release_version does not resolve to a commit"
+	elif [[ "$(tag_type "$release_version")" != tag ]]; then
+		fail "final release tag $release_version must be an annotated tag"
+	fi
+	if [[ -n "$candidate_sha" && -n "$final_sha" ]] && ! git merge-base --is-ancestor "$candidate_sha" "$final_sha"; then
+		fail "final release tag $release_version at $final_sha is not descended from candidate tag $candidate_tag at $candidate_sha"
+	fi
+	if [[ "$head_sha" == "$final_sha" ]]; then
+		head_is_final=1
+	else
+		fail "HEAD $head_sha does not match RELEASE_VERSION tag $release_version at $final_sha"
+	fi
+fi
+
+head_is_candidate=0
+closeout_mode=0
+if [[ -n "$candidate_sha" ]]; then
+	if [[ "$head_sha" == "$candidate_sha" ]]; then
+		head_is_candidate=1
+	elif git merge-base --is-ancestor "$candidate_sha" "$head_sha"; then
+		# Evidence is intentionally committed after the immutable candidate. A
+		# final tag may point at that closeout commit; otherwise only the
+		# release-document allowlist below may differ from the candidate.
+		closeout_mode=1
+	else
+		fail "HEAD $head_sha is not the certified candidate $candidate_sha or a descendant of it"
+	fi
+fi
+
+if [[ -n "$certified_candidate_tag" && "$head_is_candidate" -eq 1 ]] && ! has_exact_tag "$head_tags" "$certified_candidate_tag"; then
+	fail "HEAD $head_sha does not carry exact candidate tag $certified_candidate_tag"
+fi
+if [[ -n "$release_version" && "$head_is_final" -eq 1 ]] && ! has_exact_tag "$head_tags" "$release_version"; then
+	fail "HEAD $head_sha does not carry exact final tag $release_version"
+fi
+if [[ -n "$head_tags" && "$head_is_candidate" -eq 0 && "$head_is_final" -eq 0 ]]; then
+	fail "HEAD carries a tag, but neither CERTIFIED_CANDIDATE_TAG nor RELEASE_VERSION identifies it"
+fi
+
+if [[ "$head_is_final" -eq 1 ]]; then
+	if [[ -z "$certified_candidate_tag" || -z "$candidate_sha" ]]; then
+		fail "CERTIFIED_CANDIDATE_TAG is required when validating a final release tag"
+	elif ! git merge-base --is-ancestor "$candidate_sha" "$head_sha"; then
+		fail "final release tag $release_version is not descended from candidate tag $certified_candidate_tag"
+	fi
+fi
+
+if [[ ( "$closeout_mode" -eq 1 || "$head_is_final" -eq 1 ) && -n "$candidate_sha" ]]; then
+	while IFS= read -r closeout_path; do
+		[[ -z "$closeout_path" ]] && continue
+		if ! closeout_path_allowed "$closeout_path"; then
+			fail "closeout diff contains non-release documentation path: $closeout_path"
+		fi
+	done < <(git diff --name-only "$candidate_sha..$head_sha")
+fi
+
+documented_candidate_tag=$candidate_tag
+if [[ -n "$certified_candidate_tag" ]]; then
+	documented_candidate_tag=$certified_candidate_tag
+fi
+if [[ -n "$documented_candidate_tag" ]] && ! grep -Fq "**Current release candidate:** $documented_candidate_tag" docs/releases/VERSION_HISTORY.md; then
+	fail "docs/releases/VERSION_HISTORY.md does not identify certified candidate $documented_candidate_tag"
 fi
 
 if [[ ! -f "$matrix" ]]; then
@@ -128,13 +270,50 @@ else
 	if grep -Fq '**Status:** Evidence template' "$certification_record"; then
 		fail 'v0.10-core staging certification record is still marked as an evidence template'
 	fi
-	if grep -Eq -- '- \[ \]|_record |_record\*|_pending_' "$certification_record"; then
-		fail 'v0.10-core staging certification record contains incomplete checklist or evidence placeholders'
+	if grep -Eq -- '- \[ \]|_record |_record\*|_pending_|<[^>]+>|\|[[:space:]]*`?PENDING`?[[:space:]]*\|' "$certification_record"; then
+		fail 'v0.10-core staging certification record contains incomplete checklist, PENDING result, or evidence placeholder'
 	fi
 	if [[ -n "$candidate_tag" ]] && ! grep -Fq "**Candidate:** $candidate_tag" "$certification_record"; then
 		fail "v0.10-core staging certification record does not identify tagged candidate $candidate_tag"
 	fi
+	if [[ -n "$certified_candidate_tag" ]]; then
+		record_candidate_tag=$(awk -F: '/^\*\*Candidate:\*\*/ { value=$2; gsub(/[`*[:space:]]/, "", value); print value; exit }' "$certification_record")
+		if [[ "$record_candidate_tag" != "$certified_candidate_tag" ]]; then
+			fail "v0.10-core staging certification record candidate is ${record_candidate_tag:-missing}, expected $certified_candidate_tag"
+		fi
+
+		resolved_commit_line=$(awk -F'|' '$2 ~ /^[[:space:]]*Resolved([[:space:]]+candidate)?[[:space:]]+full commit[[:space:]]*$/ { print $3; exit }' "$certification_record")
+		record_candidate_sha=$(printf '%s\n' "$resolved_commit_line" | grep -Eio '[0-9a-f]{40}' | head -n 1 || true)
+		if [[ -z "$record_candidate_sha" ]]; then
+			fail 'v0.10-core staging certification record does not record a 40-hex resolved candidate commit'
+		elif [[ "$record_candidate_sha" != "$candidate_sha" ]]; then
+			fail "v0.10-core staging certification commit $record_candidate_sha does not match candidate tag $certified_candidate_tag at $candidate_sha"
+		fi
+	fi
 fi
+
+if [[ "$release_profile" == v0.10-core ]]; then
+	for direction in up down; do
+		if [[ ! -f "migrations/000124_scoped_rbac_global_compatibility.$direction.sql" ]]; then
+			fail "v0.10-core candidate is missing the 000124 $direction migration"
+		fi
+	done
+	if compgen -G 'migrations/000125_*.sql' >/dev/null; then
+		fail 'v0.10-core candidate contains forbidden migration 000125'
+	fi
+
+	latest_migration=$(find migrations -maxdepth 1 -type f -name '[0-9][0-9][0-9][0-9][0-9][0-9]_*.up.sql' -printf '%f\n' | sort | tail -n 1)
+	latest_migration_number=${latest_migration%%_*}
+	if [[ -z "$latest_migration" || ! "$latest_migration_number" =~ ^[0-9]{6}$ ]]; then
+		fail 'could not determine the v0.10-core migration ceiling'
+	elif (( 10#$latest_migration_number > 124 )); then
+		fail "v0.10-core migration ceiling exceeds 000124 (found $latest_migration_number)"
+	fi
+	if ! grep -Fq '000125' "$certification_record" || ! grep -Eiq 'absent|excluded|outside' "$certification_record"; then
+		fail 'v0.10-core certification record does not preserve the 000124 ceiling / 000125 exclusion'
+	fi
+fi
+
 profile_config="internal/app/config.go"
 if [[ ! -f "$profile_config" ]]; then
 	fail "missing RELEASE_PROFILE runtime configuration: $profile_config"

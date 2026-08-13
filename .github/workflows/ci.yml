@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
-    branches: ["main", "master", "staging"]
+    branches: ["main", "master", "staging", "release/v0.10.0-rc.*"]
+    tags:
+      - v0.10.0-rc.*
   pull_request:
 
 jobs:
