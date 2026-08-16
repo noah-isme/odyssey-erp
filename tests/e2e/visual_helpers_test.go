@@ -70,6 +70,13 @@ func loginE2EClient(t *testing.T) (client *http.Client, baseURL, gotenbergURL, g
 // PDF download helpers
 // ---------------------------------------------------------------------------
 
+// Blank references keep scaffolded helpers available for upcoming visual
+// regression test cases without triggering the unused lint.
+var (
+	_ = assertPDFHeaders
+	_ = screenshotHTML
+)
+
 // downloadPDF fetches a PDF from the given URL, validates Content-Type and
 // %PDF- magic bytes, and returns the raw bytes.
 func downloadPDF(t *testing.T, client *http.Client, pdfURL string) []byte {
