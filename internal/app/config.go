@@ -22,8 +22,8 @@ type Config struct {
 
 	// ReleaseProfile controls which capability set is exposed by the HTTP
 	// application. Development defaults to the complete local surface; staging
-	// and production must set the profile explicitly so certification cannot
-	// silently run against a different route set.
+	// staging, finance-sandbox, and production must set the profile explicitly
+	// so certification cannot silently run against a different route set.
 	ReleaseProfile string `envconfig:"RELEASE_PROFILE" default:"full"`
 
 	PGDSN string `envconfig:"PG_DSN" default:"postgres://odyssey:odyssey@localhost:5432/odyssey?sslmode=disable"`
@@ -65,6 +65,8 @@ type Config struct {
 	FXMaxRateAge   time.Duration `envconfig:"FX_MAX_RATE_AGE" default:"48h"`
 }
 
+const financeSandboxEnvironment = "finance-sandbox"
+
 // LoadConfig reads configuration from environment variables.
 func LoadConfig() (*Config, error) {
 	var cfg Config
@@ -77,11 +79,15 @@ func LoadConfig() (*Config, error) {
 	if cfg.CSRFSecret == "" {
 		return nil, errors.New("csrf secret must be provided")
 	}
-	if (cfg.AppEnv == "staging" || cfg.IsProduction()) && strings.TrimSpace(os.Getenv("RELEASE_PROFILE")) == "" {
-		return nil, errors.New("RELEASE_PROFILE must be set explicitly for staging or production")
+	if (cfg.AppEnv == "staging" || cfg.IsFinanceSandbox() || cfg.IsProduction()) && strings.TrimSpace(os.Getenv("RELEASE_PROFILE")) == "" {
+		return nil, errors.New("RELEASE_PROFILE must be set explicitly for staging, finance-sandbox, or production")
 	}
-	if _, err := ParseReleaseProfile(cfg.ReleaseProfile); err != nil {
+	releaseProfile, err := ParseReleaseProfile(cfg.ReleaseProfile)
+	if err != nil {
 		return nil, err
+	}
+	if cfg.IsFinanceSandbox() && releaseProfile != ReleaseProfileV011Finance {
+		return nil, errors.New("finance-sandbox requires RELEASE_PROFILE=v0.11-finance")
 	}
 	if cfg.GotenbergURL != "" && !strings.Contains(cfg.GotenbergURL, "://") {
 		cfg.GotenbergURL = "http://" + cfg.GotenbergURL
@@ -92,4 +98,12 @@ func LoadConfig() (*Config, error) {
 // IsProduction returns true when the application runs in production.
 func (c *Config) IsProduction() bool {
 	return c != nil && c.AppEnv == "production"
+}
+
+// IsFinanceSandbox reports whether the process is running in the isolated
+// finance-automation certification environment. The environment is kept
+// distinct from staging so a v0.11 profile cannot be mistaken for the bounded
+// v0.10-core release contract.
+func (c *Config) IsFinanceSandbox() bool {
+	return c != nil && c.AppEnv == financeSandboxEnvironment
 }

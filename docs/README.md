@@ -58,7 +58,8 @@ The application is configured using environment variables, typically loaded from
 | `REDIS_ADDR` | `localhost:6379` | Valkey/Redis connection string. |
 | `SESSION_SECRET` | `your-secret-key-change-in-production` | Secret key for session signing. |
 | `GOTENBERG_URL` | `http://localhost:3000` | URL for the Gotenberg PDF generation service. |
-| `APP_ENV` | `development` | The application environment (`development`, `production`, `test`). |
+| `APP_ENV` | `development` | The application environment (`development`, `finance-sandbox`, `production`, `staging`, `test`). |
+| `RELEASE_PROFILE` | `full` | Bounded route profile; certification environments must set `v0.10-core` or `v0.11-finance` explicitly. |
 
 ## Make Targets Reference
 
@@ -142,6 +143,7 @@ Ensure your backend worker and services in docker-compose are running correctly.
 - Use the Multi-stage Dockerfile provided.
 - Two binaries are required to run: `odyssey` (web app) + `worker` (background jobs).
 - Set Environment variables for configuration correctly.
+- For v0.11 finance certification, use the isolated [finance sandbox deployment guide](FINANCE_SANDBOX_DEPLOYMENT.md).
 
 ## CI/CD Pipeline
 

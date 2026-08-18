@@ -1,0 +1,310 @@
+name: Deploy Finance Sandbox
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_ref:
+        description: Commit, branch, or tag to deploy to the isolated finance sandbox
+        required: true
+        default: staging
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: finance-sandbox
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: finance-sandbox
+
+    steps:
+      - name: Checkout requested finance candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.candidate_ref }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify finance profile and migration boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          candidate_sha=$(git rev-parse HEAD)
+          migration_125_up='migrations/000125_payment_settlement_results.up.sql'
+          migration_125_down='migrations/000125_payment_settlement_results.down.sql'
+          test -f "$migration_125_up" || {
+            echo "finance sandbox requires $migration_125_up" >&2
+            exit 1
+          }
+          test -f "$migration_125_down" || {
+            echo "finance sandbox requires $migration_125_down" >&2
+            exit 1
+          }
+
+          latest_migration=$(find migrations -maxdepth 1 -type f \
+            -name '[0-9][0-9][0-9][0-9][0-9][0-9]_*.up.sql' \
+            -printf '%f\n' | sed 's/\.up\.sql$//' | sort -n | tail -n 1)
+          latest_version=${latest_migration%%_*}
+          [[ "$latest_version" =~ ^[0-9]{6}$ ]] || {
+            echo 'could not determine the finance sandbox migration version' >&2
+            exit 1
+          }
+          (( 10#$latest_version >= 125 )) || {
+            echo "finance sandbox requires migration 000125 or newer; found $latest_version" >&2
+            exit 1
+          }
+
+          {
+            echo "CANDIDATE_SHA=$candidate_sha"
+            echo "CANDIDATE_REF=${{ inputs.candidate_ref }}"
+            echo "MIGRATION_CEILING=$latest_migration"
+          } >> "$GITHUB_ENV"
+          printf 'candidate=%s\n' "$candidate_sha"
+          printf 'migration_ceiling=%s\n' "$latest_migration"
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Verify finance sandbox configuration contract
+        env:
+          APP_ENV: finance-sandbox
+          RELEASE_PROFILE: v0.11-finance
+          SESSION_SECRET: finance-sandbox-test-session-secret
+          CSRF_SECRET: finance-sandbox-test-csrf-secret
+        run: go test ./internal/app -run 'Test(LoadConfig|ParseReleaseProfile|FinanceProfile)' -count=1
+
+      - name: Build finance sandbox artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+            go build -trimpath -tags production -ldflags='-s -w' \
+            -o dist/odyssey ./cmd/odyssey
+
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+            go build -trimpath -tags production -ldflags='-s -w' \
+            -o dist/worker ./cmd/worker
+
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+            go build -trimpath -tags production -ldflags='-s -w' \
+            -o dist/bootstrap-admin ./cmd/bootstrap-admin
+
+      - name: Build migration tool
+        shell: bash
+        run: |
+          set -euo pipefail
+          GOBIN="$PWD/dist" \
+            go install -tags postgres \
+            github.com/golang-migrate/migrate/v4/cmd/migrate@v4.18.3
+
+      - name: Prepare finance sandbox release
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/migrations dist/web
+
+          cp -a migrations/. dist/migrations/
+          cp -a web/. dist/web/
+
+          printf '%s\n' "$CANDIDATE_SHA" > dist/REVISION
+          {
+            printf 'ref=%s\n' "$CANDIDATE_REF"
+            printf 'commit=%s\n' "$CANDIDATE_SHA"
+            printf 'profile=v0.11-finance\n'
+            printf 'app_env=finance-sandbox\n'
+            printf 'migration_floor=000125_payment_settlement_results\n'
+            printf 'migration_ceiling=%s\n' "$MIGRATION_CEILING"
+          } > dist/RELEASE_IDENTITY
+          (
+            find migrations -type f -name '*.sql' -print0 |
+              sort -z |
+              xargs -0 sha256sum
+          ) > dist/MIGRATION_SHA256SUMS
+          (
+            find web -type f -print0 |
+              sort -z |
+              xargs -0 sha256sum
+          ) > dist/WEB_SHA256SUMS
+
+      - name: Generate SPDX SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          path: dist
+          format: spdx-json
+          output-file: dist/SBOM.spdx.json
+          upload-artifact: false
+
+      - name: Finalize finance sandbox release digests
+        shell: bash
+        run: |
+          set -euo pipefail
+          (
+            cd dist
+            sha256sum \
+              REVISION \
+              RELEASE_IDENTITY \
+              MIGRATION_SHA256SUMS \
+              WEB_SHA256SUMS \
+              SBOM.spdx.json \
+              odyssey \
+              worker \
+              bootstrap-admin \
+              migrate
+          ) > dist/SHA256SUMS
+
+      - name: Attest finance sandbox release provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/SHA256SUMS
+
+      - name: Upload immutable finance sandbox artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: odyssey-v011-finance-sandbox-${{ github.run_id }}
+          path: dist
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Configure finance sandbox SSH
+        env:
+          FINANCE_SANDBOX_HOST: ${{ secrets.FINANCE_SANDBOX_HOST }}
+          FINANCE_SANDBOX_SSH_KEY: ${{ secrets.FINANCE_SANDBOX_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${FINANCE_SANDBOX_HOST:?FINANCE_SANDBOX_HOST secret is required}"
+          : "${FINANCE_SANDBOX_SSH_KEY:?FINANCE_SANDBOX_SSH_KEY secret is required}"
+
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$FINANCE_SANDBOX_SSH_KEY" | tr -d '\r' > "$HOME/.ssh/deploy_key"
+          chmod 600 "$HOME/.ssh/deploy_key"
+          ssh-keyscan -T 10 -H "$FINANCE_SANDBOX_HOST" > "$HOME/.ssh/known_hosts"
+
+      - name: Upload finance sandbox release
+        env:
+          FINANCE_SANDBOX_HOST: ${{ secrets.FINANCE_SANDBOX_HOST }}
+          FINANCE_SANDBOX_USER: ${{ secrets.FINANCE_SANDBOX_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${FINANCE_SANDBOX_HOST:?FINANCE_SANDBOX_HOST secret is required}"
+          : "${FINANCE_SANDBOX_USER:?FINANCE_SANDBOX_USER secret is required}"
+
+          short_sha="${CANDIDATE_SHA:0:7}"
+          release_dir="/opt/odyssey-finance-sandbox/releases/${short_sha}"
+          ssh_opts=(-i "$HOME/.ssh/deploy_key" -o BatchMode=yes -o StrictHostKeyChecking=yes)
+          remote="${FINANCE_SANDBOX_USER}@${FINANCE_SANDBOX_HOST}"
+
+          ssh "${ssh_opts[@]}" "$remote" "install -d -m 0755 '$release_dir'"
+          rsync -az --delete -e "ssh ${ssh_opts[*]}" dist/ "${remote}:${release_dir}/"
+
+      - name: Deploy finance sandbox release
+        env:
+          FINANCE_SANDBOX_HOST: ${{ secrets.FINANCE_SANDBOX_HOST }}
+          FINANCE_SANDBOX_USER: ${{ secrets.FINANCE_SANDBOX_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${FINANCE_SANDBOX_HOST:?FINANCE_SANDBOX_HOST secret is required}"
+          : "${FINANCE_SANDBOX_USER:?FINANCE_SANDBOX_USER secret is required}"
+
+          short_sha="${CANDIDATE_SHA:0:7}"
+          ssh_opts=(-i "$HOME/.ssh/deploy_key" -o BatchMode=yes -o StrictHostKeyChecking=yes)
+          remote="${FINANCE_SANDBOX_USER}@${FINANCE_SANDBOX_HOST}"
+
+          ssh "${ssh_opts[@]}" "$remote" bash -s -- "$short_sha" <<'REMOTE'
+          set -euo pipefail
+
+          short_sha="$1"
+          release="/opt/odyssey-finance-sandbox/releases/${short_sha}"
+
+          for artifact in odyssey worker bootstrap-admin migrate REVISION RELEASE_IDENTITY MIGRATION_SHA256SUMS WEB_SHA256SUMS SBOM.spdx.json; do
+            test -e "$release/$artifact"
+          done
+          test -d "$release/migrations"
+          test -d "$release/web"
+
+          chmod +x "$release/odyssey" "$release/worker" "$release/bootstrap-admin" "$release/migrate"
+          (
+            cd "$release"
+            sha256sum -c SHA256SUMS
+            sha256sum -c MIGRATION_SHA256SUMS
+            sha256sum -c WEB_SHA256SUMS
+          )
+
+          grep -Fx 'profile=v0.11-finance' "$release/RELEASE_IDENTITY"
+          grep -Fx 'app_env=finance-sandbox' "$release/RELEASE_IDENTITY"
+          grep -Fx 'migration_floor=000125_payment_settlement_results' "$release/RELEASE_IDENTITY"
+          test -f "$release/migrations/000125_payment_settlement_results.up.sql"
+          test -f "$release/migrations/000125_payment_settlement_results.down.sql"
+
+          latest_migration=$(find "$release/migrations" -maxdepth 1 -type f \
+            -name '[0-9][0-9][0-9][0-9][0-9][0-9]_*.up.sql' \
+            -printf '%f\n' | sed 's/\.up\.sql$//' | sort -n | tail -n 1)
+          latest_version=${latest_migration%%_*}
+          [[ "$latest_version" =~ ^[0-9]{6}$ ]] && (( 10#$latest_version >= 125 ))
+
+          set -a
+          . /opt/odyssey-finance-sandbox/.env
+          set +a
+          : "${PG_DSN:?PG_DSN must be set in /opt/odyssey-finance-sandbox/.env}"
+          : "${REDIS_ADDR:?REDIS_ADDR must be set in /opt/odyssey-finance-sandbox/.env}"
+          [[ "${APP_ENV:-}" == finance-sandbox ]] || {
+            echo 'finance sandbox must set APP_ENV=finance-sandbox' >&2
+            exit 1
+          }
+          [[ "${RELEASE_PROFILE:-}" == v0.11-finance ]] || {
+            echo 'finance sandbox must set RELEASE_PROFILE=v0.11-finance' >&2
+            exit 1
+          }
+          [[ "${APP_ADDR:-}" == :8280 ]] || {
+            echo 'finance sandbox must bind APP_ADDR=:8280' >&2
+            exit 1
+          }
+          [[ "${WORKER_METRICS_ADDR:-}" == 127.0.0.1:9191 ]] || {
+            echo 'finance sandbox must bind WORKER_METRICS_ADDR=127.0.0.1:9191' >&2
+            exit 1
+          }
+          [[ "${CONNECTORS_DEVELOPMENT_MODE:-false}" == false ]] || {
+            echo 'finance sandbox must keep CONNECTORS_DEVELOPMENT_MODE=false' >&2
+            exit 1
+          }
+
+          "$release/migrate" -path "$release/migrations" -database "$PG_DSN" up
+          ln -sfn "$release" /opt/odyssey-finance-sandbox/current
+
+          sudo -n systemctl restart odyssey-finance-sandbox.service
+          sudo -n systemctl restart odyssey-finance-sandbox-worker.service
+
+          for attempt in $(seq 1 30); do
+            if curl -fsS --max-time 5 http://127.0.0.1:8280/healthz >/dev/null; then
+              echo 'Odyssey finance sandbox deployment healthy'
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo 'Finance sandbox health check failed'
+          sudo -n systemctl --no-pager --full status odyssey-finance-sandbox.service || true
+          sudo -n systemctl --no-pager --full status odyssey-finance-sandbox-worker.service || true
+          exit 1
+          REMOTE
+
+      - name: Cleanup SSH credentials
+        if: ${{ always() }}
+        shell: bash
+        run: rm -f "$HOME/.ssh/deploy_key"
