@@ -373,7 +373,7 @@ func (a *Adapter) lookupWithInstruction(ctx context.Context, ref automation.Conn
 	providerLookupRef.ObjectID = providerID
 	var result payoutResult
 	if creds.biSnap() {
-		result, err = a.biSnapLookup(ctx, ref, creds, providerLookupRef)
+		result, err = a.biSnapLookup(ctx, ref, creds, providerLookupRef, instructionRef)
 	} else {
 		result, err = a.legacyLookup(ctx, ref, creds, providerLookupRef)
 	}
@@ -430,7 +430,7 @@ func (a *Adapter) cancelWithInstruction(ctx context.Context, ref automation.Conn
 	providerLookupRef.ObjectID = providerID
 	var result payoutResult
 	if creds.biSnap() {
-		result, err = a.biSnapCancel(ctx, ref, creds, providerLookupRef)
+		result, err = a.biSnapCancel(ctx, ref, creds, providerLookupRef, instructionRef)
 	} else {
 		result, err = a.legacyCancel(ctx, ref, creds, providerLookupRef)
 	}
@@ -542,6 +542,7 @@ type biSnapResponse struct {
 	DateTime                   string       `json:"dateTime"`
 	TransactionDate            string       `json:"transactionDate"`
 	PaidTime                   string       `json:"paidTime"`
+	CancelTime                 string       `json:"cancelTime"`
 	AdditionalInfo             struct {
 		Status string       `json:"status"`
 		Fee    biSnapAmount `json:"fee"`
@@ -650,11 +651,12 @@ func (a *Adapter) biSnapPayout(ctx context.Context, ref automation.ConnectionRef
 	return payoutResult{ReferenceNo: firstNonEmpty(decoded.ReferenceNo, decoded.PartnerReferenceNo, decoded.OriginalReferenceNo, decoded.OriginalPartnerReferenceNo), Status: biSnapStatus(decoded), Amount: amount, OccurredAt: parseProviderTime(decoded.DateTime, decoded.TransactionDate, decoded.PaidTime)}, nil
 }
 
-func (a *Adapter) biSnapLookup(ctx context.Context, ref automation.ConnectionRef, creds Credentials, payoutRef automation.ExternalReference) (payoutResult, error) {
+func (a *Adapter) biSnapLookup(ctx context.Context, ref automation.ConnectionRef, creds Credentials, payoutRef, instructionRef automation.ExternalReference) (payoutResult, error) {
 	path := pathOr(creds.LookupPath, defaultBISNAPLookupPath)
 	bodyPayload := map[string]string{
-		"originalPartnerReferenceNo": payoutRef.ObjectID,
-		"originalExternalId":         trimExternalID(payoutRef.ObjectID),
+		"originalReferenceNo":        payoutRef.ObjectID,
+		"originalPartnerReferenceNo": instructionRef.ObjectID,
+		"originalExternalId":         trimExternalID(instructionRef.ObjectID),
 		"serviceCode":                "54",
 	}
 	if strings.TrimSpace(creds.MerchantID) != "" {
@@ -690,8 +692,13 @@ func (a *Adapter) biSnapLookup(ctx context.Context, ref automation.ConnectionRef
 	return payoutResult{ReferenceNo: firstNonEmpty(decoded.ReferenceNo, decoded.PartnerReferenceNo, decoded.OriginalReferenceNo, decoded.OriginalPartnerReferenceNo, payoutRef.ObjectID), Status: biSnapStatus(decoded), Amount: amount, Fee: fee, OccurredAt: parseProviderTime(decoded.DateTime, decoded.TransactionDate, decoded.PaidTime)}, nil
 }
 
-func (a *Adapter) biSnapCancel(ctx context.Context, ref automation.ConnectionRef, creds Credentials, payoutRef automation.ExternalReference) (payoutResult, error) {
-	body, err := json.Marshal(map[string]string{"originalPartnerReferenceNo": payoutRef.ObjectID, "serviceCode": "54"})
+func (a *Adapter) biSnapCancel(ctx context.Context, ref automation.ConnectionRef, creds Credentials, payoutRef, instructionRef automation.ExternalReference) (payoutResult, error) {
+	body, err := json.Marshal(map[string]string{
+		"originalReferenceNo":        payoutRef.ObjectID,
+		"originalPartnerReferenceNo": instructionRef.ObjectID,
+		"originalExternalId":         trimExternalID(instructionRef.ObjectID),
+		"serviceCode":                "54",
+	})
 	if err != nil {
 		return payoutResult{}, fmt.Errorf("midtrans iris: encode cancel: %w", err)
 	}
@@ -707,7 +714,17 @@ func (a *Adapter) biSnapCancel(ctx context.Context, ref automation.ConnectionRef
 	if !biSnapSuccess(resp.StatusCode, decoded) {
 		return payoutResult{}, classifyProviderResponse("cancel", resp.StatusCode, decoded.ResponseMessage, nil, decoded.ResponseCode)
 	}
-	return payoutResult{ReferenceNo: firstNonEmpty(decoded.ReferenceNo, decoded.PartnerReferenceNo, decoded.OriginalReferenceNo, decoded.OriginalPartnerReferenceNo, payoutRef.ObjectID), Status: mapCancelStatus(biSnapStatus(decoded))}, nil
+	status := mapCancelStatus(biSnapStatus(decoded))
+	if status == "" {
+		// Successful SNAP cancel responses contain a response code and cancel
+		// time, but no transaction-status field.
+		status = "CANCELLED"
+	}
+	return payoutResult{
+		ReferenceNo: firstNonEmpty(decoded.ReferenceNo, decoded.OriginalReferenceNo, decoded.OriginalPartnerReferenceNo, payoutRef.ObjectID),
+		Status:      status,
+		OccurredAt:  parseProviderTime(decoded.CancelTime, decoded.TransactionDate),
+	}, nil
 }
 
 func (a *Adapter) biSnapSubmitBody(instruction payments.Instruction, beneficiary Beneficiary) ([]byte, error) {
@@ -1471,11 +1488,11 @@ func normalizePath(value string) string {
 
 func trimExternalID(value string) string {
 	value = strings.TrimSpace(value)
-	if len(value) <= 46 {
+	if len(value) <= 36 {
 		return value
 	}
 	digest := sha256.Sum256([]byte(value))
-	return hex.EncodeToString(digest[:])[:46]
+	return hex.EncodeToString(digest[:])[:36]
 }
 
 func valueAt(values []string, index int) string {
