@@ -1,6 +1,6 @@
 # Odyssey ERP Project Roadmap
 
-**Reviewed:** 2026-08-14
+**Reviewed:** 2026-08-15
 **Current candidate:** `v0.10.0-rc.6`
 **Release profile:** `v0.10-core`
 
@@ -124,10 +124,11 @@ The next bounded workstream is represented by `RELEASE_PROFILE=v0.11-finance`.
 The implementation handoff includes the cumulative profile/route boundary,
 verified statement-transport ingestion through the normalized banking importer,
 additional tax/payment/PO forecast readers, exact decimal treasury amounts, and
-durable payment-result/effect idempotency contracts. It is intentionally not part
-of `v0.10.0-rc.6` and is not a production claim: the worker now composes the
-durable `payment.result.import` boundary only, while live provider certification,
-confirmed AP/GL/tax/FX/reconciliation effects, operations views, and staging
+durable payment-result/effect idempotency contracts. The current working tree now
+also wires live payment execution through a Midtrans Iris adapter and transaction-
+scoped AP, GL, and bank settlement effects. It is intentionally not part of
+`v0.10.0-rc.6` and is not a production claim: provider contract/sandbox evidence,
+tax/FX/reconciliation operations views, recovery drills, and isolated staging
 evidence remain open. Keep those gates on the next-release line until evidence is
 recorded.
 
