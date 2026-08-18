@@ -34,19 +34,27 @@ jobs:
           persist-credentials: false
 
       - name: Verify finance profile and migration boundary
+        env:
+          CANDIDATE_REF_INPUT: ${{ inputs.candidate_ref }}
         shell: bash
         run: |
           set -euo pipefail
 
-          candidate_sha=$(git rev-parse HEAD)
-          migration_125_up='migrations/000125_payment_settlement_results.up.sql'
-          migration_125_down='migrations/000125_payment_settlement_results.down.sql'
-          test -f "$migration_125_up" || {
-            echo "finance sandbox requires $migration_125_up" >&2
+          candidate_ref="$CANDIDATE_REF_INPUT"
+          [[ "$candidate_ref" =~ ^[A-Za-z0-9._/@-]+$ ]] || {
+            echo 'candidate_ref contains unsupported characters' >&2
             exit 1
           }
-          test -f "$migration_125_down" || {
-            echo "finance sandbox requires $migration_125_down" >&2
+          candidate_sha=$(git rev-parse HEAD)
+          migration_floor='000127_payment_settlement_effect_links'
+          migration_floor_up="migrations/${migration_floor}.up.sql"
+          migration_floor_down="migrations/${migration_floor}.down.sql"
+          test -f "$migration_floor_up" || {
+            echo "finance sandbox requires $migration_floor_up" >&2
+            exit 1
+          }
+          test -f "$migration_floor_down" || {
+            echo "finance sandbox requires $migration_floor_down" >&2
             exit 1
           }
 
@@ -58,14 +66,14 @@ jobs:
             echo 'could not determine the finance sandbox migration version' >&2
             exit 1
           }
-          (( 10#$latest_version >= 125 )) || {
-            echo "finance sandbox requires migration 000125 or newer; found $latest_version" >&2
+          (( 10#$latest_version >= 127 )) || {
+            echo "finance sandbox requires migration 000127 or newer; found $latest_version" >&2
             exit 1
           }
 
           {
             echo "CANDIDATE_SHA=$candidate_sha"
-            echo "CANDIDATE_REF=${{ inputs.candidate_ref }}"
+            echo "CANDIDATE_REF=$candidate_ref"
             echo "MIGRATION_CEILING=$latest_migration"
           } >> "$GITHUB_ENV"
           printf 'candidate=%s\n' "$candidate_sha"
@@ -126,7 +134,7 @@ jobs:
             printf 'commit=%s\n' "$CANDIDATE_SHA"
             printf 'profile=v0.11-finance\n'
             printf 'app_env=finance-sandbox\n'
-            printf 'migration_floor=000125_payment_settlement_results\n'
+            printf 'migration_floor=000127_payment_settlement_effect_links\n'
             printf 'migration_ceiling=%s\n' "$MIGRATION_CEILING"
           } > dist/RELEASE_IDENTITY
           (
@@ -248,21 +256,22 @@ jobs:
 
           grep -Fx 'profile=v0.11-finance' "$release/RELEASE_IDENTITY"
           grep -Fx 'app_env=finance-sandbox' "$release/RELEASE_IDENTITY"
-          grep -Fx 'migration_floor=000125_payment_settlement_results' "$release/RELEASE_IDENTITY"
-          test -f "$release/migrations/000125_payment_settlement_results.up.sql"
-          test -f "$release/migrations/000125_payment_settlement_results.down.sql"
+          grep -Fx 'migration_floor=000127_payment_settlement_effect_links' "$release/RELEASE_IDENTITY"
+          test -f "$release/migrations/000127_payment_settlement_effect_links.up.sql"
+          test -f "$release/migrations/000127_payment_settlement_effect_links.down.sql"
 
           latest_migration=$(find "$release/migrations" -maxdepth 1 -type f \
             -name '[0-9][0-9][0-9][0-9][0-9][0-9]_*.up.sql' \
             -printf '%f\n' | sed 's/\.up\.sql$//' | sort -n | tail -n 1)
           latest_version=${latest_migration%%_*}
-          [[ "$latest_version" =~ ^[0-9]{6}$ ]] && (( 10#$latest_version >= 125 ))
+          [[ "$latest_version" =~ ^[0-9]{6}$ ]] && (( 10#$latest_version >= 127 ))
 
           set -a
           . /opt/odyssey-finance-sandbox/.env
           set +a
           : "${PG_DSN:?PG_DSN must be set in /opt/odyssey-finance-sandbox/.env}"
           : "${REDIS_ADDR:?REDIS_ADDR must be set in /opt/odyssey-finance-sandbox/.env}"
+          : "${APP_MASTER_KEY:?APP_MASTER_KEY must be set in /opt/odyssey-finance-sandbox/.env}"
           [[ "${APP_ENV:-}" == finance-sandbox ]] || {
             echo 'finance sandbox must set APP_ENV=finance-sandbox' >&2
             exit 1
@@ -291,7 +300,8 @@ jobs:
           sudo -n systemctl restart odyssey-finance-sandbox-worker.service
 
           for attempt in $(seq 1 30); do
-            if curl -fsS --max-time 5 http://127.0.0.1:8280/healthz >/dev/null; then
+            if sudo -n systemctl is-active --quiet odyssey-finance-sandbox-worker.service \
+              && curl -fsS --max-time 5 http://127.0.0.1:8280/healthz >/dev/null; then
               echo 'Odyssey finance sandbox deployment healthy'
               exit 0
             fi
