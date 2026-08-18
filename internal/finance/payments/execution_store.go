@@ -32,6 +32,15 @@ type database interface {
 	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
 }
 
+// transactionDatabase is intentionally kept separate from database so the
+// existing lightweight adapters and fakes remain source compatible. A pool
+// (and pgxmock pool) implements Begin; callers that only expose the small
+// database interface still get the legacy idempotency-only behavior.
+type transactionDatabase interface {
+	database
+	Begin(context.Context) (pgx.Tx, error)
+}
+
 // PostgresStore stores the complete provider-neutral execution snapshot in
 // JSONB while keeping the canonical reference and workflow state queryable.
 // Save uses one conditional statement, so an insert/update is atomic and a

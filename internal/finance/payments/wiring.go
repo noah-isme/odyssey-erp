@@ -32,18 +32,21 @@ func NewUnsupportedSettlementEffects() SettlementEffectsPort {
 }
 
 // NewPostgresSettlementService composes the provider-neutral result-import
-// service from the durable execution and result-inbox stores, plus the
-// fail-closed accounting-effects boundary above. It intentionally does not
-// create an ExecutionPort or register a live provider: importing a bank result
-// is the only v0.11 operation that can be wired without choosing a provider
-// adapter or accounting-effects service.
-func NewPostgresSettlementService(pool *pgxpool.Pool) *SettlementService {
+// service from the durable execution and result-inbox stores. Callers may
+// provide a transaction-scoped accounting-effects applier; omitting it keeps
+// the legacy fail-closed behavior for profiles that have not enabled
+// settlement posting.
+func NewPostgresSettlementService(pool *pgxpool.Pool, appliers ...SettlementEffectsApplier) *SettlementService {
 	if pool == nil {
 		return nil
+	}
+	var effects SettlementEffectsPort = NewUnsupportedSettlementEffects()
+	if len(appliers) > 0 && appliers[0] != nil {
+		effects = NewPostgresSettlementEffectsWithApplier(pool, appliers[0])
 	}
 	return NewSettlementService(
 		NewPostgresStore(pool),
 		NewPostgresSettlementResultStore(pool),
-		NewUnsupportedSettlementEffects(),
+		effects,
 	)
 }
