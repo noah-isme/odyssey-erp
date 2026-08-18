@@ -15,8 +15,8 @@ to `RELEASE_PROFILE=v0.10-core` and migration ceiling `000124`.
 
 The workflow is manual-only. Dispatch it with a commit, branch, or tag in
 `candidate_ref`; the default is `staging`. Before building, it requires both
-`000125_payment_settlement_results` migration files and verifies that the
-candidate's newest migration is `000125` or newer. It builds one immutable
+`000127_payment_settlement_effect_links` migration files and verifies that the
+candidate's newest migration is `000127` or newer. It builds one immutable
 Linux artifact, records the profile and migration boundary, publishes checksums
 and an SPDX SBOM, and then uploads that exact artifact to the sandbox host.
 
@@ -65,6 +65,7 @@ BOARD_PACK_STORAGE=/var/lib/odyssey-finance-sandbox/boardpacks
 SESSION_SECRET=<sandbox-only-random-secret>
 SESSION_TTL=720h
 CSRF_SECRET=<different-sandbox-only-random-secret>
+APP_MASTER_KEY=<sandbox-only-vault-key>
 CONNECTORS_DEVELOPMENT_MODE=false
 GOTENBERG_URL=http://127.0.0.1:3000
 ```
@@ -85,7 +86,10 @@ Both units should run as the non-root `odyssey` user with
 `WorkingDirectory=/opt/odyssey-finance-sandbox/current` and
 `EnvironmentFile=/opt/odyssey-finance-sandbox/.env`. Grant the deployment user
 only passwordless restart/status access for these two units. The workflow
-verifies `http://127.0.0.1:8280/healthz` after each deployment.
+verifies that the worker unit is active and checks
+`http://127.0.0.1:8280/healthz` after each deployment. Keep the application
+bound to localhost behind a TLS-terminating reverse proxy, or otherwise
+provide secure transport before exposing the sandbox beyond the VPS.
 
 ## Certification boundary
 

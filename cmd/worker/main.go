@@ -486,7 +486,7 @@ func main() {
 		fmt.Sprintf("finance-worker-%d", os.Getpid()),
 		logger,
 	)
-	if strings.EqualFold(strings.TrimSpace(cfg.ReleaseProfile), string(app.ReleaseProfileV011Finance)) {
+	if cfg.IsFinanceSandbox() && strings.EqualFold(strings.TrimSpace(cfg.ReleaseProfile), string(app.ReleaseProfileV011Finance)) {
 		financeSettlementService := payments.NewPostgresSettlementService(pool, treasury.NewTreasurySettlementEffects())
 		if err := payments.RegisterPaymentExecutionHandlers(financeAutomationDispatcher, paymentCoordinator, financeSettlementService); err != nil {
 			logger.Error("register payment execution handlers", slog.Any("error", err))
