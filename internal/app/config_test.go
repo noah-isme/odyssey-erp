@@ -6,7 +6,7 @@ import (
 )
 
 func TestLoadConfigRequiresExplicitProfileForStagingAndProduction(t *testing.T) {
-	for _, environment := range []string{"staging", "production"} {
+	for _, environment := range []string{"staging", financeSandboxEnvironment, "production"} {
 		t.Run(environment, func(t *testing.T) {
 			t.Setenv("APP_ENV", environment)
 			t.Setenv("SESSION_SECRET", "test-session-secret")
@@ -37,7 +37,7 @@ func TestLoadConfigAcceptsCoreProfile(t *testing.T) {
 }
 
 func TestLoadConfigAcceptsFinanceProfile(t *testing.T) {
-	t.Setenv("APP_ENV", "staging")
+	t.Setenv("APP_ENV", financeSandboxEnvironment)
 	t.Setenv("SESSION_SECRET", "test-session-secret")
 	t.Setenv("CSRF_SECRET", "test-csrf-secret")
 	t.Setenv("RELEASE_PROFILE", string(ReleaseProfileV011Finance))
@@ -48,5 +48,20 @@ func TestLoadConfigAcceptsFinanceProfile(t *testing.T) {
 	}
 	if config.ReleaseProfile != string(ReleaseProfileV011Finance) {
 		t.Fatalf("ReleaseProfile = %q, want %q", config.ReleaseProfile, ReleaseProfileV011Finance)
+	}
+	if !config.IsFinanceSandbox() {
+		t.Fatal("finance sandbox profile did not preserve the finance-sandbox environment")
+	}
+}
+
+func TestLoadConfigRejectsNonFinanceProfileInFinanceSandbox(t *testing.T) {
+	t.Setenv("APP_ENV", financeSandboxEnvironment)
+	t.Setenv("SESSION_SECRET", "test-session-secret")
+	t.Setenv("CSRF_SECRET", "test-csrf-secret")
+	t.Setenv("RELEASE_PROFILE", string(ReleaseProfileV010Core))
+
+	_, err := LoadConfig()
+	if err == nil || !strings.Contains(err.Error(), "finance-sandbox requires RELEASE_PROFILE=v0.11-finance") {
+		t.Fatalf("LoadConfig() error = %v, want finance sandbox profile error", err)
 	}
 }

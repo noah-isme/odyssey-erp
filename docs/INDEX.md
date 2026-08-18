@@ -142,6 +142,7 @@ Key technical choices are documented as Architecture Decision Records (ADRs).
 Instructions and details for deploying Odyssey ERP across different environments:
 * [Local Deployment](./DEPLOYMENT.md)
 * [Staging Deployment](./STAGING_DEPLOYMENT.md)
+* [Finance Sandbox Deployment](./FINANCE_SANDBOX_DEPLOYMENT.md)
 * [Production Deployment](./PRODUCTION_DEPLOYMENT.md)
 
 ## Archive
