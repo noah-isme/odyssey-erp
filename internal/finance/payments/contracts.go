@@ -50,3 +50,17 @@ type ExecutionPort interface {
 	Cancel(context.Context, automation.ConnectionRef, automation.ExternalReference) (Settlement, error)
 	GenerateFile(context.Context, automation.ConnectionRef, []Instruction) (ExportArtifact, error)
 }
+
+// InstructionReferenceLookup is an optional extension for providers whose
+// durable submission reference differs from the local instruction reference.
+// It lets a coordinator resolve a persisted execution after a process restart
+// without relying on an in-memory original-to-provider mapping.
+type InstructionReferenceLookup interface {
+	LookupWithInstruction(context.Context, automation.ConnectionRef, automation.ExternalReference, automation.ExternalReference) (Settlement, error)
+}
+
+// InstructionReferenceCanceller is the durable-reference cancellation
+// counterpart to InstructionReferenceLookup.
+type InstructionReferenceCanceller interface {
+	CancelWithInstruction(context.Context, automation.ConnectionRef, automation.ExternalReference, automation.ExternalReference) (Settlement, error)
+}

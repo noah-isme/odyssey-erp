@@ -535,7 +535,16 @@ func (c *Coordinator) Cancel(ctx context.Context, reference automation.ExternalR
 	if err := c.port.ValidateConnection(ctx, reference.Connection); err != nil {
 		return PaymentExecution{}, err
 	}
-	settlement, err := c.port.Cancel(ctx, reference.Connection, reference)
+	var settlement Settlement
+	if execution.Submission != nil && !isZeroReference(execution.Submission.Reference) {
+		if port, ok := c.port.(InstructionReferenceCanceller); ok {
+			settlement, err = port.CancelWithInstruction(ctx, reference.Connection, execution.Instruction.Reference, execution.Submission.Reference)
+		} else {
+			settlement, err = c.port.Cancel(ctx, reference.Connection, reference)
+		}
+	} else {
+		settlement, err = c.port.Cancel(ctx, reference.Connection, reference)
+	}
 	if err != nil {
 		return PaymentExecution{}, err
 	}
@@ -662,7 +671,19 @@ func (c *Coordinator) lookupLocked(ctx context.Context, execution PaymentExecuti
 	if err := c.port.ValidateConnection(ctx, execution.Instruction.Reference.Connection); err != nil {
 		return execution, err
 	}
-	settlement, err := c.port.Lookup(ctx, execution.Instruction.Reference.Connection, execution.Instruction.Reference)
+	var (
+		settlement Settlement
+		err        error
+	)
+	if execution.Submission != nil && !isZeroReference(execution.Submission.Reference) {
+		if port, ok := c.port.(InstructionReferenceLookup); ok {
+			settlement, err = port.LookupWithInstruction(ctx, execution.Instruction.Reference.Connection, execution.Instruction.Reference, execution.Submission.Reference)
+		} else {
+			settlement, err = c.port.Lookup(ctx, execution.Instruction.Reference.Connection, execution.Instruction.Reference)
+		}
+	} else {
+		settlement, err = c.port.Lookup(ctx, execution.Instruction.Reference.Connection, execution.Instruction.Reference)
+	}
 	if err != nil {
 		return execution, fmt.Errorf("%w: %w", ErrLookupRequired, err)
 	}
