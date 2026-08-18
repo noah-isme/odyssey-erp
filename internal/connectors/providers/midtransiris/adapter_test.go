@@ -167,6 +167,65 @@ func TestBISNAPAccessTokenAndTransactionalSignature(t *testing.T) {
 	}
 }
 
+func TestBISNAPLookupAndCancelUseDurableProviderAndInstructionReferences(t *testing.T) {
+	client := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := len(r.Header.Get("X-EXTERNAL-ID")); got > 36 {
+			t.Fatalf("X-EXTERNAL-ID length = %d, want <= 36", got)
+		}
+		var payload map[string]string
+		if err := json.Unmarshal(body, &payload); err != nil {
+			t.Fatal(err)
+		}
+		if payload["originalReferenceNo"] != "provider-1" || payload["originalPartnerReferenceNo"] != "item-42" || payload["originalExternalId"] != "item-42" {
+			t.Fatalf("durable reference payload = %#v", payload)
+		}
+		switch r.URL.Path {
+		case "/v1.0/debit/status":
+			return fixtureResponse(r, http.StatusOK, `{"responseCode":"2005500","originalReferenceNo":"provider-1","latestTransactionStatus":"00","transAmount":{"value":"10.00","currency":"IDR"}}`), nil
+		case "/v1.0/debit/cancel":
+			return fixtureResponse(r, http.StatusOK, `{"responseCode":"2005700","originalReferenceNo":"provider-1","cancelTime":"2026-08-15T09:00:00Z"}`), nil
+		default:
+			t.Fatalf("unexpected path %q", r.URL.Path)
+			return nil, nil
+		}
+	})}
+	ref := testConnection()
+	adapter := NewAdapter(nil, nil, Options{
+		ProviderOptions: connectors.ProviderOptions{DevelopmentMode: true, HTTPClient: client},
+		StaticCredentials: Credentials{
+			ClientID: "client-1", PartnerID: "partner-1", AccessToken: "token-1", BaseURL: "https://iris.test",
+		},
+	})
+	instruction := testInstruction(ref, automation.ExactAmount{Amount: accountingmoney.Must("10", 0), Currency: "IDR"})
+	payout := providerReference(ref, "provider-1")
+
+	settlement, err := adapter.LookupWithInstruction(context.Background(), ref, instruction.Reference, payout)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if settlement.Status != payments.SettlementStatusSettled || settlement.Instruction.ObjectID != instruction.Reference.ObjectID {
+		t.Fatalf("lookup settlement = %+v", settlement)
+	}
+
+	cancelled, err := adapter.CancelWithInstruction(context.Background(), ref, instruction.Reference, payout)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cancelled.Status != payments.SettlementStatusCancelled {
+		t.Fatalf("cancel settlement = %+v", cancelled)
+	}
+}
+
+func TestTrimExternalIDUsesBISNAPLimit(t *testing.T) {
+	if got := trimExternalID(strings.Repeat("x", 64)); len(got) != 36 {
+		t.Fatalf("trimExternalID length = %d, want 36", len(got))
+	}
+}
+
 func TestCredentialsAreNotAcceptedWithoutVaultOrExplicitTestMode(t *testing.T) {
 	adapter := NewAdapter(nil, nil, Options{StaticCredentials: Credentials{APIKey: "secret"}})
 	err := adapter.ValidateConnection(context.Background(), testConnection())
