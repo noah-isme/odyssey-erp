@@ -19,7 +19,7 @@ SET status = 'EXPORTED',
     exported_at = NOW(),
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, company_id, reference_code, status, currency, total_amount, revision_number, proposed_by, approved_by, approved_at, created_at, updated_at, exported_file_hash, exported_at, exported_by, settled_at, settled_by
+RETURNING id, company_id, reference_code, status, currency, total_amount, revision_number, proposed_by, approved_by, approved_at, created_at, updated_at, exported_file_hash, exported_at, exported_by, settled_at, settled_by, payment_connection_id, source_bank_account_id
 `
 
 type UpdateTreasuryPaymentBatchExportParams struct {
@@ -49,6 +49,8 @@ func (q *Queries) UpdateTreasuryPaymentBatchExport(ctx context.Context, arg Upda
 		&i.ExportedBy,
 		&i.SettledAt,
 		&i.SettledBy,
+		&i.PaymentConnectionID,
+		&i.SourceBankAccountID,
 	)
 	return i, err
 }

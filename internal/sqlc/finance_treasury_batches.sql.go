@@ -13,17 +13,20 @@ import (
 
 const createTreasuryPaymentBatch = `-- name: CreateTreasuryPaymentBatch :one
 INSERT INTO treasury_payment_batches (
-    company_id, reference_code, currency, proposed_by
+    company_id, reference_code, currency, proposed_by,
+    payment_connection_id, source_bank_account_id
 ) VALUES (
-    $1, $2, $3, $4
-) RETURNING id, company_id, reference_code, status, currency, total_amount, revision_number, proposed_by, approved_by, approved_at, created_at, updated_at, exported_file_hash, exported_at, exported_by, settled_at, settled_by
+    $1, $2, $3, $4, $5, $6
+) RETURNING id, company_id, reference_code, status, currency, total_amount, revision_number, proposed_by, approved_by, approved_at, created_at, updated_at, exported_file_hash, exported_at, exported_by, settled_at, settled_by, payment_connection_id, source_bank_account_id
 `
 
 type CreateTreasuryPaymentBatchParams struct {
-	CompanyID     int64  `json:"company_id"`
-	ReferenceCode string `json:"reference_code"`
-	Currency      string `json:"currency"`
-	ProposedBy    int64  `json:"proposed_by"`
+	CompanyID           int64       `json:"company_id"`
+	ReferenceCode       string      `json:"reference_code"`
+	Currency            string      `json:"currency"`
+	ProposedBy          int64       `json:"proposed_by"`
+	PaymentConnectionID pgtype.Int8 `json:"payment_connection_id"`
+	SourceBankAccountID pgtype.Int8 `json:"source_bank_account_id"`
 }
 
 func (q *Queries) CreateTreasuryPaymentBatch(ctx context.Context, arg CreateTreasuryPaymentBatchParams) (TreasuryPaymentBatch, error) {
@@ -32,6 +35,8 @@ func (q *Queries) CreateTreasuryPaymentBatch(ctx context.Context, arg CreateTrea
 		arg.ReferenceCode,
 		arg.Currency,
 		arg.ProposedBy,
+		arg.PaymentConnectionID,
+		arg.SourceBankAccountID,
 	)
 	var i TreasuryPaymentBatch
 	err := row.Scan(
@@ -52,6 +57,8 @@ func (q *Queries) CreateTreasuryPaymentBatch(ctx context.Context, arg CreateTrea
 		&i.ExportedBy,
 		&i.SettledAt,
 		&i.SettledBy,
+		&i.PaymentConnectionID,
+		&i.SourceBankAccountID,
 	)
 	return i, err
 }
@@ -95,7 +102,7 @@ func (q *Queries) CreateTreasuryPaymentBatchItem(ctx context.Context, arg Create
 }
 
 const getTreasuryPaymentBatch = `-- name: GetTreasuryPaymentBatch :one
-SELECT id, company_id, reference_code, status, currency, total_amount, revision_number, proposed_by, approved_by, approved_at, created_at, updated_at, exported_file_hash, exported_at, exported_by, settled_at, settled_by FROM treasury_payment_batches WHERE id = $1
+SELECT id, company_id, reference_code, status, currency, total_amount, revision_number, proposed_by, approved_by, approved_at, created_at, updated_at, exported_file_hash, exported_at, exported_by, settled_at, settled_by, payment_connection_id, source_bank_account_id FROM treasury_payment_batches WHERE id = $1
 `
 
 func (q *Queries) GetTreasuryPaymentBatch(ctx context.Context, id int64) (TreasuryPaymentBatch, error) {
@@ -119,6 +126,8 @@ func (q *Queries) GetTreasuryPaymentBatch(ctx context.Context, id int64) (Treasu
 		&i.ExportedBy,
 		&i.SettledAt,
 		&i.SettledBy,
+		&i.PaymentConnectionID,
+		&i.SourceBankAccountID,
 	)
 	return i, err
 }
@@ -178,7 +187,7 @@ SET revision_number = revision_number + 1,
     ), $2),
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, company_id, reference_code, status, currency, total_amount, revision_number, proposed_by, approved_by, approved_at, created_at, updated_at, exported_file_hash, exported_at, exported_by, settled_at, settled_by
+RETURNING id, company_id, reference_code, status, currency, total_amount, revision_number, proposed_by, approved_by, approved_at, created_at, updated_at, exported_file_hash, exported_at, exported_by, settled_at, settled_by, payment_connection_id, source_bank_account_id
 `
 
 type UpdateTreasuryPaymentBatchRevisionParams struct {
@@ -207,6 +216,8 @@ func (q *Queries) UpdateTreasuryPaymentBatchRevision(ctx context.Context, arg Up
 		&i.ExportedBy,
 		&i.SettledAt,
 		&i.SettledBy,
+		&i.PaymentConnectionID,
+		&i.SourceBankAccountID,
 	)
 	return i, err
 }
@@ -214,11 +225,11 @@ func (q *Queries) UpdateTreasuryPaymentBatchRevision(ctx context.Context, arg Up
 const updateTreasuryPaymentBatchStatus = `-- name: UpdateTreasuryPaymentBatchStatus :one
 UPDATE treasury_payment_batches
 SET status = $2,
-    approved_by = $3,
-    approved_at = $4,
+    approved_by = COALESCE($3, approved_by),
+    approved_at = COALESCE($4, approved_at),
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, company_id, reference_code, status, currency, total_amount, revision_number, proposed_by, approved_by, approved_at, created_at, updated_at, exported_file_hash, exported_at, exported_by, settled_at, settled_by
+RETURNING id, company_id, reference_code, status, currency, total_amount, revision_number, proposed_by, approved_by, approved_at, created_at, updated_at, exported_file_hash, exported_at, exported_by, settled_at, settled_by, payment_connection_id, source_bank_account_id
 `
 
 type UpdateTreasuryPaymentBatchStatusParams struct {
@@ -254,6 +265,8 @@ func (q *Queries) UpdateTreasuryPaymentBatchStatus(ctx context.Context, arg Upda
 		&i.ExportedBy,
 		&i.SettledAt,
 		&i.SettledBy,
+		&i.PaymentConnectionID,
+		&i.SourceBankAccountID,
 	)
 	return i, err
 }
@@ -267,7 +280,7 @@ SET total_amount = COALESCE((
     ), $2),
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, company_id, reference_code, status, currency, total_amount, revision_number, proposed_by, approved_by, approved_at, created_at, updated_at, exported_file_hash, exported_at, exported_by, settled_at, settled_by
+RETURNING id, company_id, reference_code, status, currency, total_amount, revision_number, proposed_by, approved_by, approved_at, created_at, updated_at, exported_file_hash, exported_at, exported_by, settled_at, settled_by, payment_connection_id, source_bank_account_id
 `
 
 type UpdateTreasuryPaymentBatchTotalParams struct {
@@ -296,6 +309,8 @@ func (q *Queries) UpdateTreasuryPaymentBatchTotal(ctx context.Context, arg Updat
 		&i.ExportedBy,
 		&i.SettledAt,
 		&i.SettledBy,
+		&i.PaymentConnectionID,
+		&i.SourceBankAccountID,
 	)
 	return i, err
 }

@@ -32,15 +32,38 @@ type Repository interface {
 	RemovePaymentBatchItem(ctx context.Context, id int64) error
 }
 
+// BatchConfigurationValidator is an optional repository capability used by
+// live execution paths. Keeping it separate preserves compatibility with
+// lightweight in-memory repositories while PostgreSQL enforces tenant scope
+// before a batch can be executed.
+type BatchConfigurationValidator interface {
+	PaymentConnectionBelongsToCompany(context.Context, int64, int64) (bool, error)
+	SourceBankAccountBelongsToCompany(context.Context, int64, int64, string) (bool, error)
+}
+
 // APService defines the required interoperability hooks into Accounts Payable.
 type APService interface {
 	MarkInvoicePaid(ctx context.Context, invoiceID, batchID int64, amount Amount) error
 }
 
+// ExecutionEnqueuer is the narrow boundary between treasury approval and the
+// finance outbox. Implementations must make enqueueing idempotent by batch and
+// item identity and must not call a provider in the HTTP request.
+type ExecutionEnqueuer interface {
+	EnqueueBatchExecution(context.Context, int64, int64, int64) (ExecutionBatchResult, error)
+}
+
+type ExecutionBatchResult struct {
+	BatchID      int64   `json:"batch_id"`
+	CommandCount int     `json:"command_count"`
+	CommandIDs   []int64 `json:"command_ids,omitempty"`
+}
+
 type Service struct {
-	repo   Repository
-	apSvc  APService
-	logger *slog.Logger
+	repo              Repository
+	apSvc             APService
+	logger            *slog.Logger
+	executionEnqueuer ExecutionEnqueuer
 }
 
 var (
@@ -50,6 +73,12 @@ var (
 
 func NewService(repo Repository, apSvc APService, logger *slog.Logger) *Service {
 	return &Service{repo: repo, apSvc: apSvc, logger: logger}
+}
+
+func (s *Service) SetExecutionEnqueuer(enqueuer ExecutionEnqueuer) {
+	if s != nil {
+		s.executionEnqueuer = enqueuer
+	}
 }
 
 // AddBankAccount securely registers a new beneficiary account on hold.
@@ -151,6 +180,40 @@ func (s *Service) ListBankAccounts(ctx context.Context, companyID, supplierID in
 }
 
 func (s *Service) CreatePaymentBatch(ctx context.Context, companyID int64, refCode, currency string, actorID int64) (PaymentBatch, error) {
+	return s.createPaymentBatch(ctx, companyID, refCode, currency, actorID, nil, nil)
+}
+
+// CreatePaymentBatchConfigured creates a batch with the provider connection
+// and source bank account required for live execution. Export-only callers can
+// continue using CreatePaymentBatch and leave both values unset.
+func (s *Service) CreatePaymentBatchConfigured(ctx context.Context, companyID int64, refCode, currency string, paymentConnectionID, sourceBankAccountID, actorID int64) (PaymentBatch, error) {
+	if paymentConnectionID <= 0 || sourceBankAccountID <= 0 {
+		return PaymentBatch{}, errCompanyScopeRequired
+	}
+	currency, err := normalizeCurrency(currency)
+	if err != nil {
+		return PaymentBatch{}, errors.New("currency must be a three-letter code")
+	}
+	if validator, ok := s.repo.(BatchConfigurationValidator); ok {
+		connectionOK, err := validator.PaymentConnectionBelongsToCompany(ctx, paymentConnectionID, companyID)
+		if err != nil {
+			return PaymentBatch{}, fmt.Errorf("failed to validate payment connection scope: %w", err)
+		}
+		if !connectionOK {
+			return PaymentBatch{}, errCompanyScopeMismatch
+		}
+		bankOK, err := validator.SourceBankAccountBelongsToCompany(ctx, sourceBankAccountID, companyID, currency)
+		if err != nil {
+			return PaymentBatch{}, fmt.Errorf("failed to validate source bank scope: %w", err)
+		}
+		if !bankOK {
+			return PaymentBatch{}, errCompanyScopeMismatch
+		}
+	}
+	return s.createPaymentBatch(ctx, companyID, refCode, currency, actorID, int64Ptr(paymentConnectionID), int64Ptr(sourceBankAccountID))
+}
+
+func (s *Service) createPaymentBatch(ctx context.Context, companyID int64, refCode, currency string, actorID int64, paymentConnectionID, sourceBankAccountID *int64) (PaymentBatch, error) {
 	if companyID <= 0 || actorID <= 0 {
 		return PaymentBatch{}, errCompanyScopeRequired
 	}
@@ -161,7 +224,84 @@ func (s *Service) CreatePaymentBatch(ctx context.Context, companyID int64, refCo
 	if err != nil {
 		return PaymentBatch{}, errors.New("currency must be a three-letter code")
 	}
-	return s.repo.CreatePaymentBatch(ctx, PaymentBatchCreate{CompanyID: companyID, ReferenceCode: refCode, Currency: currency, ProposedBy: actorID})
+	return s.repo.CreatePaymentBatch(ctx, PaymentBatchCreate{CompanyID: companyID, ReferenceCode: refCode, Currency: currency, ProposedBy: actorID, PaymentConnectionID: paymentConnectionID, SourceBankAccountID: sourceBankAccountID})
+}
+
+// ValidateLiveExecutionBoundary checks the immutable batch-level references
+// before an execution producer creates provider commands.
+func (s *Service) ValidateLiveExecutionBoundary(batch PaymentBatch) error {
+	if batch.ID <= 0 || batch.CompanyID <= 0 {
+		return errCompanyScopeRequired
+	}
+	if batch.PaymentConnectionID == nil || *batch.PaymentConnectionID <= 0 {
+		return errors.New("payment batch has no provider connection")
+	}
+	if batch.SourceBankAccountID == nil || *batch.SourceBankAccountID <= 0 {
+		return errors.New("payment batch has no source bank account")
+	}
+	if batch.Status != "APPROVED" && batch.Status != "EXPORTED" && batch.Status != "PROCESSING" {
+		return errors.New("payment batch is not executable")
+	}
+	return nil
+}
+
+// ExecuteBatch validates and enqueues an approved batch. Provider calls are
+// performed only by the worker; a missing enqueuer fails closed.
+func (s *Service) ExecuteBatch(ctx context.Context, companyID, batchID, executorID int64) (ExecutionBatchResult, error) {
+	if s == nil || s.repo == nil || s.executionEnqueuer == nil {
+		return ExecutionBatchResult{}, errors.New("payment execution is not configured")
+	}
+	if companyID <= 0 || batchID <= 0 || executorID <= 0 {
+		return ExecutionBatchResult{}, errCompanyScopeRequired
+	}
+	batch, err := s.repo.GetPaymentBatch(ctx, batchID)
+	if err != nil {
+		return ExecutionBatchResult{}, err
+	}
+	if batch.CompanyID != companyID {
+		return ExecutionBatchResult{}, errCompanyScopeMismatch
+	}
+	if err := s.validateBatchConfiguration(ctx, batch); err != nil {
+		return ExecutionBatchResult{}, err
+	}
+	if err := s.ValidateLiveExecutionBoundary(batch); err != nil {
+		return ExecutionBatchResult{}, err
+	}
+	result, err := s.executionEnqueuer.EnqueueBatchExecution(ctx, companyID, batchID, executorID)
+	if err != nil {
+		return ExecutionBatchResult{}, err
+	}
+	if result.BatchID == 0 {
+		result.BatchID = batchID
+	}
+	if result.CommandCount > 0 && batch.Status != "PROCESSING" {
+		if _, err := s.repo.UpdatePaymentBatchStatus(ctx, PaymentBatchStatusUpdate{ID: batchID, Status: "PROCESSING"}); err != nil {
+			return ExecutionBatchResult{}, err
+		}
+	}
+	return result, nil
+}
+
+func (s *Service) validateBatchConfiguration(ctx context.Context, batch PaymentBatch) error {
+	validator, ok := s.repo.(BatchConfigurationValidator)
+	if !ok || batch.PaymentConnectionID == nil || batch.SourceBankAccountID == nil {
+		return nil
+	}
+	connectionOK, err := validator.PaymentConnectionBelongsToCompany(ctx, *batch.PaymentConnectionID, batch.CompanyID)
+	if err != nil {
+		return fmt.Errorf("failed to validate payment connection scope: %w", err)
+	}
+	if !connectionOK {
+		return errCompanyScopeMismatch
+	}
+	bankOK, err := validator.SourceBankAccountBelongsToCompany(ctx, *batch.SourceBankAccountID, batch.CompanyID, batch.Currency)
+	if err != nil {
+		return fmt.Errorf("failed to validate source bank scope: %w", err)
+	}
+	if !bankOK {
+		return errCompanyScopeMismatch
+	}
+	return nil
 }
 
 // AddBatchItem adds an item and revises the batch.

@@ -12,6 +12,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -46,6 +48,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/awss3"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/dhl"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/midtrans"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/midtransiris"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/mockpay"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/oidc"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/openai"
@@ -61,9 +64,11 @@ import (
 	documentshttp "github.com/odyssey-erp/odyssey-erp/internal/documents/http"
 	eliminationpkg "github.com/odyssey-erp/odyssey-erp/internal/elimination"
 	eliminationhttp "github.com/odyssey-erp/odyssey-erp/internal/elimination/http"
+	"github.com/odyssey-erp/odyssey-erp/internal/finance/automation"
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/bankfeeds"
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/banking"
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/forecasting"
+	"github.com/odyssey-erp/odyssey-erp/internal/finance/payments"
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/treasury"
 	"github.com/odyssey-erp/odyssey-erp/internal/freight"
 	fxservice "github.com/odyssey-erp/odyssey-erp/internal/fx"
@@ -321,6 +326,7 @@ func main() {
 		return err
 	})
 	outboxRepo := outbox.NewRepository(dbpool)
+	connectorsRepo := connectors.NewRepository(dbpool)
 	connectorsRegistry := connectors.NewRegistry()
 	if cfg.ConnectorDevelopmentMode {
 		connectorsRegistry.Register("mockpay", mockpay.NewAdapter(logger))
@@ -345,10 +351,71 @@ func main() {
 	connectorsRegistry.Register("dhl", dhl.NewAdapter(logger, providerOptions))
 	connectorsRegistry.Register("awss3", awss3.NewAdapter(logger, vault, providerOptions))
 	connectorsRegistry.Register("midtrans", midtrans.NewAdapter(logger, vault, providerOptions))
-	connectorsProcessor := connectors.NewInboxProcessor(connectors.NewRepository(dbpool), connectorsRegistry, outboxRepo, logger)
+	irisAdapter := midtransiris.NewAdapter(logger, vault, midtransiris.Options{
+		ProviderOptions: providerOptions,
+		ConnectionResolver: func(ctx context.Context, ref automation.ConnectionRef) (*connectors.Connection, error) {
+			conn, err := connectorsRepo.GetConnection(ctx, ref.CompanyID, ref.ConnectionID)
+			if err != nil {
+				return nil, err
+			}
+			if conn.CompanyID != ref.CompanyID {
+				return nil, fmt.Errorf("midtrans iris: connection company mismatch")
+			}
+			return &conn, nil
+		},
+		ScopedBeneficiaryResolver: func(ctx context.Context, connection automation.ConnectionRef, ref string) (midtransiris.Beneficiary, error) {
+			const prefix = "bank-account:"
+			value := strings.TrimPrefix(strings.TrimSpace(ref), prefix)
+			accountID, parseErr := strconv.ParseInt(value, 10, 64)
+			if parseErr != nil || accountID <= 0 {
+				return midtransiris.Beneficiary{}, fmt.Errorf("invalid bank account reference")
+			}
+			account, accountErr := treasuryRepo.GetSupplierBankAccount(ctx, accountID)
+			if accountErr != nil {
+				return midtransiris.Beneficiary{}, accountErr
+			}
+			if account.CompanyID != connection.CompanyID {
+				return midtransiris.Beneficiary{}, fmt.Errorf("bank account is outside connection company scope")
+			}
+			bank := account.RoutingNumber
+			if strings.TrimSpace(bank) == "" {
+				bank = account.BankName
+			}
+			return midtransiris.Beneficiary{
+				Name:    fmt.Sprintf("Supplier %d", account.SupplierID),
+				Account: account.AccountNumber,
+				Bank:    bank,
+			}, nil
+		},
+	})
+	paymentRouter := payments.NewProviderRouter(map[string]payments.ExecutionPort{
+		midtransiris.Provider: irisAdapter,
+		"midtrans-iris":       irisAdapter,
+		"midtransiris":        irisAdapter,
+		"iris":                irisAdapter,
+	})
+	paymentCoordinator := payments.NewCoordinator(paymentRouter, payments.NewPostgresStore(dbpool), payments.NewSeparationAuthorizer(automation.Settings{}))
+	financeAutomationOutbox := automation.NewOutboxRepository(dbpool)
+	if strings.EqualFold(strings.TrimSpace(cfg.ReleaseProfile), string(app.ReleaseProfileV011Finance)) {
+		treasuryService.SetExecutionEnqueuer(treasury.NewBatchExecutionEnqueuer(
+			treasuryRepo,
+			financeAutomationOutbox,
+			paymentCoordinator,
+			func(ctx context.Context, companyID, connectionID int64) (automation.ConnectionRef, error) {
+				conn, err := connectorsRepo.GetConnection(ctx, companyID, connectionID)
+				if err != nil {
+					return automation.ConnectionRef{}, err
+				}
+				return automation.ConnectionRef{CompanyID: conn.CompanyID, ConnectionID: conn.ID, Provider: conn.Provider}, nil
+			},
+		))
+	} else {
+		logger.Info("treasury live execution disabled by release profile", slog.String("release_profile", cfg.ReleaseProfile))
+	}
+	connectorsProcessor := connectors.NewInboxProcessor(connectorsRepo, connectorsRegistry, outboxRepo, logger)
 	connectorsHandler := connectors.NewWebhookHandler(connectorsProcessor)
 
-	connectorsService := connectors.NewService(connectors.NewRepository(dbpool), vault, connectorsRegistry)
+	connectorsService := connectors.NewService(connectorsRepo, vault, connectorsRegistry)
 	integrationHooks.SetConnectorsService(connectorsService)
 	connectorsAdminHandler := connectors.NewAdminHandler(connectorsService, logger, templates)
 

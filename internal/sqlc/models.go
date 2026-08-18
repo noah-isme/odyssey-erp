@@ -5740,23 +5740,25 @@ type TransferOrderLine struct {
 }
 
 type TreasuryPaymentBatch struct {
-	ID               int64              `json:"id"`
-	CompanyID        int64              `json:"company_id"`
-	ReferenceCode    string             `json:"reference_code"`
-	Status           string             `json:"status"`
-	Currency         string             `json:"currency"`
-	TotalAmount      pgtype.Numeric     `json:"total_amount"`
-	RevisionNumber   int32              `json:"revision_number"`
-	ProposedBy       int64              `json:"proposed_by"`
-	ApprovedBy       pgtype.Int8        `json:"approved_by"`
-	ApprovedAt       pgtype.Timestamptz `json:"approved_at"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
-	ExportedFileHash pgtype.Text        `json:"exported_file_hash"`
-	ExportedAt       pgtype.Timestamptz `json:"exported_at"`
-	ExportedBy       pgtype.Int8        `json:"exported_by"`
-	SettledAt        pgtype.Timestamptz `json:"settled_at"`
-	SettledBy        pgtype.Int8        `json:"settled_by"`
+	ID                  int64              `json:"id"`
+	CompanyID           int64              `json:"company_id"`
+	ReferenceCode       string             `json:"reference_code"`
+	Status              string             `json:"status"`
+	Currency            string             `json:"currency"`
+	TotalAmount         pgtype.Numeric     `json:"total_amount"`
+	RevisionNumber      int32              `json:"revision_number"`
+	ProposedBy          int64              `json:"proposed_by"`
+	ApprovedBy          pgtype.Int8        `json:"approved_by"`
+	ApprovedAt          pgtype.Timestamptz `json:"approved_at"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	ExportedFileHash    pgtype.Text        `json:"exported_file_hash"`
+	ExportedAt          pgtype.Timestamptz `json:"exported_at"`
+	ExportedBy          pgtype.Int8        `json:"exported_by"`
+	SettledAt           pgtype.Timestamptz `json:"settled_at"`
+	SettledBy           pgtype.Int8        `json:"settled_by"`
+	PaymentConnectionID pgtype.Int8        `json:"payment_connection_id"`
+	SourceBankAccountID pgtype.Int8        `json:"source_bank_account_id"`
 }
 
 type TreasuryPaymentBatchItem struct {

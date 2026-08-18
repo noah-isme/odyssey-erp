@@ -86,13 +86,15 @@ func (m *mockRepo) APInvoiceEligibleForPayment(_ context.Context, invoiceID, _ i
 
 func (m *mockRepo) CreatePaymentBatch(_ context.Context, input treasury.PaymentBatchCreate) (treasury.PaymentBatch, error) {
 	batch := treasury.PaymentBatch{
-		ID:             int64(len(m.batches) + 1),
-		CompanyID:      input.CompanyID,
-		ReferenceCode:  input.ReferenceCode,
-		Currency:       input.Currency,
-		ProposedBy:     input.ProposedBy,
-		Status:         "DRAFT",
-		RevisionNumber: 1,
+		ID:                  int64(len(m.batches) + 1),
+		CompanyID:           input.CompanyID,
+		ReferenceCode:       input.ReferenceCode,
+		Currency:            input.Currency,
+		ProposedBy:          input.ProposedBy,
+		PaymentConnectionID: input.PaymentConnectionID,
+		SourceBankAccountID: input.SourceBankAccountID,
+		Status:              "DRAFT",
+		RevisionNumber:      1,
 	}
 	m.batches = append(m.batches, batch)
 	return batch, nil
@@ -335,6 +337,15 @@ func (m *mockAP) MarkInvoicePaid(_ context.Context, invoiceID, _ int64, _ treasu
 	return nil
 }
 
+type executionEnqueuerFake struct {
+	called bool
+}
+
+func (f *executionEnqueuerFake) EnqueueBatchExecution(_ context.Context, companyID, batchID, _ int64) (treasury.ExecutionBatchResult, error) {
+	f.called = true
+	return treasury.ExecutionBatchResult{BatchID: batchID, CommandCount: 1, CommandIDs: []int64{companyID}}, nil
+}
+
 func TestServiceSettleBatch(t *testing.T) {
 	repo := &mockRepo{}
 	ap := &mockAP{}
@@ -352,5 +363,47 @@ func TestServiceSettleBatch(t *testing.T) {
 	}
 	if len(ap.paid) != 1 || ap.paid[0] != 99 {
 		t.Fatalf("expected AP invoice 99 to be marked paid, got %v", ap.paid)
+	}
+}
+
+func TestValidateLiveExecutionBoundaryRequiresProviderAndSourceAccount(t *testing.T) {
+	svc := treasury.NewService(&mockRepo{}, nil, slog.Default())
+	base := treasury.PaymentBatch{ID: 1, CompanyID: 7, Status: "APPROVED"}
+	if err := svc.ValidateLiveExecutionBoundary(base); err == nil {
+		t.Fatal("expected missing provider/source references to block execution")
+	}
+	connectionID, bankID := int64(11), int64(12)
+	base.PaymentConnectionID = &connectionID
+	base.SourceBankAccountID = &bankID
+	if err := svc.ValidateLiveExecutionBoundary(base); err != nil {
+		t.Fatalf("configured approved batch rejected: %v", err)
+	}
+	base.Status = "DRAFT"
+	if err := svc.ValidateLiveExecutionBoundary(base); err == nil {
+		t.Fatal("expected non-approved batch to block execution")
+	}
+}
+
+func TestServiceExecuteBatchEnqueuesAndMarksProcessing(t *testing.T) {
+	repo := &mockRepo{}
+	connectionID, bankID := int64(11), int64(12)
+	batch, _ := repo.CreatePaymentBatch(context.Background(), treasury.PaymentBatchCreate{
+		CompanyID: 1, ReferenceCode: "EXEC-1", Currency: "USD", ProposedBy: 4,
+		PaymentConnectionID: &connectionID, SourceBankAccountID: &bankID,
+	})
+	_, _ = repo.UpdatePaymentBatchStatus(context.Background(), treasury.PaymentBatchStatusUpdate{ID: batch.ID, Status: "APPROVED"})
+	enqueuer := &executionEnqueuerFake{}
+	svc := treasury.NewService(repo, nil, slog.Default())
+	svc.SetExecutionEnqueuer(enqueuer)
+	result, err := svc.ExecuteBatch(context.Background(), 1, batch.ID, 9)
+	if err != nil {
+		t.Fatalf("ExecuteBatch() error = %v", err)
+	}
+	if !enqueuer.called || result.CommandCount != 1 {
+		t.Fatalf("unexpected execution result: %+v called=%v", result, enqueuer.called)
+	}
+	updated, _ := repo.GetPaymentBatch(context.Background(), batch.ID)
+	if updated.Status != "PROCESSING" {
+		t.Fatalf("batch status = %q, want PROCESSING", updated.Status)
 	}
 }

@@ -3,6 +3,7 @@ package treasury
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -14,10 +15,11 @@ import (
 // PGRepository adapts generated treasury rows to the storage-neutral treasury port.
 type PGRepository struct {
 	queries *sqlc.Queries
+	pool    *pgxpool.Pool
 }
 
 func NewPGRepository(db *pgxpool.Pool) *PGRepository {
-	return &PGRepository{queries: sqlc.New(db)}
+	return &PGRepository{queries: sqlc.New(db), pool: db}
 }
 
 func (r *PGRepository) SupplierBelongsToCompany(ctx context.Context, supplierID, companyID int64) (bool, error) {
@@ -101,10 +103,12 @@ func (r *PGRepository) APInvoiceEligibleForPayment(ctx context.Context, invoiceI
 
 func (r *PGRepository) CreatePaymentBatch(ctx context.Context, input PaymentBatchCreate) (PaymentBatch, error) {
 	row, err := r.queries.CreateTreasuryPaymentBatch(ctx, sqlc.CreateTreasuryPaymentBatchParams{
-		CompanyID:     input.CompanyID,
-		ReferenceCode: input.ReferenceCode,
-		Currency:      input.Currency,
-		ProposedBy:    input.ProposedBy,
+		CompanyID:           input.CompanyID,
+		ReferenceCode:       input.ReferenceCode,
+		Currency:            input.Currency,
+		ProposedBy:          input.ProposedBy,
+		PaymentConnectionID: optionalInt(input.PaymentConnectionID),
+		SourceBankAccountID: optionalInt(input.SourceBankAccountID),
 	})
 	if err != nil {
 		return PaymentBatch{}, err
@@ -212,6 +216,37 @@ func (r *PGRepository) RemovePaymentBatchItem(ctx context.Context, id int64) err
 	return r.queries.RemoveTreasuryPaymentBatchItem(ctx, id)
 }
 
+// PaymentConnectionBelongsToCompany validates the provider connection before
+// a live batch can be executed. The company predicate is part of the query,
+// not just an application-side check.
+func (r *PGRepository) PaymentConnectionBelongsToCompany(ctx context.Context, connectionID, companyID int64) (bool, error) {
+	if r == nil || r.pool == nil || connectionID <= 0 || companyID <= 0 {
+		return false, nil
+	}
+	var exists bool
+	err := r.pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM connector_connections
+			WHERE id = $1 AND company_id = $2 AND LOWER(status) <> 'disabled'
+		)`, connectionID, companyID).Scan(&exists)
+	return exists, err
+}
+
+// SourceBankAccountBelongsToCompany validates the source account and currency
+// for the live payment boundary. Inactive accounts cannot fund new execution.
+func (r *PGRepository) SourceBankAccountBelongsToCompany(ctx context.Context, accountID, companyID int64, currency string) (bool, error) {
+	if r == nil || r.pool == nil || accountID <= 0 || companyID <= 0 {
+		return false, nil
+	}
+	var exists bool
+	err := r.pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM bank_accounts
+			WHERE id = $1 AND company_id = $2 AND is_active AND currency = $3
+		)`, accountID, companyID, strings.ToUpper(strings.TrimSpace(currency))).Scan(&exists)
+	return exists, err
+}
+
 func mapSupplierBankAccount(row sqlc.TreasurySupplierBankAccount) SupplierBankAccount {
 	account := SupplierBankAccount{
 		ID:                 row.ID,
@@ -273,6 +308,12 @@ func mapPaymentBatch(row sqlc.TreasuryPaymentBatch) (PaymentBatch, error) {
 	}
 	if row.SettledBy.Valid {
 		batch.SettledBy = int64Ptr(row.SettledBy.Int64)
+	}
+	if row.PaymentConnectionID.Valid {
+		batch.PaymentConnectionID = int64Ptr(row.PaymentConnectionID.Int64)
+	}
+	if row.SourceBankAccountID.Valid {
+		batch.SourceBankAccountID = int64Ptr(row.SourceBankAccountID.Int64)
 	}
 	return batch, nil
 }

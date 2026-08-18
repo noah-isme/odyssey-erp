@@ -1,8 +1,9 @@
 -- name: CreateTreasuryPaymentBatch :one
 INSERT INTO treasury_payment_batches (
-    company_id, reference_code, currency, proposed_by
+    company_id, reference_code, currency, proposed_by,
+    payment_connection_id, source_bank_account_id
 ) VALUES (
-    $1, $2, $3, $4
+    $1, $2, $3, $4, $5, $6
 ) RETURNING *;
 
 -- name: GetTreasuryPaymentBatch :one
@@ -11,8 +12,8 @@ SELECT * FROM treasury_payment_batches WHERE id = $1;
 -- name: UpdateTreasuryPaymentBatchStatus :one
 UPDATE treasury_payment_batches
 SET status = $2,
-    approved_by = $3,
-    approved_at = $4,
+    approved_by = COALESCE($3, approved_by),
+    approved_at = COALESCE($4, approved_at),
     updated_at = NOW()
 WHERE id = $1
 RETURNING *;

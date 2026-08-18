@@ -27,6 +27,7 @@ func (h *Handler) MountRoutes(r chi.Router) {
 	r.Delete("/batches/{id}/items/{item_id}", h.RemoveBatchItem)
 	r.Post("/batches/{id}/approve", h.ApproveBatch)
 	r.Post("/batches/{id}/export", h.ExportBatch)
+	r.Post("/batches/{id}/execute", h.ExecuteBatch)
 	r.Post("/batches/{id}/settle", h.SettleBatch)
 }
 
@@ -110,15 +111,23 @@ func (h *Handler) CreateBatch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var payload struct {
-		ReferenceCode string `json:"reference_code"`
-		Currency      string `json:"currency"`
+		ReferenceCode       string `json:"reference_code"`
+		Currency            string `json:"currency"`
+		PaymentConnectionID int64  `json:"payment_connection_id"`
+		SourceBankAccountID int64  `json:"source_bank_account_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		writeTreasuryError(w, http.StatusBadRequest, shared.ErrInvalidInput)
 		return
 	}
 
-	batch, err := h.service.CreatePaymentBatch(r.Context(), identity.CompanyID, payload.ReferenceCode, payload.Currency, identity.UserID)
+	var batch PaymentBatch
+	var err error
+	if payload.PaymentConnectionID > 0 || payload.SourceBankAccountID > 0 {
+		batch, err = h.service.CreatePaymentBatchConfigured(r.Context(), identity.CompanyID, payload.ReferenceCode, payload.Currency, payload.PaymentConnectionID, payload.SourceBankAccountID, identity.UserID)
+	} else {
+		batch, err = h.service.CreatePaymentBatch(r.Context(), identity.CompanyID, payload.ReferenceCode, payload.Currency, identity.UserID)
+	}
 	if err != nil {
 		writeTreasuryError(w, http.StatusBadRequest, err)
 		return
@@ -236,6 +245,25 @@ func (h *Handler) SettleBatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeTreasuryJSON(w, http.StatusOK, batch)
+}
+
+func (h *Handler) ExecuteBatch(w http.ResponseWriter, r *http.Request) {
+	identity, ok := shared.IdentityFromContext(r.Context())
+	if !ok {
+		writeTreasuryError(w, http.StatusUnauthorized, shared.ErrUnauthorized)
+		return
+	}
+	batchID, ok := treasuryParamID(r, "id")
+	if !ok {
+		writeTreasuryError(w, http.StatusBadRequest, shared.ErrInvalidInput)
+		return
+	}
+	result, err := h.service.ExecuteBatch(r.Context(), identity.CompanyID, batchID, identity.UserID)
+	if err != nil {
+		writeTreasuryError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeTreasuryJSON(w, http.StatusAccepted, result)
 }
 
 func treasuryParamID(r *http.Request, name string) (int64, bool) {

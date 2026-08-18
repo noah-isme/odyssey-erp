@@ -27,23 +27,25 @@ type PaymentPolicy struct {
 }
 
 type PaymentBatch struct {
-	ID               int64      `json:"id"`
-	CompanyID        int64      `json:"company_id"`
-	ReferenceCode    string     `json:"reference_code"`
-	Status           string     `json:"status"`
-	Currency         string     `json:"currency"`
-	TotalAmount      Amount     `json:"total_amount"`
-	RevisionNumber   int32      `json:"revision_number"`
-	ProposedBy       int64      `json:"proposed_by"`
-	ApprovedBy       *int64     `json:"approved_by,omitempty"`
-	ApprovedAt       *time.Time `json:"approved_at,omitempty"`
-	CreatedAt        time.Time  `json:"created_at"`
-	UpdatedAt        time.Time  `json:"updated_at"`
-	ExportedFileHash string     `json:"exported_file_hash"`
-	ExportedAt       *time.Time `json:"exported_at,omitempty"`
-	ExportedBy       *int64     `json:"exported_by,omitempty"`
-	SettledAt        *time.Time `json:"settled_at,omitempty"`
-	SettledBy        *int64     `json:"settled_by,omitempty"`
+	ID                  int64      `json:"id"`
+	CompanyID           int64      `json:"company_id"`
+	ReferenceCode       string     `json:"reference_code"`
+	Status              string     `json:"status"`
+	Currency            string     `json:"currency"`
+	TotalAmount         Amount     `json:"total_amount"`
+	RevisionNumber      int32      `json:"revision_number"`
+	ProposedBy          int64      `json:"proposed_by"`
+	ApprovedBy          *int64     `json:"approved_by,omitempty"`
+	ApprovedAt          *time.Time `json:"approved_at,omitempty"`
+	CreatedAt           time.Time  `json:"created_at"`
+	UpdatedAt           time.Time  `json:"updated_at"`
+	ExportedFileHash    string     `json:"exported_file_hash"`
+	ExportedAt          *time.Time `json:"exported_at,omitempty"`
+	ExportedBy          *int64     `json:"exported_by,omitempty"`
+	SettledAt           *time.Time `json:"settled_at,omitempty"`
+	SettledBy           *int64     `json:"settled_by,omitempty"`
+	PaymentConnectionID *int64     `json:"payment_connection_id,omitempty"`
+	SourceBankAccountID *int64     `json:"source_bank_account_id,omitempty"`
 }
 
 type PaymentBatchItem struct {
@@ -83,10 +85,12 @@ type SupplierBankAccountFilter struct {
 }
 
 type PaymentBatchCreate struct {
-	CompanyID     int64
-	ReferenceCode string
-	Currency      string
-	ProposedBy    int64
+	CompanyID           int64
+	ReferenceCode       string
+	Currency            string
+	ProposedBy          int64
+	PaymentConnectionID *int64
+	SourceBankAccountID *int64
 }
 
 type PaymentBatchStatusUpdate struct {
