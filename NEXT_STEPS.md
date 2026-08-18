@@ -18,13 +18,15 @@ and the newer-module role matrix remain integration work. Production certificati
 still open for the capabilities marked `no` or `partial` in the matrix.
 
 The latest implementation slice adds a versioned PostgreSQL payment-execution snapshot
-store, durable bank-file result/effect idempotency boundaries, bounded worker
-registration for `payment.result.import` (with live execution deliberately disabled),
-exact decimal treasury amounts, verified statement-transport ingestion, additional
-forecast source readers, deterministic v1 distribution route ordering and metrics,
-injectable CMMS predictive thresholds, and company/branch-aware RBAC middleware
-helpers. These are bounded foundations; live-provider wiring, confirmed
-cross-module accounting effects, and production evidence below remain open.
+store, durable bank-file result/effect idempotency boundaries, and bounded worker
+registration for `payment.result.import`. The next-release `v0.11-finance` profile now
+also wires Midtrans Iris execution and transaction-scoped AP/GL/bank settlement effects
+inside the isolated finance sandbox. Exact decimal treasury amounts, verified
+statement-transport ingestion, additional forecast source readers, deterministic v1
+distribution route ordering and metrics, injectable CMMS predictive thresholds, and
+company/branch-aware RBAC middleware helpers remain part of the bounded foundation.
+Provider contract evidence, recovery drills, operations views, and production evidence
+remain open.
 
 The v0.10.0 production claim is limited to AR/AP invoice and payment lifecycle,
 sales order and delivery, inventory movement and stock-take, document control
@@ -82,11 +84,12 @@ certification record](docs/releases/v0.10-core-staging-certification.md).
   access-review evidence. Profile enforcement, compatibility migration, access-review
   APIs, and exact scoped checks are implemented; remaining route adoption and newer
   module role coverage stay on the post-release backlog.
-- Complete the provider-neutral payment handoff beyond the bounded worker wiring:
-  certify live provider adapters, then connect confirmed settlement to AP/GL/tax/FX
-  effects and reconciliation. The worker currently registers only `payment.result.import`;
-  `payment.execute`/`payment.submit` remain disabled, and unsupported accounting effects
-  return a retryable error rather than claiming money was posted.
+- Complete the provider-neutral payment handoff beyond the isolated sandbox wiring:
+  certify the live provider adapter, recovery behavior, and confirmed settlement across
+  AP/GL/tax/FX effects and reconciliation. `payment.execute`/`payment.submit` remain
+  disabled outside `APP_ENV=finance-sandbox` with `RELEASE_PROFILE=v0.11-finance`, and
+  unsupported accounting effects continue to fail closed rather than claim money was
+  posted.
 - Close the remaining procurement, landed-cost, logistics, and distribution lifecycle
   gaps. Distribution now has deterministic v1 route ordering and metrics; freight still
   has an injectable exact journal-posting boundary, but application wiring and the full

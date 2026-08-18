@@ -347,27 +347,29 @@ The provider-neutral coordinator in `internal/finance/payments/` now covers exac
 proposal, approval, submission, settlement, cancellation, ambiguity lookup, and controlled
 export behind injectable persistence and provider ports. A versioned PostgreSQL JSONB
 execution store now provides the durable snapshot and optimistic-concurrency boundary.
-Production completion still requires live provider adapters, confirmed settlement
-effects in AP/accounting, operations pages, and sandbox certification. The worker
-composition now wires only the durable `payment.result.import` boundary; live
-execution remains disabled and the unsupported effects adapter fails closed so a
-result cannot claim that AP/GL/tax/FX/bank posting occurred. The payment/result outbox
-commands, ambiguous-outcome dead-letter policy, durable result inbox, and effect-key
-idempotency boundary remain provider-neutral.
+Production completion still requires provider contract evidence, confirmed settlement
+effects in AP/accounting, operations pages, recovery drills, and sandbox certification.
+The worker composes live execution and settlement effects only for the isolated
+`APP_ENV=finance-sandbox` / `RELEASE_PROFILE=v0.11-finance` profile; other profiles retain
+the durable `payment.result.import` boundary and fail closed so a result cannot claim
+that AP/GL/tax/FX/bank posting occurred. The payment/result outbox commands,
+ambiguous-outcome dead-letter policy, durable result inbox, and effect-key idempotency
+boundary remain provider-neutral.
 
 - [x] Define payment execution/result-import outbox commands, stable idempotency keys,
   handler registration, and a terminal ambiguous-outcome path that prevents blind
   resubmission.
 - [x] Compose the durable `payment.result.import` handler into the worker with
-  PostgreSQL execution/result stores; leave live execution unregistered until a
-  provider and accounting-effects adapter are certified.
-- [ ] Add a durable batch-item producer and certified provider adapter for live execution.
+  PostgreSQL execution/result stores and keep it available outside the finance sandbox.
+- [x] Add a durable batch-item producer and Midtrans Iris provider adapter for sandbox
+  execution, including restart-safe lookup and cancellation references.
 - [x] Add a company-scoped JSONB execution snapshot store with optimistic version checks.
 - [x] On timeout or retry, query provider status before any resubmission.
 - [x] Ingest partial, rejected, cancelled, failed, and settled provider results into a
   durable, company-scoped result inbox with immutable fingerprints.
-- [ ] Wire only confirmed settlement into AP payment/allocation, FX, tax, journal, and bank
-  reconciliation services, with no duplicate effects on callback replay.
+- [x] Wire confirmed settlement into AP payment/allocation, journal, and bank transaction
+  effects with no duplicate effects on callback replay; tax/FX/reconciliation integration
+  and sandbox evidence remain open.
 - [ ] Add payment operations pages and alerts for ambiguous, partial, failed, and unmatched
   settlement.
 
