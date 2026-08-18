@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -28,6 +30,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/awss3"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/dhl"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/midtrans"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/midtransiris"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/mockpay"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/oidc"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/openai"
@@ -42,6 +45,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/banking"
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/forecasting"
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/payments"
+	"github.com/odyssey-erp/odyssey-erp/internal/finance/treasury"
 	"github.com/odyssey-erp/odyssey-erp/internal/fixedassets"
 	fxservice "github.com/odyssey-erp/odyssey-erp/internal/fx"
 	"github.com/odyssey-erp/odyssey-erp/internal/notifications"
@@ -397,6 +401,51 @@ func main() {
 	connectorsRegistry.Register("awss3", awss3.NewAdapter(logger, vault, providerOptions))
 	connectorsRegistry.Register("midtrans", midtrans.NewAdapter(logger, vault, providerOptions))
 	connectorsRepo := connectors.NewRepository(pool)
+	treasuryRepo := treasury.NewPGRepository(pool)
+	irisAdapter := midtransiris.NewAdapter(logger, vault, midtransiris.Options{
+		ProviderOptions: providerOptions,
+		ConnectionResolver: func(ctx context.Context, ref automation.ConnectionRef) (*connectors.Connection, error) {
+			conn, err := connectorsRepo.GetConnection(ctx, ref.CompanyID, ref.ConnectionID)
+			if err != nil {
+				return nil, err
+			}
+			if conn.CompanyID != ref.CompanyID {
+				return nil, fmt.Errorf("midtrans iris: connection company mismatch")
+			}
+			return &conn, nil
+		},
+		ScopedBeneficiaryResolver: func(ctx context.Context, connection automation.ConnectionRef, ref string) (midtransiris.Beneficiary, error) {
+			const prefix = "bank-account:"
+			value := strings.TrimPrefix(strings.TrimSpace(ref), prefix)
+			accountID, parseErr := strconv.ParseInt(value, 10, 64)
+			if parseErr != nil || accountID <= 0 {
+				return midtransiris.Beneficiary{}, fmt.Errorf("invalid bank account reference")
+			}
+			account, accountErr := treasuryRepo.GetSupplierBankAccount(ctx, accountID)
+			if accountErr != nil {
+				return midtransiris.Beneficiary{}, accountErr
+			}
+			if account.CompanyID != connection.CompanyID {
+				return midtransiris.Beneficiary{}, fmt.Errorf("bank account is outside connection company scope")
+			}
+			bank := account.RoutingNumber
+			if strings.TrimSpace(bank) == "" {
+				bank = account.BankName
+			}
+			return midtransiris.Beneficiary{
+				Name:    fmt.Sprintf("Supplier %d", account.SupplierID),
+				Account: account.AccountNumber,
+				Bank:    bank,
+			}, nil
+		},
+	})
+	paymentRouter := payments.NewProviderRouter(map[string]payments.ExecutionPort{
+		midtransiris.Provider: irisAdapter,
+		"midtrans-iris":       irisAdapter,
+		"midtransiris":        irisAdapter,
+		"iris":                irisAdapter,
+	})
+	paymentCoordinator := payments.NewCoordinator(paymentRouter, payments.NewPostgresStore(pool), payments.NewSeparationAuthorizer(automation.Settings{}))
 	connectorsOutboxWorker := connectors.NewOutboxWorker(connectorsRepo, connectorsRegistry, connectors.WithOutboxWorkerLogger(logger))
 	connectorsService := connectors.NewService(connectorsRepo, vault, connectorsRegistry)
 	recoveryMetrics := observability.NewPaymentRecoveryMetrics(nil)
@@ -431,18 +480,20 @@ func main() {
 	bankingService := banking.NewService(bankingRepo, logger, nil)
 	bankfeedsService := bankfeeds.NewService(bankfeedsRepo, bankingService, nil)
 	bankFeedsProcessor := jobs.NewBankFeedsProcessor(bankfeedsService, logger)
+	financeAutomationOutbox := automation.NewOutboxRepository(pool)
 	financeAutomationDispatcher := automation.NewDispatcher(
-		automation.NewOutboxRepository(pool),
+		financeAutomationOutbox,
 		fmt.Sprintf("finance-worker-%d", os.Getpid()),
 		logger,
 	)
-	// v0.11 wires the durable result-import boundary only. No provider
-	// adapter or payment execution coordinator is registered until provider
-	// certification and confirmed accounting effects are available.
-	financeSettlementService := payments.NewPostgresSettlementService(pool)
-	if err := payments.RegisterPaymentExecutionHandlers(financeAutomationDispatcher, nil, financeSettlementService); err != nil {
-		logger.Error("register payment result-import handler", slog.Any("error", err))
-		os.Exit(1)
+	if strings.EqualFold(strings.TrimSpace(cfg.ReleaseProfile), string(app.ReleaseProfileV011Finance)) {
+		financeSettlementService := payments.NewPostgresSettlementService(pool, treasury.NewTreasurySettlementEffects())
+		if err := payments.RegisterPaymentExecutionHandlers(financeAutomationDispatcher, paymentCoordinator, financeSettlementService); err != nil {
+			logger.Error("register payment execution handlers", slog.Any("error", err))
+			os.Exit(1)
+		}
+	} else {
+		logger.Info("finance payment execution handlers disabled by release profile", slog.String("release_profile", cfg.ReleaseProfile))
 	}
 
 	forecastRepo := forecasting.NewPGRepository(pool)

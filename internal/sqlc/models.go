@@ -3893,6 +3893,50 @@ type PaymentRefund struct {
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
 
+type PaymentSettlementEffect struct {
+	ID          int64              `json:"id"`
+	CompanyID   int64              `json:"company_id"`
+	EffectKey   string             `json:"effect_key"`
+	ResultID    string             `json:"result_id"`
+	State       string             `json:"state"`
+	Fingerprint string             `json:"fingerprint"`
+	Payload     []byte             `json:"payload"`
+	AppliedAt   pgtype.Timestamptz `json:"applied_at"`
+}
+
+type PaymentSettlementEffectLink struct {
+	ID         int64              `json:"id"`
+	CompanyID  int64              `json:"company_id"`
+	EffectKey  string             `json:"effect_key"`
+	ResultID   string             `json:"result_id"`
+	LinkType   string             `json:"link_type"`
+	EntityType string             `json:"entity_type"`
+	EntityID   string             `json:"entity_id"`
+	Amount     pgtype.Numeric     `json:"amount"`
+	Currency   pgtype.Text        `json:"currency"`
+	Metadata   []byte             `json:"metadata"`
+	LinkedAt   pgtype.Timestamptz `json:"linked_at"`
+}
+
+type PaymentSettlementResult struct {
+	ID                 int64              `json:"id"`
+	CompanyID          int64              `json:"company_id"`
+	ResultID           string             `json:"result_id"`
+	ConnectionID       int64              `json:"connection_id"`
+	Provider           string             `json:"provider"`
+	InstructionType    string             `json:"instruction_type"`
+	InstructionID      string             `json:"instruction_id"`
+	ProviderObjectType string             `json:"provider_object_type"`
+	ProviderObjectID   string             `json:"provider_object_id"`
+	Status             string             `json:"status"`
+	State              string             `json:"state"`
+	EffectApplied      bool               `json:"effect_applied"`
+	Fingerprint        string             `json:"fingerprint"`
+	Payload            []byte             `json:"payload"`
+	RecordedAt         pgtype.Timestamptz `json:"recorded_at"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+}
+
 type PayrollAccountMapping struct {
 	CompanyID   int64  `json:"company_id"`
 	MappingType string `json:"mapping_type"`

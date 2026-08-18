@@ -25,15 +25,16 @@ const (
 )
 
 var (
-	ErrInvalidSettlementResult           = errors.New("finance payments: invalid settlement result")
-	ErrSettlementResultNotFound          = errors.New("finance payments: settlement result not found")
-	ErrDuplicateSettlementResult         = errors.New("finance payments: settlement result already recorded")
-	ErrSettlementResultConflict          = errors.New("finance payments: settlement result reference has different content")
-	ErrSettlementResultCompanyMismatch   = errors.New("finance payments: settlement result company mismatch")
-	ErrSettlementResultReferenceMismatch = errors.New("finance payments: settlement result reference mismatch")
-	ErrUnsupportedSettlementResult       = errors.New("finance payments: unsupported settlement result status")
-	ErrSettlementEffectConflict          = errors.New("finance payments: settlement effect key has different content")
-	ErrSettlementEffectNotApplied        = errors.New("finance payments: settlement effects were not applied")
+	ErrInvalidSettlementResult              = errors.New("finance payments: invalid settlement result")
+	ErrSettlementResultNotFound             = errors.New("finance payments: settlement result not found")
+	ErrDuplicateSettlementResult            = errors.New("finance payments: settlement result already recorded")
+	ErrSettlementResultConflict             = errors.New("finance payments: settlement result reference has different content")
+	ErrSettlementResultCompanyMismatch      = errors.New("finance payments: settlement result company mismatch")
+	ErrSettlementResultReferenceMismatch    = errors.New("finance payments: settlement result reference mismatch")
+	ErrUnsupportedSettlementResult          = errors.New("finance payments: unsupported settlement result status")
+	ErrSettlementEffectConflict             = errors.New("finance payments: settlement effect key has different content")
+	ErrSettlementEffectNotApplied           = errors.New("finance payments: settlement effects were not applied")
+	ErrSettlementEffectsTransactionRequired = errors.New("finance payments: settlement effects require a transaction-capable database")
 )
 
 // Common aliases make the boundary readable to callers that call the input a
@@ -204,6 +205,15 @@ func (r SettlementResult) Validate() error {
 		if err := r.ProviderFee.Validate(); err != nil {
 			return fmt.Errorf("%w: provider fee: %v", ErrInvalidSettlementResult, err)
 		}
+		if !r.ProviderFee.IsPositive() {
+			zero := r.ProviderFee.Amount.Sub(r.ProviderFee.Amount)
+			if r.ProviderFee.Amount.Cmp(zero) < 0 {
+				return fmt.Errorf("%w: provider fee must not be negative", ErrInvalidSettlementResult)
+			}
+		}
+		if hasExactAmount(r.SettledAmount) && r.ProviderFee.Currency != r.SettledAmount.Currency {
+			return ErrSettlementResultReferenceMismatch
+		}
 	}
 	return nil
 }
@@ -248,6 +258,43 @@ type SettlementEffectRequest struct {
 	CompanyID int64            `json:"company_id"`
 	EffectKey string           `json:"effect_key"`
 	Result    SettlementResult `json:"result"`
+	// Links identify durable financial records created by the accounting
+	// boundary (for example an AP payment, allocation, journal, or bank
+	// transaction). They are optional for compatibility with the original
+	// idempotency-only port; when present they are persisted atomically with
+	// the effect claim by PostgresSettlementEffects.
+	Links []SettlementEffectLink `json:"links,omitempty"`
+}
+
+// SettlementEffectLink is a provider-neutral source link. Entity IDs are
+// strings because AP, GL, bank, and tax records do not share one identifier
+// type. Amount is optional for records whose identity is sufficient (for
+// example a tax outbox item), but when supplied it is exact and non-negative.
+type SettlementEffectLink struct {
+	LinkType   string                 `json:"link_type"`
+	EntityType string                 `json:"entity_type"`
+	EntityID   string                 `json:"entity_id"`
+	Amount     automation.ExactAmount `json:"amount,omitempty"`
+	Metadata   map[string]any         `json:"metadata,omitempty"`
+}
+
+func (l SettlementEffectLink) Validate(result SettlementResult) error {
+	if strings.TrimSpace(l.LinkType) == "" || strings.TrimSpace(l.EntityType) == "" || strings.TrimSpace(l.EntityID) == "" {
+		return fmt.Errorf("%w: settlement effect link identity is required", ErrInvalidSettlementResult)
+	}
+	if !hasExactAmount(l.Amount) {
+		return nil
+	}
+	if err := l.Amount.Validate(); err != nil {
+		return fmt.Errorf("%w: settlement effect link amount: %v", ErrInvalidSettlementResult, err)
+	}
+	if !l.Amount.IsPositive() {
+		return fmt.Errorf("%w: settlement effect link amount must be positive", ErrInvalidSettlementResult)
+	}
+	if hasExactAmount(result.SettledAmount) && l.Amount.Currency != result.SettledAmount.Currency {
+		return ErrSettlementResultReferenceMismatch
+	}
+	return nil
 }
 
 // SettlementEffect is a compatibility alias for callers that use the shorter
@@ -266,6 +313,17 @@ func (e SettlementEffectRequest) Validate() error {
 	}
 	if e.Result.State != StatePartiallySettled && e.Result.State != StateSettled {
 		return fmt.Errorf("%w: effects require confirmed settlement", ErrInvalidSettlementResult)
+	}
+	seen := make(map[string]struct{}, len(e.Links))
+	for _, link := range e.Links {
+		if err := link.Validate(e.Result); err != nil {
+			return err
+		}
+		key := strings.Join([]string{link.LinkType, link.EntityType, link.EntityID}, "\x00")
+		if _, ok := seen[key]; ok {
+			return fmt.Errorf("%w: duplicate settlement effect link", ErrSettlementEffectConflict)
+		}
+		seen[key] = struct{}{}
 	}
 	return nil
 }
@@ -303,7 +361,7 @@ func (m *MemorySettlementEffects) ApplySettlementEffects(_ context.Context, requ
 	if err := request.Validate(); err != nil {
 		return SettlementEffectOutcome{}, err
 	}
-	fingerprint := settlementFingerprint(request.Result)
+	fingerprint := settlementEffectFingerprint(request)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.effects == nil {
@@ -670,6 +728,19 @@ func settlementInputFingerprint(input SettlementResultInput) string {
 
 func settlementFingerprint(result SettlementResult) string {
 	return hashJSON(result)
+}
+
+// settlementEffectFingerprint preserves compatibility with rows written by
+// the original effects adapter (which fingerprinted only the result), while
+// making caller-supplied durable links part of the idempotency identity.
+func settlementEffectFingerprint(request SettlementEffectRequest) string {
+	if len(request.Links) == 0 {
+		return settlementFingerprint(request.Result)
+	}
+	return hashJSON(struct {
+		Result SettlementResult       `json:"result"`
+		Links  []SettlementEffectLink `json:"links"`
+	}{Result: request.Result, Links: request.Links})
 }
 
 func hashJSON(value any) string {
