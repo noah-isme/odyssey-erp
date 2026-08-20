@@ -171,3 +171,44 @@ make midtrans-sandbox-certify
 The local contract does not replace merchant sandbox evidence for customer
 completion, provider expiry timing, bank-confirmed refunds, payout reports, or
 limited-production credentials.
+
+## v0.11 finance payment settlement recovery
+
+The isolated `finance-sandbox` worker also runs
+`finance:payment_recovery_scan` every five minutes when
+`APP_ENV=finance-sandbox` and `RELEASE_PROFILE=v0.11-finance`. This scan is
+separate from the legacy connector reconciliation alert sink. Its read-only
+projection covers:
+
+- `payment_executions` in `AMBIGUOUS`, `PARTIALLY_SETTLED`, or `FAILED`;
+- confirmed `payment_settlement_results` with unapplied effects or without a
+  linked bank reconciliation record after the configured threshold; and
+- `payment.execute`, `payment.submit`, and `payment.result.import` commands in a
+  stale `PROCESSING` lease or `DEAD_LETTERED` state.
+
+Cases are deduplicated by company, connection, provider-neutral instruction
+reference, and issue type. Notifications go only to active company-scoped
+administrators/finance operators and contain a safe status summary; provider
+payloads, credentials, beneficiary details, and raw error bodies are never
+copied into notifications. Repeated scans reuse the same notification key.
+
+The scan never submits, cancels, looks up, or replays a provider command. For an
+ambiguous execution, use the guarded operations workbench recovery action; the
+provider lookup must complete before a deliberate replay can be enqueued. For a
+failed result-effect import, retry the idempotent result-import command. Never
+declare settlement manually, edit an outbox row directly, or run a blind retry.
+
+The additional finance metrics are exposed on the internal worker listener:
+
+- `odyssey_finance_payment_execution_outcomes_total{provider,state}`;
+- `odyssey_finance_payment_ambiguous_age_seconds{provider}`;
+- `odyssey_finance_payment_unapplied_effects{provider,state}`;
+- `odyssey_finance_payment_unmatched_settlements{provider}`;
+- `odyssey_finance_payment_dead_letters_total{operation}`;
+- `odyssey_finance_payment_recovery_attempts_total{action,outcome}`;
+- `odyssey_finance_payment_recovery_success_total{action}`; and
+- `odyssey_finance_payment_provider_lookup_latency_seconds{provider}`.
+
+For certification, retain the metric capture, notification evidence, provider
+lookup trace, effect links, and previous-release rollback proof in the
+[v0.11 finance sandbox certification record](../releases/v0.11-finance-sandbox-certification.md).

@@ -1,6 +1,6 @@
 # Odyssey ERP Project Roadmap
 
-**Reviewed:** 2026-08-15
+**Reviewed:** 2026-08-20
 **Current candidate:** `v0.10.0-rc.6`
 **Release profile:** `v0.10-core`
 
@@ -125,10 +125,12 @@ The implementation handoff includes the cumulative profile/route boundary,
 verified statement-transport ingestion through the normalized banking importer,
 additional tax/payment/PO forecast readers, exact decimal treasury amounts, and
 durable payment-result/effect idempotency contracts. The current working tree now
-also wires live payment execution through a Midtrans Iris adapter and transaction-
-scoped AP, GL, and bank settlement effects. It is intentionally not part of
-`v0.10.0-rc.6` and is not a production claim: provider contract/sandbox evidence,
-tax/FX/reconciliation operations views, recovery drills, and isolated staging
+also wires live payment execution through a Midtrans Iris adapter, transaction-
+scoped AP/GL/tax/FX/bank settlement effects, a company-scoped payment operations
+workbench, and a read-only recovery scan with metrics and notifications. These
+changes are locally compile- and test-verified, but remain intentionally outside
+`v0.10.0-rc.6` and are not a production claim: provider contract/sandbox evidence,
+live accounting and reconciliation proof, recovery drills, and isolated staging
 evidence remain open. Keep those gates on the next-release line until evidence is
 recorded.
 

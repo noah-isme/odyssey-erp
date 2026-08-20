@@ -347,8 +347,8 @@ The provider-neutral coordinator in `internal/finance/payments/` now covers exac
 proposal, approval, submission, settlement, cancellation, ambiguity lookup, and controlled
 export behind injectable persistence and provider ports. A versioned PostgreSQL JSONB
 execution store now provides the durable snapshot and optimistic-concurrency boundary.
-Production completion still requires provider contract evidence, confirmed settlement
-effects in AP/accounting, operations pages, recovery drills, and sandbox certification.
+Production completion still requires provider contract evidence, live confirmation of
+the AP/accounting/tax/FX/bank effects, recovery drills, and sandbox certification.
 The worker composes live execution and settlement effects only for the isolated
 `APP_ENV=finance-sandbox` / `RELEASE_PROFILE=v0.11-finance` profile; other profiles retain
 the durable `payment.result.import` boundary and fail closed so a result cannot claim
@@ -367,11 +367,13 @@ boundary remain provider-neutral.
 - [x] On timeout or retry, query provider status before any resubmission.
 - [x] Ingest partial, rejected, cancelled, failed, and settled provider results into a
   durable, company-scoped result inbox with immutable fingerprints.
-- [x] Wire confirmed settlement into AP payment/allocation, journal, and bank transaction
-  effects with no duplicate effects on callback replay; tax/FX/reconciliation integration
-  and sandbox evidence remain open.
-- [ ] Add payment operations pages and alerts for ambiguous, partial, failed, and unmatched
-  settlement.
+- [x] Wire confirmed settlement into AP payment/allocation, journal, tax capture, FX, and
+  bank transaction effects with no duplicate effects on callback replay; live
+  reconciliation proof and sandbox evidence remain open.
+- [x] Add payment operations pages and alerts for ambiguous, partial, failed, and unmatched
+  settlement. The v0.11 worker scan is read-only, company-scoped, deduplicated, and
+  profile-gated; provider contract, accounting-effect, recovery-drill, and sandbox
+  evidence remain certification gates.
 
 **Exit:** Database-backed and sandbox tests prove exact equality across batch settlement,
 AP allocation, bank transaction, and GL cash movement in transaction/base currency.

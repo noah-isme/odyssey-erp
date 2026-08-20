@@ -15,10 +15,12 @@ to `RELEASE_PROFILE=v0.10-core` and migration ceiling `000124`.
 
 The workflow is manual-only. Dispatch it with a commit, branch, or tag in
 `candidate_ref`; the default is `staging`. Before building, it requires both
-`000127_payment_settlement_effect_links` migration files and verifies that the
-candidate's newest migration is `000127` or newer. It builds one immutable
-Linux artifact, records the profile and migration boundary, publishes checksums
-and an SPDX SBOM, and then uploads that exact artifact to the sandbox host.
+`000128_finance_payment_operations_permission` migration files and verifies that
+the candidate's newest migration is `000128` or newer. It runs the deterministic
+Midtrans Iris, payment recovery, settlement, metrics, and worker-handler contract
+tests before building one immutable Linux artifact, records the profile and
+migration boundary, publishes checksums and an SPDX SBOM, and then uploads that
+exact artifact to the sandbox host.
 
 Configure these secrets in the GitHub `finance-sandbox` environment:
 
@@ -44,7 +46,8 @@ Use a dedicated application root and database/Redis namespace:
     ├── bootstrap-admin
     ├── migrate
     ├── migrations/
-    └── web/
+    ├── web/
+    └── certification/
 ```
 
 Create `/opt/odyssey-finance-sandbox/.env` outside release directories. Keep
@@ -97,8 +100,27 @@ The sandbox profile exposes the v0.10 core routes plus the v0.11 finance
 automation routes. It is an evidence environment, not a production claim:
 keep `production-certified=no` until provider, accounting-effect, recovery,
 security, and operational evidence is complete. Preserve the artifact digest,
-migration status, provider test results, queue/worker logs, and rollback
-evidence with the finance certification record.
+migration status, provider test results, queue/worker logs, finance recovery
+metrics, and rollback evidence with the [v0.11 finance sandbox certification
+record](releases/v0.11-finance-sandbox-certification.md).
+
+The finance worker registers `finance:payment_recovery_scan` only when both
+`APP_ENV=finance-sandbox` and `RELEASE_PROFILE=v0.11-finance`. It scans
+`payment_executions`, `payment_settlement_results`, settlement effect links, and
+the finance automation outbox every five minutes. The scan is read-only with
+respect to payment state: it emits stable, company-scoped notifications for
+ambiguous, partial, failed, unapplied-effect, unmatched, stalled, and
+dead-letter cases, and never performs an automatic provider lookup or blind
+resubmission. An operator must use the guarded operations workbench to resolve
+the case.
+
+Before marking the deployment healthy, verify the worker metrics listener is
+reachable only on `127.0.0.1:9191` and retain output containing the finance
+payment execution, recovery-attempt, and provider-lookup metric families. The
+rollback drill must record the previous release target, restore that exact
+artifact, verify web/worker health, then restore the candidate and repeat the
+health and metric checks. Do not run an untested down migration against the
+sandbox database.
 
 Before enabling a live batch, provision a company-scoped active source bank
 account with a GL account, an `AP / ap.payment.ap` mapping, an open accounting

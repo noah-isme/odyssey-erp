@@ -1,6 +1,6 @@
 # Odyssey ERP: Next Steps and Release Decision Guide
 
-**Reviewed:** 2026-08-14
+**Reviewed:** 2026-08-20
 
 **Release profile:** `v0.10-core` (the bounded v0.10.0 scope)
 
@@ -25,8 +25,10 @@ inside the isolated finance sandbox. Exact decimal treasury amounts, verified
 statement-transport ingestion, additional forecast source readers, deterministic v1
 distribution route ordering and metrics, injectable CMMS predictive thresholds, and
 company/branch-aware RBAC middleware helpers remain part of the bounded foundation.
-Provider contract evidence, recovery drills, operations views, and production evidence
-remain open.
+The operations workbench, guarded recovery actions, read-only recovery scan, and
+bounded recovery metrics are now implemented and locally verified. Provider contract
+evidence, live accounting/tax/FX/bank reconciliation proof, recovery drills, and
+production evidence remain open.
 
 The v0.10.0 production claim is limited to AR/AP invoice and payment lifecycle,
 sales order and delivery, inventory movement and stock-take, document control
@@ -86,10 +88,10 @@ certification record](docs/releases/v0.10-core-staging-certification.md).
   module role coverage stay on the post-release backlog.
 - Complete the provider-neutral payment handoff beyond the isolated sandbox wiring:
   certify the live provider adapter, recovery behavior, and confirmed settlement across
-  AP/GL/tax/FX effects and reconciliation. `payment.execute`/`payment.submit` remain
-  disabled outside `APP_ENV=finance-sandbox` with `RELEASE_PROFILE=v0.11-finance`, and
-  unsupported accounting effects continue to fail closed rather than claim money was
-  posted.
+  AP/GL/tax/FX effects and reconciliation. The operations workbench and notification
+  scan are present, but `payment.execute`/`payment.submit` remain disabled outside
+  `APP_ENV=finance-sandbox` with `RELEASE_PROFILE=v0.11-finance`, and unsupported
+  accounting effects continue to fail closed rather than claim money was posted.
 - Close the remaining procurement, landed-cost, logistics, and distribution lifecycle
   gaps. Distribution now has deterministic v1 route ordering and metrics; freight still
   has an injectable exact journal-posting boundary, but application wiring and the full
