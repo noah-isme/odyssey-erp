@@ -1,102 +1,102 @@
-# Graph Report - odyssey-erp  (2026-08-09)
+# Graph Report - odyssey-erp  (2026-08-22)
 
 ## Corpus Check
-- 1370 files · ~856,875 words
+- 1522 files · ~991,268 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 17107 nodes · 34176 edges · 1241 communities (1154 shown, 87 thin omitted)
-- Extraction: 94% EXTRACTED · 6% INFERRED · 0% AMBIGUOUS · INFERRED: 1945 edges (avg confidence: 0.78)
+- 19273 nodes · 39951 edges · 1297 communities (1210 shown, 87 thin omitted)
+- Extraction: 94% EXTRACTED · 6% INFERRED · 0% AMBIGUOUS · INFERRED: 2504 edges (avg confidence: 0.78)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `2a625309`
+- Built from commit: `2f7df891`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - models.go
 - Context
-- Decimal
+- Handler
 - .Scan
 - Context
-- ARInvoice
+- warehouses
 - Context
 - Handler
 - Context
+- ap/repository.go
 - Context
+- 000055_horizon_mvp_foundation.up.sql
 - Context
-- users
-- Middleware
 - Repository
 - mrp_work_order_operations
 - Context
-- ARCreditNote
+- Handler
 - WriteErrorStatus
-- companies
-- Service
+- 000011_phase9_1_sales_quotation_so.up.sql
+- PermissionsHandler
 - Context
 - Cache
 - Context
 - Context
 - memoryRepo
 - Context
-- .processRows
+- ARInvoice
 - main.js
 - Repository
 - regression_test.go
 - Service
-- UserSafeMessage
-- tasks.go
+- SessionFromContext
+- Repository
 - Service
 - Context
 - Repository
 - Service
-- Handler
-- Context
-- Task
+- ApplyPaymentTransition
+- freight.sql.go
+- settlement.go
 - boardpack.sql.go
-- Handler
-- Service
+- WriteHTTPError
+- Settlement
 - Repository
 - Context
 - Handler
 - Service
 - Context
 - Repository
-- Handler
 - Context
 - Context
-- asynq_server.go
+- DashboardPayload
+- cmms/domain.go
 - Handler
 - Quote
 - memoryRepo
-- NewRegistry
+- ConnectionStatus
 - storeFake
 - repositoryImpl
-- ResponseWriter
+- Parse
 - Service
 - Settings
 - odyssey/main.go
 - Context
 - Handler
-- Service
-- products
+- LogisticsRepository
+- MustDecimal
 - MockRepository
 - Engine
-- Handler
+- IdentityFromContext
 - Context
 - catalog.go
-- procurement/domain.go
+- fakeDistributionRepository
 - Context
-- Handler
-- logistics/repository.go
+- JSONResponse
+- users
 - Context
 - Context
 - accounts
 - freightService
-- SourcingService
-- BalanceSheetHandler
+- Service
+- ExternalReference
 - Context
 - Repository
 - main
@@ -104,109 +104,109 @@
 - PostingInput
 - qms/domain.go
 - Repository
-- NewPDFExporter
-- Context
+- Handler
+- Task
 - 000040_p1_ar_credit_notes_and_returns.up.sql
 - 000046_payroll_engine.up.sql
 - Handler
 - serviceRepo
 - Repository
-- Handler
+- Middleware
 - Context
 - Status
-- cache.go
+- service_bs.go
 - Context
 - Repository
 - boardpack/storage.go
-- cmms/domain.go
+- UUID
 - Handler
 - Handler
-- freight/repository.go
+- products
 - Context
-- 000011_phase9_1_sales_quotation_so.up.sql
+- ContractRepository
 - Template
 - Handler
 - Hooks
 - ComplianceGate
 - Handler
-- Context
+- Connection
 - variance.sql.go
-- ExternalReference
+- Context
 - NewFXOpsCLI
 - Repository
-- postgresRepository
-- LogisticsRepository
-- Service
-- NewOrchestrator
 - Context
-- docs/README.md
+- connectors/service.go
+- Service
+- 000083_cmms_qms_tables.up.sql
+- Context
+- INDEX.md
 - Repository
 - consol.sql.go
 - qms.sql.go
-- Text
-- APDebitNote
+- PGRepository
+- integrationShipmentGateway
 - MiddlewareStack
-- SessionFromContext
-- Vault
+- Handler
+- distribution/handler.go
 - Service
 - documents/domain.go
 - Context
-- Status
+- settlementServiceFixture
 - Repository
 - Handler
 - Repository
-- WriteHTTPError
+- Handler
 - NewEngine
 - TxRepository
 - Service
 - validators.go
-- Parse
+- Repository
 - connectors_payments.sql.go
-- ap/service_test.go
-- UUID
+- DebitNotePDFRenderer
+- ARCreditNote
 - TestServiceCRUD
 - TestServiceCRUD
 - TestServiceCRUD
-- Connection
-- DistributionRepository
-- 000055_horizon_mvp_foundation.up.sql
-- DashboardPayload
+- Adapter
+- distribution/repository.go
+- TestAdapterSignatureAndShipmentContract
+- Context
 - PGRepository
-- midtrans/adapter_test.go
+- postgresRepository
 - TestServiceCRUD
 - TestServiceCRUD
 - TestServiceCRUD
 - TestServiceCRUD
 - storeFake
-- qms/service.go
+- 000048_tax_compliance.up.sql
 - seed/main.go
 - Context
 - .New
 - Service
-- fx_ar_ap_integration_test.go
+- Context
 - serviceRepo
 - Handler
-- Handler
+- ProfitLossHandler
 - notifications/dispatcher.go
 - distribution/domain.go
-- Line
+- Service
 - Service
 - mrp/handlers.go
 - Handler
 - search.go
 - inventory_enhancements.sql.go
 - Phase 9.2 Repository Layer - Completion Summary
-- 000048_tax_compliance.up.sql
+- freight/repository.go
 - datatable/index.js
 - upload/index.js
 - Context
 - Context
 - Service
-- JobsCLI
-- newTestHandler
+- companies
+- midtransiris/adapter.go
 - BuildBudgetVsActual
-- Validate
-- .Serve
+- Context
+- Context
 - Context
 - logistics/domain.go
 - ProductionExecutor
@@ -223,18 +223,18 @@
 - SQLRepository
 - inventory.sql.go
 - Handler
-- Snapshot
-- warehouses
+- Amount
+- memoryProcRepo
 - combobox/index.js
-- RouterParams
+- ExactAmount
 - Handler
 - close/http/handler.go
-- Handler
+- forecasting/service.go
 - delivery/orders/dto.go
 - inventory/service_test.go
 - ScheduleFinite
 - Handler
-- mail.go
+- NewPDFExporter
 - Service
 - Context
 - Phase 9: Sales & Delivery RBAC Permissions Setup
@@ -243,9 +243,9 @@
 - slideout/index.js
 - table-edit/index.js
 - Scope
-- analytics/http/handlers_test.go
+- PaymentOperation
 - insights/service.go
-- NewHooks
+- .ApplySettlementEffectsTx
 - Service
 - Metrics
 - memoryRepo
@@ -253,30 +253,30 @@
 - Delivery Order - Inventory Integration
 - datepicker/index.js
 - lookup/index.js
-- Handler
+- OutboxCommand
 - Service
 - PGRepository
-- Handler
+- NewSessionManager
 - fx_backfill.go
 - Phase 6: Freight Finance - Implementation Guide
 - Service
-- Context
+- ReportingDataset
 - PaymentBatch
 - calculator.go
 - SourcingRepository
 - TreasuryPaymentBatch
 - E2ETestSuite
-- fx_daily_rates_test.go
+- recovery.go
 - sidebar/index.js
 - tabs/index.js
-- ContextWithSession
+- RbacAccessReview
 - mockRepo
 - Builder
-- stubCloseService
-- connectors/service.go
+- BatchExecutionEnqueuer
+- Handler
 - Handler
 - freight/domain.go
-- Handler
+- Context
 - writeBSCsv
 - BOM
 - Dispatcher
@@ -288,276 +288,276 @@
 - Service
 - Handler
 - Handler
-- Handler
+- PGRepository
 - CanonicalEvent
 - Handler
 - Handler
 - Handler
 - Handler
 - Handler
-- .Run
+- Service
 - SignatureChallengeService
 - Handler
 - SQLRepository
-- NewService
 - memoryRepo
+- Time
 - AnomalyScanJob
 - toast/index.js
-- Limit
+- loadCanonicalRecordSnapshot
 - ParseCSV
 - NewLocalStorage
-- variance/repository.go
+- Handler
 - Service
 - Delivery Order - Inventory Integration
-- ExactAmount
-- Handler
-- Converter
+- ExpectedCashFlow
+- PGRepository
+- APDebitNote
 - Must
 - BuildCashFlow
 - NewService
-- qms/repository.go
-- Handler
+- BalanceSheetHandler
+- NewRegistry
 - Service
 - procurement_scorecards.sql.go
-- Int8
+- NewRouter
 - ConsolidateRefreshJob
 - InsightsWarmupJob
 - header/index.js
 - PermissionChecker
-- NewService
+- NewAdapter
 - AuditTimelineAllRow
 - Service
 - newAuditHandler
 - insights.sql.go
 - .FindOpenPeriodByDate
 - Adapter
-- NewAdapter
+- Adapter
 - planning.go
 - memoryStore
 - Service
 - ContractService
 - Reporting and Administration Depth Execution Plan
 - Text
-- Context
-- ApException
-- storage/storage.go
+- Text
+- JobsCLI
+- ConsolBalanceByTypeQueryRow
 - NewHandler
 - NewService
-- Handler
+- bankfeeds/service.go
 - Service
 - theme/index.js
 - ODYSSEY ERP: PRODUCTION DEPLOYMENT GUIDE
 - approvals/service_test.go
-- Odyssey ERP — Future Roadmap & Recommendations
+- Odyssey ERP Architecture
 - import.go
-- documents/service.go
-- elimination/domain.go
-- Service
 - GLPostingService
-- .CalculateFreight
-- ProviderConfig
+- qms/repository.go
+- Service
 - Handler
-- timestamptzToTime
-- Adapter
-- Adapter
+- PaymentRecoveryMetrics
+- elimination/domain.go
+- Handler
+- NewService
+- Handler
+- PaymentReconciliationService
 - Repository
 - .DecideDecision
 - governance_domain.go
 - Repository
 - calculator_test.go
-- setupTestDB
+- contracts_domain.go
 - internal/shared/errors.go
-- NewSessionManager
+- qms/service.go
 - auth_users.sql.go
 - Int8
-- Int4
+- procurement/domain.go
 - Handler
 - NewService
-- mockRepo
-- api/handler.go
-- Phase 9.2 Final Implementation Summary
+- ap/service_test.go
+- variance/repository.go
+- stubCloseService
 - TimelineStorageRow
-- PGRepository
+- ContextWithSession
 - Repository
 - Repository
 - Repository
 - TestConsolidateRefreshJob
-- NewFreightService
+- Handler
 - newInsightsHandler
 - Service
-- Cache
+- tasks.go
 - Repository
 - Repository
 - Repository
 - Repository
 - RecordSnapshotService
-- documents.sql.go
+- ap/domain.go
 - TreasurySupplierBankAccount
-- S3Storage
+- midtrans/client.go
 - delivery-order/index.js
 - quotation-form/index.js
 - sales-order/index.js
 - governance.js
 - approvals/domain.go
-- newMockRepo
-- CSRFManager
-- forecastRepoFake
+- Converter
+- Handler
+- viewmodel_plbs.go
 - RBAC Testing Checklist - Sales & Delivery Permissions
-- BuildTrialBalance
-- MountRoutes
+- PredictiveAnomaly
+- InventoryAdapter
 - Metrics
-- NewHandler
+- ManufacturingAnalytics
 - Channels
-- Repository
-- NewService
+- certification_test.go
+- ReleaseProfile
 - Manufacturing Governance System - Quick Start Guide
 - ApprovalRecorder
 - Timestamptz
 - InsertOutboxEventParams
-- LocalStorage
+- Odyssey ERP Documentation
 - CoretaxService
 - Product Workflow Depth Execution Plan
 - Phase 6: Freight Finance - Optimization Complete
 - Handler
-- Repository
-- Context
-- TimelineRow
-- OutboxWorker
-- distribution/repository.go
+- Handler
 - Service
-- JSONResponse
+- TimelineRow
+- bank_accounts
+- Service
+- Service
+- http.go
 - NewClient
-- Context
+- ReturnDeliveryInfo
 - ODYSSEY ERP: PHASE 3 + 3B + 4 — COMPLETE SESSION SUMMARY ✅
-- Context
+- OutboxWorker
 - NewExceptionService
 - staging_gates_test.go
 - AsynqOptions
-- Context
+- .ImportStatement
 - memoryRepo
 - Core Finance Automation Plan
 - AccountingBudget
 - CheckDuplicateInvoiceRow
 - modal/index.js
-- DebitNotePDFRenderer
+- NewMockRepository
 - WalkRoutes
-- Service
-- Service
-- Repository
-- OutboxCommand
-- stubRows
+- procurement/service.go
+- Limit
+- logisticsDistributionGateway
+- PGRepository
+- Handler
 - Sales Module - Unit & Integration Tests
 - DeliverableSOLine
 - Phase 9.2 Integration Tests Documentation
 - memoryEventStore
 - Manufacturing Governance System - Final Completion Report
-- cmms.sql.go
+- Service
 - Cross-Module Permission Dependencies
 - RBAC Quick Start Guide - Sales & Delivery
-- 000112_reporting_administration_phase0.up.sql
-- Handler
-- StockAdjustment
-- Handler
-- StorageAdapter
-- Job
-- OverrideInput
-- .InsertLegalHold
-- .buildViewModel
-- midtrans/client.go
-- Adapter
-- shopify/client.go
+- APException
 - NewService
-- HandleReportScheduleScanTask
-- bank_accounts
-- NewDecisionSubmissionHandler
-- validators_test.go
-- CMMS, QMS, and Document Management Execution Plan
-- PayslipProcessor
-- authorizedRequest
-- GetInboundHistoryRow
-- VarianceRow
-- ui_contracts_test.go
-- crm_opportunities
+- NewPostgresStore
 - Handler
-- AgingFilter
-- .DeliverDue
+- Handler
+- Odyssey ERP: Agent Configuration & Guidelines
+- forecastRepoFake
+- Adapter
+- .buildViewModel
+- .Bars
+- shopify/client.go
+- Adapter
+- newTestHandler
+- TrendFilter
+- crmRequest
+- midtrans/adapter_test.go
+- NewDispatcher
+- CMMS, QMS, and Document Management Execution Plan
+- OperationsHandler
+- ADR-002: Server-Side Rendering over SPA
+- GetInboundHistoryRow
+- gotenbergPDFClient
+- ui_contracts_test.go
+- MustParseExact
+- .Extract
+- ADR-003: sqlc over ORM
+- ADR-004: Asynq for Background Jobs
 - NotificationAdapter
-- Operations
-- Money
-- connector_connections
+- Integration Points
+- 000118_mrp_compliance_hardening.up.sql
+- NewOrchestrator
 - Odyssey ERP - Complete Status Report
 - Odyssey ERP Frontend UI Audit
 - ComplianceGateService
-- .GetSPCChart
-- IdempotencyStore
-- memoryProcRepo
-- core/store.js
-- handler_edges_test.go
-- CreditNotePDFRenderer
-- Exporter
-- crmRequest
-- Service
-- gotenbergPDFClient
+- Context
+- LoadConfig
+- ADR-005: Gotenberg for PDF Reports
+- .CalculateFreight
+- Cache
+- validators_test.go
+- ADR-006: Manual Dependency Injection
+- Snapshot
+- documents.sql.go
+- ADR-007: UUID Primary Keys
 - Manufacturing Governance Implementation - Complete Summary
-- .CreateARPostingJournalTx
+- Line
 - Repository
 - processPaymentCaptured
-- forecasting/repository.go
+- PGRepository
 - LineMulti
 - GetAccountsRow
-- UUID
+- ADR-008: Decimal Type for Financial Data
 - Status: PRODUCTION-READY ✅
 - .RolesCreateRole
 - CreateSessionParams
 - Repository
 - CashForecastProcessor
-- HandleCMMSPMGeneratorScanTask
+- setupTestDB
 - 000102_finance_supplier_controls.up.sql
-- .postCreditNote
+- StatementArtifact
 - RegisterOutboxHandlers
 - inventory/domain.go
 - RBAC Deployment Checklist - Phase 9.2
 - NotificationAdapter
-- documents/repository.go
-- valueOrZero
+- NewDecisionSubmissionHandler
+- fx_ar_ap_integration_test.go
 - JournalEntry
-- Repository
-- stubRepo
+- AgingFilter
+- ADR-009: Dark Theme as Default
 - Functional Testing
 - leaveAuditFake
 - NewOutboxDispatcher
-- procurement/service.go
-- rbac/domain.go
+- NewServiceWithDependencies
+- AccessReview
 - Phase 9 High Priority Tasks - COMPLETION REPORT
 - SalesOrder
-- Quotation
+- ADR-0002: Role-Based Access Control
 - NewService
 - db.go
 - What You Must Do When Invoked
 - PrivacyService
 - Phase 3: Vendor Intelligence - COMPLETE & INTEGRATED ✅
-- ap_invoice.go
-- cost_centers
+- IdempotencyStore
+- ADR-010: Valkey over Redis
 - phase4/main.go
-- cmms_iot_sensors
+- Exporter
 - alertScenario
-- audit/service_test.go
-- Adapter
+- permissionsHandlerRouter
+- Handler
 - Phase 3: Vendor Intelligence - Completed
-- ComputeElimination
-- runFXCommand
+- PayslipProcessor
+- Handler
 - alerts_test.go
-- NewRepository
-- NewService
-- ap/domain.go
+- crm_opportunities
+- analytics/http/handlers_test.go
+- Document Guide
 - ListUsersRow
 - 000101_finance_cash_forecast.up.sql
 - tax_compliance_constraints_test.go
 - Client
 - landing.js
-- APException
+- ui/contracts.go
 - Test Accounts - Odyssey ERP
-- mrp/handlers_test.go
+- ProviderOptions
 - mappings/repository_test.go
 - http/export_test.go
 - External Integrations Plan
@@ -567,27 +567,27 @@
 - Threat Model: Documents, CMMS, and QMS Modules
 - RegisterOutboxHandlers
 - TestSourcingAndLogisticsScopesAreUniqueAndComplete
-- InsertDocumentCategoryParams
+- logistics/repository.go
 - .GetOpenPeriodByDate
-- CreateSPCSampleParams
+- Money
 - RefreshFinancialViews
 - 000091_qms_ate_lims.up.sql
 - crm_constraints_test.go
 - payroll_constraints_test.go
 - main_test.go
 - Account
-- .CreateLoad
-- NewService
-- ui/contracts.go
+- Distribution planning and load execution
+- Odyssey ERP v0.7.0 — Phase 7 Final Release Notes
+- Handler
 - Period
 - periods/repository_test.go
 - PHASE 4: TRANSPORT EXECUTION — FOUNDATION COMPLETE ✅
-- runtime.go
+- audit/service_test.go
 - Setup Database dengan Docker (Alternatif Mudah)
 - New
 - authz_sales_delivery.go
 - Running Odyssey ERP Without Docker
-- tax/export.go
+- NewService
 - RunGLIntegrityCheck
 - HandleOutboxSweep
 - 000068_mrp_bom_revisions.up.sql
@@ -604,12 +604,12 @@
 - Customer
 - .MountRoutes
 - .CompanyBaseCurrencies
-- TestBudgetPeriod
+- stubRepo
 - .MountRoutes
 - AccountMapping
 - Manufacturing Governance System - Complete Implementation
 - mime.go
-- TestRenderBlueprintParses
+- ap_invoice.go
 - .ToDeliveryOrder
 - TestImportCSVTracksDuplicatesAndUnknownEmployees
 - TestTypesAndOwnRequestsMapRows
@@ -627,11 +627,11 @@
 - .MountRoutes
 - .validate
 - TestPublishRequestValidate
-- TestDecemberAnnualPPh21Reconciliation_BLOCKED_RELEASE
+- CalculateAnnualPPh21
 - .MountRoutes
 - .MountRoutes
-- Repository
-- TestExternalCoretaxValidatorAndGLReconciliation_BLOCKED_RELEASE
+- NewOperationsHandler
+- runFXCommand
 - TestSourceDigestIsStableAndSourceSpecific
 - User
 - 000089_route_optimization.up.sql
@@ -657,9 +657,9 @@
 - warehouses/dto.go
 - ODYSSEY ERP: COMPLETE SESSION — PHASES 3, 3B, 4, 5 ✅
 - Phase 3b: Testing & Integration - COMPLETE ✅
-- .MountRoutes
+- mockRepo
 - Repository
-- Text
+- cmms.md
 - helpers.go
 - 000024_document_sequences.up.sql
 - check-docs.sh
@@ -672,10 +672,10 @@
 - Manufacturing Governance - Documentation Index
 - Manufacturing Governance Execution Plan - Detailed Implementation Guide
 - PATH B COMPLETE: PRODUCTION READY SYSTEM ✅
-- PGRepository
+- Repository
 - Migration Rehearsal Plan: Documents, CMMS, and QMS Modules
 - Manufacturing Governance Execution Plan
-- MonthlyNetRevenueRow
+- BranchContributionRow
 - Phase 3: Vendor Intelligence - COMPLETE ✅
 - Manufacturing Governance Implementation - Session Summary
 - analytics.sql.go
@@ -684,31 +684,31 @@
 - Procurement & Logistics Implementation Progress Report
 - Testing Plan – Phase 9 (Sales & AR)
 - Release v0.9.0 — Phase 9: Sales & AR Complete
-- NewHandler
-- ODYSSEY ERP: NEXT STEPS & DECISION GUIDE
+- Odyssey ERP
+- VarianceRow
 - Odyssey ERP Design System
 - Cycle 9.1 – Quotation & Sales Order Testing
 - Security Guide
 - Odyssey ERP
 - Getting Started - Odyssey ERP
-- NewHandler
+- OverrideInput
 - [Phase 9.3] - 2024-01-15
 - Phase 3: Vendor Intelligence - Session Summary
 - Manufacturing Governance - Quick Start Guide
 - Troubleshooting
-- Odyssey ERP Version and Progress Report
-- NewClient
-- RespondError
+- Detailed version reports
+- asynq_server.go
+- ADR-001: Modular Monolith over Microservices
 - Finance Operations Runbook (Phase 6 Final)
 - Phase 9 – Sales & Accounts Receivable (AR)
 - Production Deployment
 - Cycle 9.2 – Delivery & Fulfillment Testing
 - Cycle 9.3 – AR Invoice & Payment Testing
 - Testing Guide
-- Implementation changes
+- Procurement and Logistics Depth Execution Plan
 - 🚀 Completed Work
-- Service
-- banking/service_edges_test.go
+- ADR-012: CSS Custom Properties over Utility Framework
+- Int8
 - Completed Features
 - 🔧 Implementation Steps
 - Cycle 9.3 – AR Invoice & Payment
@@ -717,16 +717,16 @@
 - banking/contracts.go
 - Consolidated P&L / Balance Sheet Runbook
 - Phase 9.2 Service Layer - Completion Summary
-- Deliverables Summary
+- Phase 9.2 Final Implementation Summary
 - Cycle 9.2 – Delivery & Fulfillment
 - Staging Deployment
 - Security Checklist – Phase 9 (Sales & AR)
-- Odyssey ERP Documentation
-- automation/repository_test.go
-- ListSalesOrdersRequest
+- v0.10.0 — bounded core release
+- Result
+- PaymentBatchItem
 - Repository Guidelines
 - archive/README.md
-- Test Scenarios
+- TestPaymentReconciliationOperationsMigrationHasDurableRecoveryState
 - Phase 9.2 Kickoff – Delivery Order & Fulfillment
 - 2. Test Suite
 - Phase 9 - Delivery Order Module - Deployment Readiness
@@ -735,23 +735,23 @@
 - Test Scenarios
 - Phase 9.2 Integration Tests Documentation
 - Phase 9.2 PDF Generation Documentation
-- ADR-0002: Role-Based Access Control
-- Manufacturing Governance - Visual Execution Map
-- SQLRepository
+- ADR/README.md
+- File Inventory (33 Total)
+- Decimal
 - ADR-0014: Repository-Owned Persistence and HTTP Error Boundaries
-- NewBudgetRepository
+- handler_edges_test.go
 - graphify reference: extra exports and benchmark
 - Disaster Recovery & Business Continuity
 - Cycle 9.1 – Quotation & Sales Order (In Progress)
 - Behavioral fixtures for mutating routes — Framework + Tier 1 (master data)
-- File Inventory (33 Total)
-- Phase 3: Mandatory Prerequisites (8 Decision Points)
-- Phase 6: Testing & Validation (8 Test Suites)
+- runtime.go
+- Vault
+- NewHandler
 - Runbook – Board Pack Pipeline
 - Tax Staff Note: Coretax Schema Validation and Release Sign-off
 - Default Account Mapping
 - Finance Observability SLO/SLA
-- Odyssey ERP - Quick Reference
+- Odyssey ERP: Developer Setup & Contribution Guide
 - Conclusion
 - Phase 9 - Sales & Delivery Order ✅ COMPLETE (100%)
 - Finance Analytics SSR Dashboard Architecture
@@ -764,43 +764,43 @@
 - Changelog
 - Cycle 9.2 – Delivery Order & Fulfillment ✅ **COMPLETE (98% Complete)**
 - Changelog
-- Quick Fix - PostgreSQL Setup
-- Deploy Gratis ke Render
-- Implementation Phases
-- Implementation Phases
+- .CreateAPRealizedFXJournalTx
+- ar_test.go
+- WithDetails
+- Odyssey ERP - Quick Reference
 - Testing Authentication & Security Flows Locally
-- Adapter
-- customerFake
+- NewBudgetRepository
+- storage/storage.go
 - .GetLatestForecastRun
 - Encryption-at-Rest Policy
 - Regulated Manufacturing Compliance (21 CFR Part 11)
-- Test Coverage Hardening Audit — 2026-08-09
+- LocalStorage
 - Phase 1 - Core Platform ✅ COMPLETE (100%)
 - Testing Plan – Phase 4.2 Accounting
 - Phase 6 – Insights, Audit & Monitoring (Timeboxed MVS)
 - Security Checklist — Phase 6 Final Release
 - Testing Log — Phase 6 Sprint 4
 - Deployment Instructions
-- mapShipment
+- Service
 - Load Tests (Apache Bench / k6)
 - Cycle 9.2 – Delivery Order & Fulfillment (In Progress)
-- ADR-0011: Governed Reporting and Dashboards
-- ADR-0012: Scoped Role-Based Access Control
-- ADR-0013: Fiscal Calendars and Timezone Policy
+- Production Release Checklist
+- S3Storage
+- tasks_test.go
 - Approval Engine and HR Core
 - Fixed Assets operations
-- Odyssey ERP Handler Guidelines
+- rbac/repository.go
 - Inventory traceability and replenishment
-- File Inventory (33 Total)
-- Notifications and Transactional Email
+- buildRouteOptimizationPlan
+- Test Coverage Hardening Audit — 2026-08-09
 - Procurement Operations
 - Transaction-level FX operations
-- Profil dan Pengaturan Pengguna
-- Odyssey ERP v0.7.0 — Phase 7 Final Release Notes
-- NewService
-- NewService
-- portalRequestWithSession
+- api/handler.go
+- NewOperationsService
+- .GetSPCChart
 - SnapshotJob
+- portalRequestWithSession
+- CSRFManager
 - graphify reference: query, path, explain
 - Testing – Phase 3 Inventory & Procurement
 - Phase 7 Close-Out Summary
@@ -810,30 +810,29 @@
 - 🧪 Test Execution
 - Deployment Steps
 - Testing Strategy (Phase-Level)
-- .Serve
-- Setup Instructions
+- check-release-hygiene.sh
 - Acceptance Criteria (Phase 9 Complete)
-- Manual QA Checklist (Cycle 9.3)
+- SourcingService
 - Task 2: Inventory Integration ✅
-- ADR-0003 – Inventory Costing Strategy
-- ADR-0004 – Accounting Model & Ledger Architecture
-- ADR-0010: External Integrations Foundation
-- CRM
-- Payroll engine
-- Tax Compliance
+- requestWithSession
+- repository
+- .CreateARPostingJournalTx
+- documents/service.go
+- SQLRepository
+- Notifications and Transactional Email
 - Observability Overview
-- Accounting Period Policy
-- Arsitektur Odyssey ERP
+- .InsertComplaint
+- Manufacturing / MRP
 - Deployment Readiness
-- Gotenberg Configuration
+- Quick Fix - PostgreSQL Setup
 - 🔗 Integration Points
 - 🚧 Risks & Mitigations
 - 🎯 Team Roles & Responsibilities
 - 🎉 What Success Looks Like
 - 📅 Timeline & Milestones
 - 🎓 Best Practices Implemented
-- Stakeholder Sign-Off
-- Integration Points
+- NewService
+- Profil dan Pengaturan Pengguna
 - 4. Documentation Suite
 - Deployment Checklist
 - Sign-off
@@ -841,33 +840,31 @@
 - Coordination & Communication
 - Cross-Cutting Concerns
 - Documentation Deliverables
-- Quick Start Example
-- Phase 9.2 Progress: ✅ **98% Complete - PRODUCTION READY**
+- Odyssey ERP: Next Steps and Release Decision Guide
+- fakeExecutionPort
 - 19. Known Limitations & Future Work
 - Existing Module Impact
 - Manual QA Checklist (Cycle 9.2)
 - Best Practices
 - Gotenberg Configuration
 - Troubleshooting
-- ADR-0001: Pemilihan Tooling Inti
+- Tax Compliance
 - Documentation Policy
 - How-to Board Pack
-- Quick Navigation
-- How to Track Progress
-- Phase 7: Staging & Rollout
-- Manufacturing / MRP
-- Testing Runbook
-- .InsertComplaint
+- quotationFake
+- forecasting/service_test.go
+- NewHandler
+- core/store.js
 - Q: $graphify explore documentation or existing main feature code then give report about gaps or missing feature that incomplete and give recommendations for development
 - Q: $graphify Verify Parse() identity
 - Q: Are the 180 inferred relationships involving SessionFromContext() (e.g. with .auditRecord() and .companyID()) actually correct?
-- bi_export.go
-- KPIFilter
+- NewPaymentRecoveryRepository
+- UUID
 - graphify reference: add a URL and watch a folder
 - graphify reference: commit hook and native CLAUDE.md integration
 - graphify reference: incremental update and cluster-only
 - Known Issues & Limitations
-- Phase 2 - Master Data & Organization ✅ COMPLETE (100%)
+- PreventiveMaintenanceSchedule
 - Testing Plan – Phase 5 SSR Dashboard
 - Phase 7 · Sprint 2.1 Testing Log
 - 🧪 Testing Strategy
@@ -890,19 +887,19 @@
 - Technical Implementation
 - Post-Deployment Validation
 - Migration Strategy
-- Quick Navigation
-- Error Handling
-- cmmsRequestWithSession
-- documentsRequestWithSession
+- NewService
+- ProviderConfig
+- newCollaborationToken
+- CreditNotePDFRenderer
 - 18. Production Deployment Checklist
 - 2. Input Validation & Sanitization
 - 4. Data Integrity & Consistency
 - 6. Audit Logging
 - Security Testing
 - Test Execution Schedule
-- Conclusion
-- What Changed
-- Next Steps
+- NewGLPostingService
+- Testing Runbook
+- mrp_compliance_hardening_test.go
 - Phase 8 Cycle 8.3 – Board Pack
 - Phase 7 Sprint 3.4.4
 - Phase 6 Final (v0.6.0-final)
@@ -913,28 +910,26 @@
 - Security Considerations
 - HTML Template
 - Testing
-- ADR-0006: Bank ownership and feed ingestion
-- ADR-0007: Payment execution and settlement
-- ADR-0008: Purchase-to-pay matching and exceptions
-- mapCarrier
-- Inspection
-- Document Management
-- Horizon MVP Foundation (P7)
-- What's Being Built
-- Phase 14 and P7 Local Acceptance Evidence
-- Portal
-- Point of Sale (POS)
-- Projects and Timesheets
-- Quality Management System (QMS)
-- Supply Chain Management
-- Warehouse Management System (WMS)
-- Panduan Finance Insights
-- LedgerPostError
+- HandleFinancePaymentRecoveryScan
+- Job
+- Context
+- Operations
+- staging-certification-evidence.sh
+- Payment Connector Recovery Runbook
+- Manual QA Checklist (Cycle 9.3)
+- CreateSPCSampleParams
+- NewService
+- StockAdjustment
+- Quotation
+- StorageAdapter
+- DocumentAccessEvent
+- mail.go
+- .ListAudits
 - graphify reference: GitHub clone and cross-repo merge
 - graphify reference: transcribe video and audio
-- Cross-Module Lifecycle Reference
-- Documentation Status
-- Phase 6 - Security Hardening ✅ COMPLETE (100%)
+- ComputeElimination
+- CRM
+- KPIFilter
 - Phase 8 - Board Pack & Variance ✅ COMPLETE (100%)
 - 🏗️ Architecture Overview
 - 📈 Success Criteria
@@ -983,40 +978,73 @@
 - Integration
 - Error Handling
 - Future Enhancements
-- ADR-0009: Asset capitalization and operations
-- Accounting Operations
-- Integration Boundaries
-- Permission Catalog
+- Inspection
+- NewService
+- check-production-release.sh
+- Phase 2 - Master Data & Organization ✅ COMPLETE (100%)
 - extraction-spec.md
 - finance-automation-q1-q4-completed.md
 - security-checklist-phase4.2.md
 - security-checklist-analytics-ssr.md
 - querier.go
-- service_pl_test.go
-- Security Features
-- Code Quality Metrics
-- Deployment Readiness
-- Future Enhancements
-- Next Steps
-- Test Coverage Summary
-- mapFleet
-- .ListSupplierAudits
-- Performance Characteristics
-- References
-- Success Metrics
+- MockReader
+- customerFake
+- Phase 14 and P7 Local Acceptance Evidence
+- Integration Boundaries
+- InsertDocumentCategoryParams
+- ADR-0007: Payment execution and settlement
+- Quality Management System (QMS)
+- planningDemand
+- ADR-0006: Bank ownership and feed ingestion
 - .MountRoutes
+- .MountRoutes
+- v0.10-core Staging Certification Record
+- Q: create plan for continuing roadmap
+- ADR-0008: Purchase-to-pay matching and exceptions
+- Document Management
+- Conclusion
+- TestPaymentSettlementResultsMigrationKeepsResultIdentityAndEffectState
+- TestTreasuryHandlersUseTenantIdentityAndImplementFlows
+- What Changed
+- orderedBankRepo
+- Next Steps
+- .DeliverDue
+- Odyssey ERP v0.10.0-rc.2 — 2026-08-10
+- ODYSSEY ERP: STAGING DEPLOYMENT GUIDE
+- cmmsRequestWithSession
+- Odyssey ERP v0.10.0-rc.1 — 2026-08-10
+- Odyssey ERP v0.10.0-rc.3 — 2026-08-10
+- TestPlanMarksPastDueReleaseAndRejectsMissingPolicy
+- Documentation Status
+- Odyssey ERP v0.10.0-rc.4 — 2026-08-12
+- Phase 6 - Security Hardening ✅ COMPLETE (100%)
+- ADR-011: PostgreSQL as Sole Database
+- staging-verify.sh
+- Native Development Setup
+- Panduan Finance Insights
+- golden/README.md
+- TestPaymentSettlementEffectLinksMigrationKeepsCompanyScopedDurableLinks
+- Odyssey ERP: Finance Sandbox Deployment
+- Accounting Operations
+- mapShipment
+- Authoritative Feature Matrix
+- mapCarrier
+- numericToMoney
+- Quick Start
+- mapRateCard
+- DeliveryOrderStatus
 
 ## God Nodes (most connected - your core abstractions)
-1. `companies` - 193 edges
-2. `SessionFromContext()` - 183 edges
-3. `users` - 165 edges
-4. `UserSafeMessage()` - 149 edges
-5. `WriteErrorStatus()` - 113 edges
-6. `Parse()` - 109 edges
-7. `CSRFManager` - 97 edges
-8. `Middleware` - 92 edges
-9. `Connection` - 77 edges
-10. `Handler` - 74 edges
+1. `companies` - 202 edges
+2. `SessionFromContext()` - 182 edges
+3. `users` - 169 edges
+4. `UserSafeMessage()` - 152 edges
+5. `Parse()` - 137 edges
+6. `Connection` - 112 edges
+7. `WriteErrorStatus()` - 108 edges
+8. `Middleware` - 99 edges
+9. `CSRFManager` - 99 edges
+10. `Handler` - 75 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `main()` --calls--> `InTestMode()`  [INFERRED]
@@ -1033,35 +1061,35 @@
 ## Import Cycles
 - None detected.
 
-## Communities (1241 total, 87 thin omitted)
+## Communities (1297 total, 87 thin omitted)
 
 ### Community 0 - "models.go"
 Cohesion: 0.02
-Nodes (274): Date, Int8, Numeric, Timestamp, Timestamptz, AccountingPeriod, AccountMap, AccountMapping (+266 more)
+Nodes (331): Date, Float8, Int8, Numeric, Text, Timestamp, Timestamptz, AccountingPeriod (+323 more)
 
 ### Community 1 - "Context"
-Cohesion: 0.06
-Nodes (17): Context, Location, MeterReading, Numeric, SparePart, Queries, TaskTemplate, TaskTemplateStep (+9 more)
+Cohesion: 0.05
+Nodes (51): Context, Date, Float8, Int8, Location, MeterReading, Numeric, SparePart (+43 more)
 
-### Community 2 - "Decimal"
+### Community 2 - "Handler"
 Cohesion: 0.06
-Nodes (43): ARAllocationValuation, ARInvoiceValuation, ARPaymentValuation, Decimal, FetchRun, FXQuote, FXQuoteSet, PaymentValuation (+35 more)
+Nodes (30): bsPDFRenderer, ConsolTBVM, pdfExporter, PDFRenderClient, productionPDFExporter, stubPDFExporter, NewPDFRenderClient(), Logger (+22 more)
 
 ### Community 3 - ".Scan"
 Cohesion: 0.03
-Nodes (43): Account, AccountType, BankLineStatus, BankStatement, BankStatementLine, BankStatementStatus, ConsolGroupAccount, EliminationRun (+35 more)
+Nodes (42): Account, AccountType, ArCreditNote, ArCreditNoteStatus, BankLineStatus, BankStatement, BankStatementLine, BankStatementStatus (+34 more)
 
 ### Community 4 - "Context"
 Cohesion: 0.05
 Nodes (42): Carrier, CarrierRateCard, Context, Date, Driver, Fleet, Int4, Int8 (+34 more)
 
-### Community 5 - "ARInvoice"
-Cohesion: 0.09
-Nodes (25): ARAgingBucket, ARAgingDetail, ARCreditNoteAllocation, ARInvoice, ARInvoiceLine, ARInvoiceStatus, ARInvoiceWithDetails, ARPayment (+17 more)
+### Community 5 - "warehouses"
+Cohesion: 0.12
+Nodes (28): branches, warehouses, inventory_stock_take_lines, inventory_stock_takes, inventory_adjustment_lines, inventory_adjustments, mrp_planning_recommendations, mrp_planning_runs (+20 more)
 
 ### Community 6 - "Context"
 Cohesion: 0.06
-Nodes (39): AuditEvent, EvidenceRecord, Bool, ComplianceDecision, Context, Int4, Int8, Numeric (+31 more)
+Nodes (45): AuditEvent, EvidenceRecord, Bool, Context, Int4, Int8, Numeric, PolicyVersion (+37 more)
 
 ### Community 7 - "Handler"
 Cohesion: 0.09
@@ -1071,101 +1099,101 @@ Nodes (32): ContractService, Handler, Request, ResponseWriter, parseIntAt(), que
 Cohesion: 0.08
 Nodes (39): Context, Date, Int8, Numeric, Queries, Text, Timestamptz, UUID (+31 more)
 
-### Community 9 - "Context"
-Cohesion: 0.08
-Nodes (39): CreateAPPaymentInput, MatchingPolicy, pgTxRepository, Repository, TxRepository, PaymentAllocationInput, apPaymentSourceID(), dateToTime() (+31 more)
+### Community 9 - "ap/repository.go"
+Cohesion: 0.10
+Nodes (26): Repository, TxRepository, pgRepository, Context, mapAPDebitNote(), apPaymentSourceID(), dateToTime(), decimalScale() (+18 more)
 
 ### Community 10 - "Context"
 Cohesion: 0.07
 Nodes (34): Branch, Context, Int8, Numeric, Queries, Tax, Timestamptz, Unit (+26 more)
 
-### Community 11 - "users"
-Cohesion: 0.06
-Nodes (54): audit_logs, permissions, role_permissions, roles, sessions, user_roles, users, accounting_periods (+46 more)
+### Community 11 - "000055_horizon_mvp_foundation.up.sql"
+Cohesion: 0.12
+Nodes (26): api_key_scopes, api_keys, horizon_idempotency_keys, mrp_bom_lines, mrp_boms, portal_users, pos_payments, pos_sessions (+18 more)
 
-### Community 12 - "Middleware"
-Cohesion: 0.09
-Nodes (27): Handler, Engine, Logger, Request, ResponseWriter, Router, Service, identity() (+19 more)
+### Community 12 - "Context"
+Cohesion: 0.14
+Nodes (9): bankFeedRepoFake, transactionFeedFake, Account, Balance, BankConnection, BankConnectionAccount, BankFeedEvent, BankFeedSyncRun (+1 more)
 
 ### Community 13 - "Repository"
 Cohesion: 0.08
-Nodes (25): PreventiveMaintenanceSchedule, Repository, Context, Location, MeterReading, Pool, Queries, SparePart (+17 more)
+Nodes (32): Repository, Asset, Context, Location, MeterReading, Pool, Queries, SparePart (+24 more)
 
 ### Community 14 - "mrp_work_order_operations"
 Cohesion: 0.12
 Nodes (26): inventory_serials, inventory_lots, mrp_work_orders, mrp_routing_operations, mrp_routings, mrp_work_centers, mrp_material_movements, mrp_wip_locations (+18 more)
 
 ### Community 15 - "Context"
-Cohesion: 0.09
-Nodes (10): memoryAPRepo, memoryAPTx, taxPortFake, APPaymentAllocation, APInvoice, APInvoiceStatus, APPayment, Context (+2 more)
+Cohesion: 0.08
+Nodes (14): MatchingPolicy, MatchingRun, memoryAPRepo, memoryAPTx, taxPortFake, VoidAPInvoiceInput, APPaymentAllocation, fmtInt() (+6 more)
 
-### Community 16 - "ARCreditNote"
-Cohesion: 0.07
-Nodes (25): accountingFake, ARCreditNote, ARCreditNoteLine, ARCreditNoteStatus, ARCreditNoteWithDetails, CreateARCreditNoteFromReturnInput, CreateARCreditNoteInput, CreateARCreditNoteLineInput (+17 more)
+### Community 16 - "Handler"
+Cohesion: 0.20
+Nodes (13): currentCompany(), currentUser(), Engine, Handler, Logger, Pool, Request, ResponseWriter (+5 more)
 
 ### Community 17 - "WriteErrorStatus"
-Cohesion: 0.14
-Nodes (11): Engine, ExceptionService, Pool, Repository, Request, ResponseWriter, WorkOrder, ids() (+3 more)
+Cohesion: 0.12
+Nodes (15): Engine, ExceptionService, Pool, Repository, Request, ResponseWriter, Router, Service (+7 more)
 
-### Community 18 - "companies"
-Cohesion: 0.07
-Nodes (54): companies, mrp_production_events, mrp_production_receipt_costs, mrp_audit_events, mrp_controlled_record_policies, mrp_electronic_signatures, prevent_mrp_audit_mutation(), trg_prevent_mrp_audit_mutation (+46 more)
+### Community 18 - "000011_phase9_1_sales_quotation_so.up.sql"
+Cohesion: 0.12
+Nodes (26): customers, generate_customer_code(), quotation_lines, quotations, sales_order_lines, sales_orders, trg_update_quotation_totals, trg_update_sales_order_status (+18 more)
 
-### Community 19 - "Service"
-Cohesion: 0.07
-Nodes (27): APAgingBucket, APAllocationValuation, APInvoiceValuation, APPaymentValuation, AuditPort, FXRateResolver, PostAPInvoiceInput, TaxServicePort (+19 more)
+### Community 19 - "PermissionsHandler"
+Cohesion: 0.16
+Nodes (26): decodeAccessReviewDecisionRequest(), decodeAccessReviewRequest(), decodeScopedAssignmentRequest(), Engine, Logger, Request, ResponseWriter, Router (+18 more)
 
 ### Community 20 - "Context"
 Cohesion: 0.07
-Nodes (28): Context, ContractPriceLine, Date, Int8, Numeric, Queries, SupplierContract, SupplierScorecard (+20 more)
+Nodes (29): Context, ContractPriceLine, Date, Int8, Numeric, Queries, SupplierContract, SupplierScorecard (+21 more)
 
 ### Community 21 - "Cache"
 Cohesion: 0.10
 Nodes (20): Cache, CacheEntry, contextKey, PerformanceMonitor, QueryOptimizations, Repository, Service, T (+12 more)
 
 ### Community 22 - "Context"
-Cohesion: 0.12
-Nodes (19): Context, Date, ForecastDailyBucket, ForecastRun, Int8, Numeric, Queries, Text (+11 more)
+Cohesion: 0.11
+Nodes (20): Context, Date, ForecastDailyBucket, ForecastRun, Int8, Numeric, Queries, Text (+12 more)
 
 ### Community 23 - "Context"
-Cohesion: 0.08
-Nodes (27): Context, Date, Int8, Numeric, Queries, Text, Timestamptz, CancelGoodsReturnGRNParams (+19 more)
+Cohesion: 0.07
+Nodes (28): Context, Date, Int8, Numeric, Queries, Text, Timestamptz, CancelGoodsReturnGRNParams (+20 more)
 
 ### Community 24 - "memoryRepo"
 Cohesion: 0.08
 Nodes (24): Context, Time, NewService(), Context, T, TestScanCompletesTaskAndIsIdempotent(), TestScanRejectsWrongProduct(), TestTransitionRequiresPickThenPackThenShip() (+16 more)
 
 ### Community 25 - "Context"
-Cohesion: 0.13
-Nodes (17): BankConnection, BankConnectionAccount, BankFeedEvent, BankFeedSyncRun, Context, Queries, Text, Timestamptz (+9 more)
+Cohesion: 0.12
+Nodes (18): BankConnection, BankConnectionAccount, BankFeedEvent, BankFeedSyncRun, Context, Int8, Queries, Text (+10 more)
 
-### Community 26 - ".processRows"
-Cohesion: 0.08
-Nodes (42): BalanceSheetContribution, BalanceSheetFilters, BalanceSheetLine, BalanceSheetReport, BalanceSheetRepository, BalanceSheetService, BalanceSheetTotals, bsTotals (+34 more)
+### Community 26 - "ARInvoice"
+Cohesion: 0.10
+Nodes (23): ARAgingBucket, ARAgingDetail, ARCreditNoteAllocation, ARInvoice, ARInvoiceLine, ARInvoiceStatus, ARInvoiceWithDetails, ARPayment (+15 more)
 
 ### Community 27 - "main.js"
 Cohesion: 0.05
-Nodes (35): Charts, Export, FilterBar, Forms, Inspector, Progress, api, Shortcuts (+27 more)
+Nodes (34): Charts, Export, FilterBar, Forms, Inspector, Progress, api, Shortcuts (+26 more)
 
 ### Community 28 - "Repository"
 Cohesion: 0.08
 Nodes (29): CreateCustomerRequest, dbtx, ListCustomersRequest, memoryRepo, Repository, Service, UpdateCustomerRequest, getString() (+21 more)
 
 ### Community 29 - "regression_test.go"
-Cohesion: 0.10
-Nodes (51): pageRoute, routeEntry, Regexp, assertCSRFFieldsArePopulated(), assertGuardedMutationSucceedsWithToken(), assertMutationsRequireCSRF(), assertPNG(), assertRenderedPage() (+43 more)
+Cohesion: 0.06
+Nodes (86): pageRoute, routeEntry, Image, Regexp, RGBA, assertBankFeedWebhookContract(), assertCSRFFieldsArePopulated(), assertGuardedMutationSucceedsWithToken() (+78 more)
 
 ### Community 30 - "Service"
 Cohesion: 0.11
 Nodes (20): baseCode(), Context, IntegrationHandler, StockTake, Time, Tx, TxRepository, NewService() (+12 more)
 
-### Community 31 - "UserSafeMessage"
-Cohesion: 0.15
-Nodes (17): formErrors, debitNoteURL(), Handler, Request, ResponseWriter, getUserID(), Handler, Engine (+9 more)
+### Community 31 - "SessionFromContext"
+Cohesion: 0.10
+Nodes (27): formErrors, Request, rateLimitKey(), debitNoteURL(), Handler, Request, ResponseWriter, getUserID() (+19 more)
 
-### Community 32 - "tasks.go"
-Cohesion: 0.07
-Nodes (39): Context, TaskInfo, BoardPackPayload, Client, CRMReminderDispatcher, crmReminderFake, FinanceAutomationDispatcher, financeAutomationFake (+31 more)
+### Community 32 - "Repository"
+Cohesion: 0.12
+Nodes (23): getString(), Context, Date, Int8, Numeric, Pool, Queries, Quotation (+15 more)
 
 ### Community 33 - "Service"
 Cohesion: 0.09
@@ -1180,40 +1208,40 @@ Cohesion: 0.11
 Nodes (16): AuditFinding, Context, Pool, QualityObjectiveMeasurement, Queries, SupplierAudit, Time, NewRepository() (+8 more)
 
 ### Community 36 - "Service"
+Cohesion: 0.06
+Nodes (26): CreateACLRequest, CreateVersionRequest, OCRExtractor, UpdateDocumentRequest, Context, DispositionRequest, Document, DocumentCategory (+18 more)
+
+### Community 37 - "ApplyPaymentTransition"
+Cohesion: 0.10
+Nodes (30): Adapter, PaymentEvent, PaymentIntentEventInput, PaymentSettlement, PaymentStatus, PaymentStatusLookup, PaymentTransitionResult, ReconciliationResult (+22 more)
+
+### Community 38 - "freight.sql.go"
 Cohesion: 0.08
-Nodes (13): Service, Context, DispositionRequest, Document, DocumentCategory, DocumentClassification, DocumentLink, DocumentNumberingRule (+5 more)
+Nodes (39): Context, Date, FreightCharge, Int8, LandedCost, Numeric, RateCard, RateSurcharge (+31 more)
 
-### Community 37 - "Handler"
-Cohesion: 0.06
-Nodes (33): bsPDFRenderer, ConsolTBVM, pdfExporter, PDFRenderClient, plPDFRenderer, productionPDFExporter, stubPDFExporter, NewPDFRenderClient() (+25 more)
-
-### Community 38 - "Context"
-Cohesion: 0.09
-Nodes (29): Context, Date, FreightCharge, Int8, LandedCost, Numeric, RateCard, RateSurcharge (+21 more)
-
-### Community 39 - "Task"
-Cohesion: 0.06
-Nodes (31): Context, Logger, Service, NewBankFeedsProcessor(), BankFeedsEventPayload, BankFeedsProcessor, BankFeedsSyncPayload, Context (+23 more)
+### Community 39 - "settlement.go"
+Cohesion: 0.08
+Nodes (38): hasExactAmount(), isZeroReference(), applyImportedState(), effectMapKey(), Context, Instruction, Mutex, PaymentExecution (+30 more)
 
 ### Community 40 - "boardpack.sql.go"
 Cohesion: 0.10
 Nodes (26): AccountType, Context, Date, Int4, Int8, Queries, Text, Timestamptz (+18 more)
 
-### Community 41 - "Handler"
-Cohesion: 0.16
-Nodes (16): Handler, reportDimension, budgetPeriod(), dimensionFilter(), AuditPort, Engine, Logger, Month (+8 more)
+### Community 41 - "WriteHTTPError"
+Cohesion: 0.15
+Nodes (19): Handler, reportDimension, budgetPeriod(), dimensionFilter(), AuditPort, Engine, Logger, Month (+11 more)
 
-### Community 42 - "Service"
-Cohesion: 0.08
-Nodes (25): AccountingServicePort, AuditPort, CreditNoteRepositoryPort, DeliveryLineInfo, DeliveryOrderInfo, DeliveryServicePort, FXRateResolver, RepositoryPort (+17 more)
+### Community 42 - "Settlement"
+Cohesion: 0.12
+Nodes (19): Instruction, Time, Context, Instruction, Submission, NewProviderRouter(), normalizeProviderName(), Context (+11 more)
 
 ### Community 43 - "Repository"
-Cohesion: 0.07
-Nodes (17): DocumentAccessEvent, CreateBlobRequest, CreateCategoryRequest, CreateLinkRequest, Repository, SignDocumentRequest, Context, DispositionRequest (+9 more)
+Cohesion: 0.04
+Nodes (33): DocumentAccessEvent, CreateBlobRequest, CreateCategoryRequest, CreateLinkRequest, DocumentCollaborationSession, ExpiredRetention, Repository, derefInt64() (+25 more)
 
 ### Community 44 - "Context"
-Cohesion: 0.08
-Nodes (31): DocumentType, FXRateResolver, OutstandingBalance, RevaluationInput, RevaluationJournal, RevaluationLedger, RevaluationRecord, RevaluationRepository (+23 more)
+Cohesion: 0.09
+Nodes (28): DocumentType, FXRateResolver, OutstandingBalance, RevaluationJournal, RevaluationLedger, RevaluationRecord, RevaluationRepository, RevaluationReversal (+20 more)
 
 ### Community 45 - "Handler"
 Cohesion: 0.18
@@ -1221,47 +1249,47 @@ Nodes (15): CreateDocumentRequest, Context, Document, DocumentVersion, Engine, P
 
 ### Community 46 - "Service"
 Cohesion: 0.07
-Nodes (23): AddSparePartRequest, CreateLocationRequest, CreateMeterReadingRequest, CreatePMScheduleRequest, CreateSparePartRequest, CreateTaskRequest, Service, UpdateAssetRequest (+15 more)
+Nodes (29): AddSparePartRequest, CreateAssetRequest, CreateLocationRequest, CreateMeterReadingRequest, CreatePMScheduleRequest, CreateSparePartRequest, CreateTaskRequest, ListAssetsFilter (+21 more)
 
 ### Community 47 - "Context"
 Cohesion: 0.07
-Nodes (19): Audit, AuditFinding, Context, QualityObjective, QualityObjectiveMeasurement, Queries, CountCAPAsWithPrefixParams, CountNCRsWithPrefixParams (+11 more)
+Nodes (19): AuditFinding, Context, QualityObjective, QualityObjectiveMeasurement, Queries, SupplierAudit, CountCAPAsWithPrefixParams, CountNCRsWithPrefixParams (+11 more)
 
 ### Community 48 - "Repository"
 Cohesion: 0.10
 Nodes (27): Repository, AccountBalance, BoardPack, Company, Context, CreateRequest, Int4, Int8 (+19 more)
 
-### Community 49 - "Handler"
-Cohesion: 0.19
-Nodes (13): currentCompany(), currentUser(), Engine, Handler, Logger, Pool, Request, ResponseWriter (+5 more)
+### Community 49 - "Context"
+Cohesion: 0.11
+Nodes (15): APInvoiceValuation, pgTxRepository, PostAPInvoiceInput, decimalToNumeric(), floatToNumeric(), Context, Date, Int8 (+7 more)
 
 ### Community 50 - "Context"
 Cohesion: 0.12
 Nodes (23): Context, Int8, Numeric, Queries, Text, Timestamptz, CreateARInvoiceLineParams, CreateARInvoiceParams (+15 more)
 
-### Community 51 - "Context"
+### Community 51 - "DashboardPayload"
 Cohesion: 0.10
-Nodes (27): Context, Date, Int8, PeriodStatus, Queries, Text, Timestamptz, AccountingPeriodStatus (+19 more)
+Nodes (25): DashboardPayload, mergedBucket, stubPDF, AgingBucket, KPISummary, PLTrendPoint, Writer, WriteAgingCSV() (+17 more)
 
-### Community 52 - "asynq_server.go"
-Cohesion: 0.09
-Nodes (29): HandlerFunc, Location, Logger, Request, ResponseWriter, Router, Server, Service (+21 more)
+### Community 52 - "cmms/domain.go"
+Cohesion: 0.11
+Nodes (27): Asset, AssetSpecification, CreateWorkOrderRequest, IoTReading, IoTSensor, ListWorkOrdersFilter, Location, MeterReading (+19 more)
 
 ### Community 53 - "Handler"
-Cohesion: 0.19
-Nodes (9): CalibrationRequestedPayload, NormaliseStatus(), currentCompany(), currentUser(), Handler, Request, ResponseWriter, parseFloat64() (+1 more)
+Cohesion: 0.12
+Nodes (21): CalibrationRequestedPayload, NormaliseStatus(), currentCompany(), currentUser(), Engine, Handler, Logger, Pool (+13 more)
 
 ### Community 54 - "Quote"
 Cohesion: 0.08
-Nodes (21): CommandTag, ConsolBalanceByTypeQueryRow, fakeBSRepo, fakePLRepo, fakeProvider, Quote, slowPLRepo, stubBSRepo (+13 more)
+Nodes (22): fakeBSRepo, fakePLRepo, fakeProvider, Quote, permissionReaderStub, slowPLRepo, stubBSRepo, stubPLRepo (+14 more)
 
 ### Community 55 - "memoryRepo"
 Cohesion: 0.10
 Nodes (18): Context, NewService(), Context, T, TestTicketPaymentAndRefund(), Context, Pool, NewRepository() (+10 more)
 
-### Community 56 - "NewRegistry"
-Cohesion: 0.08
-Nodes (28): DefaultRegistry, InboxProcessor, InboxRepository, MockRegistry, ProviderAdapter, WebhookHandler, Request, ResponseWriter (+20 more)
+### Community 56 - "ConnectionStatus"
+Cohesion: 0.07
+Nodes (29): CanonicalEventInput, ConnectionStatus, InboxEvent, InboxProcessor, InboxRepository, ioDiscard, paymentInboxFake, WebhookHandler (+21 more)
 
 ### Community 57 - "storeFake"
 Cohesion: 0.10
@@ -1271,17 +1299,17 @@ Nodes (23): Activity, ActivityInput, Conversion, ConvertInput, CreateLeadInput, 
 Cohesion: 0.07
 Nodes (25): CostCenter, CreateCostCenterInput, CreateDepartmentInput, Department, dimensionTxFake, Repository, repositoryImpl, serviceRepo (+17 more)
 
-### Community 59 - "ResponseWriter"
-Cohesion: 0.20
-Nodes (16): Request, ResponseWriter, JSONError(), JSONErrorFrom(), JSONSuccess(), AddTripStopRequest, CreateCarrierRequest, CreateFleetRequest (+8 more)
+### Community 59 - "Parse"
+Cohesion: 0.11
+Nodes (28): Parse(), Request, ResponseWriter, Service, JSONError(), JSONErrorFrom(), JSONSuccess(), NewHandler() (+20 more)
 
 ### Community 60 - "Service"
 Cohesion: 0.18
 Nodes (6): generateNumber(), Context, ListFilters, Request, POListItem, Service
 
 ### Community 61 - "Settings"
-Cohesion: 0.16
-Nodes (16): Settings, SettingsService, SettingsStore, settingsStoreFake, Context, T, TestExactAmountUsesExactMoneyAndCurrency(), TestOutboxMessageValidation() (+8 more)
+Cohesion: 0.08
+Nodes (30): database, Repository, Settings, SettingsService, SettingsStore, settingsStoreFake, Context, T (+22 more)
 
 ### Community 62 - "odyssey/main.go"
 Cohesion: 0.10
@@ -1289,19 +1317,19 @@ Nodes (17): Client, Context, Engine, Logger, Pool, ResponseWriter, Service, Time
 
 ### Community 63 - "Context"
 Cohesion: 0.13
-Nodes (20): Context, DeliveryOrder, Int8, Numeric, Repository, TxRepository, Pool, Queries (+12 more)
+Nodes (19): Context, DeliveryOrder, Int8, Repository, TxRepository, Pool, Queries, ReturnDeliveryOrder (+11 more)
 
 ### Community 64 - "Handler"
 Cohesion: 0.17
 Nodes (16): currentUserID(), Context, Engine, Logger, Pool, Request, ResponseWriter, Router (+8 more)
 
-### Community 65 - "Service"
-Cohesion: 0.09
-Nodes (19): Carrier, CarrierRateCard, Context, CreateRateCardInput, Driver, Fleet, Money, Pool (+11 more)
+### Community 65 - "LogisticsRepository"
+Cohesion: 0.10
+Nodes (21): Context, Driver, Fleet, Pool, StopType, Timestamptz, Trip, TripStop (+13 more)
 
-### Community 66 - "products"
-Cohesion: 0.06
-Nodes (64): categories, customers, products, suppliers, taxes, units, ap_invoices, ap_payments (+56 more)
+### Community 66 - "MustDecimal"
+Cohesion: 0.10
+Nodes (21): AccountingServicePort, ARInvoiceValuation, AuditPort, DeliveryServicePort, FXRateResolver, RepositoryPort, TaxServicePort, TransactionalAccountingServicePort (+13 more)
 
 ### Community 67 - "MockRepository"
 Cohesion: 0.13
@@ -1311,9 +1339,9 @@ Nodes (10): MockRepository, Context, CostCenter, CreateCostCenterInput, CreateRa
 Cohesion: 0.09
 Nodes (25): AuditRecorder, Engine, EngineConfig, PairExposure, Repository, RepositoryProvider, Result, stubAudit (+17 more)
 
-### Community 69 - "Handler"
-Cohesion: 0.20
-Nodes (8): Request, ResponseWriter, Router, Service, NewHandler(), T, TestHandlerMountsRoutesAndExposesExplicitPlaceholders(), Handler
+### Community 69 - "IdentityFromContext"
+Cohesion: 0.28
+Nodes (12): Request, ResponseWriter, Router, treasuryParamID(), writeTreasuryError(), writeTreasuryJSON(), CompanyIDFromContext(), Context (+4 more)
 
 ### Community 70 - "Context"
 Cohesion: 0.11
@@ -1323,29 +1351,29 @@ Nodes (10): Balance, Context, InventoryLot, StockTake, Transaction, TxRepository
 Cohesion: 0.06
 Nodes (40): Context, UUID, mapSourceTable(), NewCatalog(), T, TestCatalogFieldAndSourceMappingHelpers(), TestDatasetDefinitionAllowsOnlyDeclaredFieldRoles(), Context (+32 more)
 
-### Community 72 - "procurement/domain.go"
-Cohesion: 0.14
-Nodes (16): Time, Time, Timestamptz, safeTime(), APInvoice, APInvoiceStatus, APPayment, CreateGoodsReturnGRNInput (+8 more)
+### Community 72 - "fakeDistributionRepository"
+Cohesion: 0.09
+Nodes (17): fakeDistributionRepository, fakeShipmentGateway, copyFloat64(), copyInt(), copyMoney(), Context, DeliveryRoute, Load (+9 more)
 
 ### Community 73 - "Context"
 Cohesion: 0.19
 Nodes (4): APInvoiceStatus, Context, Time, memoryProcTx
 
-### Community 74 - "Handler"
-Cohesion: 0.10
-Nodes (20): AddPlanningRuleRequest, ApproveTransferRequest, CreateLoadRequest, CreatePlanningHorizonRequest, CreateTransferOrderRequest, DispatchLoadRequest, DispatchTransferRequest, ErrorResponse (+12 more)
+### Community 74 - "JSONResponse"
+Cohesion: 0.35
+Nodes (9): Handler, Request, ResponseWriter, pathID(), requestScope(), respondClientError(), respondError(), verifyCompany() (+1 more)
 
-### Community 75 - "logistics/repository.go"
-Cohesion: 0.15
-Nodes (19): coalesceInt64(), floatToNumeric(), Date, Numeric, Time, optDateToTime(), optFloatToNumeric(), optTimeToDate() (+11 more)
+### Community 75 - "users"
+Cohesion: 0.06
+Nodes (57): audit_logs, permissions, role_permissions, roles, sessions, user_roles, users, accounting_periods (+49 more)
 
 ### Community 76 - "Context"
 Cohesion: 0.10
 Nodes (23): Context, Queries, Text, Timestamptz, ConnectorCanonicalEvent, ConnectorConnection, ConnectorInboxEvent, ConnectorObjectMapping (+15 more)
 
 ### Community 77 - "Context"
-Cohesion: 0.11
-Nodes (21): Context, Date, DeliveryOrder, Int8, Numeric, SalesOrderStatus, Queries, Text (+13 more)
+Cohesion: 0.12
+Nodes (20): Context, Date, DeliveryOrder, Int8, Numeric, SalesOrderStatus, Queries, Text (+12 more)
 
 ### Community 78 - "accounts"
 Cohesion: 0.10
@@ -1355,49 +1383,49 @@ Nodes (31): balances, account_mappings, accounts, journal_entries, journal_lines
 Cohesion: 0.13
 Nodes (11): freightService, Context, CostCenter, CreateCostCenterInput, CreateRateCardInput, FreightCharge, LandedCost, Money (+3 more)
 
-### Community 80 - "SourcingService"
-Cohesion: 0.12
-Nodes (21): TestSourcingDecimalHelpers(), Client, Context, NewAsynqRFQEmailQueue(), canonicalDecimal(), compareDecimal(), AuditPort, Context (+13 more)
+### Community 80 - "Service"
+Cohesion: 0.09
+Nodes (22): Carrier, CarrierRateCard, Context, CreateRateCardInput, Driver, Fleet, Money, Pool (+14 more)
 
-### Community 81 - "BalanceSheetHandler"
-Cohesion: 0.06
-Nodes (44): BalanceSheetHandler, bsPDFExporter, ConsolBSEntityContribution, ConsolBSFilters, ConsolBSLine, ConsolBSTotals, ConsolBSViewModel, ConsolPLEntityContribution (+36 more)
+### Community 81 - "ExternalReference"
+Cohesion: 0.14
+Nodes (34): ExternalReference, allExported(), allowedTransition(), cloneExecution(), Context, Instruction, Mutex, Coordinator (+26 more)
 
 ### Community 82 - "Context"
 Cohesion: 0.10
 Nodes (17): Context, ListFilters, Numeric, Pool, Queries, Text, Tx, itoa() (+9 more)
 
 ### Community 83 - "Repository"
-Cohesion: 0.13
-Nodes (17): calculateWithholding(), captureInvoiceWithholding(), ensurePeriod(), Context, Document, Money, Period, Pool (+9 more)
+Cohesion: 0.14
+Nodes (16): calculateWithholding(), captureInvoiceWithholding(), ensurePeriod(), Context, Document, Money, Period, Pool (+8 more)
 
 ### Community 84 - "main"
-Cohesion: 0.13
-Nodes (40): main(), cacheItem, member, responseCache, stubRow, Registerer, SetupCacheMetrics(), NewProfitLossHandler() (+32 more)
+Cohesion: 0.21
+Nodes (33): main(), member, Registerer, SetupCacheMetrics(), NewProfitLossHandler(), Engine, HistogramVec, Logger (+25 more)
 
 ### Community 85 - "Handler"
 Cohesion: 0.14
-Nodes (22): AnalyticsService, dashboardData, PDFService, PeriodValidator, computePeriodRange(), AgingBucket, Context, Engine (+14 more)
+Nodes (21): AnalyticsService, dashboardData, PDFService, PeriodValidator, computePeriodRange(), AgingBucket, Context, Engine (+13 more)
 
 ### Community 86 - "PostingInput"
-Cohesion: 0.11
-Nodes (24): ledgerCapture, Time, UUID, defaultReversalMemo(), Context, JournalEntry, JournalLine, Repository (+16 more)
+Cohesion: 0.10
+Nodes (25): journalPosterFake, Time, UUID, defaultReversalMemo(), Context, JournalEntry, JournalLine, Repository (+17 more)
 
 ### Community 87 - "qms/domain.go"
 Cohesion: 0.10
 Nodes (23): Time, ATETestResult, Audit, AuditFinding, CreateAuditRequest, CreateCAPARequest, CreateInspectionPlanRequest, CreateInspectionRequest (+15 more)
 
 ### Community 88 - "Repository"
-Cohesion: 0.14
-Nodes (22): CloseRun, Repository, Context, Int8, Period, PeriodStatus, Pool, Queries (+14 more)
+Cohesion: 0.13
+Nodes (24): CloseRun, Repository, Context, Int8, Period, PeriodStatus, Pool, Queries (+16 more)
 
-### Community 89 - "NewPDFExporter"
-Cohesion: 0.08
-Nodes (48): PackingListLine, PackingListPayload, Client, Context, PDFExporter, Time, NewPDFExporter(), createTestPayload() (+40 more)
+### Community 89 - "Handler"
+Cohesion: 0.15
+Nodes (17): getCompanyID(), getUserID(), CreateLineReq, Engine, Logger, Handler, Request, ResponseWriter (+9 more)
 
-### Community 90 - "Context"
-Cohesion: 0.06
-Nodes (49): getString(), Context, Date, Int8, Numeric, Pool, Queries, Quotation (+41 more)
+### Community 90 - "Task"
+Cohesion: 0.04
+Nodes (47): Context, Logger, Service, NewBankFeedsEventTask(), NewBankFeedsProcessor(), BankFeedsEventPayload, BankFeedsProcessor, BankFeedsSyncPayload (+39 more)
 
 ### Community 91 - "000040_p1_ar_credit_notes_and_returns.up.sql"
 Cohesion: 0.11
@@ -1412,16 +1440,16 @@ Cohesion: 0.17
 Nodes (15): CheckoutService, formErrors, getUserID(), Handler, Client, Dispatcher, Engine, Logger (+7 more)
 
 ### Community 94 - "serviceRepo"
-Cohesion: 0.10
-Nodes (21): Asset, Category, CreateAssetInput, CreateCategoryInput, serviceRepo, Asset, repository, Category (+13 more)
+Cohesion: 0.17
+Nodes (14): Asset, Category, CreateAssetInput, CreateCategoryInput, serviceRepo, Asset, Category, Context (+6 more)
 
 ### Community 95 - "Repository"
-Cohesion: 0.12
-Nodes (22): CreateRunInput, Repository, Context, CreateRuleInput, Int8, ListFilters, PeriodView, Pool (+14 more)
+Cohesion: 0.14
+Nodes (21): Repository, Context, CreateRuleInput, Int8, ListFilters, PeriodView, Pool, Queries (+13 more)
 
-### Community 96 - "Handler"
-Cohesion: 0.20
-Nodes (13): currentCompany(), currentUser(), Client, Engine, Handler, Logger, Pool, Request (+5 more)
+### Community 96 - "Middleware"
+Cohesion: 0.13
+Nodes (22): Handler, Engine, Logger, Request, ResponseWriter, Router, Service, identity() (+14 more)
 
 ### Community 97 - "Context"
 Cohesion: 0.10
@@ -1431,25 +1459,25 @@ Nodes (18): Context, Pool, repository, Tx, TxRepository, NewRepository(), Contex
 Cohesion: 0.12
 Nodes (12): Time, T, TestDeliveryStatusLifecycleRules(), TestReturnStatusLifecycleRules(), DeliveryOrder, Line, ListReturnRequest, ReturnDeliveryOrder (+4 more)
 
-### Community 99 - "cache.go"
-Cohesion: 0.25
-Nodes (12): Repository, Cache, Time, keyAging(), keyCashflow(), keyKPI(), keyPLTrend(), branchToken() (+4 more)
+### Community 99 - "service_bs.go"
+Cohesion: 0.19
+Nodes (16): BalanceSheetContribution, BalanceSheetFilters, BalanceSheetLine, BalanceSheetReport, BalanceSheetRepository, BalanceSheetService, BalanceSheetTotals, bsTotals (+8 more)
 
 ### Community 100 - "Context"
-Cohesion: 0.15
-Nodes (9): memoryStore, phase3ApprovalStore, phase3Notifier, workflowNotifier, Assignment, Context, Policy, Request (+1 more)
+Cohesion: 0.14
+Nodes (11): leaveWorkflowFinalizer, memoryStore, phase3ApprovalStore, phase3Finalizer, phase3Notifier, workflowNotifier, Assignment, Context (+3 more)
 
 ### Community 101 - "Repository"
-Cohesion: 0.11
+Cohesion: 0.12
 Nodes (19): Row, Repository, duplicateContact(), Context, Event, Pool, Time, T (+11 more)
 
 ### Community 102 - "boardpack/storage.go"
 Cohesion: 0.10
 Nodes (22): fakeS3, LocalStorage, s3API, s3Storage, Storage, StorageConfig, CreateBucketInput, CreateBucketOutput (+14 more)
 
-### Community 103 - "cmms/domain.go"
-Cohesion: 0.13
-Nodes (27): Asset, AssetSpecification, CreateAssetRequest, IoTReading, IoTSensor, ListWorkOrdersFilter, Location, MeterReading (+19 more)
+### Community 103 - "UUID"
+Cohesion: 0.06
+Nodes (38): Bool, Int4, Time, UUID, Approval, ApprovalPolicyStep, AuditEvent, BankTransaction (+30 more)
 
 ### Community 104 - "Handler"
 Cohesion: 0.20
@@ -1459,49 +1487,49 @@ Nodes (16): Handler, actor(), company(), Engine, Logger, Request, ResponseWriter
 Cohesion: 0.16
 Nodes (22): CalculateFreightRequest, CreateRateCardRequest, ErrorResponse, FreightChargeResponse, Handler, RateCardResponse, FreightCharge, Money (+14 more)
 
-### Community 106 - "freight/repository.go"
-Cohesion: 0.12
-Nodes (30): CostCenterUpdate, CreateRateSurchargeInput, FreightChargeFilter, FreightChargeUpdate, LandedCostFilter, RateCardFilter, RateCardUpdate, RateLookup (+22 more)
+### Community 106 - "products"
+Cohesion: 0.06
+Nodes (65): categories, customers, products, suppliers, taxes, units, ap_invoices, ap_payments (+57 more)
 
 ### Community 107 - "Context"
-Cohesion: 0.11
-Nodes (11): Context, DispositionRequest, DocumentClassification, DocumentLink, DocumentNumberingRule, DocumentReviewStep, Queries, CreateDocumentOCRJobParams (+3 more)
+Cohesion: 0.09
+Nodes (13): Context, DispositionRequest, DocumentClassification, DocumentLink, DocumentNumberingRule, DocumentReviewStep, Queries, CreateDispositionRequestParams (+5 more)
 
-### Community 108 - "000011_phase9_1_sales_quotation_so.up.sql"
-Cohesion: 0.12
-Nodes (26): customers, generate_customer_code(), quotation_lines, quotations, sales_order_lines, sales_orders, trg_update_quotation_totals, trg_update_sales_order_status (+18 more)
+### Community 108 - "ContractRepository"
+Cohesion: 0.15
+Nodes (11): Context, ContractPriceLine, Money, Pool, SupplierContract, SupplierScorecard, Time, scanPOContractVariance() (+3 more)
 
 ### Community 109 - "Template"
-Cohesion: 0.11
-Nodes (28): BoardPack, CashflowSummary, Company, CreateRequest, DocumentData, ExecSummaryData, KPISummary, ListFilter (+20 more)
+Cohesion: 0.15
+Nodes (23): BoardPack, CashflowSummary, Company, CreateRequest, DocumentData, ExecSummaryData, KPISummary, ListFilter (+15 more)
 
 ### Community 110 - "Handler"
 Cohesion: 0.10
 Nodes (22): dashboardService, dashboardServiceStub, Handler, KPIData, RecentActivity, Service, Engine, Logger (+14 more)
 
 ### Community 111 - "Hooks"
-Cohesion: 0.15
-Nodes (17): Context, Hooks, Tx, monetary(), round2(), Time, Time, AdjustmentPostedEvent (+9 more)
+Cohesion: 0.12
+Nodes (23): AccountMappingRepository, ConnectorsService, Ledger, PeriodRepository, TransactionalLedger, Context, Hooks, Tx (+15 more)
 
 ### Community 112 - "ComplianceGate"
-Cohesion: 0.17
-Nodes (19): Conn, NewComplianceGate(), Context, SQLRepository, Time, NewBOMApprovalGate(), NewCAPAClosureGate(), NewHoldReleaseGate() (+11 more)
+Cohesion: 0.15
+Nodes (20): Conn, Time, NewComplianceGate(), Context, SQLRepository, Time, NewBOMApprovalGate(), NewCAPAClosureGate() (+12 more)
 
 ### Community 113 - "Handler"
 Cohesion: 0.18
 Nodes (14): Engine, Logger, Quotation, Handler, Request, ResponseWriter, Service, Time (+6 more)
 
-### Community 114 - "Context"
-Cohesion: 0.14
-Nodes (16): Context, Date, Int8, Queries, Timestamptz, EliminationRule, ElimInsertRuleParams, ElimListRecentPeriodsRow (+8 more)
+### Community 114 - "Connection"
+Cohesion: 0.08
+Nodes (20): checkoutAdapter, checkoutRepo, Connection, PaymentIntentInput, registryAdapter, Adapter, Credentials, ShipmentPayload (+12 more)
 
 ### Community 115 - "variance.sql.go"
 Cohesion: 0.13
 Nodes (20): Context, Date, Int8, Queries, Text, Timestamptz, VarianceSnapshot, AggregateBalancesParams (+12 more)
 
-### Community 116 - "ExternalReference"
-Cohesion: 0.11
-Nodes (23): ConnectionRef, ExternalReference, Account, Balance, fakeFeed, InboundEvent, SyncRequest, Transaction (+15 more)
+### Community 116 - "Context"
+Cohesion: 0.10
+Nodes (25): Context, Date, Int8, PeriodStatus, Queries, Text, Timestamptz, InsertAccountingPeriodParams (+17 more)
 
 ### Community 117 - "NewFXOpsCLI"
 Cohesion: 0.11
@@ -1511,29 +1539,29 @@ Nodes (24): FXRepository, FXValidateOptions, FXValidateSummary, FXValidationAvai
 Cohesion: 0.12
 Nodes (14): stubFXRepo, Context, Time, BalanceRow, FxRateInput, MemberRow, Repository, float64ToNumeric() (+6 more)
 
-### Community 119 - "postgresRepository"
-Cohesion: 0.15
-Nodes (7): postgresRepository, Context, CostCenter, LandedCost, RateCard, RateSurcharge, mapRateCard()
+### Community 119 - "Context"
+Cohesion: 0.14
+Nodes (11): ConnectorDeadLetter, PaymentReconciliationCandidate, PaymentStatusSnapshot, reconciliationAdapterFake, reconciliationAlertFake, reconciliationStoreFake, PaymentIntent, Context (+3 more)
 
-### Community 120 - "LogisticsRepository"
-Cohesion: 0.13
-Nodes (15): CarrierRateCard, Context, Driver, Pool, ShipmentLine, Trip, mapDriver(), mapRateCard() (+7 more)
+### Community 120 - "connectors/service.go"
+Cohesion: 0.09
+Nodes (26): ConnectionCreateInput, ConnectorDeadLetterWriter, CreateCheckoutIntentRequest, CreateCheckoutIntentResult, CreateConnectionParams, InboxEventInput, OutboxCommandStateUpdate, OutboxEnqueueInput (+18 more)
 
 ### Community 121 - "Service"
 Cohesion: 0.15
 Nodes (18): Context, ListFilters, Product, Product, Service, Repository, NewService(), Context (+10 more)
 
-### Community 122 - "NewOrchestrator"
-Cohesion: 0.13
-Nodes (15): MatchingService, Orchestrator, Context, Repository, NewMatchingService(), T, TestMatchingService_RunMatch_ExactMatch(), Context (+7 more)
+### Community 122 - "000083_cmms_qms_tables.up.sql"
+Cohesion: 0.16
+Nodes (22): assets, audit_findings, audits, capas, locations, meter_readings, ncr_dispositions, ncrs (+14 more)
 
 ### Community 123 - "Context"
 Cohesion: 0.16
 Nodes (14): BankStatement, BankStatementLine, Context, Date, Int8, Numeric, Queries, Text (+6 more)
 
-### Community 124 - "docs/README.md"
-Cohesion: 0.08
-Nodes (4): ADR-0005: Transaction-level FX, HTTP E2E regression, Odyssey ERP Module Catalog, Reporting Catalog
+### Community 124 - "INDEX.md"
+Cohesion: 0.07
+Nodes (8): ADR-0009: Asset capitalization and operations, Consequences, Decision, CI-equivalent verification, HTTP E2E regression, Release-blocking regressions resolved 2026-08-12, Odyssey ERP Module Catalog, Reporting Catalog
 
 ### Community 125 - "Repository"
 Cohesion: 0.11
@@ -1547,41 +1575,41 @@ Nodes (17): AccountType, Context, Date, Numeric, Queries, BalancesParams, Balanc
 Cohesion: 0.10
 Nodes (16): Timestamptz, CreateATEIntegrationParams, CreateATETestResultParams, CreateLabSampleParams, CreateLabTestParams, InsertNCRDispositionParams, ListCAPAsParams, ListCustomerComplaintsParams (+8 more)
 
-### Community 128 - "Text"
-Cohesion: 0.09
-Nodes (16): Date, Text, CountAuditsWithPrefixParams, InsertAuditFindingParams, InsertAuditParams, InsertCAPAParams, InsertNCRParams, InsertQualityObjectiveMeasurementParams (+8 more)
-
-### Community 129 - "APDebitNote"
+### Community 128 - "PGRepository"
 Cohesion: 0.14
-Nodes (16): APDebitNote, APDebitNoteLine, APDebitNoteStatus, APDebitNoteWithDetails, CreateAPDebitNoteFromReturnInput, CreateAPDebitNoteInput, CreateAPDebitNoteLineInput, ListAPDebitNotesRequest (+8 more)
+Nodes (15): Context, Int8, Pool, Queries, Text, Time, Timestamptz, mapPaymentBatch() (+7 more)
+
+### Community 129 - "integrationShipmentGateway"
+Cohesion: 0.10
+Nodes (22): Dependencies, fakeInventoryGateway, integrationInventoryGateway, integrationShipmentGateway, InventoryAdjustmentInput, InventoryGateway, ShipmentCreateInput, ShipmentGateway (+14 more)
 
 ### Community 130 - "MiddlewareStack"
-Cohesion: 0.09
-Nodes (22): Config, MiddlewareConfig, responseWriterWithCommit, Duration, LoadConfig(), Logger, NewLogger(), conditionalRateLimiter() (+14 more)
+Cohesion: 0.13
+Nodes (19): MiddlewareConfig, responseWriterWithCommit, conditionalRateLimiter(), Context, Duration, Handler, Logger, Metrics (+11 more)
 
-### Community 131 - "SessionFromContext"
-Cohesion: 0.09
-Nodes (27): Handler, loginForm, loginPageData, AdminHandler, Request, rateLimitKey(), Request, rateLimitKey() (+19 more)
+### Community 131 - "Handler"
+Cohesion: 0.06
+Nodes (45): ConnectionReader, Handler, loginForm, loginPageData, OIDCConnection, PGRepository, Repository, Gap (+37 more)
 
-### Community 132 - "Vault"
-Cohesion: 0.11
-Nodes (11): Credentials, ExportPayload, Logger, NewAdapter(), T, TestExecuteCommand_BIExport(), Decrypt(), Encrypt() (+3 more)
+### Community 132 - "distribution/handler.go"
+Cohesion: 0.10
+Nodes (25): AddPlanningRuleRequest, AddRouteStopRequest, AddTransferItemRequest, CreateLoadRequest, CreatePlanningHorizonRequest, CreateShipmentLineRequest, CreateShipmentRequest, CreateTransferOrderRequest (+17 more)
 
 ### Community 133 - "Service"
-Cohesion: 0.15
-Nodes (18): BankAccountSummary, BankTransactionSummary, CreateAccountInput, CreateTransactionInput, ImportResult, JournalPoster, Repository, Service (+10 more)
+Cohesion: 0.14
+Nodes (19): accountDetailData, BankAccountSummary, BankTransactionSummary, CreateAccountInput, CreateTransactionInput, ImportResult, JournalPoster, Repository (+11 more)
 
 ### Community 134 - "documents/domain.go"
-Cohesion: 0.12
-Nodes (30): Blob, ClassificationLevel, CollaborationChange, CollaborationSession, DispositionExecutionUpdate, DispositionRequest, Document, DocumentAccessEvent (+22 more)
+Cohesion: 0.07
+Nodes (37): Blob, ClassificationLevel, CollaborationChange, CollaborationSession, DispositionExecutionUpdate, DispositionRequest, Document, DocumentAccessEvent (+29 more)
 
 ### Community 135 - "Context"
 Cohesion: 0.14
 Nodes (8): Context, DeliveryOrder, ReturnDeliveryOrder, Status, Time, TxRepository, returnRepoFake, returnTxFake
 
-### Community 136 - "Status"
-Cohesion: 0.24
-Nodes (5): Document, DocumentVersion, ListFilter, Status, statusStringOrEmpty()
+### Community 136 - "settlementServiceFixture"
+Cohesion: 0.13
+Nodes (37): NewCoordinator(), NewMemoryStore(), approvedCoordinator(), Context, Coordinator, Instruction, Submission, T (+29 more)
 
 ### Community 137 - "Repository"
 Cohesion: 0.14
@@ -1595,41 +1623,41 @@ Nodes (11): Client, Engine, Logger, Handler, Request, ResponseWriter, SalesOrder
 Cohesion: 0.14
 Nodes (17): getString(), Context, Numeric, Repository, Pool, Queries, QuotationStatus, SalesOrder (+9 more)
 
-### Community 140 - "WriteHTTPError"
-Cohesion: 0.25
-Nodes (11): WriteHTTPError(), decodeJSON(), Pool, Request, ResponseWriter, Router, Service, NewHandler() (+3 more)
+### Community 140 - "Handler"
+Cohesion: 0.24
+Nodes (10): decodeJSON(), Pool, Request, ResponseWriter, Router, Service, NewHandler(), sessionIDs() (+2 more)
 
 ### Community 141 - "NewEngine"
-Cohesion: 0.12
-Nodes (22): T, sampleARInvoice(), TestARInvoiceTemplatesExecute(), TestARPaymentListTemplateExecutes(), AccountBalance, T, sampleBalances(), TestFinanceReportTemplatesExecute() (+14 more)
+Cohesion: 0.10
+Nodes (27): BuildTrialBalance(), T, sampleARInvoice(), TestARInvoiceTemplatesExecute(), TestARPaymentListTemplateExecutes(), AccountBalance, T, sampleBalances() (+19 more)
 
 ### Community 142 - "TxRepository"
 Cohesion: 0.12
 Nodes (17): decimalOrFloat(), Context, JournalEntry, JournalLine, JournalStatus, Period, Pool, Time (+9 more)
 
 ### Community 143 - "Service"
-Cohesion: 0.16
+Cohesion: 0.15
 Nodes (10): Context, Time, BOMLine, BOMRevisionInput, Repository, Routing, RoutingOperation, Service (+2 more)
 
 ### Community 144 - "validators.go"
 Cohesion: 0.17
-Nodes (19): Context, SQLRepository, NewBOMApprovalValidator(), NewGoodsReceiptValidator(), NewHoldReleaseValidator(), NewOperationCompletionValidator(), NewQualityDispositionValidator(), NewScheduleOverrideValidator() (+11 more)
+Nodes (20): Context, SQLRepository, NewBOMApprovalValidator(), NewGoodsReceiptValidator(), NewHoldReleaseValidator(), NewOperationCompletionValidator(), NewQualityDispositionValidator(), NewScheduleOverrideValidator() (+12 more)
 
-### Community 145 - "Parse"
-Cohesion: 0.09
-Nodes (27): Parse(), ContractPriceLine, Money, Time, Context, ContractPriceLine, Money, SupplierContract (+19 more)
+### Community 145 - "Repository"
+Cohesion: 0.20
+Nodes (9): AccountBalance, Context, ListFilters, PeriodView, Pool, Queries, int8FromInt64(), NewRepository() (+1 more)
 
 ### Community 146 - "connectors_payments.sql.go"
 Cohesion: 0.15
-Nodes (18): Context, Numeric, Queries, Text, Timestamptz, CreatePaymentDisputeParams, CreatePaymentIntentParams, CreatePaymentRefundParams (+10 more)
+Nodes (18): Context, Numeric, PaymentIntent, Queries, Text, Timestamptz, CreatePaymentDisputeParams, CreatePaymentIntentParams (+10 more)
 
-### Community 147 - "ap/service_test.go"
-Cohesion: 0.18
-Nodes (22): apPermissionReader, debitNotePDFFake, apRequest(), Context, Request, T, TestDebitNotePDFDownloadReturnsPDF(), TestDebitNoteRouteRequiresPermission() (+14 more)
+### Community 147 - "DebitNotePDFRenderer"
+Cohesion: 0.27
+Nodes (7): DebitNotePDFClient, DebitNotePDFRenderer, Handler, Context, Request, ResponseWriter, NewDebitNotePDFRenderer()
 
-### Community 148 - "UUID"
+### Community 148 - "ARCreditNote"
 Cohesion: 0.07
-Nodes (36): UUID, Context, Int4, Queries, Text, Timestamptz, UUID, Approval (+28 more)
+Nodes (25): accountingFake, ARCreditNote, ARCreditNoteLine, ARCreditNoteStatus, ARCreditNoteWithDetails, CreateARCreditNoteFromReturnInput, CreateARCreditNoteInput, CreateARCreditNoteLineInput (+17 more)
 
 ### Community 149 - "TestServiceCRUD"
 Cohesion: 0.16
@@ -1643,29 +1671,29 @@ Nodes (15): crudRepo, Service, Category, Context, ListFilters, Repository, NewSe
 Cohesion: 0.16
 Nodes (15): crudRepo, Service, Company, Context, ListFilters, Repository, NewService(), Company (+7 more)
 
-### Community 152 - "Connection"
-Cohesion: 0.10
-Nodes (16): Adapter, Connection, ConnectionStatus, registryAdapter, Context, Context, Context, Logger (+8 more)
+### Community 152 - "Adapter"
+Cohesion: 0.14
+Nodes (14): Adapter, Credentials, ExportPayload, roundTripFunc, Client, Context, Logger, NewAdapter() (+6 more)
 
-### Community 153 - "DistributionRepository"
-Cohesion: 0.12
-Nodes (10): DistributionRepository, Context, DeliveryRoute, Load, PlanningHorizon, PlanningRule, RouteStop, TransferOrder (+2 more)
+### Community 153 - "distribution/repository.go"
+Cohesion: 0.07
+Nodes (47): AddLoadItemInput, AddTransferLineInput, CreateRouteInput, DistributionRepository, LoadStatus, Repository, RouteOptimizationUpdate, RouteStatus (+39 more)
 
-### Community 154 - "000055_horizon_mvp_foundation.up.sql"
-Cohesion: 0.11
-Nodes (27): employees, api_key_scopes, api_keys, horizon_idempotency_keys, mrp_bom_lines, mrp_boms, portal_users, pos_payments (+19 more)
+### Community 154 - "TestAdapterSignatureAndShipmentContract"
+Cohesion: 0.24
+Nodes (8): roundTripFunc, Request, Response, T, TestAdapterFailsClosedAndSupportsExplicitDevelopmentFake(), TestAdapterSignatureAndShipmentContract(), Logger, nilLogger()
 
-### Community 155 - "DashboardPayload"
-Cohesion: 0.10
-Nodes (25): DashboardPayload, mergedBucket, stubPDF, AgingBucket, KPISummary, PLTrendPoint, Writer, WriteAgingCSV() (+17 more)
+### Community 155 - "Context"
+Cohesion: 0.09
+Nodes (15): ARAllocationValuation, ARPaymentValuation, CreateARInvoiceInput, CreateARInvoiceLineInput, txRepo, TxRepository, decimalScale(), Repository (+7 more)
 
 ### Community 156 - "PGRepository"
-Cohesion: 0.08
-Nodes (38): BankConnection, BankConnectionAccount, BankFeedEvent, BankFeedSyncRun, BankingService, CreateBankConnectionAccountInput, CreateBankConnectionInput, CreateBankFeedEventInput (+30 more)
+Cohesion: 0.11
+Nodes (24): CreateBankConnectionAccountInput, PGRepository, UpdateBankConnectionStatusInput, UpdateBankFeedEventStatusInput, BankAccount, BankConnection, BankConnectionAccount, BankFeedEvent (+16 more)
 
-### Community 157 - "midtrans/adapter_test.go"
-Cohesion: 0.30
-Nodes (26): NewAdapter(), encryptedConn(), Logger, M, T, midtransSignature(), newTestVault(), silentLogger() (+18 more)
+### Community 157 - "postgresRepository"
+Cohesion: 0.15
+Nodes (15): CostCenterUpdate, postgresRepository, Context, CostCenter, FreightCharge, Int8, LandedCost, Text (+7 more)
 
 ### Community 158 - "TestServiceCRUD"
 Cohesion: 0.16
@@ -1687,9 +1715,9 @@ Nodes (15): Context, ListFilters, Repository, Warehouse, Service, NewService(), 
 Cohesion: 0.14
 Nodes (15): Money, Result, Time, UUID, Context, Run, AccountMappings, ApprovalEngine (+7 more)
 
-### Community 163 - "qms/service.go"
-Cohesion: 0.11
-Nodes (15): QualityObjective, toQualityObjective(), Status, Time, validateCAPAStatusTransition(), validateNCRStatusTransition(), CreateFindingRequest, CreateQualityObjectiveRequest (+7 more)
+### Community 163 - "000048_tax_compliance.up.sql"
+Cohesion: 0.16
+Nodes (22): company_tax_identities, guard_locked_tax_period(), reject_tax_immutable_change(), tax_audit_events, tax_document_events, tax_documents, tax_export_schemas, tax_exports (+14 more)
 
 ### Community 164 - "seed/main.go"
 Cohesion: 0.20
@@ -1700,48 +1728,48 @@ Cohesion: 0.15
 Nodes (12): Context, Permission, Role, Queries, AssignRoleToUserParams, AttachPermissionToRoleParams, CreatePermissionParams, DetachPermissionFromRoleParams (+4 more)
 
 ### Community 166 - ".New"
-Cohesion: 0.09
-Nodes (19): Service, Service, Asset, Category, Context, Repository, Time, NewService() (+11 more)
+Cohesion: 0.14
+Nodes (13): Service, Asset, Category, Context, Repository, Time, NewService(), T (+5 more)
 
 ### Community 167 - "Service"
-Cohesion: 0.14
-Nodes (9): Service, Context, DeliveryRoute, PlanningHorizon, PlanningRule, Repository, RouteStop, Time (+1 more)
+Cohesion: 0.10
+Nodes (24): LoadUtilization, RouteMetrics, Service, float64Ptr(), Context, DeliveryRoute, Load, LoadItem (+16 more)
 
-### Community 168 - "fx_ar_ap_integration_test.go"
-Cohesion: 0.31
-Nodes (19): dbFXResolver, fxIDs, allocate(), applyAllMigrations(), assertBalancedAndIdempotent(), assertRevaluation(), assertReversal(), assertValuation() (+11 more)
+### Community 168 - "Context"
+Cohesion: 0.13
+Nodes (17): Context, Date, Int8, Queries, Timestamptz, EliminationRule, EliminationRunStatus, ElimInsertRuleParams (+9 more)
 
 ### Community 169 - "serviceRepo"
-Cohesion: 0.17
-Nodes (14): serviceRepo, Account, AccountBalance, Context, Month, T, TestServiceDelegatesAccountAndBalanceQueries(), TrialBalance (+6 more)
+Cohesion: 0.10
+Nodes (22): Repository, Service, serviceRepo, Account, AccountBalance, Context, Month, Pool (+14 more)
 
 ### Community 170 - "Handler"
 Cohesion: 0.21
 Nodes (14): Handler, option, flashRedirect(), Engine, Logger, Pool, Request, ResponseWriter (+6 more)
 
-### Community 171 - "Handler"
-Cohesion: 0.06
-Nodes (39): BankStatement, BankStatementLine, Handler, ParsedStatementLine, PGRepository, Renderer, Repository, Service (+31 more)
+### Community 171 - "ProfitLossHandler"
+Cohesion: 0.08
+Nodes (23): plPDFExporter, plPDFRenderer, ProfitLossHandler, stubPLPDFExporter, Request, ResponseWriter, Engine, Handler (+15 more)
 
 ### Community 172 - "notifications/dispatcher.go"
-Cohesion: 0.17
-Nodes (19): Context, ApprovalRequested(), Context, Service, InvoiceIssued(), NewDispatcher(), PasswordReset(), ReportDelivered() (+11 more)
+Cohesion: 0.12
+Nodes (23): Context, Context, ApprovalRequested(), Context, Service, InvoiceIssued(), NewDispatcher(), PasswordReset() (+15 more)
 
 ### Community 173 - "distribution/domain.go"
 Cohesion: 0.18
-Nodes (19): DeliveryRoute, HorizonStatus, Load, LoadItem, LoadStatus, PlanningHorizon, PlanningRule, RouteStatus (+11 more)
+Nodes (15): DeliveryRoute, HorizonStatus, Load, LoadItem, PlanningHorizon, PlanningRule, RouteStop, RuleType (+7 more)
 
-### Community 174 - "Line"
-Cohesion: 0.16
-Nodes (16): HTML, barBounds(), barPosition(), Bars(), HTML, almostEqual(), bounds(), fallback() (+8 more)
+### Community 174 - "Service"
+Cohesion: 0.08
+Nodes (25): APAgingBucket, APAllocationValuation, APPaymentValuation, AuditPort, FXRateResolver, LedgerPostError, TaxServicePort, TransactionalAPAccountingPort (+17 more)
 
 ### Community 175 - "Service"
 Cohesion: 0.21
 Nodes (8): Context, CreateLineReq, CreateRequest, DeliveryOrder, Service, ReturnDeliveryOrder, validateDeliveryLine(), InventoryClient
 
 ### Community 176 - "mrp/handlers.go"
-Cohesion: 0.17
-Nodes (18): Context, Request, ResponseWriter, SQLRepository, Time, NewChallengeVerificationHandler(), respondJSON(), validateDecisionRequest() (+10 more)
+Cohesion: 0.12
+Nodes (28): Context, Request, ResponseWriter, SQLRepository, Time, NewAuditLogHandler(), NewChallengeVerificationHandler(), NewChallengeVerificationHandlerWithService() (+20 more)
 
 ### Community 177 - "Handler"
 Cohesion: 0.26
@@ -1759,9 +1787,9 @@ Nodes (14): Context, Int8, Numeric, Queries, Timestamptz, UUID, GetReorderAlerts
 Cohesion: 0.04
 Nodes (48): 1. Repository Structure, 2. Test Suite, 3. Documentation, API Examples, Areas for Future Improvement:, Code Quality:, Comparison with Sales Module, Completed Components: (+40 more)
 
-### Community 181 - "000048_tax_compliance.up.sql"
-Cohesion: 0.15
-Nodes (24): company_tax_identities, guard_locked_tax_period(), reject_tax_immutable_change(), tax_withholding_types, tax_audit_events, tax_document_events, tax_documents, tax_export_schemas (+16 more)
+### Community 181 - "freight/repository.go"
+Cohesion: 0.13
+Nodes (29): CreateRateSurchargeInput, FreightChargeFilter, FreightChargeUpdate, LandedCostFilter, RateCardFilter, RateCardUpdate, RateLookup, Repository (+21 more)
 
 ### Community 182 - "datatable/index.js"
 Cohesion: 0.20
@@ -1776,32 +1804,32 @@ Cohesion: 0.21
 Nodes (7): notificationsMemoryStore, notificationsTestStore, Context, Notification, T, Time, TestNotificationAdapterDispatchesApprovalEvents()
 
 ### Community 185 - "Context"
-Cohesion: 0.12
-Nodes (14): boardPackNotificationStore, boardPackPDFClientFake, boardPackPrefs, boardPackStorageFake, PDFClient, Renderer, boardPackGetRow(), Context (+6 more)
+Cohesion: 0.14
+Nodes (11): boardPackNotificationStore, boardPackPDFClientFake, boardPackPrefs, boardPackStorageFake, boardPackGetRow(), Context, Notification, ReadCloser (+3 more)
 
 ### Community 186 - "Service"
 Cohesion: 0.14
 Nodes (12): Service, mergeMetadata(), BoardPack, Company, Context, CreateRequest, ListFilter, Period (+4 more)
 
-### Community 187 - "JobsCLI"
-Cohesion: 0.13
-Nodes (13): ConsolOpsCLI, JobsCLI, QueueStats, Context, TaskInfo, NewConsolOpsCLI(), Client, Context (+5 more)
+### Community 187 - "companies"
+Cohesion: 0.04
+Nodes (66): companies, cost_centers, departments, report_schedules, report_schedule_deliveries, mrp_production_events, mrp_production_receipt_costs, mrp_audit_events (+58 more)
 
-### Community 188 - "newTestHandler"
-Cohesion: 0.38
-Nodes (10): Handler, Request, Session, SessionManager, T, loadSession(), newTestHandler(), TestListPeriodsRendersStatusAndActions() (+2 more)
+### Community 188 - "midtransiris/adapter.go"
+Cohesion: 0.07
+Nodes (69): ConnectionRef, ErrorCategory, biSnapStatus(), biSnapSuccess(), categoryForTransport(), classifyProviderResponse(), decodeBISNAPResponse(), exactAmount() (+61 more)
 
 ### Community 189 - "BuildBudgetVsActual"
+Cohesion: 0.08
+Nodes (35): File, BuildBalanceSheet(), AccountBalance, BuildBudgetVsActual(), buildLine(), AccountBalance, formatAndWrite(), Writer (+27 more)
+
+### Community 190 - "Context"
 Cohesion: 0.15
-Nodes (20): File, BuildBudgetVsActual(), buildLine(), AccountBalance, formatAndWrite(), Writer, itoa(), T (+12 more)
+Nodes (14): arNotificationPrefs, arNotificationsStore, arPermissionReader, creditNotePDFFake, arRequest(), Context, Notification, Request (+6 more)
 
-### Community 190 - "Validate"
-Cohesion: 0.18
-Nodes (21): Gap, Method, Policy, QuoteProvider, Requirement, Result, DefaultPolicy(), Context (+13 more)
-
-### Community 191 - ".Serve"
-Cohesion: 0.25
-Nodes (5): stubBSPDFExporter, Logger, Request, ResponseWriter, newBSPDFExporter()
+### Community 191 - "Context"
+Cohesion: 0.11
+Nodes (26): Bool, Context, Customer, Date, Int8, Numeric, QuotationLine, QuotationStatus (+18 more)
 
 ### Community 192 - "Context"
 Cohesion: 0.13
@@ -1813,7 +1841,7 @@ Nodes (22): Money, StopType, Time, T, TestServiceRejectsInvalidSetupInputsWithou
 
 ### Community 194 - "ProductionExecutor"
 Cohesion: 0.14
-Nodes (18): validateCompletionInput(), Context, Pool, Service, Tx, WorkOrder, materialQuantity(), NewProductionExecutor() (+10 more)
+Nodes (17): validateCompletionInput(), Context, Pool, Service, Tx, WorkOrder, materialQuantity(), NewProductionExecutor() (+9 more)
 
 ### Community 195 - "Handler"
 Cohesion: 0.25
@@ -1821,7 +1849,7 @@ Nodes (11): body(), Pool, Request, ResponseWriter, Router, Service, ids(), NewHa
 
 ### Community 196 - "ODYSSEY ERP: PRODUCTION DEPLOYMENT GUIDE"
 Cohesion: 0.04
-Nodes (47): 1. Application Health, 1. Build Binary, 1. Create Database, 1. Database Tuning, 1. Enable RBAC Enforcement, 1-Hour After Launch, 1. Logging Setup, 2. Audit Logging (+39 more)
+Nodes (45): 1. Application Health, 1. Create Database, 1. Database Tuning, 1. Enable RBAC Enforcement, 1-Hour After Launch, 1. Logging Setup, 1. Native release layout, 2. Audit Logging (+37 more)
 
 ### Community 197 - "inventory_adjustments.sql.go"
 Cohesion: 0.20
@@ -1832,20 +1860,20 @@ Cohesion: 0.17
 Nodes (7): Context, Document, Money, Period, fakeStore, PendingCapture, PostedSource
 
 ### Community 199 - "form/index.js"
-Cohesion: 0.19
-Nodes (21): effects, destroy(), dispatch(), Form, handleBlur(), handleInput(), handleReset(), handleSubmit() (+13 more)
+Cohesion: 0.20
+Nodes (20): effects, destroy(), dispatch(), handleBlur(), handleInput(), handleReset(), handleSubmit(), init() (+12 more)
 
 ### Community 200 - "Repository"
-Cohesion: 0.16
-Nodes (13): CreatePolicyInput, PolicyStep, queryer, Repository, resolvedUser, Assignment, Context, Policy (+5 more)
+Cohesion: 0.18
+Nodes (11): queryer, Repository, resolvedUser, Assignment, Context, Policy, Pool, Request (+3 more)
 
 ### Community 201 - "OutboxMessage"
-Cohesion: 0.12
-Nodes (17): Correlation, EnqueueInput, ErrorCategory, OutboxMessage, OutboxRepository, outboxRow, OutboxStatus, ProviderError (+9 more)
+Cohesion: 0.06
+Nodes (32): Correlation, dispatcherStoreFake, EnqueueInput, OutboxMessage, OutboxRepository, outboxRow, OutboxStatus, ProviderError (+24 more)
 
 ### Community 202 - "Service"
 Cohesion: 0.19
-Nodes (12): LedgerPoster, Service, buildLines(), Context, CreateRuleInput, ListFilters, PeriodView, Repository (+4 more)
+Nodes (13): LedgerPoster, Service, SimulationSummary, buildLines(), Context, CreateRuleInput, ListFilters, PeriodView (+5 more)
 
 ### Community 203 - "Handler"
 Cohesion: 0.18
@@ -1856,8 +1884,8 @@ Cohesion: 0.23
 Nodes (11): currentUser(), Engine, Handler, Logger, Request, ResponseWriter, Router, Service (+3 more)
 
 ### Community 205 - "SQLRepository"
-Cohesion: 0.17
-Nodes (7): Context, Pool, WorkOrder, NewRepository(), nullIfBlank(), SQLRepository, WIPLocation
+Cohesion: 0.18
+Nodes (8): Context, Pool, WorkOrder, NewRepository(), nullIfBlank(), SQLRepository, WIPLocation, WorkCenter
 
 ### Community 206 - "inventory.sql.go"
 Cohesion: 0.18
@@ -1867,21 +1895,21 @@ Nodes (14): Context, Int8, Numeric, Queries, Timestamptz, UUID, GetBalanceForUpd
 Cohesion: 0.21
 Nodes (12): currentUser(), Client, Engine, Logger, Request, ResponseWriter, Router, Service (+4 more)
 
-### Community 208 - "Snapshot"
-Cohesion: 0.15
-Nodes (14): Time, Time, Timestamptz, VarianceSnapshot, mapSnapshotFromGet(), mapSnapshotSimple(), timeToPointer(), CreateRuleInput (+6 more)
+### Community 208 - "Amount"
+Cohesion: 0.16
+Nodes (14): Rat, maxDecimalPlaces(), MustParseAmount(), ParseAmount(), T, TestAmountAdditionIsExact(), TestAmountFromNumericPreservesDecimalText(), TestAmountJSONRequiresDecimalString() (+6 more)
 
-### Community 209 - "warehouses"
-Cohesion: 0.12
-Nodes (28): branches, warehouses, inventory_stock_take_lines, inventory_stock_takes, inventory_adjustment_lines, inventory_adjustments, mrp_planning_recommendations, mrp_planning_runs (+20 more)
+### Community 209 - "memoryProcRepo"
+Cohesion: 0.11
+Nodes (14): stubProcRepo, ListFilters, APInvoice, APPayment, ListFilters, TxRepository, GoodsReceipt, GRNLine (+6 more)
 
 ### Community 210 - "combobox/index.js"
-Cohesion: 0.21
-Nodes (19): effects, destroy(), dispatch(), handleClick(), handleGlobalKeydown(), handleInput(), handleKeydown(), handleScroll() (+11 more)
+Cohesion: 0.19
+Nodes (20): effects, ComboBox, destroy(), dispatch(), handleClick(), handleGlobalKeydown(), handleInput(), handleKeydown() (+12 more)
 
-### Community 211 - "RouterParams"
-Cohesion: 0.17
-Nodes (21): RouterParams, workspaceCompany, workspaceUser, activeCompanyMiddleware(), Context, Dispatcher, Engine, Handler (+13 more)
+### Community 211 - "ExactAmount"
+Cohesion: 0.10
+Nodes (17): ExactAmount, Account, Balance, fakeFeed, InboundEvent, SyncRequest, Transaction, TransactionPage (+9 more)
 
 ### Community 212 - "Handler"
 Cohesion: 0.26
@@ -1891,13 +1919,13 @@ Nodes (11): Handler, activeCompanyID(), getUserID(), Engine, Logger, Request, Re
 Cohesion: 0.22
 Nodes (20): actionState, badgeView, checklistRowView, checklistSummary, closeRunPageData, periodListPageData, periodListRow, statusOption (+12 more)
 
-### Community 214 - "Handler"
-Cohesion: 0.23
-Nodes (13): currentUser(), Client, Engine, Handler, Logger, Request, ResponseWriter, Router (+5 more)
+### Community 214 - "forecasting/service.go"
+Cohesion: 0.21
+Nodes (17): BaseCurrencyReader, dailyFlow, ForecastDailyBucket, ForecastRun, FXResolver, FXSnapshot, FXSnapshotRate, Repository (+9 more)
 
 ### Community 215 - "delivery/orders/dto.go"
-Cohesion: 0.09
-Nodes (26): CreateLineReq, CreateLineReq, CreateRequest, Status, Time, BuildDeliverableMap(), ToDetailResponse(), ToListResponse() (+18 more)
+Cohesion: 0.12
+Nodes (19): CreateLineReq, CreateLineReq, CreateRequest, Status, Time, CreateRequest, ValidateCancelRequest(), ValidateCreateRequest() (+11 more)
 
 ### Community 216 - "inventory/service_test.go"
 Cohesion: 0.42
@@ -1911,21 +1939,21 @@ Nodes (17): capacityKey(), dayStart(), Time, ScheduleFinite(), Context, Pool, Ti
 Cohesion: 0.20
 Nodes (12): Engine, Logger, Request, ResponseWriter, Router, Service, NewHandler(), payrollCompanyID() (+4 more)
 
-### Community 219 - "mail.go"
-Cohesion: 0.15
-Nodes (14): Context, T, TestPayslipWorkerRendersAndEmailsPDF(), base64Encode(), base64EncodedLen(), encodeBase64(), Context, NewMailClient() (+6 more)
+### Community 219 - "NewPDFExporter"
+Cohesion: 0.17
+Nodes (31): PackingListLine, PackingListPayload, Client, Context, PDFExporter, Time, NewPDFExporter(), createTestPayload() (+23 more)
 
 ### Community 220 - "Service"
-Cohesion: 0.22
-Nodes (6): Context, Permission, Role, NewService(), Repository, Service
+Cohesion: 0.15
+Nodes (10): Context, Permission, Role, Time, validateBranch(), validatePositive(), validateScope(), Repository (+2 more)
 
 ### Community 221 - "Context"
 Cohesion: 0.15
 Nodes (15): BankAccount, BankTransaction, Context, Date, Int8, Numeric, Queries, StatementImportRun (+7 more)
 
 ### Community 222 - "Phase 9: Sales & Delivery RBAC Permissions Setup"
-Cohesion: 0.05
-Nodes (37): 1. Sales Manager, 2. Sales Staff, 3. Warehouse Staff, Admin User, API Reference, Architecture, Audit Trail, Best Practices (+29 more)
+Cohesion: 0.04
+Nodes (47): 1. Run Migration, 1. Sales Manager, 2. Sales Staff, 2. Verify Permissions, 3. Assign Roles to Users, 3. Warehouse Staff, 4. Test Access Control, Admin User (+39 more)
 
 ### Community 223 - "E2ETestSuite"
 Cohesion: 0.14
@@ -1940,24 +1968,24 @@ Cohesion: 0.19
 Nodes (18): effects, destroy(), dispatch(), handleClick(), handleKeydown(), init(), mounted, Slideout (+10 more)
 
 ### Community 226 - "table-edit/index.js"
-Cohesion: 0.20
-Nodes (18): effects, destroy(), dispatch(), getCellType(), handleBlur(), handleDblClick(), handleInput(), handleKeydown() (+10 more)
+Cohesion: 0.19
+Nodes (19): effects, destroy(), dispatch(), getCellType(), handleBlur(), handleDblClick(), handleInput(), handleKeydown() (+11 more)
 
 ### Community 227 - "Scope"
 Cohesion: 0.30
 Nodes (7): Scope, Service, Context, Event, Time, stringPtr(), validScope()
 
-### Community 228 - "analytics/http/handlers_test.go"
-Cohesion: 0.14
-Nodes (17): a, barAdapter, lineAdapter, stubValidator, Handler, HTML, T, newTestHandler() (+9 more)
+### Community 228 - "PaymentOperation"
+Cohesion: 0.13
+Nodes (23): firstNonBlank(), Context, Time, MaskName(), MaskSensitive(), NewOperationsRepository(), Context, TestOperationsMaskHelpers() (+15 more)
 
 ### Community 229 - "insights/service.go"
-Cohesion: 0.16
-Nodes (22): BranchContributionRow, CompareService, ContributionShare, MonthlySeries, Repository, Result, Service, VarianceMetric (+14 more)
+Cohesion: 0.24
+Nodes (17): MonthlyNetRevenueRow, Repository, Service, almostZero(), branchLabel(), computeContribution(), computeVariance(), enumerateMonths() (+9 more)
 
-### Community 230 - "NewHooks"
-Cohesion: 0.12
-Nodes (18): AccountMappingRepository, ConnectorsService, Ledger, mappingFake, periodFake, PeriodRepository, TransactionalLedger, AccountMapping (+10 more)
+### Community 230 - ".ApplySettlementEffectsTx"
+Cohesion: 0.23
+Nodes (19): FXQuote, Context, Int8, Time, Tx, NewTreasurySettlementEffects(), NewTreasurySettlementEffectsWithFXResolver(), nullableInt8() (+11 more)
 
 ### Community 231 - "Service"
 Cohesion: 0.19
@@ -1984,24 +2012,24 @@ Cohesion: 0.22
 Nodes (17): effects, DateRangePicker, destroy(), dispatch(), handleChange(), handleClick(), handleKeydown(), init() (+9 more)
 
 ### Community 237 - "lookup/index.js"
-Cohesion: 0.22
-Nodes (17): effects, destroy(), dispatch(), handleClick(), handleFocus(), handleInput(), handleKeydown(), init() (+9 more)
+Cohesion: 0.21
+Nodes (18): effects, destroy(), dispatch(), handleClick(), handleFocus(), handleInput(), handleKeydown(), init() (+10 more)
 
-### Community 238 - "Handler"
-Cohesion: 0.38
-Nodes (5): apiError(), Handler, Request, ResponseWriter, writeJSON()
+### Community 238 - "OutboxCommand"
+Cohesion: 0.16
+Nodes (15): OutboxCommand, eventTypeForTransactionStatus(), Client, Context, Logger, Time, parseTransactionTime(), responseMessage() (+7 more)
 
 ### Community 239 - "Service"
 Cohesion: 0.17
-Nodes (11): DecisionResult, Finalizer, Notifier, Service, Store, Assignment, Context, Policy (+3 more)
+Nodes (10): DecisionResult, Finalizer, Notifier, Service, Store, Assignment, Context, Policy (+2 more)
 
 ### Community 240 - "PGRepository"
 Cohesion: 0.12
 Nodes (22): BankAccountCreate, PGRepository, BankAccount, BankStatement, BankTransaction, Context, Int8, Numeric (+14 more)
 
-### Community 241 - "Handler"
-Cohesion: 0.25
-Nodes (10): Engine, Handler, Logger, Pool, Request, ResponseWriter, Service, NewHandler() (+2 more)
+### Community 241 - "NewSessionManager"
+Cohesion: 0.13
+Nodes (12): Client, Context, Duration, Request, ResponseWriter, NewSessionManager(), T, TestFlashPersistsAcrossRedirectAndClearsAfterRead() (+4 more)
 
 ### Community 242 - "fx_backfill.go"
 Cohesion: 0.23
@@ -2015,13 +2043,13 @@ Nodes (45): 1. Rate Cards, 2. Freight Calculation, 3. Landed Cost, 4. GL Posting
 Cohesion: 0.15
 Nodes (15): Contribution, DBRepository, Filters, GroupAccountBalance, Member, Service, Totals, TrialBalance (+7 more)
 
-### Community 245 - "Context"
-Cohesion: 0.11
-Nodes (10): txRepo, TxRepository, decimalScale(), Repository, Context, Numeric, Pool, Tx (+2 more)
+### Community 245 - "ReportingDataset"
+Cohesion: 0.17
+Nodes (14): Context, Int4, Int8, Queries, Text, Timestamptz, UUID, CreateReportingDatasetFieldParams (+6 more)
 
 ### Community 246 - "PaymentBatch"
-Cohesion: 0.05
-Nodes (53): Time, Context, Int8, Numeric, Pool, Queries, Text, Time (+45 more)
+Cohesion: 0.15
+Nodes (15): Time, Context, mockRepo, PaymentBatch, PaymentBatchCreate, PaymentBatchExportUpdate, PaymentBatchRevisionUpdate, PaymentBatchSettlementUpdate (+7 more)
 
 ### Community 247 - "calculator.go"
 Cohesion: 0.27
@@ -2033,15 +2061,15 @@ Nodes (31): calculateComparison(), Rat, T, TestCalculateComparisonHandlesZeroPri
 
 ### Community 249 - "TreasuryPaymentBatch"
 Cohesion: 0.09
-Nodes (20): Context, Int8, Numeric, Queries, Timestamptz, Context, Int8, Queries (+12 more)
+Nodes (21): Context, Int8, Numeric, Queries, Timestamptz, Context, Int8, Queries (+13 more)
 
 ### Community 250 - "E2ETestSuite"
 Cohesion: 0.16
 Nodes (6): Client, Server, Suite, T, E2ETestSuite, TestE2ESuite()
 
-### Community 251 - "fx_daily_rates_test.go"
-Cohesion: 0.27
-Nodes (7): Context, T, Time, TestFXDailyRatesReturnsRetryableErrorsAndRejectsBadPayload(), TestFXDailyRatesUsesJakartaBusinessDateAndAllCompanies(), fxCompaniesFake, fxFetcherFake
+### Community 251 - "recovery.go"
+Cohesion: 0.17
+Nodes (18): DefaultPaymentRecoveryScanConfig(), financeRecoveryMessage(), Context, Duration, Time, metricProvider(), NewPaymentRecoveryScanner(), SortPaymentRecoveryCases() (+10 more)
 
 ### Community 252 - "sidebar/index.js"
 Cohesion: 0.24
@@ -2051,25 +2079,25 @@ Nodes (16): effects, destroy(), dispatch(), handleBeforeUnload(), handleClick(),
 Cohesion: 0.22
 Nodes (16): effects, destroy(), dispatch(), handleClick(), handleKeydown(), init(), mounted, Tabs (+8 more)
 
-### Community 254 - "ContextWithSession"
-Cohesion: 0.16
-Nodes (17): stubRepo, Context, Handler, Repository, SessionManager, T, Time, User (+9 more)
+### Community 254 - "RbacAccessReview"
+Cohesion: 0.17
+Nodes (14): Context, Int8, Queries, Text, Timestamptz, RbacAccessReview, RbacCompleteAccessReviewParams, RbacCreateScopedRoleAssignmentParams (+6 more)
 
 ### Community 255 - "mockRepo"
-Cohesion: 0.20
-Nodes (8): mockRepo, StatementImportRunCreate, BankAccount, BankStatement, BankTransaction, Context, StatementImportRun, Time
+Cohesion: 0.16
+Nodes (10): mockPoster, mockRepo, StatementImportRunCreate, BankAccount, BankStatement, BankTransaction, Context, JournalEntry (+2 more)
 
 ### Community 256 - "Builder"
 Cohesion: 0.26
 Nodes (10): Builder, dataRepository, KPIProvider, VarianceProvider, BoardPack, Context, Time, metadataInt64() (+2 more)
 
-### Community 257 - "stubCloseService"
-Cohesion: 0.16
-Nodes (15): ChecklistDefinition, ChecklistItem, ChecklistStatus, ChecklistUpdateInput, CreatePeriodInput, Period, PeriodStatus, RunStatus (+7 more)
+### Community 257 - "BatchExecutionEnqueuer"
+Cohesion: 0.17
+Nodes (14): exactTreasuryMoney(), Context, Coordinator, Instruction, Money, OutboxRepository, Repository, Time (+6 more)
 
-### Community 258 - "connectors/service.go"
-Cohesion: 0.15
-Nodes (15): CanonicalEventInput, ConnectionCreateInput, CreateCheckoutIntentRequest, CreateCheckoutIntentResult, CreateConnectionParams, OutboxCommandStateUpdate, OutboxEnqueueInput, OutboxRepository (+7 more)
+### Community 258 - "Handler"
+Cohesion: 0.18
+Nodes (12): Handler, Engine, Logger, Request, ResponseWriter, Router, Service, NewHandler() (+4 more)
 
 ### Community 259 - "Handler"
 Cohesion: 0.29
@@ -2079,17 +2107,17 @@ Nodes (8): formErrors, Handler, Engine, Logger, Request, ResponseWriter, Service
 Cohesion: 0.21
 Nodes (20): AllocationMethod, AuditType, CalculateFreightInput, CalculateFreightOutput, CalculateLandedCostInput, CostCenter, CostCenterType, CreateCostCenterInput (+12 more)
 
-### Community 261 - "Handler"
-Cohesion: 0.29
-Nodes (9): closeService, currentUser(), Engine, Handler, Logger, Request, ResponseWriter, Router (+1 more)
+### Community 261 - "Context"
+Cohesion: 0.10
+Nodes (21): Context, Date, Int8, Numeric, Queries, Context, Int8, Queries (+13 more)
 
 ### Community 262 - "writeBSCsv"
 Cohesion: 0.27
 Nodes (13): csvStreamer, formatDecimal(), TrialBalance, Writer, newCSVStreamer(), T, TestCSVStreamerFlushInterval(), TestWriteBSCsvAddsBalanceWarning() (+5 more)
 
 ### Community 263 - "BOM"
-Cohesion: 0.24
-Nodes (4): Context, WorkOrder, BOM, repo
+Cohesion: 0.18
+Nodes (12): NewService(), approvedBOM(), Context, T, WorkOrder, TestBOMRevisionRequiresReasonAndStartsDraft(), TestCreateBOMRejectsSelfReferentialAndInvalidScrap(), TestCreateRoutingRequiresOrderedViableOperations() (+4 more)
 
 ### Community 264 - "Dispatcher"
 Cohesion: 0.23
@@ -2101,7 +2129,7 @@ Nodes (16): NewService(), Request, Submission, T, TestBankCSVRequiresPostedRunAn
 
 ### Community 266 - "Phase 9.2 PDF Generation Documentation"
 Cohesion: 0.04
-Nodes (45): Adding Fields, Appendix A: Complete Example, Architecture, Basic Usage, Benchmarks, Building Payload from Domain Model, Common Errors, Components (+37 more)
+Nodes (50): Adding Fields, Appendix A: Complete Example, Architecture, Basic Usage, Benchmarks, Building Payload from Domain Model, Common Errors, Components (+42 more)
 
 ### Community 267 - "Service"
 Cohesion: 0.25
@@ -2112,8 +2140,8 @@ Cohesion: 0.16
 Nodes (14): Context, Pool, Time, Tx, NewAuditLogger(), Context, Pool, Time (+6 more)
 
 ### Community 269 - "tax/domain.go"
-Cohesion: 0.18
-Nodes (14): Time, Money, renderCoretaxXML(), Document, ExportRecord, ExportResult, ExportSchema, Money (+6 more)
+Cohesion: 0.14
+Nodes (17): Time, Money, renderCoretaxXML(), Name, coretaxEnvelope, coretaxRecord, Document, ExportRecord (+9 more)
 
 ### Community 270 - "Service"
 Cohesion: 0.25
@@ -2127,13 +2155,13 @@ Nodes (8): Handler, Engine, Logger, Request, ResponseWriter, Service, SessionMan
 Cohesion: 0.31
 Nodes (8): Handler, Engine, Logger, Request, ResponseWriter, Service, SessionManager, NewHandler()
 
-### Community 273 - "Handler"
-Cohesion: 0.31
-Nodes (8): Handler, Engine, Logger, Request, ResponseWriter, Service, SessionManager, NewHandler()
+### Community 273 - "PGRepository"
+Cohesion: 0.17
+Nodes (15): PGRepository, BankStatement, BankStatementLine, Context, Numeric, Pool, Queries, Text (+7 more)
 
 ### Community 274 - "CanonicalEvent"
-Cohesion: 0.16
-Nodes (15): CanonicalEvent, Context, Dispatcher, Logger, Service, NewMarketplaceProcessor(), RegisterOutboxHandlers(), Context (+7 more)
+Cohesion: 0.14
+Nodes (18): CanonicalEvent, ObjectMapping, SyncRun, Time, Context, Dispatcher, Logger, Service (+10 more)
 
 ### Community 275 - "Handler"
 Cohesion: 0.33
@@ -2155,13 +2183,13 @@ Nodes (8): Engine, Logger, Request, ResponseWriter, Service, SessionManager, Han
 Cohesion: 0.33
 Nodes (8): Engine, Logger, Request, ResponseWriter, Service, SessionManager, Handler, NewHandler()
 
-### Community 280 - ".Run"
-Cohesion: 0.30
-Nodes (11): Context, Pool, Time, loadPlanningBOMs(), loadPlanningInput(), NewPlanningRunService(), validPlanningPolicy(), FirmedRecommendation (+3 more)
+### Community 280 - "Service"
+Cohesion: 0.15
+Nodes (12): normalizeCurrency(), Context, Time, int64Ptr(), optionalID(), payableAccount(), timePtr(), APService (+4 more)
 
 ### Community 281 - "SignatureChallengeService"
-Cohesion: 0.20
-Nodes (11): Conn, Context, Duration, SignatureChallenge, Time, NewSignatureChallengeService(), GenerateChallengeInput, GeneratedChallenge (+3 more)
+Cohesion: 0.16
+Nodes (16): Conn, Context, Duration, Int8, Text, Time, NewSignatureChallengeService(), scanSignatureChallenge() (+8 more)
 
 ### Community 282 - "Handler"
 Cohesion: 0.22
@@ -2171,13 +2199,13 @@ Nodes (11): Request, ResponseWriter, Router, Service, NewHandler(), recipientID(
 Cohesion: 0.18
 Nodes (9): Context, Pool, Project, Timesheet, NewRepository(), ProjectExpense, ProjectMilestone, ResourceAllocation (+1 more)
 
-### Community 284 - "NewService"
-Cohesion: 0.20
-Nodes (15): T, TestCancelRejectsFinalOrderStatuses(), TestCreateSalesOrderRejectsInvalidLineAfterHeaderChecks(), TestValidateFulfillmentLineCoversRequiredBounds(), Repository, NewService(), Customer, Repository (+7 more)
+### Community 284 - "memoryRepo"
+Cohesion: 0.11
+Nodes (22): T, TestCancelRejectsFinalOrderStatuses(), TestCreateSalesOrderRejectsInvalidLineAfterHeaderChecks(), TestValidateFulfillmentLineCoversRequiredBounds(), Repository, NewService(), Context, Customer (+14 more)
 
-### Community 285 - "memoryRepo"
-Cohesion: 0.20
-Nodes (7): Context, QuotationStatus, SalesOrder, SalesOrderLine, SalesOrderStatus, Time, memoryRepo
+### Community 285 - "Time"
+Cohesion: 0.12
+Nodes (12): AddRouteStopInput, CreateLoadInput, CreatePlanningHorizonInput, CreatePlanningRuleInput, CreateTransferOrderInput, dateValue(), dateValuePtr(), Date (+4 more)
 
 ### Community 286 - "AnomalyScanJob"
 Cohesion: 0.22
@@ -2187,21 +2215,21 @@ Nodes (12): average(), Context, Logger, Metrics, Pool, Time, NewAnomalyScanJob()
 Cohesion: 0.24
 Nodes (14): effects, destroy(), dispatch(), handleClick(), handleDismiss(), init(), processQueue(), generateId() (+6 more)
 
-### Community 288 - "Limit"
-Cohesion: 0.16
-Nodes (12): rateLimiter, Handler, Router, Router, Handler, RWMutex, newRateLimiter(), RateLimitMiddleware() (+4 more)
+### Community 288 - "loadCanonicalRecordSnapshot"
+Cohesion: 0.11
+Nodes (26): canonicalizeJSON(), Context, Int8, Tx, hashCanonicalJSON(), int8Pointer(), loadCanonicalRecordSnapshot(), normalizeRecordType() (+18 more)
 
 ### Community 289 - "ParseCSV"
 Cohesion: 0.20
 Nodes (12): db, ImportResult, Service, Context, Pool, Reader, NewService(), ParseCSV() (+4 more)
 
 ### Community 290 - "NewLocalStorage"
-Cohesion: 0.25
-Nodes (16): B, NewLocalStorage(), BenchmarkStorageGet(), BenchmarkStoragePut(), Context, Storage, T, TestGenerateStorageKey() (+8 more)
+Cohesion: 0.24
+Nodes (15): B, NewLocalStorage(), BenchmarkStorageGet(), BenchmarkStoragePut(), Context, Storage, T, testStorage() (+7 more)
 
-### Community 291 - "variance/repository.go"
-Cohesion: 0.30
-Nodes (11): float64Ref(), CreateRuleInput, Int8, Rule, int8ToPointer(), int8ToPointerInt8Original(), mapRuleFromGet(), mapRuleFromInsert() (+3 more)
+### Community 291 - "Handler"
+Cohesion: 0.24
+Nodes (10): Engine, Logger, Request, ResponseWriter, Router, Service, SessionManager, NewHandler() (+2 more)
 
 ### Community 292 - "Service"
 Cohesion: 0.19
@@ -2211,21 +2239,21 @@ Nodes (12): Benefit, db, EmployeeBenefit, Service, Context, Pool, Time, NewServi
 Cohesion: 0.04
 Nodes (45): 1. Delivery Completion Workflow, 1. Validate Stock Before Delivery, 2. Stock Reduction Logic, 2. Use Transactions, 3. Audit Everything, 4. Handle Errors Gracefully, 5. Monitor Stock Levels, Allow Negative Stock (+37 more)
 
-### Community 294 - "ExactAmount"
-Cohesion: 0.12
-Nodes (13): ExactAmount, Certainty, ExpectedCashFlow, forecastReaderFake, MockReader, SourceType, Money, MustParseExact() (+5 more)
+### Community 294 - "ExpectedCashFlow"
+Cohesion: 0.30
+Nodes (10): ExpectedCashFlow, SQLSourceReader, Time, dateOnlyUTC(), exactAmount(), Context, Pool, Time (+2 more)
 
-### Community 295 - "Handler"
-Cohesion: 0.21
-Nodes (9): Handler, Request, ResponseWriter, Router, Service, NewHandler(), T, TestForecastHandlerRejectsMissingIdentifiers() (+1 more)
+### Community 295 - "PGRepository"
+Cohesion: 0.17
+Nodes (14): PGRepository, dateParam(), Context, Date, Int8, KPISummary, MonthlyCashflowRow, MonthlyPLRow (+6 more)
 
-### Community 296 - "Converter"
-Cohesion: 0.21
-Nodes (10): Converter, Line, MissingRateError, Policy, NewConverter(), T, TestConvertBalanceSheetClosing(), TestConvertDefaultsToParity() (+2 more)
+### Community 296 - "APDebitNote"
+Cohesion: 0.18
+Nodes (13): APDebitNote, APDebitNoteLine, APDebitNoteStatus, APDebitNoteWithDetails, CreateAPDebitNoteFromReturnInput, CreateAPDebitNoteInput, CreateAPDebitNoteLineInput, ListAPDebitNotesRequest (+5 more)
 
 ### Community 297 - "Must"
-Cohesion: 0.22
-Nodes (11): Must(), T, TestMoneyArithmeticDoesNotRoundThroughFloat(), Context, Money, Pool, ScorecardService, SupplierScorecard (+3 more)
+Cohesion: 0.20
+Nodes (14): Must(), T, TestMoneyArithmeticDoesNotRoundThroughFloat(), Context, Money, ScorecardService, SupplierScorecard, Time (+6 more)
 
 ### Community 298 - "BuildCashFlow"
 Cohesion: 0.25
@@ -2235,25 +2263,25 @@ Nodes (15): BuildCashFlow(), classifyCashFlow(), AccountBalance, balancedLedger(
 Cohesion: 0.35
 Nodes (16): Store, NewService(), T, newStoreFake(), TestCRMCreateAndActivityNormalizeCompanyOwnerAndScope(), TestCRMReassignmentRequiresTeamScopeAndNotifiesNewOwner(), TestOwnerCannotCreateForAnotherOwner(), TestQualifyPropagatesDuplicateContactDetection() (+8 more)
 
-### Community 300 - "qms/repository.go"
-Cohesion: 0.19
-Nodes (10): Audit, Status, stringStatus(), toAudit(), toNCR(), toSupplierQuality(), valueOrZero(), supplier_quality (+2 more)
+### Community 300 - "BalanceSheetHandler"
+Cohesion: 0.09
+Nodes (21): BalanceSheetHandler, bsPDFExporter, stubBSPDFExporter, Duration, observeVMBuildDuration(), recordCacheHit(), recordCacheMiss(), Engine (+13 more)
 
-### Community 301 - "Handler"
-Cohesion: 0.24
-Nodes (10): Engine, Logger, Request, ResponseWriter, Router, Service, SessionManager, NewHandler() (+2 more)
+### Community 301 - "NewRegistry"
+Cohesion: 0.14
+Nodes (18): DefaultRegistry, MockRegistry, ProviderAdapter, T, TestOutboxWorkerMockpay(), T, TestPaymentReconciliationAlertsLookupFailure(), TestPaymentReconciliationAuditsAndReplaysDeadLetter() (+10 more)
 
 ### Community 302 - "Service"
-Cohesion: 0.45
-Nodes (4): Context, Service, SalesOrder, validateFulfillmentLine()
+Cohesion: 0.17
+Nodes (14): SalesOrderStatus, Time, Context, Service, SalesOrder, validateFulfillmentLine(), CalculateLineTotals(), T (+6 more)
 
 ### Community 303 - "procurement_scorecards.sql.go"
 Cohesion: 0.23
 Nodes (12): Context, Int8, Queries, Timestamptz, CalculateOTIFScoreParams, CalculateOTIFScoreRow, CalculatePriceAdherenceScoreParams, CalculatePriceAdherenceScoreRow (+4 more)
 
-### Community 304 - "Int8"
-Cohesion: 0.12
-Nodes (9): Int8, GetCustomerComplaintRow, GetQMSInspectionRow, InsertCustomerComplaintParams, InsertQMSInspectionParams, InsertQMSInspectionPlanParams, ReleaseQMSHoldParams, UpdateAuditFindingParams (+1 more)
+### Community 304 - "NewRouter"
+Cohesion: 0.17
+Nodes (21): RouterParams, workspaceCompany, workspaceUser, activeCompanyMiddleware(), Context, Dispatcher, Engine, Handler (+13 more)
 
 ### Community 305 - "ConsolidateRefreshJob"
 Cohesion: 0.25
@@ -2271,9 +2299,9 @@ Nodes (13): effects, destroy(), dispatch(), handleClick(), handleKeydown(), Head
 Cohesion: 0.32
 Nodes (12): Permission, PermissionChecker, permissionContextKey, CheckPermission(), ContextWithPermissionChecker(), Context, Handler, Logger (+4 more)
 
-### Community 309 - "NewService"
-Cohesion: 0.47
-Nodes (13): NewService(), T, newMemoryARRepo(), TestCalculateARAging(), TestCreateARInvoice(), TestCreateARInvoiceRequiresCustomerID(), TestCreateARInvoiceRequiresPositiveTotal(), TestListARInvoices() (+5 more)
+### Community 309 - "NewAdapter"
+Cohesion: 0.27
+Nodes (17): Logger, NewAdapter(), NewAdapterWithOptions(), fixtureResponse(), Instruction, Request, Response, T (+9 more)
 
 ### Community 310 - "AuditTimelineAllRow"
 Cohesion: 0.33
@@ -2296,16 +2324,16 @@ Cohesion: 0.17
 Nodes (12): Context, Period, Repository, Time, NewService(), Context, Period, T (+4 more)
 
 ### Community 315 - "Adapter"
-Cohesion: 0.22
-Nodes (8): Context, Logger, NewAdapter(), T, TestOIDCAdapter_ExecuteCommand(), TestOIDCAdapter_TranslateWebhook(), TestOIDCAdapter_ValidateConnection(), Adapter
+Cohesion: 0.15
+Nodes (15): Context, Logger, Provider, NewAdapter(), Request, Response, T, TestOIDCAdapter_DiscoveryAndSCIMContracts() (+7 more)
 
-### Community 316 - "NewAdapter"
-Cohesion: 0.32
-Nodes (6): Logger, NewAdapter(), T, TestStripeAdapter_CheckHealth(), TestStripeAdapter_ValidateConnection(), PaymentChargePayload
+### Community 316 - "Adapter"
+Cohesion: 0.14
+Nodes (16): Backend, configureBackend(), Context, Logger, NewAdapter(), stripeIdempotencyKey(), Request, Response (+8 more)
 
 ### Community 317 - "planning.go"
 Cohesion: 0.16
-Nodes (25): ExplodeBOMDemand(), explodeDemand(), Time, planningDemand(), T, TestExplodeBOMDemandRejectsCycles(), TestExplodeBOMDemandUsesParentReleaseDateAndScrap(), Time (+17 more)
+Nodes (28): ExplodeBOMDemand(), explodeDemand(), Time, lotSizedQuantity(), Plan(), planningDay(), Context, Pool (+20 more)
 
 ### Community 318 - "memoryStore"
 Cohesion: 0.32
@@ -2316,8 +2344,8 @@ Cohesion: 0.24
 Nodes (6): Context, Request, Run, Store, JournalPoster, Service
 
 ### Community 320 - "ContractService"
-Cohesion: 0.25
-Nodes (6): Context, ContractPriceLine, Money, ContractService, SupplierContract, CheckPOVariancesInput
+Cohesion: 0.21
+Nodes (7): Context, ContractPriceLine, Money, ContractService, SupplierContract, percentageDifference(), CheckPOVariancesInput
 
 ### Community 321 - "Reporting and Administration Depth Execution Plan"
 Cohesion: 0.05
@@ -2327,29 +2355,29 @@ Nodes (44): 10.1 Calendar model, 10.2 Policy rules, 10.3 Legacy-period migration
 Cohesion: 0.12
 Nodes (9): Addr, Text, IndexDocumentSearchParams, InsertDocumentAccessEventParams, InsertDocumentLinkParams, InsertDocumentVersionParams, InsertLegalHoldParams, InsertReviewDecisionParams (+1 more)
 
-### Community 323 - "Context"
-Cohesion: 0.23
-Nodes (9): Context, Date, Int8, Numeric, Queries, CreateMatchingPolicyParams, CreateMatchingRunLineParams, CreateMatchingRunParams (+1 more)
+### Community 323 - "Text"
+Cohesion: 0.09
+Nodes (16): Date, Text, CountAuditsWithPrefixParams, InsertAuditFindingParams, InsertAuditParams, InsertCAPAParams, InsertNCRParams, InsertQualityObjectiveMeasurementParams (+8 more)
 
-### Community 324 - "ApException"
-Cohesion: 0.19
-Nodes (10): Context, Int8, Queries, Text, Timestamptz, ApException, ApMatchingRun, CreateAPExceptionParams (+2 more)
+### Community 324 - "JobsCLI"
+Cohesion: 0.13
+Nodes (13): ConsolOpsCLI, JobsCLI, QueueStats, Context, TaskInfo, NewConsolOpsCLI(), Client, Context (+5 more)
 
-### Community 325 - "storage/storage.go"
-Cohesion: 0.17
-Nodes (10): Context, NewStorage(), ErrChecksumMismatch, ErrMalwareDetected, ErrNotFound, ErrUnsupportedDriver, MalwareScanStatus, ObjectInfo (+2 more)
+### Community 325 - "ConsolBalanceByTypeQueryRow"
+Cohesion: 0.13
+Nodes (27): ConsolBalanceByTypeQueryRow, fxRepository, fxSetupResult, memberBalance, MemberShare, plTotals, ProfitLossContribution, ProfitLossFilters (+19 more)
 
 ### Community 326 - "NewHandler"
 Cohesion: 0.22
 Nodes (14): Engine, Logger, Service, NewHandler(), Context, Request, T, Values (+6 more)
 
 ### Community 327 - "NewService"
-Cohesion: 0.26
-Nodes (13): Store, NewService(), T, reviewedSchema(), TestBuildPeriodCapturesEveryPostedSourceType(), TestExportNetsCreditNotesAndRecordsExactTotals(), TestExportUsesReviewedDeclarationAndOptionalSign(), TestLockRequiresRupiahReconciliation() (+5 more)
+Cohesion: 0.19
+Nodes (16): T, TestCoretaxValidatorContractAndGLReconciliation(), Store, NewService(), T, reviewedSchema(), TestBuildPeriodCapturesEveryPostedSourceType(), TestExportNetsCreditNotesAndRecordsExactTotals() (+8 more)
 
-### Community 328 - "Handler"
-Cohesion: 0.24
-Nodes (10): Engine, Logger, Request, ResponseWriter, Router, Service, SessionManager, NewHandler() (+2 more)
+### Community 328 - "bankfeeds/service.go"
+Cohesion: 0.19
+Nodes (16): BankConnection, BankConnectionAccount, BankFeedEvent, BankFeedSyncRun, BankingService, CreateBankConnectionInput, CreateBankFeedEventInput, FeedPort (+8 more)
 
 ### Community 329 - "Service"
 Cohesion: 0.22
@@ -2364,64 +2392,64 @@ Cohesion: 0.05
 Nodes (43): 1. Build Production Binary, 2. Health Checks, 3. Database Validation, 4. Start Services, 5. Verify Deployment, Backup Verification, Backups, Caching Strategy (+35 more)
 
 ### Community 332 - "approvals/service_test.go"
-Cohesion: 0.32
-Nodes (14): leaveWorkflowFinalizer, phase3Finalizer, T, newMemoryStore(), newPhase3ApprovalStore(), ptr(), TestApprovalDelegationValidatesActorsAndDates(), TestApprovalServiceEmitsPhase2NotificationsAcrossWorkflow() (+6 more)
+Cohesion: 0.42
+Nodes (13): NewService(), T, newMemoryStore(), newPhase3ApprovalStore(), ptr(), TestApprovalDelegationValidatesActorsAndDates(), TestApprovalServiceEmitsPhase2NotificationsAcrossWorkflow(), TestApprovalWorkflowRejectsAndEscalates() (+5 more)
 
-### Community 333 - "Odyssey ERP — Future Roadmap & Recommendations"
-Cohesion: 0.05
-Nodes (43): Code Quality, Conclusion, DevOps, Executive Summary, Features, Features, Features, Features (+35 more)
+### Community 333 - "Odyssey ERP Architecture"
+Cohesion: 0.11
+Nodes (17): API & Routing Structure, Asynq Workers, Authentication & Session Management, Background Processing Data Flow, Background Processing & Report System, Cross-Cutting Concerns, Data Flow, Database Architecture (+9 more)
 
 ### Community 334 - "import.go"
 Cohesion: 0.30
 Nodes (13): NormalizedStatementEntry, findColumn(), generateFingerprint(), Time, maxIndex(), parseCSV(), parseOFX(), parseStatement() (+5 more)
 
-### Community 335 - "documents/service.go"
-Cohesion: 0.14
-Nodes (10): CreateDispositionRequest, CreateVersionRequest, ReviewDecisionRequest, UpdateDocumentRequest, DocumentReviewDecision, DocumentReviewDecision, DocumentVersion, Reader (+2 more)
+### Community 335 - "GLPostingService"
+Cohesion: 0.15
+Nodes (17): AccountingJournalPoster, freightPostingKey, FreightToGLEntry, GLPostingService, BuildFreightGLEntries(), freightSourceID(), Context, FreightCharge (+9 more)
 
-### Community 336 - "elimination/domain.go"
-Cohesion: 0.22
-Nodes (10): CreateRuleInput, ListFilters, PeriodView, Rule, Run, RunStatus, SimulationSummary, UpdateRuleInput (+2 more)
+### Community 336 - "qms/repository.go"
+Cohesion: 0.19
+Nodes (10): Audit, Status, stringStatus(), toAudit(), toNCR(), toSupplierQuality(), valueOrZero(), supplier_quality (+2 more)
 
 ### Community 337 - "Service"
 Cohesion: 0.21
 Nodes (11): CreateInput, db, Employee, Service, Context, Pool, Time, NewService() (+3 more)
 
-### Community 338 - "GLPostingService"
-Cohesion: 0.22
-Nodes (10): FreightToGLEntry, GLPostingService, BuildFreightGLEntries(), Context, FreightCharge, Money, Repository, Time (+2 more)
+### Community 338 - "Handler"
+Cohesion: 0.14
+Nodes (21): listPageData, newPageData, currentUser(), BoardPack, Client, Company, Engine, Handler (+13 more)
 
-### Community 339 - ".CalculateFreight"
-Cohesion: 0.26
-Nodes (11): RateCalculator, divideMoney(), Context, LandedCost, Money, RateCard, Repository, multiplyMoney() (+3 more)
+### Community 339 - "PaymentRecoveryMetrics"
+Cohesion: 0.09
+Nodes (9): GaugeVec, CounterVec, Duration, HistogramVec, Registerer, NewPaymentRecoveryMetrics(), T, TestPaymentRecoveryMetricsExposeRecoverySignals() (+1 more)
 
-### Community 340 - "ProviderConfig"
-Cohesion: 0.18
-Nodes (10): ErrorKind, ExchangeRateAPI, exchangeResponse, HTTPClient, ProviderConfig, ProviderError, NewExchangeRateAPI(), Duration (+2 more)
+### Community 340 - "elimination/domain.go"
+Cohesion: 0.19
+Nodes (10): CreateRuleInput, CreateRunInput, ListFilters, PeriodView, Rule, Run, RunStatus, UpdateRuleInput (+2 more)
 
 ### Community 341 - "Handler"
 Cohesion: 0.20
 Nodes (15): Exporter, TimelineService, Context, Engine, Handler, RBACService, validationError, Logger (+7 more)
 
-### Community 342 - "timestamptzToTime"
-Cohesion: 0.18
-Nodes (7): StopType, Timestamptz, TripStop, Vehicle, mapVehicle(), timestamptzToTime(), RouteOptimizationJob
+### Community 342 - "NewService"
+Cohesion: 0.27
+Nodes (7): Context, Notification, Time, NewService(), normalizeLimit(), Service, Store
 
-### Community 343 - "Adapter"
-Cohesion: 0.21
-Nodes (6): Context, Logger, Adapter, CheckoutResult, CreateCheckoutPayload, WebhookNotification
+### Community 343 - "Handler"
+Cohesion: 0.24
+Nodes (9): Handler, Renderer, SessionManager, Logger, Request, ResponseWriter, Router, Service (+1 more)
 
-### Community 344 - "Adapter"
-Cohesion: 0.20
-Nodes (7): Context, Logger, NewAdapter(), T, TestAdapterValidatesAndTranslatesPaymentCommands(), Adapter, PaymentChargePayload
+### Community 344 - "PaymentReconciliationService"
+Cohesion: 0.11
+Nodes (24): PaymentReconciliationAlertSink, PaymentReconciliationIssue, PaymentReconciliationReport, PaymentReconciliationRun, PaymentReconciliationService, PaymentReconciliationStore, PaymentRecoveryMetrics, Context (+16 more)
 
 ### Community 345 - "Repository"
 Cohesion: 0.26
 Nodes (8): Context, ListFilters, Pool, Product, Queries, NewRepository(), sortOrder(), Repository
 
 ### Community 346 - ".DecideDecision"
-Cohesion: 0.29
-Nodes (7): ComplianceDecision, Context, PolicyVersion, RawMessage, Tx, UUID, DecisionRequest
+Cohesion: 0.34
+Nodes (8): ComplianceDecision, Time, Context, PolicyVersion, Tx, UUID, canonicalRecordSnapshot, DecisionRequest
 
 ### Community 347 - "governance_domain.go"
 Cohesion: 0.29
@@ -2435,17 +2463,17 @@ Nodes (11): RawMessage, Time, UUID, Context, Pool, Queries, Tx, NewRepository() 
 Cohesion: 0.38
 Nodes (13): Money, Policy, T, money(), TestBPJSCapsAndCompleteBreakdown(), TestBPJSContributionCapsAndFloorsTable(), TestIndonesiaPayrollCalculationTables(), TestOfficialDJPExampleMonthlyTER() (+5 more)
 
-### Community 350 - "setupTestDB"
-Cohesion: 0.24
-Nodes (13): Pool, NewContractRepository(), Pool, NewContractService(), Pool, T, int64Ptr(), setupTestDB() (+5 more)
+### Community 350 - "contracts_domain.go"
+Cohesion: 0.12
+Nodes (19): ContractPriceLine, Money, Time, ApprovalStatus, ContractPriceLine, ContractPriceLineInput, ContractStatus, CreateContractInput (+11 more)
 
 ### Community 351 - "internal/shared/errors.go"
 Cohesion: 0.14
 Nodes (5): Logger, NewValidationError(), UserSafeMessageWithLog(), FormErrors, ValidationError
 
-### Community 352 - "NewSessionManager"
-Cohesion: 0.13
-Nodes (12): Client, Context, Duration, Request, ResponseWriter, NewSessionManager(), T, TestFlashPersistsAcrossRedirectAndClearsAfterRead() (+4 more)
+### Community 352 - "qms/service.go"
+Cohesion: 0.11
+Nodes (15): QualityObjective, toQualityObjective(), Status, Time, validateCAPAStatusTransition(), validateNCRStatusTransition(), CreateFindingRequest, CreateQualityObjectiveRequest (+7 more)
 
 ### Community 353 - "auth_users.sql.go"
 Cohesion: 0.24
@@ -2453,11 +2481,11 @@ Nodes (9): Context, Queries, Text, Timestamptz, AuthGetUserByEmailRow, AuthGetUs
 
 ### Community 354 - "Int8"
 Cohesion: 0.13
-Nodes (8): Int8, GetDocumentVersionRow, InsertDocumentACLParams, InsertDocumentParams, InsertDocumentReviewStepParams, ReleaseLegalHoldParams, SetCurrentDocumentVersionParams, UpdateDocumentParams
+Nodes (8): Int8, GetLatestDocumentVersionRow, InsertDocumentACLParams, InsertDocumentParams, InsertDocumentReviewStepParams, ReleaseLegalHoldParams, SetCurrentDocumentVersionParams, UpdateDocumentParams
 
-### Community 355 - "Int4"
-Cohesion: 0.13
-Nodes (16): Bool, Int4, Time, ApprovalPolicyStep, BoardPack, BoardPackStatus, DeliveryRoute, Load (+8 more)
+### Community 355 - "procurement/domain.go"
+Cohesion: 0.14
+Nodes (16): Time, Time, Timestamptz, safeTime(), APInvoice, APInvoiceStatus, APPayment, CreateGoodsReturnGRNInput (+8 more)
 
 ### Community 356 - "Handler"
 Cohesion: 0.39
@@ -2467,25 +2495,25 @@ Nodes (6): Request, ResponseWriter, Router, taxActorID(), taxCompanyID(), Handle
 Cohesion: 0.21
 Nodes (11): Context, User, NewService(), Context, T, User, TestServiceListUsers(), TestServiceListUsersReturnsRepositoryError() (+3 more)
 
-### Community 358 - "mockRepo"
-Cohesion: 0.15
-Nodes (8): MatchingRun, MatchingRunLine, mockRepo, POLineProgress, Context, Mock, Repository, TxRepository
+### Community 358 - "ap/service_test.go"
+Cohesion: 0.18
+Nodes (22): apPermissionReader, debitNotePDFFake, apRequest(), Context, Request, T, TestDebitNotePDFDownloadReturnsPDF(), TestDebitNoteRouteRequiresPermission() (+14 more)
 
-### Community 359 - "api/handler.go"
-Cohesion: 0.22
-Nodes (11): apiKey, GenerateKey(), Pool, HashKey(), NewHandler(), SignWebhook(), T, TestHashKeyIsDeterministic() (+3 more)
+### Community 359 - "variance/repository.go"
+Cohesion: 0.30
+Nodes (11): float64Ref(), CreateRuleInput, Int8, Rule, int8ToPointer(), int8ToPointerInt8Original(), mapRuleFromGet(), mapRuleFromInsert() (+3 more)
 
-### Community 360 - "Phase 9.2 Final Implementation Summary"
-Cohesion: 0.22
-Nodes (9): Conclusion, Current Limitations, Executive Summary, Implementation Timeline, Known Limitations, Non-Blocking Items, Overview, Phase 9.2 Final Implementation Summary (+1 more)
+### Community 360 - "stubCloseService"
+Cohesion: 0.17
+Nodes (14): ChecklistDefinition, ChecklistItem, ChecklistStatus, ChecklistUpdateInput, CreatePeriodInput, Period, PeriodStatus, RunStatus (+6 more)
 
 ### Community 361 - "TimelineStorageRow"
 Cohesion: 0.16
 Nodes (21): PGRepository, stubTimelineRepo, TimelineQuery, TimelineStorageRow, Context, Int8, Pool, Queries (+13 more)
 
-### Community 362 - "PGRepository"
-Cohesion: 0.18
-Nodes (10): ConnectionReader, OIDCConnection, PGRepository, Repository, Context, Pool, Queries, Time (+2 more)
+### Community 362 - "ContextWithSession"
+Cohesion: 0.16
+Nodes (17): stubRepo, Context, Handler, Repository, SessionManager, T, Time, User (+9 more)
 
 ### Community 363 - "Repository"
 Cohesion: 0.25
@@ -2503,9 +2531,9 @@ Nodes (8): Repository, Company, Context, ListFilters, Pool, Queries, NewReposito
 Cohesion: 0.22
 Nodes (10): stubConsolRepo, stubConsolService, assertCounter(), Context, MetricFamily, T, matchLabels(), metricExists() (+2 more)
 
-### Community 367 - "NewFreightService"
-Cohesion: 0.29
-Nodes (11): Service, NewMockRepository(), Repository, NewFreightService(), T, moneyToStrPtr(), TestCalculateFreightCharge_BasicCalculation(), TestCostCenterCreation() (+3 more)
+### Community 367 - "Handler"
+Cohesion: 0.33
+Nodes (6): currentCompany(), currentUser(), Handler, Request, ResponseWriter, parseInt64()
 
 ### Community 368 - "newInsightsHandler"
 Cohesion: 0.27
@@ -2515,9 +2543,9 @@ Nodes (11): stubInsightsRBAC, stubInsightsService, CompareFilters, Context, Hand
 Cohesion: 0.21
 Nodes (10): Context, Pool, Time, NewService(), T, TestCreateAndListReviews(), TestCreateReviewValidatesBeforeDatabase(), db (+2 more)
 
-### Community 370 - "Cache"
-Cohesion: 0.36
-Nodes (5): Cache, Client, Context, Duration, NewCache()
+### Community 370 - "tasks.go"
+Cohesion: 0.09
+Nodes (26): Context, Context, Client, TaskInfo, BoardPackPayload, CRMReminderDispatcher, FinanceAutomationDispatcher, InsightsWarmupPayload (+18 more)
 
 ### Community 371 - "Repository"
 Cohesion: 0.25
@@ -2536,20 +2564,20 @@ Cohesion: 0.25
 Nodes (8): Context, ListFilters, Pool, Queries, Warehouse, NewRepository(), sortOrder(), Repository
 
 ### Community 375 - "RecordSnapshotService"
-Cohesion: 0.29
+Cohesion: 0.32
 Nodes (6): Conn, Context, Time, NewRecordSnapshotService(), RecordSnapshotService, SnapshotResult
 
-### Community 376 - "documents.sql.go"
-Cohesion: 0.18
-Nodes (8): ListDocumentACLsParams, ListDocumentsParams, ListDocumentsRow, ListDocumentVersionsParams, ListDocumentVersionsRow, SearchDocumentsFullTextParams, SearchDocumentsFullTextRow, UpdateDocumentVersionStatusParams
+### Community 376 - "ap/domain.go"
+Cohesion: 0.17
+Nodes (21): APAgingDetail, APInvoice, APInvoiceBalance, APInvoiceLine, APInvoiceStatus, APInvoiceWithDetails, APPayment, APPaymentAllocation (+13 more)
 
 ### Community 377 - "TreasurySupplierBankAccount"
-Cohesion: 0.20
-Nodes (10): Context, Int8, Queries, Text, Timestamptz, CreateTreasurySupplierBankAccountParams, ListTreasurySupplierBankAccountsParams, TreasuryPaymentPolicy (+2 more)
+Cohesion: 0.19
+Nodes (11): Context, Int8, Queries, Text, Timestamptz, APInvoiceEligibleForTreasuryPaymentParams, CreateTreasurySupplierBankAccountParams, ListTreasurySupplierBankAccountsParams (+3 more)
 
-### Community 378 - "S3Storage"
-Cohesion: 0.23
-Nodes (8): Client, Context, ReadCloser, NewS3Storage(), Reader, PutInput, S3Storage, StorageConfig
+### Community 378 - "midtrans/client.go"
+Cohesion: 0.20
+Nodes (14): apiError(), Context, Response, RetryPolicy, NewClient(), NewClientWithOptions(), Client, CustomerDetails (+6 more)
 
 ### Community 379 - "delivery-order/index.js"
 Cohesion: 0.21
@@ -2568,52 +2596,52 @@ Cohesion: 0.25
 Nodes (12): displayAuditLog(), displayValidationResults(), filterAuditLog(), formatAction(), formatDate(), formatKey(), formatValue(), loadAuditLog() (+4 more)
 
 ### Community 383 - "approvals/domain.go"
-Cohesion: 0.24
-Nodes (6): Assignment, DelegationInput, Policy, Request, Submission, Time
+Cohesion: 0.21
+Nodes (8): Assignment, CreatePolicyInput, DelegationInput, Policy, PolicyStep, Request, Submission, Time
 
-### Community 384 - "newMockRepo"
-Cohesion: 0.35
-Nodes (8): mockPoster, JournalEntry, T, newMockRepo(), TestCreateBankAccount(), TestCreateBankTransaction(), TestReconcileTransaction(), TestTransferFunds()
+### Community 384 - "Converter"
+Cohesion: 0.21
+Nodes (10): Converter, Line, MissingRateError, Policy, NewConverter(), T, TestConvertBalanceSheetClosing(), TestConvertDefaultsToParity() (+2 more)
 
-### Community 385 - "CSRFManager"
-Cohesion: 0.08
-Nodes (24): Handler, Engine, Logger, Request, ResponseWriter, Router, Service, NewHandler() (+16 more)
+### Community 385 - "Handler"
+Cohesion: 0.31
+Nodes (8): Handler, Engine, Logger, Request, ResponseWriter, Service, SessionManager, NewHandler()
 
-### Community 386 - "forecastRepoFake"
-Cohesion: 0.22
-Nodes (12): CreateForecastDailyBucketInput, CreateForecastRunInput, CreateForecastSourceLineInput, ForecastDailyBucket, forecastRepoFake, ForecastRun, ForecastRunQuery, ForecastRunStatusUpdate (+4 more)
+### Community 386 - "viewmodel_plbs.go"
+Cohesion: 0.13
+Nodes (19): cacheItem, ConsolBSEntityContribution, ConsolBSFilters, ConsolBSLine, ConsolBSTotals, ConsolBSViewModel, ConsolPLEntityContribution, ConsolPLFilters (+11 more)
 
 ### Community 387 - "RBAC Testing Checklist - Sales & Delivery Permissions"
 Cohesion: 0.07
 Nodes (28): 1. Migration Verification, 2. Code Compilation, 3. Documentation Review, Approval, Database Integrity, Documentation Verification, Final Checklist, Integration Testing (+20 more)
 
-### Community 388 - "BuildTrialBalance"
-Cohesion: 0.17
-Nodes (14): BuildBalanceSheet(), AccountBalance, T, TestBuildBalanceSheet(), TestBuildProfitAndLoss(), TestBuildTrialBalance(), BuildTrialBalance(), AccountBalance (+6 more)
+### Community 388 - "PredictiveAnomaly"
+Cohesion: 0.20
+Nodes (11): PredictiveAnomaly, predictiveFakeRepository, Context, Repository, T, predictiveIDEqual(), TestPredictiveBatchThresholdFiltersAndKeepsOpenAlertsIdempotent(), TestPredictiveThresholdRejectsNonFiniteReadingAndThreshold() (+3 more)
 
-### Community 389 - "MountRoutes"
-Cohesion: 0.11
-Nodes (14): Context, Service, NewInventoryAdapter(), Engine, Logger, Pool, Router, Service (+6 more)
+### Community 389 - "InventoryAdapter"
+Cohesion: 0.24
+Nodes (6): Context, Service, NewInventoryAdapter(), InventoryAdapter, inventoryFake, InventoryItem
 
 ### Community 390 - "Metrics"
 Cohesion: 0.24
 Nodes (9): buildMetrics(), formatInt(), CounterVec, HistogramVec, Registerer, Time, NewMetrics(), Metrics (+1 more)
 
-### Community 391 - "NewHandler"
-Cohesion: 0.13
-Nodes (15): Context, Pool, Time, NewManufacturingAnalytics(), nullableTime(), Context, Pool, NewComplianceService() (+7 more)
+### Community 391 - "ManufacturingAnalytics"
+Cohesion: 0.36
+Nodes (7): Context, Pool, Time, NewManufacturingAnalytics(), nullableTime(), ManufacturingAnalytics, ManufacturingMetrics
 
 ### Community 392 - "Channels"
+Cohesion: 0.23
+Nodes (5): notificationsPreferenceFake, Context, Channels, preferenceFake, preferenceMatrixFake
+
+### Community 393 - "certification_test.go"
+Cohesion: 0.10
+Nodes (42): Context, Notification, Time, NewRepository(), T, TestRepositoryChannelsDefaultsWhenPreferenceMissing(), TestRepositoryChannelsUsesPreferenceValues(), TestRepositoryCreateIsIdempotentForDeliveryKey() (+34 more)
+
+### Community 394 - "ReleaseProfile"
 Cohesion: 0.18
-Nodes (7): notificationsPreferenceFake, Context, Time, Channels, Notification, preferenceFake, preferenceMatrixFake
-
-### Community 393 - "Repository"
-Cohesion: 0.17
-Nodes (12): Context, Notification, Time, NewRepository(), T, TestRepositoryChannelsDefaultsWhenPreferenceMissing(), TestRepositoryChannelsUsesPreferenceValues(), TestRepositoryCreateIsIdempotentForDeliveryKey() (+4 more)
-
-### Community 394 - "NewService"
-Cohesion: 0.27
-Nodes (7): Context, Notification, Time, NewService(), normalizeLimit(), Service, Store
+Nodes (14): Capability, ReleaseProfile, CoreCapabilities(), Handler, ParseReleaseProfile(), ReleaseProfileMiddleware(), T, TestBoundedProfilesRequireScopedAccess() (+6 more)
 
 ### Community 395 - "Manufacturing Governance System - Quick Start Guide"
 Cohesion: 0.05
@@ -2624,20 +2652,20 @@ Cohesion: 0.31
 Nodes (9): Context, Logger, Pool, Time, UUID, NewApprovalRecorder(), ApprovalAction, ApprovalLog (+1 more)
 
 ### Community 397 - "Timestamptz"
-Cohesion: 0.15
-Nodes (7): Timestamptz, CreateCollaborationSessionParams, GetDocumentRow, GetLatestDocumentVersionRow, InsertDocumentRetentionParams, UpdateDispositionExecutionParams, UpdateDocumentOCRJobParams
+Cohesion: 0.13
+Nodes (9): Timestamptz, CreateCollaborationChangeParams, CreateCollaborationChangeRow, CreateCollaborationSessionParams, GetDocumentRow, GetDocumentVersionRow, InsertDocumentRetentionParams, UpdateDispositionExecutionParams (+1 more)
 
 ### Community 398 - "InsertOutboxEventParams"
 Cohesion: 0.23
 Nodes (8): Context, Int4, Queries, Text, UUID, GetUnpublishedOutboxEventsParams, InsertOutboxEventParams, MarkOutboxEventFailedParams
 
-### Community 399 - "LocalStorage"
-Cohesion: 0.29
-Nodes (5): generateStorageKey(), Context, ReadCloser, randomString(), LocalStorage
+### Community 399 - "Odyssey ERP Documentation"
+Cohesion: 0.13
+Nodes (15): Architecture Decisions, Architecture & Engineering, Archive, Core Documents, Customer & Sales, Deployment, Finance & Accounting, Getting Started (+7 more)
 
 ### Community 400 - "CoretaxService"
-Cohesion: 0.22
-Nodes (8): Client, Context, Time, NewCoretaxService(), T, TestCoretaxSchemaValidation(), CoretaxConfig, CoretaxService
+Cohesion: 0.19
+Nodes (12): coretaxAccepted(), coretaxEndpoint(), Client, Context, Money, Time, NewCoretaxService(), T (+4 more)
 
 ### Community 401 - "Product Workflow Depth Execution Plan"
 Cohesion: 0.05
@@ -2651,49 +2679,49 @@ Nodes (38): 1. Integration Test Suite (236 lines), 2. Mock Repository Implementa
 Cohesion: 0.27
 Nodes (7): Handler, Client, Logger, Request, ResponseWriter, Router, NewHandler()
 
-### Community 404 - "Repository"
-Cohesion: 0.30
-Nodes (7): Repository, Account, AccountBalance, Context, Month, Pool, NewRepository()
+### Community 404 - "Handler"
+Cohesion: 0.19
+Nodes (11): Handler, Request, ResponseWriter, Router, Service, NewHandler(), forecastTestContext(), Context (+3 more)
 
-### Community 405 - "Context"
-Cohesion: 0.15
-Nodes (14): arNotificationPrefs, arNotificationsStore, arPermissionReader, creditNotePDFFake, arRequest(), Context, Notification, Request (+6 more)
+### Community 405 - "Service"
+Cohesion: 0.27
+Nodes (6): Service, Context, CostCenter, Department, Repository, NewService()
 
 ### Community 406 - "TimelineRow"
 Cohesion: 0.22
 Nodes (14): FiltersViewModel, PagingInfo, Repository, Result, Service, TimelineFilters, TimelineRow, ViewModel (+6 more)
 
-### Community 407 - "OutboxWorker"
-Cohesion: 0.29
-Nodes (7): OutboxWorker, ProviderRegistry, Context, NewOutboxWorker(), HandlerFunc, HandleConnectorOutboxSweep(), OutboxRepository
+### Community 407 - "bank_accounts"
+Cohesion: 0.21
+Nodes (9): bank_accounts, bank_transactions, bank_statement_lines, bank_statements, statement_import_runs, bank_connection_accounts, bank_connections, bank_feed_events (+1 more)
 
-### Community 408 - "distribution/repository.go"
-Cohesion: 0.12
-Nodes (9): AddLoadItemInput, AddRouteStopInput, AddTransferLineInput, CreatePlanningHorizonInput, CreatePlanningRuleInput, CreateRouteInput, CreateTransferOrderInput, Repository (+1 more)
+### Community 408 - "Service"
+Cohesion: 0.27
+Nodes (9): QuotationStatus, Time, Context, Quotation, CreateQuotationLineReq, CreateQuotationRequest, ListQuotationsRequest, Service (+1 more)
 
 ### Community 409 - "Service"
 Cohesion: 0.24
 Nodes (8): Service, Context, Pool, Time, monthlyDepreciation(), NewService(), T, TestMonthlyDepreciation()
 
-### Community 410 - "JSONResponse"
-Cohesion: 0.26
-Nodes (12): DecodeJSON(), Request, ResponseWriter, HTTPStatus(), JSONError(), JSONErrorFrom(), JSONResponse(), RespondJSONError() (+4 more)
+### Community 410 - "http.go"
+Cohesion: 0.13
+Nodes (19): ProblemDetail, ResponseWriter, RespondError(), DecodeJSON(), Request, ResponseWriter, JSON(), Problem() (+11 more)
 
 ### Community 411 - "NewClient"
 Cohesion: 0.27
 Nodes (8): Context, Service, NewClient(), T, TestClientRequiresInventoryServiceForReduce(), TestClientReserveOnlyAcceptsEmptyRequestsUntilImplemented(), Client, Item
 
-### Community 412 - "Context"
-Cohesion: 0.31
-Nodes (5): floatToNumeric(), Context, DeliveryOrder, txRepository, Status
+### Community 412 - "ReturnDeliveryInfo"
+Cohesion: 0.15
+Nodes (11): CreditNoteRepositoryPort, DeliveryLineInfo, DeliveryOrderInfo, returnDeliveryFake, ReturnDeliveryInfo, ReturnDeliveryLineInfo, ReturnDeliveryServicePort, Context (+3 more)
 
 ### Community 413 - "ODYSSEY ERP: PHASE 3 + 3B + 4 — COMPLETE SESSION SUMMARY ✅"
 Cohesion: 0.05
 Nodes (36): Background Jobs, Code Statistics (Complete Session), Conclusion, Database, Database Schema (Migration 000079), Documentation Created, Domain Types (20+), Domain Types (8) (+28 more)
 
-### Community 414 - "Context"
-Cohesion: 0.12
-Nodes (15): CashflowTrendPoint, MonthlyCashflowRow, MonthlyPLRow, PLTrendPoint, TrendFilter, stubRBAC, stubService, Service (+7 more)
+### Community 414 - "OutboxWorker"
+Cohesion: 0.23
+Nodes (11): OutboxWorker, OutboxWorkerOption, ProviderRegistry, Context, Logger, OutboxRepository, NewOutboxWorker(), refundKeyFromPayload() (+3 more)
 
 ### Community 415 - "NewExceptionService"
 Cohesion: 0.27
@@ -2704,12 +2732,12 @@ Cohesion: 0.30
 Nodes (11): T, TestBOMApprovalGate(), TestBOMApprovalGateSignatures(), TestCAPAClosureGate(), TestCAPAClosureGateSignatures(), TestHoldReleaseGate(), TestHoldReleaseGateSignatures(), TestNCRDispositionGate() (+3 more)
 
 ### Community 417 - "AsynqOptions"
-Cohesion: 0.23
-Nodes (10): AsynqOptions(), Client, Context, RedisClientOpt, New(), redisOptions(), T, TestAsynqOptionsSupportsLegacyAddress() (+2 more)
+Cohesion: 0.25
+Nodes (9): AsynqOptions(), Client, Context, RedisClientOpt, New(), redisOptions(), T, TestAsynqOptionsSupportsLegacyAddress() (+1 more)
 
-### Community 418 - "Context"
-Cohesion: 0.21
-Nodes (6): Context, ContractService, ScorecardService, BackgroundJobScheduler, CreatePOVarianceCheckInput, ScorecardCalculationInput
+### Community 418 - ".ImportStatement"
+Cohesion: 0.29
+Nodes (5): bankingImportFake, ImportResult, BankAccount, T, TestProcessWebhookEventConvergesThroughIdempotentSync()
 
 ### Community 419 - "memoryRepo"
 Cohesion: 0.30
@@ -2731,45 +2759,45 @@ Nodes (8): Context, Date, Numeric, Queries, Text, CheckDuplicateInvoiceParams, C
 Cohesion: 0.33
 Nodes (11): close(), closeAll(), destroy(), getDialog(), handleBackdropClick(), handleClose(), handleDocumentClick(), init() (+3 more)
 
-### Community 424 - "DebitNotePDFRenderer"
-Cohesion: 0.27
-Nodes (7): DebitNotePDFClient, DebitNotePDFRenderer, Handler, Context, Request, ResponseWriter, NewDebitNotePDFRenderer()
+### Community 424 - "NewMockRepository"
+Cohesion: 0.32
+Nodes (12): Service, NewMockRepository(), Repository, NewFreightService(), T, moneyToStrPtr(), TestCalculateFreightCharge_BasicCalculation(), TestCostCenterCreation() (+4 more)
 
 ### Community 425 - "WalkRoutes"
 Cohesion: 0.31
 Nodes (9): RouteEntry, Handler, Writer, T, TestWalkRoutesEnumeratesNestedRouters(), TestWalkRoutesRejectsNonChiHandler(), TestWriteRoutesEmitsParsableJSON(), WalkRoutes() (+1 more)
 
-### Community 426 - "Service"
+### Community 426 - "procurement/service.go"
+Cohesion: 0.16
+Nodes (21): defaultString(), defaultTime(), IntegrationHandler, Logger, Time, NewService(), T, newMemoryProcRepo() (+13 more)
+
+### Community 427 - "Limit"
+Cohesion: 0.16
+Nodes (12): rateLimiter, Handler, Router, Router, Handler, RWMutex, newRateLimiter(), RateLimitMiddleware() (+4 more)
+
+### Community 428 - "logisticsDistributionGateway"
+Cohesion: 0.17
+Nodes (10): inventoryDistributionGateway, logisticsDistributionGateway, Context, Handler, Pool, Service, ShipmentLine, Time (+2 more)
+
+### Community 429 - "PGRepository"
+Cohesion: 0.08
+Nodes (26): PGRepository, Context, Numeric, PaymentIntent, PaymentReconciliationIssue, PaymentReconciliationRun, Pool, Queries (+18 more)
+
+### Community 430 - "Handler"
 Cohesion: 0.29
-Nodes (6): Service, Context, Repository, Time, User, NewService()
-
-### Community 427 - "Service"
-Cohesion: 0.15
-Nodes (15): quotationFake, Quotation, QuotationStatus, Time, Context, Quotation, CalculateLineTotals(), T (+7 more)
-
-### Community 428 - "Repository"
-Cohesion: 0.20
-Nodes (9): AccountBalance, Context, ListFilters, PeriodView, Pool, Queries, int8FromInt64(), NewRepository() (+1 more)
-
-### Community 429 - "OutboxCommand"
-Cohesion: 0.11
-Nodes (23): InboxEvent, InboxEventInput, ObjectMapping, OutboxCommand, PGRepository, SyncRun, Time, Context (+15 more)
-
-### Community 430 - "stubRows"
-Cohesion: 0.18
-Nodes (3): FieldDescription, stubRows, Conn
+Nodes (9): closeService, currentUser(), Engine, Handler, Logger, Request, ResponseWriter, Router (+1 more)
 
 ### Community 431 - "Sales Module - Unit & Integration Tests"
 Cohesion: 0.06
 Nodes (35): 1. Quotation → Sales Order Workflow, 2. Financial Calculations, 3. Status Transitions, 4. Error Handling, Best Practices Applied, Customer Test Data, Dependencies, Future Enhancements (+27 more)
 
 ### Community 432 - "DeliverableSOLine"
-Cohesion: 0.19
-Nodes (6): Context, CreateLineReq, DeliverableSOLine, DeliverableSOLinesResponse, fulfillmentWarehouseRepoFake, SalesOrderInfo
+Cohesion: 0.16
+Nodes (8): Context, T, TestCreateRejectsSalesLineAssignedToAnotherFulfillmentWarehouse(), CreateLineReq, DeliverableSOLine, DeliverableSOLinesResponse, fulfillmentWarehouseRepoFake, SalesOrderInfo
 
 ### Community 433 - "Phase 9.2 Integration Tests Documentation"
-Cohesion: 0.06
-Nodes (35): 1. Arrange-Act-Assert (AAA), 1. Isolation, 2. Comprehensive Coverage, 2. Progressive State Changes, 3. Clear Test Names, 3. Error Path Testing, 4. Descriptive Assertions, Adding New Tests (+27 more)
+Cohesion: 0.04
+Nodes (45): 1. Arrange-Act-Assert (AAA), 1. Complete Delivery Workflow (Happy Path), 1. Isolation, 2. Comprehensive Coverage, 2. Partial Delivery Workflow, 2. Progressive State Changes, 3. Cancellation Workflow, 3. Clear Test Names (+37 more)
 
 ### Community 434 - "memoryEventStore"
 Cohesion: 0.27
@@ -2779,9 +2807,9 @@ Nodes (7): Context, Event, T, TestDispatcherPublishesHandledAndUnhandledEvents()
 Cohesion: 0.06
 Nodes (34): 10 Tables, 1. Database, 2. Build, 3. Start, 4. Verify, 8 Phases Completed, Additional Deliverables, API Endpoints (+26 more)
 
-### Community 436 - "cmms.sql.go"
-Cohesion: 0.17
-Nodes (32): Date, Float8, Int8, Text, Timestamptz, CountWorkOrdersWithPrefixParams, CreatePredictiveAlertParams, GetAssetRow (+24 more)
+### Community 436 - "Service"
+Cohesion: 0.12
+Nodes (15): BankStatement, BankStatementLine, ParsedStatementLine, Repository, Service, TransferRequest, Reader, Time (+7 more)
 
 ### Community 437 - "Cross-Module Permission Dependencies"
 Cohesion: 0.06
@@ -2791,125 +2819,129 @@ Nodes (33): Audit Family, CAPA Family, CMMS → Accounting, CMMS → Fixed Asset
 Cohesion: 0.08
 Nodes (26): 1. Apply Migration, 2. Verify Installation, 3. Assign Roles to Users, 4. Test Access, Can't Find a Role/Permission, Common Tasks, Create Custom Role, Default Roles Cheat Sheet (+18 more)
 
-### Community 439 - "000112_reporting_administration_phase0.up.sql"
-Cohesion: 0.25
-Nodes (9): company_policies, company_roles, fiscal_calendars, fiscal_periods, reporting_dataset_fields, reporting_datasets, role_templates, scoped_user_roles (+1 more)
+### Community 439 - "APException"
+Cohesion: 0.12
+Nodes (12): APException, ExceptionService, mockExceptionRepo, Context, Repository, NewExceptionService(), Context, Mock (+4 more)
 
-### Community 440 - "Handler"
-Cohesion: 0.27
-Nodes (9): Engine, Logger, Request, ResponseWriter, Router, Service, NewHandler(), uid() (+1 more)
+### Community 440 - "NewService"
+Cohesion: 0.30
+Nodes (13): Logger, NewService(), T, TestServiceApproveBankAccount(), TestServiceBatchApproval(), TestServiceBatchTotalsUseAllActiveItems(), TestServiceCanPaySupplierHolds(), TestServiceExecuteBatchEnqueuesAndMarksProcessing() (+5 more)
 
-### Community 441 - "StockAdjustment"
-Cohesion: 0.23
-Nodes (4): mapRowToAdjustment(), AdjustmentStatusUpdate, StockAdjustment, StockAdjustmentStatus
+### Community 441 - "NewPostgresStore"
+Cohesion: 0.21
+Nodes (16): Context, PaymentExecution, NewPostgresStore(), PaymentExecution, T, paymentExecutionFixture(), TestPostgresStoreMapsMissingExecution(), TestPostgresStoreRejectsCrossCompanyProviderReferencesBeforeQuery() (+8 more)
 
 ### Community 442 - "Handler"
-Cohesion: 0.27
-Nodes (7): Handler, Logger, Request, ResponseWriter, Router, Service, NewHandler()
+Cohesion: 0.24
+Nodes (9): Handler, Context, Logger, Request, ResponseWriter, Router, Service, NewHandler() (+1 more)
 
-### Community 443 - "StorageAdapter"
-Cohesion: 0.31
-Nodes (7): bytesReader, StorageAdapter, Context, ReadCloser, Storage, newBytesReader(), NewStorageAdapter()
+### Community 443 - "Handler"
+Cohesion: 0.25
+Nodes (10): Engine, Handler, Logger, Pool, Request, ResponseWriter, Service, NewHandler() (+2 more)
 
-### Community 444 - "Job"
-Cohesion: 0.38
-Nodes (8): Job, JobConfig, Dispatcher, Logger, Service, Storage, NewJob(), Renderer
+### Community 444 - "Odyssey ERP: Agent Configuration & Guidelines"
+Cohesion: 0.14
+Nodes (13): Agent Architecture & Tools, Anti-Patterns to Avoid, Available Skills, Common Tasks & Recipes, Database Change Guide, Debugging Tips, Development Workflow for Agents, Key Rules & Patterns (+5 more)
 
-### Community 445 - "OverrideInput"
-Cohesion: 0.15
-Nodes (12): overrideAuth, OverrideAuthorizer, OverrideInput, overrideRepo, OverrideRepository, OverrideService, OverrideAudit, Time (+4 more)
+### Community 445 - "forecastRepoFake"
+Cohesion: 0.23
+Nodes (9): CreateForecastDailyBucketInput, CreateForecastRunInput, CreateForecastSourceLineInput, forecastRepoFake, ForecastRunQuery, ForecastRunStatusUpdate, Context, ForecastDailyBucket (+1 more)
 
-### Community 446 - ".InsertLegalHold"
-Cohesion: 0.29
-Nodes (4): CreateLegalHoldRequest, derefInt64(), LegalHold, LegalHold
+### Community 446 - "Adapter"
+Cohesion: 0.20
+Nodes (7): Context, Logger, NewAdapter(), T, TestAdapterValidatesAndTranslatesPaymentCommands(), Adapter, PaymentChargePayload
 
 ### Community 447 - ".buildViewModel"
 Cohesion: 0.36
 Nodes (8): ContributionViewModel, FiltersViewModel, PointViewModel, VarianceViewModel, ViewModel, Result, ViewModel, HTML
 
-### Community 448 - "midtrans/client.go"
-Cohesion: 0.33
-Nodes (8): Context, NewClient(), Client, CustomerDetails, ItemDetail, SnapTokenRequest, SnapTokenResponse, TransactionDetails
+### Community 448 - ".Bars"
+Cohesion: 0.13
+Nodes (11): a, HTML, HTML, T, TestBarsProducesSVG(), T, TestLineProducesSVG(), barRenderer (+3 more)
 
-### Community 449 - "Adapter"
+### Community 449 - "shopify/client.go"
+Cohesion: 0.10
+Nodes (25): Logger, NewAdapter(), Request, Response, T, TestShopifyAdapter_ExplicitDevelopmentCommand(), TestShopifyAdapter_OrderContract(), TestShopifyAdapter_ValidateAndTranslate() (+17 more)
+
+### Community 450 - "Adapter"
 Cohesion: 0.20
-Nodes (10): Context, Logger, NewAdapter(), T, TestShopifyAdapter_ExecuteCommand(), TestShopifyAdapter_TranslateWebhook(), TestShopifyAdapter_ValidateConnection(), TestShopifyAdapter_VerifyCallbackSignature() (+2 more)
+Nodes (7): Context, Logger, NewAdapter(), T, TestAdapterValidatesAndExecutesGenerationCommands(), Adapter, PromptPayload
 
-### Community 450 - "shopify/client.go"
-Cohesion: 0.29
-Nodes (8): Context, NewClient(), verifyWebhookSignature(), Client, ShopifyAddress, ShopifyCustomer, ShopifyLineItem, ShopifyOrder
-
-### Community 451 - "NewService"
-Cohesion: 0.27
-Nodes (10): T, TestCreateRejectsSalesLineAssignedToAnotherFulfillmentWarehouse(), T, TestConfirmReturnRejectsInvalidStatus(), TestConfirmReturnRestocksSelectedWarehouse(), TestConfirmReturnReversesOnCancel(), TestCreateReturnRejectsCumulativeQuantityAboveDelivered(), TestCreateReturnRejectsDuplicateLinesBeyondDelivered() (+2 more)
-
-### Community 452 - "HandleReportScheduleScanTask"
-Cohesion: 0.17
-Nodes (11): Context, Logger, HandleEmailDeliveryTask(), NewEmailDeliveryTask(), EmailDeliveryPayload, Mailer, Client, Context (+3 more)
-
-### Community 453 - "bank_accounts"
-Cohesion: 0.21
-Nodes (9): bank_accounts, bank_transactions, bank_statement_lines, bank_statements, statement_import_runs, bank_connection_accounts, bank_connections, bank_feed_events (+1 more)
-
-### Community 454 - "NewDecisionSubmissionHandler"
+### Community 451 - "newTestHandler"
 Cohesion: 0.38
-Nodes (9): NewDecisionSubmissionHandler(), T, TestAuditTrailIntegration(), TestCompleteGovernanceWorkflow(), TestConcurrentDecisions(), TestErrorHandling(), TestGateIntegration(), TestHandlerToGateIntegration() (+1 more)
+Nodes (10): Handler, Request, Session, SessionManager, T, loadSession(), newTestHandler(), TestListPeriodsRendersStatusAndActions() (+2 more)
 
-### Community 455 - "validators_test.go"
+### Community 452 - "TrendFilter"
+Cohesion: 0.16
+Nodes (9): CashflowTrendPoint, MonthlyCashflowRow, MonthlyPLRow, PLTrendPoint, TrendFilter, Service, Context, Service (+1 more)
+
+### Community 453 - "crmRequest"
 Cohesion: 0.36
-Nodes (9): T, TestBOMApprovalValidator(), TestGoodsReceiptValidator(), TestHoldReleaseValidator(), TestOperationCompletionValidator(), TestQualityDispositionValidator(), TestScheduleOverrideValidator(), TestSubcontractAcceptanceValidator() (+1 more)
+Nodes (6): crmPermissionReader, crmRequest(), Context, Request, T, TestPipelineEnforcesPermissionAndTeamScope()
+
+### Community 454 - "midtrans/adapter_test.go"
+Cohesion: 0.22
+Nodes (31): Credentials, NewAdapter(), encryptedConn(), Logger, M, Request, Response, T (+23 more)
+
+### Community 455 - "NewDispatcher"
+Cohesion: 0.17
+Nodes (15): Dispatcher, OperationHandler, OutboxStore, Context, Duration, Logger, RetryPolicy, NewDispatcher() (+7 more)
 
 ### Community 456 - "CMMS, QMS, and Document Management Execution Plan"
 Cohesion: 0.06
 Nodes (30): 10. Deferred scope, 1. Architecture and ownership, 2. Shared foundations, 3.1 Storage service, 3.2 Core records, 3.3 Version lifecycle, 3.4 Document permissions, 3.5 Electronic signatures (+22 more)
 
-### Community 457 - "PayslipProcessor"
-Cohesion: 0.38
-Nodes (7): Context, NewPayslipProcessor(), PayslipMailer, PayslipProcessor, PayslipRecord, PayslipStore, PDFRenderer
+### Community 457 - "OperationsHandler"
+Cohesion: 0.32
+Nodes (5): Request, ResponseWriter, Router, urlPathSegment(), OperationsHandler
 
-### Community 458 - "authorizedRequest"
-Cohesion: 0.33
-Nodes (8): authorizedRequest(), Context, Request, T, TestRequireAllDeniesWhenOnePermissionMissing(), TestRequireAny(), TestRequireAnyDeniesWithoutSession(), stubPermissionReader
+### Community 458 - "ADR-002: Server-Side Rendering over SPA"
+Cohesion: 0.17
+Nodes (11): ADR-002: Server-Side Rendering over SPA, Alternatives Considered, Consequences, Context, Date, Decision, Negative, Neutral (+3 more)
 
 ### Community 459 - "GetInboundHistoryRow"
 Cohesion: 0.25
 Nodes (7): Context, Int8, Numeric, Queries, Timestamptz, GetInboundHistoryParams, GetInboundHistoryRow
 
-### Community 460 - "VarianceRow"
-Cohesion: 0.19
-Nodes (10): stubVariance, ComputeVariance(), exceedsThreshold(), AccountBalance, round2(), T, TestComputeVariance(), ExportRows() (+2 more)
+### Community 460 - "gotenbergPDFClient"
+Cohesion: 0.29
+Nodes (6): gotenbergPDFClient, classifyNetError(), Client, Context, Duration, NewPDFRenderClient()
 
 ### Community 461 - "ui_contracts_test.go"
 Cohesion: 0.42
 Nodes (9): containsAny(), T, hasAnyClass(), hasClass(), TestBusinessTemplatesUseCanonicalUIContracts(), TestFocusVisibleFallbackIsPreserved(), TestIconOnlyButtonsHaveAccessibleLabels(), TestMigratedModulesRejectLegacyMarkup() (+1 more)
 
-### Community 462 - "crm_opportunities"
-Cohesion: 0.42
-Nodes (9): create_default_crm_stages(), crm_activities, crm_contacts, crm_events, crm_leads, crm_opportunities, crm_pipeline_stages, customers (+1 more)
+### Community 462 - "MustParseExact"
+Cohesion: 0.14
+Nodes (27): MustParseExact(), Context, database, Pool, Tx, insertSettlementEffectLinks(), NewPGSettlementEffects(), NewPGSettlementEffectsWithApplier() (+19 more)
 
-### Community 463 - "Handler"
-Cohesion: 0.33
-Nodes (7): Handler, Engine, Logger, Request, ResponseWriter, Service, NewHandler()
-
-### Community 464 - "AgingFilter"
-Cohesion: 0.21
-Nodes (11): AgingBucket, AgingFilter, AgingRow, mockRepo, Service, Context, Time, Context (+3 more)
-
-### Community 465 - ".DeliverDue"
+### Community 463 - ".Extract"
 Cohesion: 0.31
-Nodes (5): Handler, Client, Context, minInt(), sha256Key()
+Nodes (5): PlainTextOCRExtractor, Context, Service, Reader, isTextContentType()
+
+### Community 464 - "ADR-003: sqlc over ORM"
+Cohesion: 0.17
+Nodes (11): ADR-003: sqlc over ORM, Alternatives Considered, Consequences, Context, Date, Decision, Negative, Neutral (+3 more)
+
+### Community 465 - "ADR-004: Asynq for Background Jobs"
+Cohesion: 0.17
+Nodes (11): ADR-004: Asynq for Background Jobs, Alternatives Considered, Consequences, Context, Date, Decision, Negative, Neutral (+3 more)
 
 ### Community 466 - "NotificationAdapter"
 Cohesion: 0.39
 Nodes (5): NotificationAdapter, Context, Dispatcher, Request, NewNotificationAdapter()
 
-### Community 467 - "Operations"
-Cohesion: 0.32
-Nodes (5): Operations, Context, Service, SQLRepository, Time
+### Community 467 - "Integration Points"
+Cohesion: 0.40
+Nodes (5): Integration Points, Inventory Module (Hooks Ready), Sales Order Module, User/RBAC Module, Warehouse Module (Ready)
 
-### Community 469 - "connector_connections"
-Cohesion: 0.24
-Nodes (10): connector_canonical_events, connector_connections, connector_inbox_events, connector_outbox_commands, connector_object_mappings, connector_sync_runs, payment_disputes, payment_intent_transitions (+2 more)
+### Community 468 - "000118_mrp_compliance_hardening.up.sql"
+Cohesion: 0.48
+Nodes (6): mrp_record_snapshots, prevent_mrp_compliance_mutation(), trg_prevent_mrp_audit_event_mutation, trg_prevent_mrp_decision_mutation, trg_prevent_mrp_signature_mutation, trg_prevent_mrp_snapshot_mutation
+
+### Community 469 - "NewOrchestrator"
+Cohesion: 0.15
+Nodes (13): MatchingService, Orchestrator, Context, Repository, NewMatchingService(), Context, ExceptionService, Service (+5 more)
 
 ### Community 470 - "Odyssey ERP - Complete Status Report"
 Cohesion: 0.07
@@ -2923,53 +2955,53 @@ Nodes (28): A. Componentized ERP Pages, Audit Komponen, B. Hybrid Master Data Pa
 Cohesion: 0.42
 Nodes (5): Context, Pool, NewComplianceGateService(), ComplianceGateService, GovernanceMode
 
-### Community 473 - ".GetSPCChart"
-Cohesion: 0.31
-Nodes (5): floatToNumeric(), Numeric, numericToFloat(), SPCChart, SPCSample
+### Community 473 - "Context"
+Cohesion: 0.24
+Nodes (4): Context, Permission, Role, legacyRepositoryFake
 
-### Community 474 - "IdempotencyStore"
-Cohesion: 0.33
-Nodes (5): Context, Duration, Pool, NewIdempotencyStore(), IdempotencyStore
+### Community 474 - "LoadConfig"
+Cohesion: 0.22
+Nodes (10): Config, Duration, LoadConfig(), T, TestLoadConfigAcceptsCoreProfile(), TestLoadConfigAcceptsFinanceProfile(), TestLoadConfigRejectsNonFinanceProfileInFinanceSandbox(), TestLoadConfigRequiresExplicitProfileForStagingAndProduction() (+2 more)
 
-### Community 475 - "memoryProcRepo"
-Cohesion: 0.11
-Nodes (14): stubProcRepo, ListFilters, APInvoice, APPayment, ListFilters, TxRepository, GoodsReceipt, GRNLine (+6 more)
+### Community 475 - "ADR-005: Gotenberg for PDF Reports"
+Cohesion: 0.17
+Nodes (11): ADR-005: Gotenberg for PDF Reports, Alternatives Considered, Consequences, Context, Date, Decision, Negative, Neutral (+3 more)
 
-### Community 476 - "core/store.js"
+### Community 476 - ".CalculateFreight"
+Cohesion: 0.26
+Nodes (11): RateCalculator, divideMoney(), Context, LandedCost, Money, RateCard, Repository, multiplyMoney() (+3 more)
+
+### Community 477 - "Cache"
 Cohesion: 0.36
-Nodes (6): DEBUG(), DevTools, disableDebug(), enableDebug(), log(), logState()
+Nodes (5): Cache, Client, Context, Duration, NewCache()
 
-### Community 477 - "handler_edges_test.go"
-Cohesion: 0.32
-Nodes (5): dimensionRows, T, TestAccountingRequestHelpers(), TestNewHandlerMountsAccountingRoutes(), TestRowsToDimensionMaps()
-
-### Community 478 - "CreditNotePDFRenderer"
+### Community 478 - "validators_test.go"
 Cohesion: 0.36
-Nodes (5): CreditNotePDFClient, CreditNotePDFRenderer, Handler, Context, NewCreditNotePDFRenderer()
+Nodes (9): T, TestBOMApprovalValidator(), TestGoodsReceiptValidator(), TestHoldReleaseValidator(), TestOperationCompletionValidator(), TestQualityDispositionValidator(), TestScheduleOverrideValidator(), TestSubcontractAcceptanceValidator() (+1 more)
 
-### Community 479 - "Exporter"
-Cohesion: 0.32
-Nodes (5): Exporter, Context, Engine, ViewModel, NewExporter()
+### Community 479 - "ADR-006: Manual Dependency Injection"
+Cohesion: 0.17
+Nodes (11): ADR-006: Manual Dependency Injection, Alternatives Considered, Consequences, Context, Date, Decision, Negative, Neutral (+3 more)
 
-### Community 480 - "crmRequest"
-Cohesion: 0.36
-Nodes (6): crmPermissionReader, crmRequest(), Context, Request, T, TestPipelineEnforcesPermissionAndTeamScope()
+### Community 480 - "Snapshot"
+Cohesion: 0.15
+Nodes (14): Time, Time, Timestamptz, VarianceSnapshot, mapSnapshotFromGet(), mapSnapshotSimple(), timeToPointer(), CreateRuleInput (+6 more)
 
-### Community 481 - "Service"
-Cohesion: 0.39
-Nodes (5): FXProvider, Service, Context, Duration, Time
+### Community 481 - "documents.sql.go"
+Cohesion: 0.09
+Nodes (14): CreateDocumentOCRJobParams, DeleteDocumentRetentionParams, GetActiveRetentionPolicyForVersionRow, GetRetentionPolicyForCompanyParams, GetRetentionPolicyForCompanyRow, ListDocumentACLsParams, ListDocumentsParams, ListDocumentsRow (+6 more)
 
-### Community 482 - "gotenbergPDFClient"
-Cohesion: 0.29
-Nodes (6): gotenbergPDFClient, classifyNetError(), Client, Context, Duration, NewPDFRenderClient()
+### Community 482 - "ADR-007: UUID Primary Keys"
+Cohesion: 0.17
+Nodes (11): ADR-007: UUID Primary Keys, Alternatives Considered, Consequences, Context, Date, Decision, Negative, Neutral (+3 more)
 
 ### Community 483 - "Manufacturing Governance Implementation - Complete Summary"
 Cohesion: 0.07
 Nodes (28): 1. Atomic Transactions, 2. Cryptographic Integrity, 3. Multi-Actor Authorization, 4. Validator Pattern, 5. HTTP Handler Pattern, Architecture Patterns, AuditLogHandler, ChallengeVerificationHandler (+20 more)
 
-### Community 484 - ".CreateARPostingJournalTx"
-Cohesion: 0.39
-Nodes (4): Context, Hooks, Tx, pointerValue()
+### Community 484 - "Line"
+Cohesion: 0.30
+Nodes (12): barBounds(), barPosition(), Bars(), HTML, writeSVG(), almostEqual(), bounds(), fallback() (+4 more)
 
 ### Community 485 - "Repository"
 Cohesion: 0.36
@@ -2979,21 +3011,21 @@ Nodes (6): Context, Period, Time, NewRepository(), db, Repository
 Cohesion: 0.36
 Nodes (7): Context, Dispatcher, Event, Logger, Service, processPaymentCaptured(), RegisterOutboxHandlers()
 
-### Community 487 - "forecasting/repository.go"
-Cohesion: 0.15
+### Community 487 - "PGRepository"
+Cohesion: 0.14
 Nodes (22): PGRepository, exactAmountNumeric(), Context, Date, ForecastDailyBucket, ForecastRun, Numeric, Pool (+14 more)
 
 ### Community 488 - "LineMulti"
-Cohesion: 0.46
-Nodes (7): almostEqual(), bounds(), buildPath(), formatTick(), HTML, LineMulti(), makeID()
+Cohesion: 0.44
+Nodes (8): almostEqual(), bounds(), buildPath(), formatTick(), HTML, LineMulti(), makeID(), writeSVG()
 
 ### Community 489 - "GetAccountsRow"
 Cohesion: 0.25
 Nodes (6): AccountType, Context, Int8, Queries, Timestamptz, GetAccountsRow
 
-### Community 490 - "UUID"
-Cohesion: 0.29
-Nodes (5): DocumentSignature, UUID, GetDocumentSignatureChallengeRow, InsertDocumentSignatureChallengeParams, InsertDocumentSignatureParams
+### Community 490 - "ADR-008: Decimal Type for Financial Data"
+Cohesion: 0.17
+Nodes (11): ADR-008: Decimal Type for Financial Data, Alternatives Considered, Consequences, Context, Date, Decision, Negative, Neutral (+3 more)
 
 ### Community 491 - "Status: PRODUCTION-READY ✅"
 Cohesion: 0.07
@@ -3015,17 +3047,17 @@ Nodes (6): Context, Pool, Queries, User, NewRepository(), Repository
 Cohesion: 0.36
 Nodes (6): Context, Logger, Service, NewCashForecastProcessor(), CashForecastProcessor, CashForecastRefreshPayload
 
-### Community 496 - "HandleCMMSPMGeneratorScanTask"
-Cohesion: 0.25
-Nodes (6): Context, Logger, HandleCMMSPMGeneratorScanTask(), T, TestHandleCMMSPMGeneratorScanTask(), CMMSPMGeneratorService
+### Community 496 - "setupTestDB"
+Cohesion: 0.28
+Nodes (14): NewContractRepository(), Pool, NewContractService(), Pool, T, int64Ptr(), setupTestDB(), TestContractLifecycle() (+6 more)
 
 ### Community 497 - "000102_finance_supplier_controls.up.sql"
 Cohesion: 0.32
 Nodes (6): treasury_payment_calendar_holidays, treasury_payment_calendars, treasury_payment_policies, treasury_supplier_bank_accounts, treasury_payment_batch_items, treasury_payment_batches
 
-### Community 498 - ".postCreditNote"
-Cohesion: 0.41
-Nodes (5): creditNoteURL(), Handler, Request, ResponseWriter, parseID()
+### Community 498 - "StatementArtifact"
+Cohesion: 0.17
+Nodes (12): StatementArtifact, StatementTransport, statementTransportFake, Service, Context, Time, Context, T (+4 more)
 
 ### Community 499 - "RegisterOutboxHandlers"
 Cohesion: 0.29
@@ -3043,25 +3075,25 @@ Nodes (27): Approved By, Code and Build Verification, Communication, Deployment 
 Cohesion: 0.43
 Nodes (4): NotificationAdapter, Context, Dispatcher, NewNotificationAdapter()
 
-### Community 503 - "documents/repository.go"
-Cohesion: 0.12
-Nodes (10): CreateACLRequest, Int8, Pool, Text, int64Ptr(), int8Ptr(), NewRepository(), statusPtr() (+2 more)
+### Community 503 - "NewDecisionSubmissionHandler"
+Cohesion: 0.38
+Nodes (9): NewDecisionSubmissionHandler(), T, TestAuditTrailIntegration(), TestCompleteGovernanceWorkflow(), TestConcurrentDecisions(), TestErrorHandling(), TestGateIntegration(), TestHandlerToGateIntegration() (+1 more)
 
-### Community 504 - "valueOrZero"
-Cohesion: 0.16
-Nodes (14): CreateWorkOrderRequest, ListAssetsFilter, Asset, Status, Time, WorkOrder, priorityStringOrEmpty(), statusStringOrEmpty() (+6 more)
+### Community 504 - "fx_ar_ap_integration_test.go"
+Cohesion: 0.20
+Nodes (23): dbFXResolver, fxIDs, allocate(), applyAllMigrations(), assertBalancedAndIdempotent(), assertRevaluation(), assertReversal(), assertValuation() (+15 more)
 
 ### Community 505 - "JournalEntry"
 Cohesion: 0.38
 Nodes (6): JournalLine, Time, UUID, JournalEntry, JournalLine, JournalStatus
 
-### Community 506 - "Repository"
-Cohesion: 0.43
-Nodes (5): AccountMapping, Context, NewRepository(), db, Repository
+### Community 506 - "AgingFilter"
+Cohesion: 0.14
+Nodes (15): AgingBucket, AgingFilter, AgingRow, mockRepo, stubService, Service, Context, Time (+7 more)
 
-### Community 507 - "stubRepo"
-Cohesion: 0.24
-Nodes (8): stubKPI, stubRepo, AccountBalance, Context, KPISummary, T, TestBuilderBuildProducesSections(), TestBuilderBuildWithoutVarianceSnapshot()
+### Community 507 - "ADR-009: Dark Theme as Default"
+Cohesion: 0.17
+Nodes (11): ADR-009: Dark Theme as Default, Alternatives Considered, Consequences, Context, Date, Decision, Negative, Neutral (+3 more)
 
 ### Community 508 - "Functional Testing"
 Cohesion: 0.17
@@ -3075,13 +3107,13 @@ Nodes (5): AuditLog, Context, T, TestFinalizeApprovalUpdatesLeaveBalanceAndAudit
 Cohesion: 0.43
 Nodes (5): Context, Store, NewOutboxDispatcher(), OutboxDispatcher, PayslipDelivery
 
-### Community 511 - "procurement/service.go"
-Cohesion: 0.16
-Nodes (21): defaultString(), defaultTime(), IntegrationHandler, Logger, Time, NewService(), T, newMemoryProcRepo() (+13 more)
+### Community 511 - "NewServiceWithDependencies"
+Cohesion: 0.24
+Nodes (20): newFakeDistributionRepository(), newFakeShipmentGateway(), equalInt64s(), RouteStop, T, optimizationStop(), optimizationStopWithoutCoordinates(), optimizedStopOrder() (+12 more)
 
-### Community 512 - "rbac/domain.go"
-Cohesion: 0.38
-Nodes (6): Time, Assignment, Permission, Principal, Role, UserRole
+### Community 512 - "AccessReview"
+Cohesion: 0.11
+Nodes (20): Time, Context, Repository, Time, mapAccessReview(), Repository, Time, AccessReview (+12 more)
 
 ### Community 513 - "Phase 9 High Priority Tasks - COMPLETION REPORT"
 Cohesion: 0.08
@@ -3091,9 +3123,9 @@ Nodes (26): ✅ All Criteria Met, Benchmarks, Build Verification, Code Quality, 
 Cohesion: 0.43
 Nodes (6): SalesOrderLine, Time, SalesOrder, SalesOrderLine, SalesOrderStatus, SalesOrderWithDetails
 
-### Community 515 - "Quotation"
-Cohesion: 0.43
-Nodes (6): QuotationLine, Time, Quotation, QuotationLine, QuotationStatus, QuotationWithDetails
+### Community 515 - "ADR-0002: Role-Based Access Control"
+Cohesion: 0.20
+Nodes (9): ADR-0002: Role-Based Access Control, Alternatives Considered, Attribute-based access control (ABAC), Consequences, Context, Decision, Follow-up Work, Hard-coded role checks (+1 more)
 
 ### Community 516 - "NewService"
 Cohesion: 0.38
@@ -3115,61 +3147,61 @@ Nodes (4): Context, Pool, NewPrivacyService(), PrivacyService
 Cohesion: 0.08
 Nodes (24): 1. Database Layer (Migration 000078), 2. Domain & Business Logic, 3. HTTP API, 4. User Interface, 5. Testing & Integration, Code Statistics (Final), Conclusion, Contract Expiry Integration (+16 more)
 
-### Community 521 - "ap_invoice.go"
-Cohesion: 0.29
-Nodes (6): EnqueueProcessAPInvoice(), Client, Context, HandlerFunc, HandleProcessAPInvoice(), ProcessAPInvoicePayload
+### Community 521 - "IdempotencyStore"
+Cohesion: 0.33
+Nodes (5): Context, Duration, Pool, NewIdempotencyStore(), IdempotencyStore
 
-### Community 522 - "cost_centers"
-Cohesion: 0.38
-Nodes (4): cost_centers, departments, report_schedules, report_schedule_deliveries
+### Community 522 - "ADR-010: Valkey over Redis"
+Cohesion: 0.17
+Nodes (11): ADR-010: Valkey over Redis, Alternatives Considered, Consequences, Context, Date, Decision, Negative, Neutral (+3 more)
 
 ### Community 523 - "phase4/main.go"
 Cohesion: 0.52
 Nodes (6): getenv(), Context, Pool, main(), seedChartOfAccounts(), seedMappings()
 
-### Community 524 - "cmms_iot_sensors"
-Cohesion: 0.60
-Nodes (5): cmms_assets, cmms_iot_readings, cmms_iot_sensors, cmms_predictive_alerts, cmms_predictive_models
+### Community 524 - "Exporter"
+Cohesion: 0.32
+Nodes (5): Exporter, Context, Engine, ViewModel, NewExporter()
 
 ### Community 525 - "alertScenario"
 Cohesion: 0.47
 Nodes (5): alertScenario, Duration, T, renderAlertLog(), TestAlertSimulationProducesFiringAndResolvedLogs()
 
-### Community 526 - "audit/service_test.go"
-Cohesion: 0.52
-Nodes (6): formatJournal(), T, mockAllRow(), mockWindowRow(), TestServiceExportReturnsAllRows(), TestServiceTimelinePaging()
+### Community 526 - "permissionsHandlerRouter"
+Cohesion: 0.38
+Nodes (10): Reader, Request, T, permissionsHandlerRequest(), permissionsHandlerRouter(), TestAccessReviewEndpointsUseAuthenticatedActorAndCompany(), TestScopedAdminEndpointsRejectMissingTenantIdentity(), TestScopedAssignmentEndpointUsesActiveCompany() (+2 more)
 
-### Community 527 - "Adapter"
-Cohesion: 0.16
-Nodes (9): Adapter, ShipmentPayload, Context, Logger, NewAdapter(), T, TestAdapterLifecycleAndCommands(), Logger (+1 more)
+### Community 527 - "Handler"
+Cohesion: 0.24
+Nodes (10): Engine, Logger, Request, ResponseWriter, Router, Service, SessionManager, NewHandler() (+2 more)
 
 ### Community 528 - "Phase 3: Vendor Intelligence - Completed"
 Cohesion: 0.08
 Nodes (24): 1. Database Schema (Migration 000078), 2. Domain Types (contracts_domain.go), 3. Repository Layer (contracts_repository.go), 4. Permissions, `contract_price_lines`, GRN Receipt, HTTP Handlers, Integration Points (+16 more)
 
-### Community 529 - "ComputeElimination"
-Cohesion: 0.47
-Nodes (4): ComputeElimination(), round2(), T, TestComputeElimination()
+### Community 529 - "PayslipProcessor"
+Cohesion: 0.15
+Nodes (14): Context, NewPayslipProcessor(), Context, T, TestPayslipWorkerRendersAndEmailsPDF(), mailerFake, PayslipMailer, PayslipProcessor (+6 more)
 
-### Community 530 - "runFXCommand"
-Cohesion: 0.35
-Nodes (10): FXRateStatus, TransactionFXCommandOptions, TransactionFXOperations, Context, Time, Writer, parseFXDate(), RunTransactionFXFetch() (+2 more)
+### Community 530 - "Handler"
+Cohesion: 0.38
+Nodes (5): apiError(), Handler, Request, ResponseWriter, writeJSON()
 
 ### Community 531 - "alerts_test.go"
 Cohesion: 0.47
 Nodes (5): T, TestFinanceAlertRules(), alertGroup, alertRule, alertSpec
 
-### Community 532 - "NewRepository"
-Cohesion: 0.22
-Nodes (7): LoadUtilization, RouteMetrics, Pool, NewRepository(), Money, Pool, NewService()
+### Community 532 - "crm_opportunities"
+Cohesion: 0.42
+Nodes (9): create_default_crm_stages(), crm_activities, crm_contacts, crm_events, crm_leads, crm_opportunities, crm_pipeline_stages, customers (+1 more)
 
-### Community 533 - "NewService"
-Cohesion: 0.40
-Nodes (5): Repository, NewService(), T, TestNormaliseStatus(), TestServiceRejectsInvalidRequestsWithoutRepository()
+### Community 533 - "analytics/http/handlers_test.go"
+Cohesion: 0.27
+Nodes (13): barAdapter, lineAdapter, stubRBAC, stubValidator, Context, Handler, T, newTestHandler() (+5 more)
 
-### Community 534 - "ap/domain.go"
-Cohesion: 0.18
-Nodes (19): APAgingDetail, APInvoice, APInvoiceBalance, APInvoiceLine, APInvoiceStatus, APInvoiceWithDetails, APPayment, APPaymentAllocation (+11 more)
+### Community 534 - "Document Guide"
+Cohesion: 0.25
+Nodes (8): Document Guide, For Administrators, For Developers, For DevOps/Release Managers, For DevOps/Release Managers, For Project Managers, For QA Engineers, For QA Engineers
 
 ### Community 535 - "ListUsersRow"
 Cohesion: 0.33
@@ -3191,17 +3223,17 @@ Nodes (3): Client, Context, NewClient()
 Cohesion: 0.47
 Nodes (3): animateValue(), calculateROI(), formatNumber()
 
-### Community 540 - "APException"
-Cohesion: 0.13
-Nodes (12): APException, ExceptionService, mockExceptionRepo, Context, Repository, NewExceptionService(), Context, Mock (+4 more)
+### Community 540 - "ui/contracts.go"
+Cohesion: 0.27
+Nodes (11): HTML, ToAgingBuckets(), ToCashflowPoints(), ToPLTrendPoints(), AgingBucket, BarRenderer, CashflowPoint, DashboardKPI (+3 more)
 
 ### Community 541 - "Test Accounts - Odyssey ERP"
 Cohesion: 0.08
 Nodes (23): 1. Create PostgreSQL User & Database, 2. Run Migrations, 3. Seed Test Data, Admin Account, Cannot login with admin account, Check in Database, Create Additional Test Users, "database does not exist" (+15 more)
 
-### Community 542 - "mrp/handlers_test.go"
-Cohesion: 0.36
-Nodes (9): NewAuditLogHandler(), T, TestAuditLogHandler(), TestAuditLogResponsePagination(), TestChallengeVerificationHandler(), TestDecisionRequestValidation(), TestDecisionResponseSerialization(), TestDecisionSubmissionHandler() (+1 more)
+### Community 542 - "ProviderOptions"
+Cohesion: 0.14
+Nodes (19): ProviderOptions, RetryPolicy, DoWithRetry(), Client, Context, Duration, Response, RetryPolicy (+11 more)
 
 ### Community 543 - "mappings/repository_test.go"
 Cohesion: 0.60
@@ -3213,11 +3245,11 @@ Nodes (4): T, TestGotenbergPDFClientFailsWhenTooSmall(), TestGotenbergPDFClientR
 
 ### Community 545 - "External Integrations Plan"
 Cohesion: 0.08
-Nodes (24): Administration and controls, Architecture and contracts, Definition of done for every connector, Delivery principles, Existing baseline, External Integrations Plan, Foundation acceptance gate, Outcome (+16 more)
+Nodes (25): Administration and controls, Architecture and contracts, Current provider hardening baseline, Definition of done for every connector, Delivery principles, Existing baseline, External Integrations Plan, Foundation acceptance gate (+17 more)
 
 ### Community 546 - "PGRepository"
-Cohesion: 0.17
-Nodes (10): Context, Permission, Pool, Queries, Role, Time, mapRole(), NewRepository() (+2 more)
+Cohesion: 0.20
+Nodes (6): Context, Permission, Queries, Role, mapRole(), PGRepository
 
 ### Community 547 - "percentile95"
 Cohesion: 0.50
@@ -3239,13 +3271,13 @@ Nodes (4): Dispatcher, Logger, Service, RegisterOutboxHandlers()
 Cohesion: 0.40
 Nodes (3): SourcingAndLogisticsScopes(), T, TestSourcingAndLogisticsScopesAreUniqueAndComplete()
 
+### Community 552 - "logistics/repository.go"
+Cohesion: 0.14
+Nodes (18): coalesceInt64(), floatToNumeric(), Date, Time, optDateToTime(), optFloatToNumeric(), optTimeToDate(), timeToDate() (+10 more)
+
 ### Community 553 - ".GetOpenPeriodByDate"
 Cohesion: 0.40
 Nodes (4): Context, Date, Period, Queries
-
-### Community 554 - "CreateSPCSampleParams"
-Cohesion: 0.40
-Nodes (3): Numeric, CreateSPCChartParams, CreateSPCSampleParams
 
 ### Community 555 - "RefreshFinancialViews"
 Cohesion: 0.40
@@ -3271,13 +3303,17 @@ Nodes (4): ensureTestMode(), M, init(), TestMain()
 Cohesion: 0.67
 Nodes (3): Account, AccountType, Time
 
-### Community 562 - "NewService"
-Cohesion: 0.27
-Nodes (9): Repository, Service, SourceReader, Context, Logger, NewService(), T, TestGenerateSnapshotAggregatesFlowsAndPersistsSourceLines() (+1 more)
+### Community 561 - "Distribution planning and load execution"
+Cohesion: 0.18
+Nodes (10): Current status, Distribution planning and load execution, HTTP endpoints, Inventory and GL behavior, Persistence notes, Tests, Current status, Gaps (+2 more)
 
-### Community 563 - "ui/contracts.go"
-Cohesion: 0.35
-Nodes (10): HTML, ToAgingBuckets(), ToCashflowPoints(), ToPLTrendPoints(), AgingBucket, CashflowPoint, DashboardFilters, DashboardKPI (+2 more)
+### Community 562 - "Odyssey ERP v0.7.0 — Phase 7 Final Release Notes"
+Cohesion: 0.29
+Nodes (7): Breaking changes, Credits, Known issues, New & Improved, Odyssey ERP v0.7.0 — Phase 7 Final Release Notes, Operations checklist, Summary
+
+### Community 563 - "Handler"
+Cohesion: 0.33
+Nodes (7): Handler, Engine, Logger, Request, ResponseWriter, Service, NewHandler()
 
 ### Community 564 - "Period"
 Cohesion: 0.67
@@ -3291,9 +3327,9 @@ Nodes (3): T, TestRepositoryFindsOpenPeriod(), TestRepositoryMapsMissingPeriodTo
 Cohesion: 0.09
 Nodes (22): 1. Database Schema (Migration 000079), 2. Domain Types (domain.go - 337 lines), 3. Repository Interface (repository.go - 508 lines), 4. Service Layer (service.go - 474 lines), 5. HTTP Handlers (handler.go - 403 lines), Architecture Overview, Code Statistics, Conclusion (+14 more)
 
-### Community 567 - "runtime.go"
-Cohesion: 0.67
-Nodes (3): detectTestMode(), InTestMode(), RefreshTestMode()
+### Community 567 - "audit/service_test.go"
+Cohesion: 0.52
+Nodes (6): formatJournal(), T, mockAllRow(), mockWindowRow(), TestServiceExportReturnsAllRows(), TestServiceTimelinePaging()
 
 ### Community 568 - "Setup Database dengan Docker (Alternatif Mudah)"
 Cohesion: 0.09
@@ -3311,9 +3347,9 @@ Nodes (3): AllSalesDeliveryScopes(), DeliveryScopes(), SalesScopes()
 Cohesion: 0.09
 Nodes (22): 1. Run in Background (Daemon), 3. Check Status, 4. Stop Application, Access Points, Build Binary, Change Configuration, Comparison with Docker, Configuration (+14 more)
 
-### Community 572 - "tax/export.go"
-Cohesion: 0.67
-Nodes (3): Name, coretaxEnvelope, coretaxRecord
+### Community 572 - "NewService"
+Cohesion: 0.47
+Nodes (13): NewService(), T, newMemoryARRepo(), TestCalculateARAging(), TestCreateARInvoice(), TestCreateARInvoiceRequiresCustomerID(), TestCreateARInvoiceRequiresPositiveTotal(), TestListARInvoices() (+5 more)
 
 ### Community 573 - "RunGLIntegrityCheck"
 Cohesion: 0.50
@@ -3323,13 +3359,29 @@ Nodes (3): Context, Logger, RunGLIntegrityCheck()
 Cohesion: 0.50
 Nodes (3): Dispatcher, HandlerFunc, HandleOutboxSweep()
 
+### Community 589 - "stubRepo"
+Cohesion: 0.24
+Nodes (8): stubKPI, stubRepo, AccountBalance, Context, KPISummary, T, TestBuilderBuildProducesSections(), TestBuilderBuildWithoutVarianceSnapshot()
+
 ### Community 592 - "Manufacturing Governance System - Complete Implementation"
 Cohesion: 0.09
 Nodes (22): Audit & Compliance, Code Metrics, File Structure, Git History, Key Capabilities, Manufacturing Governance System - Complete Implementation, Multi-Actor Sign-Off, Next Steps (Optional) (+14 more)
 
-### Community 615 - "Repository"
-Cohesion: 0.36
-Nodes (5): database, Repository, Context, Pool, NewRepository()
+### Community 594 - "ap_invoice.go"
+Cohesion: 0.29
+Nodes (6): EnqueueProcessAPInvoice(), Client, Context, HandlerFunc, HandleProcessAPInvoice(), ProcessAPInvoicePayload
+
+### Community 612 - "CalculateAnnualPPh21"
+Cohesion: 0.26
+Nodes (15): CalculateAnnualPPh21(), Money, progressivePPh21(), Money, T, TestAnnualPPh21AllowsRefundWhenPriorWithholdingIsHigher(), TestDecemberAnnualPPh21Reconciliation(), validAnnualBrackets() (+7 more)
+
+### Community 615 - "NewOperationsHandler"
+Cohesion: 0.29
+Nodes (11): Engine, Logger, NewOperationsHandler(), Context, Request, T, operationsRequestContext(), TestOperationsHandlerListRendersMaskedOperation() (+3 more)
+
+### Community 616 - "runFXCommand"
+Cohesion: 0.35
+Nodes (10): FXRateStatus, TransactionFXCommandOptions, TransactionFXOperations, Context, Time, Writer, parseFXDate(), RunTransactionFXFetch() (+2 more)
 
 ### Community 642 - "ODYSSEY ERP: COMPLETE SESSION — PHASES 3, 3B, 4, 5 ✅"
 Cohesion: 0.09
@@ -3339,45 +3391,49 @@ Nodes (21): Architecture Overview, Build & Quality Status, Code Statistics (Comp
 Cohesion: 0.09
 Nodes (21): 1. Scorecard Calculation Engine, 2. Background Job Implementations, 3. Integration Hooks, 4. E2E Test Scenarios (5 Complete Workflows), 5. Query Templates (Production-Ready), Code Statistics (Phase 3 + 3b), Conclusion, Executive Summary (+13 more)
 
+### Community 644 - "mockRepo"
+Cohesion: 0.15
+Nodes (9): MatchingRunLine, mockRepo, POLineProgress, Context, Mock, Repository, T, TxRepository (+1 more)
+
 ### Community 645 - "Repository"
 Cohesion: 0.13
 Nodes (11): Pool, Tx, NewRepository(), numericToFloat(), InboundHistoryRow, ReorderAlert, Repository, StockAdjustmentLine (+3 more)
 
-### Community 654 - "Text"
-Cohesion: 0.04
-Nodes (52): Addr, Float8, Text, ApprovalDelegation, ArCreditNote, ArCreditNoteStatus, BankConnection, BankConnectionAccount (+44 more)
+### Community 654 - "cmms.md"
+Cohesion: 0.15
+Nodes (13): ADR-001: Module Boundaries for Documents, CMMS, and QMS, Consequences, Context, Cross-Module Rules, Decision, References, Shared Foundations, Source of Truth Boundaries (+5 more)
 
 ### Community 903 - "PHASE 5: DISTRIBUTION PLANNING — 100% COMPLETE ✅"
 Cohesion: 0.10
 Nodes (20): Code Statistics, Conclusion, Executive Summary, Git Commit History (Phase 5 Completion), INTEGRATION TESTS (291 lines), Key Achievements (This Session), Next Steps (Choose One), Option 1: Deploy to Staging (This Week) (+12 more)
 
 ### Community 904 - "Manufacturing Governance - Documentation Index"
-Cohesion: 0.10
-Nodes (21): Data Integrity is GUARANTEED, Database Schema (6 New Tables), Document Breakdown, Documentation Map, Getting Help, Hard Gates (Must Pass Before Production), Key Metrics, Manufacturing Governance - Documentation Index (+13 more)
+Cohesion: 0.05
+Nodes (43): Architecture: Central Compliance Gate (8-Step Atomic Flow), Data Integrity is GUARANTEED, Database Schema (6 New Tables), Document Breakdown, Documentation Map, For Developers & Implementation Team, For Executives & Decision Makers, For Project Managers (+35 more)
 
 ### Community 905 - "Manufacturing Governance Execution Plan - Detailed Implementation Guide"
-Cohesion: 0.10
-Nodes (21): 1-1: Migration Files, 1-2: Go Domain Types, 1-3: SQL Queries, 1-4: sqlc Code Generation, 2-1: ComplianceGate Service, 2-2: Signature Challenge Service, 2-3: Record Snapshot Service, 4-1: State Machines (+13 more)
+Cohesion: 0.05
+Nodes (44): 1-1: Migration Files, 1-2: Go Domain Types, 1-3: SQL Queries, 1-4: sqlc Code Generation, 2-1: ComplianceGate Service, 2-2: Signature Challenge Service, 2-3: Record Snapshot Service, 3-1: BOM Approval Prerequisites (+36 more)
 
 ### Community 906 - "PATH B COMPLETE: PRODUCTION READY SYSTEM ✅"
 Cohesion: 0.10
 Nodes (20): 1. RBAC Middleware (5 hours) ✅, 2. E2E Test Suite (10 hours) ✅, 3. Production Deployment Guide (5 hours) ✅, 4. Performance Optimization (5 hours) ✅, Can Deploy Today, Can Launch This Week, Can Scale Immediately, Conclusion (+12 more)
 
-### Community 907 - "PGRepository"
-Cohesion: 0.17
-Nodes (14): PGRepository, dateParam(), Context, Date, Int8, KPISummary, MonthlyCashflowRow, MonthlyPLRow (+6 more)
+### Community 907 - "Repository"
+Cohesion: 0.43
+Nodes (5): AccountMapping, Context, NewRepository(), db, Repository
 
 ### Community 908 - "Migration Rehearsal Plan: Documents, CMMS, and QMS Modules"
-Cohesion: 0.06
-Nodes (33): ADR-001: Module Boundaries for Documents, CMMS, and QMS, Consequences, Context, Cross-Module Rules, Decision, References, Shared Foundations, Source of Truth Boundaries (+25 more)
+Cohesion: 0.10
+Nodes (20): 0.1 Fresh Schema Deployment Rehearsal, 0.2 Upgrade Migration Rehearsal, 0.3 Rollback Rehearsal, 1.1 Portal Documents Migration Rehearsal, 1.2 Board Pack Migration Rehearsal, 3.1 Fixed Assets Link Migration, 5.1 MRP Quality Migration Rehearsal, 7.1 Staging Certification (+12 more)
 
 ### Community 909 - "Manufacturing Governance Execution Plan"
 Cohesion: 0.10
 Nodes (20): 1. Policy and decision model, 2. Central compliance gate, 3. Electronic signatures, 4. Mandatory manufacturing prerequisites, 5. Manufacturing quality boundary, 6. RBAC and interfaces, 7. Staging validation and rollout, Assumptions (+12 more)
 
-### Community 910 - "MonthlyNetRevenueRow"
+### Community 910 - "BranchContributionRow"
 Cohesion: 0.14
-Nodes (14): ContributionQuery, MonthlyNetRevenueRow, PGRepository, RevenueQuery, stubRepo, Context, Int8, Pool (+6 more)
+Nodes (14): BranchContributionRow, ContributionQuery, PGRepository, RevenueQuery, stubRepo, Context, Int8, Pool (+6 more)
 
 ### Community 911 - "Phase 3: Vendor Intelligence - COMPLETE ✅"
 Cohesion: 0.11
@@ -3392,8 +3448,8 @@ Cohesion: 0.20
 Nodes (13): Context, Int8, Queries, AgingAPParams, AgingAPRow, AgingARParams, AgingARRow, KpiSummaryParams (+5 more)
 
 ### Community 914 - "NewHandler"
-Cohesion: 0.20
-Nodes (9): Engine, Logger, Pool, Router, SessionManager, NewHandler(), T, TestNewHandlerBuildsAllMasterDataHandlers() (+1 more)
+Cohesion: 0.23
+Nodes (11): Client, Engine, Logger, Pool, Service, NewHandler(), documentsRequestWithSession(), Request (+3 more)
 
 ### Community 915 - "Fitur MVP Yang BELUM Muncul di Menu ❌"
 Cohesion: 0.11
@@ -3411,17 +3467,17 @@ Nodes (16): Action Items for Phase 10, Bug Report Template, Bug Tracking & Repor
 Cohesion: 0.12
 Nodes (17): API Endpoints, AR Module, Breaking Changes, Cycle 9.1: Quotation & Sales Order ✅, Cycle 9.2: Delivery Order ✅, Cycle 9.3: AR Invoice & Payment Enhancement ✅, Database Changes, Known Issues (+9 more)
 
-### Community 919 - "NewHandler"
-Cohesion: 0.47
-Nodes (5): Service, NewHandler(), T, TestCreateHandlersRejectMalformedJSON(), TestHandlersRejectInvalidPathAndTimestampValues()
+### Community 919 - "Odyssey ERP"
+Cohesion: 0.17
+Nodes (11): 1. Vision & Purpose, 2. Problem Statement, 3. Target Users & Personas, 4. Product Scope (Core Modules), 5. Extended Roadmap Modules, 6. Non-Functional Requirements, 7. Success Metrics & Criteria, 8. Constraints & Assumptions (+3 more)
 
-### Community 920 - "ODYSSEY ERP: NEXT STEPS & DECISION GUIDE"
-Cohesion: 0.12
-Nodes (16): Decision Point: Three Clear Paths Forward, Estimated Effort to Production, Git State (Clean & Ready), If launching NEXT month:, If launching THIS month:, If unsure about timeline:, My Recommendation, ODYSSEY ERP: NEXT STEPS & DECISION GUIDE (+8 more)
+### Community 920 - "VarianceRow"
+Cohesion: 0.19
+Nodes (10): stubVariance, ComputeVariance(), exceedsThreshold(), AccountBalance, round2(), T, TestComputeVariance(), ExportRows() (+2 more)
 
 ### Community 921 - "Odyssey ERP Design System"
-Cohesion: 0.12
-Nodes (15): 1. Atmosphere & Identity, 2. Color, 3. Typography, 4. Spacing & Layout, 5. Components, 6. Motion & Interaction, 7. Depth & Surface, 8. Accessibility Constraints & Accepted Debt (+7 more)
+Cohesion: 0.06
+Nodes (29): Core Design Principles, Design Token Categories, For Contributors, Odyssey ERP Design System, Accessibility Standards, Badges, Borders & Radii, Buttons (+21 more)
 
 ### Community 922 - "Cycle 9.1 – Quotation & Sales Order Testing"
 Cohesion: 0.12
@@ -3439,9 +3495,9 @@ Nodes (16): Development, Docker Services, Documentation, Example end-to-end busi
 Cohesion: 0.13
 Nodes (14): 1. Setup Database & Test Account, 2. Start Application, 3. Access Web UI, 📋 Available Commands, Cannot login, Database connection error, 📖 Documentation, Getting Started - Odyssey ERP (+6 more)
 
-### Community 926 - "NewHandler"
-Cohesion: 0.23
-Nodes (11): Engine, Logger, Pool, Repository, Service, NewHandler(), Request, T (+3 more)
+### Community 926 - "OverrideInput"
+Cohesion: 0.14
+Nodes (13): overrideAuth, OverrideAuthorizer, OverrideInput, overrideRepo, OverrideRepository, OverrideService, Context, OverrideAudit (+5 more)
 
 ### Community 927 - "[Phase 9.3] - 2024-01-15"
 Cohesion: 0.14
@@ -3452,24 +3508,24 @@ Cohesion: 0.14
 Nodes (13): Architecture Notes, Completed in This Session, Files Changed, Foundation (Migration + Domain Types), HTTP Handlers & Routing, Integration Points (Future), Next Steps, Phase 3: Vendor Intelligence - Session Summary (+5 more)
 
 ### Community 929 - "Manufacturing Governance - Quick Start Guide"
-Cohesion: 0.14
-Nodes (14): 1. Compliance Gate (Central Service), 2. Signature Challenge (One-Time Proof), 3. Record Snapshot (Server-Generated), Appendix: Open Questions Before Starting, Architecture: 3 Core Components, Contact & Questions, Database Schema (6 New Tables), Manufacturing Governance - Quick Start Guide (+6 more)
+Cohesion: 0.07
+Nodes (29): 1. Compliance Gate (Central Service), 2. Signature Challenge (One-Time Proof), 3. Record Snapshot (Server-Generated), Appendix: Open Questions Before Starting, Architecture: 3 Core Components, Contact & Questions, Critical Path Files (Phase 1–2), Database Schema (6 New Tables) (+21 more)
 
 ### Community 930 - "Troubleshooting"
 Cohesion: 0.14
 Nodes (14): Halaman Pengaturan error setelah deploy, Halaman Profil atau Pengaturan 404, Import CSV/OFX Banking gagal atau transaksi tidak muncul di GL, Pemeriksaan pascadeploy, Perubahan skema, Prosedur deployment, Referensi, Rollback (+6 more)
 
-### Community 931 - "Odyssey ERP Version and Progress Report"
-Cohesion: 0.14
-Nodes (14): At-a-glance comparison, CRM and people operations, Detailed version reports, Finance and operations, Horizon foundation, How to read the version numbers, Odyssey ERP Version and Progress Report, Post-v0.9.1 implementation progress (+6 more)
+### Community 931 - "Detailed version reports"
+Cohesion: 0.10
+Nodes (20): At-a-glance comparison, CRM and people operations, Detailed version reports, Finance and operations, Follow-up work after v0.10.0-rc.6, Horizon foundation, How to read the version numbers, Odyssey ERP Version and Progress Report (+12 more)
 
-### Community 932 - "NewClient"
-Cohesion: 0.24
-Nodes (8): RedisClientOpt, NewClient(), Context, Mutex, T, TestEnqueueSendEmailDeduplicatesByCorrelationID(), TestWorkerRetriesSendEmailAfterSMTPFailure(), retryMailer
+### Community 932 - "asynq_server.go"
+Cohesion: 0.04
+Nodes (52): HandlerFunc, Location, Logger, RedisClientOpt, Request, ResponseWriter, Router, Server (+44 more)
 
-### Community 933 - "RespondError"
-Cohesion: 0.22
-Nodes (8): ProblemDetail, ResponseWriter, RespondError(), DecodeJSON(), Request, ResponseWriter, JSON(), Problem()
+### Community 933 - "ADR-001: Modular Monolith over Microservices"
+Cohesion: 0.17
+Nodes (11): ADR-001: Modular Monolith over Microservices, Alternatives Considered, Consequences, Context, Date, Decision, Negative, Neutral (+3 more)
 
 ### Community 934 - "Finance Operations Runbook (Phase 6 Final)"
 Cohesion: 0.15
@@ -3495,21 +3551,21 @@ Nodes (13): Cycle 9.3 – AR Invoice & Payment Testing, E2E Scenario Tests, HTTP
 Cohesion: 0.15
 Nodes (11): CI/CD Testing, Coverage Reports, Database Testing, Historical Testing Docs, Integration Tests, Prerequisites, Quick Commands, Smoke Test Manual (+3 more)
 
-### Community 940 - "Implementation changes"
-Cohesion: 0.15
-Nodes (13): 1. Shared foundations, 2. RFQ, bids, and awards, 3. Supplier contracts, ratings, and price intelligence, 4. Logistics masters and execution, 5. Distribution and route planning, 6. Freight planning, reconciliation, and accounting, Assumptions and defaults, Completion status (+5 more)
+### Community 940 - "Procurement and Logistics Depth Execution Plan"
+Cohesion: 0.13
+Nodes (14): 1. Shared foundations, 2. RFQ, bids, and awards, 3. Supplier contracts, ratings, and price intelligence, 4. Logistics masters and execution, 5. Distribution and route planning, 6. Freight planning, reconciliation, and accounting, Assumptions and defaults, Completion status (+6 more)
 
 ### Community 941 - "🚀 Completed Work"
 Cohesion: 0.15
 Nodes (13): 1. 🐳 Dev Environment Volume Mounting (High Priority), 1. 📋 Enterprise Form Standardization, 2. ⚡ HTMX Progressive Form Interactions, 2. 🔍 Unified Filter Grid Layout, 3. 🌙 Dark Mode KPI Contrast Audit, 3. 📊 Table & List Overhaul, 4. 🔗 Core CSS Parity, 4. 🗂️ Global `.data-list` Rollout (+5 more)
 
-### Community 942 - "Service"
-Cohesion: 0.29
-Nodes (7): Service, Account, AccountBalance, Context, Month, Repository, NewService()
+### Community 942 - "ADR-012: CSS Custom Properties over Utility Framework"
+Cohesion: 0.20
+Nodes (9): ADR-012: CSS Custom Properties over Utility Framework, Alternatives, Consequences, Context, Date, Decision, Negative, Positive (+1 more)
 
-### Community 943 - "banking/service_edges_test.go"
-Cohesion: 0.24
-Nodes (10): orderedBankRepo, BankTransaction, Context, T, UUID, newMockTransactionID(), TestBankAccountSummariesAddOpeningAndTransactionAmounts(), TestCreateOperationsRejectInvalidInputsBeforeRepository() (+2 more)
+### Community 943 - "Int8"
+Cohesion: 0.12
+Nodes (9): Int8, GetCustomerComplaintRow, GetQMSInspectionRow, InsertCustomerComplaintParams, InsertQMSInspectionParams, InsertQMSInspectionPlanParams, ReleaseQMSHoldParams, UpdateAuditFindingParams (+1 more)
 
 ### Community 944 - "Completed Features"
 Cohesion: 0.17
@@ -3540,12 +3596,12 @@ Cohesion: 0.18
 Nodes (10): Cache refresh & data hygiene, Consolidated P&L / Balance Sheet Runbook, CSV streaming, Export workflows, FX tools, Observability & metrics, PDF rendering, Prerequisites (+2 more)
 
 ### Community 951 - "Phase 9.2 Service Layer - Completion Summary"
-Cohesion: 0.25
-Nodes (7): Changelog, Common Issues, Executive Summary, Phase 9.2 Service Layer - Completion Summary, References, Troubleshooting, v1.0.0 - 2024-01-15
-
-### Community 952 - "Deliverables Summary"
 Cohesion: 0.18
-Nodes (11): 10. Documentation ✅, 1. Database Layer ✅, 2. Domain Models ✅, 3. Repository Layer ✅, 4. Service Layer ✅, 5. HTTP Handlers ✅, 6. SSR Templates ✅, 7. RBAC Permissions ✅ (+3 more)
+Nodes (10): Business Rule Violations, Changelog, Common Issues, Error Categories, Error Handling, Executive Summary, Phase 9.2 Service Layer - Completion Summary, References (+2 more)
+
+### Community 952 - "Phase 9.2 Final Implementation Summary"
+Cohesion: 0.03
+Nodes (58): 10. Documentation ✅, 1. Database Layer ✅, 2. Domain Models ✅, 3. Repository Layer ✅, 4. Service Layer ✅, 5. HTTP Handlers ✅, 6. SSR Templates ✅, 7. RBAC Permissions ✅ (+50 more)
 
 ### Community 953 - "Cycle 9.2 – Delivery & Fulfillment"
 Cohesion: 0.18
@@ -3559,17 +3615,17 @@ Nodes (11): Staging Deployment, Step 1: Apply Migration to Staging, Step 2: Veri
 Cohesion: 0.18
 Nodes (10): 10. Error Handling & Information Disclosure, 13. Multi-Tenancy (if applicable), 14. Dependency Vulnerabilities, 3. CSRF Protection, 7. Rate Limiting, 8. Secure Communication, 9. Secrets Management, Overview (+2 more)
 
-### Community 956 - "Odyssey ERP Documentation"
-Cohesion: 0.18
-Nodes (11): 🏗️ Architecture, 📝 Architecture Decision Records, 📁 Archive, Development, 🚀 Getting Started, 📖 Guides, Odyssey ERP Documentation, Operations (+3 more)
+### Community 956 - "v0.10.0 — bounded core release"
+Cohesion: 0.29
+Nodes (7): Milestone 1 — Freeze and enforce the core scope, Milestone 2 — Certify the core profile in staging, Milestone 3 — Promote, observe, and close v0.10.0, Odyssey ERP Project Roadmap, Post-v0.10 backlog, v0.10.0 — bounded core release, v0.11-finance implementation handoff (post-v0.10; excluded from rc.6)
 
-### Community 957 - "automation/repository_test.go"
-Cohesion: 0.39
-Nodes (7): Rows, T, Time, outboxRows(), settingsRows(), TestOutboxEnqueueIsScopedAndIdempotent(), TestRepositorySettingsScopesReadAndWriteByCompany()
+### Community 957 - "Result"
+Cohesion: 0.33
+Nodes (5): CompareService, ContributionShare, MonthlySeries, Result, VarianceMetric
 
-### Community 958 - "ListSalesOrdersRequest"
-Cohesion: 0.48
-Nodes (6): SalesOrderStatus, Time, CreateSalesOrderLineReq, CreateSalesOrderRequest, ListSalesOrdersRequest, UpdateSalesOrderRequest
+### Community 958 - "PaymentBatchItem"
+Cohesion: 0.27
+Nodes (5): mapPaymentBatchItem(), BankFormatEncoder, CSVEncoder, PaymentBatchItem, PaymentBatchItemCreate
 
 ### Community 959 - "Repository Guidelines"
 Cohesion: 0.20
@@ -3578,10 +3634,6 @@ Nodes (9): Build, Test, and Development Commands, Coding Style & Naming Conventi
 ### Community 960 - "archive/README.md"
 Cohesion: 0.20
 Nodes (6): CHANGELOG - Phase 9 High Priority Tasks, Summary, Archive - Historical Documentation, Contents, Project Status Documents, Why Archive?
-
-### Community 961 - "Test Scenarios"
-Cohesion: 0.20
-Nodes (10): 1. Complete Delivery Workflow (Happy Path), 2. Partial Delivery Workflow, 3. Cancellation Workflow, 4. Edit Draft Delivery Order, 5. Multiple Deliveries for One Sales Order, 6. Validation Errors, 7. Status Transition Validation, 8. Concurrent Operations (+2 more)
 
 ### Community 962 - "Phase 9.2 Kickoff – Delivery Order & Fulfillment"
 Cohesion: 0.20
@@ -3615,25 +3667,25 @@ Nodes (10): DeliveryIntegrationTestSuite, Integration Test Suite Structure, Mock
 Cohesion: 0.20
 Nodes (9): Appendix A: Complete Example, Architecture, Components, Full Packing List Generation, Implementation, Overview, Package: `internal/delivery/export`, Phase 9.2 PDF Generation Documentation (+1 more)
 
-### Community 970 - "ADR-0002: Role-Based Access Control"
-Cohesion: 0.20
-Nodes (9): ADR-0002: Role-Based Access Control, Alternatives Considered, Attribute-based access control (ABAC), Consequences, Context, Decision, Follow-up Work, Hard-coded role checks (+1 more)
+### Community 970 - "ADR/README.md"
+Cohesion: 0.04
+Nodes (45): Architecture Decision Records, Creating a New ADR, Domain-Specific ADRs, Foundational ADRs, Naming Conventions, Template, ADR-0001: Pemilihan Tooling Inti, Keputusan (+37 more)
 
-### Community 971 - "Manufacturing Governance - Visual Execution Map"
-Cohesion: 0.20
-Nodes (6): Execution Timeline, How to Track Progress, Key Validation Gates, Manufacturing Governance - Visual Execution Map, Questions Before Starting?, Task Dependencies
+### Community 971 - "File Inventory (33 Total)"
+Cohesion: 0.13
+Nodes (15): Documentation (Updated), Execution Timeline, File Inventory (33 Total), Generated (1 file), Go RBAC & Routes (2 files), Go Services (14 files), How to Track Progress, Key Validation Gates (+7 more)
 
-### Community 972 - "SQLRepository"
-Cohesion: 0.33
-Nodes (6): RateStatus, Context, SQLRepository, Pool, Time, NewRepository()
+### Community 972 - "Decimal"
+Cohesion: 0.08
+Nodes (29): Decimal, FetchRun, FXProvider, FXQuoteSet, PaymentValuation, RateRepository, Resolver, RevaluationInput (+21 more)
 
 ### Community 973 - "ADR-0014: Repository-Owned Persistence and HTTP Error Boundaries"
-Cohesion: 0.22
-Nodes (9): ADR-0014: Repository-Owned Persistence and HTTP Error Boundaries, Consequences, Context, Decision, HTTP error boundary, Persistence boundary, References, Status (+1 more)
+Cohesion: 0.08
+Nodes (21): Arsitektur Odyssey ERP, Dependency Flow, Deployment, HTTP error boundary, Lapisan, Prinsip Utama, ADR-0014: Repository-Owned Persistence and HTTP Error Boundaries, Consequences (+13 more)
 
-### Community 974 - "NewBudgetRepository"
-Cohesion: 0.28
-Nodes (7): BudgetEntry, BudgetRepository, PGBudgetRepository, Context, Pool, Queries, NewBudgetRepository()
+### Community 974 - "handler_edges_test.go"
+Cohesion: 0.32
+Nodes (5): dimensionRows, T, TestAccountingRequestHelpers(), TestNewHandlerMountsAccountingRoutes(), TestRowsToDimensionMaps()
 
 ### Community 975 - "graphify reference: extra exports and benchmark"
 Cohesion: 0.22
@@ -3651,17 +3703,17 @@ Nodes (9): Added, Cycle 9.1 – Quotation & Sales Order (In Progress), Documenta
 Cohesion: 0.22
 Nodes (8): Behavioral fixtures for mutating routes — Framework + Tier 1 (master data), Context, Files, Follow-on (not in this plan), The framework, Tier 1 fixtures — the 8 master-data resources, Verification, Wiring into the flow
 
-### Community 979 - "File Inventory (33 Total)"
-Cohesion: 0.22
-Nodes (9): Documentation (Updated), File Inventory (33 Total), Generated (1 file), Go RBAC & Routes (2 files), Go Services (14 files), Schema & Migration (2 files), SQL Queries (1 file), SSR Templates (8 files) (+1 more)
+### Community 979 - "runtime.go"
+Cohesion: 0.67
+Nodes (3): detectTestMode(), InTestMode(), RefreshTestMode()
 
-### Community 980 - "Phase 3: Mandatory Prerequisites (8 Decision Points)"
-Cohesion: 0.22
-Nodes (9): 3-1: BOM Approval Prerequisites, 3-2: Work Order Release Prerequisites, 3-3: Operation Completion Prerequisites, 3-4: Finished Goods Receipt Prerequisites, 3-5: Schedule Override Prerequisites, 3-6: Hold Release Prerequisites, 3-7: Quality Disposition Prerequisites, 3-8: Subcontract Acceptance Prerequisites (+1 more)
+### Community 980 - "Vault"
+Cohesion: 0.09
+Nodes (18): Context, Logger, NewAdapter(), Request, Response, T, TestExecuteCommand_SendWhatsAppInExplicitDevelopmentMode(), TestWhatsAppSignatureAndSendContract() (+10 more)
 
-### Community 981 - "Phase 6: Testing & Validation (8 Test Suites)"
-Cohesion: 0.22
-Nodes (9): 6-1: Policy Resolution Tests, 6-2: Compliance Gate Tests, 6-3: Signature Challenge Tests, 6-4: RBAC & Separation-of-Duties Tests, 6-5: Quality Lifecycle Tests, 6-6: Concurrency Tests, 6-7: Company Isolation Tests, 6-8: Security & Audit Tests (+1 more)
+### Community 981 - "NewHandler"
+Cohesion: 0.20
+Nodes (9): Engine, Logger, Pool, Router, SessionManager, NewHandler(), T, TestNewHandlerBuildsAllMasterDataHandlers() (+1 more)
 
 ### Community 982 - "Runbook – Board Pack Pipeline"
 Cohesion: 0.22
@@ -3672,16 +3724,16 @@ Cohesion: 0.22
 Nodes (9): 1. Record the official artifact, 2. Review tax configuration, 3. Validate representative cases, 4. Run the validation sequence, 5. Reconcile to the rupiah, 6. Sign-off, Official references, Stop conditions (+1 more)
 
 ### Community 984 - "Default Account Mapping"
-Cohesion: 0.22
+Cohesion: 0.20
 Nodes (9): Accounts Payable Invoice, Accounts Payable Payment, Configuration Rules, Default Account Mapping, Future Extensions, Goods Receipt Note (GRN), Inventory Adjustment, Modules & Keys (+1 more)
 
 ### Community 985 - "Finance Observability SLO/SLA"
 Cohesion: 0.22
 Nodes (8): Dependencies, Error Budget Policy, Finance Observability SLO/SLA, Latency Calculation, Review Cadence, Review cadence, Service Level Agreements, Service Level Objectives
 
-### Community 986 - "Odyssey ERP - Quick Reference"
-Cohesion: 0.22
-Nodes (9): 🗄️ Database, 🔐 Default Credentials, 🐳 Docker, 📚 Documentation, 🌐 Endpoints, 📊 Environment, 🔥 Hot Reload, Odyssey ERP - Quick Reference (+1 more)
+### Community 986 - "Odyssey ERP: Developer Setup & Contribution Guide"
+Cohesion: 0.12
+Nodes (16): CI/CD Pipeline, Configuration Reference, Contributing Guidelines, Database Development, Debugging Tips, Deployment Guide, Development Workflow, Docker Compose Architecture (+8 more)
 
 ### Community 987 - "Conclusion"
 Cohesion: 0.25
@@ -3716,8 +3768,8 @@ Cohesion: 0.25
 Nodes (8): 1. Permission Constants (`internal/shared/authz_sales_delivery.go`), 2. Database Migration (`migrations/000013_phase9_permissions.up.sql`), 3. Handler Integration (`internal/delivery/handler.go`), Customer Module (4 permissions), Delivery Order Module (8 permissions), Quotation Module (6 permissions), Sales Order Module (5 permissions), What Was Delivered
 
 ### Community 995 - "Phase 9 - Sales & Delivery Module Documentation"
-Cohesion: 0.05
-Nodes (41): 1. Sales Manager, 23 Permissions Defined, 2. Sales Staff, 3. Warehouse Staff, Access Control, Assign Permission to Role, Audit Trail, Best Practices (+33 more)
+Cohesion: 0.04
+Nodes (49): 1. Apply Migration, 1. Sales Manager, 23 Permissions Defined, 2. Sales Staff, 2. Verify Installation, 3. Assign Role to User, 3. Warehouse Staff, 4. Test Access (+41 more)
 
 ### Community 996 - "Changelog"
 Cohesion: 0.25
@@ -3728,48 +3780,52 @@ Cohesion: 0.25
 Nodes (8): Added, Cycle 9.2 – Delivery Order & Fulfillment ✅ **COMPLETE (98% Complete)**, Documentation, Integration Points, Status, Status, Status Summary, Testing
 
 ### Community 998 - "Changelog"
-Cohesion: 0.25
-Nodes (8): Added, Changed, Changelog, Unreleased, v0.7.0, v0.8.0, v0.9.0 — 2026-01-11, v0.9.1 — 2026-05-28
-
-### Community 999 - "Quick Fix - PostgreSQL Setup"
 Cohesion: 0.11
-Nodes (16): Native Development Setup, Prerequisites, Run the application, Start infrastructure, Prerequisites, Quick Start, Start Odyssey, Verify and stop (+8 more)
+Nodes (18): Added, Added, Changed, Changed, Changed, Changed, Changelog, Unreleased (+10 more)
 
-### Community 1000 - "Deploy Gratis ke Render"
-Cohesion: 0.25
-Nodes (7): 1. Siapkan dependensi eksternal, 2. Buat Blueprint, 3. Administrator awal, 4. Smoke test, 5. Batasan mode $0, Deploy Gratis ke Render, Konfigurasi development
+### Community 999 - ".CreateAPRealizedFXJournalTx"
+Cohesion: 0.24
+Nodes (8): PaymentFXSourceKey(), T, TestPaymentFXSourceKey(), APInvoice, APPayment, Context, Hooks, Tx
 
-### Community 1001 - "Implementation Phases"
-Cohesion: 0.25
-Nodes (8): Implementation Phases, Phase 1: Schema & Models (CRITICAL PATH), Phase 2: Compliance Gate (CRITICAL PATH), Phase 3: Prerequisites, Phase 4: Quality Lifecycle, Phase 5: RBAC & Interfaces, Phase 6: Testing, Phase 7: Staging & Rollout
+### Community 1000 - "ar_test.go"
+Cohesion: 0.17
+Nodes (12): ledgerCapture, mappingFake, periodFake, AccountMapping, Context, JournalEntry, Period, T (+4 more)
 
-### Community 1002 - "Implementation Phases"
+### Community 1001 - "WithDetails"
 Cohesion: 0.25
-Nodes (8): Implementation Phases, Phase 1: Schema & Models (5 tasks, ~3 days), Phase 2: Compliance Gate (3 tasks, ~4 days), Phase 3: Prerequisites (8 tasks, ~4 days), Phase 4: Quality Lifecycle (2 tasks, ~2 days), Phase 5: RBAC & Interfaces (3 tasks, ~3 days), Phase 6: Testing (8 test suites, ~5 days), Phase 7: Staging & Rollout (4 steps, ~2 weeks)
+Nodes (7): BuildDeliverableMap(), ToDetailResponse(), ToListResponse(), DetailResponse, LineWithDetails, ListResponse, WithDetails
+
+### Community 1002 - "Odyssey ERP - Quick Reference"
+Cohesion: 0.22
+Nodes (9): 🗄️ Database, 🔐 Default Credentials, 🐳 Docker, 📚 Documentation, 🌐 Endpoints, 📊 Environment, 🔥 Hot Reload, Odyssey ERP - Quick Reference (+1 more)
 
 ### Community 1003 - "Testing Authentication & Security Flows Locally"
 Cohesion: 0.25
 Nodes (7): 1. Testing Standard Login, 2. Testing 2FA / MFA Setup (TOTP), 3. Testing 2FA / MFA Login Verification, 4. Testing Single Sign-On (SSO), Prerequisites, Testing Authentication & Security Flows Locally, Troubleshooting
 
-### Community 1004 - "Adapter"
-Cohesion: 0.11
-Nodes (15): Context, NewClient(), Context, Logger, NewAdapter(), T, TestExecuteCommand_SendWhatsApp(), Adapter (+7 more)
+### Community 1004 - "NewBudgetRepository"
+Cohesion: 0.28
+Nodes (7): BudgetEntry, BudgetRepository, PGBudgetRepository, Context, Pool, Queries, NewBudgetRepository()
+
+### Community 1005 - "storage/storage.go"
+Cohesion: 0.17
+Nodes (10): Context, NewStorage(), ErrChecksumMismatch, ErrMalwareDetected, ErrNotFound, ErrUnsupportedDriver, MalwareScanStatus, ObjectInfo (+2 more)
 
 ### Community 1006 - ".GetLatestForecastRun"
 Cohesion: 0.29
 Nodes (5): Context, ForecastDailyBucket, ForecastRun, Queries, GetLatestForecastRunParams
 
 ### Community 1007 - "Encryption-at-Rest Policy"
-Cohesion: 0.29
-Nodes (6): Encryption-at-Rest Policy, Implementation Guidelines, Key Rotation, Overview, Scope of Field-Level Encryption, Strategy
+Cohesion: 0.04
+Nodes (41): Encryption-at-Rest Policy, Implementation Guidelines, Key Rotation, Overview, Scope of Field-Level Encryption, Strategy, Cross-Module Lifecycle Reference, Explicitly not covered (+33 more)
 
 ### Community 1008 - "Regulated Manufacturing Compliance (21 CFR Part 11)"
 Cohesion: 0.29
 Nodes (6): Audit Trails, Electronic Signatures, Implementation (Application Layer), Overview, Regulated Manufacturing Compliance (21 CFR Part 11), Requirements
 
-### Community 1009 - "Test Coverage Hardening Audit — 2026-08-09"
-Cohesion: 0.29
-Nodes (7): Follow-up work, High-risk package baseline, Previously uncovered packages, Scope, Test Coverage Hardening Audit — 2026-08-09, Test strategy, Verification
+### Community 1009 - "LocalStorage"
+Cohesion: 0.25
+Nodes (7): generateStorageKey(), Context, ReadCloser, randomString(), removeTempFile(), TestGenerateStorageKey(), LocalStorage
 
 ### Community 1010 - "Phase 1 - Core Platform ✅ COMPLETE (100%)"
 Cohesion: 0.29
@@ -3795,9 +3851,9 @@ Nodes (6): Alert Simulations, Automated Checks, Performance Benchmarks, Regressi
 Cohesion: 0.29
 Nodes (7): Deployment Instructions, Step 1: Pre-Deployment Checklist, Step 2: Apply Migration, Step 3: Verify Installation, Step 4: Assign Roles to Users, Step 5: Test Access, Step 6: Monitor
 
-### Community 1016 - "mapShipment"
-Cohesion: 0.31
-Nodes (4): Shipment, mapShipment(), CarrierServiceType, ShipmentStatus
+### Community 1016 - "Service"
+Cohesion: 0.29
+Nodes (6): Service, Context, Repository, Time, User, NewService()
 
 ### Community 1017 - "Load Tests (Apache Bench / k6)"
 Cohesion: 0.29
@@ -3807,41 +3863,41 @@ Nodes (7): Aging Report, Invoice Posting, Load Tests (Apache Bench / k6), Paymen
 Cohesion: 0.29
 Nodes (7): Added, Cycle 9.2 – Delivery Order & Fulfillment (In Progress), Documentation, Next Steps for Cycle 9.2, RBAC & Route Integration, Status, Testing
 
-### Community 1019 - "ADR-0011: Governed Reporting and Dashboards"
-Cohesion: 0.29
-Nodes (6): ADR-0011: Governed Reporting and Dashboards, Consequences, Context, Decision, Follow-up Work, Status
+### Community 1019 - "Production Release Checklist"
+Cohesion: 0.25
+Nodes (8): 1. Release identity and scope, 2. Repeatable repository gates, 3. Database and migration evidence, 4. External and regulated certification, 5. Runtime and security controls, 6. Deployment and rollback, Current blockers, Production Release Checklist
 
-### Community 1020 - "ADR-0012: Scoped Role-Based Access Control"
-Cohesion: 0.29
-Nodes (6): ADR-0012: Scoped Role-Based Access Control, Consequences, Context, Decision, Follow-up Work, Status
+### Community 1020 - "S3Storage"
+Cohesion: 0.23
+Nodes (8): Client, Context, ReadCloser, NewS3Storage(), Reader, PutInput, S3Storage, StorageConfig
 
-### Community 1021 - "ADR-0013: Fiscal Calendars and Timezone Policy"
-Cohesion: 0.29
-Nodes (6): ADR-0013: Fiscal Calendars and Timezone Policy, Consequences, Context, Decision, Follow-up Work, Status
+### Community 1021 - "tasks_test.go"
+Cohesion: 0.09
+Nodes (24): crmReminderFake, Context, HandlerFunc, Client, Service, TaskInfo, HandleDocumentOCR(), NewDocumentOCRTask() (+16 more)
 
 ### Community 1022 - "Approval Engine and HR Core"
 Cohesion: 0.29
 Nodes (7): Approval Engine and HR Core, Attendance CSV, Configurable approvals, Leave setup, Planned talent-workflow depth, Release B: HR Core, Verification
 
 ### Community 1023 - "Fixed Assets operations"
-Cohesion: 0.29
+Cohesion: 0.25
 Nodes (7): Disposal, Fixed Assets operations, Manual journals and reporting dimensions, Monthly depreciation, Prerequisites, Registering an asset, Report schedules
 
-### Community 1024 - "Odyssey ERP Handler Guidelines"
-Cohesion: 0.33
-Nodes (6): 1. Structure and Flow, 2. Pagination, Sorting, and Filtering, 3. Error Handling, 4. Testing, 5. Templates, Odyssey ERP Handler Guidelines
+### Community 1024 - "rbac/repository.go"
+Cohesion: 0.28
+Nodes (12): Int8, Pool, Time, Timestamptz, mapScopedRoleAssignment(), NewRepository(), nullableInt64(), nullableInt8() (+4 more)
 
 ### Community 1025 - "Inventory traceability and replenishment"
 Cohesion: 0.29
 Nodes (7): Deployment, Inventory traceability and replenishment, Product setup, Receiving stock, Replenishment workflow, Reporting dimensions, Scheduled report email
 
-### Community 1026 - "File Inventory (33 Total)"
-Cohesion: 0.29
-Nodes (7): Critical Path Files (Phase 1–2), Documentation, File Inventory (33 Total), Prerequisite Validators (Phase 3), Quality Lifecycle (Phase 4), Routes & RBAC (Phase 5), Test Suites (Phase 6)
+### Community 1026 - "buildRouteOptimizationPlan"
+Cohesion: 0.38
+Nodes (12): routeOptimizationPlan, allStopsHaveCoordinates(), buildRouteOptimizationPlan(), degreesToRadians(), Money, RouteStop, hasAnyCoordinate(), hasValidCoordinates() (+4 more)
 
-### Community 1027 - "Notifications and Transactional Email"
-Cohesion: 0.29
-Nodes (7): Data model, Deployment and verification, Event integrations, HTTP API and workspace bell, Notifications and Transactional Email, SMTP configuration, Troubleshooting
+### Community 1027 - "Test Coverage Hardening Audit — 2026-08-09"
+Cohesion: 0.25
+Nodes (7): Follow-up work, High-risk package baseline, Previously uncovered packages, Scope, Test Coverage Hardening Audit — 2026-08-09, Test strategy, Verification
 
 ### Community 1028 - "Procurement Operations"
 Cohesion: 0.29
@@ -3851,29 +3907,29 @@ Nodes (7): Kontrol & Audit, Langkah Operasional, Prasyarat, Procurement Operatio
 Cohesion: 0.29
 Nodes (6): Accounting policy, AR/AP behavior, Daily rate operations, Deployment and acceptance checklist, Local acceptance result, Transaction-level FX operations
 
-### Community 1030 - "Profil dan Pengaturan Pengguna"
-Cohesion: 0.29
-Nodes (7): Analytics, Mengubah password, Notifikasi hasil simpan, Perusahaan aktif dan Banking, Profil, Profil dan Pengaturan Pengguna, Tampilan dan bahasa
+### Community 1030 - "api/handler.go"
+Cohesion: 0.24
+Nodes (11): apiKey, GenerateKey(), Pool, HashKey(), NewHandler(), SignWebhook(), T, TestHashKeyIsDeterministic() (+3 more)
 
-### Community 1031 - "Odyssey ERP v0.7.0 — Phase 7 Final Release Notes"
-Cohesion: 0.29
-Nodes (7): Breaking changes, Credits, Known issues, New & Improved, Odyssey ERP v0.7.0 — Phase 7 Final Release Notes, Operations checklist, Summary
+### Community 1031 - "NewOperationsService"
+Cohesion: 0.36
+Nodes (8): NewOperationsService(), T, TestOperationsRepositoryMasksExecutionPayloadAndLoadsDetails(), TestOperationsServiceRecoveryReplaysOnlyAmbiguousExecutionDeadLetter(), TestOperationsServiceRejectsRecoveryForSettledInstruction(), TestOperationsServiceRequiresResultReaderExtension(), TestOperationsServiceRetryEffectsReplaysResultImportDeadLetter(), operationsReplayerFake
 
-### Community 1032 - "NewService"
-Cohesion: 0.53
-Nodes (8): NewService(), approvedBOM(), T, TestBOMRevisionRequiresReasonAndStartsDraft(), TestCreateBOMRejectsSelfReferentialAndInvalidScrap(), TestCreateRoutingRequiresOrderedViableOperations(), TestCreateWorkOrderRequiresMatchingActiveBOMAndWarehouse(), TestWorkOrderLifecycle()
+### Community 1032 - ".GetSPCChart"
+Cohesion: 0.31
+Nodes (5): floatToNumeric(), Numeric, numericToFloat(), SPCChart, SPCSample
 
-### Community 1033 - "NewService"
-Cohesion: 0.33
-Nodes (6): Repository, Storage, NewService(), T, TestNormaliseStatus(), TestServiceRejectsInvalidRequestsWithoutRepository()
+### Community 1033 - "SnapshotJob"
+Cohesion: 0.43
+Nodes (5): Context, Logger, Service, NewSnapshotJob(), SnapshotJob
 
 ### Community 1034 - "portalRequestWithSession"
 Cohesion: 0.48
 Nodes (6): Request, T, portalRequestWithSession(), TestInvitationTokenReturnsHashOfPlainToken(), TestPortalRoutesRejectUnavailableOrUnauthorizedRequests(), TestPortalUserReadsOnlyValidSessionIdentity()
 
-### Community 1035 - "SnapshotJob"
-Cohesion: 0.43
-Nodes (5): Context, Logger, Service, NewSnapshotJob(), SnapshotJob
+### Community 1035 - "CSRFManager"
+Cohesion: 0.05
+Nodes (37): AdminHandler, Engine, Logger, Request, ResponseWriter, Router, Service, NewAdminHandler() (+29 more)
 
 ### Community 1036 - "graphify reference: query, path, explain"
 Cohesion: 0.33
@@ -3911,69 +3967,65 @@ Nodes (6): 1. Backup Current System, 2. Deploy Application, 3. Restart Services,
 Cohesion: 0.33
 Nodes (6): E2E Tests, Integration Tests, Manual QA Checklist, Performance Tests, Testing Strategy (Phase-Level), Unit Tests
 
-### Community 1045 - ".Serve"
-Cohesion: 0.25
-Nodes (5): stubPLPDFExporter, Logger, Request, ResponseWriter, newPLPDFExporter()
-
-### Community 1046 - "Setup Instructions"
-Cohesion: 0.40
-Nodes (5): 1. Run Migration, 2. Verify Permissions, 3. Assign Roles to Users, 4. Test Access Control, Setup Instructions
+### Community 1046 - "check-release-hygiene.sh"
+Cohesion: 0.50
+Nodes (3): fail(), seen_capabilities, check-release-hygiene.sh script
 
 ### Community 1047 - "Acceptance Criteria (Phase 9 Complete)"
 Cohesion: 0.33
 Nodes (6): Acceptance Criteria (Phase 9 Complete), Documentation, Functional, Operations, Quality, Security
 
-### Community 1048 - "Manual QA Checklist (Cycle 9.3)"
-Cohesion: 0.33
-Nodes (6): Accounting Integration, AR Aging Report, Invoice Management, Manual QA Checklist (Cycle 9.3), Overdue Invoices, Payment Management
+### Community 1048 - "SourcingService"
+Cohesion: 0.13
+Nodes (20): TestSourcingDecimalHelpers(), Client, NewAsynqRFQEmailQueue(), canonicalDecimal(), compareDecimal(), AuditPort, Context, Money (+12 more)
 
 ### Community 1049 - "Task 2: Inventory Integration ✅"
 Cohesion: 0.33
 Nodes (6): Example, How It Works, Implementation, Key Features, Task 2: Inventory Integration ✅, Testing
 
-### Community 1050 - "ADR-0003 – Inventory Costing Strategy"
-Cohesion: 0.33
-Nodes (5): ADR-0003 – Inventory Costing Strategy, Consequences, Context, Decision, Status
+### Community 1050 - "requestWithSession"
+Cohesion: 0.20
+Nodes (19): authorizedRequest(), Context, Request, T, Time, requestWithSession(), TestRequireAllDeniesWhenOnePermissionMissing(), TestRequireAny() (+11 more)
 
-### Community 1051 - "ADR-0004 – Accounting Model & Ledger Architecture"
-Cohesion: 0.33
-Nodes (5): ADR-0004 – Accounting Model & Ledger Architecture, Consequences, Context, Decision, Status
+### Community 1051 - "repository"
+Cohesion: 0.23
+Nodes (7): Asset, repository, Category, Context, Pool, Time, NewRepository()
 
-### Community 1052 - "ADR-0010: External Integrations Foundation"
-Cohesion: 0.33
-Nodes (6): ADR-0010: External Integrations Foundation, Consequences, Context, Decision, References, Status
+### Community 1052 - ".CreateARPostingJournalTx"
+Cohesion: 0.39
+Nodes (4): Context, Hooks, Tx, pointerValue()
 
-### Community 1053 - "CRM"
-Cohesion: 0.33
-Nodes (6): Activities and reminders, CRM, Model and ownership, Permissions, Planned campaign and segmentation depth, Workflow
+### Community 1053 - "documents/service.go"
+Cohesion: 0.19
+Nodes (8): CreateDispositionRequest, CreateLegalHoldRequest, ReviewDecisionRequest, DocumentReviewDecision, Context, DispositionRequest, Service, LegalHold
 
-### Community 1054 - "Payroll engine"
+### Community 1054 - "SQLRepository"
 Cohesion: 0.33
-Nodes (6): Lifecycle, Payroll engine, Payslips and access, Regulatory provenance, Setup, Verification
+Nodes (6): RateStatus, Context, SQLRepository, Pool, Time, NewRepository()
 
-### Community 1055 - "Tax Compliance"
-Cohesion: 0.33
-Nodes (6): Document and ledger lifecycle, Permissions, Reconciliation, locking, and export, Regulatory configuration, Release gate, Tax Compliance
+### Community 1055 - "Notifications and Transactional Email"
+Cohesion: 0.29
+Nodes (7): Data model, Deployment and verification, Event integrations, HTTP API and workspace bell, Notifications and Transactional Email, SMTP configuration, Troubleshooting
 
 ### Community 1056 - "Observability Overview"
-Cohesion: 0.33
+Cohesion: 0.29
 Nodes (6): Dashboards, Finance Observability, Labeling Conventions, Observability Overview, Platform Health, Prometheus Alerts
 
-### Community 1057 - "Accounting Period Policy"
-Cohesion: 0.33
-Nodes (6): Accounting Period Policy, Audit Trail, Future Enhancements, Operational Procedures, Period Lifecycle, Validation Rules
+### Community 1057 - ".InsertComplaint"
+Cohesion: 0.36
+Nodes (4): CustomerComplaint, toComplaint(), toComplaintFromList(), CreateComplaintRequest
 
-### Community 1058 - "Arsitektur Odyssey ERP"
-Cohesion: 0.33
-Nodes (6): Arsitektur Odyssey ERP, Dependency Flow, Deployment, HTTP error boundary, Lapisan, Prinsip Utama
+### Community 1058 - "Manufacturing / MRP"
+Cohesion: 0.40
+Nodes (5): Current status, Manufacturing / MRP, Not currently documented as supported, Operating constraints, Supported scope
 
 ### Community 1059 - "Deployment Readiness"
 Cohesion: 0.40
 Nodes (5): Build Status ✅, Configuration ✅, Deployment Checklist, Deployment Readiness, Prerequisites ✅
 
-### Community 1060 - "Gotenberg Configuration"
-Cohesion: 0.40
-Nodes (5): Docker Setup, Environment Configuration, Gotenberg Configuration, Start Gotenberg, Verify Gotenberg
+### Community 1060 - "Quick Fix - PostgreSQL Setup"
+Cohesion: 0.25
+Nodes (8): Cek Password PostgreSQL Default, Jika Masih Stuck, Opsi 1: Set Password PostgreSQL User (Paling Cepat), Opsi 2: Manual SQL Execution (Copy-Paste), Opsi 3: Menggunakan psql Interaktif, Opsi 4: Reset PostgreSQL Config (Advanced), Quick Fix - PostgreSQL Setup, Verifikasi Setup Berhasil
 
 ### Community 1061 - "🔗 Integration Points"
 Cohesion: 0.40
@@ -3999,13 +4051,13 @@ Nodes (5): 📅 Timeline & Milestones, Week 1 – Cycle 9.1 (Quotation & SO), We
 Cohesion: 0.40
 Nodes (5): 1. Test Structure, 2. Test Data, 3. Assertions, 4. Code Organization, 🎓 Best Practices Implemented
 
-### Community 1067 - "Stakeholder Sign-Off"
-Cohesion: 0.40
-Nodes (5): Development Team, Product Team, QA Team, Security Team, Stakeholder Sign-Off
+### Community 1067 - "NewService"
+Cohesion: 0.47
+Nodes (8): NewService(), T, TestAssignRoleInScopeNormalizesEffectiveDates(), TestDecideAccessReviewValidatesAndNormalizesDecision(), TestEffectivePermissionsInScopePassesTenantAndEvaluationTime(), TestEffectivePermissionsInScopeRequiresExplicitTimeAndScope(), TestOpenAccessReviewTrimsIdempotencyKey(), TestScopedAPIsFailClosedWithoutScopedRepository()
 
-### Community 1068 - "Integration Points"
-Cohesion: 0.40
-Nodes (5): Integration Points, Inventory Module (Hooks Ready), Sales Order Module, User/RBAC Module, Warehouse Module (Ready)
+### Community 1068 - "Profil dan Pengaturan Pengguna"
+Cohesion: 0.29
+Nodes (7): Analytics, Mengubah password, Notifikasi hasil simpan, Perusahaan aktif dan Banking, Profil, Profil dan Pengaturan Pengguna, Tampilan dan bahasa
 
 ### Community 1069 - "4. Documentation Suite"
 Cohesion: 0.40
@@ -4035,13 +4087,13 @@ Nodes (5): Cross-Cutting Concerns, Data Quality, Observability, Performance, Sec
 Cohesion: 0.40
 Nodes (5): Documentation Deliverables, Operations, Technical Docs, Testing, User Guides
 
-### Community 1076 - "Quick Start Example"
-Cohesion: 0.40
-Nodes (5): 1. Apply Migration, 2. Verify Installation, 3. Assign Role to User, 4. Test Access, Quick Start Example
+### Community 1076 - "Odyssey ERP: Next Steps and Release Decision Guide"
+Cohesion: 0.33
+Nodes (6): Current position, Highest-value remaining work, Immediate verification, Odyssey ERP: Next Steps and Release Decision Guide, Recommended development sequence, Release rule
 
-### Community 1077 - "Phase 9.2 Progress: ✅ **98% Complete - PRODUCTION READY**"
-Cohesion: 0.40
-Nodes (5): ✅ Completed, ⚙️ In Progress, Phase 9.2 Progress: ✅ **98% Complete - PRODUCTION READY**, 🔜 Remaining, Status
+### Community 1077 - "fakeExecutionPort"
+Cohesion: 0.31
+Nodes (4): Context, Instruction, Submission, fakeExecutionPort
 
 ### Community 1078 - "19. Known Limitations & Future Work"
 Cohesion: 0.40
@@ -4067,9 +4119,9 @@ Nodes (5): Docker Setup, Environment Configuration, Gotenberg Configuration, Sta
 Cohesion: 0.40
 Nodes (5): Issue: Fonts not rendering, Issue: Images not showing, Issue: PDF is blank, Issue: PDF layout broken, Troubleshooting
 
-### Community 1084 - "ADR-0001: Pemilihan Tooling Inti"
-Cohesion: 0.40
-Nodes (4): ADR-0001: Pemilihan Tooling Inti, Keputusan, Konsekuensi, Konteks
+### Community 1084 - "Tax Compliance"
+Cohesion: 0.33
+Nodes (6): Document and ledger lifecycle, Permissions, Reconciliation, locking, and export, Regulatory configuration, Release gate, Tax Compliance
 
 ### Community 1085 - "Documentation Policy"
 Cohesion: 0.40
@@ -4079,29 +4131,17 @@ Nodes (4): Documentation Policy, Historical material, Keeping documents current,
 Cohesion: 0.40
 Nodes (4): Catatan, How-to Board Pack, Langkah Generate, Permission
 
-### Community 1087 - "Quick Navigation"
-Cohesion: 0.40
-Nodes (5): For Developers & Implementation Team, For Executives & Decision Makers, For Project Managers, For Technical Leads & Architects, Quick Navigation
+### Community 1088 - "forecasting/service_test.go"
+Cohesion: 0.22
+Nodes (7): forecastReaderFake, fxResolverFake, T, Time, TestGenerateSnapshotAggregatesFlowsAndPersistsSourceLines(), TestGenerateSnapshotMarksRunIncompleteWhenReaderFails(), TestGenerateSnapshotRejectsForeignScenarioBeforeCreatingRun()
 
-### Community 1088 - "How to Track Progress"
-Cohesion: 0.40
-Nodes (5): How to Track Progress, Mark task complete, View all 33 tasks, View task details, View tasks by phase
+### Community 1089 - "NewHandler"
+Cohesion: 0.39
+Nodes (8): Service, NewHandler(), distributionRequest(), Request, T, TestCreateLoadHandlerRejectsUnauthenticatedRequest(), TestCreateLoadHandlerUsesAuthenticatedCompany(), TestGetLoadRejectsInvalidID()
 
-### Community 1089 - "Phase 7: Staging & Rollout"
-Cohesion: 0.40
-Nodes (5): 7-1: Deploy to Staging (WARN Mode), 7-2: Switch to ENFORCE, 7-3: Collect Evidence, 7-4: Obtain Sign-Off & Production Enablement, Phase 7: Staging & Rollout
-
-### Community 1090 - "Manufacturing / MRP"
-Cohesion: 0.40
-Nodes (5): Current status, Manufacturing / MRP, Not currently documented as supported, Operating constraints, Supported scope
-
-### Community 1091 - "Testing Runbook"
-Cohesion: 0.40
-Nodes (5): Coverage maintenance, Database-backed checks, Release gates, Standard local checks, Testing Runbook
-
-### Community 1092 - ".InsertComplaint"
+### Community 1090 - "core/store.js"
 Cohesion: 0.36
-Nodes (4): CustomerComplaint, toComplaint(), toComplaintFromList(), CreateComplaintRequest
+Nodes (6): DEBUG(), DevTools, disableDebug(), enableDebug(), log(), logState()
 
 ### Community 1093 - "Q: $graphify explore documentation or existing main feature code then give report about gaps or missing feature that incomplete and give recommendations for development"
 Cohesion: 0.40
@@ -4115,13 +4155,13 @@ Nodes (4): Answer, Outcome, Q: $graphify Verify Parse() identity, Source Nodes
 Cohesion: 0.40
 Nodes (4): Answer, Outcome, Q: Are the 180 inferred relationships involving SessionFromContext() (e.g. with .auditRecord() and .companyID()) actually correct?, Source Nodes
 
-### Community 1096 - "bi_export.go"
-Cohesion: 0.32
-Nodes (6): Context, Service, NewBIExportJob(), NewBIExportTask(), BIExportJob, BIExportPayload
+### Community 1096 - "NewPaymentRecoveryRepository"
+Cohesion: 0.44
+Nodes (8): NewPaymentRecoveryRepository(), T, TestPaymentRecoveryCaseKeyIsStableAndCompanyScoped(), TestPaymentRecoveryContractsRemainProviderNeutral(), TestPaymentRecoveryRepositoryReadsAndDeduplicatesFinanceCases(), TestPaymentRecoveryRepositoryRecipientsAreCompanyScoped(), TestPaymentRecoveryScannerDeduplicatesAlertsAndDoesNotReplayCommands(), TestPaymentRecoveryScannerReturnsNotificationErrorsAfterBestEffort()
 
-### Community 1097 - "KPIFilter"
-Cohesion: 0.33
-Nodes (5): KPIFilter, KPISummary, Service, Context, Time
+### Community 1097 - "UUID"
+Cohesion: 0.29
+Nodes (5): DocumentSignature, UUID, GetDocumentSignatureChallengeRow, InsertDocumentSignatureChallengeParams, InsertDocumentSignatureParams
 
 ### Community 1098 - "graphify reference: add a URL and watch a folder"
 Cohesion: 0.50
@@ -4139,9 +4179,9 @@ Nodes (3): For --cluster-only, For --update (incremental re-extraction), graphif
 Cohesion: 0.50
 Nodes (4): Future Enhancements (Planned), Known Issues & Limitations, Limitations, Non-Critical Issues
 
-### Community 1102 - "Phase 2 - Master Data & Organization ✅ COMPLETE (100%)"
-Cohesion: 0.50
-Nodes (4): Implementation Status, Phase 2 - Master Data & Organization ✅ COMPLETE (100%), Scope, Verification Checklist
+### Community 1102 - "PreventiveMaintenanceSchedule"
+Cohesion: 0.24
+Nodes (5): PreventiveMaintenanceSchedule, toPMSchedule(), toPMScheduleFromAllDueListRow(), toPMScheduleFromDueListRow(), toPMScheduleFromListRow()
 
 ### Community 1103 - "Testing Plan – Phase 5 SSR Dashboard"
 Cohesion: 0.50
@@ -4231,21 +4271,21 @@ Nodes (4): Functional Tests, Integration Tests, Performance Tests, Post-Deployme
 Cohesion: 0.50
 Nodes (4): Data Seeding, Database Migrations, Migration Strategy, Rollback Plan
 
-### Community 1126 - "Quick Navigation"
-Cohesion: 0.33
-Nodes (6): 📖 Comprehensive Guides, 🚀 Getting Started, Phase 9.2 - RBAC Permissions System, 🛠️ Practical Resources, Quick Navigation, 🧪 Testing & Implementation
+### Community 1126 - "NewService"
+Cohesion: 0.40
+Nodes (5): Repository, NewService(), T, TestNormaliseStatus(), TestServiceRejectsInvalidRequestsWithoutRepository()
 
-### Community 1127 - "Error Handling"
-Cohesion: 0.67
-Nodes (3): Business Rule Violations, Error Categories, Error Handling
+### Community 1127 - "ProviderConfig"
+Cohesion: 0.18
+Nodes (10): ErrorKind, ExchangeRateAPI, exchangeResponse, HTTPClient, ProviderConfig, ProviderError, NewExchangeRateAPI(), Duration (+2 more)
 
-### Community 1128 - "cmmsRequestWithSession"
-Cohesion: 0.53
-Nodes (5): cmmsRequestWithSession(), Request, T, TestCreateWorkOrderRedirectsForInvalidInput(), TestRoutesRequireAuthenticatedPermission()
+### Community 1128 - "newCollaborationToken"
+Cohesion: 0.38
+Nodes (5): newCollaborationToken(), T, TestNewCollaborationTokenIsOpaque(), TestPlainTextOCRExtractorExtractsText(), TestPlainTextOCRExtractorRejectsBinaryDocuments()
 
-### Community 1129 - "documentsRequestWithSession"
-Cohesion: 0.53
-Nodes (5): documentsRequestWithSession(), Request, T, TestCreateDocumentRedirectsForInvalidInput(), TestRoutesRequireAuthenticatedPermission()
+### Community 1129 - "CreditNotePDFRenderer"
+Cohesion: 0.36
+Nodes (5): CreditNotePDFClient, CreditNotePDFRenderer, Handler, Context, NewCreditNotePDFRenderer()
 
 ### Community 1130 - "18. Production Deployment Checklist"
 Cohesion: 0.50
@@ -4271,17 +4311,17 @@ Nodes (4): Audit Trail Verification, Penetration Tests (Manual), RBAC Tests (Aut
 Cohesion: 0.50
 Nodes (4): Development Phase, Pre-Production, Production, Test Execution Schedule
 
-### Community 1136 - "Conclusion"
-Cohesion: 0.50
-Nodes (4): Conclusion, Key Achievements, Recommendation, Summary
+### Community 1136 - "NewGLPostingService"
+Cohesion: 0.58
+Nodes (10): NewGLPostingService(), freightTestCharge(), freightTestInput(), T, TestPostFreightToGLFailsClosedWithoutAccounting(), TestPostFreightToGLIsIdempotentForExistingSourceLink(), TestPostFreightToGLPostsBalancedExactJournalWithDimensions(), TestPostFreightToGLPropagatesAccountingError() (+2 more)
 
-### Community 1137 - "What Changed"
-Cohesion: 0.50
-Nodes (4): Documentation Files (3), Modified Files (2), New Files (3), What Changed
+### Community 1137 - "Testing Runbook"
+Cohesion: 0.40
+Nodes (5): Coverage maintenance, Database-backed checks, Release gates, Standard local checks, Testing Runbook
 
-### Community 1138 - "Next Steps"
-Cohesion: 0.50
-Nodes (4): Immediate (This Week), Medium-Term (Next Month), Next Steps, Short-Term (Next 2 Weeks)
+### Community 1138 - "mrp_compliance_hardening_test.go"
+Cohesion: 0.67
+Nodes (3): T, TestMRPComplianceHardeningMigrationProtectsEvidence(), TestMRPComplianceHardeningRollbackRemovesEvidenceGuards()
 
 ### Community 1139 - "Phase 8 Cycle 8.3 – Board Pack"
 Cohesion: 0.50
@@ -4323,81 +4363,69 @@ Nodes (4): HTML Template, Responsive Design, Status Badges, Template Structure
 Cohesion: 0.50
 Nodes (4): Running Tests, Test Results, Test Suite, Testing
 
-### Community 1149 - "ADR-0006: Bank ownership and feed ingestion"
+### Community 1149 - "HandleFinancePaymentRecoveryScan"
+Cohesion: 0.27
+Nodes (9): HandlerFunc, HandleFinancePaymentRecoveryScan(), NewFinancePaymentRecoveryTask(), T, TestHandleFinancePaymentRecoveryScanInvokesScanner(), TestHandleFinancePaymentRecoveryScanPropagatesError(), TestHandleFinancePaymentRecoveryScanSkipsWhenUnconfigured(), FinancePaymentRecoveryScanner (+1 more)
+
+### Community 1150 - "Job"
+Cohesion: 0.38
+Nodes (8): Job, JobConfig, Dispatcher, Logger, Service, Storage, NewJob(), Renderer
+
+### Community 1151 - "Context"
+Cohesion: 0.27
+Nodes (6): floatToNumeric(), Numeric, Context, DeliveryOrder, txRepository, Status
+
+### Community 1152 - "Operations"
+Cohesion: 0.32
+Nodes (5): Operations, Context, Service, SQLRepository, Time
+
+### Community 1155 - "staging-certification-evidence.sh"
 Cohesion: 0.50
-Nodes (4): ADR-0006: Bank ownership and feed ingestion, Consequences, Decision, Exact money and FX
+Nodes (4): AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, staging-certification-evidence.sh script, usage()
 
-### Community 1150 - "ADR-0007: Payment execution and settlement"
-Cohesion: 0.50
-Nodes (4): ADR-0007: Payment execution and settlement, Decision, Exact money and FX, Separation of duties
+### Community 1156 - "Payment Connector Recovery Runbook"
+Cohesion: 0.12
+Nodes (15): Alerts and issue resolution, Dead-letter recovery, Durable evidence, Local acceptance, Metrics and health checks, Payment Connector Recovery Runbook, Refund recovery, Runtime contract (+7 more)
 
-### Community 1151 - "ADR-0008: Purchase-to-pay matching and exceptions"
-Cohesion: 0.50
-Nodes (4): ADR-0008: Purchase-to-pay matching and exceptions, Consequences, Decision, Exact money and FX
+### Community 1157 - "Manual QA Checklist (Cycle 9.3)"
+Cohesion: 0.33
+Nodes (6): Accounting Integration, AR Aging Report, Invoice Management, Manual QA Checklist (Cycle 9.3), Overdue Invoices, Payment Management
 
-### Community 1152 - "mapCarrier"
-Cohesion: 0.53
-Nodes (3): Carrier, mapCarrier(), CarrierStatus
+### Community 1158 - "CreateSPCSampleParams"
+Cohesion: 0.40
+Nodes (3): Numeric, CreateSPCChartParams, CreateSPCSampleParams
 
-### Community 1153 - "Inspection"
-Cohesion: 0.53
-Nodes (3): toInspection(), toInspectionFromList(), Inspection
+### Community 1159 - "NewService"
+Cohesion: 0.40
+Nodes (8): T, TestConfirmReturnRejectsInvalidStatus(), TestConfirmReturnRestocksSelectedWarehouse(), TestConfirmReturnReversesOnCancel(), TestCreateReturnRejectsCumulativeQuantityAboveDelivered(), TestCreateReturnRejectsDuplicateLinesBeyondDelivered(), Repository, NewService()
 
-### Community 1154 - "Document Management"
-Cohesion: 0.50
-Nodes (4): Current status, Document Management, Gaps, Supported scope
+### Community 1160 - "StockAdjustment"
+Cohesion: 0.23
+Nodes (4): mapRowToAdjustment(), AdjustmentStatusUpdate, StockAdjustment, StockAdjustmentStatus
 
-### Community 1155 - "Horizon MVP Foundation (P7)"
-Cohesion: 0.50
-Nodes (4): Horizon MVP Foundation (P7), Isolation and retry policy, Local certification, Release gates remaining
+### Community 1161 - "Quotation"
+Cohesion: 0.43
+Nodes (6): QuotationLine, Time, Quotation, QuotationLine, QuotationStatus, QuotationWithDetails
 
-### Community 1156 - "What's Being Built"
-Cohesion: 0.50
-Nodes (4): Architecture: Central Compliance Gate (8-Step Atomic Flow), Implementation: 33 Tasks Across 7 Phases, Scope: 8 Governed Manufacturing Decisions, What's Being Built
+### Community 1162 - "StorageAdapter"
+Cohesion: 0.31
+Nodes (7): bytesReader, StorageAdapter, Context, ReadCloser, Storage, newBytesReader(), NewStorageAdapter()
 
-### Community 1157 - "Phase 14 and P7 Local Acceptance Evidence"
-Cohesion: 0.50
-Nodes (4): Expected provider failure, Gate results, Phase 14 and P7 Local Acceptance Evidence, Production Release Evidence
+### Community 1164 - "mail.go"
+Cohesion: 0.38
+Nodes (7): base64Encode(), base64EncodedLen(), encodeBase64(), Context, NewMailClient(), MailClient, MailConfig
 
-### Community 1158 - "Portal"
-Cohesion: 0.50
-Nodes (4): Current status, Gaps, Portal, Supported scope
+### Community 1168 - "ComputeElimination"
+Cohesion: 0.47
+Nodes (4): ComputeElimination(), round2(), T, TestComputeElimination()
 
-### Community 1159 - "Point of Sale (POS)"
-Cohesion: 0.50
-Nodes (4): Current status, Gaps, Point of Sale (POS), Supported scope
+### Community 1169 - "CRM"
+Cohesion: 0.33
+Nodes (6): Activities and reminders, CRM, Model and ownership, Permissions, Planned campaign and segmentation depth, Workflow
 
-### Community 1160 - "Projects and Timesheets"
-Cohesion: 0.50
-Nodes (4): Current status, Gaps, Projects and Timesheets, Supported scope
-
-### Community 1161 - "Quality Management System (QMS)"
-Cohesion: 0.50
-Nodes (4): Current status, Gaps, Quality Management System (QMS), Supported scope
-
-### Community 1162 - "Supply Chain Management"
-Cohesion: 0.50
-Nodes (4): Current status, Gaps, Supply Chain Management, Supported scope
-
-### Community 1163 - "Warehouse Management System (WMS)"
-Cohesion: 0.50
-Nodes (4): Current status, Gaps, Supported scope, Warehouse Management System (WMS)
-
-### Community 1164 - "Panduan Finance Insights"
-Cohesion: 0.50
-Nodes (3): Catatan Implementasi, Filter Awal, Panduan Finance Insights
-
-### Community 1168 - "Cross-Module Lifecycle Reference"
-Cohesion: 0.67
-Nodes (3): Cross-Module Lifecycle Reference, Explicitly not covered, Module notes
-
-### Community 1169 - "Documentation Status"
-Cohesion: 0.67
-Nodes (3): Available Documentation ✅, Documentation Status, Phase 9 Documentation ✅
-
-### Community 1170 - "Phase 6 - Security Hardening ✅ COMPLETE (100%)"
-Cohesion: 0.67
-Nodes (3): Implementation Status, Phase 6 - Security Hardening ✅ COMPLETE (100%), Scope
+### Community 1170 - "KPIFilter"
+Cohesion: 0.15
+Nodes (17): KPIFilter, KPISummary, Repository, Cache, Time, keyAging(), keyCashflow(), keyKPI() (+9 more)
 
 ### Community 1171 - "Phase 8 - Board Pack & Variance ✅ COMPLETE (100%)"
 Cohesion: 0.67
@@ -4591,86 +4619,198 @@ Nodes (3): Common Errors, Error Handling, Error Recovery
 Cohesion: 0.67
 Nodes (3): Future Enhancements, Infrastructure Improvements, Planned Features
 
-### Community 1219 - "ADR-0009: Asset capitalization and operations"
-Cohesion: 0.67
-Nodes (3): ADR-0009: Asset capitalization and operations, Consequences, Decision
+### Community 1219 - "Inspection"
+Cohesion: 0.53
+Nodes (3): toInspection(), toInspectionFromList(), Inspection
 
-### Community 1220 - "Accounting Operations"
+### Community 1220 - "NewService"
+Cohesion: 0.30
+Nodes (13): T, UUID, newMockTransactionID(), TestBankAccountSummariesAddOpeningAndTransactionAmounts(), TestCreateOperationsRejectInvalidInputsBeforeRepository(), TestTransactionSummariesReturnFinalAndRunningBalances(), NewService(), T (+5 more)
+
+### Community 1221 - "check-production-release.sh"
+Cohesion: 0.33
+Nodes (5): closeout_path_allowed(), fail(), has_exact_tag(), check-production-release.sh script, tag_exists()
+
+### Community 1222 - "Phase 2 - Master Data & Organization ✅ COMPLETE (100%)"
+Cohesion: 0.50
+Nodes (4): Implementation Status, Phase 2 - Master Data & Organization ✅ COMPLETE (100%), Scope, Verification Checklist
+
+### Community 1228 - "MockReader"
+Cohesion: 0.24
+Nodes (6): Certainty, MockReader, SourceType, Context, Time, NewMockReader()
+
+### Community 1230 - "Phase 14 and P7 Local Acceptance Evidence"
+Cohesion: 0.50
+Nodes (4): Expected provider failure, Gate results, Phase 14 and P7 Local Acceptance Evidence, Production Release Evidence
+
+### Community 1231 - "Integration Boundaries"
+Cohesion: 0.29
+Nodes (7): Adding a New Provider, AR Payment Auto-Allocation via Connector Events, Integration Boundaries, Midtrans sandbox certification, Payment reconciliation operations, Provider credential payloads, Runtime safety
+
+### Community 1238 - "ADR-0007: Payment execution and settlement"
+Cohesion: 0.50
+Nodes (4): ADR-0007: Payment execution and settlement, Decision, Exact money and FX, Separation of duties
+
+### Community 1239 - "Quality Management System (QMS)"
+Cohesion: 0.50
+Nodes (4): Current status, Gaps, Quality Management System (QMS), Supported scope
+
+### Community 1240 - "planningDemand"
+Cohesion: 0.47
+Nodes (5): Time, planningDemand(), T, TestExplodeBOMDemandRejectsCycles(), TestExplodeBOMDemandUsesParentReleaseDateAndScrap()
+
+### Community 1241 - "ADR-0006: Bank ownership and feed ingestion"
+Cohesion: 0.50
+Nodes (4): ADR-0006: Bank ownership and feed ingestion, Consequences, Decision, Exact money and FX
+
+### Community 1244 - "v0.10-core Staging Certification Record"
+Cohesion: 0.20
+Nodes (10): Approval and promotion decision, Candidate and deployment identity, Core capability journeys, Evidence registry, Findings, How to complete this record, Migration, recovery, and operational evidence, Profile and environment controls (+2 more)
+
+### Community 1245 - "Q: create plan for continuing roadmap"
+Cohesion: 0.40
+Nodes (4): Answer, Outcome, Q: create plan for continuing roadmap, Source Nodes
+
+### Community 1248 - "ADR-0008: Purchase-to-pay matching and exceptions"
+Cohesion: 0.50
+Nodes (4): ADR-0008: Purchase-to-pay matching and exceptions, Consequences, Decision, Exact money and FX
+
+### Community 1249 - "Document Management"
+Cohesion: 0.50
+Nodes (4): Current status, Document Management, Gaps, Supported scope
+
+### Community 1251 - "Conclusion"
+Cohesion: 0.50
+Nodes (4): Conclusion, Key Achievements, Recommendation, Summary
+
+### Community 1262 - "TestTreasuryHandlersUseTenantIdentityAndImplementFlows"
+Cohesion: 0.39
+Nodes (7): Service, NewHandler(), Request, T, TestTreasuryHandlersRejectMissingTenantIdentity(), TestTreasuryHandlersUseTenantIdentityAndImplementFlows(), withTreasuryParams()
+
+### Community 1263 - "What Changed"
+Cohesion: 0.50
+Nodes (4): Documentation Files (3), Modified Files (2), New Files (3), What Changed
+
+### Community 1264 - "orderedBankRepo"
+Cohesion: 0.50
+Nodes (4): orderedBankRepo, BankTransaction, Context, mockRepo
+
+### Community 1266 - "Next Steps"
+Cohesion: 0.50
+Nodes (4): Immediate (This Week), Medium-Term (Next Month), Next Steps, Short-Term (Next 2 Weeks)
+
+### Community 1267 - ".DeliverDue"
+Cohesion: 0.31
+Nodes (5): Handler, Client, Context, minInt(), sha256Key()
+
+### Community 1268 - "Odyssey ERP v0.10.0-rc.2 — 2026-08-10"
+Cohesion: 0.40
+Nodes (5): Changes since rc.1, Odyssey ERP v0.10.0-rc.2 — 2026-08-10, Remaining promotion gates, Upgrade and deployment notes, Verification
+
+### Community 1269 - "ODYSSEY ERP: STAGING DEPLOYMENT GUIDE"
+Cohesion: 0.33
+Nodes (6): Automated v0.10-core certification, Deployment contract, ODYSSEY ERP: STAGING DEPLOYMENT GUIDE, Systemd services, Verification and rollback, VPS layout
+
+### Community 1274 - "cmmsRequestWithSession"
+Cohesion: 0.53
+Nodes (5): cmmsRequestWithSession(), Request, T, TestCreateWorkOrderRedirectsForInvalidInput(), TestRoutesRequireAuthenticatedPermission()
+
+### Community 1276 - "Odyssey ERP v0.10.0-rc.1 — 2026-08-10"
+Cohesion: 0.40
+Nodes (5): Known limitations and promotion gates, Odyssey ERP v0.10.0-rc.1 — 2026-08-10, Scope, Upgrade and deployment notes, Verification completed
+
+### Community 1278 - "Odyssey ERP v0.10.0-rc.3 — 2026-08-10"
+Cohesion: 0.50
+Nodes (4): Changes since rc.2, Odyssey ERP v0.10.0-rc.3 — 2026-08-10, Remaining promotion gates, Verification
+
+### Community 1279 - "TestPlanMarksPastDueReleaseAndRejectsMissingPolicy"
+Cohesion: 0.67
+Nodes (3): T, TestPlanMarksPastDueReleaseAndRejectsMissingPolicy(), TestPlanNetsSupplyAppliesSafetyStockAndLotSizing()
+
+### Community 1282 - "Documentation Status"
+Cohesion: 0.67
+Nodes (3): Available Documentation ✅, Documentation Status, Phase 9 Documentation ✅
+
+### Community 1284 - "Odyssey ERP v0.10.0-rc.4 — 2026-08-12"
+Cohesion: 0.50
+Nodes (4): Candidate boundary, Changes since rc.3, Odyssey ERP v0.10.0-rc.4 — 2026-08-12, Verification and remaining gates
+
+### Community 1286 - "Phase 6 - Security Hardening ✅ COMPLETE (100%)"
+Cohesion: 0.67
+Nodes (3): Implementation Status, Phase 6 - Security Hardening ✅ COMPLETE (100%), Scope
+
+### Community 1288 - "ADR-011: PostgreSQL as Sole Database"
+Cohesion: 0.20
+Nodes (9): ADR-011: PostgreSQL as Sole Database, Alternatives, Consequences, Context, Date, Decision, Negative, Positive (+1 more)
+
+### Community 1293 - "staging-verify.sh"
+Cohesion: 0.70
+Nodes (4): print_fail(), print_pass(), print_skip(), staging-verify.sh script
+
+### Community 1294 - "Native Development Setup"
+Cohesion: 0.50
+Nodes (4): Native Development Setup, Prerequisites, Run the application, Start infrastructure
+
+### Community 1299 - "Panduan Finance Insights"
+Cohesion: 0.67
+Nodes (3): Catatan Implementasi, Filter Awal, Panduan Finance Insights
+
+### Community 1308 - "Odyssey ERP: Finance Sandbox Deployment"
+Cohesion: 0.50
+Nodes (4): Certification boundary, Odyssey ERP: Finance Sandbox Deployment, VPS configuration, Workflow contract
+
+### Community 1310 - "Accounting Operations"
 Cohesion: 0.67
 Nodes (3): Accounting Operations, Operating boundaries, Related references
 
-### Community 1221 - "Integration Boundaries"
+### Community 1312 - "mapShipment"
+Cohesion: 0.31
+Nodes (4): Shipment, mapShipment(), CarrierServiceType, ShipmentStatus
+
+### Community 1318 - "Authoritative Feature Matrix"
 Cohesion: 0.67
-Nodes (3): Adding a New Provider, AR Payment Auto-Allocation via Connector Events, Integration Boundaries
+Nodes (3): Authoritative Feature Matrix, Release interpretation, Status definitions
 
-### Community 1222 - "Permission Catalog"
-Cohesion: 0.40
-Nodes (5): Customer Permissions, Delivery Order Permissions, Permission Catalog, Quotation Permissions, Sales Order Permissions
+### Community 1328 - "mapCarrier"
+Cohesion: 0.53
+Nodes (3): Carrier, mapCarrier(), CarrierStatus
 
-### Community 1228 - "service_pl_test.go"
-Cohesion: 0.70
-Nodes (4): T, marshalMembers(), TestProfitLossServiceBuildAggregatesSections(), TestProfitLossServiceBuildFiltersEntities()
+### Community 1329 - "numericToMoney"
+Cohesion: 0.53
+Nodes (5): Money, Numeric, ShipmentLine, numericToMoney(), optionalNumericToMoney()
 
-### Community 1229 - "Security Features"
+### Community 1332 - "Quick Start"
 Cohesion: 0.50
-Nodes (4): Audit Trail, Authentication & Authorization, Data Security, Security Features
+Nodes (4): Prerequisites, Quick Start, Start Odyssey, Verify and stop
 
-### Community 1230 - "Code Quality Metrics"
+### Community 1335 - "DeliveryOrderStatus"
 Cohesion: 0.50
-Nodes (4): Best Practices, Build Status, Code Organization, Code Quality Metrics
-
-### Community 1231 - "Deployment Readiness"
-Cohesion: 0.50
-Nodes (4): Deployment Artifacts, Deployment Documentation, Deployment Readiness, Prerequisites Met
-
-### Community 1232 - "Future Enhancements"
-Cohesion: 0.50
-Nodes (4): Future Enhancements, Long-Term (Future Phases), Medium-Term (Next Phase), Short-Term (Next Sprint)
-
-### Community 1233 - "Next Steps"
-Cohesion: 0.50
-Nodes (4): Immediate Actions (This Week), Medium-Term Actions (Next Sprint), Next Steps, Short-Term Actions (Next Week)
-
-### Community 1234 - "Test Coverage Summary"
-Cohesion: 0.50
-Nodes (4): Integration Tests, Overall Test Summary, Test Coverage Summary, Unit Tests
-
-### Community 1237 - "Performance Characteristics"
-Cohesion: 0.67
-Nodes (3): Application Performance, Database Performance, Performance Characteristics
-
-### Community 1238 - "References"
-Cohesion: 0.67
-Nodes (3): Code Locations, Key Documents, References
-
-### Community 1239 - "Success Metrics"
-Cohesion: 0.67
-Nodes (3): Implementation Metrics, Quality Metrics, Success Metrics
+Nodes (3): DeliveryOrder, DeliveryOrderStatus, VwDeliveryOrdersDetail
 
 ## Knowledge Gaps
-- **2813 isolated node(s):** `FXOpsCLI`, `FXOpsCLI`, `github.com/odyssey-erp/odyssey-erp`, `Handler`, `Asset` (+2808 more)
+- **3045 isolated node(s):** `FXOpsCLI`, `FXOpsCLI`, `github.com/odyssey-erp/odyssey-erp`, `Handler`, `Asset` (+3040 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **87 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Work-memory lessons
 
 **Preferred sources** — corroborated by past sessions; start here.
-- `SessionFromContext()` (2× useful, score=1.999461788)
+- `SessionFromContext()` (2× useful, score=1.470228477)
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `Parse()` connect `Parse` to `CSRFManager`, `Decimal`, `Handler`, `Handler`, `Context`, `Handler`, `audit/service_test.go`, `runFXCommand`, `Service`, `Connection`, `SignatureChallengeService`, `.processRows`, `regression_test.go`, `Service`, `UserSafeMessage`, `ParseCSV`, `Context`, `Context`, `Handler`, `Handler`, `Handler`, `Must`, `Handler`, `NewService`, `Handler`, `Handler`, `ResponseWriter`, `Handler`, `Service`, `ContractService`, `Handler`, `import.go`, `SourcingService`, `BalanceSheetHandler`, `RouterParams`, `Handler`, `Money`, `Handler`, `Handler`, `NewPDFExporter`, `.DecideDecision`, `Handler`, `setupTestDB`, `Handler`, `Handler`, `freight/repository.go`, `Handler`, `Handler`, `fx_backfill.go`, `Handler`, `Service`, `Context`, `NewFXOpsCLI`, `inventory/domain.go`?**
-  _High betweenness centrality (0.178) - this node is a cross-community bridge._
-- **Why does `main()` connect `main` to `MiddlewareStack`, `SessionFromContext`, `Vault`, `ap_invoice.go`, `Middleware`, `ApprovalRecorder`, `AuditLogger`, `runFXCommand`, `.processRows`, `AsynqOptions`, `ExactAmount`, `DebitNotePDFRenderer`, `WalkRoutes`, `Service`, `runtime.go`, `NewRegistry`, `odyssey/main.go`, `PayslipProcessor`, `SourcingService`, `BalanceSheetHandler`, `RouterParams`, `IdempotencyStore`, `CreditNotePDFRenderer`, `Exporter`, `NewSessionManager`, `NewHooks`, `freight/repository.go`, `NewFreightService`, `SourcingRepository`?**
-  _High betweenness centrality (0.052) - this node is a cross-community bridge._
-- **Why does `SessionFromContext()` connect `SessionFromContext` to `CSRFManager`, `MiddlewareStack`, `Handler`, `Handler`, `Handler`, `Handler`, `Middleware`, `WriteHTTPError`, `Handler`, `Handler`, `Handler`, `WriteErrorStatus`, `Handler`, `Handler`, `Handler`, `Handler`, `Handler`, `Handler`, `UserSafeMessage`, `Handler`, `.New`, `Handler`, `Handler`, `Handler`, `Handler`, `Handler`, `Handler`, `Handler`, `PermissionChecker`, `Handler`, `Handler`, `Handler`, `Handler`, `Handler`, `Handler`, `Handler`, `Handler`, `Handler`, `BalanceSheetHandler`, `RouterParams`, `Handler`, `Handler`, `Handler`, `Handler`, `main`, `NewPDFExporter`, `Handler`, `Handler`, `Handler`, `Handler`, `Handler`, `Handler`, `Handler`, `.postCreditNote`, `Handler`, `ContextWithSession`?**
-  _High betweenness centrality (0.050) - this node is a cross-community bridge._
-- **Are the 180 inferred relationships involving `SessionFromContext()` (e.g. with `.auditRecord()` and `.companyID()`) actually correct?**
-  _`SessionFromContext()` has 180 INFERRED edges - model-reasoned connections that need verification._
+- **Why does `Parse()` connect `Parse` to `BatchExecutionEnqueuer`, `Handler`, `distribution/handler.go`, `Handler`, `ap/repository.go`, `Handler`, `CSRFManager`, `certification_test.go`, `Handler`, `CoretaxService`, `Handler`, `PermissionsHandler`, `SourcingService`, `distribution/repository.go`, `SignatureChallengeService`, `Context`, `regression_test.go`, `Service`, `SessionFromContext`, `ParseCSV`, `Context`, `ExpectedCashFlow`, `Service`, `WriteHTTPError`, `Handler`, `ProfitLossHandler`, `BalanceSheetHandler`, `Money`, `Service`, `Handler`, `Must`, `NewRouter`, `numericToMoney`, `Service`, `Handler`, `NewAdapter`, `audit/service_test.go`, `ConnectionStatus`, `freight/repository.go`, `Handler`, `midtransiris/adapter.go`, `Adapter`, `ContractService`, `Handler`, `MustDecimal`, `ConsolBalanceByTypeQueryRow`, `Handler`, `import.go`, `Service`, `ExactAmount`, `Handler`, `Handler`, `Handler`, `Handler`, `Handler`, `.DecideDecision`, `Handler`, `contracts_domain.go`, `service_bs.go`, `runFXCommand`, `Handler`, `Handler`, `ContractRepository`, `OutboxCommand`, `setupTestDB`, `Handler`, `fx_backfill.go`, `Connection`, `Service`, `NewFXOpsCLI`, `inventory/domain.go`, `midtrans/client.go`?**
+  _High betweenness centrality (0.191) - this node is a cross-community bridge._
+- **Why does `main()` connect `main` to `BatchExecutionEnqueuer`, `NewOperationsService`, `settlementServiceFixture`, `IdempotencyStore`, `CSRFManager`, `Exporter`, `ApprovalRecorder`, `AuditLogger`, `PayslipProcessor`, `DebitNotePDFRenderer`, `PermissionsHandler`, `SourcingService`, `ReturnDeliveryInfo`, `AsynqOptions`, `ExpectedCashFlow`, `NewMockRepository`, `WalkRoutes`, `Settlement`, `logisticsDistributionGateway`, `NewRegistry`, `BalanceSheetHandler`, `NewRouter`, `freight/repository.go`, `ConnectionStatus`, `NewPostgresStore`, `Settings`, `odyssey/main.go`, `OutboxMessage`, `ap_invoice.go`, `runtime.go`, `Vault`, `forecasting/service.go`, `LoadConfig`, `service_bs.go`, `PaymentOperation`, `NewOperationsHandler`, `runFXCommand`, `CreditNotePDFRenderer`, `Hooks`, `setupTestDB`, `NewSessionManager`, `SourcingRepository`?**
+  _High betweenness centrality (0.074) - this node is a cross-community bridge._
+- **Why does `SessionFromContext()` connect `SessionFromContext` to `Handler`, `Handler`, `Handler`, `Handler`, `Handler`, `MiddlewareStack`, `Handler`, `Handler`, `CSRFManager`, `Handler`, `Handler`, `Handler`, `Handler`, `Handler`, `WriteErrorStatus`, `Handler`, `PermissionsHandler`, `Handler`, `Handler`, `Handler`, `Handler`, `Handler`, `Handler`, `Handler`, `.New`, `WriteHTTPError`, `Handler`, `ProfitLossHandler`, `BalanceSheetHandler`, `Handler`, `Handler`, `NewRouter`, `Handler`, `PermissionChecker`, `Handler`, `Handler`, `Handler`, `Handler`, `IdentityFromContext`, `OperationsHandler`, `JSONResponse`, `Handler`, `Handler`, `Handler`, `Handler`, `Handler`, `Handler`, `Handler`, `Handler`, `main`, `Handler`, `Handler`, `Handler`, `Middleware`, `Handler`, `Handler`, `ContextWithSession`, `Handler`, `Handler`?**
+  _High betweenness centrality (0.061) - this node is a cross-community bridge._
+- **Are the 178 inferred relationships involving `SessionFromContext()` (e.g. with `.auditRecord()` and `.companyID()`) actually correct?**
+  _`SessionFromContext()` has 178 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `FXOpsCLI`, `FXOpsCLI`, `github.com/odyssey-erp/odyssey-erp` to the rest of the system?**
-  _2813 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _3045 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `models.go` be split into smaller, more focused modules?**
-  _Cohesion score 0.021048440610484408 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.018691078513449567 - nodes in this community are weakly interconnected._
 - **Should `Context` be split into smaller, more focused modules?**
-  _Cohesion score 0.061016949152542375 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.05191919191919192 - nodes in this community are weakly interconnected._

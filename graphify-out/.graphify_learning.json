@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-08-09T07:39:38.587850+00:00",
+  "generated_at": "2026-08-22T15:01:55.500270+00:00",
   "nodes": {
     "distribution_distributionrepository": {
-      "code_fingerprint": "bc2083908fca2be25869c16d3231c6db10429d15e64fe38375db6d97f150715d",
+      "code_fingerprint": "c5a472fd9e5eb1336eec8670c80860b468e030712e0fa10291938fc96a88dac1",
       "label": "DistributionRepository",
       "last": "2026-08-09T06:19:54.856802+00:00",
       "provenance": [
@@ -12,8 +12,104 @@
           "q": "$graphify explore documentation or existing main feature code then give report about gaps or missing feature that incomplete and give recommendations for development"
         }
       ],
-      "score": 0.998721563,
+      "score": 0.734372065,
       "source_file": "internal/distribution/repository.go",
+      "status": "tentative",
+      "uses": 1
+    },
+    "docs_releases_v0_10_core_staging_certification": {
+      "code_fingerprint": "83ecd32a179b5751902c79d9fe77c44daa3168f9fdf2741dded81b193a2acf7f",
+      "label": "v0.10-core-staging-certification.md",
+      "last": "2026-08-12T10:40:17.175795+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-12T10:40:17.175795+00:00",
+          "outcome": "useful",
+          "q": "create plan for continuing roadmap"
+        }
+      ],
+      "score": 0.790375545,
+      "source_file": "docs/releases/v0.10-core-staging-certification.md",
+      "status": "tentative",
+      "uses": 1
+    },
+    "docs_roadmap": {
+      "code_fingerprint": "9a4241957c9dfd4080b920d4e8ba96bff1646d0fde370a22d3cefcf0422d322a",
+      "label": "ROADMAP.md",
+      "last": "2026-08-12T10:40:17.175795+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-12T10:40:17.175795+00:00",
+          "outcome": "useful",
+          "q": "create plan for continuing roadmap"
+        }
+      ],
+      "score": 0.790375545,
+      "source_file": "docs/ROADMAP.md",
+      "status": "tentative",
+      "uses": 1
+    },
+    "docs_roadmap_milestone_1_freeze_and_enforce_the_core_scope": {
+      "code_fingerprint": "9a4241957c9dfd4080b920d4e8ba96bff1646d0fde370a22d3cefcf0422d322a",
+      "label": "Milestone 1 — Freeze and enforce the core scope",
+      "last": "2026-08-12T10:40:17.175795+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-12T10:40:17.175795+00:00",
+          "outcome": "useful",
+          "q": "create plan for continuing roadmap"
+        }
+      ],
+      "score": 0.790375545,
+      "source_file": "docs/ROADMAP.md",
+      "status": "tentative",
+      "uses": 1
+    },
+    "docs_roadmap_milestone_2_certify_the_core_profile_in_staging": {
+      "code_fingerprint": "9a4241957c9dfd4080b920d4e8ba96bff1646d0fde370a22d3cefcf0422d322a",
+      "label": "Milestone 2 — Certify the core profile in staging",
+      "last": "2026-08-12T10:40:17.175795+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-12T10:40:17.175795+00:00",
+          "outcome": "useful",
+          "q": "create plan for continuing roadmap"
+        }
+      ],
+      "score": 0.790375545,
+      "source_file": "docs/ROADMAP.md",
+      "status": "tentative",
+      "uses": 1
+    },
+    "docs_roadmap_milestone_3_promote_observe_and_close_v0_10_0": {
+      "code_fingerprint": "9a4241957c9dfd4080b920d4e8ba96bff1646d0fde370a22d3cefcf0422d322a",
+      "label": "Milestone 3 — Promote, observe, and close v0.10.0",
+      "last": "2026-08-12T10:40:17.175795+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-12T10:40:17.175795+00:00",
+          "outcome": "useful",
+          "q": "create plan for continuing roadmap"
+        }
+      ],
+      "score": 0.790375545,
+      "source_file": "docs/ROADMAP.md",
+      "status": "tentative",
+      "uses": 1
+    },
+    "docs_roadmap_post_v0_10_backlog": {
+      "code_fingerprint": "9a4241957c9dfd4080b920d4e8ba96bff1646d0fde370a22d3cefcf0422d322a",
+      "label": "Post-v0.10 backlog",
+      "last": "2026-08-12T10:40:17.175795+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-12T10:40:17.175795+00:00",
+          "outcome": "useful",
+          "q": "create plan for continuing roadmap"
+        }
+      ],
+      "score": 0.790375545,
+      "source_file": "docs/ROADMAP.md",
       "status": "tentative",
       "uses": 1
     },
@@ -28,7 +124,7 @@
           "q": "$graphify Verify Parse() identity\nAre multiple unrelated functions being merged?\nShow fully qualified symbols and source locations.\nAudit SessionFromContext()\nList direct callers.\nGroup by handler/service/repository/domain/job.\nIdentify inappropriate dependency directions.\nAudit the 257 weakly connected nodes\nEspecially dead code versus intentionally isolated CLI/migration code.\nInspect UserSafeMessage()\nDetermine whether error handling is duplicated across handlers.\nInspect Context\nList fields/dependencies.\nDetermine which modules consume each one.\nOnly then inspect models.go\nSplitting files is considerably less important than fixing dependency boundaries."
         }
       ],
-      "score": 0.999568185,
+      "score": 0.734994597,
       "source_file": "internal/accounting/money/money.go",
       "status": "tentative",
       "uses": 1
@@ -44,29 +140,13 @@
           "q": "$graphify explore documentation or existing main feature code then give report about gaps or missing feature that incomplete and give recommendations for development"
         }
       ],
-      "score": 0.998721563,
+      "score": 0.734372065,
       "source_file": "internal/consol/fx/validate.go",
       "status": "tentative",
       "uses": 1
     },
-    "internal_distribution_handler_test_testplaceholderhandlersreturnjsoncontract": {
-      "code_fingerprint": "cccda715e2811e711ace6dc82d90064db8289cdb3f37f7b02e92117cce4de5b3",
-      "label": "TestPlaceholderHandlersReturnJSONContract()",
-      "last": "2026-08-09T06:19:54.856802+00:00",
-      "provenance": [
-        {
-          "date": "2026-08-09T06:19:54.856802+00:00",
-          "outcome": "useful",
-          "q": "$graphify explore documentation or existing main feature code then give report about gaps or missing feature that incomplete and give recommendations for development"
-        }
-      ],
-      "score": 0.998721563,
-      "source_file": "internal/distribution/handler_test.go",
-      "status": "tentative",
-      "uses": 1
-    },
     "internal_finance_forecasting_service_test_testgeneratesnapshotmarksrunincompletewhenreaderfails": {
-      "code_fingerprint": "3eb798ea438119df9335d19577079f10c69c5c4bdc1373e639fe29ea62e29d5e",
+      "code_fingerprint": "03079bddff912b50749fd33915398e2498752fcbbca7d2c070495aecab70a2fd",
       "label": "TestGenerateSnapshotMarksRunIncompleteWhenReaderFails()",
       "last": "2026-08-09T06:19:54.856802+00:00",
       "provenance": [
@@ -76,13 +156,13 @@
           "q": "$graphify explore documentation or existing main feature code then give report about gaps or missing feature that incomplete and give recommendations for development"
         }
       ],
-      "score": 0.998721563,
+      "score": 0.734372065,
       "source_file": "internal/finance/forecasting/service_test.go",
       "status": "tentative",
       "uses": 1
     },
     "internal_shared_context_sessionfromcontext": {
-      "code_fingerprint": "ba7db426d7943cfd9a519aa968ffb3677d3e3b9fdd467a440a7ffa694250c20f",
+      "code_fingerprint": "80cbcb563cbefe16359805765968b2870432edce5fe8d9d52d5097708298fd9c",
       "label": "SessionFromContext()",
       "last": "2026-08-09T07:33:00.698380+00:00",
       "provenance": [
@@ -97,7 +177,7 @@
           "q": "$graphify Verify Parse() identity\nAre multiple unrelated functions being merged?\nShow fully qualified symbols and source locations.\nAudit SessionFromContext()\nList direct callers.\nGroup by handler/service/repository/domain/job.\nIdentify inappropriate dependency directions.\nAudit the 257 weakly connected nodes\nEspecially dead code versus intentionally isolated CLI/migration code.\nInspect UserSafeMessage()\nDetermine whether error handling is duplicated across handlers.\nInspect Context\nList fields/dependencies.\nDetermine which modules consume each one.\nOnly then inspect models.go\nSplitting files is considerably less important than fixing dependency boundaries."
         }
       ],
-      "score": 1.999461788,
+      "score": 1.470228477,
       "source_file": "internal/shared/context.go",
       "status": "preferred",
       "uses": 2
@@ -113,7 +193,7 @@
           "q": "Are the 180 inferred relationships involving SessionFromContext() (e.g. with .auditRecord() and .companyID()) actually correct?"
         }
       ],
-      "score": 0.999893603,
+      "score": 0.73523388,
       "source_file": "internal/shared/csrf.go",
       "status": "tentative",
       "uses": 1
@@ -129,13 +209,13 @@
           "q": "$graphify Verify Parse() identity\nAre multiple unrelated functions being merged?\nShow fully qualified symbols and source locations.\nAudit SessionFromContext()\nList direct callers.\nGroup by handler/service/repository/domain/job.\nIdentify inappropriate dependency directions.\nAudit the 257 weakly connected nodes\nEspecially dead code versus intentionally isolated CLI/migration code.\nInspect UserSafeMessage()\nDetermine whether error handling is duplicated across handlers.\nInspect Context\nList fields/dependencies.\nDetermine which modules consume each one.\nOnly then inspect models.go\nSplitting files is considerably less important than fixing dependency boundaries."
         }
       ],
-      "score": 0.999568185,
+      "score": 0.734994597,
       "source_file": "internal/shared/errors.go",
       "status": "tentative",
       "uses": 1
     },
     "internal_sqlc_models": {
-      "code_fingerprint": "49e1711a29e2bab89044bbf3e0e978c9f014d5de545df08239b160cf8caa3abb",
+      "code_fingerprint": "73e8284b46966de88b1307314a184c98bb38e4f29ff225b3dcf0bde322c43a1f",
       "label": "models.go",
       "last": "2026-08-09T07:12:43.483538+00:00",
       "provenance": [
@@ -145,13 +225,13 @@
           "q": "$graphify Verify Parse() identity\nAre multiple unrelated functions being merged?\nShow fully qualified symbols and source locations.\nAudit SessionFromContext()\nList direct callers.\nGroup by handler/service/repository/domain/job.\nIdentify inappropriate dependency directions.\nAudit the 257 weakly connected nodes\nEspecially dead code versus intentionally isolated CLI/migration code.\nInspect UserSafeMessage()\nDetermine whether error handling is duplicated across handlers.\nInspect Context\nList fields/dependencies.\nDetermine which modules consume each one.\nOnly then inspect models.go\nSplitting files is considerably less important than fixing dependency boundaries."
         }
       ],
-      "score": 0.999568185,
+      "score": 0.734994597,
       "source_file": "internal/sqlc/models.go",
       "status": "tentative",
       "uses": 1
     },
     "mrp_compliancegate": {
-      "code_fingerprint": "4b13809f6fc5d2358e6ce255a34fcfaa5fe9f62527606c6365fdc6b7533720fb",
+      "code_fingerprint": "0028085f3ecce2b088d623dcd3d6b314a079ce18e5092b551575b375e3272bae",
       "label": "ComplianceGate",
       "last": "2026-08-09T06:19:54.856802+00:00",
       "provenance": [
@@ -161,7 +241,7 @@
           "q": "$graphify explore documentation or existing main feature code then give report about gaps or missing feature that incomplete and give recommendations for development"
         }
       ],
-      "score": 0.998721563,
+      "score": 0.734372065,
       "source_file": "internal/mrp/compliance_gate.go",
       "status": "tentative",
       "uses": 1
@@ -177,40 +257,8 @@
           "q": "$graphify explore documentation or existing main feature code then give report about gaps or missing feature that incomplete and give recommendations for development"
         }
       ],
-      "score": 0.998721563,
+      "score": 0.734372065,
       "source_file": "internal/projects/domain.go",
-      "status": "tentative",
-      "uses": 1
-    },
-    "rbac_middleware": {
-      "code_fingerprint": "a3c71f093b82d9bf34075540a60dc5bd78344a2b9ed84a9b04c5a0bea9cec967",
-      "label": "Middleware",
-      "last": "2026-08-09T07:33:00.698380+00:00",
-      "provenance": [
-        {
-          "date": "2026-08-09T07:33:00.698380+00:00",
-          "outcome": "useful",
-          "q": "Are the 180 inferred relationships involving SessionFromContext() (e.g. with .auditRecord() and .companyID()) actually correct?"
-        }
-      ],
-      "score": 0.999893603,
-      "source_file": "internal/rbac/middleware.go",
-      "status": "tentative",
-      "uses": 1
-    },
-    "sqlc_forecastrun": {
-      "code_fingerprint": "49e1711a29e2bab89044bbf3e0e978c9f014d5de545df08239b160cf8caa3abb",
-      "label": "ForecastRun",
-      "last": "2026-08-09T06:19:54.856802+00:00",
-      "provenance": [
-        {
-          "date": "2026-08-09T06:19:54.856802+00:00",
-          "outcome": "useful",
-          "q": "$graphify explore documentation or existing main feature code then give report about gaps or missing feature that incomplete and give recommendations for development"
-        }
-      ],
-      "score": 0.998721563,
-      "source_file": "internal/sqlc/models.go",
       "status": "tentative",
       "uses": 1
     }
