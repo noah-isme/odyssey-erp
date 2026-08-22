@@ -246,3 +246,40 @@ curl -fsS http://127.0.0.1:8180/healthz
 Database rollback requires a tested staging backup and a migration-specific
 recovery procedure. Do not run production rollback commands against staging or
 vice versa.
+
+## Automated v0.10-core certification
+
+After the manual rc.6 deployment succeeds, dispatch
+`.github/workflows/certify-v010-staging.yml` from the certification tooling
+branch. The workflow is fixed to the annotated `v0.10.0-rc.6` candidate and
+must verify commit `d8b02b87fd614edec31e465abc38667ad91f7548`, the successful
+deployment run, `RELEASE_PROFILE=v0.10-core`, and the `000124` migration ceiling
+before exercising the staging harness.
+
+Configure these additional `staging` environment values without placing them
+in the repository. Credential and DSN values are secrets; fixture IDs and the
+positive test amount may be environment variables:
+
+- Secrets: `STAGING_CERT_URL`, `STAGING_CERT_PG_DSN`,
+  `STAGING_CERT_ADMIN_EMAIL`, `STAGING_CERT_ADMIN_PASSWORD`,
+  `STAGING_CERT_BRANCH_EMAIL`, `STAGING_CERT_BRANCH_PASSWORD`,
+  `STAGING_CERT_NO_ACCESS_EMAIL`, `STAGING_CERT_NO_ACCESS_PASSWORD`;
+- Variables: `STAGING_CERT_COMPANY_ID`, `STAGING_CERT_BRANCH_ID`,
+  `STAGING_CERT_OTHER_COMPANY_ID`, `STAGING_CERT_OTHER_BRANCH_ID`,
+  `STAGING_CERT_CUSTOMER_ID`, `STAGING_CERT_SUPPLIER_ID`,
+  `STAGING_CERT_PRODUCT_ID`, `STAGING_CERT_WAREHOUSE_ID`,
+  `STAGING_CERT_GRN_ID`, `STAGING_CERT_DOCUMENT_CATEGORY_ID`,
+  `STAGING_CERT_DOCUMENT_CLASSIFICATION_ID`, and `STAGING_CERT_AMOUNT`;
+- Evidence secrets: `EVIDENCE_S3_ENDPOINT`, `EVIDENCE_S3_REGION`,
+  `EVIDENCE_S3_BUCKET`, `EVIDENCE_S3_ACCESS_KEY_ID`, and
+  `EVIDENCE_S3_SECRET_ACCESS_KEY` for the pre-created S3-compatible bucket
+  with Object Lock enabled.
+
+The harness must fail on missing configuration, skipped checks, unexpected
+404s, accepted scope tampering, or incomplete persisted effects. It emits a
+redacted evidence bundle and SHA-256 manifest under
+`v0.10.0-rc.6/d8b02b8/<workflow-run-id>/<run-attempt>/`. Uploads use seven-year Object Lock
+in `COMPLIANCE` mode and are verified with object metadata before the
+certification record is updated. A passing workflow is necessary but does not replace the
+required backup, restore, rollback, 60-minute observation, reviewer approval,
+or the signed staging `GO` decision in the certification record.
