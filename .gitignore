@@ -62,3 +62,6 @@ tests/e2e/test-diffs/
 /.go-cache/
 /.go-tmp/
 /.golangci-cache/
+
+# Graphify extraction cache (rebuildable; keep local cache out of Git)
+/graphify-out/cache/

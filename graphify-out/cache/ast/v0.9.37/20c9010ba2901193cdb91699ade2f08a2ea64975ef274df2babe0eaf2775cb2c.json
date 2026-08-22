@@ -1,1 +1,0 @@
-{"nodes": [{"id": "$graphify-root$_sql_queries_connectors_payments_sql", "label": "connectors_payments.sql", "file_type": "code", "source_file": "sql/queries/connectors_payments.sql", "source_location": null}], "edges": []}

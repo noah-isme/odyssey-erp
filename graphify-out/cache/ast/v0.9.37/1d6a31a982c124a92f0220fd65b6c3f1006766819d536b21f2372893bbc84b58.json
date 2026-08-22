@@ -1,1 +1,0 @@
-{"nodes": [{"id": "$graphify-root$_migrations_000074_mrp_analytics_views_down_sql", "label": "000074_mrp_analytics_views.down.sql", "file_type": "code", "source_file": "migrations/000074_mrp_analytics_views.down.sql", "source_location": null}], "edges": []}

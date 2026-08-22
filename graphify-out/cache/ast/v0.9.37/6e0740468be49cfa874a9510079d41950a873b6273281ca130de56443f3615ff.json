@@ -1,1 +1,0 @@
-{"nodes": [{"id": "$graphify-root$_migrations_000052_phase6_rbac_permissions_up_sql", "label": "000052_phase6_rbac_permissions.up.sql", "file_type": "code", "source_file": "migrations/000052_phase6_rbac_permissions.up.sql", "source_location": null}], "edges": []}

@@ -1,1 +1,0 @@
-{"nodes": [{"id": "$graphify-root$_migrations_000054_transaction_fx_role_repair_down_sql", "label": "000054_transaction_fx_role_repair.down.sql", "file_type": "code", "source_file": "migrations/000054_transaction_fx_role_repair.down.sql", "source_location": null}], "edges": []}

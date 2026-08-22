@@ -1,1 +1,0 @@
-{"nodes": [{"id": "$graphify-root$_migrations_000101_finance_cash_forecast_down_sql", "label": "000101_finance_cash_forecast.down.sql", "file_type": "code", "source_file": "migrations/000101_finance_cash_forecast.down.sql", "source_location": null}], "edges": []}
