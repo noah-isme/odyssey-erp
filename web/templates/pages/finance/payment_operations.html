@@ -1,0 +1,70 @@
+{{ define "pages/finance/payment_operations.html" }}{{ template "layouts/base.html" . }}{{ end }}
+{{ define "title" }}Payment operations{{ end }}
+{{ define "head" }}
+<link rel="stylesheet" href="/static/css/pages/finance-payment-operations.css">
+<link rel="modulepreload" href="/static/js/pages/finance-payment-operations.js">
+{{ end }}
+{{ define "content" }}
+<div class="page-container payment-operations">
+  <header class="page-header">
+    <div class="page-header__content">
+      <h1 class="page-title">Payment operations</h1>
+      <p class="page-subtitle">Monitor provider execution, settlement effects, and recoverable queue work.</p>
+    </div>
+  </header>
+
+  <section class="card payment-operations__filters" data-operations-filter>
+    <form method="get" action="/finance/treasury/operations" class="filters-form">
+      <div class="filters-grid">
+        <label class="form-group">
+          <span class="form-label">State</span>
+          <select class="form-select" name="state">
+            <option value="">All states</option>
+            <option value="AMBIGUOUS"{{ if eq .Data.Filter.State "AMBIGUOUS" }} selected{{ end }}>Ambiguous</option>
+            <option value="PARTIALLY_SETTLED"{{ if eq .Data.Filter.State "PARTIALLY_SETTLED" }} selected{{ end }}>Partially settled</option>
+            <option value="FAILED"{{ if eq .Data.Filter.State "FAILED" }} selected{{ end }}>Failed</option>
+            <option value="SETTLED"{{ if eq .Data.Filter.State "SETTLED" }} selected{{ end }}>Settled</option>
+            <option value="SUBMITTED"{{ if eq .Data.Filter.State "SUBMITTED" }} selected{{ end }}>Submitted</option>
+          </select>
+        </label>
+        <label class="form-group">
+          <span class="form-label">Instruction reference</span>
+          <input class="form-input" name="q" value="{{ .Data.Filter.Query }}" placeholder="Search masked-safe ID">
+        </label>
+        <div class="form-group form-group--actions">
+          <button class="btn btn--primary" type="submit">Apply filters</button>
+          <a class="btn btn--secondary" href="/finance/treasury/operations">Clear</a>
+        </div>
+      </div>
+    </form>
+  </section>
+
+  <section class="card card-table" data-component="datatable">
+    <div class="card__header">
+      <div>
+        <h2 class="card__title">Execution queue</h2>
+        <p class="card__desc">Sensitive beneficiary and provider references are masked.</p>
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table--sticky payment-operations__table">
+        <thead><tr><th>Instruction</th><th>Provider</th><th>Beneficiary</th><th>Amount</th><th>State</th><th>Effects</th><th>Last update</th><th>Action</th></tr></thead>
+        <tbody>
+          {{ range .Data.Operations }}
+          <tr>
+            <td><a href="/finance/treasury/operations/{{ .InstructionID }}"><code>{{ .InstructionID }}</code></a><small>{{ .ObjectType }}</small></td>
+            <td>{{ .Provider }}</td>
+            <td><span>{{ .BeneficiaryName }}</span><small>{{ .BeneficiaryRef }}</small></td>
+            <td class="numeric-right">{{ .Amount }} {{ .Currency }}</td>
+            <td>{{ template "partials/ui/status_badge.html" .State }}{{ if .ErrorSummary }}<small class="payment-operations__error">{{ .ErrorSummary }}</small>{{ end }}</td>
+            <td>{{ template "partials/ui/status_badge.html" .EffectStatus }}<small>{{ .ReconciliationStatus }}</small></td>
+            <td>{{ formatDate .UpdatedAt }}</td>
+            <td><a class="btn btn--secondary btn--sm" href="/finance/treasury/operations/{{ .InstructionID }}">Inspect</a></td>
+          </tr>
+          {{ else }}<tr><td class="table-empty" colspan="8">No payment operations match the current filter.</td></tr>{{ end }}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+{{ end }}

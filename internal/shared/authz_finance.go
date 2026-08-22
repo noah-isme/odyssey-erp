@@ -26,6 +26,7 @@ const (
 	PermFinancePaymentApprove          = "finance.payment.approve"
 	PermFinancePaymentExport           = "finance.payment.export"
 	PermFinancePaymentExecute          = "finance.payment.execute"
+	PermFinancePaymentView             = "finance.payment.view"
 	PermProcurementP2PExceptionView    = "procurement.p2p_exception.view"
 	PermProcurementP2PExceptionResolve = "procurement.p2p_exception.resolve"
 	PermFixedAssetsLocationManage      = "fixedassets.location.manage"
@@ -56,6 +57,7 @@ func FinanceScopes() []string {
 		PermFinancePaymentApprove,
 		PermFinancePaymentExport,
 		PermFinancePaymentExecute,
+		PermFinancePaymentView,
 		PermProcurementP2PExceptionView,
 		PermProcurementP2PExceptionResolve,
 		PermFixedAssetsLocationManage,

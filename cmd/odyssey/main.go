@@ -396,6 +396,14 @@ func main() {
 	})
 	paymentCoordinator := payments.NewCoordinator(paymentRouter, payments.NewPostgresStore(dbpool), payments.NewSeparationAuthorizer(automation.Settings{}))
 	financeAutomationOutbox := automation.NewOutboxRepository(dbpool)
+	operationsReader := treasury.NewOperationsRepository(dbpool)
+	treasuryHandler.SetOperationsHandler(treasury.NewOperationsHandler(
+		logger,
+		treasury.NewOperationsService(operationsReader, financeAutomationOutbox),
+		templates,
+		csrfManager,
+		rbacMiddleware,
+	))
 	if cfg.IsFinanceSandbox() && strings.EqualFold(strings.TrimSpace(cfg.ReleaseProfile), string(app.ReleaseProfileV011Finance)) {
 		treasuryService.SetExecutionEnqueuer(treasury.NewBatchExecutionEnqueuer(
 			treasuryRepo,

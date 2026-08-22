@@ -1,0 +1,111 @@
+.payment-operations {
+    max-width: var(--app-max);
+}
+
+.payment-operations__filters {
+    margin-bottom: var(--space-6);
+}
+
+.payment-operations__table td small,
+.payment-operations__table td span + small,
+.payment-operations__section td small {
+    display: block;
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+    margin-top: var(--space-1);
+}
+
+.payment-operations__error {
+    color: var(--danger-fg, var(--text-danger));
+    max-width: 260px;
+    overflow-wrap: anywhere;
+}
+
+.payment-operations__summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
+}
+
+.payment-operations__stat {
+    display: flex;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-5);
+}
+
+.payment-operations__label {
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+
+.payment-operations__details,
+.payment-operations__action-card,
+.payment-operations__section {
+    margin-bottom: var(--space-6);
+}
+
+.payment-operations__definition-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: var(--space-4);
+    margin: 0;
+    padding: var(--space-5);
+}
+
+.payment-operations__definition-list div {
+    min-width: 0;
+}
+
+.payment-operations__definition-list dt {
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+    margin-bottom: var(--space-1);
+}
+
+.payment-operations__definition-list dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.payment-operations__error-box {
+    margin: 0 var(--space-5) var(--space-5);
+    padding: var(--space-3);
+    border: 1px solid var(--border-danger, var(--border-subtle));
+    color: var(--danger-fg, var(--text-danger));
+    overflow-wrap: anywhere;
+}
+
+.payment-operations__action-card {
+    padding: var(--space-5);
+}
+
+.payment-operations__action-card .card__title {
+    margin: 0 0 var(--space-2);
+}
+
+.payment-operations__action-card .card__desc {
+    margin: 0 0 var(--space-4);
+    color: var(--text-muted);
+}
+
+.page-back {
+    display: inline-block;
+    margin-bottom: var(--space-3);
+    color: var(--text-muted);
+    text-decoration: none;
+}
+
+.page-back:hover {
+    color: var(--text-primary);
+}
+
+@media (max-width: 720px) {
+    .payment-operations__definition-list {
+        grid-template-columns: 1fr;
+    }
+}
