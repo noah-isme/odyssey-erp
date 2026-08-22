@@ -914,6 +914,7 @@ func NewRouter(params RouterParams) http.Handler {
 				shared.PermFinancePaymentApprove,
 				shared.PermFinancePaymentExport,
 				shared.PermFinancePaymentExecute,
+				shared.PermFinancePaymentView,
 			)
 			params.TreasuryHandler.MountRoutes(r)
 		})

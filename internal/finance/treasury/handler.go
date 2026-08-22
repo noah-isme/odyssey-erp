@@ -10,14 +10,28 @@ import (
 )
 
 type Handler struct {
-	service *Service
+	service    *Service
+	operations *OperationsHandler
 }
 
 func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
 }
 
+// SetOperationsHandler attaches the SSR operations workbench after the
+// shared application dependencies (templates, RBAC, and finance outbox) are
+// initialized. Keeping this setter preserves the existing treasury JSON
+// handler constructor and its callers.
+func (h *Handler) SetOperationsHandler(operations *OperationsHandler) {
+	if h != nil {
+		h.operations = operations
+	}
+}
+
 func (h *Handler) MountRoutes(r chi.Router) {
+	if h.operations != nil {
+		r.Route("/operations", h.operations.MountRoutes)
+	}
 	r.Post("/suppliers/{supplier_id}/bank-accounts", h.AddBankAccount)
 	r.Post("/bank-accounts/{id}/approve", h.ApproveBankAccount)
 	r.Get("/suppliers/{supplier_id}/bank-accounts", h.ListBankAccounts)

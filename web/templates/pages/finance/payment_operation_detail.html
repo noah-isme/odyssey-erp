@@ -1,0 +1,57 @@
+{{ define "pages/finance/payment_operation_detail.html" }}{{ template "layouts/base.html" . }}{{ end }}
+{{ define "title" }}Payment operation{{ end }}
+{{ define "head" }}
+<link rel="stylesheet" href="/static/css/pages/finance-payment-operations.css">
+<link rel="modulepreload" href="/static/js/pages/finance-payment-operations.js">
+{{ end }}
+{{ define "content" }}
+<div class="page-container payment-operations">
+  <header class="page-header">
+    <div class="page-header__content"><a class="page-back" href="/finance/treasury/operations">← Payment operations</a><h1 class="page-title">{{ .Data.Operation.InstructionID }}</h1><p class="page-subtitle">{{ .Data.Operation.Provider }} · {{ .Data.Operation.ObjectType }}</p></div>
+  </header>
+
+  <section class="payment-operations__summary">
+    <article class="card payment-operations__stat"><span class="payment-operations__label">Execution state</span>{{ template "partials/ui/status_badge.html" .Data.Operation.State }}</article>
+    <article class="card payment-operations__stat"><span class="payment-operations__label">Amount</span><strong>{{ .Data.Operation.Amount }} {{ .Data.Operation.Currency }}</strong></article>
+    <article class="card payment-operations__stat"><span class="payment-operations__label">Effects</span>{{ template "partials/ui/status_badge.html" .Data.Operation.EffectStatus }}</article>
+    <article class="card payment-operations__stat"><span class="payment-operations__label">Reconciliation</span>{{ template "partials/ui/status_badge.html" .Data.Operation.ReconciliationStatus }}</article>
+  </section>
+
+  <section class="card payment-operations__details">
+    <div class="card__header"><h2 class="card__title">Safe operation details</h2></div>
+    <dl class="payment-operations__definition-list">
+      <div><dt>Beneficiary</dt><dd>{{ .Data.Operation.BeneficiaryName }} · {{ .Data.Operation.BeneficiaryRef }}</dd></div>
+      <div><dt>End-to-end reference</dt><dd>{{ .Data.Operation.EndToEndReference }}</dd></div>
+      <div><dt>Provider submission</dt><dd>{{ .Data.Operation.SubmissionReference }}</dd></div>
+      <div><dt>Provider settlement</dt><dd>{{ .Data.Operation.SettlementReference }}</dd></div>
+      <div><dt>Created</dt><dd>{{ formatDate .Data.Operation.CreatedAt }}</dd></div>
+      <div><dt>Updated</dt><dd>{{ formatDate .Data.Operation.UpdatedAt }}</dd></div>
+    </dl>
+    {{ if .Data.Operation.ErrorSummary }}<p class="payment-operations__error-box">{{ .Data.Operation.ErrorSummary }}</p>{{ end }}
+  </section>
+
+  {{ if eq .Data.Operation.State "AMBIGUOUS" }}
+  <section class="card payment-operations__action-card">
+    <h2 class="card__title">Resolve ambiguous submission</h2>
+    <p class="card__desc">Recovery queues the existing command. The payment coordinator performs provider lookup before any possible resubmission.</p>
+    <form method="post" action="/finance/treasury/operations/{{ .Data.Operation.InstructionID }}/recover" data-confirm="Queue provider-status recovery?">
+      <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}"><button class="btn btn--primary" type="submit">Queue recovery</button>
+    </form>
+  </section>
+  {{ end }}
+
+  <section class="card card-table payment-operations__section">
+    <div class="card__header"><h2 class="card__title">Settlement results</h2></div>
+    <div class="table-responsive"><table class="table table--sticky"><thead><tr><th>Result</th><th>Status</th><th>State</th><th>Amount</th><th>Recorded</th><th>Action</th></tr></thead><tbody>
+      {{ range .Data.Operation.Results }}<tr><td><code>{{ .ResultID }}</code></td><td>{{ template "partials/ui/status_badge.html" .Status }}</td><td>{{ template "partials/ui/status_badge.html" .State }}</td><td class="numeric-right">{{ .SettledAmount }} {{ .Currency }}</td><td>{{ formatDate .RecordedAt }}</td><td>{{ if and (not .EffectApplied) (or (eq .State "SETTLED") (eq .State "PARTIALLY_SETTLED")) }}<form method="post" action="/finance/treasury/operations/results/{{ .ResultID }}/retry-effects"><input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}"><button class="btn btn--secondary btn--sm" type="submit">Retry effects</button></form>{{ else }}{{ if .EffectApplied }}Applied{{ else }}—{{ end }}{{ end }}</td></tr>{{ else }}<tr><td colspan="6" class="table-empty">No settlement results recorded.</td></tr>{{ end }}
+    </tbody></table></div>
+  </section>
+
+  <section class="card card-table payment-operations__section">
+    <div class="card__header"><h2 class="card__title">Outbox history</h2></div>
+    <div class="table-responsive"><table class="table table--sticky"><thead><tr><th>ID</th><th>Operation</th><th>Status</th><th>Attempts</th><th>Last error</th><th>Created</th></tr></thead><tbody>
+      {{ range .Data.Operation.Outbox }}<tr><td>{{ .ID }}</td><td><code>{{ .Operation }}</code>{{ if .ResultID }}<small>{{ .ResultID }}</small>{{ end }}</td><td>{{ template "partials/ui/status_badge.html" .Status }}</td><td>{{ .Attempts }}/{{ .MaxAttempts }}</td><td class="payment-operations__error">{{ .LastError }}</td><td>{{ formatDate .CreatedAt }}</td></tr>{{ else }}<tr><td colspan="6" class="table-empty">No outbox commands found.</td></tr>{{ end }}
+    </tbody></table></div>
+  </section>
+</div>
+{{ end }}
