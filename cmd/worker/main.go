@@ -495,6 +495,17 @@ func main() {
 	} else {
 		logger.Info("finance payment execution handlers disabled by release profile", slog.String("release_profile", cfg.ReleaseProfile))
 	}
+	var financePaymentRecovery *payments.PaymentRecoveryScanner
+	if cfg.IsFinanceSandbox() && strings.EqualFold(strings.TrimSpace(cfg.ReleaseProfile), string(app.ReleaseProfileV011Finance)) {
+		// The recovery projection reads only v0.11 finance tables and is kept
+		// outside the v0.10 worker profile. It emits deduplicated operator
+		// notifications; it never retries or replays a provider command.
+		financePaymentRecovery = payments.NewPaymentRecoveryScanner(
+			payments.NewPaymentRecoveryRepository(pool),
+			notificationDispatcher,
+			recoveryMetrics,
+		)
+	}
 
 	forecastRepo := forecasting.NewPGRepository(pool)
 	forecastReaders := forecasting.NewDatabaseReaders(pool)
@@ -512,68 +523,82 @@ func main() {
 	exceptionService := ap.NewExceptionService(apRepo)
 	apOrchestrator := ap.NewOrchestrator(matchingService, exceptionService, apService)
 
+	handlers := []jobs.TaskHandler{
+		{Type: jobs.TaskAnalyticsInsightsWarmup, Handler: warmupJob.Handle},
+		{Type: jobs.TaskAnalyticsAnomalyScan, Handler: anomalyJob.Handle},
+		{Type: jobs.TaskConsolidateRefresh, Handler: consolidator.Handle},
+		{Type: jobs.TaskVarianceSnapshotProcess, Handler: varianceJob.Handle},
+		{Type: jobs.TaskBoardPackGenerate, Handler: boardpackJob.Handle},
+		{Type: jobs.TypeOverdueInvoicesScan, Handler: jobs.HandleOverdueInvoicesScanTask(logger, pool, asynqClient)},
+		{Type: jobs.TypeReportScheduleScan, Handler: jobs.HandleReportScheduleScanTask(logger, pool, asynqClient)},
+		{Type: jobs.TaskFixedAssetDepreciation, Handler: jobs.HandleFixedAssetDepreciation(fixedAssetService)},
+		{Type: jobs.TaskPayrollPayslipEmail, Handler: jobs.HandlePayrollPayslipEmail(payslipProcessor)},
+		{Type: jobs.TaskPayrollPayslipDispatch, Handler: jobs.HandlePayrollPayslipDispatch(payrollOutbox)},
+		{Type: jobs.TaskTaxCaptureDispatch, Handler: jobs.HandleTaxCaptureDispatch(taxService)},
+		{Type: jobs.TaskCRMReminderDispatch, Handler: jobs.HandleCRMReminderDispatch(crmService)},
+		{Type: jobs.TaskWebhookDeliveryDispatch, Handler: jobs.HandleWebhookDeliveryDispatch(webhookDispatcher{handler: apiHandler})},
+		{Type: jobs.TaskOutboxSweep, Handler: jobs.HandleOutboxSweep(outboxDispatcher)},
+		{Type: jobs.TaskFinanceAutomationDispatch, Handler: jobs.HandleFinanceAutomationDispatch(financeAutomationDispatcher)},
+		{Type: jobs.TypeBankFeedsSync, Handler: bankFeedsProcessor.ProcessSyncTask},
+		{Type: jobs.TypeBankFeedsEvent, Handler: bankFeedsProcessor.ProcessEventTask},
+		{Type: jobs.TypeCashForecastRefresh, Handler: forecastProcessor.ProcessRefreshTask},
+		{Type: jobs.TypeCMMSPMGeneratorScan, Handler: jobs.HandleCMMSPMGeneratorScanTask(logger, func(ctx context.Context) error {
+			_, err := cmmsService.GenerateAllPMWorkOrders(ctx)
+			return err
+		})},
+		{Type: jobs.TaskDocumentOCR, Handler: jobs.HandleDocumentOCR(documentsService)},
+		{Type: jobs.TaskDocumentDisposition, Handler: jobs.HandleDocumentDisposition(documentsService)},
+		{Type: jobs.TaskConnectorOutboxSweep, Handler: jobs.HandleConnectorOutboxSweep(connectorsOutboxWorker)},
+		{Type: jobs.TaskPaymentReconciliation, Handler: jobs.HandlePaymentReconciliation(paymentReconciliation)},
+		{Type: jobs.TaskConnectorDeadLetterAudit, Handler: jobs.HandleConnectorDeadLetterAudit(paymentReconciliation)},
+		{Type: jobs.TaskProcessAPInvoice, Handler: jobs.HandleProcessAPInvoice(apOrchestrator.ProcessInvoice)},
+	}
+	cron := []jobs.CronRegistration{
+		{Spec: "15 1 * * *", Task: warmupTask, Options: []asynq.Option{asynq.MaxRetry(3)}},
+		{Spec: "30 1 * * *", Task: anomalyTask, Options: []asynq.Option{asynq.MaxRetry(3)}},
+		{Spec: "0 2 * * *", Task: consolidateTask, Options: []asynq.Option{asynq.MaxRetry(3)}},
+		// Run overdue invoice scan every day at 8:00 AM
+		{Spec: "0 8 * * *", Task: asynq.NewTask(jobs.TypeOverdueInvoicesScan, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
+		{Spec: "5 * * * *", Task: asynq.NewTask(jobs.TypeReportScheduleScan, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
+		{Spec: "10 2 1 * *", Task: asynq.NewTask(jobs.TaskFixedAssetDepreciation, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
+		{Spec: "*/5 * * * *", Task: asynq.NewTask(jobs.TaskPayrollPayslipDispatch, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
+		{Spec: "*/5 * * * *", Task: asynq.NewTask(jobs.TaskTaxCaptureDispatch, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
+		{Spec: "* * * * *", Task: asynq.NewTask(jobs.TaskCRMReminderDispatch, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
+		{Spec: "* * * * *", Task: asynq.NewTask(jobs.TaskWebhookDeliveryDispatch, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
+		{Spec: "* * * * *", Task: asynq.NewTask(jobs.TaskOutboxSweep, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
+		{Spec: "* * * * *", Task: asynq.NewTask(jobs.TaskFinanceAutomationDispatch, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
+		// Run CMMS PM generator hourly
+		{Spec: "0 * * * *", Task: asynq.NewTask(jobs.TypeCMMSPMGeneratorScan, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
+		{Spec: "5 0 * * *", Task: func() *asynq.Task { task, _ := jobs.NewFXDailyRatesTask(time.Time{}, false); return task }(), Options: []asynq.Option{asynq.MaxRetry(5)}},
+		{Spec: "0 1 * * *", Task: asynq.NewTask(jobs.TaskDocumentDisposition, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
+		{Spec: "* * * * *", Task: asynq.NewTask(jobs.TaskConnectorOutboxSweep, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
+		{Spec: "*/5 * * * *", Task: asynq.NewTask(jobs.TaskPaymentReconciliation, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
+		{Spec: "*/5 * * * *", Task: asynq.NewTask(jobs.TaskConnectorDeadLetterAudit, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
+	}
+	if financePaymentRecovery != nil {
+		handlers = append(handlers, jobs.TaskHandler{
+			Type:    jobs.TaskFinancePaymentRecovery,
+			Handler: jobs.HandleFinancePaymentRecoveryScan(financePaymentRecovery),
+		})
+		cron = append(cron, jobs.CronRegistration{
+			Spec:    "*/5 * * * *",
+			Task:    jobs.NewFinancePaymentRecoveryTask(),
+			Options: []asynq.Option{asynq.MaxRetry(3)},
+		})
+	}
+
 	worker, err := jobs.NewWorker(jobs.WorkerConfig{
-		RedisOpts: redisOpts,
-		Logger:    logger,
-		Mailer:    mailClient,
-		Handlers: []jobs.TaskHandler{
-			{Type: jobs.TaskAnalyticsInsightsWarmup, Handler: warmupJob.Handle},
-			{Type: jobs.TaskAnalyticsAnomalyScan, Handler: anomalyJob.Handle},
-			{Type: jobs.TaskConsolidateRefresh, Handler: consolidator.Handle},
-			{Type: jobs.TaskVarianceSnapshotProcess, Handler: varianceJob.Handle},
-			{Type: jobs.TaskBoardPackGenerate, Handler: boardpackJob.Handle},
-			{Type: jobs.TypeOverdueInvoicesScan, Handler: jobs.HandleOverdueInvoicesScanTask(logger, pool, asynqClient)},
-			{Type: jobs.TypeReportScheduleScan, Handler: jobs.HandleReportScheduleScanTask(logger, pool, asynqClient)},
-			{Type: jobs.TaskFixedAssetDepreciation, Handler: jobs.HandleFixedAssetDepreciation(fixedAssetService)},
-			{Type: jobs.TaskPayrollPayslipEmail, Handler: jobs.HandlePayrollPayslipEmail(payslipProcessor)},
-			{Type: jobs.TaskPayrollPayslipDispatch, Handler: jobs.HandlePayrollPayslipDispatch(payrollOutbox)},
-			{Type: jobs.TaskTaxCaptureDispatch, Handler: jobs.HandleTaxCaptureDispatch(taxService)},
-			{Type: jobs.TaskCRMReminderDispatch, Handler: jobs.HandleCRMReminderDispatch(crmService)},
-			{Type: jobs.TaskWebhookDeliveryDispatch, Handler: jobs.HandleWebhookDeliveryDispatch(webhookDispatcher{handler: apiHandler})},
-			{Type: jobs.TaskOutboxSweep, Handler: jobs.HandleOutboxSweep(outboxDispatcher)},
-			{Type: jobs.TaskFinanceAutomationDispatch, Handler: jobs.HandleFinanceAutomationDispatch(financeAutomationDispatcher)},
-			{Type: jobs.TypeBankFeedsSync, Handler: bankFeedsProcessor.ProcessSyncTask},
-			{Type: jobs.TypeBankFeedsEvent, Handler: bankFeedsProcessor.ProcessEventTask},
-			{Type: jobs.TypeCashForecastRefresh, Handler: forecastProcessor.ProcessRefreshTask},
-			{Type: jobs.TypeCMMSPMGeneratorScan, Handler: jobs.HandleCMMSPMGeneratorScanTask(logger, func(ctx context.Context) error {
-				_, err := cmmsService.GenerateAllPMWorkOrders(ctx)
-				return err
-			})},
-			{Type: jobs.TaskDocumentOCR, Handler: jobs.HandleDocumentOCR(documentsService)},
-			{Type: jobs.TaskDocumentDisposition, Handler: jobs.HandleDocumentDisposition(documentsService)},
-			{Type: jobs.TaskConnectorOutboxSweep, Handler: jobs.HandleConnectorOutboxSweep(connectorsOutboxWorker)},
-			{Type: jobs.TaskPaymentReconciliation, Handler: jobs.HandlePaymentReconciliation(paymentReconciliation)},
-			{Type: jobs.TaskConnectorDeadLetterAudit, Handler: jobs.HandleConnectorDeadLetterAudit(paymentReconciliation)},
-			{Type: jobs.TaskProcessAPInvoice, Handler: jobs.HandleProcessAPInvoice(apOrchestrator.ProcessInvoice)},
-		},
+		RedisOpts:   redisOpts,
+		Logger:      logger,
+		Mailer:      mailClient,
+		Handlers:    handlers,
 		FXFetcher:   fxJobFetcher{service: fxDailyService},
 		FXCompanies: fxRepo,
 		FXLocation:  mustLocation("Asia/Jakarta"),
 		FXLogger:    logger,
 		Analytics:   analyticsService,
 		Connectors:  connectorsService,
-		Cron: []jobs.CronRegistration{
-			{Spec: "15 1 * * *", Task: warmupTask, Options: []asynq.Option{asynq.MaxRetry(3)}},
-			{Spec: "30 1 * * *", Task: anomalyTask, Options: []asynq.Option{asynq.MaxRetry(3)}},
-			{Spec: "0 2 * * *", Task: consolidateTask, Options: []asynq.Option{asynq.MaxRetry(3)}},
-			// Run overdue invoice scan every day at 8:00 AM
-			{Spec: "0 8 * * *", Task: asynq.NewTask(jobs.TypeOverdueInvoicesScan, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
-			{Spec: "5 * * * *", Task: asynq.NewTask(jobs.TypeReportScheduleScan, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
-			{Spec: "10 2 1 * *", Task: asynq.NewTask(jobs.TaskFixedAssetDepreciation, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
-			{Spec: "*/5 * * * *", Task: asynq.NewTask(jobs.TaskPayrollPayslipDispatch, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
-			{Spec: "*/5 * * * *", Task: asynq.NewTask(jobs.TaskTaxCaptureDispatch, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
-			{Spec: "* * * * *", Task: asynq.NewTask(jobs.TaskCRMReminderDispatch, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
-			{Spec: "* * * * *", Task: asynq.NewTask(jobs.TaskWebhookDeliveryDispatch, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
-			{Spec: "* * * * *", Task: asynq.NewTask(jobs.TaskOutboxSweep, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
-			{Spec: "* * * * *", Task: asynq.NewTask(jobs.TaskFinanceAutomationDispatch, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
-			// Run CMMS PM generator hourly
-			{Spec: "0 * * * *", Task: asynq.NewTask(jobs.TypeCMMSPMGeneratorScan, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
-			{Spec: "5 0 * * *", Task: func() *asynq.Task { task, _ := jobs.NewFXDailyRatesTask(time.Time{}, false); return task }(), Options: []asynq.Option{asynq.MaxRetry(5)}},
-			{Spec: "0 1 * * *", Task: asynq.NewTask(jobs.TaskDocumentDisposition, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
-			{Spec: "* * * * *", Task: asynq.NewTask(jobs.TaskConnectorOutboxSweep, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
-			{Spec: "*/5 * * * *", Task: asynq.NewTask(jobs.TaskPaymentReconciliation, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
-			{Spec: "*/5 * * * *", Task: asynq.NewTask(jobs.TaskConnectorDeadLetterAudit, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
-		},
+		Cron:        cron,
 	})
 	if err != nil {
 		logger.Error("init worker", slog.Any("error", err))

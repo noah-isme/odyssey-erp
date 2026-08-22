@@ -16,6 +16,11 @@ const (
 	TypeCRMOwnerReassigned             = "crm_owner_reassigned"
 	TypePaymentReconciliationUnmatched = "payment_reconciliation_unmatched"
 	TypeConnectorDeadLetter            = "connector_dead_letter"
+	// TypeFinancePaymentRecovery is emitted by the v0.11 finance payment
+	// recovery scan. It is intentionally separate from the legacy connector
+	// reconciliation alert so operators can route the two workflows
+	// independently without changing the existing paymentAlertSink contract.
+	TypeFinancePaymentRecovery = "finance_payment_recovery"
 )
 
 type Notification struct {

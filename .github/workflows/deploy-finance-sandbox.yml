@@ -46,7 +46,7 @@ jobs:
             exit 1
           }
           candidate_sha=$(git rev-parse HEAD)
-          migration_floor='000127_payment_settlement_effect_links'
+          migration_floor='000128_finance_payment_operations_permission'
           migration_floor_up="migrations/${migration_floor}.up.sql"
           migration_floor_down="migrations/${migration_floor}.down.sql"
           test -f "$migration_floor_up" || {
@@ -66,8 +66,8 @@ jobs:
             echo 'could not determine the finance sandbox migration version' >&2
             exit 1
           }
-          (( 10#$latest_version >= 127 )) || {
-            echo "finance sandbox requires migration 000127 or newer; found $latest_version" >&2
+          (( 10#$latest_version >= 128 )) || {
+            echo "finance sandbox requires migration 000128 or newer; found $latest_version" >&2
             exit 1
           }
 
@@ -92,6 +92,19 @@ jobs:
           SESSION_SECRET: finance-sandbox-test-session-secret
           CSRF_SECRET: finance-sandbox-test-csrf-secret
         run: go test ./internal/app -run 'Test(LoadConfig|ParseReleaseProfile|FinanceProfile)' -count=1
+
+      - name: Run finance payment provider and recovery contracts
+        env:
+          ODYSSEY_TEST_MODE: "1"
+          GOTENBERG_URL: http://127.0.0.1:0
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test ./internal/connectors/providers/midtransiris -count=1
+          go test ./internal/connectors/providers/midtrans -run '^TestMidtransSandboxCertification$' -count=1
+          go test ./internal/finance/payments -run 'Test(PaymentRecovery|CoordinatorResolvesAmbiguous|PaymentExecutionOutboxAmbiguous|PaymentResultImportOutbox)' -count=1
+          go test ./internal/observability -run '^TestPaymentRecoveryMetricsExposeRecoverySignals$' -count=1
+          go test ./jobs -run '^TestHandleFinancePaymentRecoveryScan' -count=1
 
       - name: Build finance sandbox artifacts
         shell: bash
@@ -134,7 +147,7 @@ jobs:
             printf 'commit=%s\n' "$CANDIDATE_SHA"
             printf 'profile=v0.11-finance\n'
             printf 'app_env=finance-sandbox\n'
-            printf 'migration_floor=000127_payment_settlement_effect_links\n'
+            printf 'migration_floor=000128_finance_payment_operations_permission\n'
             printf 'migration_ceiling=%s\n' "$MIGRATION_CEILING"
           } > dist/RELEASE_IDENTITY
           (
@@ -256,15 +269,15 @@ jobs:
 
           grep -Fx 'profile=v0.11-finance' "$release/RELEASE_IDENTITY"
           grep -Fx 'app_env=finance-sandbox' "$release/RELEASE_IDENTITY"
-          grep -Fx 'migration_floor=000127_payment_settlement_effect_links' "$release/RELEASE_IDENTITY"
-          test -f "$release/migrations/000127_payment_settlement_effect_links.up.sql"
-          test -f "$release/migrations/000127_payment_settlement_effect_links.down.sql"
+          grep -Fx 'migration_floor=000128_finance_payment_operations_permission' "$release/RELEASE_IDENTITY"
+          test -f "$release/migrations/000128_finance_payment_operations_permission.up.sql"
+          test -f "$release/migrations/000128_finance_payment_operations_permission.down.sql"
 
           latest_migration=$(find "$release/migrations" -maxdepth 1 -type f \
             -name '[0-9][0-9][0-9][0-9][0-9][0-9]_*.up.sql' \
             -printf '%f\n' | sed 's/\.up\.sql$//' | sort -n | tail -n 1)
           latest_version=${latest_migration%%_*}
-          [[ "$latest_version" =~ ^[0-9]{6}$ ]] && (( 10#$latest_version >= 127 ))
+          [[ "$latest_version" =~ ^[0-9]{6}$ ]] && (( 10#$latest_version >= 128 ))
 
           set -a
           . /opt/odyssey-finance-sandbox/.env
@@ -294,6 +307,11 @@ jobs:
           }
 
           "$release/migrate" -path "$release/migrations" -database "$PG_DSN" up
+          applied_version=$("$release/migrate" -path "$release/migrations" -database "$PG_DSN" version)
+          [[ "$applied_version" =~ ^[0-9]+$ ]] && (( 10#$applied_version >= 128 )) || {
+            echo "finance sandbox migration verification failed: $applied_version" >&2
+            exit 1
+          }
           ln -sfn "$release" /opt/odyssey-finance-sandbox/current
 
           sudo -n systemctl restart odyssey-finance-sandbox.service
@@ -302,6 +320,8 @@ jobs:
           for attempt in $(seq 1 30); do
             if sudo -n systemctl is-active --quiet odyssey-finance-sandbox-worker.service \
               && curl -fsS --max-time 5 http://127.0.0.1:8280/healthz >/dev/null; then
+              curl -fsS --max-time 5 http://127.0.0.1:9191/metrics \
+                | grep -E 'odyssey_finance_payment_(execution_outcomes|recovery_attempts|provider_lookup_latency)' >/dev/null
               echo 'Odyssey finance sandbox deployment healthy'
               exit 0
             fi
