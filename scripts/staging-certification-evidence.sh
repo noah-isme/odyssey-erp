@@ -6,7 +6,9 @@ usage() {
 Usage: staging-certification-evidence.sh --candidate DIR --evidence DIR [options]
 
 Copy a staging certification candidate into an evidence bundle, redact secrets from
-text files, create a SHA-256 manifest, and store the bundle in S3 Object Lock.
+text files, parse certification records, create a SHA-256 manifest and JSON index,
+and store the bundle in S3 Object Lock. Local evidence is assembled before cloud
+configuration is checked so early workflow failures remain auditable.
 
 Required:
   --candidate DIR       Candidate artifacts/logs to collect
@@ -17,6 +19,9 @@ Options:
   --prefix PREFIX       Object prefix (default: EVIDENCE_S3_PREFIX or timestamp)
   --endpoint-url URL    S3-compatible endpoint (default: EVIDENCE_S3_ENDPOINT)
   --region REGION       S3 region (default: EVIDENCE_S3_REGION or us-east-1)
+  --expected-evidence-ids CSV
+                        IDs that must appear exactly once in the test log
+  --local-only          Build the local bundle without uploading to S3
   --help                Show this help
 
 Credentials are read from EVIDENCE_S3_ACCESS_KEY_ID and
@@ -31,6 +36,8 @@ bucket=${EVIDENCE_S3_BUCKET:-}
 prefix=${EVIDENCE_S3_PREFIX:-}
 endpoint=${EVIDENCE_S3_ENDPOINT:-}
 region=${EVIDENCE_S3_REGION:-us-east-1}
+expected_ids_csv=${EXPECTED_EVIDENCE_IDS:-}
+local_only=false
 
 while (($#)); do
 	case "$1" in
@@ -40,6 +47,8 @@ while (($#)); do
 		--prefix) [[ $# -ge 2 ]] || { echo "missing value for --prefix" >&2; exit 2; }; prefix=$2; shift 2 ;;
 		--endpoint-url) [[ $# -ge 2 ]] || { echo "missing value for --endpoint-url" >&2; exit 2; }; endpoint=$2; shift 2 ;;
 		--region) [[ $# -ge 2 ]] || { echo "missing value for --region" >&2; exit 2; }; region=$2; shift 2 ;;
+		--expected-evidence-ids) [[ $# -ge 2 ]] || { echo "missing value for --expected-evidence-ids" >&2; exit 2; }; expected_ids_csv=$2; shift 2 ;;
+		--local-only) local_only=true; shift ;;
 		-h|--help) usage; exit 0 ;;
 		*) echo "unknown option: $1" >&2; usage >&2; exit 2 ;;
 	esac
@@ -47,13 +56,7 @@ done
 
 [[ -n "$candidate" && -d "$candidate" ]] || { echo "--candidate must name an existing directory" >&2; exit 2; }
 [[ -n "$evidence" ]] || { echo "--evidence is required" >&2; exit 2; }
-[[ -n "$bucket" ]] || { echo "S3 bucket is required (--bucket or EVIDENCE_S3_BUCKET)" >&2; exit 2; }
-command -v aws >/dev/null 2>&1 || { echo "aws CLI is required" >&2; exit 1; }
 command -v sha256sum >/dev/null 2>&1 || { echo "sha256sum is required" >&2; exit 1; }
-export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-${EVIDENCE_S3_ACCESS_KEY_ID:-}}
-export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-${EVIDENCE_S3_SECRET_ACCESS_KEY:-}}
-[[ -n "$AWS_ACCESS_KEY_ID" ]] || { echo "S3 access key is required (EVIDENCE_S3_ACCESS_KEY_ID)" >&2; exit 2; }
-[[ -n "$AWS_SECRET_ACCESS_KEY" ]] || { echo "S3 secret key is required (EVIDENCE_S3_SECRET_ACCESS_KEY)" >&2; exit 2; }
 
 mkdir -p "$evidence"
 if [[ -n "$(find "$evidence" -mindepth 1 -print -quit)" ]]; then
@@ -62,6 +65,16 @@ if [[ -n "$(find "$evidence" -mindepth 1 -print -quit)" ]]; then
 fi
 
 cp -a "$candidate"/. "$evidence"/
+
+if [[ ! -f "$evidence/staging-certification.log" ]]; then
+	printf 'staging certification log was not created before workflow failure\n' \
+		>"$evidence/staging-certification.log"
+fi
+
+prefix=${prefix#/}
+if [[ -z "$prefix" ]]; then
+	prefix="staging-certification/${GITHUB_RUN_ID:-local}/${GITHUB_RUN_ATTEMPT:-1}/$(date -u +%Y%m%dT%H%M%SZ)-$$"
+fi
 
 # Redact common credential forms only in text files; binaries are left untouched.
 while IFS= read -r -d '' file; do
@@ -78,36 +91,216 @@ while IFS= read -r -d '' file; do
 	fi
 done < <(find "$evidence" -type f -print0)
 
+# Produce a first digest manifest before optional parsing dependencies are
+# checked. Even a runner missing jq therefore retains a verifiable local bundle.
 manifest="$evidence/SHA256SUMS"
-(cd "$evidence" && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum) >"$manifest"
+(cd "$evidence" && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 -r sha256sum) >"$manifest"
+[[ "$prefix" != *'..'* && "$prefix" != *$'\n'* ]] || {
+	echo "invalid evidence prefix: $prefix" >&2
+	exit 2
+}
 
-if [[ -z "$prefix" ]]; then
-	prefix="staging-certification/$(date -u +%Y%m%dT%H%M%SZ)"
+command -v jq >/dev/null 2>&1 || {
+	echo 'jq is required to create evidence-index.json' >&2
+	exit 1
+}
+
+errors_file=$(mktemp)
+records_file=$(mktemp)
+files_file=$(mktemp)
+collection_failed=0
+declare -A seen_ids=()
+declare -A expected_seen=()
+actual_ids=()
+expected_ids=()
+
+record_error() {
+	collection_failed=1
+	printf '%s\n' "$1" | tee -a "$errors_file" >&2
+}
+
+log_file="$evidence/staging-certification.log"
+log_sha=$(sha256sum "$log_file" | awk '{print $1}')
+run_id=${GITHUB_RUN_ID:-unknown}
+artifact_uri="local://staging-certification.log"
+[[ -n "$bucket" ]] && artifact_uri="s3://$bucket/$prefix/staging-certification.log"
+
+# Parse structured records emitted by the staging harness. Duplicate or
+# malformed records are failures even when the Go test process exits 0.
+while IFS= read -r line || [[ -n "$line" ]]; do
+	if [[ "$line" =~ CERTIFICATION_EVIDENCE[[:space:]]+evidence_id=([A-Z][A-Z0-9-]+)[[:space:]]+(.+)$ ]]; then
+		id=${BASH_REMATCH[1]}
+		payload=${BASH_REMATCH[2]}
+		if [[ -n "${seen_ids[$id]+set}" ]]; then
+			record_error "duplicate certification evidence ID: $id"
+			continue
+		fi
+		seen_ids["$id"]=1
+		actual_ids+=("$id")
+		if ! jq -e --arg id "$id" '
+			(type == "object") and (.evidence_id == $id) and
+			(.result == "PASS" or .result == "FAIL" or .result == "N/A") and
+			(.collected_utc | type == "string") and (.details | type == "string")
+		' <<<"$payload" >/dev/null 2>&1; then
+			record_error "invalid certification evidence payload for $id"
+			continue
+		fi
+		result=$(jq -r '.result' <<<"$payload")
+		[[ "$result" == PASS ]] || record_error "certification evidence $id has result $result"
+		jq -cn --argjson record "$payload" --arg run_id "$run_id" \
+			--arg artifact_uri "$artifact_uri" --arg sha256 "$log_sha" \
+			--arg source "staging-certification.log" \
+			'$record + {run_id: $run_id, artifact_uri: $artifact_uri, sha256: $sha256, source: $source}' \
+			>>"$records_file"
+	fi
+done <"$log_file"
+
+if [[ -n "$expected_ids_csv" ]]; then
+	IFS=',' read -r -a expected_ids <<<"$expected_ids_csv"
+	for id in "${expected_ids[@]}"; do
+		id=${id//[[:space:]]/}
+		[[ -n "$id" ]] || continue
+		if [[ -n "${expected_seen[$id]+set}" ]]; then
+			record_error "duplicate expected certification evidence ID: $id"
+		else
+			expected_seen["$id"]=1
+		fi
+	done
+	for id in "${actual_ids[@]}"; do
+		[[ -n "${expected_seen[$id]+set}" ]] || record_error "unexpected certification evidence ID: $id"
+	done
+	for id in "${expected_ids[@]}"; do
+		id=${id//[[:space:]]/}
+		[[ -n "$id" ]] || continue
+		if [[ -z "${seen_ids[$id]+set}" ]]; then
+			record_error "missing certification evidence ID: $id"
+			jq -cn --arg id "$id" --arg run_id "$run_id" \
+				--arg artifact_uri "$artifact_uri" --arg sha256 "$log_sha" \
+				--arg collected_utc "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+				'{evidence_id:$id,result:"FAIL",collected_utc:$collected_utc,details:"missing certification evidence record in staging-certification.log",run_id:$run_id,artifact_uri:$artifact_uri,sha256:$sha256,source:"staging-certification.log"}' \
+				>>"$records_file"
+		fi
+	done
 fi
-prefix=${prefix#/}
+
+# Build a stable inventory before writing the index. The index excludes itself;
+# SHA256SUMS below covers both the index and every payload file.
+while IFS= read -r -d '' file; do
+	rel=${file#"$evidence"/}
+	[[ "$rel" == SHA256SUMS || "$rel" == evidence-index.json ]] && continue
+	digest=$(sha256sum "$file" | awk '{print $1}')
+	bytes=$(wc -c <"$file" | tr -d '[:space:]')
+	jq -cn --arg path "$rel" --arg sha256 "$digest" --argjson bytes "$bytes" \
+		'{path:$path,sha256:$sha256,size_bytes:$bytes}' >>"$files_file"
+done < <(find "$evidence" -type f -print0 | sort -z)
+
+records_json='[]'
+files_json='[]'
+errors_json='[]'
+expected_json='[]'
+[[ -s "$records_file" ]] && records_json=$(jq -sc 'sort_by(.evidence_id)' "$records_file")
+[[ -s "$files_file" ]] && files_json=$(jq -sc 'sort_by(.path)' "$files_file")
+[[ -s "$errors_file" ]] && errors_json=$(jq -Rsc 'split("\n")|map(select(length>0))' "$errors_file")
+if ((${#expected_ids[@]} > 0)); then
+	expected_json=$(printf '%s\n' "${expected_ids[@]}" | jq -Rsc 'split("\n")|map(select(length>0))|unique|sort')
+fi
+
+candidate_tag=${CANDIDATE_TAG:-unknown}
+candidate_sha=${EXPECTED_SHA:-unknown}
+if [[ -f "$evidence/candidate.txt" ]]; then
+	resolved_sha=$(awk -F= '$1 == "sha" || $1 == "resolved_sha" {print $2; exit}' "$evidence/candidate.txt" || true)
+	[[ -n "${resolved_sha:-}" ]] && candidate_sha=$resolved_sha
+fi
+index_tmp=$(mktemp)
+jq -n --arg generated_utc "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+	--arg run_id "$run_id" --arg run_attempt "${GITHUB_RUN_ATTEMPT:-unknown}" \
+	--arg repository "${GITHUB_REPOSITORY:-local}" --arg workflow "${GITHUB_WORKFLOW:-local}" \
+	--arg candidate_tag "$candidate_tag" --arg candidate_sha "$candidate_sha" \
+	--arg expected_sha "${EXPECTED_SHA:-unknown}" --arg prefix "$prefix" \
+	--arg result "$([[ $collection_failed -eq 0 ]] && echo PASS || echo FAIL)" \
+	--argjson records "$records_json" --argjson files "$files_json" --argjson errors "$errors_json" --argjson expected "$expected_json" \
+	'{schema_version:"v0.10-core-staging-evidence.v1",collection:{generated_utc:$generated_utc,result:$result,prefix:$prefix},run:{id:$run_id,attempt:$run_attempt,repository:$repository,workflow:$workflow},candidate:{tag:$candidate_tag,resolved_sha:$candidate_sha,expected_sha:$expected_sha,profile:"v0.10-core",migration_ceiling:"000124"},entries:$records,files:$files,validation:{errors:$errors,expected_ids:$expected}}' \
+	>"$index_tmp"
+mv "$index_tmp" "$evidence/evidence-index.json"
+
+manifest="$evidence/SHA256SUMS"
+(cd "$evidence" && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 -r sha256sum) >"$manifest"
+
+rm -f "$errors_file" "$records_file" "$files_file"
+
+if [[ "$local_only" == true ]]; then
+	if ((collection_failed)); then
+		echo "local evidence bundle created with validation failures: $evidence" >&2
+		exit 1
+	fi
+	echo "local evidence bundle created: $evidence"
+	exit 0
+fi
+
+# Validate cloud configuration only after local collection. The caller's
+# always() artifact step therefore retains evidence when this preflight fails.
+missing=()
+[[ -n "$bucket" ]] || missing+=("S3 bucket (--bucket or EVIDENCE_S3_BUCKET)")
+[[ -n "$endpoint" ]] || missing+=("S3 endpoint (--endpoint-url or EVIDENCE_S3_ENDPOINT)")
+export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-${EVIDENCE_S3_ACCESS_KEY_ID:-}}
+export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-${EVIDENCE_S3_SECRET_ACCESS_KEY:-}}
+[[ -n "$AWS_ACCESS_KEY_ID" ]] || missing+=("EVIDENCE_S3_ACCESS_KEY_ID")
+[[ -n "$AWS_SECRET_ACCESS_KEY" ]] || missing+=("EVIDENCE_S3_SECRET_ACCESS_KEY")
+command -v aws >/dev/null 2>&1 || missing+=("aws CLI")
+if ((${#missing[@]} > 0)); then
+	printf 'immutable evidence upload preflight failed; missing: %s\n' "${missing[*]}" >&2
+	missing_json=$(printf '%s\n' "${missing[@]}" | jq -Rsc 'split("\n")|map(select(length>0))')
+	index_tmp=$(mktemp)
+	jq --argjson errors "$missing_json" \
+		'.collection.result = "FAIL" | .validation.errors += $errors' \
+		"$evidence/evidence-index.json" >"$index_tmp"
+	mv "$index_tmp" "$evidence/evidence-index.json"
+	(cd "$evidence" && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 -r sha256sum) >"$manifest"
+	exit 1
+fi
+
 retain_until=$(date -u -d '+7 years' '+%Y-%m-%dT%H:%M:%SZ')
 aws_args=(--region "$region")
 [[ -n "$endpoint" ]] && aws_args+=(--endpoint-url "$endpoint")
 base_args=(--bucket "$bucket" "${aws_args[@]}")
+mapfile -d '' upload_files < <(find "$evidence" -type f -print0 | sort -z)
+(( ${#upload_files[@]} > 0 )) || { echo 'evidence bundle contains no files' >&2; exit 1; }
 
-while IFS= read -r -d '' file; do
+# Preflight every key before uploading any object. This prevents a partial upload
+# when a previous run already used one of the keys.
+for file in "${upload_files[@]}"; do
 	rel=${file#"$evidence"/}
 	key="$prefix/$rel"
-	if aws s3api head-object "${base_args[@]}" --key "$key" >/dev/null 2>&1; then
+	if head_output=$(aws s3api head-object "${base_args[@]}" --key "$key" 2>&1); then
 		echo "refusing to overwrite existing object: s3://$bucket/$key" >&2
 		exit 1
 	fi
+	if ! grep -Eqi '404|not[[:space:]-]?found|nosuchkey|no[[:space:]-]?such[[:space:]]key' <<<"$head_output"; then
+		echo "unable to determine whether object exists: s3://$bucket/$key" >&2
+		echo "$head_output" >&2
+		exit 1
+	fi
+done
+
+for file in "${upload_files[@]}"; do
+	rel=${file#"$evidence"/}
+	key="$prefix/$rel"
+	digest=$(sha256sum "$file" | awk '{print $1}')
 	aws s3api put-object "${base_args[@]}" --key "$key" --body "$file" \
+		--metadata "sha256=$digest" \
 		--object-lock-mode COMPLIANCE --object-lock-retain-until-date "$retain_until" >/dev/null
-	done < <(find "$evidence" -type f -print0)
+done
 
 # Verify retention on every uploaded object, including the manifest.
-while IFS= read -r -d '' file; do
+for file in "${upload_files[@]}"; do
 	rel=${file#"$evidence"/}; key="$prefix/$rel"
 	mode=$(aws s3api head-object "${base_args[@]}" --key "$key" --query ObjectLockMode --output text)
 	retained=$(aws s3api head-object "${base_args[@]}" --key "$key" --query ObjectLockRetainUntilDate --output text)
+	remote_sha=$(aws s3api head-object "${base_args[@]}" --key "$key" --query 'Metadata.sha256' --output text)
+	digest=$(sha256sum "$file" | awk '{print $1}')
 	[[ "$mode" == COMPLIANCE ]] || { echo "invalid Object Lock mode for $key: $mode" >&2; exit 1; }
-	[[ "$(date -u -d "$retained" +%s)" -ge "$(date -u -d "$retain_until" +%s)" ]] || { echo "retention too short for $key" >&2; exit 1; }
-done < <(find "$evidence" -type f -print0)
+	[[ "$retained" != None && "$(date -u -d "$retained" +%s)" -ge "$(date -u -d "$retain_until" +%s)" ]] || { echo "retention too short for $key" >&2; exit 1; }
+	[[ "$remote_sha" == "$digest" ]] || { echo "remote digest mismatch for $key" >&2; exit 1; }
+done
 
 echo "uploaded immutable evidence: s3://$bucket/$prefix (retain until $retain_until)"

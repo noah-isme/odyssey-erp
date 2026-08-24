@@ -9,12 +9,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"mime/multipart"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -47,6 +50,10 @@ const (
 	envDocumentCategoryID = "ODYSSEY_E2E_DOCUMENT_CATEGORY_ID"
 	envDocumentClassID    = "ODYSSEY_E2E_DOCUMENT_CLASSIFICATION_ID"
 	envAmount             = "ODYSSEY_E2E_AMOUNT"
+	envEvidenceIndex      = "ODYSSEY_EVIDENCE_INDEX"
+	envEvidenceRunID      = "ODYSSEY_EVIDENCE_RUN_ID"
+	envEvidenceArtifact   = "ODYSSEY_EVIDENCE_ARTIFACT_URI"
+	envEvidenceSHA256     = "ODYSSEY_EVIDENCE_SHA256"
 )
 
 var (
@@ -311,11 +318,79 @@ func parseRedirectID(t *testing.T, location string) int64 {
 type evidenceRecord struct {
 	EvidenceID   string `json:"evidence_id"`
 	Result       string `json:"result"`
+	RunID        string `json:"run_id"`
 	CollectedUTC string `json:"collected_utc"`
 	Details      string `json:"details"`
+	ArtifactURI  string `json:"artifact_uri"`
+	SHA256       string `json:"sha256"`
+}
+
+type evidenceIndex struct {
+	Version      int              `json:"version"`
+	RunID        string           `json:"run_id"`
+	CollectedUTC string           `json:"collected_utc"`
+	CandidateTag string           `json:"candidate_tag,omitempty"`
+	CandidateSHA string           `json:"candidate_sha,omitempty"`
+	Entries      []evidenceRecord `json:"entries"`
+	Missing      []string         `json:"missing,omitempty"`
 }
 
 type evidenceReporter struct{}
+
+var expectedEvidenceIDs = map[string]struct{}{
+	"ENV-002":     {},
+	"REL-004":     {},
+	"DB-002":      {},
+	"J-ARAP-001":  {},
+	"J-SALES-001": {},
+	"J-INV-001":   {},
+	"J-DOC-001":   {},
+	"J-CMMS-001":  {},
+	"ISO-001":     {},
+	"ISO-002":     {},
+	"ISO-003":     {},
+}
+
+var evidenceState = struct {
+	sync.Mutex
+	records map[string]evidenceRecord
+}{records: make(map[string]evidenceRecord)}
+
+var journeyState struct {
+	sync.Mutex
+	deliveryID int64
+}
+
+func rememberDeliveryID(id int64) {
+	journeyState.Lock()
+	journeyState.deliveryID = id
+	journeyState.Unlock()
+}
+
+func rememberedDeliveryID() int64 {
+	journeyState.Lock()
+	defer journeyState.Unlock()
+	return journeyState.deliveryID
+}
+
+func deliveryPathFor(id int64) string {
+	return "/delivery/orders/" + strconv.FormatInt(id, 10)
+}
+
+// TestMain always writes the machine-readable index when a staging endpoint or
+// explicit output path is configured. The index is intentionally assembled
+// after all tests have run so a failed/partial run records missing IDs rather
+// than silently treating the observed subset as a certification result.
+func TestMain(m *testing.M) {
+	code := m.Run()
+	if err := writeEvidenceIndex(); err != nil {
+		fmt.Fprintf(os.Stderr, "staging certification evidence index: %v\n", err)
+		if evidenceStrict() && code == 0 {
+			code = 1
+		}
+	}
+	os.Exit(code)
+}
 
 var evidenceIDPattern = regexp.MustCompile(`^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+$`)
 
@@ -324,12 +399,119 @@ func (evidenceReporter) pass(t *testing.T, evidenceID, details string) {
 	if !evidenceIDPattern.MatchString(evidenceID) {
 		t.Fatalf("invalid evidence ID %q: want uppercase hyphen-delimited ID", evidenceID)
 	}
-	record := evidenceRecord{EvidenceID: evidenceID, Result: "PASS", CollectedUTC: time.Now().UTC().Format(time.RFC3339), Details: details}
+	if _, ok := expectedEvidenceIDs[evidenceID]; !ok {
+		t.Fatalf("unexpected certification evidence ID %q; add it to the release contract before emitting it", evidenceID)
+	}
+	record := evidenceRecord{
+		EvidenceID:   evidenceID,
+		Result:       "PASS",
+		RunID:        evidenceRunID(),
+		CollectedUTC: time.Now().UTC().Format(time.RFC3339),
+		Details:      details,
+		ArtifactURI:  strings.TrimSpace(os.Getenv(envEvidenceArtifact)),
+		SHA256:       strings.TrimSpace(os.Getenv(envEvidenceSHA256)),
+	}
+	evidenceState.Lock()
+	_, duplicate := evidenceState.records[evidenceID]
+	if !duplicate {
+		evidenceState.records[evidenceID] = record
+	}
+	evidenceState.Unlock()
+	if duplicate {
+		t.Fatalf("duplicate certification evidence ID %q; each contract row must be emitted exactly once", evidenceID)
+	}
 	encoded, err := json.Marshal(record)
 	if err != nil {
 		t.Fatalf("marshal evidence %s: %v", evidenceID, err)
 	}
 	t.Logf("CERTIFICATION_EVIDENCE evidence_id=%s %s", evidenceID, encoded)
+}
+
+func evidenceRunID() string {
+	for _, key := range []string{envEvidenceRunID, "GITHUB_RUN_ID", "CI_PIPELINE_ID"} {
+		if value := strings.TrimSpace(os.Getenv(key)); value != "" {
+			return value
+		}
+	}
+	return "local-" + time.Now().UTC().Format("20060102T150405.000000000Z")
+}
+
+func evidenceStrict() bool {
+	if raw := strings.TrimSpace(os.Getenv("ODYSSEY_EVIDENCE_STRICT")); raw != "" {
+		parsed, err := strconv.ParseBool(raw)
+		return err == nil && parsed
+	}
+	return strings.TrimSpace(os.Getenv(envURL)) != ""
+}
+
+func writeEvidenceIndex() error {
+	path := strings.TrimSpace(os.Getenv(envEvidenceIndex))
+	if path == "" && strings.TrimSpace(os.Getenv(envURL)) != "" {
+		path = "evidence-index.json"
+	}
+	if path == "" {
+		return nil
+	}
+
+	evidenceState.Lock()
+	records := make([]evidenceRecord, 0, len(evidenceState.records))
+	for _, record := range evidenceState.records {
+		records = append(records, record)
+	}
+	evidenceState.Unlock()
+	sort.Slice(records, func(i, j int) bool { return records[i].EvidenceID < records[j].EvidenceID })
+
+	seen := make(map[string]struct{}, len(records))
+	for _, record := range records {
+		seen[record.EvidenceID] = struct{}{}
+	}
+	missing := make([]string, 0)
+	for evidenceID := range expectedEvidenceIDs {
+		if _, ok := seen[evidenceID]; !ok {
+			missing = append(missing, evidenceID)
+		}
+	}
+	sort.Strings(missing)
+
+	index := evidenceIndex{
+		Version:      1,
+		RunID:        evidenceRunID(),
+		CollectedUTC: time.Now().UTC().Format(time.RFC3339),
+		CandidateTag: strings.TrimSpace(os.Getenv("CANDIDATE_TAG")),
+		CandidateSHA: strings.TrimSpace(os.Getenv("EXPECTED_SHA")),
+		Entries:      records,
+		Missing:      missing,
+	}
+	encoded, err := json.MarshalIndent(index, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal: %w", err)
+	}
+	dir := filepath.Dir(path)
+	if dir != "." && dir != "" {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return fmt.Errorf("create output directory: %w", err)
+		}
+	}
+	tmp, err := os.CreateTemp(dir, ".evidence-index-*.tmp")
+	if err != nil {
+		return fmt.Errorf("create temporary output: %w", err)
+	}
+	tmpName := tmp.Name()
+	defer os.Remove(tmpName)
+	if _, err := tmp.Write(encoded); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("write: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("close: %w", err)
+	}
+	if err := os.Rename(tmpName, path); err != nil {
+		return fmt.Errorf("publish %s: %w", path, err)
+	}
+	if evidenceStrict() && len(missing) > 0 {
+		return fmt.Errorf("missing evidence IDs: %s", strings.Join(missing, ", "))
+	}
+	return nil
 }
 
 func assertDenied(t *testing.T, result httpResult, method, path string) {
@@ -397,6 +579,29 @@ func queryCount(t *testing.T, db *sql.DB, query string, args ...any) int64 {
 		t.Fatalf("query count %q: %v", query, err)
 	}
 	return value
+}
+
+func queryFloat64(t *testing.T, db *sql.DB, query string, args ...any) float64 {
+	t.Helper()
+	var value float64
+	if err := db.QueryRow(query, args...).Scan(&value); err != nil {
+		t.Fatalf("query float64 %q: %v", query, err)
+	}
+	return value
+}
+
+func assertBalancedJournal(t *testing.T, db *sql.DB, sourceModule, memo string) int64 {
+	t.Helper()
+	journalID := queryInt64(t, db, `
+		SELECT id FROM journal_entries
+		WHERE source_module=$1 AND memo=$2 AND status='POSTED'
+		ORDER BY id DESC LIMIT 1`, sourceModule, memo)
+	debit := queryFloat64(t, db, "SELECT COALESCE(SUM(debit),0)::double precision FROM journal_lines WHERE je_id=$1", journalID)
+	credit := queryFloat64(t, db, "SELECT COALESCE(SUM(credit),0)::double precision FROM journal_lines WHERE je_id=$1", journalID)
+	if debit <= 0 || credit <= 0 || math.Abs(debit-credit) > 0.005 {
+		t.Fatalf("journal %d (%s) is not balanced: debit=%.4f credit=%.4f", journalID, memo, debit, credit)
+	}
+	return journalID
 }
 
 func assertFixtureOwnership(t *testing.T, db *sql.DB, cfg stagingConfig) {
@@ -558,7 +763,31 @@ func TestStagingCoreJourneys(t *testing.T) {
 	if delivered := queryCount(t, db, "SELECT COUNT(*) FROM sales_order_lines WHERE id=$1 AND quantity_delivered=quantity", soLineID); delivered != 1 {
 		t.Fatalf("sales order line %d delivered rows = %d, want 1", soLineID, delivered)
 	}
-	report.pass(t, "J-SALES-001", fmt.Sprintf("sales_order_id=%d delivery_order_id=%d transitioned to DELIVERED with company_id=%d", salesID, deliveryID, cfg.companyID))
+	inventoryMovements := queryCount(t, db, `
+		SELECT COUNT(*)
+		FROM inventory_tx tx
+		JOIN delivery_orders d ON d.id=$1
+		WHERE tx.ref_module='DELIVERY'
+		  AND tx.warehouse_id=d.warehouse_id
+		  AND tx.note='Delivery ' || d.doc_number || ' Confirmed'`, deliveryID)
+	if inventoryMovements != 1 {
+		t.Fatalf("delivery %d inventory movement count = %d, want 1; delivery must prove durable stock decrement", deliveryID, inventoryMovements)
+	}
+	auditEvents := queryCount(t, db, `
+		SELECT COUNT(*) FROM audit_logs
+		WHERE entity='inventory_tx' AND meta->>'note'=$1`, "Delivery "+queryString(t, db, "SELECT doc_number FROM delivery_orders WHERE id=$1", deliveryID)+" Confirmed")
+	if auditEvents == 0 {
+		t.Fatalf("delivery %d has no durable audit event", deliveryID)
+	}
+	beforeDelivered := queryCount(t, db, "SELECT COUNT(*) FROM delivery_order_lines WHERE delivery_order_id=$1 AND quantity_delivered=quantity_to_deliver", deliveryID)
+	retryDelivery := client.postForm(t, deliveryPathFor(deliveryID)+"/complete", url.Values{"csrf_token": {fetchCSRF(t, client, deliveryPathFor(deliveryID))}})
+	assertStatus(t, retryDelivery, http.StatusSeeOther, http.MethodPost, deliveryPathFor(deliveryID)+"/complete [duplicate retry]")
+	afterDelivered := queryCount(t, db, "SELECT COUNT(*) FROM delivery_order_lines WHERE delivery_order_id=$1 AND quantity_delivered=quantity_to_deliver", deliveryID)
+	if beforeDelivered != 1 || afterDelivered != beforeDelivered {
+		t.Fatalf("delivery %d duplicate retry changed delivered lines from %d to %d", deliveryID, beforeDelivered, afterDelivered)
+	}
+	rememberDeliveryID(deliveryID)
+	report.pass(t, "J-SALES-001", fmt.Sprintf("sales_order_id=%d delivery_order_id=%d transitioned_to_delivered=true inventory_movements=%d duplicate_retry_preserved_delivered_lines=%d audit_events=%d company_id=%d", salesID, deliveryID, inventoryMovements, afterDelivered, auditEvents, cfg.companyID))
 
 	arToken := fetchCSRF(t, client, "/finance/ar/invoices/new")
 	arNumber := "CERT-AR-" + strconv.FormatInt(time.Now().UTC().UnixNano(), 10)
@@ -582,6 +811,11 @@ func TestStagingCoreJourneys(t *testing.T) {
 	}
 	postAR := client.postForm(t, arPath+"/post", url.Values{"csrf_token": {arCSRF}})
 	assertStatus(t, postAR, http.StatusSeeOther, http.MethodPost, arPath+"/post")
+	arJournalID := assertBalancedJournal(t, db, "AR.INVOICE", "AR Invoice "+arNumber)
+	arAuditEvents := queryCount(t, db, "SELECT COUNT(*) FROM audit_logs WHERE entity='ar_invoice' AND entity_id=$1", strconv.FormatInt(arID, 10))
+	if arAuditEvents == 0 {
+		t.Fatalf("AR invoice %d has no durable posting audit event", arID)
+	}
 	paymentToken := fetchCSRF(t, client, "/finance/ar/payments/new?ar_invoice_id="+strconv.FormatInt(arID, 10))
 	payment := client.postForm(t, "/finance/ar/payments", url.Values{
 		"csrf_token":    {paymentToken},
@@ -606,8 +840,6 @@ func TestStagingCoreJourneys(t *testing.T) {
 	if count := queryCount(t, db, "SELECT COUNT(*) FROM ar_invoices WHERE number=$1", arNumber); count != 1 {
 		t.Fatalf("AR invoice number %q count = %d, want 1", arNumber, count)
 	}
-	report.pass(t, "J-ARAP-001", fmt.Sprintf("sales_order_id=%d ar_invoice_id=%d payment allocation=1 duplicate_number_count=1", salesID, arID))
-
 	apToken := fetchCSRF(t, client, "/finance/ap/invoices/new")
 	apNumber := "CERT-AP-" + strconv.FormatInt(time.Now().UTC().UnixNano(), 10)
 	apCreate := client.postForm(t, "/finance/ap/invoices", url.Values{
@@ -621,6 +853,11 @@ func TestStagingCoreJourneys(t *testing.T) {
 	apCSRF := csrfFromBody(t, apDetail.body, apPath)
 	postAP := client.postForm(t, apPath+"/post", url.Values{"csrf_token": {apCSRF}})
 	assertStatus(t, postAP, http.StatusSeeOther, http.MethodPost, apPath+"/post")
+	apJournalID := assertBalancedJournal(t, db, "PROCUREMENT.AP_INVOICE", "AP Invoice "+apNumber)
+	apAuditEvents := queryCount(t, db, "SELECT COUNT(*) FROM audit_logs WHERE entity='ap_invoice' AND entity_id=$1", strconv.FormatInt(apID, 10))
+	if apAuditEvents == 0 {
+		t.Fatalf("AP invoice %d has no durable posting audit event", apID)
+	}
 	apPaymentToken := fetchCSRF(t, client, "/finance/ap/payments/new?ap_invoice_id="+strconv.FormatInt(apID, 10))
 	apPayment := client.postForm(t, "/finance/ap/payments", url.Values{
 		"csrf_token": {apPaymentToken}, "supplier_id": {strconv.FormatInt(cfg.supplierID, 10)},
@@ -634,8 +871,10 @@ func TestStagingCoreJourneys(t *testing.T) {
 	if count := queryCount(t, db, "SELECT COUNT(*) FROM ap_payment_allocations WHERE ap_invoice_id=$1", apID); count != 1 {
 		t.Fatalf("AP invoice %d allocation count = %d, want 1", apID, count)
 	}
-	report.pass(t, "J-ARAP-001-AP", fmt.Sprintf("grn_id=%d ap_invoice_id=%d payment allocation=1", cfg.grnID, apID))
+	report.pass(t, "J-ARAP-001", fmt.Sprintf("sales_order_id=%d ar_invoice_id=%d ap_invoice_id=%d ar_journal_id=%d ap_journal_id=%d ar_payment_allocations=1 ap_payment_allocations=1 duplicate_ar_number_count=1 ar_audit_events=%d ap_audit_events=%d", salesID, arID, apID, arJournalID, apJournalID, arAuditEvents, apAuditEvents))
 
+	systemQty := queryFloat64(t, db, "SELECT COALESCE((SELECT qty FROM inventory_balances WHERE warehouse_id=$1 AND product_id=$2),0)::double precision", cfg.warehouseID, cfg.productID)
+	physicalQty := strconv.FormatFloat(systemQty+1, 'f', 4, 64)
 	stockToken := fetchCSRF(t, client, "/inventory/stock-takes/new")
 	stockCreate := client.postForm(t, "/inventory/stock-takes", url.Values{
 		"csrf_token": {stockToken}, "warehouse_id": {strconv.FormatInt(cfg.warehouseID, 10)},
@@ -648,7 +887,7 @@ func TestStagingCoreJourneys(t *testing.T) {
 	stockCSRF := csrfFromBody(t, stockDetail.body, stockPath)
 	line := client.postForm(t, stockPath+"/lines", url.Values{
 		"csrf_token": {stockCSRF}, "product_id": {strconv.FormatInt(cfg.productID, 10)},
-		"physical_qty": {"0"}, "note": {"certification count"},
+		"physical_qty": {physicalQty}, "note": {"certification count"},
 	})
 	assertStatus(t, line, http.StatusSeeOther, http.MethodPost, stockPath+"/lines")
 	postStock := client.postForm(t, stockPath+"/post", url.Values{"csrf_token": {fetchCSRF(t, client, stockPath)}})
@@ -656,12 +895,25 @@ func TestStagingCoreJourneys(t *testing.T) {
 	if status := queryString(t, db, "SELECT status FROM inventory_stock_takes WHERE id=$1", stockID); status != "POSTED" {
 		t.Fatalf("stock take %d status = %q, want POSTED", stockID, status)
 	}
+	stockNumber := queryString(t, db, "SELECT number FROM inventory_stock_takes WHERE id=$1", stockID)
+	stockMovements := queryCount(t, db, "SELECT COUNT(*) FROM inventory_tx WHERE ref_module='STOCK_TAKE' AND note=$1", "Stock Take adjustment: "+stockNumber)
+	if stockMovements != 1 {
+		t.Fatalf("stock take %d adjustment movement count = %d, want 1", stockID, stockMovements)
+	}
+	stockAuditEvents := queryCount(t, db, "SELECT COUNT(*) FROM audit_logs WHERE entity='inventory_tx' AND meta->>'note'=$1", "Stock Take adjustment: "+stockNumber)
+	if stockAuditEvents == 0 {
+		t.Fatalf("stock take %d has no durable inventory audit event", stockID)
+	}
+	avgCost := queryFloat64(t, db, "SELECT COALESCE(avg_cost,0)::double precision FROM inventory_balances WHERE warehouse_id=$1 AND product_id=$2", cfg.warehouseID, cfg.productID)
+	if avgCost < 0 {
+		t.Fatalf("inventory valuation avg_cost=%f, want non-negative", avgCost)
+	}
 	repeatPost := client.postForm(t, stockPath+"/post", url.Values{"csrf_token": {fetchCSRF(t, client, stockPath)}})
 	assertStatus(t, repeatPost, http.StatusSeeOther, http.MethodPost, stockPath+"/post [duplicate]")
 	if count := queryCount(t, db, "SELECT COUNT(*) FROM inventory_stock_takes WHERE id=$1", stockID); count != 1 {
 		t.Fatalf("stock take %d count = %d, want 1", stockID, count)
 	}
-	report.pass(t, "J-INV-001", fmt.Sprintf("stock_take_id=%d posted once; repeated post preserved one header", stockID))
+	report.pass(t, "J-INV-001", fmt.Sprintf("stock_take_id=%d posted_once=true adjustment_movements=%d avg_cost=%.4f duplicate_post_preserved_one_header=true audit_events=%d", stockID, stockMovements, avgCost, stockAuditEvents))
 
 	documentToken := fetchCSRF(t, client, "/documents/library/new")
 	documentCreate := client.postForm(t, "/documents/library", url.Values{
@@ -755,19 +1007,72 @@ func TestStagingTenantIsolation(t *testing.T) {
 	}
 	report.pass(t, "ISO-001", fmt.Sprintf("branch identity retained company_id=%d branch_id=%d", cfg.companyID, cfg.branchID))
 
+	// ISO-003 is deliberately backed by effective-dated RBAC rows rather than
+	// logout. A logout only proves session invalidation; it cannot prove that an
+	// already-issued session is re-evaluated after assignment expiry/revocation.
+	branchUserID := queryInt64(t, db, "SELECT id FROM users WHERE email=$1", cfg.branch.email)
+	expiredAssignments := queryCount(t, db, `
+		SELECT COUNT(*)
+		FROM rbac_user_role_assignments
+		WHERE company_id=$1 AND user_id=$2 AND branch_id=$3
+		  AND valid_to IS NOT NULL AND valid_to <= NOW()`, cfg.companyID, branchUserID, cfg.branchID)
+	revokedReviews := queryCount(t, db, `
+		SELECT COUNT(*)
+		FROM rbac_access_reviews
+		WHERE company_id=$1 AND subject_user_id=$2
+		  AND status='COMPLETED' AND decision='REVOKE'
+		  AND decided_by_user_id IS NOT NULL AND decided_at IS NOT NULL`, cfg.companyID, branchUserID)
+	if expiredAssignments == 0 || revokedReviews == 0 {
+		t.Fatalf("ISO-003 requires an expired branch assignment and a completed REVOKE access review for branch user %d; expired_assignments=%d revoked_reviews=%d", branchUserID, expiredAssignments, revokedReviews)
+	}
+	staleSessionAccess := branch.get(t, "/finance/ar/invoices")
+	assertDenied(t, staleSessionAccess, http.MethodGet, "/finance/ar/invoices [expired/revoked existing session]")
+	report.pass(t, "ISO-003", fmt.Sprintf("existing branch session denied after expired_assignments=%d and revoked_reviews=%d; reviewer actor/timestamp persisted", expiredAssignments, revokedReviews))
+
 	noAccess := setupClient(t, cfg.baseURL, cfg.noAccess)
 	denied := noAccess.get(t, "/finance/ar/invoices")
 	assertStatus(t, denied, http.StatusForbidden, http.MethodGet, "/finance/ar/invoices [no-access]")
 	deniedMutation := noAccess.postForm(t, "/finance/ar/invoices", url.Values{"csrf_token": {fetchCSRF(t, noAccess, "/")}})
 	assertStatus(t, deniedMutation, http.StatusForbidden, http.MethodPost, "/finance/ar/invoices [no-access mutation]")
-	report.pass(t, "ISO-003", "no-access identity received 403 for read and mutation")
+
+	otherInvoiceID := queryInt64(t, db, `
+		SELECT i.id
+		FROM ar_invoices i
+		JOIN customers c ON c.id=i.customer_id
+		WHERE c.company_id=$1
+		ORDER BY i.id DESC LIMIT 1`, cfg.otherCompanyID)
+	forgedObject := noAccess.get(t, "/finance/ar/invoices/"+strconv.FormatInt(otherInvoiceID, 10))
+	assertDenied(t, forgedObject, http.MethodGet, "/finance/ar/invoices/{other-company-id} [no-access forged object]")
+
+	// Re-submit the exact delivery completion input produced by the core
+	// journey. The handler may redirect on a rejected state transition, so the
+	// durable quantity is the authoritative idempotency assertion. This is a
+	// supporting HTTP idempotency check; forged worker payloads are collected in
+	// the operator evidence lane because rc.6 exposes no tenant-aware worker
+	// injection endpoint.
+	deliveryID := rememberedDeliveryID()
+	if deliveryID <= 0 {
+		t.Fatalf("ISO-004 requires the delivery artifact from TestStagingCoreJourneys")
+	}
+	deliveryPath := "/delivery/orders/" + strconv.FormatInt(deliveryID, 10)
+	beforeDelivered := queryCount(t, db, "SELECT COUNT(*) FROM delivery_order_lines WHERE delivery_order_id=$1 AND quantity_delivered=quantity_to_deliver", deliveryID)
+	if beforeDelivered != 1 {
+		t.Fatalf("delivery %d has %d fully delivered lines before duplicate worker/input retry, want 1", deliveryID, beforeDelivered)
+	}
+	retryDelivery := admin.postForm(t, deliveryPath+"/complete", url.Values{"csrf_token": {fetchCSRF(t, admin, deliveryPath)}})
+	assertStatus(t, retryDelivery, http.StatusSeeOther, http.MethodPost, deliveryPath+"/complete [duplicate retry]")
+	afterDelivered := queryCount(t, db, "SELECT COUNT(*) FROM delivery_order_lines WHERE delivery_order_id=$1 AND quantity_delivered=quantity_to_deliver", deliveryID)
+	if afterDelivered != beforeDelivered {
+		t.Fatalf("delivery %d duplicate retry changed fully delivered line count from %d to %d", deliveryID, beforeDelivered, afterDelivered)
+	}
+	t.Logf("supporting HTTP idempotency assertion: no-access read/mutation and forged object denied; duplicate delivery retry preserved delivered_lines=%d", afterDelivered)
 
 	logoutToken := fetchCSRF(t, admin, "/")
 	logout := admin.postForm(t, "/auth/logout", url.Values{"csrf_token": {logoutToken}})
 	assertStatus(t, logout, http.StatusSeeOther, http.MethodPost, "/auth/logout")
 	postLogout := admin.get(t, "/")
 	assertStatus(t, postLogout, http.StatusSeeOther, http.MethodGet, "/ [after logout]")
-	report.pass(t, "ISO-004", "session logout invalidated access and redirected to welcome")
+	t.Log("supporting assertion: logout invalidated access and redirected to welcome")
 }
 
 func TestStagingMigrationCeiling(t *testing.T) {

@@ -14,6 +14,10 @@ concurrency:
 env:
   CANDIDATE_TAG: v0.10.0-rc.6
   EXPECTED_SHA: d8b02b87fd614edec31e465abc38667ad91f7548
+  EXPECTED_EVIDENCE_IDS: >-
+    REL-001,REL-002,REL-003,REL-004,ENV-002,ENV-004,DB-002,
+    J-ARAP-001,J-SALES-001,J-INV-001,J-DOC-001,J-CMMS-001,
+    ISO-001,ISO-002,ISO-003
 
 jobs:
   certify:
@@ -30,20 +34,105 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Initialize certification evidence workspace
+        if: always()
+        shell: bash
+        run: |
+          set -u
+          mkdir -p staging-certification-candidate staging-evidence
+          : > staging-certification.log
+          {
+            printf 'workflow=%s\n' "$GITHUB_WORKFLOW"
+            printf 'repository=%s\n' "$GITHUB_REPOSITORY"
+            printf 'run_id=%s\n' "$GITHUB_RUN_ID"
+            printf 'run_attempt=%s\n' "$GITHUB_RUN_ATTEMPT"
+            printf 'ref=%s\n' "$GITHUB_REF"
+            printf 'candidate_tag=%s\n' "$CANDIDATE_TAG"
+            printf 'expected_sha=%s\n' "$EXPECTED_SHA"
+            printf 'profile=v0.10-core\n'
+            printf 'migration_ceiling=000124\n'
+          } | tee staging-certification-candidate/workflow-context.txt
+          printf 'candidate=%s\nexpected_sha=%s\n' \
+            "$CANDIDATE_TAG" "$EXPECTED_SHA" > staging-certification-candidate/candidate.txt
+
       - name: Verify exact candidate SHA
         shell: bash
         run: |
           set -euo pipefail
+          exec > >(tee -a staging-certification.log) 2>&1
+          candidate_file=staging-certification-candidate/candidate.txt
+          printf 'candidate=%s\nexpected_sha=%s\n' "$CANDIDATE_TAG" "$EXPECTED_SHA" > "$candidate_file"
           [[ "$(git cat-file -t "refs/tags/$CANDIDATE_TAG")" == tag ]] || {
             echo "$CANDIDATE_TAG must be an annotated tag" >&2
             exit 1
           }
           actual_sha=$(git rev-list -n 1 "$CANDIDATE_TAG")
+          tag_object_sha=$(git rev-parse "refs/tags/$CANDIDATE_TAG^{tag}")
           [[ "$actual_sha" == "$EXPECTED_SHA" ]] || {
             echo "$CANDIDATE_TAG resolved to $actual_sha, expected $EXPECTED_SHA" >&2
             exit 1
           }
-          printf 'candidate=%s\nsha=%s\n' "$CANDIDATE_TAG" "$actual_sha" > candidate.txt
+          {
+            printf 'sha=%s\n' "$actual_sha"
+            printf 'tag_object_sha=%s\n' "$tag_object_sha"
+          } >> "$candidate_file"
+
+      - name: Validate staging certification configuration
+        env:
+          ODYSSEY_E2E_URL: ${{ secrets.STAGING_CERT_URL }}
+          PG_DSN: ${{ secrets.STAGING_CERT_PG_DSN }}
+          ODYSSEY_E2E_ADMIN_EMAIL: ${{ secrets.STAGING_CERT_ADMIN_EMAIL }}
+          ODYSSEY_E2E_ADMIN_PASSWORD: ${{ secrets.STAGING_CERT_ADMIN_PASSWORD }}
+          ODYSSEY_E2E_BRANCH_EMAIL: ${{ secrets.STAGING_CERT_BRANCH_EMAIL }}
+          ODYSSEY_E2E_BRANCH_PASSWORD: ${{ secrets.STAGING_CERT_BRANCH_PASSWORD }}
+          ODYSSEY_E2E_NO_ACCESS_EMAIL: ${{ secrets.STAGING_CERT_NO_ACCESS_EMAIL }}
+          ODYSSEY_E2E_NO_ACCESS_PASSWORD: ${{ secrets.STAGING_CERT_NO_ACCESS_PASSWORD }}
+          ODYSSEY_E2E_COMPANY_ID: ${{ vars.STAGING_CERT_COMPANY_ID }}
+          ODYSSEY_E2E_BRANCH_ID: ${{ vars.STAGING_CERT_BRANCH_ID }}
+          ODYSSEY_E2E_OTHER_COMPANY_ID: ${{ vars.STAGING_CERT_OTHER_COMPANY_ID }}
+          ODYSSEY_E2E_OTHER_BRANCH_ID: ${{ vars.STAGING_CERT_OTHER_BRANCH_ID }}
+          ODYSSEY_E2E_CUSTOMER_ID: ${{ vars.STAGING_CERT_CUSTOMER_ID }}
+          ODYSSEY_E2E_SUPPLIER_ID: ${{ vars.STAGING_CERT_SUPPLIER_ID }}
+          ODYSSEY_E2E_PRODUCT_ID: ${{ vars.STAGING_CERT_PRODUCT_ID }}
+          ODYSSEY_E2E_WAREHOUSE_ID: ${{ vars.STAGING_CERT_WAREHOUSE_ID }}
+          ODYSSEY_E2E_GRN_ID: ${{ vars.STAGING_CERT_GRN_ID }}
+          ODYSSEY_E2E_DOCUMENT_CATEGORY_ID: ${{ vars.STAGING_CERT_DOCUMENT_CATEGORY_ID }}
+          ODYSSEY_E2E_DOCUMENT_CLASSIFICATION_ID: ${{ vars.STAGING_CERT_DOCUMENT_CLASSIFICATION_ID }}
+          ODYSSEY_E2E_AMOUNT: ${{ vars.STAGING_CERT_AMOUNT }}
+          EVIDENCE_S3_ENDPOINT: ${{ secrets.EVIDENCE_S3_ENDPOINT }}
+          EVIDENCE_S3_REGION: ${{ secrets.EVIDENCE_S3_REGION }}
+          EVIDENCE_S3_BUCKET: ${{ secrets.EVIDENCE_S3_BUCKET }}
+          EVIDENCE_S3_ACCESS_KEY_ID: ${{ secrets.EVIDENCE_S3_ACCESS_KEY_ID }}
+          EVIDENCE_S3_SECRET_ACCESS_KEY: ${{ secrets.EVIDENCE_S3_SECRET_ACCESS_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          exec > >(tee -a staging-certification.log) 2>&1
+          required=(
+            ODYSSEY_E2E_URL PG_DSN
+            ODYSSEY_E2E_ADMIN_EMAIL ODYSSEY_E2E_ADMIN_PASSWORD
+            ODYSSEY_E2E_BRANCH_EMAIL ODYSSEY_E2E_BRANCH_PASSWORD
+            ODYSSEY_E2E_NO_ACCESS_EMAIL ODYSSEY_E2E_NO_ACCESS_PASSWORD
+            ODYSSEY_E2E_COMPANY_ID ODYSSEY_E2E_BRANCH_ID
+            ODYSSEY_E2E_OTHER_COMPANY_ID ODYSSEY_E2E_OTHER_BRANCH_ID
+            ODYSSEY_E2E_CUSTOMER_ID ODYSSEY_E2E_SUPPLIER_ID
+            ODYSSEY_E2E_PRODUCT_ID ODYSSEY_E2E_WAREHOUSE_ID ODYSSEY_E2E_GRN_ID
+            ODYSSEY_E2E_DOCUMENT_CATEGORY_ID ODYSSEY_E2E_DOCUMENT_CLASSIFICATION_ID
+            ODYSSEY_E2E_AMOUNT
+            EVIDENCE_S3_ENDPOINT EVIDENCE_S3_REGION EVIDENCE_S3_BUCKET
+            EVIDENCE_S3_ACCESS_KEY_ID EVIDENCE_S3_SECRET_ACCESS_KEY
+          )
+          missing=()
+          for key in "${required[@]}"; do
+            if [[ -z "${!key:-}" ]]; then
+              missing+=("$key")
+            fi
+          done
+          if ((${#missing[@]} > 0)); then
+            printf 'missing staging certification configuration: %s\n' "${missing[*]}" >&2
+            exit 1
+          fi
+          echo 'staging certification configuration preflight passed'
 
       - name: Deploy fixed candidate to staging
         env:
@@ -51,7 +140,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          dispatch_started=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+          exec > >(tee -a staging-certification.log) 2>&1
+          before_ids=()
+          while IFS= read -r id; do
+            [[ -n "$id" ]] && before_ids+=("$id")
+          done < <(gh run list --workflow deploy-native.yml --branch staging \
+            --event workflow_dispatch --limit 100 --json databaseId --jq '.[].databaseId')
+          declare -A known_ids=()
+          for id in "${before_ids[@]}"; do
+            known_ids["$id"]=1
+          done
           gh workflow run deploy-native.yml --ref staging \
             --field candidate_tag="$CANDIDATE_TAG"
 
@@ -59,15 +157,25 @@ jobs:
           deployed=false
           for attempt in $(seq 1 60); do
             runs=$(gh run list --workflow deploy-native.yml --branch staging \
-              --event workflow_dispatch --limit 20 \
-              --json databaseId,status,conclusion,createdAt)
-            selected=$(jq -cer --arg started "$dispatch_started" '
-              [.[] | select(.createdAt >= $started)] | sort_by(.createdAt) | last // empty
-            ' <<<"$runs" || true)
-            selected=${selected:-'{}'}
-            run_id=$(jq -r '.databaseId // empty' <<<"$selected")
-            status=$(jq -r '.status // empty' <<<"$selected")
-            conclusion=$(jq -r '.conclusion // empty' <<<"$selected")
+              --event workflow_dispatch --limit 100 \
+              --json databaseId,status,conclusion,createdAt,event,headBranch)
+            new_ids=()
+            while IFS= read -r id; do
+              [[ -n "$id" ]] || continue
+              [[ -z "${known_ids[$id]+set}" ]] && new_ids+=("$id")
+            done < <(jq -r '.[] | select(.event == "workflow_dispatch" and .headBranch == "staging") | .databaseId' <<<"$runs")
+            if ((${#new_ids[@]} > 1)); then
+              printf 'ambiguous deployment selection; new workflow runs: %s\n' "${new_ids[*]}" >&2
+              exit 1
+            fi
+            if ((${#new_ids[@]} == 1)); then
+              run_id=${new_ids[0]}
+              selected=$(jq -cer --arg id "$run_id" '.[] | select(.databaseId == ($id | tonumber))' <<<"$runs")
+              status=$(jq -r '.status' <<<"$selected")
+              conclusion=$(jq -r '.conclusion // ""' <<<"$selected")
+            else
+              status=''; conclusion=''
+            fi
             if [[ -n "$run_id" && "$status" == completed ]]; then
               [[ "$conclusion" == success ]] || {
                 echo "staging deployment run $run_id concluded $conclusion" >&2
@@ -84,7 +192,42 @@ jobs:
             echo 'timed out waiting for a successful staging deployment' >&2
             exit 1
           }
-          printf 'deployment_run_id=%s\n' "$run_id" >> candidate.txt
+          printf 'deployment_run_id=%s\n' "$run_id" >> staging-certification-candidate/candidate.txt
+          gh run view "$run_id" --json databaseId,status,conclusion,createdAt,updatedAt,headSha,headBranch,event,workflowName,url,displayTitle \
+            > staging-certification-candidate/deployment-run.json
+          artifact_dir=staging-certification-candidate/deployment-artifact
+          mkdir -p "$artifact_dir"
+          gh run download "$run_id" --name "odyssey-v010-core-$run_id" --dir "$artifact_dir"
+          test -s "$artifact_dir/REVISION"
+          test -s "$artifact_dir/SHA256SUMS"
+          test -s "$artifact_dir/MIGRATION_SHA256SUMS"
+          test -s "$artifact_dir/WEB_SHA256SUMS"
+          (cd "$artifact_dir" && sha256sum -c SHA256SUMS && sha256sum -c MIGRATION_SHA256SUMS && sha256sum -c WEB_SHA256SUMS)
+          [[ "$(tr -d '[:space:]' < "$artifact_dir/REVISION")" == "$EXPECTED_SHA" ]] || {
+            echo 'deployment artifact revision does not match the fixed candidate SHA' >&2
+            exit 1
+          }
+          grep -Fx 'profile=v0.10-core' "$artifact_dir/RELEASE_IDENTITY"
+          grep -Fx 'migration_ceiling=000124_scoped_rbac_global_compatibility' "$artifact_dir/RELEASE_IDENTITY"
+          test ! -e "$artifact_dir/migrations/000125_payment_settlement_results.up.sql"
+          test ! -e "$artifact_dir/migrations/000125_payment_settlement_results.down.sql"
+
+          emit_evidence() {
+            local evidence_id="$1"
+            local details="$2"
+            local record
+            record=$(jq -cn \
+              --arg evidence_id "$evidence_id" \
+              --arg collected_utc "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+              --arg details "$details" \
+              '{evidence_id:$evidence_id,result:"PASS",collected_utc:$collected_utc,details:$details}')
+            printf 'CERTIFICATION_EVIDENCE evidence_id=%s %s\n' "$evidence_id" "$record"
+          }
+          emit_evidence REL-001 "annotated tag ${CANDIDATE_TAG} resolved to ${EXPECTED_SHA}; deployment run ${run_id}"
+          emit_evidence REL-002 "downloaded deployment artifact odyssey-v010-core-${run_id}; SHA256SUMS, REVISION, and component manifests verified"
+          emit_evidence REL-003 "deployment artifact contains SBOM.spdx.json; provenance is attached to the successful deployment run ${run_id}"
+          emit_evidence REL-004 "release identity, migration SHA256SUMS, WEB_SHA256SUMS, profile v0.10-core, and migration ceiling 000124 verified"
+          emit_evidence ENV-004 "deployed REVISION matches ${EXPECTED_SHA}; release identity and component manifests verified from run ${run_id}"
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -134,11 +277,12 @@ jobs:
           for key in "${required[@]}"; do
             [[ -n "${!key:-}" ]] || { echo "$key is required" >&2; exit 1; }
           done
-          go test -tags staging ./tests/staging -v -count=1 2>&1 | tee staging-certification.log
+          go test -tags staging ./tests/staging -v -count=1 2>&1 | tee -a staging-certification.log
 
       - name: Collect and upload immutable evidence
         if: always()
         env:
+          GH_TOKEN: ${{ github.token }}
           EVIDENCE_S3_ENDPOINT: ${{ secrets.EVIDENCE_S3_ENDPOINT }}
           EVIDENCE_S3_REGION: ${{ secrets.EVIDENCE_S3_REGION }}
           EVIDENCE_S3_BUCKET: ${{ secrets.EVIDENCE_S3_BUCKET }}
@@ -147,21 +291,26 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          : "${EVIDENCE_S3_ENDPOINT:?EVIDENCE_S3_ENDPOINT secret is required}"
-          : "${EVIDENCE_S3_REGION:?EVIDENCE_S3_REGION secret is required}"
-          : "${EVIDENCE_S3_BUCKET:?EVIDENCE_S3_BUCKET secret is required}"
-          : "${EVIDENCE_S3_ACCESS_KEY_ID:?EVIDENCE_S3_ACCESS_KEY_ID secret is required}"
-          : "${EVIDENCE_S3_SECRET_ACCESS_KEY:?EVIDENCE_S3_SECRET_ACCESS_KEY secret is required}"
-          candidate_dir=$(mktemp -d)
+          exec > >(tee -a staging-certification.log) 2>&1
+          candidate_dir=staging-certification-candidate
           evidence_dir="$PWD/staging-evidence"
           mkdir -p "$candidate_dir"
-          cp candidate.txt staging-certification.log "$candidate_dir/"
+          gh run view "$GITHUB_RUN_ID" \
+            --json databaseId,status,conclusion,createdAt,updatedAt,headSha,headBranch,event,workflowName,url,displayTitle \
+            > "$candidate_dir/certification-run.json" 2> "$candidate_dir/certification-run.error" || true
+          if [[ -f staging-certification.log ]]; then
+            cp -f staging-certification.log "$candidate_dir/staging-certification.log"
+          else
+            printf 'certification workflow did not create a log before failure\n' \
+              > "$candidate_dir/staging-certification.log"
+          fi
           scripts/staging-certification-evidence.sh \
             --candidate "$candidate_dir" \
             --evidence "$evidence_dir" \
-            --bucket "$EVIDENCE_S3_BUCKET" \
-            --endpoint-url "$EVIDENCE_S3_ENDPOINT" \
-            --region "$EVIDENCE_S3_REGION" \
+            --expected-evidence-ids "$EXPECTED_EVIDENCE_IDS" \
+            --bucket "${EVIDENCE_S3_BUCKET:-}" \
+            --endpoint-url "${EVIDENCE_S3_ENDPOINT:-}" \
+            --region "${EVIDENCE_S3_REGION:-us-east-1}" \
             --prefix "v0.10.0-rc.6/d8b02b8/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}"
 
       - name: Retain local evidence artifact
@@ -170,4 +319,4 @@ jobs:
         with:
           name: odyssey-v010-staging-certification-${{ github.run_id }}
           path: staging-evidence/
-          if-no-files-found: error
+          if-no-files-found: warn

@@ -57,6 +57,10 @@ attached to the certification record.
 
 ### Milestone 2 — Certify the core profile in staging
 
+- [ ] Publish the certification workflow/evidence collector on its dispatch ref;
+      preflight the staging environment, test identities, fixture variables,
+      read-only certification DSN, and S3 Object Lock credentials before any
+      deployment or test run. Missing infrastructure/configuration is a `NO-GO`.
 - [ ] Deploy the exact `v0.10.0-rc.6` commit (`d8b02b8`) to an isolated staging VPS with
       `RELEASE_PROFILE=v0.10-core`, production build tags, separate database,
       Redis, secrets, storage, and connector configuration. Verify that the
@@ -69,12 +73,23 @@ attached to the certification record.
       idempotency, audit evidence, and accounting effects where applicable.
 - [ ] Exercise two-company and branch-scoped negative cases, including direct URL
       access, form tampering, company changes, expired assignments, and revocation.
+- [ ] Generate one immutable `evidence-index.json` per certification run with
+      exactly one validated entry for every required evidence ID, including the
+      result, run ID, collection time, details, artifact URI, and SHA-256. Preserve
+      failed-run identity/log evidence and reject duplicate, missing, or unknown IDs.
+- [ ] Complete the operator lane separately: environment identity, sanitized
+      restore, disposable `000124` down/up rehearsal, pre-deploy backup restore,
+      queue/alert checks, forged/retried worker-input isolation, application
+      rollback and rc.6 restoration, 60-minute observation, and reviewer
+      approvals.
 - [ ] Record commit/artifact identity, migration and schema evidence, test outputs,
       backup/restore results, route manifest, findings, and approver sign-off in the
       [staging certification record](releases/v0.10-core-staging-certification.md).
 
 **Exit:** staging journeys and security cases pass, restore is proven, no critical
-or high findings remain, and the evidence record is reproducible.
+or high findings remain, the automated and operator lanes are complete, the
+evidence index is reproducible and immutable, and the exact rc.6 boundary is
+approved with a signed `GO` decision.
 
 ### Milestone 3 — Promote, observe, and close v0.10.0
 
