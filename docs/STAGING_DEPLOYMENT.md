@@ -23,7 +23,7 @@ production by GitHub environment, secrets, filesystem paths, systemd units,
 application port, database, and Redis instance.
 
 Certification has two explicit lanes. The automated lane deploys and tests the
-fixed candidate, validates the profile/route/migration boundary, and emits the
+exact candidate supplied at dispatch, validates the profile/route/migration boundary, and emits the
 machine-readable `evidence-index.json`. The operator lane proves environment
 identity, backup/restore, migration recovery, service/queue/alert behavior,
 rollback, observation, and approvals. A green automated workflow is necessary
@@ -34,12 +34,12 @@ evidence IDs, result policy, and decision rules.
 ## Deployment contract
 
 The workflow deploys automatically only after a successful `CI` workflow for
-the `staging` branch. For the current release-candidate certification, use the
-manual workflow dispatch with the annotated `v0.10.0-rc.6` tag. The tag must
-resolve to post-rc.5 commit `d8b02b87fd614edec31e465abc38667ad91f7548`; the
-reviewed application baseline remains `ec65cc08639c184030c63e3407791987eee92804`.
-The workflow verifies that the tag resolves to the checked-out commit and that
-the same commit has a successful `CI` run before building.
+the `staging` branch. For a v0.10-core certification, use the manual workflow
+dispatch with the exact annotated candidate tag and its 40-character commit
+SHA. The workflow verifies that the tag resolves to the checked-out commit and
+that the same commit has a successful `CI` run before building. The current
+staging branch contains work beyond the bounded profile (including v0.11
+migrations), so it must never be used as the v0.10 candidate source.
 It builds the Linux release artifacts once, creates `SHA256SUMS`, migration and
 web manifests, an SPDX SBOM, and a provenance attestation, retains the bundle
 as an immutable workflow artifact, then uploads that exact bundle to the VPS.
@@ -55,9 +55,9 @@ drift into staging.
 The dispatch ref must contain the certification workflow and its evidence
 collector. If `.github/workflows/certify-v010-staging.yml` is not present on the
 selected GitHub ref, stop and publish the certification tooling before dispatch;
-do not infer availability from an unpushed local file. The workflow may move on
-its tooling branch, but every run must still resolve and deploy the immutable
-rc.6 SHA above.
+do not infer availability from an unpushed local file. The workflow accepts
+`candidate_tag` and `expected_sha` inputs, so a corrected descendant candidate
+(for example, `v0.10.0-rc.7`) can be certified without changing the workflow.
 
 Configure a GitHub environment named `staging` with these secrets:
 
@@ -297,7 +297,7 @@ output is insufficient.
 | Environment and security | `ENV-001`, `ENV-003`, `OPS-001`, `OPS-002` | Host/database/Redis/storage identity, staging-only secrets/endpoints, service status/logs, health, secure cookie/CSRF/TLS checks, and no production leakage. |
 | Database recovery | `DB-001`, `DB-003`, `DB-004` | Restore a sanitized production-like backup; exercise `000124` down/up only on a disposable clone; create and restore-verify the pre-deploy backup on a second clean database. |
 | Queue, worker, and audit operations | `OPS-003`, `ISO-004` | Exercise delivery/retry/dead-letter convergence, forged/retried worker inputs containing another scope, and verify durable audit events and alert delivery. |
-| Rollback and observation | `OPS-004`, `OPS-005` | Point the symlink to the previous verified bundle, prove health, restore rc.6 and its digest, then observe for at least 60 minutes with request, latency, queue, database/Redis, resource, alert, incident, and handoff evidence. |
+| Rollback and observation | `OPS-004`, `OPS-005` | Point the symlink to the previous verified bundle, prove health, restore the exact candidate and its digest, then observe for at least 60 minutes with request, latency, queue, database/Redis, resource, alert, incident, and handoff evidence. |
 | Approval | `APR-001` | Obtain test, security, operations, and release-owner review of the complete index and operator artifacts, then sign the `GO`/`NO-GO` decision. |
 
 Do not run an untested `000124` down migration against the live staging
@@ -306,14 +306,15 @@ journey, recovery, isolation, or release-control row.
 
 ## Automated v0.10-core certification
 
-After the manual rc.6 deployment succeeds, dispatch
+After the manual candidate deployment succeeds, dispatch
 `.github/workflows/certify-v010-staging.yml` from the certification tooling
-branch. The workflow is fixed to the annotated `v0.10.0-rc.6` candidate and
-must verify commit `d8b02b87fd614edec31e465abc38667ad91f7548`, the successful
-deployment run, `RELEASE_PROFILE=v0.10-core`, and the `000124` migration ceiling
-before exercising the staging harness. It must first validate every required
-secret and variable below and report all missing names before it starts a
-deployment or test; it must not continue with a partial fixture set.
+branch with `candidate_tag` and `expected_sha` set to the exact annotated
+candidate (the next bounded fix candidate is expected to be
+`v0.10.0-rc.7`). The workflow verifies the successful deployment run,
+`RELEASE_PROFILE=v0.10-core`, and the `000124` migration ceiling before
+exercising the staging harness. It must first validate every required secret
+and variable below and report all missing names before it starts a deployment
+or test; it must not continue with a partial fixture set.
 
 Configure these additional `staging` environment values without placing them
 in the repository. Credential and DSN values are secrets; fixture IDs and the
@@ -338,7 +339,7 @@ The harness must fail on missing configuration, skipped checks, unexpected
 404s, accepted scope tampering, or incomplete persisted effects. It emits a
 structured result for each expected evidence ID and a redacted evidence bundle
 under
-`v0.10.0-rc.6/d8b02b8/<workflow-run-id>/<run-attempt>/`. Uploads use seven-year Object Lock
+`<candidate-tag>/<candidate-short-sha>/<workflow-run-id>/<run-attempt>/`. Uploads use seven-year Object Lock
 in `COMPLIANCE` mode and are verified with object metadata before the
 certification record is updated.
 
@@ -351,6 +352,36 @@ artifact. Early failures still upload candidate identity, failure logs, and the
 validation result when the evidence store is reachable. Hash the index and
 include it in the bundle's `SHA256SUMS`; never overwrite an existing key.
 
+The canonical registry is
+`scripts/staging-certification-contract.json` (25 evidence rows). The
+collector validates the automated lane explicitly:
+
+```bash
+scripts/staging-certification-evidence.sh \
+  --candidate staging-certification-candidate \
+  --evidence staging-evidence \
+  --contract scripts/staging-certification-contract.json \
+  --lane automated
+```
+
+After the operator lane is collected, merge both lane indexes with the
+write-once closeout validator. The command must use the exact candidate tag and
+resolved SHA and must fail if any row is missing, duplicated, out of lane, or
+still `PENDING`:
+
+```bash
+scripts/staging-certification-closeout.sh \
+  --automated automated/evidence-index.json \
+  --operator operator/evidence-index.json \
+  --output closeout \
+  --candidate-tag <candidate-tag> \
+  --candidate-sha <40-hex-sha> \
+  --prefix <immutable-closeout-prefix>
+```
+
+The closeout index and its `SHA256SUMS` are themselves immutable evidence; a
+second invocation against the same output directory is rejected.
+
 The automated lane covers candidate identity, profile/routes, migration ceiling,
 the five core journeys, tenant isolation, and HTTP idempotency checks. It does
 not replace the operator lane above: backup/restore, disposable migration,
@@ -361,8 +392,8 @@ approval must be collected and reviewed separately before the record can be
 ## Staging decision and closeout
 
 Record `GO` only when the evidence index validates, every required automated and
-operator row is `PASS` (or a justified, approved `N/A`), the exact rc.6 identity
-and `000124` ceiling match, no critical/high finding remains, and test,
+operator row is `PASS` (or a justified, approved `N/A`), the exact candidate
+identity and `000124` ceiling match, no critical/high finding remains, and test,
 security, operations, and release-owner approvals are attached. Then update the
 human-readable record from the immutable index and commit a single reviewed
 closeout change to the five feature-matrix rows, Roadmap Milestone 1/2 status, release
@@ -375,4 +406,4 @@ identity/profile/migration mismatch, invalid or incomplete index, required
 Preserve the immutable bundle, index, and diagnostic output; add an owned
 finding with disposition and due date; leave the matrix unchanged; and create a
 new candidate on a descendant commit if a fix is required. Never move, retag,
-overwrite, or replace an rc.6 object in place.
+overwrite, or replace an existing candidate object in place.

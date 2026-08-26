@@ -19,8 +19,10 @@ Options:
   --prefix PREFIX       Object prefix (default: EVIDENCE_S3_PREFIX or timestamp)
   --endpoint-url URL    S3-compatible endpoint (default: EVIDENCE_S3_ENDPOINT)
   --region REGION       S3 region (default: EVIDENCE_S3_REGION or us-east-1)
+  --contract FILE       Canonical evidence contract (default: scripts/staging-certification-contract.json)
+  --lane NAME           Evidence lane: automated, operator, or all (default: automated)
   --expected-evidence-ids CSV
-                        IDs that must appear exactly once in the test log
+                        Override the contract lane IDs (legacy compatibility)
   --local-only          Build the local bundle without uploading to S3
   --help                Show this help
 
@@ -32,6 +34,9 @@ EOF
 
 candidate=''
 evidence=''
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+contract_file=${CERTIFICATION_CONTRACT_FILE:-"$script_dir/staging-certification-contract.json"}
+lane=${CERTIFICATION_LANE:-automated}
 bucket=${EVIDENCE_S3_BUCKET:-}
 prefix=${EVIDENCE_S3_PREFIX:-}
 endpoint=${EVIDENCE_S3_ENDPOINT:-}
@@ -47,6 +52,8 @@ while (($#)); do
 		--prefix) [[ $# -ge 2 ]] || { echo "missing value for --prefix" >&2; exit 2; }; prefix=$2; shift 2 ;;
 		--endpoint-url) [[ $# -ge 2 ]] || { echo "missing value for --endpoint-url" >&2; exit 2; }; endpoint=$2; shift 2 ;;
 		--region) [[ $# -ge 2 ]] || { echo "missing value for --region" >&2; exit 2; }; region=$2; shift 2 ;;
+		--contract) [[ $# -ge 2 ]] || { echo "missing value for --contract" >&2; exit 2; }; contract_file=$2; shift 2 ;;
+		--lane) [[ $# -ge 2 ]] || { echo "missing value for --lane" >&2; exit 2; }; lane=$2; shift 2 ;;
 		--expected-evidence-ids) [[ $# -ge 2 ]] || { echo "missing value for --expected-evidence-ids" >&2; exit 2; }; expected_ids_csv=$2; shift 2 ;;
 		--local-only) local_only=true; shift ;;
 		-h|--help) usage; exit 0 ;;
@@ -56,6 +63,11 @@ done
 
 [[ -n "$candidate" && -d "$candidate" ]] || { echo "--candidate must name an existing directory" >&2; exit 2; }
 [[ -n "$evidence" ]] || { echo "--evidence is required" >&2; exit 2; }
+[[ "$lane" == automated || "$lane" == operator || "$lane" == all ]] || {
+	echo "--lane must be automated, operator, or all" >&2
+	exit 2
+}
+[[ -f "$contract_file" ]] || { echo "missing certification contract: $contract_file" >&2; exit 2; }
 command -v sha256sum >/dev/null 2>&1 || { echo "sha256sum is required" >&2; exit 1; }
 
 mkdir -p "$evidence"
@@ -105,6 +117,44 @@ command -v jq >/dev/null 2>&1 || {
 	exit 1
 }
 
+# Keep the registry in one machine-readable contract. ENV-003 and ENV-004 are
+# controls backed by other rows, not evidence rows of their own.
+if ! jq -e '
+	. as $contract |
+	type == "object" and
+	.schema_version == "v0.10-core-certification-contract.v1" and
+	.profile == "v0.10-core" and
+	.migration_ceiling == "000124" and
+	(.evidence | type == "array" and length == 25) and
+	([.evidence[].evidence_id] | length == (unique | length)) and
+	(all(.evidence[]; (.evidence_id | type == "string") and (.lane == "automated" or .lane == "operator"))) and
+	(.control_aliases | type == "array" and ([.[].control_id] | sort == ["ENV-003", "ENV-004"])) and
+	(all($contract.control_aliases[]; all(.evidence_ids[]; . as $id | any($contract.evidence[]; .evidence_id == $id))))
+' "$contract_file" >/dev/null 2>&1; then
+	echo "invalid certification contract: $contract_file" >&2
+	exit 2
+fi
+
+case "$lane" in
+	automated|operator)
+		contract_ids_filter="select(.lane == \"$lane\")"
+		;;
+	all)
+		contract_ids_filter='.'
+		;;
+esac
+mapfile -t contract_ids < <(jq -r ".evidence[] | $contract_ids_filter | .evidence_id" "$contract_file")
+declare -A contract_seen=()
+for id in "${contract_ids[@]}"; do
+	contract_seen["$id"]=1
+done
+
+# An explicit list remains supported for callers that have not yet migrated,
+# but every ID must still exist in the canonical contract.
+if [[ -z "$expected_ids_csv" ]]; then
+	expected_ids_csv=$(IFS=,; echo "${contract_ids[*]}")
+fi
+
 errors_file=$(mktemp)
 records_file=$(mktemp)
 files_file=$(mktemp)
@@ -137,6 +187,9 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 		fi
 		seen_ids["$id"]=1
 		actual_ids+=("$id")
+		if [[ -z "${contract_seen[$id]+set}" ]]; then
+			record_error "unexpected certification evidence ID for $lane lane: $id"
+		fi
 		if ! jq -e --arg id "$id" '
 			(type == "object") and (.evidence_id == $id) and
 			(.result == "PASS" or .result == "FAIL" or .result == "N/A") and
@@ -172,6 +225,7 @@ if [[ -n "$expected_ids_csv" ]]; then
 	for id in "${expected_ids[@]}"; do
 		id=${id//[[:space:]]/}
 		[[ -n "$id" ]] || continue
+		[[ -n "${contract_seen[$id]+set}" ]] || record_error "unknown expected certification evidence ID: $id"
 		if [[ -z "${seen_ids[$id]+set}" ]]; then
 			record_error "missing certification evidence ID: $id"
 			jq -cn --arg id "$id" --arg run_id "$run_id" \
@@ -216,10 +270,11 @@ jq -n --arg generated_utc "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
 	--arg run_id "$run_id" --arg run_attempt "${GITHUB_RUN_ATTEMPT:-unknown}" \
 	--arg repository "${GITHUB_REPOSITORY:-local}" --arg workflow "${GITHUB_WORKFLOW:-local}" \
 	--arg candidate_tag "$candidate_tag" --arg candidate_sha "$candidate_sha" \
-	--arg expected_sha "${EXPECTED_SHA:-unknown}" --arg prefix "$prefix" \
+	--arg expected_sha "${EXPECTED_SHA:-unknown}" --arg prefix "$prefix" --arg lane "$lane" \
+	--arg contract_file "$contract_file" --slurpfile contract "$contract_file" \
 	--arg result "$([[ $collection_failed -eq 0 ]] && echo PASS || echo FAIL)" \
 	--argjson records "$records_json" --argjson files "$files_json" --argjson errors "$errors_json" --argjson expected "$expected_json" \
-	'{schema_version:"v0.10-core-staging-evidence.v1",collection:{generated_utc:$generated_utc,result:$result,prefix:$prefix},run:{id:$run_id,attempt:$run_attempt,repository:$repository,workflow:$workflow},candidate:{tag:$candidate_tag,resolved_sha:$candidate_sha,expected_sha:$expected_sha,profile:"v0.10-core",migration_ceiling:"000124"},entries:$records,files:$files,validation:{errors:$errors,expected_ids:$expected}}' \
+	'{schema_version:"v0.10-core-staging-evidence.v1",contract:{schema_version:$contract[0].schema_version,file:$contract_file,lane:$lane},collection:{generated_utc:$generated_utc,result:$result,prefix:$prefix},run:{id:$run_id,attempt:$run_attempt,repository:$repository,workflow:$workflow},candidate:{tag:$candidate_tag,resolved_sha:$candidate_sha,expected_sha:$expected_sha,profile:"v0.10-core",migration_ceiling:"000124"},entries:$records,files:$files,validation:{errors:$errors,expected_ids:$expected}}' \
 	>"$index_tmp"
 mv "$index_tmp" "$evidence/evidence-index.json"
 

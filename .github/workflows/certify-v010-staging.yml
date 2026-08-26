@@ -2,6 +2,15 @@ name: Certify v0.10 Staging
 
 on:
   workflow_dispatch:
+    inputs:
+      candidate_tag:
+        description: Annotated v0.10.0 release-candidate tag to certify
+        required: true
+        type: string
+      expected_sha:
+        description: 40-character commit resolved by the candidate tag
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -12,12 +21,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  CANDIDATE_TAG: v0.10.0-rc.6
-  EXPECTED_SHA: d8b02b87fd614edec31e465abc38667ad91f7548
-  EXPECTED_EVIDENCE_IDS: >-
-    REL-001,REL-002,REL-003,REL-004,ENV-002,ENV-004,DB-002,
-    J-ARAP-001,J-SALES-001,J-INV-001,J-DOC-001,J-CMMS-001,
-    ISO-001,ISO-002,ISO-003
+  CANDIDATE_TAG: ${{ inputs.candidate_tag }}
+  EXPECTED_SHA: ${{ inputs.expected_sha }}
 
 jobs:
   certify:
@@ -226,8 +231,6 @@ jobs:
           emit_evidence REL-001 "annotated tag ${CANDIDATE_TAG} resolved to ${EXPECTED_SHA}; deployment run ${run_id}"
           emit_evidence REL-002 "downloaded deployment artifact odyssey-v010-core-${run_id}; SHA256SUMS, REVISION, and component manifests verified"
           emit_evidence REL-003 "deployment artifact contains SBOM.spdx.json; provenance is attached to the successful deployment run ${run_id}"
-          emit_evidence REL-004 "release identity, migration SHA256SUMS, WEB_SHA256SUMS, profile v0.10-core, and migration ceiling 000124 verified"
-          emit_evidence ENV-004 "deployed REVISION matches ${EXPECTED_SHA}; release identity and component manifests verified from run ${run_id}"
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -307,11 +310,12 @@ jobs:
           scripts/staging-certification-evidence.sh \
             --candidate "$candidate_dir" \
             --evidence "$evidence_dir" \
-            --expected-evidence-ids "$EXPECTED_EVIDENCE_IDS" \
+            --contract scripts/staging-certification-contract.json \
+            --lane automated \
             --bucket "${EVIDENCE_S3_BUCKET:-}" \
             --endpoint-url "${EVIDENCE_S3_ENDPOINT:-}" \
             --region "${EVIDENCE_S3_REGION:-us-east-1}" \
-            --prefix "v0.10.0-rc.6/d8b02b8/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}"
+            --prefix "${CANDIDATE_TAG}/${EXPECTED_SHA:0:8}/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}"
 
       - name: Retain local evidence artifact
         if: always()

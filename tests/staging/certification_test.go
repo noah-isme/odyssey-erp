@@ -931,10 +931,69 @@ func TestStagingCoreJourneys(t *testing.T) {
 	}
 	version := client.postMultipart(t, documentPath+"/versions", csrfFromBody(t, documentDetail.body, documentPath), "certification version 1")
 	assertStatus(t, version, http.StatusSeeOther, http.MethodPost, documentPath+"/versions")
+	versionID := queryInt64(t, db, "SELECT id FROM document_versions WHERE document_id=$1 ORDER BY version_number DESC LIMIT 1", documentID)
 	if count := queryCount(t, db, "SELECT COUNT(*) FROM document_versions WHERE document_id=$1", documentID); count != 1 {
 		t.Fatalf("document %d version count = %d, want 1", documentID, count)
 	}
-	report.pass(t, "J-DOC-001", fmt.Sprintf("document_id=%d version_count=1 company_id=%d", documentID, cfg.companyID))
+	adminUserID := queryInt64(t, db, "SELECT id FROM users WHERE email=$1", cfg.admin.email)
+	aclPath := documentPath + "/acl"
+	aclCreate := client.postForm(t, aclPath, url.Values{
+		"csrf_token":     {fetchCSRF(t, client, aclPath)},
+		"principal_type": {"USER"},
+		"principal_id":   {strconv.FormatInt(adminUserID, 10)},
+		"permission":     {"READ"},
+		"effect":         {"ALLOW"},
+		"expires_at":     {time.Now().UTC().Add(time.Hour).Format(time.RFC3339)},
+	})
+	assertStatus(t, aclCreate, http.StatusSeeOther, http.MethodPost, aclPath)
+	aclCount := queryCount(t, db, "SELECT COUNT(*) FROM document_acls WHERE company_id=$1 AND document_id=$2 AND principal_id=$3 AND permission='READ' AND effect='ALLOW' AND expires_at IS NOT NULL", cfg.companyID, documentID, adminUserID)
+	if aclCount != 1 {
+		t.Fatalf("document %d persisted ACL count = %d, want 1", documentID, aclCount)
+	}
+	versionPath := documentPath + "/versions/" + strconv.FormatInt(versionID, 10)
+	submitReview := client.postForm(t, versionPath+"/submit-review", url.Values{"csrf_token": {fetchCSRF(t, client, documentPath+"/versions")}})
+	assertStatus(t, submitReview, http.StatusSeeOther, http.MethodPost, versionPath+"/submit-review")
+	stepID := queryInt64(t, db, "SELECT id FROM document_review_steps WHERE document_version_id=$1 ORDER BY step_order LIMIT 1", versionID)
+	review := client.postForm(t, versionPath+"/review", url.Values{
+		"csrf_token": {fetchCSRF(t, client, documentPath+"/versions")},
+		"step_id":    {strconv.FormatInt(stepID, 10)},
+		"decision":   {"APPROVED"},
+		"comments":   {"v0.10-core certification review"},
+	})
+	assertStatus(t, review, http.StatusSeeOther, http.MethodPost, versionPath+"/review")
+	if status := queryString(t, db, "SELECT status FROM document_versions WHERE id=$1", versionID); status != "APPROVED" {
+		t.Fatalf("document version %d status = %q, want APPROVED", versionID, status)
+	}
+	challenge := client.postForm(t, versionPath+"/challenge", url.Values{"csrf_token": {fetchCSRF(t, client, documentPath+"/versions")}})
+	assertStatus(t, challenge, http.StatusSeeOther, http.MethodPost, versionPath+"/challenge")
+	challengeID := queryString(t, db, "SELECT challenge_id::text FROM document_signature_challenges WHERE document_version_id=$1 ORDER BY created_at DESC LIMIT 1", versionID)
+	sign := client.postForm(t, versionPath+"/sign", url.Values{
+		"csrf_token":   {fetchCSRF(t, client, documentPath+"/versions")},
+		"challenge_id": {challengeID},
+		"meaning":      {"Approved as effective version"},
+	})
+	assertStatus(t, sign, http.StatusSeeOther, http.MethodPost, versionPath+"/sign")
+	if used := queryCount(t, db, "SELECT COUNT(*) FROM document_signature_challenges WHERE challenge_id=$1::uuid AND used=true", challengeID); used != 1 {
+		t.Fatalf("signature challenge %s used count = %d, want 1", challengeID, used)
+	}
+	if signatures := queryCount(t, db, "SELECT COUNT(*) FROM document_signatures WHERE document_version_id=$1 AND meaning=$2", versionID, "Approved as effective version"); signatures != 1 {
+		t.Fatalf("document version %d signature count = %d, want 1", versionID, signatures)
+	}
+	policyCount := queryCount(t, db, `SELECT COUNT(*) FROM retention_policies rp JOIN document_versions dv ON dv.company_id=rp.company_id JOIN documents d ON d.id=dv.document_id WHERE dv.id=$1 AND rp.active=true AND (rp.classification_ids IS NULL OR dv.classification_id=ANY(rp.classification_ids)) AND (rp.category_ids IS NULL OR d.category_id=ANY(rp.category_ids))`, versionID)
+	if policyCount == 0 {
+		t.Fatalf("document version %d has no active retention policy fixture", versionID)
+	}
+	retention := client.postForm(t, versionPath+"/retention", url.Values{"csrf_token": {fetchCSRF(t, client, documentPath+"/versions")}})
+	assertStatus(t, retention, http.StatusSeeOther, http.MethodPost, versionPath+"/retention")
+	if retained := queryCount(t, db, "SELECT COUNT(*) FROM document_retention WHERE document_version_id=$1 AND status='ACTIVE'", versionID); retained != 1 {
+		t.Fatalf("document version %d active retention rows = %d, want 1", versionID, retained)
+	}
+	download := client.get(t, versionPath+"/download")
+	assertStatus(t, download, http.StatusOK, http.MethodGet, versionPath+"/download")
+	if len(download.body) == 0 || queryCount(t, db, "SELECT COUNT(*) FROM document_access_events WHERE document_version_id=$1 AND actor_id=$2 AND action='DOWNLOAD'", versionID, adminUserID) != 1 {
+		t.Fatalf("document version %d download did not persist content and access audit", versionID)
+	}
+	report.pass(t, "J-DOC-001", fmt.Sprintf("document_id=%d version_id=%d acl_persisted=true review_step_id=%d status=APPROVED signature_challenge_used=true retention_active=true download_audited=true company_id=%d", documentID, versionID, stepID, cfg.companyID))
 
 	assetToken := fetchCSRF(t, client, "/cmms/assets/new")
 	assetCode := "CERT-ASSET-" + strconv.FormatInt(time.Now().UTC().UnixNano(), 10)
@@ -945,7 +1004,39 @@ func TestStagingCoreJourneys(t *testing.T) {
 	assertStatus(t, assetCreate, http.StatusSeeOther, http.MethodPost, "/cmms/assets")
 	assetID := parseRedirectID(t, assetCreate.location)
 	assetPath := "/cmms/assets/" + strconv.FormatInt(assetID, 10)
-	assertRoute(t, client, assetPath)
+	assetDetail := assertRoute(t, client, assetPath)
+	meter := client.postForm(t, assetPath+"/meter-readings", url.Values{
+		"csrf_token":   {csrfFromBody(t, assetDetail.body, assetPath)},
+		"reading_type": {"HOURS"}, "value": {"10.5"}, "reading_date": {date},
+		"notes": {"v0.10-core certification meter"},
+	})
+	assertStatus(t, meter, http.StatusSeeOther, http.MethodPost, assetPath+"/meter-readings")
+	if readings := queryCount(t, db, "SELECT COUNT(*) FROM meter_readings WHERE asset_id=$1 AND reading_type='HOURS' AND value=10.5", assetID); readings != 1 {
+		t.Fatalf("asset %d meter reading count = %d, want 1", assetID, readings)
+	}
+	assertRoute(t, client, assetPath+"/meter-readings")
+	pmToken := fetchCSRF(t, client, "/cmms/pm-schedules/new")
+	pmCreate := client.postForm(t, "/cmms/pm-schedules", url.Values{
+		"csrf_token": {pmToken}, "asset_id": {strconv.FormatInt(assetID, 10)},
+		"name": {"v0.10-core daily preventive maintenance"}, "description": {"staging PM generation"},
+		"frequency_type": {"DAILY"}, "frequency_value": {"1"}, "active": {"true"},
+	})
+	assertStatus(t, pmCreate, http.StatusSeeOther, http.MethodPost, "/cmms/pm-schedules")
+	pmID := parseRedirectID(t, pmCreate.location)
+	if companyID := queryInt64(t, db, "SELECT company_id FROM pm_schedules WHERE id=$1", pmID); companyID != cfg.companyID {
+		t.Fatalf("PM schedule %d company = %d, want %d", pmID, companyID, cfg.companyID)
+	}
+	runPM := client.postForm(t, "/cmms/pm-schedules/run-due", url.Values{"csrf_token": {fetchCSRF(t, client, "/cmms/pm-schedules")}})
+	assertStatus(t, runPM, http.StatusSeeOther, http.MethodPost, "/cmms/pm-schedules/run-due")
+	pmWorkOrderID := queryInt64(t, db, "SELECT id FROM work_orders WHERE company_id=$1 AND pm_schedule_id=$2 ORDER BY id DESC LIMIT 1", cfg.companyID, pmID)
+	if generated := queryCount(t, db, "SELECT COUNT(*) FROM work_orders WHERE id=$1 AND category='PREVENTIVE' AND asset_id=$2", pmWorkOrderID, assetID); generated != 1 {
+		t.Fatalf("PM schedule %d generated work-order count = %d, want 1", pmID, generated)
+	}
+	runPMRetry := client.postForm(t, "/cmms/pm-schedules/run-due", url.Values{"csrf_token": {fetchCSRF(t, client, "/cmms/pm-schedules")}})
+	assertStatus(t, runPMRetry, http.StatusSeeOther, http.MethodPost, "/cmms/pm-schedules/run-due [duplicate]")
+	if generated := queryCount(t, db, "SELECT COUNT(*) FROM work_orders WHERE company_id=$1 AND pm_schedule_id=$2", cfg.companyID, pmID); generated != 1 {
+		t.Fatalf("PM schedule %d generated %d work orders after retry, want 1", pmID, generated)
+	}
 	workToken := fetchCSRF(t, client, "/cmms/work-orders/new")
 	workCreate := client.postForm(t, "/cmms/work-orders", url.Values{
 		"csrf_token": {workToken}, "title": {"v0.10-core certification work order"},
@@ -966,7 +1057,48 @@ func TestStagingCoreJourneys(t *testing.T) {
 	if status := queryString(t, db, "SELECT status FROM work_orders WHERE id=$1", workID); status != "IN_PROGRESS" {
 		t.Fatalf("work order %d status = %q, want IN_PROGRESS", workID, status)
 	}
-	report.pass(t, "J-CMMS-001", fmt.Sprintf("asset_id=%d work_order_id=%d status=IN_PROGRESS", assetID, workID))
+	spareToken := fetchCSRF(t, client, "/cmms/spare-parts/new")
+	spareCode := "CERT-SPARE-" + strconv.FormatInt(time.Now().UTC().UnixNano(), 10)
+	spareCreate := client.postForm(t, "/cmms/spare-parts", url.Values{
+		"csrf_token": {spareToken}, "code": {spareCode}, "name": {"v0.10-core certification spare"},
+		"category": {"MAINTENANCE"}, "unit_of_measure": {"EA"}, "unit_cost": {"12.50"},
+		"min_quantity": {"0"}, "reorder_point": {"0"},
+	})
+	assertStatus(t, spareCreate, http.StatusSeeOther, http.MethodPost, "/cmms/spare-parts")
+	spareID := parseRedirectID(t, spareCreate.location)
+	if companyID := queryInt64(t, db, "SELECT company_id FROM spare_parts WHERE id=$1", spareID); companyID != cfg.companyID {
+		t.Fatalf("spare part %d company = %d, want %d", spareID, companyID, cfg.companyID)
+	}
+	addSpare := client.postForm(t, workPath+"/spare-parts", url.Values{
+		"csrf_token": {fetchCSRF(t, client, workPath)}, "spare_part_id": {strconv.FormatInt(spareID, 10)},
+		"quantity": {"1"}, "unit_cost": {"12.50"},
+	})
+	assertStatus(t, addSpare, http.StatusSeeOther, http.MethodPost, workPath+"/spare-parts")
+	spareUsageID := queryInt64(t, db, "SELECT id FROM work_order_spare_parts WHERE work_order_id=$1 AND spare_part_id=$2 ORDER BY id DESC LIMIT 1", workID, spareID)
+	issueSpare := client.postForm(t, "/cmms/work-order-spare-parts/"+strconv.FormatInt(spareUsageID, 10)+"/issue", url.Values{"csrf_token": {fetchCSRF(t, client, workPath)}})
+	assertStatus(t, issueSpare, http.StatusSeeOther, http.MethodPost, "/cmms/work-order-spare-parts/{id}/issue")
+	if issued := queryCount(t, db, "SELECT COUNT(*) FROM work_order_spare_parts WHERE id=$1 AND issued_at IS NOT NULL AND issued_by IS NOT NULL", spareUsageID); issued != 1 {
+		t.Fatalf("work-order spare part %d issued rows = %d, want 1", spareUsageID, issued)
+	}
+	complete := client.postForm(t, workPath+"/complete", url.Values{
+		"csrf_token": {fetchCSRF(t, client, workPath)}, "actual_hours": {"1.5"},
+	})
+	assertStatus(t, complete, http.StatusSeeOther, http.MethodPost, workPath+"/complete")
+	if status := queryString(t, db, "SELECT status FROM work_orders WHERE id=$1", workID); status != "COMPLETED" {
+		t.Fatalf("work order %d status = %q, want COMPLETED", workID, status)
+	}
+	completeRetry := client.postForm(t, workPath+"/complete", url.Values{"csrf_token": {fetchCSRF(t, client, workPath)}})
+	assertStatus(t, completeRetry, http.StatusSeeOther, http.MethodPost, workPath+"/complete [duplicate]")
+	closeWork := client.postForm(t, workPath+"/close", url.Values{"csrf_token": {fetchCSRF(t, client, workPath)}})
+	assertStatus(t, closeWork, http.StatusSeeOther, http.MethodPost, workPath+"/close")
+	if status := queryString(t, db, "SELECT status FROM work_orders WHERE id=$1", workID); status != "CLOSED" {
+		t.Fatalf("work order %d status = %q, want CLOSED", workID, status)
+	}
+	cmmsAuditEvents := queryCount(t, db, "SELECT COUNT(*) FROM audit_logs WHERE entity IN ('cmms_asset','cmms_pm_schedule','cmms_work_order','cmms_meter_reading','cmms_spare_part','cmms_work_order_spare_part') AND (entity_id=$1 OR entity_id=$2 OR entity_id=$3)", strconv.FormatInt(assetID, 10), strconv.FormatInt(workID, 10), strconv.FormatInt(spareUsageID, 10))
+	if cmmsAuditEvents < 4 {
+		t.Fatalf("CMMS journey audit event count = %d, want at least 4", cmmsAuditEvents)
+	}
+	report.pass(t, "J-CMMS-001", fmt.Sprintf("asset_id=%d meter_readings=1 pm_schedule_id=%d generated_pm_work_order_id=%d work_order_id=%d spare_part_id=%d spare_usage_id=%d status=CLOSED duplicate_complete_preserved=true audit_events=%d company_id=%d", assetID, pmID, pmWorkOrderID, workID, spareID, spareUsageID, cmmsAuditEvents, cfg.companyID))
 }
 
 func TestStagingTenantIsolation(t *testing.T) {
