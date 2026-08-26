@@ -19,6 +19,20 @@ trim() {
 	printf '%s' "$value"
 }
 
+# Ripgrep is convenient but is not available in every release environment.
+# Keep the check portable by using the POSIX tools already required elsewhere
+# in this script when rg is missing.
+placeholder_matches() {
+	local source=$1
+	local pattern="StatusNotImplemented|\"not implemented\"|'not implemented'|status[^[:cntrl:]]*not implemented"
+
+	if command -v rg >/dev/null 2>&1; then
+		rg -n -i -e "$pattern" "$source"
+	else
+		grep -n -i -E "$pattern" "$source"
+	fi
+}
+
 if [[ ! -f "$matrix" ]]; then
 	fail "missing authoritative feature matrix: $matrix"
 	exit "$status"
@@ -90,8 +104,8 @@ while IFS='|' read -r _ capability release_scope code_complete integration_compl
 				fail "$capability names a missing advertised route source: $source"
 				continue
 			fi
-			if [[ "$integration_complete" == yes ]] && rg -n -i -e 'StatusNotImplemented' -e '"not implemented"' -e "'not implemented'" -e 'status[^[:cntrl:]]*not implemented' "$source" >/dev/null; then
-				matches=$(rg -n -i -e 'StatusNotImplemented' -e '"not implemented"' -e "'not implemented'" -e 'status[^[:cntrl:]]*not implemented' "$source" || true)
+			if [[ "$integration_complete" == yes ]] && placeholder_matches "$source" >/dev/null; then
+				matches=$(placeholder_matches "$source" || true)
 				fail "$capability has a placeholder response in advertised route source $source:\n$matches"
 			fi
 			done < <(printf '%s\n' "$route_sources" | tr ';' '\n')
