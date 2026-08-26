@@ -798,8 +798,8 @@ func (q *Queries) InsertTaskTemplateStep(ctx context.Context, arg InsertTaskTemp
 
 const insertWorkOrder = `-- name: InsertWorkOrder :one
 
-INSERT INTO work_orders (company_id, number, title, description, asset_id, location_id, priority, status, category, requester_id, assignee_id, planned_start, planned_end, estimated_hours, created_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+INSERT INTO work_orders (company_id, number, title, description, asset_id, location_id, priority, status, category, requester_id, assignee_id, planned_start, planned_end, estimated_hours, pm_schedule_id, created_by)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
 RETURNING id
 `
 
@@ -818,6 +818,7 @@ type InsertWorkOrderParams struct {
 	PlannedStart   pgtype.Timestamptz `json:"planned_start"`
 	PlannedEnd     pgtype.Timestamptz `json:"planned_end"`
 	EstimatedHours float64            `json:"estimated_hours"`
+	PmScheduleID   pgtype.Int8        `json:"pm_schedule_id"`
 	CreatedBy      int64              `json:"created_by"`
 }
 
@@ -840,6 +841,7 @@ func (q *Queries) InsertWorkOrder(ctx context.Context, arg InsertWorkOrderParams
 		arg.PlannedStart,
 		arg.PlannedEnd,
 		arg.EstimatedHours,
+		arg.PmScheduleID,
 		arg.CreatedBy,
 	)
 	var id int64

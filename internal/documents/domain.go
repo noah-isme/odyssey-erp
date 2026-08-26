@@ -212,7 +212,10 @@ type DocumentSignatureChallenge struct {
 	CompanyID         int64
 	DocumentVersionID int64
 	SignerID          int64
+	Meaning           string
+	PolicyVersion     int
 	Expiry            time.Time
+	Used              bool
 	CreatedAt         time.Time
 }
 

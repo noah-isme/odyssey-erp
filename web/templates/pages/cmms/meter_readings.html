@@ -1,0 +1,34 @@
+{{ define "pages/cmms/meter_readings.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Meter Readings{{ end }}
+
+{{ define "content" }}
+<div class="container-fluid mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h1 class="h3 text-success mb-1">Meter Readings: {{ .Data.Asset.Code }}</h1>
+      <p class="text-muted">{{ .Data.Asset.Name }}</p>
+    </div>
+    <a href="/cmms/assets/{{ .Data.Asset.ID }}" class="btn btn-outline-secondary">Back to Asset</a>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-hover table-striped mb-0 align-middle">
+        <thead class="table-light">
+          <tr><th>Type</th><th>Value</th><th>Reading date</th><th>Entered by</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          {{ if .Data.Readings }}
+          {{ range .Data.Readings }}
+          <tr><td>{{ .ReadingType }}</td><td>{{ .Value }}</td><td>{{ .ReadingDate.Format "2006-01-02" }}</td><td>{{ .EnteredBy }}</td><td>{{ .Notes }}</td></tr>
+          {{ end }}
+          {{ else }}<tr><td colspan="5" class="text-center text-muted py-4">No meter readings found.</td></tr>{{ end }}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{{ end }}

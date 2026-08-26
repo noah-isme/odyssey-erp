@@ -27,6 +27,59 @@ func (q *Queries) AreAllReviewStepsApproved(ctx context.Context, documentVersion
 	return not_exists, err
 }
 
+const consumeDocumentSignatureChallenge = `-- name: ConsumeDocumentSignatureChallenge :one
+UPDATE document_signature_challenges
+SET used = TRUE
+WHERE challenge_id = $1
+  AND company_id = $2
+  AND document_version_id = $3
+  AND signer_id = $4
+  AND used = FALSE
+  AND expiry > NOW()
+RETURNING challenge_id, company_id, document_version_id, signer_id, meaning, policy_version, expiry, used, created_at
+`
+
+type ConsumeDocumentSignatureChallengeParams struct {
+	ChallengeID       pgtype.UUID `json:"challenge_id"`
+	CompanyID         int64       `json:"company_id"`
+	DocumentVersionID int64       `json:"document_version_id"`
+	SignerID          int64       `json:"signer_id"`
+}
+
+type ConsumeDocumentSignatureChallengeRow struct {
+	ChallengeID       pgtype.UUID        `json:"challenge_id"`
+	CompanyID         int64              `json:"company_id"`
+	DocumentVersionID int64              `json:"document_version_id"`
+	SignerID          int64              `json:"signer_id"`
+	Meaning           string             `json:"meaning"`
+	PolicyVersion     int32              `json:"policy_version"`
+	Expiry            pgtype.Timestamptz `json:"expiry"`
+	Used              bool               `json:"used"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) ConsumeDocumentSignatureChallenge(ctx context.Context, arg ConsumeDocumentSignatureChallengeParams) (ConsumeDocumentSignatureChallengeRow, error) {
+	row := q.db.QueryRow(ctx, consumeDocumentSignatureChallenge,
+		arg.ChallengeID,
+		arg.CompanyID,
+		arg.DocumentVersionID,
+		arg.SignerID,
+	)
+	var i ConsumeDocumentSignatureChallengeRow
+	err := row.Scan(
+		&i.ChallengeID,
+		&i.CompanyID,
+		&i.DocumentVersionID,
+		&i.SignerID,
+		&i.Meaning,
+		&i.PolicyVersion,
+		&i.Expiry,
+		&i.Used,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createCollaborationChange = `-- name: CreateCollaborationChange :one
 INSERT INTO doc_collaboration_changes (session_id, actor_id, operation, payload, occurred_at)
 VALUES ($1, $2, $3, $4, $5)
@@ -499,6 +552,32 @@ func (q *Queries) GetDocumentOCRJob(ctx context.Context, id int64) (DocOcrJob, e
 	return i, err
 }
 
+const getDocumentReviewStep = `-- name: GetDocumentReviewStep :one
+SELECT id, company_id, document_version_id, step_order, name,
+       reviewer_role_id, reviewer_user_id, required_approvals, status, due_at, created_at
+FROM document_review_steps
+WHERE id = $1
+`
+
+func (q *Queries) GetDocumentReviewStep(ctx context.Context, id int64) (DocumentReviewStep, error) {
+	row := q.db.QueryRow(ctx, getDocumentReviewStep, id)
+	var i DocumentReviewStep
+	err := row.Scan(
+		&i.ID,
+		&i.CompanyID,
+		&i.DocumentVersionID,
+		&i.StepOrder,
+		&i.Name,
+		&i.ReviewerRoleID,
+		&i.ReviewerUserID,
+		&i.RequiredApprovals,
+		&i.Status,
+		&i.DueAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getDocumentReviewStepsForDocument = `-- name: GetDocumentReviewStepsForDocument :many
 
 SELECT rs.id, rs.company_id, rs.document_version_id, rs.step_order, rs.name,
@@ -545,7 +624,7 @@ func (q *Queries) GetDocumentReviewStepsForDocument(ctx context.Context, documen
 }
 
 const getDocumentSignatureChallenge = `-- name: GetDocumentSignatureChallenge :one
-SELECT challenge_id, company_id, document_version_id, signer_id, expiry, created_at
+SELECT challenge_id, company_id, document_version_id, signer_id, meaning, policy_version, expiry, used, created_at
 FROM document_signature_challenges
 WHERE challenge_id = $1
 `
@@ -555,7 +634,10 @@ type GetDocumentSignatureChallengeRow struct {
 	CompanyID         int64              `json:"company_id"`
 	DocumentVersionID int64              `json:"document_version_id"`
 	SignerID          int64              `json:"signer_id"`
+	Meaning           string             `json:"meaning"`
+	PolicyVersion     int32              `json:"policy_version"`
 	Expiry            pgtype.Timestamptz `json:"expiry"`
+	Used              bool               `json:"used"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 }
 
@@ -567,7 +649,10 @@ func (q *Queries) GetDocumentSignatureChallenge(ctx context.Context, challengeID
 		&i.CompanyID,
 		&i.DocumentVersionID,
 		&i.SignerID,
+		&i.Meaning,
+		&i.PolicyVersion,
 		&i.Expiry,
+		&i.Used,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -1072,20 +1157,21 @@ func (q *Queries) InsertDocument(ctx context.Context, arg InsertDocumentParams) 
 
 const insertDocumentACL = `-- name: InsertDocumentACL :one
 
-INSERT INTO document_acls (company_id, document_id, classification_id, principal_type, principal_id, permission, effect, granted_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO document_acls (company_id, document_id, classification_id, principal_type, principal_id, permission, effect, granted_by, expires_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING id
 `
 
 type InsertDocumentACLParams struct {
-	CompanyID        int64       `json:"company_id"`
-	DocumentID       pgtype.Int8 `json:"document_id"`
-	ClassificationID pgtype.Int8 `json:"classification_id"`
-	PrincipalType    string      `json:"principal_type"`
-	PrincipalID      int64       `json:"principal_id"`
-	Permission       string      `json:"permission"`
-	Effect           string      `json:"effect"`
-	GrantedBy        int64       `json:"granted_by"`
+	CompanyID        int64              `json:"company_id"`
+	DocumentID       pgtype.Int8        `json:"document_id"`
+	ClassificationID pgtype.Int8        `json:"classification_id"`
+	PrincipalType    string             `json:"principal_type"`
+	PrincipalID      int64              `json:"principal_id"`
+	Permission       string             `json:"permission"`
+	Effect           string             `json:"effect"`
+	GrantedBy        int64              `json:"granted_by"`
+	ExpiresAt        pgtype.Timestamptz `json:"expires_at"`
 }
 
 // =============================================================================
@@ -1101,6 +1187,7 @@ func (q *Queries) InsertDocumentACL(ctx context.Context, arg InsertDocumentACLPa
 		arg.Permission,
 		arg.Effect,
 		arg.GrantedBy,
+		arg.ExpiresAt,
 	)
 	var id int64
 	err := row.Scan(&id)
@@ -1331,8 +1418,8 @@ func (q *Queries) InsertDocumentSignature(ctx context.Context, arg InsertDocumen
 
 const insertDocumentSignatureChallenge = `-- name: InsertDocumentSignatureChallenge :one
 
-INSERT INTO document_signature_challenges (company_id, document_version_id, signer_id, expiry)
-VALUES ($1, $2, $3, $4)
+INSERT INTO document_signature_challenges (company_id, document_version_id, signer_id, meaning, policy_version, expiry)
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING challenge_id
 `
 
@@ -1340,6 +1427,8 @@ type InsertDocumentSignatureChallengeParams struct {
 	CompanyID         int64              `json:"company_id"`
 	DocumentVersionID int64              `json:"document_version_id"`
 	SignerID          int64              `json:"signer_id"`
+	Meaning           string             `json:"meaning"`
+	PolicyVersion     int32              `json:"policy_version"`
 	Expiry            pgtype.Timestamptz `json:"expiry"`
 }
 
@@ -1351,6 +1440,8 @@ func (q *Queries) InsertDocumentSignatureChallenge(ctx context.Context, arg Inse
 		arg.CompanyID,
 		arg.DocumentVersionID,
 		arg.SignerID,
+		arg.Meaning,
+		arg.PolicyVersion,
 		arg.Expiry,
 	)
 	var challenge_id pgtype.UUID
@@ -1503,8 +1594,8 @@ const listDocumentACLs = `-- name: ListDocumentACLs :many
 SELECT id, company_id, document_id, classification_id, principal_type, principal_id, permission, effect, granted_by, granted_at, expires_at
 FROM document_acls
 WHERE company_id = $1
-  AND ($2::int8 IS NULL OR document_id = $2)
-  AND ($3::int8 IS NULL OR classification_id = $3)
+  AND ($2::int8 = 0 OR document_id = $2)
+  AND ($3::int8 = 0 OR classification_id = $3)
 ORDER BY granted_at DESC
 `
 

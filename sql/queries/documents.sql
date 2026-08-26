@@ -208,8 +208,8 @@ SELECT EXISTS (
 -- =============================================================================
 
 -- name: InsertDocumentACL :one
-INSERT INTO document_acls (company_id, document_id, classification_id, principal_type, principal_id, permission, effect, granted_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO document_acls (company_id, document_id, classification_id, principal_type, principal_id, permission, effect, granted_by, expires_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING id;
 
 -- name: DeleteDocumentACL :exec
@@ -219,8 +219,8 @@ DELETE FROM document_acls WHERE id = $1;
 SELECT id, company_id, document_id, classification_id, principal_type, principal_id, permission, effect, granted_by, granted_at, expires_at
 FROM document_acls
 WHERE company_id = $1
-  AND ($2::int8 IS NULL OR document_id = $2)
-  AND ($3::int8 IS NULL OR classification_id = $3)
+  AND ($2::int8 = 0 OR document_id = $2)
+  AND ($3::int8 = 0 OR classification_id = $3)
 ORDER BY granted_at DESC;
 
 -- =============================================================================
@@ -252,6 +252,12 @@ FROM document_review_steps rs
 JOIN document_versions dv ON dv.id = rs.document_version_id
 WHERE dv.document_id = $1 AND rs.status = 'PENDING'
 ORDER BY rs.step_order;
+
+-- name: GetDocumentReviewStep :one
+SELECT id, company_id, document_version_id, step_order, name,
+       reviewer_role_id, reviewer_user_id, required_approvals, status, due_at, created_at
+FROM document_review_steps
+WHERE id = $1;
 
 -- name: InsertDocumentReviewStep :exec
 INSERT INTO document_review_steps (company_id, document_version_id, step_order, name, reviewer_role_id, reviewer_user_id, required_approvals, status, due_at)
@@ -383,14 +389,25 @@ WHERE id = $1 AND company_id = $2 AND active = TRUE;
 -- =============================================================================
 
 -- name: InsertDocumentSignatureChallenge :one
-INSERT INTO document_signature_challenges (company_id, document_version_id, signer_id, expiry)
-VALUES ($1, $2, $3, $4)
+INSERT INTO document_signature_challenges (company_id, document_version_id, signer_id, meaning, policy_version, expiry)
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING challenge_id;
 
 -- name: GetDocumentSignatureChallenge :one
-SELECT challenge_id, company_id, document_version_id, signer_id, expiry, created_at
+SELECT challenge_id, company_id, document_version_id, signer_id, meaning, policy_version, expiry, used, created_at
 FROM document_signature_challenges
 WHERE challenge_id = $1;
+
+-- name: ConsumeDocumentSignatureChallenge :one
+UPDATE document_signature_challenges
+SET used = TRUE
+WHERE challenge_id = $1
+  AND company_id = $2
+  AND document_version_id = $3
+  AND signer_id = $4
+  AND used = FALSE
+  AND expiry > NOW()
+RETURNING challenge_id, company_id, document_version_id, signer_id, meaning, policy_version, expiry, used, created_at;
 
 -- name: InsertDocumentSignature :one
 INSERT INTO document_signatures (company_id, document_version_id, challenge_id, signer_id, record_version, record_hash, meaning, policy_version, auth_method)

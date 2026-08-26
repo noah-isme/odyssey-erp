@@ -32,6 +32,62 @@
           </div>
         </div>
       </div>
+
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light fw-bold">Spare Parts</div>
+        <div class="card-body">
+          {{ if .Data.SpareParts }}
+          <div class="table-responsive">
+            <table class="table table-sm align-middle mb-3">
+              <thead>
+                <tr><th>Part</th><th>Quantity</th><th>Unit Cost</th><th>Status</th><th></th></tr>
+              </thead>
+              <tbody>
+                {{ range .Data.SpareParts }}
+                <tr>
+                  <td>{{ .SparePartID }}</td>
+                  <td>{{ .Quantity }}</td>
+                  <td>{{ .UnitCost }}</td>
+                  <td>{{ if .IssuedAt }}<span class="badge bg-success">Issued</span>{{ else }}<span class="badge bg-secondary">Planned</span>{{ end }}</td>
+                  <td>
+                    {{ if not .IssuedAt }}
+                    <form action="/cmms/work-order-spare-parts/{{ .ID }}/issue" method="POST">
+                      <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
+                      <button class="btn btn-sm btn-outline-primary" type="submit">Issue</button>
+                    </form>
+                    {{ end }}
+                  </td>
+                </tr>
+                {{ end }}
+              </tbody>
+            </table>
+          </div>
+          {{ else }}
+          <p class="text-muted">No spare parts have been added.</p>
+          {{ end }}
+          {{ if .Data.Parts }}
+          <form action="/cmms/work-orders/{{ .Data.WorkOrder.ID }}/spare-parts" method="POST" class="row g-2 align-items-end">
+            <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+            <div class="col-md-5">
+              <label class="form-label" for="spare-part-id">Spare part</label>
+              <select id="spare-part-id" name="spare_part_id" class="form-select" required>
+                <option value="">Select part</option>
+                {{ range .Data.Parts }}<option value="{{ .ID }}">{{ .Code }} — {{ .Name }}</option>{{ end }}
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="spare-quantity">Quantity</label>
+              <input id="spare-quantity" type="number" min="0.0001" step="0.0001" name="quantity" class="form-input" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="spare-unit-cost">Unit cost</label>
+              <input id="spare-unit-cost" type="number" min="0" step="0.01" name="unit_cost" class="form-input">
+            </div>
+            <div class="col-md-1"><button class="btn btn-primary" type="submit">Add</button></div>
+          </form>
+          {{ end }}
+        </div>
+      </div>
     </div>
     
     <div class="col-lg-4">
@@ -49,6 +105,19 @@
               </select>
               <button class="btn btn-primary" type="submit">Update</button>
             </div>
+          </form>
+          <hr>
+          <form action="/cmms/work-orders/{{ .Data.WorkOrder.ID }}/complete" method="POST" class="mb-2">
+            <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+            <label class="form-label" for="actual-hours">Actual hours (optional)</label>
+            <div class="input-group">
+              <input id="actual-hours" type="number" min="0" step="0.25" name="actual_hours" class="form-input">
+              <button class="btn btn-outline-success" type="submit">Complete</button>
+            </div>
+          </form>
+          <form action="/cmms/work-orders/{{ .Data.WorkOrder.ID }}/close" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+            <button class="btn btn-outline-secondary w-100" type="submit">Close completed order</button>
           </form>
         </div>
       </div>

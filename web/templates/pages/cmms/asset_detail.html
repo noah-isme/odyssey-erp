@@ -30,5 +30,56 @@
       </div>
     </div>
   </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-light fw-bold">Meter Reading</div>
+    <div class="card-body">
+      <form action="/cmms/assets/{{ .Data.Asset.ID }}/meter-readings" method="POST" class="row g-3 align-items-end">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+        <div class="col-md-3">
+          <label class="form-label" for="reading-type">Reading type</label>
+          <select id="reading-type" name="reading_type" class="form-select" required>
+            <option value="HOURS">Hours</option>
+            <option value="CYCLES">Cycles</option>
+            <option value="DISTANCE">Distance</option>
+            <option value="TEMPERATURE">Temperature</option>
+            <option value="PRESSURE">Pressure</option>
+            <option value="VOLTAGE">Voltage</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label" for="reading-value">Value</label>
+          <input id="reading-value" type="number" min="0" step="0.0001" name="value" class="form-input" required>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label" for="reading-date">Reading date</label>
+          <input id="reading-date" type="date" name="reading_date" class="form-input">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label" for="reading-notes">Notes</label>
+          <input id="reading-notes" type="text" name="notes" class="form-input">
+        </div>
+        <div class="col-md-1"><button class="btn btn-success" type="submit">Record</button></div>
+      </form>
+    </div>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-light fw-bold">Recent Meter Readings</div>
+    <div class="card-body">
+      {{ if .Data.MeterReadings }}
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead><tr><th>Type</th><th>Value</th><th>Date</th><th>Notes</th></tr></thead>
+          <tbody>
+            {{ range .Data.MeterReadings }}
+            <tr><td>{{ .ReadingType }}</td><td>{{ .Value }}</td><td>{{ .ReadingDate.Format "2006-01-02" }}</td><td>{{ .Notes }}</td></tr>
+            {{ end }}
+          </tbody>
+        </table>
+      </div>
+      {{ else }}<p class="text-muted mb-0">No meter readings recorded.</p>{{ end }}
+    </div>
+  </div>
 </div>
 {{ end }}

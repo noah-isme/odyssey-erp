@@ -2,6 +2,7 @@ package cmms
 
 import (
 	"errors"
+	"math"
 	"strings"
 	"time"
 )
@@ -240,6 +241,9 @@ func (r CreateWorkOrderRequest) Validate() error {
 	}
 	if r.ActorID <= 0 {
 		return errors.New("cmms: actor id required")
+	}
+	if math.IsNaN(r.EstimatedHours) || math.IsInf(r.EstimatedHours, 0) || r.EstimatedHours < 0 {
+		return errors.New("cmms: estimated hours must be a non-negative finite number")
 	}
 	return nil
 }

@@ -47,6 +47,7 @@ func (r *Repository) InsertWorkOrder(ctx context.Context, req CreateWorkOrderReq
 		PlannedStart:   pgtype.Timestamptz{Time: valueOrZeroTime(req.PlannedStart), Valid: req.PlannedStart != nil},
 		PlannedEnd:     pgtype.Timestamptz{Time: valueOrZeroTime(req.PlannedEnd), Valid: req.PlannedEnd != nil},
 		EstimatedHours: req.EstimatedHours,
+		PmScheduleID:   pgtype.Int8{},
 		CreatedBy:      req.ActorID,
 	})
 	if err != nil {
@@ -1063,6 +1064,7 @@ func (r *Repository) GeneratePMWorkOrderTx(ctx context.Context, req CreateWorkOr
 		PlannedStart:   pgtype.Timestamptz{Time: valueOrZeroTime(req.PlannedStart), Valid: req.PlannedStart != nil},
 		PlannedEnd:     pgtype.Timestamptz{Time: valueOrZeroTime(req.PlannedEnd), Valid: req.PlannedEnd != nil},
 		EstimatedHours: req.EstimatedHours,
+		PmScheduleID:   pgtype.Int8{Int64: schedID, Valid: schedID > 0},
 		CreatedBy:      req.ActorID,
 	})
 	if err != nil {

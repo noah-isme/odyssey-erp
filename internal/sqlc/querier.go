@@ -44,6 +44,7 @@ type Querier interface {
 	CompleteWorkOrderTask(ctx context.Context, arg CompleteWorkOrderTaskParams) error
 	ConfirmGoodsReturnGRN(ctx context.Context, arg ConfirmGoodsReturnGRNParams) error
 	ConsolBalancesByType(ctx context.Context, arg ConsolBalancesByTypeParams) ([]ConsolBalancesByTypeRow, error)
+	ConsumeDocumentSignatureChallenge(ctx context.Context, arg ConsumeDocumentSignatureChallengeParams) (ConsumeDocumentSignatureChallengeRow, error)
 	ContributionByBranch(ctx context.Context, arg ContributionByBranchParams) ([]ContributionByBranchRow, error)
 	CountARInvoicesByDelivery(ctx context.Context, deliveryOrderID pgtype.Int8) (int64, error)
 	CountAuditsWithPrefix(ctx context.Context, arg CountAuditsWithPrefixParams) (int64, error)
@@ -331,6 +332,7 @@ type Querier interface {
 	GetDocumentCategory(ctx context.Context, id int64) (DocumentCategory, error)
 	GetDocumentClassification(ctx context.Context, id int64) (DocumentClassification, error)
 	GetDocumentOCRJob(ctx context.Context, id int64) (DocOcrJob, error)
+	GetDocumentReviewStep(ctx context.Context, id int64) (DocumentReviewStep, error)
 	// =============================================================================
 	// DOCUMENT REVIEW STEPS
 	// =============================================================================

@@ -244,6 +244,44 @@ func (s *Service) GenerateAllPMWorkOrders(ctx context.Context) ([]WorkOrder, err
 	if err != nil {
 		return nil, err
 	}
+	return s.generatePMWorkOrders(ctx, schedules, 1)
+}
+
+// GeneratePMWorkOrdersForCompany generates due work orders only for the
+// requested company. Browser handlers use this scoped entry point so an
+// active-company user cannot trigger generation for another tenant.
+func (s *Service) GeneratePMWorkOrdersForCompany(ctx context.Context, companyID, actorID int64) ([]WorkOrder, error) {
+	if companyID <= 0 {
+		return nil, errors.New("cmms: company id required")
+	}
+	if actorID <= 0 {
+		return nil, errors.New("cmms: actor id required")
+	}
+
+	var schedules []PreventiveMaintenanceSchedule
+	if repo, ok := s.repo.(interface {
+		ListDuePMSchedules(context.Context, int64) ([]PreventiveMaintenanceSchedule, error)
+	}); ok {
+		var err error
+		schedules, err = repo.ListDuePMSchedules(ctx, companyID)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		all, err := s.repo.ListAllDuePMSchedules(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, schedule := range all {
+			if schedule.CompanyID == companyID {
+				schedules = append(schedules, schedule)
+			}
+		}
+	}
+	return s.generatePMWorkOrders(ctx, schedules, actorID)
+}
+
+func (s *Service) generatePMWorkOrders(ctx context.Context, schedules []PreventiveMaintenanceSchedule, actorID int64) ([]WorkOrder, error) {
 
 	var workOrders []WorkOrder
 	for _, sched := range schedules {
@@ -254,8 +292,8 @@ func (s *Service) GenerateAllPMWorkOrders(ctx context.Context) ([]WorkOrder, err
 			AssetID:     &sched.AssetID,
 			Priority:    PriorityMedium,
 			Category:    "PREVENTIVE",
-			RequesterID: 1, // system user placeholder
-			ActorID:     1, // system user placeholder
+			RequesterID: actorID,
+			ActorID:     actorID,
 		}
 
 		// Calculate next due values
@@ -269,13 +307,17 @@ func (s *Service) GenerateAllPMWorkOrders(ctx context.Context) ([]WorkOrder, err
 				nextDate = nextDate.AddDate(0, 0, 7*sched.FrequencyValue)
 			case "MONTHLY":
 				nextDate = nextDate.AddDate(0, sched.FrequencyValue, 0)
-			case "YEARLY":
+			case "QUARTERLY":
+				nextDate = nextDate.AddDate(0, 3*sched.FrequencyValue, 0)
+			case "SEMI_ANNUAL":
+				nextDate = nextDate.AddDate(0, 6*sched.FrequencyValue, 0)
+			case "ANNUAL", "YEARLY":
 				nextDate = nextDate.AddDate(sched.FrequencyValue, 0, 0)
 			}
 		}
 
 		nextMeter := float64(0)
-		if sched.NextDueMeter != nil && sched.FrequencyType == "METER" && sched.FrequencyValue > 0 {
+		if sched.NextDueMeter != nil && (sched.FrequencyType == "METER" || sched.FrequencyType == "METER_BASED") && sched.FrequencyValue > 0 {
 			nextMeter = *sched.NextDueMeter + float64(sched.FrequencyValue)
 		}
 
@@ -332,6 +374,31 @@ func (s *Service) AddSparePartToWorkOrder(ctx context.Context, req AddSparePartR
 		return WorkOrderSparePart{}, err
 	}
 	return s.repo.InsertWorkOrderSparePart(ctx, req)
+}
+
+// GetWorkOrderSparePart loads a spare-part usage line. The optional repository
+// assertion keeps the service boundary backwards compatible for lightweight
+// predictive/test repositories while exposing the existing SQL repository
+// projection to HTTP handlers.
+func (s *Service) GetWorkOrderSparePart(ctx context.Context, id int64) (WorkOrderSparePart, error) {
+	repo, ok := s.repo.(interface {
+		GetWorkOrderSparePart(context.Context, int64) (WorkOrderSparePart, error)
+	})
+	if !ok {
+		return WorkOrderSparePart{}, errors.New("cmms: work order spare part repository unavailable")
+	}
+	return repo.GetWorkOrderSparePart(ctx, id)
+}
+
+// ListWorkOrderSpareParts lists the spare-part usage lines on a work order.
+func (s *Service) ListWorkOrderSpareParts(ctx context.Context, workOrderID int64) ([]WorkOrderSparePart, error) {
+	repo, ok := s.repo.(interface {
+		ListWorkOrderSpareParts(context.Context, int64) ([]WorkOrderSparePart, error)
+	})
+	if !ok {
+		return nil, errors.New("cmms: work order spare part repository unavailable")
+	}
+	return repo.ListWorkOrderSpareParts(ctx, workOrderID)
 }
 
 // IssueSparePart issues a spare part from inventory.
@@ -495,6 +562,9 @@ func (r CreateMeterReadingRequest) Validate() error {
 	if r.ActorID <= 0 {
 		return errors.New("cmms: actor id required")
 	}
+	if math.IsNaN(r.Value) || math.IsInf(r.Value, 0) || r.Value < 0 {
+		return errors.New("cmms: meter value must be a non-negative finite number")
+	}
 	return nil
 }
 
@@ -528,6 +598,18 @@ func (r CreateSparePartRequest) Validate() error {
 	if r.ActorID <= 0 {
 		return errors.New("cmms: actor id required")
 	}
+	if err := validateNonNegativeFinite("unit cost", r.UnitCost); err != nil {
+		return err
+	}
+	if err := validateNonNegativeFinite("minimum quantity", r.MinQuantity); err != nil {
+		return err
+	}
+	if err := validateNonNegativeFinite("maximum quantity", r.MaxQuantity); err != nil {
+		return err
+	}
+	if err := validateNonNegativeFinite("reorder point", r.ReorderPoint); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -547,11 +629,21 @@ func (r AddSparePartRequest) Validate() error {
 	if r.SparePartID <= 0 {
 		return errors.New("cmms: spare part id required")
 	}
-	if r.Quantity <= 0 {
+	if math.IsNaN(r.Quantity) || math.IsInf(r.Quantity, 0) || r.Quantity <= 0 {
 		return errors.New("cmms: quantity required")
+	}
+	if err := validateNonNegativeFinite("unit cost", r.UnitCost); err != nil {
+		return err
 	}
 	if r.ActorID <= 0 {
 		return errors.New("cmms: actor id required")
+	}
+	return nil
+}
+
+func validateNonNegativeFinite(name string, value float64) error {
+	if math.IsNaN(value) || math.IsInf(value, 0) || value < 0 {
+		return fmt.Errorf("cmms: %s must be a non-negative finite number", name)
 	}
 	return nil
 }

@@ -13,6 +13,7 @@
     </div>
     <div>
       <a href="/documents/library" class="btn btn-outline-secondary me-2">Back to Library</a>
+      <a href="/documents/library/{{ .Data.Document.ID }}/acl" class="btn btn-outline-secondary me-2"><i class="bi bi-shield-lock"></i> Access Control</a>
       <a href="/documents/library/{{ .Data.Document.ID }}/versions" class="btn btn-primary shadow-sm"><i class="bi bi-clock-history"></i> Manage Versions</a>
     </div>
   </div>
@@ -56,7 +57,7 @@
                 <tr>
                   <td>v{{ .VersionNumber }}</td>
                   <td><span class="badge bg-secondary">{{ .Status }}</span></td>
-                  <td class="text-truncate" style="max-width: 200px;">{{ .ChangeSummary }}</td>
+                  <td class="text-truncate document-version-summary">{{ .ChangeSummary }}</td>
                   <td>{{ .CreatedByName }}</td>
                   <td>{{ .CreatedAt.Format "Jan 02, 2006" }}</td>
                 </tr>
@@ -71,6 +72,13 @@
     </div>
     
     <div class="col-lg-4">
+      <div class="card shadow-sm mb-4 border-secondary">
+        <div class="card-header bg-light fw-bold">Access Control</div>
+        <div class="card-body">
+          <p class="text-muted small">Record-level access is managed separately from module permissions.</p>
+          <a href="/documents/library/{{ .Data.Document.ID }}/acl" class="btn btn-outline-secondary btn-sm">View access rules</a>
+        </div>
+      </div>
       <div class="card shadow-sm mb-4 border-info">
         <div class="card-header bg-info text-white fw-bold">Lifecycle Status</div>
         <div class="card-body">

@@ -383,6 +383,17 @@ func (s *Service) ListACLs(ctx context.Context, companyID int64, documentID, cla
 
 // CheckAccess verifies if a user has a specific permission on a document.
 func (s *Service) CheckAccess(ctx context.Context, companyID, userID int64, documentID int64, permission string) (bool, error) {
+	if companyID <= 0 || userID <= 0 || documentID <= 0 || strings.TrimSpace(permission) == "" {
+		return false, errors.New("documents: company, document, and permission are required")
+	}
+	doc, err := s.repo.GetDocument(ctx, documentID)
+	if err != nil {
+		return false, err
+	}
+	if doc.CompanyID != companyID {
+		return false, errors.New("documents: document does not belong to company")
+	}
+	owner := doc.OwnerID == userID
 	// Get user roles
 	roles, err := s.repo.GetUserRoles(ctx, userID)
 	if err != nil {
@@ -395,54 +406,74 @@ func (s *Service) CheckAccess(ctx context.Context, companyID, userID int64, docu
 		return false, err
 	}
 
-	for _, acl := range acls {
-		if acl.Permission == permission {
-			if acl.PrincipalType == "USER" && acl.PrincipalID != nil && *acl.PrincipalID == userID {
-				return true, nil
-			}
-			if acl.PrincipalType == "ROLE" && acl.PrincipalID != nil {
-				for _, role := range roles {
-					if role == *acl.PrincipalID {
-						return true, nil
-					}
-				}
-			}
-			if acl.PrincipalType == "PUBLIC" {
-				return true, nil
-			}
-		}
-	}
+	documentAllowed, documentMatched, documentDenied := evaluateACLs(acls, roles, userID, permission, s.now())
 
 	// Check classification-level ACLs
-	doc, err := s.repo.GetDocument(ctx, documentID)
-	if err != nil {
-		return false, err
-	}
-
 	classACLs, err := s.repo.ListACLs(ctx, companyID, nil, &doc.ClassificationID)
 	if err != nil {
 		return false, err
 	}
 
-	for _, acl := range classACLs {
-		if acl.Permission == permission {
-			if acl.PrincipalType == "USER" && acl.PrincipalID != nil && *acl.PrincipalID == userID {
-				return true, nil
-			}
-			if acl.PrincipalType == "ROLE" && acl.PrincipalID != nil {
-				for _, role := range roles {
-					if role == *acl.PrincipalID {
-						return true, nil
-					}
-				}
-			}
-			if acl.PrincipalType == "PUBLIC" {
-				return true, nil
-			}
-		}
+	classificationAllowed, classificationMatched, classificationDenied := evaluateACLs(classACLs, roles, userID, permission, s.now())
+	if documentDenied || classificationDenied {
+		return false, nil
+	}
+	// The document owner retains record-level access when no explicit ACL
+	// grants it, but an explicit DENY above still wins for every principal.
+	if owner || documentAllowed || classificationAllowed {
+		return true, nil
+	}
+	if documentMatched || classificationMatched {
+		return false, nil
 	}
 
 	return false, nil
+}
+
+// evaluateACLs applies record-level ACLs with explicit-deny precedence. Expired
+// grants are ignored, and a document-specific rule is evaluated before the
+// classification defaults by the caller.
+func evaluateACLs(acls []DocumentACL, roles []int64, userID int64, permission string, now time.Time) (allowed, matched, denied bool) {
+	want := strings.ToUpper(strings.TrimSpace(permission))
+	for _, acl := range acls {
+		if acl.ExpiresAt != nil && !acl.ExpiresAt.After(now) {
+			continue
+		}
+		if strings.ToUpper(strings.TrimSpace(acl.Permission)) != want || !aclMatchesPrincipal(acl, roles, userID) {
+			continue
+		}
+		matched = true
+		if strings.EqualFold(strings.TrimSpace(acl.Effect), "DENY") {
+			denied = true
+			continue
+		}
+		if strings.EqualFold(strings.TrimSpace(acl.Effect), "ALLOW") {
+			allowed = true
+		}
+	}
+	if denied {
+		return false, matched, true
+	}
+	return allowed, matched, false
+}
+
+func aclMatchesPrincipal(acl DocumentACL, roles []int64, userID int64) bool {
+	switch strings.ToUpper(strings.TrimSpace(acl.PrincipalType)) {
+	case "PUBLIC":
+		return true
+	case "USER":
+		return acl.PrincipalID != nil && *acl.PrincipalID == userID
+	case "ROLE":
+		if acl.PrincipalID == nil {
+			return false
+		}
+		for _, roleID := range roles {
+			if roleID == *acl.PrincipalID {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // AddLink adds a cross-module reference.
@@ -476,9 +507,30 @@ func (s *Service) SubmitForReview(ctx context.Context, versionID int64, actorID 
 	if err != nil {
 		return DocumentVersion{}, err
 	}
+	// A document classification can require review without a pre-seeded
+	// workflow row. Create a single explicit approval step so submission never
+	// leaves the version in an unreviewable UNDER_REVIEW state.
+	configured := make([]DocumentReviewStep, 0, len(steps))
+	for _, step := range steps {
+		if step.DocumentVersionID == versionID {
+			configured = append(configured, step)
+		}
+	}
+	steps = configured
+	if len(steps) == 0 {
+		steps = []DocumentReviewStep{{
+			CompanyID:         version.CompanyID,
+			DocumentVersionID: versionID,
+			StepOrder:         1,
+			Name:              "Document approval",
+			RequiredApprovals: 1,
+			Status:            "PENDING",
+		}}
+	}
 
 	for _, step := range steps {
 		if err := s.repo.InsertReviewStep(ctx, DocumentReviewStep{
+			CompanyID:         version.CompanyID,
 			DocumentVersionID: versionID,
 			StepOrder:         step.StepOrder,
 			ReviewerRoleID:    step.ReviewerRoleID,
@@ -495,6 +547,23 @@ func (s *Service) SubmitForReview(ctx context.Context, versionID int64, actorID 
 
 // RecordReviewDecision records a review decision.
 func (s *Service) RecordReviewDecision(ctx context.Context, req ReviewDecisionRequest) (DocumentReviewDecision, error) {
+	if req.CompanyID <= 0 || req.DocumentVersionID <= 0 || req.StepID <= 0 || req.ReviewerID <= 0 {
+		return DocumentReviewDecision{}, errors.New("documents: review company, version, step, and reviewer are required")
+	}
+	req.Decision = strings.ToUpper(strings.TrimSpace(req.Decision))
+	if req.Decision != "APPROVED" && req.Decision != "REJECTED" {
+		return DocumentReviewDecision{}, errors.New("documents: review decision must be APPROVED or REJECTED")
+	}
+	step, err := s.repo.GetReviewStep(ctx, req.StepID)
+	if err != nil {
+		return DocumentReviewDecision{}, err
+	}
+	if step.CompanyID != req.CompanyID || step.DocumentVersionID != req.DocumentVersionID {
+		return DocumentReviewDecision{}, errors.New("documents: review step does not belong to document version")
+	}
+	if step.Status != "PENDING" {
+		return DocumentReviewDecision{}, errors.New("documents: review step is already decided")
+	}
 	decision, err := s.repo.InsertReviewDecision(ctx, req)
 	if err != nil {
 		return DocumentReviewDecision{}, err
@@ -522,11 +591,26 @@ func (s *Service) RecordReviewDecision(ctx context.Context, req ReviewDecisionRe
 
 // Signatures
 
-func (s *Service) CreateSignatureChallenge(ctx context.Context, companyID, versionID, signerID int64, expiry time.Duration) (DocumentSignatureChallenge, error) {
-	// Generate challenge expiry
-	exp := time.Now().Add(expiry)
+func (s *Service) CreateSignatureChallenge(ctx context.Context, companyID, versionID, signerID int64, expiry time.Duration, meanings ...string) (DocumentSignatureChallenge, error) {
+	if companyID <= 0 || versionID <= 0 || signerID <= 0 {
+		return DocumentSignatureChallenge{}, errors.New("documents: company, version, and signer ids are required")
+	}
+	if expiry <= 0 {
+		return DocumentSignatureChallenge{}, errors.New("documents: challenge expiry must be positive")
+	}
+	meaning := "Approved as effective version"
+	if len(meanings) > 0 && strings.TrimSpace(meanings[0]) != "" {
+		meaning = strings.TrimSpace(meanings[0])
+	}
+	if len(meaning) > 200 {
+		return DocumentSignatureChallenge{}, errors.New("documents: signature meaning is too long")
+	}
 
-	challengeID, err := s.repo.InsertSignatureChallenge(ctx, companyID, versionID, signerID, exp)
+	// Generate challenge expiry from the service clock so tests and operational
+	// evidence use one consistent timestamp source.
+	exp := s.now().Add(expiry)
+
+	challengeID, err := s.repo.InsertSignatureChallenge(ctx, companyID, versionID, signerID, exp, meaning)
 	if err != nil {
 		return DocumentSignatureChallenge{}, err
 	}
@@ -549,9 +633,23 @@ func (s *Service) SignDocument(ctx context.Context, req SignDocumentRequest) (Do
 	if challenge.SignerID != req.SignerID {
 		return DocumentSignature{}, errors.New("documents: signer mismatch")
 	}
-	if time.Now().After(challenge.Expiry) {
+	if challenge.Used {
+		return DocumentSignature{}, errors.New("documents: signature challenge already used")
+	}
+	if !s.now().Before(challenge.Expiry) {
 		return DocumentSignature{}, errors.New("documents: challenge expired")
 	}
+	meaning := strings.TrimSpace(req.Meaning)
+	if meaning == "" {
+		meaning = challenge.Meaning
+	}
+	if meaning == "" {
+		return DocumentSignature{}, errors.New("documents: signature meaning is required")
+	}
+	if challenge.Meaning != "" && meaning != challenge.Meaning {
+		return DocumentSignature{}, errors.New("documents: signature meaning does not match challenge")
+	}
+	req.Meaning = meaning
 
 	// Fetch document version to get checksum
 	version, err := s.repo.GetDocumentVersion(ctx, req.DocumentVersionID)

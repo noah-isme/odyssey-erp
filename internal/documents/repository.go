@@ -720,7 +720,7 @@ func (r *Repository) InsertACL(ctx context.Context, req CreateACLRequest) (Docum
 	if effect == "" {
 		effect = "ALLOW"
 	}
-	_, err := r.queries.InsertDocumentACL(ctx, sqlc.InsertDocumentACLParams{
+	id, err := r.queries.InsertDocumentACL(ctx, sqlc.InsertDocumentACLParams{
 		CompanyID:        req.CompanyID,
 		DocumentID:       documentID,
 		ClassificationID: classificationID,
@@ -729,12 +729,14 @@ func (r *Repository) InsertACL(ctx context.Context, req CreateACLRequest) (Docum
 		Permission:       req.Permission,
 		Effect:           effect,
 		GrantedBy:        req.GrantedBy,
+		ExpiresAt:        timestamptzPtr(req.ExpiresAt),
 	})
 	if err != nil {
 		return DocumentACL{}, err
 	}
 	// Return a constructed domain object (no GET query defined)
 	return DocumentACL{
+		ID:               id,
 		CompanyID:        req.CompanyID,
 		DocumentID:       req.DocumentID,
 		ClassificationID: req.ClassificationID,
@@ -743,6 +745,7 @@ func (r *Repository) InsertACL(ctx context.Context, req CreateACLRequest) (Docum
 		Permission:       req.Permission,
 		Effect:           effect,
 		GrantedBy:        req.GrantedBy,
+		ExpiresAt:        req.ExpiresAt,
 	}, nil
 }
 
@@ -879,6 +882,30 @@ func (r *Repository) GetReviewStepsForDocument(ctx context.Context, documentID i
 	return items, nil
 }
 
+func (r *Repository) GetReviewStep(ctx context.Context, stepID int64) (DocumentReviewStep, error) {
+	row, err := r.queries.GetDocumentReviewStep(ctx, stepID)
+	if err != nil {
+		return DocumentReviewStep{}, err
+	}
+	var dueAt *time.Time
+	if row.DueAt.Valid {
+		dueAt = &row.DueAt.Time
+	}
+	return DocumentReviewStep{
+		ID:                row.ID,
+		CompanyID:         row.CompanyID,
+		DocumentVersionID: row.DocumentVersionID,
+		StepOrder:         int(row.StepOrder),
+		Name:              row.Name,
+		ReviewerRoleID:    int64Ptr(row.ReviewerRoleID),
+		ReviewerUserID:    int64Ptr(row.ReviewerUserID),
+		RequiredApprovals: int(row.RequiredApprovals),
+		Status:            row.Status,
+		DueAt:             dueAt,
+		CreatedAt:         row.CreatedAt.Time,
+	}, nil
+}
+
 func (r *Repository) InsertReviewStep(ctx context.Context, step DocumentReviewStep) error {
 	var reviewerRoleID, reviewerUserID pgtype.Int8
 	if step.ReviewerRoleID != nil {
@@ -1004,6 +1031,13 @@ func int8Ptr(i *int64) pgtype.Int8 {
 	return pgtype.Int8{Int64: *i, Valid: true}
 }
 
+func timestamptzPtr(t *time.Time) pgtype.Timestamptz {
+	if t == nil {
+		return pgtype.Timestamptz{}
+	}
+	return pgtype.Timestamptz{Time: *t, Valid: true}
+}
+
 func statusPtr(s *Status) pgtype.Text {
 	if s == nil {
 		return pgtype.Text{}
@@ -1055,7 +1089,7 @@ func derefInt64(i *int64) int64 {
 
 // Signatures
 
-func (r *Repository) InsertSignatureChallenge(ctx context.Context, companyID, versionID, signerID int64, expiry time.Time) (string, error) {
+func (r *Repository) InsertSignatureChallenge(ctx context.Context, companyID, versionID, signerID int64, expiry time.Time, meaning string) (string, error) {
 	var expiryTs pgtype.Timestamptz
 	expiryTs.Time = expiry
 	expiryTs.Valid = true
@@ -1064,15 +1098,15 @@ func (r *Repository) InsertSignatureChallenge(ctx context.Context, companyID, ve
 		CompanyID:         companyID,
 		DocumentVersionID: versionID,
 		SignerID:          signerID,
+		Meaning:           meaning,
+		PolicyVersion:     1,
 		Expiry:            expiryTs,
 	})
 	if err != nil {
 		return "", err
 	}
 
-	uuidStr := challengeID.Bytes
-	// very hacky uuid to string
-	return string(uuidStr[:]), nil
+	return challengeID.String(), nil
 }
 
 func (r *Repository) GetSignatureChallenge(ctx context.Context, challengeID string) (DocumentSignatureChallenge, error) {
@@ -1092,7 +1126,10 @@ func (r *Repository) GetSignatureChallenge(ctx context.Context, challengeID stri
 		CompanyID:         row.CompanyID,
 		DocumentVersionID: row.DocumentVersionID,
 		SignerID:          row.SignerID,
+		Meaning:           row.Meaning,
+		PolicyVersion:     int(row.PolicyVersion),
 		Expiry:            row.Expiry.Time,
+		Used:              row.Used,
 		CreatedAt:         row.CreatedAt.Time,
 	}, nil
 }
@@ -1102,8 +1139,28 @@ func (r *Repository) InsertSignature(ctx context.Context, req SignDocumentReques
 	if err := pgUUID.Scan(req.ChallengeID); err != nil {
 		return DocumentSignature{}, err
 	}
+	if r.pool == nil {
+		return DocumentSignature{}, errors.New("documents: database pool is not configured")
+	}
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return DocumentSignature{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	queries := r.queries.WithTx(tx)
+	if _, err := queries.ConsumeDocumentSignatureChallenge(ctx, sqlc.ConsumeDocumentSignatureChallengeParams{
+		ChallengeID:       pgUUID,
+		CompanyID:         req.CompanyID,
+		DocumentVersionID: req.DocumentVersionID,
+		SignerID:          req.SignerID,
+	}); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return DocumentSignature{}, errors.New("documents: signature challenge is expired or already used")
+		}
+		return DocumentSignature{}, err
+	}
 
-	row, err := r.queries.InsertDocumentSignature(ctx, sqlc.InsertDocumentSignatureParams{
+	row, err := queries.InsertDocumentSignature(ctx, sqlc.InsertDocumentSignatureParams{
 		CompanyID:         req.CompanyID,
 		DocumentVersionID: req.DocumentVersionID,
 		ChallengeID:       pgUUID,
@@ -1115,6 +1172,9 @@ func (r *Repository) InsertSignature(ctx context.Context, req SignDocumentReques
 		AuthMethod:        authMethod,
 	})
 	if err != nil {
+		return DocumentSignature{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
 		return DocumentSignature{}, err
 	}
 

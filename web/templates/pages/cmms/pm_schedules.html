@@ -8,7 +8,13 @@
 <div class="container-fluid mt-4">
   <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="h3 text-info"><i class="bi bi-calendar-check"></i> PM Schedules</h1>
-    <a href="/cmms/pm-schedules/new" class="btn btn-info text-white shadow-sm"><i class="bi bi-plus"></i> New Schedule</a>
+    <div class="d-flex gap-2">
+      <form action="/cmms/pm-schedules/run-due" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+        <button type="submit" class="btn btn-outline-info">Generate due work orders</button>
+      </form>
+      <a href="/cmms/pm-schedules/new" class="btn btn-info text-white shadow-sm"><i class="bi bi-plus"></i> New Schedule</a>
+    </div>
   </div>
 
   <div class="card shadow-sm">

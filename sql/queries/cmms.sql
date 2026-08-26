@@ -3,8 +3,8 @@
 -- =============================================================================
 
 -- name: InsertWorkOrder :one
-INSERT INTO work_orders (company_id, number, title, description, asset_id, location_id, priority, status, category, requester_id, assignee_id, planned_start, planned_end, estimated_hours, created_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+INSERT INTO work_orders (company_id, number, title, description, asset_id, location_id, priority, status, category, requester_id, assignee_id, planned_start, planned_end, estimated_hours, pm_schedule_id, created_by)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
 RETURNING id;
 
 -- name: GetWorkOrder :one

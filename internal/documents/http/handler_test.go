@@ -1,6 +1,7 @@
 package documentshttp
 
 import (
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -20,7 +21,12 @@ func TestRoutesRequireAuthenticatedPermission(t *testing.T) {
 	h := NewHandler(nil, nil, nil, nil, rbac.Middleware{}, nil, nil)
 	router.Route("/documents", h.MountRoutes)
 
-	for _, path := range []string{"/documents/library/", "/documents/search/", "/documents/categories/", "/documents/classifications/"} {
+	for _, path := range []string{
+		"/documents/library/", "/documents/search/", "/documents/categories/", "/documents/classifications/",
+		"/documents/library/1/acl", "/documents/library/1/versions/1/submit-review",
+		"/documents/library/1/versions/1/review", "/documents/library/1/versions/1/challenge",
+		"/documents/library/1/versions/1/download",
+	} {
 		t.Run(path, func(t *testing.T) {
 			rec := httptest.NewRecorder()
 			router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
@@ -28,6 +34,54 @@ func TestRoutesRequireAuthenticatedPermission(t *testing.T) {
 				t.Fatalf("status=%d want %d", rec.Code, http.StatusForbidden)
 			}
 		})
+	}
+}
+
+func TestDocumentActionRoutesRequireAuthenticatedPermission(t *testing.T) {
+	router := chi.NewRouter()
+	h := NewHandler(nil, nil, nil, nil, rbac.Middleware{}, nil, nil)
+	router.Route("/documents", h.MountRoutes)
+
+	paths := []string{
+		"/documents/library/1/acl",
+		"/documents/library/1/acl/2/delete",
+		"/documents/library/1/versions/1/submit-review",
+		"/documents/library/1/versions/1/review",
+		"/documents/library/1/versions/1/sign",
+		"/documents/library/1/versions/1/retention",
+	}
+	for _, path := range paths {
+		t.Run(path, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, path, nil)
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, req)
+			if rec.Code != http.StatusForbidden {
+				t.Fatalf("status=%d want %d", rec.Code, http.StatusForbidden)
+			}
+		})
+	}
+}
+
+func TestValidACLPermission(t *testing.T) {
+	for _, permission := range []string{"READ", "WRITE", "ADMIN", "APPROVE", "SIGN"} {
+		if !validACLPermission(permission) {
+			t.Errorf("permission %q should be valid", permission)
+		}
+	}
+	for _, permission := range []string{"", "VIEW", "documents.view", "DELETE"} {
+		if validACLPermission(permission) {
+			t.Errorf("permission %q should be rejected", permission)
+		}
+	}
+}
+
+func TestDocumentOwnershipHelpersRejectInvalidScope(t *testing.T) {
+	h := NewHandler(nil, documents.NewService(nil, nil), nil, nil, rbac.Middleware{}, nil, nil)
+	if _, err := h.documentForCompany(nil, 1, 0); !errors.Is(err, documents.ErrDocumentNotFound) {
+		t.Fatalf("document scope error=%v", err)
+	}
+	if _, _, err := h.documentVersionForCompany(nil, 1, 0, 1); !errors.Is(err, documents.ErrDocumentVersionNotFound) {
+		t.Fatalf("version scope error=%v", err)
 	}
 }
 
