@@ -299,6 +299,6 @@ document.addEventListener('DOMContentLoaded', () => {
     window.OdysseyForm = Form;
     window.OdysseyComboBox = ComboBox;
 
-    console.log('🚀 Odyssey ERP initialized');
-    console.log('💡 Tip: Run OdysseyDevTools.enable() for debug mode');
+    console.log('Odyssey ERP initialized');
+    console.log('Tip: Run OdysseyDevTools.enable() for debug mode');
 });

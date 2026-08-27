@@ -1,6 +1,6 @@
 {{ define "pages/approvals/inbox.html" }}{{ template "layouts/base.html" . }}{{ end }}
 {{ define "title" }}My Approvals{{ end }}
-{{ define "ui-empty-state-icon" }}<span aria-hidden="true">✓</span>{{ end }}
+{{ define "ui-empty-state-icon" }}<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>{{ end }}
 {{ define "ui-empty-state-title" }}Inbox clear{{ end }}
 {{ define "ui-empty-state-description" }}No approval requests are assigned to you.{{ end }}
 {{ define "ui-empty-state-action" }}<a class="btn btn--secondary" href="/approvals/policies">View policies</a>{{ end }}

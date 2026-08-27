@@ -27,8 +27,8 @@ business activity without stitching together disconnected systems.
 
 The preview shows Odyssey ERP's public landing page, including its product overview,
 sales, inventory, accounting, fulfillment, reporting, governance, and integration
-sections. Additional authenticated application previews are available in
-[`tests/e2e/test-screenshots/`](tests/e2e/test-screenshots/).
+sections. For browser-based authenticated application testing, see the
+[E2E Browser Testing guide](docs/guides/e2e-browser-testing.md).
 
 For deploying to Render, see the [Production Deployment Guide](docs/guides/deploy-render.md).
 

@@ -258,6 +258,46 @@ func NewRouter(params RouterParams) http.Handler {
 		}
 	})
 
+	// Public legal and compliance documents
+	renderLegal := func(w http.ResponseWriter, r *http.Request, topic, title, currentPath string) {
+		sess := shared.SessionFromContext(r.Context())
+		csrfToken, _ := params.CSRFManager.EnsureToken(r.Context(), sess)
+		var flash *shared.FlashMessage
+		if sess != nil {
+			flash = sess.PopFlash()
+		}
+		data := view.TemplateData{
+			Title:       title,
+			CSRFToken:   csrfToken,
+			Flash:       flash,
+			CurrentPath: currentPath,
+			Data: map[string]any{
+				"Topic":         topic,
+				"EffectiveDate": "1 Januari 2026",
+				"Version":       "2026.2",
+			},
+		}
+		if err := params.Templates.Render(w, "pages/legal.html", data); err != nil {
+			params.Logger.Error("render legal", slog.String("topic", topic), slog.Any("error", err))
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		}
+	}
+
+	r.Route("/legal", func(r chi.Router) {
+		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "/legal/privacy", http.StatusMovedPermanently)
+		})
+		r.Get("/privacy", func(w http.ResponseWriter, r *http.Request) {
+			renderLegal(w, r, "privacy", "Kebijakan Privasi · Odyssey ERP", "/legal/privacy")
+		})
+		r.Get("/terms", func(w http.ResponseWriter, r *http.Request) {
+			renderLegal(w, r, "terms", "Syarat & Ketentuan Layanan · Odyssey ERP", "/legal/terms")
+		})
+		r.Get("/security", func(w http.ResponseWriter, r *http.Request) {
+			renderLegal(w, r, "security", "Pernyataan Keamanan Sistem · Odyssey ERP", "/legal/security")
+		})
+	})
+
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		sess := shared.SessionFromContext(r.Context())
 
@@ -272,12 +312,16 @@ func NewRouter(params RouterParams) http.Handler {
 		if sess != nil {
 			flash = sess.PopFlash()
 		}
+		appEnv := ""
+		if params.Config != nil {
+			appEnv = params.Config.AppEnv
+		}
 		data := view.TemplateData{
 			Title:     "Odyssey ERP",
 			CSRFToken: csrfToken,
 			Flash:     flash,
 			Data: map[string]any{
-				"AppEnv": params.Config.AppEnv,
+				"AppEnv": appEnv,
 			},
 		}
 		if err := params.Templates.Render(w, "pages/home.html", data); err != nil {
@@ -286,7 +330,9 @@ func NewRouter(params RouterParams) http.Handler {
 		}
 	})
 
-	r.Route("/auth", params.AuthHandler.MountRoutes)
+	if params.AuthHandler != nil {
+		r.Route("/auth", params.AuthHandler.MountRoutes)
+	}
 	// Personal workspace pages and preferences.
 	r.Get("/profile", func(w http.ResponseWriter, r *http.Request) {
 		sess := shared.SessionFromContext(r.Context())
@@ -359,13 +405,13 @@ func NewRouter(params RouterParams) http.Handler {
 			}
 			
 			providers := []map[string]any{
-				{"Name": "Stripe", "Icon": "💳", "Description": "Process payments and subscriptions.", "Active": true},
-				{"Name": "MockPay", "Icon": "💵", "Description": "Test payment gateway for sandbox environments.", "Active": true},
-				{"Name": "Shopify", "Icon": "🛍️", "Description": "Sync products, orders, and customers.", "Active": false},
-				{"Name": "WhatsApp", "Icon": "💬", "Description": "Send notifications and chat with customers.", "Active": false},
-				{"Name": "OpenAI", "Icon": "🧠", "Description": "AI generation and automation features.", "Active": false},
-				{"Name": "DHL", "Icon": "📦", "Description": "Book shipments and track deliveries.", "Active": false},
-				{"Name": "OIDC/SSO", "Icon": "🔐", "Description": "Single Sign-On and directory sync.", "Active": true},
+				{"Provider": "Stripe", "Name": "Stripe", "Icon": "credit-card", "Description": "Process payments and subscriptions.", "Active": true},
+				{"Provider": "MockPay", "Name": "MockPay", "Icon": "banknote", "Description": "Test payment gateway for sandbox environments.", "Active": true},
+				{"Provider": "Shopify", "Name": "Shopify", "Icon": "shopping-bag", "Description": "Sync products, orders, and customers.", "Active": false},
+				{"Provider": "WhatsApp", "Name": "WhatsApp", "Icon": "message-circle", "Description": "Send notifications and chat with customers.", "Active": false},
+				{"Provider": "OpenAI", "Name": "OpenAI", "Icon": "cpu", "Description": "AI generation and automation features.", "Active": false},
+				{"Provider": "DHL", "Name": "DHL", "Icon": "truck", "Description": "Book shipments and track deliveries.", "Active": false},
+				{"Provider": "OIDC/SSO", "Name": "OIDC/SSO", "Icon": "shield-check", "Description": "Single Sign-On and directory sync.", "Active": true},
 			}
 
 			_ = params.Templates.Render(w, "pages/integrations.html", view.TemplateData{
@@ -689,8 +735,12 @@ func NewRouter(params RouterParams) http.Handler {
 	if params.VarianceHandler != nil {
 		params.VarianceHandler.MountRoutes(r)
 	}
-	r.Route("/inventory", params.InventoryHandler.MountRoutes)
-	r.Route("/procurement", params.ProcurementHandler.MountRoutes)
+	if params.InventoryHandler != nil {
+		r.Route("/inventory", params.InventoryHandler.MountRoutes)
+	}
+	if params.ProcurementHandler != nil {
+		r.Route("/procurement", params.ProcurementHandler.MountRoutes)
+	}
 	if params.SalesHandler != nil {
 		r.Route("/sales", params.SalesHandler.MountRoutes)
 	}
@@ -727,10 +777,14 @@ func NewRouter(params RouterParams) http.Handler {
 	if params.ConnectorsHandler != nil {
 		r.Route("/webhooks/connectors", params.ConnectorsHandler.MountRoutes)
 	}
-	r.Route("/delivery", func(r chi.Router) {
-		delivery.MountRoutes(r, params.Pool, params.Logger, params.Templates, params.CSRFManager, params.RBACMiddleware, params.InventoryService)
-	})
-	r.Route("/report", params.ReportHandler.MountRoutes)
+	if params.InventoryService != nil {
+		r.Route("/delivery", func(r chi.Router) {
+			delivery.MountRoutes(r, params.Pool, params.Logger, params.Templates, params.CSRFManager, params.RBACMiddleware, params.InventoryService)
+		})
+	}
+	if params.ReportHandler != nil {
+		r.Route("/report", params.ReportHandler.MountRoutes)
+	}
 	if params.ConsolHandler != nil {
 		params.ConsolHandler.MountRoutes(r)
 	}
@@ -740,7 +794,9 @@ func NewRouter(params RouterParams) http.Handler {
 		r.Route("/finance/forecasting", params.ForecastingHandler.MountRoutes)
 		r.Route("/finance/treasury", params.TreasuryHandler.MountRoutes)
 	}
-	r.Route("/jobs", params.JobHandler.MountRoutes)
+	if params.JobHandler != nil {
+		r.Route("/jobs", params.JobHandler.MountRoutes)
+	}
 	if params.AnalyticsHandler != nil {
 		params.AnalyticsHandler.MountRoutes(r)
 	}

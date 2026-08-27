@@ -97,7 +97,7 @@ func main() {
 		log.Fatalf("seed listing fixtures: %v", err)
 	}
 
-	fmt.Println("✓ Seed complete at", time.Now().Format(time.RFC3339))
+	fmt.Println("Seed complete at", time.Now().Format(time.RFC3339))
 }
 
 // =============================================================================

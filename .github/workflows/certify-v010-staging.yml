@@ -66,6 +66,14 @@ jobs:
           set -euo pipefail
           exec > >(tee -a staging-certification.log) 2>&1
           candidate_file=staging-certification-candidate/candidate.txt
+          [[ "$CANDIDATE_TAG" =~ ^v0\.10\.0-rc\.[1-9][0-9]*$ ]] || {
+            echo 'candidate_tag must match v0.10.0-rc.N (N >= 1)' >&2
+            exit 1
+          }
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]] || {
+            echo 'expected_sha must be a 40-character lowercase commit SHA' >&2
+            exit 1
+          }
           printf 'candidate=%s\nexpected_sha=%s\n' "$CANDIDATE_TAG" "$EXPECTED_SHA" > "$candidate_file"
           [[ "$(git cat-file -t "refs/tags/$CANDIDATE_TAG")" == tag ]] || {
             echo "$CANDIDATE_TAG must be an annotated tag" >&2
@@ -109,6 +117,11 @@ jobs:
           EVIDENCE_S3_BUCKET: ${{ secrets.EVIDENCE_S3_BUCKET }}
           EVIDENCE_S3_ACCESS_KEY_ID: ${{ secrets.EVIDENCE_S3_ACCESS_KEY_ID }}
           EVIDENCE_S3_SECRET_ACCESS_KEY: ${{ secrets.EVIDENCE_S3_SECRET_ACCESS_KEY }}
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_USER: ${{ secrets.STAGING_USER }}
+          STAGING_SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          STAGING_KNOWN_HOSTS: ${{ secrets.STAGING_KNOWN_HOSTS }}
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
@@ -126,6 +139,7 @@ jobs:
             ODYSSEY_E2E_AMOUNT
             EVIDENCE_S3_ENDPOINT EVIDENCE_S3_REGION EVIDENCE_S3_BUCKET
             EVIDENCE_S3_ACCESS_KEY_ID EVIDENCE_S3_SECRET_ACCESS_KEY
+            STAGING_HOST STAGING_USER STAGING_SSH_KEY STAGING_KNOWN_HOSTS
           )
           missing=()
           for key in "${required[@]}"; do
@@ -137,6 +151,25 @@ jobs:
             printf 'missing staging certification configuration: %s\n' "${missing[*]}" >&2
             exit 1
           fi
+          for binary in gh jq aws sha256sum; do
+            command -v "$binary" >/dev/null 2>&1 || missing+=("runner command: $binary")
+          done
+          if ((${#missing[@]} > 0)); then
+            printf 'missing staging certification tooling: %s\n' "${missing[*]}" >&2
+            exit 1
+          fi
+          [[ -f .github/workflows/deploy-native.yml ]] || {
+            echo 'deploy-native.yml is missing from the certification tooling ref' >&2
+            exit 1
+          }
+          [[ -x scripts/staging-certification-evidence.sh ]] || {
+            echo 'staging-certification-evidence.sh is missing or not executable on the certification tooling ref' >&2
+            exit 1
+          }
+          [[ -f scripts/staging-certification-contract.json ]] || {
+            echo 'staging-certification-contract.json is missing from the certification tooling ref' >&2
+            exit 1
+          }
           echo 'staging certification configuration preflight passed'
 
       - name: Deploy fixed candidate to staging
@@ -146,29 +179,35 @@ jobs:
         run: |
           set -euo pipefail
           exec > >(tee -a staging-certification.log) 2>&1
+          deployment_ref="$GITHUB_REF_NAME"
+          [[ "$deployment_ref" == certification/* ]] || {
+            echo "certification must run from a certification tooling ref; got $deployment_ref" >&2
+            exit 1
+          }
           before_ids=()
           while IFS= read -r id; do
             [[ -n "$id" ]] && before_ids+=("$id")
-          done < <(gh run list --workflow deploy-native.yml --branch staging \
+          done < <(gh run list --workflow deploy-native.yml --branch "$deployment_ref" \
             --event workflow_dispatch --limit 100 --json databaseId --jq '.[].databaseId')
           declare -A known_ids=()
           for id in "${before_ids[@]}"; do
             known_ids["$id"]=1
           done
-          gh workflow run deploy-native.yml --ref staging \
+          gh workflow run deploy-native.yml --ref "$deployment_ref" \
             --field candidate_tag="$CANDIDATE_TAG"
 
           run_id=''
           deployed=false
           for attempt in $(seq 1 60); do
-            runs=$(gh run list --workflow deploy-native.yml --branch staging \
+            runs=$(gh run list --workflow deploy-native.yml --branch "$deployment_ref" \
               --event workflow_dispatch --limit 100 \
               --json databaseId,status,conclusion,createdAt,event,headBranch)
             new_ids=()
             while IFS= read -r id; do
               [[ -n "$id" ]] || continue
               [[ -z "${known_ids[$id]+set}" ]] && new_ids+=("$id")
-            done < <(jq -r '.[] | select(.event == "workflow_dispatch" and .headBranch == "staging") | .databaseId' <<<"$runs")
+            done < <(jq -r --arg branch "$deployment_ref" \
+              '.[] | select(.event == "workflow_dispatch" and .headBranch == $branch) | .databaseId' <<<"$runs")
             if ((${#new_ids[@]} > 1)); then
               printf 'ambiguous deployment selection; new workflow runs: %s\n' "${new_ids[*]}" >&2
               exit 1

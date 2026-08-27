@@ -60,7 +60,7 @@ func (suite *E2ETestSuite) TestVendorContractLifecycle() {
 	// Step 4: Approve contract
 	// Step 5: Verify ACTIVE status
 
-	suite.T().Log("✅ Phase 3: Vendor Contract Lifecycle - PASS")
+	suite.T().Log("Phase 3: Vendor Contract Lifecycle - PASS")
 }
 
 // TestVendorScorecardCalculation - Phase 3: Vendor Intelligence
@@ -77,7 +77,7 @@ func (suite *E2ETestSuite) TestVendorScorecardCalculation() {
 	// Verify metrics calculated: OTIF, Quality, Price, RFQ
 	// Verify overall score is weighted average (0-100)
 
-	suite.T().Log("✅ Phase 3: Vendor Scorecard Calculation - PASS")
+	suite.T().Log("Phase 3: Vendor Scorecard Calculation - PASS")
 }
 
 // TestShipmentTrackingLifecycle - Phase 4: Transport Execution
@@ -111,7 +111,7 @@ func (suite *E2ETestSuite) TestShipmentTrackingLifecycle() {
 	// Step 5: Complete delivery with signature
 	// Verify status is DELIVERED
 
-	suite.T().Log("✅ Phase 4: Shipment Tracking Lifecycle - PASS")
+	suite.T().Log("Phase 4: Shipment Tracking Lifecycle - PASS")
 }
 
 // TestCarrierRateCalculation - Phase 4: Transport Execution
@@ -141,7 +141,7 @@ func (suite *E2ETestSuite) TestCarrierRateCalculation() {
 	// Verify: base_rate + (weight * surcharge) = calculated_rate
 	// Verify breakdown includes all components
 
-	suite.T().Log("✅ Phase 4: Carrier Rate Calculation - PASS")
+	suite.T().Log("Phase 4: Carrier Rate Calculation - PASS")
 }
 
 // TestLoadConsolidationWorkflow - Phase 5: Distribution Planning
@@ -174,7 +174,7 @@ func (suite *E2ETestSuite) TestLoadConsolidationWorkflow() {
 	// Verify status changes to CONFIRMED
 	// Verify utilization metrics calculated
 
-	suite.T().Log("✅ Phase 5: Load Consolidation Workflow - PASS")
+	suite.T().Log("Phase 5: Load Consolidation Workflow - PASS")
 }
 
 // TestRouteOptimization - Phase 5: Distribution Planning
@@ -206,7 +206,7 @@ func (suite *E2ETestSuite) TestRouteOptimization() {
 	// Step 4: Approve route for execution
 	// Verify status transitions PLANNED → OPTIMIZED → APPROVED
 
-	suite.T().Log("✅ Phase 5: Route Optimization - PASS")
+	suite.T().Log("Phase 5: Route Optimization - PASS")
 }
 
 // TestTransferOrderWorkflow - Phase 5: Distribution Planning
@@ -234,31 +234,31 @@ func (suite *E2ETestSuite) TestTransferOrderWorkflow() {
 	// Step 5: Receive at destination
 	// Verify receipt quantities match
 
-	suite.T().Log("✅ Phase 5: Transfer Order Workflow - PASS")
+	suite.T().Log("Phase 5: Transfer Order Workflow - PASS")
 }
 
 // TestRBACPermissions - RBAC Permission Enforcement
 func (suite *E2ETestSuite) TestRBACPermissions() {
 	// Procurement Officer:
-	// ✅ Can view contracts
-	// ✅ Can create RFQ
-	// ✅ Cannot post GL
+	// - Can view contracts
+	// - Can create RFQ
+	// - Cannot post GL
 
 	// Logistics Manager:
-	// ✅ Can view shipments
-	// ✅ Can create routes
-	// ✅ Cannot approve contracts
+	// - Can view shipments
+	// - Can create routes
+	// - Cannot approve contracts
 
 	// Finance:
-	// ✅ Can post GL
-	// ✅ Can view rates
-	// ✅ Cannot create shipments
+	// - Can post GL
+	// - Can view rates
+	// - Cannot create shipments
 
 	// Viewer:
-	// ✅ Can view all read-only data
-	// ✅ Cannot create anything
+	// - Can view all read-only data
+	// - Cannot create anything
 
-	suite.T().Log("✅ RBAC Permission Enforcement - PASS")
+	suite.T().Log("RBAC Permission Enforcement - PASS")
 }
 
 // TestErrorHandling - Error Scenarios
@@ -278,7 +278,7 @@ func (suite *E2ETestSuite) TestErrorHandling() {
 	// Unauthorized: 401 Unauthorized or 302 Redirect
 	// Unauthenticated request
 
-	suite.T().Log("✅ Error Handling - PASS")
+	suite.T().Log("Error Handling - PASS")
 }
 
 // TestConcurrentOperations - Concurrency Handling
@@ -287,7 +287,7 @@ func (suite *E2ETestSuite) TestConcurrentOperations() {
 	// Verify no race conditions
 	// Verify data consistency
 
-	suite.T().Log("✅ Concurrent Operations - PASS")
+	suite.T().Log("Concurrent Operations - PASS")
 }
 
 // TestDataConsistency - Cross-Phase Integration
@@ -298,7 +298,7 @@ func (suite *E2ETestSuite) TestDataConsistency() {
 	// Phase 5: Create load from shipments
 	// Verify all shipment data preserved
 
-	suite.T().Log("✅ Data Consistency Across Phases - PASS")
+	suite.T().Log("Data Consistency Across Phases - PASS")
 }
 
 func TestE2ESuite(t *testing.T) {

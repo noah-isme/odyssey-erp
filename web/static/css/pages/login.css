@@ -1,13 +1,7 @@
 /* ==========================================================================
-   LOGIN PAGE - MODERN FLUID DESIGN
-   Theme: Midnight Ledger (Premium Enterprise)
-   
-   Key improvements:
-   - Animated gradient background
-   - Softer, floating card with subtle glow
-   - Breathable spacing and rhythm
-   - Micro-interactions for polish
-   ==========================================================================  */
+   ODYSSEY ERP LOGIN PAGE
+   Theme: Midnight Ledger Design Tokens Integration (Clean Enterprise)
+   ========================================================================== */
 
 /* ==========================================================================
    BASE LAYOUT
@@ -17,11 +11,14 @@
     min-height: 100vh;
     display: flex;
     position: relative;
-    overflow: hidden;
+    overflow-x: hidden;
+    background-color: var(--bg-app);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
 }
 
 /* ==========================================================================
-   ANIMATED BACKGROUND
+   CLEAN BACKGROUND (Static, Zero Animation CPU Overhead)
    ========================================================================== */
 
 .login-bg {
@@ -34,62 +31,7 @@
 .login-gradient {
     position: absolute;
     inset: 0;
-    background:
-        linear-gradient(135deg, var(--gray-50) 0%, var(--gray-100) 50%, var(--gray-200) 100%);
-}
-
-/* Animated gradient orbs */
-.login-glow {
-    position: absolute;
-    top: -20%;
-    right: -10%;
-    width: 80vw;
-    height: 80vw;
-    max-width: 800px;
-    max-height: 800px;
-    background: radial-gradient(circle, rgba(36, 92, 138, 0.08) 0%, transparent 60%);
-    animation: float-glow 20s ease-in-out infinite;
-}
-
-.login-glow::before {
-    content: '';
-    position: absolute;
-    bottom: -30%;
-    left: -20%;
-    width: 60vw;
-    height: 60vw;
-    max-width: 600px;
-    max-height: 600px;
-    background: radial-gradient(circle, rgba(127, 166, 201, 0.06) 0%, transparent 60%);
-    animation: float-glow 15s ease-in-out infinite reverse;
-}
-
-@keyframes float-glow {
-
-    0%,
-    100% {
-        transform: translate(0, 0) scale(1);
-    }
-
-    33% {
-        transform: translate(2%, 3%) scale(1.02);
-    }
-
-    66% {
-        transform: translate(-1%, -2%) scale(0.98);
-    }
-}
-
-/* Subtle grid pattern */
-.login-bg::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background-image:
-        linear-gradient(rgba(15, 31, 51, 0.015) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(15, 31, 51, 0.015) 1px, transparent 1px);
-    background-size: 48px 48px;
-    opacity: 0.6;
+    background: var(--bg-app);
 }
 
 /* ==========================================================================
@@ -105,37 +47,33 @@
 }
 
 /* ==========================================================================
-   BRAND PANEL (LEFT) - Premium Gradient
+   BRAND PANEL (LEFT) - Executive Midnight Ledger
    ========================================================================== */
 
 .login-branding {
     display: none;
-    width: 420px;
-    background: linear-gradient(160deg, #0B1F33 0%, #0F2942 60%, #132F4C 100%);
-    box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.06);
+    width: min(45vw, 540px);
+    background: linear-gradient(155deg, var(--primary-900) 0%, #172554 60%, var(--primary-700) 140%);
+    box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.08);
     padding: 0;
     flex-shrink: 0;
     position: relative;
     overflow: hidden;
 }
 
-/* Decorative orb on brand panel */
-.login-branding::before {
+.login-branding::after {
     content: '';
     position: absolute;
-    bottom: -30%;
-    left: -20%;
-    width: 400px;
-    height: 400px;
-    background: radial-gradient(circle, rgba(58, 120, 168, 0.12) 0%, transparent 60%);
-    pointer-events: none;
+    inset: auto 48px 72px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(147, 197, 253, 0.4), transparent);
 }
 
 .branding-content {
     display: flex;
     flex-direction: column;
     height: 100%;
-    padding: 56px 48px 48px;
+    padding: clamp(48px, 6vw, 72px) clamp(40px, 5vw, 64px);
     position: relative;
     z-index: 1;
 }
@@ -144,79 +82,87 @@
 .login-logo-large {
     display: inline-block;
     color: var(--primary-300);
-    margin-bottom: 32px;
+    margin-bottom: 28px;
     transition: transform var(--dur-2) var(--ease-standard);
 }
 
 .login-logo-large:hover {
-    transform: scale(1.05);
+    transform: scale(1.04);
 }
 
 .login-logo-large svg {
-    width: 48px;
-    height: 48px;
+    width: 44px;
+    height: 44px;
+}
+
+.branding-eyebrow {
+    color: var(--primary-300);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
 }
 
 /* Product Name */
 .branding-title {
-    font-size: 22px;
-    font-weight: 600;
-    color: var(--bg-surface);
+    font-size: 28px;
+    font-weight: 700;
+    color: #FFFFFF;
     margin: 0 0 12px;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.02em;
 }
 
 /* Tagline */
 .branding-tagline {
     font-size: 15px;
-    color: rgba(255, 255, 255, 0.65);
-    margin: 0 0 48px;
+    color: rgba(255, 255, 255, 0.75);
+    margin: 0 0 40px;
     line-height: 1.6;
-    max-width: 280px;
+    max-width: 360px;
 }
 
 /* Feature Checklist */
 .branding-features {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 14px;
     margin-bottom: auto;
 }
 
 .branding-feature {
     display: flex;
     align-items: center;
-    gap: 14px;
-    font-size: 14px;
+    gap: 12px;
+    font-size: 13.5px;
     font-weight: 400;
-    color: rgba(255, 255, 255, 0.80);
+    color: rgba(255, 255, 255, 0.85);
     padding: 10px 14px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 10px;
-    transition: all var(--dur-2) var(--ease-standard);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius-2);
+    transition: background var(--dur-2) var(--ease-standard);
 }
 
 .branding-feature:hover {
-    background: rgba(255, 255, 255, 0.06);
-    transform: translateX(4px);
+    background: rgba(255, 255, 255, 0.07);
 }
 
 .branding-feature svg {
     width: 16px;
     height: 16px;
-    color: var(--success-600);
+    color: var(--primary-300);
     flex-shrink: 0;
 }
 
 /* Micro caption */
 .branding-caption {
     font-size: 12px;
-    color: rgba(255, 255, 255, 0.40);
-    font-style: normal;
+    color: rgba(255, 255, 255, 0.45);
     letter-spacing: 0.02em;
-    padding-top: 32px;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    padding-top: 24px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    margin: 0;
 }
 
 /* ==========================================================================
@@ -234,7 +180,7 @@
 
 .login-form-container {
     width: 100%;
-    max-width: 400px;
+    max-width: 420px;
 }
 
 /* ==========================================================================
@@ -249,9 +195,9 @@
     text-decoration: none;
     font-size: 13px;
     font-weight: var(--weight-medium);
-    margin-bottom: 24px;
-    padding: 8px 0;
-    transition: all var(--dur-2) var(--ease-standard);
+    margin-bottom: 20px;
+    padding: 4px 0;
+    transition: color var(--dur-2) var(--ease-standard);
 }
 
 .login-back svg {
@@ -269,16 +215,15 @@
 }
 
 /* ==========================================================================
-   LOGIN CARD - Clean Minimal
+   LOGIN CARD - Crisp Enterprise Surface
    ========================================================================== */
 
 .login-card {
     background: var(--bg-surface);
     border: 1px solid var(--border-subtle);
-    border-top: 3px solid var(--brand);
-    border-radius: var(--radius-1, 2px);
-    padding: 32px 32px 28px;
-    box-shadow: var(--shadow-1);
+    border-radius: var(--radius-3);
+    padding: 36px 32px 32px;
+    box-shadow: var(--shadow-2);
 }
 
 /* ==========================================================================
@@ -286,43 +231,54 @@
    ========================================================================== */
 
 .login-header {
-    text-align: center;
-    margin-bottom: 36px;
+    text-align: left;
+    margin-bottom: 28px;
 }
 
 /* Mobile logo */
 .login-logo-mobile {
     display: flex;
-    justify-content: center;
-    margin-bottom: 20px;
+    justify-content: flex-start;
+    margin-bottom: 16px;
 }
 
 .login-logo-mobile .logo-icon {
-    width: 40px;
-    height: 40px;
-    color: var(--brand);
+    width: 36px;
+    height: 36px;
+    color: var(--primary-500);
+}
+
+.login-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
 }
 
 /* Title */
 .login-title {
-    font-size: 26px;
+    font-size: 22px;
     font-weight: 700;
-    color: var(--primary-900);
-    margin: 0 0 10px;
-    letter-spacing: -0.03em;
+    color: var(--text-primary);
+    margin: 0;
+    letter-spacing: -0.02em;
 }
 
 /* Subtitle */
 .login-subtitle {
-    font-size: 15px;
-    color: var(--gray-500);
-    margin: 0;
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin: 0 0 6px;
     line-height: 1.5;
 }
 
-/* Security note - hidden for cleaner look */
+/* Security note */
 .login-security-note {
-    display: none;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: 0;
+    line-height: 1.4;
 }
 
 /* ==========================================================================
@@ -333,11 +289,11 @@
     display: flex;
     align-items: flex-start;
     gap: 12px;
-    padding: 14px 16px;
-    background: rgba(241, 106, 94, 0.05);
-    border: 1px solid rgba(241, 106, 94, 0.15);
-    border-radius: 12px;
-    margin-bottom: 28px;
+    padding: 12px 14px;
+    background: var(--error-bg);
+    border: 1px solid rgba(180, 35, 24, 0.2);
+    border-radius: var(--radius-2);
+    margin-bottom: 24px;
 }
 
 .login-alert svg {
@@ -349,9 +305,10 @@
 }
 
 .login-alert span {
-    font-size: 14px;
-    color: var(--text-primary);
-    line-height: 1.5;
+    font-size: 13px;
+    color: var(--error-600);
+    line-height: 1.45;
+    font-weight: var(--weight-medium);
 }
 
 /* ==========================================================================
@@ -361,11 +318,11 @@
 .login-form {
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: 20px;
 }
 
 /* ==========================================================================
-   FORM GROUP - Mockup Style
+   FORM GROUP
    ========================================================================== */
 
 .form-group {
@@ -376,13 +333,12 @@
 
 .form-label {
     font-size: 13px;
-    font-weight: 500;
-    color: var(--gray-600);
-    margin-left: 2px;
+    font-weight: var(--weight-medium);
+    color: var(--text-secondary);
 }
 
 /* ==========================================================================
-   INPUT FIELDS - Mockup Style (gray rounded)
+   INPUT FIELDS
    ========================================================================== */
 
 .input-wrapper {
@@ -402,17 +358,16 @@
 
 .login-page .form-input {
     width: 100%;
-    height: var(--input-h);
-    padding: 0 var(--input-pad-x) 0 40px;
-    background: var(--gray-100);
-    border: 1px solid var(--gray-200);
-    border-radius: var(--input-radius);
+    height: 42px;
+    padding: 0 14px 0 40px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-2);
     color: var(--text-primary);
     font-size: var(--text-sm);
     font-family: var(--font-sans);
-    box-shadow: none;
     outline: none;
-    transition: all var(--dur-2) var(--ease-standard);
+    transition: border-color var(--dur-2) var(--ease-standard), box-shadow var(--dur-2) var(--ease-standard);
 }
 
 .login-page .form-input::placeholder {
@@ -420,35 +375,32 @@
 }
 
 .login-page .form-input:hover {
-    background: var(--gray-200);
-    border-color: var(--gray-300);
+    border-color: var(--gray-400);
 }
 
 .login-page .form-input:focus {
-    background: var(--bg-surface);
-    border-color: var(--gray-500);
-    box-shadow: none;
-    outline: none;
+    border-color: var(--primary-500);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
 }
 
 .input-wrapper:focus-within .input-icon {
-    color: var(--gray-500);
+    color: var(--primary-500);
 }
 
 /* Error state */
 .form-input.input-error {
-    border-color: rgba(180, 35, 24, 0.35);
-    background: rgba(254, 236, 236, 0.3);
+    border-color: var(--error-600);
+    background: rgba(254, 236, 236, 0.2);
 }
 
 .form-input.input-error:focus {
     border-color: var(--error-600);
-    box-shadow: 0 0 0 4px rgba(180, 35, 24, 0.08);
+    box-shadow: 0 0 0 3px rgba(180, 35, 24, 0.15);
 }
 
 /* Field error text */
 .field-error {
-    font-size: 13px;
+    font-size: 12px;
     color: var(--error-600);
     margin-top: 4px;
     display: flex;
@@ -475,37 +427,37 @@
 .checkbox-label {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     cursor: pointer;
 }
 
 .checkbox-input {
-    width: 18px;
-    height: 18px;
-    accent-color: var(--brand);
-    border-radius: 4px;
+    width: 16px;
+    height: 16px;
+    accent-color: var(--primary-500);
+    border-radius: var(--radius-1);
     cursor: pointer;
 }
 
 .checkbox-text {
-    font-size: 14px;
+    font-size: 13px;
     color: var(--text-secondary);
 }
 
 /* Forgot link */
 .forgot-link {
-    font-size: 14px;
+    font-size: 13px;
     color: var(--text-muted);
     text-decoration: none;
-    transition: all var(--dur-2) var(--ease-standard);
+    transition: color var(--dur-2) var(--ease-standard);
 }
 
 .forgot-link:hover {
-    color: var(--brand);
+    color: var(--primary-700);
 }
 
 /* ==========================================================================
-   PRIMARY BUTTON - Mockup Style (blue rounded)
+   PRIMARY LOGIN BUTTON
    ========================================================================== */
 
 .login-page .btn-login {
@@ -514,36 +466,104 @@
     justify-content: center;
     gap: var(--space-2);
     width: 100%;
-    height: var(--btn-h);
-    margin-top: var(--space-5);
+    height: 42px;
+    margin-top: var(--space-2);
     font-size: var(--text-sm);
     font-weight: var(--weight-medium);
     font-family: var(--font-sans);
-    border-radius: var(--input-radius);
+    border-radius: var(--radius-2);
     cursor: pointer;
     text-decoration: none;
-    background: var(--info-600);
-    border: none;
-    color: var(--bg-surface);
-    box-shadow: none;
-    transition: background-color var(--dur-2) var(--ease-standard);
+    background: var(--primary-500);
+    border: 1px solid var(--primary-500);
+    color: #FFFFFF;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+    transition: background-color var(--dur-2) var(--ease-standard), border-color var(--dur-2) var(--ease-standard), box-shadow var(--dur-2) var(--ease-standard);
 }
 
 .login-page .btn-login:hover {
-    background: var(--brand-hover);
+    background: var(--primary-700);
+    border-color: var(--primary-700);
+    box-shadow: 0 4px 12px rgba(29, 78, 216, 0.2);
 }
 
 .login-page .btn-login:active {
-    background: var(--brand-strong);
+    background: var(--primary-900);
+    border-color: var(--primary-900);
 }
 
 .login-page .btn-login svg {
     width: 16px;
     height: 16px;
+    transition: transform var(--dur-2) var(--ease-standard);
 }
 
 .login-page .btn-login:hover svg {
     transform: translateX(2px);
+}
+
+/* ==========================================================================
+   SSO DIVIDER & BUTTON (Midnight Ledger Standards)
+   ========================================================================== */
+
+.sso-divider {
+    position: relative;
+    text-align: center;
+    margin: 24px 0 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sso-divider-line {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--border-subtle);
+    z-index: 0;
+}
+
+.sso-divider-text {
+    position: relative;
+    z-index: 1;
+    background: var(--bg-surface);
+    padding: 0 12px;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: var(--weight-medium);
+}
+
+.btn-sso {
+    width: 100%;
+    height: 42px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+    font-family: var(--font-sans);
+    border-radius: var(--radius-2);
+    border: 1px solid var(--border-strong);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    text-decoration: none;
+    transition: background-color var(--dur-2) var(--ease-standard), border-color var(--dur-2) var(--ease-standard);
+}
+
+.btn-sso:hover {
+    background: var(--gray-50);
+    border-color: var(--gray-400);
+    color: var(--text-primary);
+}
+
+.btn-sso svg {
+    width: 18px;
+    height: 18px;
+    color: var(--text-secondary);
+    flex-shrink: 0;
 }
 
 /* ==========================================================================
@@ -552,13 +572,13 @@
 
 .login-footer {
     text-align: center;
-    margin-top: 32px;
+    margin-top: 28px;
     font-size: 12px;
     color: var(--text-muted);
 }
 
 /* ==========================================================================
-   RESPONSIVE
+   RESPONSIVE LAYOUT
    ========================================================================== */
 
 @media (min-width: 1024px) {
@@ -577,8 +597,8 @@
     }
 
     .login-card {
-        padding: 32px 24px;
-        border-radius: 16px;
+        padding: 28px 20px;
+        border-radius: var(--radius-2);
     }
 
     .login-form-container {
@@ -588,48 +608,41 @@
     .form-options {
         flex-direction: column;
         align-items: flex-start;
-        gap: 16px;
+        gap: 12px;
     }
 
-    .form-input {
+    .login-page .form-input {
         height: 48px;
-        font-size: 16px;
-        /* Prevent iOS zoom */
+        font-size: 16px; /* Prevent iOS zoom */
     }
 
-    .btn-login {
+    .login-page .btn-login,
+    .btn-sso {
         height: 48px;
     }
 }
 
-/* Dark mode adjustments */
+/* ==========================================================================
+   DARK MODE SUPPORT
+   ========================================================================== */
+
+[data-theme="dark"] .login-card,
 @media (prefers-color-scheme: dark) {
-    .login-gradient {
-        background: linear-gradient(135deg, #0B0F14 0%, #0F1722 50%, #111C2A 100%);
+    :root:not([data-theme="light"]) .login-card {
+        background: var(--bg-surface);
+        border-color: var(--border-subtle);
     }
 
-    .login-bg::after {
-        background-image:
-            linear-gradient(rgba(231, 237, 244, 0.02) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(231, 237, 244, 0.02) 1px, transparent 1px);
+    :root:not([data-theme="light"]) .sso-divider-text {
+        background: var(--bg-surface);
+    }
+
+    :root:not([data-theme="light"]) .btn-sso {
+        background: var(--bg-surface);
+        border-color: var(--border-strong);
+    }
+
+    :root:not([data-theme="light"]) .btn-sso:hover {
+        background: var(--bg-surface-muted);
     }
 }
-
-/* Metronic-inspired authentication refinement. */
-.public-page { min-width: 320px; min-height: 100vh; margin: 0; background: var(--bg-app); }
-.login-gradient { background: #F8FAFC; }
-.login-bg::after { background-image: linear-gradient(rgba(15, 23, 42, .035) 1px, transparent 1px), linear-gradient(90deg, rgba(15, 23, 42, .035) 1px, transparent 1px); }
-.login-glow { background: radial-gradient(circle, rgba(59, 130, 246, .13) 0%, transparent 64%); }
-.login-branding { width: min(46vw, 560px); background: linear-gradient(145deg, #0F172A 0%, #172554 60%, #1D4ED8 150%); }
-.login-branding::after { content: ''; position: absolute; inset: auto 40px 80px; height: 1px; background: linear-gradient(90deg, transparent, rgba(147, 197, 253, .65), transparent); }
-.branding-content { padding: clamp(48px, 7vw, 88px) clamp(40px, 6vw, 72px); }
-.branding-eyebrow { color: #93C5FD; font-size: 11px; font-weight: 700; letter-spacing: .12em; }
-.branding-title { margin-top: 18px; font-size: 30px; letter-spacing: -.03em; }
-.branding-tagline { max-width: 360px; color: rgba(255,255,255,.7); }
-.branding-feature { background: rgba(255,255,255,.055); border-color: rgba(255,255,255,.09); }
-.branding-feature svg { color: #93C5FD; }
-.login-card { border: 1px solid var(--border-subtle); border-radius: 12px; box-shadow: 0 10px 30px rgba(15, 23, 42, .08); }
-.login-title { color: var(--text-primary); font-size: 24px; }
-.login-security-note { color: var(--text-muted); }
-.login-page .btn-login { background: var(--brand); box-shadow: 0 4px 12px rgba(59, 130, 246, .24); }
-.login-page .btn-login:hover { background: var(--brand-hover); }

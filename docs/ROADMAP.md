@@ -9,7 +9,19 @@
 **Revised:** 2026-08-02 (manufacturing/MRP execution, planning, quality, analytics, and compliance foundations)
 **Revised:** 2026-08-02 (external integrations implementation plan)
 **Revised:** 2026-08-02 (linked execution plans for remaining module depth and administration)
+**Revised:** 2026-08-27 (v0.10.0 staging closeout handoff)
 **Current Version:** v0.9.1
+
+> **Active release handoff (2026-08-27):** The bounded `v0.10-core` release
+> candidate is the immutable annotated `v0.10.0-rc.7` tag at
+> `5ed11da8aea342708be67284ea7a71224f90ccdc`, with migrations ending at `000124`.
+> Candidate CI and artifact-boundary checks have passed, but staging certification
+> and production promotion remain open. The next execution step is to provision the
+> staging-only certification identities, fixtures, and Object-Lock evidence store,
+> clear the stale listener on `127.0.0.1:8180`, establish the documented staging
+> supervision, and rerun the automated and operator evidence lanes. No feature or
+> migration work should be added to this candidate; a code or schema change requires
+> a new release candidate and a fresh certification run.
 
 > For current capability status, use the [Module Catalog](reference/module-catalog.md).
 > This roadmap tracks sequencing and release gates; it is not a second feature-status

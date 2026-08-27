@@ -1,0 +1,950 @@
+{{ define "pages/legal.html" }}
+{{ template "layouts/public.html" . }}
+{{ end }}
+
+{{ define "title" }}{{ .Title }}{{ end }}
+
+{{ define "head" }}
+<link rel="stylesheet" href="/static/css/pages/legal.css">
+{{ end }}
+
+{{ define "content" }}
+<div class="legal-page">
+    <!-- Header Navigation -->
+    <nav class="legal-nav">
+        <div class="legal-nav-container">
+            <a href="/welcome" class="legal-logo">
+                <svg width="22" height="22" viewBox="0 0 32 32" fill="none">
+                    <rect x="2" y="2" width="28" height="28" rx="2" stroke="currentColor" stroke-width="2.5" />
+                    <path d="M10 16L15 21L22 10" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" />
+                </svg>
+                <span>Odyssey ERP</span>
+                <span class="legal-sys-badge legal-sys-badge--emerald">
+                    <span class="legal-sys-badge__dot"></span>
+                    Trust &amp; Legal Compliance
+                </span>
+            </a>
+
+            <div class="legal-nav-right">
+                <a href="/welcome" class="legal-back-btn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="19" y1="12" x2="5" y2="12"></line>
+                        <polyline points="12 19 5 12 12 5"></polyline>
+                    </svg>
+                    <span>Kembali ke Beranda</span>
+                </a>
+
+                <button type="button" class="btn legal-theme-btn" data-theme-toggle aria-label="Ganti tema">
+                    <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5" />
+                        <line x1="12" y1="1" x2="12" y2="3" />
+                        <line x1="12" y1="21" x2="12" y2="23" />
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                        <line x1="1" y1="12" x2="3" y2="12" />
+                        <line x1="21" y1="12" x2="23" y2="12" />
+                    </svg>
+                    <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                    </svg>
+                </button>
+
+                <a href="/auth/login" class="legal-btn legal-btn--primary">
+                    Masuk Dashboard
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Banner -->
+    <header class="legal-hero">
+        <div class="legal-hero-container">
+            <nav class="legal-breadcrumbs" aria-label="Breadcrumb">
+                <a href="/welcome">Beranda</a>
+                <span class="legal-breadcrumb-sep">/</span>
+                <span>Dokumen Legal &amp; Kepatuhan</span>
+                <span class="legal-breadcrumb-sep">/</span>
+                <span>
+                    {{ if eqStr .Data.Topic "privacy" }}
+                    Kebijakan Privasi
+                    {{ else if eqStr .Data.Topic "terms" }}
+                    Syarat &amp; Ketentuan
+                    {{ else if eqStr .Data.Topic "security" }}
+                    Pernyataan Keamanan
+                    {{ end }}
+                </span>
+            </nav>
+
+            <div class="legal-hero-header">
+                <div class="legal-hero-tags">
+                    <span class="legal-sys-badge legal-sys-badge--emerald">
+                        <span class="legal-sys-badge__dot"></span>
+                        Dokumen Kepatuhan Resmi
+                    </span>
+                    <span class="legal-sys-badge">VERSI 2026.2</span>
+                </div>
+
+                {{ if eqStr .Data.Topic "privacy" }}
+                <h1 class="legal-hero-title">Kebijakan Privasi &amp; Perlindungan Data</h1>
+                <p class="legal-hero-subtitle">
+                    Prinsip perlindungan kerahasiaan data perusahaan, kepatuhan terhadap Undang-Undang Perlindungan Data Pribadi (UU PDP No. 27/2022), retensi catatan audit finansial, dan isolasi keamanan data multi-tenant.
+                </p>
+                {{ else if eqStr .Data.Topic "terms" }}
+                <h1 class="legal-hero-title">Syarat &amp; Ketentuan Layanan Enterprise</h1>
+                <p class="legal-hero-subtitle">
+                    Kerangka lisensi operasional Odyssey ERP, hak pengelolaan tenant multi-cabang, komitmen Service Level Agreement (SLA 99.9%), dan jaminan portabilitas data tanpa penguncian vendor (zero lock-in).
+                </p>
+                {{ else if eqStr .Data.Topic "security" }}
+                <h1 class="legal-hero-title">Pernyataan Keamanan Sistem &amp; Enkripsi</h1>
+                <p class="legal-hero-subtitle">
+                    Arsitektur keamanan data mendalam: enkripsi AES-256 at-rest, TLS 1.3 in-transit, immutable journal audit trail, integrasi aman faktur elektronik Ditjen Pajak (DJP), dan otorisasi kontrol akses berbasis peran (RBAC).
+                </p>
+                {{ end }}
+
+                <div class="legal-meta-strip">
+                    <div class="legal-meta-item">
+                        <span>Tanggal Efektif:</span>
+                        <strong>1 Januari 2026</strong>
+                    </div>
+                    <span class="legal-meta-divider"></span>
+                    <div class="legal-meta-item">
+                        <span>Status:</span>
+                        <strong>Resmi &amp; Berlaku Penuh</strong>
+                    </div>
+                    <span class="legal-meta-divider"></span>
+                    <div class="legal-meta-item">
+                        <span>Yurisdiksi:</span>
+                        <strong>Hukum Republik Indonesia</strong>
+                    </div>
+                    <span class="legal-meta-divider"></span>
+                    <div class="legal-meta-item">
+                        <span>Standar Regulasi:</span>
+                        <strong>UU PDP · PSAK · DJP</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Layout -->
+    <div class="legal-main-wrap">
+        <div class="legal-layout">
+            <!-- Sidebar Navigation -->
+            <aside class="legal-sidebar">
+                <!-- Document Switcher Menu -->
+                <div class="legal-nav-card">
+                    <div class="legal-card-header">DOKUMEN LEGALITAS</div>
+                    <div class="legal-doc-menu">
+                        <a href="/legal/privacy" class="legal-doc-link{{ if eqStr .Data.Topic "privacy" }} is-active{{ end }}">
+                            <div class="legal-doc-link-left">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                                </svg>
+                                <span>Kebijakan Privasi</span>
+                            </div>
+                            <span class="legal-doc-badge">PDP</span>
+                        </a>
+
+                        <a href="/legal/terms" class="legal-doc-link{{ if eqStr .Data.Topic "terms" }} is-active{{ end }}">
+                            <div class="legal-doc-link-left">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                    <polyline points="14 2 14 8 20 8"></polyline>
+                                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                                    <polyline points="10 9 9 9 8 9"></polyline>
+                                </svg>
+                                <span>Syarat &amp; Ketentuan</span>
+                            </div>
+                            <span class="legal-doc-badge">TOS</span>
+                        </a>
+
+                        <a href="/legal/security" class="legal-doc-link{{ if eqStr .Data.Topic "security" }} is-active{{ end }}">
+                            <div class="legal-doc-link-left">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                                </svg>
+                                <span>Pernyataan Keamanan</span>
+                            </div>
+                            <span class="legal-doc-badge">SEC</span>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Table of Contents -->
+                <div class="legal-nav-card">
+                    <div class="legal-card-header">DAFTAR ISI PASAL</div>
+                    <ul class="legal-toc-list">
+                        {{ if eqStr .Data.Topic "privacy" }}
+                        <li>
+                            <a href="#kerahasiaan-data" class="legal-toc-link">
+                                <span class="legal-toc-num">01.</span>
+                                <span>Kerahasiaan Data &amp; Isolasi Tenant</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#uu-pdp-compliance" class="legal-toc-link">
+                                <span class="legal-toc-num">02.</span>
+                                <span>Kepatuhan UU PDP No. 27/2022</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#retensi-pemusnahan" class="legal-toc-link">
+                                <span class="legal-toc-num">03.</span>
+                                <span>Retensi &amp; Pemusnahan Data Finansial</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#isolasi-audit" class="legal-toc-link">
+                                <span class="legal-toc-num">04.</span>
+                                <span>Isolasi Audit &amp; Pihak Ketiga</span>
+                            </a>
+                        </li>
+                        {{ else if eqStr .Data.Topic "terms" }}
+                        <li>
+                            <a href="#lisensi-enterprise" class="legal-toc-link">
+                                <span class="legal-toc-num">01.</span>
+                                <span>Lisensi Enterprise &amp; Ruang Lingkup</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#hak-tenant-cabang" class="legal-toc-link">
+                                <span class="legal-toc-num">02.</span>
+                                <span>Hak Tenant Multi-Cabang &amp; Entitas</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#sla-ketersediaan" class="legal-toc-link">
+                                <span class="legal-toc-num">03.</span>
+                                <span>SLA 99.9% &amp; Jaminan Ketersediaan</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#portabilitas-data" class="legal-toc-link">
+                                <span class="legal-toc-num">04.</span>
+                                <span>Portabilitas &amp; Hak Ekspor Data</span>
+                            </a>
+                        </li>
+                        {{ else if eqStr .Data.Topic "security" }}
+                        <li>
+                            <a href="#enkripsi-data" class="legal-toc-link">
+                                <span class="legal-toc-num">01.</span>
+                                <span>Enkripsi AES-256 &amp; TLS 1.3</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#immutable-audit-trail" class="legal-toc-link">
+                                <span class="legal-toc-num">02.</span>
+                                <span>Immutable Journal Audit Trail</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#djp-efaktur-security" class="legal-toc-link">
+                                <span class="legal-toc-num">03.</span>
+                                <span>Keamanan Integrasi DJP e-Faktur</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#rbac-csrf-control" class="legal-toc-link">
+                                <span class="legal-toc-num">04.</span>
+                                <span>Proteksi CSRF &amp; Kontrol Akses RBAC</span>
+                            </a>
+                        </li>
+                        {{ end }}
+                    </ul>
+                </div>
+
+                <!-- Compliance Badges -->
+                <div class="legal-nav-card">
+                    <div class="legal-card-header">STANDAR REGULASI &amp; SERTIFIKASI</div>
+                    <div class="legal-badges-grid">
+                        <div class="legal-compliance-pill">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            <div>
+                                <strong>UU PDP No. 27/2022</strong>
+                                <div>Perlindungan Data Pribadi</div>
+                            </div>
+                        </div>
+                        <div class="legal-compliance-pill">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            <div>
+                                <strong>PSAK Keuangan</strong>
+                                <div>Integritas Buku Besar Double-Entry</div>
+                            </div>
+                        </div>
+                        <div class="legal-compliance-pill">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            <div>
+                                <strong>DJP e-Faktur Ready</strong>
+                                <div>Enkripsi Faktur Pajak Elektronik</div>
+                            </div>
+                        </div>
+                        <div class="legal-compliance-pill">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            <div>
+                                <strong>AES-256 &amp; TLS 1.3</strong>
+                                <div>Enkripsi Tingkat Perbankan</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Contact Box -->
+                <div class="legal-contact-box">
+                    <h3 class="legal-contact-title">Pertanyaan Hukum &amp; Keamanan?</h3>
+                    <p class="legal-contact-text">
+                        Untuk permintaan hak subjek data UU PDP, verifikasi audit keuangan eksternal, atau pelaporan kerentanan keamanan:
+                    </p>
+                    <a href="mailto:legal@odyssey-erp.id" class="legal-contact-link">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                            <polyline points="22,6 12,13 2,6"></polyline>
+                        </svg>
+                        <span>legal@odyssey-erp.id</span>
+                    </a>
+                </div>
+            </aside>
+
+            <!-- Main Article Document -->
+            <main class="legal-content-area">
+                {{ if eqStr .Data.Topic "privacy" }}
+                <!-- ================= PRIVACY POLICY ================= -->
+                <article class="legal-article">
+                    <div class="legal-callout legal-callout--info">
+                        <div class="legal-callout-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="12" y1="16" x2="12" y2="12"></line>
+                                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                            </svg>
+                        </div>
+                        <div class="legal-callout-body">
+                            <div class="legal-callout-title">RINGKASAN EKSEKUTIF PRIVASI &amp; PERLINDUNGAN DATA</div>
+                            <p class="legal-callout-text">
+                                Odyssey ERP berkomitmen penuh menjaga kerahasiaan absolut data finansial, operasional, dan data pribadi pelanggan. Kami mengimplementasikan isolasi data multi-tenant secara ketat dan mematuhi seluruh ketentuan UU Pelindungan Data Pribadi (UU PDP No. 27 Tahun 2022).
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Section 1 -->
+                    <section id="kerahasiaan-data" class="legal-section">
+                        <span class="legal-section-tag">PASAL 01 · KERAHASIAAN &amp; ISOLASI TENANT</span>
+                        <h2 class="legal-section-title">Prinsip Kerahasiaan Data &amp; Pemisahan Tenant</h2>
+                        <p class="legal-text-p">
+                            Odyssey ERP bertindak sebagai <strong>Prosesor Data (Data Processor)</strong> atas data bisnis yang dikelola oleh Pelanggan selaku <strong>Pengendali Data (Data Controller)</strong>. Kami memegang teguh prinsip-prinsip kerahasiaan tingkat enterprise:
+                        </p>
+
+                        <div class="legal-grid-2">
+                            <div class="legal-card">
+                                <div class="legal-card-head">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                        <line x1="3" y1="9" x2="21" y2="9"></line>
+                                        <line x1="9" y1="21" x2="9" y2="9"></line>
+                                    </svg>
+                                    <h3 class="legal-card-title">Isolasi Database Logis &amp; Partisi Kunci</h3>
+                                </div>
+                                <p class="legal-card-desc">
+                                    Data setiap entitas perusahaan dipartisi secara ketat pada level basis data. Tidak ada risiko percampuran data (<em>data mingling</em>) lintas organisasi maupun antar cabang tanpa otorisasi eksplisit.
+                                </p>
+                            </div>
+
+                            <div class="legal-card">
+                                <div class="legal-card-head">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                                    </svg>
+                                    <h3 class="legal-card-title">Zero Unauthorized Access</h3>
+                                </div>
+                                <p class="legal-card-desc">
+                                    Personel internal Odyssey ERP tidak memiliki hak akses langsung ke data transaksi atau pembukuan pelanggan, kecuali atas persetujuan tertulis untuk kebutuhan diagnostik operasional.
+                                </p>
+                            </div>
+                        </div>
+
+                        <p class="legal-text-p">
+                            Seluruh akses operasional dan permintaan teknis dicatat secara otomatis dalam sistem audit log yang tidak dapat dimanipulasi (<em>tamper-evident telemetry</em>).
+                        </p>
+                    </section>
+
+                    <!-- Section 2 -->
+                    <section id="uu-pdp-compliance" class="legal-section">
+                        <span class="legal-section-tag">PASAL 02 · KEPATUHAN REGULASI NASIONAL</span>
+                        <h2 class="legal-section-title">Kepatuhan UU No. 27 Tahun 2022 tentang Pelindungan Data Pribadi (UU PDP)</h2>
+                        <p class="legal-text-p">
+                            Sesuai dengan ketentuan perundang-undangan Republik Indonesia, Odyssey ERP menerapkan tata kelola pemrosesan data pribadi secara sah, transparan, dan terukur:
+                        </p>
+
+                        <ul class="legal-list">
+                            <li class="legal-list-item">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                                <div>
+                                    <strong>Pemrosesan Berdasarkan Dasar Hukum yang Sah:</strong> Data pribadi karyawan, kontak pelanggan, dan informasi vendor hanya diproses untuk pelaksanaan kontrak bisnis, pemenuhan kewajiban perpajakan nasional, dan operasional rantai pasok.
+                                </div>
+                            </li>
+                            <li class="legal-list-item">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                                <div>
+                                    <strong>Hak-Hak Subjek Data (Data Subject Rights):</strong> Sistem menyediakan modul terpadu bagi administrator untuk memenuhi hak subjek data mencakup hak akses, hak koreksi kesalahan data, hak penghapusan/pemusnahan (<em>right to erasure</em>), dan hak penarikan persetujuan.
+                                </div>
+                            </li>
+                            <li class="legal-list-item">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                                <div>
+                                    <strong>Petugas Perlindungan Data (Data Protection Officer):</strong> Odyssey ERP menunjuk tim DPO khusus yang bertanggung jawab mengawasi kepatuhan internal dan menangani pertanyaan privasi pengguna secara berkala.
+                                </div>
+                            </li>
+                            <li class="legal-list-item">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                                <div>
+                                    <strong>Protokol Pemberitahuan Insiden 3x24 Jam:</strong> Dalam peristiwa kebocoran data pribadi yang terkonfirmasi, kami berkomitmen menyampaikan notifikasi tertulis kepada Pengendali Data dan lembaga otoritas pengawas dalam jangka waktu maksimal 3x24 jam kalender.
+                                </div>
+                            </li>
+                        </ul>
+                    </section>
+
+                    <!-- Section 3 -->
+                    <section id="retensi-pemusnahan" class="legal-section">
+                        <span class="legal-section-tag">PASAL 03 · MANAJEMEN SIKLUS HIDUP DATA</span>
+                        <h2 class="legal-section-title">Kebijakan Retensi &amp; Prosedur Pemusnahan Data Finansial</h2>
+                        <p class="legal-text-p">
+                            Retensi data dalam Odyssey ERP dirancang selaras dengan ketentuan Undang-Undang Ketentuan Umum dan Tata Cara Perpajakan (UU KUP) serta Standar Akuntansi Keuangan (PSAK):
+                        </p>
+
+                        <div class="table-wrap legal-table-container">
+                            <table class="table legal-table">
+                                <thead>
+                                    <tr>
+                                        <th>Kategori Data</th>
+                                        <th>Masa Retensi Minimum</th>
+                                        <th>Dasar Regulasi</th>
+                                        <th>Metode Pemusnahan / Terminasi</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><strong>Jurnal Finansial &amp; Buku Besar (GL)</strong></td>
+                                        <td class="badge-cell">10 Tahun</td>
+                                        <td>UU KUP Pasal 28 &amp; PSAK</td>
+                                        <td>Cryptographic Erasure / Archival Dump</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Faktur Pajak &amp; e-Faktur Elektronik</strong></td>
+                                        <td class="badge-cell">10 Tahun</td>
+                                        <td>Peraturan Dirjen Pajak (DJP)</td>
+                                        <td>Verifikasi Hash &amp; Secure Purge</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Pesanan Penjualan (SO) &amp; Pembelian (PO)</strong></td>
+                                        <td class="badge-cell">7 Tahun</td>
+                                        <td>Standar Pembukuan Komersial</td>
+                                        <td>Pembersihan Berbasis Jadwal Otomatis</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Audit Trail &amp; Log Keamanan Sistem</strong></td>
+                                        <td class="badge-cell">5 Tahun</td>
+                                        <td>ISO/IEC 27001 &amp; UU PDP</td>
+                                        <td>Immutable WORM Archiving</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="legal-callout legal-callout--warning">
+                            <div class="legal-callout-icon">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                                    <line x1="12" y1="9" x2="12" y2="13"></line>
+                                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                                </svg>
+                            </div>
+                            <div class="legal-callout-body">
+                                <div class="legal-callout-title">PROSEDUR TERMINASI KONTRAK &amp; PEMUSNAHAN PERMANEN</div>
+                                <p class="legal-callout-text">
+                                    Saat kontrak layanan berakhir, Pelanggan diberikan waktu tenggang 60 (enam puluh) hari kalender untuk melakukan ekspor data penuh. Setelah periode tersebut, seluruh data transaksi pada server produksi akan dimusnahkan secara permanen menggunakan teknik <em>multi-pass overwrite cryptographic deletion</em> yang tidak dapat dipulihkan.
+                                </p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Section 4 -->
+                    <section id="isolasi-audit" class="legal-section">
+                        <span class="legal-section-tag">PASAL 04 · AUDIT &amp; SUB-PROSESOR</span>
+                        <h2 class="legal-section-title">Isolasi Audit Finansial &amp; Pengelolaan Pihak Ketiga</h2>
+                        <p class="legal-text-p">
+                            Untuk menjamin independensi dan integritas audit, Odyssey ERP menyediakan portal isolasi audit khusus bagi auditor eksternal berlisensi yang ditunjuk oleh pelanggan:
+                        </p>
+
+                        <ul class="legal-list">
+                            <li class="legal-list-item">
+                                <div class="legal-list-bullet"></div>
+                                <div>
+                                    <strong>Akses Read-Only Terisolasi:</strong> Auditor eksternal dapat diberikan akun akses terbatas yang hanya memiliki kewenangan membaca jurnal, rekonsiliasi bank, dan laporan mutasi tanpa hak modifikasi.
+                                </div>
+                            </li>
+                            <li class="legal-list-item">
+                                <div class="legal-list-bullet"></div>
+                                <div>
+                                    <strong>Kerahasiaan Sub-Prosesor Infrastruktur:</strong> Seluruh penyedia pusat data (cloud data center) dan sub-prosesor teknis terikat perjanjian kerahasiaan (Non-Disclosure Agreement) yang ketat serta sertifikasi ISO 27001 dan SOC 2 Tipe II.
+                                </div>
+                            </li>
+                            <li class="legal-list-item">
+                                <div class="legal-list-bullet"></div>
+                                <div>
+                                    <strong>Kedaulatan Lokasi Data (Data Residency):</strong> Pusat data utama dan basis data sekunder berlokasi fisik di wilayah kedaulatan Negara Kesatuan Republik Indonesia guna memenuhi regulasi PP No. 71/2019 tentang Penyelenggaraan Sistem dan Transaksi Elektronik (PSTE).
+                                </div>
+                            </li>
+                        </ul>
+                    </section>
+
+                    <div class="legal-endorsement">
+                        <div class="legal-endorsement-left">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                            </svg>
+                            <span>Diverifikasi oleh Legal &amp; Compliance Team Odyssey ERP</span>
+                        </div>
+                        <span>DOKUMEN RESMI #ODYSSEY-POL-PRIV-2026-V2</span>
+                    </div>
+                </article>
+
+                {{ else if eqStr .Data.Topic "terms" }}
+                <!-- ================= TERMS OF SERVICE ================= -->
+                <article class="legal-article">
+                    <div class="legal-callout legal-callout--info">
+                        <div class="legal-callout-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="12" y1="16" x2="12" y2="12"></line>
+                                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                            </svg>
+                        </div>
+                        <div class="legal-callout-body">
+                            <div class="legal-callout-title">RINGKASAN LISENSI LAYANAN ENTERPRISE</div>
+                            <p class="legal-callout-text">
+                                Syarat dan Ketentuan ini merupakan perjanjian yang mengikat secara hukum antara perusahaan Anda (Pelanggan) dan Odyssey ERP. Dokumen ini mengatur hak lisensi enterprise, tata kelola cabang, Service Level Agreement (SLA) 99.9%, dan kedaulatan ekspor data tanpa batasan.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Section 1 -->
+                    <section id="lisensi-enterprise" class="legal-section">
+                        <span class="legal-section-tag">PASAL 01 · LISENSI &amp; AKSES SISTEM</span>
+                        <h2 class="legal-section-title">Lisensi Enterprise &amp; Ruang Lingkup Penggunaan</h2>
+                        <p class="legal-text-p">
+                            Odyssey ERP memberikan hak lisensi non-eksklusif, berlaku secara global, dan tidak dapat dialihkan (<em>non-transferable</em>) kepada Pelanggan untuk mengoperasikan sistem ERP pada lingkungan bisnis korporasi:
+                        </p>
+
+                        <ul class="legal-list">
+                            <li class="legal-list-item">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                                <div>
+                                    <strong>Cakupan Modul Lengkap:</strong> Lisensi mencakup modul Penjualan (Sales &amp; Quotation), Manajemen Inventori Multi-Gudang, Pengadaan &amp; Hutang (Procurement &amp; AP), Buku Besar Keuangan (Double-Entry General Ledger), Manajemen Pajak e-Faktur, dan Gotenberg PDF Generator.
+                                </div>
+                            </li>
+                            <li class="legal-list-item">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                                <div>
+                                    <strong>Kapasitas Pengguna &amp; Akun:</strong> Pelanggan berhak mendaftarkan pengguna operasional sesuai kuota tingkatan lisensi yang disepakati, dengan kontrol peran granular (Role-Based Access Control).
+                                </div>
+                            </li>
+                            <li class="legal-list-item">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                                <div>
+                                    <strong>Larangan Rekayasa Balik:</strong> Pelanggan dilarang membongkar, mendekompilasi, melakukan rekayasa balik (<em>reverse engineering</em>), atau menjual kembali hak akses tanpa izin tertulis dari manajemen Odyssey ERP.
+                                </div>
+                            </li>
+                        </ul>
+                    </section>
+
+                    <!-- Section 2 -->
+                    <section id="hak-tenant-cabang" class="legal-section">
+                        <span class="legal-section-tag">PASAL 02 · HAK TENANT MULTI-CABANG</span>
+                        <h2 class="legal-section-title">Hak Tenant Multi-Cabang, Multi-Entitas &amp; Pembagian Otoritas</h2>
+                        <p class="legal-text-p">
+                            Sistem Odyssey ERP dirancang untuk mendukung operasional grup perusahaan berskala besar yang memiliki banyak cabang (*branches*), unit usaha (*business units*), dan gudang logistik:
+                        </p>
+
+                        <div class="legal-grid-2">
+                            <div class="legal-card">
+                                <div class="legal-card-head">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M3 21h18M3 7v14M21 7v14M6 11h4M6 15h4M14 11h4M14 15h4M9 3h6v4H9z"></path>
+                                    </svg>
+                                    <h3 class="legal-card-title">Otonomi Cabang &amp; Konsolidasi Sentral</h3>
+                                </div>
+                                <p class="legal-card-desc">
+                                    Setiap cabang memiliki wewenang mengelola stok lokal dan transaksi harian secara mandiri, dengan kemampuan konsolidasi buku besar otomatis ke kantor pusat secara real-time.
+                                </p>
+                            </div>
+
+                            <div class="legal-card">
+                                <div class="legal-card-head">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                                        <line x1="8" y1="21" x2="16" y2="21"></line>
+                                        <line x1="12" y1="17" x2="12" y2="21"></line>
+                                    </svg>
+                                    <h3 class="legal-card-title">Batasan Akses Berjenjang (Field-Level RBAC)</h3>
+                                </div>
+                                <p class="legal-card-desc">
+                                    Administrator induk dapat membatasi visibilitas data sensitif (seperti margin keuntungan, harga pokok penjualan, dan laporan neraca) hanya untuk otorisasi manajerial tertentu.
+                                </p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Section 3 -->
+                    <section id="sla-ketersediaan" class="legal-section">
+                        <span class="legal-section-tag">PASAL 03 · KOMITMEN KETERSEDIAAN SISTEM</span>
+                        <h2 class="legal-section-title">Service Level Agreement (SLA 99.9%) &amp; Kompensasi Layanan</h2>
+                        <p class="legal-text-p">
+                            Kami memberikan jaminan tingkat ketersediaan layanan operasional (<em>System Uptime Commitment</em>) sebesar <strong>99.9% setiap bulan kalender</strong> untuk seluruh modul transaksi utama:
+                        </p>
+
+                        <div class="table-wrap legal-table-container">
+                            <table class="table legal-table">
+                                <thead>
+                                    <tr>
+                                        <th>Tingkat Ketersediaan Bulanan (Uptime)</th>
+                                        <th>Downtime Maksimal per Bulan</th>
+                                        <th>Kredit Kompensasi Tagihan (Service Credit)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><strong>&ge; 99.90%</strong></td>
+                                        <td>&le; 43,8 Menit</td>
+                                        <td class="badge-cell">Standar SLA Terpenuhi</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>99.00% &ndash; 99.89%</strong></td>
+                                        <td>43,8 Menit &ndash; 7,2 Jam</td>
+                                        <td class="badge-cell">10% Kredit Tagihan Bulanan</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>95.00% &ndash; 98.99%</strong></td>
+                                        <td>7,2 Jam &ndash; 36 Jam</td>
+                                        <td class="badge-cell">25% Kredit Tagihan Bulanan</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>&lt; 95.00%</strong></td>
+                                        <td>&gt; 36 Jam</td>
+                                        <td class="badge-cell">50% Kredit Tagihan Bulanan</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <p class="legal-text-p">
+                            <strong>Jadwal Pemeliharaan Terencana (Maintenance Window):</strong> Pemeliharaan infrastruktur rutin dilakukan di luar jam kerja efektif bisnis Indonesia (Sabtu/Minggu antara pukul 01:00 &ndash; 04:00 WIB) dengan pemberitahuan tertulis minimum 72 jam sebelumnya.
+                        </p>
+                    </section>
+
+                    <!-- Section 4 -->
+                    <section id="portabilitas-data" class="legal-section">
+                        <span class="legal-section-tag">PASAL 04 · KEDAULATAN DATA &amp; ZERO LOCK-IN</span>
+                        <h2 class="legal-section-title">Portabilitas Penuh &amp; Hak Ekspor Data Terbuka (CSV / JSON / SQL)</h2>
+                        <p class="legal-text-p">
+                            Pelanggan memegang hak kepemilikan mutlak (100% Data Sovereignty) atas seluruh informasi yang dimasukkan ke dalam Odyssey ERP. Kami menjamin prinsip <strong>Zero Vendor Lock-in</strong>:
+                        </p>
+
+                        <ul class="legal-list">
+                            <li class="legal-list-item">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                                <div>
+                                    <strong>Ekspor Format Standar Terbuka:</strong> Kapan saja, administrator dapat mengekspor seluruh master barang, data pelanggan/supplier, faktur penjualan, rekonsiliasi, dan riwayat jurnal dalam format <code>CSV</code>, <code>JSON terstruktur</code>, atau <code>PostgreSQL SQL Dump</code>.
+                                </div>
+                            </li>
+                            <li class="legal-list-item">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                                <div>
+                                    <strong>Akses API Terbuka (Open REST API):</strong> Integrasi data dua arah disediakan melalui endpoint API terotentikasi untuk menghubungkan Odyssey ERP dengan sistem WMS eksternal, POS cabang, atau sistem analitik BI internal korporasi.
+                                </div>
+                            </li>
+                            <li class="legal-list-item">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                                <div>
+                                    <strong>Bantuan Migrasi &amp; Ekstraksi:</strong> Dalam skenario terminasi layanan, tim teknis kami memberikan pendampingan ekstraksi database lengkap tanpa pungutan biaya tambahan yang tidak wajar.
+                                </div>
+                            </li>
+                        </ul>
+                    </section>
+
+                    <div class="legal-endorsement">
+                        <div class="legal-endorsement-left">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                            </svg>
+                            <span>Diterbitkan oleh Odyssey Enterprise Solutions Ltd.</span>
+                        </div>
+                        <span>DOKUMEN RESMI #ODYSSEY-TOS-ENT-2026-V2</span>
+                    </div>
+                </article>
+
+                {{ else if eqStr .Data.Topic "security" }}
+                <!-- ================= SECURITY STATEMENT ================= -->
+                <article class="legal-article">
+                    <div class="legal-callout legal-callout--success">
+                        <div class="legal-callout-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                            </svg>
+                        </div>
+                        <div class="legal-callout-body">
+                            <div class="legal-callout-title">KOMITMEN POSTUR KEAMANAN ENTERPRISE</div>
+                            <p class="legal-callout-text">
+                                Arsitektur Odyssey ERP dibangun dengan filosofi <em>Security by Design</em> dan <em>Zero Trust</em>. Setiap lapisan data, transmisi jaringan, dan posting buku besar dilindungi oleh kriptografi tingkat tinggi dan jejak audit yang tidak dapat dihapus.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Section 1 -->
+                    <section id="enkripsi-data" class="legal-section">
+                        <span class="legal-section-tag">PASAL 01 · KRIPTOGRAFI &amp; JARINGAN</span>
+                        <h2 class="legal-section-title">Enkripsi Data: AES-256 At-Rest &amp; TLS 1.3 In-Transit</h2>
+                        <p class="legal-text-p">
+                            Seluruh data digital dalam ekosistem Odyssey ERP diamankan melalui standar enkripsi industri yang telah diuji secara komprehensif:
+                        </p>
+
+                        <div class="legal-grid-2">
+                            <div class="legal-card">
+                                <div class="legal-card-head">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                                    </svg>
+                                    <h3 class="legal-card-title">Enkripsi Data Tersimpan (At-Rest)</h3>
+                                </div>
+                                <p class="legal-card-desc">
+                                    Tabel database PostgreSQL, media penyimpanan dokumen PDF Gotenberg, dan snapshot cadangan terenkripsi penuh menggunakan algoritma <strong>AES-256-GCM</strong> dengan kunci rotasi periodik melalui Key Management Service (KMS).
+                                </p>
+                            </div>
+
+                            <div class="legal-card">
+                                <div class="legal-card-head">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M5 12.55a11 11 0 0 1 14.08 0"></path>
+                                        <path d="M1.42 9a16 16 0 0 1 21.16 0"></path>
+                                        <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+                                        <line x1="12" y1="20" x2="12.01" y2="20"></line>
+                                    </svg>
+                                    <h3 class="legal-card-title">Enkripsi Data Bergerak (In-Transit)</h3>
+                                </div>
+                                <p class="legal-card-desc">
+                                    Setiap pertukaran data antara peramban web pengguna, API internal, dan sistem antrean background worker wajib melalui protokol <strong>TLS 1.3 / HTTPS</strong> dengan dukungan HSTS dan perfect forward secrecy (PFS).
+                                </p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Section 2 -->
+                    <section id="immutable-audit-trail" class="legal-section">
+                        <span class="legal-section-tag">PASAL 02 · INTEGRITAS BUKU BESAR AKUNTANSI</span>
+                        <h2 class="legal-section-title">Immutable Journal Audit Trail &amp; Integritas Double-Entry</h2>
+                        <p class="legal-text-p">
+                            Keandalan pembukuan keuangan merupakan fondasi utama Odyssey ERP. Kami menerapkan mekanisme <em>Append-Only Ledger</em> untuk mencegah manipulasi data akuntansi:
+                        </p>
+
+                        <ul class="legal-list">
+                            <li class="legal-list-item">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                                <div>
+                                    <strong>Larangan Hard-Delete Jurnal:</strong> Jurnal keuangan yang telah diposting (<em>posted journals</em>) tidak dapat dihapus atau ditimpa langsung dari database. Koreksi kesalahan wajib menggunakan mekanisme jurnal pembalik (<em>reversing journal entry</em>).
+                                </div>
+                            </li>
+                            <li class="legal-list-item">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                                <div>
+                                    <strong>Rekam Jejak Telemetri Komprehensif:</strong> Setiap perubahan data merekam User ID penanggung jawab, timestamp presisi mikrodetik, IP sumber, rincian nilai sebelum dan sesudah (<em>before-after state diff</em>), serta tanda tangan digital hash integritas.
+                                </div>
+                            </li>
+                            <li class="legal-list-item">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                                <div>
+                                    <strong>Kesiapan Audit Eksternal (Audit-Ready):</strong> Struktur audit trail kami memenuhi syarat penelaahan auditor independen (Big Four &amp; KAP Nasional) untuk pengujian kepatuhan PSAK dan audit kepatuhan pengendalian internal SOX/COSO.
+                                </div>
+                            </li>
+                        </ul>
+                    </section>
+
+                    <!-- Section 3 -->
+                    <section id="djp-efaktur-security" class="legal-section">
+                        <span class="legal-section-tag">PASAL 03 · INTEGRASI PERPAJAKAN NASIONAL</span>
+                        <h2 class="legal-section-title">Enkripsi &amp; Keamanan Jalur Integrasi DJP e-Faktur</h2>
+                        <p class="legal-text-p">
+                            Kepatuhan perpajakan Indonesia diimplementasikan dengan protokol keamanan tinggi guna mencegah pemalsuan faktur pajak:
+                        </p>
+
+                        <div class="legal-grid-2">
+                            <div class="legal-card">
+                                <div class="legal-card-head">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                        <polyline points="14 2 14 8 20 8"></polyline>
+                                    </svg>
+                                    <h3 class="legal-card-title">Enkripsi Sertifikat Elektronik DJP</h3>
+                                </div>
+                                <p class="legal-card-desc">
+                                    Passphrase dan berkas digital sertifikat elektronik (.p12/.pfx) wajib pajak disimpan dalam format hash terenkripsi pada <em>hardware security module</em> (HSM) terisolasi.
+                                </p>
+                            </div>
+
+                            <div class="legal-card">
+                                <div class="legal-card-head">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M9 11l3 3L22 4"></path>
+                                        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                                    </svg>
+                                    <h3 class="legal-card-title">Validasi Checksum NSFP Otomatis</h3>
+                                </div>
+                                <p class="legal-card-desc">
+                                    Setiap alokasi Nomor Seri Faktur Pajak (NSFP) melalui proses validasi skema XML dan kalkulasi checksum digital sebelum diekspor ke aplikasi e-Faktur resmi Direktorat Jenderal Pajak.
+                                </p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Section 4 -->
+                    <section id="rbac-csrf-control" class="legal-section">
+                        <span class="legal-section-tag">PASAL 04 · PENGENDALIAN AKSES &amp; PROTEKSI SESI</span>
+                        <h2 class="legal-section-title">Proteksi CSRF &amp; Role-Based Access Control (RBAC) Granular</h2>
+                        <p class="legal-text-p">
+                            Odyssey ERP menerapkan pertahanan berlapis terhadap ancaman keamanan aplikasi web modern sesuai panduan OWASP Top 10:
+                        </p>
+
+                        <ul class="legal-list">
+                            <li class="legal-list-item">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                                <div>
+                                    <strong>Anti-Cross-Site Request Forgery (CSRF):</strong> Seluruh formulir mutasi data (POST, PUT, DELETE) dilindungi oleh <em>cryptographic double-submit cookie token</em> yang divalidasi ketat pada lapisan middleware HTTP Go.
+                                </div>
+                            </li>
+                            <li class="legal-list-item">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                                <div>
+                                    <strong>Role-Based Access Control (RBAC):</strong> Otorisasi bertingkat memisahkan hak akses peran (Super Admin, Branch Manager, Finance Staff, Inventory Officer, Auditor). Hak akses dievaluasi pada level handler dan database query.
+                                </div>
+                            </li>
+                            <li class="legal-list-item">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                                <div>
+                                    <strong>Hashing Kata Sandi &amp; Rate Limiting:</strong> Kata sandi pengguna diamankan menggunakan algoritma <em>bcrypt</em> dengan <em>work factor</em> adaptif. Gerbang autentikasi dilengkapi pembatasan laju permintaan (<em>rate limiting</em>) otomatis untuk menangkal serangan brute-force dan credential stuffing.
+                                </div>
+                            </li>
+                            <li class="legal-list-item">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                                <div>
+                                    <strong>Manajemen Sesi Aman:</strong> Cookie sesi ditandai dengan atribut <code>HttpOnly</code>, <code>Secure</code>, dan <code>SameSite=Lax</code> dengan mekanisme invalidasi otomatis saat pengguna logout atau tidak aktif dalam batas waktu tertentu.
+                                </div>
+                            </li>
+                        </ul>
+                    </section>
+
+                    <div class="legal-endorsement">
+                        <div class="legal-endorsement-left">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                            </svg>
+                            <span>Disetujui oleh Chief Information Security Officer (CISO) Odyssey ERP</span>
+                        </div>
+                        <span>DOKUMEN RESMI #ODYSSEY-SEC-STM-2026-V2</span>
+                    </div>
+                </article>
+                {{ end }}
+            </main>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="legal-footer">
+        <div class="legal-footer-container">
+            <div class="legal-footer-grid">
+                <div class="legal-footer-brand">
+                    <a href="/welcome" class="legal-logo">
+                        <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
+                            <rect x="2" y="2" width="28" height="28" rx="2" stroke="currentColor" stroke-width="2.5" />
+                            <path d="M10 16L15 21L22 10" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" />
+                        </svg>
+                        <span>Odyssey ERP</span>
+                    </a>
+                    <p>
+                        Sistem ERP presisi enterprise untuk efisiensi rantai pasok, pembukuan keuangan akurat, dan kepatuhan regulasi bisnis Indonesia.
+                    </p>
+                </div>
+                <div>
+                    <h4 class="legal-footer-heading">NAVIGASI</h4>
+                    <ul class="legal-footer-list">
+                        <li><a href="/welcome#features">Spesifikasi Modul</a></li>
+                        <li><a href="/welcome#roi">Kalkulator ROI</a></li>
+                        <li><a href="/welcome#indonesia">Kepatuhan PSAK</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="legal-footer-heading">SISTEM</h4>
+                    <ul class="legal-footer-list">
+                        <li><a href="/auth/login">Masuk Dashboard</a></li>
+                        <li><a href="/welcome#certifications">Sertifikasi Sistem</a></li>
+                        <li><a href="/legal/security">Status Keamanan</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="legal-footer-heading">LEGAL &amp; KEPATUHAN</h4>
+                    <ul class="legal-footer-list">
+                        <li><a href="/legal/privacy">Kebijakan Privasi (UU PDP)</a></li>
+                        <li><a href="/legal/terms">Syarat &amp; Ketentuan Layanan</a></li>
+                        <li><a href="/legal/security">Pernyataan Keamanan Sistem</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="legal-footer-bottom">
+                <span>&copy; 2026 ODYSSEY ERP. HAK CIPTA DILINDUNGI UNDANG-UNDANG.</span>
+                <span>Status: Operasional · Versi 2026.2 · Kepatuhan Regulasi Republik Indonesia</span>
+            </div>
+        </div>
+    </footer>
+</div>
+{{ end }}
