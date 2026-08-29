@@ -2,7 +2,15 @@
 
 **Version:** 1.0.0  
 **Date:** 2026-08-02  
-**Status:** Production Ready  
+**Status:** Production runbook; operator sign-off required
+
+For the bounded v0.10.0 release, use the [v0.10-core staging certification
+record](releases/v0.10-core-staging-certification.md) before promotion. The
+current candidate is the immutable annotated tag `v0.10.0-rc.7`, resolving to
+`5ed11da8aea342708be67284ea7a71224f90ccdc` on the `ec65cc0` application
+baseline. Production promotion requires the explicit
+`RELEASE_PROFILE=v0.10-core` contract unless a separately approved `full`
+profile has certified every matrix row.
 
 ---
 
@@ -54,20 +62,29 @@ Create `.env.production`:
 
 ```bash
 # Application
-ENVIRONMENT=production
-PORT=8080
-LOG_LEVEL=info
+APP_ENV=production
+RELEASE_PROFILE=v0.10-core
+APP_ADDR=:8080
+LOG_FORMAT=json
 ENABLE_PROFILING=false
 
 # Database
-DB_DSN=postgres://user:password@db-host:5432/odyssey?sslmode=require
-DB_MAX_CONNECTIONS=25
-DB_CONN_TIMEOUT=30s
+PG_DSN=postgres://user:password@db-host:5432/odyssey?sslmode=require
+
+# Cache and worker
+REDIS_ADDR=redis-host:6379
+WORKER_METRICS_ADDR=:9091
 
 # Session Management
-SESSION_TIMEOUT=1h
+SESSION_SECRET=replace-with-a-long-random-secret
+SESSION_TTL=720h
+CSRF_SECRET=replace-with-a-different-long-random-secret
 SESSION_SECURE_COOKIE=true
 SESSION_SAME_SITE=Strict
+
+# Connector safety
+CONNECTORS_DEVELOPMENT_MODE=false
+GOTENBERG_URL=http://gotenberg:3000
 
 # TLS/HTTPS
 TLS_ENABLED=true

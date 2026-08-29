@@ -59,6 +59,35 @@ func WriteRoutes(handler http.Handler, w io.Writer) error {
 	if err != nil {
 		return err
 	}
+	return writeRouteEntries(entries, w)
+}
+
+// WriteRoutesForProfile emits only the routes admitted by a release profile.
+// Route dumps are consumed by E2E coverage and deployment manifests; emitting
+// the bounded surface keeps those artifacts aligned with the middleware that
+// protects the running application.
+func WriteRoutesForProfile(handler http.Handler, profile string, w io.Writer) error {
+	entries, err := WalkRoutes(handler)
+	if err != nil {
+		return err
+	}
+	parsed, err := ParseReleaseProfile(profile)
+	if err != nil {
+		return err
+	}
+	if parsed != ReleaseProfileFull {
+		filtered := entries[:0]
+		for _, entry := range entries {
+			if parsed.AllowsPath(entry.Pattern) {
+				filtered = append(filtered, entry)
+			}
+		}
+		entries = filtered
+	}
+	return writeRouteEntries(entries, w)
+}
+
+func writeRouteEntries(entries []RouteEntry, w io.Writer) error {
 	encoder := json.NewEncoder(w)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(entries)

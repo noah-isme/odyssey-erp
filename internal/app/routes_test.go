@@ -76,3 +76,32 @@ func TestWriteRoutesEmitsParsableJSON(t *testing.T) {
 		t.Fatalf("unexpected dump: %+v", entries)
 	}
 }
+
+func TestWriteRoutesForProfileFiltersUnsupportedRoutes(t *testing.T) {
+	router := chi.NewRouter()
+	router.Get("/finance/ar/invoices", func(http.ResponseWriter, *http.Request) {})
+	router.Get("/finance/treasury/payments", func(http.ResponseWriter, *http.Request) {})
+	router.Get("/documents/search", func(http.ResponseWriter, *http.Request) {})
+
+	var output strings.Builder
+	if err := WriteRoutesForProfile(router, string(ReleaseProfileV010Core), &output); err != nil {
+		t.Fatal(err)
+	}
+
+	var entries []RouteEntry
+	if err := json.Unmarshal([]byte(output.String()), &entries); err != nil {
+		t.Fatalf("profile route dump is not valid JSON: %v", err)
+	}
+	got := make(map[string]bool, len(entries))
+	for _, entry := range entries {
+		got[entry.Pattern] = true
+	}
+	if !got["/finance/ar/invoices"] {
+		t.Error("core route missing from bounded profile dump")
+	}
+	for _, blocked := range []string{"/finance/treasury/payments", "/documents/search"} {
+		if got[blocked] {
+			t.Errorf("blocked route %q present in bounded profile dump", blocked)
+		}
+	}
+}

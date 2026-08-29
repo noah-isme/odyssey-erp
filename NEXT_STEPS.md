@@ -1,215 +1,78 @@
-# ODYSSEY ERP: NEXT STEPS & DECISION GUIDE
+# Odyssey ERP: Next Steps
 
-**Session Complete:** 2026-08-02 19:15 UTC  
-**System Status:** Phases 1-5 Ready (75% Procurement-Logistics Complete)  
-**Build Status:** ✅ Clean (0 errors, 0 warnings)
+**Updated:** 2026-08-28
+**Current candidate:** `v0.10.0-rc.7` (`v0.10-core`, migration ceiling `000124`)
+**Release state:** local repository gates pass; staging and production certification remain open
 
----
+This is the active handoff for continuing the roadmap. The release boundary and
+feature scope are authoritative in [`docs/ROADMAP.md`](docs/ROADMAP.md); this file
+keeps the execution order short and operational.
 
-## Decision Point: Three Clear Paths Forward
+## 1. Close v0.10-core
 
-### PATH A: Deploy Foundation to Staging (1-2 weeks)
+Do not add feature code or migrations to rc.7. Complete the staging evidence gate:
 
-**When to choose:** You want early user feedback and parallel Phase 6 development
+1. Provision staging-only certification identities, stable fixture IDs, host access,
+   and the immutable S3-compatible evidence bucket with seven-year COMPLIANCE
+   Object Lock. Keep values in the managed secret store.
+2. Set `APP_ENV=staging`, `RELEASE_PROFILE=v0.10-core`, `APP_ADDR=127.0.0.1:8180`,
+   `PG_DSN`, `REDIS_ADDR`, `SESSION_SECRET`, `CSRF_SECRET`, and
+   `CONNECTORS_DEVELOPMENT_MODE=false` in the staging environment.
+3. Rerun the fixed-candidate deployment and certification workflow from a
+   `certification/*` ref. Verify the deployed revision, route profile, health
+   endpoint, migrations through `000124`, and both automated and operator lanes.
+4. Merge the 25 contract rows with
+   [`scripts/staging-certification-closeout.sh`](scripts/staging-certification-closeout.sh).
+   The final index must be write-once, every row `PASS`, and accompanied by its
+   `SHA256SUMS` object. No `N/A`, local-only, mutable URI, missing artifact, or
+   incomplete Object Lock metadata can produce `GO`.
+5. Run the production gate from a clean, exact tagged checkout with the final
+   evidence index URI and local file. Promote only after signed approval, backup/
+   restore, rollback, security, provider, and observation evidence is complete.
 
-**What you get:**
-- ✅ Phases 1-5 accessible to pilot users
-- ✅ Early feedback on workflows
-- ✅ Real usage patterns to inform Phase 6
-- ✅ Phase 6 planning can start in parallel
+Current external blocker: the configured staging identities, fixture variables,
+and immutable evidence-store inputs are not present, so the latest certification
+preflight cannot run to completion. The most recent fixed-candidate staging
+deployment succeeded; deployment success alone is not certification.
 
-**What's needed before launch:**
-1. RBAC middleware integration (5 hours)
-2. Staging environment setup
-3. Initial user training
-4. Feedback collection process
+## 2. Start v0.11-finance after v0.10 promotion
 
-**Timeline:**
-- Days 1-2: RBAC integration
-- Days 3-4: Staging deployment
-- Days 5-7: User onboarding
-- Week 2+: Phase 6 starts in parallel
+Branch from the released v0.10 baseline and use the cumulative
+`RELEASE_PROFILE=v0.11-finance` profile. The first tranche is **Treasury + P2P**:
 
-**Next action:** Open `internal/app/middleware.go` to integrate RBAC
+The isolated preparation candidate and its open gates are tracked in the
+[v0.11-finance preparation handoff](docs/releases/v0.11-finance-prep-handoff.md).
 
----
+- finish bank-feed ingestion, cash forecasting, treasury controls, and operational
+  recovery paths;
+- complete payment execution, settlement-result handling, reconciliation, retry,
+  and durable audit effects; and
+- close the existing purchase-to-pay loop from requisition/PO through receipt, AP,
+  approval, payment, and ledger effects.
 
-### PATH B: Complete to Production (2-3 days)
+Keep live provider execution and tenant/company feature flags disabled by default.
+Require deterministic unit/integration coverage, provider sandbox evidence, staging
+journeys, scoped-access checks, migration rehearsal, and operational rollback before
+any live enablement. Record the new candidate, migration ceiling, route manifest,
+and evidence contract as a separate release line; do not reuse the rc.7 record.
 
-**When to choose:** You want a fully-tested, production-ready launch
+## 3. Defer to v0.11.x
 
-**What you get:**
-- ✅ Full RBAC implementation
-- ✅ Comprehensive E2E tests
-- ✅ Performance optimization
-- ✅ Production deployment docs
-- ✅ Ready for enterprise scale
+Asset locations, custody and transfers, warranty/maintenance extensions, and asset
+capitalization operations are explicitly outside the first v0.11 release gate. Keep
+them as a follow-on tranche rather than widening either the rc.7 candidate or the
+initial Treasury + P2P certification scope.
 
-**What's needed:**
-1. RBAC middleware integration (5 hours)
-2. E2E test suite creation (10 hours)
-3. Performance optimization (5 hours)
-4. Deployment documentation (5 hours)
-
-**Timeline:**
-- Day 1: RBAC + E2E setup
-- Day 2: Tests + optimization
-- Day 3: Final verification + deployment
-- Ready for production launch
-
-**Next action:** Create comprehensive E2E test suite using your existing patterns
-
----
-
-### PATH C: Start Phase 6 Immediately (3-4 weeks)
-
-**When to choose:** You want to expand system breadth while staging Phase 1-5
-
-**What you get:**
-- ✅ Freight Finance layer (rate cards, landed cost, GL)
-- ✅ Phases 1-5 staging continues in parallel
-- ✅ More complete system for eventual production
-- ✅ Route optimization ↔ GL cost posting integration
-
-**What's needed:**
-1. Phase 6 architecture planning (8 hours)
-2. Phase 6 database schema (6 hours)
-3. Phase 6 domain types (8 hours)
-4. Phase 5 production can happen in parallel
-
-**Timeline:**
-- Today-Tomorrow: Phase 6 planning
-- This week: Phase 6 foundation + Phase 5 staging setup
-- Next week: Phase 6 services + Phase 5 RBAC
-- Week 3: Phase 6 UI + final Phase 5 polish
-
-**Next action:** Review Phase 6 architecture requirements
-
----
-
-## Recommended Approach: HYBRID
-
-**Best for:** Most teams
-
-**What to do:**
-1. **Today:** Choose between A or B based on timeline pressure
-2. **Option 1 → B:** If you have 3 days, go straight to production
-3. **Option 2 → A+C:** If you have more time, deploy foundation while Phase 6 starts
-
-**Immediate action (next 2 hours):**
-1. Integrate RBAC middleware (5 hours work available)
-2. Review HTTP handlers for permission checks needed
-3. Plan deployment environment
-
----
-
-## What's Fully Ready Right Now
-
-✅ **Can use immediately:**
-- All Phase 1-5 APIs (no RBAC checks yet)
-- All database operations
-- All UI templates
-- All business logic
-
-✅ **Needs integration:**
-- RBAC permission enforcement
-- Background jobs (already coded, needs wiring)
-- E2E tests (framework ready, needs scenarios)
-
-✅ **Optional/Later:**
-- Performance optimization
-- Caching layer
-- Advanced analytics
-- Audit logging details
-
----
-
-## Estimated Effort to Production
-
-| Task | Hours | Difficulty |
-|------|-------|-----------|
-| RBAC Middleware | 5 | Medium |
-| E2E Test Suite | 10 | Medium |
-| Performance Tuning | 5 | Low |
-| Deployment Docs | 5 | Low |
-| **Total** | **25** | - |
-
-**With 1 dev working 8 hours/day:** 3 days to production
-
----
-
-## Phase 6 Overview (Optional)
-
-If you choose to start Phase 6 while Phase 5 stages:
-
-**Phase 6: Freight Finance**
-- Carrier rate card management
-- Landed cost calculation
-- GL posting for transport costs
-- Cost allocation by shipment/route
-- Financial reporting
-
-**Database:** 6-8 new tables
-**Domain:** 15-20 new types
-**Services:** 30+ methods
-**HTTP:** 12+ endpoints
-**Estimated:** 2,000+ lines
-
-**Integration point:** Routes → Freight charges → GL
-
----
-
-## Git State (Clean & Ready)
+## Local verification before handoff
 
 ```bash
-# Current branch: main
-# Latest commits: 26
-# All changes committed: YES
-# Build status: ✅ CLEAN
-# Tests passing: ✅ YES
+make docs-check
+RELEASE_PROFILE=v0.10-core make release-check
+ODYSSEY_TEST_MODE=1 GOTENBERG_URL=http://127.0.0.1:0 go test ./... -count=1
+go vet ./...
+bash scripts/staging-certification-closeout_test.sh
 ```
 
-You can safely branch from here for any path you choose.
-
----
-
-## My Recommendation
-
-**Based on typical project dynamics:**
-
-### If launching THIS month:
-→ **Choose Path B (Production Ready)** - 2-3 days effort gets you fully tested system
-
-### If launching NEXT month:
-→ **Choose Path A+C (Hybrid)** - Deploy foundation while building Phase 6
-
-### If unsure about timeline:
-→ **Choose Path A (Staging First)** - Get user feedback, then decide on Phase 6
-
----
-
-## What to Do Right Now
-
-**Next 30 minutes:**
-1. Review your deployment timeline
-2. Choose Path A, B, or C above
-3. Let me know your choice
-
-**I'm ready to:**
-- Implement RBAC middleware integration
-- Create E2E test suite
-- Start Phase 6 architecture
-- Deploy to staging
-- Any combination of the above
-
----
-
-## Success Criteria
-
-**Path A completion:** Users can access Phases 1-5 on staging  
-**Path B completion:** System passes E2E tests, ready for production  
-**Path C completion:** Phase 6 foundation ready, Phase 5 staged  
-
----
-
-**All systems ready. Awaiting your direction.** 🚀
+The local checks establish repository consistency only. They do not replace the
+staging deployment, external provider, backup/restore, security, observation, or
+signed release evidence required by the production checklist.

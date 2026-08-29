@@ -2,7 +2,8 @@ name: CI
 
 on:
   push:
-    branches: ["main", "master"]
+    branches: ["main", "master", "staging", "release/v0.10.0-rc.*"]
+    tags: ["v0.10.0-rc.*"]
   pull_request:
 
 jobs:
@@ -28,6 +29,7 @@ jobs:
       REDIS_ADDR: localhost:6379
       ODYSSEY_TEST_MODE: "1"
       GOTENBERG_URL: http://127.0.0.1:0
+      APP_MASTER_KEY: ci-master-key-not-for-production
       GOPROXY: https://proxy.golang.org
       GOSUMDB: sum.golang.org
       GOFLAGS: -mod=readonly
@@ -35,28 +37,44 @@ jobs:
       GONOSUMDB: ""
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout tested commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Record exact tested revision
+        id: source
+        shell: bash
+        run: |
+          set -euo pipefail
+          tested_sha=$(git rev-parse HEAD)
+          echo "sha=$tested_sha" >> "$GITHUB_OUTPUT"
+          echo "TESTED_SHA=$tested_sha" >> "$GITHUB_ENV"
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.24.x'
+          go-version: '1.25.x'
 
       - name: Install tools
         run: |
-          go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
-          go install -tags postgres github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+          go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
+          go install -tags postgres github.com/golang-migrate/migrate/v4/cmd/migrate@v4.18.3
 
       - name: Go mod download
         run: go mod download
 
-      - name: Check documentation
-        run: make docs-check
+      - name: Check documentation and release claims
+        run: make release-check
+
+      - name: Verify production PDF build tags
+        run: make pdf-release-check
 
       - name: Lint
-        uses: golangci/golangci-lint-action@v4
+        uses: golangci/golangci-lint-action@v9
         with:
-          version: v1.64.8
-          args: --timeout=5m --out-format=colored-line-number
+          version: v2.12
+          args: --timeout=5m
 
       - name: Vet
         run: make vet
@@ -91,16 +109,29 @@ jobs:
         env:
           ODYSSEY_TEST_MODE: "0"
           ODYSSEY_DUMP_ROUTES: "1"
+          RELEASE_PROFILE: v0.10-core
           SESSION_SECRET: ci-session-secret-not-for-production
           CSRF_SECRET: ci-csrf-secret-not-for-production
         run: |
           ./bin/odyssey > routes.json
           echo "GET page routes discovered:"
           grep -c '"method"' routes.json
+          jq --arg profile "$RELEASE_PROFILE" --arg commit "$TESTED_SHA" \
+            '{profile: $profile, commit: $commit, routes: .}' \
+            routes.json > route-profile.json
+
+      - name: Upload tested route/profile manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: route-profile-${{ steps.source.outputs.sha }}
+          path: route-profile.json
+          if-no-files-found: error
+          retention-days: 90
 
       - name: Start application
         env:
           ODYSSEY_TEST_MODE: "0"
+          RELEASE_PROFILE: v0.10-core
           SESSION_SECRET: ci-session-secret-not-for-production
           CSRF_SECRET: ci-csrf-secret-not-for-production
           APP_ADDR: 127.0.0.1:8080
@@ -128,7 +159,11 @@ jobs:
           # path would resolve under tests/e2e rather than the workspace.
           ODYSSEY_E2E_ROUTES: ${{ github.workspace }}/routes.json
           GOTENBERG_URL: ""
-        run: go test ./tests/e2e/ -run TestRegressionFlow -v -timeout 20m
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test ./tests/e2e/ -run TestRegressionFlow -v -timeout 20m \
+            2>&1 | tee e2e.log
 
       - name: Stop application
         if: always()
@@ -146,5 +181,7 @@ jobs:
           name: e2e-diagnostics
           path: |
             routes.json
+            route-profile.json
+            e2e.log
             server.log
           if-no-files-found: ignore

@@ -7,6 +7,8 @@ MIGRATE_BIN?=$(HOME)/go/bin/migrate
 AIR_BIN?=$(HOME)/go/bin/air
 PERIOD?=$(shell date +%Y-%m)
 COMPANY_ID?=1
+CERT_GO_TMP?=/tmp/odyssey-cert-go-tmp
+CERT_GO_CACHE?=/tmp/odyssey-cert-go-cache
 GROUP_ID?=1
 ENTITIES?=all
 FX_MODE?=on
@@ -20,7 +22,7 @@ BRANCH_QUERY=$(if $(BRANCH_ID),&branch_id=$(BRANCH_ID),)
 export APP_ENV?=development
 export PG_DSN?=postgres://odyssey:odyssey@localhost:5434/odyssey?sslmode=disable
 
-.PHONY: dev air lint vet vet-consol test build docs-check migrate-up migrate-down sqlc-gen seed seed-phase3 seed-phase4 refresh-mv reports-demo pdf-sample export-demo fx-tools analytics-dashboard analytics-dashboard-pdf analytics-dashboard-csv prom-up grafana-load alert-test monitor-demo release-phase6
+.PHONY: dev air lint vet vet-consol test build docs-check release-check pdf-release-check production-build-check production-release-check midtrans-sandbox-certify migrate-up migrate-down sqlc-gen seed seed-phase3 seed-phase4 refresh-mv reports-demo pdf-sample export-demo fx-tools analytics-dashboard analytics-dashboard-pdf analytics-dashboard-csv prom-up grafana-load alert-test monitor-demo release-phase6
 
 dev:
 	docker compose up --build
@@ -30,7 +32,7 @@ air:
 	$(AIR_BIN)
 
 lint:
-	golangci-lint run ./...
+	golangci-lint run --timeout=5m ./...
 
 vet:
 	@echo "==> go vet"
@@ -58,6 +60,27 @@ build:
 
 docs-check:
 	bash scripts/check-docs.sh
+
+release-check: docs-check
+	bash scripts/check-release-hygiene.sh
+
+pdf-release-check:
+	$(GO_BIN) test -tags "production pdf" ./internal/consol/http
+	$(GO_BIN) build -tags "production pdf" ./...
+
+production-build-check: release-check
+	$(GO_BIN) test ./...
+	$(GO_BIN) vet ./...
+	CGO_ENABLED=0 GOOS=linux $(GO_BIN) build -tags production ./...
+	$(GO_BIN) test -tags "production pdf" ./internal/consol/http
+	CGO_ENABLED=0 GOOS=linux $(GO_BIN) build -tags "production pdf" ./...
+
+production-release-check: production-build-check
+	bash scripts/check-production-release.sh
+
+midtrans-sandbox-certify:
+	@mkdir -p "$(CERT_GO_TMP)" "$(CERT_GO_CACHE)"
+	GOTMPDIR="$(CERT_GO_TMP)" GOCACHE="$(CERT_GO_CACHE)" ODYSSEY_TEST_MODE=1 GOTENBERG_URL='http://127.0.0.1:0' $(GO_BIN) test ./internal/connectors/providers/midtrans -run '^TestMidtransSandboxCertification$$' -count=1 -v
 
 migrate-up:
 	$(MIGRATE_BIN) -path migrations -database "$(PG_DSN)" up

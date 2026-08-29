@@ -1,0 +1,681 @@
+name: Deploy Staging
+
+on:
+  push:
+    tags:
+      - v0.10.0-rc.*
+  workflow_dispatch:
+    inputs:
+      candidate_tag:
+        description: Annotated v0.10 release-candidate tag to deploy (for example v0.10.0-rc.5)
+        required: true
+        type: string
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+    branches:
+      - staging
+
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: staging
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: >-
+      ${{
+        github.event_name == 'push' ||
+        github.event_name == 'workflow_dispatch' ||
+        (github.event_name == 'workflow_run' &&
+          github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.head_branch == 'staging')
+      }}
+
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+
+    steps:
+      - name: Checkout tested commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'push' && github.ref || (github.event_name == 'workflow_dispatch' && inputs.candidate_tag || github.event.workflow_run.head_sha) }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact candidate and CI result
+        env:
+          CANDIDATE_TAG: ${{ github.event_name == 'push' && github.ref_name || (github.event_name == 'workflow_dispatch' && inputs.candidate_tag || '') }}
+          WORKFLOW_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || '' }}
+          WORKFLOW_RUN_ID: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || '' }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          candidate_sha=$(git rev-parse HEAD)
+          if [[ -n "$CANDIDATE_TAG" ]]; then
+            [[ "$CANDIDATE_TAG" =~ ^v0\.10\.0-rc\.[1-9][0-9]*$ ]] || {
+              echo "candidate tag must match v0.10.0-rc.N (N >= 1)" >&2
+              exit 1
+            }
+            git show-ref --verify --quiet "refs/tags/$CANDIDATE_TAG" || {
+              echo "candidate tag $CANDIDATE_TAG was not checked out" >&2
+              exit 1
+            }
+            [[ "$(git cat-file -t "refs/tags/$CANDIDATE_TAG")" == tag ]] || {
+              echo "candidate tag $CANDIDATE_TAG must be annotated" >&2
+              exit 1
+            }
+            tagged_sha=$(git rev-list -n 1 "$CANDIDATE_TAG")
+            [[ "$tagged_sha" == "$candidate_sha" ]] || {
+              echo "tag $CANDIDATE_TAG does not resolve to the checked-out commit" >&2
+              exit 1
+            }
+
+            # A tag push starts CI and this deployment workflow concurrently.
+            # Wait for the CI run created by this exact tag/SHA, so deployment
+            # cannot win the tag/CI visibility race or reuse a branch-only run.
+            ci_run_id=''
+            for attempt in $(seq 1 180); do
+              ci_runs=$(gh api \
+                "/repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?head_sha=${candidate_sha}&per_page=100")
+              ci_run=$(jq -cer \
+                --arg sha "$candidate_sha" \
+                --arg tag "$CANDIDATE_TAG" \
+                '[.workflow_runs[] | select(
+                  .head_sha == $sha and
+                  .head_branch == $tag and
+                  .event == "push"
+                )] | sort_by(.created_at) | last // empty' \
+                <<<"$ci_runs" || true)
+
+              if [[ -z "$ci_run" ]]; then
+                echo "waiting for exact-tag CI run (${attempt}/180)"
+                sleep 10
+                continue
+              fi
+
+              ci_status=$(jq -r '.status' <<<"$ci_run")
+              ci_conclusion=$(jq -r '.conclusion // ""' <<<"$ci_run")
+              ci_run_id=$(jq -r '.id' <<<"$ci_run")
+              if [[ "$ci_status" != completed ]]; then
+                echo "waiting for CI run $ci_run_id ($ci_status; ${attempt}/180)"
+                sleep 10
+                continue
+              fi
+              [[ "$ci_conclusion" == success ]] || {
+                echo "exact-tag CI run $ci_run_id concluded $ci_conclusion" >&2
+                exit 1
+              }
+              break
+            done
+            [[ -n "$ci_run_id" && "$ci_status" == completed && "$ci_conclusion" == success ]] || {
+              echo "timed out waiting for successful exact-tag CI for $CANDIDATE_TAG / $candidate_sha" >&2
+              exit 1
+            }
+          else
+            [[ -n "$WORKFLOW_SHA" && "$WORKFLOW_SHA" == "$candidate_sha" ]] || {
+              echo "workflow_run SHA does not match the checked-out commit" >&2
+              exit 1
+            }
+            [[ -n "$WORKFLOW_RUN_ID" ]] || {
+              echo 'workflow_run event does not identify its CI run' >&2
+              exit 1
+            }
+            ci_run_id=$WORKFLOW_RUN_ID
+          fi
+
+          {
+            echo "CANDIDATE_SHA=$candidate_sha"
+            echo "CANDIDATE_TAG=$CANDIDATE_TAG"
+            echo "CI_RUN_ID=$ci_run_id"
+          } >> "$GITHUB_ENV"
+          printf 'candidate=%s\n' "$candidate_sha"
+          [[ -n "$CANDIDATE_TAG" ]] && printf 'tag=%s\n' "$CANDIDATE_TAG"
+
+      - name: Enforce v0.10 migration boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          declare -A up=() down=()
+          while IFS= read -r file; do
+            name=${file##*/}
+            [[ "$name" =~ ^([0-9]{6})_.+\.(up|down)\.sql$ ]] || {
+              echo "invalid migration filename: $name" >&2
+              exit 1
+            }
+            version=${BASH_REMATCH[1]}
+            direction=${BASH_REMATCH[2]}
+            if [[ "$direction" == up ]]; then
+              [[ -z "${up[$version]:-}" ]] || {
+                echo "duplicate up migration version $version" >&2
+                exit 1
+              }
+              up[$version]=$name
+            else
+              [[ -z "${down[$version]:-}" ]] || {
+                echo "duplicate down migration version $version" >&2
+                exit 1
+              }
+              down[$version]=$name
+            fi
+          done < <(find migrations -maxdepth 1 -type f -name '*.sql' | sort)
+
+          ((${#up[@]} > 0)) || { echo 'no up migrations found' >&2; exit 1; }
+          for version in "${!up[@]}"; do
+            [[ -n "${down[$version]:-}" ]] || {
+              echo "missing down migration paired with ${up[$version]}" >&2
+              exit 1
+            }
+          done
+          for version in "${!down[@]}"; do
+            [[ -n "${up[$version]:-}" ]] || {
+              echo "missing up migration paired with ${down[$version]}" >&2
+              exit 1
+            }
+          done
+
+          max_version=$(printf '%s\n' "${!up[@]}" | sort | tail -n 1)
+          [[ "$max_version" == 000124 ]] || {
+            echo "v0.10-core migration ceiling must be 000124; found $max_version" >&2
+            exit 1
+          }
+          [[ "${up[000124]}" == 000124_scoped_rbac_global_compatibility.up.sql && \
+            "${down[000124]}" == 000124_scoped_rbac_global_compatibility.down.sql ]] || {
+            echo 'migration 000124 does not match the frozen v0.10-core boundary' >&2
+            exit 1
+          }
+
+      - name: Download tested route/profile manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ci-evidence
+          gh run download "$CI_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "route-profile-${CANDIDATE_SHA}" \
+            --dir ci-evidence
+          jq -e \
+            --arg sha "$CANDIDATE_SHA" \
+            '.profile == "v0.10-core" and .commit == $sha' \
+            ci-evidence/route-profile.json >/dev/null
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build Odyssey staging artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+
+          # The production build tag selects the deployable release build; the
+          # deployment target for this workflow is the staging environment.
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+            go build \
+            -trimpath \
+            -tags production \
+            -ldflags='-s -w' \
+            -o dist/odyssey \
+            ./cmd/odyssey
+
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+            go build \
+            -trimpath \
+            -tags production \
+            -ldflags='-s -w' \
+            -o dist/worker \
+            ./cmd/worker
+
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+            go build \
+            -trimpath \
+            -tags production \
+            -ldflags='-s -w' \
+            -o dist/bootstrap-admin \
+            ./cmd/bootstrap-admin
+
+      - name: Build migration tool
+        shell: bash
+        run: |
+          set -euo pipefail
+          GOBIN="$PWD/dist" \
+            go install \
+            -tags postgres \
+            github.com/golang-migrate/migrate/v4/cmd/migrate@v4.18.3
+
+      - name: Prepare release
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/migrations dist/web
+
+          cp -a migrations/. dist/migrations/
+          cp -a web/. dist/web/
+          cp ci-evidence/route-profile.json dist/ROUTE_PROFILE.json
+
+          printf '%s\n' "$CANDIDATE_SHA" > dist/REVISION
+          {
+            printf 'tag=%s\n' "$CANDIDATE_TAG"
+            printf 'commit=%s\n' "$CANDIDATE_SHA"
+            printf 'profile=v0.10-core\n'
+            printf 'migration_ceiling=000124_scoped_rbac_global_compatibility\n'
+          } > dist/RELEASE_IDENTITY
+          (
+            find migrations -type f -name '*.sql' -print0 |
+              sort -z |
+              xargs -0 sha256sum
+          ) > dist/MIGRATION_SHA256SUMS
+          (
+            find web -type f -print0 |
+              sort -z |
+              xargs -0 sha256sum
+          ) > dist/WEB_SHA256SUMS
+
+      - name: Generate SPDX SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          path: dist
+          format: spdx-json
+          output-file: dist/SBOM.spdx.json
+          upload-artifact: false
+
+      - name: Finalize release digests
+        shell: bash
+        run: |
+          set -euo pipefail
+          (
+            cd dist
+            sha256sum \
+              REVISION \
+              RELEASE_IDENTITY \
+              MIGRATION_SHA256SUMS \
+              WEB_SHA256SUMS \
+              ROUTE_PROFILE.json \
+              SBOM.spdx.json \
+              odyssey \
+              worker \
+              bootstrap-admin \
+              migrate
+          ) > dist/SHA256SUMS
+
+      - name: Create content-addressed release bundle
+        id: bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundle="odyssey-v010-core-${CANDIDATE_SHA}.tar.gz"
+          tar \
+            --sort=name \
+            --mtime='UTC 1970-01-01' \
+            --owner=0 \
+            --group=0 \
+            --numeric-owner \
+            -C dist \
+            -cf - . | gzip -n > "$bundle"
+          sha256sum "$bundle" > "${bundle}.sha256"
+          bundle_sha=$(sha256sum "$bundle" | awk '{print $1}')
+          {
+            echo "name=$bundle"
+            echo "sha256=$bundle_sha"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Attest release provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: ${{ steps.bundle.outputs.name }}
+
+      - name: Upload immutable staging artifact
+        id: release-artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: odyssey-v010-core-${{ env.CANDIDATE_SHA }}
+          path: |
+            ${{ steps.bundle.outputs.name }}
+            ${{ steps.bundle.outputs.name }}.sha256
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Record artifact identity
+        shell: bash
+        env:
+          ARTIFACT_ID: ${{ steps.release-artifact.outputs.artifact-id }}
+          ARTIFACT_URL: ${{ steps.release-artifact.outputs.artifact-url }}
+          ARTIFACT_DIGEST: ${{ steps.release-artifact.outputs.artifact-digest }}
+          BUNDLE_NAME: ${{ steps.bundle.outputs.name }}
+          BUNDLE_SHA256: ${{ steps.bundle.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+          {
+            echo '### Staging release artifact'
+            echo "- Candidate: ${CANDIDATE_TAG:-automatic staging} / ${CANDIDATE_SHA}"
+            echo "- CI run: ${CI_RUN_ID}"
+            echo "- Bundle: ${BUNDLE_NAME}"
+            echo "- Bundle SHA-256: ${BUNDLE_SHA256}"
+            echo "- Artifact ID: ${ARTIFACT_ID}"
+            echo "- Artifact digest: ${ARTIFACT_DIGEST}"
+            echo "- Artifact URL: ${ARTIFACT_URL}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Configure SSH
+        env:
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          STAGING_KNOWN_HOSTS: ${{ secrets.STAGING_KNOWN_HOSTS }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${STAGING_HOST:?STAGING_HOST secret is required}"
+          : "${STAGING_SSH_KEY:?STAGING_SSH_KEY secret is required}"
+          : "${STAGING_KNOWN_HOSTS:?STAGING_KNOWN_HOSTS secret is required}"
+
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$STAGING_SSH_KEY" | tr -d '\r' > "$HOME/.ssh/deploy_key"
+          chmod 600 "$HOME/.ssh/deploy_key"
+
+          printf '%s\n' "$STAGING_KNOWN_HOSTS" | tr -d '\r' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          ssh-keygen -F "$STAGING_HOST" -f "$HOME/.ssh/known_hosts" >/dev/null || {
+            echo 'STAGING_KNOWN_HOSTS does not contain STAGING_HOST' >&2
+            exit 1
+          }
+
+      - name: Upload release
+        env:
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_USER: ${{ secrets.STAGING_USER }}
+          BUNDLE_NAME: ${{ steps.bundle.outputs.name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${STAGING_HOST:?STAGING_HOST secret is required}"
+          : "${STAGING_USER:?STAGING_USER secret is required}"
+
+          incoming_dir="/opt/odyssey-staging/releases/.incoming-${CANDIDATE_SHA}-${GITHUB_RUN_ID}"
+          ssh_opts=(-i "$HOME/.ssh/deploy_key" -o BatchMode=yes -o StrictHostKeyChecking=yes)
+          remote="${STAGING_USER}@${STAGING_HOST}"
+
+          ssh "${ssh_opts[@]}" "$remote" "install -d -m 0700 '$incoming_dir'"
+          rsync \
+            -az \
+            -e "ssh ${ssh_opts[*]}" \
+            "$BUNDLE_NAME" \
+            "${BUNDLE_NAME}.sha256" \
+            "${remote}:${incoming_dir}/"
+
+      - name: Deploy release
+        env:
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_USER: ${{ secrets.STAGING_USER }}
+          BUNDLE_NAME: ${{ steps.bundle.outputs.name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${STAGING_HOST:?STAGING_HOST secret is required}"
+          : "${STAGING_USER:?STAGING_USER secret is required}"
+
+          ssh_opts=(-i "$HOME/.ssh/deploy_key" -o BatchMode=yes -o StrictHostKeyChecking=yes)
+          remote="${STAGING_USER}@${STAGING_HOST}"
+
+          ssh "${ssh_opts[@]}" "$remote" bash -s -- \
+            "$CANDIDATE_SHA" "$GITHUB_RUN_ID" "$BUNDLE_NAME" "$CANDIDATE_TAG" <<'REMOTE'
+          set -euo pipefail
+
+          candidate_sha="$1"
+          run_id="$2"
+          bundle_name="$3"
+          candidate_tag="$4"
+          releases_root=/opt/odyssey-staging/releases
+          incoming="$releases_root/.incoming-${candidate_sha}-${run_id}"
+          release="$releases_root/$candidate_sha"
+
+          (
+            cd "$incoming"
+            sha256sum -c "${bundle_name}.sha256"
+          )
+          bundle_sha=$(awk '{print $1}' "$incoming/${bundle_name}.sha256")
+
+          if [[ -e "$release" ]]; then
+            [[ -d "$release" && -f "$release/.bundle.sha256" ]] || {
+              echo "existing release path is not a verified immutable release: $release" >&2
+              exit 1
+            }
+            [[ "$(cat "$release/.bundle.sha256")" == "$bundle_sha" ]] || {
+              echo "existing release digest differs for candidate $candidate_sha" >&2
+              exit 1
+            }
+          else
+            install -d -m 0755 "$release"
+            tar -xzf "$incoming/$bundle_name" -C "$release"
+            printf '%s\n' "$bundle_sha" > "$release/.bundle.sha256"
+          fi
+
+          rm -f "$incoming/$bundle_name" "$incoming/${bundle_name}.sha256"
+          rmdir "$incoming"
+
+          test -f "$release/odyssey"
+          test -f "$release/worker"
+          test -f "$release/bootstrap-admin"
+          test -f "$release/migrate"
+          test -f "$release/REVISION"
+          test -d "$release/migrations"
+          test -d "$release/web"
+          test -f "$release/SBOM.spdx.json"
+          test -f "$release/RELEASE_IDENTITY"
+          test -f "$release/MIGRATION_SHA256SUMS"
+          test -f "$release/WEB_SHA256SUMS"
+          test -f "$release/ROUTE_PROFILE.json"
+
+          chmod +x \
+            "$release/odyssey" \
+            "$release/worker" \
+            "$release/bootstrap-admin" \
+            "$release/migrate"
+
+          test -x "$release/odyssey"
+          test -x "$release/worker"
+          test -x "$release/bootstrap-admin"
+          test -x "$release/migrate"
+
+          (
+            cd "$release"
+            sha256sum -c SHA256SUMS
+            sha256sum -c MIGRATION_SHA256SUMS
+            sha256sum -c WEB_SHA256SUMS
+          )
+
+          grep -Fx "tag=${candidate_tag}" "$release/RELEASE_IDENTITY"
+          grep -Fx "commit=${candidate_sha}" "$release/RELEASE_IDENTITY"
+          grep -Fx 'profile=v0.10-core' "$release/RELEASE_IDENTITY"
+          grep -Fx 'migration_ceiling=000124_scoped_rbac_global_compatibility' \
+            "$release/RELEASE_IDENTITY"
+          grep -Fx "$candidate_sha" "$release/REVISION"
+          jq -e --arg sha "$candidate_sha" \
+            '.profile == "v0.10-core" and .commit == $sha' \
+            "$release/ROUTE_PROFILE.json" >/dev/null
+
+          declare -A up=() down=()
+          while IFS= read -r file; do
+            name=${file##*/}
+            [[ "$name" =~ ^([0-9]{6})_.+\.(up|down)\.sql$ ]] || {
+              echo "invalid deployed migration filename: $name" >&2
+              exit 1
+            }
+            version=${BASH_REMATCH[1]}
+            direction=${BASH_REMATCH[2]}
+            if [[ "$direction" == up ]]; then
+              [[ -z "${up[$version]:-}" ]] || { echo "duplicate deployed up migration $version" >&2; exit 1; }
+              up[$version]=$name
+            else
+              [[ -z "${down[$version]:-}" ]] || { echo "duplicate deployed down migration $version" >&2; exit 1; }
+              down[$version]=$name
+            fi
+          done < <(find "$release/migrations" -maxdepth 1 -type f -name '*.sql' | sort)
+          ((${#up[@]} > 0)) || { echo 'no deployed up migrations found' >&2; exit 1; }
+          for version in "${!up[@]}"; do
+            [[ -n "${down[$version]:-}" ]] || { echo "missing down migration for ${up[$version]}" >&2; exit 1; }
+          done
+          for version in "${!down[@]}"; do
+            [[ -n "${up[$version]:-}" ]] || { echo "missing up migration for ${down[$version]}" >&2; exit 1; }
+          done
+          max_version=$(printf '%s\n' "${!up[@]}" | sort | tail -n 1)
+          [[ "$max_version" == 000124 ]] || {
+            echo "deployed migration ceiling must be 000124; found $max_version" >&2
+            exit 1
+          }
+          [[ "${up[000124]}" == 000124_scoped_rbac_global_compatibility.up.sql && \
+            "${down[000124]}" == 000124_scoped_rbac_global_compatibility.down.sql ]] || {
+            echo 'deployed migration 000124 does not match the frozen boundary' >&2
+            exit 1
+          }
+
+          set -a
+          . /opt/odyssey-staging/.env
+          set +a
+          : "${PG_DSN:?PG_DSN must be set in /opt/odyssey-staging/.env}"
+          [[ "${APP_ENV:-}" == staging ]] || {
+            echo 'staging must set APP_ENV=staging' >&2
+            exit 1
+          }
+          [[ "${RELEASE_PROFILE:-}" == v0.10-core ]] || {
+            echo 'staging must set RELEASE_PROFILE=v0.10-core' >&2
+            exit 1
+          }
+          [[ "${APP_ADDR:-}" == 127.0.0.1:8180 ]] || {
+            echo 'staging must bind APP_ADDR=127.0.0.1:8180' >&2
+            exit 1
+          }
+
+          "$release/migrate" \
+            -path "$release/migrations" \
+            -database "$PG_DSN" \
+            up
+
+          ln -sfn "$release" /opt/odyssey-staging/current
+
+          # Prefer the provisioned systemd units. Some staging hosts are
+          # intentionally restricted to the deploy account and do not yet
+          # grant it sudo rights for the staging unit names; in that case run
+          # the immutable release under the dedicated staging deploy account
+          # with explicit PID/log supervision rather than touching production
+          # units or silently skipping the health check.
+          runtime_dir=/opt/odyssey-staging/run
+          stop_pidfile() {
+            local pidfile="$1"
+            if [[ -s "$pidfile" ]]; then
+              local pid
+              pid=$(cat "$pidfile")
+              if [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then
+                kill "$pid" 2>/dev/null || true
+                for _ in $(seq 1 15); do
+                  kill -0 "$pid" 2>/dev/null || break
+                  sleep 1
+                done
+                kill -9 "$pid" 2>/dev/null || true
+              fi
+            fi
+            rm -f "$pidfile"
+          }
+
+          runtime_mode=systemd
+          cleanup_supervised_on_exit() {
+            local exit_code=$?
+            if [[ "$exit_code" -ne 0 && "$runtime_mode" == supervised-process ]]; then
+              stop_pidfile "$runtime_dir/odyssey.pid" || true
+              stop_pidfile "$runtime_dir/worker.pid" || true
+            fi
+            return "$exit_code"
+          }
+          trap cleanup_supervised_on_exit EXIT
+
+          if sudo -n systemctl restart odyssey-staging.service >/dev/null 2>&1 && \
+             sudo -n systemctl restart odyssey-staging-worker.service >/dev/null 2>&1; then
+            runtime_mode=systemd
+          else
+            sudo -n systemctl stop odyssey-staging.service >/dev/null 2>&1 || true
+            sudo -n systemctl stop odyssey-staging-worker.service >/dev/null 2>&1 || true
+            runtime_mode=supervised-process
+            install -d -m 0755 "$runtime_dir"
+            stop_pidfile "$runtime_dir/odyssey.pid"
+            stop_pidfile "$runtime_dir/worker.pid"
+            if ! command -v ss >/dev/null 2>&1; then
+              echo 'cannot safely start supervised staging process: ss is required to inspect port 8180' >&2
+              exit 1
+            fi
+            if ss -H -ltn 'sport = :8180' | grep -q .; then
+              echo 'staging port 8180 is still in use; refusing to start a duplicate supervised process' >&2
+              ss -H -ltnp 'sport = :8180' >&2 || true
+              exit 1
+            fi
+            nohup "$release/odyssey" >"$runtime_dir/odyssey.log" 2>&1 &
+            echo "$!" > "$runtime_dir/odyssey.pid"
+            nohup "$release/worker" >"$runtime_dir/worker.log" 2>&1 &
+            echo "$!" > "$runtime_dir/worker.pid"
+          fi
+
+          for attempt in $(seq 1 30); do
+            if curl -fsS --max-time 5 \
+              http://127.0.0.1:8180/healthz \
+              >/dev/null; then
+              if [[ "$runtime_mode" == systemd ]]; then
+                # /healthz only proves that an HTTP listener answered. A
+                # successful deployment also requires both provisioned
+                # systemd units to remain active; otherwise a dead worker
+                # would be reported as a healthy staging release.
+                if ! sudo -n systemctl --no-pager --full status odyssey-staging.service >/dev/null 2>&1; then
+                  echo 'staging web service is not active after health check' >&2
+                  sudo -n systemctl --no-pager --full status odyssey-staging.service >&2 || true
+                  exit 1
+                fi
+                if ! sudo -n systemctl --no-pager --full status odyssey-staging-worker.service >/dev/null 2>&1; then
+                  echo 'staging worker service is not active after health check' >&2
+                  sudo -n systemctl --no-pager --full status odyssey-staging-worker.service >&2 || true
+                  exit 1
+                fi
+              elif [[ "$runtime_mode" == supervised-process ]]; then
+                for pidfile in "$runtime_dir/odyssey.pid" "$runtime_dir/worker.pid"; do
+                  pid=$(cat "$pidfile")
+                  kill -0 "$pid" 2>/dev/null || {
+                    echo "supervised staging process exited: $pidfile" >&2
+                    tail -80 "${pidfile%.pid}.log" >&2 || true
+                    exit 1
+                  }
+                done
+              fi
+              echo "Odyssey deployment healthy ($runtime_mode)"
+              exit 0
+            fi
+
+            sleep 2
+          done
+
+          echo 'Health check failed'
+          if [[ "$runtime_mode" == systemd ]]; then
+            sudo -n systemctl --no-pager --full status odyssey-staging.service || true
+            sudo -n systemctl --no-pager --full status odyssey-staging-worker.service || true
+          else
+            tail -120 "$runtime_dir/odyssey.log" || true
+            tail -120 "$runtime_dir/worker.log" || true
+          fi
+          exit 1
+          REMOTE
+
+      - name: Cleanup SSH credentials
+        if: ${{ always() }}
+        shell: bash
+        run: rm -f "$HOME/.ssh/deploy_key" "$HOME/.ssh/known_hosts"

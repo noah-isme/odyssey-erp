@@ -42,29 +42,30 @@ import (
 	closehttp "github.com/odyssey-erp/odyssey-erp/internal/close/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/cmms"
 	cmmshttp "github.com/odyssey-erp/odyssey-erp/internal/cmms/http"
-	"github.com/odyssey-erp/odyssey-erp/internal/consol"
-	consolhttp "github.com/odyssey-erp/odyssey-erp/internal/consol/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors"
-	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/mockpay"
-	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/oidc"
-	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/shopify"
-	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/stripe"
-	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/whatsapp"
-	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/openai"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/awss3"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/dhl"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/midtrans"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/mockpay"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/oidc"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/openai"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/shopify"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/stripe"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/whatsapp"
+	"github.com/odyssey-erp/odyssey-erp/internal/consol"
+	consolhttp "github.com/odyssey-erp/odyssey-erp/internal/consol/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/crm"
 	"github.com/odyssey-erp/odyssey-erp/internal/dashboard"
+	deliveryorders "github.com/odyssey-erp/odyssey-erp/internal/delivery/orders"
 	"github.com/odyssey-erp/odyssey-erp/internal/documents"
 	documentshttp "github.com/odyssey-erp/odyssey-erp/internal/documents/http"
-	deliveryorders "github.com/odyssey-erp/odyssey-erp/internal/delivery/orders"
 	eliminationpkg "github.com/odyssey-erp/odyssey-erp/internal/elimination"
 	eliminationhttp "github.com/odyssey-erp/odyssey-erp/internal/elimination/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/bankfeeds"
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/banking"
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/forecasting"
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/treasury"
+	"github.com/odyssey-erp/odyssey-erp/internal/freight"
 	fxservice "github.com/odyssey-erp/odyssey-erp/internal/fx"
 	hrattendance "github.com/odyssey-erp/odyssey-erp/internal/hr/attendance"
 	hremployees "github.com/odyssey-erp/odyssey-erp/internal/hr/employees"
@@ -73,9 +74,8 @@ import (
 	insightshhtp "github.com/odyssey-erp/odyssey-erp/internal/insights/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/integration"
 	"github.com/odyssey-erp/odyssey-erp/internal/inventory"
-	"github.com/odyssey-erp/odyssey-erp/internal/freight"
-	"github.com/odyssey-erp/odyssey-erp/internal/logistics"
 	jobmetrics "github.com/odyssey-erp/odyssey-erp/internal/jobs"
+	"github.com/odyssey-erp/odyssey-erp/internal/logistics"
 	"github.com/odyssey-erp/odyssey-erp/internal/masterdata"
 	"github.com/odyssey-erp/odyssey-erp/internal/mrp"
 	"github.com/odyssey-erp/odyssey-erp/internal/notifications"
@@ -537,11 +537,11 @@ func main() {
 	qmsRepo := qms.NewRepository(dbpool)
 	qmsService := qms.NewService(qmsRepo)
 	qmsHandler := qmshttp.NewHandler(logger, qmsService, templates, csrfManager, rbacMiddleware, dbpool, outboxRepo)
-	
+
 	mrpHandler.SetQMSService(qmsService)
 
 	logisticsService := logistics.NewService(dbpool)
-	
+
 	// Init Freight Module
 	freightQueries := sqlc.New(dbpool)
 	freightRepo := freight.NewPostgresRepository(freightQueries)
@@ -612,7 +612,7 @@ func main() {
 	// The E2E suite uses this to derive its page coverage from the router
 	// rather than a hand-maintained list.
 	if os.Getenv("ODYSSEY_DUMP_ROUTES") != "" {
-		if err := app.WriteRoutes(router, os.Stdout); err != nil {
+		if err := app.WriteRoutesForProfile(router, cfg.ReleaseProfile, os.Stdout); err != nil {
 			logger.Error("dump routes", slog.Any("error", err))
 			os.Exit(1)
 		}

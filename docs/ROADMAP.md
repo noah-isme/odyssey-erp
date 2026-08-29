@@ -16,12 +16,14 @@
 > candidate is the immutable annotated `v0.10.0-rc.7` tag at
 > `5ed11da8aea342708be67284ea7a71224f90ccdc`, with migrations ending at `000124`.
 > Candidate CI and artifact-boundary checks have passed, but staging certification
-> and production promotion remain open. The next execution step is to provision the
-> staging-only certification identities, fixtures, and Object-Lock evidence store,
-> clear the stale listener on `127.0.0.1:8180`, establish the documented staging
-> supervision, and rerun the automated and operator evidence lanes. No feature or
-> migration work should be added to this candidate; a code or schema change requires
-> a new release candidate and a fresh certification run.
+> and production promotion remain open. The latest fixed-candidate staging deployment
+> (`33062249147`) succeeded; the remaining blocker is certification preflight, which
+> currently lacks the staging identities, fixture variables, and immutable evidence
+> store configuration. Provision those staging-only inputs, verify the documented
+> service supervision and `127.0.0.1:8180` health contract, then rerun the automated
+> and operator evidence lanes. No feature or migration work should be added to this
+> candidate; an application or schema change requires a new release candidate and a
+> fresh certification run.
 
 > For current capability status, use the [Module Catalog](reference/module-catalog.md).
 > This roadmap tracks sequencing and release gates; it is not a second feature-status
@@ -476,6 +478,22 @@ The high-priority external connector program is specified in the
 shared outbox/inbox, connection, secret, mapping, retry, and observability foundation,
 then sequences payment gateways, carriers, marketplaces, messaging, BI, identity, and
 governed AI connectors.
+
+### Active execution sequence (2026-08-28)
+
+- **Close `v0.10-core`:** provision the staging certification identities, stable
+   fixtures, and seven-year Object-Lock evidence store; rerun the automated and
+   operator lanes for immutable `v0.10.0-rc.7`; complete the 25-row evidence index;
+   and promote only the exact certified artifact after the signed go/no-go decision.
+- **Start `v0.11-finance`:** branch from the released v0.10 baseline and finish
+   treasury bank-feed/forecast operations, payment execution and settlement evidence,
+   and the existing purchase-to-pay loop under the cumulative `v0.11-finance` profile.
+   Keep company flags disabled by default and require sandbox/staging certification
+   before enabling live execution. Track the isolated candidate and open gates in the
+   [`v0.11-finance preparation handoff`](releases/v0.11-finance-prep-handoff.md).
+- **Defer to v0.11.x:** asset locations, custody, transfers, warranty/maintenance,
+   and capitalization operations remain outside the first finance tranche; do not mix
+   them into the v0.10 candidate or the initial v0.11 release gate.
 
 1. **Immediate (highest value, low effort)**
    - Add integration coverage for the Budget vs Actual query and form a release dataset that includes revenue and expense budgets.

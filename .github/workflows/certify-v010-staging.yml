@@ -15,6 +15,7 @@ on:
 permissions:
   contents: read
   actions: write
+  attestations: read
 
 concurrency:
   group: certify-v010-staging
@@ -43,7 +44,7 @@ jobs:
         if: always()
         shell: bash
         run: |
-          set -u
+          set -euo pipefail
           mkdir -p staging-certification-candidate staging-evidence
           : > staging-certification.log
           {
@@ -185,10 +186,13 @@ jobs:
             exit 1
           }
           before_ids=()
-          while IFS= read -r id; do
-            [[ -n "$id" ]] && before_ids+=("$id")
-          done < <(gh run list --workflow deploy-native.yml --branch "$deployment_ref" \
+          before_run_ids=$(gh run list --workflow deploy-native.yml --branch "$deployment_ref" \
             --event workflow_dispatch --limit 100 --json databaseId --jq '.[].databaseId')
+          if [[ -n "$before_run_ids" ]]; then
+            while IFS= read -r id; do
+              [[ -n "$id" ]] && before_ids+=("$id")
+            done <<< "$before_run_ids"
+          fi
           declare -A known_ids=()
           for id in "${before_ids[@]}"; do
             known_ids["$id"]=1
@@ -236,25 +240,57 @@ jobs:
             echo 'timed out waiting for a successful staging deployment' >&2
             exit 1
           }
+          candidate_dir=staging-certification-candidate
           printf 'deployment_run_id=%s\n' "$run_id" >> staging-certification-candidate/candidate.txt
           gh run view "$run_id" --json databaseId,status,conclusion,createdAt,updatedAt,headSha,headBranch,event,workflowName,url,displayTitle \
             > staging-certification-candidate/deployment-run.json
           artifact_dir=staging-certification-candidate/deployment-artifact
           mkdir -p "$artifact_dir"
-          gh run download "$run_id" --name "odyssey-v010-core-$run_id" --dir "$artifact_dir"
-          test -s "$artifact_dir/REVISION"
-          test -s "$artifact_dir/SHA256SUMS"
-          test -s "$artifact_dir/MIGRATION_SHA256SUMS"
-          test -s "$artifact_dir/WEB_SHA256SUMS"
-          (cd "$artifact_dir" && sha256sum -c SHA256SUMS && sha256sum -c MIGRATION_SHA256SUMS && sha256sum -c WEB_SHA256SUMS)
-          [[ "$(tr -d '[:space:]' < "$artifact_dir/REVISION")" == "$EXPECTED_SHA" ]] || {
+          gh run download "$run_id" --name "odyssey-v010-core-$EXPECTED_SHA" --dir "$artifact_dir"
+          bundle="$artifact_dir/odyssey-v010-core-${EXPECTED_SHA}.tar.gz"
+          bundle_checksum="$bundle.sha256"
+          test -s "$bundle"
+          test -s "$bundle_checksum"
+          (
+            cd "$artifact_dir"
+            sha256sum -c "$(basename "$bundle_checksum")"
+          )
+          attestation_file="$candidate_dir/deployment-attestation.json"
+          gh attestation verify "$bundle" \
+            --repo "$GITHUB_REPOSITORY" \
+            --signer-repo "$GITHUB_REPOSITORY" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/deploy-native.yml" \
+            --format json > "$attestation_file"
+          jq -e '
+            type == "array" and length > 0 and
+            all(.[]; (.verificationResult | type == "object") and
+              (.verificationResult.statement | type == "object") and
+              (.verificationResult.statement.subject | type == "array" and length > 0))
+          ' "$attestation_file" >/dev/null
+          attestation_sha=$(sha256sum "$attestation_file" | awk '{print $1}')
+          extracted_dir="$artifact_dir/extracted"
+          mkdir -p "$extracted_dir"
+          tar -xzf "$bundle" -C "$extracted_dir"
+          test -s "$extracted_dir/REVISION"
+          test -s "$extracted_dir/SHA256SUMS"
+          test -s "$extracted_dir/MIGRATION_SHA256SUMS"
+          test -s "$extracted_dir/WEB_SHA256SUMS"
+          (
+            cd "$extracted_dir"
+            sha256sum -c SHA256SUMS
+            sha256sum -c MIGRATION_SHA256SUMS
+            sha256sum -c WEB_SHA256SUMS
+          )
+          [[ "$(tr -d '[:space:]' < "$extracted_dir/REVISION")" == "$EXPECTED_SHA" ]] || {
             echo 'deployment artifact revision does not match the fixed candidate SHA' >&2
             exit 1
           }
-          grep -Fx 'profile=v0.10-core' "$artifact_dir/RELEASE_IDENTITY"
-          grep -Fx 'migration_ceiling=000124_scoped_rbac_global_compatibility' "$artifact_dir/RELEASE_IDENTITY"
-          test ! -e "$artifact_dir/migrations/000125_payment_settlement_results.up.sql"
-          test ! -e "$artifact_dir/migrations/000125_payment_settlement_results.down.sql"
+          grep -Fx "tag=${CANDIDATE_TAG}" "$extracted_dir/RELEASE_IDENTITY"
+          grep -Fx "commit=${EXPECTED_SHA}" "$extracted_dir/RELEASE_IDENTITY"
+          grep -Fx 'profile=v0.10-core' "$extracted_dir/RELEASE_IDENTITY"
+          grep -Fx 'migration_ceiling=000124_scoped_rbac_global_compatibility' "$extracted_dir/RELEASE_IDENTITY"
+          test ! -e "$extracted_dir/migrations/000125_payment_settlement_results.up.sql"
+          test ! -e "$extracted_dir/migrations/000125_payment_settlement_results.down.sql"
 
           emit_evidence() {
             local evidence_id="$1"
@@ -268,8 +304,8 @@ jobs:
             printf 'CERTIFICATION_EVIDENCE evidence_id=%s %s\n' "$evidence_id" "$record"
           }
           emit_evidence REL-001 "annotated tag ${CANDIDATE_TAG} resolved to ${EXPECTED_SHA}; deployment run ${run_id}"
-          emit_evidence REL-002 "downloaded deployment artifact odyssey-v010-core-${run_id}; SHA256SUMS, REVISION, and component manifests verified"
-          emit_evidence REL-003 "deployment artifact contains SBOM.spdx.json; provenance is attached to the successful deployment run ${run_id}"
+          emit_evidence REL-002 "downloaded and checksum-verified deployment bundle odyssey-v010-core-${EXPECTED_SHA}; extracted SHA256SUMS, REVISION, and component manifests verified from deployment run ${run_id}"
+          emit_evidence REL-003 "gh attestation verify cryptographically validated the deployment bundle and preserved ${attestation_file} (SHA-256 ${attestation_sha}); extracted bundle contains SBOM.spdx.json"
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -337,9 +373,12 @@ jobs:
           candidate_dir=staging-certification-candidate
           evidence_dir="$PWD/staging-evidence"
           mkdir -p "$candidate_dir"
-          gh run view "$GITHUB_RUN_ID" \
+          if ! gh run view "$GITHUB_RUN_ID" \
             --json databaseId,status,conclusion,createdAt,updatedAt,headSha,headBranch,event,workflowName,url,displayTitle \
-            > "$candidate_dir/certification-run.json" 2> "$candidate_dir/certification-run.error" || true
+            > "$candidate_dir/certification-run.json" 2> "$candidate_dir/certification-run.error"; then
+            printf 'gh run view failed before certification evidence collection\n' \
+              >> "$candidate_dir/certification-run.error"
+          fi
           if [[ -f staging-certification.log ]]; then
             cp -f staging-certification.log "$candidate_dir/staging-certification.log"
           else
@@ -354,7 +393,7 @@ jobs:
             --bucket "${EVIDENCE_S3_BUCKET:-}" \
             --endpoint-url "${EVIDENCE_S3_ENDPOINT:-}" \
             --region "${EVIDENCE_S3_REGION:-us-east-1}" \
-            --prefix "${CANDIDATE_TAG}/${EXPECTED_SHA:0:8}/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}"
+            --prefix "${CANDIDATE_TAG}/${EXPECTED_SHA:0:7}/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}"
 
       - name: Retain local evidence artifact
         if: always()

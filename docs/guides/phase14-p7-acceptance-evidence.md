@@ -1,6 +1,6 @@
 # Phase 14 and P7 Local Acceptance Evidence
 
-**Status:** ALL gates complete; staging and production certification successfully passed.
+**Status:** Local acceptance evidence recorded; staging and production certification remain pending.
 
 **Schema:** Clean database migrated successfully through version 61.
 

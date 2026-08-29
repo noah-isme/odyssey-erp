@@ -1,0 +1,155 @@
+{
+  "schema_version": "v0.10-core-certification-contract.v1",
+  "profile": "v0.10-core",
+  "migration_ceiling": "000124",
+  "result_values": [
+    "PASS",
+    "FAIL",
+    "N/A"
+  ],
+  "evidence": [
+    {
+      "evidence_id": "REL-001",
+      "lane": "automated",
+      "description": "Exact annotated release-candidate tag, resolved commit, application baseline, and successful CI result"
+    },
+    {
+      "evidence_id": "REL-002",
+      "lane": "automated",
+      "description": "Production-tagged release bundle, component digest manifest, deployment log, and exact deployed revision"
+    },
+    {
+      "evidence_id": "REL-003",
+      "lane": "automated",
+      "description": "SPDX SBOM and signature/provenance attestation for the release bundle digest"
+    },
+    {
+      "evidence_id": "REL-004",
+      "lane": "automated",
+      "description": "Route, web-asset, and migration manifests proving the profile and migration ceiling"
+    },
+    {
+      "evidence_id": "ENV-001",
+      "lane": "operator",
+      "description": "Isolated staging host, database, Redis, storage, secrets, filesystem, and service identity"
+    },
+    {
+      "evidence_id": "ENV-002",
+      "lane": "automated",
+      "description": "Runtime environment, connector mode, profile route set, and absence of out-of-profile routes"
+    },
+    {
+      "evidence_id": "DB-001",
+      "lane": "operator",
+      "description": "Sanitized production-like backup restore and integrity checks before migration"
+    },
+    {
+      "evidence_id": "DB-002",
+      "lane": "automated",
+      "description": "Migrations through 000124, absence of 000125, final schema checksum, and applied versions"
+    },
+    {
+      "evidence_id": "DB-003",
+      "lane": "operator",
+      "description": "Disposable-clone 000124 down/up rehearsal and recovery output"
+    },
+    {
+      "evidence_id": "DB-004",
+      "lane": "operator",
+      "description": "Pre-deploy backup checksum, clean-database restore, and integrity/application connectivity"
+    },
+    {
+      "evidence_id": "OPS-001",
+      "lane": "operator",
+      "description": "Health endpoint, web/worker service status, logs, and deployed digest verification"
+    },
+    {
+      "evidence_id": "OPS-002",
+      "lane": "operator",
+      "description": "Secure cookies, CSRF/session controls, TLS boundary, and staging-only secret checks"
+    },
+    {
+      "evidence_id": "OPS-003",
+      "lane": "operator",
+      "description": "Queue delivery/retry/dead-letter convergence, durable audit events, and alert delivery"
+    },
+    {
+      "evidence_id": "OPS-004",
+      "lane": "operator",
+      "description": "Application rollback to a verified artifact, health confirmation, and candidate restoration"
+    },
+    {
+      "evidence_id": "OPS-005",
+      "lane": "operator",
+      "description": "At least 60-minute observation metrics, incident log, and operator handoff"
+    },
+    {
+      "evidence_id": "J-ARAP-001",
+      "lane": "automated",
+      "description": "AR/AP invoice, payment/allocation, ledger, reconciliation, retry, and audit journey"
+    },
+    {
+      "evidence_id": "J-SALES-001",
+      "lane": "automated",
+      "description": "Sales order, fulfillment, delivery, inventory/accounting effect, retry, and audit journey"
+    },
+    {
+      "evidence_id": "J-INV-001",
+      "lane": "automated",
+      "description": "Inventory movement, stock-take, costing, duplicate protection, and audit journey"
+    },
+    {
+      "evidence_id": "J-DOC-001",
+      "lane": "automated",
+      "description": "Document version, ACL/review, signature/retention, persistence, and audit journey"
+    },
+    {
+      "evidence_id": "J-CMMS-001",
+      "lane": "automated",
+      "description": "Asset, work order, preventive maintenance, meter, spare usage, completion, retry, and audit journey"
+    },
+    {
+      "evidence_id": "ISO-001",
+      "lane": "automated",
+      "description": "Two-company and branch-scoped test identities with the baseline access matrix"
+    },
+    {
+      "evidence_id": "ISO-002",
+      "lane": "automated",
+      "description": "Direct URL, company/branch switch, and tampered form-payload denial tests"
+    },
+    {
+      "evidence_id": "ISO-003",
+      "lane": "automated",
+      "description": "Expired assignment and access-review revocation with an existing session"
+    },
+    {
+      "evidence_id": "ISO-004",
+      "lane": "operator",
+      "description": "Forged/retried worker inputs and no-access behavior without cross-scope effects"
+    },
+    {
+      "evidence_id": "APR-001",
+      "lane": "operator",
+      "description": "Signed go/no-go decision, reviewer identities, and matrix-promotion authorization"
+    }
+  ],
+  "control_aliases": [
+    {
+      "control_id": "ENV-003",
+      "evidence_ids": [
+        "ENV-001",
+        "ENV-002"
+      ],
+      "description": "Staging-specific session, CSRF, database, Redis, storage, Gotenberg, and connector secrets/endpoints"
+    },
+    {
+      "control_id": "ENV-004",
+      "evidence_ids": [
+        "REL-002",
+        "REL-004"
+      ],
+      "description": "Application, worker, migrations, and web assets resolve to the recorded candidate digest and commit"
+    }
+  ]
+}

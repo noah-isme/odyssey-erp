@@ -32,7 +32,7 @@ sections. For browser-based authenticated application testing, see the
 
 For deploying to Render, see the [Production Deployment Guide](docs/guides/deploy-render.md).
 
-See the [CHANGELOG](docs/CHANGELOG.md), [version and progress report](docs/releases/VERSION_HISTORY.md), [release notes](docs/releases/), and [authoritative module catalog](docs/reference/module-catalog.md).
+See the [CHANGELOG](docs/CHANGELOG.md), [version and progress report](docs/releases/VERSION_HISTORY.md), [release notes](docs/releases/), [authoritative feature matrix](docs/reference/feature-matrix.md), and [module catalog](docs/reference/module-catalog.md).
 
 ## Feature overview
 
