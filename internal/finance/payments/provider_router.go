@@ -2,7 +2,9 @@ package payments
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/automation"
@@ -14,12 +16,18 @@ import (
 // without retrying a remote request.
 var ErrProviderUnavailable = fmt.Errorf("%w: payment execution provider is unavailable", ErrInvalidCoordinator)
 
+// ErrInvalidProviderRegistration means the process supplied ambiguous
+// provider aliases. A normalized-name collision is never resolved by map
+// iteration order; the router fails closed until configuration is corrected.
+var ErrInvalidProviderRegistration = errors.New("finance payments: invalid provider registration")
+
 // ProviderRouter dispatches the provider-neutral execution port by the
 // company-owned connection reference. It keeps the coordinator independent
 // from connector registration and makes it impossible for a provider adapter
 // to receive a reference for a different provider.
 type ProviderRouter struct {
-	ports map[string]ExecutionPort
+	ports           map[string]ExecutionPort
+	registrationErr error
 }
 
 // NewProviderRouter creates a router from provider names to execution ports.
@@ -27,21 +35,50 @@ type ProviderRouter struct {
 // the persisted Midtrans Iris names to remain compatible across migrations.
 func NewProviderRouter(ports map[string]ExecutionPort) *ProviderRouter {
 	router := &ProviderRouter{ports: make(map[string]ExecutionPort, len(ports))}
-	for name, port := range ports {
-		if port == nil {
+	names := make([]string, 0, len(ports))
+	for name := range ports {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		port := ports[name]
+		name = normalizeProviderName(name)
+		if name == "" || port == nil {
 			continue
 		}
-		router.ports[normalizeProviderName(name)] = port
+		if _, exists := router.ports[name]; exists {
+			router.registrationErr = errors.Join(router.registrationErr, fmt.Errorf("%w: duplicate normalized provider %q", ErrInvalidProviderRegistration, name))
+			continue
+		}
+		router.ports[name] = port
 	}
 	return router
 }
 
-func (r *ProviderRouter) port(ref automation.ConnectionRef) (ExecutionPort, error) {
-	if r == nil || len(r.ports) == 0 {
-		return nil, ErrProviderUnavailable
+// Providers returns the normalized provider names registered in the router.
+// It is intended for startup diagnostics and tests; callers cannot mutate the
+// underlying registry.
+func (r *ProviderRouter) Providers() []string {
+	if r == nil || r.registrationErr != nil {
+		return nil
 	}
+	providers := make([]string, 0, len(r.ports))
+	for name := range r.ports {
+		providers = append(providers, name)
+	}
+	sort.Strings(providers)
+	return providers
+}
+
+func (r *ProviderRouter) port(ref automation.ConnectionRef) (ExecutionPort, error) {
 	if err := ref.Validate(); err != nil {
 		return nil, err
+	}
+	if r == nil || r.registrationErr != nil || len(r.ports) == 0 {
+		if r != nil && r.registrationErr != nil {
+			return nil, fmt.Errorf("%w: %w", ErrProviderUnavailable, r.registrationErr)
+		}
+		return nil, ErrProviderUnavailable
 	}
 	port := r.ports[normalizeProviderName(ref.Provider)]
 	if port == nil {

@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -47,7 +48,7 @@ func HandleReportScheduleScanTask(logger *slog.Logger, db *pgxpool.Pool, client 
 			if err != nil {
 				return err
 			}
-			if _, err := client.EnqueueContext(ctx, task, asynq.Queue(QueueDefault), asynq.MaxRetry(3)); err != nil {
+			if err := enqueueScheduledReportEmail(ctx, client, task, id, period); err != nil {
 				return err
 			}
 			if _, err := db.Exec(ctx, `UPDATE report_schedules SET last_sent_at = $1, updated_at = $1 WHERE id = $2`, now, id); err != nil {
@@ -63,4 +64,19 @@ func HandleReportScheduleScanTask(logger *slog.Logger, db *pgxpool.Pool, client 
 		logger.Info("processed report schedules")
 		return nil
 	}
+}
+
+// enqueueScheduledReportEmail gives one schedule/period one queue identity.
+// Concurrent scanner ticks must not send the same report more than once while
+// the first delivery is pending or being retried.
+func enqueueScheduledReportEmail(ctx context.Context, client *asynq.Client, task *asynq.Task, scheduleID int64, period string) error {
+	_, err := client.EnqueueContext(ctx, task,
+		asynq.Queue(QueueDefault),
+		asynq.MaxRetry(3),
+		asynq.TaskID(fmt.Sprintf("report-schedule:%d:%s", scheduleID, period)),
+	)
+	if errors.Is(err, asynq.ErrTaskIDConflict) {
+		return nil
+	}
+	return err
 }

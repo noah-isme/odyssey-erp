@@ -46,6 +46,9 @@ type Repository interface {
 	// Q3 Additions
 	GetAPException(ctx context.Context, id int64) (APException, error)
 	ListAPExceptions(ctx context.Context, status string, ownerID, invoiceID int64, limit, offset int) ([]APException, error)
+	GetAPExceptionForCompany(ctx context.Context, companyID, id int64) (APException, error)
+	ListAPExceptionsForCompany(ctx context.Context, companyID int64, status string, ownerID, invoiceID int64, limit, offset int) ([]APException, error)
+	ListAPExceptionResolutionEventsForCompany(ctx context.Context, companyID, exceptionID int64) ([]APExceptionResolutionEvent, error)
 	GetLatestMatchingRun(ctx context.Context, invoiceID int64) (*MatchingRun, error)
 }
 
@@ -71,6 +74,9 @@ type TxRepository interface {
 	// Q3 Additions
 	CreateAPException(ctx context.Context, exc APException) (int64, error)
 	UpdateAPExceptionStatus(ctx context.Context, id int64, status string, resolvedBy *int64) error
+	UpdateAPExceptionStatusForCompany(ctx context.Context, companyID, id int64, status string, resolvedBy *int64) error
+	ResolveAPException(ctx context.Context, id int64, status string, resolvedBy int64, comment string) error
+	ResolveAPExceptionForCompany(ctx context.Context, companyID, id int64, status string, resolvedBy int64, comment string) error
 }
 
 // Ensure implementation
@@ -200,6 +206,24 @@ func (r *pgRepository) GetAPException(ctx context.Context, id int64) (APExceptio
 	if err != nil {
 		return APException{}, err
 	}
+	return mapAPException(row), nil
+}
+
+func (r *pgRepository) GetAPExceptionForCompany(ctx context.Context, companyID, id int64) (APException, error) {
+	if companyID <= 0 {
+		return APException{}, ErrExceptionCompanyScopeRequired
+	}
+	row, err := r.q.GetAPExceptionForCompany(ctx, sqlc.GetAPExceptionForCompanyParams{
+		CompanyID:   companyID,
+		ExceptionID: id,
+	})
+	if err != nil {
+		return APException{}, err
+	}
+	return mapAPException(row), nil
+}
+
+func mapAPException(row sqlc.ApException) APException {
 	var sla *time.Time
 	if row.SlaDueAt.Valid {
 		sla = &row.SlaDueAt.Time
@@ -224,7 +248,7 @@ func (r *pgRepository) GetAPException(ctx context.Context, id int64) (APExceptio
 		UpdatedAt:       row.UpdatedAt.Time,
 		ResolvedAt:      resolvedAt,
 		ResolvedBy:      toInt64Ptr(row.ResolvedBy),
-	}, nil
+	}
 }
 
 func (r *pgRepository) ListAPExceptions(ctx context.Context, status string, ownerID, invoiceID int64, limit, offset int) ([]APException, error) {
@@ -267,6 +291,59 @@ func (r *pgRepository) ListAPExceptions(ctx context.Context, status string, owne
 		})
 	}
 	return res, nil
+}
+
+func (r *pgRepository) ListAPExceptionsForCompany(ctx context.Context, companyID int64, status string, ownerID, invoiceID int64, limit, offset int) ([]APException, error) {
+	if companyID <= 0 {
+		return nil, ErrExceptionCompanyScopeRequired
+	}
+	rows, err := r.q.ListAPExceptionsForCompany(ctx, sqlc.ListAPExceptionsForCompanyParams{
+		CompanyID:  companyID,
+		Status:     status,
+		OwnerID:    ownerID,
+		InvoiceID:  invoiceID,
+		PageLimit:  int32(limit),
+		PageOffset: int32(offset),
+	})
+	if err != nil {
+		return nil, err
+	}
+	res := make([]APException, 0, len(rows))
+	for _, row := range rows {
+		res = append(res, mapAPException(row))
+	}
+	return res, nil
+}
+
+func (r *pgRepository) ListAPExceptionResolutionEventsForCompany(ctx context.Context, companyID, exceptionID int64) ([]APExceptionResolutionEvent, error) {
+	if companyID <= 0 {
+		return nil, ErrExceptionCompanyScopeRequired
+	}
+	rows, err := r.q.ListAPExceptionResolutionEventsForCompany(ctx, sqlc.ListAPExceptionResolutionEventsForCompanyParams{
+		CompanyID:   companyID,
+		ExceptionID: exceptionID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	events := make([]APExceptionResolutionEvent, 0, len(rows))
+	for _, row := range rows {
+		events = append(events, mapAPExceptionResolutionEvent(row))
+	}
+	return events, nil
+}
+
+func mapAPExceptionResolutionEvent(row sqlc.ApExceptionResolutionEvent) APExceptionResolutionEvent {
+	return APExceptionResolutionEvent{
+		ID:            row.ID,
+		APExceptionID: row.ApExceptionID,
+		CompanyID:     row.CompanyID,
+		FromStatus:    row.FromStatus,
+		ToStatus:      row.ToStatus,
+		Comment:       row.Comment,
+		ActorID:       row.ActorID,
+		CreatedAt:     row.CreatedAt.Time,
+	}
 }
 
 func (r *pgRepository) GetLatestMatchingRun(ctx context.Context, invoiceID int64) (*MatchingRun, error) {
@@ -331,12 +408,13 @@ func (r *pgRepository) GetAPInvoice(ctx context.Context, id int64) (APInvoice, e
 
 func (r *pgRepository) loadInvoiceValuation(ctx context.Context, id int64, inv *APInvoice) error {
 	var original, base, rate, source, currency, baseCurrency string
+	var companyID pgtype.Int8
 	var rateDate, lockedAt time.Time
-	err := r.pool.QueryRow(ctx, `SELECT COALESCE(i.currency,''), COALESCE(i.original_currency_amount,i.total,0)::text,
+	err := r.pool.QueryRow(ctx, `SELECT COALESCE(i.company_id, s.company_id), COALESCE(i.currency,''), COALESCE(i.original_currency_amount,i.total,0)::text,
 		COALESCE(i.base_currency,co.base_currency,'IDR'), COALESCE(i.base_amount,0)::text, COALESCE(i.fx_rate,0)::text,
 		COALESCE(fx_rate_date, DATE '0001-01-01'), COALESCE(fx_rate_source,''),
 		COALESCE(fx_rate_locked_at, TIMESTAMPTZ '0001-01-01') FROM ap_invoices i JOIN suppliers s ON s.id=i.supplier_id LEFT JOIN companies co ON co.id=s.company_id WHERE i.id=$1`, id).
-		Scan(&currency, &original, &baseCurrency, &base, &rate, &rateDate, &source, &lockedAt)
+		Scan(&companyID, &currency, &original, &baseCurrency, &base, &rate, &rateDate, &source, &lockedAt)
 	if err != nil {
 		return err
 	}
@@ -347,6 +425,7 @@ func (r *pgRepository) loadInvoiceValuation(ctx context.Context, id int64, inv *
 	if inv.BaseAmount, parseErr = accountingmoney.Parse(base, decimalScale(base)); parseErr != nil {
 		return parseErr
 	}
+	inv.CompanyID = toInt64Ptr(companyID)
 	inv.Currency, inv.BaseCurrency, inv.FXRateDate, inv.FXRateSource, inv.FXRateLockedAt = currency, baseCurrency, rateDate, source, lockedAt
 	inv.FXRate, parseErr = fx.ParseDecimal(rate)
 	return parseErr
@@ -814,6 +893,49 @@ func (tx *pgTxRepository) UpdateAPExceptionStatus(ctx context.Context, id int64,
 		Status:     status,
 		ResolvedBy: toNullInt64(resolvedBy),
 	})
+}
+
+func (tx *pgTxRepository) UpdateAPExceptionStatusForCompany(ctx context.Context, companyID, id int64, status string, resolvedBy *int64) error {
+	if companyID <= 0 {
+		return ErrExceptionCompanyScopeRequired
+	}
+	rows, err := tx.q.UpdateAPExceptionStatusForCompany(ctx, sqlc.UpdateAPExceptionStatusForCompanyParams{
+		CompanyID:   companyID,
+		ExceptionID: id,
+		Status:      status,
+		ResolvedBy:  toNullInt64(resolvedBy),
+	})
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
+}
+
+func (tx *pgTxRepository) ResolveAPException(ctx context.Context, id int64, status string, resolvedBy int64, comment string) error {
+	_, err := tx.q.ResolveAPException(ctx, sqlc.ResolveAPExceptionParams{
+		ToStatus:    status,
+		Comment:     comment,
+		ResolvedBy:  resolvedBy,
+		ExceptionID: id,
+	})
+	return err
+}
+
+func (tx *pgTxRepository) ResolveAPExceptionForCompany(ctx context.Context, companyID, id int64, status string, resolvedBy int64, comment string) error {
+	if companyID <= 0 {
+		return ErrExceptionCompanyScopeRequired
+	}
+	_, err := tx.q.ResolveAPExceptionForCompany(ctx, sqlc.ResolveAPExceptionForCompanyParams{
+		ToStatus:    status,
+		Comment:     comment,
+		ResolvedBy:  resolvedBy,
+		ExceptionID: id,
+		CompanyID:   companyID,
+	})
+	return err
 }
 
 func (tx *pgTxRepository) UpdateAPStatus(ctx context.Context, id int64, status APInvoiceStatus) error {

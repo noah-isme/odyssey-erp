@@ -13,6 +13,11 @@ type BankFormatEncoder interface {
 
 type CSVEncoder struct{}
 
+// BankFormat identifies the reviewed provider-neutral format emitted by this
+// encoder. The identity is checked against a company payment policy before an
+// artifact is marked exported.
+func (e *CSVEncoder) BankFormat() string { return "csv" }
+
 func (e *CSVEncoder) Encode(batch PaymentBatch, items []PaymentBatchItem) ([]byte, string, error) {
 	var buffer bytes.Buffer
 	writer := csv.NewWriter(&buffer)

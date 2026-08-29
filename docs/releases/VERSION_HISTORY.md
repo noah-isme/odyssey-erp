@@ -1,19 +1,20 @@
 # Odyssey ERP Version and Progress Report
 
-**Reviewed:** 2026-08-12
+**Reviewed:** 2026-08-28
 
 ## How to read the version numbers
 
 `v0.9.1` is the latest named production release in the repository. It is primarily
-a UI/UX release dated 2026-05-28. `v0.10.0-rc.5` is the current release candidate
+a UI/UX release dated 2026-05-28. `v0.10.0-rc.7` is the current release candidate
 for the post-v0.9.1 platform work; it is not production-certified. Its application
 baseline is `ec65cc08639c184030c63e3407791987eee92804`, it uses the `v0.10-core`
-profile, and its annotated tag identifies the exact packaging commit.
+profile, and its annotated tag identifies the exact packaging commit
+`5ed11da8aea342708be67284ea7a71224f90ccdc`.
 
 In other words:
 
 - **Latest named production release:** v0.9.1.
-- **Current release candidate:** v0.10.0-rc.5 (2026-08-12).
+- **Current release candidate:** v0.10.0-rc.7 (2026-08-26).
 - **Latest documented implementation progress:** Phase 10–14 and P7 work, reviewed 2026-08-01.
 - **Next final release:** v0.10.0, pending production certification. The release
   gates are tracked in the [Production Release Checklist](production-release-checklist.md).
@@ -33,7 +34,9 @@ notes define the packaged scope without claiming production certification.
 | v0.10.0-rc.2 | 2026-08-10 | Coretax and PPh 21 release-test completion | Fail-closed Coretax transport/validation, export-to-GL contract evidence, and annual last-tax-period PPh 21 reconciliation from a PMK 168/2023 fixture | Superseded candidate; official tax, staging, provider, and operational certification remain open |
 | v0.10.0-rc.3 | 2026-08-10 | VPS deployment target and release-gate cleanup | Self-managed VPS runbook, removal of the obsolete hosted blueprint, and evidence-based feature matrix | Superseded candidate; feature, provider, and operational certification remain open |
 | v0.10.0-rc.4 | 2026-08-12 | Exact candidate evidence and migration-safe release gates | Executable migration/seed runbook targets, exact tagged-candidate evidence checks, current generated SQLC bindings, and the final lint fix for the application baseline | Failed CI E2E route sweep; immutable candidate `eb5ff593`; superseded by rc.5 without deployment or certification |
-| v0.10.0-rc.5 | 2026-08-12 | E2E-gated release retry | Retains the rc.4 application baseline and v0.10-core boundary while requiring a successful full CI route sweep before staging deployment | Current candidate; not production-certified; staging, provider, and operational certification remain open |
+| v0.10.0-rc.5 | 2026-08-12 | E2E-gated release retry | Retains the rc.4 application baseline and v0.10-core boundary while requiring a successful full CI route sweep before staging deployment | Superseded candidate; not production-certified |
+| v0.10.0-rc.6 | 2026-08-26 | Post-tag staging supervision fix | Certifies the exact post-rc.5 release head while retaining the v0.10-core boundary | Superseded historical candidate; staging, provider, and operational certification remain open |
+| v0.10.0-rc.7 | 2026-08-26 | Immutable release-hygiene correction | Preserves the v0.10-core candidate identity while making release hygiene portable to environments without ripgrep | Current candidate; not production-certified; staging, provider, security, migration, and operational certification remain open |
 
 ## Detailed version reports
 
@@ -158,7 +161,32 @@ failed at the E2E route sweep, so it was not deployed or certified.
 
 See the [v0.10.0-rc.5 release notes](v0.10.0-rc.5.md).
 
-## Follow-up work after v0.10.0-rc.5
+### v0.10.0-rc.6 — Post-tag staging supervision fix (superseded historical candidate)
+
+**Primary purpose:** certify the exact post-rc.5 release head while keeping the
+v0.10-core scope and migration boundary unchanged.
+
+The candidate commit is `d8b02b87fd614edec31e465abc38667ad91f7548`. The reviewed
+application baseline remains `ec65cc08639c184030c63e3407791987eee92804`; the
+candidate ends at migration `000124_scoped_rbac_global_compatibility`. Staging,
+provider, security, and operational evidence remained pending in the [staging
+certification record](v0.10-core-staging-certification.md).
+
+This entry is retained only for release lineage; the active certification record
+and current candidate are v0.10.0-rc.7 at `5ed11da`.
+
+### v0.10.0-rc.7 — Immutable release-hygiene correction
+
+**Primary purpose:** retain the exact v0.10-core candidate identity while making
+the release hygiene check portable to environments without ripgrep.
+
+The candidate commit is `5ed11da8aea342708be67284ea7a71224f90ccdc`. It preserves
+the reviewed application baseline `ec65cc08639c184030c63e3407791987eee92804`,
+the `v0.10-core` scope, and the `000124_scoped_rbac_global_compatibility`
+migration ceiling. Staging, provider, security, migration, and operational
+certification remain pending in the [staging certification record](v0.10-core-staging-certification.md).
+
+## Follow-up work after v0.10.0-rc.7
 
 This work is documented in the current [roadmap](../ROADMAP.md) and [module catalog](../reference/module-catalog.md); the candidate packages the current scope, while final promotion remains pending.
 
@@ -187,7 +215,7 @@ This work is documented in the current [roadmap](../ROADMAP.md) and [module cata
 
 ### Remaining release work
 
-- Promote `v0.10.0` only after the rc.5 candidate passes staging, provider, security,
+- Promote `v0.10.0` only after the rc.7 candidate passes staging, provider, security,
   migration, and operational certification gates.
 - Complete staging/production acceptance for FX and Horizon features.
 - Complete external Coretax validation.

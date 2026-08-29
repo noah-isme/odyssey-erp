@@ -62,10 +62,15 @@ const (
 )
 
 var (
-	ErrInvalidCredentials       = errors.New("midtrans iris: invalid credentials")
-	ErrUnsupportedCurrency      = errors.New("midtrans iris: currency is not supported")
-	ErrInvalidBeneficiary       = errors.New("midtrans iris: invalid beneficiary reference")
-	ErrMissingProviderReference = errors.New("midtrans iris: provider reference is missing")
+	ErrInvalidCredentials = errors.New("midtrans iris: invalid credentials")
+	// ErrProductionEndpointDisabled is returned when a sandbox-only adapter is
+	// given production credentials or a production Midtrans endpoint. Keeping
+	// this as a distinct sentinel lets startup/worker diagnostics identify a
+	// deployment-boundary violation without exposing credential material.
+	ErrProductionEndpointDisabled = errors.New("midtrans iris: production endpoint disabled in sandbox")
+	ErrUnsupportedCurrency        = errors.New("midtrans iris: currency is not supported")
+	ErrInvalidBeneficiary         = errors.New("midtrans iris: invalid beneficiary reference")
+	ErrMissingProviderReference   = errors.New("midtrans iris: provider reference is missing")
 )
 
 // ProviderError and ErrorCategory are aliases for the shared finance
@@ -174,6 +179,12 @@ type ScopedBeneficiaryResolver func(context.Context, automation.ConnectionRef, s
 // conventions as the other connectors remain available.
 type Options struct {
 	ProviderOptions connectors.ProviderOptions
+
+	// SandboxOnly prevents this adapter from using production credentials or
+	// known production Midtrans hosts. It is set by the finance-sandbox
+	// application/worker wiring; development-mode contract tests may still use
+	// an injected non-Midtrans endpoint, but never a credential marked IsProd.
+	SandboxOnly bool
 
 	// ConnectionResolver is the preferred name. CredentialResolver remains as
 	// a source-compatible alias for an early version of this package.
@@ -944,6 +955,9 @@ func (a *Adapter) resolveCredentials(ctx context.Context, ref automation.Connect
 			return Credentials{}, fmt.Errorf("%w: base_url must be an absolute HTTPS URL", ErrInvalidCredentials)
 		}
 	}
+	if err := a.validateEnvironment(creds); err != nil {
+		return Credentials{}, err
+	}
 	if !creds.biSnap() && creds.key() == "" {
 		return Credentials{}, fmt.Errorf("%w: API key is required", ErrInvalidCredentials)
 	}
@@ -951,6 +965,60 @@ func (a *Adapter) resolveCredentials(ctx context.Context, ref automation.Connect
 		return Credentials{}, fmt.Errorf("%w: BI-SNAP client_id is required", ErrInvalidCredentials)
 	}
 	return creds, nil
+}
+
+// validateEnvironment keeps a finance-sandbox process from accidentally
+// turning a provider connection into a production payout client. The
+// credential's IsProd bit is authoritative even when a custom endpoint is
+// supplied. Explicit production Midtrans hosts are rejected as well; in
+// non-development sandbox deployments, custom hosts are rejected so a typo or
+// unreviewed redirect cannot silently become the provider transport.
+func (a *Adapter) validateEnvironment(creds Credentials) error {
+	if a == nil || !a.options.SandboxOnly {
+		return nil
+	}
+	if creds.IsProd {
+		return sandboxEnvironmentError()
+	}
+	base := strings.TrimSpace(creds.BaseURL)
+	if base == "" {
+		// pathURL selects the known sandbox host when no override is present.
+		return nil
+	}
+	parsed, err := url.Parse(base)
+	if err != nil || parsed.Hostname() == "" {
+		return fmt.Errorf("%w: invalid sandbox base URL", sandboxEnvironmentError())
+	}
+	host := strings.ToLower(strings.TrimSuffix(parsed.Hostname(), "."))
+	if isProductionMidtransHost(host) {
+		return sandboxEnvironmentError()
+	}
+	if !a.options.ProviderOptions.DevelopmentMode && !isSandboxMidtransHost(host) {
+		return fmt.Errorf("%w: unapproved sandbox host", sandboxEnvironmentError())
+	}
+	return nil
+}
+
+func sandboxEnvironmentError() error {
+	return fmt.Errorf("%w: %w", ErrProductionEndpointDisabled, ErrInvalidCredentials)
+}
+
+func isProductionMidtransHost(host string) bool {
+	switch strings.ToLower(strings.TrimSuffix(strings.TrimSpace(host), ".")) {
+	case "app.midtrans.com", "api.midtrans.com", "merchants.midtrans.com":
+		return true
+	default:
+		return false
+	}
+}
+
+func isSandboxMidtransHost(host string) bool {
+	switch strings.ToLower(strings.TrimSuffix(strings.TrimSpace(host), ".")) {
+	case "app.sandbox.midtrans.com", "api.sandbox.midtrans.com", "merchants.sbx.midtrans.com":
+		return true
+	default:
+		return false
+	}
 }
 
 func parseCredentialsFromStatic(creds Credentials) (Credentials, error) {

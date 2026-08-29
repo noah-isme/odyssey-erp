@@ -45,8 +45,8 @@ func (q *Queries) ConfirmGoodsReturnGRN(ctx context.Context, arg ConfirmGoodsRet
 
 const createGRN = `-- name: CreateGRN :one
 
-INSERT INTO grns (number, po_id, supplier_id, warehouse_id, status, received_at, note, created_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+INSERT INTO grns (number, po_id, supplier_id, warehouse_id, status, received_at, note, company_id, created_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
 RETURNING id
 `
 
@@ -58,6 +58,7 @@ type CreateGRNParams struct {
 	Status      string             `json:"status"`
 	ReceivedAt  pgtype.Timestamptz `json:"received_at"`
 	Note        string             `json:"note"`
+	CompanyID   pgtype.Int8        `json:"company_id"`
 }
 
 // =============================================================================
@@ -72,6 +73,7 @@ func (q *Queries) CreateGRN(ctx context.Context, arg CreateGRNParams) (int64, er
 		arg.Status,
 		arg.ReceivedAt,
 		arg.Note,
+		arg.CompanyID,
 	)
 	var id int64
 	err := row.Scan(&id)
@@ -246,7 +248,7 @@ func (q *Queries) GenerateGoodsReturnGRNNumber(ctx context.Context) (string, err
 }
 
 const getGRN = `-- name: GetGRN :one
-SELECT id, number, po_id, supplier_id, warehouse_id, status, received_at, note
+SELECT id, number, po_id, supplier_id, warehouse_id, status, received_at, note, company_id
 FROM grns WHERE id = $1
 `
 
@@ -259,6 +261,7 @@ type GetGRNRow struct {
 	Status      string             `json:"status"`
 	ReceivedAt  pgtype.Timestamptz `json:"received_at"`
 	Note        string             `json:"note"`
+	CompanyID   pgtype.Int8        `json:"company_id"`
 }
 
 func (q *Queries) GetGRN(ctx context.Context, id int64) (GetGRNRow, error) {
@@ -273,6 +276,7 @@ func (q *Queries) GetGRN(ctx context.Context, id int64) (GetGRNRow, error) {
 		&i.Status,
 		&i.ReceivedAt,
 		&i.Note,
+		&i.CompanyID,
 	)
 	return i, err
 }

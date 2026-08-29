@@ -66,6 +66,7 @@ var (
 	ErrInvalidExportArtifact  = errors.New("finance payments: invalid export artifact")
 	ErrDuplicateExportBatch   = errors.New("finance payments: export batch contains a duplicate instruction")
 	ErrMixedExportConnections = errors.New("finance payments: export batch contains multiple connections")
+	ErrMixedExportArtifacts   = errors.New("finance payments: export batch contains multiple artifacts")
 )
 
 // ErrSeparationOfDuties and ErrIncompatiblePaymentDuties retain the same
@@ -132,9 +133,10 @@ func (f AuthorizerFunc) Authorize(ctx context.Context, action Action, execution 
 	return f(ctx, action, execution, actorID)
 }
 
-// SeparationAuthorizer enforces the default maker/checker/executor matrix.
-// SettingsForCompany is optional; when it is absent, a zero CompanyID uses
-// automation.DefaultSettings for the instruction's company.
+// SeparationAuthorizer enforces the configured maker/checker/executor matrix
+// and the company payment execution gate. SettingsForCompany is optional;
+// when it is absent, a zero CompanyID uses automation.DefaultSettings for the
+// instruction's company (which keeps live execution disabled).
 type SeparationAuthorizer struct {
 	Settings           automation.Settings
 	SettingsForCompany func(context.Context, int64) (automation.Settings, error)
@@ -162,7 +164,15 @@ func (a SeparationAuthorizer) Authorize(ctx context.Context, action Action, exec
 			return automation.ErrIncompatiblePaymentDuties
 		}
 		return nil
-	case ActionSubmit, ActionExport:
+	case ActionSubmit:
+		if err := automation.ValidatePaymentExecutionEnabled(settings); err != nil {
+			return err
+		}
+		if execution.ProposedBy <= 0 || execution.ApprovedBy <= 0 {
+			return automation.ErrIncompatiblePaymentDuties
+		}
+		return automation.ValidatePaymentDutySeparation(settings, execution.ProposedBy, execution.ApprovedBy, actorID)
+	case ActionExport:
 		if execution.ProposedBy <= 0 || execution.ApprovedBy <= 0 {
 			return automation.ErrIncompatiblePaymentDuties
 		}
@@ -177,7 +187,14 @@ func (a SeparationAuthorizer) settings(ctx context.Context, companyID int64) (au
 		return automation.Settings{}, ErrInvalidInstruction
 	}
 	if a.SettingsForCompany != nil {
-		return a.SettingsForCompany(ctx, companyID)
+		settings, err := a.SettingsForCompany(ctx, companyID)
+		if err != nil {
+			return automation.Settings{}, err
+		}
+		if settings.CompanyID != companyID {
+			return automation.Settings{}, fmt.Errorf("%w: settings company mismatch", ErrUnauthorized)
+		}
+		return settings, nil
 	}
 	if a.Settings.CompanyID == 0 {
 		return automation.DefaultSettings(companyID), nil
@@ -622,17 +639,31 @@ func (c *Coordinator) ExportBatch(ctx context.Context, references []automation.E
 		executions = append(executions, execution)
 	}
 
+	connection := executions[0].Instruction.Reference.Connection
 	if allExported(executions) {
 		artifact := *executions[0].ExportArtifact
+		if err := validateExportArtifact(artifact, connection); err != nil {
+			return FileExport{}, err
+		}
+		for _, execution := range executions[1:] {
+			if execution.Instruction.Reference.Connection != connection {
+				return FileExport{}, ErrMixedExportConnections
+			}
+			if execution.ExportArtifact == nil || execution.ExportArtifact.Reference != artifact.Reference || execution.ExportArtifact.Checksum != artifact.Checksum {
+				return FileExport{}, ErrMixedExportArtifacts
+			}
+		}
 		return FileExport{Artifact: artifact, Executions: executions}, nil
 	}
-	connection := executions[0].Instruction.Reference.Connection
 	for _, execution := range executions {
 		if execution.Instruction.Reference.Connection != connection {
 			return FileExport{}, ErrMixedExportConnections
 		}
 		if execution.State != StateApproved {
 			return FileExport{}, invalidTransition(execution.State, StateExported)
+		}
+		if execution.ProposedBy <= 0 || execution.ApprovedBy <= 0 {
+			return FileExport{}, ErrIncompatiblePaymentDuties
 		}
 		if err := c.authorizer.Authorize(ctx, ActionExport, execution, executorID); err != nil {
 			return FileExport{}, err
@@ -650,8 +681,8 @@ func (c *Coordinator) ExportBatch(ctx context.Context, references []automation.E
 		return FileExport{}, err
 	}
 	artifact = normalizeArtifact(artifact, executions[0].Instruction.Reference, time.Now().UTC())
-	if strings.TrimSpace(artifact.Checksum) == "" {
-		return FileExport{}, ErrInvalidExportArtifact
+	if err := validateExportArtifact(artifact, connection); err != nil {
+		return FileExport{}, err
 	}
 
 	for i := range executions {
@@ -926,6 +957,24 @@ func normalizeArtifact(artifact ExportArtifact, fallback automation.ExternalRefe
 		artifact.CreatedAt = now
 	}
 	return artifact
+}
+
+// validateExportArtifact keeps a provider-neutral artifact tied to the same
+// company-owned connection as every instruction in the file. The coordinator
+// stores only the immutable artifact identity/checksum, so accepting a
+// malformed or cross-connection reference here would make a later download or
+// replay ambiguous.
+func validateExportArtifact(artifact ExportArtifact, connection automation.ConnectionRef) error {
+	if strings.TrimSpace(artifact.Checksum) == "" {
+		return ErrInvalidExportArtifact
+	}
+	if err := artifact.Reference.Validate(); err != nil {
+		return fmt.Errorf("%w: artifact reference: %v", ErrInvalidExportArtifact, err)
+	}
+	if artifact.Reference.Connection != connection {
+		return fmt.Errorf("%w: artifact reference connection mismatch", ErrInvalidExportArtifact)
+	}
+	return nil
 }
 
 func cloneExecution(execution PaymentExecution) PaymentExecution {

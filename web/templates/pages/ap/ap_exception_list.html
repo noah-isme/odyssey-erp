@@ -1,0 +1,130 @@
+{{ define "pages/ap/ap_exception_list.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}AP Exception Workbench{{ end }}
+
+{{ define "content" }}
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-title">AP Exception Workbench</h1>
+            <p class="page-subtitle">Review purchase-to-pay matching exceptions before an invoice is posted.</p>
+        </div>
+        <div class="page-header__actions">
+            <a href="/finance/ap/invoices" class="btn btn--secondary">AP Invoices</a>
+        </div>
+    </header>
+
+    <div class="page-content">
+        {{ if .Data.Errors.general }}
+        <div class="feedback feedback--error" role="alert">
+            <p>{{ .Data.Errors.general }}</p>
+        </div>
+        {{ end }}
+
+        <section class="filters-card">
+            <form method="get" action="/finance/ap/exceptions" class="filters-form" data-component="form">
+                <div class="filters-grid">
+                    <div class="form-group">
+                        <label class="form-label" for="ap-exception-status">Status</label>
+                        <select class="form-select" id="ap-exception-status" name="status">
+                            <option value="" {{ if eq .Data.StatusFilter "" }}selected{{ end }}>All</option>
+                            <option value="OPEN" {{ if eq .Data.StatusFilter "OPEN" }}selected{{ end }}>Open</option>
+                            <option value="IN_REVIEW" {{ if eq .Data.StatusFilter "IN_REVIEW" }}selected{{ end }}>In review</option>
+                            <option value="RESOLVED" {{ if eq .Data.StatusFilter "RESOLVED" }}selected{{ end }}>Resolved</option>
+                            <option value="REJECTED" {{ if eq .Data.StatusFilter "REJECTED" }}selected{{ end }}>Rejected</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="ap-exception-invoice">Invoice ID</label>
+                        <input class="form-input" id="ap-exception-invoice" type="number" min="1" name="invoice_id" value="{{ if .Data.InvoiceFilter }}{{ .Data.InvoiceFilter }}{{ end }}" placeholder="All invoices">
+                    </div>
+                    <div class="form-group form-group--actions">
+                        <button type="submit" class="btn btn--primary">Filter</button>
+                    </div>
+                </div>
+            </form>
+        </section>
+
+        {{ if .Data.Exceptions }}
+        <section class="card card-table" data-component="datatable">
+            <div class="table-responsive">
+                <table class="table table--sticky" data-datatable="ap-exceptions" aria-label="Accounts payable exceptions">
+                    <thead>
+                        <tr>
+                            <th>Severity</th>
+                            <th>Type</th>
+                            <th>Invoice</th>
+                            <th>Status</th>
+                            <th>SLA due</th>
+                            <th>Reason and evidence</th>
+                            <th>Created</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{ range .Data.Exceptions }}
+                        <tr>
+                            <td>{{ .Severity }}</td>
+                            <td>{{ .ExceptionType }}</td>
+                            <td><a class="link" href="/finance/ap/invoices/{{ .APInvoiceID }}">#{{ .APInvoiceID }}</a></td>
+                            <td>{{ template "partials/ui/status_badge.html" .Status }}</td>
+                            <td>{{ formatDatePtr .SLADueAt }}</td>
+                            <td>
+                                <div>{{ .Reason }}</div>
+                                {{ if .Evidence }}
+                                <details class="mt-2">
+                                    <summary>Evidence</summary>
+                                    <p class="text-sm text-muted">{{ deref .Evidence }}</p>
+                                </details>
+                                {{ end }}
+                                {{ if .Comments }}
+                                <details class="mt-2">
+                                    <summary>Comments ({{ len .Comments }})</summary>
+                                    <ul>
+                                        {{ range .Comments }}<li>{{ . }}</li>{{ end }}
+                                    </ul>
+                                </details>
+                                {{ end }}
+                            </td>
+                            <td>{{ formatDate .CreatedAt }}</td>
+                            <td>
+                                {{ if or (eq .Status "OPEN") (eq .Status "IN_REVIEW") }}
+                                <div class="button-group">
+                                    <form method="post" action="/finance/ap/exceptions/{{ .ID }}/resolve">
+                                        <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
+                                        <input type="hidden" name="resolution" value="RESOLVED">
+                                        <label class="sr-only" for="ap-exception-resolve-comment-{{ .ID }}">Resolution comment</label>
+                                        <input class="form-input form-input--sm" id="ap-exception-resolve-comment-{{ .ID }}" type="text" name="comment" maxlength="2000" placeholder="Optional comment">
+                                        <button type="submit" class="btn btn--primary btn--sm">Resolve</button>
+                                    </form>
+                                    <form method="post" action="/finance/ap/exceptions/{{ .ID }}/resolve">
+                                        <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
+                                        <input type="hidden" name="resolution" value="REJECTED">
+                                        <label class="sr-only" for="ap-exception-reject-comment-{{ .ID }}">Rejection comment</label>
+                                        <input class="form-input form-input--sm" id="ap-exception-reject-comment-{{ .ID }}" type="text" name="comment" maxlength="2000" placeholder="Optional comment">
+                                        <button type="submit" class="btn btn--danger btn--sm">Reject</button>
+                                    </form>
+                                </div>
+                                {{ else }}
+                                <span class="text-muted">Closed</span>
+                                {{ end }}
+                            </td>
+                        </tr>
+                        {{ end }}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+        {{ else }}
+        {{ template "partials/ui/empty_state.html" . }}
+        {{ end }}
+    </div>
+</div>
+{{ end }}
+
+{{ define "ui-empty-state-icon" }}<span aria-hidden="true">—</span>{{ end }}
+{{ define "ui-empty-state-title" }}No AP exceptions found{{ end }}
+{{ define "ui-empty-state-description" }}Matching exceptions will appear here when an invoice needs review.{{ end }}
+{{ define "ui-empty-state-action" }}<a href="/finance/ap/invoices" class="btn btn--secondary">View invoices</a>{{ end }}

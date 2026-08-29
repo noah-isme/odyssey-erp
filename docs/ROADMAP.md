@@ -1,23 +1,24 @@
 # Odyssey ERP Project Roadmap
 
-**Reviewed:** 2026-08-12
-**Current candidate:** `v0.10.0-rc.5`
-**Release profile:** `v0.10-core`
+**Reviewed:** 2026-08-29
+**v0.10-core candidate:** `v0.10.0-rc.7` (immutable; migration ceiling `000124`)
+**Current v0.11-finance prep baseline:** `release/v0.11-finance-prep` at
+`ceba7a34102d43218700d59882435ca5ec214857` (working tree has uncommitted prep changes)
+**Release profile:** `v0.11-finance` (sandbox preparation only)
 
 Odyssey ERP is a Go modular monolith for finance, sales, procurement, inventory,
 governance, and operational workflows. The [authoritative feature
 matrix](reference/feature-matrix.md) is the status authority; this roadmap tracks
 the order in which the release is hardened and the next capabilities are integrated.
-The current candidate is not production-certified.
+The immutable v0.10-core candidate and the v0.11-finance preparation candidate are
+separate release lines. Neither is production-certified; this branch is a preparation
+candidate, not a release tag.
 
-The `v0.10.0-rc.5` application baseline is
-`ec65cc08639c184030c63e3407791987eee92804`. The eventual annotated rc.5 tag
-identifies the candidate commit after release packaging and documentation are
-committed; that tag is the authority for the exact candidate SHA. The candidate
-is limited to migrations through `000124_scoped_rbac_global_compatibility`.
-Commit `1a8343e4499420467ba3dda04a2683782c6c79d7`, migration
-`000125_payment_settlement_results`, and v0.11-finance routes are outside the
-v0.10 line.
+The v0.10.0-rc.7 application baseline remains limited to migrations through
+`000124_scoped_rbac_global_compatibility`. The v0.11-finance preparation baseline includes
+`000129_ap_exception_resolution_events`. Its migration ceiling is `000129`.
+Keep this candidate in the isolated finance sandbox line until the evidence in the
+[v0.11-finance prep handoff](releases/v0.11-finance-prep-handoff.md) is complete.
 
 ## v0.10.0 — bounded core release
 
@@ -40,10 +41,10 @@ release prerequisites but are not separate capability claims in the matrix.
       claims.
 - [x] Implement scoped access assignment migration/compatibility, core-route
       adoption, company/branch selection enforcement, and access-review APIs.
-- [x] Retain the rc.5 application baseline at `ec65cc0` and keep the candidate
-      migration ceiling at `000124`; v0.11-finance routes and migration `000125`
-      remain outside the `v0.10-core` profile. Record the final packaging commit
-      through the annotated candidate tag.
+- [x] Retain the immutable rc.7 application baseline and keep the `v0.10-core`
+      migration ceiling at `000124`; v0.11-finance routes and migrations remain
+      outside that profile. Record the v0.11 preparation candidate separately from
+      the final rc.7 packaging and certification record.
 - [ ] Complete staging evidence for the scoped controls and certify the five core
       journeys before promotion.
 - [ ] Keep the [production release checklist](releases/production-release-checklist.md)
@@ -57,7 +58,7 @@ attached to the certification record.
 
 ### Milestone 2 — Certify the core profile in staging
 
-- [ ] Deploy the exact `v0.10.0-rc.5` commit to an isolated staging VPS with
+- [ ] Deploy the exact `v0.10.0-rc.7` commit to an isolated staging VPS with
       `RELEASE_PROFILE=v0.10-core`, production build tags, separate database,
       Redis, secrets, storage, and connector configuration. Verify that the
       migration history stops at `000124` and does not include `000125`.
@@ -119,18 +120,32 @@ security, documentation, and staging evidence before it becomes a production cla
    HR/payroll, QMS, POS, MRP, manufacturing, fixed assets, and other partial
    modules only after their workflows and deployment evidence are complete.
 
-### v0.11-finance implementation handoff
+### v0.11-finance preparation handoff
 
 The next bounded workstream is represented by `RELEASE_PROFILE=v0.11-finance`.
-The implementation now includes the cumulative profile/route boundary, verified
-statement-transport ingestion through the normalized banking importer, additional
-tax/payment/PO forecast readers, exact decimal treasury amounts, and durable
-payment-result/effect idempotency contracts. It is intentionally not a production
-claim: application worker composition, live provider certification, confirmed
-AP/GL/tax/FX/reconciliation effects, operations views, and staging evidence remain
-open. Keep those gates open in the feature matrix until evidence is recorded.
+The clean preparation baseline is branch
+`release/v0.11-finance-prep` at
+`ceba7a34102d43218700d59882435ca5ec214857`, with migrations through `000129` in the
+current uncommitted preparation tree.
+The current working tree additionally contains uncommitted provider-router, worker,
+exact-quantity, settlement-consistency, company-scoped PO/GRN workbench and
+transition guards, AP-exception safeguards, profile-gated scheduled bank-feed and
+forecast scans, and route-specific treasury duty RBAC. It includes the
+cumulative profile/route boundary,
+statement-transport and forecast foundations, exact decimal treasury amounts, and
+durable payment-result/effect idempotency contracts. Treasury proposal/export controls
+now include active-allocation checks, stale-approval invalidation, and an export
+revision/status compare-and-set. It is intentionally not a production claim: provider
+adapters, token/rate-limit operations, confirmed AP/GL/tax/FX/reconciliation effects,
+immutable artifact custody, atomic treasury settlement lifecycle, full P2P closeout,
+and staging evidence remain open.
 
-See [NEXT_STEPS.md](../NEXT_STEPS.md) for the current implementation handoff and
-[docs/releases/VERSION_HISTORY.md](releases/VERSION_HISTORY.md) for candidate
-history. Superseded phase notes belong under `docs/archive/` and are not release
-status evidence.
+Use the [v0.11-finance prep handoff](releases/v0.11-finance-prep-handoff.md) and its
+[evidence index](releases/v0.11-finance-evidence-index.md) for the candidate identity,
+explicit sandbox dispatch, reproducible evidence checklist, and release rule. Run
+`RELEASE_PROFILE=v0.11-finance make finance-sandbox-check` before publishing a
+preparation candidate; the strict completion gate remains external-evidence-bound.
+See [NEXT_STEPS.md](../NEXT_STEPS.md) for the execution order and
+[docs/releases/VERSION_HISTORY.md](releases/VERSION_HISTORY.md) for historical
+candidate notes. Superseded phase notes belong under `docs/archive/` and are not
+release status evidence.

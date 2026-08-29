@@ -39,10 +39,38 @@ func (h *Handler) MountRoutes(r chi.Router) {
 	r.Post("/batches", h.CreateBatch)
 	r.Post("/batches/{id}/items", h.AddBatchItem)
 	r.Delete("/batches/{id}/items/{item_id}", h.RemoveBatchItem)
+	r.Post("/batches/{id}/submit", h.SubmitBatch)
 	r.Post("/batches/{id}/approve", h.ApproveBatch)
 	r.Post("/batches/{id}/export", h.ExportBatch)
 	r.Post("/batches/{id}/execute", h.ExecuteBatch)
 	r.Post("/batches/{id}/settle", h.SettleBatch)
+}
+
+// MountScopedRoutes mounts the treasury API with a separate permission for
+// each payment duty. The normal MountRoutes method remains available for
+// local/development callers that intentionally do not install route RBAC.
+// require is supplied by the application router so the scoped middleware can
+// evaluate the active company/branch rather than falling back to global roles.
+func (h *Handler) MountScopedRoutes(r chi.Router, require func(...string) func(http.Handler) http.Handler) {
+	if require == nil {
+		h.MountRoutes(r)
+		return
+	}
+	if h.operations != nil {
+		r.Route("/operations", h.operations.MountRoutes)
+	}
+	r.With(require(shared.PermFinancePaymentView)).Get("/suppliers/{supplier_id}/bank-accounts", h.ListBankAccounts)
+	r.With(require(shared.PermFinancePaymentPropose)).Post("/suppliers/{supplier_id}/bank-accounts", h.AddBankAccount)
+	r.With(require(shared.PermFinancePaymentApprove)).Post("/bank-accounts/{id}/approve", h.ApproveBankAccount)
+
+	r.With(require(shared.PermFinancePaymentPropose)).Post("/batches", h.CreateBatch)
+	r.With(require(shared.PermFinancePaymentPropose)).Post("/batches/{id}/items", h.AddBatchItem)
+	r.With(require(shared.PermFinancePaymentPropose)).Delete("/batches/{id}/items/{item_id}", h.RemoveBatchItem)
+	r.With(require(shared.PermFinancePaymentPropose)).Post("/batches/{id}/submit", h.SubmitBatch)
+	r.With(require(shared.PermFinancePaymentApprove)).Post("/batches/{id}/approve", h.ApproveBatch)
+	r.With(require(shared.PermFinancePaymentExport)).Post("/batches/{id}/export", h.ExportBatch)
+	r.With(require(shared.PermFinancePaymentExecute)).Post("/batches/{id}/execute", h.ExecuteBatch)
+	r.With(require(shared.PermFinancePaymentExecute)).Post("/batches/{id}/settle", h.SettleBatch)
 }
 
 func (h *Handler) AddBankAccount(w http.ResponseWriter, r *http.Request) {
@@ -197,6 +225,26 @@ func (h *Handler) RemoveBatchItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) SubmitBatch(w http.ResponseWriter, r *http.Request) {
+	identity, ok := shared.IdentityFromContext(r.Context())
+	if !ok {
+		writeTreasuryError(w, http.StatusUnauthorized, shared.ErrUnauthorized)
+		return
+	}
+	batchID, ok := treasuryParamID(r, "id")
+	if !ok {
+		writeTreasuryError(w, http.StatusBadRequest, shared.ErrInvalidInput)
+		return
+	}
+
+	batch, err := h.service.SubmitBatch(r.Context(), identity.CompanyID, batchID, identity.UserID)
+	if err != nil {
+		writeTreasuryError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeTreasuryJSON(w, http.StatusOK, batch)
 }
 
 func (h *Handler) ApproveBatch(w http.ResponseWriter, r *http.Request) {

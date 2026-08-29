@@ -2,6 +2,8 @@ package payments_test
 
 import (
 	"context"
+	"errors"
+	"reflect"
 	"testing"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/automation"
@@ -44,5 +46,44 @@ func TestProviderRouterNormalizesProviderNamesAndFailsClosed(t *testing.T) {
 	_, err := router.Submit(context.Background(), automation.ConnectionRef{CompanyID: 1, ConnectionID: 2, Provider: "stripe"}, instruction)
 	if err == nil {
 		t.Fatal("expected unsupported provider error")
+	}
+}
+
+func TestProviderRouterAcceptsDistinctMidtransAliases(t *testing.T) {
+	port := &routerPort{}
+	router := payments.NewProviderRouter(map[string]payments.ExecutionPort{
+		"midtrans_iris": port,
+		"midtransiris":  port,
+		"iris":          port,
+	})
+	want := []string{"iris", "midtrans_iris", "midtransiris"}
+	if got := router.Providers(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("Providers() = %#v, want %#v", got, want)
+	}
+	for _, provider := range []string{"midtrans_iris", "midtrans-iris", "MIDTRANSIRIS", "iris"} {
+		ref := automation.ConnectionRef{CompanyID: 1, ConnectionID: 2, Provider: provider}
+		if err := router.ValidateConnection(context.Background(), ref); err != nil {
+			t.Fatalf("ValidateConnection(%q) error = %v", provider, err)
+		}
+	}
+}
+
+func TestProviderRouterFailsClosedOnNormalizedNameCollision(t *testing.T) {
+	router := payments.NewProviderRouter(map[string]payments.ExecutionPort{
+		"midtrans-iris": &routerPort{},
+		"midtrans_iris": &routerPort{},
+	})
+
+	if got := router.Providers(); got != nil {
+		t.Fatalf("Providers() = %#v, want nil for invalid registry", got)
+	}
+	ref := automation.ConnectionRef{CompanyID: 1, ConnectionID: 2, Provider: "midtrans-iris"}
+	_, err := router.Lookup(context.Background(), ref, automation.ExternalReference{
+		Connection: ref,
+		ObjectType: "payout",
+		ObjectID:   "p-1",
+	})
+	if !errors.Is(err, payments.ErrProviderUnavailable) || !errors.Is(err, payments.ErrInvalidProviderRegistration) {
+		t.Fatalf("Lookup() error = %v, want provider-unavailable and invalid-registration", err)
 	}
 }

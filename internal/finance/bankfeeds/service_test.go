@@ -2,6 +2,8 @@ package bankfeeds
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,6 +16,9 @@ type bankFeedRepoFake struct {
 	event      BankFeedEvent
 	accounts   []BankConnectionAccount
 	claimed    bool
+	syncRun    BankFeedSyncRun
+	leaseErr   error
+	leaseCalls int
 }
 
 func (r *bankFeedRepoFake) CreateBankConnection(context.Context, CreateBankConnectionInput) (BankConnection, error) {
@@ -41,10 +46,25 @@ func (r *bankFeedRepoFake) UpdateBankConnectionAccountCursor(context.Context, in
 	return nil
 }
 func (r *bankFeedRepoFake) CreateBankFeedSyncRun(context.Context, int64, string) (BankFeedSyncRun, error) {
-	return BankFeedSyncRun{ID: 31}, nil
+	r.syncRun = BankFeedSyncRun{ID: 31, Status: "PENDING"}
+	return r.syncRun, nil
 }
-func (r *bankFeedRepoFake) UpdateBankFeedSyncRun(context.Context, UpdateBankFeedSyncRunInput) error {
+
+func (r *bankFeedRepoFake) UpdateBankFeedSyncRun(_ context.Context, input UpdateBankFeedSyncRunInput) error {
+	r.syncRun.Status = input.Status
+	r.syncRun.CompletedAt = input.CompletedAt
+	if input.ErrorDetails != nil {
+		r.syncRun.ErrorDetails = *input.ErrorDetails
+	}
 	return nil
+}
+
+func (r *bankFeedRepoFake) AcquireBankFeedSyncLease(context.Context, int64) (func(), error) {
+	r.leaseCalls++
+	if r.leaseErr != nil {
+		return nil, r.leaseErr
+	}
+	return func() {}, nil
 }
 func (r *bankFeedRepoFake) CreateBankFeedEvent(_ context.Context, input CreateBankFeedEventInput) (BankFeedEvent, error) {
 	r.event = BankFeedEvent{ID: 51, ConnectionID: input.ConnectionID, ProviderID: input.ProviderID, Status: "PENDING"}
@@ -72,10 +92,17 @@ func (r *bankFeedRepoFake) GetBankAccount(context.Context, int64) (banking.BankA
 	return banking.BankAccount{ID: 77, CompanyID: 7, Currency: "USD"}, nil
 }
 
-type transactionFeedFake struct{ calls int }
+type transactionFeedFake struct {
+	calls           int
+	validationCalls int
+	validationErr   error
+	transactions    []Transaction
+	pages           []TransactionPage
+}
 
 func (f *transactionFeedFake) ValidateConnection(context.Context, automation.ConnectionRef) error {
-	return nil
+	f.validationCalls++
+	return f.validationErr
 }
 func (f *transactionFeedFake) ListAccounts(context.Context, automation.ConnectionRef) ([]Account, error) {
 	return nil, nil
@@ -83,14 +110,31 @@ func (f *transactionFeedFake) ListAccounts(context.Context, automation.Connectio
 func (f *transactionFeedFake) Balances(context.Context, automation.ConnectionRef, []automation.ExternalReference) ([]Balance, error) {
 	return nil, nil
 }
-func (f *transactionFeedFake) Transactions(context.Context, SyncRequest) (TransactionPage, error) {
+func (f *transactionFeedFake) Transactions(_ context.Context, request SyncRequest) (TransactionPage, error) {
 	f.calls++
-	return TransactionPage{Transactions: []Transaction{{
-		Reference:   automation.ExternalReference{ObjectID: "txn-1"},
-		Amount:      automation.MustParseExact("10"),
-		BookedAt:    time.Date(2026, 8, 9, 0, 0, 0, 0, time.UTC),
-		Description: "bank payment",
-	}}}, nil
+	if len(f.pages) > 0 {
+		index := f.calls - 1
+		if index >= len(f.pages) {
+			index = len(f.pages) - 1
+		}
+		page := f.pages[index]
+		return page, nil
+	}
+	transactions := f.transactions
+	if transactions == nil {
+		transactions = []Transaction{{
+			Reference: automation.ExternalReference{
+				Connection: request.Connection,
+				ObjectType: "transaction",
+				ObjectID:   "txn-1",
+			},
+			Account:     request.Account,
+			Amount:      automation.MustParseExact("10"),
+			BookedAt:    time.Date(2026, 8, 9, 0, 0, 0, 0, time.UTC),
+			Description: "bank payment",
+		}}
+	}
+	return TransactionPage{Transactions: transactions}, nil
 }
 
 type bankingImportFake struct {
@@ -117,13 +161,227 @@ func TestProcessWebhookEventConvergesThroughIdempotentSync(t *testing.T) {
 	if err := service.ProcessWebhookEvent(context.Background(), 51); err != nil {
 		t.Fatal(err)
 	}
-	if repo.event.Status != "PROCESSED" || feed.calls != 1 || bankingService.calls != 1 {
-		t.Fatalf("event=%+v feed_calls=%d import_calls=%d", repo.event, feed.calls, bankingService.calls)
+	if repo.event.Status != "PROCESSED" || feed.calls != 1 || feed.validationCalls != 1 || bankingService.calls != 1 {
+		t.Fatalf("event=%+v feed_calls=%d validation_calls=%d import_calls=%d", repo.event, feed.calls, feed.validationCalls, bankingService.calls)
 	}
 	if err := service.ProcessWebhookEvent(context.Background(), 51); err != nil {
 		t.Fatal(err)
 	}
 	if feed.calls != 1 || bankingService.calls != 1 {
 		t.Fatalf("processed event was re-synced: feed_calls=%d import_calls=%d", feed.calls, bankingService.calls)
+	}
+}
+
+func TestSyncConnectionStopsBeforeTransactionsWhenProviderValidationFails(t *testing.T) {
+	validationErr := errors.New("provider credentials are unavailable")
+	feed := &transactionFeedFake{validationErr: validationErr}
+	repo := &bankFeedRepoFake{
+		connection: BankConnection{ID: 9, CompanyID: 7, ProviderID: "bank", Status: "ACTIVE"},
+		accounts:   []BankConnectionAccount{{ID: 12, ConnectionID: 9, BankAccountID: 77, ExternalAccountID: "external-1"}},
+	}
+	service := NewService(repo, &bankingImportFake{}, map[string]FeedPort{"bank": feed})
+
+	err := service.SyncConnection(context.Background(), repo.connection.ID)
+	if !errors.Is(err, validationErr) {
+		t.Fatalf("SyncConnection() error = %v, want provider validation error", err)
+	}
+	if feed.validationCalls != 1 || feed.calls != 0 {
+		t.Fatalf("validation_calls=%d transaction_calls=%d, want 1 and 0", feed.validationCalls, feed.calls)
+	}
+	if repo.syncRun.Status != "FAILED" || repo.syncRun.ErrorDetails == "" {
+		t.Fatalf("sync run = %+v, want FAILED with validation details", repo.syncRun)
+	}
+}
+
+func TestSyncConnectionFailsClosedWithoutProviderAdapter(t *testing.T) {
+	repo := &bankFeedRepoFake{connection: BankConnection{
+		ID: 9, CompanyID: 7, ProviderID: "bank", Status: "ACTIVE",
+	}}
+	service := NewService(repo, &bankingImportFake{}, nil)
+
+	err := service.SyncConnection(context.Background(), repo.connection.ID)
+	if !errors.Is(err, ErrProviderUnavailable) {
+		t.Fatalf("SyncConnection() error = %v, want ErrProviderUnavailable", err)
+	}
+}
+
+func TestBankFeedServiceOperationsFailClosedWithoutRepository(t *testing.T) {
+	service := (*Service)(nil)
+	if err := service.SyncConnection(context.Background(), 9); err == nil || err.Error() != "bank feed repository is not configured" {
+		t.Fatalf("SyncConnection() error = %v, want missing repository", err)
+	}
+	if err := service.SyncStatementTransport(context.Background(), 9, &statementTransportFake{}); err == nil || err.Error() != "bank feed repository is not configured" {
+		t.Fatalf("SyncStatementTransport() error = %v, want missing repository", err)
+	}
+	if err := service.ProcessWebhookEvent(context.Background(), 9); err == nil || err.Error() != "bank feed repository is not configured" {
+		t.Fatalf("ProcessWebhookEvent() error = %v, want missing repository", err)
+	}
+}
+
+func TestSyncConnectionDoesNotPollWhenAnotherSyncOwnsLease(t *testing.T) {
+	feed := &transactionFeedFake{}
+	repo := &bankFeedRepoFake{
+		connection: BankConnection{ID: 9, CompanyID: 7, ProviderID: "bank", Status: "ACTIVE"},
+		leaseErr:   ErrSyncInProgress,
+	}
+	service := NewService(repo, &bankingImportFake{}, map[string]FeedPort{"bank": feed})
+
+	err := service.SyncConnection(context.Background(), repo.connection.ID)
+	if !errors.Is(err, ErrSyncInProgress) {
+		t.Fatalf("SyncConnection() error = %v, want ErrSyncInProgress", err)
+	}
+	if repo.leaseCalls != 1 || feed.validationCalls != 0 || feed.calls != 0 || repo.syncRun.ID != 0 {
+		t.Fatalf("lease_calls=%d validation_calls=%d transaction_calls=%d sync_run=%+v, want lease-only", repo.leaseCalls, feed.validationCalls, feed.calls, repo.syncRun)
+	}
+}
+
+func TestSyncConnectionRejectsTransactionOutsideMappedAccount(t *testing.T) {
+	connection := automation.ConnectionRef{CompanyID: 7, ConnectionID: 9, Provider: "bank"}
+	feed := &transactionFeedFake{transactions: []Transaction{{
+		Reference: automation.ExternalReference{Connection: connection, ObjectType: "transaction", ObjectID: "txn-cross-account"},
+		Account: automation.ExternalReference{
+			Connection: connection,
+			ObjectType: "account",
+			ObjectID:   "other-account",
+		},
+		Amount:   automation.MustParseExact("10"),
+		BookedAt: time.Date(2026, 8, 9, 0, 0, 0, 0, time.UTC),
+	}}}
+	repo := &bankFeedRepoFake{
+		connection: connectionToBankConnection(connection),
+		accounts:   []BankConnectionAccount{{ID: 12, ConnectionID: 9, BankAccountID: 77, ExternalAccountID: "external-1"}},
+	}
+	imports := &bankingImportFake{}
+	service := NewService(repo, imports, map[string]FeedPort{"bank": feed})
+
+	err := service.SyncConnection(context.Background(), 9)
+	if err == nil || !strings.Contains(err.Error(), "transaction account does not match") {
+		t.Fatalf("SyncConnection() error = %v, want mapped-account rejection", err)
+	}
+	if imports.calls != 0 || repo.syncRun.Status != "FAILED" {
+		t.Fatalf("imports=%d sync_run=%+v, want no import and FAILED run", imports.calls, repo.syncRun)
+	}
+}
+
+func TestSyncConnectionRejectsTransactionReferenceOutsideCompany(t *testing.T) {
+	connection := automation.ConnectionRef{CompanyID: 7, ConnectionID: 9, Provider: "bank"}
+	feed := &transactionFeedFake{transactions: []Transaction{{
+		Reference: automation.ExternalReference{
+			Connection: automation.ConnectionRef{CompanyID: 99, ConnectionID: 9, Provider: "bank"},
+			ObjectType: "transaction",
+			ObjectID:   "txn-cross-company",
+		},
+		Account:  automation.ExternalReference{Connection: connection, ObjectType: "account", ObjectID: "external-1"},
+		Amount:   automation.MustParseExact("10"),
+		BookedAt: time.Date(2026, 8, 9, 0, 0, 0, 0, time.UTC),
+	}}}
+	repo := &bankFeedRepoFake{
+		connection: connectionToBankConnection(connection),
+		accounts:   []BankConnectionAccount{{ID: 12, ConnectionID: 9, BankAccountID: 77, ExternalAccountID: "external-1"}},
+	}
+	imports := &bankingImportFake{}
+	service := NewService(repo, imports, map[string]FeedPort{"bank": feed})
+
+	err := service.SyncConnection(context.Background(), 9)
+	if err == nil || !strings.Contains(err.Error(), "transaction reference is outside connection scope") {
+		t.Fatalf("SyncConnection() error = %v, want cross-company reference rejection", err)
+	}
+	if imports.calls != 0 || repo.syncRun.Status != "FAILED" {
+		t.Fatalf("imports=%d sync_run=%+v, want no import and FAILED run", imports.calls, repo.syncRun)
+	}
+}
+
+func TestSyncConnectionRejectsPreviouslySeenCursorBeforePollingAgain(t *testing.T) {
+	feed := &transactionFeedFake{pages: []TransactionPage{
+		{NextCursor: "page-1", HasMore: true},
+		{NextCursor: "page-2", HasMore: true},
+		{NextCursor: "page-1", HasMore: true},
+	}}
+	repo := &bankFeedRepoFake{
+		connection: BankConnection{ID: 9, CompanyID: 7, ProviderID: "bank", Status: "ACTIVE"},
+		accounts:   []BankConnectionAccount{{ID: 12, ConnectionID: 9, BankAccountID: 77, ExternalAccountID: "external-1"}},
+	}
+	service := NewService(repo, &bankingImportFake{}, map[string]FeedPort{"bank": feed})
+
+	err := service.SyncConnection(context.Background(), repo.connection.ID)
+	if err == nil || !strings.Contains(err.Error(), "previously seen cursor") {
+		t.Fatalf("SyncConnection() error = %v, want previously-seen cursor rejection", err)
+	}
+	if feed.calls != 3 {
+		t.Fatalf("provider calls = %d, want 3 before rejecting the cycle", feed.calls)
+	}
+	if repo.syncRun.Status != "FAILED" {
+		t.Fatalf("sync run = %+v, want FAILED", repo.syncRun)
+	}
+}
+
+func TestValidateCursorProgressRejectsEmptyCursorWhenMoreResultsExist(t *testing.T) {
+	err := validateCursorProgress(map[string]struct{}{"current": {}}, "current", "", true)
+	if err == nil || !strings.Contains(err.Error(), "empty cursor") {
+		t.Fatalf("validateCursorProgress() error = %v, want empty cursor rejection", err)
+	}
+}
+
+func connectionToBankConnection(ref automation.ConnectionRef) BankConnection {
+	return BankConnection{ID: ref.ConnectionID, CompanyID: ref.CompanyID, ProviderID: ref.Provider, Status: "ACTIVE"}
+}
+
+func TestSaveWebhookEventFailsClosedWithoutProviderAdapter(t *testing.T) {
+	repo := &bankFeedRepoFake{connection: BankConnection{
+		ID: 9, CompanyID: 7, ProviderID: "bank", Status: "ACTIVE",
+	}}
+	service := NewService(repo, nil, nil)
+
+	_, err := service.SaveWebhookEvent(context.Background(), repo.connection.ID, "bank", "transaction", nil, []byte(`{"id":"event-1"}`))
+	if !errors.Is(err, ErrProviderUnavailable) {
+		t.Fatalf("SaveWebhookEvent() error = %v, want ErrProviderUnavailable", err)
+	}
+	if repo.event.ID != 0 {
+		t.Fatalf("SaveWebhookEvent() persisted event despite unavailable provider: %+v", repo.event)
+	}
+}
+
+func TestSaveWebhookEventRejectsInactiveOrExpiredConnectionBeforePersistence(t *testing.T) {
+	expired := time.Now().Add(-time.Minute)
+	tests := []struct {
+		name       string
+		status     string
+		consentEnd *time.Time
+		want       string
+	}{
+		{name: "disconnected", status: "DISCONNECTED", want: "connection is not active"},
+		{name: "expired consent", status: "ACTIVE", consentEnd: &expired, want: "connection consent has expired"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &bankFeedRepoFake{connection: BankConnection{
+				ID: 9, CompanyID: 7, ProviderID: "bank", Status: tt.status, ConsentExpiresAt: tt.consentEnd,
+			}}
+			service := NewService(repo, &bankingImportFake{}, map[string]FeedPort{"bank": fakeFeed{}})
+
+			_, err := service.SaveWebhookEvent(context.Background(), repo.connection.ID, "bank", "transaction", nil, []byte(`{"id":"event-1"}`))
+			if err == nil || err.Error() != tt.want {
+				t.Fatalf("SaveWebhookEvent() error = %v, want %q", err, tt.want)
+			}
+			if repo.event.ID != 0 {
+				t.Fatalf("SaveWebhookEvent() persisted event for blocked connection: %+v", repo.event)
+			}
+		})
+	}
+}
+
+func TestSaveWebhookEventRejectsMissingBankingImportBeforePersistence(t *testing.T) {
+	repo := &bankFeedRepoFake{connection: BankConnection{
+		ID: 9, CompanyID: 7, ProviderID: "bank", Status: "ACTIVE",
+	}}
+	service := NewService(repo, nil, map[string]FeedPort{"bank": fakeFeed{}})
+
+	_, err := service.SaveWebhookEvent(context.Background(), repo.connection.ID, "bank", "transaction", nil, []byte(`{"id":"event-1"}`))
+	if err == nil || err.Error() != "banking import service is not configured" {
+		t.Fatalf("SaveWebhookEvent() error = %v, want missing banking import error", err)
+	}
+	if repo.event.ID != 0 {
+		t.Fatalf("SaveWebhookEvent() persisted event without banking import service: %+v", repo.event)
 	}
 }

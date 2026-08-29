@@ -93,11 +93,37 @@ func (in SettlementResultInput) resultID() string {
 	return ""
 }
 
+// validateResultIDAliases prevents two wire-level names for the provider
+// event identity from silently selecting different idempotency keys. The
+// canonical ResultID is intentionally allowed to be omitted when one of the
+// compatibility aliases is supplied, but every supplied alias must identify
+// the same immutable event.
+func (in SettlementResultInput) validateResultIDAliases() error {
+	canonical := ""
+	for _, candidate := range []string{in.ResultID, in.ResultReference, in.ProviderEventID} {
+		value := strings.TrimSpace(candidate)
+		if value == "" {
+			continue
+		}
+		if canonical == "" {
+			canonical = value
+			continue
+		}
+		if value != canonical {
+			return fmt.Errorf("%w: result identity aliases differ", ErrSettlementResultReferenceMismatch)
+		}
+	}
+	return nil
+}
+
 // Validate checks the transport-level invariants. Amount bounds that depend
 // on the original instruction are checked again by SettlementService.Import.
 func (in SettlementResultInput) Validate() error {
 	if in.CompanyID <= 0 {
 		return fmt.Errorf("%w: company is required", ErrInvalidSettlementResult)
+	}
+	if err := in.validateResultIDAliases(); err != nil {
+		return err
 	}
 	ref, err := in.instructionRef()
 	if err != nil {
@@ -193,6 +219,9 @@ func (r SettlementResult) Validate() error {
 	if strings.TrimSpace(r.Status) == "" {
 		return fmt.Errorf("%w: status is required", ErrInvalidSettlementResult)
 	}
+	if normalizeStatus(r.Status) != string(r.State) {
+		return fmt.Errorf("%w: settlement status %q does not match local state %q", ErrInvalidSettlementResult, r.Status, r.State)
+	}
 	if r.State == StatePartiallySettled || r.State == StateSettled {
 		if err := r.SettledAmount.Validate(); err != nil {
 			return fmt.Errorf("%w: settled amount: %v", ErrInvalidSettlementResult, err)
@@ -255,9 +284,14 @@ func (r SettlementResult) settlement() Settlement {
 // effects. Implementations must deduplicate by EffectKey before mutating any
 // financial state.
 type SettlementEffectRequest struct {
-	CompanyID int64            `json:"company_id"`
-	EffectKey string           `json:"effect_key"`
-	Result    SettlementResult `json:"result"`
+	CompanyID int64  `json:"company_id"`
+	EffectKey string `json:"effect_key"`
+	// ActorID is the authenticated executor/exporter whose durable identity
+	// authorizes the accounting-side audit and tax-capture work. It remains
+	// optional on the provider-neutral compatibility port; concrete accounting
+	// adapters must reject a missing actor before financial mutation.
+	ActorID int64            `json:"actor_id,omitempty"`
+	Result  SettlementResult `json:"result"`
 	// Links identify durable financial records created by the accounting
 	// boundary (for example an AP payment, allocation, journal, or bank
 	// transaction). They are optional for compatibility with the original
@@ -304,6 +338,9 @@ type SettlementEffect = SettlementEffectRequest
 func (e SettlementEffectRequest) Validate() error {
 	if e.CompanyID <= 0 || strings.TrimSpace(e.EffectKey) == "" {
 		return ErrInvalidSettlementResult
+	}
+	if e.ActorID < 0 {
+		return fmt.Errorf("%w: actor id must not be negative", ErrInvalidSettlementResult)
 	}
 	if err := e.Result.Validate(); err != nil {
 		return err
@@ -540,6 +577,13 @@ func (s *SettlementService) ImportResult(ctx context.Context, input SettlementRe
 	if state == StateSubmitted {
 		return SettlementResult{}, ErrUnsupportedSettlementResult
 	}
+	// A new provider event must advance an execution. Once a terminal result
+	// has been recorded, accepting a different result ID in the same terminal
+	// state would mint a fresh effect key and replay AP/GL/bank mutations.
+	// Replays of the original result ID are handled above and remain idempotent.
+	if err := validateNewImportedStateTransition(execution.State, state); err != nil {
+		return SettlementResult{}, err
+	}
 	result := input.normalized(ref, settlement, state)
 	record = SettlementResultRecord{Result: result, Fingerprint: fingerprint, RecordedAt: result.RecordedAt}
 	if err := s.results.PutSettlementResult(ctx, record); err != nil {
@@ -577,10 +621,20 @@ func (s *SettlementService) HandleResultImport(ctx context.Context, message auto
 	if message.CompanyID != input.CompanyID {
 		return ErrSettlementResultCompanyMismatch
 	}
-	if key := strings.TrimSpace(message.IdempotencyKey); key != "" && key != input.resultID() {
+	if err := input.Validate(); err != nil {
+		return err
+	}
+	ref, err := input.instructionRef()
+	if err != nil {
+		return err
+	}
+	if key := strings.TrimSpace(message.IdempotencyKey); key == "" || key != input.resultID() {
 		return ErrSettlementResultConflict
 	}
-	_, err := s.ImportResult(ctx, input)
+	if aggregateID := strings.TrimSpace(message.AggregateID); aggregateID == "" || aggregateID != ref.ObjectID {
+		return ErrSettlementResultReferenceMismatch
+	}
+	_, err = s.ImportResult(ctx, input)
 	return err
 }
 
@@ -605,6 +659,7 @@ func (s *SettlementService) finishResult(ctx context.Context, record SettlementR
 		effect := SettlementEffectRequest{
 			CompanyID: result.CompanyID,
 			EffectKey: result.ResultID,
+			ActorID:   execution.ExecutorID,
 			Result:    result,
 		}
 		outcome, err := s.effects.ApplySettlementEffects(ctx, effect)
@@ -700,6 +755,13 @@ func validateImportedStateTransition(from, to ExecutionState) error {
 		return invalidTransition(from, to)
 	}
 	return nil
+}
+
+func validateNewImportedStateTransition(from, to ExecutionState) error {
+	if from == StateSettled || from == StateFailed || from == StateCancelled {
+		return invalidTransition(from, to)
+	}
+	return validateImportedStateTransition(from, to)
 }
 
 func settlementInputFingerprint(input SettlementResultInput) string {

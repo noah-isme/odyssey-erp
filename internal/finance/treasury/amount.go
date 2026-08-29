@@ -112,6 +112,22 @@ func (a Amount) Add(other Amount) (Amount, error) {
 	return ParseAmount(new(big.Rat).Add(left, right).FloatString(scale))
 }
 
+// Sub performs exact rational subtraction in the same NUMERIC-compatible
+// decimal domain as Add. It is used for balance checks where paid and reserved
+// amounts must be removed without converting through float64.
+func (a Amount) Sub(other Amount) (Amount, error) {
+	left, err := a.rat()
+	if err != nil {
+		return "", err
+	}
+	right, err := other.rat()
+	if err != nil {
+		return "", err
+	}
+	scale := maxDecimalPlaces(a.String(), other.String())
+	return ParseAmount(new(big.Rat).Sub(left, right).FloatString(scale))
+}
+
 func (a Amount) Cmp(other Amount) (int, error) {
 	left, err := a.rat()
 	if err != nil {

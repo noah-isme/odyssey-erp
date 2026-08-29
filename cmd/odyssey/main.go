@@ -266,7 +266,11 @@ func main() {
 	bankingHandler := banking.NewHandler(logger, bankingService, templates, csrfManager)
 
 	bankfeedsRepo := bankfeeds.NewPGRepository(dbpool)
-	bankfeedsService := bankfeeds.NewService(bankfeedsRepo, bankingService, nil)
+	bankfeedsRouter := bankfeeds.NewProviderRouter(nil)
+	if len(bankfeedsRouter.Providers()) == 0 {
+		logger.Warn("bank-feed provider adapters are not configured; sync and webhook operations will fail closed")
+	}
+	bankfeedsService := bankfeeds.NewServiceWithProviderRouter(bankfeedsRepo, bankingService, bankfeedsRouter)
 	bankFeedsHandler := bankfeeds.NewHandler(bankfeedsService, logger)
 
 	forecastRepo := forecasting.NewPGRepository(dbpool)
@@ -278,10 +282,11 @@ func main() {
 		fxservice.Resolver{Repo: forecastFXRepo, MaxAge: cfg.FXMaxRateAge},
 		logger,
 	)
-	forecastHandler := forecasting.NewHandler(forecastService)
+	financeAutomationSettings := automation.NewRepository(dbpool)
+	forecastHandler := forecasting.NewHandler(forecastService, financeAutomationSettings)
 
 	treasuryRepo := treasury.NewPGRepository(dbpool)
-	treasuryService := treasury.NewService(treasuryRepo, nil, logger)
+	treasuryService := treasury.NewService(treasuryRepo, nil, logger, financeAutomationSettings)
 	treasuryHandler := treasury.NewHandler(treasuryService)
 
 	inventoryRepo := inventory.NewRepository(dbpool)
@@ -353,6 +358,7 @@ func main() {
 	connectorsRegistry.Register("midtrans", midtrans.NewAdapter(logger, vault, providerOptions))
 	irisAdapter := midtransiris.NewAdapter(logger, vault, midtransiris.Options{
 		ProviderOptions: providerOptions,
+		SandboxOnly:     cfg.IsFinanceSandbox(),
 		ConnectionResolver: func(ctx context.Context, ref automation.ConnectionRef) (*connectors.Connection, error) {
 			conn, err := connectorsRepo.GetConnection(ctx, ref.CompanyID, ref.ConnectionID)
 			if err != nil {
@@ -388,13 +394,16 @@ func main() {
 			}, nil
 		},
 	})
+	// Register one canonical Midtrans Iris key; the router normalizes the
+	// persisted hyphenated spelling and rejects duplicate normalized aliases.
 	paymentRouter := payments.NewProviderRouter(map[string]payments.ExecutionPort{
 		midtransiris.Provider: irisAdapter,
-		"midtrans-iris":       irisAdapter,
 		"midtransiris":        irisAdapter,
 		"iris":                irisAdapter,
 	})
-	paymentCoordinator := payments.NewCoordinator(paymentRouter, payments.NewPostgresStore(dbpool), payments.NewSeparationAuthorizer(automation.Settings{}))
+	paymentAuthorizer := payments.NewSeparationAuthorizer(automation.Settings{})
+	paymentAuthorizer.SettingsForCompany = financeAutomationSettings.Settings
+	paymentCoordinator := payments.NewCoordinator(paymentRouter, payments.NewPostgresStore(dbpool), paymentAuthorizer)
 	financeAutomationOutbox := automation.NewOutboxRepository(dbpool)
 	operationsReader := treasury.NewOperationsRepository(dbpool)
 	treasuryHandler.SetOperationsHandler(treasury.NewOperationsHandler(

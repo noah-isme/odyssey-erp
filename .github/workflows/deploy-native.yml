@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       candidate_tag:
-        description: Annotated v0.10 release-candidate tag to deploy (for example v0.10.0-rc.5)
+        description: Annotated v0.10 release-candidate tag to deploy (for example v0.10.0-rc.7)
         required: true
         type: string
   workflow_run:
@@ -599,6 +599,15 @@ jobs:
             install -d -m 0755 "$runtime_dir"
             stop_pidfile "$runtime_dir/odyssey.pid"
             stop_pidfile "$runtime_dir/worker.pid"
+            if ! command -v ss >/dev/null 2>&1; then
+              echo 'cannot safely start supervised staging process: ss is required to inspect port 8180' >&2
+              exit 1
+            fi
+            if ss -H -ltn 'sport = :8180' | grep -q .; then
+              echo 'staging port 8180 is still in use; refusing to start a duplicate supervised process' >&2
+              ss -H -ltnp 'sport = :8180' >&2 || true
+              exit 1
+            fi
             nohup "$release/odyssey" >"$runtime_dir/odyssey.log" 2>&1 &
             echo "$!" > "$runtime_dir/odyssey.pid"
             nohup "$release/worker" >"$runtime_dir/worker.log" 2>&1 &

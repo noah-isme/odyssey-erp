@@ -71,6 +71,16 @@ func TestAmountAdditionIsExact(t *testing.T) {
 	}
 }
 
+func TestAmountSubtractionIsExact(t *testing.T) {
+	remaining, err := MustParseAmount("100.0000").Sub(MustParseAmount("0.1000"))
+	if err != nil {
+		t.Fatalf("Sub() unexpected error: %v", err)
+	}
+	if remaining.String() != "99.9000" {
+		t.Fatalf("100.0000 - 0.1000 = %q, want 99.9000", remaining)
+	}
+}
+
 func TestParseAmountCanonicalizesNegativeZero(t *testing.T) {
 	for _, input := range []string{"-0", "-0.0", "-000.0000"} {
 		amount, err := ParseAmount(input)

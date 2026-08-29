@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,12 +13,16 @@ import (
 )
 
 type forecastRepoFake struct {
-	run      ForecastRun
-	buckets  []CreateForecastDailyBucketInput
-	lines    []CreateForecastSourceLineInput
-	statuses []ForecastRunStatusUpdate
-	bucketID int64
-	lineID   int64
+	run               ForecastRun
+	buckets           []CreateForecastDailyBucketInput
+	latestBuckets     []ForecastDailyBucket
+	latestBucketCalls int
+	lines             []CreateForecastSourceLineInput
+	sourceLines       []ForecastSourceLine
+	statuses          []ForecastRunStatusUpdate
+	bucketID          int64
+	lineID            int64
+	latestErr         error
 }
 
 func (r *forecastRepoFake) ScenarioBelongsToCompany(_ context.Context, scenarioID, companyID int64) (bool, error) {
@@ -43,10 +48,14 @@ func (r *forecastRepoFake) CreateForecastSourceLine(_ context.Context, arg Creat
 	return r.lineID, nil
 }
 func (r *forecastRepoFake) GetLatestForecastRun(context.Context, ForecastRunQuery) (ForecastRun, error) {
-	return r.run, nil
+	return r.run, r.latestErr
 }
 func (r *forecastRepoFake) ListForecastDailyBucketsByRun(context.Context, int64) ([]ForecastDailyBucket, error) {
-	return nil, nil
+	r.latestBucketCalls++
+	return r.latestBuckets, nil
+}
+func (r *forecastRepoFake) ListForecastSourceLinesByRun(context.Context, int64, int64) ([]ForecastSourceLine, error) {
+	return r.sourceLines, nil
 }
 
 type forecastReaderFake struct {
@@ -60,6 +69,25 @@ func (r forecastReaderFake) ReadExpectedFlows(context.Context, int64, time.Time,
 	return r.flows, r.err
 }
 func (r forecastReaderFake) CompanyBaseCurrency(context.Context, int64) (string, error) {
+	return "USD", nil
+}
+
+type scenarioForecastReaderFake struct {
+	flows        []ExpectedCashFlow
+	normalCalled bool
+	scenarioID   int64
+}
+
+func (r *scenarioForecastReaderFake) Name() string { return "scenario-adjustments" }
+func (r *scenarioForecastReaderFake) ReadExpectedFlows(context.Context, int64, time.Time, time.Time) ([]ExpectedCashFlow, error) {
+	r.normalCalled = true
+	return nil, nil
+}
+func (r *scenarioForecastReaderFake) ReadExpectedFlowsForScenario(_ context.Context, _, scenarioID int64, _, _ time.Time) ([]ExpectedCashFlow, error) {
+	r.scenarioID = scenarioID
+	return r.flows, nil
+}
+func (r *scenarioForecastReaderFake) CompanyBaseCurrency(context.Context, int64) (string, error) {
 	return "USD", nil
 }
 
@@ -120,6 +148,114 @@ func TestGenerateSnapshotMarksRunIncompleteWhenReaderFails(t *testing.T) {
 	}
 	if len(repo.statuses) != 1 || repo.statuses[0].Status != "INCOMPLETE" || repo.statuses[0].ErrorDetails == "" {
 		t.Fatalf("failure status = %#v", repo.statuses)
+	}
+}
+
+func TestGenerateSnapshotMarksRunIncompleteWhenSourceReaderIsNil(t *testing.T) {
+	repo := &forecastRepoFake{}
+	service := NewServiceWithFXResolver(repo, []SourceReader{nil, forecastReaderFake{name: "ledger"}}, fxResolverFake{}, slog.Default())
+
+	err := service.GenerateSnapshot(context.Background(), 7, 3)
+	if err == nil || repo.run.ID != 41 {
+		t.Fatalf("GenerateSnapshot() error = %v, run = %#v", err, repo.run)
+	}
+	if !strings.Contains(err.Error(), "source reader is not configured") {
+		t.Fatalf("GenerateSnapshot() error = %v, want nil-reader detail", err)
+	}
+	if len(repo.statuses) != 1 || repo.statuses[0].Status != "INCOMPLETE" {
+		t.Fatalf("failure status = %#v", repo.statuses)
+	}
+}
+
+func TestGenerateSnapshotUsesScenarioAwareReaderForScenarioOwnedFlows(t *testing.T) {
+	date := time.Date(2026, 8, 9, 0, 0, 0, 0, time.UTC)
+	reader := &scenarioForecastReaderFake{flows: []ExpectedCashFlow{
+		{
+			SourceType: SourceTypeManualAdjustment,
+			SourceRef:  "forecast-adjustment:17",
+			Amount:     automation.MustParseExact("-125.5000"),
+			Currency:   "usd",
+			Date:       date,
+			Certainty:  CertaintyProbable,
+		},
+	}}
+	repo := &forecastRepoFake{}
+	service := NewServiceWithFXResolver(repo, []SourceReader{reader}, fxResolverFake{}, nil)
+	service.SetNow(func() time.Time { return date })
+
+	if err := service.GenerateSnapshot(context.Background(), 7, 3); err != nil {
+		t.Fatal(err)
+	}
+	if reader.normalCalled {
+		t.Fatal("scenario-aware reader fell back to unscoped read")
+	}
+	if reader.scenarioID != 3 {
+		t.Fatalf("scenario ID = %d, want 3", reader.scenarioID)
+	}
+	if len(repo.lines) != 1 {
+		t.Fatalf("persisted %d source lines, want 1", len(repo.lines))
+	}
+	line := repo.lines[0]
+	if line.SourceType != string(SourceTypeManualAdjustment) || line.SourceRef != "forecast-adjustment:17" || line.Certainty != string(CertaintyProbable) || line.Currency != "USD" {
+		t.Fatalf("normalized source line = %#v", line)
+	}
+}
+
+func TestGenerateSnapshotRejectsInvalidOrDuplicateSourceIdentity(t *testing.T) {
+	date := time.Date(2026, 8, 9, 0, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name  string
+		flows []ExpectedCashFlow
+		want  string
+	}{
+		{
+			name: "missing source reference",
+			flows: []ExpectedCashFlow{{
+				SourceType: SourceTypeOpenAR,
+				Amount:     automation.MustParseExact("10"),
+				Currency:   "USD",
+				Date:       date,
+				Certainty:  CertaintyCommitted,
+			}},
+			want: "source reference is required",
+		},
+		{
+			name: "unknown certainty",
+			flows: []ExpectedCashFlow{{
+				SourceType: SourceTypeOpenAR,
+				SourceRef:  "ar:1",
+				Amount:     automation.MustParseExact("10"),
+				Currency:   "USD",
+				Date:       date,
+				Certainty:  Certainty("POSSIBLE"),
+			}},
+			want: "certainty must be COMMITTED or PROBABLE",
+		},
+		{
+			name: "duplicate stable source",
+			flows: []ExpectedCashFlow{
+				{SourceType: SourceTypeOpenAR, SourceRef: "ar:1", Amount: automation.MustParseExact("10"), Currency: "USD", Date: date, Certainty: CertaintyCommitted},
+				{SourceType: SourceTypeOpenAR, SourceRef: "ar:1", Amount: automation.MustParseExact("12"), Currency: "USD", Date: date.AddDate(0, 0, 1), Certainty: CertaintyCommitted},
+			},
+			want: "duplicate source",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &forecastRepoFake{}
+			reader := forecastReaderFake{name: "test", flows: tt.flows}
+			service := NewServiceWithFXResolver(repo, []SourceReader{reader}, fxResolverFake{}, nil)
+			service.SetNow(func() time.Time { return date })
+
+			err := service.GenerateSnapshot(context.Background(), 7, 3)
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("GenerateSnapshot() error = %v, want %q", err, tt.want)
+			}
+			if len(repo.statuses) != 1 || repo.statuses[0].Status != "INCOMPLETE" {
+				t.Fatalf("run status = %#v, want INCOMPLETE", repo.statuses)
+			}
+		})
 	}
 }
 

@@ -138,6 +138,18 @@ func (m *memoryAPRepo) ListAPExceptions(ctx context.Context, status string, owne
 	return nil, nil
 }
 
+func (m *memoryAPRepo) GetAPExceptionForCompany(ctx context.Context, companyID, id int64) (APException, error) {
+	return m.GetAPException(ctx, id)
+}
+
+func (m *memoryAPRepo) ListAPExceptionsForCompany(ctx context.Context, companyID int64, status string, ownerID, invoiceID int64, limit, offset int) ([]APException, error) {
+	return m.ListAPExceptions(ctx, status, ownerID, invoiceID, limit, offset)
+}
+
+func (m *memoryAPRepo) ListAPExceptionResolutionEventsForCompany(ctx context.Context, companyID, exceptionID int64) ([]APExceptionResolutionEvent, error) {
+	return nil, nil
+}
+
 func (r *memoryAPRepo) ListAPInvoices(ctx context.Context, req ListAPInvoicesRequest) ([]APInvoice, error) {
 	var out []APInvoice
 	for _, inv := range r.invoices {
@@ -463,6 +475,18 @@ func (t *memoryAPTx) CreateAPException(ctx context.Context, exc APException) (in
 }
 
 func (t *memoryAPTx) UpdateAPExceptionStatus(ctx context.Context, id int64, status string, resolvedBy *int64) error {
+	return nil
+}
+
+func (t *memoryAPTx) UpdateAPExceptionStatusForCompany(ctx context.Context, companyID, id int64, status string, resolvedBy *int64) error {
+	return nil
+}
+
+func (t *memoryAPTx) ResolveAPException(ctx context.Context, id int64, status string, resolvedBy int64, comment string) error {
+	return nil
+}
+
+func (t *memoryAPTx) ResolveAPExceptionForCompany(ctx context.Context, companyID, id int64, status string, resolvedBy int64, comment string) error {
 	return nil
 }
 

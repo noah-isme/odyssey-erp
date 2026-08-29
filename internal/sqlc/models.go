@@ -923,6 +923,17 @@ type ApException struct {
 	ResolvedBy      pgtype.Int8        `json:"resolved_by"`
 }
 
+type ApExceptionResolutionEvent struct {
+	ID            int64              `json:"id"`
+	ApExceptionID int64              `json:"ap_exception_id"`
+	CompanyID     int64              `json:"company_id"`
+	FromStatus    string             `json:"from_status"`
+	ToStatus      string             `json:"to_status"`
+	Comment       string             `json:"comment"`
+	ActorID       int64              `json:"actor_id"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
 type ApInvoice struct {
 	ID                     int64              `json:"id"`
 	Number                 string             `json:"number"`

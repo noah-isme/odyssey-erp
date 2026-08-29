@@ -267,6 +267,9 @@ type Querier interface {
 	GenerateGoodsReturnGRNNumber(ctx context.Context) (string, error)
 	GetAPDebitNote(ctx context.Context, id int64) (GetAPDebitNoteRow, error)
 	GetAPException(ctx context.Context, id int64) (ApException, error)
+	// The company is derived from the invoice first, with the supplier fallback
+	// retained for invoices created before company_id was populated.
+	GetAPExceptionForCompany(ctx context.Context, arg GetAPExceptionForCompanyParams) (ApException, error)
 	GetAPInvoice(ctx context.Context, id int64) (GetAPInvoiceRow, error)
 	GetAPInvoiceBalance(ctx context.Context, id int64) (GetAPInvoiceBalanceRow, error)
 	GetAPInvoiceBalanceWithDebitNotes(ctx context.Context, id int64) (GetAPInvoiceBalanceWithDebitNotesRow, error)
@@ -663,7 +666,11 @@ type Querier interface {
 	ListAPDebitNotes(ctx context.Context) ([]ListAPDebitNotesRow, error)
 	ListAPDebitNotesByStatus(ctx context.Context, status ApDebitNoteStatus) ([]ListAPDebitNotesByStatusRow, error)
 	ListAPDebitNotesBySupplier(ctx context.Context, supplierID int64) ([]ListAPDebitNotesBySupplierRow, error)
+	ListAPExceptionResolutionEventsForCompany(ctx context.Context, arg ListAPExceptionResolutionEventsForCompanyParams) ([]ApExceptionResolutionEvent, error)
 	ListAPExceptions(ctx context.Context, arg ListAPExceptionsParams) ([]ApException, error)
+	// Scope before applying workbench filters so pagination cannot leak or skip
+	// records from another company.
+	ListAPExceptionsForCompany(ctx context.Context, arg ListAPExceptionsForCompanyParams) ([]ApException, error)
 	ListAPInvoiceLines(ctx context.Context, apInvoiceID int64) ([]ListAPInvoiceLinesRow, error)
 	ListAPInvoicePayments(ctx context.Context, apInvoiceID int64) ([]ListAPInvoicePaymentsRow, error)
 	ListAPInvoices(ctx context.Context) ([]ListAPInvoicesRow, error)
@@ -722,6 +729,13 @@ type Querier interface {
 	ListDocumentVersions(ctx context.Context, arg ListDocumentVersionsParams) ([]ListDocumentVersionsRow, error)
 	ListDocuments(ctx context.Context, arg ListDocumentsParams) ([]ListDocumentsRow, error)
 	ListDrivers(ctx context.Context, arg ListDriversParams) ([]Driver, error)
+	// The scheduler runs at a fixed cadence, while each company controls its own
+	// sync interval. A failed run is eligible for recovery on the next scan;
+	// an abandoned PENDING run is recoverable after the same 15-minute lease
+	// window used by the connection sync task. Consent and status are checked in
+	// SQL so a queued scanner task cannot broaden into disconnected or expired
+	// connections.
+	ListDueBankFeedConnections(ctx context.Context) ([]ListDueBankFeedConnectionsRow, error)
 	ListDuePMSchedules(ctx context.Context, companyID int64) ([]ListDuePMSchedulesRow, error)
 	ListExpiredChallenges(ctx context.Context, limit int32) ([]ListExpiredChallengesRow, error)
 	ListExpiredDocumentRetention(ctx context.Context) ([]ListExpiredDocumentRetentionRow, error)
@@ -853,6 +867,13 @@ type Querier interface {
 	ReleaseQMSHold(ctx context.Context, arg ReleaseQMSHoldParams) error
 	RemoveRoleFromUser(ctx context.Context, arg RemoveRoleFromUserParams) error
 	RemoveTreasuryPaymentBatchItem(ctx context.Context, id int64) error
+	// Lock the current exception, apply one terminal transition, and append its
+	// resolution evidence in the same statement/transaction. A terminal row is
+	// deliberately not transitioned a second time.
+	ResolveAPException(ctx context.Context, arg ResolveAPExceptionParams) (int64, error)
+	// The company predicate is applied while acquiring the row lock; a
+	// cross-company ID therefore cannot be updated or generate an event.
+	ResolveAPExceptionForCompany(ctx context.Context, arg ResolveAPExceptionForCompanyParams) (int64, error)
 	ResolvePredictiveAlert(ctx context.Context, id int64) error
 	RolesCreateRole(ctx context.Context, arg RolesCreateRoleParams) (Role, error)
 	RolesListRoles(ctx context.Context, arg RolesListRolesParams) ([]Role, error)
@@ -866,7 +887,12 @@ type Querier interface {
 	SumAccountBalance(ctx context.Context, arg SumAccountBalanceParams) (float64, error)
 	SupplierBelongsToCompany(ctx context.Context, arg SupplierBelongsToCompanyParams) (bool, error)
 	TerminateSupplierContract(ctx context.Context, id int64) error
+	// Legacy non-terminal state update. Terminal transitions must use
+	// ResolveAPException so immutable resolution evidence cannot be bypassed.
 	UpdateAPExceptionStatus(ctx context.Context, arg UpdateAPExceptionStatusParams) error
+	// Legacy non-terminal state update. Terminal transitions must use the
+	// company-scoped resolver so immutable resolution evidence cannot be bypassed.
+	UpdateAPExceptionStatusForCompany(ctx context.Context, arg UpdateAPExceptionStatusForCompanyParams) (int64, error)
 	UpdateAPInvoiceDuplicateStatus(ctx context.Context, arg UpdateAPInvoiceDuplicateStatusParams) error
 	UpdateAPStatus(ctx context.Context, arg UpdateAPStatusParams) error
 	UpdateARStatus(ctx context.Context, arg UpdateARStatusParams) error

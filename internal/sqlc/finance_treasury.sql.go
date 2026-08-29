@@ -107,7 +107,11 @@ func (q *Queries) CreateTreasurySupplierBankAccount(ctx context.Context, arg Cre
 }
 
 const getTreasuryPaymentPolicy = `-- name: GetTreasuryPaymentPolicy :one
-SELECT id, company_id, calendar_id, max_batch_amount, max_item_amount, cut_off_time, bank_format, requires_maker_checker, created_at, updated_at FROM treasury_payment_policies WHERE company_id = $1 LIMIT 1
+SELECT id, company_id, calendar_id, max_batch_amount, max_item_amount, cut_off_time, bank_format, requires_maker_checker, created_at, updated_at
+FROM treasury_payment_policies
+WHERE company_id = $1
+ORDER BY updated_at DESC, id DESC
+LIMIT 1
 `
 
 func (q *Queries) GetTreasuryPaymentPolicy(ctx context.Context, companyID int64) (TreasuryPaymentPolicy, error) {

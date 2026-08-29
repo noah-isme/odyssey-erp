@@ -57,8 +57,8 @@ UPDATE pos SET approved_by = $1, approved_at = $2 WHERE id = $3;
 -- =============================================================================
 
 -- name: CreateGRN :one
-INSERT INTO grns (number, po_id, supplier_id, warehouse_id, status, received_at, note, created_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+INSERT INTO grns (number, po_id, supplier_id, warehouse_id, status, received_at, note, company_id, created_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
 RETURNING id;
 
 -- name: InsertGRNLine :exec
@@ -66,7 +66,7 @@ INSERT INTO grn_lines (grn_id, product_id, qty, unit_cost)
 VALUES ($1, $2, $3, $4);
 
 -- name: GetGRN :one
-SELECT id, number, po_id, supplier_id, warehouse_id, status, received_at, note
+SELECT id, number, po_id, supplier_id, warehouse_id, status, received_at, note, company_id
 FROM grns WHERE id = $1;
 
 -- name: GetGRNLines :many

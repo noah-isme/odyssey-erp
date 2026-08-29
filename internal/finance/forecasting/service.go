@@ -87,6 +87,14 @@ type Repository interface {
 	ListForecastDailyBucketsByRun(ctx context.Context, runID int64) ([]ForecastDailyBucket, error)
 }
 
+// SourceLineReader is an optional read-side repository capability. Keeping it
+// separate from Repository preserves the small write/summary contract for
+// existing callers while allowing the operations endpoint to expose exact
+// source links when the persistence adapter supports them.
+type SourceLineReader interface {
+	ListForecastSourceLinesByRun(ctx context.Context, companyID, runID int64) ([]ForecastSourceLine, error)
+}
+
 // BaseCurrencyReader is implemented by the persistence adapter so forecasts
 // never infer a company's base currency from a mock or from the first flow.
 type BaseCurrencyReader interface {
@@ -178,7 +186,7 @@ func (s *Service) GenerateSnapshot(ctx context.Context, companyID int64, scenari
 		return fmt.Errorf("failed to create forecast run: %w", err)
 	}
 
-	allFlows, err := s.readFlows(ctx, companyID, startDate, endDate)
+	allFlows, err := s.readFlows(ctx, companyID, scenarioID, startDate, endDate)
 	if err != nil {
 		return s.failRun(ctx, run.ID, err)
 	}
@@ -246,14 +254,24 @@ func (s *Service) GenerateSnapshot(ctx context.Context, companyID int64, scenari
 	})
 }
 
-func (s *Service) readFlows(ctx context.Context, companyID int64, startDate, endDate time.Time) ([]ExpectedCashFlow, error) {
+func (s *Service) readFlows(ctx context.Context, companyID, scenarioID int64, startDate, endDate time.Time) ([]ExpectedCashFlow, error) {
 	var allFlows []ExpectedCashFlow
 	var readerErrors []string
+	seenSourceKeys := make(map[string]string)
 	for _, reader := range s.readers {
 		if reader == nil {
+			readerErrors = append(readerErrors, "<nil>: source reader is not configured")
 			continue
 		}
-		flows, err := reader.ReadExpectedFlows(ctx, companyID, startDate, endDate)
+		var (
+			flows []ExpectedCashFlow
+			err   error
+		)
+		if scenarioReader, ok := reader.(ScenarioSourceReader); ok {
+			flows, err = scenarioReader.ReadExpectedFlowsForScenario(ctx, companyID, scenarioID, startDate, endDate)
+		} else {
+			flows, err = reader.ReadExpectedFlows(ctx, companyID, startDate, endDate)
+		}
 		if err != nil {
 			if s.logger != nil {
 				s.logger.Error("failed to read expected flows", "reader", reader.Name(), "error", err)
@@ -261,12 +279,74 @@ func (s *Service) readFlows(ctx context.Context, companyID int64, startDate, end
 			readerErrors = append(readerErrors, fmt.Sprintf("%s: %s", reader.Name(), err.Error()))
 			continue
 		}
-		allFlows = append(allFlows, flows...)
+		for index, flow := range flows {
+			normalized, err := normalizeExpectedCashFlow(flow)
+			if err != nil {
+				readerErrors = append(readerErrors, fmt.Sprintf("%s flow %d: %s", reader.Name(), index, err.Error()))
+				continue
+			}
+			key := string(normalized.SourceType) + "\x00" + normalized.SourceRef
+			if previousReader, duplicate := seenSourceKeys[key]; duplicate {
+				readerErrors = append(readerErrors, fmt.Sprintf("%s flow %d: duplicate source %s/%s already returned by %s", reader.Name(), index, normalized.SourceType, normalized.SourceRef, previousReader))
+				continue
+			}
+			seenSourceKeys[key] = reader.Name()
+			allFlows = append(allFlows, normalized)
+		}
 	}
 	if len(readerErrors) > 0 {
 		return nil, fmt.Errorf("failed to read all sources: %s", strings.Join(readerErrors, "; "))
 	}
 	return allFlows, nil
+}
+
+// normalizeExpectedCashFlow validates the source-line contract before any
+// bucket or source-line row is persisted. Empty source keys, unsupported
+// certainty values, and malformed amounts would otherwise make the snapshot
+// impossible to reconcile or replace with a later actual event.
+func normalizeExpectedCashFlow(flow ExpectedCashFlow) (ExpectedCashFlow, error) {
+	sourceType := strings.ToUpper(strings.TrimSpace(string(flow.SourceType)))
+	if sourceType == "" {
+		return ExpectedCashFlow{}, errors.New("source type is required")
+	}
+	if len(sourceType) > 50 {
+		return ExpectedCashFlow{}, errors.New("source type exceeds 50 characters")
+	}
+	sourceRef := strings.TrimSpace(flow.SourceRef)
+	if sourceRef == "" {
+		return ExpectedCashFlow{}, errors.New("source reference is required")
+	}
+	if len(sourceRef) > 255 {
+		return ExpectedCashFlow{}, errors.New("source reference exceeds 255 characters")
+	}
+	certainty := strings.ToUpper(strings.TrimSpace(string(flow.Certainty)))
+	if certainty != string(CertaintyCommitted) && certainty != string(CertaintyProbable) {
+		return ExpectedCashFlow{}, fmt.Errorf("certainty must be %s or %s", CertaintyCommitted, CertaintyProbable)
+	}
+	if flow.Date.IsZero() {
+		return ExpectedCashFlow{}, errors.New("expected date is required")
+	}
+	currency, err := fxservice.Currency(flow.Currency)
+	if err != nil {
+		return ExpectedCashFlow{}, fmt.Errorf("invalid flow currency: %w", err)
+	}
+	amountCurrency, err := fxservice.Currency(flow.Amount.Currency)
+	if err != nil {
+		return ExpectedCashFlow{}, fmt.Errorf("invalid amount currency: %w", err)
+	}
+	if currency != amountCurrency {
+		return ExpectedCashFlow{}, fmt.Errorf("amount currency %s does not match flow currency %s", amountCurrency, currency)
+	}
+	if err := flow.Amount.Validate(); err != nil {
+		return ExpectedCashFlow{}, err
+	}
+	flow.SourceType = SourceType(sourceType)
+	flow.SourceRef = sourceRef
+	flow.Certainty = Certainty(certainty)
+	flow.Currency = currency
+	flow.Amount.Currency = currency
+	flow.Date = dateOnlyUTC(flow.Date)
+	return flow, nil
 }
 
 func (s *Service) companyBaseCurrency(ctx context.Context, companyID int64) (string, error) {

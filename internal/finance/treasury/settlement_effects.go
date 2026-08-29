@@ -20,11 +20,50 @@ import (
 
 const settlementFXMaxAge = 48 * time.Hour
 
+// settlementSourceBankAccountSQL keeps the source-bank GL lookup inside the
+// settlement transaction. A bank account is company-owned, but its linked GL
+// account is a separate row and must be active and either owned by the same
+// company or explicitly global before a settlement can post to it.
+const settlementSourceBankAccountSQL = `
+	SELECT ba.gl_account_id, ba.currency
+	FROM bank_accounts ba
+	JOIN accounts a ON a.id = ba.gl_account_id
+	WHERE ba.id = $1 AND ba.company_id = $2 AND ba.is_active
+	  AND a.is_active
+	  AND (a.company_id = $2 OR a.company_id IS NULL)`
+
+// settlementBeneficiarySQL revalidates the beneficiary while the settlement
+// transaction is open. Approval-time checks are not sufficient: verification,
+// payment holds, effective dates, or ownership may change before a provider
+// result is imported. FOR UPDATE makes the check observe the post-update row
+// under PostgreSQL's READ COMMITTED semantics and serializes a concurrent
+// verification change with the accounting effect.
+const settlementBeneficiarySQL = `
+	SELECT id
+	FROM treasury_supplier_bank_accounts
+	WHERE id = $1
+	  AND company_id = $2
+	  AND supplier_id = $3
+	  AND UPPER(TRIM(currency)) = $4
+	  AND verification_status = 'VERIFIED'
+	  AND hold_payments = FALSE
+	  AND effective_from <= $5
+	  AND (effective_to IS NULL OR effective_to >= $5)
+	FOR UPDATE`
+
 var (
 	// A settlement must stop before creating any financial row when its base
 	// currency valuation cannot be proven from a recent daily rate.
 	ErrSettlementFXRateRequired = errors.New("treasury: settlement-date FX rate is required")
 	ErrSettlementFXRateStale    = errors.New("treasury: settlement-date FX rate is stale")
+	// ErrSettlementBeneficiaryNotPayable indicates that the beneficiary linked
+	// to a settled item is no longer valid for this company at effect time.
+	ErrSettlementBeneficiaryNotPayable = errors.New("treasury: settlement beneficiary is not payable")
+	// A concrete accounting effect must retain an authenticated actor so the
+	// AP payment and asynchronous tax-capture outbox can be processed. The
+	// provider-neutral port keeps ActorID optional for compatibility, but this
+	// adapter cannot safely continue without it.
+	ErrSettlementActorRequired = errors.New("treasury: settlement accounting actor is required")
 )
 
 // SettlementFXResolver is an optional transaction-aware valuation port. The
@@ -73,8 +112,11 @@ func (effects TreasurySettlementEffects) ApplySettlementEffectsTx(ctx context.Co
 	if tx == nil {
 		return nil, fmt.Errorf("treasury: settlement effects transaction is required")
 	}
+	if err := request.Validate(); err != nil {
+		return nil, err
+	}
 	result := request.Result
-	itemID, err := treasuryItemID(result.InstructionReference.ObjectID)
+	expectedBatchID, itemID, err := treasuryBatchItemIDs(result.InstructionReference.ObjectID)
 	if err != nil {
 		return nil, err
 	}
@@ -91,13 +133,16 @@ func (effects TreasurySettlementEffects) ApplySettlementEffectsTx(ctx context.Co
 	if err != nil {
 		return nil, fmt.Errorf("treasury: settlement currency: %w", err)
 	}
+	now := effects.now
+	if now == nil {
+		now = time.Now
+	}
+	// Effective-date validation is evaluated at effect time, while accounting
+	// entries retain the provider's settled timestamp as their posting date.
+	validationAt := now().UTC()
 	paidAt := result.SettledAt
 	if paidAt.IsZero() {
-		now := effects.now
-		if now == nil {
-			now = time.Now
-		}
-		paidAt = now().UTC()
+		paidAt = validationAt
 	}
 
 	var (
@@ -124,6 +169,9 @@ func (effects TreasurySettlementEffects) ApplySettlementEffectsTx(ctx context.Co
 	if err != nil {
 		return nil, fmt.Errorf("treasury: load settlement item %d: %w", itemID, err)
 	}
+	if batchID != expectedBatchID {
+		return nil, fmt.Errorf("%w: settlement instruction batch %d does not match item %d batch %d", payments.ErrSettlementResultReferenceMismatch, expectedBatchID, itemID, batchID)
+	}
 	if companyID != result.CompanyID || sourceBankID <= 0 || beneficiaryID <= 0 {
 		return nil, fmt.Errorf("treasury: settlement item is outside company scope")
 	}
@@ -149,13 +197,30 @@ func (effects TreasurySettlementEffects) ApplySettlementEffectsTx(ctx context.Co
 		return nil, fmt.Errorf("treasury: settlement amount exceeds batch item amount")
 	}
 
+	var validatedBeneficiaryID int64
+	if err := tx.QueryRow(ctx, settlementBeneficiarySQL,
+		beneficiaryID, result.CompanyID, supplierID, batchCurrency, validationAt,
+	).Scan(&validatedBeneficiaryID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("%w: account %d is outside company scope, unverified, held, or outside its effective window", ErrSettlementBeneficiaryNotPayable, beneficiaryID)
+		}
+		return nil, fmt.Errorf("treasury: load settlement beneficiary %d: %w", beneficiaryID, err)
+	}
+	if validatedBeneficiaryID != beneficiaryID {
+		return nil, fmt.Errorf("%w: account identity mismatch", ErrSettlementBeneficiaryNotPayable)
+	}
+	// Keep all current-state scope/payability checks ahead of the actor gate so
+	// callers receive the specific reason a settlement cannot be posted. The
+	// actor is still required before any accounting row is written below.
+	if request.ActorID <= 0 {
+		return nil, ErrSettlementActorRequired
+	}
+
 	var (
 		sourceGLAccountID int64
 		sourceCurrency    string
 	)
-	if err := tx.QueryRow(ctx, `
-		SELECT gl_account_id, currency FROM bank_accounts
-		WHERE id = $1 AND company_id = $2 AND is_active`, sourceBankID, result.CompanyID).Scan(&sourceGLAccountID, &sourceCurrency); err != nil {
+	if err := tx.QueryRow(ctx, settlementSourceBankAccountSQL, sourceBankID, result.CompanyID).Scan(&sourceGLAccountID, &sourceCurrency); err != nil {
 		return nil, fmt.Errorf("treasury: source bank account is not company-scoped: %w", err)
 	}
 	sourceCurrency, err = fx.Currency(sourceCurrency)
@@ -199,12 +264,12 @@ func (effects TreasurySettlementEffects) ApplySettlementEffectsTx(ctx context.Co
 			number, ap_invoice_id, supplier_id, amount, currency,
 			original_currency_amount, base_currency, base_amount, fx_rate,
 			fx_rate_date, fx_rate_source, fx_rate_locked_at,
-			paid_at, method, note, created_at, updated_at
+			paid_at, method, note, created_by, created_at, updated_at
 		) VALUES ($1, $2, $3, $4::numeric, $5, $4::numeric, $6, $7::numeric, $8::numeric,
-		          $9::date, $10, $11::timestamptz, $12::date, 'MIDTRANS_IRIS', $13, NOW(), NOW())
+		          $9::date, $10, $11::timestamptz, $12::date, 'MIDTRANS_IRIS', $13, $14, NOW(), NOW())
 		RETURNING id`, number, nullableInt8(invoiceID), supplierID, amount, settledCurrency,
 		baseCurrency, settlementBaseAmount.String(), quote.Rate.String(), quote.RateDate, quote.Source,
-		paidAt, paidAt, "settlement:"+result.ResultID).Scan(&paymentID)
+		paidAt, paidAt, "settlement:"+result.ResultID, request.ActorID).Scan(&paymentID)
 	if err != nil {
 		return nil, fmt.Errorf("treasury: create AP payment: %w", err)
 	}
@@ -423,8 +488,8 @@ func (effects TreasurySettlementEffects) ApplySettlementEffectsTx(ctx context.Co
 	var auditID int64
 	if err := tx.QueryRow(ctx, `
 		INSERT INTO audit_logs (actor_id, action, entity, entity_id, meta, occurred_at)
-		VALUES (NULL, 'settlement.apply', 'payment_settlement', $1, $2::jsonb, $3)
-		RETURNING id`, result.ResultID, metaPayload, paidAt).Scan(&auditID); err != nil {
+		VALUES ($1, 'settlement.apply', 'payment_settlement', $2, $3::jsonb, $4)
+		RETURNING id`, request.ActorID, result.ResultID, metaPayload, paidAt).Scan(&auditID); err != nil {
 		return nil, fmt.Errorf("treasury: record settlement audit: %w", err)
 	}
 	links = append(links, payments.SettlementEffectLink{
@@ -648,15 +713,44 @@ func settlementMappingForModule(ctx context.Context, tx pgx.Tx, companyID int64,
 }
 
 func treasuryItemID(objectID string) (int64, error) {
-	parts := strings.Split(strings.TrimSpace(objectID), "-")
-	if len(parts) < 2 {
-		return 0, fmt.Errorf("treasury: unsupported settlement instruction %q", objectID)
+	_, id, err := treasuryBatchItemIDs(objectID)
+	return id, err
+}
+
+// treasuryBatchItemIDs parses the canonical object ID produced for each
+// treasury batch item. Both identifiers are part of the settlement binding:
+// accepting only the trailing item ID would allow a result for one batch to
+// be applied to an item with the same ID in another batch after a malformed or
+// tampered reference crossed the provider boundary.
+func treasuryBatchItemIDs(objectID string) (int64, int64, error) {
+	const prefix = "treasury-batch-"
+	if objectID == "" || strings.TrimSpace(objectID) != objectID || !strings.HasPrefix(objectID, prefix) {
+		return 0, 0, fmt.Errorf("%w: unsupported settlement instruction %q", payments.ErrSettlementResultReferenceMismatch, objectID)
 	}
-	id, err := strconv.ParseInt(parts[len(parts)-1], 10, 64)
-	if err != nil || id <= 0 {
-		return 0, fmt.Errorf("treasury: unsupported settlement instruction %q", objectID)
+	parts := strings.Split(strings.TrimPrefix(objectID, prefix), "-item-")
+	if len(parts) != 2 {
+		return 0, 0, fmt.Errorf("%w: unsupported settlement instruction %q", payments.ErrSettlementResultReferenceMismatch, objectID)
 	}
-	return id, nil
+	batchID, ok := canonicalPositiveInt(parts[0])
+	if !ok {
+		return 0, 0, fmt.Errorf("%w: unsupported settlement instruction %q", payments.ErrSettlementResultReferenceMismatch, objectID)
+	}
+	itemID, ok := canonicalPositiveInt(parts[1])
+	if !ok {
+		return 0, 0, fmt.Errorf("%w: unsupported settlement instruction %q", payments.ErrSettlementResultReferenceMismatch, objectID)
+	}
+	return batchID, itemID, nil
+}
+
+func canonicalPositiveInt(value string) (int64, bool) {
+	if value == "" {
+		return 0, false
+	}
+	id, err := strconv.ParseInt(value, 10, 64)
+	if err != nil || id <= 0 || strconv.FormatInt(id, 10) != value {
+		return 0, false
+	}
+	return id, true
 }
 
 func nullableInt8(value pgtype.Int8) any {

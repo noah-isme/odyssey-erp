@@ -23,7 +23,7 @@ CERT_GO_CACHE?=/tmp/odyssey-cert-go-cache
 export APP_ENV?=development
 export PG_DSN?=postgres://odyssey:odyssey@localhost:5434/odyssey?sslmode=disable
 
-.PHONY: dev air lint vet vet-consol test build docs-check release-check pdf-release-check production-build-check production-release-check migrate-up migrate-down migrate-status test-migrate sqlc-gen midtrans-sandbox-certify seed seed-production seed-phase3 seed-phase4 refresh-mv reports-demo pdf-sample export-demo fx-tools analytics-dashboard analytics-dashboard-pdf analytics-dashboard-csv prom-up grafana-load alert-test monitor-demo release-phase6
+.PHONY: dev air lint vet vet-consol test build docs-check release-check pdf-release-check production-build-check production-release-check finance-sandbox-check migrate-up migrate-down migrate-status test-migrate sqlc-gen midtrans-sandbox-certify seed seed-production seed-phase3 seed-phase4 refresh-mv reports-demo pdf-sample export-demo fx-tools analytics-dashboard analytics-dashboard-pdf analytics-dashboard-csv prom-up grafana-load alert-test monitor-demo release-phase6
 
 dev:
 	docker compose up --build
@@ -64,6 +64,10 @@ docs-check:
 
 release-check: docs-check
 	bash scripts/check-release-hygiene.sh
+	if [ "$${RELEASE_PROFILE:-}" = "v0.11-finance" ]; then bash scripts/check-finance-sandbox-handoff.sh; fi
+
+finance-sandbox-check: docs-check
+	bash scripts/check-finance-sandbox-handoff.sh
 
 pdf-release-check:
 	$(GO_BIN) test -tags "production pdf" ./internal/consol/http

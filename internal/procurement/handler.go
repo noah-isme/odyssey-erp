@@ -1,6 +1,7 @@
 package procurement
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -132,6 +133,9 @@ func (h *Handler) MountRoutes(r chi.Router) {
 type formErrors map[string]string
 
 func (h *Handler) showPRForm(w http.ResponseWriter, r *http.Request) {
+	if _, ok := requireCompany(w, r); !ok {
+		return
+	}
 	productID, _ := strconv.ParseInt(r.URL.Query().Get("product_id"), 10, 64)
 	qty, _ := strconv.ParseFloat(r.URL.Query().Get("qty"), 64)
 
@@ -143,14 +147,24 @@ func (h *Handler) showPRForm(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) showPOForm(w http.ResponseWriter, r *http.Request) {
+	if _, ok := requireCompany(w, r); !ok {
+		return
+	}
 	h.render(w, r, "pages/procurement/po_form.html", map[string]any{"Errors": formErrors{}}, http.StatusOK)
 }
 
 func (h *Handler) showGRNForm(w http.ResponseWriter, r *http.Request) {
+	if _, ok := requireCompany(w, r); !ok {
+		return
+	}
 	h.render(w, r, "pages/procurement/grn_form.html", map[string]any{"Errors": formErrors{}}, http.StatusOK)
 }
 
 func (h *Handler) handleListPOs(w http.ResponseWriter, r *http.Request) {
+	companyID, ok := requireCompany(w, r)
+	if !ok {
+		return
+	}
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	if limit <= 0 {
 		limit = 20
@@ -158,6 +172,7 @@ func (h *Handler) handleListPOs(w http.ResponseWriter, r *http.Request) {
 	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
 	supplierID, _ := strconv.ParseInt(r.URL.Query().Get("supplier_id"), 10, 64)
 	filters := ListFilters{
+		CompanyID:  companyID,
 		Status:     r.URL.Query().Get("status"),
 		SupplierID: supplierID,
 		Search:     r.URL.Query().Get("search"),
@@ -166,6 +181,9 @@ func (h *Handler) handleListPOs(w http.ResponseWriter, r *http.Request) {
 	}
 	items, total, err := h.service.ListPOs(r.Context(), limit, offset, filters)
 	if err != nil {
+		if writeCompanyScopeError(w, r, err) {
+			return
+		}
 		h.logger.Error("list POs", slog.Any("error", err))
 		http.Error(w, "Failed to load purchase orders", http.StatusInternalServerError)
 		return
@@ -180,6 +198,10 @@ func (h *Handler) handleListPOs(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) handleListGRNs(w http.ResponseWriter, r *http.Request) {
+	companyID, ok := requireCompany(w, r)
+	if !ok {
+		return
+	}
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	if limit <= 0 {
 		limit = 20
@@ -187,6 +209,7 @@ func (h *Handler) handleListGRNs(w http.ResponseWriter, r *http.Request) {
 	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
 	supplierID, _ := strconv.ParseInt(r.URL.Query().Get("supplier_id"), 10, 64)
 	filters := ListFilters{
+		CompanyID:  companyID,
 		Status:     r.URL.Query().Get("status"),
 		SupplierID: supplierID,
 		Search:     r.URL.Query().Get("search"),
@@ -195,6 +218,9 @@ func (h *Handler) handleListGRNs(w http.ResponseWriter, r *http.Request) {
 	}
 	items, total, err := h.service.ListGRNs(r.Context(), limit, offset, filters)
 	if err != nil {
+		if writeCompanyScopeError(w, r, err) {
+			return
+		}
 		h.logger.Error("list GRNs", slog.Any("error", err))
 		http.Error(w, "Failed to load goods receipts", http.StatusInternalServerError)
 		return
@@ -209,6 +235,9 @@ func (h *Handler) handleListGRNs(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) createPR(w http.ResponseWriter, r *http.Request) {
+	if _, ok := requireCompany(w, r); !ok {
+		return
+	}
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
@@ -235,6 +264,9 @@ func (h *Handler) createPR(w http.ResponseWriter, r *http.Request) {
 		Lines:      lines,
 	})
 	if err != nil {
+		if writeCompanyScopeError(w, r, err) {
+			return
+		}
 		h.logger.Error("create PR", slog.Any("error", err))
 		h.render(w, r, "pages/procurement/pr_form.html", map[string]any{"Errors": formErrors{"general": shared.UserSafeMessage(err)}}, http.StatusBadRequest)
 		return
@@ -243,17 +275,58 @@ func (h *Handler) createPR(w http.ResponseWriter, r *http.Request) {
 }
 
 func currentCompany(r *http.Request) int64 {
-	s := shared.SessionFromContext(r.Context())
-	if s == nil {
+	if r == nil {
 		return 0
 	}
-	id, _ := strconv.ParseInt(s.Get("company_id"), 10, 64)
+	id, ok := shared.CompanyIDFromContext(r.Context())
+	if !ok {
+		return 0
+	}
 	return id
 }
 
+// requireCompany is the HTTP boundary for procurement's legacy service
+// contract. Every browser-facing detail or transition path must carry the
+// authenticated active company; worker callers do not pass through handlers
+// and retain their explicit context-free service contract.
+func requireCompany(w http.ResponseWriter, r *http.Request) (int64, bool) {
+	if r == nil {
+		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+		return 0, false
+	}
+	companyID, ok := shared.CompanyIDFromContext(r.Context())
+	if !ok {
+		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+		return 0, false
+	}
+	return companyID, true
+}
+
+// writeCompanyScopeError prevents a tenant mismatch from being rendered as a
+// normal validation error. A missing identity is forbidden; a loaded document
+// owned by another company is deliberately indistinguishable from a missing
+// document to the browser.
+func writeCompanyScopeError(w http.ResponseWriter, r *http.Request, err error) bool {
+	if errors.Is(err, ErrCompanyScopeRequired) {
+		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+		return true
+	}
+	if errors.Is(err, ErrCompanyScopeMismatch) {
+		http.NotFound(w, r)
+		return true
+	}
+	return false
+}
+
 func (h *Handler) submitPR(w http.ResponseWriter, r *http.Request) {
+	if _, ok := requireCompany(w, r); !ok {
+		return
+	}
 	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err := h.service.SubmitPurchaseRequest(r.Context(), id, currentUser(r)); err != nil {
+		if writeCompanyScopeError(w, r, err) {
+			return
+		}
 		h.logger.Error("submit PR", slog.Any("error", err), slog.Int64("id", id))
 		h.render(w, r, "pages/procurement/pr_form.html", map[string]any{"Errors": formErrors{"general": shared.UserSafeMessage(err)}}, http.StatusBadRequest)
 		return
@@ -262,6 +335,9 @@ func (h *Handler) submitPR(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) createPO(w http.ResponseWriter, r *http.Request) {
+	if _, ok := requireCompany(w, r); !ok {
+		return
+	}
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
@@ -278,6 +354,9 @@ func (h *Handler) createPO(w http.ResponseWriter, r *http.Request) {
 		Note:                r.PostFormValue("note"),
 	})
 	if err != nil {
+		if writeCompanyScopeError(w, r, err) {
+			return
+		}
 		h.logger.Error("create PO", slog.Any("error", err))
 		h.render(w, r, "pages/procurement/po_form.html", map[string]any{"Errors": formErrors{"general": shared.UserSafeMessage(err)}}, http.StatusBadRequest)
 		return
@@ -286,9 +365,15 @@ func (h *Handler) createPO(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) submitPO(w http.ResponseWriter, r *http.Request) {
+	if _, ok := requireCompany(w, r); !ok {
+		return
+	}
 	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	actorID := currentUser(r)
 	if err := h.service.SubmitPurchaseOrder(r.Context(), id, actorID); err != nil {
+		if writeCompanyScopeError(w, r, err) {
+			return
+		}
 		h.logger.Error("submit PO", slog.Any("error", err), slog.Int64("id", id))
 		h.render(w, r, "pages/procurement/po_form.html", map[string]any{"Errors": formErrors{"general": shared.UserSafeMessage(err)}}, http.StatusBadRequest)
 		return
@@ -297,8 +382,14 @@ func (h *Handler) submitPO(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) approvePO(w http.ResponseWriter, r *http.Request) {
+	if _, ok := requireCompany(w, r); !ok {
+		return
+	}
 	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err := h.service.ApprovePurchaseOrder(r.Context(), id, currentUser(r)); err != nil {
+		if writeCompanyScopeError(w, r, err) {
+			return
+		}
 		h.logger.Error("approve PO", slog.Any("error", err), slog.Int64("id", id))
 		h.render(w, r, "pages/procurement/po_form.html", map[string]any{"Errors": formErrors{"general": shared.UserSafeMessage(err)}}, http.StatusBadRequest)
 		return
@@ -308,6 +399,9 @@ func (h *Handler) approvePO(w http.ResponseWriter, r *http.Request) {
 
 // emailPO enqueues a background job to send a PO via email.
 func (h *Handler) emailPO(w http.ResponseWriter, r *http.Request) {
+	if _, ok := requireCompany(w, r); !ok {
+		return
+	}
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
@@ -317,6 +411,9 @@ func (h *Handler) emailPO(w http.ResponseWriter, r *http.Request) {
 
 	po, _, err := h.service.GetPOWithLines(r.Context(), id)
 	if err != nil {
+		if writeCompanyScopeError(w, r, err) {
+			return
+		}
 		h.logger.Error("get PO for email", slog.Any("error", err), slog.Int64("id", id))
 		h.redirectWithFlash(w, r, "/procurement/pos", "error", "Failed to retrieve PO")
 		return
@@ -342,6 +439,9 @@ func (h *Handler) emailPO(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) createGRN(w http.ResponseWriter, r *http.Request) {
+	if _, ok := requireCompany(w, r); !ok {
+		return
+	}
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
@@ -392,6 +492,9 @@ func (h *Handler) createGRN(w http.ResponseWriter, r *http.Request) {
 		Lines:       lines,
 	})
 	if err != nil {
+		if writeCompanyScopeError(w, r, err) {
+			return
+		}
 		h.logger.Error("create GRN", slog.Any("error", err))
 		h.render(w, r, "pages/procurement/grn_form.html", map[string]any{"Errors": formErrors{"general": shared.UserSafeMessage(err)}}, http.StatusBadRequest)
 		return
@@ -400,8 +503,14 @@ func (h *Handler) createGRN(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) postGRN(w http.ResponseWriter, r *http.Request) {
+	if _, ok := requireCompany(w, r); !ok {
+		return
+	}
 	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err := h.service.PostGoodsReceipt(r.Context(), id); err != nil {
+		if writeCompanyScopeError(w, r, err) {
+			return
+		}
 		h.logger.Error("post GRN", slog.Any("error", err), slog.Int64("id", id))
 		h.render(w, r, "pages/procurement/grn_form.html", map[string]any{"Errors": formErrors{"general": shared.UserSafeMessage(err)}}, http.StatusBadRequest)
 		return

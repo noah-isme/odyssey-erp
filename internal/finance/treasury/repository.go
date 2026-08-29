@@ -2,10 +2,12 @@ package treasury
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -15,7 +17,15 @@ import (
 // PGRepository adapts generated treasury rows to the storage-neutral treasury port.
 type PGRepository struct {
 	queries *sqlc.Queries
-	pool    *pgxpool.Pool
+	pool    treasuryPool
+}
+
+// treasuryPool is the small database surface used by the repository's
+// hand-written, transaction-sensitive checks. Keeping it as an interface lets
+// those checks use the same pgxmock pool as the generated queries in tests.
+type treasuryPool interface {
+	Begin(context.Context) (pgx.Tx, error)
+	QueryRow(context.Context, string, ...any) pgx.Row
 }
 
 func NewPGRepository(db *pgxpool.Pool) *PGRepository {
@@ -89,7 +99,35 @@ func (r *PGRepository) GetPaymentPolicy(ctx context.Context, companyID int64) (P
 	if err != nil {
 		return PaymentPolicy{}, err
 	}
-	return PaymentPolicy{RequiresMakerChecker: row.RequiresMakerChecker}, nil
+	if row.CompanyID != companyID {
+		return PaymentPolicy{}, fmt.Errorf("treasury: payment policy company mismatch")
+	}
+	policy := PaymentPolicy{
+		BankFormat:           strings.TrimSpace(row.BankFormat.String),
+		RequiresMakerChecker: row.RequiresMakerChecker,
+	}
+	if row.CalendarID.Valid {
+		policy.CalendarID = int64Ptr(row.CalendarID.Int64)
+	}
+	if row.MaxBatchAmount.Valid {
+		policy.MaxBatchAmount, err = amountFromNumeric(row.MaxBatchAmount)
+		if err != nil {
+			return PaymentPolicy{}, fmt.Errorf("treasury: payment policy max batch amount: %w", err)
+		}
+	}
+	if row.MaxItemAmount.Valid {
+		policy.MaxItemAmount, err = amountFromNumeric(row.MaxItemAmount)
+		if err != nil {
+			return PaymentPolicy{}, fmt.Errorf("treasury: payment policy max item amount: %w", err)
+		}
+	}
+	if row.CutOffTime.Valid {
+		policy.CutOffTime = durationPtr(time.Duration(row.CutOffTime.Microseconds) * time.Microsecond)
+	}
+	if err := policy.Validate(); err != nil {
+		return PaymentPolicy{}, err
+	}
+	return policy, nil
 }
 
 func (r *PGRepository) APInvoiceEligibleForPayment(ctx context.Context, invoiceID, supplierID, companyID int64, currency string) (bool, error) {
@@ -99,6 +137,52 @@ func (r *PGRepository) APInvoiceEligibleForPayment(ctx context.Context, invoiceI
 		CompanyID:  pgtype.Int8{Int64: companyID, Valid: companyID > 0},
 		Currency:   currency,
 	})
+}
+
+// APInvoiceAllocationAvailable extends the posted/unpaid check with the exact
+// amount being proposed and active treasury reservations from the same
+// company. Active items in draft, pending, approved, exported, and processing
+// batches reserve their amount; the current batch is excluded because its aggregate is passed as the
+// requested amount by the approval path. A supplier ID of zero is accepted by
+// the approval path after each item has already passed the supplier ownership
+// check.
+func (r *PGRepository) APInvoiceAllocationAvailable(ctx context.Context, invoiceID, supplierID, companyID int64, currency string, batchID int64, amount Amount) (bool, error) {
+	if r == nil || r.pool == nil || invoiceID <= 0 || companyID <= 0 || batchID <= 0 {
+		return false, nil
+	}
+	if err := amount.Validate(); err != nil || !amount.IsPositive() {
+		return false, fmt.Errorf("treasury: invalid invoice allocation amount")
+	}
+	var available bool
+	err := r.pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM ap_invoices i
+			JOIN suppliers s ON s.id = i.supplier_id
+			WHERE i.id = $1
+			  AND ($2 = 0 OR i.supplier_id = $2)
+			  AND s.company_id = $3
+			  AND i.currency = $4
+			  AND i.status = 'POSTED'
+			  AND i.total
+			      - COALESCE((
+			          SELECT SUM(pa.amount)
+			          FROM ap_payment_allocations pa
+			          WHERE pa.ap_invoice_id = i.id
+			        ), 0)
+			      - COALESCE((
+			          SELECT SUM(bi.amount)
+			          FROM treasury_payment_batch_items bi
+			          JOIN treasury_payment_batches b ON b.id = bi.batch_id
+			          WHERE bi.ap_invoice_id = i.id
+			            AND bi.status = 'ACTIVE'
+			            AND b.company_id = $3
+			            AND b.currency = $4
+			            AND b.status IN ('DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'EXPORTED', 'PROCESSING')
+			            AND b.id <> $5
+			        ), 0) >= $6::numeric
+		)`, invoiceID, supplierID, companyID, strings.ToUpper(strings.TrimSpace(currency)), batchID, amount.String()).Scan(&available)
+	return available, err
 }
 
 func (r *PGRepository) CreatePaymentBatch(ctx context.Context, input PaymentBatchCreate) (PaymentBatch, error) {
@@ -160,12 +244,19 @@ func (r *PGRepository) UpdatePaymentBatchTotal(ctx context.Context, input Paymen
 }
 
 func (r *PGRepository) UpdatePaymentBatchExport(ctx context.Context, input PaymentBatchExportUpdate) (PaymentBatch, error) {
+	if input.ExpectedRevisionNumber <= 0 {
+		return PaymentBatch{}, ErrPaymentBatchRevisionConflict
+	}
 	row, err := r.queries.UpdateTreasuryPaymentBatchExport(ctx, sqlc.UpdateTreasuryPaymentBatchExportParams{
-		ID:               input.ID,
-		ExportedFileHash: optionalText(input.ExportedFileHash),
-		ExportedBy:       optionalInt(input.ExportedBy),
+		ID:                     input.ID,
+		ExportedFileHash:       optionalText(input.ExportedFileHash),
+		ExportedBy:             optionalInt(input.ExportedBy),
+		ExpectedRevisionNumber: input.ExpectedRevisionNumber,
 	})
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return PaymentBatch{}, ErrPaymentBatchRevisionConflict
+		}
 		return PaymentBatch{}, err
 	}
 	return mapPaymentBatch(row)
@@ -194,6 +285,117 @@ func (r *PGRepository) CreatePaymentBatchItem(ctx context.Context, input Payment
 		return PaymentBatchItem{}, err
 	}
 	return mapPaymentBatchItem(row)
+}
+
+// CreatePaymentBatchItemAtomically serializes AP-backed proposal reservations
+// on the invoice row. The caller's earlier eligibility read is retained for a
+// fast rejection, but this transaction is authoritative: it rechecks the
+// posted invoice balance and all active treasury reservations after acquiring
+// the lock, then inserts the item before releasing it.
+func (r *PGRepository) CreatePaymentBatchItemAtomically(ctx context.Context, input PaymentBatchItemCreate) (PaymentBatchItem, error) {
+	if r == nil || r.pool == nil || input.BatchID <= 0 || input.SupplierID <= 0 || input.BankAccountID <= 0 {
+		return PaymentBatchItem{}, errors.New("treasury: payment batch item repository is not configured")
+	}
+	if err := input.Amount.Validate(); err != nil || !input.Amount.IsPositive() {
+		return PaymentBatchItem{}, errors.New("treasury: invalid payment batch item amount")
+	}
+
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return PaymentBatchItem{}, fmt.Errorf("treasury: begin payment item transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var batchStatus string
+	if err := tx.QueryRow(ctx, `
+		SELECT status
+		FROM treasury_payment_batches
+		WHERE id = $1
+		FOR UPDATE`, input.BatchID).Scan(&batchStatus); err != nil {
+		return PaymentBatchItem{}, fmt.Errorf("treasury: lock payment batch: %w", err)
+	}
+	if batchStatus == "EXPORTED" || batchStatus == "SETTLED" || batchStatus == "CANCELLED" {
+		return PaymentBatchItem{}, errors.New("treasury: cannot edit batch in terminal or exported state")
+	}
+
+	if input.APInvoiceID != nil {
+		var totalText, paidText, reservedText string
+		err := tx.QueryRow(ctx, `
+			SELECT i.total::text,
+			       COALESCE((
+			           SELECT SUM(pa.amount)
+			           FROM ap_payment_allocations pa
+			           WHERE pa.ap_invoice_id = i.id
+			       ), 0)::text,
+			       COALESCE((
+			           SELECT SUM(bi.amount)
+			           FROM treasury_payment_batch_items bi
+			           JOIN treasury_payment_batches b ON b.id = bi.batch_id
+			           WHERE bi.ap_invoice_id = i.id
+			             AND bi.status = 'ACTIVE'
+			             AND b.currency = i.currency
+			             AND b.status IN ('DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'EXPORTED', 'PROCESSING')
+			       ), 0)::text
+			FROM ap_invoices i
+			JOIN suppliers s ON s.id = i.supplier_id
+			JOIN treasury_payment_batches batch ON batch.id = $2
+			WHERE i.id = $1
+			  AND i.supplier_id = $3
+			  AND s.company_id = batch.company_id
+			  AND COALESCE(i.company_id, s.company_id) = batch.company_id
+			  AND i.currency = batch.currency
+			  AND i.status = 'POSTED'
+			FOR UPDATE OF i`, *input.APInvoiceID, input.BatchID, input.SupplierID).Scan(&totalText, &paidText, &reservedText)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return PaymentBatchItem{}, fmt.Errorf("%w: invoice %d", ErrPaymentInvoiceAllocationLimit, *input.APInvoiceID)
+			}
+			return PaymentBatchItem{}, fmt.Errorf("treasury: lock AP invoice %d: %w", *input.APInvoiceID, err)
+		}
+		total, err := ParseAmount(totalText)
+		if err != nil {
+			return PaymentBatchItem{}, fmt.Errorf("treasury: AP invoice %d total: %w", *input.APInvoiceID, err)
+		}
+		paid, err := ParseAmount(paidText)
+		if err != nil {
+			return PaymentBatchItem{}, fmt.Errorf("treasury: AP invoice %d paid amount: %w", *input.APInvoiceID, err)
+		}
+		reserved, err := ParseAmount(reservedText)
+		if err != nil {
+			return PaymentBatchItem{}, fmt.Errorf("treasury: AP invoice %d reserved amount: %w", *input.APInvoiceID, err)
+		}
+		remaining, err := total.Sub(paid)
+		if err == nil {
+			remaining, err = remaining.Sub(reserved)
+		}
+		if err != nil {
+			return PaymentBatchItem{}, fmt.Errorf("treasury: AP invoice %d balance: %w", *input.APInvoiceID, err)
+		}
+		if exceeds, err := input.Amount.Cmp(remaining); err != nil {
+			return PaymentBatchItem{}, fmt.Errorf("treasury: AP invoice %d balance comparison: %w", *input.APInvoiceID, err)
+		} else if exceeds > 0 {
+			return PaymentBatchItem{}, fmt.Errorf("%w: invoice %d", ErrPaymentInvoiceAllocationLimit, *input.APInvoiceID)
+		}
+	}
+
+	row, err := sqlc.New(tx).CreateTreasuryPaymentBatchItem(ctx, sqlc.CreateTreasuryPaymentBatchItemParams{
+		BatchID:       input.BatchID,
+		SupplierID:    input.SupplierID,
+		BankAccountID: input.BankAccountID,
+		Amount:        numericOf(input.Amount),
+		ApInvoiceID:   optionalInt(input.APInvoiceID),
+	})
+	if err != nil {
+		return PaymentBatchItem{}, err
+	}
+	item, err := mapPaymentBatchItem(row)
+	if err != nil {
+		return PaymentBatchItem{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return PaymentBatchItem{}, fmt.Errorf("treasury: commit payment item transaction: %w", err)
+	}
+	return item, nil
 }
 
 func (r *PGRepository) ListPaymentBatchItems(ctx context.Context, batchID int64) ([]PaymentBatchItem, error) {
@@ -241,8 +443,12 @@ func (r *PGRepository) SourceBankAccountBelongsToCompany(ctx context.Context, ac
 	var exists bool
 	err := r.pool.QueryRow(ctx, `
 		SELECT EXISTS (
-			SELECT 1 FROM bank_accounts
-			WHERE id = $1 AND company_id = $2 AND is_active AND currency = $3
+			SELECT 1
+			FROM bank_accounts ba
+			JOIN accounts a ON a.id = ba.gl_account_id
+			WHERE ba.id = $1 AND ba.company_id = $2 AND ba.is_active AND ba.currency = $3
+			  AND a.is_active
+			  AND (a.company_id = $2 OR a.company_id IS NULL)
 		)`, accountID, companyID, strings.ToUpper(strings.TrimSpace(currency))).Scan(&exists)
 	return exists, err
 }
@@ -343,6 +549,8 @@ func numericOf(value Amount) pgtype.Numeric {
 	_ = number.Scan(value.String())
 	return number
 }
+
+func durationPtr(value time.Duration) *time.Duration { return &value }
 
 func amountFromNumeric(value pgtype.Numeric) (Amount, error) {
 	if !value.Valid || value.NaN || value.InfinityModifier != pgtype.Finite {

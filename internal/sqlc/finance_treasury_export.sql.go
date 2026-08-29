@@ -19,17 +19,25 @@ SET status = 'EXPORTED',
     exported_at = NOW(),
     updated_at = NOW()
 WHERE id = $1
+  AND revision_number = $4
+  AND status = 'APPROVED'
 RETURNING id, company_id, reference_code, status, currency, total_amount, revision_number, proposed_by, approved_by, approved_at, created_at, updated_at, exported_file_hash, exported_at, exported_by, settled_at, settled_by, payment_connection_id, source_bank_account_id
 `
 
 type UpdateTreasuryPaymentBatchExportParams struct {
-	ID               int64       `json:"id"`
-	ExportedFileHash pgtype.Text `json:"exported_file_hash"`
-	ExportedBy       pgtype.Int8 `json:"exported_by"`
+	ID                     int64       `json:"id"`
+	ExportedFileHash       pgtype.Text `json:"exported_file_hash"`
+	ExportedBy             pgtype.Int8 `json:"exported_by"`
+	ExpectedRevisionNumber int32       `json:"expected_revision_number"`
 }
 
 func (q *Queries) UpdateTreasuryPaymentBatchExport(ctx context.Context, arg UpdateTreasuryPaymentBatchExportParams) (TreasuryPaymentBatch, error) {
-	row := q.db.QueryRow(ctx, updateTreasuryPaymentBatchExport, arg.ID, arg.ExportedFileHash, arg.ExportedBy)
+	row := q.db.QueryRow(ctx, updateTreasuryPaymentBatchExport,
+		arg.ID,
+		arg.ExportedFileHash,
+		arg.ExportedBy,
+		arg.ExpectedRevisionNumber,
+	)
 	var i TreasuryPaymentBatch
 	err := row.Scan(
 		&i.ID,

@@ -1,11 +1,13 @@
 package ap
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -19,6 +21,7 @@ import (
 type Handler struct {
 	logger       *slog.Logger
 	service      *Service
+	exceptions   exceptionWorkbenchService
 	templates    *view.Engine
 	csrf         *shared.CSRFManager
 	sessions     *shared.SessionManager
@@ -27,9 +30,40 @@ type Handler struct {
 	enqueueJob   func(int64, int64) error
 }
 
+// exceptionWorkbenchService is deliberately narrower than ExceptionService:
+// the HTTP workbench only needs read, list, and terminal-resolution behavior.
+// This keeps the handler testable without coupling it to a concrete database
+// implementation.
+type exceptionWorkbenchService interface {
+	GetExceptionForCompany(context.Context, int64, int64) (APException, error)
+	ListExceptionsForCompany(context.Context, int64, string, int64, int64, int, int) ([]APException, error)
+	ResolveExceptionForCompany(context.Context, int64, int64, int64, string) error
+}
+
+// exceptionWorkbenchCommentService is optional so existing integrations that
+// implement the narrower workbench interface continue to compile. The
+// concrete ExceptionService implements this richer path.
+type exceptionWorkbenchCommentService interface {
+	ResolveExceptionForCompanyWithComment(context.Context, int64, int64, int64, string, string) error
+}
+
+const exceptionListLimit = 100
+
+var exceptionStatuses = map[string]struct{}{
+	"":          {},
+	"OPEN":      {},
+	"IN_REVIEW": {},
+	"RESOLVED":  {},
+	"REJECTED":  {},
+}
+
 // NewHandler builds Handler instance.
 func NewHandler(logger *slog.Logger, service *Service, templates *view.Engine, csrf *shared.CSRFManager, sessions *shared.SessionManager, rbac rbac.Middleware) *Handler {
-	return &Handler{logger: logger, service: service, templates: templates, csrf: csrf, sessions: sessions, rbac: rbac}
+	var exceptions exceptionWorkbenchService
+	if service != nil && service.repo != nil {
+		exceptions = NewExceptionService(service.repo)
+	}
+	return &Handler{logger: logger, service: service, exceptions: exceptions, templates: templates, csrf: csrf, sessions: sessions, rbac: rbac}
 }
 
 // MountRoutes registers AP routes.
@@ -51,6 +85,15 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Get("/aging", h.showAPAgingReport)
 	})
 
+	// Exception workbench access is separate from ordinary AP access. In a
+	// bounded profile the parent router also applies the active company scope;
+	// RequireAny preserves that marker and therefore fails closed when scoped
+	// permission lookup is unavailable.
+	r.Group(func(r chi.Router) {
+		r.Use(h.rbac.RequireAny(shared.PermProcurementP2PExceptionView))
+		r.Get("/exceptions", h.listExceptions)
+	})
+
 	// Create/Action routes
 	r.Group(func(r chi.Router) {
 		r.With(h.rbac.RequireAny("finance.ap.create")).Post("/invoices", h.createAPInvoice)
@@ -62,6 +105,7 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.With(h.rbac.RequireAny(shared.PermFinanceAPDebitNoteCreate)).Post("/debit-notes/from-return/{returnID}", h.createDebitNoteFromReturn)
 		r.With(h.rbac.RequireAny(shared.PermFinanceAPDebitNotePost)).Post("/debit-notes/{id}/post", h.postDebitNote)
 		r.With(h.rbac.RequireAny(shared.PermFinanceAPDebitNoteVoid)).Post("/debit-notes/{id}/void", h.voidDebitNote)
+		r.With(h.rbac.RequireAny(shared.PermProcurementP2PExceptionResolve)).Post("/exceptions/{id}/resolve", h.resolveException)
 	})
 }
 
@@ -473,6 +517,165 @@ func (h *Handler) showAPAgingReport(w http.ResponseWriter, r *http.Request) {
 		"Aging": aging,
 		"Total": total,
 	}, http.StatusOK)
+}
+
+// listExceptions renders the company-scoped AP exception queue. The repository
+// applies the tenant boundary in SQL before pagination; the linked-invoice
+// check remains as a defense-in-depth guard for legacy records.
+// Missing company identity or invoice ownership fails closed.
+func (h *Handler) listExceptions(w http.ResponseWriter, r *http.Request) {
+	identity, ok := shared.IdentityFromContext(r.Context())
+	if !ok {
+		shared.WriteHTTPError(w, http.StatusUnauthorized, "")
+		return
+	}
+	if h.exceptions == nil || h.service == nil {
+		h.logger.Error("AP exception workbench is not configured")
+		http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
+		return
+	}
+
+	query := r.URL.Query()
+	status := strings.ToUpper(strings.TrimSpace(query.Get("status")))
+	if _, valid := exceptionStatuses[status]; !valid {
+		http.Error(w, "Invalid exception status", http.StatusBadRequest)
+		return
+	}
+	ownerID, err := parseExceptionFilterID(query.Get("owner_id"))
+	if err != nil {
+		http.Error(w, "Invalid owner ID", http.StatusBadRequest)
+		return
+	}
+	invoiceID, err := parseExceptionFilterID(query.Get("invoice_id"))
+	if err != nil {
+		http.Error(w, "Invalid invoice ID", http.StatusBadRequest)
+		return
+	}
+	offset, err := parseExceptionOffset(query.Get("offset"))
+	if err != nil {
+		http.Error(w, "Invalid offset", http.StatusBadRequest)
+		return
+	}
+
+	exceptions, err := h.exceptions.ListExceptionsForCompany(r.Context(), identity.CompanyID, status, ownerID, invoiceID, exceptionListLimit, offset)
+	if err != nil {
+		h.logger.Error("list AP exceptions", slog.Any("error", err))
+		h.render(w, r, "pages/ap/ap_exception_list.html", map[string]any{
+			"Errors": formErrors{"general": shared.UserSafeMessage(err)},
+		}, http.StatusInternalServerError)
+		return
+	}
+
+	scoped := make([]APException, 0, len(exceptions))
+	for _, exception := range exceptions {
+		invoice, invoiceErr := h.service.GetAPInvoice(r.Context(), exception.APInvoiceID)
+		if invoiceErr != nil {
+			h.logger.Error("scope AP exception invoice", slog.Any("error", invoiceErr), slog.Int64("exception_id", exception.ID), slog.Int64("invoice_id", exception.APInvoiceID))
+			h.render(w, r, "pages/ap/ap_exception_list.html", map[string]any{
+				"Errors": formErrors{"general": shared.UserSafeMessage(invoiceErr)},
+			}, http.StatusInternalServerError)
+			return
+		}
+		if invoice.CompanyID == nil || *invoice.CompanyID != identity.CompanyID {
+			continue
+		}
+		scoped = append(scoped, exception)
+	}
+
+	h.render(w, r, "pages/ap/ap_exception_list.html", map[string]any{
+		"Exceptions":    scoped,
+		"StatusFilter":  status,
+		"OwnerFilter":   ownerID,
+		"InvoiceFilter": invoiceID,
+		"Offset":        offset,
+	}, http.StatusOK)
+}
+
+// resolveException performs only terminal transitions exposed by the
+// workbench. The service repeats the validation so non-HTTP callers cannot
+// update an exception to an arbitrary status.
+func (h *Handler) resolveException(w http.ResponseWriter, r *http.Request) {
+	id, err := parsePositiveID(chi.URLParam(r, "id"))
+	if err != nil {
+		http.Error(w, "Invalid exception ID", http.StatusBadRequest)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+	resolution := strings.ToUpper(strings.TrimSpace(r.PostFormValue("resolution")))
+	if resolution != "RESOLVED" && resolution != "REJECTED" {
+		http.Error(w, "Invalid exception resolution", http.StatusBadRequest)
+		return
+	}
+	identity, ok := shared.IdentityFromContext(r.Context())
+	if !ok {
+		shared.WriteHTTPError(w, http.StatusUnauthorized, "")
+		return
+	}
+	if h.exceptions == nil || h.service == nil {
+		h.logger.Error("AP exception workbench is not configured")
+		http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
+		return
+	}
+
+	exception, err := h.exceptions.GetExceptionForCompany(r.Context(), identity.CompanyID, id)
+	if err != nil {
+		h.logger.Error("get AP exception for resolution", slog.Any("error", err), slog.Int64("exception_id", id))
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	invoice, err := h.service.GetAPInvoice(r.Context(), exception.APInvoiceID)
+	if err != nil {
+		h.logger.Error("scope AP exception resolution", slog.Any("error", err), slog.Int64("exception_id", id), slog.Int64("invoice_id", exception.APInvoiceID))
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	if invoice.CompanyID == nil || *invoice.CompanyID != identity.CompanyID {
+		// Do not reveal whether another company's exception exists.
+		http.NotFound(w, r)
+		return
+	}
+
+	var resolveErr error
+	if commentService, ok := h.exceptions.(exceptionWorkbenchCommentService); ok {
+		resolveErr = commentService.ResolveExceptionForCompanyWithComment(r.Context(), identity.CompanyID, id, identity.UserID, resolution, strings.TrimSpace(r.PostFormValue("comment")))
+	} else {
+		resolveErr = h.exceptions.ResolveExceptionForCompany(r.Context(), identity.CompanyID, id, identity.UserID, resolution)
+	}
+	if resolveErr != nil {
+		h.logger.Error("resolve AP exception", slog.Any("error", resolveErr), slog.Int64("exception_id", id))
+		h.redirectWithFlash(w, r, "/finance/ap/exceptions", "error", shared.UserSafeMessage(resolveErr))
+		return
+	}
+	h.redirectWithFlash(w, r, "/finance/ap/exceptions", "success", "AP exception updated")
+}
+
+func parseExceptionFilterID(raw string) (int64, error) {
+	if strings.TrimSpace(raw) == "" {
+		return 0, nil
+	}
+	return parsePositiveID(raw)
+}
+
+func parseExceptionOffset(raw string) (int, error) {
+	if strings.TrimSpace(raw) == "" {
+		return 0, nil
+	}
+	offset, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil || offset < 0 {
+		return 0, errors.New("offset must be zero or greater")
+	}
+	return offset, nil
+}
+
+func parsePositiveID(raw string) (int64, error) {
+	id, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
+	if err != nil || id <= 0 {
+		return 0, errors.New("id must be positive")
+	}
+	return id, nil
 }
 
 func (h *Handler) render(w http.ResponseWriter, r *http.Request, template string, data map[string]any, status int) {

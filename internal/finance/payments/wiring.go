@@ -40,7 +40,7 @@ func NewPostgresSettlementService(pool *pgxpool.Pool, appliers ...SettlementEffe
 	if pool == nil {
 		return nil
 	}
-	var effects SettlementEffectsPort = NewUnsupportedSettlementEffects()
+	effects := NewUnsupportedSettlementEffects()
 	if len(appliers) > 0 && appliers[0] != nil {
 		effects = NewPostgresSettlementEffectsWithApplier(pool, appliers[0])
 	}

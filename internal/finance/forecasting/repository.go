@@ -2,6 +2,8 @@ package forecasting
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -109,6 +111,62 @@ func (r *PGRepository) ListForecastDailyBucketsByRun(ctx context.Context, runID 
 		result = append(result, mapForecastBucket(row))
 	}
 	return result, nil
+}
+
+// ListForecastSourceLinesByRun returns exact source identities for a scoped
+// run. The company predicate is repeated here rather than relying only on the
+// handler's latest-run lookup so callers cannot use a guessed run ID to cross a
+// tenant boundary.
+func (r *PGRepository) ListForecastSourceLinesByRun(ctx context.Context, companyID, runID int64) ([]ForecastSourceLine, error) {
+	if r == nil || r.db == nil {
+		return nil, fmt.Errorf("forecast repository database is not configured")
+	}
+	if companyID <= 0 || runID <= 0 {
+		return nil, fmt.Errorf("forecast company and run IDs are required")
+	}
+	rows, err := r.db.Query(ctx, `
+		SELECT l.id,
+		       l.run_id,
+		       l.daily_bucket_id,
+		       l.source_type,
+		       l.source_ref,
+		       l.amount::text,
+		       l.currency,
+		       l.expected_date,
+		       l.certainty
+		FROM forecast_source_lines l
+		JOIN forecast_runs run ON run.id = l.run_id
+		WHERE run.company_id = $1
+		  AND l.run_id = $2
+		ORDER BY l.expected_date, l.id`, companyID, runID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var result []ForecastSourceLine
+	for rows.Next() {
+		var line ForecastSourceLine
+		if err := rows.Scan(
+			&line.ID,
+			&line.RunID,
+			&line.DailyBucketID,
+			&line.SourceType,
+			&line.SourceRef,
+			&line.Amount,
+			&line.Currency,
+			&line.ExpectedDate,
+			&line.Certainty,
+		); err != nil {
+			return nil, err
+		}
+		line.SourceType = strings.ToUpper(strings.TrimSpace(line.SourceType))
+		line.SourceRef = strings.TrimSpace(line.SourceRef)
+		line.Currency = strings.ToUpper(strings.TrimSpace(line.Currency))
+		line.Certainty = strings.ToUpper(strings.TrimSpace(line.Certainty))
+		line.ExpectedDate = dateOnlyUTC(line.ExpectedDate)
+		result = append(result, line)
+	}
+	return result, rows.Err()
 }
 
 func mapForecastRun(row sqlc.ForecastRun) ForecastRun {

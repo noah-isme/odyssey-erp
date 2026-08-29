@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"strings"
 	"time"
+
+	"github.com/odyssey-erp/odyssey-erp/internal/finance/automation"
 )
 
 // Repository is the treasury persistence port. Generated SQL types stay inside
@@ -30,6 +32,24 @@ type Repository interface {
 	CreatePaymentBatchItem(ctx context.Context, input PaymentBatchItemCreate) (PaymentBatchItem, error)
 	ListPaymentBatchItems(ctx context.Context, batchID int64) ([]PaymentBatchItem, error)
 	RemovePaymentBatchItem(ctx context.Context, id int64) error
+}
+
+// APInvoiceAllocationValidator is an optional persistence capability for
+// amount-aware proposal checks. The legacy eligibility method above confirms
+// that an invoice is posted and unpaid, while this extension also accounts for
+// active treasury proposals from the same company. Keeping it optional lets
+// lightweight repositories remain source-compatible; PostgreSQL implements
+// the capability at the exact NUMERIC boundary.
+type APInvoiceAllocationValidator interface {
+	APInvoiceAllocationAvailable(context.Context, int64, int64, int64, string, int64, Amount) (bool, error)
+}
+
+// AtomicPaymentBatchItemCreator is implemented by the PostgreSQL repository
+// so an AP-backed proposal cannot race another proposal between its balance
+// check and item insert. The legacy creator remains available for lightweight
+// repositories that do not provide database locking.
+type AtomicPaymentBatchItemCreator interface {
+	CreatePaymentBatchItemAtomically(context.Context, PaymentBatchItemCreate) (PaymentBatchItem, error)
 }
 
 // BatchConfigurationValidator is an optional repository capability used by
@@ -60,10 +80,17 @@ type ExecutionBatchResult struct {
 }
 
 type Service struct {
-	repo              Repository
-	apSvc             APService
-	logger            *slog.Logger
-	executionEnqueuer ExecutionEnqueuer
+	repo               Repository
+	apSvc              APService
+	logger             *slog.Logger
+	executionEnqueuer  ExecutionEnqueuer
+	automationSettings AutomationSettingsReader
+}
+
+// AutomationSettingsReader is the read-only company-scoped settings seam
+// required before live payment execution can be queued.
+type AutomationSettingsReader interface {
+	Settings(context.Context, int64) (automation.Settings, error)
 }
 
 var (
@@ -71,8 +98,12 @@ var (
 	errCompanyScopeMismatch = errors.New("treasury: resource does not belong to active company")
 )
 
-func NewService(repo Repository, apSvc APService, logger *slog.Logger) *Service {
-	return &Service{repo: repo, apSvc: apSvc, logger: logger}
+func NewService(repo Repository, apSvc APService, logger *slog.Logger, settings ...AutomationSettingsReader) *Service {
+	var automationSettings AutomationSettingsReader
+	if len(settings) > 0 {
+		automationSettings = settings[0]
+	}
+	return &Service{repo: repo, apSvc: apSvc, logger: logger, automationSettings: automationSettings}
 }
 
 func (s *Service) SetExecutionEnqueuer(enqueuer ExecutionEnqueuer) {
@@ -88,6 +119,9 @@ func (s *Service) AddBankAccount(ctx context.Context, companyID, supplierID, act
 	}
 	if strings.TrimSpace(bankName) == "" || strings.TrimSpace(accountNumber) == "" {
 		return SupplierBankAccount{}, errors.New("bank name and account number are required")
+	}
+	if strings.TrimSpace(evidenceRef) == "" {
+		return SupplierBankAccount{}, ErrPaymentEvidenceRequired
 	}
 	currency, err := normalizeCurrency(currency)
 	if err != nil {
@@ -124,6 +158,9 @@ func (s *Service) ApproveBankAccount(ctx context.Context, companyID, accountID, 
 	}
 	if account.CompanyID != companyID {
 		return SupplierBankAccount{}, errCompanyScopeMismatch
+	}
+	if strings.TrimSpace(account.EvidenceRef) == "" {
+		return SupplierBankAccount{}, ErrPaymentEvidenceRequired
 	}
 
 	policy, err := s.repo.GetPaymentPolicy(ctx, account.CompanyID)
@@ -261,6 +298,9 @@ func (s *Service) ExecuteBatch(ctx context.Context, companyID, batchID, executor
 	if batch.CompanyID != companyID {
 		return ExecutionBatchResult{}, errCompanyScopeMismatch
 	}
+	if err := s.validatePaymentExecutionSettings(ctx, companyID); err != nil {
+		return ExecutionBatchResult{}, err
+	}
 	if err := s.validateBatchConfiguration(ctx, batch); err != nil {
 		return ExecutionBatchResult{}, err
 	}
@@ -280,6 +320,20 @@ func (s *Service) ExecuteBatch(ctx context.Context, companyID, batchID, executor
 		}
 	}
 	return result, nil
+}
+
+func (s *Service) validatePaymentExecutionSettings(ctx context.Context, companyID int64) error {
+	if s.automationSettings == nil {
+		return fmt.Errorf("treasury: finance automation settings are not configured: %w", automation.ErrPaymentExecutionDisabled)
+	}
+	settings, err := s.automationSettings.Settings(ctx, companyID)
+	if err != nil {
+		return fmt.Errorf("treasury: load finance automation settings: %w", err)
+	}
+	if settings.CompanyID != companyID {
+		return fmt.Errorf("%w: finance automation settings", errCompanyScopeMismatch)
+	}
+	return automation.ValidatePaymentExecutionEnabled(settings)
 }
 
 func (s *Service) validateBatchConfiguration(ctx context.Context, batch PaymentBatch) error {
@@ -348,15 +402,30 @@ func (s *Service) AddBatchItem(ctx context.Context, companyID, batchID, supplier
 		if !eligible {
 			return PaymentBatchItem{}, errors.New("AP invoice is not payable for this supplier, company, or currency")
 		}
+		if validator, ok := s.repo.(APInvoiceAllocationValidator); ok {
+			available, err := validator.APInvoiceAllocationAvailable(ctx, *invoiceID, supplierID, companyID, batch.Currency, batchID, amount)
+			if err != nil {
+				return PaymentBatchItem{}, fmt.Errorf("failed to validate AP invoice allocation: %w", err)
+			}
+			if !available {
+				return PaymentBatchItem{}, fmt.Errorf("%w: invoice %d", ErrPaymentInvoiceAllocationLimit, *invoiceID)
+			}
+		}
 	}
 
-	item, err := s.repo.CreatePaymentBatchItem(ctx, PaymentBatchItemCreate{
+	itemInput := PaymentBatchItemCreate{
 		BatchID:       batchID,
 		SupplierID:    supplierID,
 		BankAccountID: bankAccountID,
 		Amount:        amount,
 		APInvoiceID:   optionalID(apInvoiceID),
-	})
+	}
+	var item PaymentBatchItem
+	if atomicCreator, ok := s.repo.(AtomicPaymentBatchItemCreator); ok {
+		item, err = atomicCreator.CreatePaymentBatchItemAtomically(ctx, itemInput)
+	} else {
+		item, err = s.repo.CreatePaymentBatchItem(ctx, itemInput)
+	}
 	if err != nil {
 		return PaymentBatchItem{}, err
 	}
@@ -364,6 +433,46 @@ func (s *Service) AddBatchItem(ctx context.Context, companyID, batchID, supplier
 	// not re-sum values and then race the authoritative SQL total.
 	_, err = s.repo.UpdatePaymentBatchRevision(ctx, PaymentBatchRevisionUpdate{ID: batchID})
 	return item, err
+}
+
+// SubmitBatch moves a complete draft proposal into the review queue. The
+// proposer identity is bound to the batch creator so a reviewer cannot submit
+// another user's draft by guessing its ID. Approval remains a separate action
+// and revalidates all beneficiary, invoice, policy, and allocation controls.
+func (s *Service) SubmitBatch(ctx context.Context, companyID, batchID, proposerID int64) (PaymentBatch, error) {
+	if companyID <= 0 || batchID <= 0 || proposerID <= 0 {
+		return PaymentBatch{}, errCompanyScopeRequired
+	}
+	batch, err := s.repo.GetPaymentBatch(ctx, batchID)
+	if err != nil {
+		return PaymentBatch{}, err
+	}
+	if batch.CompanyID != companyID {
+		return PaymentBatch{}, errCompanyScopeMismatch
+	}
+	if batch.ProposedBy != proposerID {
+		return PaymentBatch{}, errors.New("only the proposer can submit this batch")
+	}
+	if batch.Status != "DRAFT" {
+		return PaymentBatch{}, errors.New("only draft batches can be submitted")
+	}
+	items, err := s.repo.ListPaymentBatchItems(ctx, batchID)
+	if err != nil {
+		return PaymentBatch{}, err
+	}
+	if len(items) == 0 {
+		return PaymentBatch{}, errors.New("cannot submit an empty payment batch")
+	}
+	// Recompute from ACTIVE rows immediately before entering review so the
+	// approval queue never displays a caller-supplied aggregate.
+	batch, err = s.repo.UpdatePaymentBatchTotal(ctx, PaymentBatchTotalUpdate{ID: batchID})
+	if err != nil {
+		return PaymentBatch{}, fmt.Errorf("failed to reconcile batch total: %w", err)
+	}
+	if err := batch.TotalAmount.Validate(); err != nil || !batch.TotalAmount.IsPositive() {
+		return PaymentBatch{}, errors.New("payment batch total must be greater than zero")
+	}
+	return s.repo.UpdatePaymentBatchStatus(ctx, PaymentBatchStatusUpdate{ID: batchID, Status: "PENDING_APPROVAL"})
 }
 
 func (s *Service) ApproveBatch(ctx context.Context, companyID, batchID, approverID int64) (PaymentBatch, error) {
@@ -401,6 +510,35 @@ func (s *Service) ApproveBatch(ctx context.Context, companyID, batchID, approver
 	batch, err = s.repo.UpdatePaymentBatchTotal(ctx, PaymentBatchTotalUpdate{ID: batchID})
 	if err != nil {
 		return PaymentBatch{}, fmt.Errorf("failed to reconcile batch total: %w", err)
+	}
+	if err := policy.ValidateBatch(batch, items); err != nil {
+		return PaymentBatch{}, err
+	}
+	if validator, ok := s.repo.(APInvoiceAllocationValidator); ok {
+		allocations := make(map[int64]Amount)
+		for _, item := range items {
+			if item.APInvoiceID == nil {
+				continue
+			}
+			current := allocations[*item.APInvoiceID]
+			if current == "" {
+				current = MustParseAmount("0")
+			}
+			current, err = current.Add(item.Amount)
+			if err != nil {
+				return PaymentBatch{}, fmt.Errorf("failed to total invoice %d allocation: %w", *item.APInvoiceID, err)
+			}
+			allocations[*item.APInvoiceID] = current
+		}
+		for invoiceID, amount := range allocations {
+			available, err := validator.APInvoiceAllocationAvailable(ctx, invoiceID, 0, batch.CompanyID, batch.Currency, batchID, amount)
+			if err != nil {
+				return PaymentBatch{}, fmt.Errorf("failed to validate invoice %d allocation: %w", invoiceID, err)
+			}
+			if !available {
+				return PaymentBatch{}, fmt.Errorf("%w: invoice %d", ErrPaymentInvoiceAllocationLimit, invoiceID)
+			}
+		}
 	}
 	for _, item := range items {
 		canPay, err := s.CanPaySupplier(ctx, batch.CompanyID, item.SupplierID)
@@ -478,6 +616,9 @@ func (s *Service) ExportBatch(ctx context.Context, companyID, batchID, actorID i
 	if companyID <= 0 || batchID <= 0 || actorID <= 0 {
 		return nil, errCompanyScopeRequired
 	}
+	if encoder == nil {
+		return nil, errors.New("bank format encoder is not configured")
+	}
 	batch, err := s.repo.GetPaymentBatch(ctx, batchID)
 	if err != nil {
 		return nil, err
@@ -492,15 +633,70 @@ func (s *Service) ExportBatch(ctx context.Context, companyID, batchID, actorID i
 	if err != nil {
 		return nil, err
 	}
+	policy, err := s.repo.GetPaymentPolicy(ctx, batch.CompanyID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get payment policy: %w", err)
+	}
+	if err := policy.ValidateBatch(batch, items); err != nil {
+		return nil, err
+	}
+	if err := validateExportApproval(policy, batch); err != nil {
+		return nil, err
+	}
+	if err := s.validateExportDuties(ctx, batch, actorID); err != nil {
+		return nil, err
+	}
+	if err := validateBankFormat(policy, encoder); err != nil {
+		return nil, err
+	}
 	payload, hash, err := encoder.Encode(batch, items)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode batch: %w", err)
 	}
-	_, err = s.repo.UpdatePaymentBatchExport(ctx, PaymentBatchExportUpdate{ID: batchID, ExportedFileHash: hash, ExportedBy: int64Ptr(actorID)})
+	exportedBatch, err := s.repo.UpdatePaymentBatchExport(ctx, PaymentBatchExportUpdate{
+		ID:                     batchID,
+		ExportedFileHash:       hash,
+		ExportedBy:             int64Ptr(actorID),
+		ExpectedRevisionNumber: batch.RevisionNumber,
+	})
 	if err != nil {
+		if errors.Is(err, ErrPaymentBatchRevisionConflict) {
+			return nil, err
+		}
 		return nil, fmt.Errorf("failed to mark batch as exported: %w", err)
 	}
+	if exportedBatch.ID != batchID || exportedBatch.RevisionNumber != batch.RevisionNumber || exportedBatch.Status != "EXPORTED" {
+		return nil, ErrPaymentBatchRevisionConflict
+	}
 	return payload, nil
+}
+
+func validateExportApproval(policy PaymentPolicy, batch PaymentBatch) error {
+	if batch.ProposedBy <= 0 || batch.ApprovedBy == nil || *batch.ApprovedBy <= 0 {
+		return ErrPaymentApprovalRequired
+	}
+	if policy.RequiresMakerChecker && batch.ProposedBy == *batch.ApprovedBy {
+		return fmt.Errorf("%w: proposer cannot approve", ErrPaymentApprovalRequired)
+	}
+	return nil
+}
+
+// validateExportDuties applies the company-scoped maker/checker/executor
+// matrix when settings are available. Export-only callers that intentionally
+// do not wire automation settings still receive the policy-level approval
+// check above; live application wiring always supplies the settings reader.
+func (s *Service) validateExportDuties(ctx context.Context, batch PaymentBatch, actorID int64) error {
+	if s == nil || s.automationSettings == nil {
+		return nil
+	}
+	settings, err := s.automationSettings.Settings(ctx, batch.CompanyID)
+	if err != nil {
+		return fmt.Errorf("treasury: load finance automation settings: %w", err)
+	}
+	if settings.CompanyID != batch.CompanyID {
+		return fmt.Errorf("%w: finance automation settings", errCompanyScopeMismatch)
+	}
+	return automation.ValidatePaymentDutySeparation(settings, batch.ProposedBy, *batch.ApprovedBy, actorID)
 }
 
 // SettleBatch confirms the bank settlement and allocates AP invoices.

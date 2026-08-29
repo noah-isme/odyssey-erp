@@ -19,6 +19,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/journals"
+	"github.com/odyssey-erp/odyssey-erp/internal/accounting/mappings"
+	"github.com/odyssey-erp/odyssey-erp/internal/accounting/periods"
 	"github.com/odyssey-erp/odyssey-erp/internal/analytics"
 	"github.com/odyssey-erp/odyssey-erp/internal/ap"
 	apihttp "github.com/odyssey-erp/odyssey-erp/internal/api"
@@ -48,12 +50,14 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/treasury"
 	"github.com/odyssey-erp/odyssey-erp/internal/fixedassets"
 	fxservice "github.com/odyssey-erp/odyssey-erp/internal/fx"
+	"github.com/odyssey-erp/odyssey-erp/internal/integration"
 	"github.com/odyssey-erp/odyssey-erp/internal/notifications"
 	"github.com/odyssey-erp/odyssey-erp/internal/observability"
 	"github.com/odyssey-erp/odyssey-erp/internal/outbox"
 	"github.com/odyssey-erp/odyssey-erp/internal/payroll"
 	"github.com/odyssey-erp/odyssey-erp/internal/platform/cache"
 	"github.com/odyssey-erp/odyssey-erp/internal/platform/db"
+	"github.com/odyssey-erp/odyssey-erp/internal/procurement"
 	"github.com/odyssey-erp/odyssey-erp/internal/qms"
 	"github.com/odyssey-erp/odyssey-erp/internal/sales/customers"
 	"github.com/odyssey-erp/odyssey-erp/internal/sales/orders"
@@ -73,6 +77,43 @@ type payrollDeliveryQueue struct{ client *asynq.Client }
 type fxJobFetcher struct{ service *fxservice.Service }
 
 type webhookDispatcher struct{ handler *apihttp.Handler }
+
+func cashForecastScheduleEnabled(profile string) bool {
+	parsed, err := app.ParseReleaseProfile(profile)
+	if err != nil {
+		return false
+	}
+	return parsed == app.ReleaseProfileV011Finance || parsed == app.ReleaseProfileFull
+}
+
+// apWorkerServiceConfigurator is the narrow setter surface required to make
+// worker-triggered AP posting safe. Keeping the composition seam explicit
+// makes it impossible to accidentally run the background matcher with a
+// service that can mutate AP state but has no accounting/tax/FX boundaries.
+type apWorkerServiceConfigurator interface {
+	SetIntegrationHandler(procurement.IntegrationHandler)
+	SetTaxService(ap.TaxServicePort)
+	SetFXResolver(ap.FXRateResolver)
+}
+
+func configureAPWorkerService(service apWorkerServiceConfigurator, accounting procurement.IntegrationHandler, taxService ap.TaxServicePort, fxResolver ap.FXRateResolver) error {
+	if service == nil {
+		return errors.New("worker: AP service is not configured")
+	}
+	if accounting == nil {
+		return errors.New("worker: AP accounting integration is not configured")
+	}
+	if taxService == nil {
+		return errors.New("worker: AP tax service is not configured")
+	}
+	if fxResolver == nil {
+		return errors.New("worker: AP FX resolver is not configured")
+	}
+	service.SetIntegrationHandler(accounting)
+	service.SetTaxService(taxService)
+	service.SetFXResolver(fxResolver)
+	return nil
+}
 
 type paymentAlertSink struct {
 	pool       *pgxpool.Pool
@@ -360,6 +401,7 @@ func main() {
 	crmService := crm.NewService(crm.NewRepository(pool), nil, nil, crm.NewNotificationAdapter(notificationDispatcher))
 	cmmsService := cmms.NewService(cmms.NewRepository(pool))
 	fxRepo := fxservice.NewRepository(pool)
+	fxResolver := fxservice.Resolver{Repo: fxRepo, MaxAge: cfg.FXMaxRateAge}
 	fxProvider := fxservice.NewExchangeRateAPI(fxservice.ProviderConfig{BaseURL: cfg.FXAPIBaseURL, APIKey: cfg.FXAPIKey, Timeout: cfg.FXFetchTimeout})
 	fxDailyService := &fxservice.Service{Provider: fxProvider, Repo: fxRepo, MaxRateAge: cfg.FXMaxRateAge}
 	apiHandler := apihttp.NewHandler(pool, []byte(cfg.SessionSecret))
@@ -402,50 +444,59 @@ func main() {
 	connectorsRegistry.Register("midtrans", midtrans.NewAdapter(logger, vault, providerOptions))
 	connectorsRepo := connectors.NewRepository(pool)
 	treasuryRepo := treasury.NewPGRepository(pool)
-	irisAdapter := midtransiris.NewAdapter(logger, vault, midtransiris.Options{
-		ProviderOptions: providerOptions,
-		ConnectionResolver: func(ctx context.Context, ref automation.ConnectionRef) (*connectors.Connection, error) {
-			conn, err := connectorsRepo.GetConnection(ctx, ref.CompanyID, ref.ConnectionID)
-			if err != nil {
-				return nil, err
-			}
-			if conn.CompanyID != ref.CompanyID {
-				return nil, fmt.Errorf("midtrans iris: connection company mismatch")
-			}
-			return &conn, nil
-		},
-		ScopedBeneficiaryResolver: func(ctx context.Context, connection automation.ConnectionRef, ref string) (midtransiris.Beneficiary, error) {
-			const prefix = "bank-account:"
-			value := strings.TrimPrefix(strings.TrimSpace(ref), prefix)
-			accountID, parseErr := strconv.ParseInt(value, 10, 64)
-			if parseErr != nil || accountID <= 0 {
-				return midtransiris.Beneficiary{}, fmt.Errorf("invalid bank account reference")
-			}
-			account, accountErr := treasuryRepo.GetSupplierBankAccount(ctx, accountID)
-			if accountErr != nil {
-				return midtransiris.Beneficiary{}, accountErr
-			}
-			if account.CompanyID != connection.CompanyID {
-				return midtransiris.Beneficiary{}, fmt.Errorf("bank account is outside connection company scope")
-			}
-			bank := account.RoutingNumber
-			if strings.TrimSpace(bank) == "" {
-				bank = account.BankName
-			}
-			return midtransiris.Beneficiary{
-				Name:    fmt.Sprintf("Supplier %d", account.SupplierID),
-				Account: account.AccountNumber,
-				Bank:    bank,
-			}, nil
-		},
-	})
-	paymentRouter := payments.NewProviderRouter(map[string]payments.ExecutionPort{
-		midtransiris.Provider: irisAdapter,
-		"midtrans-iris":       irisAdapter,
-		"midtransiris":        irisAdapter,
-		"iris":                irisAdapter,
-	})
-	paymentCoordinator := payments.NewCoordinator(paymentRouter, payments.NewPostgresStore(pool), payments.NewSeparationAuthorizer(automation.Settings{}))
+	financeAutomationSettings := automation.NewRepository(pool)
+	var paymentCoordinator *payments.Coordinator
+	financePaymentEnabled := cfg.IsFinanceSandbox() && strings.EqualFold(strings.TrimSpace(cfg.ReleaseProfile), string(app.ReleaseProfileV011Finance))
+	if financePaymentEnabled {
+		irisAdapter := midtransiris.NewAdapter(logger, vault, midtransiris.Options{
+			ProviderOptions: providerOptions,
+			SandboxOnly:     cfg.IsFinanceSandbox(),
+			ConnectionResolver: func(ctx context.Context, ref automation.ConnectionRef) (*connectors.Connection, error) {
+				conn, err := connectorsRepo.GetConnection(ctx, ref.CompanyID, ref.ConnectionID)
+				if err != nil {
+					return nil, err
+				}
+				if conn.CompanyID != ref.CompanyID {
+					return nil, fmt.Errorf("midtrans iris: connection company mismatch")
+				}
+				return &conn, nil
+			},
+			ScopedBeneficiaryResolver: func(ctx context.Context, connection automation.ConnectionRef, ref string) (midtransiris.Beneficiary, error) {
+				const prefix = "bank-account:"
+				value := strings.TrimPrefix(strings.TrimSpace(ref), prefix)
+				accountID, parseErr := strconv.ParseInt(value, 10, 64)
+				if parseErr != nil || accountID <= 0 {
+					return midtransiris.Beneficiary{}, fmt.Errorf("invalid bank account reference")
+				}
+				account, accountErr := treasuryRepo.GetSupplierBankAccount(ctx, accountID)
+				if accountErr != nil {
+					return midtransiris.Beneficiary{}, accountErr
+				}
+				if account.CompanyID != connection.CompanyID {
+					return midtransiris.Beneficiary{}, fmt.Errorf("bank account is outside connection company scope")
+				}
+				bank := account.RoutingNumber
+				if strings.TrimSpace(bank) == "" {
+					bank = account.BankName
+				}
+				return midtransiris.Beneficiary{
+					Name:    fmt.Sprintf("Supplier %d", account.SupplierID),
+					Account: account.AccountNumber,
+					Bank:    bank,
+				}, nil
+			},
+		})
+		// Register one canonical Midtrans Iris key; the router normalizes the
+		// persisted hyphenated spelling and rejects duplicate normalized aliases.
+		paymentRouter := payments.NewProviderRouter(map[string]payments.ExecutionPort{
+			midtransiris.Provider: irisAdapter,
+			"midtransiris":        irisAdapter,
+			"iris":                irisAdapter,
+		})
+		paymentAuthorizer := payments.NewSeparationAuthorizer(automation.Settings{})
+		paymentAuthorizer.SettingsForCompany = financeAutomationSettings.Settings
+		paymentCoordinator = payments.NewCoordinator(paymentRouter, payments.NewPostgresStore(pool), paymentAuthorizer)
+	}
 	connectorsOutboxWorker := connectors.NewOutboxWorker(connectorsRepo, connectorsRegistry, connectors.WithOutboxWorkerLogger(logger))
 	connectorsService := connectors.NewService(connectorsRepo, vault, connectorsRegistry)
 	recoveryMetrics := observability.NewPaymentRecoveryMetrics(nil)
@@ -475,6 +526,7 @@ func main() {
 	orders.RegisterOutboxHandlers(outboxDispatcher, marketplaceProc)
 
 	bankfeedsRepo := bankfeeds.NewPGRepository(pool)
+	bankFeedScheduleStore := newBankFeedScheduleStore(pool)
 	bankingRepo := banking.NewRepository(pool)
 	// We don't have a poster in worker, but ImportStatement doesn't post to GL directly.
 	bankingService := banking.NewService(bankingRepo, logger, nil)
@@ -486,20 +538,18 @@ func main() {
 		fmt.Sprintf("finance-worker-%d", os.Getpid()),
 		logger,
 	)
-	if cfg.IsFinanceSandbox() && strings.EqualFold(strings.TrimSpace(cfg.ReleaseProfile), string(app.ReleaseProfileV011Finance)) {
-		financeSettlementService := payments.NewPostgresSettlementService(pool, treasury.NewTreasurySettlementEffects())
-		if err := payments.RegisterPaymentExecutionHandlers(financeAutomationDispatcher, paymentCoordinator, financeSettlementService); err != nil {
-			logger.Error("register payment execution handlers", slog.Any("error", err))
-			os.Exit(1)
-		}
-	} else {
-		logger.Info("finance payment execution handlers disabled by release profile", slog.String("release_profile", cfg.ReleaseProfile))
+	var financeSettlementService *payments.SettlementService
+	if financePaymentEnabled {
+		financeSettlementService = payments.NewPostgresSettlementService(pool, treasury.NewTreasurySettlementEffects())
+	}
+	if err := payments.RegisterPaymentExecutionHandlers(financeAutomationDispatcher, paymentCoordinator, financeSettlementService); err != nil {
+		logger.Error("register payment execution handlers", slog.Any("error", err))
+		os.Exit(1)
 	}
 	var financePaymentRecovery *payments.PaymentRecoveryScanner
-	if cfg.IsFinanceSandbox() && strings.EqualFold(strings.TrimSpace(cfg.ReleaseProfile), string(app.ReleaseProfileV011Finance)) {
-		// The recovery projection reads only v0.11 finance tables and is kept
-		// outside the v0.10 worker profile. It emits deduplicated operator
-		// notifications; it never retries or replays a provider command.
+	if financePaymentEnabled {
+		// The recovery projection reads only finance payment tables and never
+		// retries or replays a provider command.
 		financePaymentRecovery = payments.NewPaymentRecoveryScanner(
 			payments.NewPaymentRecoveryRepository(pool),
 			notificationDispatcher,
@@ -512,13 +562,24 @@ func main() {
 	forecastService := forecasting.NewServiceWithFXResolver(
 		forecastRepo,
 		forecastReaders,
-		fxservice.Resolver{Repo: fxRepo, MaxAge: cfg.FXMaxRateAge},
+		fxResolver,
 		logger,
 	)
-	forecastProcessor := jobs.NewCashForecastProcessor(forecastService, logger)
+	forecastProcessor := jobs.NewCashForecastProcessor(forecastService, logger, financeAutomationSettings)
+	forecastScheduleStore := newCashForecastScheduleStore(pool)
 
+	accountingJournalService := journals.NewService(journals.NewRepository(pool), nil, nil)
+	accountingHooks := integration.NewHooks(
+		accountingJournalService,
+		periods.NewRepository(pool),
+		mappings.NewRepository(pool),
+	)
 	apRepo := ap.NewRepository(pool)
-	apService := ap.NewService(apRepo, nil) // Dependencies omitted for simplicity in worker
+	apService := ap.NewService(apRepo, nil)
+	if err := configureAPWorkerService(apService, accountingHooks, taxService, fxResolver); err != nil {
+		logger.Error("configure AP worker service", slog.Any("error", err))
+		os.Exit(1)
+	}
 	matchingService := ap.NewMatchingService(apRepo)
 	exceptionService := ap.NewExceptionService(apRepo)
 	apOrchestrator := ap.NewOrchestrator(matchingService, exceptionService, apService)
@@ -553,6 +614,24 @@ func main() {
 		{Type: jobs.TaskConnectorDeadLetterAudit, Handler: jobs.HandleConnectorDeadLetterAudit(paymentReconciliation)},
 		{Type: jobs.TaskProcessAPInvoice, Handler: jobs.HandleProcessAPInvoice(apOrchestrator.ProcessInvoice)},
 	}
+	if cashForecastScheduleEnabled(cfg.ReleaseProfile) {
+		handlers = append(handlers, jobs.TaskHandler{
+			Type: jobs.TypeBankFeedsSyncScan,
+			Handler: jobs.HandleBankFeedsSyncScanTask(bankFeedScheduleStore,
+				func(ctx context.Context, connectionID int64) error {
+					_, err := jobs.EnqueueBankFeedsSync(ctx, asynqClient, connectionID)
+					return err
+				}),
+		})
+		handlers = append(handlers, jobs.TaskHandler{
+			Type: jobs.TypeCashForecastRefreshScan,
+			Handler: jobs.HandleCashForecastRefreshScanTask(forecastScheduleStore,
+				func(ctx context.Context, companyID, scenarioID int64) error {
+					_, err := jobs.EnqueueCashForecastRefresh(ctx, asynqClient, companyID, scenarioID)
+					return err
+				}),
+		})
+	}
 	cron := []jobs.CronRegistration{
 		{Spec: "15 1 * * *", Task: warmupTask, Options: []asynq.Option{asynq.MaxRetry(3)}},
 		{Spec: "30 1 * * *", Task: anomalyTask, Options: []asynq.Option{asynq.MaxRetry(3)}},
@@ -574,6 +653,24 @@ func main() {
 		{Spec: "* * * * *", Task: asynq.NewTask(jobs.TaskConnectorOutboxSweep, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
 		{Spec: "*/5 * * * *", Task: asynq.NewTask(jobs.TaskPaymentReconciliation, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
 		{Spec: "*/5 * * * *", Task: asynq.NewTask(jobs.TaskConnectorDeadLetterAudit, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
+	}
+	if cashForecastScheduleEnabled(cfg.ReleaseProfile) {
+		// Scan every 15 minutes. The SQL projection applies each company's
+		// configured interval, connection status, consent expiry, and recovery
+		// eligibility before a scoped sync task is enqueued.
+		cron = append(cron, jobs.CronRegistration{
+			Spec:    "*/15 * * * *",
+			Task:    jobs.NewBankFeedsSyncScanTask(),
+			Options: []asynq.Option{asynq.MaxRetry(3)},
+		})
+		// Refresh each enabled company's owned scenarios nightly. The scan itself
+		// is profile-gated; individual refreshes remain feature-flag and scope
+		// checked by the handler before any work is enqueued.
+		cron = append(cron, jobs.CronRegistration{
+			Spec:    "0 1 * * *",
+			Task:    jobs.NewCashForecastRefreshScanTask(),
+			Options: []asynq.Option{asynq.MaxRetry(3)},
+		})
 	}
 	if financePaymentRecovery != nil {
 		handlers = append(handlers, jobs.TaskHandler{

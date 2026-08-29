@@ -30,7 +30,11 @@ WHERE supplier_id = $1 AND company_id = $2
 ORDER BY effective_from DESC;
 
 -- name: GetTreasuryPaymentPolicy :one
-SELECT * FROM treasury_payment_policies WHERE company_id = $1 LIMIT 1;
+SELECT *
+FROM treasury_payment_policies
+WHERE company_id = $1
+ORDER BY updated_at DESC, id DESC
+LIMIT 1;
 
 -- name: APInvoiceEligibleForTreasuryPayment :one
 SELECT EXISTS(

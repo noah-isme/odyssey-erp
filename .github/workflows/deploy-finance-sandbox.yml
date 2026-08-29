@@ -4,9 +4,8 @@ on:
   workflow_dispatch:
     inputs:
       candidate_ref:
-        description: Commit, branch, or tag to deploy to the isolated finance sandbox
+        description: Required commit, branch, or tag to deploy to the isolated finance sandbox
         required: true
-        default: staging
         type: string
 
 permissions:
@@ -24,6 +23,29 @@ jobs:
     timeout-minutes: 30
     environment:
       name: finance-sandbox
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: odyssey
+          POSTGRES_PASSWORD: odyssey
+          POSTGRES_DB: odyssey
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U odyssey -d odyssey"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
 
     steps:
       - name: Checkout requested finance candidate
@@ -41,6 +63,10 @@ jobs:
           set -euo pipefail
 
           candidate_ref="$CANDIDATE_REF_INPUT"
+          [[ -n "$candidate_ref" ]] || {
+            echo 'candidate_ref is required; refusing an implicit staging deployment' >&2
+            exit 1
+          }
           [[ "$candidate_ref" =~ ^[A-Za-z0-9._/@-]+$ ]] || {
             echo 'candidate_ref contains unsupported characters' >&2
             exit 1
@@ -57,6 +83,15 @@ jobs:
             echo "finance sandbox requires $migration_floor_down" >&2
             exit 1
           }
+          migration_required='000129_ap_exception_resolution_events'
+          test -f "migrations/${migration_required}.up.sql" || {
+            echo "finance sandbox requires migrations/${migration_required}.up.sql" >&2
+            exit 1
+          }
+          test -f "migrations/${migration_required}.down.sql" || {
+            echo "finance sandbox requires migrations/${migration_required}.down.sql" >&2
+            exit 1
+          }
 
           latest_migration=$(find migrations -maxdepth 1 -type f \
             -name '[0-9][0-9][0-9][0-9][0-9][0-9]_*.up.sql' \
@@ -66,10 +101,25 @@ jobs:
             echo 'could not determine the finance sandbox migration version' >&2
             exit 1
           }
-          (( 10#$latest_version >= 128 )) || {
-            echo "finance sandbox requires migration 000128 or newer; found $latest_version" >&2
+          (( 10#$latest_version == 129 )) || {
+            echo "finance sandbox migration ceiling is fixed at 000129; found $latest_version" >&2
             exit 1
           }
+
+          while IFS= read -r migration_up; do
+            migration_down="${migration_up%.up.sql}.down.sql"
+            test -f "$migration_down" || {
+              echo "migration is missing its reversible down file: $migration_up" >&2
+              exit 1
+            }
+          done < <(find migrations -maxdepth 1 -type f -name '*.up.sql' | sort)
+          while IFS= read -r migration_down; do
+            migration_up="${migration_down%.down.sql}.up.sql"
+            test -f "$migration_up" || {
+              echo "migration is missing its reversible up file: $migration_down" >&2
+              exit 1
+            }
+          done < <(find migrations -maxdepth 1 -type f -name '*.down.sql' | sort)
 
           {
             echo "CANDIDATE_SHA=$candidate_sha"
@@ -78,6 +128,10 @@ jobs:
           } >> "$GITHUB_ENV"
           printf 'candidate=%s\n' "$candidate_sha"
           printf 'migration_ceiling=%s\n' "$latest_migration"
+
+      - name: Validate finance evidence handoff structure
+        shell: bash
+        run: bash scripts/check-finance-sandbox-handoff.sh
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -123,6 +177,32 @@ jobs:
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
             go build -trimpath -tags production -ldflags='-s -w' \
             -o dist/bootstrap-admin ./cmd/bootstrap-admin
+
+      - name: Generate finance route/profile manifest
+        env:
+          APP_ENV: finance-sandbox
+          APP_MASTER_KEY: finance-sandbox-route-manifest-key
+          CSRF_SECRET: finance-sandbox-route-manifest-csrf
+          GOTENBERG_URL: http://127.0.0.1:0
+          ODYSSEY_DUMP_ROUTES: "1"
+          ODYSSEY_TEST_MODE: "0"
+          PG_DSN: postgres://odyssey:odyssey@127.0.0.1:5432/odyssey?sslmode=disable
+          REDIS_ADDR: 127.0.0.1:6379
+          RELEASE_PROFILE: v0.11-finance
+          SESSION_SECRET: finance-sandbox-route-manifest-session
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./dist/odyssey > routes.json
+          jq -e 'type == "array" and length > 0' routes.json >/dev/null
+          jq --arg profile "$RELEASE_PROFILE" --arg commit "$CANDIDATE_SHA" \
+            '{profile: $profile, commit: $commit, routes: .}' \
+            routes.json > dist/ROUTE_PROFILE.json
+          jq -e \
+            --arg profile "$RELEASE_PROFILE" \
+            --arg commit "$CANDIDATE_SHA" \
+            '.profile == $profile and .commit == $commit and (.routes | type == "array" and length > 0) and ((.routes | map(.pattern)) as $patterns | ["/healthz", "/finance/ar", "/finance/ap", "/finance/bankfeeds", "/finance/forecasting", "/finance/treasury"] | all(. as $prefix | any($patterns[]; . == $prefix or startswith($prefix + "/"))))' \
+            dist/ROUTE_PROFILE.json >/dev/null
 
       - name: Build migration tool
         shell: bash
@@ -180,6 +260,7 @@ jobs:
               RELEASE_IDENTITY \
               MIGRATION_SHA256SUMS \
               WEB_SHA256SUMS \
+              ROUTE_PROFILE.json \
               SBOM.spdx.json \
               odyssey \
               worker \
@@ -187,33 +268,88 @@ jobs:
               migrate
           ) > dist/SHA256SUMS
 
+          bundle="odyssey-v011-finance-sandbox-${CANDIDATE_SHA}.tar.gz"
+          tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner \
+            -C dist -czf "dist/$bundle" \
+            REVISION RELEASE_IDENTITY MIGRATION_SHA256SUMS WEB_SHA256SUMS SHA256SUMS \
+            ROUTE_PROFILE.json SBOM.spdx.json odyssey worker bootstrap-admin migrate migrations web
+          (
+            cd dist
+            sha256sum "$bundle"
+          ) > dist/BUNDLE_SHA256SUMS
+          bundle_sha=$(awk '{print $1}' dist/BUNDLE_SHA256SUMS)
+          [[ "$bundle_sha" =~ ^[0-9a-f]{64}$ ]] || {
+            echo 'could not determine the finance sandbox bundle digest' >&2
+            exit 1
+          }
+          printf 'BUNDLE_SHA=%s\n' "$bundle_sha" >> "$GITHUB_ENV"
+
       - name: Attest finance sandbox release provenance
         uses: actions/attest-build-provenance@v2
         with:
-          subject-path: dist/SHA256SUMS
+          subject-path: dist/odyssey-v011-finance-sandbox-*.tar.gz
 
       - name: Upload immutable finance sandbox artifact
+        id: release-artifact
         uses: actions/upload-artifact@v4
         with:
           name: odyssey-v011-finance-sandbox-${{ github.run_id }}
-          path: dist
+          path: |
+            dist/odyssey-v011-finance-sandbox-*.tar.gz
+            dist/BUNDLE_SHA256SUMS
+            dist/SHA256SUMS
           if-no-files-found: error
           retention-days: 30
+
+      - name: Record finance sandbox artifact identity
+        shell: bash
+        env:
+          ARTIFACT_ID: ${{ steps.release-artifact.outputs.artifact-id }}
+          ARTIFACT_URL: ${{ steps.release-artifact.outputs.artifact-url }}
+          ARTIFACT_DIGEST: ${{ steps.release-artifact.outputs.artifact-digest }}
+        run: |
+          set -euo pipefail
+          : "${ARTIFACT_ID:?upload-artifact did not return an artifact id}"
+          : "${ARTIFACT_URL:?upload-artifact did not return an artifact URL}"
+          : "${ARTIFACT_DIGEST:?upload-artifact did not return an artifact digest}"
+          : "${CANDIDATE_SHA:?candidate SHA is unavailable}"
+          : "${BUNDLE_SHA:?bundle digest is unavailable}"
+          [[ "$ARTIFACT_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+            echo "unexpected upload-artifact digest: $ARTIFACT_DIGEST" >&2
+            exit 1
+          }
+          bundle_name="odyssey-v011-finance-sandbox-${CANDIDATE_SHA}.tar.gz"
+          {
+            echo '### Finance sandbox release artifact'
+            echo "- Candidate: ${CANDIDATE_REF} / ${CANDIDATE_SHA}"
+            echo "- CI run: ${GITHUB_RUN_ID}"
+            echo "- Bundle: ${bundle_name}"
+            echo "- Bundle SHA-256: ${BUNDLE_SHA}"
+            echo "- Artifact ID: ${ARTIFACT_ID}"
+            echo "- Artifact digest: ${ARTIFACT_DIGEST}"
+            echo "- Artifact URL: ${ARTIFACT_URL}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Configure finance sandbox SSH
         env:
           FINANCE_SANDBOX_HOST: ${{ secrets.FINANCE_SANDBOX_HOST }}
+          FINANCE_SANDBOX_KNOWN_HOSTS: ${{ secrets.FINANCE_SANDBOX_KNOWN_HOSTS }}
           FINANCE_SANDBOX_SSH_KEY: ${{ secrets.FINANCE_SANDBOX_SSH_KEY }}
         shell: bash
         run: |
           set -euo pipefail
           : "${FINANCE_SANDBOX_HOST:?FINANCE_SANDBOX_HOST secret is required}"
+          : "${FINANCE_SANDBOX_KNOWN_HOSTS:?FINANCE_SANDBOX_KNOWN_HOSTS secret is required}"
           : "${FINANCE_SANDBOX_SSH_KEY:?FINANCE_SANDBOX_SSH_KEY secret is required}"
 
           install -d -m 700 "$HOME/.ssh"
           printf '%s\n' "$FINANCE_SANDBOX_SSH_KEY" | tr -d '\r' > "$HOME/.ssh/deploy_key"
           chmod 600 "$HOME/.ssh/deploy_key"
-          ssh-keyscan -T 10 -H "$FINANCE_SANDBOX_HOST" > "$HOME/.ssh/known_hosts"
+          printf '%s\n' "$FINANCE_SANDBOX_KNOWN_HOSTS" | tr -d '\r' > "$HOME/.ssh/known_hosts"
+          ssh-keygen -F "$FINANCE_SANDBOX_HOST" -f "$HOME/.ssh/known_hosts" >/dev/null || {
+            echo 'configured finance sandbox host is absent from FINANCE_SANDBOX_KNOWN_HOSTS' >&2
+            exit 1
+          }
 
       - name: Upload finance sandbox release
         env:
@@ -225,13 +361,14 @@ jobs:
           : "${FINANCE_SANDBOX_HOST:?FINANCE_SANDBOX_HOST secret is required}"
           : "${FINANCE_SANDBOX_USER:?FINANCE_SANDBOX_USER secret is required}"
 
-          short_sha="${CANDIDATE_SHA:0:7}"
-          release_dir="/opt/odyssey-finance-sandbox/releases/${short_sha}"
+          release_dir="/opt/odyssey-finance-sandbox/releases/${BUNDLE_SHA}"
           ssh_opts=(-i "$HOME/.ssh/deploy_key" -o BatchMode=yes -o StrictHostKeyChecking=yes)
           remote="${FINANCE_SANDBOX_USER}@${FINANCE_SANDBOX_HOST}"
 
           ssh "${ssh_opts[@]}" "$remote" "install -d -m 0755 '$release_dir'"
-          rsync -az --delete -e "ssh ${ssh_opts[*]}" dist/ "${remote}:${release_dir}/"
+          bundle="odyssey-v011-finance-sandbox-${CANDIDATE_SHA}.tar.gz"
+          rsync -az -e "ssh ${ssh_opts[*]}" \
+            "dist/$bundle" dist/BUNDLE_SHA256SUMS "${remote}:${release_dir}/"
 
       - name: Deploy finance sandbox release
         env:
@@ -243,17 +380,31 @@ jobs:
           : "${FINANCE_SANDBOX_HOST:?FINANCE_SANDBOX_HOST secret is required}"
           : "${FINANCE_SANDBOX_USER:?FINANCE_SANDBOX_USER secret is required}"
 
-          short_sha="${CANDIDATE_SHA:0:7}"
           ssh_opts=(-i "$HOME/.ssh/deploy_key" -o BatchMode=yes -o StrictHostKeyChecking=yes)
           remote="${FINANCE_SANDBOX_USER}@${FINANCE_SANDBOX_HOST}"
 
-          ssh "${ssh_opts[@]}" "$remote" bash -s -- "$short_sha" <<'REMOTE'
+          ssh "${ssh_opts[@]}" "$remote" bash -s -- "$CANDIDATE_SHA" "$CANDIDATE_REF" "$BUNDLE_SHA" <<'REMOTE'
           set -euo pipefail
 
-          short_sha="$1"
-          release="/opt/odyssey-finance-sandbox/releases/${short_sha}"
+          candidate_sha="$1"
+          candidate_ref="$2"
+          bundle_sha="$3"
+          bundle="odyssey-v011-finance-sandbox-${candidate_sha}.tar.gz"
+          release="/opt/odyssey-finance-sandbox/releases/${bundle_sha}"
 
-          for artifact in odyssey worker bootstrap-admin migrate REVISION RELEASE_IDENTITY MIGRATION_SHA256SUMS WEB_SHA256SUMS SBOM.spdx.json; do
+          test -n "$candidate_sha"
+          test -n "$candidate_ref"
+          [[ "$bundle_sha" =~ ^[0-9a-f]{64}$ ]]
+          test -f "$release/$bundle"
+          test -f "$release/BUNDLE_SHA256SUMS"
+          (
+            cd "$release"
+            sha256sum -c BUNDLE_SHA256SUMS
+          )
+          tar --extract --gzip --file="$release/$bundle" --directory="$release" \
+            --no-same-owner --no-same-permissions
+
+          for artifact in odyssey worker bootstrap-admin migrate REVISION RELEASE_IDENTITY MIGRATION_SHA256SUMS WEB_SHA256SUMS ROUTE_PROFILE.json SBOM.spdx.json; do
             test -e "$release/$artifact"
           done
           test -d "$release/migrations"
@@ -267,17 +418,41 @@ jobs:
             sha256sum -c WEB_SHA256SUMS
           )
 
+          test "$(tr -d '\r\n' < "$release/REVISION")" = "$candidate_sha"
+          grep -Fx "ref=$candidate_ref" "$release/RELEASE_IDENTITY"
+          grep -Fx "commit=$candidate_sha" "$release/RELEASE_IDENTITY"
           grep -Fx 'profile=v0.11-finance' "$release/RELEASE_IDENTITY"
           grep -Fx 'app_env=finance-sandbox' "$release/RELEASE_IDENTITY"
           grep -Fx 'migration_floor=000128_finance_payment_operations_permission' "$release/RELEASE_IDENTITY"
+          jq -e --arg profile 'v0.11-finance' --arg commit "$candidate_sha" \
+            '.profile == $profile and .commit == $commit and (.routes | type == "array" and length > 0) and ((.routes | map(.pattern)) as $patterns | ["/healthz", "/finance/ar", "/finance/ap", "/finance/bankfeeds", "/finance/forecasting", "/finance/treasury"] | all(. as $prefix | any($patterns[]; . == $prefix or startswith($prefix + "/"))))' \
+            "$release/ROUTE_PROFILE.json" >/dev/null
           test -f "$release/migrations/000128_finance_payment_operations_permission.up.sql"
           test -f "$release/migrations/000128_finance_payment_operations_permission.down.sql"
+          test -f "$release/migrations/000129_ap_exception_resolution_events.up.sql"
+          test -f "$release/migrations/000129_ap_exception_resolution_events.down.sql"
 
           latest_migration=$(find "$release/migrations" -maxdepth 1 -type f \
             -name '[0-9][0-9][0-9][0-9][0-9][0-9]_*.up.sql' \
             -printf '%f\n' | sed 's/\.up\.sql$//' | sort -n | tail -n 1)
           latest_version=${latest_migration%%_*}
-          [[ "$latest_version" =~ ^[0-9]{6}$ ]] && (( 10#$latest_version >= 128 ))
+          [[ "$latest_version" =~ ^[0-9]{6}$ ]] && (( 10#$latest_version == 129 ))
+          recorded_ceiling=$(sed -n 's/^migration_ceiling=//p' "$release/RELEASE_IDENTITY")
+          test "$recorded_ceiling" = "$latest_migration"
+          while IFS= read -r migration_up; do
+            migration_down="${migration_up%.up.sql}.down.sql"
+            test -f "$migration_down" || {
+              echo "migration is missing its reversible down file: $migration_up" >&2
+              exit 1
+            }
+          done < <(find "$release/migrations" -maxdepth 1 -type f -name '*.up.sql' | sort)
+          while IFS= read -r migration_down; do
+            migration_up="${migration_down%.down.sql}.up.sql"
+            test -f "$migration_up" || {
+              echo "migration is missing its reversible up file: $migration_down" >&2
+              exit 1
+            }
+          done < <(find "$release/migrations" -maxdepth 1 -type f -name '*.down.sql' | sort)
 
           set -a
           . /opt/odyssey-finance-sandbox/.env
@@ -293,8 +468,8 @@ jobs:
             echo 'finance sandbox must set RELEASE_PROFILE=v0.11-finance' >&2
             exit 1
           }
-          [[ "${APP_ADDR:-}" == :8280 ]] || {
-            echo 'finance sandbox must bind APP_ADDR=:8280' >&2
+          [[ "${APP_ADDR:-}" == 127.0.0.1:8280 ]] || {
+            echo 'finance sandbox must bind APP_ADDR=127.0.0.1:8280' >&2
             exit 1
           }
           [[ "${WORKER_METRICS_ADDR:-}" == 127.0.0.1:9191 ]] || {
@@ -308,7 +483,7 @@ jobs:
 
           "$release/migrate" -path "$release/migrations" -database "$PG_DSN" up
           applied_version=$("$release/migrate" -path "$release/migrations" -database "$PG_DSN" version)
-          [[ "$applied_version" =~ ^[0-9]+$ ]] && (( 10#$applied_version >= 128 )) || {
+          [[ "$applied_version" =~ ^[0-9]+$ ]] && (( 10#$applied_version == 129 )) || {
             echo "finance sandbox migration verification failed: $applied_version" >&2
             exit 1
           }
@@ -337,4 +512,4 @@ jobs:
       - name: Cleanup SSH credentials
         if: ${{ always() }}
         shell: bash
-        run: rm -f "$HOME/.ssh/deploy_key"
+        run: rm -f "$HOME/.ssh/deploy_key" "$HOME/.ssh/known_hosts"

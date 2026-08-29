@@ -22,6 +22,7 @@ type APInvoice struct {
 	ID             int64
 	Number         string
 	SupplierID     int64
+	CompanyID      *int64
 	SupplierName   string
 	GRNID          *int64
 	POID           *int64
@@ -352,4 +353,18 @@ type APException struct {
 	UpdatedAt       time.Time
 	ResolvedAt      *time.Time
 	ResolvedBy      *int64
+}
+
+// APExceptionResolutionEvent is immutable evidence for one terminal
+// exception transition. Resolution comments live here rather than in the
+// mutable workbench row so the original decision history cannot be rewritten.
+type APExceptionResolutionEvent struct {
+	ID            int64
+	APExceptionID int64
+	CompanyID     int64
+	FromStatus    string
+	ToStatus      string
+	Comment       string
+	ActorID       int64
+	CreatedAt     time.Time
 }

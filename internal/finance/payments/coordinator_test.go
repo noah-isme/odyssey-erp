@@ -86,7 +86,10 @@ func settledResult() Settlement {
 
 func approvedCoordinator(t *testing.T, port ExecutionPort) (*Coordinator, Instruction) {
 	t.Helper()
-	coordinator := NewCoordinator(port, NewMemoryStore(), nil)
+	settings := automation.DefaultSettings(7)
+	settings.PaymentSchedulingEnabled = true
+	settings.PaymentExecutionEnabled = true
+	coordinator := NewCoordinator(port, NewMemoryStore(), NewSeparationAuthorizer(settings))
 	instruction := paymentInstruction()
 	if _, err := coordinator.Propose(context.Background(), instruction, 101); err != nil {
 		t.Fatal(err)
@@ -257,9 +260,61 @@ func TestCoordinatorExportsControlledBankFile(t *testing.T) {
 	}
 }
 
+func TestCoordinatorRejectsCrossConnectionExportArtifact(t *testing.T) {
+	port := &coordinatorPort{
+		artifact: ExportArtifact{
+			Reference: automation.ExternalReference{
+				Connection: automation.ConnectionRef{CompanyID: 8, ConnectionID: 12, Provider: "bank-test"},
+				ObjectType: "bank_file",
+				ObjectID:   "file-foreign",
+			},
+			Checksum: "sha256:foreign",
+		},
+	}
+	coordinator, instruction := approvedCoordinator(t, port)
+
+	if _, err := coordinator.ExportFile(context.Background(), instruction.Reference, 303); !errors.Is(err, ErrInvalidExportArtifact) {
+		t.Fatalf("ExportFile() error = %v, want invalid cross-connection artifact", err)
+	}
+	execution, err := coordinator.Get(context.Background(), instruction.Reference)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if execution.State != StateApproved {
+		t.Fatalf("state after rejected artifact = %s, want %s", execution.State, StateApproved)
+	}
+}
+
+func TestCoordinatorRejectsMixedArtifactsForAlreadyExportedBatch(t *testing.T) {
+	port := &coordinatorPort{artifact: ExportArtifact{Checksum: "sha256:stable"}}
+	coordinator, first := approvedCoordinator(t, port)
+	second := first
+	second.Reference.ObjectID = "instruction-2"
+	second.Correlation.ID = "corr-2"
+	second.EndToEndReference = "e2e-2"
+	if _, err := coordinator.Propose(context.Background(), second, 102); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := coordinator.Approve(context.Background(), second.Reference, 202); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := coordinator.ExportFile(context.Background(), first.Reference, 303); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := coordinator.ExportFile(context.Background(), second.Reference, 303); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := coordinator.ExportBatch(context.Background(), []automation.ExternalReference{first.Reference, second.Reference}, 404); !errors.Is(err, ErrMixedExportArtifacts) {
+		t.Fatalf("ExportBatch() error = %v, want mixed-artifact rejection", err)
+	}
+}
+
 func TestCoordinatorRejectsSeparationOfDutiesViolations(t *testing.T) {
 	port := &coordinatorPort{submitResult: Submission{Status: "ACCEPTED"}}
-	coordinator := NewCoordinator(port, NewMemoryStore(), nil)
+	settings := automation.DefaultSettings(7)
+	settings.PaymentSchedulingEnabled = true
+	settings.PaymentExecutionEnabled = true
+	coordinator := NewCoordinator(port, NewMemoryStore(), NewSeparationAuthorizer(settings))
 	instruction := paymentInstruction()
 	if _, err := coordinator.Propose(context.Background(), instruction, 101); err != nil {
 		t.Fatal(err)
@@ -278,5 +333,52 @@ func TestCoordinatorRejectsSeparationOfDutiesViolations(t *testing.T) {
 	}
 	if port.submitCalls != 0 {
 		t.Fatalf("submit calls = %d after separation failures", port.submitCalls)
+	}
+}
+
+func TestSeparationAuthorizerLoadsCompanySettings(t *testing.T) {
+	settings := automation.DefaultSettings(7)
+	settings.PaymentSchedulingEnabled = true
+	settings.PaymentExecutionEnabled = true
+	settings.PaymentMakerCheckerEnabled = false
+	settings.PaymentExecutorSeparationEnabled = false
+	var loadedCompanyID int64
+	authorizer := NewSeparationAuthorizer(automation.Settings{})
+	authorizer.SettingsForCompany = func(_ context.Context, companyID int64) (automation.Settings, error) {
+		loadedCompanyID = companyID
+		return settings, nil
+	}
+
+	execution := PaymentExecution{
+		Instruction: paymentInstruction(),
+		ProposedBy:  101,
+		ApprovedBy:  101,
+	}
+	if err := authorizer.Authorize(context.Background(), ActionSubmit, execution, 101); err != nil {
+		t.Fatalf("Authorize() error = %v", err)
+	}
+	if loadedCompanyID != 7 {
+		t.Fatalf("loaded company ID = %d, want 7", loadedCompanyID)
+	}
+}
+
+func TestSeparationAuthorizerRejectsDisabledExecution(t *testing.T) {
+	settings := automation.DefaultSettings(7)
+	authorizer := NewSeparationAuthorizer(automation.Settings{})
+	authorizer.SettingsForCompany = func(_ context.Context, companyID int64) (automation.Settings, error) {
+		if companyID != settings.CompanyID {
+			t.Fatalf("settings requested for company %d, want %d", companyID, settings.CompanyID)
+		}
+		return settings, nil
+	}
+
+	execution := PaymentExecution{
+		Instruction: paymentInstruction(),
+		ProposedBy:  101,
+		ApprovedBy:  202,
+	}
+	err := authorizer.Authorize(context.Background(), ActionSubmit, execution, 303)
+	if !errors.Is(err, automation.ErrPaymentExecutionDisabled) {
+		t.Fatalf("Authorize() error = %v, want disabled execution", err)
 	}
 }

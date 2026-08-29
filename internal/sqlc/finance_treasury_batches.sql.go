@@ -180,6 +180,11 @@ const updateTreasuryPaymentBatchRevision = `-- name: UpdateTreasuryPaymentBatchR
 UPDATE treasury_payment_batches
 SET revision_number = revision_number + 1,
     status = 'DRAFT',
+    approved_by = NULL,
+    approved_at = NULL,
+    exported_file_hash = NULL,
+    exported_at = NULL,
+    exported_by = NULL,
     total_amount = COALESCE((
         SELECT SUM(amount)
         FROM treasury_payment_batch_items

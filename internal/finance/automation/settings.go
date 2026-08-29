@@ -6,7 +6,10 @@ import (
 	"fmt"
 )
 
-var ErrInvalidSettings = errors.New("finance automation: invalid settings")
+var (
+	ErrInvalidSettings          = errors.New("finance automation: invalid settings")
+	ErrPaymentExecutionDisabled = errors.New("finance automation: payment execution is disabled")
+)
 
 // Settings controls finance automation per company. Every enabled flag is
 // false by default so a migration cannot activate a workflow unexpectedly.
@@ -41,6 +44,16 @@ func (s Settings) Validate() error {
 	}
 	if s.PaymentExecutionEnabled && !s.PaymentSchedulingEnabled {
 		return fmt.Errorf("%w: payment execution requires payment scheduling", ErrInvalidSettings)
+	}
+	return nil
+}
+
+// ValidatePaymentExecutionEnabled enforces the dependency between the
+// company-scoped payment flags at the execution boundary. Export-only payment
+// workflows do not call this check.
+func ValidatePaymentExecutionEnabled(settings Settings) error {
+	if !settings.PaymentSchedulingEnabled || !settings.PaymentExecutionEnabled {
+		return ErrPaymentExecutionDisabled
 	}
 	return nil
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	approvalengine "github.com/odyssey-erp/odyssey-erp/internal/approvals"
+	"github.com/odyssey-erp/odyssey-erp/internal/fx"
 	"github.com/odyssey-erp/odyssey-erp/internal/inventory"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 )
@@ -59,6 +60,27 @@ func (s *Service) SetApprovalEngine(engine *approvalengine.Service) { s.approval
 // NewService constructs procurement service.
 func NewService(logger *slog.Logger, repo RepositoryPort, inventory InventoryPort, approvals *shared.ApprovalRecorder, audit AuditPort, idem *shared.IdempotencyStore, integration IntegrationHandler) *Service {
 	return &Service{logger: logger, repo: repo, inventory: inventory, approvals: approvals, audit: audit, idempotency: idem, integration: integration}
+}
+
+// enforceRequestCompany applies the browser tenant boundary without breaking
+// the existing worker/read contract. HTTP middleware stores a Session in the
+// context, so a session-bearing call must carry a complete authenticated
+// identity and the loaded document must belong to that identity's company.
+// Contexts without a Session are the explicit internal contract used by
+// workers and cross-module jobs; those callers already receive their company
+// through their own trusted event/input payloads.
+func enforceRequestCompany(ctx context.Context, companyID int64) error {
+	if shared.SessionFromContext(ctx) == nil {
+		return nil
+	}
+	identity, ok := shared.IdentityFromContext(ctx)
+	if !ok || identity.CompanyID <= 0 || companyID <= 0 {
+		return ErrCompanyScopeRequired
+	}
+	if identity.CompanyID != companyID {
+		return ErrCompanyScopeMismatch
+	}
+	return nil
 }
 
 // CreatePRInput describes creation payload.
@@ -111,6 +133,9 @@ type GRNLineInput struct {
 
 // CreatePurchaseRequest persists PR header and lines.
 func (s *Service) CreatePurchaseRequest(ctx context.Context, input CreatePRInput) (PurchaseRequest, error) {
+	if err := enforceRequestCompany(ctx, input.CompanyID); err != nil {
+		return PurchaseRequest{}, err
+	}
 	if len(input.Lines) == 0 {
 		return PurchaseRequest{}, fmt.Errorf("procurement: minimal 1 line")
 	}
@@ -152,6 +177,9 @@ func (s *Service) SubmitPurchaseRequest(ctx context.Context, prID int64, actorID
 	if err != nil {
 		return err
 	}
+	if err := enforceRequestCompany(ctx, pr.CompanyID); err != nil {
+		return err
+	}
 	if pr.Status != PRStatusDraft {
 		return ErrInvalidState
 	}
@@ -170,6 +198,9 @@ func (s *Service) CreatePOFromPR(ctx context.Context, input CreatePOInput) (Purc
 	}
 	pr, lines, err := s.repo.GetPR(ctx, input.PRID)
 	if err != nil {
+		return PurchaseOrder{}, err
+	}
+	if err := enforceRequestCompany(ctx, pr.CompanyID); err != nil {
 		return PurchaseOrder{}, err
 	}
 	if pr.Status != PRStatusSubmitted {
@@ -221,6 +252,9 @@ func (s *Service) SubmitPurchaseOrder(ctx context.Context, poID int64, actorID i
 	if err != nil {
 		return err
 	}
+	if err := enforceRequestCompany(ctx, po.CompanyID); err != nil {
+		return err
+	}
 	if po.Status != POStatusDraft {
 		return ErrInvalidState
 	}
@@ -255,6 +289,9 @@ func (s *Service) ApprovePurchaseOrder(ctx context.Context, poID int64, actorID 
 	if err != nil {
 		return err
 	}
+	if err := enforceRequestCompany(ctx, po.CompanyID); err != nil {
+		return err
+	}
 	if po.Status != POStatusApproval {
 		return ErrInvalidState
 	}
@@ -283,6 +320,9 @@ func (s *Service) RejectPurchaseOrder(ctx context.Context, poID, actorID int64, 
 	if err != nil {
 		return err
 	}
+	if err := enforceRequestCompany(ctx, po.CompanyID); err != nil {
+		return err
+	}
 	if po.Status != POStatusApproval {
 		return ErrInvalidState
 	}
@@ -296,6 +336,9 @@ func (s *Service) RejectPurchaseOrder(ctx context.Context, poID, actorID int64, 
 func (s *Service) FinalizeApproval(ctx context.Context, request approvalengine.Request, status string, actorID int64, note string) error {
 	po, _, err := s.repo.GetPO(ctx, request.DocumentID)
 	if err != nil {
+		return err
+	}
+	if err := enforceRequestCompany(ctx, po.CompanyID); err != nil {
 		return err
 	}
 	refID := uuid.NewSHA1(uuid.Nil, []byte(fmt.Sprintf("PO:%d", po.ID)))
@@ -327,8 +370,11 @@ func (s *Service) CreateGoodsReceipt(ctx context.Context, input CreateGRNInput) 
 	if input.Number == "" {
 		input.Number = generateNumber("GRN")
 	}
-	po, _, err := s.repo.GetPO(ctx, input.POID)
+	po, poLines, err := s.repo.GetPO(ctx, input.POID)
 	if err != nil {
+		return GoodsReceipt{}, err
+	}
+	if err := enforceRequestCompany(ctx, po.CompanyID); err != nil {
 		return GoodsReceipt{}, err
 	}
 	if po.Status != POStatusApproved {
@@ -337,11 +383,22 @@ func (s *Service) CreateGoodsReceipt(ctx context.Context, input CreateGRNInput) 
 	if input.SupplierID == 0 {
 		input.SupplierID = po.SupplierID
 	}
-	if len(input.Lines) == 0 {
-		return GoodsReceipt{}, ErrValidation
+	if err := validateGoodsReceiptInput(input, po, poLines); err != nil {
+		return GoodsReceipt{}, err
 	}
-	grn := GoodsReceipt{Number: input.Number, POID: input.POID, SupplierID: input.SupplierID, WarehouseID: input.WarehouseID, Status: GRNStatusDraft, ReceivedAt: defaultTime(input.ReceivedAt), Note: input.Note}
-	err = s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
+	// The receipt inherits its tenant from the approved PO. Keeping the
+	// company identity on the GRN makes later workbench reads and downstream
+	// matching independent of nullable legacy rows and prevents a caller from
+	// choosing a different tenant on the receipt form.
+	grn := GoodsReceipt{CompanyID: po.CompanyID, Number: input.Number, POID: input.POID, SupplierID: input.SupplierID, WarehouseID: input.WarehouseID, Status: GRNStatusDraft, ReceivedAt: defaultTime(input.ReceivedAt), Note: input.Note}
+	withTx := s.repo.WithTx
+	if repo, ok := s.repo.(GRNCreateRepositoryPort); ok {
+		withTx = repo.WithGRNCreateTx
+	}
+	err = withTx(ctx, func(ctx context.Context, tx TxRepository) error {
+		if err := tx.ValidateGRNQuantities(ctx, input.POID, input.SupplierID, input.Lines); err != nil {
+			return err
+		}
 		grnID, err := tx.CreateGRN(ctx, grn)
 		if err != nil {
 			return err
@@ -364,10 +421,74 @@ func (s *Service) CreateGoodsReceipt(ctx context.Context, input CreateGRNInput) 
 	return grn, nil
 }
 
+// validateGoodsReceiptInput keeps the receipt facts bounded by the approved
+// purchase order before they are persisted. GRN lines do not carry a PO-line
+// identifier, so quantities are aggregated by product; this also supports a PO
+// that contains multiple lines for the same product. NUMERIC(14,4) is the
+// storage contract for both PO and GRN quantities, therefore all comparisons
+// are made in that exact decimal domain rather than float64.
+func validateGoodsReceiptInput(input CreateGRNInput, po PurchaseOrder, poLines []POLine) error {
+	if input.WarehouseID <= 0 {
+		return fmt.Errorf("%w: warehouse must be set", ErrValidation)
+	}
+	if po.SupplierID <= 0 {
+		return fmt.Errorf("%w: PO supplier must be set", ErrValidation)
+	}
+	if input.SupplierID != po.SupplierID {
+		return fmt.Errorf("%w: GRN supplier does not match PO supplier", ErrValidation)
+	}
+	if len(input.Lines) == 0 {
+		return fmt.Errorf("%w: at least one GRN line is required", ErrValidation)
+	}
+	if len(poLines) == 0 {
+		return fmt.Errorf("%w: PO must contain at least one line", ErrValidation)
+	}
+
+	zero := fx.MustDecimal("0")
+	ordered := make(map[int64]fx.Decimal, len(poLines))
+	for _, poLine := range poLines {
+		if poLine.ProductID <= 0 {
+			return fmt.Errorf("%w: PO line has invalid product", ErrValidation)
+		}
+		qty, err := fx.FromLegacyFloat(poLine.Qty, 4)
+		if err != nil || qty.Cmp(zero) <= 0 {
+			return fmt.Errorf("%w: PO line for product %d has invalid quantity", ErrValidation, poLine.ProductID)
+		}
+		ordered[poLine.ProductID] = ordered[poLine.ProductID].Add(qty)
+	}
+
+	received := make(map[int64]fx.Decimal, len(input.Lines))
+	for _, line := range input.Lines {
+		if line.ProductID <= 0 {
+			return fmt.Errorf("%w: GRN line has invalid product", ErrValidation)
+		}
+		qty, err := fx.FromLegacyFloat(line.Qty, 4)
+		if err != nil || qty.Cmp(zero) <= 0 {
+			return fmt.Errorf("%w: quantity for product %d must be positive", ErrValidation, line.ProductID)
+		}
+		unitCost, err := fx.FromLegacyFloat(line.UnitCost, 4)
+		if err != nil || unitCost.Cmp(zero) < 0 {
+			return fmt.Errorf("%w: unit cost for product %d must be non-negative", ErrValidation, line.ProductID)
+		}
+		orderedQty, ok := ordered[line.ProductID]
+		if !ok {
+			return fmt.Errorf("%w: product %d is not on PO", ErrValidation, line.ProductID)
+		}
+		received[line.ProductID] = received[line.ProductID].Add(qty)
+		if received[line.ProductID].Cmp(orderedQty) > 0 {
+			return fmt.Errorf("%w: quantity for product %d exceeds PO quantity", ErrValidation, line.ProductID)
+		}
+	}
+	return nil
+}
+
 // PostGoodsReceipt posts GRN and updates inventory.
 func (s *Service) PostGoodsReceipt(ctx context.Context, grnID int64) error {
 	grn, lines, err := s.repo.GetGRN(ctx, grnID)
 	if err != nil {
+		return err
+	}
+	if err := enforceRequestCompany(ctx, grn.CompanyID); err != nil {
 		return err
 	}
 	if grn.Status != GRNStatusDraft {
@@ -438,18 +559,35 @@ func (s *Service) PostGoodsReceipt(ctx context.Context, grnID int64) error {
 
 // GetGRNWithLines exposes GRN details for other modules (e.g. AP)
 func (s *Service) GetGRNWithLines(ctx context.Context, id int64) (GoodsReceipt, []GRNLine, error) {
-	return s.repo.GetGRN(ctx, id)
+	grn, lines, err := s.repo.GetGRN(ctx, id)
+	if err != nil {
+		return GoodsReceipt{}, nil, err
+	}
+	if err := enforceRequestCompany(ctx, grn.CompanyID); err != nil {
+		return GoodsReceipt{}, nil, err
+	}
+	return grn, lines, nil
 }
 
 // GetPOWithLines exposes PO details for other modules (e.g. AP)
 func (s *Service) GetPOWithLines(ctx context.Context, id int64) (PurchaseOrder, []POLine, error) {
-	return s.repo.GetPO(ctx, id)
+	po, lines, err := s.repo.GetPO(ctx, id)
+	if err != nil {
+		return PurchaseOrder{}, nil, err
+	}
+	if err := enforceRequestCompany(ctx, po.CompanyID); err != nil {
+		return PurchaseOrder{}, nil, err
+	}
+	return po, lines, nil
 }
 
 // ListPOs returns paginated purchase orders.
 func (s *Service) ListPOs(ctx context.Context, limit, offset int, filters ListFilters) ([]POListItem, int, error) {
 	if limit <= 0 {
 		limit = 20
+	}
+	if err := enforceRequestCompany(ctx, filters.CompanyID); err != nil {
+		return nil, 0, err
 	}
 	return s.repo.ListPOs(ctx, limit, offset, filters)
 }
@@ -459,6 +597,9 @@ func (s *Service) ListGRNs(ctx context.Context, limit, offset int, filters ListF
 	if limit <= 0 {
 		limit = 20
 	}
+	if err := enforceRequestCompany(ctx, filters.CompanyID); err != nil {
+		return nil, 0, err
+	}
 	return s.repo.ListGRNs(ctx, limit, offset, filters)
 }
 
@@ -467,7 +608,11 @@ func (s *Service) CreateGoodsReturnGRN(ctx context.Context, input CreateGoodsRet
 	if len(input.Lines) == 0 {
 		return GoodsReturnGRN{}, errors.New("at least one return line is required")
 	}
-	grn, _, err := s.repo.GetGRN(ctx, input.GRNID)
+	grn, grnLines, err := s.repo.GetGRN(ctx, input.GRNID)
+	if err != nil {
+		return GoodsReturnGRN{}, err
+	}
+	input, err = normalizeGoodsReturnInput(ctx, input, grn)
 	if err != nil {
 		return GoodsReturnGRN{}, err
 	}
@@ -477,15 +622,14 @@ func (s *Service) CreateGoodsReturnGRN(ctx context.Context, input CreateGoodsRet
 	if input.ReturnDate.IsZero() {
 		input.ReturnDate = time.Now()
 	}
-	_, grnLines, err := s.repo.GetGRN(ctx, input.GRNID)
-	if err != nil {
-		return GoodsReturnGRN{}, err
-	}
 	grnLineMap := make(map[int64]GRNLine, len(grnLines))
 	for _, line := range grnLines {
 		grnLineMap[line.ID] = line
 	}
-	requestedQty := make(map[int64]float64)
+	// GRN quantities are NUMERIC(14,4). Keep the cumulative guard in the same
+	// exact decimal domain so values such as 0.1 + 0.2 do not exceed 0.3 due to
+	// binary floating-point representation before they reach PostgreSQL.
+	requestedQty := make(map[int64]fx.Decimal)
 	var id int64
 	err = s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
 		num, err := tx.GenerateGoodsReturnGRNNumber(ctx)
@@ -515,11 +659,16 @@ func (s *Service) CreateGoodsReturnGRN(ctx context.Context, input CreateGoodsRet
 			if line.ProductID != originalLine.ProductID {
 				return fmt.Errorf("product mismatch on GRN line %d", line.GRNLineID)
 			}
-			if line.QuantityReturned <= 0 {
+			returnedQty, err := fx.FromLegacyFloat(line.QuantityReturned, 4)
+			if err != nil || returnedQty.Cmp(fx.MustDecimal("0")) <= 0 {
 				return fmt.Errorf("quantity returned must be positive")
 			}
-			requestedQty[line.GRNLineID] += line.QuantityReturned
-			if requestedQty[line.GRNLineID] > originalLine.Qty {
+			originalQty, err := fx.FromLegacyFloat(originalLine.Qty, 4)
+			if err != nil {
+				return fmt.Errorf("invalid GRN line quantity")
+			}
+			requestedQty[line.GRNLineID] = requestedQty[line.GRNLineID].Add(returnedQty)
+			if requestedQty[line.GRNLineID].Cmp(originalQty) > 0 {
 				return fmt.Errorf("quantity returned exceeds GRN line quantity")
 			}
 			if err := tx.InsertGoodsReturnGRNLine(ctx, GoodsReturnGRNLine{
@@ -540,6 +689,48 @@ func (s *Service) CreateGoodsReturnGRN(ctx context.Context, input CreateGoodsRet
 		return GoodsReturnGRN{}, err
 	}
 	return s.getGoodsReturnGRN(ctx, id)
+}
+
+// normalizeGoodsReturnInput binds a return to the already persisted GRN
+// facts. A caller may omit supplier/warehouse/company values for convenience,
+// but may not choose replacements for an existing receipt. This prevents a
+// valid GRN from being used to create a return in another tenant or warehouse.
+// Legacy worker callers can still process GRNs whose old rows have no company
+// value; browser requests fail closed because their tenant cannot be proven.
+func normalizeGoodsReturnInput(ctx context.Context, input CreateGoodsReturnGRNInput, grn GoodsReceipt) (CreateGoodsReturnGRNInput, error) {
+	if grn.CompanyID > 0 {
+		if input.CompanyID > 0 && input.CompanyID != grn.CompanyID {
+			return CreateGoodsReturnGRNInput{}, ErrCompanyScopeMismatch
+		}
+		input.CompanyID = grn.CompanyID
+	} else if shared.SessionFromContext(ctx) != nil {
+		return CreateGoodsReturnGRNInput{}, ErrCompanyScopeRequired
+	} else if input.CompanyID <= 0 {
+		return CreateGoodsReturnGRNInput{}, fmt.Errorf("%w: GRN company is required", ErrValidation)
+	}
+	if err := enforceRequestCompany(ctx, input.CompanyID); err != nil {
+		return CreateGoodsReturnGRNInput{}, err
+	}
+	if grn.SupplierID <= 0 {
+		return CreateGoodsReturnGRNInput{}, fmt.Errorf("%w: GRN supplier is required", ErrValidation)
+	}
+	if input.SupplierID == 0 {
+		input.SupplierID = grn.SupplierID
+	}
+	if input.SupplierID != grn.SupplierID {
+		return CreateGoodsReturnGRNInput{}, fmt.Errorf("%w: return supplier does not match GRN supplier", ErrValidation)
+	}
+	if grn.WarehouseID > 0 {
+		if input.WarehouseID == 0 {
+			input.WarehouseID = grn.WarehouseID
+		}
+		if input.WarehouseID != grn.WarehouseID {
+			return CreateGoodsReturnGRNInput{}, fmt.Errorf("%w: return warehouse does not match GRN warehouse", ErrValidation)
+		}
+	} else if input.WarehouseID <= 0 {
+		return CreateGoodsReturnGRNInput{}, fmt.Errorf("%w: return warehouse is required", ErrValidation)
+	}
+	return input, nil
 }
 
 // ConfirmGoodsReturnGRN confirms a goods return, posts negative inventory adjustment,
@@ -634,7 +825,24 @@ func (s *Service) GetGoodsReturnGRN(ctx context.Context, id int64) (GoodsReturnG
 // ListGoodsReturnGRNs returns all goods returns.
 func (s *Service) ListGoodsReturnGRNs(ctx context.Context) ([]GoodsReturnGRN, error) {
 	if repo, ok := s.repo.(GoodsReturnRepositoryPort); ok {
-		return repo.ListGoodsReturnGRNs(ctx)
+		items, err := repo.ListGoodsReturnGRNs(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if shared.SessionFromContext(ctx) == nil {
+			return items, nil
+		}
+		identity, ok := shared.IdentityFromContext(ctx)
+		if !ok || identity.CompanyID <= 0 {
+			return nil, ErrCompanyScopeRequired
+		}
+		scoped := make([]GoodsReturnGRN, 0, len(items))
+		for _, item := range items {
+			if item.CompanyID == identity.CompanyID {
+				scoped = append(scoped, item)
+			}
+		}
+		return scoped, nil
 	}
 	return nil, errors.New("goods return repository not available")
 }
@@ -645,6 +853,9 @@ func (s *Service) getGoodsReturnGRN(ctx context.Context, id int64) (GoodsReturnG
 		if err != nil {
 			return GoodsReturnGRN{}, err
 		}
+		if err := enforceRequestCompany(ctx, ret.CompanyID); err != nil {
+			return GoodsReturnGRN{}, err
+		}
 		ret.Lines = lines
 		return ret, nil
 	}
@@ -653,7 +864,14 @@ func (s *Service) getGoodsReturnGRN(ctx context.Context, id int64) (GoodsReturnG
 
 func (s *Service) getGoodsReturnGRNWithLines(ctx context.Context, id int64) (GoodsReturnGRN, []GoodsReturnGRNLine, error) {
 	if repo, ok := s.repo.(GoodsReturnRepositoryPort); ok {
-		return repo.GetGoodsReturnGRN(ctx, id)
+		ret, lines, err := repo.GetGoodsReturnGRN(ctx, id)
+		if err != nil {
+			return GoodsReturnGRN{}, nil, err
+		}
+		if err := enforceRequestCompany(ctx, ret.CompanyID); err != nil {
+			return GoodsReturnGRN{}, nil, err
+		}
+		return ret, lines, nil
 	}
 	return GoodsReturnGRN{}, nil, errors.New("goods return repository not available")
 }

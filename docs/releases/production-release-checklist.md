@@ -1,9 +1,10 @@
 # Production Release Checklist
 
-**State:** `v0.10.0-rc.5` uses application baseline `ec65cc0`; the candidate
-packaging commit, production promotion, and final tag approval are still pending.
+**State:** `v0.10.0-rc.7` is the immutable candidate at `5ed11da`, using the
+`ec65cc0` application baseline; production promotion and final tag approval are
+still pending.
 
-**Reviewed:** 2026-08-12
+**Reviewed:** 2026-08-28
 
 This is the final-release runbook for Odyssey ERP. It does not turn local tests
 into production certification. The [authoritative feature matrix](../reference/feature-matrix.md)
@@ -14,8 +15,9 @@ its `production-certified` evidence is recorded there.
 
 - [x] Freeze the application baseline at
       `ec65cc08639c184030c63e3407791987eee92804` after reviewing the exact
-      application diff; record the later packaging commit through the annotated
-      `v0.10.0-rc.5` tag.
+      application diff; record the packaging commit through the annotated
+      `v0.10.0-rc.7` tag at
+      `5ed11da8aea342708be67284ea7a71224f90ccdc`.
 - [x] Set the candidate migration ceiling to
       `000124_scoped_rbac_global_compatibility`; migration
       `000125_payment_settlement_results`, v0.11-finance routes, and commit
@@ -36,11 +38,12 @@ its `production-certified` evidence is recorded there.
 - [ ] Record the commit, image digest, migration range, and rollback target in
       the release notes.
 
-The `v0.10.0-rc.5` candidate is a packaging checkpoint, not a production approval.
+The `v0.10.0-rc.7` candidate is a packaging checkpoint, not a production approval.
 The [v0.10-core staging certification record](v0.10-core-staging-certification.md)
 is the evidence hook for the bounded profile. The final gate remains intentionally
 blocked until its scope and evidence are certified by the release owner. The
-candidate tag and exact commit recorded in that evidence must refer to rc.5.
+candidate tag and exact commit recorded in that evidence must refer to rc.7 and
+`5ed11da`.
 
 ## 2. Repeatable repository gates
 
@@ -133,7 +136,7 @@ listed below.
 - [ ] Verify Gotenberg availability and the `production pdf` build artifact if PDF
       routes are in scope.
 
-For rc.5, Coretax authority acceptance, payroll/legal review, and connector checks
+For rc.7, Coretax authority acceptance, payroll/legal review, and connector checks
 that belong only to the v0.11-finance profile may be recorded as profile-scoped
 `N/A` only when the route manifest and runtime configuration prove that they are
 neither exposed nor required by the five v0.10-core journeys. Record the evidence
@@ -174,10 +177,10 @@ in scope.
 
 The current repository deliberately does not claim production release readiness:
 
-- `v0.10.0-rc.5` is a release candidate, not a production-certified final release;
-- the application baseline is `ec65cc0`, the candidate is resolved by the rc.5
-  tag, and its migration set must stop at `000124`; v0.11-finance commit
-  `1a8343e` and migration `000125` are excluded;
+- `v0.10.0-rc.7` is a release candidate, not a production-certified final release;
+- the application baseline is `ec65cc0`, the candidate is resolved by the rc.7
+  tag at `5ed11da`, and its migration set must stop at `000124`; v0.11-finance
+  migrations beginning at `000125` are excluded;
 - the feature matrix records `production-certified=no` for the current capability
   rows until staging/provider/operational evidence is supplied;
 - local Coretax and annual PPh 21 release tests pass, but official Coretax

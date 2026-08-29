@@ -2,6 +2,7 @@ package bankfeeds
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -15,10 +16,11 @@ import (
 // PGRepository maps SQLC rows and parameters to bank-feed-owned types.
 type PGRepository struct {
 	queries *sqlc.Queries
+	pool    *pgxpool.Pool
 }
 
 func NewPGRepository(db *pgxpool.Pool) *PGRepository {
-	return &PGRepository{queries: sqlc.New(db)}
+	return &PGRepository{queries: sqlc.New(db), pool: db}
 }
 
 func (r *PGRepository) CreateBankConnection(ctx context.Context, input CreateBankConnectionInput) (BankConnection, error) {
@@ -122,6 +124,39 @@ func (r *PGRepository) UpdateBankFeedSyncRun(ctx context.Context, input UpdateBa
 		CompletedAt:  optionalTimestamp(input.CompletedAt),
 		ErrorDetails: optionalText(input.ErrorDetails),
 	})
+}
+
+// AcquireBankFeedSyncLease serializes polling and statement transport work per
+// connection across all worker processes. The advisory lock is held on a
+// dedicated pool connection for the entire service operation and is released
+// before that connection is returned to the pool. A failed try-lock is a
+// retryable coordination result, not a provider failure.
+func (r *PGRepository) AcquireBankFeedSyncLease(ctx context.Context, connectionID int64) (func(), error) {
+	if r == nil || r.pool == nil || connectionID <= 0 {
+		return nil, errors.New("bank feed sync lease is not configured")
+	}
+	conn, err := r.pool.Acquire(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("acquire bank feed sync lease connection: %w", err)
+	}
+	var acquired bool
+	if err := conn.QueryRow(ctx, `
+		SELECT pg_try_advisory_lock(hashtextextended('odyssey:bankfeed:' || $1::text, 0))`, connectionID).Scan(&acquired); err != nil {
+		conn.Release()
+		return nil, fmt.Errorf("acquire bank feed sync lease: %w", err)
+	}
+	if !acquired {
+		conn.Release()
+		return nil, ErrSyncInProgress
+	}
+
+	return func() {
+		unlockCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_, _ = conn.Exec(unlockCtx, `
+			SELECT pg_advisory_unlock(hashtextextended('odyssey:bankfeed:' || $1::text, 0))`, connectionID)
+		conn.Release()
+	}, nil
 }
 
 func (r *PGRepository) CreateBankFeedEvent(ctx context.Context, input CreateBankFeedEventInput) (BankFeedEvent, error) {

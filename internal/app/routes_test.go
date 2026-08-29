@@ -1,14 +1,39 @@
 package app
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/odyssey-erp/odyssey-erp/internal/finance/forecasting"
+	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
+	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 )
+
+type forecastRoutePermissionReader struct {
+	permissions []string
+}
+
+func (r forecastRoutePermissionReader) EffectivePermissions(context.Context, int64) ([]string, error) {
+	return r.permissions, nil
+}
+
+func (r forecastRoutePermissionReader) EffectivePermissionsInScope(context.Context, int64, rbac.AccessScope, time.Time) ([]string, error) {
+	return r.permissions, nil
+}
+
+func forecastRouteRequest(method string) *http.Request {
+	session := &shared.Session{}
+	session.SetUser("42")
+	session.Set("company_id", "7")
+	request := httptest.NewRequest(method, "/runs?scenario_id=3", nil)
+	return request.WithContext(shared.ContextWithSession(request.Context(), session))
+}
 
 func TestWalkRoutesEnumeratesNestedRouters(t *testing.T) {
 	router := chi.NewRouter()
@@ -92,5 +117,19 @@ func TestWriteRoutesForProfileFiltersPreviewRoutes(t *testing.T) {
 	}
 	if len(entries) != 1 || entries[0].Pattern != "/accounting/pnl" {
 		t.Fatalf("filtered routes = %#v, want only accounting/pnl", entries)
+	}
+}
+
+func TestForecastRouteRequiresManagePermissionToTriggerRun(t *testing.T) {
+	router := chi.NewRouter()
+	reader := forecastRoutePermissionReader{permissions: []string{shared.PermFinanceForecastView}}
+	middleware := rbac.Middleware{Service: reader}
+	mountForecastingRoutes(router, forecasting.NewHandler(nil), true, middleware)
+
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, forecastRouteRequest(http.MethodPost))
+
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("forecast trigger status = %d, want %d", response.Code, http.StatusForbidden)
 	}
 }

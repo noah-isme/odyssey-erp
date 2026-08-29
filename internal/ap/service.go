@@ -740,6 +740,10 @@ func (s *Service) ListAPInvoices(ctx context.Context, req ListAPInvoicesRequest)
 	return s.repo.ListAPInvoices(ctx, req)
 }
 
+func (s *Service) GetAPInvoice(ctx context.Context, id int64) (APInvoice, error) {
+	return s.repo.GetAPInvoice(ctx, id)
+}
+
 func (s *Service) GetAPInvoiceWithDetails(ctx context.Context, id int64) (APInvoiceWithDetails, error) {
 	return s.repo.GetAPInvoiceWithDetails(ctx, id)
 }

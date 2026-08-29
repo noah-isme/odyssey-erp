@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"math"
+
+	"github.com/odyssey-erp/odyssey-erp/internal/fx"
 )
 
 var (
@@ -25,10 +27,10 @@ func (s *MatchingService) RunMatch(ctx context.Context, invoiceID int64, runBy i
 		return MatchingRun{}, err
 	}
 
-	// 1. Resolve Policy
-	// Suppose invoice belongs to a company, we don't have company_id on APInvoice, so pass nil for now.
+	// 1. Resolve Policy. A nil company ID intentionally preserves global-policy
+	// matching for legacy suppliers that have not been assigned to a company.
 	supplierIDPtr := &invWithDetails.SupplierID
-	policy, err := s.repo.GetActiveMatchingPolicy(ctx, nil, supplierIDPtr, nil)
+	policy, err := s.repo.GetActiveMatchingPolicy(ctx, invWithDetails.CompanyID, supplierIDPtr, nil)
 	if err != nil {
 		// fallback to global policy if possible
 		return MatchingRun{}, ErrMatchingPolicyNotFound
@@ -88,6 +90,23 @@ func (s *MatchingService) RunMatch(ctx context.Context, invoiceID int64, runBy i
 				grnQty := float64(p.ReceivedQty)
 				runLine.GRNQty = &grnQty
 				grnTotal += (grnQty * poPrice)
+			}
+
+			// The progress view includes quantities from previously POSTED/PAID
+			// invoices. Compare the new invoice against that remaining quantity
+			// before applying tolerance; otherwise a second invoice for the full
+			// PO line could pass when the current invoice happens to match the
+			// original ordered quantity. Use the same four-decimal domain as
+			// procurement quantities so this guard is not affected by float noise.
+			invoicedQty, invoiceQty, orderedQty, qtyErr := exactMatchQuantities(p.InvoicedQty, line.Quantity, p.OrderedQty)
+			if qtyErr != nil {
+				runLine.Status = "EXCEPTION"
+				runLine.Reasons = append(runLine.Reasons, "INVALID_QTY_FACTS")
+				run.Status = "EXCEPTION"
+			} else if invoicedQty.Add(invoiceQty).Cmp(orderedQty) > 0 {
+				runLine.Status = "EXCEPTION"
+				runLine.Reasons = append(runLine.Reasons, "INVOICED_QTY_EXCEEDED")
+				run.Status = "EXCEPTION"
 			}
 
 			// Tolerance logic (simplified version for now)
@@ -171,4 +190,28 @@ func (s *MatchingService) RunMatch(ctx context.Context, invoiceID int64, runBy i
 	}
 
 	return run, nil
+}
+
+// exactMatchQuantities converts the legacy float values returned by the AP
+// and procurement ports into the NUMERIC-compatible quantity domain used by
+// the source tables. Keeping this at the boundary makes the over-invoicing
+// guard deterministic without changing the public DTOs yet.
+func exactMatchQuantities(invoiced, invoice, ordered float64) (fx.Decimal, fx.Decimal, fx.Decimal, error) {
+	invoicedQty, err := fx.FromLegacyFloat(invoiced, 4)
+	if err != nil {
+		return fx.Decimal{}, fx.Decimal{}, fx.Decimal{}, err
+	}
+	invoiceQty, err := fx.FromLegacyFloat(invoice, 4)
+	if err != nil {
+		return fx.Decimal{}, fx.Decimal{}, fx.Decimal{}, err
+	}
+	orderedQty, err := fx.FromLegacyFloat(ordered, 4)
+	if err != nil {
+		return fx.Decimal{}, fx.Decimal{}, fx.Decimal{}, err
+	}
+	zero := fx.MustDecimal("0")
+	if invoicedQty.Cmp(zero) < 0 || invoiceQty.Cmp(zero) <= 0 || orderedQty.Cmp(zero) <= 0 {
+		return fx.Decimal{}, fx.Decimal{}, fx.Decimal{}, errors.New("quantity facts must be non-negative with positive invoice and ordered quantities")
+	}
+	return invoicedQty, invoiceQty, orderedQty, nil
 }

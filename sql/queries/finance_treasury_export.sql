@@ -6,4 +6,6 @@ SET status = 'EXPORTED',
     exported_at = NOW(),
     updated_at = NOW()
 WHERE id = $1
+  AND revision_number = sqlc.arg(expected_revision_number)
+  AND status = 'APPROVED'
 RETURNING *;

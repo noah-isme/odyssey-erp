@@ -234,6 +234,72 @@ func TestCredentialsAreNotAcceptedWithoutVaultOrExplicitTestMode(t *testing.T) {
 	}
 }
 
+func TestSandboxOnlyRejectsProductionCredentialBeforeNetwork(t *testing.T) {
+	var calls atomic.Int32
+	client := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		calls.Add(1)
+		return nil, errors.New("unexpected provider request")
+	})}
+	adapter := NewAdapter(nil, nil, Options{
+		ProviderOptions: connectors.ProviderOptions{DevelopmentMode: true, HTTPClient: client},
+		SandboxOnly:     true,
+		StaticCredentials: Credentials{
+			APIKey:  "live-key",
+			IsProd:  true,
+			BaseURL: "https://iris.test/iris/api/v1",
+		},
+	})
+
+	err := adapter.ValidateConnection(context.Background(), testConnection())
+	if !errors.Is(err, ErrProductionEndpointDisabled) {
+		t.Fatalf("error = %v, want production endpoint guard", err)
+	}
+	if !errors.Is(err, ErrInvalidCredentials) {
+		t.Fatalf("error = %v, want invalid credential compatibility sentinel", err)
+	}
+	if calls.Load() != 0 {
+		t.Fatalf("provider requests = %d, want 0", calls.Load())
+	}
+}
+
+func TestSandboxOnlyRejectsProductionEndpointOverride(t *testing.T) {
+	adapter := NewAdapter(nil, nil, Options{
+		ProviderOptions: connectors.ProviderOptions{DevelopmentMode: true},
+		SandboxOnly:     true,
+		Credentials: func(context.Context, automation.ConnectionRef) (Credentials, error) {
+			return Credentials{APIKey: "sandbox-key", BaseURL: productionLegacyBaseURL}, nil
+		},
+	})
+
+	err := adapter.ValidateConnection(context.Background(), testConnection())
+	if !errors.Is(err, ErrProductionEndpointDisabled) {
+		t.Fatalf("error = %v, want production endpoint guard", err)
+	}
+}
+
+func TestSandboxOnlyRejectsUnapprovedEndpointOutsideDevelopmentMode(t *testing.T) {
+	adapter := NewAdapter(nil, nil, Options{
+		SandboxOnly: true,
+		Credentials: func(context.Context, automation.ConnectionRef) (Credentials, error) {
+			return Credentials{APIKey: "sandbox-key", BaseURL: "https://provider.example.test"}, nil
+		},
+	})
+
+	err := adapter.ValidateConnection(context.Background(), testConnection())
+	if !errors.Is(err, ErrProductionEndpointDisabled) {
+		t.Fatalf("error = %v, want sandbox host guard", err)
+	}
+}
+
+func TestSandboxOnlyAllowsKnownSandboxEndpoint(t *testing.T) {
+	adapter := NewAdapter(nil, nil, Options{SandboxOnly: true})
+	for _, baseURL := range []string{sandboxLegacyBaseURL, sandboxBISNAPBaseURL} {
+		if err := adapter.validateEnvironment(Credentials{APIKey: "sandbox-key", BaseURL: baseURL}); err != nil {
+			t.Fatalf("validateEnvironment(%q) = %v", baseURL, err)
+		}
+	}
+}
+
 func testConnection() automation.ConnectionRef {
 	return automation.ConnectionRef{CompanyID: 7, ConnectionID: 11, Provider: Provider}
 }

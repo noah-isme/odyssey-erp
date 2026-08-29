@@ -5,11 +5,25 @@ release notes are immutable records under `docs/releases/`; completed phase logs
 and older changelog material live in `docs/archive/`. Release readiness is tracked
 only in the [authoritative feature matrix](reference/feature-matrix.md).
 
-## v0.10.0-rc.5 — 2026-08-12
+## v0.10.0-rc.7 — 2026-08-26
 
-The active `v0.10-core` candidate retains application baseline `ec65cc0` and
-supersedes rc.4. See the [release notes](releases/v0.10.0-rc.5.md). Production
-certification remains pending.
+The active `v0.10-core` candidate is the immutable rc.7 tag at commit
+`5ed11da8`; it preserves the reviewed `ec65cc0` application baseline and the
+`000124` migration ceiling. See the [version history](releases/VERSION_HISTORY.md)
+for the candidate lineage. Production certification remains pending.
+
+### Changed
+
+- Retained the exact rc.7 candidate identity across staging, release-check, and
+  certification documentation.
+- Made release-hygiene checks portable to environments without ripgrep while
+  keeping candidate, migration, artifact, and evidence gates fail closed.
+
+## v0.10.0-rc.5 — 2026-08-12 (superseded)
+
+The superseded rc.5 `v0.10-core` candidate retained application baseline
+`ec65cc0` and superseded rc.4. See the [release notes](releases/v0.10.0-rc.5.md).
+Production certification remained pending.
 
 ### Changed
 
@@ -38,6 +52,32 @@ remain immutable. See the [release notes](releases/v0.10.0-rc.4.md).
   verified statement transport, tax/payment/PO forecast readers, exact decimal
   treasury amounts, and durable payment-result/effect idempotency. Production
   certification remains pending.
+- Added bounded v0.11 hardening for bank-feed cursor-cycle detection,
+  company/scenario-scoped manual/recurring forecast adjustments with exact
+  source-line validation, and canonical settlement batch/item binding before
+  accounting effects. Provider and staging certification remain pending.
+- Added fail-closed forecast freshness warnings and exact source-line visibility;
+  treasury payment controls now revalidate policy limits, independent approval,
+  duty separation, bank-format identity, and supplier-bank evidence. Calendar/cut-off
+  scheduling and legacy-reference backfill remain contract-gated.
+- Added payment proposal submission/proposer binding, exact active AP-allocation
+  reservation checks, revision approval invalidation, and cross-connection/mixed-artifact
+  export guards. Treasury export now also uses an optimistic revision/status compare-and-set
+  so stale artifacts cannot mark a concurrently changed batch as exported. Settlement imports
+  now bind outbox identity and reject distinct terminal replays; immutable snapshot, artifact
+  custody, proposal/review UI, and provider evidence remain open; route-specific scoped
+  treasury RBAC is now applied to each payment duty.
+- Added profile-gated bank-feed scan/recovery with company settings, consent/status checks,
+  stale-run recovery, per-connection leases, stable task IDs, and duplicate-safe enqueue;
+  AP matching now rejects cumulative over-invoicing with exact four-decimal quantities.
+- Added an atomic PostgreSQL treasury proposal-item insert that locks the AP invoice,
+  repeats paid/reserved balance checks (including active draft reservations), and prevents
+  concurrent drafts from over-reserving one invoice; the latest forecast read now selects
+  the newest run even when it is incomplete.
+- Forecast latest-run reads now distinguish a missing snapshot (`404`) from repository
+  failures (`500`), and worker payment/provider construction remains confined to the
+  `finance-sandbox`/`v0.11-finance` profile while recovery and settlement effects stay
+  disabled outside that migration-backed boundary.
 - Hardened the Midtrans connector with structured vaulted credentials, explicit
   sandbox/live endpoint selection, injected transport retries, provider status health
   checks, strict webhook validation, monotonic payment transitions, refund/status

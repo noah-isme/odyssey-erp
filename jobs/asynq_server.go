@@ -3,6 +3,7 @@ package jobs
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -148,6 +149,9 @@ func (c *Client) EnqueueSendEmail(ctx context.Context, payload SendEmailPayload)
 	if err != nil {
 		return nil, err
 	}
+	if c == nil || c.client == nil {
+		return nil, errors.New("send email: queue client is not configured")
+	}
 	options := []asynq.Option{asynq.Queue(QueueDefault), asynq.MaxRetry(5)}
 	if payload.CorrelationID != "" {
 		options = append(options, asynq.TaskID(payload.CorrelationID))
@@ -165,7 +169,17 @@ func (c *Client) EnqueueVarianceSnapshot(ctx context.Context, snapshotID int64) 
 	if err != nil {
 		return nil, err
 	}
-	return c.client.EnqueueContext(ctx, task, asynq.Queue(QueueDefault))
+	if c == nil || c.client == nil {
+		return nil, errors.New("variance snapshot: queue client is not configured")
+	}
+	info, err := c.client.EnqueueContext(ctx, task,
+		asynq.Queue(QueueDefault),
+		asynq.TaskID("variance-snapshot:"+strconv.FormatInt(snapshotID, 10)),
+	)
+	if errors.Is(err, asynq.ErrTaskIDConflict) {
+		return nil, nil
+	}
+	return info, err
 }
 
 // EnqueueBoardPack enqueues a board pack generation task.
@@ -174,7 +188,49 @@ func (c *Client) EnqueueBoardPack(ctx context.Context, boardPackID int64) (*asyn
 	if err != nil {
 		return nil, err
 	}
-	return c.client.EnqueueContext(ctx, task, asynq.Queue(QueueDefault))
+	if c == nil || c.client == nil {
+		return nil, errors.New("board pack: queue client is not configured")
+	}
+	info, err := c.client.EnqueueContext(ctx, task,
+		asynq.Queue(QueueDefault),
+		asynq.TaskID("board-pack:"+strconv.FormatInt(boardPackID, 10)),
+	)
+	if errors.Is(err, asynq.ErrTaskIDConflict) {
+		return nil, nil
+	}
+	return info, err
+}
+
+// EnqueueBankFeedsSync submits one company connection for polling. The stable
+// task ID collapses duplicate scheduler ticks or operator clicks while the
+// task is queued; a later tick can enqueue the connection after completion.
+func (c *Client) EnqueueBankFeedsSync(ctx context.Context, connectionID int64) (*asynq.TaskInfo, error) {
+	if c == nil {
+		return nil, fmt.Errorf("bank feed sync: queue client is not configured")
+	}
+	return EnqueueBankFeedsSync(ctx, c.client, connectionID)
+}
+
+// EnqueueCashForecastRefresh submits one scoped company/scenario refresh.
+// The stable task ID collapses duplicate nightly scans while the task is
+// pending or being retried.
+func EnqueueCashForecastRefresh(ctx context.Context, client *asynq.Client, companyID, scenarioID int64) (*asynq.TaskInfo, error) {
+	task, err := NewCashForecastRefreshTask(companyID, scenarioID)
+	if err != nil {
+		return nil, err
+	}
+	if client == nil {
+		return nil, errors.New("cash forecast refresh: queue client is not configured")
+	}
+	info, err := client.EnqueueContext(ctx, task,
+		asynq.Queue(QueueDefault),
+		asynq.MaxRetry(3),
+		asynq.TaskID("cash-forecast:"+strconv.FormatInt(companyID, 10)+":"+strconv.FormatInt(scenarioID, 10)),
+	)
+	if errors.Is(err, asynq.ErrTaskIDConflict) {
+		return nil, nil
+	}
+	return info, err
 }
 
 // EnqueueBankFeedsEvent enqueues a callback consumer with a stable task ID so
@@ -183,6 +239,9 @@ func (c *Client) EnqueueBankFeedsEvent(ctx context.Context, eventID int64) (*asy
 	task, err := NewBankFeedsEventTask(eventID)
 	if err != nil {
 		return nil, err
+	}
+	if c == nil || c.client == nil {
+		return nil, fmt.Errorf("bank feed event: queue client is not configured")
 	}
 	info, err := c.client.EnqueueContext(ctx, task, asynq.Queue(QueueDefault), asynq.MaxRetry(10), asynq.TaskID("bank-feed-event:"+strconv.FormatInt(eventID, 10)))
 	if errors.Is(err, asynq.ErrTaskIDConflict) {

@@ -77,6 +77,9 @@ The `Makefile` provides convenient shortcuts for common tasks:
 - `make seed-production` — Load the full seed program with `APP_ENV=production`.
 - `make sqlc-gen` — Regenerate Go bindings from SQL queries using `sqlc`.
 - `make docs-check` — Verify documentation links.
+- `RELEASE_PROFILE=v0.11-finance make finance-sandbox-check` — Validate the
+  structured finance-sandbox evidence handoff without treating open external
+  evidence as complete.
 - `RELEASE_PROFILE=v0.10-core make production-release-check` — Run the final tagged release gate.
 
 ## Docker Compose Architecture

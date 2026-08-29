@@ -247,6 +247,15 @@ else
 	done <<< "$findings_section"
 fi
 
+if [[ "$release_profile" == v0.11-finance ]]; then
+	finance_handoff_check="scripts/check-finance-sandbox-handoff.sh"
+	if [[ ! -f "$finance_handoff_check" ]]; then
+		fail "missing v0.11-finance evidence gate: $finance_handoff_check"
+	elif ! bash "$finance_handoff_check" --require-complete; then
+		fail 'v0.11-finance evidence index is not complete; provider, database, isolation, rollback, and approval evidence remain release gates'
+	fi
+fi
+
 if [[ "$release_profile" == v0.10-core ]]; then
 	for direction in up down; do
 		if [[ ! -f "migrations/000124_scoped_rbac_global_compatibility.$direction.sql" ]]; then

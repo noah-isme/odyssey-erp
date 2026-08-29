@@ -902,21 +902,17 @@ func NewRouter(params RouterParams) http.Handler {
 	}
 	if params.ForecastingHandler != nil {
 		r.Route("/finance/forecasting", func(r chi.Router) {
-			useCoreScope(r, shared.PermFinanceForecastView, shared.PermFinanceForecastManage)
-			params.ForecastingHandler.MountRoutes(r)
+			mountForecastingRoutes(r, params.ForecastingHandler, coreScoped, params.RBACMiddleware)
 		})
 	}
 	if params.TreasuryHandler != nil {
 		r.Route("/finance/treasury", func(r chi.Router) {
-			useCoreScope(r,
-				shared.PermFinanceAutomationManage,
-				shared.PermFinancePaymentPropose,
-				shared.PermFinancePaymentApprove,
-				shared.PermFinancePaymentExport,
-				shared.PermFinancePaymentExecute,
-				shared.PermFinancePaymentView,
-			)
-			params.TreasuryHandler.MountRoutes(r)
+			if !coreScoped {
+				params.TreasuryHandler.MountRoutes(r)
+				return
+			}
+			r.Use(rbac.ScopedRoute)
+			params.TreasuryHandler.MountScopedRoutes(r, params.RBACMiddleware.RequireAnyInScope)
 		})
 	}
 	r.Route("/jobs", params.JobHandler.MountRoutes)
@@ -954,6 +950,21 @@ func NewRouter(params RouterParams) http.Handler {
 	}
 
 	return r
+}
+
+// mountForecastingRoutes keeps read and trigger permissions separate. A
+// forecast viewer may inspect an existing run, but starting a new snapshot is
+// a stateful/expensive operation and requires the company-scoped manage grant.
+// Full local development retains the existing unscoped route behavior; bounded
+// v0.10/v0.11 profiles use the tenant-aware middleware.
+func mountForecastingRoutes(router chi.Router, handler *forecasting.Handler, coreScoped bool, middleware rbac.Middleware) {
+	if !coreScoped {
+		handler.MountRoutes(router)
+		return
+	}
+	router.Use(rbac.ScopedRoute)
+	router.With(middleware.RequireAnyInScope(shared.PermFinanceForecastView, shared.PermFinanceForecastManage)).Get("/runs/latest", handler.GetLatestRun)
+	router.With(middleware.RequireAnyInScope(shared.PermFinanceForecastManage)).Post("/runs", handler.TriggerRun)
 }
 
 // staticCacheHandler wraps a file server with Cache-Control headers.

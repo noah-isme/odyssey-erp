@@ -31,6 +31,7 @@ func NewDatabaseReaders(db *pgxpool.Pool) []SourceReader {
 		&SQLSourceReader{db: db, kind: SourceTypeApprovedPayment, name: "approved-payments"},
 		&SQLSourceReader{db: db, kind: SourceTypeApprovedPO, name: "approved-pos"},
 		&SQLSourceReader{db: db, kind: SourceTypeTaxObligation, name: "tax-obligations"},
+		&SQLSourceReader{db: db, kind: SourceTypeManualAdjustment, name: "forecast-adjustments"},
 	}
 }
 
@@ -66,9 +67,76 @@ func (r *SQLSourceReader) ReadExpectedFlows(ctx context.Context, companyID int64
 		return r.readApprovedPOs(ctx, companyID, fromDate, toDate)
 	case SourceTypeTaxObligation:
 		return r.readTaxObligations(ctx, companyID, fromDate, toDate)
+	case SourceTypeManualAdjustment:
+		return nil, fmt.Errorf("forecast source type %s requires scenario scope", r.kind)
 	default:
 		return nil, fmt.Errorf("unsupported forecast source type %s", r.kind)
 	}
+}
+
+// ReadExpectedFlowsForScenario is the scenario-aware extension used for
+// forecast adjustments. Shared ledger readers intentionally remain on the
+// company-scoped SourceReader contract, while this path requires both IDs so
+// an adjustment from another scenario can never be included in a run.
+func (r *SQLSourceReader) ReadExpectedFlowsForScenario(ctx context.Context, companyID, scenarioID int64, fromDate, toDate time.Time) ([]ExpectedCashFlow, error) {
+	if r == nil || r.db == nil {
+		return nil, fmt.Errorf("forecast source reader database is not configured")
+	}
+	if companyID <= 0 || scenarioID <= 0 {
+		return nil, fmt.Errorf("forecast source reader company and scenario IDs are required")
+	}
+	if r.kind != SourceTypeManualAdjustment {
+		return r.ReadExpectedFlows(ctx, companyID, fromDate, toDate)
+	}
+	return r.readAdjustments(ctx, companyID, scenarioID, fromDate, toDate)
+}
+
+func (r *SQLSourceReader) readAdjustments(ctx context.Context, companyID, scenarioID int64, fromDate, toDate time.Time) ([]ExpectedCashFlow, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT id,
+		       adjustment_type,
+		       amount::text,
+		       currency,
+		       expected_date
+		FROM forecast_adjustments
+		WHERE company_id = $1
+		  AND scenario_id = $2
+		  AND expected_date >= $3::date
+		  AND expected_date < $4::date
+		ORDER BY expected_date, id`, companyID, scenarioID, fromDate, toDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var result []ExpectedCashFlow
+	for rows.Next() {
+		var id int64
+		var adjustmentType, amountText, currency string
+		var expectedDate time.Time
+		if err := rows.Scan(&id, &adjustmentType, &amountText, &currency, &expectedDate); err != nil {
+			return nil, err
+		}
+		switch strings.ToUpper(strings.TrimSpace(adjustmentType)) {
+		case "MANUAL", "RECURRING":
+		default:
+			return nil, fmt.Errorf("forecast adjustment %d has unsupported type %q", id, adjustmentType)
+		}
+		amount, err := exactAmount(amountText, currency)
+		if err != nil {
+			return nil, fmt.Errorf("forecast adjustment %d: %w", id, err)
+		}
+		result = append(result, ExpectedCashFlow{
+			SourceType: SourceTypeManualAdjustment,
+			SourceRef:  fmt.Sprintf("forecast-adjustment:%d", id),
+			Amount:     amount,
+			Currency:   strings.ToUpper(strings.TrimSpace(currency)),
+			Date:       dateOnlyUTC(expectedDate),
+			// Adjustments are operator-provided expectations, not posted or
+			// approved obligations, so they remain visible in the probable view.
+			Certainty: CertaintyProbable,
+		})
+	}
+	return result, rows.Err()
 }
 
 func (r *SQLSourceReader) readApprovedPayments(ctx context.Context, companyID int64, fromDate, toDate time.Time) ([]ExpectedCashFlow, error) {

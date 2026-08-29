@@ -91,6 +91,7 @@ type POLine struct {
 // GoodsReceipt domain model.
 type GoodsReceipt struct {
 	ID          int64
+	CompanyID   int64
 	Number      string
 	POID        int64
 	SupplierID  int64
@@ -162,6 +163,10 @@ type GRNListItem struct {
 
 // ListFilters contains filter parameters for list queries.
 type ListFilters struct {
+	// CompanyID scopes workbench reads to the active tenant. A zero value is
+	// retained for trusted internal callers that do not expose an HTTP view;
+	// handlers must always populate it from the authenticated session.
+	CompanyID  int64
 	Status     string
 	SupplierID int64
 	Search     string
@@ -257,4 +262,11 @@ var (
 	ErrGoodsReturnNotFound = errors.New("procurement: goods return not found")
 	// ErrGoodsReturnAlreadyConfirmed indicates the return is already confirmed.
 	ErrGoodsReturnAlreadyConfirmed = errors.New("procurement: goods return already confirmed")
+	// ErrCompanyScopeRequired indicates a request did not carry an authenticated
+	// tenant identity. Background callers may continue to use the legacy
+	// context-free contract, but browser requests must be tenant-scoped.
+	ErrCompanyScopeRequired = errors.New("procurement: company scope is required")
+	// ErrCompanyScopeMismatch indicates that a tenant-scoped request attempted
+	// to access a document owned by another company.
+	ErrCompanyScopeMismatch = errors.New("procurement: company scope mismatch")
 )

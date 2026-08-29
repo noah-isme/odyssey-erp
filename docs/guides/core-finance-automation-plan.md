@@ -238,8 +238,9 @@ duplicate statement line or bank transaction and preserves existing behavior.
 - [x] Add a verified statement-transport boundary that checks account identity,
   signature state, checksum, cursor progression, and reuses the normalized banking
   parser/import path for CSV/OFX artifacts.
-- Add scheduled sync, token/consent refresh handling, rate-limit backoff, replay, and
-  disconnect behavior.
+- [x] Add a profile-gated scheduled scan with company settings, consent/status checks,
+  stale-run recovery, per-connection leases, stable task IDs, and duplicate-safe enqueue.
+- Add token/consent refresh handling, rate-limit backoff, replay, and disconnect behavior.
 - Provider adapters still need to implement `FeedPort` and `WebhookVerifier`; unsigned
   or provider-only callbacks are rejected.
 - Add banking administration pages for connection health, mappings, run history,
@@ -268,12 +269,18 @@ company-isolation scenarios.
 - [x] Add source readers for tax obligations, approved payment batches, and approved
   uninvoiced POs; each source is company-scoped and emits an exact amount with a stable
   source key.
-- Add source readers for recurring/manual adjustments.
+- [x] Add source readers for recurring/manual adjustments with company/scenario scope,
+  date-bounded reads, stable source keys, and probable certainty.
+- [x] Return exact persisted source lines on latest-run reads and fail closed on
+  incomplete, stale, or future-dated runs with a freshness warning.
 - Tag each source as committed or probable and calculate base, conservative, and
   optimistic scenarios without mixing categories invisibly.
 - Use stable source keys to replace an expected item with its actual payment/bank event
   instead of double counting it.
-- Schedule nightly refresh and allow permission-protected on-demand runs.
+- [x] Schedule nightly refresh for enabled company-owned scenarios through the
+  profile-gated worker scan. Existing-run reads accept view/manage permission;
+  on-demand runs require company-scoped forecast management permission and the
+  company's `cash_forecast_enabled` flag.
 
 **Exit:** A seeded 13-week snapshot reconciles every total and source link exactly;
 missing/stale inputs mark the run incomplete instead of returning zero.
@@ -282,8 +289,10 @@ missing/stale inputs mark the run incomplete instead of returning zero.
 
 **Duration:** Week 8
 
+- [x] Add fail-closed freshness warnings and exact source-line visibility to the latest-run
+  response.
 - Add treasury summary, daily/weekly drill-down, scenario comparison, source-document
-  links, freshness warnings, manual override with reason, and minimum-cash alerts.
+  links, manual override with reason, and minimum-cash alerts.
 - Add CSV/XLSX export and actual-versus-forecast views by week/source.
 - Add metrics for freshness, completeness, forecast variance, and failed source readers.
 
@@ -298,8 +307,11 @@ spreadsheet, with documented variance explanations and no unexplained source gap
 
 - [x] Add effective-dated supplier bank accounts, verification state, independent approval,
   evidence/reference, change audit, and automatic payment hold after sensitive changes.
-- Add payment calendars, cut-off times, bank/file format configuration, thresholds, and
-  segregation policy.
+- [x] Load company payment-policy calendar/cut-off/bank-format metadata, enforce exact
+  batch/item thresholds, require independent approval, and validate maker/checker/executor
+  separation plus encoder identity at export.
+- Add calendar/holiday scheduling and cut-off enforcement once a batch execution date and
+  company timezone contract exist.
 - Backfill existing supplier/payment references without treating them as verified.
 
 **Exit:** An unverified or newly changed beneficiary cannot enter an executable batch;
@@ -309,17 +321,24 @@ maker/checker tests cover all configured incompatible roles.
 
 **Duration:** Weeks 9–10
 
-- [x] Add payment batches, items, proposed allocations, revisions, approval links, and
-  immutable approved snapshots.
+- [x] Add payment batches, items, proposed allocations, revisions, and approval links;
+  revisions clear stale approval/export metadata before a new review cycle.
+- Add a persisted immutable approved snapshot with item count and checksum.
 - [x] Scope handler identity and every batch/beneficiary operation to the active session
   company. Batch revisions recompute totals from active items in SQL.
 - [x] Revalidate beneficiary state and posted, unpaid AP invoice ownership/currency at
-  item creation and approval.
-- [x] Build proposal rules from posted AP balances, due/discount dates, holds, priority,
+      item creation and approval.
+- [x] Serialize AP-backed proposal reservations on the invoice row and repeat the
+      exact paid/reserved balance check in the insert transaction; approval-time
+      checks include active reservations in other draft batches.
+- Add proposal rules from posted AP balances, due/discount dates, holds, priority,
   currency, cash thresholds, account, cut-off, and holiday calendar.
-- [x] Revalidate invoice balance, supplier, beneficiary, currency/FX, period, approval, and
-  cash constraints immediately before approval and execution.
-- [x] Add proposal, review, approval/rejection, scheduling, cancellation, and exception UI.
+- [x] Revalidate supplier, beneficiary, currency, approval, exact policy limits, and
+  active AP allocations immediately before approval/export.
+- Add period/FX/cash-constraint validation and complete proposal, review,
+  approval/rejection, scheduling, cancellation, and exception UI.
+- [x] Apply route-specific scoped RBAC to beneficiary, proposal, approval, export,
+  execution, settlement, and operations duties.
 
 **Exit:** Concurrent proposal/approval tests cannot over-allocate an invoice; editing an
 approved value creates a new revision and approval requirement.
@@ -329,12 +348,17 @@ approved value creates a new revision and approval requirement.
 **Duration:** Week 11
 
 - [x] Implement provider-neutral payment-file generation and one reviewed bank format.
-- [x] Encrypt/restrict generated artifacts, record checksums and export actor/time, and
-  require a final approval snapshot.
+- [x] Record checksums and export actor/time for generated artifacts.
+- [x] Mark exports with a compare-and-set revision/status guard so an artifact
+  generated from an older approved batch cannot transition a concurrently revised
+  batch to `EXPORTED`.
+- Encrypt/restrict generated artifacts and require a persisted final approval snapshot
+  before download or provider transfer.
 - [x] Add an explicit `EXPORTED`/awaiting-confirmation state. Export must not create an AP
   payment, allocation, journal, or bank transaction.
-- [x] Add manual confirmation/import of bank execution results as the production-safe first
-  release.
+- [x] Add a durable, company-scoped result-import boundary with immutable fingerprints.
+- Add manual confirmation/import UI and operator custody controls as the production-safe
+  first release.
 
 **Exit:** Regenerating or downloading an artifact cannot alter financial state; the file
 total and item count reconcile to the approved batch snapshot.

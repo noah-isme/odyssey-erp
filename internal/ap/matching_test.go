@@ -102,3 +102,130 @@ func TestMatchingService_RunMatch_ExactMatch(t *testing.T) {
 	assert.Equal(t, "MATCHED", run.Lines[0].Status)
 	assert.Equal(t, float64(10), *run.Lines[0].POQty)
 }
+
+func TestMatchingService_RunMatch_ForwardsCompanyIDToPolicy(t *testing.T) {
+	repo := new(mockRepo)
+	svc := NewMatchingService(repo)
+	ctx := context.Background()
+	companyID := int64(42)
+
+	invoice := APInvoiceWithDetails{
+		APInvoice: APInvoice{
+			ID:         1,
+			SupplierID: 10,
+			CompanyID:  &companyID,
+		},
+	}
+	policy := &MatchingPolicy{ID: 1}
+
+	repo.On("GetAPInvoiceWithDetails", ctx, int64(1)).Return(invoice, nil)
+	repo.On("GetActiveMatchingPolicy", ctx, mock.MatchedBy(func(got *int64) bool {
+		return got != nil && *got == companyID
+	}), mock.Anything, mock.Anything).Return(policy, nil)
+	repo.On("CreateMatchingRun", ctx, mock.Anything).Return(int64(1), nil)
+
+	_, err := svc.RunMatch(ctx, 1, 1)
+	require.NoError(t, err)
+	repo.AssertExpectations(t)
+}
+
+func TestMatchingService_RunMatch_AllowsGlobalPolicyWithoutCompanyID(t *testing.T) {
+	repo := new(mockRepo)
+	svc := NewMatchingService(repo)
+	ctx := context.Background()
+
+	invoice := APInvoiceWithDetails{
+		APInvoice: APInvoice{
+			ID:         1,
+			SupplierID: 10,
+		},
+	}
+	policy := &MatchingPolicy{ID: 1}
+
+	repo.On("GetAPInvoiceWithDetails", ctx, int64(1)).Return(invoice, nil)
+	repo.On("GetActiveMatchingPolicy", ctx, mock.MatchedBy(func(got *int64) bool {
+		return got == nil
+	}), mock.Anything, mock.Anything).Return(policy, nil)
+	repo.On("CreateMatchingRun", ctx, mock.Anything).Return(int64(1), nil)
+
+	_, err := svc.RunMatch(ctx, 1, 1)
+	require.NoError(t, err)
+	repo.AssertExpectations(t)
+}
+
+func TestMatchingService_RunMatch_RejectsPreviouslyInvoicedQuantity(t *testing.T) {
+	repo := new(mockRepo)
+	svc := NewMatchingService(repo)
+	ctx := context.Background()
+	poID := int64(100)
+	poLineID := int64(200)
+
+	// The current invoice matches the original PO quantity, but eight units
+	// have already been posted against this line. Matching must use the
+	// progress view's accumulated invoiced quantity rather than allowing a
+	// second full invoice through the tolerance path.
+	companyID := int64(42)
+	invoice := APInvoiceWithDetails{
+		APInvoice: APInvoice{
+			ID:         1,
+			SupplierID: 10,
+			CompanyID:  &companyID,
+			POID:       &poID,
+			Total:      1000,
+			Status:     APStatusDraft,
+		},
+		Lines: []APInvoiceLine{{
+			ID:        1,
+			POLineID:  &poLineID,
+			Quantity:  10,
+			UnitPrice: 100,
+		}},
+	}
+	policy := &MatchingPolicy{ID: 1, QtyTolerancePct: 0, PriceTolerancePct: 0, TotalToleranceAmt: 0}
+	progress := map[int64]*POLineProgress{
+		poLineID: {
+			POLineID:    poLineID,
+			POID:        poID,
+			OrderedQty:  10,
+			UnitPrice:   100,
+			InvoicedQty: 8,
+		},
+	}
+
+	repo.On("GetAPInvoiceWithDetails", ctx, int64(1)).Return(invoice, nil)
+	repo.On("GetActiveMatchingPolicy", ctx, mock.Anything, mock.Anything, mock.Anything).Return(policy, nil)
+	repo.On("GetPOLineProgressByPO", ctx, poID).Return(progress, nil)
+	repo.On("CreateMatchingRun", ctx, mock.Anything).Return(int64(1), nil)
+	repo.On("CreateMatchingRunLine", ctx, mock.Anything).Return(nil)
+
+	run, err := svc.RunMatch(ctx, 1, 1)
+	require.NoError(t, err)
+	assert.Equal(t, "EXCEPTION", run.Status)
+	assert.Equal(t, "EXCEPTION", run.Lines[0].Status)
+	assert.Contains(t, run.Lines[0].Reasons, "INVOICED_QTY_EXCEEDED")
+	assert.Equal(t, "REVIEW_REQUIRED", run.ActionRecommended)
+}
+
+func TestMatchingService_RunMatch_RejectsInvalidQuantityFacts(t *testing.T) {
+	repo := new(mockRepo)
+	svc := NewMatchingService(repo)
+	ctx := context.Background()
+	poID := int64(100)
+	poLineID := int64(200)
+	invoice := APInvoiceWithDetails{
+		APInvoice: APInvoice{ID: 1, SupplierID: 10, POID: &poID, Total: 1000},
+		Lines:     []APInvoiceLine{{ID: 1, POLineID: &poLineID, Quantity: 10, UnitPrice: 100}},
+	}
+	policy := &MatchingPolicy{ID: 1}
+	progress := map[int64]*POLineProgress{poLineID: {POID: poID, OrderedQty: -1, UnitPrice: 100}}
+	repo.On("GetAPInvoiceWithDetails", ctx, int64(1)).Return(invoice, nil)
+	repo.On("GetActiveMatchingPolicy", ctx, mock.Anything, mock.Anything, mock.Anything).Return(policy, nil)
+	repo.On("GetPOLineProgressByPO", ctx, poID).Return(progress, nil)
+	repo.On("CreateMatchingRun", ctx, mock.Anything).Return(int64(1), nil)
+	repo.On("CreateMatchingRunLine", ctx, mock.Anything).Return(nil)
+
+	run, err := svc.RunMatch(ctx, 1, 1)
+	require.NoError(t, err)
+	assert.Equal(t, "EXCEPTION", run.Status)
+	assert.Contains(t, run.Lines[0].Reasons, "INVALID_QTY_FACTS")
+}

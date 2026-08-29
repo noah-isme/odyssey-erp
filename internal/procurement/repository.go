@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/odyssey-erp/odyssey-erp/internal/fx"
 	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
@@ -36,6 +37,11 @@ type TxRepository interface {
 	UpdatePOStatus(ctx context.Context, id int64, status POStatus) error
 	SetPOApproval(ctx context.Context, id int64, approvedBy int64, approvedAt time.Time) error
 	CreateGRN(ctx context.Context, grn GoodsReceipt) (int64, error)
+	// ValidateGRNQuantities locks the purchase order and verifies that the
+	// requested receipt still fits within its remaining quantity. It must run
+	// before creating the GRN header so concurrent receipts cannot both consume
+	// the same remaining quantity.
+	ValidateGRNQuantities(ctx context.Context, poID, supplierID int64, lines []GRNLineInput) error
 	InsertGRNLine(ctx context.Context, line GRNLine) error
 	UpdateGRNStatus(ctx context.Context, id int64, status GRNStatus) error
 
@@ -47,6 +53,14 @@ type TxRepository interface {
 	GenerateGoodsReturnGRNNumber(ctx context.Context) (string, error)
 }
 
+// GRNCreateRepositoryPort exposes the receipt-specific transaction policy.
+// Receipt creation uses READ COMMITTED so the aggregate query observes rows
+// committed by a concurrent receipt after its locked PO row is released. The
+// normal procurement transaction path intentionally remains REPEATABLE READ.
+type GRNCreateRepositoryPort interface {
+	WithGRNCreateTx(ctx context.Context, fn func(context.Context, TxRepository) error) error
+}
+
 type txRepo struct {
 	queries *sqlc.Queries
 	tx      pgx.Tx
@@ -55,6 +69,25 @@ type txRepo struct {
 // WithTx wraps callback in repeatable-read transaction.
 func (r *Repository) WithTx(ctx context.Context, fn func(context.Context, TxRepository) error) error {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
+	if err != nil {
+		return err
+	}
+	wrapper := &txRepo{
+		queries: r.queries.WithTx(tx),
+		tx:      tx,
+	}
+	if err := fn(ctx, wrapper); err != nil {
+		_ = tx.Rollback(ctx)
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+// WithGRNCreateTx runs receipt allocation in a READ COMMITTED transaction.
+// ValidateGRNQuantities locks the parent PO row before reading cumulative
+// receipt quantities, so each receipt sees the prior committed allocation.
+func (r *Repository) WithGRNCreateTx(ctx context.Context, fn func(context.Context, TxRepository) error) error {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
 		return err
 	}
@@ -193,6 +226,9 @@ func (r *Repository) GetGRN(ctx context.Context, id int64) (GoodsReceipt, []GRNL
 	if row.ReceivedAt.Valid {
 		grn.ReceivedAt = row.ReceivedAt.Time
 	}
+	if row.CompanyID.Valid {
+		grn.CompanyID = row.CompanyID.Int64
+	}
 
 	lineRows, err := r.pool.Query(ctx, `SELECT id, grn_id, product_id, qty, unit_cost, lot_number, expiry_date, serial_numbers FROM grn_lines WHERE grn_id = $1 ORDER BY id`, id)
 	if err != nil {
@@ -239,6 +275,11 @@ func (r *Repository) ListPOs(ctx context.Context, limit, offset int, filters Lis
 	args := []any{}
 	argNum := 1
 
+	if filters.CompanyID > 0 {
+		countSQL += ` AND p.company_id = $` + itoa(argNum)
+		args = append(args, filters.CompanyID)
+		argNum++
+	}
 	if filters.Status != "" {
 		countSQL += ` AND p.status = $` + itoa(argNum)
 		args = append(args, filters.Status)
@@ -269,6 +310,11 @@ func (r *Repository) ListPOs(ctx context.Context, limit, offset int, filters Lis
 
 	args2 := []any{}
 	argNum2 := 1
+	if filters.CompanyID > 0 {
+		dataSQL += ` AND p.company_id = $` + itoa(argNum2)
+		args2 = append(args2, filters.CompanyID)
+		argNum2++
+	}
 	if filters.Status != "" {
 		dataSQL += ` AND p.status = $` + itoa(argNum2)
 		args2 = append(args2, filters.Status)
@@ -318,6 +364,11 @@ func (r *Repository) ListGRNs(ctx context.Context, limit, offset int, filters Li
 	args := []any{}
 	argNum := 1
 
+	if filters.CompanyID > 0 {
+		countSQL += ` AND g.company_id = $` + itoa(argNum)
+		args = append(args, filters.CompanyID)
+		argNum++
+	}
 	if filters.Status != "" {
 		countSQL += ` AND g.status = $` + itoa(argNum)
 		args = append(args, filters.Status)
@@ -351,6 +402,11 @@ func (r *Repository) ListGRNs(ctx context.Context, limit, offset int, filters Li
 
 	args2 := []any{}
 	argNum2 := 1
+	if filters.CompanyID > 0 {
+		dataSQL += ` AND g.company_id = $` + itoa(argNum2)
+		args2 = append(args2, filters.CompanyID)
+		argNum2++
+	}
 	if filters.Status != "" {
 		dataSQL += ` AND g.status = $` + itoa(argNum2)
 		args2 = append(args2, filters.Status)
@@ -559,7 +615,97 @@ func (tx *txRepo) CreateGRN(ctx context.Context, grn GoodsReceipt) (int64, error
 		Status:      string(grn.Status),
 		ReceivedAt:  receivedAt,
 		Note:        grn.Note,
+		CompanyID:   pgtype.Int8{Int64: grn.CompanyID, Valid: grn.CompanyID > 0},
 	})
+}
+
+// ValidateGRNQuantities serializes receipt allocation on the parent purchase
+// order row and compares the requested quantities with all non-cancelled GRNs.
+// Draft receipts are included because their quantities are reserved as soon as
+// the draft is created; cancellation releases that reservation.
+func (tx *txRepo) ValidateGRNQuantities(ctx context.Context, poID, supplierID int64, lines []GRNLineInput) error {
+	var status string
+	var poSupplierID int64
+	if err := tx.tx.QueryRow(ctx, `SELECT status, supplier_id FROM pos WHERE id = $1 FOR UPDATE`, poID).Scan(&status, &poSupplierID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
+	if status != string(POStatusApproved) {
+		return ErrInvalidState
+	}
+	if supplierID != poSupplierID {
+		return fmt.Errorf("%w: GRN supplier does not match PO supplier", ErrValidation)
+	}
+
+	requested := make(map[int64]fx.Decimal, len(lines))
+	zero := fx.MustDecimal("0")
+	for _, line := range lines {
+		qty, err := fx.FromLegacyFloat(line.Qty, 4)
+		if line.ProductID <= 0 || err != nil || qty.Cmp(zero) <= 0 {
+			return fmt.Errorf("%w: quantity for product %d must be positive", ErrValidation, line.ProductID)
+		}
+		requested[line.ProductID] = requested[line.ProductID].Add(qty)
+	}
+
+	rows, err := tx.tx.Query(ctx, `
+		WITH ordered AS (
+			SELECT product_id, SUM(qty) AS qty
+			FROM po_lines
+			WHERE po_id = $1
+			GROUP BY product_id
+		), received AS (
+			SELECT gl.product_id, SUM(gl.qty) AS qty
+			FROM grn_lines gl
+			JOIN grns g ON g.id = gl.grn_id
+			WHERE g.po_id = $1 AND g.status IN ('DRAFT', 'POSTED')
+			GROUP BY gl.product_id
+		)
+		SELECT o.product_id, o.qty::text, COALESCE(r.qty, 0)::text
+		FROM ordered o
+		LEFT JOIN received r ON r.product_id = o.product_id
+		ORDER BY o.product_id`, poID)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	ordered := make(map[int64]fx.Decimal)
+	received := make(map[int64]fx.Decimal)
+	for rows.Next() {
+		var productID int64
+		var orderedText, receivedText string
+		if err := rows.Scan(&productID, &orderedText, &receivedText); err != nil {
+			return err
+		}
+		orderedQty, err := fx.ParseDecimal(orderedText)
+		if err != nil {
+			return fmt.Errorf("%w: invalid PO quantity for product %d", ErrValidation, productID)
+		}
+		receivedQty, err := fx.ParseDecimal(receivedText)
+		if err != nil {
+			return fmt.Errorf("%w: invalid received quantity for product %d", ErrValidation, productID)
+		}
+		ordered[productID] = orderedQty
+		received[productID] = receivedQty
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	if len(ordered) == 0 {
+		return fmt.Errorf("%w: PO must contain at least one line", ErrValidation)
+	}
+	for productID, requestedQty := range requested {
+		orderedQty, ok := ordered[productID]
+		if !ok {
+			return fmt.Errorf("%w: product %d is not on PO", ErrValidation, productID)
+		}
+		if received[productID].Add(requestedQty).Cmp(orderedQty) > 0 {
+			return fmt.Errorf("%w: quantity for product %d exceeds PO quantity", ErrValidation, productID)
+		}
+	}
+	return nil
 }
 
 func (tx *txRepo) InsertGRNLine(ctx context.Context, line GRNLine) error {

@@ -25,7 +25,7 @@ application port, database, and Redis instance.
 ## Deployment contract
 
 The workflow deploys automatically after a successful `CI` workflow for the
-`staging` branch. Pushing the annotated `v0.10.0-rc.5` tag also starts the
+`staging` branch. Pushing the annotated `v0.10.0-rc.7` tag also starts the
 release-candidate deployment, so the candidate can run even before this
 workflow reaches the repository's default branch. A manual dispatch using the
 same tag remains available once the workflow is on the default branch. Every
@@ -41,7 +41,7 @@ migrations, switching the release symlink atomically, restarting the staging
 services, and verifying `http://127.0.0.1:8180/healthz`.
 
 An automatic `workflow_run` deployment is refused when the checked-out commit
-exceeds migration `000124`; use the annotated rc.5 tag path for v0.10-core
+exceeds migration `000124`; use the annotated rc.7 tag path for v0.10-core
 certification instead of allowing the v0.11-finance line to drift into staging.
 
 Configure a GitHub environment named `staging` with these secrets:
@@ -108,7 +108,7 @@ Create `/opt/odyssey-staging/.env` outside release directories:
 ```bash
 APP_ENV=staging
 RELEASE_PROFILE=v0.10-core
-APP_ADDR=:8180
+APP_ADDR=127.0.0.1:8180
 LOG_FORMAT=json
 
 PG_DSN=postgres://odyssey_staging:password@db-host:5432/odyssey_staging?sslmode=require

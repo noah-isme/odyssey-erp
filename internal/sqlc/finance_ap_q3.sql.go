@@ -84,6 +84,48 @@ func (q *Queries) GetAPException(ctx context.Context, id int64) (ApException, er
 	return i, err
 }
 
+const getAPExceptionForCompany = `-- name: GetAPExceptionForCompany :one
+SELECT
+    e.id, e.ap_invoice_id, e.ap_matching_run_id, e.exception_type, e.severity, e.status,
+    e.owner_id, e.sla_due_at, e.reason, e.evidence, e.comments,
+    e.created_at, e.updated_at, e.resolved_at, e.resolved_by
+FROM ap_exceptions e
+JOIN ap_invoices i ON i.id = e.ap_invoice_id
+JOIN suppliers s ON s.id = i.supplier_id
+WHERE e.id = $1
+  AND COALESCE(i.company_id, s.company_id)::BIGINT = $2::BIGINT
+`
+
+type GetAPExceptionForCompanyParams struct {
+	ExceptionID int64 `json:"exception_id"`
+	CompanyID   int64 `json:"company_id"`
+}
+
+// The company is derived from the invoice first, with the supplier fallback
+// retained for invoices created before company_id was populated.
+func (q *Queries) GetAPExceptionForCompany(ctx context.Context, arg GetAPExceptionForCompanyParams) (ApException, error) {
+	row := q.db.QueryRow(ctx, getAPExceptionForCompany, arg.ExceptionID, arg.CompanyID)
+	var i ApException
+	err := row.Scan(
+		&i.ID,
+		&i.ApInvoiceID,
+		&i.ApMatchingRunID,
+		&i.ExceptionType,
+		&i.Severity,
+		&i.Status,
+		&i.OwnerID,
+		&i.SlaDueAt,
+		&i.Reason,
+		&i.Evidence,
+		&i.Comments,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ResolvedAt,
+		&i.ResolvedBy,
+	)
+	return i, err
+}
+
 const getLatestMatchingRun = `-- name: GetLatestMatchingRun :one
 SELECT 
     id, ap_invoice_id, policy_id, status,
@@ -112,6 +154,50 @@ func (q *Queries) GetLatestMatchingRun(ctx context.Context, apInvoiceID int64) (
 		&i.RunBy,
 	)
 	return i, err
+}
+
+const listAPExceptionResolutionEventsForCompany = `-- name: ListAPExceptionResolutionEventsForCompany :many
+SELECT
+    id, ap_exception_id, company_id, from_status, to_status, comment,
+    actor_id, created_at
+FROM ap_exception_resolution_events
+WHERE company_id = $1::BIGINT
+  AND ap_exception_id = $2
+ORDER BY created_at ASC, id ASC
+`
+
+type ListAPExceptionResolutionEventsForCompanyParams struct {
+	CompanyID   int64 `json:"company_id"`
+	ExceptionID int64 `json:"exception_id"`
+}
+
+func (q *Queries) ListAPExceptionResolutionEventsForCompany(ctx context.Context, arg ListAPExceptionResolutionEventsForCompanyParams) ([]ApExceptionResolutionEvent, error) {
+	rows, err := q.db.Query(ctx, listAPExceptionResolutionEventsForCompany, arg.CompanyID, arg.ExceptionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ApExceptionResolutionEvent
+	for rows.Next() {
+		var i ApExceptionResolutionEvent
+		if err := rows.Scan(
+			&i.ID,
+			&i.ApExceptionID,
+			&i.CompanyID,
+			&i.FromStatus,
+			&i.ToStatus,
+			&i.Comment,
+			&i.ActorID,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listAPExceptions = `-- name: ListAPExceptions :many
@@ -178,6 +264,198 @@ func (q *Queries) ListAPExceptions(ctx context.Context, arg ListAPExceptionsPara
 	return items, nil
 }
 
+const listAPExceptionsForCompany = `-- name: ListAPExceptionsForCompany :many
+SELECT
+    e.id, e.ap_invoice_id, e.ap_matching_run_id, e.exception_type, e.severity, e.status,
+    e.owner_id, e.sla_due_at, e.reason, e.evidence, e.comments,
+    e.created_at, e.updated_at, e.resolved_at, e.resolved_by
+FROM ap_exceptions e
+JOIN ap_invoices i ON i.id = e.ap_invoice_id
+JOIN suppliers s ON s.id = i.supplier_id
+WHERE COALESCE(i.company_id, s.company_id)::BIGINT = $1::BIGINT
+  AND ($2::TEXT = '' OR e.status = $2::TEXT)
+  AND ($3::BIGINT = 0 OR e.owner_id = $3::BIGINT)
+  AND ($4::BIGINT = 0 OR e.ap_invoice_id = $4::BIGINT)
+ORDER BY e.created_at DESC
+LIMIT $6 OFFSET $5
+`
+
+type ListAPExceptionsForCompanyParams struct {
+	CompanyID  int64  `json:"company_id"`
+	Status     string `json:"status"`
+	OwnerID    int64  `json:"owner_id"`
+	InvoiceID  int64  `json:"invoice_id"`
+	PageOffset int32  `json:"page_offset"`
+	PageLimit  int32  `json:"page_limit"`
+}
+
+// Scope before applying workbench filters so pagination cannot leak or skip
+// records from another company.
+func (q *Queries) ListAPExceptionsForCompany(ctx context.Context, arg ListAPExceptionsForCompanyParams) ([]ApException, error) {
+	rows, err := q.db.Query(ctx, listAPExceptionsForCompany,
+		arg.CompanyID,
+		arg.Status,
+		arg.OwnerID,
+		arg.InvoiceID,
+		arg.PageOffset,
+		arg.PageLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ApException
+	for rows.Next() {
+		var i ApException
+		if err := rows.Scan(
+			&i.ID,
+			&i.ApInvoiceID,
+			&i.ApMatchingRunID,
+			&i.ExceptionType,
+			&i.Severity,
+			&i.Status,
+			&i.OwnerID,
+			&i.SlaDueAt,
+			&i.Reason,
+			&i.Evidence,
+			&i.Comments,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ResolvedAt,
+			&i.ResolvedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const resolveAPException = `-- name: ResolveAPException :one
+WITH target AS MATERIALIZED (
+    SELECT e.id,
+           e.status AS from_status,
+           COALESCE(i.company_id, s.company_id)::BIGINT AS company_id
+    FROM ap_exceptions e
+    JOIN ap_invoices i ON i.id = e.ap_invoice_id
+    JOIN suppliers s ON s.id = i.supplier_id
+    WHERE e.id = $4
+    -- Lock the ownership sources with the exception so the tenant snapshot
+    -- cannot race a concurrent invoice/supplier company reassignment.
+    FOR UPDATE OF e, i, s
+), transitioned AS (
+    UPDATE ap_exceptions AS e
+    SET
+        status = $1::TEXT,
+        resolved_at = NOW(),
+        resolved_by = $3::BIGINT,
+        updated_at = NOW()
+    FROM target
+    WHERE e.id = target.id
+      AND target.from_status IN ('OPEN', 'IN_REVIEW')
+    RETURNING e.id
+)
+INSERT INTO ap_exception_resolution_events (
+    ap_exception_id, company_id, from_status, to_status, comment, actor_id
+)
+SELECT target.id,
+       target.company_id,
+       target.from_status,
+       $1::TEXT,
+       $2::TEXT,
+       $3::BIGINT
+FROM target
+JOIN transitioned ON transitioned.id = target.id
+RETURNING id
+`
+
+type ResolveAPExceptionParams struct {
+	ToStatus    string `json:"to_status"`
+	Comment     string `json:"comment"`
+	ResolvedBy  int64  `json:"resolved_by"`
+	ExceptionID int64  `json:"exception_id"`
+}
+
+// Lock the current exception, apply one terminal transition, and append its
+// resolution evidence in the same statement/transaction. A terminal row is
+// deliberately not transitioned a second time.
+func (q *Queries) ResolveAPException(ctx context.Context, arg ResolveAPExceptionParams) (int64, error) {
+	row := q.db.QueryRow(ctx, resolveAPException,
+		arg.ToStatus,
+		arg.Comment,
+		arg.ResolvedBy,
+		arg.ExceptionID,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const resolveAPExceptionForCompany = `-- name: ResolveAPExceptionForCompany :one
+WITH target AS MATERIALIZED (
+    SELECT e.id,
+           e.status AS from_status,
+           COALESCE(i.company_id, s.company_id)::BIGINT AS company_id
+    FROM ap_exceptions e
+    JOIN ap_invoices i ON i.id = e.ap_invoice_id
+    JOIN suppliers s ON s.id = i.supplier_id
+    WHERE e.id = $4
+      AND COALESCE(i.company_id, s.company_id)::BIGINT = $5::BIGINT
+    -- Lock the ownership sources with the exception so the tenant snapshot
+    -- cannot race a concurrent invoice/supplier company reassignment.
+    FOR UPDATE OF e, i, s
+), transitioned AS (
+    UPDATE ap_exceptions AS e
+    SET
+        status = $1::TEXT,
+        resolved_at = NOW(),
+        resolved_by = $3::BIGINT,
+        updated_at = NOW()
+    FROM target
+    WHERE e.id = target.id
+      AND target.from_status IN ('OPEN', 'IN_REVIEW')
+    RETURNING e.id
+)
+INSERT INTO ap_exception_resolution_events (
+    ap_exception_id, company_id, from_status, to_status, comment, actor_id
+)
+SELECT target.id,
+       target.company_id,
+       target.from_status,
+       $1::TEXT,
+       $2::TEXT,
+       $3::BIGINT
+FROM target
+JOIN transitioned ON transitioned.id = target.id
+RETURNING id
+`
+
+type ResolveAPExceptionForCompanyParams struct {
+	ToStatus    string `json:"to_status"`
+	Comment     string `json:"comment"`
+	ResolvedBy  int64  `json:"resolved_by"`
+	ExceptionID int64  `json:"exception_id"`
+	CompanyID   int64  `json:"company_id"`
+}
+
+// The company predicate is applied while acquiring the row lock; a
+// cross-company ID therefore cannot be updated or generate an event.
+func (q *Queries) ResolveAPExceptionForCompany(ctx context.Context, arg ResolveAPExceptionForCompanyParams) (int64, error) {
+	row := q.db.QueryRow(ctx, resolveAPExceptionForCompany,
+		arg.ToStatus,
+		arg.Comment,
+		arg.ResolvedBy,
+		arg.ExceptionID,
+		arg.CompanyID,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const updateAPExceptionStatus = `-- name: UpdateAPExceptionStatus :exec
 UPDATE ap_exceptions
 SET 
@@ -186,6 +464,8 @@ SET
     resolved_by = CASE WHEN $2 IN ('RESOLVED', 'REJECTED') THEN $3 ELSE resolved_by END,
     updated_at = NOW()
 WHERE id = $1
+  AND status NOT IN ('RESOLVED', 'REJECTED')
+  AND $2 NOT IN ('RESOLVED', 'REJECTED')
 `
 
 type UpdateAPExceptionStatusParams struct {
@@ -194,7 +474,47 @@ type UpdateAPExceptionStatusParams struct {
 	ResolvedBy pgtype.Int8 `json:"resolved_by"`
 }
 
+// Legacy non-terminal state update. Terminal transitions must use
+// ResolveAPException so immutable resolution evidence cannot be bypassed.
 func (q *Queries) UpdateAPExceptionStatus(ctx context.Context, arg UpdateAPExceptionStatusParams) error {
 	_, err := q.db.Exec(ctx, updateAPExceptionStatus, arg.ID, arg.Status, arg.ResolvedBy)
 	return err
+}
+
+const updateAPExceptionStatusForCompany = `-- name: UpdateAPExceptionStatusForCompany :execrows
+UPDATE ap_exceptions AS e
+SET
+    status = $1,
+    resolved_at = CASE WHEN $1::TEXT IN ('RESOLVED', 'REJECTED') THEN NOW() ELSE resolved_at END,
+    resolved_by = CASE WHEN $1::TEXT IN ('RESOLVED', 'REJECTED') THEN $2 ELSE resolved_by END,
+    updated_at = NOW()
+FROM ap_invoices i
+JOIN suppliers s ON s.id = i.supplier_id
+WHERE e.id = $3
+  AND i.id = e.ap_invoice_id
+  AND e.status NOT IN ('RESOLVED', 'REJECTED')
+  AND $1::TEXT NOT IN ('RESOLVED', 'REJECTED')
+  AND COALESCE(i.company_id, s.company_id)::BIGINT = $4::BIGINT
+`
+
+type UpdateAPExceptionStatusForCompanyParams struct {
+	Status      string      `json:"status"`
+	ResolvedBy  pgtype.Int8 `json:"resolved_by"`
+	ExceptionID int64       `json:"exception_id"`
+	CompanyID   int64       `json:"company_id"`
+}
+
+// Legacy non-terminal state update. Terminal transitions must use the
+// company-scoped resolver so immutable resolution evidence cannot be bypassed.
+func (q *Queries) UpdateAPExceptionStatusForCompany(ctx context.Context, arg UpdateAPExceptionStatusForCompanyParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateAPExceptionStatusForCompany,
+		arg.Status,
+		arg.ResolvedBy,
+		arg.ExceptionID,
+		arg.CompanyID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

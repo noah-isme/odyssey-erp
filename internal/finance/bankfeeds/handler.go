@@ -36,6 +36,10 @@ func (h *Handler) MountRoutes(r chi.Router) {
 }
 
 func (h *Handler) handleWebhook(w http.ResponseWriter, r *http.Request) {
+	if h == nil || h.service == nil {
+		http.Error(w, "bank-feed webhook service is not configured", http.StatusServiceUnavailable)
+		return
+	}
 	provider := chi.URLParam(r, "provider")
 	if provider == "" {
 		http.Error(w, "missing provider", http.StatusBadRequest)
@@ -70,6 +74,13 @@ func (h *Handler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			headers[key] = values[0]
 		}
 	}
+	// A verified event without a worker task is a durable inbox entry that can
+	// never converge. Refuse the request before persistence so providers retry
+	// while the application wiring is repaired.
+	if h.enqueue == nil {
+		http.Error(w, "bank-feed webhook queue is not configured", http.StatusServiceUnavailable)
+		return
+	}
 	event, err := h.service.SaveWebhookEvent(r.Context(), connectionID, provider, eventType, headers, payloadBytes)
 	if err != nil {
 		if h.logger != nil {
@@ -78,14 +89,15 @@ func (h *Handler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
-	if h.enqueue != nil {
-		if err := h.enqueue(r.Context(), event.ID); err != nil {
-			if h.logger != nil {
-				h.logger.Error("failed to enqueue webhook event", "event_id", event.ID, "error", err)
-			}
-			http.Error(w, "internal error", http.StatusInternalServerError)
-			return
+	if err := h.enqueue(r.Context(), event.ID); err != nil {
+		if h.logger != nil {
+			h.logger.Error("failed to enqueue webhook event", "event_id", event.ID, "error", err)
 		}
+		// The inbox row remains pending and a provider retry can enqueue the
+		// same idempotent event again. Signal temporary unavailability rather
+		// than acknowledging a callback that has not reached a worker.
+		http.Error(w, "bank-feed webhook queue unavailable", http.StatusServiceUnavailable)
+		return
 	}
 
 	w.WriteHeader(http.StatusAccepted)

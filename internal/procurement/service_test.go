@@ -2,13 +2,15 @@ package procurement
 
 import (
 	"context"
+	"fmt"
+	"math"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/odyssey-erp/odyssey-erp/internal/fx"
 	"github.com/odyssey-erp/odyssey-erp/internal/inventory"
-
 )
 
 type memoryProcRepo struct {
@@ -165,6 +167,65 @@ func (tx *memoryProcTx) CreateGRN(ctx context.Context, grn GoodsReceipt) (int64,
 	return id, nil
 }
 
+func (tx *memoryProcTx) ValidateGRNQuantities(ctx context.Context, poID, supplierID int64, lines []GRNLineInput) error {
+	po, ok := tx.repo.pos[poID]
+	if !ok {
+		return ErrNotFound
+	}
+	if po.Status != POStatusApproved {
+		return ErrInvalidState
+	}
+	if po.SupplierID != supplierID {
+		return fmt.Errorf("%w: GRN supplier does not match PO supplier", ErrValidation)
+	}
+
+	zero := fx.MustDecimal("0")
+	ordered := make(map[int64]fx.Decimal)
+	for _, line := range tx.repo.poLines[poID] {
+		qty, err := fx.FromLegacyFloat(line.Qty, 4)
+		if line.ProductID <= 0 || err != nil || qty.Cmp(zero) <= 0 {
+			return fmt.Errorf("%w: PO line has invalid quantity", ErrValidation)
+		}
+		ordered[line.ProductID] = ordered[line.ProductID].Add(qty)
+	}
+	if len(ordered) == 0 {
+		return fmt.Errorf("%w: PO must contain at least one line", ErrValidation)
+	}
+
+	received := make(map[int64]fx.Decimal)
+	for id, grn := range tx.repo.grns {
+		if grn.POID != poID || grn.Status == GRNStatusCancelled {
+			continue
+		}
+		for _, line := range tx.repo.grnLines[id] {
+			qty, err := fx.FromLegacyFloat(line.Qty, 4)
+			if err != nil {
+				return fmt.Errorf("%w: invalid received quantity for product %d", ErrValidation, line.ProductID)
+			}
+			received[line.ProductID] = received[line.ProductID].Add(qty)
+		}
+	}
+
+	requested := make(map[int64]fx.Decimal)
+	for _, line := range lines {
+		qty, err := fx.FromLegacyFloat(line.Qty, 4)
+		if line.ProductID <= 0 || err != nil || qty.Cmp(zero) <= 0 {
+			return fmt.Errorf("%w: quantity for product %d must be positive", ErrValidation, line.ProductID)
+		}
+		requested[line.ProductID] = requested[line.ProductID].Add(qty)
+	}
+	for productID, requestedQty := range requested {
+		orderedQty, ok := ordered[productID]
+		if !ok {
+			return fmt.Errorf("%w: product %d is not on PO", ErrValidation, productID)
+		}
+		if received[productID].Add(requestedQty).Cmp(orderedQty) > 0 {
+			return fmt.Errorf("%w: quantity for product %d exceeds PO quantity", ErrValidation, productID)
+		}
+	}
+	return nil
+}
+
 func (tx *memoryProcTx) InsertGRNLine(ctx context.Context, line GRNLine) error {
 	line.ID = tx.nextID()
 	tx.repo.grnLines[line.GRNID] = append(tx.repo.grnLines[line.GRNID], line)
@@ -306,6 +367,7 @@ func TestGRNPostPropagatesTraceabilityToInventory(t *testing.T) {
 
 	poID := int64(1)
 	repo.pos[poID] = PurchaseOrder{ID: poID, Number: "PO-TRACE", SupplierID: 1, Status: POStatusApproved}
+	repo.poLines[poID] = []POLine{{ID: 8, POID: poID, ProductID: 11, Qty: 2}}
 	expiry := time.Date(2027, time.January, 31, 0, 0, 0, 0, time.UTC)
 	grn, err := svc.CreateGoodsReceipt(ctx, CreateGRNInput{POID: poID, WarehouseID: 2, SupplierID: 1, Lines: []GRNLineInput{{ProductID: 11, Qty: 2, UnitCost: 10000, LotNumber: "LOT-2026-001", ExpiryDate: &expiry, SerialNumbers: []string{"SN-001", "SN-002"}}}})
 	require.NoError(t, err)
@@ -314,6 +376,138 @@ func TestGRNPostPropagatesTraceabilityToInventory(t *testing.T) {
 	require.Equal(t, "LOT-2026-001", inv.records[0].LotNumber)
 	require.Equal(t, expiry, *inv.records[0].ExpiryDate)
 	require.Equal(t, []string{"SN-001", "SN-002"}, inv.records[0].SerialNumbers)
+}
+
+func TestCreateGoodsReceiptInheritsPOCompany(t *testing.T) {
+	repo := newMemoryProcRepo()
+	svc := NewService(nil, repo, &stubInventory{}, nil, nil, nil, nil)
+	poID := int64(41)
+	repo.pos[poID] = PurchaseOrder{
+		ID: poID, CompanyID: 17, Number: "PO-TENANT", SupplierID: 1,
+		Status: POStatusApproved,
+	}
+	repo.poLines[poID] = []POLine{{POID: poID, ProductID: 11, Qty: 1}}
+
+	grn, err := svc.CreateGoodsReceipt(context.Background(), CreateGRNInput{
+		POID: poID, WarehouseID: 2, SupplierID: 1,
+		Lines: []GRNLineInput{{ProductID: 11, Qty: 1, UnitCost: 1}},
+	})
+	require.NoError(t, err)
+	require.Equal(t, int64(17), grn.CompanyID)
+	require.Equal(t, int64(17), repo.grns[grn.ID].CompanyID)
+}
+
+func TestCreateGoodsReceiptBoundsLinesToApprovedPO(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   CreateGRNInput
+		wantErr string
+	}{
+		{
+			name:    "supplier mismatch",
+			input:   CreateGRNInput{POID: 1, WarehouseID: 2, SupplierID: 8, Lines: []GRNLineInput{{ProductID: 11, Qty: 1, UnitCost: 10}}},
+			wantErr: "GRN supplier does not match PO supplier",
+		},
+		{
+			name:    "unknown product",
+			input:   CreateGRNInput{POID: 1, WarehouseID: 2, SupplierID: 7, Lines: []GRNLineInput{{ProductID: 99, Qty: 1, UnitCost: 10}}},
+			wantErr: "product 99 is not on PO",
+		},
+		{
+			name:    "over ordered quantity",
+			input:   CreateGRNInput{POID: 1, WarehouseID: 2, SupplierID: 7, Lines: []GRNLineInput{{ProductID: 11, Qty: 5.001, UnitCost: 10}}},
+			wantErr: "quantity for product 11 exceeds PO quantity",
+		},
+		{
+			name:    "empty lines",
+			input:   CreateGRNInput{POID: 1, WarehouseID: 2, SupplierID: 7},
+			wantErr: "at least one GRN line is required",
+		},
+		{
+			name:    "negative unit cost",
+			input:   CreateGRNInput{POID: 1, WarehouseID: 2, SupplierID: 7, Lines: []GRNLineInput{{ProductID: 11, Qty: 1, UnitCost: -1}}},
+			wantErr: "unit cost for product 11 must be non-negative",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := newMemoryProcRepo()
+			repo.pos[1] = PurchaseOrder{ID: 1, Number: "PO-BOUND", SupplierID: 7, Status: POStatusApproved}
+			repo.poLines[1] = []POLine{{ID: 2, POID: 1, ProductID: 11, Qty: 5}}
+			svc := NewService(nil, repo, nil, nil, nil, nil, nil)
+
+			_, err := svc.CreateGoodsReceipt(context.Background(), tt.input)
+			require.ErrorContains(t, err, tt.wantErr)
+			require.Empty(t, repo.grns, "invalid receipt must not create a header")
+		})
+	}
+}
+
+func TestCreateGoodsReceiptAllowsSplitLinesWithinPOQuantity(t *testing.T) {
+	repo := newMemoryProcRepo()
+	repo.pos[1] = PurchaseOrder{ID: 1, Number: "PO-SPLIT", SupplierID: 7, Status: POStatusApproved}
+	repo.poLines[1] = []POLine{
+		{ID: 2, POID: 1, ProductID: 11, Qty: 2},
+		{ID: 3, POID: 1, ProductID: 11, Qty: 3},
+	}
+	svc := NewService(nil, repo, nil, nil, nil, nil, nil)
+
+	grn, err := svc.CreateGoodsReceipt(context.Background(), CreateGRNInput{
+		POID:        1,
+		WarehouseID: 2,
+		SupplierID:  7,
+		Lines: []GRNLineInput{
+			{ProductID: 11, Qty: 2, UnitCost: 10},
+			{ProductID: 11, Qty: 3, UnitCost: 10},
+		},
+	})
+	require.NoError(t, err)
+	require.NotZero(t, grn.ID)
+	require.Len(t, repo.grnLines[grn.ID], 2)
+}
+
+func TestCreateGoodsReceiptCountsEarlierReceiptsAgainstPOQuantity(t *testing.T) {
+	repo := newMemoryProcRepo()
+	repo.pos[1] = PurchaseOrder{ID: 1, Number: "PO-CUMULATIVE", SupplierID: 7, Status: POStatusApproved}
+	repo.poLines[1] = []POLine{{ID: 2, POID: 1, ProductID: 11, Qty: 5}}
+	repo.grns[3] = GoodsReceipt{ID: 3, POID: 1, SupplierID: 7, Status: GRNStatusPosted}
+	repo.grnLines[3] = []GRNLine{{ID: 4, GRNID: 3, ProductID: 11, Qty: 4}}
+	svc := NewService(nil, repo, nil, nil, nil, nil, nil)
+
+	grn, err := svc.CreateGoodsReceipt(context.Background(), CreateGRNInput{
+		POID:        1,
+		WarehouseID: 2,
+		SupplierID:  7,
+		Lines:       []GRNLineInput{{ProductID: 11, Qty: 1, UnitCost: 10}},
+	})
+	require.NoError(t, err)
+	require.NotZero(t, grn.ID)
+
+	_, err = svc.CreateGoodsReceipt(context.Background(), CreateGRNInput{
+		POID:        1,
+		WarehouseID: 2,
+		SupplierID:  7,
+		Lines:       []GRNLineInput{{ProductID: 11, Qty: 0.0001, UnitCost: 10}},
+	})
+	require.ErrorContains(t, err, "quantity for product 11 exceeds PO quantity")
+}
+
+func TestCreateGoodsReceiptIgnoresCancelledReceipts(t *testing.T) {
+	repo := newMemoryProcRepo()
+	repo.pos[1] = PurchaseOrder{ID: 1, Number: "PO-CANCELLED", SupplierID: 7, Status: POStatusApproved}
+	repo.poLines[1] = []POLine{{ID: 2, POID: 1, ProductID: 11, Qty: 5}}
+	repo.grns[3] = GoodsReceipt{ID: 3, POID: 1, SupplierID: 7, Status: GRNStatusCancelled}
+	repo.grnLines[3] = []GRNLine{{ID: 4, GRNID: 3, ProductID: 11, Qty: 5}}
+	svc := NewService(nil, repo, nil, nil, nil, nil, nil)
+
+	grn, err := svc.CreateGoodsReceipt(context.Background(), CreateGRNInput{
+		POID:        1,
+		WarehouseID: 2,
+		SupplierID:  7,
+		Lines:       []GRNLineInput{{ProductID: 11, Qty: 5, UnitCost: 10}},
+	})
+	require.NoError(t, err)
+	require.NotZero(t, grn.ID)
 }
 
 func TestCreateGoodsReturnPreventsDuplicateQuantities(t *testing.T) {
@@ -334,6 +528,46 @@ func TestCreateGoodsReturnPreventsDuplicateQuantities(t *testing.T) {
 		},
 	})
 	require.ErrorContains(t, err, "quantity returned exceeds GRN line quantity")
+}
+
+func TestCreateGoodsReturnUsesExactCumulativeQuantities(t *testing.T) {
+	repo := newMemoryProcRepo()
+	repo.grns[1] = GoodsReceipt{ID: 1, SupplierID: 7, POID: 22, Status: GRNStatusPosted}
+	repo.grnLines[1] = []GRNLine{{ID: 9, ProductID: 100, Qty: 0.3, UnitCost: 12}}
+	svc := NewService(nil, repo, nil, nil, nil, nil, nil)
+
+	ret, err := svc.CreateGoodsReturnGRN(context.Background(), CreateGoodsReturnGRNInput{
+		GRNID:       1,
+		CompanyID:   3,
+		SupplierID:  7,
+		WarehouseID: 4,
+		Reason:      "damaged",
+		Lines: []GoodsReturnGRNLineInput{
+			{GRNLineID: 9, ProductID: 100, QuantityReturned: 0.1, UnitCost: 12},
+			{GRNLineID: 9, ProductID: 100, QuantityReturned: 0.2, UnitCost: 12},
+		},
+	})
+	if err != nil {
+		t.Fatalf("exact cumulative return was rejected: %v", err)
+	}
+	require.Len(t, ret.Lines, 2)
+}
+
+func TestCreateGoodsReturnRejectsNonFiniteQuantity(t *testing.T) {
+	repo := newMemoryProcRepo()
+	repo.grns[1] = GoodsReceipt{ID: 1, SupplierID: 7, POID: 22, Status: GRNStatusPosted}
+	repo.grnLines[1] = []GRNLine{{ID: 9, ProductID: 100, Qty: 1, UnitCost: 12}}
+	svc := NewService(nil, repo, nil, nil, nil, nil, nil)
+
+	_, err := svc.CreateGoodsReturnGRN(context.Background(), CreateGoodsReturnGRNInput{
+		GRNID:       1,
+		CompanyID:   3,
+		SupplierID:  7,
+		WarehouseID: 4,
+		Reason:      "damaged",
+		Lines:       []GoodsReturnGRNLineInput{{GRNLineID: 9, ProductID: 100, QuantityReturned: math.NaN(), UnitCost: 12}},
+	})
+	require.ErrorContains(t, err, "quantity returned must be positive")
 }
 
 func TestGoodsReturnLifecycleTransitions(t *testing.T) {

@@ -40,3 +40,28 @@ type SourceReader interface {
 	Name() string
 	ReadExpectedFlows(ctx context.Context, companyID int64, fromDate, toDate time.Time) ([]ExpectedCashFlow, error)
 }
+
+// ScenarioSourceReader is an optional extension for sources whose expected
+// values belong to a particular forecast scenario. The base SourceReader
+// contract remains company-scoped for shared ledger sources; scenario-owned
+// inputs (for example manual or recurring adjustments) must use this method so
+// one scenario can never leak into another scenario's snapshot.
+type ScenarioSourceReader interface {
+	SourceReader
+	ReadExpectedFlowsForScenario(ctx context.Context, companyID, scenarioID int64, fromDate, toDate time.Time) ([]ExpectedCashFlow, error)
+}
+
+// ForecastSourceLine is the exact, persisted source identity shown alongside a
+// forecast run. Amount is serialized as text so an API consumer never has to
+// round a NUMERIC(19,4) value through float64.
+type ForecastSourceLine struct {
+	ID            int64     `json:"id"`
+	RunID         int64     `json:"run_id"`
+	DailyBucketID int64     `json:"daily_bucket_id"`
+	SourceType    string    `json:"source_type"`
+	SourceRef     string    `json:"source_ref"`
+	Amount        string    `json:"amount"`
+	Currency      string    `json:"currency"`
+	ExpectedDate  time.Time `json:"expected_date"`
+	Certainty     string    `json:"certainty"`
+}

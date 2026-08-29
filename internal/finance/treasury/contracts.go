@@ -23,7 +23,19 @@ type SupplierBankAccount struct {
 }
 
 type PaymentPolicy struct {
-	RequiresMakerChecker bool `json:"requires_maker_checker"`
+	// CalendarID identifies the company-owned payment calendar selected by the
+	// policy. Calendar date resolution remains an explicit scheduling concern;
+	// keeping the reference here prevents a policy read from silently dropping
+	// the configured calendar.
+	CalendarID     *int64 `json:"calendar_id,omitempty"`
+	MaxBatchAmount Amount `json:"max_batch_amount,omitempty"`
+	MaxItemAmount  Amount `json:"max_item_amount,omitempty"`
+	// CutOffTime is the number of elapsed hours since midnight represented by
+	// the database TIME value. The company timezone is intentionally resolved
+	// by the caller because this schema stores no timezone alongside the TIME.
+	CutOffTime           *time.Duration `json:"cut_off_time,omitempty"`
+	BankFormat           string         `json:"bank_format,omitempty"`
+	RequiresMakerChecker bool           `json:"requires_maker_checker"`
 }
 
 type PaymentBatch struct {
@@ -114,6 +126,10 @@ type PaymentBatchExportUpdate struct {
 	ID               int64
 	ExportedFileHash string
 	ExportedBy       *int64
+	// ExpectedRevisionNumber is the revision observed during the export
+	// validation read. The persistence adapter must compare-and-set this value
+	// so a concurrent item edit cannot mark an older artifact as EXPORTED.
+	ExpectedRevisionNumber int32
 }
 
 type PaymentBatchSettlementUpdate struct {

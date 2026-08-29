@@ -13,6 +13,15 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/banking"
 )
 
+// ErrSyncInProgress is returned when another worker or operator already owns
+// the connection's sync lease. Callers may retry the task, but must not start
+// a second provider poll for the same connection.
+var ErrSyncInProgress = errors.New("bankfeeds: sync already in progress")
+
+type bankFeedSyncLease interface {
+	AcquireBankFeedSyncLease(context.Context, int64) (func(), error)
+}
+
 // BankConnection is the database-neutral representation of an external bank feed.
 type BankConnection struct {
 	ID               int64
@@ -134,14 +143,22 @@ type BankingService interface {
 type Service struct {
 	repo    Repository
 	banking BankingService
-	ports   map[string]FeedPort
+	ports   *ProviderRouter
 }
 
 func NewService(repo Repository, bankingSvc BankingService, ports map[string]FeedPort) *Service {
+	return NewServiceWithProviderRouter(repo, bankingSvc, NewProviderRouter(ports))
+}
+
+// NewServiceWithProviderRouter makes provider registration an explicit
+// application boundary. Passing an empty router is safe: sync and webhook
+// operations return ErrProviderUnavailable until a real, credential-aware
+// adapter is registered.
+func NewServiceWithProviderRouter(repo Repository, bankingSvc BankingService, router *ProviderRouter) *Service {
 	return &Service{
 		repo:    repo,
 		banking: bankingSvc,
-		ports:   ports,
+		ports:   router,
 	}
 }
 
@@ -149,6 +166,9 @@ func NewService(repo Repository, bankingSvc BankingService, ports map[string]Fee
 func (s *Service) SyncConnection(ctx context.Context, connectionID int64) error {
 	if connectionID <= 0 {
 		return errors.New("connection id is required")
+	}
+	if s == nil || s.repo == nil {
+		return errors.New("bank feed repository is not configured")
 	}
 	conn, err := s.repo.GetBankConnection(ctx, connectionID)
 	if err != nil {
@@ -167,15 +187,32 @@ func (s *Service) SyncConnection(ctx context.Context, connectionID int64) error 
 	if s.banking == nil {
 		return errors.New("banking import service is not configured")
 	}
-
-	port, ok := s.ports[conn.ProviderID]
-	if !ok {
-		return fmt.Errorf("unsupported provider: %s", conn.ProviderID)
+	port, err := s.providerPort(automation.ConnectionRef{
+		CompanyID:    conn.CompanyID,
+		ConnectionID: conn.ID,
+		Provider:     conn.ProviderID,
+	})
+	if err != nil {
+		return fmt.Errorf("bank-feed provider %q is unavailable: %w", conn.ProviderID, err)
 	}
+	releaseSyncLease, err := s.acquireSyncLease(ctx, conn.ID)
+	if err != nil {
+		return err
+	}
+	defer releaseSyncLease()
 
 	run, err := s.repo.CreateBankFeedSyncRun(ctx, conn.ID, "PENDING")
 	if err != nil {
 		return fmt.Errorf("failed to create sync run: %w", err)
+	}
+	if err := port.ValidateConnection(ctx, automation.ConnectionRef{
+		CompanyID:    conn.CompanyID,
+		ConnectionID: conn.ID,
+		Provider:     conn.ProviderID,
+	}); err != nil {
+		err = fmt.Errorf("bank-feed provider %q connection validation failed: %w", conn.ProviderID, err)
+		s.failRun(ctx, run.ID, err)
+		return err
 	}
 
 	accounts, err := s.repo.ListBankConnectionAccounts(ctx, conn.ID)
@@ -203,6 +240,7 @@ func (s *Service) SyncConnection(ctx context.Context, connectionID int64) error 
 
 func (s *Service) syncAccount(ctx context.Context, port FeedPort, runID int64, conn BankConnection, acc BankConnectionAccount) error {
 	cursor := acc.Cursor
+	seenCursors := map[string]struct{}{cursor: {}}
 
 	for {
 		req := SyncRequest{
@@ -227,6 +265,9 @@ func (s *Service) syncAccount(ctx context.Context, port FeedPort, runID int64, c
 		if err != nil {
 			return fmt.Errorf("failed to sync external account %s: %w", acc.ExternalAccountID, err)
 		}
+		if err := validateCursorProgress(seenCursors, cursor, result.NextCursor, result.HasMore); err != nil {
+			return err
+		}
 
 		if len(result.Transactions) > 0 {
 			bankAcc, err := s.repo.GetBankAccount(ctx, acc.BankAccountID)
@@ -240,6 +281,9 @@ func (s *Service) syncAccount(ctx context.Context, port FeedPort, runID int64, c
 			// Map bankfeeds.Transaction to banking.NormalizedStatementEntry
 			var entries []banking.NormalizedStatementEntry
 			for _, t := range result.Transactions {
+				if err := validateTransaction(t, req.Account, bankAcc.Currency); err != nil {
+					return fmt.Errorf("invalid transaction for external account %s: %w", acc.ExternalAccountID, err)
+				}
 				fingerprint := transactionFingerprint(t, acc.ExternalAccountID)
 				entries = append(entries, banking.NormalizedStatementEntry{
 					Date:        t.BookedAt,
@@ -257,9 +301,6 @@ func (s *Service) syncAccount(ctx context.Context, port FeedPort, runID int64, c
 			}
 		}
 
-		if result.HasMore && result.NextCursor == cursor {
-			return fmt.Errorf("provider returned an unchanged cursor while more transactions are available")
-		}
 		cursor = result.NextCursor
 		err = s.repo.UpdateBankConnectionAccountCursor(ctx, acc.ID, cursor)
 		if err != nil {
@@ -273,7 +314,64 @@ func (s *Service) syncAccount(ctx context.Context, port FeedPort, runID int64, c
 	return nil
 }
 
+// validateCursorProgress prevents a malformed provider page from making a
+// worker loop forever. Cursors are opaque, so the only safe progression check
+// is that a page with more results supplies a non-empty cursor that has not
+// already been observed in this sync operation.
+func validateCursorProgress(seen map[string]struct{}, current, next string, hasMore bool) error {
+	if !hasMore {
+		return nil
+	}
+	if strings.TrimSpace(next) == "" {
+		return errors.New("provider returned an empty cursor while more transactions are available")
+	}
+	if next == current {
+		return errors.New("provider returned an unchanged cursor while more transactions are available")
+	}
+	if _, exists := seen[next]; exists {
+		return errors.New("provider returned a previously seen cursor while more transactions are available")
+	}
+	seen[next] = struct{}{}
+	return nil
+}
+
+// validateTransaction keeps a provider page inside the account and company
+// scope selected by the connection mapping before it reaches the normalized
+// banking importer. A malformed adapter response must fail closed rather than
+// importing another account's transaction or a value in the wrong currency.
+func validateTransaction(transaction Transaction, expectedAccount automation.ExternalReference, accountCurrency string) error {
+	if transaction.Account != expectedAccount {
+		return errors.New("transaction account does not match connection mapping")
+	}
+	if !isZeroTransactionReference(transaction.Reference) {
+		if err := transaction.Reference.Validate(); err != nil {
+			return fmt.Errorf("transaction reference: %w", err)
+		}
+		if transaction.Reference.Connection != expectedAccount.Connection {
+			return errors.New("transaction reference is outside connection scope")
+		}
+	}
+	if err := transaction.Amount.Validate(); err != nil {
+		return fmt.Errorf("transaction amount: %w", err)
+	}
+	if !strings.EqualFold(strings.TrimSpace(transaction.Amount.Currency), strings.TrimSpace(accountCurrency)) {
+		return errors.New("transaction currency does not match bank account")
+	}
+	if transaction.BookedAt.IsZero() {
+		return errors.New("transaction booked date is required")
+	}
+	return nil
+}
+
+func isZeroTransactionReference(reference automation.ExternalReference) bool {
+	return reference.Connection == (automation.ConnectionRef{}) &&
+		reference.ObjectType == "" && reference.ObjectID == ""
+}
+
 func (s *Service) failRun(ctx context.Context, runID int64, err error) {
+	if s == nil || s.repo == nil || err == nil {
+		return
+	}
 	completedAt := time.Now().UTC()
 	errorDetails := err.Error()
 	_ = s.repo.UpdateBankFeedSyncRun(ctx, UpdateBankFeedSyncRunInput{ID: runID, Status: "FAILED", CompletedAt: &completedAt, ErrorDetails: &errorDetails})
@@ -286,6 +384,9 @@ func (s *Service) SaveWebhookEvent(ctx context.Context, connectionID int64, prov
 	if connectionID <= 0 || strings.TrimSpace(provider) == "" || len(payload) == 0 {
 		return BankFeedEvent{}, errors.New("connection, provider, and payload are required")
 	}
+	if s == nil || s.repo == nil {
+		return BankFeedEvent{}, errors.New("bank feed repository is not configured")
+	}
 	conn, err := s.repo.GetBankConnection(ctx, connectionID)
 	if err != nil {
 		return BankFeedEvent{}, fmt.Errorf("failed to get webhook connection: %w", err)
@@ -293,9 +394,22 @@ func (s *Service) SaveWebhookEvent(ctx context.Context, connectionID int64, prov
 	if conn.ProviderID != provider {
 		return BankFeedEvent{}, errors.New("webhook provider does not match connection")
 	}
-	port, ok := s.ports[provider]
-	if !ok {
-		return BankFeedEvent{}, fmt.Errorf("unsupported provider: %s", provider)
+	if conn.Status != "ACTIVE" {
+		return BankFeedEvent{}, errors.New("connection is not active")
+	}
+	if conn.ConsentExpiresAt != nil && !time.Now().Before(*conn.ConsentExpiresAt) {
+		return BankFeedEvent{}, errors.New("connection consent has expired")
+	}
+	port, err := s.providerPort(automation.ConnectionRef{
+		CompanyID:    conn.CompanyID,
+		ConnectionID: conn.ID,
+		Provider:     conn.ProviderID,
+	})
+	if err != nil {
+		return BankFeedEvent{}, fmt.Errorf("bank-feed provider %q is unavailable: %w", provider, err)
+	}
+	if s.banking == nil {
+		return BankFeedEvent{}, errors.New("banking import service is not configured")
 	}
 	verifier, ok := port.(WebhookVerifier)
 	if !ok {
@@ -336,6 +450,26 @@ func (s *Service) SaveWebhookEvent(ctx context.Context, connectionID int64, prov
 	})
 }
 
+func (s *Service) providerPort(ref automation.ConnectionRef) (FeedPort, error) {
+	if s == nil {
+		return nil, ErrProviderUnavailable
+	}
+	return s.ports.port(ref)
+}
+
+func (s *Service) acquireSyncLease(ctx context.Context, connectionID int64) (func(), error) {
+	if s == nil || s.repo == nil {
+		return nil, errors.New("bank feed repository is not configured")
+	}
+	if leaseRepo, ok := s.repo.(bankFeedSyncLease); ok {
+		return leaseRepo.AcquireBankFeedSyncLease(ctx, connectionID)
+	}
+	// Small in-memory fakes and explicitly scoped integrations may not need a
+	// database lease. Production repositories implement the lease so separate
+	// worker processes cannot poll one connection concurrently.
+	return func() {}, nil
+}
+
 // ProcessWebhookEvent converges a verified callback with the same incremental
 // polling path used by scheduled syncs. Claiming and terminal status checks
 // make duplicate deliveries safe; banking.ImportStatement performs the final
@@ -343,6 +477,9 @@ func (s *Service) SaveWebhookEvent(ctx context.Context, connectionID int64, prov
 func (s *Service) ProcessWebhookEvent(ctx context.Context, eventID int64) error {
 	if eventID <= 0 {
 		return errors.New("event id is required")
+	}
+	if s == nil || s.repo == nil {
+		return errors.New("bank feed repository is not configured")
 	}
 	event, err := s.repo.GetBankFeedEvent(ctx, eventID)
 	if err != nil {
@@ -383,6 +520,9 @@ func (s *Service) ProcessWebhookEvent(ctx context.Context, eventID int64) error 
 }
 
 func (s *Service) failEvent(ctx context.Context, eventID int64, err error) error {
+	if s == nil || s.repo == nil {
+		return err
+	}
 	details := err.Error()
 	_ = s.repo.UpdateBankFeedEventStatus(ctx, UpdateBankFeedEventStatusInput{ID: eventID, Status: "FAILED", ErrorDetails: &details})
 	return err

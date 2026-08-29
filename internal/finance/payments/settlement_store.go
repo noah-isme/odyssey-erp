@@ -45,7 +45,8 @@ INSERT INTO payment_settlement_results (
 ON CONFLICT (company_id, result_id) DO NOTHING`
 
 func (s *PostgresSettlementResultStore) GetSettlementResult(ctx context.Context, companyID int64, resultID string) (SettlementResultRecord, error) {
-	if s == nil || s.db == nil || companyID <= 0 || strings.TrimSpace(resultID) == "" {
+	resultID = strings.TrimSpace(resultID)
+	if s == nil || s.db == nil || companyID <= 0 || resultID == "" {
 		return SettlementResultRecord{}, ErrInvalidSettlementResult
 	}
 	var (
@@ -64,6 +65,15 @@ func (s *PostgresSettlementResultStore) GetSettlementResult(ctx context.Context,
 	var result SettlementResult
 	if err := json.Unmarshal(payload, &result); err != nil {
 		return SettlementResultRecord{}, fmt.Errorf("%w: decode result: %v", ErrInvalidSettlementResult, err)
+	}
+	// The indexed columns are the tenant and immutable event identity used for
+	// this lookup. Reject a payload whose JSON identity disagrees before it can
+	// be handed to the importer or effect applier.
+	if result.CompanyID != companyID {
+		return SettlementResultRecord{}, ErrSettlementResultCompanyMismatch
+	}
+	if strings.TrimSpace(result.ResultID) != resultID {
+		return SettlementResultRecord{}, ErrSettlementResultReferenceMismatch
 	}
 	result.EffectApplied = effectApplied
 	record := SettlementResultRecord{

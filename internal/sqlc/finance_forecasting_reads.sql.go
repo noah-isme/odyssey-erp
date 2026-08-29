@@ -11,8 +11,8 @@ import (
 
 const getLatestForecastRun = `-- name: GetLatestForecastRun :one
 SELECT id, company_id, scenario_id, status, fx_snapshot, completed_at, error_details, created_at FROM forecast_runs 
-WHERE company_id = $1 AND scenario_id = $2 AND status = 'COMPLETED' 
-ORDER BY completed_at DESC LIMIT 1
+WHERE company_id = $1 AND scenario_id = $2
+ORDER BY created_at DESC, id DESC LIMIT 1
 `
 
 type GetLatestForecastRunParams struct {

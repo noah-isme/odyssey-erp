@@ -159,6 +159,34 @@ func TestPaymentResultImportOutboxRetriesTransientEffect(t *testing.T) {
 	}
 }
 
+func TestPaymentResultImportOutboxRequiresCanonicalMessageIdentity(t *testing.T) {
+	service, instruction := settlementServiceFixture(t, &settlementEffectsFake{})
+	input := settlementInputFor(instruction, "result-handler-identity", ResultStatusSettled, "125.50")
+	outboxInput, err := NewPaymentResultImportOutboxInput(input, input.Correlation, 303)
+	if err != nil {
+		t.Fatal(err)
+	}
+	message := automation.OutboxMessage{
+		CompanyID:      outboxInput.CompanyID,
+		AggregateID:    outboxInput.AggregateID,
+		Operation:      outboxInput.Operation,
+		IdempotencyKey: outboxInput.IdempotencyKey,
+		Payload:        outboxInput.Payload,
+	}
+
+	missingKey := message
+	missingKey.IdempotencyKey = ""
+	if err := service.HandleResultImport(context.Background(), missingKey); !errors.Is(err, ErrSettlementResultConflict) {
+		t.Fatalf("missing idempotency key error = %v, want %v", err, ErrSettlementResultConflict)
+	}
+
+	wrongAggregate := message
+	wrongAggregate.AggregateID = "different-instruction"
+	if err := service.HandleResultImport(context.Background(), wrongAggregate); !errors.Is(err, ErrSettlementResultReferenceMismatch) {
+		t.Fatalf("wrong aggregate error = %v, want %v", err, ErrSettlementResultReferenceMismatch)
+	}
+}
+
 func TestPaymentExecutionOutboxRejectsCrossCompanyPayload(t *testing.T) {
 	coordinator := NewCoordinator(&coordinatorPort{}, NewMemoryStore(), nil)
 	command := PaymentExecutionCommand{Reference: paymentInstruction().Reference, ExecutorID: 303}

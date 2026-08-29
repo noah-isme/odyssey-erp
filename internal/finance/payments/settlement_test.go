@@ -160,6 +160,26 @@ func TestSettlementServiceDoesNotApplyEffectsForInvalidTerminalTransition(t *tes
 	}
 }
 
+func TestSettlementServiceRejectsDistinctResultAfterTerminalSettlement(t *testing.T) {
+	effects := &settlementEffectsFake{}
+	service, instruction := settlementServiceFixture(t, effects)
+	first := settlementInputFor(instruction, "result-terminal-first", ResultStatusSettled, "125.50")
+	if _, err := service.ImportResult(context.Background(), first); err != nil {
+		t.Fatal(err)
+	}
+
+	second := settlementInputFor(instruction, "result-terminal-second", ResultStatusSettled, "125.50")
+	if _, err := service.ImportResult(context.Background(), second); !errors.Is(err, ErrInvalidTransition) {
+		t.Fatalf("distinct terminal result error = %v, want %v", err, ErrInvalidTransition)
+	}
+	if effects.calls != 1 {
+		t.Fatalf("effect calls = %d, want 1", effects.calls)
+	}
+	if _, err := service.results.GetSettlementResult(context.Background(), instruction.Reference.Connection.CompanyID, second.resultID()); !errors.Is(err, ErrSettlementResultNotFound) {
+		t.Fatalf("distinct terminal result was persisted: %v", err)
+	}
+}
+
 func TestSettlementResultValidationRejectsCrossCompanyAndReference(t *testing.T) {
 	instruction := paymentInstruction()
 	input := settlementInputFor(instruction, "result-invalid", ResultStatusSettled, "125.50")
@@ -175,6 +195,28 @@ func TestSettlementResultValidationRejectsCrossCompanyAndReference(t *testing.T)
 	input = settlementInputFor(instruction, "result-invalid-status", "PENDING", "125.50")
 	if !errors.Is(input.Validate(), ErrUnsupportedSettlementResult) {
 		t.Fatalf("status error = %v", input.Validate())
+	}
+}
+
+func TestSettlementResultValidationRejectsStatusStateMismatch(t *testing.T) {
+	instruction := paymentInstruction()
+	result := SettlementResult{
+		CompanyID:            instruction.Reference.Connection.CompanyID,
+		ResultID:             "result-status-state-mismatch",
+		InstructionReference: instruction.Reference,
+		ProviderReference:    providerReference(),
+		Status:               ResultStatusFailed,
+		State:                StateSettled,
+		SettledAmount:        automation.MustParseExact("125.50"),
+		SettledAt:            time.Date(2026, time.August, 12, 9, 5, 0, 0, time.UTC),
+	}
+
+	if !errors.Is(result.Validate(), ErrInvalidSettlementResult) {
+		t.Fatalf("status/state mismatch was accepted: %v", result.Validate())
+	}
+	request := SettlementEffectRequest{CompanyID: result.CompanyID, EffectKey: result.ResultID, Result: result}
+	if !errors.Is(request.Validate(), ErrInvalidSettlementResult) {
+		t.Fatalf("invalid settlement effect request was accepted: %v", request.Validate())
 	}
 }
 

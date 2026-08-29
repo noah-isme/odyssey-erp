@@ -33,10 +33,16 @@ type StatementTransport interface {
 }
 
 // SyncStatementTransport consumes statement artifacts through the same
-// deduplicating banking import service used by manual CSV/OFX uploads.
+// deduplicating banking import service used by manual CSV/OFX uploads. The
+// transport is still provider-backed: resolve and validate the registered
+// provider before creating a durable run so an arbitrary transport cannot
+// bypass the provider-router fail-closed boundary.
 func (s *Service) SyncStatementTransport(ctx context.Context, connectionID int64, transport StatementTransport) error {
 	if connectionID <= 0 || transport == nil {
 		return errors.New("connection and statement transport are required")
+	}
+	if s == nil || s.repo == nil {
+		return errors.New("bank feed repository is not configured")
 	}
 	conn, err := s.repo.GetBankConnection(ctx, connectionID)
 	if err != nil {
@@ -54,6 +60,19 @@ func (s *Service) SyncStatementTransport(ctx context.Context, connectionID int64
 	if s.banking == nil {
 		return errors.New("banking import service is not configured")
 	}
+	connectionRef := automation.ConnectionRef{CompanyID: conn.CompanyID, ConnectionID: conn.ID, Provider: conn.ProviderID}
+	port, err := s.providerPort(connectionRef)
+	if err != nil {
+		return fmt.Errorf("bank-feed provider %q is unavailable: %w", conn.ProviderID, err)
+	}
+	releaseSyncLease, err := s.acquireSyncLease(ctx, conn.ID)
+	if err != nil {
+		return err
+	}
+	defer releaseSyncLease()
+	if err := port.ValidateConnection(ctx, connectionRef); err != nil {
+		return fmt.Errorf("bank-feed provider %q connection validation failed: %w", conn.ProviderID, err)
+	}
 	run, err := s.repo.CreateBankFeedSyncRun(ctx, conn.ID, "PENDING")
 	if err != nil {
 		return fmt.Errorf("failed to create sync run: %w", err)
@@ -63,7 +82,6 @@ func (s *Service) SyncStatementTransport(ctx context.Context, connectionID int64
 		s.failRun(ctx, run.ID, err)
 		return err
 	}
-	connectionRef := automation.ConnectionRef{CompanyID: conn.CompanyID, ConnectionID: conn.ID, Provider: conn.ProviderID}
 	for _, mapping := range accounts {
 		if mapping.ConnectionID != conn.ID || mapping.ID <= 0 || mapping.BankAccountID <= 0 || strings.TrimSpace(mapping.ExternalAccountID) == "" {
 			err := fmt.Errorf("invalid account mapping for connection %d", conn.ID)
@@ -83,10 +101,15 @@ func (s *Service) SyncStatementTransport(ctx context.Context, connectionID int64
 		}
 		accountRef := automation.ExternalReference{Connection: connectionRef, ObjectType: "account", ObjectID: mapping.ExternalAccountID}
 		cursor := mapping.Cursor
+		seenCursors := map[string]struct{}{cursor: {}}
 		for {
 			artifact, nextCursor, hasMore, fetchErr := transport.FetchStatement(ctx, connectionRef, accountRef, cursor)
 			if fetchErr != nil {
 				err = fmt.Errorf("failed to fetch statement for account %s: %w", mapping.ExternalAccountID, fetchErr)
+				s.failRun(ctx, run.ID, err)
+				return err
+			}
+			if err := validateCursorProgress(seenCursors, cursor, nextCursor, hasMore); err != nil {
 				s.failRun(ctx, run.ID, err)
 				return err
 			}
@@ -102,11 +125,6 @@ func (s *Service) SyncStatementTransport(ctx context.Context, connectionID int64
 			}
 			if _, err := s.banking.ImportStatement(ctx, bankAccount, entries, artifact.Filename, artifact.ContentHash); err != nil {
 				err = fmt.Errorf("banking service failed to import statement artifact: %w", err)
-				s.failRun(ctx, run.ID, err)
-				return err
-			}
-			if hasMore && nextCursor == cursor {
-				err := errors.New("statement transport returned an unchanged cursor while more artifacts are available")
 				s.failRun(ctx, run.ID, err)
 				return err
 			}
