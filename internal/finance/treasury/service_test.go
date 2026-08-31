@@ -276,7 +276,7 @@ func TestService_BatchApproval(t *testing.T) {
 	}
 
 	// Move to pending approval
-	_ = repo.UpdatePaymentBatchStatus(ctx, sqlc.UpdateTreasuryPaymentBatchStatusParams{
+	_, _ = repo.UpdatePaymentBatchStatus(ctx, sqlc.UpdateTreasuryPaymentBatchStatusParams{
 		ID:     batch.ID,
 		Status: "PENDING_APPROVAL",
 	})
@@ -312,7 +312,7 @@ func TestService_ExportBatch(t *testing.T) {
 	_ = num.Scan("250.00")
 	_, _ = svc.AddBatchItem(ctx, batch.ID, 100, acc.ID, num, 11)
 
-	_ = repo.UpdatePaymentBatchStatus(ctx, sqlc.UpdateTreasuryPaymentBatchStatusParams{
+	_, _ = repo.UpdatePaymentBatchStatus(ctx, sqlc.UpdateTreasuryPaymentBatchStatusParams{
 		ID:     batch.ID,
 		Status: "APPROVED",
 	})
@@ -352,7 +352,7 @@ func TestService_SettleBatch(t *testing.T) {
 	_ = num.Scan("300.00")
 	_, _ = svc.AddBatchItem(ctx, batch.ID, 100, acc.ID, num, 99)
 
-	_ = repo.UpdatePaymentBatchStatus(ctx, sqlc.UpdateTreasuryPaymentBatchStatusParams{
+	_, _ = repo.UpdatePaymentBatchStatus(ctx, sqlc.UpdateTreasuryPaymentBatchStatusParams{
 		ID:     batch.ID,
 		Status: "EXPORTED",
 	})
