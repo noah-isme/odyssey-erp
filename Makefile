@@ -22,7 +22,7 @@ BRANCH_QUERY=$(if $(BRANCH_ID),&branch_id=$(BRANCH_ID),)
 export APP_ENV?=development
 export PG_DSN?=postgres://odyssey:odyssey@localhost:5434/odyssey?sslmode=disable
 
-.PHONY: dev air lint vet vet-consol test build docs-check release-check pdf-release-check production-build-check production-release-check midtrans-sandbox-certify migrate-up migrate-down sqlc-gen seed seed-phase3 seed-phase4 refresh-mv reports-demo pdf-sample export-demo fx-tools analytics-dashboard analytics-dashboard-pdf analytics-dashboard-csv prom-up grafana-load alert-test monitor-demo release-phase6
+.PHONY: dev air lint vet vet-consol test build docs-check release-check pdf-release-check production-build-check production-release-check midtrans-sandbox-certify migrate-up migrate-down sqlc-gen seed seed-phase3 seed-phase4 seed-realistic refresh-mv reports-demo pdf-sample export-demo fx-tools analytics-dashboard analytics-dashboard-pdf analytics-dashboard-csv prom-up grafana-load alert-test monitor-demo release-phase6
 
 dev:
 	docker compose up --build
@@ -105,6 +105,9 @@ seed-phase4:
 	$(GO_BIN) run ./scripts/seed/main.go
 	$(GO_BIN) run ./scripts/seed/phase4/main.go
 	@echo "Seed data including Phase 4.2 finance mappings loaded"
+
+seed-realistic:
+	$(GO_BIN) run ./scripts/seed/realistic/...
 
 refresh-mv:
 	$(GO_BIN) run ./scripts/finance/refreshmv/main.go
