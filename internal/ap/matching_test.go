@@ -88,9 +88,9 @@ func TestMatchingService_RunMatch_ExactMatch(t *testing.T) {
 	}
 	
 	n10 := pgtype.Numeric{}
-	n10.Scan("10")
+	require.NoError(t, n10.Scan("10"))
 	n100 := pgtype.Numeric{}
-	n100.Scan("100")
+	require.NoError(t, n100.Scan("100"))
 	progress[poLineID].OrderedQty = n10
 	progress[poLineID].UnitPrice = n100
 

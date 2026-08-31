@@ -1147,7 +1147,9 @@ func (r *Repository) CreateIoTSensor(ctx context.Context, sensor IoTSensor) (int
 
 func (r *Repository) InsertIoTReading(ctx context.Context, sensorID int64, value float64) (int64, error) {
 	val := pgtype.Numeric{}
-	val.Scan(fmt.Sprintf("%f", value))
+	if err := val.Scan(fmt.Sprintf("%f", value)); err != nil {
+		return 0, err
+	}
 	return r.queries.InsertIoTReading(ctx, sqlc.InsertIoTReadingParams{
 		SensorID: sensorID,
 		Value:    val,
@@ -1156,7 +1158,9 @@ func (r *Repository) InsertIoTReading(ctx context.Context, sensorID int64, value
 
 func (r *Repository) UpdateIoTSensorReading(ctx context.Context, sensorID int64, val float64, ts time.Time) error {
 	numericVal := pgtype.Numeric{}
-	numericVal.Scan(fmt.Sprintf("%f", val))
+	if err := numericVal.Scan(fmt.Sprintf("%f", val)); err != nil {
+		return err
+	}
 	var lastReading pgtype.Timestamptz
 	lastReading.Time = ts
 	lastReading.Valid = true
