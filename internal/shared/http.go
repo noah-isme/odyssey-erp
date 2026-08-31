@@ -24,9 +24,7 @@ func DecodeJSON(r *http.Request, v interface{}) error {
 func JSONResponse(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(data); err != nil {
-		// Log error in a real app
-	}
+	_ = json.NewEncoder(w).Encode(data)
 }
 
 // JSONError writes a JSON error response with the given status code.

@@ -1173,7 +1173,9 @@ func (r *Repository) UpdateIoTSensorReading(ctx context.Context, sensorID int64,
 
 func (r *Repository) CreatePredictiveModel(ctx context.Context, model PredictiveModel) (int64, error) {
 	acc := pgtype.Numeric{}
-	acc.Scan(fmt.Sprintf("%f", model.Accuracy))
+	if err := acc.Scan(fmt.Sprintf("%f", model.Accuracy)); err != nil {
+		return 0, err
+	}
 	return r.queries.CreatePredictiveModel(ctx, sqlc.CreatePredictiveModelParams{
 		CompanyID: model.CompanyID,
 		AssetType: model.AssetType,

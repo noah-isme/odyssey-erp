@@ -690,12 +690,6 @@ func (s *Service) RecordSPCSample(ctx context.Context, sample SPCSample) (SPCSam
 		return SPCSample{}, err
 	}
 	
-	// 4. (Optional) Auto-create NCR if it's an outlier
-	if saved.IsOutlier {
-		// Just a side-effect demo; ideally we'd trigger an event or queue a task.
-		// For now, we return it normally but it is flagged as an outlier.
-	}
-	
 	return saved, nil
 }
 
@@ -722,11 +716,6 @@ func (s *Service) RecordATETestResult(ctx context.Context, result ATETestResult)
 	saved, err := s.repo.InsertATETestResult(ctx, result)
 	if err != nil {
 		return ATETestResult{}, err
-	}
-	
-	if !saved.Pass {
-		// Ideally we would queue a task to create an NCR automatically here, e.g.:
-		// s.CreateNCR(ctx, CreateNCRRequest{Title: "ATE Test Failure", Description: saved.RawData})
 	}
 	
 	return saved, nil

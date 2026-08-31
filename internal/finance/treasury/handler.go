@@ -59,7 +59,7 @@ func (h *Handler) AddBankAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(account)
+	_ = json.NewEncoder(w).Encode(account)
 }
 
 func (h *Handler) ApproveBankAccount(w http.ResponseWriter, r *http.Request) {
@@ -76,7 +76,7 @@ func (h *Handler) ApproveBankAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(account)
+	_ = json.NewEncoder(w).Encode(account)
 }
 
 func (h *Handler) ListBankAccounts(w http.ResponseWriter, r *http.Request) {
@@ -107,7 +107,7 @@ func (h *Handler) CreateBatch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(batch)
+	_ = json.NewEncoder(w).Encode(batch)
 }
 
 func (h *Handler) AddBatchItem(w http.ResponseWriter, r *http.Request) {
@@ -129,7 +129,7 @@ func (h *Handler) ApproveBatch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(batch)
+	_ = json.NewEncoder(w).Encode(batch)
 }
 
 func (h *Handler) ExportBatch(w http.ResponseWriter, r *http.Request) {
@@ -148,7 +148,7 @@ func (h *Handler) ExportBatch(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/csv")
 	w.Header().Set("Content-Disposition", `attachment; filename="batch_export.csv"`)
-	w.Write(payload)
+	_, _ = w.Write(payload)
 }
 
 func (h *Handler) SettleBatch(w http.ResponseWriter, r *http.Request) {

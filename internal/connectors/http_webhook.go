@@ -45,17 +45,6 @@ func (h *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// For a real provider, we might extract the providerEventID from headers (like Stripe-Signature or a specific ID header)
-	// or parse it from the body. Since this handler is generic and we haven't read the body yet, 
-	// we will rely on a generic header like "X-Provider-Event-Id" or assume the payload is hashed for a unique ID if missing.
-	providerEventID := r.Header.Get("X-Provider-Event-Id")
-	if providerEventID == "" {
-		// Fallback for providers that don't send explicit event IDs in headers
-		providerEventID = "req-" + strconv.FormatInt(time.Now().UnixNano(), 10)
-	}
-
-
-
 	// Read the raw payload for signature verification
 	payload, err := io.ReadAll(r.Body)
 	if err != nil {

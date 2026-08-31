@@ -349,7 +349,9 @@ func seedPhase10Assets(ctx context.Context, sctx *SeedContext) error {
 		proceeds := 140000000.00 // Proceeds from selling the van
 
 		var dispExists bool
-		err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM fixed_asset_disposals WHERE asset_id = $1)`, disposedAssetID).Scan(&dispExists)
+		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM fixed_asset_disposals WHERE asset_id = $1)`, disposedAssetID).Scan(&dispExists); err != nil {
+			return fmt.Errorf("check fixed_asset_disposals exists: %w", err)
+		}
 		if !dispExists {
 			if _, err := tx.Exec(ctx, `
 				INSERT INTO fixed_asset_disposals (asset_id, disposal_date, proceeds, journal_entry_id, created_at)
