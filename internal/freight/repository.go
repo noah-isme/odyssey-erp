@@ -190,13 +190,6 @@ func numericToMoneyVal(n pgtype.Numeric, scale int) accountingmoney.Money {
 	return m
 }
 
-func timeToTimestamp(t *time.Time) pgtype.Timestamp {
-	if t == nil {
-		return pgtype.Timestamp{}
-	}
-	return pgtype.Timestamp{Time: *t, Valid: true}
-}
-
 func timeToDate(t *time.Time) pgtype.Date {
 	if t == nil {
 		return pgtype.Date{}

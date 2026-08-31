@@ -392,7 +392,7 @@ func seedPhase09HRPayroll(ctx context.Context, sctx *SeedContext) error {
 		for _, e := range employees {
 			empID := empIDMap[e.empNumber]
 			if e.empNumber != "EMP-2026-001" {
-				var mgrID int64 = bSantosoEmpID
+				var mgrID = bSantosoEmpID
 				if e.deptCode == "HR-DEPT-FIN" && e.empNumber != "EMP-2026-002" {
 					mgrID = empIDMap["EMP-2026-002"]
 				} else if e.deptCode == "HR-DEPT-HR" && e.empNumber != "EMP-2026-004" {

@@ -762,7 +762,7 @@ func seedPhase04Procurement(ctx context.Context, sctx *SeedContext) error {
 			}
 
 			// FX Valuation
-			var fxRate float64 = 1.0
+			var fxRate = 1.0
 			baseAmount := total
 			if inv.currency == "USD" {
 				fxRate = 16000.0
@@ -934,7 +934,7 @@ func seedPhase04Procurement(ctx context.Context, sctx *SeedContext) error {
 			supID := sctx.SupplierIDs[p.supplierCode]
 			paidDate := ParseDate(p.paidAt)
 
-			var fxRate float64 = 1.0
+			var fxRate = 1.0
 			baseAmount := p.amount
 			if p.currency == "USD" {
 				fxRate = 16000.0
