@@ -274,7 +274,7 @@ func TestMidtransAdapter_ExecuteCommand_CreateCheckout_OK(t *testing.T) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(snapResp)
+		_ = json.NewEncoder(w).Encode(snapResp)
 	}))
 	defer srv.Close()
 
@@ -318,7 +318,7 @@ func TestMidtransAdapter_ExecuteCommand_CreateCheckout_APIError(t *testing.T) {
 	// Fake server returns 401 Unauthorized.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
-		fmt.Fprintln(w, `{"error_messages":["Access denied"]}`)
+		_, _ = fmt.Fprintln(w, `{"error_messages":["Access denied"]}`)
 	}))
 	defer srv.Close()
 
@@ -429,6 +429,6 @@ var _ connectors.ProviderAdapter = (*midtrans.Adapter)(nil)
 
 func TestMain(m *testing.M) {
 	// Ensure the test binary is not accidentally running against production.
-	os.Setenv("APP_MASTER_KEY", "test-master-key-for-unit-tests-only")
+	_ = os.Setenv("APP_MASTER_KEY", "test-master-key-for-unit-tests-only")
 	os.Exit(m.Run())
 }

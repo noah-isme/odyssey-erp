@@ -165,5 +165,5 @@ func (h *Handler) SettleBatch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(batch)
+	_ = json.NewEncoder(w).Encode(batch)
 }
