@@ -1,10 +1,11 @@
 # Production Release Checklist
 
-**State:** `v0.10.0-rc.7` candidate prepared from `5ed11da` on the reviewed
-`ec65cc0` application baseline; production promotion and final tag approval are
+**State:** `v0.10.0-rc.8` candidate prepared from `cdaa910` on the divergent
+rc.8 release line (merge-base `04ebd8a` with the superseded rc.7 line, no
+`ec65cc0` baseline); production promotion and final tag approval are
 still pending.
 
-**Reviewed:** 2026-08-27
+**Reviewed:** 2026-09-02
 
 This is the final-release runbook for Odyssey ERP. It does not turn local tests
 into production certification. The [authoritative feature matrix](../reference/feature-matrix.md)
@@ -13,10 +14,11 @@ its `production-certified` evidence is recorded there.
 
 ## 1. Release identity and scope
 
-- [x] Freeze `v0.10.0-rc.7` from the immutable release-head commit
-      `5ed11da8aea342708be67284ea7a71224f90ccdc` after reviewing the exact
-      release diff; preserve `ec65cc08639c184030c63e3407791987eee92804` as the
-      application baseline.
+- [x] Freeze `v0.10.0-rc.8` from the immutable release-head commit
+      `cdaa910b2d529d7dd6b8e05f259f533a28e32dd4` after reviewing the exact
+      release diff on the rc.8 line, which diverges from the superseded rc.7
+      candidate at merge-base `04ebd8a040ff3c5da6f90c6f8d0eab5f4a9ba336`
+      through a 15-commit stabilization chain.
 - [x] Set the candidate migration ceiling to
       `000124_scoped_rbac_global_compatibility`; migration
       `000125_payment_settlement_results`, v0.11-finance routes, and commit
@@ -37,12 +39,13 @@ its `production-certified` evidence is recorded there.
 - [ ] Record the commit, image digest, migration range, and rollback target in
       the release notes.
 
-The `v0.10.0-rc.7` candidate is a packaging checkpoint, not a production approval.
+The `v0.10.0-rc.8` candidate is a packaging checkpoint, not a production approval.
 The [v0.10-core staging certification record](v0.10-core-staging-certification.md)
 is the evidence hook for the bounded profile. The final gate remains intentionally
 blocked until its scope and evidence are certified by the release owner. The
-candidate tag and exact commit recorded in that evidence must refer to rc.7 and
-`5ed11da`; the application-baseline field must remain `ec65cc0`.
+candidate tag and exact commit recorded in that evidence must refer to rc.8 and
+`cdaa910`; the candidate-lineage field must match the recorded merge-base
+`04ebd8a` and 15-commit stabilization chain.
 
 ## 2. Repeatable repository gates
 
@@ -76,11 +79,11 @@ and advertised route placeholder responses.
 Before release, run the final gate from a clean, tagged checkout:
 
 ```bash
-CERTIFIED_CANDIDATE_TAG=v0.10.0-rc.7 \
+CERTIFIED_CANDIDATE_TAG=v0.10.0-rc.8 \
 RELEASE_VERSION=v0.10.0 \
 RELEASE_PROFILE=v0.10-core \
 CERTIFICATION_EVIDENCE_INDEX_FILE=/secure/evidence/evidence-index.json \
-CERTIFICATION_EVIDENCE_INDEX_URI=s3://immutable-evidence/v0.10.0-rc.7/5ed11da/<run>/<attempt>/evidence-index.json \
+CERTIFICATION_EVIDENCE_INDEX_URI=s3://immutable-evidence/v0.10.0-rc.8/cdaa910/<run>/<attempt>/evidence-index.json \
 EVIDENCE_S3_ENDPOINT=https://object-lock.example.invalid \
 EVIDENCE_S3_REGION=us-east-1 \
 EVIDENCE_S3_ACCESS_KEY_ID=<managed-secret> \
@@ -153,7 +156,7 @@ listed below.
 - [ ] Verify Gotenberg availability and the `production pdf` build artifact if PDF
       routes are in scope.
 
-For rc.7, Coretax authority acceptance, payroll/legal review, and connector checks
+For rc.8, Coretax authority acceptance, payroll/legal review, and connector checks
 that belong only to the v0.11-finance profile may be recorded as profile-scoped
 `N/A` only when the route manifest and runtime configuration prove that they are
 neither exposed nor required by the five v0.10-core journeys. Record the evidence
@@ -194,8 +197,9 @@ in scope.
 
 The current repository deliberately does not claim production release readiness:
 
-- `v0.10.0-rc.7` is a release candidate, not a production-certified final release;
-- the candidate is frozen at `5ed11da` on the `ec65cc0` application baseline and
+- `v0.10.0-rc.8` is a release candidate, not a production-certified final release;
+- the candidate is frozen at `cdaa910` on the divergent rc.8 line (merge-base
+  `04ebd8a` with the superseded rc.7 line, no `ec65cc0` baseline) and
   must stop at migration `000124`; the
   v0.11-finance commit `1a8343e` and migration `000125` are excluded;
 - the feature matrix records `production-certified=no` for the current capability

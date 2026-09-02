@@ -1,14 +1,17 @@
 # Authoritative Feature Matrix
 
-**Reviewed:** 2026-08-27
+**Reviewed:** 2026-09-02
 
-**Current release candidate:** `v0.10.0-rc.7`. This candidate is not
+**Current release candidate:** `v0.10.0-rc.8`. This candidate is not
 production-certified; the matrix below remains the authority for promotion evidence.
 
-**v0.10.0-rc.7 boundary:** the application baseline is
-`ec65cc08639c184030c63e3407791987eee92804`; the annotated rc.7 tag identifies
-the candidate commit `5ed11da8aea342708be67284ea7a71224f90ccdc` containing the
-release-hygiene correction. The candidate includes migrations through
+**v0.10.0-rc.8 boundary:** the annotated rc.8 tag identifies the candidate
+commit `cdaa910b2d529d7dd6b8e05f259f533a28e32dd4`. The rc.8 line diverges from
+the superseded, never-certified rc.7 candidate at merge-base
+`04ebd8a040ff3c5da6f90c6f8d0eab5f4a9ba336` and carries a 15-commit
+stabilization chain (staging certification workflow and gates, enterprise UI
+hardening, story-driven seed data, lint/CI fixes, and CSRF/module-UI fixes);
+it has no `ec65cc0` baseline ancestry. The candidate includes migrations through
 `000124_scoped_rbac_global_compatibility`.
 Commit `1a8343e4499420467ba3dda04a2683782c6c79d7`, migration
 `000125_payment_settlement_results`, and v0.11-only routes are excluded.
@@ -84,7 +87,7 @@ same rule to every row. Rows outside the selected profile are not release claims
 must remain unavailable to that profile's production route set. In particular, the
 Phase 14/P7 evidence guide records local verification; it does not certify staging or
 production. The VPS deployment target satisfies the infrastructure selection only; it
-does not certify incomplete feature workflows. For rc.7, selecting
+does not certify incomplete feature workflows. For rc.8, selecting
 `RELEASE_PROFILE=v0.10-core` must not expose v0.11-only routes or apply migration
 `000125`.
 

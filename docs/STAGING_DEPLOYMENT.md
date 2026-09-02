@@ -10,9 +10,10 @@ The v0.10.0 staging certification profile is `v0.10-core`. Complete the
 for the exact candidate before changing any feature-matrix row to
 `production-certified=yes`.
 
-The current candidate is the immutable annotated tag `v0.10.0-rc.7`, resolving
-to `5ed11da8aea342708be67284ea7a71224f90ccdc` on the `ec65cc0` application
-baseline. Do not move, recreate, or replace that tag while collecting evidence.
+The current candidate is the immutable annotated tag `v0.10.0-rc.8`, resolving
+to `cdaa910b2d529d7dd6b8e05f259f533a28e32dd4` on the divergent rc.8 release
+line (merge-base `04ebd8a` with the superseded rc.7 line; no `ec65cc0`
+baseline). Do not move, recreate, or replace that tag while collecting evidence.
 
 The final release gate checks that this record names the exact candidate tag and
 contains completed evidence. An untouched template, unchecked checklist item,
@@ -25,7 +26,7 @@ application port, database, and Redis instance.
 ## Deployment contract
 
 The workflow deploys automatically after a successful `CI` workflow for the
-`staging` branch. Pushing the annotated `v0.10.0-rc.7` tag also starts the
+`staging` branch. Pushing the annotated `v0.10.0-rc.8` tag also starts the
 release-candidate deployment, so the candidate can run even before this
 workflow reaches the repository's default branch. A manual dispatch using the
 same tag remains available once the workflow is on the default branch. Every
@@ -47,7 +48,7 @@ provenance claim without that verification output is not sufficient for
 `REL-003`.
 
 An automatic `workflow_run` deployment is refused when the checked-out commit
-exceeds migration `000124`; use the annotated rc.7 tag path for v0.10-core
+exceeds migration `000124`; use the annotated rc.8 tag path for v0.10-core
 certification instead of allowing the v0.11-finance line to drift into staging.
 
 Configure a GitHub environment named `staging` with these secrets:

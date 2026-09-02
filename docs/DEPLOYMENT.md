@@ -6,9 +6,10 @@
 
 For the bounded v0.10.0 release, use the [v0.10-core staging certification
 record](releases/v0.10-core-staging-certification.md) before promotion. The
-current candidate is the immutable annotated tag `v0.10.0-rc.7`, resolving to
-`5ed11da8aea342708be67284ea7a71224f90ccdc` on the `ec65cc0` application
-baseline. Production promotion requires the explicit
+current candidate is the immutable annotated tag `v0.10.0-rc.8`, resolving to
+`cdaa910b2d529d7dd6b8e05f259f533a28e32dd4` on the divergent rc.8 release line
+(merge-base `04ebd8a` with the superseded rc.7 line; no `ec65cc0` baseline).
+Production promotion requires the explicit
 `RELEASE_PROFILE=v0.10-core` contract unless a separately approved `full`
 profile has certified every matrix row.
 

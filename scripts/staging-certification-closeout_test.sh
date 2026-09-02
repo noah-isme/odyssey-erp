@@ -10,7 +10,7 @@ tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
 candidate_sha=0123456789012345678901234567890123456789
-candidate_tag=v0.10.0-rc.7
+candidate_tag=v0.10.0-rc.8
 fake_aws_state="$tmp/aws-state"
 
 # Exercise the real S3/Object Lock validation path without requiring network
