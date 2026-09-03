@@ -121,22 +121,16 @@ func (h *Handler) listStatements(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Active company is required", http.StatusBadRequest)
 		return
 	}
+	var statements []BankStatement
 	accountID, err := h.service.BankAccountIDForCompany(r.Context(), companyID)
-	if err != nil {
-		h.logger.Error("find bank account for statements", slog.Any("error", err), slog.Int64("company_id", companyID))
-		shared.WriteErrorStatus(w, http.StatusInternalServerError, err)
-		return
-	}
-
-	statements, err := h.service.ListStatements(r.Context(), accountID, 50, 0)
-	if err != nil {
-		h.logger.Error("list statements", slog.Any("error", err))
-		shared.WriteErrorStatus(w, http.StatusInternalServerError, err)
-		return
+	if err == nil {
+		statements, _ = h.service.ListStatements(r.Context(), accountID, 50, 0)
 	}
 
 	data := view.TemplateData{
-		CSRFToken: h.csrfToken(r),
+		Title:       "Bank Statements",
+		CurrentPath: "/accounting/banks/statements",
+		CSRFToken:   h.csrfToken(r),
 		Data: map[string]any{
 			"Statements": statements,
 		},
@@ -158,14 +152,17 @@ func (h *Handler) importStatement(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "CSV file is required", http.StatusBadRequest)
 		return
 	}
-	defer func() {
-		if err := file.Close(); err != nil {
-			h.logger.Warn("close statement upload", slog.Any("error", err))
-		}
-	}()
+	defer file.Close()
 
-	// Hardcode account ID and date for MVP, ideally comes from form
-	var accountID int64 = 1
+	sess := shared.SessionFromContext(r.Context())
+	companyID, _ := strconv.ParseInt(sess.Get("company_id"), 10, 64)
+	accountID, err := h.service.BankAccountIDForCompany(r.Context(), companyID)
+	if err != nil {
+		h.logger.Error("find bank account", slog.Any("error", err), slog.Int64("company_id", companyID))
+		shared.WriteErrorStatus(w, http.StatusBadRequest, err)
+		return
+	}
+
 	dateStr := r.FormValue("statement_date")
 	statementDate, err := time.Parse("2006-01-02", dateStr)
 	if err != nil {
@@ -212,7 +209,9 @@ func (h *Handler) viewStatement(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := view.TemplateData{
-		CSRFToken: h.csrfToken(r),
+		Title:       "Bank Reconciliation",
+		CurrentPath: "/accounting/banks/statements",
+		CSRFToken:   h.csrfToken(r),
 		Data: map[string]any{
 			"Statement": stmt,
 			"Lines":     lines,
