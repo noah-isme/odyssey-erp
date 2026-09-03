@@ -80,6 +80,8 @@ var coreRoutePrefixes = []string{
 	"/api/search",
 	"/legal",
 	"/static",
+	"/hr",
+	"/payroll",
 }
 
 // v0.11-finance is cumulative: it adds the bounded treasury/P2P automation
