@@ -567,6 +567,34 @@ func NewRouter(params RouterParams) http.Handler {
 	freight.NewHandler(params.FreightService).RegisterRoutes(r)
 
 	// Register Logistics UI form routes
+	r.Get("/logistics/fleet", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		companyID := int64(1)
+
+		vehicles, _ := params.LogisticsService.ListVehicles(ctx, companyID)
+		available, inUse, inMaintenance := 0, 0, 0
+		for _, v := range vehicles {
+			switch v.Status {
+			case logistics.VehicleStatusAvailable:
+				available++
+			case logistics.VehicleStatusInUse:
+				inUse++
+			case logistics.VehicleStatusMaintenance:
+				inMaintenance++
+			}
+		}
+		_ = params.Templates.Render(w, "pages/logistics/fleet_management.html", view.TemplateData{
+			Title:       "Fleet Management",
+			CurrentPath: "/logistics/fleet",
+			Data: map[string]interface{}{
+				"Vehicles":  vehicles,
+				"Total":     len(vehicles),
+				"Available": available,
+				"InTransit": inUse,
+				"InMaint":   inMaintenance,
+			},
+		})
+	})
 	r.Get("/logistics/fleet/new", func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		companyID := int64(1)
@@ -606,6 +634,17 @@ func NewRouter(params RouterParams) http.Handler {
 		http.Redirect(w, r, "/logistics/fleet", http.StatusSeeOther)
 	})
 
+	r.Get("/logistics/trips", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		companyID := int64(1)
+
+		trips, _ := params.LogisticsService.ListActiveTrips(ctx, companyID)
+		_ = params.Templates.Render(w, "pages/logistics/trip_management.html", view.TemplateData{
+			Title:       "Trip Management",
+			CurrentPath: "/logistics/trips",
+			Data:        map[string]interface{}{"Trips": trips},
+		})
+	})
 	r.Get("/logistics/trips/new", func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		companyID := int64(1)
