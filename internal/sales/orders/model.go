@@ -5,11 +5,21 @@ import "time"
 type SalesOrderStatus string
 
 const (
-	SalesOrderStatusDraft     SalesOrderStatus = "DRAFT"
-	SalesOrderStatusConfirmed SalesOrderStatus = "CONFIRMED"
-	SalesOrderStatusCancelled SalesOrderStatus = "CANCELLED"
-	SalesOrderStatusCompleted SalesOrderStatus = "COMPLETED"
+	SalesOrderStatusDraft      SalesOrderStatus = "DRAFT"
+	SalesOrderStatusConfirmed  SalesOrderStatus = "CONFIRMED"
+	SalesOrderStatusProcessing SalesOrderStatus = "PROCESSING"
+	SalesOrderStatusCancelled  SalesOrderStatus = "CANCELLED"
+	SalesOrderStatusCompleted  SalesOrderStatus = "COMPLETED"
 )
+
+func (s SalesOrderStatus) IsValid() bool {
+	switch s {
+	case SalesOrderStatusDraft, SalesOrderStatusConfirmed, SalesOrderStatusProcessing, SalesOrderStatusCancelled, SalesOrderStatusCompleted:
+		return true
+	default:
+		return false
+	}
+}
 
 type SalesOrder struct {
 	ID                   int64            `json:"id" db:"id"`

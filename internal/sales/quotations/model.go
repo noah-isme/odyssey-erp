@@ -12,6 +12,15 @@ const (
 	QuotationStatusConverted QuotationStatus = "CONVERTED"
 )
 
+func (s QuotationStatus) IsValid() bool {
+	switch s {
+	case QuotationStatusDraft, QuotationStatusSubmitted, QuotationStatusApproved, QuotationStatusRejected, QuotationStatusConverted:
+		return true
+	default:
+		return false
+	}
+}
+
 type Quotation struct {
 	ID               int64           `json:"id" db:"id"`
 	DocNumber        string          `json:"doc_number" db:"doc_number"`
