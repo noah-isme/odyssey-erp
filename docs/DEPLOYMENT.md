@@ -83,6 +83,9 @@ CSRF_SECRET=replace-with-a-different-long-random-secret
 SESSION_SECURE_COOKIE=true
 SESSION_SAME_SITE=Strict
 
+# Encryption at rest (required by the worker; derives the key for stored connector credentials)
+APP_MASTER_KEY=replace-with-a-long-random-secret
+
 # Connector safety
 CONNECTORS_DEVELOPMENT_MODE=false
 GOTENBERG_URL=http://gotenberg:3000

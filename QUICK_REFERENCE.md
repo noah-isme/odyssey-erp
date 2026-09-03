@@ -57,6 +57,7 @@ export REDIS_ADDR=localhost:6380
 export GOTENBERG_URL=http://localhost:3000
 export SESSION_SECRET='local-development-session-secret'
 export CSRF_SECRET='local-development-csrf-secret'
+export APP_MASTER_KEY='local-development-master-key'
 ```
 
 ## 🔐 Default Credentials
