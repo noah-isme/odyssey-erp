@@ -90,10 +90,25 @@ type CreateComplianceDecisionParams struct {
 	RecordHash      pgtype.Text `json:"record_hash"`
 }
 
+type CreateComplianceDecisionRow struct {
+	ID              int64              `json:"id"`
+	CompanyID       int64              `json:"company_id"`
+	PolicyVersionID int64              `json:"policy_version_id"`
+	RecordType      string             `json:"record_type"`
+	RecordID        int64              `json:"record_id"`
+	Action          string             `json:"action"`
+	ActorID         int64              `json:"actor_id"`
+	Reason          pgtype.Text        `json:"reason"`
+	DecisionID      pgtype.UUID        `json:"decision_id"`
+	RecordVersion   pgtype.Text        `json:"record_version"`
+	RecordHash      pgtype.Text        `json:"record_hash"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+}
+
 // =============================================================================
 // COMPLIANCE DECISIONS
 // =============================================================================
-func (q *Queries) CreateComplianceDecision(ctx context.Context, arg CreateComplianceDecisionParams) (ComplianceDecision, error) {
+func (q *Queries) CreateComplianceDecision(ctx context.Context, arg CreateComplianceDecisionParams) (CreateComplianceDecisionRow, error) {
 	row := q.db.QueryRow(ctx, createComplianceDecision,
 		arg.CompanyID,
 		arg.PolicyVersionID,
@@ -106,7 +121,7 @@ func (q *Queries) CreateComplianceDecision(ctx context.Context, arg CreateCompli
 		arg.RecordVersion,
 		arg.RecordHash,
 	)
-	var i ComplianceDecision
+	var i CreateComplianceDecisionRow
 	err := row.Scan(
 		&i.ID,
 		&i.CompanyID,
@@ -415,10 +430,22 @@ type CreateSignatureChallengeParams struct {
 	ReauthenticationRequired bool               `json:"reauthentication_required"`
 }
 
+type CreateSignatureChallengeRow struct {
+	ID                       int64              `json:"id"`
+	ChallengeID              pgtype.UUID        `json:"challenge_id"`
+	PolicyVersionID          int64              `json:"policy_version_id"`
+	RecordID                 int64              `json:"record_id"`
+	RecordVersion            pgtype.Text        `json:"record_version"`
+	Expiry                   pgtype.Timestamptz `json:"expiry"`
+	ReauthenticationRequired bool               `json:"reauthentication_required"`
+	Used                     bool               `json:"used"`
+	CreatedAt                pgtype.Timestamptz `json:"created_at"`
+}
+
 // =============================================================================
 // SIGNATURE CHALLENGES
 // =============================================================================
-func (q *Queries) CreateSignatureChallenge(ctx context.Context, arg CreateSignatureChallengeParams) (SignatureChallenge, error) {
+func (q *Queries) CreateSignatureChallenge(ctx context.Context, arg CreateSignatureChallengeParams) (CreateSignatureChallengeRow, error) {
 	row := q.db.QueryRow(ctx, createSignatureChallenge,
 		arg.ChallengeID,
 		arg.PolicyVersionID,
@@ -427,7 +454,7 @@ func (q *Queries) CreateSignatureChallenge(ctx context.Context, arg CreateSignat
 		arg.Expiry,
 		arg.ReauthenticationRequired,
 	)
-	var i SignatureChallenge
+	var i CreateSignatureChallengeRow
 	err := row.Scan(
 		&i.ID,
 		&i.ChallengeID,
@@ -567,9 +594,24 @@ FROM compliance_decisions
 WHERE id = $1
 `
 
-func (q *Queries) GetComplianceDecision(ctx context.Context, id int64) (ComplianceDecision, error) {
+type GetComplianceDecisionRow struct {
+	ID              int64              `json:"id"`
+	CompanyID       int64              `json:"company_id"`
+	PolicyVersionID int64              `json:"policy_version_id"`
+	RecordType      string             `json:"record_type"`
+	RecordID        int64              `json:"record_id"`
+	Action          string             `json:"action"`
+	ActorID         int64              `json:"actor_id"`
+	Reason          pgtype.Text        `json:"reason"`
+	DecisionID      pgtype.UUID        `json:"decision_id"`
+	RecordVersion   pgtype.Text        `json:"record_version"`
+	RecordHash      pgtype.Text        `json:"record_hash"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) GetComplianceDecision(ctx context.Context, id int64) (GetComplianceDecisionRow, error) {
 	row := q.db.QueryRow(ctx, getComplianceDecision, id)
-	var i ComplianceDecision
+	var i GetComplianceDecisionRow
 	err := row.Scan(
 		&i.ID,
 		&i.CompanyID,
@@ -594,9 +636,24 @@ FROM compliance_decisions
 WHERE decision_id = $1
 `
 
-func (q *Queries) GetComplianceDecisionByUUID(ctx context.Context, decisionID pgtype.UUID) (ComplianceDecision, error) {
+type GetComplianceDecisionByUUIDRow struct {
+	ID              int64              `json:"id"`
+	CompanyID       int64              `json:"company_id"`
+	PolicyVersionID int64              `json:"policy_version_id"`
+	RecordType      string             `json:"record_type"`
+	RecordID        int64              `json:"record_id"`
+	Action          string             `json:"action"`
+	ActorID         int64              `json:"actor_id"`
+	Reason          pgtype.Text        `json:"reason"`
+	DecisionID      pgtype.UUID        `json:"decision_id"`
+	RecordVersion   pgtype.Text        `json:"record_version"`
+	RecordHash      pgtype.Text        `json:"record_hash"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) GetComplianceDecisionByUUID(ctx context.Context, decisionID pgtype.UUID) (GetComplianceDecisionByUUIDRow, error) {
 	row := q.db.QueryRow(ctx, getComplianceDecisionByUUID, decisionID)
-	var i ComplianceDecision
+	var i GetComplianceDecisionByUUIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.CompanyID,
@@ -745,9 +802,21 @@ FROM signature_challenges
 WHERE challenge_id = $1
 `
 
-func (q *Queries) GetSignatureChallenge(ctx context.Context, challengeID pgtype.UUID) (SignatureChallenge, error) {
+type GetSignatureChallengeRow struct {
+	ID                       int64              `json:"id"`
+	ChallengeID              pgtype.UUID        `json:"challenge_id"`
+	PolicyVersionID          int64              `json:"policy_version_id"`
+	RecordID                 int64              `json:"record_id"`
+	RecordVersion            pgtype.Text        `json:"record_version"`
+	Expiry                   pgtype.Timestamptz `json:"expiry"`
+	ReauthenticationRequired bool               `json:"reauthentication_required"`
+	Used                     bool               `json:"used"`
+	CreatedAt                pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) GetSignatureChallenge(ctx context.Context, challengeID pgtype.UUID) (GetSignatureChallengeRow, error) {
 	row := q.db.QueryRow(ctx, getSignatureChallenge, challengeID)
-	var i SignatureChallenge
+	var i GetSignatureChallengeRow
 	err := row.Scan(
 		&i.ID,
 		&i.ChallengeID,
@@ -922,15 +991,30 @@ type ListDecisionsByCompanyParams struct {
 	Offset    int32 `json:"offset"`
 }
 
-func (q *Queries) ListDecisionsByCompany(ctx context.Context, arg ListDecisionsByCompanyParams) ([]ComplianceDecision, error) {
+type ListDecisionsByCompanyRow struct {
+	ID              int64              `json:"id"`
+	CompanyID       int64              `json:"company_id"`
+	PolicyVersionID int64              `json:"policy_version_id"`
+	RecordType      string             `json:"record_type"`
+	RecordID        int64              `json:"record_id"`
+	Action          string             `json:"action"`
+	ActorID         int64              `json:"actor_id"`
+	Reason          pgtype.Text        `json:"reason"`
+	DecisionID      pgtype.UUID        `json:"decision_id"`
+	RecordVersion   pgtype.Text        `json:"record_version"`
+	RecordHash      pgtype.Text        `json:"record_hash"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) ListDecisionsByCompany(ctx context.Context, arg ListDecisionsByCompanyParams) ([]ListDecisionsByCompanyRow, error) {
 	rows, err := q.db.Query(ctx, listDecisionsByCompany, arg.CompanyID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ComplianceDecision
+	var items []ListDecisionsByCompanyRow
 	for rows.Next() {
-		var i ComplianceDecision
+		var i ListDecisionsByCompanyRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.CompanyID,
@@ -971,15 +1055,30 @@ type ListDecisionsByRecordParams struct {
 	RecordID   int64  `json:"record_id"`
 }
 
-func (q *Queries) ListDecisionsByRecord(ctx context.Context, arg ListDecisionsByRecordParams) ([]ComplianceDecision, error) {
+type ListDecisionsByRecordRow struct {
+	ID              int64              `json:"id"`
+	CompanyID       int64              `json:"company_id"`
+	PolicyVersionID int64              `json:"policy_version_id"`
+	RecordType      string             `json:"record_type"`
+	RecordID        int64              `json:"record_id"`
+	Action          string             `json:"action"`
+	ActorID         int64              `json:"actor_id"`
+	Reason          pgtype.Text        `json:"reason"`
+	DecisionID      pgtype.UUID        `json:"decision_id"`
+	RecordVersion   pgtype.Text        `json:"record_version"`
+	RecordHash      pgtype.Text        `json:"record_hash"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) ListDecisionsByRecord(ctx context.Context, arg ListDecisionsByRecordParams) ([]ListDecisionsByRecordRow, error) {
 	rows, err := q.db.Query(ctx, listDecisionsByRecord, arg.CompanyID, arg.RecordType, arg.RecordID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ComplianceDecision
+	var items []ListDecisionsByRecordRow
 	for rows.Next() {
-		var i ComplianceDecision
+		var i ListDecisionsByRecordRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.CompanyID,
@@ -1014,15 +1113,27 @@ ORDER BY expiry DESC
 LIMIT $1
 `
 
-func (q *Queries) ListExpiredChallenges(ctx context.Context, limit int32) ([]SignatureChallenge, error) {
+type ListExpiredChallengesRow struct {
+	ID                       int64              `json:"id"`
+	ChallengeID              pgtype.UUID        `json:"challenge_id"`
+	PolicyVersionID          int64              `json:"policy_version_id"`
+	RecordID                 int64              `json:"record_id"`
+	RecordVersion            pgtype.Text        `json:"record_version"`
+	Expiry                   pgtype.Timestamptz `json:"expiry"`
+	ReauthenticationRequired bool               `json:"reauthentication_required"`
+	Used                     bool               `json:"used"`
+	CreatedAt                pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) ListExpiredChallenges(ctx context.Context, limit int32) ([]ListExpiredChallengesRow, error) {
 	rows, err := q.db.Query(ctx, listExpiredChallenges, limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []SignatureChallenge
+	var items []ListExpiredChallengesRow
 	for rows.Next() {
-		var i SignatureChallenge
+		var i ListExpiredChallengesRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ChallengeID,

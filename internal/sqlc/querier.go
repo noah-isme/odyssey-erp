@@ -94,7 +94,7 @@ type Querier interface {
 	// =============================================================================
 	// COMPLIANCE DECISIONS
 	// =============================================================================
-	CreateComplianceDecision(ctx context.Context, arg CreateComplianceDecisionParams) (ComplianceDecision, error)
+	CreateComplianceDecision(ctx context.Context, arg CreateComplianceDecisionParams) (CreateComplianceDecisionRow, error)
 	CreateConnection(ctx context.Context, arg CreateConnectionParams) (ConnectorConnection, error)
 	CreateCustomer(ctx context.Context, arg CreateCustomerParams) (int64, error)
 	CreateDeliveryOrder(ctx context.Context, arg CreateDeliveryOrderParams) (int64, error)
@@ -196,7 +196,7 @@ type Querier interface {
 	// =============================================================================
 	// SIGNATURE CHALLENGES
 	// =============================================================================
-	CreateSignatureChallenge(ctx context.Context, arg CreateSignatureChallengeParams) (SignatureChallenge, error)
+	CreateSignatureChallenge(ctx context.Context, arg CreateSignatureChallengeParams) (CreateSignatureChallengeRow, error)
 	CreateStatementImportRun(ctx context.Context, arg CreateStatementImportRunParams) (StatementImportRun, error)
 	// =============================================================================
 	// SUBCONTRACT RECEIPTS
@@ -313,8 +313,8 @@ type Querier interface {
 	GetCollaborationSession(ctx context.Context, sessionToken string) (DocCollaborationSession, error)
 	GetCollaborationSessionByID(ctx context.Context, id int64) (DocCollaborationSession, error)
 	GetCompany(ctx context.Context, id int64) (GetCompanyRow, error)
-	GetComplianceDecision(ctx context.Context, id int64) (ComplianceDecision, error)
-	GetComplianceDecisionByUUID(ctx context.Context, decisionID pgtype.UUID) (ComplianceDecision, error)
+	GetComplianceDecision(ctx context.Context, id int64) (GetComplianceDecisionRow, error)
+	GetComplianceDecisionByUUID(ctx context.Context, decisionID pgtype.UUID) (GetComplianceDecisionByUUIDRow, error)
 	GetConnection(ctx context.Context, arg GetConnectionParams) (ConnectorConnection, error)
 	GetContractPriceLineForProduct(ctx context.Context, arg GetContractPriceLineForProductParams) (ContractPriceLine, error)
 	GetContractPriceLines(ctx context.Context, contractID int64) ([]ContractPriceLine, error)
@@ -428,7 +428,7 @@ type Querier interface {
 	GetSalesOrderDetails(ctx context.Context, id int64) (GetSalesOrderDetailsRow, error)
 	GetSalesOrderLines(ctx context.Context, salesOrderID int64) ([]GetSalesOrderLinesRow, error)
 	GetShipment(ctx context.Context, id int64) (Shipment, error)
-	GetSignatureChallenge(ctx context.Context, challengeID pgtype.UUID) (SignatureChallenge, error)
+	GetSignatureChallenge(ctx context.Context, challengeID pgtype.UUID) (GetSignatureChallengeRow, error)
 	GetSnapshot(ctx context.Context, id int64) (GetSnapshotRow, error)
 	GetSparePart(ctx context.Context, id int64) (SparePart, error)
 	GetStockBalance(ctx context.Context, arg GetStockBalanceParams) (InventoryBalance, error)
@@ -703,8 +703,8 @@ type Querier interface {
 	ListCompanies(ctx context.Context) ([]ListCompaniesRow, error)
 	ListConnections(ctx context.Context, companyID int64) ([]ConnectorConnection, error)
 	ListCustomerComplaints(ctx context.Context, arg ListCustomerComplaintsParams) ([]ListCustomerComplaintsRow, error)
-	ListDecisionsByCompany(ctx context.Context, arg ListDecisionsByCompanyParams) ([]ComplianceDecision, error)
-	ListDecisionsByRecord(ctx context.Context, arg ListDecisionsByRecordParams) ([]ComplianceDecision, error)
+	ListDecisionsByCompany(ctx context.Context, arg ListDecisionsByCompanyParams) ([]ListDecisionsByCompanyRow, error)
+	ListDecisionsByRecord(ctx context.Context, arg ListDecisionsByRecordParams) ([]ListDecisionsByRecordRow, error)
 	ListDocumentACLs(ctx context.Context, arg ListDocumentACLsParams) ([]DocumentAcl, error)
 	// =============================================================================
 	// DOCUMENT CATEGORIES
@@ -723,7 +723,7 @@ type Querier interface {
 	ListDocuments(ctx context.Context, arg ListDocumentsParams) ([]ListDocumentsRow, error)
 	ListDrivers(ctx context.Context, arg ListDriversParams) ([]Driver, error)
 	ListDuePMSchedules(ctx context.Context, companyID int64) ([]ListDuePMSchedulesRow, error)
-	ListExpiredChallenges(ctx context.Context, limit int32) ([]SignatureChallenge, error)
+	ListExpiredChallenges(ctx context.Context, limit int32) ([]ListExpiredChallengesRow, error)
 	ListExpiredDocumentRetention(ctx context.Context) ([]ListExpiredDocumentRetentionRow, error)
 	ListFleets(ctx context.Context, companyID int64) ([]Fleet, error)
 	ListForecastAdjustments(ctx context.Context, scenarioID int64) ([]ForecastAdjustment, error)
@@ -765,7 +765,7 @@ type Querier interface {
 	ListRateSurcharges(ctx context.Context, rateCardID int64) ([]RateSurcharge, error)
 	ListRecentPeriods(ctx context.Context, arg ListRecentPeriodsParams) ([]ListRecentPeriodsRow, error)
 	ListReportingDatasetFields(ctx context.Context, datasetID pgtype.UUID) ([]ReportingDatasetField, error)
-	ListReportingDatasets(ctx context.Context, companyID pgtype.UUID) ([]ReportingDataset, error)
+	ListReportingDatasets(ctx context.Context, companyID int64) ([]ReportingDataset, error)
 	ListRolePermissions(ctx context.Context, roleID int64) ([]Permission, error)
 	ListRuns(ctx context.Context, arg ListRunsParams) ([]ListRunsRow, error)
 	ListShipmentLines(ctx context.Context, shipmentID int64) ([]ShipmentLine, error)

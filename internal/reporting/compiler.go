@@ -41,7 +41,7 @@ func NewSafeCompiler() *SafeCompiler {
 
 // Compile validates the requested dimensions/measures against the allowed dataset fields,
 // enforces tenant scope, and generates a parameterized SQL query.
-func (c *SafeCompiler) Compile(ctx context.Context, companyID, actorID uuid.UUID, dataset *DatasetDefinition, query ReportQuery) (*CompiledPlan, error) {
+func (c *SafeCompiler) Compile(ctx context.Context, companyID, actorID int64, dataset *DatasetDefinition, query ReportQuery) (*CompiledPlan, error) {
 	if len(query.Dimensions) == 0 && len(query.Measures) == 0 {
 		return nil, fmt.Errorf("must specify at least one dimension or measure")
 	}

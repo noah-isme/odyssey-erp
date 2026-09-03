@@ -4,12 +4,11 @@ import (
 	"context"
 	"strings"
 	"testing"
-
-	"github.com/google/uuid"
 )
 
 func TestSafeCompilerBuildsTenantScopedParameterizedPlan(t *testing.T) {
-	companyID := uuid.New()
+	companyID := int64(1)
+	actorID := int64(2)
 	dataset := &DatasetDefinition{
 		SourceTable: "analytics_finance_cube",
 		Fields: map[string]DatasetField{
@@ -18,7 +17,7 @@ func TestSafeCompilerBuildsTenantScopedParameterizedPlan(t *testing.T) {
 			"currency": {Name: "currency"},
 		},
 	}
-	plan, err := NewSafeCompiler().Compile(context.Background(), companyID, uuid.New(), dataset, ReportQuery{
+	plan, err := NewSafeCompiler().Compile(context.Background(), companyID, actorID, dataset, ReportQuery{
 		Dimensions: []string{"period"},
 		Measures:   []string{"revenue"},
 		Filters:    []Filter{{Field: "currency", Operator: "=", Value: "IDR"}},
@@ -55,7 +54,7 @@ func TestSafeCompilerRejectsUnapprovedQueries(t *testing.T) {
 		{Measures: []string{"unknown"}},
 		{Dimensions: []string{"period"}, Filters: []Filter{{Field: "unknown", Operator: "=", Value: "x"}}},
 	} {
-		if _, err := compiler.Compile(context.Background(), uuid.New(), uuid.New(), dataset, query); err == nil {
+		if _, err := compiler.Compile(context.Background(), int64(1), int64(2), dataset, query); err == nil {
 			t.Fatalf("query %+v unexpectedly compiled", query)
 		}
 	}
