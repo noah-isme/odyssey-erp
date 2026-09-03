@@ -893,7 +893,7 @@ func (q *Queries) ListCarrierRateCards(ctx context.Context, carrierID int64) ([]
 const listCarriers = `-- name: ListCarriers :many
 SELECT id, company_id, carrier_name, carrier_code, status, contact_name, contact_email, contact_phone, insurance_provider, insurance_policy_number, insurance_expires_at, created_at, updated_at, created_by, updated_by FROM carriers 
 WHERE company_id = $1 
-  AND ($2::text IS NULL OR status = $2)
+  AND ($2::text = '' OR status = $2)
 ORDER BY carrier_name ASC
 `
 
@@ -941,7 +941,7 @@ func (q *Queries) ListCarriers(ctx context.Context, arg ListCarriersParams) ([]C
 const listDrivers = `-- name: ListDrivers :many
 SELECT id, company_id, driver_name, driver_code, status, email, phone, license_number, license_class, license_expires_at, emergency_contact_name, emergency_contact_phone, notes, created_at, updated_at, created_by FROM drivers 
 WHERE company_id = $1 
-  AND ($2::text IS NULL OR status = $2)
+  AND ($2::text = '' OR status = $2)
 ORDER BY driver_name ASC
 `
 
@@ -1065,7 +1065,7 @@ func (q *Queries) ListShipmentLines(ctx context.Context, shipmentID int64) ([]Sh
 const listShipments = `-- name: ListShipments :many
 SELECT id, company_id, shipment_number, status, shipment_type, origin_warehouse_id, destination_warehouse_id, destination_address, destination_city, destination_country, destination_contact_name, destination_contact_phone, vehicle_id, driver_id, carrier_id, carrier_service_type, planned_dispatch_at, planned_delivery_at, actual_dispatch_at, actual_delivery_at, total_weight_kg, total_volume_cbm, freight_charge, freight_currency, notes, created_at, updated_at, created_by FROM shipments 
 WHERE company_id = $1 
-  AND ($2::text IS NULL OR status = $2)
+  AND ($2::text = '' OR status = $2)
 ORDER BY created_at DESC
 `
 
@@ -1169,7 +1169,7 @@ func (q *Queries) ListTripStops(ctx context.Context, tripID int64) ([]TripStop, 
 const listTrips = `-- name: ListTrips :many
 SELECT id, company_id, trip_number, status, vehicle_id, driver_id, fleet_id, origin_warehouse_id, planned_start_at, planned_end_at, actual_start_at, actual_end_at, total_distance_km, fuel_used_liters, notes, created_at, updated_at, created_by FROM trips 
 WHERE company_id = $1 
-  AND ($2::text IS NULL OR status = $2)
+  AND ($2::text = '' OR status = $2)
 ORDER BY created_at DESC
 `
 
@@ -1220,7 +1220,7 @@ func (q *Queries) ListTrips(ctx context.Context, arg ListTripsParams) ([]Trip, e
 const listVehiclesByFleet = `-- name: ListVehiclesByFleet :many
 SELECT id, company_id, fleet_id, vehicle_registration, vehicle_type, status, max_weight_kg, max_volume_cbm, license_plate, vin, make, model, year_manufactured, last_maintenance_at, next_maintenance_due, insurance_expires_at, gps_device_id, notes, created_at, updated_at, created_by FROM vehicles 
 WHERE fleet_id = $1 
-  AND status IN ('AVAILABLE', 'IN_USE')
+  AND status IN ('AVAILABLE', 'IN_USE', 'MAINTENANCE')
 ORDER BY vehicle_registration ASC
 `
 
@@ -1339,7 +1339,16 @@ func (q *Queries) UpdateRouteOptimizationJobStatus(ctx context.Context, arg Upda
 
 const updateShipmentStatus = `-- name: UpdateShipmentStatus :exec
 UPDATE shipments 
-SET status = $2, updated_at = NOW() 
+SET status = $2,
+    actual_dispatch_at = CASE
+        WHEN $2 IN ('DISPATCHED', 'IN_TRANSIT') THEN COALESCE(actual_dispatch_at, NOW())
+        ELSE actual_dispatch_at
+    END,
+    actual_delivery_at = CASE
+        WHEN $2 = 'DELIVERED' THEN COALESCE(actual_delivery_at, NOW())
+        ELSE actual_delivery_at
+    END,
+    updated_at = NOW()
 WHERE id = $1
 `
 

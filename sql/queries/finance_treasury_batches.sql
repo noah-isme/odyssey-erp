@@ -21,7 +21,22 @@ RETURNING *;
 UPDATE treasury_payment_batches
 SET revision_number = revision_number + 1,
     status = 'DRAFT',
-    total_amount = $2,
+    total_amount = COALESCE((
+        SELECT SUM(amount)
+        FROM treasury_payment_batch_items
+        WHERE batch_id = $1 AND status = 'ACTIVE'
+    ), $2),
+    updated_at = NOW()
+WHERE id = $1
+RETURNING *;
+
+-- name: UpdateTreasuryPaymentBatchTotal :one
+UPDATE treasury_payment_batches
+SET total_amount = COALESCE((
+        SELECT SUM(amount)
+        FROM treasury_payment_batch_items
+        WHERE batch_id = $1 AND status = 'ACTIVE'
+    ), $2),
     updated_at = NOW()
 WHERE id = $1
 RETURNING *;

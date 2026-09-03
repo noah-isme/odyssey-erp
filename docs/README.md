@@ -25,6 +25,7 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 |----------|-------------|
 | [Handler Guidelines](guides/handlers.md) | Pola handler HTTP |
 | [Testing Guide](guides/testing-runbook.md) | Menjalankan tests |
+| [Test Coverage Hardening Audit (2026-08-09)](archive/audits/test-coverage-hardening-2026-08-09.md) | Coverage baseline dan tindak lanjut modul berisiko tinggi |
 | [E2E Browser Testing](guides/e2e-browser-testing.md) | Setup Playwright, test data, dan CI integration |
 
 ### Operations
@@ -35,6 +36,7 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 | [External Integrations Plan](guides/external-integrations-plan.md) | Payment, carrier, marketplace, messaging, BI, identity, dan AI connectors |
 | [Procurement SOP](guides/procurement.md) | Prosedur procurement |
 | [Procurement and Logistics Depth Plan](guides/procurement-logistics-depth-plan.md) | RFQ, supplier intelligence, fleet, distribution planning, dan freight-cost execution plan |
+| [Distribution planning](guides/distribution.md) | Planning horizons, load/shipment lifecycle, dispatch, delivery, inventory posting, and remaining gaps |
 | [Board Pack](guides/howto-boardpack.md) | Generate board pack |
 | [Profil & Pengaturan](guides/user-profile-settings.md) | Panduan pengguna untuk profil, tema, bahasa, notifikasi, dan password |
 | [Runbook Preferensi Pengguna](guides/runbook-user-preferences.md) | Deployment dan troubleshooting pengaturan UI |
@@ -76,8 +78,8 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 | [Period Policy](reference/period-policy.md) | Kebijakan periode accounting |
 | [Observability](reference/observability.md) | Monitoring & metrics |
 | [SLO Finance](reference/slo-finance.md) | Service Level Objectives |
-| [Authoritative Feature Matrix](reference/feature-matrix.md) | Release scope and certification status |
-| [Module Catalog](reference/module-catalog.md) | Authoritative status for the ERP requirement inventory |
+| [Authoritative Feature Matrix](reference/feature-matrix.md) | Four-dimensional release status: code, integration, production certification, and documentation |
+| [Module Catalog](reference/module-catalog.md) | Capability inventory and guide navigation |
 | [Reporting Catalog](reference/reporting-catalog.md) | Reports, KPIs, routes, data sources, filters, and exports |
 
 ## 📝 Architecture Decision Records
@@ -94,14 +96,21 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 | [ADR-0008](decisions/ADR-0008-p2p-matching-and-exceptions.md) | P2P Matching and Exceptions |
 | [ADR-0009](decisions/ADR-0009-asset-capitalization-and-operations.md) | Asset Capitalization and Operations |
 | [ADR-0010](decisions/ADR-0010-external-integrations-foundation.md) | External Integrations Foundation |
+| [ADR-0011](decisions/ADR-0011-governed-reporting.md) | Governed Reporting and Dashboards |
+| [ADR-0012](decisions/ADR-0012-scoped-rbac.md) | Scoped Role-Based Access Control |
+| [ADR-0013](decisions/ADR-0013-fiscal-calendar-and-timezone.md) | Fiscal Calendars and Timezone Policy |
+| [ADR-0014](decisions/ADR-0014-repository-and-http-boundaries.md) | Repository-Owned Persistence and HTTP Error Boundaries |
 
 ## 📦 Releases
 
 | Version | Notes |
 |---------|-------|
+| [v0.10.0-rc.3](releases/v0.10.0-rc.3.md) | VPS deployment target and hosted-blueprint removal on top of Coretax/PPh 21 release-test completion (2026-08-10); superseded by the rc.8 line; not production-certified |
 | [v0.9.1](releases/v0.9.1.md) | **Latest named release** — Enterprise UI/UX overhaul (2026-05-28) |
 | [Version and Progress Report](releases/VERSION_HISTORY.md) | Differences between releases and post-v0.9.1 implementation progress |
 | [v0.11-finance Preparation Handoff](releases/v0.11-finance-prep-handoff.md) | Treasury + P2P preparation candidate, evidence gates, and explicit non-certification status |
+| [Production Release Checklist](releases/production-release-checklist.md) | Code, certification, operations, deployment, and rollback gates |
+| [VPS Production Deployment](DEPLOYMENT.md) | Self-managed VPS runbook for systemd, Nginx, backups, health checks, and rollback |
 | [v0.9.0](releases/v0.9.0.md) | Phase 9 — Sales & AR complete |
 | [v0.8.0](releases/v0.8.0.md) | Phase 8 — Board Pack |
 | [v0.7.0](releases/v0.7.0.md) | Phase 7 |

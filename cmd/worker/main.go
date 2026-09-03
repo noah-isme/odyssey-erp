@@ -14,28 +14,30 @@ import (
 	"github.com/hibiken/asynq"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/journals"
-	"github.com/odyssey-erp/odyssey-erp/internal/ap"
 	"github.com/odyssey-erp/odyssey-erp/internal/analytics"
+	"github.com/odyssey-erp/odyssey-erp/internal/ap"
 	apihttp "github.com/odyssey-erp/odyssey-erp/internal/api"
 	"github.com/odyssey-erp/odyssey-erp/internal/app"
+	"github.com/odyssey-erp/odyssey-erp/internal/ar"
 	"github.com/odyssey-erp/odyssey-erp/internal/boardpack"
 	"github.com/odyssey-erp/odyssey-erp/internal/cmms"
-	"github.com/odyssey-erp/odyssey-erp/internal/consol"
-	"github.com/odyssey-erp/odyssey-erp/internal/finance/bankfeeds"
-	"github.com/odyssey-erp/odyssey-erp/internal/finance/banking"
-	"github.com/odyssey-erp/odyssey-erp/internal/finance/forecasting"
-	"github.com/odyssey-erp/odyssey-erp/internal/ar"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/awss3"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/dhl"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/midtrans"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/mockpay"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/oidc"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/openai"
+	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/shopify"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/stripe"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/whatsapp"
-	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/openai"
-	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/awss3"
-	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/dhl"
+	"github.com/odyssey-erp/odyssey-erp/internal/consol"
 	"github.com/odyssey-erp/odyssey-erp/internal/crm"
 	"github.com/odyssey-erp/odyssey-erp/internal/documents"
+	"github.com/odyssey-erp/odyssey-erp/internal/finance/automation"
+	"github.com/odyssey-erp/odyssey-erp/internal/finance/bankfeeds"
+	"github.com/odyssey-erp/odyssey-erp/internal/finance/banking"
+	"github.com/odyssey-erp/odyssey-erp/internal/finance/forecasting"
 	"github.com/odyssey-erp/odyssey-erp/internal/fixedassets"
 	fxservice "github.com/odyssey-erp/odyssey-erp/internal/fx"
 	"github.com/odyssey-erp/odyssey-erp/internal/notifications"
@@ -48,7 +50,6 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/sales/orders"
 	"github.com/odyssey-erp/odyssey-erp/internal/sales/quotations"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
-	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 	"github.com/odyssey-erp/odyssey-erp/internal/storage"
 	"github.com/odyssey-erp/odyssey-erp/internal/tax"
 	"github.com/odyssey-erp/odyssey-erp/internal/variance"
@@ -101,8 +102,6 @@ func (q notificationEmailQueue) EnqueueEmail(ctx context.Context, email notifica
 	return err
 }
 
-
-
 func main() {
 	if app.InTestMode() {
 		slog.Default().Info("test mode detected, skipping worker startup")
@@ -147,7 +146,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	analyticsRepo := sqlc.New(pool)
+	analyticsRepo := analytics.NewRepository(pool)
 	analyticsCache := analytics.NewCache(redisClient, 10*time.Minute)
 	analyticsService := analytics.NewService(analyticsRepo, analyticsCache)
 
@@ -229,7 +228,7 @@ func main() {
 	fxDailyService := &fxservice.Service{Provider: fxProvider, Repo: fxRepo, MaxRateAge: cfg.FXMaxRateAge}
 	apiHandler := apihttp.NewHandler(pool, []byte(cfg.SessionSecret))
 	boardpackJob.SetNotificationDispatcher(notificationDispatcher)
-	
+
 	qmsService := qms.NewService(qms.NewRepository(pool))
 
 	docStorage, err := storage.NewStorage(ctx, storage.StorageConfig{
@@ -249,32 +248,41 @@ func main() {
 	}
 
 	connectorsRegistry := connectors.NewRegistry()
-	connectorsRegistry.Register("mockpay", mockpay.NewAdapter(logger))
-	connectorsRegistry.Register("stripe", stripe.NewAdapter(logger))
-	connectorsRegistry.Register("oidc", oidc.NewAdapter(logger))
-	connectorsRegistry.Register("whatsapp", whatsapp.NewAdapter(logger, vault))
+	if cfg.ConnectorDevelopmentMode {
+		connectorsRegistry.Register("mockpay", mockpay.NewAdapter(logger))
+	}
+	providerOptions := connectors.ProviderOptions{
+		Vault:           vault,
+		HTTPClient:      &http.Client{Timeout: 15 * time.Second},
+		DevelopmentMode: cfg.ConnectorDevelopmentMode,
+	}
+	connectorsRegistry.Register("stripe", stripe.NewAdapter(logger, providerOptions))
+	connectorsRegistry.Register("oidc", oidc.NewAdapter(logger, providerOptions))
+	connectorsRegistry.Register("shopify", shopify.NewAdapter(logger, providerOptions))
+	connectorsRegistry.Register("whatsapp", whatsapp.NewAdapter(logger, vault, providerOptions))
 	connectorsRegistry.Register("openai", openai.NewAdapter(logger))
-	connectorsRegistry.Register("dhl", dhl.NewAdapter(logger))
-	connectorsRegistry.Register("awss3", awss3.NewAdapter(logger, vault))
+	connectorsRegistry.Register("dhl", dhl.NewAdapter(logger, providerOptions))
+	connectorsRegistry.Register("awss3", awss3.NewAdapter(logger, vault, providerOptions))
 	connectorsRegistry.Register("midtrans", midtrans.NewAdapter(logger, vault))
-	connectorsOutboxWorker := connectors.NewOutboxWorker(sqlc.New(pool), connectorsRegistry)
-	connectorsService := connectors.NewService(pool, vault, connectorsRegistry)
+	connectorsRepo := connectors.NewRepository(pool)
+	connectorsOutboxWorker := connectors.NewOutboxWorker(connectorsRepo, connectorsRegistry)
+	connectorsService := connectors.NewService(connectorsRepo, vault, connectorsRegistry)
 
 	outboxRepo := outbox.NewRepository(pool)
 	outboxDispatcher := outbox.NewDispatcher(pool, outboxRepo, logger)
 	cmms.RegisterOutboxHandlers(outboxDispatcher, cmmsService, logger)
 	qms.RegisterOutboxHandlers(outboxDispatcher, qmsService, logger)
-	
+
 	arRepo := ar.NewRepository(pool)
 	arService := ar.NewService(arRepo)
 	ar.RegisterOutboxHandlers(outboxDispatcher, arService, logger)
-	
+
 	// Marketplace outbox routing
 	salesCustRepo := customers.NewRepository(pool)
 	salesQuoteRepo := quotations.NewRepository(pool)
 	salesOrdersRepo := orders.NewRepository(pool)
 	salesOrdersSvc := orders.NewService(salesOrdersRepo, salesCustRepo, salesQuoteRepo)
-	marketplaceProc := orders.NewMarketplaceProcessor(logger, salesOrdersSvc, sqlc.New(pool))
+	marketplaceProc := orders.NewMarketplaceProcessor(logger, salesOrdersSvc, orders.NewMappingRepository(pool))
 	orders.RegisterOutboxHandlers(outboxDispatcher, marketplaceProc)
 
 	bankfeedsRepo := bankfeeds.NewPGRepository(pool)
@@ -283,14 +291,20 @@ func main() {
 	bankingService := banking.NewService(bankingRepo, logger, nil)
 	bankfeedsService := bankfeeds.NewService(bankfeedsRepo, bankingService, nil)
 	bankFeedsProcessor := jobs.NewBankFeedsProcessor(bankfeedsService, logger)
+	financeAutomationDispatcher := automation.NewDispatcher(
+		automation.NewOutboxRepository(pool),
+		fmt.Sprintf("finance-worker-%d", os.Getpid()),
+		logger,
+	)
 
 	forecastRepo := forecasting.NewPGRepository(pool)
-	forecastReaders := []forecasting.SourceReader{
-		forecasting.NewMockReader("mock_ar", forecasting.SourceTypeOpenAR, false),
-		forecasting.NewMockReader("mock_ap", forecasting.SourceTypePostedAP, true),
-		forecasting.NewMockReader("mock_payroll", forecasting.SourceTypeApprovedPayroll, true),
-	}
-	forecastService := forecasting.NewService(forecastRepo, forecastReaders, logger)
+	forecastReaders := forecasting.NewDatabaseReaders(pool)
+	forecastService := forecasting.NewServiceWithFXResolver(
+		forecastRepo,
+		forecastReaders,
+		fxservice.Resolver{Repo: fxRepo, MaxAge: cfg.FXMaxRateAge},
+		logger,
+	)
 	forecastProcessor := jobs.NewCashForecastProcessor(forecastService, logger)
 
 	apRepo := ap.NewRepository(pool)
@@ -318,6 +332,7 @@ func main() {
 			{Type: jobs.TaskCRMReminderDispatch, Handler: jobs.HandleCRMReminderDispatch(crmService)},
 			{Type: jobs.TaskWebhookDeliveryDispatch, Handler: jobs.HandleWebhookDeliveryDispatch(webhookDispatcher{handler: apiHandler})},
 			{Type: jobs.TaskOutboxSweep, Handler: jobs.HandleOutboxSweep(outboxDispatcher)},
+			{Type: jobs.TaskFinanceAutomationDispatch, Handler: jobs.HandleFinanceAutomationDispatch(financeAutomationDispatcher)},
 			{Type: jobs.TypeBankFeedsSync, Handler: bankFeedsProcessor.ProcessSyncTask},
 			{Type: jobs.TypeBankFeedsEvent, Handler: bankFeedsProcessor.ProcessEventTask},
 			{Type: jobs.TypeCashForecastRefresh, Handler: forecastProcessor.ProcessRefreshTask},
@@ -325,6 +340,7 @@ func main() {
 				_, err := cmmsService.GenerateAllPMWorkOrders(ctx)
 				return err
 			})},
+			{Type: jobs.TaskDocumentOCR, Handler: jobs.HandleDocumentOCR(documentsService)},
 			{Type: jobs.TaskDocumentDisposition, Handler: jobs.HandleDocumentDisposition(documentsService)},
 			{Type: jobs.TaskConnectorOutboxSweep, Handler: jobs.HandleConnectorOutboxSweep(connectorsOutboxWorker)},
 			{Type: jobs.TaskProcessAPInvoice, Handler: jobs.HandleProcessAPInvoice(apOrchestrator.ProcessInvoice)},
@@ -348,6 +364,7 @@ func main() {
 			{Spec: "* * * * *", Task: asynq.NewTask(jobs.TaskCRMReminderDispatch, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
 			{Spec: "* * * * *", Task: asynq.NewTask(jobs.TaskWebhookDeliveryDispatch, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
 			{Spec: "* * * * *", Task: asynq.NewTask(jobs.TaskOutboxSweep, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
+			{Spec: "* * * * *", Task: asynq.NewTask(jobs.TaskFinanceAutomationDispatch, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
 			// Run CMMS PM generator hourly
 			{Spec: "0 * * * *", Task: asynq.NewTask(jobs.TypeCMMSPMGeneratorScan, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
 			{Spec: "5 0 * * *", Task: func() *asynq.Task { task, _ := jobs.NewFXDailyRatesTask(time.Time{}, false); return task }(), Options: []asynq.Option{asynq.MaxRetry(5)}},

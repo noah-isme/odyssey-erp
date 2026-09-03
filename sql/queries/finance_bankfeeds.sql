@@ -42,10 +42,25 @@ UPDATE bank_feed_sync_runs SET status = $2, completed_at = $3, error_details = $
 
 -- name: CreateBankFeedEvent :one
 INSERT INTO bank_feed_events (
-    provider_id, event_type, payload, occurred_at
+    connection_id, provider_id, event_type, payload, payload_hash, occurred_at
 ) VALUES (
-    $1, $2, $3, $4
-) RETURNING *;
+    $1, $2, $3, $4, $5, $6
+)
+ON CONFLICT (connection_id, payload_hash) WHERE payload_hash <> ''
+DO UPDATE SET updated_at = bank_feed_events.updated_at
+RETURNING *;
+
+-- name: GetBankFeedEvent :one
+SELECT * FROM bank_feed_events WHERE id = $1;
+
+-- name: ClaimBankFeedEvent :execrows
+UPDATE bank_feed_events
+SET status = 'PROCESSING', updated_at = NOW()
+WHERE id = $1
+  AND (
+      status IN ('PENDING', 'FAILED')
+      OR (status = 'PROCESSING' AND updated_at < NOW() - INTERVAL '15 minutes')
+  );
 
 -- name: UpdateBankFeedEventStatus :exec
 UPDATE bank_feed_events SET status = $2, error_details = $3, updated_at = NOW() WHERE id = $1;

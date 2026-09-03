@@ -2,33 +2,18 @@
 package httpx
 
 import (
-	"errors"
 	"net/http"
+
+	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 )
 
-// Sentinel errors for domain layer.
-var (
-	ErrNotFound     = errors.New("resource not found")
-	ErrDuplicate    = errors.New("duplicate entry")
-	ErrValidation   = errors.New("validation failed")
-	ErrForbidden    = errors.New("forbidden")
-	ErrUnauthorized = errors.New("unauthorized")
-)
-
-// RespondError maps domain errors to HTTP responses using RFC7807.
+// RespondError maps domain errors to RFC7807 using the shared classification
+// and safe-message policy. This keeps platform and SSR/API handlers aligned.
 func RespondError(w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, ErrNotFound):
-		Problem(w, http.StatusNotFound, "Not Found", err.Error())
-	case errors.Is(err, ErrDuplicate):
-		Problem(w, http.StatusConflict, "Duplicate", err.Error())
-	case errors.Is(err, ErrValidation):
-		Problem(w, http.StatusBadRequest, "Validation Failed", err.Error())
-	case errors.Is(err, ErrForbidden):
-		Problem(w, http.StatusForbidden, "Forbidden", err.Error())
-	case errors.Is(err, ErrUnauthorized):
-		Problem(w, http.StatusUnauthorized, "Unauthorized", err.Error())
-	default:
-		Problem(w, http.StatusInternalServerError, "Internal Error", "")
+	status := shared.HTTPStatus(err)
+	detail := ""
+	if status < http.StatusInternalServerError {
+		detail = shared.UserSafeMessage(err)
 	}
+	Problem(w, status, http.StatusText(status), detail)
 }

@@ -43,6 +43,18 @@ func TestNewPayrollPayslipTask(t *testing.T) {
 	require.JSONEq(t, `{"payslip_id":77}`, string(task.Payload()))
 }
 
+func TestNewDocumentOCRTask(t *testing.T) {
+	task, err := NewDocumentOCRTask(77)
+	require.NoError(t, err)
+	require.Equal(t, TaskDocumentOCR, task.Type())
+	require.JSONEq(t, `{"job_id":77}`, string(task.Payload()))
+}
+
+func TestDocumentOCRTaskRejectsMalformedPayload(t *testing.T) {
+	err := HandleDocumentOCR(nil)(context.Background(), asynq.NewTask(TaskDocumentOCR, []byte(`{"job_id":77}`)))
+	require.ErrorIs(t, err, asynq.SkipRetry)
+}
+
 func TestHandleSendEmailTaskRejectsMalformedPayload(t *testing.T) {
 	err := HandleSendEmailTask(&mailFake{})(context.Background(), asynq.NewTask(TaskTypeSendEmail, []byte("{")))
 	require.ErrorIs(t, err, asynq.SkipRetry)

@@ -218,6 +218,27 @@ func (r *OutboxRepository) Fail(ctx context.Context, id int64, workerID string, 
 	return status, err
 }
 
+// DeadLetter records a non-retryable or ambiguous provider outcome. An
+// ambiguous outcome must never be blindly submitted again because the remote
+// side may already have accepted the command.
+func (r *OutboxRepository) DeadLetter(ctx context.Context, id int64, workerID string, cause error) error {
+	if cause == nil {
+		return ErrInvalidOutboxMessage
+	}
+	result, err := r.pool.Exec(ctx, `
+		UPDATE finance_automation_outbox
+		SET status = 'DEAD_LETTERED', dead_lettered_at = NOW(), locked_at = NULL,
+		    locked_by = NULL, last_error = LEFT($3, 2000), updated_at = NOW()
+		WHERE id = $1 AND status = 'PROCESSING' AND locked_by = $2`, id, strings.TrimSpace(workerID), cause.Error())
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() == 0 {
+		return ErrOutboxNotClaimed
+	}
+	return nil
+}
+
 // Replay creates a separate durable command from a dead letter. The caller
 // supplies a new idempotency suffix so repeated replay requests remain safe.
 func (r *OutboxRepository) Replay(ctx context.Context, companyID, id int64, replayKey string, actorID int64) (OutboxMessage, error) {

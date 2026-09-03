@@ -7,7 +7,8 @@ content under `docs/`. The authoritative sources are:
 
 | Topic | Source |
 | --- | --- |
-| Supported capabilities | `docs/reference/module-catalog.md` |
+| Release capability status | `docs/reference/feature-matrix.md` |
+| Capability inventory and guide navigation | `docs/reference/module-catalog.md` |
 | Future work | `docs/ROADMAP.md` |
 | Released changes | `docs/CHANGELOG.md` and `docs/releases/` |
 | Setup and commands | `README.md`, `QUICK_REFERENCE.md`, and `docs/getting-started/` |
@@ -22,7 +23,10 @@ implementation evidence.
 
 Update the relevant source when a change affects a route, environment variable,
 Make target, migration, supported capability, or release status. Run
-`make docs-check` after documentation changes.
+`make release-check` after documentation or release-status changes. The release
+check validates the four feature-matrix dimensions, scans advertised integrated
+route sources for explicit placeholder responses, and verifies that current docs do
+not revive superseded certification or RBAC claims.
 
 ## Historical material
 

@@ -18,7 +18,6 @@ import (
 	"golang.org/x/oauth2"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
-	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
 )
 
@@ -30,11 +29,11 @@ type Handler struct {
 	sessionManager *shared.SessionManager
 	csrfManager    *shared.CSRFManager
 	validator      *validator.Validate
-	queries        *sqlc.Queries
+	connections    ConnectionReader
 }
 
 // NewHandler constructs a Handler instance.
-func NewHandler(logger *slog.Logger, service *Service, templates *view.Engine, sessions *shared.SessionManager, csrf *shared.CSRFManager, queries *sqlc.Queries) *Handler {
+func NewHandler(logger *slog.Logger, service *Service, templates *view.Engine, sessions *shared.SessionManager, csrf *shared.CSRFManager, connections ConnectionReader) *Handler {
 	return &Handler{
 		logger:         logger,
 		service:        service,
@@ -42,7 +41,7 @@ func NewHandler(logger *slog.Logger, service *Service, templates *view.Engine, s
 		sessionManager: sessions,
 		csrfManager:    csrf,
 		validator:      validator.New(),
-		queries:        queries,
+		connections:    connections,
 	}
 }
 
@@ -133,7 +132,7 @@ func (h *Handler) handleLogin(w http.ResponseWriter, r *http.Request) {
 				http.Redirect(w, r, "/auth/mfa/verify", http.StatusSeeOther)
 				return
 			}
-			
+
 			if sess != nil {
 				sess.SetUser(strconv.FormatInt(user.ID, 10))
 				sess.AddFlash(shared.FlashMessage{Kind: "success", Message: "Selamat datang kembali"})
@@ -196,13 +195,10 @@ func (h *Handler) HandleLoginForTest(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) getOIDCConfig(ctx context.Context, connectionID int64, companyID int64) (*oauth2.Config, *oidc.Provider, error) {
-	if h.queries == nil {
-		return nil, nil, fmt.Errorf("auth: queries not initialized")
+	if h.connections == nil {
+		return nil, nil, fmt.Errorf("auth: connection reader not initialized")
 	}
-	conn, err := h.queries.GetConnection(ctx, sqlc.GetConnectionParams{
-		ID:        connectionID,
-		CompanyID: companyID,
-	})
+	conn, err := h.connections.GetConnection(ctx, connectionID, companyID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -228,10 +224,10 @@ func (h *Handler) getOIDCConfig(ctx context.Context, connectionID int64, company
 		ClientID:     config.ClientID,
 		ClientSecret: config.ClientSecret,
 		Endpoint:     provider.Endpoint(),
-		// We'll dynamically set the scheme in the handler to handle ngrok/https correctly, 
+		// We'll dynamically set the scheme in the handler to handle ngrok/https correctly,
 		// but default to standard here for simplicity.
-		RedirectURL:  "http://localhost:8080/auth/sso/callback",
-		Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
+		RedirectURL: "http://localhost:8080/auth/sso/callback",
+		Scopes:      []string{oidc.ScopeOpenID, "profile", "email"},
 	}
 	return oauth2Config, provider, nil
 }
@@ -351,9 +347,13 @@ func (h *Handler) handleSSOCallback(w http.ResponseWriter, r *http.Request) {
 
 	sess.SetUser(fmt.Sprintf("%d", user.ID))
 	if err := h.service.RegisterSession(ctx, sess.ID, user.ID, time.Now().Add(24*time.Hour), r.RemoteAddr, r.UserAgent()); err != nil {
-		h.logger.Warn("failed to register session in audit store", slog.Any("error", err))
+		h.logger.Error("failed to register SSO session", slog.Any("error", err))
+		sess.SetUser("")
+		sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Sesi tidak dapat dibuat. Silakan coba lagi."})
+		http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
+		return
 	}
-	
+
 	http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
 }
 
@@ -365,9 +365,9 @@ func (h *Handler) showMFAVerify(w http.ResponseWriter, r *http.Request) {
 	}
 	csrfToken, _ := h.csrfManager.EnsureToken(r.Context(), sess)
 	viewData := view.TemplateData{
-		Title:       "Verifikasi MFA",
-		CSRFToken:   csrfToken,
-		Flash:       sess.PopFlash(),
+		Title:     "Verifikasi MFA",
+		CSRFToken: csrfToken,
+		Flash:     sess.PopFlash(),
 	}
 	if err := h.templates.Render(w, "pages/mfa_verify.html", viewData); err != nil {
 		h.logger.Error("render mfa verify", slog.Any("error", err))
@@ -385,9 +385,9 @@ func (h *Handler) handleMFAVerify(w http.ResponseWriter, r *http.Request) {
 
 	userIDStr := sess.Get("mfa_pending_user_id")
 	userID, _ := strconv.ParseInt(userIDStr, 10, 64)
-	
+
 	code := r.FormValue("code")
-	
+
 	user, err := h.service.repo.FindByID(ctx, userID)
 	if err != nil || !user.MFAEnabled {
 		http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
@@ -406,9 +406,13 @@ func (h *Handler) handleMFAVerify(w http.ResponseWriter, r *http.Request) {
 	sess.Delete("mfa_pending_user_id")
 	sess.SetUser(fmt.Sprintf("%d", user.ID))
 	if err := h.service.RegisterSession(ctx, sess.ID, user.ID, time.Now().Add(24*time.Hour), r.RemoteAddr, r.UserAgent()); err != nil {
-		h.logger.Warn("failed to register session in audit store", slog.Any("error", err))
+		h.logger.Error("failed to register MFA session", slog.Any("error", err))
+		sess.SetUser("")
+		sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Sesi tidak dapat dibuat. Silakan coba lagi."})
+		http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
+		return
 	}
-	
+
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
@@ -451,9 +455,9 @@ func (h *Handler) showMFASetup(w http.ResponseWriter, r *http.Request) {
 
 	csrfToken, _ := h.csrfManager.EnsureToken(r.Context(), sess)
 	viewData := view.TemplateData{
-		Title:       "Setup MFA",
-		CSRFToken:   csrfToken,
-		Flash:       sess.PopFlash(),
+		Title:     "Setup MFA",
+		CSRFToken: csrfToken,
+		Flash:     sess.PopFlash(),
 		Data: map[string]any{
 			"Secret": secret,
 		},

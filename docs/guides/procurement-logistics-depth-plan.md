@@ -1,8 +1,9 @@
 # Procurement and Logistics Depth Execution Plan
 
-**Status:** Partially implemented. The RFQ, bid, comparison, award, approval, and
-draft-PO foundation is implemented; supplier contracts/ratings and logistics milestones
-remain planned.
+**Status:** Core sourcing, contract/variance controls, freight persistence, transport
+execution, and supplier scorecard calculation are implemented in focused slices. The
+atomic PO → freight → receipt → variance → scorecard → AP/payment orchestration and
+some operational integrations remain.
 
 ## Completion status
 
@@ -10,10 +11,40 @@ remain planned.
   boundaries, RFQ/award permissions, audit events, and idempotent award-to-PO creation.
 - [x] Strategic sourcing: RFQ issue email, buyer-entered bids, persisted weighted
   comparisons, split awards, shared approval, and linked draft POs.
-- [ ] Vendor intelligence: supplier contracts, PO variance controls, price history,
-  ratings, and expiry notifications.
-- [ ] Transportation execution, distribution planning, freight accounting, and the
-  operational SSR workbenches.
+- [x] Vendor intelligence core: supplier contracts, applicable-contract selection, PO
+  variance controls, price observations, weighted scorecards, evidence sample sizes,
+  draft persistence, and publication locking.
+- [x] Transport and freight core: company-scoped rate-card/charge/landed-cost/audit
+  persistence, guarded charge status transitions, shipment tracking, active-trip
+  metrics, and fleet utilization.
+- [ ] End-to-end orchestration: receipt-to-landed-cost allocation, real AP/GL posting,
+  monthly scorecard scheduling, expiry notifications, and operational SSR workbenches.
+
+## Current implementation slice
+
+The current implementation closes the persistence and calculation gaps that blocked the
+business-critical path:
+
+- Freight repository methods now use the existing SQL bindings for rate cards,
+  surcharges, charges, landed costs, cost centers, and audit records. Optional filters
+  use the empty/zero sentinels passed by the repository, and charge transitions are
+  guarded against moving backward from `INVOICED` or `PAID`.
+- Logistics tracking is derived from shipment, trip, and stop records. Active trips
+  include both `DISPATCHED` and `IN_PROGRESS`, and fleet utilization counts available,
+  in-use, and maintenance vehicles plus linked active shipments.
+- Scorecard evidence uses the current PO, posted-GRN, and confirmed supplier-return
+  schema. Component ratios and the weighted overall score use exact decimal arithmetic;
+  evidence-free categories are excluded from the denominator, sample sizes are stored,
+  and published scorecards cannot be edited.
+- Contract and variance workbench reads are company-scoped. PO price variance is
+  calculated as `(PO price - contract price) / contract price × 100`, rather than using
+  a comparison result as a percentage.
+
+The remaining integration work is deliberately explicit: a transaction or outbox flow
+must connect approved POs to freight charges, receipts, landed-cost allocation, AP
+invoices, payment, and real journal entries. The current freight GL adapter still has
+an integration seam and must not be treated as production posting until it calls the
+accounting service and verifies journal identity and amount.
 
 ## Summary
 
@@ -102,11 +133,15 @@ be released independently.
 - Add procurement pages under `/procurement/rfqs`, `/procurement/contracts`,
   `/procurement/prices`, and `/procurement/suppliers/{id}/performance`.
 
+The contract list, pending-variance list, applicable-contract lookup, exact PO price
+variance, and scorecard calculation/persistence paths are implemented. Expiry
+notifications and the monthly background calculation coordinator remain follow-up work.
+
 ### 4. Logistics masters and execution
 
-- Create a new internal/logistics module while retaining `internal/delivery` as owner
-  of delivery-order lifecycle and inventory effects. The logistics path is proposed
-  and does not exist yet.
+- `internal/logistics` now owns shipment transport execution while `internal/delivery`
+  retains sales delivery-order lifecycle. `internal/distribution` owns planning,
+  load consolidation, route records, and transfer-order workflow.
 - Add:
   - Carriers linked to supplier records for AP.
   - Carrier services, effective-dated lane/zone rate cards, capacity, cutoff, and
@@ -122,8 +157,9 @@ be released independently.
 - Preserve existing delivery-order fields for compatibility. Add nullable shipment and
   trip links and treat legacy free-text driver, vehicle, and tracking values as manual
   historical data.
-- Route shipment actions through the delivery service so confirmation, shipping,
-  completion, cancellation, WMS state, and inventory posting occur exactly once.
+- Route shipment actions through the logistics service. Distribution delegates the
+  final outbound inventory movement to the inventory service so its existing
+  idempotency and inventory-to-GL hooks run exactly once.
 - Keep carrier execution manual in v1. Provider quote, booking, label, and tracking
   adapters remain governed by the existing external-integrations plan.
 
@@ -151,6 +187,11 @@ be released independently.
 - Add planner and dispatcher workbenches under `/logistics/distribution-plans`,
   `/logistics/shipments`, and `/logistics/trips`.
 
+Shipment tracking, trip completion timestamps, active-trip listing, and fleet
+utilization are implemented from persisted transport records. Inventory movement,
+related-order closure, audit/notification side effects, and route optimization remain
+open integration work.
+
 ### 6. Freight planning, reconciliation, and accounting
 
 - Calculate planned freight from versioned rate-card snapshots using flat, distance,
@@ -173,20 +214,29 @@ be released independently.
 - Add freight quote, bill, allocation, variance, and lane-cost views under
   `/logistics/freight`.
 
+Rate-card selection, exact freight calculation, charge/landed-cost persistence, audit
+records, invoice/payment status transitions, and cost-center attributes are implemented.
+Carrier-bill-to-AP creation, receipt-line landed-cost allocation, clearing/COGS journals,
+and real GL reconciliation still need to be connected to the accounting and inventory
+services.
+
 ## Delivery sequence
 
 1. **Foundation:** migrations, exact-value types, permissions, lifecycle primitives,
    and tenant-safe repositories.
 2. **Strategic sourcing:** RFQ, bid entry/email, comparison, approval, split award,
    and PO generation.
-3. **Vendor intelligence:** contracts, PO variance controls, price history,
-   scorecards, and expiry notifications.
-4. **Transport execution:** carrier/fleet masters, shipments, trips, stops, and
-   delivery/WMS integration.
-5. **Distribution planning:** transfer-order lifecycle, planning horizon, load
-   building, and capacity/schedule validation.
-6. **Freight finance:** rate cards, estimates, bills, reconciliation, AP, landed cost,
-   and GL integration.
+3. **Vendor intelligence:** contracts, PO variance controls, price history, and
+   scorecards are implemented; expiry notifications and the monthly scheduler remain.
+4. **Transport execution:** carrier/fleet masters, shipments, trips, stops, tracking,
+   and active-trip/fleet metrics are implemented; delivery/WMS side effects remain.
+5. **Distribution planning:** planning horizons, load building, shipment linkage,
+  dispatch/delivery, manual routes, transfer-order lifecycle, and capacity/schedule
+  validation are implemented in the core path; transfer inventory posting and
+  route optimization remain follow-up work.
+6. **Freight finance:** rate cards, estimates, charge/landed-cost persistence, and
+   invoice/payment status transitions are implemented; bill reconciliation, AP,
+   landed-cost allocation, and real GL integration remain.
 7. **Hardening and rollout:** reports, exports, observability, documentation, seeded
    acceptance dataset, and operational training.
 
@@ -203,6 +253,8 @@ permissions outside administrators.
   buying, and approved override behavior.
 - Price-history immutability and scorecard formulas for partial receipts, late
   deliveries, returns, missing evidence, manual review, and publication locking.
+- Scorecard evidence against posted GRNs, confirmed supplier returns, PO expected dates,
+  price-variance math, sample-size persistence, and weighted-score renormalization.
 - Carrier/fleet availability, mutually exclusive resource assignment,
   capacity/time-window failures, duplicate shipment assignment, cancellation, and
   redispatch.
@@ -211,6 +263,9 @@ permissions outside administrators.
 - Freight formula and FX tests, tolerance exceptions, duplicate carrier bills,
   allocation fallbacks, partial stock consumption, balanced
   clearing/COGS/inventory journals, and outbound expense posting.
+- Freight repository CRUD, optional-filter behavior, exact charge calculations, guarded
+  invoice/payment transitions, shipment tracking, active-trip aggregation, and fleet
+  utilization.
 - SSR route, RBAC, CSRF, validation, template-render, pagination/filter, and audit-event
   tests.
 - Run focused package suites throughout, then run:

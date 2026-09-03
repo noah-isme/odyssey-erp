@@ -7,47 +7,45 @@ import (
 
 	miniredis "github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
-
-	sqlc "github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 type mockRepo struct {
-	kpiRow    sqlc.KpiSummaryRow
+	kpiRow    KPISummary
 	kpiErr    error
 	kpiCalls  int
-	plRows    []sqlc.MonthlyPLRow
+	plRows    []MonthlyPLRow
 	plCalls   int
-	cashRows  []sqlc.MonthlyCashflowRow
+	cashRows  []MonthlyCashflowRow
 	cashCalls int
-	arRows    []sqlc.AgingARRow
+	arRows    []AgingRow
 	arCalls   int
-	arParams  sqlc.AgingARParams
-	apRows    []sqlc.AgingAPRow
+	arParams  AgingFilter
+	apRows    []AgingRow
 	apCalls   int
 }
 
-func (m *mockRepo) KpiSummary(ctx context.Context, arg sqlc.KpiSummaryParams) (sqlc.KpiSummaryRow, error) {
+func (m *mockRepo) KpiSummary(ctx context.Context, arg KPIFilter) (KPISummary, error) {
 	m.kpiCalls++
 	return m.kpiRow, m.kpiErr
 }
 
-func (m *mockRepo) MonthlyPL(ctx context.Context, arg sqlc.MonthlyPLParams) ([]sqlc.MonthlyPLRow, error) {
+func (m *mockRepo) MonthlyPL(ctx context.Context, arg TrendFilter) ([]MonthlyPLRow, error) {
 	m.plCalls++
 	return m.plRows, nil
 }
 
-func (m *mockRepo) MonthlyCashflow(ctx context.Context, arg sqlc.MonthlyCashflowParams) ([]sqlc.MonthlyCashflowRow, error) {
+func (m *mockRepo) MonthlyCashflow(ctx context.Context, arg TrendFilter) ([]MonthlyCashflowRow, error) {
 	m.cashCalls++
 	return m.cashRows, nil
 }
 
-func (m *mockRepo) AgingAR(ctx context.Context, arg sqlc.AgingARParams) ([]sqlc.AgingARRow, error) {
+func (m *mockRepo) AgingAR(ctx context.Context, arg AgingFilter) ([]AgingRow, error) {
 	m.arCalls++
 	m.arParams = arg
 	return m.arRows, nil
 }
 
-func (m *mockRepo) AgingAP(ctx context.Context, arg sqlc.AgingAPParams) ([]sqlc.AgingAPRow, error) {
+func (m *mockRepo) AgingAP(ctx context.Context, arg AgingFilter) ([]AgingRow, error) {
 	m.apCalls++
 	return m.apRows, nil
 }
@@ -66,15 +64,15 @@ func newTestService(t *testing.T, repo Repository) (*Service, func()) {
 
 func TestGetKPISummaryCaches(t *testing.T) {
 	repo := &mockRepo{
-		kpiRow: sqlc.KpiSummaryRow{
+		kpiRow: KPISummary{
 			NetProfit:     1200.5,
 			Revenue:       4200.0,
 			Opex:          1800.0,
-			Cogs:          800.0,
+			COGS:          800.0,
 			CashIn:        3500.0,
 			CashOut:       900.0,
-			ArOutstanding: 2200.0,
-			ApOutstanding: 1400.0,
+			AROutstanding: 2200.0,
+			APOutstanding: 1400.0,
 		},
 	}
 	svc, cleanup := newTestService(t, repo)
@@ -121,13 +119,13 @@ func TestGetKPISummaryCaches(t *testing.T) {
 
 func TestGetPLTrendAndCashflow(t *testing.T) {
 	repo := &mockRepo{
-		plRows: []sqlc.MonthlyPLRow{
-			{Period: "2025-01", Revenue: 1000, Cogs: 400, Opex: 300, Net: 300},
-			{Period: "2025-02", Revenue: 1100, Cogs: 420, Opex: 320, Net: 360},
+		plRows: []MonthlyPLRow{
+			{Period: "2025-01", Revenue: 1000, COGS: 400, Opex: 300, Net: 300},
+			{Period: "2025-02", Revenue: 1100, COGS: 420, Opex: 320, Net: 360},
 		},
-		cashRows: []sqlc.MonthlyCashflowRow{
-			{Period: "2025-01", CashIn: 900, CashOut: 500},
-			{Period: "2025-02", CashIn: 950, CashOut: 480},
+		cashRows: []MonthlyCashflowRow{
+			{Period: "2025-01", In: 900, Out: 500},
+			{Period: "2025-02", In: 950, Out: 480},
 		},
 	}
 	svc, cleanup := newTestService(t, repo)
@@ -168,7 +166,7 @@ func TestGetPLTrendAndCashflow(t *testing.T) {
 
 func TestGetARAgingDefaultsAsOf(t *testing.T) {
 	repo := &mockRepo{
-		arRows: []sqlc.AgingARRow{
+		arRows: []AgingRow{
 			{Bucket: "0-30", Amount: 1000},
 		},
 	}
@@ -187,7 +185,7 @@ func TestGetARAgingDefaultsAsOf(t *testing.T) {
 	if repo.arCalls != 1 {
 		t.Fatalf("expected repo call once, got %d", repo.arCalls)
 	}
-	if repo.arParams.AsOf == nil {
+	if repo.arParams.AsOf.IsZero() {
 		t.Fatalf("expected as_of to be populated")
 	}
 }

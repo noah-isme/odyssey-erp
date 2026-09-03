@@ -3,20 +3,44 @@ package tax
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 )
 
-// TestCoretaxSchemaValidation acts as the official DJP Coretax schema validation suite.
-// It guarantees that generated payloads align precisely with the Coretax specifications before production filing.
-func TestCoretaxSchemaValidation(t *testing.T) {
-	// Mock config
+// TestCoretaxAdapterContract verifies the local adapter contract. It is not a
+// substitute for the tax-staff Coretax staging/import sign-off documented in
+// docs/guides/tax-staff-coretax-validation.md.
+func TestCoretaxAdapterContract(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/submit" {
+			http.Error(w, `{"message":"unexpected request"}`, http.StatusNotFound)
+			return
+		}
+		if r.Header.Get("X-API-Key") != "test-api-key" {
+			http.Error(w, `{"message":"missing API key"}`, http.StatusUnauthorized)
+			return
+		}
+		var payload map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			http.Error(w, `{"message":"invalid JSON"}`, http.StatusBadRequest)
+			return
+		}
+		if payload["npwp"] != "01.234.567.8-090.000" || payload["total_pajak"] != float64(110000) {
+			http.Error(w, `{"message":"payload mismatch"}`, http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"accepted":true,"reference":"LOCAL-CONTRACT-1"}`))
+	}))
+	t.Cleanup(server.Close)
+
 	config := CoretaxConfig{
-		BaseURL:      "https://api.pajak.go.id",
-		ClientID:     "mock-client",
-		ClientSecret: "mock-secret",
-		APIKey:       "mock-api-key",
+		BaseURL:    server.URL,
+		APIKey:     "test-api-key",
+		SubmitPath: "/submit",
 	}
 
 	service := NewCoretaxService(config)
@@ -30,9 +54,9 @@ func TestCoretaxSchemaValidation(t *testing.T) {
 		}
 
 		csvOutput := string(csvBytes)
-		
-		// XSD/Converter Proof for e-Faktur
-		// Ensure correct headers are present per DJP specs
+
+		// The checked-in structural contract covers the fields consumed by the
+		// current exporter. Official XSD/converter validation remains external.
 		expectedHeaders := []string{"FK", "KD_JENIS_TRANSAKSI", "FG_PENGGANTI", "NOMOR_FAKTUR", "MASA_PAJAK", "TAHUN_PAJAK", "TANGGAL_FAKTUR", "NPWP", "NAMA", "ALAMAT_LENGKAP", "JUMLAH_DPP", "JUMLAH_PPN", "JUMLAH_PPNBM"}
 		for _, header := range expectedHeaders {
 			if !strings.Contains(csvOutput, header) {
@@ -49,22 +73,20 @@ func TestCoretaxSchemaValidation(t *testing.T) {
 	t.Run("Validate Coretax Submission Schema", func(t *testing.T) {
 		// Example Portal Import Reconciliation Payload
 		payload := map[string]any{
-			"npwp": "01.234.567.8-090.000",
-			"masa_pajak": 8,
+			"npwp":        "01.234.567.8-090.000",
+			"masa_pajak":  8,
 			"tahun_pajak": 2026,
 			"total_pajak": 110000,
 		}
 
-		// Ensure the payload marshals correctly into Coretax JSON schema
 		_, err := json.Marshal(payload)
 		if err != nil {
 			t.Fatalf("Failed to marshal Coretax JSON payload: %v", err)
 		}
 
-		// Submit payload to the Coretax Portal (Mocked)
 		err = service.SubmitCoretax(ctx, payload)
 		if err != nil {
-			t.Fatalf("Coretax Submission Failed: %v", err)
+			t.Fatalf("Coretax adapter submission failed: %v", err)
 		}
 	})
 }

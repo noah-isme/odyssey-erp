@@ -1,6 +1,7 @@
 # Manufacturing Governance - Quick Start Guide
 
-**Status:** Planning complete. Ready for Phase 1 implementation.
+**Status:** Planning baseline complete. Use the [authoritative feature matrix](../reference/feature-matrix.md)
+to distinguish implemented controls from integrated and production-certified scope.
 **Created:** 2026-08-03
 **Effort Estimate:** 3–4 weeks implementation + 2 weeks staging/validation
 
@@ -299,4 +300,3 @@ See full documentation:
 - **Original Plan:** `docs/guides/manufacturing-governance-plan.md`
 
 Track progress in the todo system: `jcode todo list | grep "Phase"`
-

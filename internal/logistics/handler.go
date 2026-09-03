@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 )
 
 // Handler handles HTTP requests for logistics operations
@@ -26,13 +27,13 @@ func NewHandler(service *Service) *Handler {
 
 // CreateCarrierRequest defines the request body for creating a carrier
 type CreateCarrierRequest struct {
-	CarrierName           string `json:"carrier_name"`
-	CarrierCode           string `json:"carrier_code"`
-	ContactName           string `json:"contact_name"`
-	ContactEmail          string `json:"contact_email"`
-	ContactPhone          string `json:"contact_phone"`
-	InsuranceProvider     string `json:"insurance_provider"`
-	InsurancePolicyNumber string `json:"insurance_policy_number"`
+	CarrierName           string  `json:"carrier_name"`
+	CarrierCode           string  `json:"carrier_code"`
+	ContactName           string  `json:"contact_name"`
+	ContactEmail          string  `json:"contact_email"`
+	ContactPhone          string  `json:"contact_phone"`
+	InsuranceProvider     string  `json:"insurance_provider"`
+	InsurancePolicyNumber string  `json:"insurance_policy_number"`
 	InsuranceExpiresAt    *string `json:"insurance_expires_at"` // ISO8601
 }
 
@@ -70,7 +71,7 @@ func (h *Handler) CreateCarrierHandler(w http.ResponseWriter, r *http.Request) {
 
 	carrier, err := h.service.RegisterCarrier(r.Context(), input)
 	if err != nil {
-		JSONError(w, err.Error(), http.StatusInternalServerError)
+		JSONErrorFrom(w, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -89,7 +90,7 @@ func (h *Handler) ListCarriersHandler(w http.ResponseWriter, r *http.Request) {
 
 	carriers, err := h.service.repo.ListCarriers(r.Context(), companyID, statusFilter)
 	if err != nil {
-		JSONError(w, err.Error(), http.StatusInternalServerError)
+		JSONErrorFrom(w, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -157,7 +158,7 @@ func (h *Handler) CreateFleetHandler(w http.ResponseWriter, r *http.Request) {
 
 	fleet, err := h.service.CreateFleet(r.Context(), input)
 	if err != nil {
-		JSONError(w, err.Error(), http.StatusInternalServerError)
+		JSONErrorFrom(w, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -170,7 +171,7 @@ func (h *Handler) ListFleetsHandler(w http.ResponseWriter, r *http.Request) {
 
 	fleets, err := h.service.repo.ListFleets(r.Context(), companyID)
 	if err != nil {
-		JSONError(w, err.Error(), http.StatusInternalServerError)
+		JSONErrorFrom(w, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -179,17 +180,17 @@ func (h *Handler) ListFleetsHandler(w http.ResponseWriter, r *http.Request) {
 
 // RegisterVehicleRequest defines the request body for registering a vehicle
 type RegisterVehicleRequest struct {
-	FleetID             int64   `json:"fleet_id"`
-	VehicleRegistration string  `json:"vehicle_registration"`
-	VehicleType         string  `json:"vehicle_type"` // VAN, TRUCK, LORRY, BIKE, CAR
-	LicensePlate        string  `json:"license_plate"`
-	VIN                 string  `json:"vin"`
-	Make                string  `json:"make"`
-	Model               string  `json:"model"`
-	YearManufactured    *int    `json:"year_manufactured"`
+	FleetID             int64    `json:"fleet_id"`
+	VehicleRegistration string   `json:"vehicle_registration"`
+	VehicleType         string   `json:"vehicle_type"` // VAN, TRUCK, LORRY, BIKE, CAR
+	LicensePlate        string   `json:"license_plate"`
+	VIN                 string   `json:"vin"`
+	Make                string   `json:"make"`
+	Model               string   `json:"model"`
+	YearManufactured    *int     `json:"year_manufactured"`
 	MaxWeightKg         *float64 `json:"max_weight_kg"`
 	MaxVolumeCbm        *float64 `json:"max_volume_cbm"` // NUMERIC
-	GPSDeviceID         string  `json:"gps_device_id"`
+	GPSDeviceID         string   `json:"gps_device_id"`
 }
 
 // RegisterVehicleHandler registers a new vehicle
@@ -221,7 +222,7 @@ func (h *Handler) RegisterVehicleHandler(w http.ResponseWriter, r *http.Request)
 
 	vehicle, err := h.service.RegisterVehicle(r.Context(), input)
 	if err != nil {
-		JSONError(w, err.Error(), http.StatusInternalServerError)
+		JSONErrorFrom(w, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -239,7 +240,7 @@ func (h *Handler) ListVehiclesHandler(w http.ResponseWriter, r *http.Request) {
 
 	vehicles, err := h.service.repo.ListVehiclesByFleet(r.Context(), fleetID)
 	if err != nil {
-		JSONError(w, err.Error(), http.StatusInternalServerError)
+		JSONErrorFrom(w, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -252,15 +253,15 @@ func (h *Handler) ListVehiclesHandler(w http.ResponseWriter, r *http.Request) {
 
 // RegisterDriverRequest defines the request body for registering a driver
 type RegisterDriverRequest struct {
-	DriverName              string `json:"driver_name"`
-	DriverCode              string `json:"driver_code"`
-	Email                   string `json:"email"`
-	Phone                   string `json:"phone"`
-	LicenseNumber           string `json:"license_number"`
-	LicenseClass            string `json:"license_class"` // A-E
-	LicenseExpiresAt        *string `json:"license_expires_at"` // ISO8601
-	EmergencyContactName    string `json:"emergency_contact_name"`
-	EmergencyContactPhone   string `json:"emergency_contact_phone"`
+	DriverName            string  `json:"driver_name"`
+	DriverCode            string  `json:"driver_code"`
+	Email                 string  `json:"email"`
+	Phone                 string  `json:"phone"`
+	LicenseNumber         string  `json:"license_number"`
+	LicenseClass          string  `json:"license_class"`      // A-E
+	LicenseExpiresAt      *string `json:"license_expires_at"` // ISO8601
+	EmergencyContactName  string  `json:"emergency_contact_name"`
+	EmergencyContactPhone string  `json:"emergency_contact_phone"`
 }
 
 // RegisterDriverHandler registers a new driver
@@ -298,7 +299,7 @@ func (h *Handler) RegisterDriverHandler(w http.ResponseWriter, r *http.Request) 
 
 	driver, err := h.service.RegisterDriver(r.Context(), input)
 	if err != nil {
-		JSONError(w, err.Error(), http.StatusInternalServerError)
+		JSONErrorFrom(w, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -317,7 +318,7 @@ func (h *Handler) ListDriversHandler(w http.ResponseWriter, r *http.Request) {
 
 	drivers, err := h.service.repo.ListDrivers(r.Context(), companyID, statusFilter)
 	if err != nil {
-		JSONError(w, err.Error(), http.StatusInternalServerError)
+		JSONErrorFrom(w, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -330,16 +331,16 @@ func (h *Handler) ListDriversHandler(w http.ResponseWriter, r *http.Request) {
 
 // CreateShipmentRequest defines the request body for creating a shipment
 type CreateShipmentRequest struct {
-	ShipmentType               string  `json:"shipment_type"` // DELIVERY, RETURN, TRANSFER
-	OriginWarehouseID          *int64  `json:"origin_warehouse_id"`
-	DestinationWarehouseID     *int64  `json:"destination_warehouse_id"`
-	DestinationAddress         string  `json:"destination_address"`
-	DestinationCity            string  `json:"destination_city"`
-	DestinationCountry         string  `json:"destination_country"`
-	DestinationContactName     string  `json:"destination_contact_name"`
-	DestinationContactPhone    string  `json:"destination_contact_phone"`
-	PlannedDispatchAt          *string `json:"planned_dispatch_at"` // ISO8601
-	PlannedDeliveryAt          *string `json:"planned_delivery_at"` // ISO8601
+	ShipmentType            string  `json:"shipment_type"` // DELIVERY, RETURN, TRANSFER
+	OriginWarehouseID       *int64  `json:"origin_warehouse_id"`
+	DestinationWarehouseID  *int64  `json:"destination_warehouse_id"`
+	DestinationAddress      string  `json:"destination_address"`
+	DestinationCity         string  `json:"destination_city"`
+	DestinationCountry      string  `json:"destination_country"`
+	DestinationContactName  string  `json:"destination_contact_name"`
+	DestinationContactPhone string  `json:"destination_contact_phone"`
+	PlannedDispatchAt       *string `json:"planned_dispatch_at"` // ISO8601
+	PlannedDeliveryAt       *string `json:"planned_delivery_at"` // ISO8601
 }
 
 // CreateShipmentHandler creates a new shipment
@@ -388,7 +389,7 @@ func (h *Handler) CreateShipmentHandler(w http.ResponseWriter, r *http.Request) 
 
 	shipment, err := h.service.CreateShipment(r.Context(), input)
 	if err != nil {
-		JSONError(w, err.Error(), http.StatusInternalServerError)
+		JSONErrorFrom(w, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -407,7 +408,7 @@ func (h *Handler) ListShipmentsHandler(w http.ResponseWriter, r *http.Request) {
 
 	shipments, err := h.service.repo.ListShipments(r.Context(), companyID, statusFilter)
 	if err != nil {
-		JSONError(w, err.Error(), http.StatusInternalServerError)
+		JSONErrorFrom(w, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -425,7 +426,7 @@ func (h *Handler) GetShipmentHandler(w http.ResponseWriter, r *http.Request) {
 
 	shipment, err := h.service.repo.GetShipment(r.Context(), shipmentID)
 	if err != nil {
-		JSONError(w, err.Error(), http.StatusNotFound)
+		JSONErrorFrom(w, err, http.StatusNotFound)
 		return
 	}
 
@@ -469,7 +470,7 @@ func (h *Handler) DispatchShipmentHandler(w http.ResponseWriter, r *http.Request
 
 	err = h.service.DispatchShipment(r.Context(), shipmentID, req.VehicleID, req.DriverID, req.CarrierID, cst)
 	if err != nil {
-		JSONError(w, err.Error(), http.StatusInternalServerError)
+		JSONErrorFrom(w, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -485,12 +486,12 @@ func (h *Handler) TrackShipmentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Call h.service.GetShipmentTracking(ctx, shipmentID)
-	// TODO: Return JSON with current location, status, ETA
-
-	_ = shipmentID
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{"status": "not implemented"})
+	tracking, err := h.service.GetShipmentTracking(r.Context(), shipmentID)
+	if err != nil {
+		JSONErrorFrom(w, err, http.StatusInternalServerError)
+		return
+	}
+	JSONSuccess(w, tracking, "shipment tracking retrieved successfully")
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -499,12 +500,12 @@ func (h *Handler) TrackShipmentHandler(w http.ResponseWriter, r *http.Request) {
 
 // PlanTripRequest defines the request body for planning a trip
 type PlanTripRequest struct {
-	VehicleID          int64   `json:"vehicle_id"`
-	DriverID           int64   `json:"driver_id"`
-	FleetID            *int64  `json:"fleet_id"`
-	OriginWarehouseID  *int64  `json:"origin_warehouse_id"`
-	PlannedStartAt     *string `json:"planned_start_at"` // ISO8601
-	PlannedEndAt       *string `json:"planned_end_at"`   // ISO8601
+	VehicleID         int64   `json:"vehicle_id"`
+	DriverID          int64   `json:"driver_id"`
+	FleetID           *int64  `json:"fleet_id"`
+	OriginWarehouseID *int64  `json:"origin_warehouse_id"`
+	PlannedStartAt    *string `json:"planned_start_at"` // ISO8601
+	PlannedEndAt      *string `json:"planned_end_at"`   // ISO8601
 }
 
 // PlanTripHandler creates a new trip
@@ -549,7 +550,7 @@ func (h *Handler) PlanTripHandler(w http.ResponseWriter, r *http.Request) {
 
 	trip, err := h.service.PlanTrip(r.Context(), input)
 	if err != nil {
-		JSONError(w, err.Error(), http.StatusInternalServerError)
+		JSONErrorFrom(w, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -559,7 +560,7 @@ func (h *Handler) PlanTripHandler(w http.ResponseWriter, r *http.Request) {
 // ListTripsHandler lists all active trips for a company
 func (h *Handler) ListTripsHandler(w http.ResponseWriter, r *http.Request) {
 	companyID := int64(1)
-	
+
 	var statusFilter *TripStatus
 	if s := r.URL.Query().Get("status"); s != "" {
 		st := TripStatus(s)
@@ -568,7 +569,7 @@ func (h *Handler) ListTripsHandler(w http.ResponseWriter, r *http.Request) {
 
 	trips, err := h.service.repo.ListTrips(r.Context(), companyID, statusFilter)
 	if err != nil {
-		JSONError(w, err.Error(), http.StatusInternalServerError)
+		JSONErrorFrom(w, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -586,10 +587,10 @@ func (h *Handler) GetTripHandler(w http.ResponseWriter, r *http.Request) {
 
 	trip, err := h.service.repo.GetTrip(r.Context(), tripID)
 	if err != nil {
-		JSONError(w, err.Error(), http.StatusNotFound)
+		JSONErrorFrom(w, err, http.StatusNotFound)
 		return
 	}
-	
+
 	companyID := int64(1)
 	if trip.CompanyID != companyID {
 		JSONError(w, "unauthorized", http.StatusUnauthorized)
@@ -598,7 +599,7 @@ func (h *Handler) GetTripHandler(w http.ResponseWriter, r *http.Request) {
 
 	stops, err := h.service.repo.GetTripStops(r.Context(), tripID)
 	if err != nil {
-		JSONError(w, err.Error(), http.StatusInternalServerError)
+		JSONErrorFrom(w, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -667,7 +668,7 @@ func (h *Handler) AddTripStopHandler(w http.ResponseWriter, r *http.Request) {
 
 	stop, err := h.service.AddStopToTrip(r.Context(), input)
 	if err != nil {
-		JSONError(w, err.Error(), http.StatusInternalServerError)
+		JSONErrorFrom(w, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -685,7 +686,7 @@ func (h *Handler) DispatchTripHandler(w http.ResponseWriter, r *http.Request) {
 
 	err = h.service.DispatchTrip(r.Context(), tripID)
 	if err != nil {
-		JSONError(w, err.Error(), http.StatusInternalServerError)
+		JSONErrorFrom(w, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -716,6 +717,12 @@ func JSONError(w http.ResponseWriter, message string, code int) {
 		Message: message,
 		Code:    code,
 	})
+}
+
+// JSONErrorFrom preserves the logistics response shape while applying the
+// shared safe-message policy to internal errors.
+func JSONErrorFrom(w http.ResponseWriter, err error, code int) {
+	JSONError(w, shared.UserSafeMessage(err), code)
 }
 
 // JSONSuccess returns a JSON success response

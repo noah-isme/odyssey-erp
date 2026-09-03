@@ -293,9 +293,9 @@ func (h *Handler) createChallenge(w http.ResponseWriter, r *http.Request) {
 	companyID := currentCompany(r)
 
 	// Issue a 5-minute challenge
-	challenge, err := h.service.CreateSignatureChallenge(r.Context(), companyID, versionID, actorID, 5 * 60 * 1000 * 1000 * 1000)
+	challenge, err := h.service.CreateSignatureChallenge(r.Context(), companyID, versionID, actorID, 5*60*1000*1000*1000)
 	if err != nil {
-		h.redirectWithFlash(w, r, "/documents/library/"+docID+"/versions", "danger", "Failed to create signature challenge: "+err.Error())
+		h.redirectWithFlash(w, r, "/documents/library/"+docID+"/versions", "danger", shared.UserSafeMessage(err))
 		return
 	}
 
@@ -324,7 +324,7 @@ func (h *Handler) signVersion(w http.ResponseWriter, r *http.Request) {
 
 	_, err := h.service.SignDocument(r.Context(), req)
 	if err != nil {
-		h.redirectWithFlash(w, r, "/documents/library/"+docID+"/versions", "danger", "Failed to sign document: "+err.Error())
+		h.redirectWithFlash(w, r, "/documents/library/"+docID+"/versions", "danger", shared.UserSafeMessage(err))
 		return
 	}
 
@@ -337,7 +337,7 @@ func (h *Handler) applyRetention(w http.ResponseWriter, r *http.Request) {
 
 	err := h.service.ApplyRetention(r.Context(), versionID)
 	if err != nil {
-		h.redirectWithFlash(w, r, "/documents/library/"+docID+"/versions", "danger", "Failed to apply retention: "+err.Error())
+		h.redirectWithFlash(w, r, "/documents/library/"+docID+"/versions", "danger", shared.UserSafeMessage(err))
 		return
 	}
 
@@ -450,26 +450,48 @@ func parseInt64(value string) int64 {
 // ============================================================================
 
 func (h *Handler) processOCR(w http.ResponseWriter, r *http.Request) {
-	// Usually this is an async job. Mocking it here.
-	versionID, _ := strconv.ParseInt(chi.URLParam(r, "versionID"), 10, 64)
-	err := h.service.ProcessOCR(r.Context(), versionID)
-	if err != nil {
-		shared.JSONError(w, http.StatusInternalServerError, err.Error())
+	versionID := parseInt64(chi.URLParam(r, "versionID"))
+	if versionID <= 0 {
+		shared.JSONErrorFrom(w, http.StatusBadRequest, errors.New("documents: valid version id required"))
 		return
 	}
-	shared.JSONResponse(w, http.StatusOK, map[string]string{"status": "processing"})
+	if h.jobs == nil {
+		shared.JSONErrorFrom(w, http.StatusServiceUnavailable, errors.New("documents: OCR worker is not configured"))
+		return
+	}
+	version, err := h.service.GetVersion(r.Context(), versionID)
+	if err != nil {
+		shared.JSONErrorFrom(w, http.StatusNotFound, err)
+		return
+	}
+	companyID := currentCompany(r)
+	if companyID <= 0 || version.CompanyID != companyID || version.BlobID == nil {
+		shared.JSONErrorFrom(w, http.StatusBadRequest, errors.New("documents: version is not available for this company"))
+		return
+	}
+	jobID, err := h.service.InitiateOCRJob(r.Context(), companyID, versionID, *version.BlobID)
+	if err != nil {
+		shared.JSONErrorFrom(w, http.StatusInternalServerError, err)
+		return
+	}
+	if _, err := h.jobs.EnqueueDocumentOCR(r.Context(), jobID); err != nil {
+		shared.JSONErrorFrom(w, http.StatusServiceUnavailable, err)
+		return
+	}
+	shared.JSONResponse(w, http.StatusAccepted, map[string]any{"job_id": jobID, "status": "PENDING"})
 }
 
 func (h *Handler) createCollaborationSession(w http.ResponseWriter, r *http.Request) {
 	var in documents.CollaborationSession
 	if err := shared.DecodeJSON(r, &in); err != nil {
-		shared.JSONError(w, http.StatusBadRequest, err.Error())
+		shared.JSONErrorFrom(w, http.StatusBadRequest, err)
 		return
 	}
 	in.CompanyID = currentCompany(r)
+	in.HostUserID = currentUser(r)
 	created, err := h.service.CreateCollaborationSession(r.Context(), in)
 	if err != nil {
-		shared.JSONError(w, http.StatusInternalServerError, err.Error())
+		shared.JSONErrorFrom(w, http.StatusInternalServerError, err)
 		return
 	}
 	shared.JSONResponse(w, http.StatusCreated, created)
@@ -478,12 +500,15 @@ func (h *Handler) createCollaborationSession(w http.ResponseWriter, r *http.Requ
 func (h *Handler) recordCollaborationChange(w http.ResponseWriter, r *http.Request) {
 	var in documents.CollaborationChange
 	if err := shared.DecodeJSON(r, &in); err != nil {
-		shared.JSONError(w, http.StatusBadRequest, err.Error())
+		shared.JSONErrorFrom(w, http.StatusBadRequest, err)
 		return
 	}
+	in.CompanyID = currentCompany(r)
+	in.ActorID = currentUser(r)
+	in.SessionID = parseInt64(chi.URLParam(r, "sessionID"))
 	created, err := h.service.RecordCollaborationChange(r.Context(), in)
 	if err != nil {
-		shared.JSONError(w, http.StatusInternalServerError, err.Error())
+		shared.JSONErrorFrom(w, http.StatusInternalServerError, err)
 		return
 	}
 	shared.JSONResponse(w, http.StatusCreated, created)
@@ -492,9 +517,13 @@ func (h *Handler) recordCollaborationChange(w http.ResponseWriter, r *http.Reque
 func (h *Handler) searchContent(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query().Get("q")
 	companyID := currentCompany(r)
+	if companyID <= 0 || strings.TrimSpace(query) == "" {
+		shared.JSONErrorFrom(w, http.StatusBadRequest, errors.New("documents: company and search query are required"))
+		return
+	}
 	results, err := h.service.SearchContent(r.Context(), companyID, query)
 	if err != nil {
-		shared.JSONError(w, http.StatusInternalServerError, err.Error())
+		shared.JSONErrorFrom(w, http.StatusInternalServerError, err)
 		return
 	}
 	shared.JSONResponse(w, http.StatusOK, results)

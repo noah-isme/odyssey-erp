@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	accountingmoney "github.com/odyssey-erp/odyssey-erp/internal/accounting/money"
+	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 )
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -27,7 +28,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Post("/rate-cards", h.CreateRateCard)
 		r.Get("/rate-cards", h.ListRateCards)
 		r.Get("/rate-cards/{id}", h.GetRateCard)
-		
+
 		r.Post("/charges/calculate", h.CalculateFreightCharge)
 		r.Get("/charges", h.ListFreightCharges)
 		r.Get("/charges/{id}", h.GetFreightCharge)
@@ -125,7 +126,7 @@ type ErrorResponse struct {
 func (h *Handler) CreateRateCard(w http.ResponseWriter, r *http.Request) {
 	var req CreateRateCardRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid request body", err.Error())
+		writeErrorFrom(w, http.StatusBadRequest, "Invalid request body", err)
 		return
 	}
 
@@ -135,7 +136,7 @@ func (h *Handler) CreateRateCard(w http.ResponseWriter, r *http.Request) {
 	// Parse Money values
 	baseRate, err := accountingmoney.Parse(req.BaseRate, 2)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid base_rate", err.Error())
+		writeErrorFrom(w, http.StatusBadRequest, "Invalid base_rate", err)
 		return
 	}
 
@@ -185,7 +186,7 @@ func (h *Handler) CreateRateCard(w http.ResponseWriter, r *http.Request) {
 
 	rateCard, err := h.svc.CreateRateCard(r.Context(), input)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "Failed to create rate card", err.Error())
+		writeErrorFrom(w, http.StatusInternalServerError, "Failed to create rate card", err)
 		return
 	}
 
@@ -199,7 +200,7 @@ func (h *Handler) GetRateCard(w http.ResponseWriter, r *http.Request) {
 
 	rateCard, err := h.svc.GetRateCard(r.Context(), companyID, rateCardID)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "Rate card not found", err.Error())
+		writeErrorFrom(w, http.StatusNotFound, "Rate card not found", err)
 		return
 	}
 
@@ -223,7 +224,7 @@ func (h *Handler) ListRateCards(w http.ResponseWriter, r *http.Request) {
 
 	rateCards, err := h.svc.ListRateCards(r.Context(), companyID, filter)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "Failed to list rate cards", err.Error())
+		writeErrorFrom(w, http.StatusInternalServerError, "Failed to list rate cards", err)
 		return
 	}
 
@@ -246,7 +247,7 @@ func (h *Handler) ListRateCards(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) CalculateFreightCharge(w http.ResponseWriter, r *http.Request) {
 	var req CalculateFreightRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid request body", err.Error())
+		writeErrorFrom(w, http.StatusBadRequest, "Invalid request body", err)
 		return
 	}
 
@@ -277,7 +278,7 @@ func (h *Handler) CalculateFreightCharge(w http.ResponseWriter, r *http.Request)
 
 	charge, err := h.svc.CalculateAndCreateFreightCharge(r.Context(), input)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "Failed to calculate freight", err.Error())
+		writeErrorFrom(w, http.StatusInternalServerError, "Failed to calculate freight", err)
 		return
 	}
 
@@ -291,7 +292,7 @@ func (h *Handler) GetFreightCharge(w http.ResponseWriter, r *http.Request) {
 
 	charge, err := h.svc.GetFreightCharge(r.Context(), companyID, chargeID)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "Freight charge not found", err.Error())
+		writeErrorFrom(w, http.StatusNotFound, "Freight charge not found", err)
 		return
 	}
 
@@ -314,7 +315,7 @@ func (h *Handler) ListFreightCharges(w http.ResponseWriter, r *http.Request) {
 
 	charges, err := h.svc.ListFreightCharges(r.Context(), companyID, filter)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "Failed to list freight charges", err.Error())
+		writeErrorFrom(w, http.StatusInternalServerError, "Failed to list freight charges", err)
 		return
 	}
 
@@ -340,7 +341,7 @@ func (h *Handler) MarkFreightChargeInvoiced(w http.ResponseWriter, r *http.Reque
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid request body", err.Error())
+		writeErrorFrom(w, http.StatusBadRequest, "Invalid request body", err)
 		return
 	}
 
@@ -352,7 +353,7 @@ func (h *Handler) MarkFreightChargeInvoiced(w http.ResponseWriter, r *http.Reque
 
 	charge, err := h.svc.UpdateFreightChargeInvoice(r.Context(), companyID, chargeID, req.InvoiceNumber, invoiceDate)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "Failed to update freight charge", err.Error())
+		writeErrorFrom(w, http.StatusInternalServerError, "Failed to update freight charge", err)
 		return
 	}
 
@@ -366,7 +367,7 @@ func (h *Handler) MarkFreightChargePaid(w http.ResponseWriter, r *http.Request) 
 
 	charge, err := h.svc.MarkFreightChargePaid(r.Context(), companyID, chargeID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "Failed to mark charge as paid", err.Error())
+		writeErrorFrom(w, http.StatusInternalServerError, "Failed to mark charge as paid", err)
 		return
 	}
 
@@ -383,13 +384,13 @@ func (h *Handler) CreateCostCenter(w http.ResponseWriter, r *http.Request) {
 
 	var req CreateCostCenterInput
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid request body", err.Error())
+		writeErrorFrom(w, http.StatusBadRequest, "Invalid request body", err)
 		return
 	}
 
 	costCenter, err := h.svc.CreateCostCenter(r.Context(), companyID, req)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "Failed to create cost center", err.Error())
+		writeErrorFrom(w, http.StatusInternalServerError, "Failed to create cost center", err)
 		return
 	}
 
@@ -402,7 +403,7 @@ func (h *Handler) ListCostCenters(w http.ResponseWriter, r *http.Request) {
 
 	costCenters, err := h.svc.ListCostCenters(r.Context(), companyID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "Failed to list cost centers", err.Error())
+		writeErrorFrom(w, http.StatusInternalServerError, "Failed to list cost centers", err)
 		return
 	}
 
@@ -489,4 +490,8 @@ func writeError(w http.ResponseWriter, status int, errType, message string) {
 		Error:   errType,
 		Message: message,
 	})
+}
+
+func writeErrorFrom(w http.ResponseWriter, status int, errType string, err error) {
+	writeError(w, status, errType, shared.UserSafeMessage(err))
 }

@@ -26,6 +26,9 @@
 - [ ] RBAC roles and permissions initialized
 - [ ] Admin user account created
 - [ ] Audit logging enabled
+- [ ] `APP_MASTER_KEY` provisioned from a secret manager (never committed to configuration)
+- [ ] `CONNECTORS_DEVELOPMENT_MODE=false` (or unset)
+- [ ] Provider `Connection.SecretRef` values created through the vault-backed administration flow
 
 ### Database Setup
 

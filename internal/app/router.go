@@ -32,6 +32,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/crm"
 	"github.com/odyssey-erp/odyssey-erp/internal/dashboard"
 	"github.com/odyssey-erp/odyssey-erp/internal/delivery"
+	"github.com/odyssey-erp/odyssey-erp/internal/distribution"
 	documentshttp "github.com/odyssey-erp/odyssey-erp/internal/documents/http"
 	eliminationhttp "github.com/odyssey-erp/odyssey-erp/internal/elimination/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/bankfeeds"
@@ -130,6 +131,7 @@ type RouterParams struct {
 	ConnectorsHandler      *connectors.WebhookHandler
 	ConnectorsAdminHandler *connectors.AdminHandler
 	LogisticsService       *logistics.Service
+	DistributionHandler    *distribution.Handler
 	FreightService         freight.Service
 }
 
@@ -812,6 +814,9 @@ func NewRouter(params RouterParams) http.Handler {
 	}
 	if params.InventoryHandler != nil {
 		r.Route("/inventory", params.InventoryHandler.MountRoutes)
+	}
+	if params.DistributionHandler != nil {
+		r.Route("/distribution", params.DistributionHandler.MountRoutes)
 	}
 	if params.ProcurementHandler != nil {
 		r.Route("/procurement", params.ProcurementHandler.MountRoutes)

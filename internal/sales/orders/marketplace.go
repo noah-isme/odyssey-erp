@@ -11,21 +11,31 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/shopify"
 	"github.com/odyssey-erp/odyssey-erp/internal/outbox"
-	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
+
+type ObjectMappingQuery struct {
+	CompanyID        int64
+	ConnectionID     int64
+	RemoteEntityType string
+	RemoteEntityID   string
+}
+
+type ObjectMappingReader interface {
+	GetObjectMappingByRemote(ctx context.Context, query ObjectMappingQuery) (connectors.ObjectMapping, error)
+}
 
 // MarketplaceProcessor handles CanonicalEvents produced by commerce connectors (like Shopify).
 type MarketplaceProcessor struct {
 	logger  *slog.Logger
 	service *Service
-	queries *sqlc.Queries
+	mapping ObjectMappingReader
 }
 
-func NewMarketplaceProcessor(logger *slog.Logger, service *Service, queries *sqlc.Queries) *MarketplaceProcessor {
+func NewMarketplaceProcessor(logger *slog.Logger, service *Service, mapping ObjectMappingReader) *MarketplaceProcessor {
 	return &MarketplaceProcessor{
 		logger:  logger,
 		service: service,
-		queries: queries,
+		mapping: mapping,
 	}
 }
 
@@ -74,7 +84,7 @@ func (p *MarketplaceProcessor) handleOrderCreated(ctx context.Context, evt *conn
 	// For this test, let's look up mapping, or default to customer ID 1
 	customerID := int64(1)
 	customerStrID := strconv.FormatInt(shopifyOrder.Customer.ID, 10)
-	custMap, err := p.queries.GetObjectMappingByRemote(ctx, sqlc.GetObjectMappingByRemoteParams{
+	custMap, err := p.mapping.GetObjectMappingByRemote(ctx, ObjectMappingQuery{
 		CompanyID:        evt.CompanyID,
 		ConnectionID:     evt.ConnectionID,
 		RemoteEntityType: "customer",
@@ -89,7 +99,7 @@ func (p *MarketplaceProcessor) handleOrderCreated(ctx context.Context, evt *conn
 	for i, item := range shopifyOrder.LineItems {
 		productID := int64(1)
 		variantStrID := strconv.FormatInt(item.VariantID, 10)
-		prodMap, err := p.queries.GetObjectMappingByRemote(ctx, sqlc.GetObjectMappingByRemoteParams{
+		prodMap, err := p.mapping.GetObjectMappingByRemote(ctx, ObjectMappingQuery{
 			CompanyID:        evt.CompanyID,
 			ConnectionID:     evt.ConnectionID,
 			RemoteEntityType: "product",

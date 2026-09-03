@@ -56,3 +56,16 @@ func TestCSRFMiddlewareRejectsMissingTokenAndAllowsValidToken(t *testing.T) {
 	handler.ServeHTTP(allowed, allowedReq)
 	require.Equal(t, http.StatusOK, allowed.Code)
 }
+
+func TestBankFeedWebhookSkipsBrowserSessionAndCSRF(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	handler := applyMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusAccepted)
+	}), MiddlewareStack(MiddlewareConfig{Logger: logger}))
+
+	req := httptest.NewRequest(http.MethodPost, "/finance/bankfeeds/webhooks/stripe", strings.NewReader(`{"type":"account.updated"}`))
+	res := httptest.NewRecorder()
+	handler.ServeHTTP(res, req)
+
+	require.Equal(t, http.StatusAccepted, res.Code)
+}

@@ -1,0 +1,1 @@
+{"nodes": [{"id": "$graphify-root$_sql_queries_inventory_fifo_sql", "label": "inventory_fifo.sql", "file_type": "code", "source_file": "sql/queries/inventory_fifo.sql", "source_location": null}], "edges": []}

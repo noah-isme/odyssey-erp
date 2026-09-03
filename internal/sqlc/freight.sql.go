@@ -131,6 +131,69 @@ func (q *Queries) CreateFreightCharge(ctx context.Context, arg CreateFreightChar
 	return i, err
 }
 
+const createFreightCostCenter = `-- name: CreateFreightCostCenter :one
+INSERT INTO cost_centers (
+  company_id, code, name, cost_center_type, warehouse_id, gl_account, manager_id, is_active
+) VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE)
+RETURNING id, company_id, department_id, code, name, cost_center_type, warehouse_id,
+          gl_account, manager_id, is_active, created_at, updated_at
+`
+
+type CreateFreightCostCenterParams struct {
+	CompanyID      int64       `json:"company_id"`
+	Code           string      `json:"code"`
+	Name           string      `json:"name"`
+	CostCenterType string      `json:"cost_center_type"`
+	WarehouseID    pgtype.Int8 `json:"warehouse_id"`
+	GlAccount      pgtype.Text `json:"gl_account"`
+	ManagerID      pgtype.Int8 `json:"manager_id"`
+}
+
+type CreateFreightCostCenterRow struct {
+	ID             int64              `json:"id"`
+	CompanyID      int64              `json:"company_id"`
+	DepartmentID   pgtype.Int8        `json:"department_id"`
+	Code           string             `json:"code"`
+	Name           string             `json:"name"`
+	CostCenterType string             `json:"cost_center_type"`
+	WarehouseID    pgtype.Int8        `json:"warehouse_id"`
+	GlAccount      pgtype.Text        `json:"gl_account"`
+	ManagerID      pgtype.Int8        `json:"manager_id"`
+	IsActive       bool               `json:"is_active"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+// Cost centers are shared with accounting dimensions. Freight keeps its
+// company-scoped access here so GL posting never crosses tenant boundaries.
+func (q *Queries) CreateFreightCostCenter(ctx context.Context, arg CreateFreightCostCenterParams) (CreateFreightCostCenterRow, error) {
+	row := q.db.QueryRow(ctx, createFreightCostCenter,
+		arg.CompanyID,
+		arg.Code,
+		arg.Name,
+		arg.CostCenterType,
+		arg.WarehouseID,
+		arg.GlAccount,
+		arg.ManagerID,
+	)
+	var i CreateFreightCostCenterRow
+	err := row.Scan(
+		&i.ID,
+		&i.CompanyID,
+		&i.DepartmentID,
+		&i.Code,
+		&i.Name,
+		&i.CostCenterType,
+		&i.WarehouseID,
+		&i.GlAccount,
+		&i.ManagerID,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createLandedCost = `-- name: CreateLandedCost :one
 INSERT INTO landed_costs (
   company_id, shipment_id, load_id, freight_charge_id, po_id,
@@ -451,6 +514,100 @@ func (q *Queries) GetFreightCharge(ctx context.Context, arg GetFreightChargePara
 	return i, err
 }
 
+const getFreightCostCenter = `-- name: GetFreightCostCenter :one
+SELECT id, company_id, department_id, code, name, cost_center_type, warehouse_id,
+       gl_account, manager_id, is_active, created_at, updated_at
+FROM cost_centers
+WHERE id = $1 AND company_id = $2
+`
+
+type GetFreightCostCenterParams struct {
+	ID        int64 `json:"id"`
+	CompanyID int64 `json:"company_id"`
+}
+
+type GetFreightCostCenterRow struct {
+	ID             int64              `json:"id"`
+	CompanyID      int64              `json:"company_id"`
+	DepartmentID   pgtype.Int8        `json:"department_id"`
+	Code           string             `json:"code"`
+	Name           string             `json:"name"`
+	CostCenterType string             `json:"cost_center_type"`
+	WarehouseID    pgtype.Int8        `json:"warehouse_id"`
+	GlAccount      pgtype.Text        `json:"gl_account"`
+	ManagerID      pgtype.Int8        `json:"manager_id"`
+	IsActive       bool               `json:"is_active"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetFreightCostCenter(ctx context.Context, arg GetFreightCostCenterParams) (GetFreightCostCenterRow, error) {
+	row := q.db.QueryRow(ctx, getFreightCostCenter, arg.ID, arg.CompanyID)
+	var i GetFreightCostCenterRow
+	err := row.Scan(
+		&i.ID,
+		&i.CompanyID,
+		&i.DepartmentID,
+		&i.Code,
+		&i.Name,
+		&i.CostCenterType,
+		&i.WarehouseID,
+		&i.GlAccount,
+		&i.ManagerID,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getFreightCostCenterByCode = `-- name: GetFreightCostCenterByCode :one
+SELECT id, company_id, department_id, code, name, cost_center_type, warehouse_id,
+       gl_account, manager_id, is_active, created_at, updated_at
+FROM cost_centers
+WHERE company_id = $1 AND code = $2
+`
+
+type GetFreightCostCenterByCodeParams struct {
+	CompanyID int64  `json:"company_id"`
+	Code      string `json:"code"`
+}
+
+type GetFreightCostCenterByCodeRow struct {
+	ID             int64              `json:"id"`
+	CompanyID      int64              `json:"company_id"`
+	DepartmentID   pgtype.Int8        `json:"department_id"`
+	Code           string             `json:"code"`
+	Name           string             `json:"name"`
+	CostCenterType string             `json:"cost_center_type"`
+	WarehouseID    pgtype.Int8        `json:"warehouse_id"`
+	GlAccount      pgtype.Text        `json:"gl_account"`
+	ManagerID      pgtype.Int8        `json:"manager_id"`
+	IsActive       bool               `json:"is_active"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetFreightCostCenterByCode(ctx context.Context, arg GetFreightCostCenterByCodeParams) (GetFreightCostCenterByCodeRow, error) {
+	row := q.db.QueryRow(ctx, getFreightCostCenterByCode, arg.CompanyID, arg.Code)
+	var i GetFreightCostCenterByCodeRow
+	err := row.Scan(
+		&i.ID,
+		&i.CompanyID,
+		&i.DepartmentID,
+		&i.Code,
+		&i.Name,
+		&i.CostCenterType,
+		&i.WarehouseID,
+		&i.GlAccount,
+		&i.ManagerID,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getLandedCost = `-- name: GetLandedCost :one
 SELECT id, company_id, shipment_id, load_id, freight_charge_id, po_id, product_cost, freight_cost, duty_cost, tax_cost, insurance_cost, other_cost, total_landed_cost, cost_per_unit, currency, allocation_method, created_at, updated_at FROM landed_costs
 WHERE id = $1 AND company_id = $2
@@ -607,12 +764,12 @@ func (q *Queries) ListFreightAuditLogs(ctx context.Context, arg ListFreightAudit
 const listFreightCharges = `-- name: ListFreightCharges :many
 SELECT id, company_id, shipment_id, load_id, carrier_id, rate_card_id, origin_city, destination_city, service_level, weight_kg, volume_cbm, base_charge, weight_charge, volume_charge, surcharge_total, freight_total, currency, status, invoice_number, invoice_date, gl_posting_id, cost_center_id, notes, created_by, created_at, updated_at FROM freight_charges
 WHERE company_id = $1
-  AND ($2::BIGINT IS NULL OR shipment_id = $2)
-  AND ($3::BIGINT IS NULL OR load_id = $3)
-  AND ($4::BIGINT IS NULL OR carrier_id = $4)
-  AND ($5::VARCHAR IS NULL OR status = $5)
-  AND ($6::VARCHAR IS NULL OR origin_city = $6)
-  AND ($7::VARCHAR IS NULL OR destination_city = $7)
+  AND ($2::BIGINT = 0 OR shipment_id = $2)
+  AND ($3::BIGINT = 0 OR load_id = $3)
+  AND ($4::BIGINT = 0 OR carrier_id = $4)
+  AND ($5::VARCHAR = '' OR status = $5)
+  AND ($6::VARCHAR = '' OR origin_city = $6)
+  AND ($7::VARCHAR = '' OR destination_city = $7)
   AND ($8::TIMESTAMP IS NULL OR created_at >= $8)
   AND ($9::TIMESTAMP IS NULL OR created_at <= $9)
 ORDER BY created_at DESC, id DESC
@@ -692,12 +849,68 @@ func (q *Queries) ListFreightCharges(ctx context.Context, arg ListFreightCharges
 	return items, nil
 }
 
+const listFreightCostCenters = `-- name: ListFreightCostCenters :many
+SELECT id, company_id, department_id, code, name, cost_center_type, warehouse_id,
+       gl_account, manager_id, is_active, created_at, updated_at
+FROM cost_centers
+WHERE company_id = $1
+ORDER BY code ASC, id ASC
+`
+
+type ListFreightCostCentersRow struct {
+	ID             int64              `json:"id"`
+	CompanyID      int64              `json:"company_id"`
+	DepartmentID   pgtype.Int8        `json:"department_id"`
+	Code           string             `json:"code"`
+	Name           string             `json:"name"`
+	CostCenterType string             `json:"cost_center_type"`
+	WarehouseID    pgtype.Int8        `json:"warehouse_id"`
+	GlAccount      pgtype.Text        `json:"gl_account"`
+	ManagerID      pgtype.Int8        `json:"manager_id"`
+	IsActive       bool               `json:"is_active"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) ListFreightCostCenters(ctx context.Context, companyID int64) ([]ListFreightCostCentersRow, error) {
+	rows, err := q.db.Query(ctx, listFreightCostCenters, companyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListFreightCostCentersRow
+	for rows.Next() {
+		var i ListFreightCostCentersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.CompanyID,
+			&i.DepartmentID,
+			&i.Code,
+			&i.Name,
+			&i.CostCenterType,
+			&i.WarehouseID,
+			&i.GlAccount,
+			&i.ManagerID,
+			&i.IsActive,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listLandedCosts = `-- name: ListLandedCosts :many
 SELECT id, company_id, shipment_id, load_id, freight_charge_id, po_id, product_cost, freight_cost, duty_cost, tax_cost, insurance_cost, other_cost, total_landed_cost, cost_per_unit, currency, allocation_method, created_at, updated_at FROM landed_costs
 WHERE company_id = $1
-  AND ($2::BIGINT IS NULL OR shipment_id = $2)
-  AND ($3::BIGINT IS NULL OR load_id = $3)
-  AND ($4::BIGINT IS NULL OR po_id = $4)
+  AND ($2::BIGINT = 0 OR shipment_id = $2)
+  AND ($3::BIGINT = 0 OR load_id = $3)
+  AND ($4::BIGINT = 0 OR po_id = $4)
   AND ($5::TIMESTAMP IS NULL OR created_at >= $5)
   AND ($6::TIMESTAMP IS NULL OR created_at <= $6)
 ORDER BY created_at DESC, id DESC
@@ -766,10 +979,10 @@ func (q *Queries) ListLandedCosts(ctx context.Context, arg ListLandedCostsParams
 const listRateCards = `-- name: ListRateCards :many
 SELECT id, company_id, carrier_id, origin_city, origin_country, destination_city, destination_country, service_level, min_weight, max_weight, base_rate, per_kg_rate, per_cbm_rate, currency, effective_date, expiration_date, is_active, created_by, created_at, updated_at FROM rate_cards
 WHERE company_id = $1
-  AND ($2::BIGINT IS NULL OR carrier_id = $2)
-  AND ($3::VARCHAR IS NULL OR origin_city = $3)
-  AND ($4::VARCHAR IS NULL OR destination_city = $4)
-  AND ($5::VARCHAR IS NULL OR service_level = $5)
+  AND ($2::BIGINT = 0 OR carrier_id = $2)
+  AND ($3::VARCHAR = '' OR origin_city = $3)
+  AND ($4::VARCHAR = '' OR destination_city = $4)
+  AND ($5::VARCHAR = '' OR service_level = $5)
   AND ($6::BOOLEAN IS FALSE OR is_active = TRUE)
   AND ($7::DATE IS NULL OR effective_date >= $7)
   AND ($8::DATE IS NULL OR effective_date <= $8)
@@ -960,6 +1173,75 @@ type UpdateFreightChargeStatusParams struct {
 func (q *Queries) UpdateFreightChargeStatus(ctx context.Context, arg UpdateFreightChargeStatusParams) error {
 	_, err := q.db.Exec(ctx, updateFreightChargeStatus, arg.ID, arg.CompanyID, arg.Status)
 	return err
+}
+
+const updateFreightCostCenter = `-- name: UpdateFreightCostCenter :one
+UPDATE cost_centers
+SET name = COALESCE($3, name),
+    cost_center_type = COALESCE($4, cost_center_type),
+    warehouse_id = COALESCE($5, warehouse_id),
+    gl_account = COALESCE($6, gl_account),
+    manager_id = COALESCE($7, manager_id),
+    is_active = COALESCE($8, is_active),
+    updated_at = NOW()
+WHERE id = $1 AND company_id = $2
+RETURNING id, company_id, department_id, code, name, cost_center_type, warehouse_id,
+          gl_account, manager_id, is_active, created_at, updated_at
+`
+
+type UpdateFreightCostCenterParams struct {
+	ID             int64       `json:"id"`
+	CompanyID      int64       `json:"company_id"`
+	Name           string      `json:"name"`
+	CostCenterType string      `json:"cost_center_type"`
+	WarehouseID    pgtype.Int8 `json:"warehouse_id"`
+	GlAccount      pgtype.Text `json:"gl_account"`
+	ManagerID      pgtype.Int8 `json:"manager_id"`
+	IsActive       bool        `json:"is_active"`
+}
+
+type UpdateFreightCostCenterRow struct {
+	ID             int64              `json:"id"`
+	CompanyID      int64              `json:"company_id"`
+	DepartmentID   pgtype.Int8        `json:"department_id"`
+	Code           string             `json:"code"`
+	Name           string             `json:"name"`
+	CostCenterType string             `json:"cost_center_type"`
+	WarehouseID    pgtype.Int8        `json:"warehouse_id"`
+	GlAccount      pgtype.Text        `json:"gl_account"`
+	ManagerID      pgtype.Int8        `json:"manager_id"`
+	IsActive       bool               `json:"is_active"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) UpdateFreightCostCenter(ctx context.Context, arg UpdateFreightCostCenterParams) (UpdateFreightCostCenterRow, error) {
+	row := q.db.QueryRow(ctx, updateFreightCostCenter,
+		arg.ID,
+		arg.CompanyID,
+		arg.Name,
+		arg.CostCenterType,
+		arg.WarehouseID,
+		arg.GlAccount,
+		arg.ManagerID,
+		arg.IsActive,
+	)
+	var i UpdateFreightCostCenterRow
+	err := row.Scan(
+		&i.ID,
+		&i.CompanyID,
+		&i.DepartmentID,
+		&i.Code,
+		&i.Name,
+		&i.CostCenterType,
+		&i.WarehouseID,
+		&i.GlAccount,
+		&i.ManagerID,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const updateRateCard = `-- name: UpdateRateCard :one

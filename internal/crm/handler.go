@@ -135,7 +135,7 @@ func parseTime(value string) *time.Time {
 func (h *Handler) pipeline(w http.ResponseWriter, r *http.Request) {
 	data, err := h.service.Pipeline(r.Context(), h.scope(r))
 	if err != nil {
-		http.Error(w, shared.UserSafeMessage(err), 500)
+		shared.WriteErrorStatus(w, http.StatusInternalServerError, err)
 		return
 	}
 	h.render(w, r, "pages/crm/pipeline.html", "CRM Pipeline", data)
@@ -240,7 +240,7 @@ func valueDate(value string) time.Time {
 func (h *Handler) dashboard(w http.ResponseWriter, r *http.Request) {
 	data, err := h.service.WinLoss(r.Context(), h.scope(r))
 	if err != nil {
-		http.Error(w, shared.UserSafeMessage(err), 500)
+		shared.WriteErrorStatus(w, http.StatusInternalServerError, err)
 		return
 	}
 	h.render(w, r, "pages/crm/dashboard.html", "CRM Win/Loss", data)

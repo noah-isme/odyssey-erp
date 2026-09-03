@@ -6,6 +6,12 @@ RETURNING *;
 -- name: GetForecastScenario :one
 SELECT * FROM forecast_scenarios WHERE id = $1;
 
+-- name: ForecastScenarioBelongsToCompany :one
+SELECT EXISTS(
+    SELECT 1 FROM forecast_scenarios
+    WHERE id = $1 AND company_id = $2
+);
+
 -- name: ListForecastScenarios :many
 SELECT * FROM forecast_scenarios WHERE company_id = $1 ORDER BY id;
 
@@ -15,7 +21,12 @@ VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- name: UpdateForecastRunStatus :exec
-UPDATE forecast_runs SET status = $2, completed_at = $3, error_details = $4 WHERE id = $1;
+UPDATE forecast_runs
+SET status = $2,
+    completed_at = $3,
+    error_details = $4,
+    fx_snapshot = COALESCE($5, fx_snapshot)
+WHERE id = $1;
 
 -- name: GetForecastRun :one
 SELECT * FROM forecast_runs WHERE id = $1;

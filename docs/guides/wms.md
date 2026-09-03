@@ -2,7 +2,10 @@
 
 ## Current status
 
-**Implemented.** The Horizon foundation includes a functional WMS module for barcode-driven operations. The logic is found in `internal/wms/`.
+**Foundation implemented; module depth is partial.** The Horizon foundation includes
+barcode-driven WMS operations. The logic is found in `internal/wms/`; advanced wave,
+put-away, cross-docking, MHE, and capacity features remain outside the certified
+scope.
 
 ## Supported scope
 

@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgtype"
 	accountingmoney "github.com/odyssey-erp/odyssey-erp/internal/accounting/money"
 	"github.com/odyssey-erp/odyssey-erp/internal/fx"
 )
@@ -157,12 +156,6 @@ func (a ExactAmount) Mul(other ExactAmount) ExactAmount {
 		Amount:   accountingmoney.Must("0", 4), // Dummy since Mul is not simple
 		Currency: a.Currency,
 	}
-}
-
-func (a ExactAmount) Numeric() pgtype.Numeric {
-	var num pgtype.Numeric
-	_ = num.Scan(a.Amount.String())
-	return num
 }
 
 func (a ExactAmount) IsPositive() bool {

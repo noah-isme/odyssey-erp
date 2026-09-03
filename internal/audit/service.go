@@ -3,19 +3,34 @@ package audit
 import (
 	"context"
 	"fmt"
-	"strconv"
-	"strings"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgtype"
-
-	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
-// Repository menyediakan akses ke query sqlc yang dibutuhkan.
+// Repository exposes audit data in domain terms. PostgreSQL encodings are
+// translated by the concrete repository adapter.
 type Repository interface {
-	AuditTimelineWindow(ctx context.Context, arg sqlc.AuditTimelineWindowParams) ([]sqlc.AuditTimelineWindowRow, error)
-	AuditTimelineAll(ctx context.Context, arg sqlc.AuditTimelineAllParams) ([]sqlc.AuditTimelineAllRow, error)
+	AuditTimelineWindow(ctx context.Context, query TimelineQuery) ([]TimelineStorageRow, error)
+	AuditTimelineAll(ctx context.Context, query TimelineQuery) ([]TimelineStorageRow, error)
+}
+
+type TimelineQuery struct {
+	From       time.Time
+	To         time.Time
+	Actor      string
+	Entity     string
+	Action     string
+	OffsetRows int
+	LimitRows  int
+}
+
+type TimelineStorageRow struct {
+	At         time.Time
+	Actor      string
+	Action     string
+	Entity     string
+	EntityID   string
+	JournalNo  string
+	PeriodCode string
 }
 
 // Result membungkus hasil timeline dengan informasi paging.
@@ -51,14 +66,14 @@ func (s *Service) Timeline(ctx context.Context, filters TimelineFilters) (Result
 		page = 1
 	}
 	offset := (page - 1) * pageSize
-	params := sqlc.AuditTimelineWindowParams{
-		FromAt:     toPgTime(filters.From),
-		ToAt:       toPgTime(filters.To),
-		Actor:      optionalText(filters.Actor),
-		Entity:     optionalText(filters.Entity),
-		Action:     optionalText(filters.Action),
-		OffsetRows: int32(offset),
-		LimitRows:  int32(pageSize + 1),
+	params := TimelineQuery{
+		From:       filters.From,
+		To:         filters.To,
+		Actor:      filters.Actor,
+		Entity:     filters.Entity,
+		Action:     filters.Action,
+		OffsetRows: offset,
+		LimitRows:  pageSize + 1,
 	}
 	rows, err := s.repo.AuditTimelineWindow(ctx, params)
 	if err != nil {
@@ -70,7 +85,7 @@ func (s *Service) Timeline(ctx context.Context, filters TimelineFilters) (Result
 	}
 	resultRows := make([]TimelineRow, 0, len(rows))
 	for _, row := range rows {
-		resultRows = append(resultRows, mapTimelineRow(row.At, row.Actor, row.Action, row.Entity, row.EntityID, row.JournalNo, row.PeriodCode))
+		resultRows = append(resultRows, mapTimelineRow(row))
 	}
 	paging := PagingInfo{Page: page, PageSize: pageSize, HasNext: hasNext}
 	if page > 1 {
@@ -87,12 +102,12 @@ func (s *Service) Export(ctx context.Context, filters TimelineFilters) ([]Timeli
 	if s.repo == nil {
 		return nil, fmt.Errorf("audit: repository not configured")
 	}
-	params := sqlc.AuditTimelineAllParams{
-		FromAt: toPgTime(filters.From),
-		ToAt:   toPgTime(filters.To),
-		Actor:  optionalText(filters.Actor),
-		Entity: optionalText(filters.Entity),
-		Action: optionalText(filters.Action),
+	params := TimelineQuery{
+		From:   filters.From,
+		To:     filters.To,
+		Actor:  filters.Actor,
+		Entity: filters.Entity,
+		Action: filters.Action,
 	}
 	rows, err := s.repo.AuditTimelineAll(ctx, params)
 	if err != nil {
@@ -100,46 +115,19 @@ func (s *Service) Export(ctx context.Context, filters TimelineFilters) ([]Timeli
 	}
 	result := make([]TimelineRow, 0, len(rows))
 	for _, row := range rows {
-		result = append(result, mapTimelineRow(row.At, row.Actor, row.Action, row.Entity, row.EntityID, row.JournalNo, row.PeriodCode))
+		result = append(result, mapTimelineRow(row))
 	}
 	return result, nil
 }
 
-func toPgTime(t time.Time) pgtype.Timestamptz {
-	if t.IsZero() {
-		return pgtype.Timestamptz{}
-	}
-	return pgtype.Timestamptz{Time: t, Valid: true}
-}
-
-func optionalText(value string) pgtype.Text {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return pgtype.Text{}
-	}
-	return pgtype.Text{String: trimmed, Valid: true}
-}
-
-func mapTimelineRow(at pgtype.Timestamptz, actor, action, entity, entityID string, journal pgtype.Int8, period pgtype.Text) TimelineRow {
-	var ts time.Time
-	if at.Valid {
-		ts = at.Time
-	}
-	var journalNo string
-	if journal.Valid {
-		journalNo = strconv.FormatInt(journal.Int64, 10)
-	}
-	var periodCode string
-	if period.Valid {
-		periodCode = period.String
-	}
+func mapTimelineRow(row TimelineStorageRow) TimelineRow {
 	return TimelineRow{
-		At:        ts,
-		Actor:     actor,
-		Action:    action,
-		Entity:    entity,
-		EntityID:  entityID,
-		Period:    periodCode,
-		JournalNo: journalNo,
+		At:        row.At,
+		Actor:     row.Actor,
+		Action:    row.Action,
+		Entity:    row.Entity,
+		EntityID:  row.EntityID,
+		Period:    row.PeriodCode,
+		JournalNo: row.JournalNo,
 	}
 }

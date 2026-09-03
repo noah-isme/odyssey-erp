@@ -139,12 +139,13 @@ func (rc *rateCalculator) CalculateFreight(ctx context.Context, input CalculateF
 	}
 
 	return &CalculateFreightOutput{
+		RateCardID:     rateCard.ID,
 		BaseCharge:     baseCharge,
 		WeightCharge:   weightCharge,
 		VolumeCharge:   volumeCharge,
 		SurchargeTotal: &surchargeTotal,
 		FreightTotal:   freightTotal,
-		Currency:       baseCharge.Amount, // Amount holds the decimal string
+		Currency:       rateCard.Currency,
 		Breakdown:      breakdown,
 	}, nil
 }
@@ -214,7 +215,7 @@ func (rc *rateCalculator) CalculateLandedCost(ctx context.Context, input Calcula
 		OtherCost:        input.OtherCost,
 		TotalLandedCost:  totalLandedCost,
 		CostPerUnit:      costPerUnit,
-		Currency:         input.ProductCost.Amount, // Amount holds the currency string in this context
+		Currency:         freightCharge.Currency,
 		AllocationMethod: input.AllocationMethod,
 		CreatedAt:        time.Now(),
 		UpdatedAt:        time.Now(),

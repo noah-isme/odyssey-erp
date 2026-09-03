@@ -201,6 +201,25 @@ func (q *Queries) CreateForecastSourceLine(ctx context.Context, arg CreateForeca
 	return i, err
 }
 
+const forecastScenarioBelongsToCompany = `-- name: ForecastScenarioBelongsToCompany :one
+SELECT EXISTS(
+    SELECT 1 FROM forecast_scenarios
+    WHERE id = $1 AND company_id = $2
+)
+`
+
+type ForecastScenarioBelongsToCompanyParams struct {
+	ID        int64 `json:"id"`
+	CompanyID int64 `json:"company_id"`
+}
+
+func (q *Queries) ForecastScenarioBelongsToCompany(ctx context.Context, arg ForecastScenarioBelongsToCompanyParams) (bool, error) {
+	row := q.db.QueryRow(ctx, forecastScenarioBelongsToCompany, arg.ID, arg.CompanyID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const getForecastRun = `-- name: GetForecastRun :one
 SELECT id, company_id, scenario_id, status, fx_snapshot, completed_at, error_details, created_at FROM forecast_runs WHERE id = $1
 `
@@ -381,7 +400,12 @@ func (q *Queries) ListForecastSourceLines(ctx context.Context, arg ListForecastS
 }
 
 const updateForecastRunStatus = `-- name: UpdateForecastRunStatus :exec
-UPDATE forecast_runs SET status = $2, completed_at = $3, error_details = $4 WHERE id = $1
+UPDATE forecast_runs
+SET status = $2,
+    completed_at = $3,
+    error_details = $4,
+    fx_snapshot = COALESCE($5, fx_snapshot)
+WHERE id = $1
 `
 
 type UpdateForecastRunStatusParams struct {
@@ -389,6 +413,7 @@ type UpdateForecastRunStatusParams struct {
 	Status       string             `json:"status"`
 	CompletedAt  pgtype.Timestamptz `json:"completed_at"`
 	ErrorDetails pgtype.Text        `json:"error_details"`
+	FxSnapshot   []byte             `json:"fx_snapshot"`
 }
 
 func (q *Queries) UpdateForecastRunStatus(ctx context.Context, arg UpdateForecastRunStatusParams) error {
@@ -397,6 +422,7 @@ func (q *Queries) UpdateForecastRunStatus(ctx context.Context, arg UpdateForecas
 		arg.Status,
 		arg.CompletedAt,
 		arg.ErrorDetails,
+		arg.FxSnapshot,
 	)
 	return err
 }

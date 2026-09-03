@@ -144,7 +144,7 @@ func (h *Handler) handleExportCSV(w http.ResponseWriter, r *http.Request) {
 	tb, err := h.service.GetConsolidatedTB(r.Context(), filter)
 	if err != nil {
 		h.logger.Error("get consol tb csv", slog.Any("error", err))
-		http.Error(w, shared.UserSafeMessage(err), http.StatusBadRequest)
+		shared.WriteErrorStatus(w, http.StatusBadRequest, err)
 		return
 	}
 	w.Header().Set("Content-Type", "text/csv")

@@ -187,6 +187,30 @@ func (q *Queries) GetAsset(ctx context.Context, id int64) (GetAssetRow, error) {
 	return i, err
 }
 
+const getIoTSensor = `-- name: GetIoTSensor :one
+SELECT id, company_id, asset_id, sensor_code, sensor_type, status,
+       last_reading_at, last_reading_value, created_at
+FROM cmms_iot_sensors
+WHERE id = $1
+`
+
+func (q *Queries) GetIoTSensor(ctx context.Context, id int64) (CmmsIotSensor, error) {
+	row := q.db.QueryRow(ctx, getIoTSensor, id)
+	var i CmmsIotSensor
+	err := row.Scan(
+		&i.ID,
+		&i.CompanyID,
+		&i.AssetID,
+		&i.SensorCode,
+		&i.SensorType,
+		&i.Status,
+		&i.LastReadingAt,
+		&i.LastReadingValue,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getLocation = `-- name: GetLocation :one
 SELECT id, company_id, code, name, description, parent_id, address, gps_lat, gps_lng, active, created_at, updated_at
 FROM locations
@@ -519,6 +543,27 @@ type InsertIoTReadingParams struct {
 
 func (q *Queries) InsertIoTReading(ctx context.Context, arg InsertIoTReadingParams) (int64, error) {
 	row := q.db.QueryRow(ctx, insertIoTReading, arg.SensorID, arg.Value)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const insertIoTReadingAt = `-- name: InsertIoTReadingAt :one
+INSERT INTO cmms_iot_readings (
+    sensor_id, value, timestamp
+) VALUES (
+    $1, $2, $3
+) RETURNING id
+`
+
+type InsertIoTReadingAtParams struct {
+	SensorID  int64              `json:"sensor_id"`
+	Value     pgtype.Numeric     `json:"value"`
+	Timestamp pgtype.Timestamptz `json:"timestamp"`
+}
+
+func (q *Queries) InsertIoTReadingAt(ctx context.Context, arg InsertIoTReadingAtParams) (int64, error) {
+	row := q.db.QueryRow(ctx, insertIoTReadingAt, arg.SensorID, arg.Value, arg.Timestamp)
 	var id int64
 	err := row.Scan(&id)
 	return id, err
@@ -1251,6 +1296,76 @@ func (q *Queries) ListPMSchedules(ctx context.Context, assetID int64) ([]ListPMS
 	return items, nil
 }
 
+const listPredictiveAnomalies = `-- name: ListPredictiveAnomalies :many
+SELECT s.company_id, s.asset_id, s.id AS sensor_id, m.id AS model_id,
+       r.value, r.timestamp
+FROM cmms_iot_sensors s
+JOIN assets a ON a.id = s.asset_id AND a.company_id = s.company_id
+JOIN LATERAL (
+    SELECT value, timestamp
+    FROM cmms_iot_readings r
+    WHERE r.sensor_id = s.id
+    ORDER BY r.timestamp DESC, r.id DESC
+    LIMIT 1
+) r ON TRUE
+JOIN LATERAL (
+    SELECT pm.id
+    FROM cmms_predictive_models pm
+    WHERE pm.company_id = s.company_id
+      AND pm.is_active = TRUE
+      AND (pm.asset_type = '' OR pm.asset_type = a.asset_type)
+    ORDER BY pm.deployed_at DESC, pm.id DESC
+    LIMIT 1
+) m ON TRUE
+WHERE s.company_id = $1
+  AND r.value > 1000
+  AND NOT EXISTS (
+      SELECT 1
+      FROM cmms_predictive_alerts pa
+      WHERE pa.company_id = s.company_id
+        AND pa.asset_id = s.asset_id
+        AND pa.sensor_id = s.id
+        AND pa.model_id = m.id
+        AND pa.resolved_at IS NULL
+  )
+`
+
+type ListPredictiveAnomaliesRow struct {
+	CompanyID int64              `json:"company_id"`
+	AssetID   int64              `json:"asset_id"`
+	SensorID  int64              `json:"sensor_id"`
+	ModelID   int64              `json:"model_id"`
+	Value     pgtype.Numeric     `json:"value"`
+	Timestamp pgtype.Timestamptz `json:"timestamp"`
+}
+
+func (q *Queries) ListPredictiveAnomalies(ctx context.Context, companyID int64) ([]ListPredictiveAnomaliesRow, error) {
+	rows, err := q.db.Query(ctx, listPredictiveAnomalies, companyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPredictiveAnomaliesRow
+	for rows.Next() {
+		var i ListPredictiveAnomaliesRow
+		if err := rows.Scan(
+			&i.CompanyID,
+			&i.AssetID,
+			&i.SensorID,
+			&i.ModelID,
+			&i.Value,
+			&i.Timestamp,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSpareParts = `-- name: ListSpareParts :many
 SELECT id, company_id, code, name, description, category, unit_of_measure,
        min_quantity, max_quantity, reorder_point, lead_time_days, unit_cost, critical_spare, created_at, updated_at
@@ -1615,6 +1730,7 @@ const updateIoTSensorReading = `-- name: UpdateIoTSensorReading :exec
 UPDATE cmms_iot_sensors
 SET last_reading_at = $2, last_reading_value = $3
 WHERE id = $1
+  AND (last_reading_at IS NULL OR last_reading_at <= $2)
 `
 
 type UpdateIoTSensorReadingParams struct {

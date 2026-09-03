@@ -34,7 +34,8 @@ type Config struct {
 	CSRFSecret string `envconfig:"CSRF_SECRET" required:"true"`
 
 	// ConnectorDevelopmentMode must be explicitly enabled before provider
-	// adapters may use local/test fakes. It defaults to false in every environment.
+	// adapters may use local/test fakes. It defaults to false so production
+	// cannot silently accept simulated credentials or no-op success paths.
 	ConnectorDevelopmentMode bool `envconfig:"CONNECTORS_DEVELOPMENT_MODE" default:"false"`
 
 	SMTPHost     string `envconfig:"SMTP_HOST" default:"127.0.0.1"`

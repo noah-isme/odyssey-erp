@@ -118,7 +118,7 @@ func (h *Handler) export(w http.ResponseWriter, r *http.Request) {
 	}
 	result, err := h.service.Export(r.Context(), taxCompanyID(r), id, taxActorID(r), kind)
 	if err != nil {
-		shared.WriteHTTPError(w, http.StatusConflict, shared.UserSafeMessage(err))
+		shared.WriteErrorStatus(w, http.StatusConflict, err)
 		return
 	}
 	w.Header().Set("Content-Type", result.MediaType)

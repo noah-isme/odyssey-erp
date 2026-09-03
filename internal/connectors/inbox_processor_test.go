@@ -11,7 +11,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/mockpay"
-	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 // A stub that only contains what we need to pass the compiler if we don't have a real DB.
@@ -21,14 +20,14 @@ import (
 func TestInboxProcessorAndWebhook(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	adapter := mockpay.NewAdapter(logger)
-	
+
 	registry := connectors.NewRegistry()
 	registry.Register("mockpay", adapter)
-	
+
 	// Create processor with nil queries just to verify struct composition and HTTP wiring.
 	// In a real test, we would provide a test database or a mock of sqlc.Queries.
-	var queries *sqlc.Queries
-	processor := connectors.NewInboxProcessor(queries, registry, nil, logger)
+	var repo connectors.InboxRepository
+	processor := connectors.NewInboxProcessor(repo, registry, nil, logger)
 	handler := connectors.NewWebhookHandler(processor)
 
 	r := chi.NewRouter()
@@ -41,7 +40,7 @@ func TestInboxProcessorAndWebhook(t *testing.T) {
 	req.Header.Set("X-Provider-Signature", "fake-sig-456")
 
 	w := httptest.NewRecorder()
-	
+
 	// Just make sure it routes properly. It will fail on `p.queries.GetConnection` because queries is nil.
 	defer func() {
 		if r := recover(); r != nil {

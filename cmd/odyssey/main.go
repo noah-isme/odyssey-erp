@@ -240,7 +240,7 @@ func main() {
 
 	authRepo := auth.NewRepository(dbpool)
 	authService := auth.NewService(authRepo)
-	authHandler := auth.NewHandler(logger, authService, templates, sessionManager, csrfManager, sqlc.New(dbpool))
+	authHandler := auth.NewHandler(logger, authService, templates, sessionManager, csrfManager, authRepo)
 
 	auditLogger := shared.NewAuditLogger(dbpool)
 	approvalRecorder := shared.NewApprovalRecorder(dbpool, logger)
@@ -265,12 +265,14 @@ func main() {
 	bankFeedsHandler := bankfeeds.NewHandler(bankfeedsService, logger)
 
 	forecastRepo := forecasting.NewPGRepository(dbpool)
-	forecastReaders := []forecasting.SourceReader{
-		forecasting.NewMockReader("mock_ar", forecasting.SourceTypeOpenAR, false),
-		forecasting.NewMockReader("mock_ap", forecasting.SourceTypePostedAP, true),
-		forecasting.NewMockReader("mock_payroll", forecasting.SourceTypeApprovedPayroll, true),
-	}
-	forecastService := forecasting.NewService(forecastRepo, forecastReaders, logger)
+	forecastReaders := forecasting.NewDatabaseReaders(dbpool)
+	forecastFXRepo := fxservice.NewRepository(dbpool)
+	forecastService := forecasting.NewServiceWithFXResolver(
+		forecastRepo,
+		forecastReaders,
+		fxservice.Resolver{Repo: forecastFXRepo, MaxAge: cfg.FXMaxRateAge},
+		logger,
+	)
 	forecastHandler := forecasting.NewHandler(forecastService)
 
 	treasuryRepo := treasury.NewPGRepository(dbpool)
@@ -291,7 +293,7 @@ func main() {
 		return err
 	})
 
-	rbacService := rbac.NewService(dbpool)
+	rbacService := rbac.NewService(rbac.NewRepository(dbpool))
 	rbacMiddleware := rbac.Middleware{Service: rbacService, Logger: logger}
 
 	usersRepo := users.NewRepository(dbpool)
@@ -314,25 +316,39 @@ func main() {
 			logger.Warn("close job client", slog.Any("error", err))
 		}
 	}()
+	bankFeedsHandler.SetEventEnqueuer(func(ctx context.Context, eventID int64) error {
+		_, err := jobClient.EnqueueBankFeedsEvent(ctx, eventID)
+		return err
+	})
 	outboxRepo := outbox.NewRepository(dbpool)
 	connectorsRegistry := connectors.NewRegistry()
-	connectorsRegistry.Register("mockpay", mockpay.NewAdapter(logger))
+	if cfg.ConnectorDevelopmentMode {
+		connectorsRegistry.Register("mockpay", mockpay.NewAdapter(logger))
+	}
 	vault, err := shared.NewVault()
 	if err != nil {
 		logger.Error("init vault", slog.Any("error", err))
+		if cfg.IsProduction() {
+			os.Exit(1)
+		}
 	}
-	connectorsRegistry.Register("stripe", stripe.NewAdapter(logger))
-	connectorsRegistry.Register("oidc", oidc.NewAdapter(logger))
-	connectorsRegistry.Register("shopify", shopify.NewAdapter(logger))
-	connectorsRegistry.Register("whatsapp", whatsapp.NewAdapter(logger, vault))
+	providerOptions := connectors.ProviderOptions{
+		Vault:           vault,
+		HTTPClient:      &http.Client{Timeout: 15 * time.Second},
+		DevelopmentMode: cfg.ConnectorDevelopmentMode,
+	}
+	connectorsRegistry.Register("stripe", stripe.NewAdapter(logger, providerOptions))
+	connectorsRegistry.Register("oidc", oidc.NewAdapter(logger, providerOptions))
+	connectorsRegistry.Register("shopify", shopify.NewAdapter(logger, providerOptions))
+	connectorsRegistry.Register("whatsapp", whatsapp.NewAdapter(logger, vault, providerOptions))
 	connectorsRegistry.Register("openai", openai.NewAdapter(logger))
-	connectorsRegistry.Register("dhl", dhl.NewAdapter(logger))
-	connectorsRegistry.Register("awss3", awss3.NewAdapter(logger, vault))
+	connectorsRegistry.Register("dhl", dhl.NewAdapter(logger, providerOptions))
+	connectorsRegistry.Register("awss3", awss3.NewAdapter(logger, vault, providerOptions))
 	connectorsRegistry.Register("midtrans", midtrans.NewAdapter(logger, vault))
-	connectorsProcessor := connectors.NewInboxProcessor(sqlc.New(dbpool), connectorsRegistry, outboxRepo, logger)
+	connectorsProcessor := connectors.NewInboxProcessor(connectors.NewRepository(dbpool), connectorsRegistry, outboxRepo, logger)
 	connectorsHandler := connectors.NewWebhookHandler(connectorsProcessor)
 
-	connectorsService := connectors.NewService(dbpool, vault, connectorsRegistry)
+	connectorsService := connectors.NewService(connectors.NewRepository(dbpool), vault, connectorsRegistry)
 	integrationHooks.SetConnectorsService(connectorsService)
 	connectorsAdminHandler := connectors.NewAdminHandler(connectorsService, logger, templates)
 
@@ -387,7 +403,7 @@ func main() {
 	eliminationService := eliminationpkg.NewService(eliminationRepo, journalService)
 	eliminationHandler := eliminationhttp.NewHandler(logger, eliminationService, templates, csrfManager, rbacMiddleware)
 
-	analyticsRepo := sqlc.New(dbpool)
+	analyticsRepo := analytics.NewRepository(dbpool)
 	analyticsCache := analytics.NewCache(redisClient, 10*time.Minute)
 	analyticsService := analytics.NewService(analyticsRepo, analyticsCache)
 	pdfExporter := &export.PDFExporter{Endpoint: cfg.GotenbergURL, Client: http.DefaultClient}
@@ -403,10 +419,10 @@ func main() {
 		analyticsValidator,
 	)
 
-	insightsRepo := sqlc.New(dbpool)
+	insightsRepo := insights.NewRepository(dbpool)
 	insightsService := insights.NewService(insightsRepo)
 	insightsHandler := insightshhtp.NewHandler(logger, insightsService, templates, rbacService)
-	auditRepo := sqlc.New(dbpool)
+	auditRepo := audit.NewRepository(dbpool)
 	auditService := audit.NewService(auditRepo)
 	auditExporter := audit.NewExporter(templates)
 	auditHandler := audithttp.NewHandler(logger, auditService, templates, auditExporter, rbacService)
@@ -541,6 +557,7 @@ func main() {
 	mrpHandler.SetQMSService(qmsService)
 
 	logisticsService := logistics.NewService(dbpool)
+	distributionHandler := app.NewDistributionHandler(dbpool, logisticsService, inventoryService)
 
 	// Init Freight Module
 	freightQueries := sqlc.New(dbpool)
@@ -583,6 +600,7 @@ func main() {
 		TreasuryHandler:        treasuryHandler,
 		InventoryService:       inventoryService,
 		LogisticsService:       logisticsService,
+		DistributionHandler:    distributionHandler,
 		FreightService:         freightService,
 		Metrics:                metrics,
 		DashboardHandler:       dashboardHandler,

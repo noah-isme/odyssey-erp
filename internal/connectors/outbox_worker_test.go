@@ -3,9 +3,9 @@ package connectors_test
 import (
 	"context"
 	"log/slog"
+	"os"
 	"testing"
 	"time"
-	"os"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors"
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors/providers/mockpay"
@@ -22,11 +22,11 @@ func (m *MockRegistry) GetAdapter(provider string) (connectors.ProviderAdapter, 
 func TestOutboxWorkerMockpay(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	adapter := mockpay.NewAdapter(logger)
-	
+
 	// Create the registry
 	registry := connectors.NewRegistry()
 	registry.Register("mockpay", adapter)
-	
+
 	// Verify it registers
 	_, err := registry.GetAdapter("mockpay")
 	if err != nil {
@@ -71,12 +71,12 @@ func TestOutboxWorkerMockpay(t *testing.T) {
 	if err != nil {
 		t.Errorf("expected ExecuteCommand to pass for payment.charge, got %v", err)
 	}
-	
+
 	cmdInvalid := &connectors.OutboxCommand{
-		ID:            11,
-		CommandType:   "unknown.action",
+		ID:          11,
+		CommandType: "unknown.action",
 	}
-	
+
 	err = adapter.ExecuteCommand(ctx, conn, cmdInvalid)
 	if err == nil {
 		t.Errorf("expected ExecuteCommand to fail for unknown action, but it passed")

@@ -89,7 +89,7 @@ func (h *Handler) createTerminal(w http.ResponseWriter, r *http.Request) {
 	}
 	err := h.pool.QueryRow(r.Context(), `INSERT INTO pos_terminals(company_id,code,name,warehouse_id) SELECT $1,$2,$3,w.id FROM warehouses w WHERE ($4::bigint IS NULL OR w.id=$4) AND ($4::bigint IS NULL OR w.company_id=$1) RETURNING id,code,name,active`, companyID, in.Code, in.Name, in.WarehouseID).Scan(&response.ID, &response.Code, &response.Name, &response.Active)
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	out(w, 201, response)
@@ -123,7 +123,7 @@ func (h *Handler) openSession(w http.ResponseWriter, r *http.Request) {
 	}
 	err = h.pool.QueryRow(r.Context(), `INSERT INTO pos_sessions(company_id,terminal_id,cashier_id,opening_float) SELECT $1,id,$2,$3 FROM pos_terminals WHERE id=$4 AND company_id=$1 AND active RETURNING id,terminal_id,cashier_id,opening_float,status`, companyID, uid, in.OpeningFloat, terminalID).Scan(&response.ID, &response.TerminalID, &response.CashierID, &response.OpeningFloat, &response.Status)
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	out(w, 201, response)
@@ -157,7 +157,7 @@ func (h *Handler) closeSession(w http.ResponseWriter, r *http.Request) {
 	}
 	err = h.pool.QueryRow(r.Context(), `WITH expected AS (SELECT s.id,s.opening_float+COALESCE(SUM(CASE WHEN p.method='CASH' THEN p.amount ELSE 0 END),0) expected_amount FROM pos_sessions s LEFT JOIN pos_tickets t ON t.session_id=s.id AND t.company_id=$1 LEFT JOIN pos_payments p ON p.ticket_id=t.id WHERE s.id=$2 AND s.company_id=$1 AND s.cashier_id=$3 AND s.status='OPEN' GROUP BY s.id) UPDATE pos_sessions s SET closing_amount=$4,variance=$4-e.expected_amount,status='CLOSED',closed_at=NOW() FROM expected e WHERE s.id=e.id RETURNING s.id,s.closing_amount,s.variance,s.status`, companyID, sessionID, uid, in.ClosingAmount).Scan(&response.ID, &response.ClosingAmount, &response.Variance, &response.Status)
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	out(w, 200, response)
@@ -200,7 +200,7 @@ func (h *Handler) createTicket(w http.ResponseWriter, r *http.Request) {
 	in.ID = u
 	t, e := h.service.CreateTicket(r.Context(), in)
 	if e != nil {
-		http.Error(w, e.Error(), 400)
+		shared.WriteErrorStatus(w, 400, e)
 		return
 	}
 	out(w, 201, t)
@@ -227,7 +227,7 @@ func (h *Handler) payment(w http.ResponseWriter, r *http.Request) {
 	p.TicketID = id
 	p2, e := h.service.AddPayment(r.Context(), c, id, p)
 	if e != nil {
-		http.Error(w, e.Error(), 400)
+		shared.WriteErrorStatus(w, 400, e)
 		return
 	}
 	if h.stock != nil && h.pool != nil {
@@ -244,7 +244,7 @@ func (h *Handler) payment(w http.ResponseWriter, r *http.Request) {
 						var qty float64
 						if rows.Scan(&lineID, &productID, &qty) == nil {
 							if _, qerr = h.stock.PostAdjustment(r.Context(), inventory.AdjustmentInput{Code: fmt.Sprintf("POS-SALE-%d-%d", id, lineID), WarehouseID: warehouse, ProductID: productID, Qty: -qty, Note: "POS sale", ActorID: u, RefModule: "POS"}); qerr != nil {
-								http.Error(w, qerr.Error(), 400)
+								shared.WriteErrorStatus(w, 400, qerr)
 								return
 							}
 						}
@@ -258,7 +258,7 @@ func (h *Handler) payment(w http.ResponseWriter, r *http.Request) {
 		var currency, baseCurrency, status string
 		err := h.pool.QueryRow(r.Context(), `SELECT t.total::float8,t.currency,c.base_currency,CASE WHEN t.currency=c.base_currency THEN 1 ELSE fx.rate END,t.status FROM pos_tickets t JOIN companies c ON c.id=t.company_id LEFT JOIN LATERAL (SELECT rate FROM fx_daily_rates WHERE base_currency=c.base_currency AND quote_currency=t.currency AND rate_date<=CURRENT_DATE ORDER BY rate_date DESC LIMIT 1) fx ON TRUE WHERE t.id=$1 AND t.company_id=$2`, id, c).Scan(&amount, &currency, &baseCurrency, &rate, &status)
 		if err != nil {
-			http.Error(w, err.Error(), 400)
+			shared.WriteErrorStatus(w, 400, err)
 			return
 		}
 		if status != "COMPLETED" {
@@ -271,7 +271,7 @@ func (h *Handler) payment(w http.ResponseWriter, r *http.Request) {
 		}
 		baseAmount = amount * rate
 		if err := h.ledger.HandlePOSSalePosted(r.Context(), SalePostedEvent{TicketID: id, CompanyID: c, ActorID: u, Amount: amount, BaseAmount: baseAmount, Currency: currency, BaseCurrency: baseCurrency}); err != nil {
-			http.Error(w, err.Error(), 400)
+			shared.WriteErrorStatus(w, 400, err)
 			return
 		}
 	}
@@ -294,7 +294,7 @@ func (h *Handler) refund(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if e != nil {
-		http.Error(w, e.Error(), 400)
+		shared.WriteErrorStatus(w, 400, e)
 		return
 	}
 	if h.stock != nil && h.pool != nil {
@@ -312,7 +312,7 @@ func (h *Handler) refund(w http.ResponseWriter, r *http.Request) {
 							_, err := h.stock.PostAdjustment(r.Context(), inventory.AdjustmentInput{Code: fmt.Sprintf("POS-REFUND-%d-%d", id, lineID), WarehouseID: warehouse, ProductID: productID, Qty: qty, Note: "POS refund", ActorID: u, RefModule: "POS"})
 							return err
 						}(); qerr != nil {
-							http.Error(w, qerr.Error(), 400)
+							shared.WriteErrorStatus(w, 400, qerr)
 							return
 						}
 					}
@@ -324,7 +324,7 @@ func (h *Handler) refund(w http.ResponseWriter, r *http.Request) {
 		var amount, rate float64
 		var currency, baseCurrency string
 		if err := h.pool.QueryRow(r.Context(), `SELECT t.total::float8,t.currency,c.base_currency,CASE WHEN t.currency=c.base_currency THEN 1 ELSE fx.rate END FROM pos_tickets t JOIN companies c ON c.id=t.company_id LEFT JOIN LATERAL (SELECT rate FROM fx_daily_rates WHERE base_currency=c.base_currency AND quote_currency=t.currency AND rate_date<=CURRENT_DATE ORDER BY rate_date DESC LIMIT 1) fx ON TRUE WHERE t.id=$1 AND t.company_id=$2`, id, c).Scan(&amount, &currency, &baseCurrency, &rate); err != nil {
-			http.Error(w, err.Error(), 400)
+			shared.WriteErrorStatus(w, 400, err)
 			return
 		}
 		if rate <= 0 {
@@ -332,7 +332,7 @@ func (h *Handler) refund(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if err := h.ledger.HandlePOSRefunded(r.Context(), SalePostedEvent{TicketID: id, CompanyID: c, ActorID: u, Amount: amount, BaseAmount: amount * rate, Currency: currency, BaseCurrency: baseCurrency}); err != nil {
-			http.Error(w, err.Error(), 400)
+			shared.WriteErrorStatus(w, 400, err)
 			return
 		}
 	}
@@ -351,13 +351,13 @@ func (h *Handler) createHardware(w http.ResponseWriter, r *http.Request) {
 	}
 	var in POSHardware
 	if err := shared.DecodeJSON(r, &in); err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	_ = cid // POSHardware doesn't have CompanyID currently
 	created, err := h.service.CreatePOSHardware(r.Context(), in)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
 	shared.JSONResponse(w, 201, created)
@@ -371,13 +371,13 @@ func (h *Handler) createLoyaltyMember(w http.ResponseWriter, r *http.Request) {
 	}
 	var in LoyaltyMember
 	if err := shared.DecodeJSON(r, &in); err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	in.CompanyID = cid
 	created, err := h.service.CreateLoyaltyMember(r.Context(), in)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
 	shared.JSONResponse(w, 201, created)
@@ -391,13 +391,13 @@ func (h *Handler) createGiftCard(w http.ResponseWriter, r *http.Request) {
 	}
 	var in GiftCard
 	if err := shared.DecodeJSON(r, &in); err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	in.CompanyID = cid
 	created, err := h.service.CreateGiftCard(r.Context(), in)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
 	shared.JSONResponse(w, 201, created)

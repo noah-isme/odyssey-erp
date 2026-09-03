@@ -165,7 +165,7 @@ func (h *Handler) sourcingError(w http.ResponseWriter, err error) {
 	if err == ErrNotFound {
 		status = http.StatusNotFound
 	}
-	http.Error(w, shared.UserSafeMessage(err), status)
+	shared.WriteErrorStatus(w, status, err)
 }
 func writeSourcingJSON(w http.ResponseWriter, status int, value any) {
 	w.Header().Set("Content-Type", "application/json")

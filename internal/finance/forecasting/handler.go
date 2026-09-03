@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
+	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 )
 
 type Handler struct {
@@ -24,10 +24,9 @@ func (h *Handler) MountRoutes(r chi.Router) {
 }
 
 func (h *Handler) GetLatestRun(w http.ResponseWriter, r *http.Request) {
-	companyIDStr := r.URL.Query().Get("company_id")
-	companyID, _ := strconv.ParseInt(companyIDStr, 10, 64)
-	if companyID == 0 {
-		http.Error(w, "missing company_id", http.StatusBadRequest)
+	identity, ok := shared.IdentityFromContext(r.Context())
+	if !ok {
+		http.Error(w, "authentication required", http.StatusUnauthorized)
 		return
 	}
 
@@ -38,27 +37,27 @@ func (h *Handler) GetLatestRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	run, err := h.service.repo.GetLatestForecastRun(r.Context(), sqlc.GetLatestForecastRunParams{
-		CompanyID:  companyID,
+	run, err := h.service.repo.GetLatestForecastRun(r.Context(), ForecastRunQuery{
+		CompanyID:  identity.CompanyID,
 		ScenarioID: scenarioID,
 	})
 	if err != nil {
-		http.Error(w, "not found or error: "+err.Error(), http.StatusNotFound)
+		shared.WriteErrorStatus(w, http.StatusNotFound, err)
 		return
 	}
 
 	buckets, err := h.service.repo.ListForecastDailyBucketsByRun(r.Context(), run.ID)
 	if err != nil {
-		http.Error(w, "failed to list buckets: "+err.Error(), http.StatusInternalServerError)
+		shared.WriteErrorStatus(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	isFresh := time.Since(run.CompletedAt.Time) < 24*time.Hour
+	isFresh := time.Since(run.CompletedAt) < 24*time.Hour
 
 	response := struct {
-		Run     sqlc.ForecastRun           `json:"run"`
-		IsFresh bool                       `json:"is_fresh"`
-		Buckets []sqlc.ForecastDailyBucket `json:"buckets"`
+		Run     ForecastRun           `json:"run"`
+		IsFresh bool                  `json:"is_fresh"`
+		Buckets []ForecastDailyBucket `json:"buckets"`
 	}{
 		Run:     run,
 		IsFresh: isFresh,
@@ -70,20 +69,23 @@ func (h *Handler) GetLatestRun(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) TriggerRun(w http.ResponseWriter, r *http.Request) {
-	companyIDStr := r.URL.Query().Get("company_id")
-	companyID, _ := strconv.ParseInt(companyIDStr, 10, 64)
+	identity, ok := shared.IdentityFromContext(r.Context())
+	if !ok {
+		http.Error(w, "authentication required", http.StatusUnauthorized)
+		return
+	}
 
 	scenarioIDStr := r.URL.Query().Get("scenario_id")
 	scenarioID, _ := strconv.ParseInt(scenarioIDStr, 10, 64)
 
-	if companyID == 0 || scenarioID == 0 {
-		http.Error(w, "missing company_id or scenario_id", http.StatusBadRequest)
+	if scenarioID <= 0 {
+		http.Error(w, "missing scenario_id", http.StatusBadRequest)
 		return
 	}
 
-	err := h.service.GenerateSnapshot(r.Context(), companyID, scenarioID)
+	err := h.service.GenerateSnapshot(r.Context(), identity.CompanyID, scenarioID)
 	if err != nil {
-		http.Error(w, "failed to generate snapshot: "+err.Error(), http.StatusInternalServerError)
+		shared.WriteErrorStatus(w, http.StatusInternalServerError, err)
 		return
 	}
 

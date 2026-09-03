@@ -2,7 +2,11 @@
 
 ## Current status
 
-**Implemented.** Odyssey includes a secure external Portal system providing self-service access to customers, suppliers, and employees. The core logic is located in `internal/portal/`.
+**Core foundation implemented; self-service depth is partial.** Odyssey includes a
+secure external Portal system with authenticated customer, supplier, and employee
+views. The core logic is located in `internal/portal/`; profile changes, RFQ
+negotiation, chat, analytics, and broader self-service remain outside the certified
+scope.
 
 ## Supported scope
 

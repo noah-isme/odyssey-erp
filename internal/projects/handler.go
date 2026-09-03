@@ -73,7 +73,7 @@ func (h *Handler) createProject(w http.ResponseWriter, r *http.Request) {
 	}
 	err := h.pool.QueryRow(r.Context(), `INSERT INTO projects(company_id,code,name,currency,status,manager_id,created_by) VALUES($1,$2,$3,$4,'OPEN',$5,$6) RETURNING id,code,name,currency,status`, c, in.Code, in.Name, in.Currency, in.ManagerID, u).Scan(&response.ID, &response.Code, &response.Name, &response.Currency, &response.Status)
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	jsonOut(w, 201, response)
@@ -105,7 +105,7 @@ func (h *Handler) createTask(w http.ResponseWriter, r *http.Request) {
 	}
 	err = h.pool.QueryRow(r.Context(), `INSERT INTO project_tasks(project_id,code,name) SELECT id,$2,$3 FROM projects WHERE id=$1 AND company_id=$4 RETURNING id,project_id,code,name,status`, projectID, in.Code, in.Name, c).Scan(&response.ID, &response.ProjectID, &response.Code, &response.Name, &response.Status)
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
 	jsonOut(w, 201, response)
@@ -148,7 +148,7 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 	s.EmployeeID = u
 	out, e := h.service.CreateTimesheet(r.Context(), s)
 	if e != nil {
-		http.Error(w, e.Error(), 400)
+		shared.WriteErrorStatus(w, 400, e)
 		return
 	}
 	jsonOut(w, 201, out)
@@ -170,7 +170,7 @@ func (h *Handler) transition(w http.ResponseWriter, r *http.Request, fn func(con
 		return
 	}
 	if e != nil {
-		http.Error(w, e.Error(), 400)
+		shared.WriteErrorStatus(w, 400, e)
 		return
 	}
 	jsonOut(w, 200, s)
@@ -202,7 +202,7 @@ func (h *Handler) createMilestone(w http.ResponseWriter, r *http.Request) {
 	}
 	created, err := h.service.CreateMilestone(r.Context(), in)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
 	shared.JSONResponse(w, http.StatusCreated, created)
@@ -220,7 +220,7 @@ func (h *Handler) allocateResource(w http.ResponseWriter, r *http.Request) {
 	}
 	created, err := h.service.AllocateResource(r.Context(), in)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
 	shared.JSONResponse(w, http.StatusCreated, created)
@@ -238,7 +238,7 @@ func (h *Handler) submitExpense(w http.ResponseWriter, r *http.Request) {
 	}
 	created, err := h.service.SubmitExpense(r.Context(), in)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		shared.WriteErrorStatus(w, 500, err)
 		return
 	}
 	shared.JSONResponse(w, http.StatusCreated, created)

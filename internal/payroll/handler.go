@@ -87,7 +87,7 @@ func (h *Handler) bankCSV(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	data, err := h.service.BankCSV(r.Context(), id)
 	if err != nil {
-		shared.WriteHTTPError(w, http.StatusConflict, shared.UserSafeMessage(err))
+		shared.WriteErrorStatus(w, http.StatusConflict, err)
 		return
 	}
 	w.Header().Set("Content-Type", "text/csv")

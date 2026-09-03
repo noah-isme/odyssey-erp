@@ -33,17 +33,17 @@ type TxRepository interface {
 	GetBalanceForUpdate(ctx context.Context, warehouseID, productID int64) (Balance, error)
 	UpsertBalance(ctx context.Context, balance Balance) error
 	InsertCardEntry(ctx context.Context, card StockCardEntry, warehouseID, productID int64, txID int64) error
-	InsertStockTake(ctx context.Context, arg sqlc.InsertStockTakeParams) (int64, error)
-	InsertStockTakeLine(ctx context.Context, arg sqlc.InsertStockTakeLineParams) error
+	InsertStockTake(ctx context.Context, input StockTakeInsert) (int64, error)
+	InsertStockTakeLine(ctx context.Context, input StockTakeLineInsert) error
 	GetStockTake(ctx context.Context, id int64) (StockTake, error)
-	UpdateStockTakeStatus(ctx context.Context, arg sqlc.UpdateStockTakeStatusParams) error
+	UpdateStockTakeStatus(ctx context.Context, update StockTakeStatusUpdate) error
 
 	// Stock Adjustments
-	InsertAdjustment(ctx context.Context, arg sqlc.InsertAdjustmentParams) (int64, error)
+	InsertAdjustment(ctx context.Context, input AdjustmentInsert) (int64, error)
 	GetAdjustment(ctx context.Context, id int64) (StockAdjustment, error)
-	InsertAdjustmentLine(ctx context.Context, arg sqlc.InsertAdjustmentLineParams) error
+	InsertAdjustmentLine(ctx context.Context, input AdjustmentLineInsert) error
 	GetAdjustmentLines(ctx context.Context, adjustmentID int64) ([]StockAdjustmentLine, error)
-	UpdateAdjustmentStatus(ctx context.Context, arg sqlc.UpdateAdjustmentStatusParams) error
+	UpdateAdjustmentStatus(ctx context.Context, update AdjustmentStatusUpdate) error
 	GetProductTraceability(ctx context.Context, productID int64) (ProductTraceability, error)
 	UpsertLot(ctx context.Context, lot InventoryLot) (InventoryLot, error)
 	CreateSerial(ctx context.Context, productID, warehouseID, lotID int64, serialNumber string) error
@@ -144,8 +144,13 @@ func (r *Repository) ListStockTakes(ctx context.Context) ([]StockTake, error) {
 	return res, nil
 }
 
-func (r *Repository) UpdateStockTakeStatus(ctx context.Context, arg sqlc.UpdateStockTakeStatusParams) error {
-	return r.queries.UpdateStockTakeStatus(ctx, arg)
+func (r *Repository) UpdateStockTakeStatus(ctx context.Context, update StockTakeStatusUpdate) error {
+	return r.queries.UpdateStockTakeStatus(ctx, sqlc.UpdateStockTakeStatusParams{
+		ID:       update.ID,
+		Status:   string(update.Status),
+		PostedBy: pgtype.Int8{Int64: update.PostedBy, Valid: update.PostedBy != 0},
+		PostedAt: pgtype.Timestamptz{Time: update.PostedAt, Valid: !update.PostedAt.IsZero()},
+	})
 }
 
 func (r *Repository) GetValuation(ctx context.Context, warehouseID int64) ([]ValuationEntry, error) {
@@ -169,8 +174,21 @@ func (r *Repository) GetValuation(ctx context.Context, warehouseID int64) ([]Val
 	return res, nil
 }
 
-func (r *Repository) GetStockBalance(ctx context.Context, arg sqlc.GetStockBalanceParams) (sqlc.InventoryBalance, error) {
-	return r.queries.GetStockBalance(ctx, arg)
+func (r *Repository) GetStockBalance(ctx context.Context, query StockBalanceQuery) (StockBalanceResult, error) {
+	row, err := r.queries.GetStockBalance(ctx, sqlc.GetStockBalanceParams{
+		WarehouseID: query.WarehouseID,
+		ProductID:   query.ProductID,
+	})
+	if err != nil {
+		return StockBalanceResult{}, err
+	}
+	return StockBalanceResult{
+		WarehouseID: row.WarehouseID,
+		ProductID:   row.ProductID,
+		Qty:         numericToFloat(row.Qty),
+		AvgCost:     numericToFloat(row.AvgCost),
+		UpdatedAt:   row.UpdatedAt.Time,
+	}, nil
 }
 
 func (r *Repository) GetReorderAlerts(ctx context.Context) ([]ReorderAlert, error) {
@@ -340,12 +358,25 @@ func (r *txRepo) InsertCardEntry(ctx context.Context, card StockCardEntry, wareh
 	})
 }
 
-func (r *txRepo) InsertStockTake(ctx context.Context, arg sqlc.InsertStockTakeParams) (int64, error) {
-	return r.queries.InsertStockTake(ctx, arg)
+func (r *txRepo) InsertStockTake(ctx context.Context, input StockTakeInsert) (int64, error) {
+	return r.queries.InsertStockTake(ctx, sqlc.InsertStockTakeParams{
+		Number:      input.Number,
+		WarehouseID: int32(input.WarehouseID),
+		Status:      string(input.Status),
+		Note:        input.Note,
+		TakenAt:     pgtype.Timestamptz{Time: input.TakenAt, Valid: !input.TakenAt.IsZero()},
+		CreatedBy:   input.CreatedBy,
+	})
 }
 
-func (r *txRepo) InsertStockTakeLine(ctx context.Context, arg sqlc.InsertStockTakeLineParams) error {
-	return r.queries.InsertStockTakeLine(ctx, arg)
+func (r *txRepo) InsertStockTakeLine(ctx context.Context, input StockTakeLineInsert) error {
+	return r.queries.InsertStockTakeLine(ctx, sqlc.InsertStockTakeLineParams{
+		StockTakeID: input.StockTakeID,
+		ProductID:   int32(input.ProductID),
+		SystemQty:   floatToNumeric(input.SystemQty),
+		PhysicalQty: floatToNumeric(input.PhysicalQty),
+		Note:        input.Note,
+	})
 }
 
 func (r *txRepo) GetStockTake(ctx context.Context, id int64) (StockTake, error) {
@@ -387,14 +418,26 @@ func (r *txRepo) GetStockTake(ctx context.Context, id int64) (StockTake, error) 
 	return st, nil
 }
 
-func (r *txRepo) UpdateStockTakeStatus(ctx context.Context, arg sqlc.UpdateStockTakeStatusParams) error {
-	return r.queries.UpdateStockTakeStatus(ctx, arg)
+func (r *txRepo) UpdateStockTakeStatus(ctx context.Context, update StockTakeStatusUpdate) error {
+	return r.queries.UpdateStockTakeStatus(ctx, sqlc.UpdateStockTakeStatusParams{
+		ID:       update.ID,
+		Status:   string(update.Status),
+		PostedBy: pgtype.Int8{Int64: update.PostedBy, Valid: update.PostedBy != 0},
+		PostedAt: pgtype.Timestamptz{Time: update.PostedAt, Valid: !update.PostedAt.IsZero()},
+	})
 }
 
 // --- Stock Adjustments (Transactional) ---
 
-func (r *txRepo) InsertAdjustment(ctx context.Context, arg sqlc.InsertAdjustmentParams) (int64, error) {
-	return r.queries.InsertAdjustment(ctx, arg)
+func (r *txRepo) InsertAdjustment(ctx context.Context, input AdjustmentInsert) (int64, error) {
+	return r.queries.InsertAdjustment(ctx, sqlc.InsertAdjustmentParams{
+		Number:       input.Number,
+		WarehouseID:  int32(input.WarehouseID),
+		Status:       string(input.Status),
+		Note:         input.Note,
+		AdjustmentAt: pgtype.Timestamptz{Time: input.AdjustmentAt, Valid: !input.AdjustmentAt.IsZero()},
+		CreatedBy:    input.CreatedBy,
+	})
 }
 
 func (r *txRepo) GetAdjustment(ctx context.Context, id int64) (StockAdjustment, error) {
@@ -405,8 +448,13 @@ func (r *txRepo) GetAdjustment(ctx context.Context, id int64) (StockAdjustment, 
 	return mapRowToAdjustment(row), nil
 }
 
-func (r *txRepo) InsertAdjustmentLine(ctx context.Context, arg sqlc.InsertAdjustmentLineParams) error {
-	return r.queries.InsertAdjustmentLine(ctx, arg)
+func (r *txRepo) InsertAdjustmentLine(ctx context.Context, input AdjustmentLineInsert) error {
+	return r.queries.InsertAdjustmentLine(ctx, sqlc.InsertAdjustmentLineParams{
+		AdjustmentID: input.AdjustmentID,
+		ProductID:    int32(input.ProductID),
+		Qty:          floatToNumeric(input.Qty),
+		Note:         input.Note,
+	})
 }
 
 func (r *txRepo) GetAdjustmentLines(ctx context.Context, adjustmentID int64) ([]StockAdjustmentLine, error) {
@@ -427,8 +475,13 @@ func (r *txRepo) GetAdjustmentLines(ctx context.Context, adjustmentID int64) ([]
 	return lines, nil
 }
 
-func (r *txRepo) UpdateAdjustmentStatus(ctx context.Context, arg sqlc.UpdateAdjustmentStatusParams) error {
-	return r.queries.UpdateAdjustmentStatus(ctx, arg)
+func (r *txRepo) UpdateAdjustmentStatus(ctx context.Context, update AdjustmentStatusUpdate) error {
+	return r.queries.UpdateAdjustmentStatus(ctx, sqlc.UpdateAdjustmentStatusParams{
+		ID:       update.ID,
+		Status:   string(update.Status),
+		PostedBy: pgtype.Int8{Int64: update.PostedBy, Valid: update.PostedBy != 0},
+		PostedAt: pgtype.Timestamptz{Time: update.PostedAt, Valid: !update.PostedAt.IsZero()},
+	})
 }
 
 func (r *txRepo) InsertIdempotencyKey(ctx context.Context, key, module string) error {
@@ -438,8 +491,15 @@ func (r *txRepo) InsertIdempotencyKey(ctx context.Context, key, module string) e
 
 // --- Stock Adjustments (Main) ---
 
-func (r *Repository) InsertAdjustment(ctx context.Context, arg sqlc.InsertAdjustmentParams) (int64, error) {
-	return r.queries.InsertAdjustment(ctx, arg)
+func (r *Repository) InsertAdjustment(ctx context.Context, input AdjustmentInsert) (int64, error) {
+	return r.queries.InsertAdjustment(ctx, sqlc.InsertAdjustmentParams{
+		Number:       input.Number,
+		WarehouseID:  int32(input.WarehouseID),
+		Status:       string(input.Status),
+		Note:         input.Note,
+		AdjustmentAt: pgtype.Timestamptz{Time: input.AdjustmentAt, Valid: !input.AdjustmentAt.IsZero()},
+		CreatedBy:    input.CreatedBy,
+	})
 }
 
 func (r *Repository) GetAdjustment(ctx context.Context, id int64) (StockAdjustment, error) {
@@ -487,8 +547,13 @@ func (r *Repository) ListAdjustments(ctx context.Context) ([]StockAdjustment, er
 	return res, nil
 }
 
-func (r *Repository) InsertAdjustmentLine(ctx context.Context, arg sqlc.InsertAdjustmentLineParams) error {
-	return r.queries.InsertAdjustmentLine(ctx, arg)
+func (r *Repository) InsertAdjustmentLine(ctx context.Context, input AdjustmentLineInsert) error {
+	return r.queries.InsertAdjustmentLine(ctx, sqlc.InsertAdjustmentLineParams{
+		AdjustmentID: input.AdjustmentID,
+		ProductID:    int32(input.ProductID),
+		Qty:          floatToNumeric(input.Qty),
+		Note:         input.Note,
+	})
 }
 
 func (r *Repository) GetAdjustmentLines(ctx context.Context, adjustmentID int64) ([]StockAdjustmentLine, error) {
@@ -510,15 +575,28 @@ func (r *Repository) GetAdjustmentLines(ctx context.Context, adjustmentID int64)
 	return res, nil
 }
 
-func (r *Repository) UpdateAdjustmentStatus(ctx context.Context, arg sqlc.UpdateAdjustmentStatusParams) error {
-	return r.queries.UpdateAdjustmentStatus(ctx, arg)
+func (r *Repository) UpdateAdjustmentStatus(ctx context.Context, update AdjustmentStatusUpdate) error {
+	return r.queries.UpdateAdjustmentStatus(ctx, sqlc.UpdateAdjustmentStatusParams{
+		ID:       update.ID,
+		Status:   string(update.Status),
+		PostedBy: pgtype.Int8{Int64: update.PostedBy, Valid: update.PostedBy != 0},
+		PostedAt: pgtype.Timestamptz{Time: update.PostedAt, Valid: !update.PostedAt.IsZero()},
+	})
 }
 
-func (r *Repository) GetInboundHistory(ctx context.Context, productID int64, warehouseID int64) ([]sqlc.GetInboundHistoryRow, error) {
-	return r.queries.GetInboundHistory(ctx, sqlc.GetInboundHistoryParams{
+func (r *Repository) GetInboundHistory(ctx context.Context, productID int64, warehouseID int64) ([]InboundHistoryRow, error) {
+	rows, err := r.queries.GetInboundHistory(ctx, sqlc.GetInboundHistoryParams{
 		ProductID:      productID,
 		DstWarehouseID: pgtype.Int8{Int64: warehouseID, Valid: true},
 	})
+	if err != nil {
+		return nil, err
+	}
+	result := make([]InboundHistoryRow, 0, len(rows))
+	for _, row := range rows {
+		result = append(result, InboundHistoryRow{Qty: numericToFloat(row.Qty), UnitCost: numericToFloat(row.UnitCost), PostedAt: row.PostedAt.Time})
+	}
+	return result, nil
 }
 
 func mapRowToAdjustment(row sqlc.GetAdjustmentRow) StockAdjustment {

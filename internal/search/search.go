@@ -20,6 +20,10 @@ type SearchResult struct {
 	URL      string `json:"url"`
 }
 
+type searchService interface {
+	Search(ctx context.Context, query string, limit int) ([]SearchResult, error)
+}
+
 type Service struct {
 	pool *pgxpool.Pool
 }
@@ -168,10 +172,10 @@ func itoa(i int64) string {
 
 type Handler struct {
 	logger  *slog.Logger
-	service *Service
+	service searchService
 }
 
-func NewHandler(logger *slog.Logger, service *Service) *Handler {
+func NewHandler(logger *slog.Logger, service searchService) *Handler {
 	return &Handler{logger: logger, service: service}
 }
 

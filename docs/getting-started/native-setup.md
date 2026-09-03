@@ -5,7 +5,7 @@ local infrastructure.
 
 ## Prerequisites
 
-- Go 1.24+
+- Go 1.25+
 - Docker with the Compose plugin
 - `migrate`, `sqlc`, and optionally Air (`make migrate-up`, `make sqlc-gen`, and
   `make air` use binaries from `~/go/bin` by default)

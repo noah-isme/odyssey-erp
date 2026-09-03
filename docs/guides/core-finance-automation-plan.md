@@ -2,7 +2,7 @@
 
 **Priority:** High
 
-**Status:** Planned (execution-ready)
+**Status:** Partially implemented (foundation and first treasury slice)
 
 **Scope:** Cash forecasting, automated bank feeds, payment scheduling, end-to-end
 purchase-to-pay automation, and fixed-asset maintenance, transfer, location, and
@@ -33,6 +33,12 @@ Extend the current modules instead of creating replacement ledgers:
 
 - `internal/finance/banking/` owns bank accounts, transactions, transfers, and CSV/OFX
   imports.
+- `internal/finance/bankfeeds/` owns company-scoped provider connections, signed webhook
+  inbox records, incremental sync, and convergence into normalized banking imports.
+- `internal/finance/forecasting/` owns forecast runs, database-backed source readers,
+  daily roll-forward buckets, and persisted FX snapshots.
+- `internal/finance/treasury/` owns supplier bank verification, tenant-scoped payment
+  batches, beneficiary controls, and batch-total aggregation.
 - `internal/accounting/banks/` owns statements and reconciliation.
 - `internal/procurement/` owns purchase requests, purchase orders, approvals, goods
   receipts, and supplier returns.
@@ -79,7 +85,7 @@ Extend the current owners and add narrow packages only where a new domain has no
 | Bank accounts and normalized transactions | Finance banking | `internal/finance/banking/` |
 | Statements and reconciliation | Accounting banks | `internal/accounting/banks/` |
 | Provider connection and ingestion | New bank-feed application service | Proposed internal/finance/bankfeeds package; provider adapter location follows the external-integrations ADR |
-| Forecast scenarios and snapshots | New treasury forecast service | Proposed internal/finance/forecast package |
+| Forecast scenarios and snapshots | Treasury forecast service | `internal/finance/forecasting/` |
 | Payment proposals and execution | New treasury payment service | Proposed internal/finance/payments package; confirmed settlement calls `internal/ap/` |
 | PO, receipt, return, and line progress | Procurement | `internal/procurement/` |
 | Supplier invoice and allocations | Accounts payable | `internal/ap/` |
@@ -218,11 +224,20 @@ duplicate statement line or bank transaction and preserves existing behavior.
 
 **Duration:** Weeks 4–5
 
-- Add connection, external-account mapping, consent status/expiry, cursor, sync run,
+- [x] Add connection, external-account mapping, consent status/expiry, cursor, sync run,
   provider-event inbox, and connection-health records.
-- Implement polling and signed callback entry points that converge on T1 normalization.
+- [x] Implement a connection-scoped, verified callback inbox. Callback processing claims
+  the event, runs the same incremental sync as polling, and marks the event terminal only
+  after normalized banking import succeeds.
+- [x] Deduplicate repeated callback payloads by `(connection_id, payload_hash)` and
+  recover stale `PROCESSING` claims.
+- [x] Keep provider callbacks outside browser session/CSRF middleware; require the
+  connection-scoped provider verifier and fail closed on expired consent or missing
+  banking import dependencies.
 - Add scheduled sync, token/consent refresh handling, rate-limit backoff, replay, and
   disconnect behavior.
+- Provider adapters still need to implement `FeedPort` and `WebhookVerifier`; unsigned
+  or provider-only callbacks are rejected.
 - Add banking administration pages for connection health, mappings, run history,
   failure detail, retry, and reconnect.
 - Preserve manual import as a fallback.
@@ -238,9 +253,16 @@ company-isolation scenarios.
 - [x] Define scenario definitions and forecast engine structures.
 - [x] Create `000101_finance_cash_forecast` migration.
 - [x] Wire background jobs in `jobs/cash_forecast.go` for periodic snapshots.
-- Implement source readers for reconciled/current bank balances, open AR, posted AP,
-  approved payroll, tax obligations, approved payment batches, approved uninvoiced POs,
-  and recurring/manual adjustments.
+- [x] Implement database source readers for cleared/reconciled bank balances, open AR,
+  posted AP, and posted payroll. Overdue AR/AP is rolled into the first forecast day.
+- [x] Resolve the company base currency from `companies.base_currency` and persist the
+  dated FX rate/source snapshot used by the run; missing or stale rates fail the run.
+- [x] Roll opening balances and daily inflow/outflow through every day in the 13-week
+  horizon instead of calculating each bucket independently.
+- [x] Validate scenario ownership before creating a run; persist the exact FX rate/date/
+  source set used by the run.
+- Add source readers for tax obligations, approved payment batches, approved uninvoiced
+  POs, and recurring/manual adjustments.
 - Tag each source as committed or probable and calculate base, conservative, and
   optimistic scenarios without mixing categories invisibly.
 - Use stable source keys to replace an expected item with its actual payment/bank event
@@ -268,7 +290,7 @@ spreadsheet, with documented variance explanations and no unexplained source gap
 
 **Duration:** Week 3; can run alongside T1
 
-- Add effective-dated supplier bank accounts, verification state, independent approval,
+- [x] Add effective-dated supplier bank accounts, verification state, independent approval,
   evidence/reference, change audit, and automatic payment hold after sensitive changes.
 - Add payment calendars, cut-off times, bank/file format configuration, thresholds, and
   segregation policy.
@@ -283,6 +305,10 @@ maker/checker tests cover all configured incompatible roles.
 
 - [x] Add payment batches, items, proposed allocations, revisions, approval links, and
   immutable approved snapshots.
+- [x] Scope handler identity and every batch/beneficiary operation to the active session
+  company. Batch revisions recompute totals from active items in SQL.
+- [x] Revalidate beneficiary state and posted, unpaid AP invoice ownership/currency at
+  item creation and approval.
 - [x] Build proposal rules from posted AP balances, due/discount dates, holds, priority,
   currency, cash thresholds, account, cut-off, and holiday calendar.
 - [x] Revalidate invoice balance, supplier, beneficiary, currency/FX, period, approval, and

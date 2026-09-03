@@ -2,8 +2,12 @@ package whatsapp
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strings"
 
@@ -13,85 +17,118 @@ import (
 
 // Adapter implements the connectors.ProviderAdapter interface for WhatsApp.
 type Adapter struct {
-	logger *slog.Logger
-	vault  *shared.Vault
+	logger  *slog.Logger
+	vault   *shared.Vault
+	options connectors.ProviderOptions
 }
 
-// NewAdapter creates a new WhatsApp integration adapter.
-func NewAdapter(logger *slog.Logger, vault *shared.Vault) *Adapter {
-	return &Adapter{
-		logger: logger,
-		vault:  vault,
+func NewAdapter(logger *slog.Logger, vault *shared.Vault, options ...connectors.ProviderOptions) *Adapter {
+	var opts connectors.ProviderOptions
+	if len(options) > 0 {
+		opts = options[0]
 	}
+	if opts.Vault == nil {
+		opts.Vault = vault
+	}
+	return &Adapter{logger: logger, vault: vault, options: opts}
+}
+
+type WhatsAppCredentials struct {
+	AccessToken   string `json:"access_token"`
+	PhoneNumberID string `json:"phone_number_id"`
+	AppSecret     string `json:"app_secret"`
+}
+
+func (a *Adapter) credentials(conn *connectors.Connection) (WhatsAppCredentials, error) {
+	options := a.options
+	if options.Vault == nil {
+		options.Vault = a.vault
+	}
+	secret, err := options.ResolveSecret(conn)
+	if err != nil {
+		return WhatsAppCredentials{}, err
+	}
+	var creds WhatsAppCredentials
+	if err := json.Unmarshal([]byte(secret), &creds); err != nil {
+		return WhatsAppCredentials{}, fmt.Errorf("whatsapp: invalid credential format: %w", err)
+	}
+	if strings.TrimSpace(creds.AccessToken) == "" || strings.TrimSpace(creds.PhoneNumberID) == "" {
+		return WhatsAppCredentials{}, errors.New("whatsapp: access_token and phone_number_id are required")
+	}
+	return creds, nil
 }
 
 func (a *Adapter) ValidateConnection(ctx context.Context, conn *connectors.Connection) error {
-	credsStr, err := conn.GetCredentials(a.vault)
-	if err != nil {
-		return err
+	if _, err := a.credentials(conn); err != nil {
+		return fmt.Errorf("whatsapp: validate credentials: %w", err)
 	}
-
-	var creds WhatsAppCredentials
-	if err := json.Unmarshal([]byte(credsStr), &creds); err != nil {
-		return errors.New("invalid credentials format")
-	}
-
-	if creds.AccessToken == "" || creds.PhoneNumberID == "" {
-		return errors.New("missing required credentials")
-	}
-
 	return nil
 }
 
 func (a *Adapter) CheckHealth(ctx context.Context, conn *connectors.Connection) (connectors.ConnectionStatus, error) {
-	// TODO: implement health check
+	creds, err := a.credentials(conn)
+	if err != nil {
+		return connectors.StatusActionRequired, err
+	}
+	if a.options.DevelopmentMode {
+		return connectors.StatusHealthy, nil
+	}
+	client := NewClientWithOptions(creds.AccessToken, creds.PhoneNumberID, a.options)
+	if err := client.CheckPhoneNumber(ctx); err != nil {
+		return connectors.StatusActionRequired, err
+	}
 	return connectors.StatusHealthy, nil
 }
 
 func (a *Adapter) RefreshToken(ctx context.Context, conn *connectors.Connection) error {
-	// WhatsApp Cloud API typically uses long-lived tokens
-	return nil
+	return connectors.ErrUnsupportedOperation
 }
 
+// VerifyCallbackSignature verifies WhatsApp Cloud API's X-Hub-Signature-256
+// HMAC envelope using the app secret stored with the connection.
 func (a *Adapter) VerifyCallbackSignature(ctx context.Context, conn *connectors.Connection, headers map[string]string, payload []byte) error {
-	_ = headers["X-Provider-Signature"]; signature := headers["X-Provider-Signature"]; _ = signature
-	// WhatsApp Cloud API signs webhooks with SHA256 HMAC using the App Secret
-	// Signature header format: "sha256=..."
-	
-	// AppSecret is required, but we can't easily fetch it without the Connection here.
-	// For scaffolding, we will simulate verification. In a real system, the HTTP handler
-	// might pass the AppSecret directly or resolve it prior.
-	
+	creds, err := a.credentials(conn)
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(creds.AppSecret) == "" {
+		return errors.New("whatsapp: app_secret is required for callbacks")
+	}
+	signature := connectors.Header(headers, "X-Hub-Signature-256", "X-Provider-Signature")
 	if signature == "" {
-		return errors.New("missing signature")
+		return errors.New("whatsapp: missing callback signature")
 	}
-	
-	parts := strings.Split(signature, "=")
-	if len(parts) != 2 || parts[0] != "sha256" {
-		return errors.New("invalid signature format")
+	prefix, encoded, ok := strings.Cut(signature, "=")
+	if !ok || prefix != "sha256" || strings.TrimSpace(encoded) == "" {
+		return errors.New("whatsapp: invalid callback signature format")
 	}
-	
-	// simulatedAppSecret := "your_app_secret"
-	// h := hmac.New(sha256.New, []byte(simulatedAppSecret))
-	// h.Write(payload)
-	// expectedMac := hex.EncodeToString(h.Sum(nil))
-	// if !hmac.Equal([]byte(parts[1]), []byte(expectedMac)) {
-	// 	return errors.New("signature mismatch")
-	// }
-	
+	provided, err := hex.DecodeString(encoded)
+	if err != nil || len(provided) != sha256.Size {
+		return errors.New("whatsapp: invalid callback signature encoding")
+	}
+	h := hmac.New(sha256.New, []byte(creds.AppSecret))
+	_, _ = h.Write(payload)
+	if !hmac.Equal(provided, h.Sum(nil)) {
+		return errors.New("whatsapp: callback signature mismatch")
+	}
 	return nil
 }
 
 func (a *Adapter) ExecuteCommand(ctx context.Context, conn *connectors.Connection, cmd *connectors.OutboxCommand) error {
-	switch cmd.CommandType {
-	case "messaging.send":
-		return a.handleSendWhatsApp(ctx, conn, cmd)
-	default:
+	if cmd == nil {
+		return errors.New("whatsapp: command is required")
+	}
+	if cmd.CommandType != "messaging.send" {
 		return errors.New("unsupported command type for whatsapp")
 	}
+	if a.options.DevelopmentMode && strings.TrimSpace(conn.SecretRef) == "" {
+		a.logger.Info("WhatsApp message simulated in explicit development mode", slog.Int64("company_id", conn.CompanyID))
+		return nil
+	}
+	return a.handleSendWhatsApp(ctx, conn, cmd)
 }
 
-// WebhookPayload represents a WhatsApp Cloud API webhook structure
+// WebhookPayload represents a WhatsApp Cloud API webhook structure.
 type WebhookPayload struct {
 	Object string `json:"object"`
 	Entry  []struct {
@@ -105,7 +142,7 @@ type WebhookPayload struct {
 				} `json:"metadata"`
 				Statuses []struct {
 					ID        string `json:"id"`
-					Status    string `json:"status"` // sent, delivered, read, failed
+					Status    string `json:"status"`
 					Timestamp string `json:"timestamp"`
 				} `json:"statuses"`
 			} `json:"value"`
@@ -115,10 +152,12 @@ type WebhookPayload struct {
 }
 
 func (a *Adapter) TranslateWebhook(ctx context.Context, conn *connectors.Connection, headers map[string]string, payload []byte) ([]*connectors.CanonicalEvent, error) {
-	_ = headers["X-Provider-Event-Id"]; providerEventID := headers["X-Provider-Event-Id"]; _ = providerEventID
 	var notif WebhookPayload
 	if err := json.Unmarshal(payload, &notif); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("whatsapp: invalid webhook payload: %w", err)
+	}
+	if notif.Object != "whatsapp_business_account" && notif.Object != "" {
+		return nil, errors.New("whatsapp: unexpected webhook object")
 	}
 
 	var events []*connectors.CanonicalEvent
@@ -139,18 +178,19 @@ func (a *Adapter) TranslateWebhook(ctx context.Context, conn *connectors.Connect
 				case "failed":
 					eventType = "messaging.failed"
 				}
-
+				if strings.TrimSpace(status.ID) == "" {
+					return nil, errors.New("whatsapp: webhook message id is required")
+				}
 				events = append(events, &connectors.CanonicalEvent{
 					CompanyID:     conn.CompanyID,
 					ConnectionID:  conn.ID,
 					EventType:     eventType,
-					CorrelationID: status.ID, // Message ID
+					CorrelationID: status.ID,
 					Payload:       payload,
 				})
 			}
 		}
 	}
-
 	return events, nil
 }
 
@@ -159,39 +199,22 @@ type SendWhatsAppPayload struct {
 	Content string `json:"content"`
 }
 
-type WhatsAppCredentials struct {
-	AccessToken   string `json:"access_token"`
-	PhoneNumberID string `json:"phone_number_id"`
-	AppSecret     string `json:"app_secret"`
-}
-
 func (a *Adapter) handleSendWhatsApp(ctx context.Context, conn *connectors.Connection, cmd *connectors.OutboxCommand) error {
-	a.logger.Info("Executing messaging.send for WhatsApp", slog.Int64("company_id", conn.CompanyID))
-
-	// credsStr, err := conn.GetCredentials(a.vault)
-	// if err != nil {
-	// 	return err
-	// }
-	// For testing, simulate valid credentials
-	credsStr := `{"access_token":"simulated_token","phone_number_id":"simulated_phone_id"}`
-
-	var creds WhatsAppCredentials
-	if err := json.Unmarshal([]byte(credsStr), &creds); err != nil {
+	creds, err := a.credentials(conn)
+	if err != nil {
 		return err
 	}
-
 	var reqPayload SendWhatsAppPayload
 	if err := json.Unmarshal(cmd.Payload, &reqPayload); err != nil {
+		return fmt.Errorf("whatsapp: failed to parse send payload: %w", err)
+	}
+	client := NewClientWithOptions(creds.AccessToken, creds.PhoneNumberID, a.options)
+	key := cmd.CorrelationID
+	if cmd.ID > 0 {
+		key = fmt.Sprintf("odyssey-command-%d", cmd.ID)
+	}
+	if _, err := client.SendTextMessageWithIdempotency(ctx, reqPayload.To, reqPayload.Content, key); err != nil {
 		return err
 	}
-
-	client := NewClient(creds.AccessToken, creds.PhoneNumberID)
-	// Commeting out actual network call to prevent test failures on dummy data
-	// _, err := client.SendTextMessage(ctx, reqPayload.To, reqPayload.Content)
-	// if err != nil {
-	// 	return err
-	// }
-	_ = client
-
 	return nil
 }

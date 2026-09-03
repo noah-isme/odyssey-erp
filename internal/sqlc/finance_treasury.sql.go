@@ -11,6 +11,43 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const aPInvoiceEligibleForTreasuryPayment = `-- name: APInvoiceEligibleForTreasuryPayment :one
+SELECT EXISTS(
+    SELECT 1
+    FROM ap_invoices i
+    JOIN suppliers s ON s.id = i.supplier_id
+    WHERE i.id = $1
+      AND i.supplier_id = $2
+      AND s.company_id = $3
+      AND i.currency = $4
+      AND i.status = 'POSTED'
+      AND i.total > COALESCE((
+          SELECT SUM(pa.amount)
+          FROM ap_payment_allocations pa
+          WHERE pa.ap_invoice_id = i.id
+      ), 0)
+)
+`
+
+type APInvoiceEligibleForTreasuryPaymentParams struct {
+	ID         int64       `json:"id"`
+	SupplierID int64       `json:"supplier_id"`
+	CompanyID  pgtype.Int8 `json:"company_id"`
+	Currency   string      `json:"currency"`
+}
+
+func (q *Queries) APInvoiceEligibleForTreasuryPayment(ctx context.Context, arg APInvoiceEligibleForTreasuryPaymentParams) (bool, error) {
+	row := q.db.QueryRow(ctx, aPInvoiceEligibleForTreasuryPayment,
+		arg.ID,
+		arg.SupplierID,
+		arg.CompanyID,
+		arg.Currency,
+	)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const createTreasurySupplierBankAccount = `-- name: CreateTreasurySupplierBankAccount :one
 INSERT INTO treasury_supplier_bank_accounts (
     company_id, supplier_id, bank_name, account_number, routing_number, 
@@ -165,6 +202,24 @@ func (q *Queries) ListTreasurySupplierBankAccounts(ctx context.Context, arg List
 		return nil, err
 	}
 	return items, nil
+}
+
+const supplierBelongsToCompany = `-- name: SupplierBelongsToCompany :one
+SELECT EXISTS(
+    SELECT 1 FROM suppliers WHERE id = $1 AND company_id = $2
+)
+`
+
+type SupplierBelongsToCompanyParams struct {
+	ID        int64       `json:"id"`
+	CompanyID pgtype.Int8 `json:"company_id"`
+}
+
+func (q *Queries) SupplierBelongsToCompany(ctx context.Context, arg SupplierBelongsToCompanyParams) (bool, error) {
+	row := q.db.QueryRow(ctx, supplierBelongsToCompany, arg.ID, arg.CompanyID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }
 
 const updateTreasurySupplierBankAccountVerification = `-- name: UpdateTreasurySupplierBankAccountVerification :one

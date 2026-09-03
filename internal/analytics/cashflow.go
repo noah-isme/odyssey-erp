@@ -2,8 +2,6 @@ package analytics
 
 import (
 	"context"
-
-	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 )
 
 // CashflowTrendPoint captures monthly cash inflow and outflow.
@@ -13,25 +11,23 @@ type CashflowTrendPoint struct {
 	Out    float64
 }
 
+// MonthlyCashflowRow is the storage-neutral monthly cashflow row.
+type MonthlyCashflowRow struct {
+	Period string
+	In     float64
+	Out    float64
+}
+
 // GetCashflowTrend computes cash movement per month across the selected range.
 func (s *Service) GetCashflowTrend(ctx context.Context, filter TrendFilter) ([]CashflowTrendPoint, error) {
 	loader := func(ctx context.Context) (interface{}, error) {
-		rows, err := s.repo.MonthlyCashflow(ctx, sqlc.MonthlyCashflowParams{
-			FromPeriod: filter.From,
-			ToPeriod:   filter.To,
-			CompanyID:  filter.CompanyID,
-			BranchID:   optionalBranch(filter.BranchID),
-		})
+		rows, err := s.repo.MonthlyCashflow(ctx, filter)
 		if err != nil {
 			return nil, err
 		}
 		points := make([]CashflowTrendPoint, 0, len(rows))
 		for _, row := range rows {
-			points = append(points, CashflowTrendPoint{
-				Period: row.Period,
-				In:     row.CashIn,
-				Out:    row.CashOut,
-			})
+			points = append(points, CashflowTrendPoint(row))
 		}
 		return points, nil
 	}

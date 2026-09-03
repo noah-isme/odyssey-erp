@@ -24,20 +24,23 @@ func (h *Handler) MountRoutes(r chi.Router) {
 
 	r.Post("/batches", h.CreateBatch)
 	r.Post("/batches/{id}/items", h.AddBatchItem)
+	r.Delete("/batches/{id}/items/{item_id}", h.RemoveBatchItem)
 	r.Post("/batches/{id}/approve", h.ApproveBatch)
 	r.Post("/batches/{id}/export", h.ExportBatch)
 	r.Post("/batches/{id}/settle", h.SettleBatch)
 }
 
 func (h *Handler) AddBankAccount(w http.ResponseWriter, r *http.Request) {
-	companyIDStr := r.URL.Query().Get("company_id")
-	companyID, _ := strconv.ParseInt(companyIDStr, 10, 64)
-
-	supplierIDStr := chi.URLParam(r, "supplier_id")
-	supplierID, _ := strconv.ParseInt(supplierIDStr, 10, 64)
-
-	sess := shared.SessionFromContext(r.Context())
-	actorID, _ := strconv.ParseInt(sess.User(), 10, 64)
+	identity, ok := shared.IdentityFromContext(r.Context())
+	if !ok {
+		writeTreasuryError(w, http.StatusUnauthorized, shared.ErrUnauthorized)
+		return
+	}
+	supplierID, ok := treasuryParamID(r, "supplier_id")
+	if !ok {
+		writeTreasuryError(w, http.StatusBadRequest, shared.ErrInvalidInput)
+		return
+	}
 
 	var payload struct {
 		BankName      string `json:"bank_name"`
@@ -46,124 +49,206 @@ func (h *Handler) AddBankAccount(w http.ResponseWriter, r *http.Request) {
 		Currency      string `json:"currency"`
 		EvidenceRef   string `json:"evidence_ref"`
 	}
-
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		http.Error(w, "invalid payload", http.StatusBadRequest)
+		writeTreasuryError(w, http.StatusBadRequest, shared.ErrInvalidInput)
 		return
 	}
 
-	account, err := h.service.AddBankAccount(r.Context(), companyID, supplierID, actorID, payload.BankName, payload.AccountNumber, payload.RoutingNumber, payload.Currency, payload.EvidenceRef)
+	account, err := h.service.AddBankAccount(r.Context(), identity.CompanyID, supplierID, identity.UserID, payload.BankName, payload.AccountNumber, payload.RoutingNumber, payload.Currency, payload.EvidenceRef)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeTreasuryError(w, http.StatusBadRequest, err)
 		return
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(account)
+	writeTreasuryJSON(w, http.StatusCreated, account)
 }
 
 func (h *Handler) ApproveBankAccount(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	accountID, _ := strconv.ParseInt(idStr, 10, 64)
-
-	sess := shared.SessionFromContext(r.Context())
-	approverID, _ := strconv.ParseInt(sess.User(), 10, 64)
-
-	account, err := h.service.ApproveBankAccount(r.Context(), accountID, approverID)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusForbidden)
+	identity, ok := shared.IdentityFromContext(r.Context())
+	if !ok {
+		writeTreasuryError(w, http.StatusUnauthorized, shared.ErrUnauthorized)
+		return
+	}
+	accountID, ok := treasuryParamID(r, "id")
+	if !ok {
+		writeTreasuryError(w, http.StatusBadRequest, shared.ErrInvalidInput)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(account)
+	account, err := h.service.ApproveBankAccount(r.Context(), identity.CompanyID, accountID, identity.UserID)
+	if err != nil {
+		writeTreasuryError(w, http.StatusForbidden, err)
+		return
+	}
+	writeTreasuryJSON(w, http.StatusOK, account)
 }
 
 func (h *Handler) ListBankAccounts(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "not implemented yet", http.StatusNotImplemented)
+	identity, ok := shared.IdentityFromContext(r.Context())
+	if !ok {
+		writeTreasuryError(w, http.StatusUnauthorized, shared.ErrUnauthorized)
+		return
+	}
+	supplierID, ok := treasuryParamID(r, "supplier_id")
+	if !ok {
+		writeTreasuryError(w, http.StatusBadRequest, shared.ErrInvalidInput)
+		return
+	}
+
+	accounts, err := h.service.ListBankAccounts(r.Context(), identity.CompanyID, supplierID)
+	if err != nil {
+		writeTreasuryError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeTreasuryJSON(w, http.StatusOK, accounts)
 }
 
 func (h *Handler) CreateBatch(w http.ResponseWriter, r *http.Request) {
-	companyIDStr := r.URL.Query().Get("company_id")
-	companyID, _ := strconv.ParseInt(companyIDStr, 10, 64)
-
-	sess := shared.SessionFromContext(r.Context())
-	actorID, _ := strconv.ParseInt(sess.User(), 10, 64)
+	identity, ok := shared.IdentityFromContext(r.Context())
+	if !ok {
+		writeTreasuryError(w, http.StatusUnauthorized, shared.ErrUnauthorized)
+		return
+	}
 
 	var payload struct {
 		ReferenceCode string `json:"reference_code"`
 		Currency      string `json:"currency"`
 	}
-
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		http.Error(w, "invalid payload", http.StatusBadRequest)
+		writeTreasuryError(w, http.StatusBadRequest, shared.ErrInvalidInput)
 		return
 	}
 
-	batch, err := h.service.CreatePaymentBatch(r.Context(), companyID, payload.ReferenceCode, payload.Currency, actorID)
+	batch, err := h.service.CreatePaymentBatch(r.Context(), identity.CompanyID, payload.ReferenceCode, payload.Currency, identity.UserID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeTreasuryError(w, http.StatusBadRequest, err)
 		return
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(batch)
+	writeTreasuryJSON(w, http.StatusCreated, batch)
 }
 
 func (h *Handler) AddBatchItem(w http.ResponseWriter, r *http.Request) {
-	// Omitted fully functional request parsing for brevity, assuming similar to above
-	w.WriteHeader(http.StatusNotImplemented)
+	identity, ok := shared.IdentityFromContext(r.Context())
+	if !ok {
+		writeTreasuryError(w, http.StatusUnauthorized, shared.ErrUnauthorized)
+		return
+	}
+	batchID, ok := treasuryParamID(r, "id")
+	if !ok {
+		writeTreasuryError(w, http.StatusBadRequest, shared.ErrInvalidInput)
+		return
+	}
+
+	var payload struct {
+		SupplierID    int64   `json:"supplier_id"`
+		BankAccountID int64   `json:"bank_account_id"`
+		Amount        float64 `json:"amount"`
+		APInvoiceID   int64   `json:"ap_invoice_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeTreasuryError(w, http.StatusBadRequest, shared.ErrInvalidInput)
+		return
+	}
+
+	item, err := h.service.AddBatchItem(r.Context(), identity.CompanyID, batchID, payload.SupplierID, payload.BankAccountID, payload.Amount, payload.APInvoiceID)
+	if err != nil {
+		writeTreasuryError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeTreasuryJSON(w, http.StatusCreated, item)
+}
+
+func (h *Handler) RemoveBatchItem(w http.ResponseWriter, r *http.Request) {
+	identity, ok := shared.IdentityFromContext(r.Context())
+	if !ok {
+		writeTreasuryError(w, http.StatusUnauthorized, shared.ErrUnauthorized)
+		return
+	}
+	batchID, batchOK := treasuryParamID(r, "id")
+	itemID, itemOK := treasuryParamID(r, "item_id")
+	if !batchOK || !itemOK {
+		writeTreasuryError(w, http.StatusBadRequest, shared.ErrInvalidInput)
+		return
+	}
+	if err := h.service.RemoveBatchItem(r.Context(), identity.CompanyID, batchID, itemID); err != nil {
+		writeTreasuryError(w, http.StatusBadRequest, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) ApproveBatch(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	batchID, _ := strconv.ParseInt(idStr, 10, 64)
-
-	sess := shared.SessionFromContext(r.Context())
-	approverID, _ := strconv.ParseInt(sess.User(), 10, 64)
-
-	batch, err := h.service.ApproveBatch(r.Context(), batchID, approverID)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusForbidden)
+	identity, ok := shared.IdentityFromContext(r.Context())
+	if !ok {
+		writeTreasuryError(w, http.StatusUnauthorized, shared.ErrUnauthorized)
+		return
+	}
+	batchID, ok := treasuryParamID(r, "id")
+	if !ok {
+		writeTreasuryError(w, http.StatusBadRequest, shared.ErrInvalidInput)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(batch)
+	batch, err := h.service.ApproveBatch(r.Context(), identity.CompanyID, batchID, identity.UserID)
+	if err != nil {
+		writeTreasuryError(w, http.StatusForbidden, err)
+		return
+	}
+	writeTreasuryJSON(w, http.StatusOK, batch)
 }
 
 func (h *Handler) ExportBatch(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	batchID, _ := strconv.ParseInt(idStr, 10, 64)
-
-	sess := shared.SessionFromContext(r.Context())
-	actorID, _ := strconv.ParseInt(sess.User(), 10, 64)
-
-	encoder := &CSVEncoder{} // We can inject/configure this later based on bank policy
-	payload, err := h.service.ExportBatch(r.Context(), batchID, actorID, encoder)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	identity, ok := shared.IdentityFromContext(r.Context())
+	if !ok {
+		writeTreasuryError(w, http.StatusUnauthorized, shared.ErrUnauthorized)
+		return
+	}
+	batchID, ok := treasuryParamID(r, "id")
+	if !ok {
+		writeTreasuryError(w, http.StatusBadRequest, shared.ErrInvalidInput)
 		return
 	}
 
+	payload, err := h.service.ExportBatch(r.Context(), identity.CompanyID, batchID, identity.UserID, &CSVEncoder{})
+	if err != nil {
+		writeTreasuryError(w, http.StatusBadRequest, err)
+		return
+	}
 	w.Header().Set("Content-Type", "text/csv")
 	w.Header().Set("Content-Disposition", `attachment; filename="batch_export.csv"`)
 	_, _ = w.Write(payload)
 }
 
 func (h *Handler) SettleBatch(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	batchID, _ := strconv.ParseInt(idStr, 10, 64)
-
-	sess := shared.SessionFromContext(r.Context())
-	actorID, _ := strconv.ParseInt(sess.User(), 10, 64)
-
-	batch, err := h.service.SettleBatch(r.Context(), batchID, actorID)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	identity, ok := shared.IdentityFromContext(r.Context())
+	if !ok {
+		writeTreasuryError(w, http.StatusUnauthorized, shared.ErrUnauthorized)
+		return
+	}
+	batchID, ok := treasuryParamID(r, "id")
+	if !ok {
+		writeTreasuryError(w, http.StatusBadRequest, shared.ErrInvalidInput)
 		return
 	}
 
+	batch, err := h.service.SettleBatch(r.Context(), identity.CompanyID, batchID, identity.UserID)
+	if err != nil {
+		writeTreasuryError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeTreasuryJSON(w, http.StatusOK, batch)
+}
+
+func treasuryParamID(r *http.Request, name string) (int64, bool) {
+	id, err := strconv.ParseInt(chi.URLParam(r, name), 10, 64)
+	return id, err == nil && id > 0
+}
+
+func writeTreasuryJSON(w http.ResponseWriter, status int, value any) {
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(batch)
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(value)
+}
+
+func writeTreasuryError(w http.ResponseWriter, status int, err error) {
+	shared.WriteErrorStatus(w, status, err)
 }

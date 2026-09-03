@@ -3,8 +3,11 @@ package shopify
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/connectors"
@@ -12,148 +15,196 @@ import (
 
 // Adapter implements connectors.ProviderAdapter for Shopify.
 type Adapter struct {
-	logger *slog.Logger
+	logger  *slog.Logger
+	options connectors.ProviderOptions
 }
 
-// NewAdapter creates a new Shopify adapter.
-func NewAdapter(logger *slog.Logger) *Adapter {
-	return &Adapter{logger: logger}
+func NewAdapter(logger *slog.Logger, options ...connectors.ProviderOptions) *Adapter {
+	var opts connectors.ProviderOptions
+	if len(options) > 0 {
+		opts = options[0]
+	}
+	return &Adapter{logger: logger, options: opts}
 }
 
-// ValidateConnection checks that the provided secret references exist.
+type Credentials struct {
+	ShopURL       string `json:"shop_url"`
+	AccessToken   string `json:"access_token"`
+	AppSecret     string `json:"app_secret"`
+	WebhookSecret string `json:"webhook_secret"`
+}
+
+func (a *Adapter) credentials(conn *connectors.Connection) (Credentials, error) {
+	secret, err := a.options.ResolveSecret(conn)
+	if err != nil {
+		return Credentials{}, err
+	}
+	var creds Credentials
+	if err := json.Unmarshal([]byte(secret), &creds); err != nil {
+		return Credentials{}, fmt.Errorf("shopify: invalid credential format: %w", err)
+	}
+	if strings.TrimSpace(creds.ShopURL) == "" || strings.TrimSpace(creds.AccessToken) == "" {
+		return Credentials{}, errors.New("shopify: shop_url and access_token are required")
+	}
+	parsed, err := url.Parse(creds.ShopURL)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return Credentials{}, errors.New("shopify: shop_url must be an absolute URL")
+	}
+	if !a.options.DevelopmentMode && parsed.Scheme != "https" {
+		return Credentials{}, errors.New("shopify: production shop_url must use HTTPS")
+	}
+	return creds, nil
+}
+
 func (a *Adapter) ValidateConnection(ctx context.Context, conn *connectors.Connection) error {
-	a.logger.Info("validating shopify connection", slog.String("name", conn.Name))
-	if conn.SecretRef == "" {
-		return fmt.Errorf("shopify: secret reference is required")
+	if _, err := a.credentials(conn); err != nil {
+		return fmt.Errorf("shopify: validate credentials: %w", err)
 	}
 	return nil
 }
 
-// CheckHealth checks connection health.
 func (a *Adapter) CheckHealth(ctx context.Context, conn *connectors.Connection) (connectors.ConnectionStatus, error) {
-	a.logger.Info("checking health for shopify", slog.String("name", conn.Name))
+	creds, err := a.credentials(conn)
+	if err != nil {
+		return connectors.StatusActionRequired, err
+	}
+	if a.options.DevelopmentMode {
+		return connectors.StatusHealthy, nil
+	}
+	if err := NewClientWithOptions(creds.ShopURL, creds.AccessToken, a.options).CheckHealth(ctx); err != nil {
+		return connectors.StatusActionRequired, err
+	}
 	return connectors.StatusHealthy, nil
 }
 
-// RefreshToken is unused for standard basic access tokens in Shopify.
 func (a *Adapter) RefreshToken(ctx context.Context, conn *connectors.Connection) error {
-	return nil
+	return connectors.ErrUnsupportedOperation
 }
 
-// VerifyCallbackSignature verifies a Shopify webhook signature.
 func (a *Adapter) VerifyCallbackSignature(ctx context.Context, conn *connectors.Connection, headers map[string]string, payload []byte) error {
-	signature := headers["X-Shopify-Hmac-Sha256"]
+	creds, err := a.credentials(conn)
+	if err != nil {
+		return err
+	}
+	secret := creds.WebhookSecret
+	if secret == "" {
+		secret = creds.AppSecret
+	}
+	if strings.TrimSpace(secret) == "" {
+		return errors.New("shopify: webhook_secret or app_secret is required for callbacks")
+	}
+	signature := connectors.Header(headers, "X-Shopify-Hmac-Sha256")
 	if signature == "" {
-		return fmt.Errorf("shopify: missing signature header (X-Shopify-Hmac-Sha256)")
+		return errors.New("shopify: missing X-Shopify-Hmac-Sha256 header")
 	}
-
-	// For a real connection, the shopify app secret would be stored in the vault via SecretRef
-	// Let's assume the secret is in a JSON string like {"secret": "..."} or we just mock it for now.
-	// For this mock, we just skip deep verification if it's "skip_validation" or use a dummy secret.
-	secret := "dummy_secret"
-
 	if !verifyWebhookSignature(secret, signature, payload) {
-		a.logger.Warn("shopify: invalid webhook signature, but continuing for development")
-		// In production, return an error here.
-		// return fmt.Errorf("shopify: invalid signature")
+		return errors.New("shopify: invalid webhook signature")
 	}
-
 	return nil
 }
 
-// OrderPayload defines an incoming payload from domain modules to sync an order to Shopify.
 type OrderPayload struct {
-	OrderID     string `json:"order_id"`
-	TotalAmount string `json:"total_amount"`
-	Currency    string `json:"currency"`
-	Status      string `json:"status"`
+	OrderID       string             `json:"order_id"`
+	TotalAmount   string             `json:"total_amount"`
+	Currency      string             `json:"currency"`
+	Status        string             `json:"status"`
+	CustomerEmail string             `json:"customer_email,omitempty"`
+	LineItems     []ShopifyOrderLine `json:"line_items"`
 }
 
-// ExecuteCommand dispatches outbound commands to Shopify.
-func (a *Adapter) ExecuteCommand(ctx context.Context, conn *connectors.Connection, cmd *connectors.OutboxCommand) error {
-	a.logger.Info("shopify executing command",
-		slog.String("command", cmd.CommandType),
-		slog.String("correlation_id", cmd.CorrelationID),
-	)
+type ShopifyOrderLine struct {
+	VariantID int64  `json:"variant_id,omitempty"`
+	Title     string `json:"title,omitempty"`
+	Quantity  int    `json:"quantity"`
+	Price     string `json:"price,omitempty"`
+}
 
+type InventorySyncPayload struct {
+	ProductID       int64 `json:"product_id"`
+	WarehouseID     int64 `json:"warehouse_id"`
+	LocationID      int64 `json:"location_id"`
+	InventoryItemID int64 `json:"inventory_item_id"`
+	Available       *int  `json:"available"`
+}
+
+func (a *Adapter) ExecuteCommand(ctx context.Context, conn *connectors.Connection, cmd *connectors.OutboxCommand) error {
+	if cmd == nil {
+		return errors.New("shopify: command is required")
+	}
+	if a.options.DevelopmentMode && strings.TrimSpace(conn.SecretRef) == "" {
+		a.logger.Info("Shopify command simulated in explicit development mode", slog.String("command", cmd.CommandType))
+		return nil
+	}
+	creds, err := a.credentials(conn)
+	if err != nil {
+		return err
+	}
+	client := NewClientWithOptions(creds.ShopURL, creds.AccessToken, a.options)
+	key := cmd.CorrelationID
+	if cmd.ID > 0 {
+		key = fmt.Sprintf("odyssey-command-%d", cmd.ID)
+	}
 	switch cmd.CommandType {
 	case "ecommerce.order.sync":
 		var payload OrderPayload
 		if err := json.Unmarshal(cmd.Payload, &payload); err != nil {
 			return fmt.Errorf("shopify: failed to parse order payload: %w", err)
 		}
-		
-		// Simulate API call to Shopify
-		a.logger.Info("syncing order to shopify", slog.String("order_id", payload.OrderID))
-
-		return nil
+		return client.CreateOrder(ctx, payload, key)
 	case "ecommerce.inventory.sync":
-		var payload struct {
-			ProductID   int64   `json:"product_id"`
-			WarehouseID int64   `json:"warehouse_id"`
-			DeltaQty    float64 `json:"delta_qty"`
-		}
+		var payload InventorySyncPayload
 		if err := json.Unmarshal(cmd.Payload, &payload); err != nil {
 			return fmt.Errorf("shopify: failed to parse inventory sync payload: %w", err)
 		}
-
-		// Simulate API call to Shopify to update available-to-promise inventory
-		a.logger.Info("syncing inventory adjustment to shopify",
-			slog.Int64("product_id", payload.ProductID),
-			slog.Int64("warehouse_id", payload.WarehouseID),
-			slog.Float64("delta_qty", payload.DeltaQty),
-		)
-
-		// E.g., POST /admin/api/2024-01/inventory_levels/adjust.json
-		// with location_id, inventory_item_id (mapped from product), available_adjustment
-
-		return nil
+		if payload.Available == nil {
+			return errors.New("shopify: provider available quantity is required; map local inventory before enqueueing")
+		}
+		return client.UpdateInventory(ctx, payload.LocationID, payload.InventoryItemID, *payload.Available, key)
 	default:
 		return fmt.Errorf("shopify: unsupported command type: %s", cmd.CommandType)
 	}
 }
 
-// TranslateWebhook parses a Shopify webhook and emits canonical domain events.
 func (a *Adapter) TranslateWebhook(ctx context.Context, conn *connectors.Connection, headers map[string]string, payload []byte) ([]*connectors.CanonicalEvent, error) {
-	topic := headers["X-Shopify-Topic"]
+	topic := connectors.Header(headers, "X-Shopify-Topic")
 	if topic == "" {
-		return nil, fmt.Errorf("shopify: missing X-Shopify-Topic header")
+		return nil, errors.New("shopify: missing X-Shopify-Topic header")
+	}
+	providerEventID := connectors.Header(headers, "X-Shopify-Webhook-Id")
+	if providerEventID == "" {
+		return nil, errors.New("shopify: missing X-Shopify-Webhook-Id header")
 	}
 
-	providerEventID := headers["X-Shopify-Webhook-Id"]
-
-	var canonicalEvents []*connectors.CanonicalEvent
-
+	var eventType, correlationID string
+	var eventTime = time.Now().UTC()
 	switch topic {
 	case "orders/create":
 		var order ShopifyOrder
 		if err := json.Unmarshal(payload, &order); err != nil {
 			return nil, fmt.Errorf("shopify: failed to unmarshal orders/create: %w", err)
 		}
-
-		canonicalEvents = append(canonicalEvents, &connectors.CanonicalEvent{
-			CompanyID:     conn.CompanyID,
-			ConnectionID:  conn.ID,
-			EventType:     "ecommerce.order.created",
-			EventTime:     time.Now(),
-			CorrelationID: fmt.Sprintf("shopify_order_%d", order.ID),
-			CausationID:   providerEventID,
-			Payload:       payload, 
-		})
+		if order.ID <= 0 {
+			return nil, errors.New("shopify: orders/create payload is missing order id")
+		}
+		eventType = "ecommerce.order.created"
+		correlationID = fmt.Sprintf("shopify_order_%d", order.ID)
+		if parsed, err := time.Parse(time.RFC3339, order.CreatedAt); err == nil {
+			eventTime = parsed.UTC()
+		}
 	case "orders/updated":
-		// For an order update, we might map to an update or cancellation
-		canonicalEvents = append(canonicalEvents, &connectors.CanonicalEvent{
-			CompanyID:     conn.CompanyID,
-			ConnectionID:  conn.ID,
-			EventType:     "ecommerce.order.updated",
-			EventTime:     time.Now(),
-			CorrelationID: providerEventID,
-			CausationID:   providerEventID,
-			Payload:       payload,
-		})
+		eventType = "ecommerce.order.updated"
+		correlationID = providerEventID
 	default:
 		a.logger.Info("shopify: unhandled webhook topic", slog.String("topic", topic))
+		return nil, nil
 	}
-
-	return canonicalEvents, nil
+	return []*connectors.CanonicalEvent{{
+		CompanyID:     conn.CompanyID,
+		ConnectionID:  conn.ID,
+		EventType:     eventType,
+		EventTime:     eventTime,
+		CorrelationID: correlationID,
+		CausationID:   providerEventID,
+		Payload:       payload,
+	}}, nil
 }

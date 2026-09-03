@@ -2,6 +2,8 @@ package jobs
 
 import (
 	"context"
+	"fmt"
+
 	"github.com/hibiken/asynq"
 	"github.com/odyssey-erp/odyssey-erp/internal/documents"
 )
@@ -12,6 +14,9 @@ const TaskDocumentDisposition = "documents:disposition"
 // This worker executes approved document disposition requests (deleting files and archiving records).
 func HandleDocumentDisposition(service *documents.Service) func(context.Context, *asynq.Task) error {
 	return func(ctx context.Context, _ *asynq.Task) error {
-		return service.ExecuteApprovedDispositions(ctx)
+		if service == nil {
+			return fmt.Errorf("document disposition service not configured: %w", asynq.SkipRetry)
+		}
+		return service.ProcessRetentionAndDispositions(ctx)
 	}
 }

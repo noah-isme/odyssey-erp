@@ -7,16 +7,12 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"strings"
 	"sync"
 	"testing"
 	"time"
-	"unsafe"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"log/slog"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -27,7 +23,6 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/consol/fx"
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
-	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
 )
 
@@ -220,111 +215,16 @@ func labelsMatch(metric *dto.Metric, labels prometheus.Labels) bool {
 	return true
 }
 
-type stubDB struct {
+type permissionReaderStub struct {
 	perms map[int64][]string
 }
 
-func (s *stubDB) Exec(context.Context, string, ...interface{}) (pgconn.CommandTag, error) {
-	return pgconn.CommandTag{}, nil
-}
-
-func (s *stubDB) Query(ctx context.Context, sql string, args ...interface{}) (pgx.Rows, error) {
-	if strings.Contains(sql, "FROM user_roles") {
-		var userID int64
-		if len(args) > 0 {
-			switch v := args[0].(type) {
-			case int64:
-				userID = v
-			case int32:
-				userID = int64(v)
-			}
-		}
-		perms := append([]string(nil), s.perms[userID]...)
-		return &stubRows{values: perms, index: -1}, nil
-	}
-	return &stubRows{values: nil, index: -1}, nil
-}
-
-func (s *stubDB) QueryRow(context.Context, string, ...interface{}) pgx.Row {
-	return &stubRow{err: pgx.ErrNoRows}
-}
-
-type stubRows struct {
-	values []string
-	index  int
-}
-
-func (r *stubRows) Close() {
-	r.index = len(r.values)
-}
-
-func (r *stubRows) Err() error {
-	return nil
-}
-
-func (r *stubRows) CommandTag() pgconn.CommandTag {
-	return pgconn.CommandTag{}
-}
-
-func (r *stubRows) FieldDescriptions() []pgconn.FieldDescription {
-	return nil
-}
-
-func (r *stubRows) Next() bool {
-	if r.index+1 >= len(r.values) {
-		r.index = len(r.values)
-		return false
-	}
-	r.index++
-	return true
-}
-
-func (r *stubRows) Scan(dest ...interface{}) error {
-	if r.index < 0 || r.index >= len(r.values) {
-		return fmt.Errorf("no row available")
-	}
-	if len(dest) == 0 {
-		return fmt.Errorf("no destination provided")
-	}
-	if s, ok := dest[0].(*string); ok {
-		*s = r.values[r.index]
-		return nil
-	}
-	return fmt.Errorf("unsupported destination %T", dest[0])
-}
-
-func (r *stubRows) Values() ([]interface{}, error) {
-	if r.index < 0 || r.index >= len(r.values) {
-		return nil, fmt.Errorf("no row available")
-	}
-	return []interface{}{r.values[r.index]}, nil
-}
-
-func (r *stubRows) RawValues() [][]byte {
-	return nil
-}
-
-func (r *stubRows) Conn() *pgx.Conn {
-	return nil
-}
-
-type stubRow struct {
-	err error
-}
-
-func (r *stubRow) Scan(dest ...interface{}) error {
-	if r.err != nil {
-		return r.err
-	}
-	return fmt.Errorf("not implemented")
+func (s permissionReaderStub) EffectivePermissions(_ context.Context, userID int64) ([]string, error) {
+	return append([]string(nil), s.perms[userID]...), nil
 }
 
 func newRBACMiddleware(perms map[int64][]string) rbac.Middleware {
-	svc := &rbac.Service{}
-	queries := sqlc.New(&stubDB{perms: perms})
-	field := reflect.ValueOf(svc).Elem().FieldByName("queries")
-	reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem().Set(reflect.ValueOf(queries))
-	return rbac.Middleware{Service: svc}
+	return rbac.Middleware{Service: permissionReaderStub{perms: perms}}
 }
 
 func TestProfitLossHandleGetCachesViewModel(t *testing.T) {

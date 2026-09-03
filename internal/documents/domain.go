@@ -23,36 +23,36 @@ const (
 type ClassificationLevel string
 
 const (
-	ClassificationPublic     ClassificationLevel = "PUBLIC"
-	ClassificationInternal   ClassificationLevel = "INTERNAL"
+	ClassificationPublic       ClassificationLevel = "PUBLIC"
+	ClassificationInternal     ClassificationLevel = "INTERNAL"
 	ClassificationConfidential ClassificationLevel = "CONFIDENTIAL"
-	ClassificationRestricted ClassificationLevel = "RESTRICTED"
+	ClassificationRestricted   ClassificationLevel = "RESTRICTED"
 )
 
 // DocumentClassification represents a document classification definition.
 type DocumentClassification struct {
-	ID               int64
-	CompanyID        int64
-	Code             string
-	Name             string
-	Description      string
-	RequiresApproval bool
+	ID                int64
+	CompanyID         int64
+	Code              string
+	Name              string
+	Description       string
+	RequiresApproval  bool
 	RequiresSignature bool
-	Active           bool
-	CreatedAt        time.Time
+	Active            bool
+	CreatedAt         time.Time
 }
 
 // DocumentCategory represents a document category for organization.
 type DocumentCategory struct {
-	ID                     int64
-	CompanyID              int64
-	ParentID               *int64
-	Code                   string
-	Name                   string
-	Description            string
+	ID                      int64
+	CompanyID               int64
+	ParentID                *int64
+	Code                    string
+	Name                    string
+	Description             string
 	DefaultClassificationID *int64
-	Active                 bool
-	CreatedAt              time.Time
+	Active                  bool
+	CreatedAt               time.Time
 }
 
 // DocumentNumberingRule represents a document numbering rule.
@@ -73,25 +73,58 @@ type DocumentNumberingRule struct {
 
 // Document represents a document header record.
 type Document struct {
-	ID                   int64
-	CompanyID            int64
-	Number               string
-	Title                string
-	Description          string
-	CategoryID           int64
-	ClassificationID     int64
-	OwnerID              int64
-	Status               Status
-	CurrentVersionID     *int64
-	MigrationSource      *string
-	MigrationSourceID    *string
-	CreatedAt            time.Time
-	UpdatedAt            time.Time
+	ID                int64
+	CompanyID         int64
+	Number            string
+	Title             string
+	Description       string
+	CategoryID        int64
+	ClassificationID  int64
+	OwnerID           int64
+	Status            Status
+	CurrentVersionID  *int64
+	MigrationSource   *string
+	MigrationSourceID *string
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 	// Joined fields
-	CategoryName         string
-	ClassificationName   string
-	OwnerName            string
-	CompanyName          string
+	CategoryName       string
+	ClassificationName string
+	OwnerName          string
+	CompanyName        string
+}
+
+// Blob represents a storage object registered for a document.
+//
+// This is deliberately storage/database neutral so document services do not
+// depend on generated SQLC or pgtype values.
+type Blob struct {
+	ID                  int64
+	CompanyID           int64
+	StorageKey          string
+	StorageDriver       string
+	Bucket              string
+	SizeBytes           int64
+	ChecksumSha256      string
+	DeclaredContentType string
+	DetectedContentType string
+	MalwareScanStatus   string
+	CreatedAt           time.Time
+	CreatedBy           int64
+}
+
+// CreateBlobRequest contains the values needed to register a storage object.
+type CreateBlobRequest struct {
+	CompanyID           int64
+	StorageKey          string
+	StorageDriver       string
+	Bucket              string
+	SizeBytes           int64
+	ChecksumSha256      string
+	DeclaredContentType string
+	DetectedContentType string
+	MalwareScanStatus   string
+	CreatedBy           int64
 }
 
 // DocumentVersion represents a version of a document.
@@ -149,17 +182,17 @@ type DocumentLink struct {
 
 // DocumentReviewStep represents a step in a document review workflow.
 type DocumentReviewStep struct {
-	ID                  int64
-	CompanyID           int64
-	DocumentVersionID   int64
-	StepOrder           int
-	Name                string
-	ReviewerRoleID      *int64
-	ReviewerUserID      *int64
-	RequiredApprovals   int
-	Status              string // PENDING, APPROVED, REJECTED, SKIPPED
-	DueAt               *time.Time
-	CreatedAt           time.Time
+	ID                int64
+	CompanyID         int64
+	DocumentVersionID int64
+	StepOrder         int
+	Name              string
+	ReviewerRoleID    *int64
+	ReviewerUserID    *int64
+	RequiredApprovals int
+	Status            string // PENDING, APPROVED, REJECTED, SKIPPED
+	DueAt             *time.Time
+	CreatedAt         time.Time
 }
 
 // DocumentReviewDecision represents a review decision record.
@@ -211,17 +244,17 @@ type SignDocumentRequest struct {
 
 // RetentionPolicy represents a document retention policy.
 type RetentionPolicy struct {
-	ID              int64
-	CompanyID       int64
-	ClassificationID *int64
-	CategoryID      *int64
-	Name            string
-	Description     string
-	RetentionDays   int
+	ID                int64
+	CompanyID         int64
+	ClassificationID  *int64
+	CategoryID        *int64
+	Name              string
+	Description       string
+	RetentionDays     int
 	DispositionAction string // DELETE, ARCHIVE, LEGAL_HOLD
-	Active          bool
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	Active            bool
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
 // DocumentRetention represents a document's retention schedule.
@@ -236,35 +269,48 @@ type DocumentRetention struct {
 	CalculatedAt      time.Time
 }
 
+// ExpiredRetention is the minimal tenant-scoped input consumed by the
+// retention worker when it creates disposition requests.
+type ExpiredRetention struct {
+	ID                int64
+	CompanyID         int64
+	DocumentVersionID int64
+	PolicyID          int64
+}
+
 // LegalHold represents a legal hold on documents.
 type LegalHold struct {
-	ID           int64
-	CompanyID    int64
-	Name         string
-	Description  string
-	ScopeType    string // DOCUMENT, CATEGORY, CLASSIFICATION, ALL
-	ScopeID      *int64
-	Status       string // ACTIVE, RELEASED
-	InitiatedBy  int64
-	InitiatedAt  time.Time
-	ReleasedBy   *int64
-	ReleasedAt   *time.Time
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID          int64
+	CompanyID   int64
+	Name        string
+	Description string
+	ScopeType   string // DOCUMENT, CATEGORY, CLASSIFICATION, ALL
+	ScopeID     *int64
+	Status      string // ACTIVE, RELEASED
+	InitiatedBy int64
+	InitiatedAt time.Time
+	ReleasedBy  *int64
+	ReleasedAt  *time.Time
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 // Advanced Documents Features (Collaboration)
 
 type CollaborationSession struct {
-	ID        int64
-	CompanyID int64
-	VersionID int64
-	Status    string // ACTIVE, CLOSED
-	CreatedAt time.Time
+	ID           int64
+	CompanyID    int64
+	VersionID    int64
+	HostUserID   int64
+	SessionToken string
+	Status       string // ACTIVE, CLOSED
+	CreatedAt    time.Time
+	ExpiresAt    time.Time
 }
 
 type CollaborationChange struct {
 	ID        int64
+	CompanyID int64
 	SessionID int64
 	ActorID   int64
 	Operation string // INSERT, DELETE, REPLACE
@@ -286,7 +332,19 @@ type DispositionRequest struct {
 	CompanyID         int64
 	DocumentVersionID int64
 	RequestedBy       int64
+	Reason            string
 	Status            string
+}
+
+// DispositionExecutionUpdate records the outcome of executing a disposition.
+// Nil optional fields are persisted as SQL NULL by the repository.
+type DispositionExecutionUpdate struct {
+	ID                int64
+	Status            string
+	ExecutedAt        *time.Time
+	ExecutedBy        *int64
+	ExecutionEvidence []byte
+	ErrorMessage      *string
 }
 
 // DocumentAccessEvent represents an audit event for document access.
@@ -364,23 +422,23 @@ func (r CreateVersionRequest) Validate() error {
 
 // ListFilter configures ListDocuments queries.
 type ListFilter struct {
-	CompanyID       int64
-	CategoryID      *int64
+	CompanyID        int64
+	CategoryID       *int64
 	ClassificationID *int64
-	OwnerID         *int64
-	Status          *Status
-	Search          string
-	Limit           int
-	Offset          int
+	OwnerID          *int64
+	Status           *Status
+	Search           string
+	Limit            int
+	Offset           int
 }
 
 // ListVersionsFilter configures ListDocumentVersions queries.
 type ListVersionsFilter struct {
-	CompanyID    int64
-	DocumentID   int64
-	Status       *Status
-	Limit        int
-	Offset       int
+	CompanyID  int64
+	DocumentID int64
+	Status     *Status
+	Limit      int
+	Offset     int
 }
 
 // DocumentOCRJob represents a background job to extract text from a document blob.
@@ -419,16 +477,16 @@ type DocumentSearchIndex struct {
 	IndexedAt         time.Time
 }
 
-
 var (
-	ErrDocumentNotFound      = errors.New("documents: document not found")
+	ErrDocumentNotFound        = errors.New("documents: document not found")
 	ErrDocumentVersionNotFound = errors.New("documents: document version not found")
-	ErrClassificationNotFound = errors.New("documents: classification not found")
-	ErrCategoryNotFound      = errors.New("documents: category not found")
-	ErrNumberingRuleNotFound = errors.New("documents: numbering rule not found")
-	ErrInvalidStatus         = errors.New("documents: invalid status transition")
-	ErrAccessDenied          = errors.New("documents: access denied")
-	ErrVersionConflict       = errors.New("documents: version conflict (optimistic lock)")
+	ErrClassificationNotFound  = errors.New("documents: classification not found")
+	ErrCategoryNotFound        = errors.New("documents: category not found")
+	ErrNumberingRuleNotFound   = errors.New("documents: numbering rule not found")
+	ErrInvalidStatus           = errors.New("documents: invalid status transition")
+	ErrAccessDenied            = errors.New("documents: access denied")
+	ErrVersionConflict         = errors.New("documents: version conflict (optimistic lock)")
+	ErrNoOpenDisposition       = errors.New("documents: no open disposition request")
 )
 
 // NormaliseStatus uppercases and trims the provided status string.

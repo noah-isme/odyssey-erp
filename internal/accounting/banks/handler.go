@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
-	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
 )
 
@@ -85,7 +84,7 @@ func (h *Handler) transferFunds(w http.ResponseWriter, r *http.Request) {
 	err = h.service.PerformTransfer(r.Context(), req)
 	if err != nil {
 		h.logger.Error("perform transfer", slog.Any("error", err))
-		http.Error(w, "Failed to perform transfer: "+err.Error(), http.StatusInternalServerError)
+		shared.WriteErrorStatus(w, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -104,7 +103,7 @@ func (h *Handler) confirmStatement(w http.ResponseWriter, r *http.Request) {
 	err = h.service.ConfirmStatement(r.Context(), id)
 	if err != nil {
 		h.logger.Error("confirm statement", slog.Any("error", err))
-		http.Error(w, "Failed to confirm statement: "+err.Error(), http.StatusInternalServerError)
+		shared.WriteErrorStatus(w, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -122,23 +121,17 @@ func (h *Handler) listStatements(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Active company is required", http.StatusBadRequest)
 		return
 	}
-	var accountID int64
-	if err := h.service.db.QueryRow(r.Context(),
-		"SELECT id FROM bank_accounts WHERE company_id = $1 ORDER BY id LIMIT 1", companyID,
-	).Scan(&accountID); err != nil {
+	accountID, err := h.service.BankAccountIDForCompany(r.Context(), companyID)
+	if err != nil {
 		h.logger.Error("find bank account for statements", slog.Any("error", err), slog.Int64("company_id", companyID))
-		http.Error(w, "Failed to load bank account", http.StatusInternalServerError)
+		shared.WriteErrorStatus(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	statements, err := h.service.queries.ListBankStatements(r.Context(), sqlc.ListBankStatementsParams{
-		BankAccountID: accountID,
-		Limit:         50,
-		Offset:        0,
-	})
+	statements, err := h.service.ListStatements(r.Context(), accountID, 50, 0)
 	if err != nil {
 		h.logger.Error("list statements", slog.Any("error", err))
-		http.Error(w, "Failed to load statements", http.StatusInternalServerError)
+		shared.WriteErrorStatus(w, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -182,7 +175,7 @@ func (h *Handler) importStatement(w http.ResponseWriter, r *http.Request) {
 	lines, err := ParseCSV(file)
 	if err != nil {
 		h.logger.Error("parse csv", slog.Any("error", err))
-		http.Error(w, "Invalid CSV format: "+err.Error(), http.StatusBadRequest)
+		shared.WriteErrorStatus(w, http.StatusBadRequest, err)
 		return
 	}
 
@@ -204,17 +197,17 @@ func (h *Handler) viewStatement(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stmt, err := h.service.queries.GetBankStatement(r.Context(), id)
+	stmt, err := h.service.GetStatement(r.Context(), id)
 	if err != nil {
 		h.logger.Error("get statement", slog.Any("error", err))
-		http.Error(w, "Statement not found", http.StatusNotFound)
+		shared.WriteErrorStatus(w, http.StatusNotFound, err)
 		return
 	}
 
-	lines, err := h.service.queries.ListBankStatementLines(r.Context(), id)
+	lines, err := h.service.ListStatementLines(r.Context(), id)
 	if err != nil {
 		h.logger.Error("list lines", slog.Any("error", err))
-		http.Error(w, "Failed to load statement lines", http.StatusInternalServerError)
+		shared.WriteErrorStatus(w, http.StatusInternalServerError, err)
 		return
 	}
 

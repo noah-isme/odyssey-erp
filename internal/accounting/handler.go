@@ -20,7 +20,6 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/reports"
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/schedules"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
-	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 	"github.com/odyssey-erp/odyssey-erp/internal/view"
 )
 
@@ -32,7 +31,7 @@ type Handler struct {
 	accountService *accounts.Service
 	journalHandler *journals.Handler
 	banksHandler   *banks.Handler
-	budgets        *sqlc.Queries
+	budgets        BudgetRepository
 	db             *pgxpool.Pool
 	audit          journals.AuditPort
 	csrf           *shared.CSRFManager
@@ -50,7 +49,7 @@ func NewHandler(logger *slog.Logger, db *pgxpool.Pool, templates *view.Engine, c
 	// Services
 	accountService := accounts.NewService(accountRepo)
 	journalService := journals.NewService(journalRepo, audit, guard)
-	bankService := banks.NewService(db)
+	bankService := banks.NewService(banks.NewRepository(db))
 	assetRepo := assets.NewRepository(db)
 	assetService := assets.NewService(assetRepo)
 	dimRepo := dimensions.NewRepository(db)
@@ -70,7 +69,7 @@ func NewHandler(logger *slog.Logger, db *pgxpool.Pool, templates *view.Engine, c
 		accountService: accountService,
 		journalHandler: journalHandler,
 		banksHandler:   banksHandler,
-		budgets:        sqlc.New(db),
+		budgets:        NewBudgetRepository(db),
 		db:             db,
 		audit:          audit,
 		csrf:           csrf,
@@ -454,7 +453,7 @@ func (h *Handler) handleBudget(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows, err := h.budgets.ListBudgetsByPeriod(r.Context(), sqlc.ListBudgetsByPeriodParams{PeriodYear: int32(year), PeriodMonth: int32(month)})
+	rows, err := h.budgets.ListBudgetsByPeriod(r.Context(), int32(year), int32(month))
 	if err != nil {
 		h.logger.Error("list budgets", slog.Any("error", err))
 		shared.WriteHTTPError(w, http.StatusInternalServerError, "Gagal memuat data laporan")
@@ -462,13 +461,7 @@ func (h *Handler) handleBudget(w http.ResponseWriter, r *http.Request) {
 	}
 	budgetData := make(reports.BudgetData, len(rows))
 	for _, row := range rows {
-		amount, err := row.Amount.Float64Value()
-		if err != nil || !amount.Valid {
-			h.logger.Error("invalid budget amount", slog.Int64("budget_id", row.ID))
-			shared.WriteHTTPError(w, http.StatusInternalServerError, "Gagal memuat data laporan")
-			return
-		}
-		budgetData[row.AccountID] = amount.Float64
+		budgetData[row.AccountID] = row.Amount
 	}
 	bva := reports.BuildBudgetVsActual(balances, budgetData)
 
@@ -563,17 +556,14 @@ func (h *Handler) handleBudgetExcel(w http.ResponseWriter, r *http.Request) {
 		h.reportError(w, err)
 		return
 	}
-	rows, err := h.budgets.ListBudgetsByPeriod(r.Context(), sqlc.ListBudgetsByPeriodParams{PeriodYear: int32(year), PeriodMonth: int32(month)})
+	rows, err := h.budgets.ListBudgetsByPeriod(r.Context(), int32(year), int32(month))
 	if err != nil {
 		h.reportError(w, err)
 		return
 	}
 	budgets := reports.BudgetData{}
 	for _, row := range rows {
-		value, _ := row.Amount.Float64Value()
-		if value.Valid {
-			budgets[row.AccountID] = value.Float64
-		}
+		budgets[row.AccountID] = row.Amount
 	}
 	var buf bytes.Buffer
 	if err := reports.WriteBudgetVsActualXLSX(&buf, reports.BuildBudgetVsActual(balances, budgets), fmt.Sprintf("%04d-%02d", year, month)); err != nil {

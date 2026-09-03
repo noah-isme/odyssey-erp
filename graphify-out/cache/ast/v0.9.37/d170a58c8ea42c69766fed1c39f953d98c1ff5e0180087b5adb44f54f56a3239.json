@@ -1,0 +1,1 @@
+{"nodes": [{"id": "$graphify-root$_migrations_000089_route_optimization_down_sql", "label": "000089_route_optimization.down.sql", "file_type": "code", "source_file": "migrations/000089_route_optimization.down.sql", "source_location": null}], "edges": []}

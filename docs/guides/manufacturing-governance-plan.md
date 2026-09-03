@@ -1,8 +1,9 @@
 # Manufacturing Governance Execution Plan
 
-**Status:** Planned. Existing manufacturing compliance and quality records remain
-available, but mandatory controlled-decision enforcement and staging certification are
-not yet implemented.
+**Status:** Partial implementation. The central controlled-decision path now has
+canonical immutable snapshots, policy-role checks, actor-bound challenges, real
+password/TOTP reauthentication, and immutable audit evidence. Mandatory integration
+at every manufacturing transition and staging certification remain planned.
 
 ## Summary
 
@@ -59,6 +60,8 @@ type DecisionRequest struct {
     ActorID     int64
     Reason      string
     ChallengeID string
+    ReauthToken string
+    Evidence    map[string]interface{}
 }
 
 type DecisionGrant struct {
@@ -94,8 +97,8 @@ snapshots.
 - Never persist passwords or free-form reauthentication evidence.
 - Prevent signature reuse across records, actions, or versions.
 - Keep historical signatures immutable when a record receives a later revision.
-- Deprecate direct use of `POST /mrp/compliance/signatures`; expose challenge and
-  decision-confirmation endpoints instead.
+- The direct signature path now uses the same server snapshot and policy boundary;
+  challenge and decision-confirmation endpoints remain the preferred integration.
 
 This provides internal controlled-record assurance without claiming
 regulator-specific electronic-signature certification.

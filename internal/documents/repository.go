@@ -28,11 +28,6 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 	}
 }
 
-// Queries returns the underlying sqlc queries for transaction/direct use.
-func (r *Repository) Queries() *sqlc.Queries {
-	return r.queries
-}
-
 // Classifications
 
 func (r *Repository) ListClassifications(ctx context.Context) ([]DocumentClassification, error) {
@@ -255,7 +250,7 @@ func (r *Repository) GetDefaultNumberingRule(ctx context.Context, companyID int6
 
 func (r *Repository) IncrementNumberingSequence(ctx context.Context, ruleID int64) error {
 	return r.queries.IncrementNumberingSequence(ctx, ruleID)
-}// Documents
+} // Documents
 
 func (r *Repository) InsertDocument(ctx context.Context, req CreateDocumentRequest, number string) (Document, error) {
 	id, err := r.queries.InsertDocument(ctx, sqlc.InsertDocumentParams{
@@ -535,8 +530,8 @@ func (r *Repository) GetLatestVersion(ctx context.Context, documentID int64) (Do
 
 func (r *Repository) SetCurrentVersion(ctx context.Context, documentID, versionID int64) error {
 	return r.queries.SetCurrentDocumentVersion(ctx, sqlc.SetCurrentDocumentVersionParams{
-		ID:                 documentID,
-		CurrentVersionID:   pgtype.Int8{Int64: versionID, Valid: true},
+		ID:               documentID,
+		CurrentVersionID: pgtype.Int8{Int64: versionID, Valid: true},
 	})
 }
 
@@ -553,13 +548,163 @@ func (r *Repository) SetVersionStatus(ctx context.Context, versionID int64, stat
 
 // Blobs
 
-func (r *Repository) InsertBlob(ctx context.Context, params sqlc.InsertStorageBlobParams) (int64, error) {
-	return r.queries.InsertStorageBlob(ctx, params)
+func (r *Repository) InsertBlob(ctx context.Context, req CreateBlobRequest) (int64, error) {
+	return r.queries.InsertStorageBlob(ctx, sqlc.InsertStorageBlobParams{
+		CompanyID:           req.CompanyID,
+		StorageKey:          req.StorageKey,
+		StorageDriver:       req.StorageDriver,
+		Bucket:              pgtype.Text{String: req.Bucket, Valid: req.Bucket != ""},
+		SizeBytes:           req.SizeBytes,
+		ChecksumSha256:      req.ChecksumSha256,
+		DeclaredContentType: pgtype.Text{String: req.DeclaredContentType, Valid: req.DeclaredContentType != ""},
+		DetectedContentType: pgtype.Text{String: req.DetectedContentType, Valid: req.DetectedContentType != ""},
+		MalwareScanStatus:   req.MalwareScanStatus,
+		CreatedBy:           req.CreatedBy,
+	})
 }
 
-func (r *Repository) GetBlob(ctx context.Context, id int64) (sqlc.StorageBlob, error) {
-	return r.queries.GetStorageBlob(ctx, id)
+func (r *Repository) GetBlob(ctx context.Context, id int64) (Blob, error) {
+	row, err := r.queries.GetStorageBlob(ctx, id)
+	if err != nil {
+		return Blob{}, err
+	}
+	return Blob{
+		ID:                  row.ID,
+		CompanyID:           row.CompanyID,
+		StorageKey:          row.StorageKey,
+		StorageDriver:       row.StorageDriver,
+		Bucket:              row.Bucket.String,
+		SizeBytes:           row.SizeBytes,
+		ChecksumSha256:      row.ChecksumSha256,
+		DeclaredContentType: row.DeclaredContentType.String,
+		DetectedContentType: row.DetectedContentType.String,
+		MalwareScanStatus:   row.MalwareScanStatus,
+		CreatedAt:           row.CreatedAt.Time,
+		CreatedBy:           row.CreatedBy,
+	}, nil
 }
+
+// HasOtherBlobReferences prevents disposition from deleting a shared object
+// still referenced by another non-disposed document version.
+func (r *Repository) HasOtherBlobReferences(ctx context.Context, blobID, versionID int64) (bool, error) {
+	return r.queries.HasOtherDocumentBlobReferences(ctx, sqlc.HasOtherDocumentBlobReferencesParams{
+		BlobID: blobID,
+		ID:     versionID,
+	})
+}
+
+// GetPendingDispositions returns approved requests ready for execution.
+func (r *Repository) GetPendingDispositions(ctx context.Context) ([]DispositionRequest, error) {
+	rows, err := r.queries.GetPendingDispositions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]DispositionRequest, len(rows))
+	for i, row := range rows {
+		items[i] = DispositionRequest{
+			ID:                row.ID,
+			CompanyID:         row.CompanyID,
+			DocumentVersionID: row.DocumentVersionID,
+			RequestedBy:       row.RequestedBy,
+			Reason:            row.Reason,
+			Status:            row.Status,
+		}
+	}
+	return items, nil
+}
+
+// HasActiveLegalHold reports whether a company has an active legal hold.
+func (r *Repository) HasActiveLegalHold(ctx context.Context, companyID int64) (bool, error) {
+	return r.queries.HasActiveLegalHold(ctx, companyID)
+}
+
+// HasActiveLegalHoldForVersion checks only holds that apply to the requested
+// version, its document, classification, category, company, or explicit
+// legal-hold references.
+func (r *Repository) HasActiveLegalHoldForVersion(ctx context.Context, versionID int64) (bool, error) {
+	return r.queries.HasActiveLegalHoldForVersion(ctx, versionID)
+}
+
+// CreateDispositionRequest persists a tenant-scoped disposition request.
+func (r *Repository) CreateDispositionRequest(ctx context.Context, req CreateDispositionRequest) (DispositionRequest, error) {
+	row, err := r.queries.CreateDispositionRequest(ctx, sqlc.CreateDispositionRequestParams{
+		CompanyID:         req.CompanyID,
+		DocumentVersionID: req.DocumentVersionID,
+		RequestedBy:       req.RequestedBy,
+		Reason:            req.Reason,
+	})
+	if err != nil {
+		return DispositionRequest{}, err
+	}
+	return toDispositionRequest(row), nil
+}
+
+// GetDispositionRequest loads a disposition request by id.
+func (r *Repository) GetDispositionRequest(ctx context.Context, id int64) (DispositionRequest, error) {
+	row, err := r.queries.GetDispositionRequest(ctx, id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return DispositionRequest{}, errors.New("documents: disposition request not found")
+		}
+		return DispositionRequest{}, err
+	}
+	return toDispositionRequest(row), nil
+}
+
+// GetOpenDispositionRequestForVersion returns the current pending or approved
+// request so retention retries remain idempotent.
+func (r *Repository) GetOpenDispositionRequestForVersion(ctx context.Context, versionID int64) (DispositionRequest, error) {
+	row, err := r.queries.GetOpenDispositionRequestForVersion(ctx, versionID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return DispositionRequest{}, ErrNoOpenDisposition
+		}
+		return DispositionRequest{}, err
+	}
+	return toDispositionRequest(row), nil
+}
+
+// UpdateDispositionRequest advances a pending request to an approval or
+// rejection state and records the approving actor when applicable.
+func (r *Repository) UpdateDispositionRequest(ctx context.Context, id int64, status string, actorID int64) (DispositionRequest, error) {
+	row, err := r.queries.UpdateDispositionRequest(ctx, sqlc.UpdateDispositionRequestParams{
+		ID:         id,
+		Status:     status,
+		ApprovedBy: pgtype.Int8{Int64: actorID, Valid: status == "APPROVED"},
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return DispositionRequest{}, errors.New("documents: disposition request is not pending")
+		}
+		return DispositionRequest{}, err
+	}
+	return toDispositionRequest(row), nil
+}
+
+// UpdateDispositionExecution records a disposition execution result.
+func (r *Repository) UpdateDispositionExecution(ctx context.Context, update DispositionExecutionUpdate) error {
+	var executedAt pgtype.Timestamptz
+	if update.ExecutedAt != nil {
+		executedAt = pgtype.Timestamptz{Time: *update.ExecutedAt, Valid: true}
+	}
+	var executedBy pgtype.Int8
+	if update.ExecutedBy != nil {
+		executedBy = pgtype.Int8{Int64: *update.ExecutedBy, Valid: true}
+	}
+	var errorMessage pgtype.Text
+	if update.ErrorMessage != nil {
+		errorMessage = pgtype.Text{String: *update.ErrorMessage, Valid: true}
+	}
+	return r.queries.UpdateDispositionExecution(ctx, sqlc.UpdateDispositionExecutionParams{
+		ID:                update.ID,
+		Status:            update.Status,
+		ExecutedAt:        executedAt,
+		ExecutedBy:        executedBy,
+		ExecutionEvidence: update.ExecutionEvidence,
+		ErrorMessage:      errorMessage,
+	})
+}
+
 // ACLs
 
 func (r *Repository) InsertACL(ctx context.Context, req CreateACLRequest) (DocumentACL, error) {
@@ -794,7 +939,6 @@ func (r *Repository) InsertReviewDecision(ctx context.Context, req ReviewDecisio
 	}, nil
 }
 
-
 // Legal Holds
 
 func (r *Repository) InsertLegalHold(ctx context.Context, req CreateLegalHoldRequest) (LegalHold, error) {
@@ -824,14 +968,12 @@ func (r *Repository) InsertLegalHold(ctx context.Context, req CreateLegalHoldReq
 	}, nil
 }
 
-
 func (r *Repository) ReleaseLegalHold(ctx context.Context, holdID, releasedBy int64) error {
 	return r.queries.ReleaseLegalHold(ctx, sqlc.ReleaseLegalHoldParams{
 		ID:         holdID,
 		ReleasedBy: pgtype.Int8{Int64: releasedBy, Valid: true},
 	})
 }
-
 
 // Access Events
 
@@ -854,6 +996,7 @@ var _ = stringPtr
 var _ = categoryIDOrZero
 var _ = classificationIDOrZero
 var _ = ownerIDOrZero
+
 func int8Ptr(i *int64) pgtype.Int8 {
 	if i == nil {
 		return pgtype.Int8{}
@@ -974,7 +1117,7 @@ func (r *Repository) InsertSignature(ctx context.Context, req SignDocumentReques
 	if err != nil {
 		return DocumentSignature{}, err
 	}
-	
+
 	return DocumentSignature{
 		ID:                row.ID,
 		CompanyID:         row.CompanyID,
@@ -1007,11 +1150,57 @@ func (r *Repository) InsertRetention(ctx context.Context, companyID, versionID, 
 	})
 }
 
+// GetActiveRetentionPolicyForVersion resolves the most specific active policy
+// applicable to a version's classification and category.
+func (r *Repository) GetActiveRetentionPolicyForVersion(ctx context.Context, versionID int64) (int64, int, error) {
+	row, err := r.queries.GetActiveRetentionPolicyForVersion(ctx, versionID)
+	if err != nil {
+		return 0, 0, err
+	}
+	return row.ID, int(row.RetentionPeriodDays), nil
+}
+
+// RetentionPolicyExists verifies that an explicitly selected policy belongs to
+// the same tenant as the document and is active.
+func (r *Repository) RetentionPolicyExists(ctx context.Context, policyID, companyID int64) error {
+	_, err := r.queries.GetRetentionPolicyForCompany(ctx, sqlc.GetRetentionPolicyForCompanyParams{
+		ID:        policyID,
+		CompanyID: companyID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return errors.New("documents: retention policy not found")
+	}
+	return err
+}
+
 func (r *Repository) DeleteRetention(ctx context.Context, id, companyID int64) error {
 	return r.queries.DeleteDocumentRetention(ctx, sqlc.DeleteDocumentRetentionParams{
 		ID:        id,
 		CompanyID: companyID,
 	})
+}
+
+// ListExpiredRetention returns retention schedules ready for disposition
+// review, across all tenants for the worker's batch.
+func (r *Repository) ListExpiredRetention(ctx context.Context) ([]ExpiredRetention, error) {
+	rows, err := r.queries.ListExpiredDocumentRetention(ctx)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]ExpiredRetention, len(rows))
+	for i, row := range rows {
+		items[i] = ExpiredRetention{
+			ID:                row.ID,
+			CompanyID:         row.CompanyID,
+			DocumentVersionID: row.DocumentVersionID,
+			PolicyID:          row.PolicyID,
+		}
+	}
+	return items, nil
+}
+
+func (r *Repository) MarkRetentionExpired(ctx context.Context, id int64) error {
+	return r.queries.MarkDocumentRetentionExpired(ctx, id)
 }
 
 // =============================================================================
@@ -1025,6 +1214,33 @@ func (r *Repository) CreateOCRJob(ctx context.Context, job DocumentOCRJob) (int6
 		BlobID:            job.BlobID,
 		Status:            job.Status,
 	})
+}
+
+// GetOCRJob loads a background OCR job and converts nullable database values
+// into the document domain representation.
+func (r *Repository) GetOCRJob(ctx context.Context, id int64) (DocumentOCRJob, error) {
+	row, err := r.queries.GetDocumentOCRJob(ctx, id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return DocumentOCRJob{}, errors.New("documents: OCR job not found")
+		}
+		return DocumentOCRJob{}, err
+	}
+	var completedAt *time.Time
+	if row.CompletedAt.Valid {
+		completedAt = &row.CompletedAt.Time
+	}
+	return DocumentOCRJob{
+		ID:                row.ID,
+		CompanyID:         row.CompanyID,
+		DocumentVersionID: row.DocumentVersionID,
+		BlobID:            row.BlobID,
+		Status:            row.Status,
+		ExtractedText:     row.ExtractedText.String,
+		ErrorMessage:      row.ErrorMessage.String,
+		CreatedAt:         row.CreatedAt.Time,
+		CompletedAt:       completedAt,
+	}, nil
 }
 
 func (r *Repository) UpdateOCRJob(ctx context.Context, id int64, status, text, errMsg string, completedAt *time.Time) error {
@@ -1061,6 +1277,49 @@ func (r *Repository) CreateCollaborationSession(ctx context.Context, session Doc
 	})
 }
 
+// GetCollaborationSession loads a persisted session by id.
+func (r *Repository) GetCollaborationSession(ctx context.Context, id int64) (DocumentCollaborationSession, error) {
+	row, err := r.queries.GetCollaborationSessionByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return DocumentCollaborationSession{}, errors.New("documents: collaboration session not found")
+		}
+		return DocumentCollaborationSession{}, err
+	}
+	return DocumentCollaborationSession{
+		ID:                row.ID,
+		CompanyID:         row.CompanyID,
+		DocumentVersionID: row.DocumentVersionID,
+		SessionToken:      row.SessionToken,
+		HostUserID:        row.HostUserID,
+		Active:            row.Active,
+		CreatedAt:         row.CreatedAt.Time,
+		ExpiresAt:         row.ExpiresAt.Time,
+	}, nil
+}
+
+// CreateCollaborationChange appends an immutable change to an active session.
+func (r *Repository) CreateCollaborationChange(ctx context.Context, change CollaborationChange) (CollaborationChange, error) {
+	row, err := r.queries.CreateCollaborationChange(ctx, sqlc.CreateCollaborationChangeParams{
+		SessionID:  change.SessionID,
+		ActorID:    change.ActorID,
+		Operation:  change.Operation,
+		Payload:    change.Payload,
+		OccurredAt: pgtype.Timestamptz{Time: change.Timestamp, Valid: true},
+	})
+	if err != nil {
+		return CollaborationChange{}, err
+	}
+	return CollaborationChange{
+		ID:        row.ID,
+		SessionID: row.SessionID,
+		ActorID:   row.ActorID,
+		Operation: row.Operation,
+		Payload:   row.Payload,
+		Timestamp: row.Timestamp.Time,
+	}, nil
+}
+
 func (r *Repository) IndexDocumentSearch(ctx context.Context, docID, docVersionID int64, title, content, keywords string) (int64, error) {
 	var kws pgtype.Text
 	if keywords != "" {
@@ -1077,9 +1336,9 @@ func (r *Repository) IndexDocumentSearch(ctx context.Context, docID, docVersionI
 
 func (r *Repository) SearchDocumentsFullText(ctx context.Context, companyID int64, query string, limit int32) ([]Document, error) {
 	rows, err := r.queries.SearchDocumentsFullText(ctx, sqlc.SearchDocumentsFullTextParams{
-		CompanyID: companyID,
+		CompanyID:      companyID,
 		PlaintoTsquery: query,
-		Limit: limit,
+		Limit:          limit,
 	})
 	if err != nil {
 		return nil, err
@@ -1090,7 +1349,7 @@ func (r *Repository) SearchDocumentsFullText(ctx context.Context, companyID int6
 		if row.CategoryID.Valid {
 			catID = row.CategoryID.Int64
 		}
-		
+
 		results = append(results, Document{
 			ID:               row.ID,
 			CompanyID:        row.CompanyID,
@@ -1106,4 +1365,15 @@ func (r *Repository) SearchDocumentsFullText(ctx context.Context, companyID int6
 		})
 	}
 	return results, nil
+}
+
+func toDispositionRequest(row sqlc.DispositionRequest) DispositionRequest {
+	return DispositionRequest{
+		ID:                row.ID,
+		CompanyID:         row.CompanyID,
+		DocumentVersionID: row.DocumentVersionID,
+		RequestedBy:       row.RequestedBy,
+		Reason:            row.Reason,
+		Status:            row.Status,
+	}
 }

@@ -76,7 +76,7 @@ func (h *Handler) handleImportStatement(w http.ResponseWriter, r *http.Request) 
 	contentHash := hex.EncodeToString(hash[:])
 	entries, err := parseStatement(header.Filename, content, account.Currency, account.ID)
 	if err != nil {
-		h.redirectWithFlash(w, r, "/finance/banking/accounts/"+strconv.FormatInt(accountID, 10), "error", err.Error())
+		h.redirectWithFlash(w, r, "/finance/banking/accounts/"+strconv.FormatInt(accountID, 10), "error", shared.UserSafeMessage(err))
 		return
 	}
 	result, err := h.service.ImportStatement(r.Context(), account, entries, header.Filename, contentHash)
@@ -133,7 +133,7 @@ func (h *Handler) handleCreateAccount(w http.ResponseWriter, r *http.Request) {
 	_, err = h.service.CreateBankAccount(r.Context(), input)
 	if err != nil {
 		h.logger.Error("create bank account", slog.Any("error", err))
-		h.redirectWithFlash(w, r, "/finance/banking/accounts", "error", "Failed to create account: "+err.Error())
+		h.redirectWithFlash(w, r, "/finance/banking/accounts", "error", shared.UserSafeMessage(err))
 		return
 	}
 
@@ -228,7 +228,7 @@ func (h *Handler) handleCreateTransaction(w http.ResponseWriter, r *http.Request
 	_, err = h.service.CreateBankTransaction(r.Context(), input)
 	if err != nil {
 		h.logger.Error("create transaction", slog.Any("error", err))
-		h.redirectWithFlash(w, r, "/finance/banking/accounts/"+strconv.FormatInt(acctID, 10), "error", "Failed to create transaction: "+err.Error())
+		h.redirectWithFlash(w, r, "/finance/banking/accounts/"+strconv.FormatInt(acctID, 10), "error", shared.UserSafeMessage(err))
 		return
 	}
 
@@ -301,7 +301,7 @@ func (h *Handler) handleTransferFunds(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.service.TransferFunds(r.Context(), input); err != nil {
 		h.logger.Error("transfer funds", slog.Any("error", err))
-		h.redirectWithFlash(w, r, "/finance/banking/accounts", "error", "Transfer failed: "+err.Error())
+		h.redirectWithFlash(w, r, "/finance/banking/accounts", "error", shared.UserSafeMessage(err))
 		return
 	}
 
