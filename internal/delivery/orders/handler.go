@@ -119,8 +119,9 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if s := r.URL.Query().Get("status"); s != "" {
-		status := Status(s)
-		req.Status = &status
+		if status := Status(s); status.IsValid() {
+			req.Status = &status
+		}
 	}
 	if s := r.URL.Query().Get("search"); s != "" {
 		req.Search = &s
