@@ -14,13 +14,15 @@ type AdminHandler struct {
 	service   *Service
 	logger    *slog.Logger
 	templates *view.Engine
+	csrf      *shared.CSRFManager
 }
 
-func NewAdminHandler(service *Service, logger *slog.Logger, templates *view.Engine) *AdminHandler {
+func NewAdminHandler(service *Service, logger *slog.Logger, templates *view.Engine, csrf *shared.CSRFManager) *AdminHandler {
 	return &AdminHandler{
 		service:   service,
 		logger:    logger,
 		templates: templates,
+		csrf:      csrf,
 	}
 }
 
@@ -73,8 +75,15 @@ func (h *AdminHandler) handleList(w http.ResponseWriter, r *http.Request) {
 		{"Provider": "OIDC/SSO", "Type": "identity", "Icon": "shield-check", "Description": "Single Sign-On and directory sync."},
 	}
 
+	var csrfToken string
+	if h.csrf != nil {
+		csrfToken, _ = h.csrf.EnsureToken(r.Context(), sess)
+	}
+
 	_ = h.templates.Render(w, "pages/integrations.html", view.TemplateData{
-		Title: "Integrations",
+		Title:       "Integrations",
+		CurrentPath: "/settings/integrations",
+		CSRFToken:   csrfToken,
 		Data: map[string]any{
 			"Connections": connections,
 			"Catalog":     catalog,

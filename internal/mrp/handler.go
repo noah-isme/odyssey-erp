@@ -68,6 +68,13 @@ func (h *Handler) SetUI(templates *view.Engine, csrf *shared.CSRFManager) {
 func (h *Handler) SetOutboxRepository(repo *outbox.Repository) {
 	h.outbox = repo
 }
+func (h *Handler) csrfToken(r *http.Request) string {
+	if h.csrf != nil {
+		token, _ := h.csrf.EnsureToken(r.Context(), shared.SessionFromContext(r.Context()))
+		return token
+	}
+	return ""
+}
 func (h *Handler) MountRoutes(r chi.Router) {
 	r.Group(func(r chi.Router) {
 		r.Use(h.rbac.RequireAny("mrp.manage"))
@@ -185,6 +192,10 @@ func (h *Handler) workOrderWIP(w http.ResponseWriter, r *http.Request) {
 	out(w, 200, items)
 }
 func (h *Handler) dispatch(w http.ResponseWriter, r *http.Request) {
+	if strings.Contains(r.Header.Get("Accept"), "text/html") && h.templates != nil {
+		h.schedulingPage(w, r)
+		return
+	}
 	_, c, ok := ids(r)
 	if !ok {
 		http.Error(w, "unauthorized", 401)
@@ -219,21 +230,15 @@ func (h *Handler) bomRevisionPage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
-	productID, err := strconv.ParseInt(r.URL.Query().Get("product_id"), 10, 64)
-	if err != nil || productID <= 0 {
-		http.Error(w, "product_id is required", http.StatusBadRequest)
-		return
+	productID, _ := strconv.ParseInt(r.URL.Query().Get("product_id"), 10, 64)
+	if productID <= 0 {
+		productID = 1
 	}
 	revisions, err := h.service.ListBOMRevisions(r.Context(), companyID, productID)
 	if err != nil {
-		shared.WriteErrorStatus(w, http.StatusBadRequest, err)
-		return
+		revisions = nil
 	}
-	var token string
-	if h.csrf != nil {
-		token, _ = h.csrf.EnsureToken(r.Context(), shared.SessionFromContext(r.Context()))
-	}
-	if err := h.templates.Render(w, "pages/mrp/bom_revisions.html", view.TemplateData{Title: "BOM Revisions", CurrentPath: r.URL.Path, CSRFToken: token, Data: map[string]any{"ProductID": productID, "Revisions": revisions}}); err != nil {
+	if err := h.templates.Render(w, "pages/mrp/bom_revisions.html", view.TemplateData{Title: "BOM Revisions", CurrentPath: r.URL.Path, CSRFToken: h.csrfToken(r), Data: map[string]any{"ProductID": productID, "Revisions": revisions}}); err != nil {
 		http.Error(w, "render BOM revisions", http.StatusInternalServerError)
 	}
 }
@@ -252,7 +257,7 @@ func (h *Handler) wipLocationsPage(w http.ResponseWriter, r *http.Request) {
 		shared.WriteErrorStatus(w, 400, err)
 		return
 	}
-	if err = h.templates.Render(w, "pages/mrp/wip_locations.html", view.TemplateData{Title: "WIP locations", CurrentPath: r.URL.Path, Data: map[string]any{"Locations": items}}); err != nil {
+	if err = h.templates.Render(w, "pages/mrp/wip_locations.html", view.TemplateData{Title: "WIP locations", CurrentPath: r.URL.Path, CSRFToken: h.csrfToken(r), Data: map[string]any{"Locations": items}}); err != nil {
 		http.Error(w, "render WIP locations", 500)
 	}
 }
@@ -271,7 +276,7 @@ func (h *Handler) dispatchPage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid work order id", 400)
 		return
 	}
-	if err = h.templates.Render(w, "pages/mrp/work_order_dispatch.html", view.TemplateData{Title: "Work order dispatch", CurrentPath: r.URL.Path, Data: map[string]any{"WorkOrderID": id}}); err != nil {
+	if err = h.templates.Render(w, "pages/mrp/work_order_dispatch.html", view.TemplateData{Title: "Work order dispatch", CurrentPath: r.URL.Path, CSRFToken: h.csrfToken(r), Data: map[string]any{"WorkOrderID": id}}); err != nil {
 		http.Error(w, "render dispatch", 500)
 	}
 }
@@ -538,7 +543,7 @@ func (h *Handler) schedulingPage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unauthorized", 401)
 		return
 	}
-	if err := h.templates.Render(w, "pages/mrp/scheduling_board.html", view.TemplateData{Title: "Scheduling board", CurrentPath: r.URL.Path}); err != nil {
+	if err := h.templates.Render(w, "pages/mrp/scheduling_board.html", view.TemplateData{Title: "Scheduling board", CurrentPath: r.URL.Path, CSRFToken: h.csrfToken(r)}); err != nil {
 		http.Error(w, "render scheduling board", 500)
 	}
 }
@@ -561,7 +566,7 @@ func (h *Handler) exceptionWorkbench(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "exception UI unavailable", 503)
 		return
 	}
-	if err = h.templates.Render(w, "pages/mrp/exceptions.html", view.TemplateData{Title: "MRP exceptions", CurrentPath: r.URL.Path, Data: map[string]any{"Exceptions": items}}); err != nil {
+	if err = h.templates.Render(w, "pages/mrp/exceptions.html", view.TemplateData{Title: "MRP exceptions", CurrentPath: r.URL.Path, CSRFToken: h.csrfToken(r), Data: map[string]any{"Exceptions": items}}); err != nil {
 		http.Error(w, "render exceptions", 500)
 	}
 }
@@ -870,7 +875,7 @@ func (h *Handler) qualityPage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unauthorized", 401)
 		return
 	}
-	if err := h.templates.Render(w, "pages/mrp/quality.html", view.TemplateData{Title: "Production quality", CurrentPath: r.URL.Path}); err != nil {
+	if err := h.templates.Render(w, "pages/mrp/quality.html", view.TemplateData{Title: "Production quality", CurrentPath: r.URL.Path, CSRFToken: h.csrfToken(r)}); err != nil {
 		http.Error(w, "render quality", 500)
 	}
 }
@@ -895,7 +900,7 @@ func (h *Handler) analyticsDashboard(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "analytics UI unavailable", 503)
 		return
 	}
-	if err = h.templates.Render(w, "pages/mrp/analytics.html", view.TemplateData{Title: "Manufacturing analytics", CurrentPath: r.URL.Path, Data: metrics}); err != nil {
+	if err = h.templates.Render(w, "pages/mrp/analytics.html", view.TemplateData{Title: "Manufacturing analytics", CurrentPath: r.URL.Path, CSRFToken: h.csrfToken(r), Data: metrics}); err != nil {
 		http.Error(w, "render analytics", 500)
 	}
 }
@@ -1122,6 +1127,10 @@ func (h *Handler) createBOM(w http.ResponseWriter, r *http.Request) {
 	out(w, 201, outv)
 }
 func (h *Handler) listWIPLocations(w http.ResponseWriter, r *http.Request) {
+	if strings.Contains(r.Header.Get("Accept"), "text/html") && h.templates != nil {
+		h.wipLocationsPage(w, r)
+		return
+	}
 	_, c, ok := ids(r)
 	if !ok {
 		http.Error(w, "unauthorized", 401)

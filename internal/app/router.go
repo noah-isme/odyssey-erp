@@ -569,6 +569,14 @@ func NewRouter(params RouterParams) http.Handler {
 	freight.NewHandler(params.FreightService).RegisterRoutes(r)
 
 	// Register Logistics UI form routes
+	csrfForReq := func(r *http.Request) string {
+		if params.CSRFManager != nil {
+			t, _ := params.CSRFManager.EnsureToken(r.Context(), shared.SessionFromContext(r.Context()))
+			return t
+		}
+		return ""
+	}
+
 	r.Get("/logistics/fleet", func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		companyID := int64(1)
@@ -588,6 +596,7 @@ func NewRouter(params RouterParams) http.Handler {
 		_ = params.Templates.Render(w, "pages/logistics/fleet_management.html", view.TemplateData{
 			Title:       "Fleet Management",
 			CurrentPath: "/logistics/fleet",
+			CSRFToken:   csrfForReq(r),
 			Data: map[string]interface{}{
 				"Vehicles":  vehicles,
 				"Total":     len(vehicles),
@@ -604,6 +613,7 @@ func NewRouter(params RouterParams) http.Handler {
 		_ = params.Templates.Render(w, "pages/logistics/new_vehicle.html", view.TemplateData{
 			Title:       "Register Vehicle",
 			CurrentPath: "/logistics/fleet",
+			CSRFToken:   csrfForReq(r),
 			Data:        map[string]interface{}{"Fleets": fleets},
 		})
 	})
@@ -644,6 +654,7 @@ func NewRouter(params RouterParams) http.Handler {
 		_ = params.Templates.Render(w, "pages/logistics/trip_management.html", view.TemplateData{
 			Title:       "Trip Management",
 			CurrentPath: "/logistics/trips",
+			CSRFToken:   csrfForReq(r),
 			Data:        map[string]interface{}{"Trips": trips},
 		})
 	})
@@ -655,6 +666,7 @@ func NewRouter(params RouterParams) http.Handler {
 		_ = params.Templates.Render(w, "pages/logistics/new_trip.html", view.TemplateData{
 			Title:       "Plan New Trip",
 			CurrentPath: "/logistics/trips",
+			CSRFToken:   csrfForReq(r),
 			Data:        map[string]interface{}{"Vehicles": vehicles, "Drivers": drivers},
 		})
 	})
@@ -694,6 +706,7 @@ func NewRouter(params RouterParams) http.Handler {
 		_ = params.Templates.Render(w, "pages/logistics/rate_cards.html", view.TemplateData{
 			Title:       "Rate Cards",
 			CurrentPath: "/logistics/rate-cards",
+			CSRFToken:   csrfForReq(r),
 			Data:        map[string]interface{}{"RateCards": rateCards},
 		})
 	})
@@ -707,6 +720,7 @@ func NewRouter(params RouterParams) http.Handler {
 		_ = params.Templates.Render(w, "pages/logistics/freight_charges.html", view.TemplateData{
 			Title:       "Freight Charges",
 			CurrentPath: "/logistics/freight",
+			CSRFToken:   csrfForReq(r),
 			Data:        map[string]interface{}{"FreightCharges": charges},
 		})
 	})

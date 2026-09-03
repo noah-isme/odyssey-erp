@@ -350,7 +350,7 @@ func main() {
 
 	connectorsService := connectors.NewService(connectors.NewRepository(dbpool), vault, connectorsRegistry)
 	integrationHooks.SetConnectorsService(connectorsService)
-	connectorsAdminHandler := connectors.NewAdminHandler(connectorsService, logger, templates)
+	connectorsAdminHandler := connectors.NewAdminHandler(connectorsService, logger, templates, csrfManager)
 
 	notificationRepo := notifications.NewRepository(dbpool)
 	notificationService := notifications.NewService(notificationRepo)
