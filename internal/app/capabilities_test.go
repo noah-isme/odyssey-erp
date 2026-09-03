@@ -36,10 +36,11 @@ func TestCoreProfileBlocksPreviewRoutes(t *testing.T) {
 		{path: "/", want: true},
 		{path: "/finance/ap/invoices", want: true},
 		{path: "/legal/privacy", want: true},
+		{path: "/hr/employees", want: true},
+		{path: "/mrp/dispatch", want: true},
 		{path: "/documents/search", want: false},
 		{path: "/cmms/iot/readings", want: false},
-		{path: "/settings/integrations", want: false},
-		{path: "/mrp", want: false},
+		{path: "/cmms/predictive/models", want: false},
 	} {
 		if got := profile.AllowsPath(test.path); got != test.want {
 			t.Errorf("AllowsPath(%q) = %v, want %v", test.path, got, test.want)

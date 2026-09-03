@@ -156,6 +156,7 @@ jobs:
           # Absolute: go test runs from the package directory, so a relative
           # path would resolve under tests/e2e rather than the workspace.
           ODYSSEY_E2E_ROUTES: ${{ github.workspace }}/routes.json
+          ODYSSEY_E2E_RATE_PER_MIN: "120"
           GOTENBERG_URL: ""
         shell: bash
         run: |
