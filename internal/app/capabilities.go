@@ -87,7 +87,6 @@ var coreRoutePrefixes = []string{
 	"/procurement",
 	"/logistics",
 	"/freight",
-	"/distribution",
 	"/consol",
 	"/eliminations",
 	"/variance",

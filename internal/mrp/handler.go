@@ -192,7 +192,7 @@ func (h *Handler) workOrderWIP(w http.ResponseWriter, r *http.Request) {
 	out(w, 200, items)
 }
 func (h *Handler) dispatch(w http.ResponseWriter, r *http.Request) {
-	if strings.Contains(r.Header.Get("Accept"), "text/html") && h.templates != nil {
+	if !strings.Contains(r.Header.Get("Accept"), "application/json") && h.templates != nil {
 		h.schedulingPage(w, r)
 		return
 	}
@@ -1127,7 +1127,7 @@ func (h *Handler) createBOM(w http.ResponseWriter, r *http.Request) {
 	out(w, 201, outv)
 }
 func (h *Handler) listWIPLocations(w http.ResponseWriter, r *http.Request) {
-	if strings.Contains(r.Header.Get("Accept"), "text/html") && h.templates != nil {
+	if !strings.Contains(r.Header.Get("Accept"), "application/json") && h.templates != nil {
 		h.wipLocationsPage(w, r)
 		return
 	}
