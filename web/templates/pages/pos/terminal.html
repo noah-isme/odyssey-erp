@@ -60,14 +60,14 @@
 
         <div class="pos-header__actions">
             <!-- Theme Toggle Button -->
-            <button class="pos-icon-btn" id="posThemeToggleBtn" title="Ganti Tema (Dark / Light)" data-theme-toggle>
+            <button class="btn pos-icon-btn" id="posThemeToggleBtn" title="Ganti Tema (Dark / Light)" aria-label="Ganti Tema" data-theme-toggle>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
                 </svg>
             </button>
 
             <!-- Fullscreen Toggle Button -->
-            <button class="pos-icon-btn" id="posFullscreenBtn" title="Layar Penuh (Fullscreen)">
+            <button class="btn pos-icon-btn" id="posFullscreenBtn" title="Layar Penuh (Fullscreen)" aria-label="Layar Penuh">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="15 3 21 3 21 9"/>
                     <polyline points="9 21 3 21 3 15"/>
@@ -102,13 +102,13 @@
                         <line x1="19" y1="5" x2="19" y2="19"/>
                         <line x1="21" y1="5" x2="21" y2="19"/>
                     </svg>
-                    <input type="text" id="posScannerInput" class="pos-scanner-input" placeholder="Scan Barcode / Cari Nama Produk atau SKU... [F2]" autofocus autocomplete="off">
+                    <input type="text" id="posScannerInput" class="form-input pos-scanner-input" placeholder="Scan Barcode / Cari Nama Produk atau SKU... [F2]" autofocus autocomplete="off">
                 </div>
             </div>
 
             <!-- Category Filter Chips -->
             <nav class="pos-categories" id="posCategoryList">
-                <button class="pos-chip is-active" data-cat-id="all">Semua Produk</button>
+                <button class="btn pos-chip is-active" data-cat-id="all">Semua Produk</button>
             </nav>
 
             <!-- Products Grid -->
@@ -126,7 +126,7 @@
                     <span>Pesanan Aktif</span>
                     <span class="pos-cart-count" id="posCartCount">0</span>
                 </h3>
-                <button class="pos-btn-text-danger" id="posClearCartBtn" title="Hapus Semua Item [F4]">Reset [F4]</button>
+                <button class="btn pos-btn-text-danger" id="posClearCartBtn" title="Hapus Semua Item [F4]">Reset [F4]</button>
             </div>
 
             <!-- Cart Items List -->
@@ -157,14 +157,14 @@
             <!-- Action Buttons -->
             <div class="pos-cart-actions">
                 <div class="pos-cart-secondary-actions">
-                    <button class="pos-action-btn" id="posHoldBtn" title="Tunda Pesanan [F8]">
+                    <button class="btn pos-action-btn" id="posHoldBtn" title="Tunda Pesanan [F8]">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <rect x="6" y="4" width="4" height="16"/>
                             <rect x="14" y="4" width="4" height="16"/>
                         </svg>
                         <span>Tunda [F8]</span>
                     </button>
-                    <button class="pos-action-btn" id="posResumeHeldBtn" title="Buka Pesanan Tertunda">
+                    <button class="btn pos-action-btn" id="posResumeHeldBtn" title="Buka Pesanan Tertunda">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <circle cx="12" cy="12" r="10"/>
                             <polyline points="12 6 12 12 16 14"/>
@@ -173,7 +173,7 @@
                     </button>
                 </div>
 
-                <button class="pos-pay-btn" id="posPayBtn" disabled>
+                <button class="btn pos-pay-btn" id="posPayBtn" disabled>
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                         <polyline points="20 6 9 17 4 12"/>
                     </svg>
@@ -188,7 +188,7 @@
         <div class="pos-modal">
             <div class="pos-modal__header">
                 <h3>Pembayaran Transaksi</h3>
-                <button class="pos-modal__close" data-modal-close>&times;</button>
+                <button class="btn pos-modal__close" data-modal-close aria-label="Tutup modal">&times;</button>
             </div>
             <div class="pos-modal__body">
                 <div class="pos-pay-summary">
@@ -200,21 +200,21 @@
                 <div>
                     <label class="pos-form-label">Metode Pembayaran</label>
                     <div class="pos-payment-methods">
-                        <button class="pos-pm-btn is-active" data-method="CASH">
+                        <button class="btn pos-pm-btn is-active" data-method="CASH">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <rect x="2" y="6" width="20" height="12" rx="2"/>
                                 <circle cx="12" cy="12" r="2"/>
                             </svg>
                             <span>Tunai</span>
                         </button>
-                        <button class="pos-pm-btn" data-method="CARD">
+                        <button class="btn pos-pm-btn" data-method="CARD">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
                                 <line x1="1" y1="10" x2="23" y2="10"/>
                             </svg>
                             <span>Kartu / Debit</span>
                         </button>
-                        <button class="pos-pm-btn" data-method="BANK">
+                        <button class="btn pos-pm-btn" data-method="BANK">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <rect x="3" y="3" width="18" height="18" rx="2"/>
                                 <rect x="7" y="7" width="3" height="3"/>
@@ -231,16 +231,16 @@
                 <div id="posCashSection">
                     <label class="pos-form-label">Pilihan Cepat Uang Diterima</label>
                     <div class="pos-cash-presets pos-cash-presets--mb">
-                        <button class="pos-preset-btn" data-preset="exact">Uang Pas</button>
-                        <button class="pos-preset-btn" data-preset="20000">20.000</button>
-                        <button class="pos-preset-btn" data-preset="50000">50.000</button>
-                        <button class="pos-preset-btn" data-preset="100000">100.000</button>
-                        <button class="pos-preset-btn" data-preset="200000">200.000</button>
-                        <button class="pos-preset-btn" data-preset="500000">500.000</button>
+                        <button class="btn pos-preset-btn" data-preset="exact">Uang Pas</button>
+                        <button class="btn pos-preset-btn" data-preset="20000">20.000</button>
+                        <button class="btn pos-preset-btn" data-preset="50000">50.000</button>
+                        <button class="btn pos-preset-btn" data-preset="100000">100.000</button>
+                        <button class="btn pos-preset-btn" data-preset="200000">200.000</button>
+                        <button class="btn pos-preset-btn" data-preset="500000">500.000</button>
                     </div>
 
                     <label for="posTenderInput" class="pos-form-label pos-form-label--sm">Nominal Uang Diterima (Rp)</label>
-                    <input type="number" id="posTenderInput" class="pos-scanner-input pos-tender-input" placeholder="0" min="0">
+                    <input type="number" id="posTenderInput" class="form-input pos-scanner-input pos-tender-input" placeholder="0" min="0">
 
                     <!-- Change Due Display -->
                     <div class="pos-change-box pos-change-box--mt">
@@ -249,7 +249,7 @@
                     </div>
                 </div>
 
-                <button class="pos-pay-btn pos-confirm-pay-btn" id="posConfirmPayBtn">
+                <button class="btn pos-pay-btn pos-confirm-pay-btn" id="posConfirmPayBtn">
                     Konfirmasi &amp; Cetak Struk [Enter]
                 </button>
             </div>
@@ -261,7 +261,7 @@
         <div class="pos-modal">
             <div class="pos-modal__header">
                 <h3>Transaksi Berhasil</h3>
-                <button class="pos-modal__close" data-modal-close>&times;</button>
+                <button class="btn pos-modal__close" data-modal-close aria-label="Tutup modal">&times;</button>
             </div>
             <div class="pos-modal__body">
                 <div class="pos-receipt-preview" id="posReceiptPreview">
@@ -269,7 +269,7 @@
                 </div>
 
                 <div class="pos-modal-actions">
-                    <button class="pos-action-btn pos-modal-actions__btn pos-modal-actions__btn--subtle" id="posPrintBtn">
+                    <button class="btn pos-action-btn pos-modal-actions__btn pos-modal-actions__btn--subtle" id="posPrintBtn">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <polyline points="6 9 6 2 18 2 18 9"/>
                             <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
@@ -277,7 +277,7 @@
                         </svg>
                         <span>Cetak Struk</span>
                     </button>
-                    <button class="pos-pay-btn pos-modal-actions__btn" id="posNewSaleBtn">
+                    <button class="btn pos-pay-btn pos-modal-actions__btn" id="posNewSaleBtn">
                         <span>Transaksi Baru [Ctrl+N]</span>
                     </button>
                 </div>
@@ -290,7 +290,7 @@
         <div class="pos-modal">
             <div class="pos-modal__header">
                 <h3>Daftar Order Tertunda</h3>
-                <button class="pos-modal__close" data-modal-close>&times;</button>
+                <button class="btn pos-modal__close" data-modal-close aria-label="Tutup modal">&times;</button>
             </div>
             <div class="pos-modal__body" id="posHeldList">
                 <!-- Populated dynamically -->
