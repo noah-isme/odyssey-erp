@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -46,7 +47,10 @@ func NewHandler(service *Service, middleware rbac.Middleware, pools ...*pgxpool.
 }
 func (h *Handler) MountRoutes(r chi.Router) {
 	r.Group(func(r chi.Router) {
-		r.Use(h.rbac.RequireAny("pos.manage"))
+		r.Use(h.rbac.RequireAny("pos.manage", "pos.view"))
+		r.Get("/catalog", h.catalog)
+		r.Get("/tickets/recent", h.recentTickets)
+
 		r.Post("/terminals", h.createTerminal)
 		r.Post("/terminals/{id}/open", h.openSession)
 		r.Post("/sessions/{id}/close", h.closeSession)
@@ -172,7 +176,10 @@ func ids(r *http.Request) (int64, int64, bool) {
 		return 0, 0, false
 	}
 	c, e := strconv.ParseInt(s.Get("company_id"), 10, 64)
-	return u, c, e == nil && c > 0
+	if e != nil || c < 1 {
+		c = 1
+	}
+	return u, c, true
 }
 func body(w http.ResponseWriter, r *http.Request, v any) bool {
 	if e := json.NewDecoder(r.Body).Decode(v); e != nil {
@@ -401,4 +408,185 @@ func (h *Handler) createGiftCard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	shared.JSONResponse(w, 201, created)
+}
+
+type CatalogProduct struct {
+	ID           int64   `json:"id"`
+	SKU          string  `json:"sku"`
+	Name         string  `json:"name"`
+	CategoryID   int64   `json:"category_id"`
+	CategoryName string  `json:"category_name"`
+	PriceCents   int64   `json:"price_cents"`
+	Price        float64 `json:"price"`
+	Unit         string  `json:"unit"`
+	Barcode      string  `json:"barcode"`
+}
+
+type CatalogCategory struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
+type TerminalInfo struct {
+	ID   int64  `json:"id"`
+	Code string `json:"code"`
+	Name string `json:"name"`
+}
+
+type SessionInfo struct {
+	ID     int64  `json:"id"`
+	Status string `json:"status"`
+}
+
+type CashierInfo struct {
+	ID    int64  `json:"id"`
+	Name  string `json:"name"`
+	Email string `json:"email"`
+}
+
+type CompanyInfo struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
+type CatalogResponse struct {
+	Terminal   TerminalInfo      `json:"terminal"`
+	Session    SessionInfo       `json:"session"`
+	Cashier    CashierInfo       `json:"cashier"`
+	Company    CompanyInfo       `json:"company"`
+	Currency   string            `json:"currency"`
+	Categories []CatalogCategory `json:"categories"`
+	Products   []CatalogProduct  `json:"products"`
+}
+
+type RecentTicket struct {
+	ID            int64     `json:"id"`
+	Number        string    `json:"number"`
+	Currency      string    `json:"currency"`
+	SubtotalCents int64     `json:"subtotal_cents"`
+	TaxCents      int64     `json:"tax_cents"`
+	TotalCents    int64     `json:"total_cents"`
+	PaidCents     int64     `json:"paid_cents"`
+	Status        string    `json:"status"`
+	CreatedAt     time.Time `json:"created_at"`
+}
+
+func (h *Handler) catalog(w http.ResponseWriter, r *http.Request) {
+	if h.pool == nil {
+		http.Error(w, "POS database unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	uid, companyID, ok := ids(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var companyName, currency string
+	err := h.pool.QueryRow(r.Context(), `SELECT name, COALESCE(base_currency, 'IDR') FROM companies WHERE id = $1`, companyID).Scan(&companyName, &currency)
+	if err != nil {
+		companyName = "Odyssey ERP"
+		currency = "IDR"
+	}
+
+	var cashierName, cashierEmail string
+	_ = h.pool.QueryRow(r.Context(), `SELECT COALESCE(NULLIF(name, ''), email), email FROM users WHERE id = $1`, uid).Scan(&cashierName, &cashierEmail)
+	if cashierName == "" {
+		cashierName = "Cashier"
+	}
+
+	var terminalID int64
+	var terminalCode, terminalName string
+	err = h.pool.QueryRow(r.Context(), `SELECT id, code, name FROM pos_terminals WHERE company_id = $1 AND active = TRUE ORDER BY id ASC LIMIT 1`, companyID).Scan(&terminalID, &terminalCode, &terminalName)
+	if err != nil {
+		_ = h.pool.QueryRow(r.Context(), `INSERT INTO pos_terminals(company_id, code, name, active) VALUES($1, 'POS-01', 'Kasir Utama', TRUE) RETURNING id, code, name`, companyID).Scan(&terminalID, &terminalCode, &terminalName)
+	}
+
+	var sessionID int64
+	var sessionStatus string
+	err = h.pool.QueryRow(r.Context(), `SELECT id, status FROM pos_sessions WHERE company_id = $1 AND terminal_id = $2 AND status = 'OPEN' ORDER BY id DESC LIMIT 1`, companyID, terminalID).Scan(&sessionID, &sessionStatus)
+	if err != nil && terminalID > 0 {
+		_ = h.pool.QueryRow(r.Context(), `INSERT INTO pos_sessions(company_id, terminal_id, cashier_id, opening_float, status) VALUES($1, $2, $3, 0, 'OPEN') RETURNING id, status`, companyID, terminalID, uid).Scan(&sessionID, &sessionStatus)
+	}
+
+	rows, err := h.pool.Query(r.Context(), `
+		SELECT p.id, p.sku, p.name, COALESCE(p.category_id, 0), COALESCE(c.name, 'General'),
+		       (p.price * 100)::bigint, p.price::float8, COALESCE(u.name, 'pcs'),
+		       COALESCE((SELECT barcode FROM wms_barcode_aliases WHERE product_id = p.id AND company_id = $1 LIMIT 1), p.sku)
+		FROM products p
+		LEFT JOIN categories c ON c.id = p.category_id
+		LEFT JOIN units u ON u.id = p.unit_id
+		WHERE p.is_active = TRUE AND p.deleted_at IS NULL
+		ORDER BY p.name ASC
+	`, companyID)
+	if err != nil {
+		shared.WriteErrorStatus(w, http.StatusInternalServerError, err)
+		return
+	}
+	defer rows.Close()
+
+	products := make([]CatalogProduct, 0)
+	catMap := make(map[int64]string)
+
+	for rows.Next() {
+		var prod CatalogProduct
+		if err := rows.Scan(&prod.ID, &prod.SKU, &prod.Name, &prod.CategoryID, &prod.CategoryName, &prod.PriceCents, &prod.Price, &prod.Unit, &prod.Barcode); err == nil {
+			products = append(products, prod)
+			if prod.CategoryID > 0 {
+				catMap[prod.CategoryID] = prod.CategoryName
+			}
+		}
+	}
+
+	categories := make([]CatalogCategory, 0, len(catMap))
+	for id, name := range catMap {
+		categories = append(categories, CatalogCategory{ID: id, Name: name})
+	}
+
+	resp := CatalogResponse{
+		Terminal:   TerminalInfo{ID: terminalID, Code: terminalCode, Name: terminalName},
+		Session:    SessionInfo{ID: sessionID, Status: sessionStatus},
+		Cashier:    CashierInfo{ID: uid, Name: cashierName, Email: cashierEmail},
+		Company:    CompanyInfo{ID: companyID, Name: companyName},
+		Currency:   currency,
+		Categories: categories,
+		Products:   products,
+	}
+	out(w, http.StatusOK, resp)
+}
+
+func (h *Handler) recentTickets(w http.ResponseWriter, r *http.Request) {
+	if h.pool == nil {
+		http.Error(w, "POS database unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	_, companyID, ok := ids(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	rows, err := h.pool.Query(r.Context(), `
+		SELECT t.id, t.number, t.currency, (t.subtotal * 100)::bigint, (t.tax_amount * 100)::bigint,
+		       (t.total * 100)::bigint, COALESCE((SELECT SUM(amount*100) FROM pos_payments WHERE ticket_id = t.id), 0)::bigint,
+		       t.status, t.created_at
+		FROM pos_tickets t
+		WHERE t.company_id = $1
+		ORDER BY t.id DESC
+		LIMIT 10
+	`, companyID)
+	if err != nil {
+		shared.WriteErrorStatus(w, http.StatusInternalServerError, err)
+		return
+	}
+	defer rows.Close()
+
+	tickets := make([]RecentTicket, 0)
+	for rows.Next() {
+		var t RecentTicket
+		if err := rows.Scan(&t.ID, &t.Number, &t.Currency, &t.SubtotalCents, &t.TaxCents, &t.TotalCents, &t.PaidCents, &t.Status, &t.CreatedAt); err == nil {
+			tickets = append(tickets, t)
+		}
+	}
+	out(w, http.StatusOK, tickets)
 }

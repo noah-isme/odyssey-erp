@@ -149,11 +149,16 @@ async function applyWorkspacePreferences() {
         }
         applyShellLanguage(language);
 
-        const preference = user.theme || 'system';
-        const theme = preference === 'system'
-            ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-            : preference;
-        Theme.apply(theme);
+        const savedTheme = localStorage.getItem('odyssey.theme');
+        if (savedTheme === 'dark' || savedTheme === 'light') {
+            Theme.apply(savedTheme);
+        } else {
+            const preference = user.theme || 'system';
+            const theme = preference === 'system'
+                ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+                : preference;
+            Theme.apply(theme);
+        }
     } catch (_) {
         // The shell remains usable with its safe default values.
     }

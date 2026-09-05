@@ -485,24 +485,46 @@ func NewRouter(params RouterParams) http.Handler {
 			http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
 			return
 		}
+		isJSON := strings.Contains(r.Header.Get("Accept"), "application/json")
 		theme := r.PostFormValue("theme")
 		if theme != "light" && theme != "dark" {
 			theme = "system"
+		}
+		id, err := strconv.ParseInt(sess.User(), 10, 64)
+		if err != nil || params.Pool == nil {
+			if isJSON {
+				http.Error(w, "invalid user", http.StatusBadRequest)
+				return
+			}
+			sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Pengaturan tidak dapat disimpan"})
+			http.Redirect(w, r, "/settings", http.StatusSeeOther)
+			return
+		}
+		if isJSON && r.PostFormValue("language") == "" {
+			_, _ = params.Pool.Exec(r.Context(), "UPDATE users SET ui_theme = $1, updated_at = NOW() WHERE id = $2", theme, id)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"status":"ok"}`))
+			return
 		}
 		language := r.PostFormValue("language")
 		if language != "id" && language != "en" {
 			language = "id"
 		}
-		id, err := strconv.ParseInt(sess.User(), 10, 64)
-		if err != nil || params.Pool == nil {
-			sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Pengaturan tidak dapat disimpan"})
-			http.Redirect(w, r, "/settings", http.StatusSeeOther)
-			return
-		}
 		notifications := r.PostFormValue("notifications") == "enabled"
 		if _, err = params.Pool.Exec(r.Context(), "UPDATE users SET ui_theme = $1, ui_language = $2, ui_notifications = $3, updated_at = NOW() WHERE id = $4", theme, language, notifications, id); err != nil {
+			if isJSON {
+				http.Error(w, "update failed", http.StatusInternalServerError)
+				return
+			}
 			sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Pengaturan tidak dapat disimpan"})
 		} else {
+			if isJSON {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{"status":"ok"}`))
+				return
+			}
 			sess.AddFlash(shared.FlashMessage{Kind: "success", Message: "Pengaturan berhasil disimpan"})
 		}
 		http.Redirect(w, r, "/settings", http.StatusSeeOther)

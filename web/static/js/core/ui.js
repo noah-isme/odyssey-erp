@@ -20,6 +20,8 @@
 
         if (saved === 'dark' || (!saved && prefersDark)) {
             document.documentElement.setAttribute('data-theme', 'dark');
+        } else {
+            document.documentElement.removeAttribute('data-theme');
         }
 
         var language = localStorage.getItem(LANGUAGE_KEY);
