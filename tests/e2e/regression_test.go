@@ -214,6 +214,8 @@ var nonPagePrefixes = []string{
 	"/api",
 	"/legal",
 	"/pos/terminal",
+	"/pos/catalog",
+	"/pos/tickets",
 	"/mrp/boms/revisions",
 	"/mrp/decisions",
 	"/mrp/genealogy",
