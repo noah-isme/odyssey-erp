@@ -263,7 +263,7 @@ func (h *Handler) payment(w http.ResponseWriter, r *http.Request) {
 	if h.ledger != nil && h.pool != nil {
 		var amount, baseAmount, rate float64
 		var currency, baseCurrency, status string
-		err := h.pool.QueryRow(r.Context(), `SELECT t.total::float8,t.currency,c.base_currency,CASE WHEN t.currency=c.base_currency THEN 1 ELSE fx.rate END,t.status FROM pos_tickets t JOIN companies c ON c.id=t.company_id LEFT JOIN LATERAL (SELECT rate FROM fx_daily_rates WHERE base_currency=c.base_currency AND quote_currency=t.currency AND rate_date<=CURRENT_DATE ORDER BY rate_date DESC LIMIT 1) fx ON TRUE WHERE t.id=$1 AND t.company_id=$2`, id, c).Scan(&amount, &currency, &baseCurrency, &rate, &status)
+		err := h.pool.QueryRow(r.Context(), `SELECT t.total::float8,t.currency,c.base_currency,COALESCE(CASE WHEN t.currency=c.base_currency OR t.currency='' THEN 1.0 ELSE fx.rate END, 1.0),t.status FROM pos_tickets t JOIN companies c ON c.id=t.company_id LEFT JOIN LATERAL (SELECT rate FROM fx_daily_rates WHERE base_currency=c.base_currency AND quote_currency=t.currency AND rate_date<=CURRENT_DATE ORDER BY rate_date DESC LIMIT 1) fx ON TRUE WHERE t.id=$1 AND t.company_id=$2`, id, c).Scan(&amount, &currency, &baseCurrency, &rate, &status)
 		if err != nil {
 			shared.WriteErrorStatus(w, 400, err)
 			return
@@ -499,7 +499,11 @@ func (h *Handler) catalog(w http.ResponseWriter, r *http.Request) {
 	var terminalCode, terminalName string
 	err = h.pool.QueryRow(r.Context(), `SELECT id, code, name FROM pos_terminals WHERE company_id = $1 AND active = TRUE ORDER BY id ASC LIMIT 1`, companyID).Scan(&terminalID, &terminalCode, &terminalName)
 	if err != nil {
-		_ = h.pool.QueryRow(r.Context(), `INSERT INTO pos_terminals(company_id, code, name, active) VALUES($1, 'POS-01', 'Kasir Utama', TRUE) RETURNING id, code, name`, companyID).Scan(&terminalID, &terminalCode, &terminalName)
+		_ = h.pool.QueryRow(r.Context(), `
+			INSERT INTO pos_terminals(company_id, code, name, warehouse_id, active)
+			VALUES($1, 'POS-01', 'Kasir Utama', (SELECT id FROM warehouses WHERE company_id = $1 ORDER BY id ASC LIMIT 1), TRUE)
+			RETURNING id, code, name
+		`, companyID).Scan(&terminalID, &terminalCode, &terminalName)
 	}
 
 	var sessionID int64

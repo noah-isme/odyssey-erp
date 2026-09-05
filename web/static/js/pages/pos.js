@@ -211,9 +211,9 @@
         let discountCents = 0;
 
         state.cart.forEach(item => {
-            const itemSubtotal = item.quantity * item.product.price_cents;
+            const itemSubtotal = Math.round(item.quantity * item.product.price_cents);
             subtotalCents += itemSubtotal;
-            discountCents += item.discountCents || 0;
+            discountCents += Math.round(item.discountCents || 0);
         });
 
         const taxableCents = Math.max(0, subtotalCents - discountCents);
@@ -480,9 +480,9 @@
                 total_cents: totalCents,
                 lines: state.cart.map(item => ({
                     ProductID: item.product.id,
-                    Quantity: item.quantity,
+                    Quantity: Math.max(1, Math.round(item.quantity)),
                     UnitPriceCents: item.product.price_cents,
-                    DiscountCents: item.discountCents || 0,
+                    DiscountCents: Math.round(item.discountCents || 0),
                     TaxCents: Math.round(item.quantity * item.product.price_cents * state.taxRate)
                 }))
             };

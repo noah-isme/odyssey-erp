@@ -4,7 +4,7 @@
  * Following state-driven-ui architecture
  */
 
-import { reducer, selectors, getState, setState } from './store.js';
+import { reducer, selectors, getState, setState, KEY } from './store.js';
 import { effects } from './effects.js';
 import { view } from './view.js';
 
@@ -25,6 +25,27 @@ function dispatch(action) {
     }
 }
 
+// ========== MULTI-TAB & OS SYNC ==========
+function handleStorage(e) {
+    if (e.key === KEY && (e.newValue === 'light' || e.newValue === 'dark')) {
+        const current = getState().theme;
+        if (e.newValue !== current) {
+            setState({ theme: e.newValue });
+            view.render({ theme: e.newValue });
+        }
+    }
+}
+
+const mediaQuery = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+
+function handleMediaChange(e) {
+    const saved = effects.restore();
+    if (!saved || saved === 'system') {
+        const next = e.matches ? 'dark' : 'light';
+        dispatch({ type: 'THEME_SET', payload: next });
+    }
+}
+
 // ========== INIT ==========
 function init() {
     // Restore state from effects
@@ -39,6 +60,18 @@ function init() {
 
     // Event Delegation (single listener at document level)
     document.addEventListener('click', handleClick);
+
+    // Multi-tab synchronization
+    window.addEventListener('storage', handleStorage);
+
+    // Dynamic OS color scheme transitions
+    if (mediaQuery) {
+        if (mediaQuery.addEventListener) {
+            mediaQuery.addEventListener('change', handleMediaChange);
+        } else if (mediaQuery.addListener) {
+            mediaQuery.addListener(handleMediaChange);
+        }
+    }
 }
 
 // ========== EVENT HANDLER ==========
@@ -63,6 +96,14 @@ function handleClick(e) {
 // ========== DESTROY (cleanup) ==========
 function destroy() {
     document.removeEventListener('click', handleClick);
+    window.removeEventListener('storage', handleStorage);
+    if (mediaQuery) {
+        if (mediaQuery.removeEventListener) {
+            mediaQuery.removeEventListener('change', handleMediaChange);
+        } else if (mediaQuery.removeListener) {
+            mediaQuery.removeListener(handleMediaChange);
+        }
+    }
 }
 
 // ========== PUBLIC API ==========

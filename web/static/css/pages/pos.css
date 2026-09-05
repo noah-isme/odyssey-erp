@@ -764,6 +764,67 @@ body.pos-body {
     overflow-y: auto;
 }
 
+.pos-pay-summary {
+    text-align: center;
+    margin-bottom: 0.5rem;
+}
+
+.pos-pay-summary__label {
+    font-size: 0.9rem;
+    color: var(--pos-text-muted);
+}
+
+.pos-pay-summary__amount {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--pos-primary);
+}
+
+.pos-form-label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.pos-form-label--sm {
+    margin-bottom: 0.35rem;
+}
+
+.pos-cash-presets--mb {
+    margin-bottom: 0.75rem;
+}
+
+.pos-tender-input {
+    padding-left: 1rem;
+    font-size: 1.25rem;
+    font-weight: 700;
+}
+
+.pos-change-box--mt {
+    margin-top: 0.75rem;
+}
+
+.pos-confirm-pay-btn {
+    margin-top: 0.5rem;
+}
+
+.pos-modal-actions {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.pos-modal-actions__btn {
+    flex: 1;
+    height: 48px;
+    font-size: 1rem;
+}
+
+.pos-modal-actions__btn--subtle {
+    background: var(--pos-surface-subtle);
+}
+
+
 /* Print Styles for 58mm / 80mm ESC/POS Thermal Printers */
 @media print {
     body.pos-body * {
