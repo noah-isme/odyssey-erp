@@ -17,6 +17,33 @@ const effects = {
         } catch (e) {
             // Silent fail - storage might be disabled
         }
+        this.syncBackend(theme);
+    },
+
+    /**
+     * Sync theme preference to backend asynchronously
+     * @param {string} theme - 'light' | 'dark'
+     */
+    syncBackend(theme) {
+        try {
+            const token = document.querySelector('meta[name="csrf-token"]')?.content;
+            if (!token) return;
+            const body = new URLSearchParams();
+            body.append('theme', theme);
+            body.append('csrf_token', token);
+            fetch('/settings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRF-Token': token,
+                    'Accept': 'application/json'
+                },
+                body: body.toString(),
+                credentials: 'same-origin'
+            }).catch(() => {});
+        } catch (e) {
+            // Silent fail
+        }
     },
 
     /**

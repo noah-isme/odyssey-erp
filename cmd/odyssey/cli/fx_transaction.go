@@ -33,18 +33,18 @@ func RunTransactionFXFetch(ctx context.Context, ops TransactionFXOperations, opt
 	}
 	date, err := parseFXDate(opts.Date)
 	if err != nil {
-		fmt.Fprintln(opts.Stderr, err)
+		_, _ = fmt.Fprintln(opts.Stderr, err)
 		return 1
 	}
 	if ops == nil {
-		fmt.Fprintln(opts.Stderr, "fx fetch: operations are not configured")
+		_, _ = fmt.Fprintln(opts.Stderr, "fx fetch: operations are not configured")
 		return 1
 	}
 	if err := ops.Fetch(ctx, date, opts.Force); err != nil {
-		fmt.Fprintf(opts.Stderr, "fx fetch: %v\n", err)
+		_, _ = fmt.Fprintf(opts.Stderr, "fx fetch: %v\n", err)
 		return 1
 	}
-	fmt.Fprintf(opts.Stdout, "FX rates fetched for %s\n", date.Format("2006-01-02"))
+	_, _ = fmt.Fprintf(opts.Stdout, "FX rates fetched for %s\n", date.Format("2006-01-02"))
 	return 0
 }
 func RunTransactionFXStatus(ctx context.Context, ops TransactionFXOperations, opts TransactionFXCommandOptions) int {
@@ -56,20 +56,20 @@ func RunTransactionFXStatus(ctx context.Context, ops TransactionFXOperations, op
 	}
 	date, err := parseFXDate(opts.Date)
 	if err != nil {
-		fmt.Fprintln(opts.Stderr, err)
+		_, _ = fmt.Fprintln(opts.Stderr, err)
 		return 1
 	}
 	if ops == nil {
-		fmt.Fprintln(opts.Stderr, "fx status: operations are not configured")
+		_, _ = fmt.Fprintln(opts.Stderr, "fx status: operations are not configured")
 		return 1
 	}
 	rows, err := ops.Status(ctx, date)
 	if err != nil {
-		fmt.Fprintf(opts.Stderr, "fx status: %v\n", err)
+		_, _ = fmt.Fprintf(opts.Stderr, "fx status: %v\n", err)
 		return 1
 	}
 	for _, row := range rows {
-		fmt.Fprintf(opts.Stdout, "%s/%s %s %s %s\n", row.BaseCurrency, row.QuoteCurrency, row.Rate, row.Source, row.Status)
+		_, _ = fmt.Fprintf(opts.Stdout, "%s/%s %s %s %s\n", row.BaseCurrency, row.QuoteCurrency, row.Rate, row.Source, row.Status)
 	}
 	return 0
 }

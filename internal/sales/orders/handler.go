@@ -61,8 +61,9 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	status := r.URL.Query().Get("status")
 	var statusPtr *SalesOrderStatus
 	if status != "" {
-		s := SalesOrderStatus(status)
-		statusPtr = &s
+		if s := SalesOrderStatus(status); s.IsValid() {
+			statusPtr = &s
+		}
 	}
 
 	dateFrom := h.parseDate(r.URL.Query().Get("date_from"))

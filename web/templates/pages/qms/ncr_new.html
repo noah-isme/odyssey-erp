@@ -52,7 +52,7 @@
             <div class="col-md-6">
               <label class="form-label">Source Type</label>
               <select name="source_type" class="form-select">
-                {{ range .SourceTypes }}<option value="{{ . }}">{{ . }}</option>{{ end }}
+                {{ range .Data.SourceTypes }}<option value="{{ . }}">{{ . }}</option>{{ end }}
               </select>
             </div>
             <div class="col-md-6">

@@ -33,11 +33,7 @@ capture instructions.
 
 For self-managed VPS deployment, use the [VPS production deployment guide](docs/DEPLOYMENT.md).
 
-The current release candidate is [v0.10.0-rc.3](docs/releases/v0.10.0-rc.3.md).
-For production promotion, use the [Production Release Checklist](docs/releases/production-release-checklist.md);
-this candidate is not production-certified yet.
-
-See the [CHANGELOG](docs/CHANGELOG.md), [version and progress report](docs/releases/VERSION_HISTORY.md), [release notes](docs/releases/), and the [authoritative feature matrix](docs/reference/feature-matrix.md).
+See the [CHANGELOG](docs/CHANGELOG.md), [version and progress report](docs/releases/VERSION_HISTORY.md), [release notes](docs/releases/), [authoritative feature matrix](docs/reference/feature-matrix.md), and [module catalog](docs/reference/module-catalog.md). For production promotion, use the [Production Release Checklist](docs/releases/production-release-checklist.md).
 
 ## Feature overview
 

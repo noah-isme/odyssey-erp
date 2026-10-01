@@ -9,15 +9,28 @@
 **Revised:** 2026-08-02 (manufacturing/MRP execution, planning, quality, analytics, and compliance foundations)
 **Revised:** 2026-08-02 (external integrations implementation plan)
 **Revised:** 2026-08-02 (linked execution plans for remaining module depth and administration)
-**Revised:** 2026-08-09 (repository persistence boundaries and shared HTTP error policy)
-**Revised:** 2026-08-09 (document processing and CMMS telemetry foundations)
-**Revised:** 2026-08-09 (MRP canonical compliance snapshots and reauthentication hardening)
-**Revised:** 2026-08-10 (v0.10.0-rc.3 release candidate packaging)
-**Current Version:** v0.10.0-rc.3
+**Revised:** 2026-08-27 (v0.10.0 staging closeout handoff)
+**Revised:** 2026-09-02 (rc.8 candidate reconciliation)
+**Current Version:** v0.9.1
 
-> For current release status, use the [Authoritative Feature Matrix](reference/feature-matrix.md).
-> The [Module Catalog](reference/module-catalog.md) is the capability inventory. This
-> roadmap tracks sequencing and release gates; it is not a second feature-status
+> **Active release handoff (2026-09-02):** The bounded `v0.10-core` release
+> candidate is the immutable annotated `v0.10.0-rc.8` tag at
+> `cdaa910b2d529d7dd6b8e05f259f533a28e32dd4`, with migrations ending at `000124`.
+> The rc.8 line diverges from the superseded, never-certified rc.7 candidate at
+> merge-base `04ebd8a040ff3c5da6f90c6f8d0eab5f4a9ba336` and carries a 15-commit
+> stabilization chain. Candidate CI (`33452408431`) and the tag-push staging
+> deployment (`33452416384`) have passed, but staging certification and production
+> promotion remain open. The remaining blockers are certification preflight —
+> which lacks the staging identities, fixture variables, and immutable evidence
+> store configuration — and the `certification/v0.10.0-rc.8` dispatch branch,
+> which does not exist yet. Provision those staging-only inputs and the dispatch
+> branch, verify the documented service supervision and `127.0.0.1:8180` health
+> contract, then rerun the automated and operator evidence lanes. No feature or
+> migration work should be added to this candidate; an application or schema
+> change requires a new release candidate and a fresh certification run.
+
+> For current capability status, use the [Module Catalog](reference/module-catalog.md).
+> This roadmap tracks sequencing and release gates; it is not a second feature-status
 > authority.
 
 ## Executive Summary
@@ -33,9 +46,8 @@ to re-prioritise the genuinely remaining work.
 The following guides are the implementation plans for the remaining depth and control
 work. They contain ownership boundaries, lifecycles, permissions, data migrations,
 integration contracts, rollout gates, and acceptance criteria. The
-[`Feature Matrix`](reference/feature-matrix.md) remains authoritative for current
-release status, while the [`Module Catalog`](reference/module-catalog.md) provides
-capability navigation.
+[`Module Catalog`](reference/module-catalog.md) remains authoritative for current
+capability status.
 
 | Plan | Scope |
 |---|---|
@@ -63,14 +75,13 @@ capability navigation.
 | Phase 13 — Fixed Assets | ✅ Implemented | Register, straight-line depreciation worker, disposal accounting, and category setup |
 | Phase 14 — Transaction-level multi-currency | 🟡 Locally certified; staging/production verification pending | `internal/fx/`, AR/AP valuation, realized FX, revaluation/reversal, migrations `000053/000054`; local acceptance evidence in `docs/guides/phase14-p7-acceptance-evidence.md` |
 | P7 — Multi-Currency and Horizon MVP foundation | 🟡 Locally certified; staging/production verification pending | WMS, MRP, POS, projects/timesheets, API/webhooks, portals; migrations `000055/000056/000060`; local acceptance evidence in `docs/guides/phase14-p7-acceptance-evidence.md` |
-| Manufacturing / MRP expansion | 🟡 Locally verified; downstream staging and regulated-policy validation pending | Approved BOM revisions, planning/firming, WIP cost transfer, finite-capacity scheduling, exceptions, quality/genealogy, analytics, canonical immutable compliance snapshots, role checks, real reauthentication, and audit evidence; migrations `000062`–`000075`, `000118`; [`manufacturing-mrp.md`](guides/manufacturing-mrp.md) |
+| Manufacturing / MRP expansion | 🟡 Locally verified; staging and regulated-policy enforcement pending | Approved BOM revisions, planning/firming, WIP cost transfer, finite-capacity scheduling, exceptions, quality/genealogy, analytics, and compliance foundations; migrations `000062`–`000075`; [`manufacturing-mrp.md`](guides/manufacturing-mrp.md) |
 | Phase 15 — Reporting enhancements | 🟡 Partial | P&L and Budget vs Actual support department/cost-center filters, native `.xlsx`, and scheduled email; report builder/widgets remain |
 | Connector foundation (Phase 0) | ✅ Implemented | `internal/connectors/` — `ProviderAdapter` interface, vault-encrypted `SecretRef`, transactional outbox/inbox, deduplication, canonical event routing, `/settings/integrations` UI; migrations `000076`+ |
 | Payment gateway — Midtrans (Phase A1) | ✅ Implemented | Snap checkout, SHA-512 webhook signature verification, `payment.captured/authorized/failed` canonical events, automatic AR invoice allocation; `internal/connectors/providers/midtrans/`; 17-test suite |
-| Payment gateway — Stripe (Phase A1) | ✅ Implemented | Vault-resolved live API calls, webhook verification, stable charge idempotency keys, and full AR webhook allocation; `internal/connectors/providers/stripe/` |
+| Payment gateway — Stripe (Phase A1) | 🟡 Partial | Checkout intent and `payment.captured` translation implemented; full AR webhook allocation wired via shared outbox handler; `internal/connectors/providers/stripe/` |
 | Freight charge workbench | 🟡 Partial | Rate cards, surcharges, freight charge calculation, landed costs, cost centers, GL posting; `internal/freight/`; 5-test suite with mock repository |
 | Logistics UI (fleet/trip/dispatch) | 🟡 Partial | Fleet, vehicle, driver, trip, and cargo management screens implemented; `internal/logistics/`; rate cards and freight charges UI linked from sidebar |
-| Distribution planning and load execution | 🟡 Partial | `/distribution` planning horizons, loads, shipment linkage, dispatch/delivery, manual routes, and transfer orders; transfer inventory accounting, route optimization, freight execution, and workbenches remain |
 
 The phase descriptions below are retained for reference. **Completed phases (10, 11, and
 most of 12) are kept for historical context; focus new work on the "Remaining Priorities"
@@ -104,10 +115,8 @@ section near the end.**
 ## Phase 11: Bank & Cash Management — ✅ DONE (auto bank feed pending)
 
 **Status:** Bank accounts, transactions, transfers, reconciliation, cash flow reporting,
-manual CSV/OFX statement import, and the provider-neutral bank-feed connection/event
-consumer are implemented (`internal/finance/banking/`, `internal/accounting/banks/`,
-`internal/finance/bankfeeds/`). Provider adapters and sandbox certification remain
-outstanding.
+and manual CSV/OFX statement import are implemented (`internal/finance/banking/`,
+`internal/accounting/banks/`). A scheduled/provider-backed bank feed remains outstanding.
 **Priority:** ~~🔴 High~~
 **Estimated Effort:** ~~2-3 weeks~~
 
@@ -118,7 +127,7 @@ outstanding.
 | Bank Transactions | Record deposits, withdrawals, transfers | High |
 | Bank Reconciliation | Match transactions with bank statement | High |
 | Cash Flow Report | Actual cash flow from transactions | Medium |
-| Scheduled Bank Feed | Provider-backed incremental sync and verified event ingestion | Medium |
+| Scheduled Bank Feed | Automatically fetch/import statements from a provider | Low |
 
 ### Technical Notes
 - New entity `bank_accounts` with `company_id`
@@ -310,7 +319,7 @@ These can be implemented in 1-2 days each:
 - [x] ✅ Fix template embedding issue — templates now embedded via `go:embed` (`web/embed.go`, `internal/view/templates.go`)
 - [x] ✅ Add comprehensive unit tests for AR module — `internal/ar/service_test.go` exists
 - [ ] Add integration tests for AR workflows — `internal/integration/` dir exists but is **empty**
-- [x] ✅ Refactor handler error responses to use shared status classification and safe response helpers (`internal/shared/http.go`)
+- [ ] Refactor handler error responses to be consistent
 
 ### Performance
 - [ ] Add database indexes for AR queries
@@ -399,10 +408,9 @@ Sizing legend: S <2w · M 2–4w · L 1–2m · XL 2m+ (rough, single team).
 - Calculator, service, HTTP, worker, and migration coverage proves TER categories,
   PTKP evidence, BPJS caps, overtime, THR, negative adjustments, rounding, approval,
   journal balance, repeated-post idempotency, and concealed payslip access.
-- Release boundary: `CalculateAnnualPPh21` now covers the December/last-tax-period
-  rule with explicit progressive bands, prior-withholding reconciliation, and an
-  official PMK 168/2023 worked-example fixture. Production activation still
-  requires payroll/legal review of the selected effective rule version.
+- Release boundary: December/last-tax-period annual PPh 21 reconciliation remains
+  blocked until its separate calculation strategy and official examples are
+  reviewed; monthly TER payroll is complete.
 
 ### P5 — Tax Compliance — 🟡 RELEASE VALIDATION PENDING
 - Reviewed effective-dated PPN/PPh rules, tax codes, NPWP/NITKU identities,
@@ -421,11 +429,10 @@ Sizing legend: S <2w · M 2–4w · L 1–2m · XL 2m+ (rough, single team).
   workers retry tax capture without duplicating immutable documents. Export is
   POST-only and its XML declaration/optional fields belong to the reviewed
   schema version.
-- Remaining release gate: the local Coretax validator contract and zero-difference
-  GL reconciliation are covered by the release suite, but tax staff must still
-  validate each version against the current official DJP XSD/converter and prove
-  a representative month imports in Coretax. Until that external acceptance is
-  recorded, Phase 5 is implemented but not certified for production filing.
+- Remaining release gate: tax staff must validate each version against the
+  current official DJP XSD/converter and prove a representative month imports in
+  Coretax while reconciling to GL to the rupiah. Until that external acceptance
+  is recorded, Phase 5 is implemented but not certified for production filing.
 
 ### P6 — CRM
 - ✅ Company/owner-scoped leads, distinct contacts, ordered opportunities,
@@ -476,6 +483,22 @@ shared outbox/inbox, connection, secret, mapping, retry, and observability found
 then sequences payment gateways, carriers, marketplaces, messaging, BI, identity, and
 governed AI connectors.
 
+### Active execution sequence (2026-09-02)
+
+- **Close `v0.10-core`:** provision the staging certification identities, stable
+   fixtures, and seven-year Object-Lock evidence store; rerun the automated and
+   operator lanes for immutable `v0.10.0-rc.8`; complete the 25-row evidence index;
+   and promote only the exact certified artifact after the signed go/no-go decision.
+- **Start `v0.11-finance`:** branch from the released v0.10 baseline and finish
+   treasury bank-feed/forecast operations, payment execution and settlement evidence,
+   and the existing purchase-to-pay loop under the cumulative `v0.11-finance` profile.
+   Keep company flags disabled by default and require sandbox/staging certification
+   before enabling live execution. Track the isolated candidate and open gates in the
+   [`v0.11-finance preparation handoff`](releases/v0.11-finance-prep-handoff.md).
+- **Defer to v0.11.x:** asset locations, custody, transfers, warranty/maintenance,
+   and capitalization operations remain outside the first finance tranche; do not mix
+   them into the v0.10 candidate or the initial v0.11 release gate.
+
 1. **Immediate (highest value, low effort)**
    - Add integration coverage for the Budget vs Actual query and form a release dataset that includes revenue and expense budgets.
    - Monitor the login-specific rate limiter on `POST /auth/login` (5 attempts/IP/minute) and tune its threshold based on production traffic.
@@ -488,13 +511,12 @@ governed AI connectors.
 
 3. **Medium-term (3 months)**
    - 📝 **IN PROGRESS**: Projects, POS, CMMS, and WMS depth remains partial (milestones/budgets,
-     POS hardware/loyalty/gift cards, CMMS calibrated predictive AI/streaming/mobile, and WMS
-     put-away/cross-dock/MHE remain). CMMS IoT readings and deterministic anomaly alerts now have
-     persisted service paths. HR benefits are done; advanced QMS (SPC/ATE/calibration/LIMS), Portal
+     POS hardware/loyalty/gift cards, CMMS predictive AI/IoT/mobile, WMS put-away/cross-dock/MHE
+     are not implemented). HR benefits are done; advanced QMS (SPC/ATE/calibration/LIMS), Portal
      depth (profiles/RFQ/chat/analytics), and provider connectors are not.
    - Enforce manufacturing controlled-record policies at approval and release decision
-     points; add document OCR providers and realtime collaboration transport on top of the
-     document processing/search backend, plus 2FA/SSO and enterprise compliance controls
+     points; add document management depth (OCR/collaboration/search are backend-only),
+     2FA/SSO, and enterprise compliance controls
 
 ---
 

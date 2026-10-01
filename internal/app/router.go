@@ -210,6 +210,12 @@ func redirectBackToWorkspace(w http.ResponseWriter, r *http.Request) {
 func NewRouter(params RouterParams) http.Handler {
 	r := chi.NewRouter()
 
+	if params.Config != nil {
+		// Apply the release boundary before session, company, and auth work so
+		// unsupported preview routes cannot trigger any downstream side effects.
+		r.Use(ReleaseProfileMiddleware(params.Config.ReleaseProfile))
+	}
+
 	for _, mw := range MiddlewareStack(MiddlewareConfig{
 		Logger:         params.Logger,
 		Config:         params.Config,
@@ -260,6 +266,46 @@ func NewRouter(params RouterParams) http.Handler {
 		}
 	})
 
+	// Public legal and compliance documents
+	renderLegal := func(w http.ResponseWriter, r *http.Request, topic, title, currentPath string) {
+		sess := shared.SessionFromContext(r.Context())
+		csrfToken, _ := params.CSRFManager.EnsureToken(r.Context(), sess)
+		var flash *shared.FlashMessage
+		if sess != nil {
+			flash = sess.PopFlash()
+		}
+		data := view.TemplateData{
+			Title:       title,
+			CSRFToken:   csrfToken,
+			Flash:       flash,
+			CurrentPath: currentPath,
+			Data: map[string]any{
+				"Topic":         topic,
+				"EffectiveDate": "1 Januari 2026",
+				"Version":       "2026.2",
+			},
+		}
+		if err := params.Templates.Render(w, "pages/legal.html", data); err != nil {
+			params.Logger.Error("render legal", slog.String("topic", topic), slog.Any("error", err))
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		}
+	}
+
+	r.Route("/legal", func(r chi.Router) {
+		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "/legal/privacy", http.StatusMovedPermanently)
+		})
+		r.Get("/privacy", func(w http.ResponseWriter, r *http.Request) {
+			renderLegal(w, r, "privacy", "Kebijakan Privasi · Odyssey ERP", "/legal/privacy")
+		})
+		r.Get("/terms", func(w http.ResponseWriter, r *http.Request) {
+			renderLegal(w, r, "terms", "Syarat & Ketentuan Layanan · Odyssey ERP", "/legal/terms")
+		})
+		r.Get("/security", func(w http.ResponseWriter, r *http.Request) {
+			renderLegal(w, r, "security", "Pernyataan Keamanan Sistem · Odyssey ERP", "/legal/security")
+		})
+	})
+
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		sess := shared.SessionFromContext(r.Context())
 
@@ -274,12 +320,16 @@ func NewRouter(params RouterParams) http.Handler {
 		if sess != nil {
 			flash = sess.PopFlash()
 		}
+		appEnv := ""
+		if params.Config != nil {
+			appEnv = params.Config.AppEnv
+		}
 		data := view.TemplateData{
 			Title:     "Odyssey ERP",
 			CSRFToken: csrfToken,
 			Flash:     flash,
 			Data: map[string]any{
-				"AppEnv": params.Config.AppEnv,
+				"AppEnv": appEnv,
 			},
 		}
 		if err := params.Templates.Render(w, "pages/home.html", data); err != nil {
@@ -288,7 +338,9 @@ func NewRouter(params RouterParams) http.Handler {
 		}
 	})
 
-	r.Route("/auth", params.AuthHandler.MountRoutes)
+	if params.AuthHandler != nil {
+		r.Route("/auth", params.AuthHandler.MountRoutes)
+	}
 	// Personal workspace pages and preferences.
 	r.Get("/profile", func(w http.ResponseWriter, r *http.Request) {
 		sess := shared.SessionFromContext(r.Context())
@@ -361,13 +413,13 @@ func NewRouter(params RouterParams) http.Handler {
 			}
 
 			providers := []map[string]any{
-				{"Name": "Stripe", "Icon": "💳", "Description": "Process payments and subscriptions.", "Active": true},
-				{"Name": "MockPay", "Icon": "💵", "Description": "Test payment gateway for sandbox environments.", "Active": true},
-				{"Name": "Shopify", "Icon": "🛍️", "Description": "Sync products, orders, and customers.", "Active": false},
-				{"Name": "WhatsApp", "Icon": "💬", "Description": "Send notifications and chat with customers.", "Active": false},
-				{"Name": "OpenAI", "Icon": "🧠", "Description": "AI generation and automation features.", "Active": false},
-				{"Name": "DHL", "Icon": "📦", "Description": "Book shipments and track deliveries.", "Active": false},
-				{"Name": "OIDC/SSO", "Icon": "🔐", "Description": "Single Sign-On and directory sync.", "Active": true},
+				{"Provider": "Stripe", "Name": "Stripe", "Icon": "credit-card", "Description": "Process payments and subscriptions.", "Active": true},
+				{"Provider": "MockPay", "Name": "MockPay", "Icon": "banknote", "Description": "Test payment gateway for sandbox environments.", "Active": true},
+				{"Provider": "Shopify", "Name": "Shopify", "Icon": "shopping-bag", "Description": "Sync products, orders, and customers.", "Active": false},
+				{"Provider": "WhatsApp", "Name": "WhatsApp", "Icon": "message-circle", "Description": "Send notifications and chat with customers.", "Active": false},
+				{"Provider": "OpenAI", "Name": "OpenAI", "Icon": "cpu", "Description": "AI generation and automation features.", "Active": false},
+				{"Provider": "DHL", "Name": "DHL", "Icon": "truck", "Description": "Book shipments and track deliveries.", "Active": false},
+				{"Provider": "OIDC/SSO", "Name": "OIDC/SSO", "Icon": "shield-check", "Description": "Single Sign-On and directory sync.", "Active": true},
 			}
 
 			_ = params.Templates.Render(w, "pages/integrations.html", view.TemplateData{
@@ -379,22 +431,52 @@ func NewRouter(params RouterParams) http.Handler {
 
 	// Module UI Frontend Endpoints
 	r.Get("/pos/terminal", func(w http.ResponseWriter, r *http.Request) {
-		_ = params.Templates.Render(w, "pages/pos/terminal.html", view.TemplateData{Title: "POS Terminal"})
+		sess := shared.SessionFromContext(r.Context())
+		var csrfToken string
+		if sess != nil && params.CSRFManager != nil {
+			csrfToken, _ = params.CSRFManager.EnsureToken(r.Context(), sess)
+		}
+		_ = params.Templates.Render(w, "pages/pos/terminal.html", view.TemplateData{Title: "POS Terminal", CSRFToken: csrfToken, CurrentPath: "/pos/terminal"})
 	})
 	r.Get("/cmms/dashboard", func(w http.ResponseWriter, r *http.Request) {
-		_ = params.Templates.Render(w, "pages/cmms/dashboard.html", view.TemplateData{Title: "CMMS Dashboard", CurrentPath: "/cmms/dashboard"})
+		sess := shared.SessionFromContext(r.Context())
+		var csrfToken string
+		if sess != nil && params.CSRFManager != nil {
+			csrfToken, _ = params.CSRFManager.EnsureToken(r.Context(), sess)
+		}
+		_ = params.Templates.Render(w, "pages/cmms/dashboard.html", view.TemplateData{Title: "CMMS Dashboard", CSRFToken: csrfToken, CurrentPath: "/cmms/dashboard"})
 	})
 	r.Get("/qms/dashboard", func(w http.ResponseWriter, r *http.Request) {
-		_ = params.Templates.Render(w, "pages/qms/dashboard.html", view.TemplateData{Title: "QMS Dashboard", CurrentPath: "/qms/dashboard"})
+		sess := shared.SessionFromContext(r.Context())
+		var csrfToken string
+		if sess != nil && params.CSRFManager != nil {
+			csrfToken, _ = params.CSRFManager.EnsureToken(r.Context(), sess)
+		}
+		_ = params.Templates.Render(w, "pages/qms/dashboard.html", view.TemplateData{Title: "QMS Dashboard", CSRFToken: csrfToken, CurrentPath: "/qms/dashboard"})
 	})
 	r.Get("/documents/workspace", func(w http.ResponseWriter, r *http.Request) {
-		_ = params.Templates.Render(w, "pages/documents/workspace.html", view.TemplateData{Title: "Document Workspace", CurrentPath: "/documents/workspace"})
+		sess := shared.SessionFromContext(r.Context())
+		var csrfToken string
+		if sess != nil && params.CSRFManager != nil {
+			csrfToken, _ = params.CSRFManager.EnsureToken(r.Context(), sess)
+		}
+		_ = params.Templates.Render(w, "pages/documents/workspace.html", view.TemplateData{Title: "Document Workspace", CSRFToken: csrfToken, CurrentPath: "/documents/workspace"})
 	})
 	r.Get("/wms/operations", func(w http.ResponseWriter, r *http.Request) {
-		_ = params.Templates.Render(w, "pages/wms/operations.html", view.TemplateData{Title: "WMS Operations", CurrentPath: "/wms/operations"})
+		sess := shared.SessionFromContext(r.Context())
+		var csrfToken string
+		if sess != nil && params.CSRFManager != nil {
+			csrfToken, _ = params.CSRFManager.EnsureToken(r.Context(), sess)
+		}
+		_ = params.Templates.Render(w, "pages/wms/operations.html", view.TemplateData{Title: "WMS Operations", CSRFToken: csrfToken, CurrentPath: "/wms/operations"})
 	})
 	r.Get("/projects/gantt", func(w http.ResponseWriter, r *http.Request) {
-		_ = params.Templates.Render(w, "pages/projects/gantt.html", view.TemplateData{Title: "Project Management", CurrentPath: "/projects/gantt"})
+		sess := shared.SessionFromContext(r.Context())
+		var csrfToken string
+		if sess != nil && params.CSRFManager != nil {
+			csrfToken, _ = params.CSRFManager.EnsureToken(r.Context(), sess)
+		}
+		_ = params.Templates.Render(w, "pages/projects/gantt.html", view.TemplateData{Title: "Project Management", CSRFToken: csrfToken, CurrentPath: "/projects/gantt"})
 	})
 
 	r.Post("/settings", func(w http.ResponseWriter, r *http.Request) {
@@ -403,24 +485,46 @@ func NewRouter(params RouterParams) http.Handler {
 			http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
 			return
 		}
+		isJSON := strings.Contains(r.Header.Get("Accept"), "application/json")
 		theme := r.PostFormValue("theme")
 		if theme != "light" && theme != "dark" {
 			theme = "system"
+		}
+		id, err := strconv.ParseInt(sess.User(), 10, 64)
+		if err != nil || params.Pool == nil {
+			if isJSON {
+				http.Error(w, "invalid user", http.StatusBadRequest)
+				return
+			}
+			sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Pengaturan tidak dapat disimpan"})
+			http.Redirect(w, r, "/settings", http.StatusSeeOther)
+			return
+		}
+		if isJSON && r.PostFormValue("language") == "" {
+			_, _ = params.Pool.Exec(r.Context(), "UPDATE users SET ui_theme = $1, updated_at = NOW() WHERE id = $2", theme, id)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"status":"ok"}`))
+			return
 		}
 		language := r.PostFormValue("language")
 		if language != "id" && language != "en" {
 			language = "id"
 		}
-		id, err := strconv.ParseInt(sess.User(), 10, 64)
-		if err != nil || params.Pool == nil {
-			sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Pengaturan tidak dapat disimpan"})
-			http.Redirect(w, r, "/settings", http.StatusSeeOther)
-			return
-		}
 		notifications := r.PostFormValue("notifications") == "enabled"
 		if _, err = params.Pool.Exec(r.Context(), "UPDATE users SET ui_theme = $1, ui_language = $2, ui_notifications = $3, updated_at = NOW() WHERE id = $4", theme, language, notifications, id); err != nil {
+			if isJSON {
+				http.Error(w, "update failed", http.StatusInternalServerError)
+				return
+			}
 			sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Pengaturan tidak dapat disimpan"})
 		} else {
+			if isJSON {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{"status":"ok"}`))
+				return
+			}
 			sess.AddFlash(shared.FlashMessage{Kind: "success", Message: "Pengaturan berhasil disimpan"})
 		}
 		http.Redirect(w, r, "/settings", http.StatusSeeOther)
@@ -487,6 +591,43 @@ func NewRouter(params RouterParams) http.Handler {
 	freight.NewHandler(params.FreightService).RegisterRoutes(r)
 
 	// Register Logistics UI form routes
+	csrfForReq := func(r *http.Request) string {
+		if params.CSRFManager != nil {
+			t, _ := params.CSRFManager.EnsureToken(r.Context(), shared.SessionFromContext(r.Context()))
+			return t
+		}
+		return ""
+	}
+
+	r.Get("/logistics/fleet", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		companyID := int64(1)
+
+		vehicles, _ := params.LogisticsService.ListVehicles(ctx, companyID)
+		available, inUse, inMaintenance := 0, 0, 0
+		for _, v := range vehicles {
+			switch v.Status {
+			case logistics.VehicleStatusAvailable:
+				available++
+			case logistics.VehicleStatusInUse:
+				inUse++
+			case logistics.VehicleStatusMaintenance:
+				inMaintenance++
+			}
+		}
+		_ = params.Templates.Render(w, "pages/logistics/fleet_management.html", view.TemplateData{
+			Title:       "Fleet Management",
+			CurrentPath: "/logistics/fleet",
+			CSRFToken:   csrfForReq(r),
+			Data: map[string]interface{}{
+				"Vehicles":  vehicles,
+				"Total":     len(vehicles),
+				"Available": available,
+				"InTransit": inUse,
+				"InMaint":   inMaintenance,
+			},
+		})
+	})
 	r.Get("/logistics/fleet/new", func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		companyID := int64(1)
@@ -494,6 +635,7 @@ func NewRouter(params RouterParams) http.Handler {
 		_ = params.Templates.Render(w, "pages/logistics/new_vehicle.html", view.TemplateData{
 			Title:       "Register Vehicle",
 			CurrentPath: "/logistics/fleet",
+			CSRFToken:   csrfForReq(r),
 			Data:        map[string]interface{}{"Fleets": fleets},
 		})
 	})
@@ -526,6 +668,18 @@ func NewRouter(params RouterParams) http.Handler {
 		http.Redirect(w, r, "/logistics/fleet", http.StatusSeeOther)
 	})
 
+	r.Get("/logistics/trips", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		companyID := int64(1)
+
+		trips, _ := params.LogisticsService.ListActiveTrips(ctx, companyID)
+		_ = params.Templates.Render(w, "pages/logistics/trip_management.html", view.TemplateData{
+			Title:       "Trip Management",
+			CurrentPath: "/logistics/trips",
+			CSRFToken:   csrfForReq(r),
+			Data:        map[string]interface{}{"Trips": trips},
+		})
+	})
 	r.Get("/logistics/trips/new", func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		companyID := int64(1)
@@ -534,6 +688,7 @@ func NewRouter(params RouterParams) http.Handler {
 		_ = params.Templates.Render(w, "pages/logistics/new_trip.html", view.TemplateData{
 			Title:       "Plan New Trip",
 			CurrentPath: "/logistics/trips",
+			CSRFToken:   csrfForReq(r),
 			Data:        map[string]interface{}{"Vehicles": vehicles, "Drivers": drivers},
 		})
 	})
@@ -573,6 +728,7 @@ func NewRouter(params RouterParams) http.Handler {
 		_ = params.Templates.Render(w, "pages/logistics/rate_cards.html", view.TemplateData{
 			Title:       "Rate Cards",
 			CurrentPath: "/logistics/rate-cards",
+			CSRFToken:   csrfForReq(r),
 			Data:        map[string]interface{}{"RateCards": rateCards},
 		})
 	})
@@ -586,6 +742,7 @@ func NewRouter(params RouterParams) http.Handler {
 		_ = params.Templates.Render(w, "pages/logistics/freight_charges.html", view.TemplateData{
 			Title:       "Freight Charges",
 			CurrentPath: "/logistics/freight",
+			CSRFToken:   csrfForReq(r),
 			Data:        map[string]interface{}{"FreightCharges": charges},
 		})
 	})
@@ -691,11 +848,15 @@ func NewRouter(params RouterParams) http.Handler {
 	if params.VarianceHandler != nil {
 		params.VarianceHandler.MountRoutes(r)
 	}
-	r.Route("/inventory", params.InventoryHandler.MountRoutes)
+	if params.InventoryHandler != nil {
+		r.Route("/inventory", params.InventoryHandler.MountRoutes)
+	}
 	if params.DistributionHandler != nil {
 		r.Route("/distribution", params.DistributionHandler.MountRoutes)
 	}
-	r.Route("/procurement", params.ProcurementHandler.MountRoutes)
+	if params.ProcurementHandler != nil {
+		r.Route("/procurement", params.ProcurementHandler.MountRoutes)
+	}
 	if params.SalesHandler != nil {
 		r.Route("/sales", params.SalesHandler.MountRoutes)
 	}
@@ -732,10 +893,14 @@ func NewRouter(params RouterParams) http.Handler {
 	if params.ConnectorsHandler != nil {
 		r.Route("/webhooks/connectors", params.ConnectorsHandler.MountRoutes)
 	}
-	r.Route("/delivery", func(r chi.Router) {
-		delivery.MountRoutes(r, params.Pool, params.Logger, params.Templates, params.CSRFManager, params.RBACMiddleware, params.InventoryService)
-	})
-	r.Route("/report", params.ReportHandler.MountRoutes)
+	if params.InventoryService != nil {
+		r.Route("/delivery", func(r chi.Router) {
+			delivery.MountRoutes(r, params.Pool, params.Logger, params.Templates, params.CSRFManager, params.RBACMiddleware, params.InventoryService)
+		})
+	}
+	if params.ReportHandler != nil {
+		r.Route("/report", params.ReportHandler.MountRoutes)
+	}
 	if params.ConsolHandler != nil {
 		params.ConsolHandler.MountRoutes(r)
 	}
@@ -745,7 +910,9 @@ func NewRouter(params RouterParams) http.Handler {
 		r.Route("/finance/forecasting", params.ForecastingHandler.MountRoutes)
 		r.Route("/finance/treasury", params.TreasuryHandler.MountRoutes)
 	}
-	r.Route("/jobs", params.JobHandler.MountRoutes)
+	if params.JobHandler != nil {
+		r.Route("/jobs", params.JobHandler.MountRoutes)
+	}
 	if params.AnalyticsHandler != nil {
 		params.AnalyticsHandler.MountRoutes(r)
 	}

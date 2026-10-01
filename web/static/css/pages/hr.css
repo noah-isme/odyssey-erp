@@ -1,0 +1,190 @@
+/* ============================================
+   Odyssey ERP - HR Core Pages Styling
+   Uses tokens from core/tokens.css
+   Midnight Ledger Design System
+   ============================================ */
+
+/* Metrics & Stats Grid */
+.hr-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
+}
+
+.hr-stat-card {
+    display: flex;
+    flex-direction: column;
+    padding: var(--space-4) var(--space-5);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    transition: border-color var(--dur-2) var(--ease-standard);
+}
+
+.hr-stat-card:hover {
+    border-color: var(--border-default);
+}
+
+.hr-stat-card__value {
+    font-size: var(--text-2xl);
+    font-weight: var(--weight-bold);
+    color: var(--text-primary);
+    line-height: var(--leading-tight);
+    font-feature-settings: "tnum" 1;
+}
+
+.hr-stat-card__label {
+    margin-top: var(--space-1);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-medium);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Leave Balance Cards */
+.hr-balance-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
+}
+
+.hr-balance-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: var(--space-4) var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    position: relative;
+    overflow: hidden;
+}
+
+.hr-balance-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--brand);
+}
+
+.hr-balance-card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+}
+
+.hr-balance-card__title {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.hr-balance-card__code {
+    font-size: var(--text-xs);
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+}
+
+.hr-balance-card__days-wrap {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+}
+
+.hr-balance-card__days {
+    font-size: var(--text-3xl);
+    font-weight: var(--weight-bold);
+    color: var(--brand);
+    line-height: 1;
+    font-feature-settings: "tnum" 1;
+}
+
+.hr-balance-card__days-label {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+}
+
+.hr-balance-card__details {
+    display: flex;
+    justify-content: space-between;
+    border-top: 1px solid var(--border-subtle);
+    padding-top: var(--space-2);
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+}
+
+.hr-balance-card__detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.hr-balance-card__detail-item span:last-child {
+    font-weight: var(--weight-semibold);
+    color: var(--text-primary);
+    font-feature-settings: "tnum" 1;
+}
+
+/* Action & Filter Bars */
+.hr-actions-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-4);
+}
+
+.hr-filter-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    align-items: center;
+}
+
+/* Attendance Duration & Meta */
+.hr-duration-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--space-1) var(--space-2);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-medium);
+    font-family: var(--font-mono);
+    background: var(--bg-surface-muted);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+}
+
+/* Modal Form Formatting */
+.hr-modal-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.hr-form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--space-3);
+}
+
+.hr-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-4);
+}
+
+.hr-section-title {
+    font-size: var(--text-base);
+    font-weight: var(--weight-semibold);
+    color: var(--text-primary);
+    margin: 0;
+}

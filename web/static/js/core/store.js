@@ -196,7 +196,7 @@ function createMultiStore(name, reducer, createInitialState) {
 function enableDebug() {
     if (typeof window !== 'undefined') {
         window.__ODYSSEY_DEBUG__ = true;
-        console.log('%c🔧 Odyssey Debug Mode Enabled', 'color: #6366f1; font-weight: bold; font-size: 14px');
+        console.log('%cOdyssey Debug Mode Enabled', 'color: #6366f1; font-weight: bold; font-size: 14px');
         console.log('Tip: All state changes will be logged to console');
     }
 }
@@ -207,7 +207,7 @@ function enableDebug() {
 function disableDebug() {
     if (typeof window !== 'undefined') {
         window.__ODYSSEY_DEBUG__ = false;
-        console.log('%c🔧 Odyssey Debug Mode Disabled', 'color: #6b7280');
+        console.log('%cOdyssey Debug Mode Disabled', 'color: #6b7280');
     }
 }
 

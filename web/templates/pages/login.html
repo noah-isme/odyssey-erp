@@ -9,7 +9,6 @@
     <!-- Background -->
     <div class="login-bg">
         <div class="login-gradient"></div>
-        <div class="login-glow"></div>
     </div>
 
     <!-- Login Container -->
@@ -25,32 +24,32 @@
                         <circle cx="16" cy="16" r="4" fill="currentColor" />
                     </svg>
                 </a>
-                <span class="branding-eyebrow">OPERATIONS PLATFORM</span>
+                <span class="branding-eyebrow">ENTERPRISE PLATFORM</span>
                 <h2 class="branding-title">Odyssey ERP</h2>
-                <p class="branding-tagline">Satu workspace untuk mengelola penjualan, persediaan, dan keuangan perusahaan.</p>
+                <p class="branding-tagline">Satu workspace terintegrasi untuk mengelola penjualan, persediaan, dan keuangan perusahaan.</p>
 
                 <div class="branding-features">
                     <div class="branding-feature">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <polyline points="20 6 9 17 4 12" />
                         </svg>
-                        Operasional penjualan &amp; inventori
+                        Operasional penjualan &amp; inventori terpadu
                     </div>
                     <div class="branding-feature">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <polyline points="20 6 9 17 4 12" />
                         </svg>
-                        Laporan keuangan real-time
+                        Laporan keuangan real-time &amp; kepatuhan PSAK
                     </div>
                     <div class="branding-feature">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <polyline points="20 6 9 17 4 12" />
                         </svg>
-                        Audit trail dan akses berbasis role
+                        Audit trail mutlak &amp; kontrol akses berbasis peran
                     </div>
                 </div>
 
-                <p class="branding-caption">© Odyssey ERP · Workspace aman untuk tim Anda.</p>
+                <p class="branding-caption">&copy; 2026 Odyssey ERP · Workspace aman untuk operasional perusahaan Anda.</p>
             </div>
         </div>
 
@@ -63,7 +62,7 @@
                         <line x1="19" y1="12" x2="5" y2="12" />
                         <polyline points="12 19 5 12 12 5" />
                     </svg>
-                    Kembali ke Landing
+                    Kembali ke Beranda
                 </a>
 
                 <!-- Login Card -->
@@ -78,14 +77,10 @@
                                 <circle cx="16" cy="16" r="4" fill="currentColor" />
                             </svg>
                         </div>
-                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px;">
-                            <h1 class="login-title" style="margin: 0;">Masuk ke Odyssey</h1>
-                            <span class="sys-badge sys-badge--emerald sys-pulse">
-                                <span class="sys-badge__dot"></span>
-                                AUTH_GATEWAY
-                            </span>
+                        <div class="login-card-header">
+                            <h1 class="login-title">Masuk ke Odyssey ERP</h1>
                         </div>
-                        <p class="login-subtitle">Gunakan akun perusahaan untuk melanjutkan.</p>
+                        <p class="login-subtitle">Gunakan kredensial akun perusahaan Anda untuk melanjutkan.</p>
                         <p class="login-security-note">Akses Anda dilindungi dan seluruh aktivitas tercatat.</p>
                     </div>
 
@@ -171,12 +166,14 @@
                         </button>
                     </form>
 
-                    <div class="sso-divider" style="text-align: center; margin: 1.5rem 0; position: relative;">
-                        <span style="background: var(--color-white); padding: 0 10px; color: var(--color-gray-500); font-size: 0.875rem; position: relative; z-index: 1;">Atau masuk dengan</span>
-                        <div style="position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: var(--color-gray-200); z-index: 0;"></div>
+                    <!-- SSO Divider -->
+                    <div class="sso-divider">
+                        <div class="sso-divider-line"></div>
+                        <span class="sso-divider-text">Atau masuk dengan</span>
                     </div>
                     
-                    <a href="/auth/sso/login?connection_id=1" class="btn btn--outline" style="width: 100%; display: flex; justify-content: center; align-items: center; gap: 0.5rem; text-decoration: none;">
+                    <!-- SSO Button -->
+                    <a href="/auth/sso/login?connection_id=1" class="btn btn--outline btn-sso">
                         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
                             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
                         </svg>
@@ -186,7 +183,7 @@
 
                 <!-- Footer - Page closure -->
                 <p class="login-footer">
-                    &copy; 2024 Odyssey ERP. All rights reserved.
+                    &copy; 2026 Odyssey ERP. All rights reserved.
                 </p>
             </div>
         </div>

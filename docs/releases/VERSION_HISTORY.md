@@ -1,17 +1,22 @@
 # Odyssey ERP Version and Progress Report
 
-**Reviewed:** 2026-08-10
+**Reviewed:** 2026-09-02
 
 ## How to read the version numbers
 
 `v0.9.1` is the latest named production release in the repository. It is primarily
-a UI/UX release dated 2026-05-28. `v0.10.0-rc.3` is the current release candidate
-for the post-v0.9.1 platform work; it is not production-certified.
+a UI/UX release dated 2026-05-28. `v0.10.0-rc.8` is the current release candidate
+for the post-v0.9.1 platform work; it is not production-certified. Its exact
+candidate commit is `cdaa910b2d529d7dd6b8e05f259f533a28e32dd4` with the
+`v0.10-core` profile and the `000124` migration ceiling. The rc.8 line diverges
+from the superseded, never-certified rc.7 candidate at merge-base
+`04ebd8a040ff3c5da6f90c6f8d0eab5f4a9ba336` and carries a 15-commit stabilization
+chain; it does not preserve the `ec65cc0` application baseline.
 
 In other words:
 
 - **Latest named production release:** v0.9.1.
-- **Current release candidate:** v0.10.0-rc.3 (2026-08-10).
+- **Current release candidate:** v0.10.0-rc.8 (2026-09-01).
 - **Latest documented implementation progress:** Phase 10–14 and P7 work, reviewed 2026-08-01.
 - **Next final release:** v0.10.0, pending production certification. The release
   gates are tracked in the [Production Release Checklist](production-release-checklist.md).
@@ -29,7 +34,12 @@ notes define the packaged scope without claiming production certification.
 | v0.9.1 | 2026-05-28 | Enterprise UI/UX | Standardized forms, filters, tables, responsive layouts, and Midnight Ledger styling across core operations | Latest named release documented in this repository; mostly presentation and usability improvements |
 | v0.10.0-rc.1 | 2026-08-10 | Platform foundations and release controls | Advanced documents, CMMS telemetry/prediction foundations, MRP compliance hardening, distribution/finance/connectors work, and production gates | Superseded candidate; staging, provider, and operational certification remain open |
 | v0.10.0-rc.2 | 2026-08-10 | Coretax and PPh 21 release-test completion | Fail-closed Coretax transport/validation, export-to-GL contract evidence, and annual last-tax-period PPh 21 reconciliation from a PMK 168/2023 fixture | Superseded candidate; official tax, staging, provider, and operational certification remain open |
-| v0.10.0-rc.3 | 2026-08-10 | VPS deployment target and release-gate cleanup | Self-managed VPS runbook, removal of the obsolete hosted blueprint, and evidence-based feature matrix | Current release candidate; feature, provider, and operational certification remain open |
+| v0.10.0-rc.3 | 2026-08-10 | VPS deployment target and release-gate cleanup | Self-managed VPS runbook, removal of the obsolete hosted blueprint, and evidence-based feature matrix | Superseded candidate; feature, provider, and operational certification remain open |
+| v0.10.0-rc.4 | 2026-08-12 | Exact candidate evidence and migration-safe release gates | Executable migration/seed runbook targets, exact tagged-candidate evidence checks, current generated SQLC bindings, and the final lint fix for the release baseline | Superseded candidate; not production-certified; staging, provider, and operational certification remain open |
+| v0.10.0-rc.5 | 2026-08-13 | Bounded route-contract and deployment-gate hardening | Tagged E2E route-contract checks, core route-manifest/RBAC seed alignment, and deployment gate hardening | Superseded immutable tag at `1d81938`; the post-tag staging supervision fix is carried by later candidates |
+| v0.10.0-rc.6 | 2026-08-14 | Post-tag staging supervision fix | Release-branch head `d8b02b8` adds the deployment supervision fix after immutable rc.5; it preserves the `ec65cc0` application baseline and `000124` migration ceiling | Superseded candidate; the descendant rc.7 candidate carries the release-hygiene correction |
+| v0.10.0-rc.7 | 2026-08-26 | Immutable release-hygiene correction | Exact release candidate `5ed11da` adds the portable hygiene scan while preserving the `ec65cc0` application baseline and `000124` migration ceiling | Superseded by v0.10.0-rc.8; never production-certified |
+| v0.10.0-rc.8 | 2026-09-01 | Divergent stabilization candidate | Exact release candidate `cdaa910` on a line diverging from rc.7 at merge-base `04ebd8a`: staging certification workflow registration, scoped certification gates, enterprise UI hardening, story-driven seed data, lint/CI fixes, migration ceiling sync to `000124`, and CSRF/module-UI fixes | Current candidate; not production-certified; staging, provider, and operational certification remain open |
 
 ## Detailed version reports
 
@@ -128,12 +138,81 @@ self-managed VPS operation.
 
 See the [v0.10.0-rc.3 release notes](v0.10.0-rc.3.md).
 
-## Follow-up work after v0.10.0-rc.3
+### v0.10.0-rc.4 — Exact candidate evidence and migration-safe release gates
+
+**Primary purpose:** freeze the v0.10-core staging candidate at the reviewed
+`ec65cc0` commit while documenting migration, release identity, and certification
+evidence requirements explicitly.
+
+The candidate ends at migration `000124_scoped_rbac_global_compatibility`.
+The later v0.11-finance implementation commit `1a8343e` and migration
+`000125_payment_settlement_results` are excluded from rc.4 and remain on the
+next-release line. This candidate is not production-certified.
+
+See the [v0.10.0-rc.4 release notes](v0.10.0-rc.4.md).
+
+### v0.10.0-rc.5 — Bounded route-contract and deployment-gate hardening
+
+The immutable `v0.10.0-rc.5` tag at `1d81938` added bounded route-contract E2E
+checks, route-manifest/RBAC seed alignment, and deployment-gate hardening. It is
+superseded and was never production-certified because the staging supervision fix
+landed afterward on the release branch.
+
+### v0.10.0-rc.6 — Post-tag staging supervision fix (superseded historical candidate)
+
+**Primary purpose:** certify the exact post-rc.5 release head while keeping the
+v0.10-core scope and migration boundary unchanged.
+
+The candidate commit is `d8b02b87fd614edec31e465abc38667ad91f7548`. The reviewed
+application baseline remains `ec65cc08639c184030c63e3407791987eee92804`; the
+candidate ends at migration `000124_scoped_rbac_global_compatibility`. The later
+v0.11-finance implementation commit `1a8343e` and migration
+`000125_payment_settlement_results` remain outside the candidate. Staging,
+provider, security, and operational evidence are still pending in the [staging
+certification record](v0.10-core-staging-certification.md).
+
+This entry is retained only for release lineage; the active certification record
+and current candidate are v0.10.0-rc.8 at `cdaa910`.
+
+### v0.10.0-rc.7 — Immutable release-hygiene correction (superseded)
+
+**Primary purpose:** retain the exact v0.10-core candidate identity while making
+the release hygiene check portable to environments without ripgrep.
+
+The candidate commit is `5ed11da8aea342708be67284ea7a71224f90ccdc`. It preserved
+the reviewed application baseline `ec65cc08639c184030c63e3407791987eee92804`,
+the `v0.10-core` scope, and the `000124_scoped_rbac_global_compatibility`
+migration ceiling. It was superseded before any staging certification evidence
+was collected; the rc.8 candidate is the active line.
+
+### v0.10.0-rc.8 — Divergent stabilization candidate
+
+**Primary purpose:** carry the v0.10-core release hardening — the staging
+certification workflow registration, scoped certification gates, enterprise UI
+hardening, story-driven seed data, lint/CI fixes, migration ceiling sync, and
+CSRF/module-UI fixes — as the current immutable candidate.
+
+The candidate commit is `cdaa910b2d529d7dd6b8e05f259f533a28e32dd4` (annotated
+tag `v0.10.0-rc.8`, tag object `56ed72159dc05e139d0571b1d484e86d47b17540`,
+dated 2026-09-01). Its line diverges from the superseded rc.7 candidate at
+merge-base `04ebd8a040ff3c5da6f90c6f8d0eab5f4a9ba336` and carries a 15-commit
+stabilization chain; it does not preserve the `ec65cc0` application baseline.
+It keeps the `v0.10-core` scope and the `000124_scoped_rbac_global_compatibility`
+migration ceiling, excludes the v0.11-finance commit `1a8343e` and migration
+`000125`, and has a green CI run ([33452408431](https://github.com/noah-isme/odyssey-erp/actions/runs/33452408431))
+and a successful tag-push staging deployment run ([33452416384](https://github.com/noah-isme/odyssey-erp/actions/runs/33452416384))
+on the candidate commit. Staging, provider, security, migration, and
+operational certification remain pending in the [staging certification record](v0.10-core-staging-certification.md).
+
+## Follow-up work after v0.10.0-rc.8
 
 This work is documented in the current [roadmap](../ROADMAP.md) and [module catalog](../reference/module-catalog.md); the candidate packages the current scope, while final promotion remains pending.
 
 ### Finance and operations
 
+- v0.11-finance handoff: the worker now composes the durable
+  `payment.result.import` boundary only; live provider execution and confirmed
+  AP/GL/tax/FX/bank effects remain disabled until their adapters are certified.
 - Accounts Payable: vendor invoices, payments, allocations, and aging.
 - Banking: accounts, transactions, transfers, reconciliation, cash flow, and manual CSV/OFX imports.
 - Inventory: stock takes, adjustments, lot/serial tracking, replenishment, and AVG/FIFO valuation.
@@ -157,7 +236,7 @@ This work is documented in the current [roadmap](../ROADMAP.md) and [module cata
 
 ### Remaining release work
 
-- Promote `v0.10.0` only after the candidate passes staging, provider, security,
+- Promote `v0.10.0` only after the rc.8 candidate passes staging, provider, security,
   migration, and operational certification gates.
 - Complete staging/production acceptance for FX and Horizon features.
 - Complete external Coretax validation.

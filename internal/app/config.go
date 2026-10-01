@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"os"
 	"strings"
 	"time"
 
@@ -15,8 +16,14 @@ type Config struct {
 	AppReadTimeout    time.Duration `envconfig:"APP_READ_TIMEOUT" default:"15s"`
 	AppWriteTimeout   time.Duration `envconfig:"APP_WRITE_TIMEOUT" default:"15s"`
 	AppRequestTimeout time.Duration `envconfig:"APP_REQUEST_TIMEOUT" default:"30s"`
+	WorkerMetricsAddr string        `envconfig:"WORKER_METRICS_ADDR" default:":9091"`
 
 	LogFormat string `envconfig:"LOG_FORMAT" default:"pretty"`
+
+	// ReleaseProfile controls the route surface exposed by a deployment.
+	// Development defaults to the complete local surface; staging and production
+	// must set it explicitly so certification cannot silently drift.
+	ReleaseProfile string `envconfig:"RELEASE_PROFILE" default:"full"`
 
 	PGDSN string `envconfig:"PG_DSN" default:"postgres://odyssey:odyssey@localhost:5432/odyssey?sslmode=disable"`
 
@@ -68,6 +75,12 @@ func LoadConfig() (*Config, error) {
 	}
 	if cfg.CSRFSecret == "" {
 		return nil, errors.New("csrf secret must be provided")
+	}
+	if (cfg.AppEnv == "staging" || cfg.IsProduction()) && strings.TrimSpace(os.Getenv("RELEASE_PROFILE")) == "" {
+		return nil, errors.New("RELEASE_PROFILE must be set explicitly for staging or production")
+	}
+	if _, err := ParseReleaseProfile(cfg.ReleaseProfile); err != nil {
+		return nil, err
 	}
 	if cfg.GotenbergURL != "" && !strings.Contains(cfg.GotenbergURL, "://") {
 		cfg.GotenbergURL = "http://" + cfg.GotenbergURL

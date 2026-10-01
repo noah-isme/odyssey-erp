@@ -14,13 +14,15 @@ type AdminHandler struct {
 	service   *Service
 	logger    *slog.Logger
 	templates *view.Engine
+	csrf      *shared.CSRFManager
 }
 
-func NewAdminHandler(service *Service, logger *slog.Logger, templates *view.Engine) *AdminHandler {
+func NewAdminHandler(service *Service, logger *slog.Logger, templates *view.Engine, csrf *shared.CSRFManager) *AdminHandler {
 	return &AdminHandler{
 		service:   service,
 		logger:    logger,
 		templates: templates,
+		csrf:      csrf,
 	}
 }
 
@@ -64,17 +66,24 @@ func (h *AdminHandler) handleList(w http.ResponseWriter, r *http.Request) {
 
 	// We can still pass the available catalog of providers alongside the active connections.
 	catalog := []map[string]any{
-		{"Provider": "Stripe", "Type": "payment", "Icon": "💳", "Description": "Process payments and subscriptions."},
-		{"Provider": "MockPay", "Type": "payment", "Icon": "💵", "Description": "Test payment gateway for sandbox environments."},
-		{"Provider": "Shopify", "Type": "marketplace", "Icon": "🛍️", "Description": "Sync products, orders, and customers."},
-		{"Provider": "WhatsApp", "Type": "messaging", "Icon": "💬", "Description": "Send notifications and chat with customers."},
-		{"Provider": "OpenAI", "Type": "ai", "Icon": "🧠", "Description": "AI generation and automation features."},
-		{"Provider": "DHL", "Type": "shipping", "Icon": "📦", "Description": "Book shipments and track deliveries."},
-		{"Provider": "OIDC/SSO", "Type": "identity", "Icon": "🔐", "Description": "Single Sign-On and directory sync."},
+		{"Provider": "Stripe", "Type": "payment", "Icon": "credit-card", "Description": "Process payments and subscriptions."},
+		{"Provider": "MockPay", "Type": "payment", "Icon": "banknote", "Description": "Test payment gateway for sandbox environments."},
+		{"Provider": "Shopify", "Type": "marketplace", "Icon": "shopping-bag", "Description": "Sync products, orders, and customers."},
+		{"Provider": "WhatsApp", "Type": "messaging", "Icon": "message-circle", "Description": "Send notifications and chat with customers."},
+		{"Provider": "OpenAI", "Type": "ai", "Icon": "cpu", "Description": "AI generation and automation features."},
+		{"Provider": "DHL", "Type": "shipping", "Icon": "truck", "Description": "Book shipments and track deliveries."},
+		{"Provider": "OIDC/SSO", "Type": "identity", "Icon": "shield-check", "Description": "Single Sign-On and directory sync."},
+	}
+
+	var csrfToken string
+	if h.csrf != nil {
+		csrfToken, _ = h.csrf.EnsureToken(r.Context(), sess)
 	}
 
 	_ = h.templates.Render(w, "pages/integrations.html", view.TemplateData{
-		Title: "Integrations",
+		Title:       "Integrations",
+		CurrentPath: "/settings/integrations",
+		CSRFToken:   csrfToken,
 		Data: map[string]any{
 			"Connections": connections,
 			"Catalog":     catalog,

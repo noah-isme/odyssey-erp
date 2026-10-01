@@ -43,7 +43,7 @@ type DatasetFieldRecord struct {
 
 // CatalogRepository is the persistence boundary used by Catalog.
 type CatalogRepository interface {
-	GetDataset(ctx context.Context, companyID uuid.UUID, key string, version int) (DatasetRecord, error)
+	GetDataset(ctx context.Context, companyID int64, key string, version int) (DatasetRecord, error)
 	ListDatasetFields(ctx context.Context, datasetID uuid.UUID) ([]DatasetFieldRecord, error)
 }
 
@@ -75,7 +75,7 @@ func NewCatalog(repo CatalogRepository) *Catalog {
 }
 
 // GetDataset loads a dataset definition from the database.
-func (c *Catalog) GetDataset(ctx context.Context, companyID uuid.UUID, key string, version int) (*DatasetDefinition, error) {
+func (c *Catalog) GetDataset(ctx context.Context, companyID int64, key string, version int) (*DatasetDefinition, error) {
 	row, err := c.repo.GetDataset(ctx, companyID, key, version)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get dataset: %w", err)

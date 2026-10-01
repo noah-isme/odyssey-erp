@@ -24,8 +24,8 @@
           </tr>
         </thead>
         <tbody>
-          {{ if .PMSchedules }}
-            {{ range .PMSchedules }}
+          {{ if .Data.Schedules }}
+            {{ range .Data.Schedules }}
             <tr>
               <td><strong>{{ .Name }}</strong></td>
               <td>{{ .FrequencyValue }} {{ .FrequencyType }}</td>

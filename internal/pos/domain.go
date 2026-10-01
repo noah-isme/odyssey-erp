@@ -2,6 +2,7 @@ package pos
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -13,22 +14,182 @@ var (
 )
 
 type Line struct {
-	ProductID                               int64
-	Quantity                                int64
-	UnitPriceCents, DiscountCents, TaxCents int64
+	ProductID      int64 `json:"product_id"`
+	Quantity       int64 `json:"quantity"`
+	UnitPriceCents int64 `json:"unit_price_cents"`
+	DiscountCents  int64 `json:"discount_cents"`
+	TaxCents       int64 `json:"tax_cents"`
 }
+
+func (l *Line) UnmarshalJSON(data []byte) error {
+	type Alias Line
+	var aux struct {
+		Alias
+		ProductIDAlt1 int64 `json:"ProductID"`
+		ProductIDAlt2 int64 `json:"productId"`
+		QuantityAlt   int64 `json:"Quantity"`
+		UnitPriceAlt1 int64 `json:"UnitPriceCents"`
+		UnitPriceAlt2 int64 `json:"unitPriceCents"`
+		DiscountAlt1  int64 `json:"DiscountCents"`
+		DiscountAlt2  int64 `json:"discountCents"`
+		TaxAlt1       int64 `json:"TaxCents"`
+		TaxAlt2       int64 `json:"taxCents"`
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	*l = Line(aux.Alias)
+	if l.ProductID == 0 {
+		if aux.ProductIDAlt1 != 0 {
+			l.ProductID = aux.ProductIDAlt1
+		} else if aux.ProductIDAlt2 != 0 {
+			l.ProductID = aux.ProductIDAlt2
+		}
+	}
+	if l.Quantity == 0 && aux.QuantityAlt != 0 {
+		l.Quantity = aux.QuantityAlt
+	}
+	if l.UnitPriceCents == 0 {
+		if aux.UnitPriceAlt1 != 0 {
+			l.UnitPriceCents = aux.UnitPriceAlt1
+		} else if aux.UnitPriceAlt2 != 0 {
+			l.UnitPriceCents = aux.UnitPriceAlt2
+		}
+	}
+	if l.DiscountCents == 0 {
+		if aux.DiscountAlt1 != 0 {
+			l.DiscountCents = aux.DiscountAlt1
+		} else if aux.DiscountAlt2 != 0 {
+			l.DiscountCents = aux.DiscountAlt2
+		}
+	}
+	if l.TaxCents == 0 {
+		if aux.TaxAlt1 != 0 {
+			l.TaxCents = aux.TaxAlt1
+		} else if aux.TaxAlt2 != 0 {
+			l.TaxCents = aux.TaxAlt2
+		}
+	}
+	return nil
+}
+
 type Ticket struct {
-	ID, CompanyID, SessionID                       int64
-	Currency                                       string
-	Lines                                          []Line
-	SubtotalCents, TaxCents, TotalCents, PaidCents int64
-	Status                                         string
+	ID            int64  `json:"id"`
+	CompanyID     int64  `json:"company_id"`
+	SessionID     int64  `json:"session_id"`
+	Currency      string `json:"currency"`
+	Lines         []Line `json:"lines"`
+	SubtotalCents int64  `json:"subtotal_cents"`
+	TaxCents      int64  `json:"tax_cents"`
+	TotalCents    int64  `json:"total_cents"`
+	PaidCents     int64  `json:"paid_cents"`
+	Status        string `json:"status"`
 }
+
+func (t *Ticket) UnmarshalJSON(data []byte) error {
+	type Alias Ticket
+	var aux struct {
+		Alias
+		IDAlt         int64  `json:"ID"`
+		CompanyIDAlt  int64  `json:"CompanyID"`
+		CompanyIDAlt2 int64  `json:"companyId"`
+		SessionIDAlt1 int64  `json:"SessionID"`
+		SessionIDAlt2 int64  `json:"sessionId"`
+		CurrencyAlt   string `json:"Currency"`
+		LinesAlt      []Line `json:"Lines"`
+		StatusAlt     string `json:"Status"`
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	*t = Ticket(aux.Alias)
+	if t.ID == 0 && aux.IDAlt != 0 {
+		t.ID = aux.IDAlt
+	}
+	if t.CompanyID == 0 {
+		if aux.CompanyIDAlt != 0 {
+			t.CompanyID = aux.CompanyIDAlt
+		} else if aux.CompanyIDAlt2 != 0 {
+			t.CompanyID = aux.CompanyIDAlt2
+		}
+	}
+	if t.SessionID == 0 {
+		if aux.SessionIDAlt1 != 0 {
+			t.SessionID = aux.SessionIDAlt1
+		} else if aux.SessionIDAlt2 != 0 {
+			t.SessionID = aux.SessionIDAlt2
+		}
+	}
+	if t.Currency == "" && aux.CurrencyAlt != "" {
+		t.Currency = aux.CurrencyAlt
+	}
+	if len(t.Lines) == 0 && len(aux.LinesAlt) > 0 {
+		t.Lines = aux.LinesAlt
+	}
+	if t.Status == "" && aux.StatusAlt != "" {
+		t.Status = aux.StatusAlt
+	}
+	return nil
+}
+
 type Payment struct {
-	ID, TicketID              int64
-	Method                    string
-	AmountCents               int64
-	Reference, IdempotencyKey string
+	ID             int64  `json:"id"`
+	TicketID       int64  `json:"ticket_id"`
+	Method         string `json:"method"`
+	AmountCents    int64  `json:"amount_cents"`
+	Reference      string `json:"reference"`
+	IdempotencyKey string `json:"idempotency_key"`
+}
+
+func (p *Payment) UnmarshalJSON(data []byte) error {
+	type Alias Payment
+	var aux struct {
+		Alias
+		IDAlt           int64  `json:"ID"`
+		TicketIDAlt1    int64  `json:"TicketID"`
+		TicketIDAlt2    int64  `json:"ticketId"`
+		MethodAlt       string `json:"Method"`
+		AmountAlt1      int64  `json:"AmountCents"`
+		AmountAlt2      int64  `json:"amountCents"`
+		ReferenceAlt    string `json:"Reference"`
+		IdempotencyAlt1 string `json:"IdempotencyKey"`
+		IdempotencyAlt2 string `json:"idempotencyKey"`
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	*p = Payment(aux.Alias)
+	if p.ID == 0 && aux.IDAlt != 0 {
+		p.ID = aux.IDAlt
+	}
+	if p.TicketID == 0 {
+		if aux.TicketIDAlt1 != 0 {
+			p.TicketID = aux.TicketIDAlt1
+		} else if aux.TicketIDAlt2 != 0 {
+			p.TicketID = aux.TicketIDAlt2
+		}
+	}
+	if p.Method == "" && aux.MethodAlt != "" {
+		p.Method = aux.MethodAlt
+	}
+	if p.AmountCents == 0 {
+		if aux.AmountAlt1 != 0 {
+			p.AmountCents = aux.AmountAlt1
+		} else if aux.AmountAlt2 != 0 {
+			p.AmountCents = aux.AmountAlt2
+		}
+	}
+	if p.Reference == "" && aux.ReferenceAlt != "" {
+		p.Reference = aux.ReferenceAlt
+	}
+	if p.IdempotencyKey == "" {
+		if aux.IdempotencyAlt1 != "" {
+			p.IdempotencyKey = aux.IdempotencyAlt1
+		} else if aux.IdempotencyAlt2 != "" {
+			p.IdempotencyKey = aux.IdempotencyAlt2
+		}
+	}
+	return nil
 }
 
 type Repository interface {

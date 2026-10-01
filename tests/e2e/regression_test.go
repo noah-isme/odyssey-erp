@@ -212,6 +212,15 @@ var nonPagePrefixes = []string{
 	"/readyz",
 	"/debug",
 	"/api",
+	"/legal",
+	"/pos/terminal",
+	"/pos/catalog",
+	"/pos/tickets",
+	"/mrp/boms/revisions",
+	"/mrp/decisions",
+	"/mrp/genealogy",
+	"/procurement/contracts",
+	"/procurement/variances",
 }
 
 // nonPageSuffixes are GET routes that return a file or data payload rather

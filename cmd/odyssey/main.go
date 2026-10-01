@@ -350,7 +350,7 @@ func main() {
 
 	connectorsService := connectors.NewService(connectors.NewRepository(dbpool), vault, connectorsRegistry)
 	integrationHooks.SetConnectorsService(connectorsService)
-	connectorsAdminHandler := connectors.NewAdminHandler(connectorsService, logger, templates)
+	connectorsAdminHandler := connectors.NewAdminHandler(connectorsService, logger, templates, csrfManager)
 
 	notificationRepo := notifications.NewRepository(dbpool)
 	notificationService := notifications.NewService(notificationRepo)
@@ -630,7 +630,7 @@ func main() {
 	// The E2E suite uses this to derive its page coverage from the router
 	// rather than a hand-maintained list.
 	if os.Getenv("ODYSSEY_DUMP_ROUTES") != "" {
-		if err := app.WriteRoutes(router, os.Stdout); err != nil {
+		if err := app.WriteRoutesForProfile(router, cfg.ReleaseProfile, os.Stdout); err != nil {
 			logger.Error("dump routes", slog.Any("error", err))
 			os.Exit(1)
 		}

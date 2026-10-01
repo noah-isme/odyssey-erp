@@ -1,7 +1,423 @@
 {{ define "pages/hr/employees.html" }}{{ template "layouts/base.html" . }}{{ end }}
-{{ define "title" }}Employees{{ end }}
+{{ define "title" }}Employee Directory{{ end }}
+{{ define "head" }}
+<script type="module" src="/static/js/pages/hr.js"></script>
+{{ end }}
 {{ define "content" }}
-<div class="page-container"><header class="page-header"><div class="page-header__content"><h1 class="page-title">Employee Directory</h1><p class="page-subtitle">Departments, positions, and reporting relationships.</p></div></header>
-<div class="page-content"><section class="card"><div class="card__header"><div><h2 class="card__title">Add employee</h2><p class="card__desc">Create an employee record for the active company.</p></div></div><form method="post" action="/hr/employees" class="form-grid" data-component="form"><input type="hidden" name="csrf_token" value="{{ .CSRFToken }}"><label class="form-group"><span class="form-label">Employee number</span><input class="form-input" name="employee_number" required></label><label class="form-group"><span class="form-label">Name</span><input class="form-input" name="name" required></label><label class="form-group"><span class="form-label">Email</span><input class="form-input" type="email" name="email" required></label><label class="form-group"><span class="form-label">Linked user ID</span><input class="form-input" type="number" name="user_id"></label><label class="form-group"><span class="form-label">Manager employee ID</span><input class="form-input" type="number" name="manager_id"></label><label class="form-group"><span class="form-label">Hire date</span><input class="form-input" type="date" name="hire_date" required></label><div class="form-group form-group--actions"><button class="btn btn--primary">Add employee</button></div></form></section>
-<section class="card card-table" data-component="datatable"><div class="card__header"><h2 class="card__title">Employees</h2></div><div class="table-responsive"><table class="table table--sticky" data-datatable="hr-employees"><thead><tr><th>Number</th><th>Name</th><th>Email</th><th>Department</th><th>Position</th><th>Manager</th><th>Status</th></tr></thead><tbody>{{ range .Data.Employees }}<tr><td>{{ .EmployeeNumber }}</td><td>{{ .Name }}</td><td>{{ .Email }}</td><td>{{ .Department }}</td><td>{{ .Position }}</td><td>{{ .Manager }}</td><td>{{ template "partials/ui/status_badge.html" .Status }}</td></tr>{{ else }}<tr><td colspan="7" class="table-empty">No employees found.</td></tr>{{ end }}</tbody></table></div></section></div></div>
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-title">Employee Directory</h1>
+            <p class="page-subtitle">Manage organization structure, positions, and staff profiles.</p>
+        </div>
+        <div class="page-header__actions">
+            <button class="btn btn--primary" data-dialog-open="add-employee-dialog">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <span>Add Employee</span>
+            </button>
+        </div>
+    </header>
+
+    <div class="page-content">
+        <!-- Stats Summary Grid -->
+        <div class="hr-stats-grid">
+            <div class="hr-stat-card">
+                <span class="hr-stat-card__value">{{ .Data.Stats.Total }}</span>
+                <span class="hr-stat-card__label">Total Employees</span>
+            </div>
+            <div class="hr-stat-card">
+                <span class="hr-stat-card__value">{{ .Data.Stats.Active }}</span>
+                <span class="hr-stat-card__label">Active Staff</span>
+            </div>
+            <div class="hr-stat-card">
+                <span class="hr-stat-card__value">{{ .Data.Stats.Departments }}</span>
+                <span class="hr-stat-card__label">Departments</span>
+            </div>
+            <div class="hr-stat-card">
+                <span class="hr-stat-card__value">{{ .Data.Stats.Positions }}</span>
+                <span class="hr-stat-card__label">Positions</span>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div data-tabs="hr-employees" data-persist="true">
+            <div class="tabs-list" role="tablist">
+                <button type="button" data-tab="employees" class="btn tab{{ if eq .Data.Filter.Tab "employees" }} active{{ end }}">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    <span>Employees</span>
+                    <span class="tab-badge">{{ .Data.Stats.Total }}</span>
+                </button>
+                <button type="button" data-tab="departments" class="btn tab{{ if eq .Data.Filter.Tab "departments" }} active{{ end }}">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                    <span>Departments</span>
+                    <span class="tab-badge">{{ .Data.Stats.Departments }}</span>
+                </button>
+                <button type="button" data-tab="positions" class="btn tab{{ if eq .Data.Filter.Tab "positions" }} active{{ end }}">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                    <span>Positions</span>
+                    <span class="tab-badge">{{ .Data.Stats.Positions }}</span>
+                </button>
+            </div>
+
+            <div class="tabs-content">
+                <!-- Panel 1: Employees -->
+                <div data-tab-panel="employees" class="tab-panel{{ if eq .Data.Filter.Tab "employees" }} active{{ end }}">
+                    <section class="card">
+                        <div class="hr-actions-bar">
+                            <form method="get" action="/hr/employees" class="hr-filter-group" role="search">
+                                <input type="hidden" name="tab" value="employees">
+                                <input class="form-input" type="search" name="q" value="{{ .Data.Filter.Search }}" placeholder="Search employee...">
+                                <select class="form-select" name="department_id">
+                                    <option value="">All Departments</option>
+                                    {{ range .Data.Departments }}
+                                    <option value="{{ .ID }}"{{ if eq $.Data.Filter.DepartmentID .ID }} selected{{ end }}>{{ .Name }}</option>
+                                    {{ end }}
+                                </select>
+                                <select class="form-select" name="status">
+                                    <option value="">All Statuses</option>
+                                    <option value="ACTIVE"{{ if eq .Data.Filter.Status "ACTIVE" }} selected{{ end }}>Active</option>
+                                    <option value="INACTIVE"{{ if eq .Data.Filter.Status "INACTIVE" }} selected{{ end }}>Inactive</option>
+                                </select>
+                                <button class="btn btn--secondary" type="submit">Filter</button>
+                                {{ if or .Data.Filter.Search .Data.Filter.DepartmentID .Data.Filter.Status }}
+                                <a href="/hr/employees?tab=employees" class="btn btn--secondary">Reset</a>
+                                {{ end }}
+                            </form>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table--sticky" data-datatable="hr-employees">
+                                <thead>
+                                    <tr>
+                                        <th>Number</th>
+                                        <th>Name</th>
+                                        <th>Email</th>
+                                        <th>Department</th>
+                                        <th>Position</th>
+                                        <th>Manager</th>
+                                        <th>Hire Date</th>
+                                        <th>Status</th>
+                                        <th class="table__actions">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {{ range .Data.Employees }}
+                                    <tr data-id="{{ .ID }}"
+                                        data-number="{{ .EmployeeNumber }}"
+                                        data-name="{{ .Name }}"
+                                        data-email="{{ .Email }}"
+                                        data-dept-id="{{ if .DepartmentID }}{{ .DepartmentID }}{{ end }}"
+                                        data-pos-id="{{ if .PositionID }}{{ .PositionID }}{{ end }}"
+                                        data-mgr-id="{{ if .ManagerID }}{{ .ManagerID }}{{ end }}"
+                                        data-user-id="{{ if .UserID }}{{ .UserID }}{{ end }}"
+                                        data-hire-date="{{ formatDate .HireDate }}"
+                                        data-status="{{ .Status }}">
+                                        <td><code>{{ .EmployeeNumber }}</code></td>
+                                        <td><strong>{{ .Name }}</strong></td>
+                                        <td>{{ .Email }}</td>
+                                        <td>{{ if .Department }}{{ .Department }}{{ else }}<span class="text-muted">–</span>{{ end }}</td>
+                                        <td>{{ if .Position }}{{ .Position }}{{ else }}<span class="text-muted">–</span>{{ end }}</td>
+                                        <td>{{ if .Manager }}{{ .Manager }}{{ else }}<span class="text-muted">–</span>{{ end }}</td>
+                                        <td>{{ formatDate .HireDate }}</td>
+                                        <td>{{ template "partials/ui/status_badge.html" .Status }}</td>
+                                        <td class="table__actions">
+                                            <button type="button" class="btn btn--secondary btn--sm" data-dialog-open="edit-employee-dialog" data-edit-employee>Edit</button>
+                                        </td>
+                                    </tr>
+                                    {{ else }}
+                                    <tr><td colspan="9" class="table-empty">No employees found matching criteria.</td></tr>
+                                    {{ end }}
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- Panel 2: Departments -->
+                <div data-tab-panel="departments" class="tab-panel{{ if eq .Data.Filter.Tab "departments" }} active{{ end }}"{{ if ne .Data.Filter.Tab "departments" }} hidden{{ end }}>
+                    <section class="card">
+                        <div class="hr-section-header">
+                            <div>
+                                <h2 class="hr-section-title">Departments</h2>
+                                <p class="card__desc">Organizational units across the company.</p>
+                            </div>
+                            <button class="btn btn--secondary" data-dialog-open="add-department-dialog">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                <span>Add Department</span>
+                            </button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table" data-datatable="hr-departments">
+                                <thead>
+                                    <tr>
+                                        <th>Code</th>
+                                        <th>Department Name</th>
+                                        <th class="numeric">Headcount</th>
+                                        <th>Created</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {{ range .Data.Departments }}
+                                    <tr>
+                                        <td><code>{{ .Code }}</code></td>
+                                        <td><strong>{{ .Name }}</strong></td>
+                                        <td class="numeric">{{ .EmployeeCount }} staff</td>
+                                        <td>{{ formatDate .CreatedAt }}</td>
+                                    </tr>
+                                    {{ else }}
+                                    <tr><td colspan="4" class="table-empty">No departments registered.</td></tr>
+                                    {{ end }}
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- Panel 3: Positions -->
+                <div data-tab-panel="positions" class="tab-panel{{ if eq .Data.Filter.Tab "positions" }} active{{ end }}"{{ if ne .Data.Filter.Tab "positions" }} hidden{{ end }}>
+                    <section class="card">
+                        <div class="hr-section-header">
+                            <div>
+                                <h2 class="hr-section-title">Job Positions</h2>
+                                <p class="card__desc">Defined organizational roles and titles.</p>
+                            </div>
+                            <button class="btn btn--secondary" data-dialog-open="add-position-dialog">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                <span>Add Position</span>
+                            </button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table" data-datatable="hr-positions">
+                                <thead>
+                                    <tr>
+                                        <th>Code</th>
+                                        <th>Position Title</th>
+                                        <th class="numeric">Assigned Staff</th>
+                                        <th>Created</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {{ range .Data.Positions }}
+                                    <tr>
+                                        <td><code>{{ .Code }}</code></td>
+                                        <td><strong>{{ .Name }}</strong></td>
+                                        <td class="numeric">{{ .EmployeeCount }} staff</td>
+                                        <td>{{ formatDate .CreatedAt }}</td>
+                                    </tr>
+                                    {{ else }}
+                                    <tr><td colspan="4" class="table-empty">No positions registered.</td></tr>
+                                    {{ end }}
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Dialogs -->
+<!-- Dialog: Add Employee -->
+<dialog data-dialog id="add-employee-dialog" class="native-dialog native-dialog--lg">
+    <div class="native-dialog__header">
+        <h3 class="native-dialog__title">Add New Employee</h3>
+        <button type="button" class="btn btn--icon" data-dialog-close aria-label="Close dialog">✕</button>
+    </div>
+    <form method="post" action="/hr/employees" class="hr-modal-form native-dialog__content--padded">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+        <div class="hr-form-row">
+            <label class="form-group">
+                <span class="form-label">Employee Number</span>
+                <input class="form-input" name="employee_number" placeholder="e.g. EMP-010" required>
+            </label>
+            <label class="form-group">
+                <span class="form-label">Full Name</span>
+                <input class="form-input" name="name" placeholder="Full name" required>
+            </label>
+        </div>
+        <div class="hr-form-row">
+            <label class="form-group">
+                <span class="form-label">Email Address</span>
+                <input class="form-input" type="email" name="email" placeholder="name@company.com" required>
+            </label>
+            <label class="form-group">
+                <span class="form-label">Hire Date</span>
+                <input class="form-input" type="date" name="hire_date" required>
+            </label>
+        </div>
+        <div class="hr-form-row">
+            <label class="form-group">
+                <span class="form-label">Department</span>
+                <select class="form-select" name="department_id">
+                    <option value="">Select Department (Optional)</option>
+                    {{ range .Data.Departments }}
+                    <option value="{{ .ID }}">{{ .Name }} ({{ .Code }})</option>
+                    {{ end }}
+                </select>
+            </label>
+            <label class="form-group">
+                <span class="form-label">Position</span>
+                <select class="form-select" name="position_id">
+                    <option value="">Select Position (Optional)</option>
+                    {{ range .Data.Positions }}
+                    <option value="{{ .ID }}">{{ .Name }} ({{ .Code }})</option>
+                    {{ end }}
+                </select>
+            </label>
+        </div>
+        <div class="hr-form-row">
+            <label class="form-group">
+                <span class="form-label">Direct Manager</span>
+                <select class="form-select" name="manager_id">
+                    <option value="">Select Manager (Optional)</option>
+                    {{ range .Data.AllStaff }}
+                    <option value="{{ .ID }}">{{ .Name }} ({{ .EmployeeNumber }})</option>
+                    {{ end }}
+                </select>
+            </label>
+            <label class="form-group">
+                <span class="form-label">Linked User Account</span>
+                <select class="form-select" name="user_id">
+                    <option value="">Link Odyssey User (Optional)</option>
+                    {{ range .Data.Users }}
+                    <option value="{{ .ID }}">{{ .Email }}{{ if .Name }} ({{ .Name }}){{ end }}</option>
+                    {{ end }}
+                </select>
+            </label>
+        </div>
+        <div class="native-dialog__footer">
+            <button type="button" class="btn btn--secondary" data-dialog-close>Cancel</button>
+            <button type="submit" class="btn btn--primary">Create Employee</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- Dialog: Edit Employee -->
+<dialog data-dialog id="edit-employee-dialog" class="native-dialog native-dialog--lg">
+    <div class="native-dialog__header">
+        <h3 class="native-dialog__title">Edit Employee Profile</h3>
+        <button type="button" class="btn btn--icon" data-dialog-close aria-label="Close dialog">✕</button>
+    </div>
+    <form id="edit-employee-form" method="post" action="" class="hr-modal-form native-dialog__content--padded">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+        <div class="hr-form-row">
+            <label class="form-group">
+                <span class="form-label">Employee Number</span>
+                <input class="form-input" name="employee_number" required>
+            </label>
+            <label class="form-group">
+                <span class="form-label">Full Name</span>
+                <input class="form-input" name="name" required>
+            </label>
+        </div>
+        <div class="hr-form-row">
+            <label class="form-group">
+                <span class="form-label">Email Address</span>
+                <input class="form-input" type="email" name="email" required>
+            </label>
+            <label class="form-group">
+                <span class="form-label">Hire Date</span>
+                <input class="form-input" type="date" name="hire_date" required>
+            </label>
+        </div>
+        <div class="hr-form-row">
+            <label class="form-group">
+                <span class="form-label">Department</span>
+                <select class="form-select" name="department_id">
+                    <option value="">None</option>
+                    {{ range .Data.Departments }}
+                    <option value="{{ .ID }}">{{ .Name }} ({{ .Code }})</option>
+                    {{ end }}
+                </select>
+            </label>
+            <label class="form-group">
+                <span class="form-label">Position</span>
+                <select class="form-select" name="position_id">
+                    <option value="">None</option>
+                    {{ range .Data.Positions }}
+                    <option value="{{ .ID }}">{{ .Name }} ({{ .Code }})</option>
+                    {{ end }}
+                </select>
+            </label>
+        </div>
+        <div class="hr-form-row">
+            <label class="form-group">
+                <span class="form-label">Direct Manager</span>
+                <select class="form-select" name="manager_id">
+                    <option value="">None</option>
+                    {{ range .Data.AllStaff }}
+                    <option value="{{ .ID }}">{{ .Name }} ({{ .EmployeeNumber }})</option>
+                    {{ end }}
+                </select>
+            </label>
+            <label class="form-group">
+                <span class="form-label">Linked User Account</span>
+                <select class="form-select" name="user_id">
+                    <option value="">None</option>
+                    {{ range .Data.Users }}
+                    <option value="{{ .ID }}">{{ .Email }}{{ if .Name }} ({{ .Name }}){{ end }}</option>
+                    {{ end }}
+                </select>
+            </label>
+        </div>
+        <div class="form-group">
+            <span class="form-label">Status</span>
+            <select class="form-select" name="status">
+                <option value="ACTIVE">ACTIVE</option>
+                <option value="INACTIVE">INACTIVE</option>
+            </select>
+        </div>
+        <div class="native-dialog__footer">
+            <button type="button" class="btn btn--secondary" data-dialog-close>Cancel</button>
+            <button type="submit" class="btn btn--primary">Save Changes</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- Dialog: Add Department -->
+<dialog data-dialog id="add-department-dialog" class="native-dialog">
+    <div class="native-dialog__header">
+        <h3 class="native-dialog__title">Add Department</h3>
+        <button type="button" class="btn btn--icon" data-dialog-close aria-label="Close dialog">✕</button>
+    </div>
+    <form method="post" action="/hr/employees/departments" class="hr-modal-form native-dialog__content--padded">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+        <label class="form-group">
+            <span class="form-label">Department Code</span>
+            <input class="form-input" name="code" placeholder="e.g. DEPT-ENG" required>
+        </label>
+        <label class="form-group">
+            <span class="form-label">Department Name</span>
+            <input class="form-input" name="name" placeholder="e.g. Engineering & Technology" required>
+        </label>
+        <div class="native-dialog__footer">
+            <button type="button" class="btn btn--secondary" data-dialog-close>Cancel</button>
+            <button type="submit" class="btn btn--primary">Create Department</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- Dialog: Add Position -->
+<dialog data-dialog id="add-position-dialog" class="native-dialog">
+    <div class="native-dialog__header">
+        <h3 class="native-dialog__title">Add Job Position</h3>
+        <button type="button" class="btn btn--icon" data-dialog-close aria-label="Close dialog">✕</button>
+    </div>
+    <form method="post" action="/hr/employees/positions" class="hr-modal-form native-dialog__content--padded">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+        <label class="form-group">
+            <span class="form-label">Position Code</span>
+            <input class="form-input" name="code" placeholder="e.g. POS-ENG-SR" required>
+        </label>
+        <label class="form-group">
+            <span class="form-label">Position Title</span>
+            <input class="form-input" name="name" placeholder="e.g. Senior Software Engineer" required>
+        </label>
+        <div class="native-dialog__footer">
+            <button type="button" class="btn btn--secondary" data-dialog-close>Cancel</button>
+            <button type="submit" class="btn btn--primary">Create Position</button>
+        </div>
+    </form>
+</dialog>
 {{ end }}

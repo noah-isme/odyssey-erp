@@ -1,6 +1,6 @@
 /* ==========================================================================
    ODYSSEY ERP LANDING PAGE JS
-   Dev-Core Interactive Split-Pane, Micro-Interactions & Animation Engine
+   Executive Showcase, Micro-Interactions & ROI Calculation Engine
    ========================================================================== */
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -95,40 +95,18 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // ----------------------------------------------------------------------
-    // 4. Interactive Hero Terminal Tab & Typing Stream Switcher
+    // 4. Executive Showcase Workspace Tab Switcher
     // ----------------------------------------------------------------------
     var tabBtns = document.querySelectorAll('.window-tabs .tab-btn');
     var tabPanels = document.querySelectorAll('.tab-panel');
     var promptText = document.getElementById('termPromptText');
-    var typingTimer = null;
 
-    var tabCommands = {
-        'sales': 'fetch_sales_pipeline --format=json',
-        'inventory': 'check_warehouse_stock --all-skus',
-        'ledger': 'audit_ledger_balance --period=Q3',
-        'metrics': 'system_health_check --ping'
+    var tabLabels = {
+        'sales': 'WORKSPACE EKSEKUTIF · PIPELINE PENJUALAN',
+        'inventory': 'WORKSPACE EKSEKUTIF · KONTROL INVENTORI',
+        'ledger': 'WORKSPACE EKSEKUTIF · BUKU BESAR FINANSIAL',
+        'metrics': 'WORKSPACE EKSEKUTIF · KESIAPAN SISTEM'
     };
-
-    function typeTerminalCommand(text) {
-        if (!promptText) return;
-        if (prefersReducedMotion) {
-            promptText.textContent = text;
-            return;
-        }
-
-        if (typingTimer) clearInterval(typingTimer);
-        promptText.textContent = '';
-        var charIdx = 0;
-
-        typingTimer = setInterval(function () {
-            if (charIdx < text.length) {
-                promptText.textContent += text.charAt(charIdx);
-                charIdx++;
-            } else {
-                clearInterval(typingTimer);
-            }
-        }, 30);
-    }
 
     tabBtns.forEach(function (btn) {
         btn.addEventListener('click', function () {
@@ -143,8 +121,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 activePanel.classList.add('is-active');
             }
 
-            if (tabCommands[targetTab]) {
-                typeTerminalCommand(tabCommands[targetTab]);
+            if (promptText && tabLabels[targetTab]) {
+                promptText.textContent = tabLabels[targetTab];
             }
         });
     });
@@ -245,27 +223,5 @@ document.addEventListener('DOMContentLoaded', function () {
         empInput.addEventListener('input', calculateROI);
         invInput.addEventListener('input', calculateROI);
         calculateROI();
-    }
-
-    // ----------------------------------------------------------------------
-    // 6. Command Bar Copy Interaction
-    // ----------------------------------------------------------------------
-    var copyBtn = document.getElementById('ctaCopyBtn');
-    if (copyBtn) {
-        copyBtn.addEventListener('click', function () {
-            var cmdText = '$ odyssey init enterprise --mode=production';
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(cmdText.replace(/^\$\s*/, '')).then(function () {
-                    var label = copyBtn.querySelector('.copy-label');
-                    if (label) label.textContent = 'TERSALIN!';
-                    copyBtn.classList.add('is-copied');
-
-                    setTimeout(function () {
-                        if (label) label.textContent = 'SALIN';
-                        copyBtn.classList.remove('is-copied');
-                    }, 2000);
-                });
-            }
-        });
     }
 });

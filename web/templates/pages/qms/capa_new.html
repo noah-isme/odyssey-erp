@@ -43,13 +43,13 @@
             <div class="col-md-4">
               <label class="form-label">Source Type</label>
               <select name="source_type" class="form-select">
-                {{ range .SourceTypes }}<option value="{{ . }}">{{ . }}</option>{{ end }}
+                {{ range .Data.SourceTypes }}<option value="{{ . }}">{{ . }}</option>{{ end }}
               </select>
             </div>
             <div class="col-md-4">
               <label class="form-label">Root Cause Method</label>
               <select name="root_cause_method" class="form-select">
-                {{ range .RootCauseMethods }}<option value="{{ . }}">{{ . }}</option>{{ end }}
+                {{ range .Data.RootCauseMethods }}<option value="{{ . }}">{{ . }}</option>{{ end }}
               </select>
             </div>
           </div>

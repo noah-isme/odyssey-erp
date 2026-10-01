@@ -1677,7 +1677,7 @@ type CompanyModuleFeature struct {
 }
 
 type CompanyPolicy struct {
-	CompanyID pgtype.UUID        `json:"company_id"`
+	CompanyID int64              `json:"company_id"`
 	Timezone  string             `json:"timezone"`
 	Locale    string             `json:"locale"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
@@ -1685,7 +1685,7 @@ type CompanyPolicy struct {
 
 type CompanyRole struct {
 	ID         pgtype.UUID        `json:"id"`
-	CompanyID  pgtype.UUID        `json:"company_id"`
+	CompanyID  int64              `json:"company_id"`
 	TemplateID pgtype.UUID        `json:"template_id"`
 	Name       string             `json:"name"`
 	Status     string             `json:"status"`
@@ -1720,6 +1720,7 @@ type ComplianceDecision struct {
 	RecordVersion   pgtype.Text        `json:"record_version"`
 	RecordHash      pgtype.Text        `json:"record_hash"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	SnapshotID      pgtype.Int8        `json:"snapshot_id"`
 }
 
 type ConnectorCanonicalEvent struct {
@@ -1747,6 +1748,22 @@ type ConnectorConnection struct {
 	TokenExpiry pgtype.Timestamptz `json:"token_expiry"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ConnectorDeadLetterEvent struct {
+	ID             int64              `json:"id"`
+	CommandID      int64              `json:"command_id"`
+	CompanyID      int64              `json:"company_id"`
+	ConnectionID   int64              `json:"connection_id"`
+	CommandType    string             `json:"command_type"`
+	CorrelationID  string             `json:"correlation_id"`
+	Attempts       int32              `json:"attempts"`
+	ErrorMessage   string             `json:"error_message"`
+	DeadLetteredAt pgtype.Timestamptz `json:"dead_lettered_at"`
+	AlertedAt      pgtype.Timestamptz `json:"alerted_at"`
+	ReplayedAt     pgtype.Timestamptz `json:"replayed_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
 type ConnectorInboxEvent struct {
@@ -2437,7 +2454,7 @@ type FinanceAutomationSetting struct {
 
 type FiscalCalendar struct {
 	ID        pgtype.UUID        `json:"id"`
-	CompanyID pgtype.UUID        `json:"company_id"`
+	CompanyID int64              `json:"company_id"`
 	Name      string             `json:"name"`
 	Status    string             `json:"status"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
@@ -3302,12 +3319,14 @@ type MrpCapa struct {
 }
 
 type MrpControlledRecordPolicy struct {
-	ID                int64  `json:"id"`
-	CompanyID         int64  `json:"company_id"`
-	RecordType        string `json:"record_type"`
-	RequiresSignature bool   `json:"requires_signature"`
-	RetentionDays     int32  `json:"retention_days"`
-	Active            bool   `json:"active"`
+	ID                       int64    `json:"id"`
+	CompanyID                int64    `json:"company_id"`
+	RecordType               string   `json:"record_type"`
+	RequiresSignature        bool     `json:"requires_signature"`
+	RetentionDays            int32    `json:"retention_days"`
+	Active                   bool     `json:"active"`
+	ApproverRoles            []string `json:"approver_roles"`
+	ReauthenticationRequired bool     `json:"reauthentication_required"`
 }
 
 type MrpElectronicSignature struct {
@@ -3321,6 +3340,8 @@ type MrpElectronicSignature struct {
 	SignerID                 int64              `json:"signer_id"`
 	ReauthenticationEvidence string             `json:"reauthentication_evidence"`
 	CreatedAt                pgtype.Timestamptz `json:"created_at"`
+	SnapshotID               pgtype.Int8        `json:"snapshot_id"`
+	AuthMethod               pgtype.Text        `json:"auth_method"`
 }
 
 type MrpException struct {
@@ -3497,6 +3518,19 @@ type MrpQualityHold struct {
 	ReleasedBy   pgtype.Int8        `json:"released_by"`
 	ReleasedAt   pgtype.Timestamptz `json:"released_at"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type MrpRecordSnapshot struct {
+	ID             int64              `json:"id"`
+	CompanyID      int64              `json:"company_id"`
+	RecordType     string             `json:"record_type"`
+	RecordID       int64              `json:"record_id"`
+	RecordVersion  string             `json:"record_version"`
+	Snapshot       []byte             `json:"snapshot"`
+	RecordHash     string             `json:"record_hash"`
+	CapturedBy     int64              `json:"captured_by"`
+	CapturedAt     pgtype.Timestamptz `json:"captured_at"`
+	RetentionUntil pgtype.Timestamptz `json:"retention_until"`
 }
 
 type MrpRouting struct {
@@ -3771,6 +3805,20 @@ type PaymentDispute struct {
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
 
+type PaymentExecution struct {
+	ID           int64              `json:"id"`
+	CompanyID    int64              `json:"company_id"`
+	ConnectionID int64              `json:"connection_id"`
+	Provider     string             `json:"provider"`
+	ObjectType   string             `json:"object_type"`
+	ObjectID     string             `json:"object_id"`
+	State        string             `json:"state"`
+	Version      int64              `json:"version"`
+	Payload      []byte             `json:"payload"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
 type PaymentIntent struct {
 	ID                int64              `json:"id"`
 	CompanyID         int64              `json:"company_id"`
@@ -3794,6 +3842,43 @@ type PaymentIntentTransition struct {
 	ProviderEventID pgtype.Text        `json:"provider_event_id"`
 	OccurredAt      pgtype.Timestamptz `json:"occurred_at"`
 	RawPayload      []byte             `json:"raw_payload"`
+}
+
+type PaymentReconciliationIssue struct {
+	ID                int64              `json:"id"`
+	CompanyID         int64              `json:"company_id"`
+	ConnectionID      int64              `json:"connection_id"`
+	PaymentIntentID   pgtype.Int8        `json:"payment_intent_id"`
+	Provider          string             `json:"provider"`
+	ProviderReference string             `json:"provider_reference"`
+	IssueType         string             `json:"issue_type"`
+	ExpectedStatus    pgtype.Text        `json:"expected_status"`
+	ObservedStatus    pgtype.Text        `json:"observed_status"`
+	Details           string             `json:"details"`
+	Status            string             `json:"status"`
+	FirstSeenAt       pgtype.Timestamptz `json:"first_seen_at"`
+	LastSeenAt        pgtype.Timestamptz `json:"last_seen_at"`
+	AlertedAt         pgtype.Timestamptz `json:"alerted_at"`
+	ResolvedAt        pgtype.Timestamptz `json:"resolved_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type PaymentReconciliationRun struct {
+	ID               int64              `json:"id"`
+	StartedAt        pgtype.Timestamptz `json:"started_at"`
+	FinishedAt       pgtype.Timestamptz `json:"finished_at"`
+	Status           string             `json:"status"`
+	ScannedCount     int32              `json:"scanned_count"`
+	RecoveredCount   int32              `json:"recovered_count"`
+	MatchedCount     int32              `json:"matched_count"`
+	UnmatchedCount   int32              `json:"unmatched_count"`
+	UnsupportedCount int32              `json:"unsupported_count"`
+	ErrorCount       int32              `json:"error_count"`
+	RefundsPersisted int32              `json:"refunds_persisted"`
+	DeadLetterCount  int32              `json:"dead_letter_count"`
+	ErrorMessage     pgtype.Text        `json:"error_message"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 }
 
 type PaymentRefund struct {
@@ -4758,11 +4843,36 @@ type RateSurcharge struct {
 	CreatedAt        pgtype.Timestamp `json:"created_at"`
 }
 
+type RbacAccessReview struct {
+	ID              int64              `json:"id"`
+	CompanyID       int64              `json:"company_id"`
+	SubjectUserID   int64              `json:"subject_user_id"`
+	ReviewKey       string             `json:"review_key"`
+	Status          string             `json:"status"`
+	Decision        pgtype.Text        `json:"decision"`
+	OpenedByUserID  int64              `json:"opened_by_user_id"`
+	DecidedByUserID pgtype.Int8        `json:"decided_by_user_id"`
+	DecidedAt       pgtype.Timestamptz `json:"decided_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type RbacUserRoleAssignment struct {
+	ID        int64              `json:"id"`
+	CompanyID int64              `json:"company_id"`
+	UserID    int64              `json:"user_id"`
+	RoleID    int64              `json:"role_id"`
+	BranchID  pgtype.Int8        `json:"branch_id"`
+	ValidFrom pgtype.Timestamptz `json:"valid_from"`
+	ValidTo   pgtype.Timestamptz `json:"valid_to"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type ReportRun struct {
 	ID                pgtype.UUID        `json:"id"`
-	CompanyID         pgtype.UUID        `json:"company_id"`
+	CompanyID         int64              `json:"company_id"`
 	DatasetID         pgtype.UUID        `json:"dataset_id"`
-	ActorID           pgtype.UUID        `json:"actor_id"`
+	ActorID           int64              `json:"actor_id"`
 	Status            string             `json:"status"`
 	RowCount          pgtype.Int4        `json:"row_count"`
 	ErrorMessage      pgtype.Text        `json:"error_message"`
@@ -4799,11 +4909,11 @@ type ReportScheduleDelivery struct {
 
 type ReportingDataset struct {
 	ID             pgtype.UUID        `json:"id"`
-	CompanyID      pgtype.UUID        `json:"company_id"`
+	CompanyID      int64              `json:"company_id"`
 	Version        int32              `json:"version"`
 	Key            string             `json:"key"`
-	BusinessOwner  pgtype.UUID        `json:"business_owner"`
-	TechnicalOwner pgtype.UUID        `json:"technical_owner"`
+	BusinessOwner  pgtype.Int8        `json:"business_owner"`
+	TechnicalOwner pgtype.Int8        `json:"technical_owner"`
 	Status         string             `json:"status"`
 	Description    pgtype.Text        `json:"description"`
 	Grain          pgtype.Text        `json:"grain"`
@@ -5084,10 +5194,10 @@ type SalesOrderLine struct {
 
 type ScopedUserRole struct {
 	ID        pgtype.UUID        `json:"id"`
-	CompanyID pgtype.UUID        `json:"company_id"`
-	UserID    pgtype.UUID        `json:"user_id"`
+	CompanyID int64              `json:"company_id"`
+	UserID    int64              `json:"user_id"`
 	RoleID    pgtype.UUID        `json:"role_id"`
-	BranchID  pgtype.UUID        `json:"branch_id"`
+	BranchID  pgtype.Int8        `json:"branch_id"`
 	ValidFrom pgtype.Timestamptz `json:"valid_from"`
 	ValidTo   pgtype.Timestamptz `json:"valid_to"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
@@ -5156,6 +5266,12 @@ type SignatureChallenge struct {
 	ReauthenticationRequired bool               `json:"reauthentication_required"`
 	Used                     bool               `json:"used"`
 	CreatedAt                pgtype.Timestamptz `json:"created_at"`
+	CompanyID                pgtype.Int8        `json:"company_id"`
+	RecordType               pgtype.Text        `json:"record_type"`
+	SignerID                 pgtype.Int8        `json:"signer_id"`
+	RecordHash               pgtype.Text        `json:"record_hash"`
+	ReauthenticationMethod   pgtype.Text        `json:"reauthentication_method"`
+	ReauthenticatedAt        pgtype.Timestamptz `json:"reauthenticated_at"`
 }
 
 type SourceLink struct {

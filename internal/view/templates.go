@@ -61,6 +61,8 @@ func NewEngine() (*Engine, error) {
 			var t time.Time
 			if tv, ok := v.(time.Time); ok {
 				t = tv
+			} else if tp, ok := v.(*time.Time); ok && tp != nil {
+				t = *tp
 			} else if ts, ok := v.(pgtype.Timestamptz); ok {
 				if ts.Valid {
 					t = ts.Time
@@ -70,6 +72,34 @@ func NewEngine() (*Engine, error) {
 				return ""
 			}
 			return t.Format("02 Jan 2006 15:04")
+		},
+		"formatDateTime": func(v any) string {
+			var t time.Time
+			if tv, ok := v.(time.Time); ok {
+				t = tv
+			} else if tp, ok := v.(*time.Time); ok && tp != nil {
+				t = *tp
+			} else if ts, ok := v.(pgtype.Timestamptz); ok && ts.Valid {
+				t = ts.Time
+			}
+			if t.IsZero() {
+				return ""
+			}
+			return t.Format("02 Jan 2006 15:04")
+		},
+		"formatTime": func(v any) string {
+			var t time.Time
+			if tv, ok := v.(time.Time); ok {
+				t = tv
+			} else if tp, ok := v.(*time.Time); ok && tp != nil {
+				t = *tp
+			} else if ts, ok := v.(pgtype.Timestamptz); ok && ts.Valid {
+				t = ts.Time
+			}
+			if t.IsZero() {
+				return ""
+			}
+			return t.Format("15:04")
 		},
 		"formatDecimal": func(v any) string {
 			if n, ok := v.(pgtype.Numeric); ok {

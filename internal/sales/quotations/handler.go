@@ -52,8 +52,9 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	status := r.URL.Query().Get("status")
 	var statusPtr *QuotationStatus
 	if status != "" {
-		s := QuotationStatus(status)
-		statusPtr = &s
+		if s := QuotationStatus(status); s.IsValid() {
+			statusPtr = &s
+		}
 	}
 
 	dateFrom := h.parseDate(r.URL.Query().Get("date_from"))

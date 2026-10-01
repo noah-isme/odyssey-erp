@@ -149,11 +149,16 @@ async function applyWorkspacePreferences() {
         }
         applyShellLanguage(language);
 
-        const preference = user.theme || 'system';
-        const theme = preference === 'system'
-            ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-            : preference;
-        Theme.apply(theme);
+        const savedTheme = localStorage.getItem('odyssey.theme');
+        if (savedTheme === 'dark' || savedTheme === 'light') {
+            Theme.apply(savedTheme);
+        } else {
+            const preference = user.theme || 'system';
+            const theme = preference === 'system'
+                ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+                : preference;
+            Theme.apply(theme);
+        }
     } catch (_) {
         // The shell remains usable with its safe default values.
     }
@@ -299,6 +304,6 @@ document.addEventListener('DOMContentLoaded', () => {
     window.OdysseyForm = Form;
     window.OdysseyComboBox = ComboBox;
 
-    console.log('🚀 Odyssey ERP initialized');
-    console.log('💡 Tip: Run OdysseyDevTools.enable() for debug mode');
+    console.log('Odyssey ERP initialized');
+    console.log('Tip: Run OdysseyDevTools.enable() for debug mode');
 });

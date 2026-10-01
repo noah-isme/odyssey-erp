@@ -60,3 +60,4 @@ tests/e2e/test-screenshots/
 /.go-cache/
 /.go-tmp/
 /.golangci-cache/
+graphify-out/

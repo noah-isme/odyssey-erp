@@ -2,7 +2,7 @@
 {{ template "layouts/public.html" . }}
 {{ end }}
 
-{{ define "title" }}Odyssey ERP — Industrial Precision Enterprise Systems{{ end }}
+{{ define "title" }}Odyssey ERP — Presisi Sistem Enterprise Indonesia{{ end }}
 
 {{ define "head" }}
 <link rel="stylesheet" href="/static/css/pages/landing.css">
@@ -18,21 +18,20 @@
                     <rect x="2" y="2" width="28" height="28" rx="2" stroke="currentColor" stroke-width="2.5" />
                     <path d="M10 16L15 21L22 10" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" />
                 </svg>
-                <span>ODYSSEY_ERP</span>
-                <span class="sys-badge sys-badge--emerald sys-pulse">
+                <span>Odyssey ERP</span>
+                <span class="sys-badge sys-badge--emerald">
                     <span class="sys-badge__dot"></span>
-                    <span class="sys-badge__ring"></span>
-                    SYS.ONLINE
+                    OPERASIONAL
                 </span>
             </a>
             <div class="landing-nav-center">
-                <a href="#features" class="nav-link" data-nav-section="features"><span class="nav-num">01.</span>FITUR</a>
-                <a href="#roi" class="nav-link" data-nav-section="roi"><span class="nav-num">02.</span>SIMULASI ROI</a>
-                <a href="#indonesia" class="nav-link" data-nav-section="indonesia"><span class="nav-num">03.</span>REGULASI</a>
-                <a href="#reviews" class="nav-link" data-nav-section="reviews"><span class="nav-num">04.</span>REVIEWS</a>
+                <a href="#features" class="nav-link" data-nav-section="features"><span class="nav-num">01.</span>Fitur</a>
+                <a href="#roi" class="nav-link" data-nav-section="roi"><span class="nav-num">02.</span>Simulasi ROI</a>
+                <a href="#indonesia" class="nav-link" data-nav-section="indonesia"><span class="nav-num">03.</span>Regulasi</a>
+                <a href="#certifications" class="nav-link" data-nav-section="certifications"><span class="nav-num">04.</span>Sertifikasi</a>
             </div>
             <div class="landing-nav-right">
-                <button type="button" class="btn theme-toggle-btn" data-theme-toggle aria-label="Toggle theme">
+                <button type="button" class="btn theme-toggle-btn" data-theme-toggle aria-label="Ganti tema tampilan">
                     <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="12" cy="12" r="5" />
                         <line x1="12" y1="1" x2="12" y2="3" />
@@ -46,8 +45,8 @@
                         <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
                     </svg>
                 </button>
-                <a href="/auth/login" class="dev-btn dev-btn--ghost dev-btn--sm">MASUK</a>
-                <a href="/auth/login" class="dev-btn dev-btn--primary dev-btn--sm">[ DASHBOARD ]</a>
+                <a href="/auth/login" class="btn btn--ghost btn--sm">Masuk</a>
+                <a href="/auth/login" class="btn btn--primary btn--sm">Buka Dashboard</a>
             </div>
         </div>
     </nav>
@@ -57,64 +56,64 @@
         <div class="hero-container">
             <div class="hero-content" data-reveal>
                 <div class="hero-header-badge">
-                    <span class="sys-badge sys-badge--emerald sys-pulse">
+                    <span class="sys-badge sys-badge--emerald">
                         <span class="sys-badge__dot"></span>
-                        <span class="sys-badge__ring"></span>
-                        SYSTEM OPERATIONAL
+                        SISTEM AKTIF
                     </span>
-                    <span class="sys-badge">VER. 2026.2</span>
+                    <span class="sys-badge">VERSI 2026.2</span>
                 </div>
                 <h1 class="hero-title">
-                    Precision Enterprise Operations. <span>Built for Indonesia.</span>
+                    Presisi Operasional Enterprise. <span>Dibangun untuk Indonesia.</span>
                 </h1>
                 <p class="hero-description">
-                    Systemic ERP framework engineered for zero operational latency, double-entry financial integrity, and strict Indonesian tax/PSAK regulatory compliance.
+                    Sistem ERP modular berstandar enterprise yang dirancang untuk efisiensi operasional tinggi, integritas finansial double-entry, dan kepatuhan penuh regulasi perpajakan DJP serta PSAK.
                 </p>
                 <div class="hero-actions">
-                    <a href="/auth/login" class="dev-btn dev-btn--primary dev-btn--lg">
-                        AKSES DASHBOARD →
+                    <a href="/auth/login" class="btn btn--primary btn--lg">
+                        Buka Dashboard →
                     </a>
-                    <a href="#features" class="dev-btn dev-btn--lg">
-                        SPESIFIKASI SISTEM
+                    <a href="#features" class="btn btn--secondary btn--lg">
+                        Jelajahi Fitur
                     </a>
                 </div>
                 <div class="hero-meta-strip">
                     <span class="meta-item">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-                        PSAK-1 COMPLIANT
+                        STANDAR PSAK 1 &amp; 73
                     </span>
                     <span class="meta-divider"></span>
                     <span class="meta-item">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-                        E-FAKTUR READY
+                        INTEGRASI E-FAKTUR DJP
                     </span>
                     <span class="meta-divider"></span>
                     <span class="meta-item">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-                        IMMUTABLE AUDIT LOGS
+                        IMMUTABLE AUDIT TRAIL
                     </span>
                 </div>
             </div>
 
-            <!-- Terminal Split-Pane Product Window -->
+            <!-- Operational Console Showcase Product Window -->
             <div class="product-window" data-reveal="window">
                 <div class="window-header">
                     <div class="window-controls">
-                        <span class="sys-badge">TERMINAL_HOST: ODYSSEY-01</span>
-                        <div class="terminal-cmd-stream" id="termPromptStream">
-                            <span class="cmd-prompt-symbol">$</span>
-                            <span class="cmd-prompt-text" id="termPromptText">fetch_sales_pipeline --format=json</span>
-                            <span class="cmd-prompt-cursor"></span>
+                        <span class="sys-badge sys-badge--emerald">
+                            <span class="sys-badge__dot"></span>
+                            KONSOL OPERASIONAL
+                        </span>
+                        <div class="console-stream" id="termPromptStream">
+                            <span class="console-label" id="termPromptText">WORKSPACE EKSEKUTIF</span>
                         </div>
                     </div>
-                    <span class="window-status">[STATUS: 200 OK]</span>
+                    <span class="window-status">Status: Operasional &amp; Terverifikasi</span>
                 </div>
 
                 <div class="window-tabs">
-                    <button type="button" class="btn tab-btn is-active" data-tab="sales">[01. SALES_PIPELINE]</button>
-                    <button type="button" class="btn tab-btn" data-tab="inventory">[02. INVENTORY_CTRL]</button>
-                    <button type="button" class="btn tab-btn" data-tab="ledger">[03. LEDGER_FINANCE]</button>
-                    <button type="button" class="btn tab-btn" data-tab="metrics">[04. SYSTEM_METRICS]</button>
+                    <button type="button" class="btn tab-btn is-active" data-tab="sales">01. Pipeline Penjualan</button>
+                    <button type="button" class="btn tab-btn" data-tab="inventory">02. Kontrol Inventori</button>
+                    <button type="button" class="btn tab-btn" data-tab="ledger">03. Buku Besar Finansial</button>
+                    <button type="button" class="btn tab-btn" data-tab="metrics">04. Kesiapan Sistem</button>
                     <div class="tab-indicator" id="tabIndicator"></div>
                 </div>
 
@@ -123,45 +122,45 @@
                     <div id="panel-sales" class="tab-panel is-active">
                         <div class="dev-kpi-grid">
                             <div class="dev-kpi-card">
-                                <span class="dev-kpi-label">REVENUE_Q3</span>
-                                <span class="dev-kpi-val">Rp 1,248M <span class="dev-kpi-delta pos">+14.2%</span></span>
+                                <span class="dev-kpi-label">TOTAL PENDAPATAN Q3</span>
+                                <span class="dev-kpi-val">Rp 1.248M <span class="dev-kpi-delta pos">+14.2%</span></span>
                             </div>
                             <div class="dev-kpi-card">
-                                <span class="dev-kpi-label">CONFIRMED_SO</span>
-                                <span class="dev-kpi-val">284 <span class="dev-kpi-delta pos">+8.1%</span></span>
+                                <span class="dev-kpi-label">PESANAN TERKONFIRMASI</span>
+                                <span class="dev-kpi-val">284 SO <span class="dev-kpi-delta pos">+8.1%</span></span>
                             </div>
                             <div class="dev-kpi-card">
-                                <span class="dev-kpi-label">FULFILL_RATE</span>
-                                <span class="dev-kpi-val">99.4% <span class="dev-kpi-delta pos">POS</span></span>
+                                <span class="dev-kpi-label">TINGKAT PEMENUHAN</span>
+                                <span class="dev-kpi-val">99.4% <span class="dev-kpi-delta pos">OPTIMAL</span></span>
                             </div>
                         </div>
                         <div class="table-wrap">
                             <table class="table dev-data-table">
                                 <thead>
                                     <tr>
-                                        <th>REF_ID</th>
-                                        <th>CUSTOMER</th>
+                                        <th>NO. REFERENSI</th>
+                                        <th>PELANGGAN</th>
                                         <th>STATUS</th>
-                                        <th>TOTAL_AMOUNT</th>
+                                        <th>TOTAL NILAI</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr>
                                         <td>SO-2026-0891</td>
                                         <td>PT Nusantara Tech</td>
-                                        <td><span class="status-pill conf">CONFIRMED</span></td>
+                                        <td><span class="status-pill conf">TERKONFIRMASI</span></td>
                                         <td>Rp 145.500.000</td>
                                     </tr>
                                     <tr>
                                         <td>SO-2026-0890</td>
                                         <td>CV Global Mandiri</td>
-                                        <td><span class="status-pill proc">PROCESSING</span></td>
+                                        <td><span class="status-pill proc">DIPROSES</span></td>
                                         <td>Rp 68.200.000</td>
                                     </tr>
                                     <tr>
                                         <td>SO-2026-0889</td>
                                         <td>PT Mitra Utama</td>
-                                        <td><span class="status-pill conf">CONFIRMED</span></td>
+                                        <td><span class="status-pill conf">TERKONFIRMASI</span></td>
                                         <td>Rp 210.000.000</td>
                                     </tr>
                                 </tbody>
@@ -173,15 +172,15 @@
                     <div id="panel-inventory" class="tab-panel">
                         <div class="dev-kpi-grid">
                             <div class="dev-kpi-card">
-                                <span class="dev-kpi-label">TOTAL_SKUS</span>
-                                <span class="dev-kpi-val">4,812 <span class="dev-kpi-delta neu">OK</span></span>
+                                <span class="dev-kpi-label">TOTAL SKU AKTIF</span>
+                                <span class="dev-kpi-val">4.812 <span class="dev-kpi-delta neu">NORMAL</span></span>
                             </div>
                             <div class="dev-kpi-card">
-                                <span class="dev-kpi-label">LOW_STOCK_ALERTS</span>
-                                <span class="dev-kpi-val">3 SKUs <span class="dev-kpi-delta pos">ATTN</span></span>
+                                <span class="dev-kpi-label">PERINGATAN STOK MINIMUM</span>
+                                <span class="dev-kpi-val">3 SKU <span class="dev-kpi-delta pos">PERLU ATENSI</span></span>
                             </div>
                             <div class="dev-kpi-card">
-                                <span class="dev-kpi-label">WH_UTILIZATION</span>
+                                <span class="dev-kpi-label">UTILISASI GUDANG</span>
                                 <span class="dev-kpi-val">78.2% <span class="dev-kpi-delta neu">OPTIMAL</span></span>
                             </div>
                         </div>
@@ -189,30 +188,30 @@
                             <table class="table dev-data-table">
                                 <thead>
                                     <tr>
-                                        <th>SKU_ID</th>
-                                        <th>ITEM_NAME</th>
-                                        <th>STOCK_QTY</th>
-                                        <th>REORDER_POINT</th>
+                                        <th>KODE SKU</th>
+                                        <th>NAMA BARANG</th>
+                                        <th>STOK FISIK</th>
+                                        <th>TITIK PESAN KEMBALI</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr>
                                         <td>SKU-4091-ID</td>
                                         <td>Industrial Server Rack Unit</td>
-                                        <td>142 units</td>
-                                        <td>25 units</td>
+                                        <td>142 unit</td>
+                                        <td>25 unit</td>
                                     </tr>
                                     <tr>
                                         <td>SKU-8812-ID</td>
                                         <td>Fiber Optic Cable Module 10m</td>
-                                        <td>8 units</td>
-                                        <td><span class="status-pill warn">REORDER_NOW</span></td>
+                                        <td>8 unit</td>
+                                        <td><span class="status-pill warn">PESAN SEKARANG</span></td>
                                     </tr>
                                     <tr>
                                         <td>SKU-1029-ID</td>
                                         <td>Control Board Assembly v2</td>
-                                        <td>520 units</td>
-                                        <td>50 units</td>
+                                        <td>520 unit</td>
+                                        <td>50 unit</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -223,32 +222,32 @@
                     <div id="panel-ledger" class="tab-panel">
                         <div class="dev-kpi-grid">
                             <div class="dev-kpi-card">
-                                <span class="dev-kpi-label">MONTHLY_CLOSING</span>
-                                <span class="dev-kpi-val">2.4 Hours <span class="dev-kpi-delta pos">-92%</span></span>
+                                <span class="dev-kpi-label">WAKTU CLOSING BULANAN</span>
+                                <span class="dev-kpi-val">2.4 Jam <span class="dev-kpi-delta pos">-92%</span></span>
                             </div>
                             <div class="dev-kpi-card">
-                                <span class="dev-kpi-label">LEDGER_INTEGRITY</span>
-                                <span class="dev-kpi-val">100.0% <span class="dev-kpi-delta pos">PASSED</span></span>
+                                <span class="dev-kpi-label">INTEGRITAS BUKU BESAR</span>
+                                <span class="dev-kpi-val">100.0% <span class="dev-kpi-delta pos">SEIMBANG</span></span>
                             </div>
                             <div class="dev-kpi-card">
-                                <span class="dev-kpi-label">UNBALANCED_JOURNALS</span>
-                                <span class="dev-kpi-val">0 <span class="dev-kpi-delta pos">ZERO</span></span>
+                                <span class="dev-kpi-label">SELISIH JURNAL</span>
+                                <span class="dev-kpi-val">0 <span class="dev-kpi-delta pos">NOL</span></span>
                             </div>
                         </div>
                         <div class="table-wrap">
                             <table class="table dev-data-table">
                                 <thead>
                                     <tr>
-                                        <th>JOURNAL_ID</th>
-                                        <th>ACCOUNT_CODE</th>
+                                        <th>NO. JURNAL</th>
+                                        <th>KODE AKUN</th>
                                         <th>DEBIT (IDR)</th>
-                                        <th>CREDIT (IDR)</th>
+                                        <th>KREDIT (IDR)</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr>
                                         <td>JRN-2026-0041</td>
-                                        <td>1101 — Kas & Bank</td>
+                                        <td>1101 — Kas &amp; Bank</td>
                                         <td>Rp 145.500.000</td>
                                         <td>Rp 0</td>
                                     </tr>
@@ -267,40 +266,46 @@
                     <div id="panel-metrics" class="tab-panel">
                         <div class="dev-kpi-grid">
                             <div class="dev-kpi-card">
-                                <span class="dev-kpi-label">AVG_DB_LATENCY</span>
-                                <span class="dev-kpi-val">0.8ms <span class="dev-kpi-delta pos">FAST</span></span>
+                                <span class="dev-kpi-label">INTEGRITAS DATA</span>
+                                <span class="dev-kpi-val">100% <span class="dev-kpi-delta pos">VALID</span></span>
                             </div>
                             <div class="dev-kpi-card">
-                                <span class="dev-kpi-label">PDF_GEN_LATENCY</span>
-                                <span class="dev-kpi-val">142ms <span class="dev-kpi-delta pos">FAST</span></span>
+                                <span class="dev-kpi-label">KEPATUHAN PAJAK</span>
+                                <span class="dev-kpi-val">DJP <span class="dev-kpi-delta pos">TERVALIDASI</span></span>
                             </div>
                             <div class="dev-kpi-card">
-                                <span class="dev-kpi-label">CACHE_HIT_RATE</span>
-                                <span class="dev-kpi-val">99.8% <span class="dev-kpi-delta pos">HIGH</span></span>
+                                <span class="dev-kpi-label">STATUS AUDIT TRAIL</span>
+                                <span class="dev-kpi-val">Aktif <span class="dev-kpi-delta pos">IMMUTABLE</span></span>
                             </div>
                         </div>
                         <div class="table-wrap">
                             <table class="table dev-data-table">
                                 <thead>
                                     <tr>
-                                        <th>SUB_SYSTEM</th>
-                                        <th>WORKER_STATUS</th>
-                                        <th>UPTIME</th>
-                                        <th>HEALTH</th>
+                                        <th>LAYANAN &amp; INTEGRASI</th>
+                                        <th>PROTOKOL / CAKUPAN</th>
+                                        <th>STATUS KESIAPAN</th>
+                                        <th>KONDISI</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr>
-                                        <td>cmd/odyssey (HTTP)</td>
-                                        <td>4 Workers Active</td>
-                                        <td>99.99%</td>
-                                        <td><span class="status-pill conf">HEALTHY</span></td>
+                                        <td>Integrasi e-Faktur DJP</td>
+                                        <td>Format Resmi XML/CSV DJP PPN 11%</td>
+                                        <td>Terhubung &amp; Valid</td>
+                                        <td><span class="status-pill conf">TERVERIFIKASI</span></td>
                                     </tr>
                                     <tr>
-                                        <td>cmd/worker (Asynq)</td>
-                                        <td>12 Threads Active</td>
-                                        <td>99.99%</td>
-                                        <td><span class="status-pill conf">HEALTHY</span></td>
+                                        <td>Rekonsiliasi Bank Harian</td>
+                                        <td>Multi-Bank Feed &amp; Match Otomatis</td>
+                                        <td>100% Selesai</td>
+                                        <td><span class="status-pill conf">OPTIMAL</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Audit Trail Engine</td>
+                                        <td>Jejak Perubahan Data Tamper-Proof</td>
+                                        <td>Aktif / Immutable</td>
+                                        <td><span class="status-pill conf">TERLINDUNGI</span></td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -315,20 +320,20 @@
     <section class="metrics-strip-section" data-reveal>
         <div class="metrics-container">
             <div class="metric-cell" data-reveal-child>
-                <div class="metric-val">99.99<span>%</span></div>
-                <div class="metric-lbl">Uptime Availability Guarantee</div>
+                <div class="metric-val">0</div>
+                <div class="metric-lbl">Selisih Jurnal: Validasi Otomatis Double-Entry</div>
             </div>
             <div class="metric-cell" data-reveal-child>
                 <div class="metric-val">&lt; 200<span>ms</span></div>
-                <div class="metric-lbl">Gotenberg PDF Document Render</div>
-            </div>
-            <div class="metric-cell" data-reveal-child>
-                <div class="metric-val">Rp 500B<span>+</span></div>
-                <div class="metric-lbl">Quarterly Financial Volume</div>
+                <div class="metric-lbl">Waktu Render Dokumen Resmi Gotenberg</div>
             </div>
             <div class="metric-cell" data-reveal-child>
                 <div class="metric-val">100<span>%</span></div>
-                <div class="metric-lbl">PSAK &amp; e-Faktur Audit Compliance</div>
+                <div class="metric-lbl">Kepatuhan Format e-Faktur DJP &amp; PSAK</div>
+            </div>
+            <div class="metric-cell" data-reveal-child>
+                <div class="metric-val">100<span>%</span></div>
+                <div class="metric-lbl">Multi-Cabang &amp; Multi-Gudang Terintegrasi</div>
             </div>
         </div>
     </section>
@@ -337,9 +342,9 @@
     <section id="features" class="features-section" data-reveal>
         <div class="section-container">
             <div class="section-head" data-reveal-child>
-                <span class="section-tag">[ MODUL INTEGRASI B2B ]</span>
-                <h2 class="section-title">Engineered for High-Density Operations</h2>
-                <p class="section-sub">Komponen arsitektur modular yang dirancang untuk performa tinggi, jejak audit ketat, dan integrasi tanpa celah.</p>
+                <span class="section-tag">MODUL OPERASIONAL ENTERPRISE</span>
+                <h2 class="section-title">Arsitektur Operasional Terintegrasi Skala Korporat</h2>
+                <p class="section-sub">Komponen arsitektur modular yang dirancang untuk performa tinggi, jejak audit ketat, dan integrasi tanpa celah lintas departemen.</p>
             </div>
 
             <div class="features-grid">
@@ -349,14 +354,14 @@
                         <div class="feature-icon">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
                         </div>
-                        <span class="feature-code">MOD_01 // SALES</span>
+                        <span class="feature-code">MODUL 01 · PENJUALAN</span>
                     </div>
                     <h3 class="feature-title">Sales &amp; Quotation Engine</h3>
-                    <p class="feature-desc">Otomatisasi alur penawaran, pesanan penjualan (SO), hingga penagihan piutang dengan validasi kredit otomatis.</p>
+                    <p class="feature-desc">Otomatisasi alur penawaran, pesanan penjualan (SO), hingga penagihan piutang dengan validasi limit kredit pelanggan dan matriks persetujuan berjenjang.</p>
                     <div class="feature-specs">
-                        <span class="spec-chip">REST API</span>
-                        <span class="spec-chip">MULTI-CURRENCY</span>
-                        <span class="spec-chip">APPROVAL WORKFLOW</span>
+                        <span class="spec-chip">MULTI-VALUTA</span>
+                        <span class="spec-chip">MATRIKS PERSETUJUAN</span>
+                        <span class="spec-chip">VALIDASI PIUTANG</span>
                     </div>
                 </div>
 
@@ -366,14 +371,14 @@
                         <div class="feature-icon">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
                         </div>
-                        <span class="feature-code">MOD_02 // INVENTORY</span>
+                        <span class="feature-code">MODUL 02 · INVENTORI</span>
                     </div>
                     <h3 class="feature-title">Multi-Warehouse Inventory</h3>
-                    <p class="feature-desc">Pelacakan stok real-time, manajemen batch/lot number, dan pemindahan antar gudang dengan pencatatan FIFO/Average.</p>
+                    <p class="feature-desc">Pelacakan stok multi-gudang real-time, manajemen nomor batch dan masa kadaluarsa, transfer antar gudang, serta metode valuasi FIFO dan Rata-rata tertimbang.</p>
                     <div class="feature-specs">
-                        <span class="spec-chip">MULTI-LOCATION</span>
-                        <span class="spec-chip">BATCH TRACKING</span>
-                        <span class="spec-chip">VALUATION LOGS</span>
+                        <span class="spec-chip">MULTI-LOKASI</span>
+                        <span class="spec-chip">BATCH &amp; EXPIRY</span>
+                        <span class="spec-chip">VALUASI FIFO / AVG</span>
                     </div>
                 </div>
 
@@ -383,14 +388,14 @@
                         <div class="feature-icon">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="16" y2="11"/><line x1="8" y1="15" x2="12" y2="15"/></svg>
                         </div>
-                        <span class="feature-code">MOD_03 // ACCOUNTING</span>
+                        <span class="feature-code">MODUL 03 · KEUANGAN</span>
                     </div>
                     <h3 class="feature-title">Double-Entry Financial Ledger</h3>
-                    <p class="feature-desc">Jurnal otomatis dari transaksi operasional, laporan laba rugi, neraca, dan penutupan buku bulanan dalam hitungan menit.</p>
+                    <p class="feature-desc">Posting jurnal otomatis dari setiap mutasi operasional, rekonsiliasi bank harian, laporan laba rugi, neraca, dan penutupan buku bulanan sesuai standar PSAK.</p>
                     <div class="feature-specs">
-                        <span class="spec-chip">PSAK COMPLIANT</span>
-                        <span class="spec-chip">AUTO-JOURNAL</span>
-                        <span class="spec-chip">FINANCIAL REPORTS</span>
+                        <span class="spec-chip">STANDAR PSAK</span>
+                        <span class="spec-chip">AUTO-JOURNALING</span>
+                        <span class="spec-chip">KONSOLIDASI FISKAL</span>
                     </div>
                 </div>
 
@@ -400,14 +405,14 @@
                         <div class="feature-icon">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 1-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                         </div>
-                        <span class="feature-code">MOD_04 // PROCUREMENT</span>
+                        <span class="feature-code">MODUL 04 · PENGADAAN</span>
                     </div>
                     <h3 class="feature-title">Procurement &amp; AP Control</h3>
-                    <p class="feature-desc">Manajemen purchase order (PO), verifikasi penerimaan barang (GRN), match 3-arah, dan jadwal pembayaran hutang usaha.</p>
+                    <p class="feature-desc">Manajemen purchase order (PO), verifikasi penerimaan barang (GRN), pencocokan 3-arah (3-way match), dan pengendalian jadwal jatuh tempo hutang usaha.</p>
                     <div class="feature-specs">
-                        <span class="spec-chip">3-WAY MATCH</span>
-                        <span class="spec-chip">VENDOR MANAGED</span>
-                        <span class="spec-chip">AP AGING</span>
+                        <span class="spec-chip">3-WAY MATCHING</span>
+                        <span class="spec-chip">VENDOR CONTROL</span>
+                        <span class="spec-chip">AGING HUTANG</span>
                     </div>
                 </div>
 
@@ -417,14 +422,14 @@
                         <div class="feature-icon">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                         </div>
-                        <span class="feature-code">MOD_05 // SECURITY</span>
+                        <span class="feature-code">MODUL 05 · TATA KELOLA</span>
                     </div>
-                    <h3 class="feature-title">RBAC &amp; Audit Trail Security</h3>
-                    <p class="feature-desc">Kontrol akses berbasis peran hingga tingkat field, audit log immutable untuk setiap aksi, dan enkripsi data enterprise.</p>
+                    <h3 class="feature-title">RBAC &amp; Immutable Audit Trail</h3>
+                    <p class="feature-desc">Kontrol hak akses berbasis peran granular hingga tingkat field, pencatatan jejak audit tamper-proof untuk seluruh mutasi, dan perlindungan enkripsi enterprise.</p>
                     <div class="feature-specs">
                         <span class="spec-chip">FIELD-LEVEL RBAC</span>
-                        <span class="spec-chip">IMMUTABLE LOGS</span>
-                        <span class="spec-chip">AES-256</span>
+                        <span class="spec-chip">TAMPER-PROOF AUDIT</span>
+                        <span class="spec-chip">ENKRIPSI DATA</span>
                     </div>
                 </div>
 
@@ -434,14 +439,14 @@
                         <div class="feature-icon">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                         </div>
-                        <span class="feature-code">MOD_06 // DOCUMENTS</span>
+                        <span class="feature-code">MODUL 06 · DOKUMEN RESMI</span>
                     </div>
-                    <h3 class="feature-title">Gotenberg PDF Engine</h3>
-                    <p class="feature-desc">Generasi dokumen resmi PDF (Faktur, Invoice, PO, Surat Jalan) berkecepatan tinggi dengan kustomisasi template penuh.</p>
+                    <h3 class="feature-title">Gotenberg Document Engine</h3>
+                    <p class="feature-desc">Penerbitan dokumen legal bisnis (Invoice, Faktur Pajak, Surat Jalan, PO) berformat PDF/A berkecepatan tinggi dengan standarisasi tata letak korporat.</p>
                     <div class="feature-specs">
-                        <span class="spec-chip">FAST RENDERING</span>
-                        <span class="spec-chip">CUSTOM TEMPLATES</span>
-                        <span class="spec-chip">PDF/A EXPORT</span>
+                        <span class="spec-chip">FORMAT PDF/A</span>
+                        <span class="spec-chip">HIGH-SPEED RENDER</span>
+                        <span class="spec-chip">TEMPLATE KORPORAT</span>
                     </div>
                 </div>
             </div>
@@ -452,9 +457,9 @@
     <section id="roi" class="roi-section" data-reveal>
         <div class="section-container">
             <div class="section-head">
-                <span class="section-tag">[ SIMULASI ROI &amp; EFISIENSI ]</span>
-                <h2 class="section-title">Quantitative Impact Calculator</h2>
-                <p class="section-sub">Hitung estimasi penghematan waktu dan pengorbanan biaya operasional setelah migrasi ke Odyssey ERP.</p>
+                <span class="section-tag">SIMULASI ROI &amp; EFISIENSI</span>
+                <h2 class="section-title">Kalkulator Dampak Finansial &amp; Operasional</h2>
+                <p class="section-sub">Hitung estimasi penghematan jam kerja dan reduksi biaya operasional setelah implementasi sistem Odyssey ERP.</p>
             </div>
 
             <div class="roi-layout">
@@ -475,22 +480,23 @@
                         <input type="range" id="invRange" class="form-input dev-range-input" min="50" max="5000" value="500" step="50">
                     </div>
 
-                    <div class="sys-badge sys-badge--emerald" style="margin-top: 12px; align-self: flex-start;">
-                        ✓ MODEL COMPUTATION: DETERMINISTIC COST/HOUR
+                    <div class="roi-model-badge sys-badge sys-badge--emerald">
+                        <span class="sys-badge__dot"></span>
+                        MODEL ESTIMASI: DETERMINISTIC EFFICIENCY METRICS
                     </div>
                 </div>
 
                 <div class="roi-results-box">
-                    <div class="roi-res-header">[ ESTIMATED OPERATIONAL SAVINGS ]</div>
+                    <div class="roi-res-header">ESTIMASI EFISIENSI OPERASIONAL</div>
                     
                     <div class="roi-metric-main">
                         <div class="roi-big-num" id="hoursSavedVal">440 Jam / Bln</div>
-                        <div class="roi-big-sub">Waktu kerja tim yang dihemat setiap bulan</div>
+                        <div class="roi-big-sub">Waktu kerja produktif tim yang dihemat setiap bulan</div>
                     </div>
 
                     <div class="roi-metric-main">
-                        <div class="roi-big-num" id="annualCostVal" style="color: var(--dev-text);">Rp 422 Juta / Thn</div>
-                        <div class="roi-big-sub">Estimasi efisiensi biaya operasional tahunan</div>
+                        <div class="roi-big-num roi-annual-num" id="annualCostVal">Rp 422 Juta / Thn</div>
+                        <div class="roi-big-sub">Estimasi penghematan beban operasional tahunan</div>
                     </div>
 
                     <div class="roi-breakdown">
@@ -499,8 +505,8 @@
                             <strong id="closingTimeVal">6 hari → 2 jam</strong>
                         </div>
                         <div class="roi-row">
-                            <span>Reduksi Error Input Data:</span>
-                            <strong id="errorRateVal">99.4% Reduction</strong>
+                            <span>Reduksi Kesalahan Input:</span>
+                            <strong id="errorRateVal">99.4% Tereliminasi</strong>
                         </div>
                     </div>
                 </div>
@@ -513,49 +519,49 @@
         <div class="section-container">
             <div class="compliance-grid">
                 <div class="compliance-info" data-reveal-child>
-                    <span class="section-tag">[ STANDAR REGULASI ]</span>
-                    <h2 class="section-title">Dibangun Khusus Kebutuhan Bisnis Indonesia</h2>
+                    <span class="section-tag">STANDAR REGULASI INDONESIA</span>
+                    <h2 class="section-title">Dibangun Khusus Kebutuhan Korporasi Indonesia</h2>
                     <p class="section-sub">
-                        Tidak perlu kustomisasi mahal atau plugin pihak ketiga. Odyssey ERP telah mengintegrasikan regulasi akuntansi dan perpajakan Indonesia secara native.
+                        Tidak memerlukan kustomisasi berlebih. Odyssey ERP telah mengintegrasikan regulasi akuntansi dan perpajakan Indonesia secara native dan siap diaudit.
                     </p>
                     <ul class="compliance-list">
                         <li>
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                            Standar Akuntansi Keuangan (PSAK 1, PSAK 73 Sewa, DLL)
+                            Standar Akuntansi Keuangan (PSAK 1 Penyajian Laporan, PSAK 73 Sewa, dll.)
                         </li>
                         <li>
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                            Kalkulasi PPN 11% &amp; Ekspor XML/CSV e-Faktur Pajak
+                            Kalkulasi PPN 11% &amp; Ekspor Format Resmi CSV/XML e-Faktur DJP
                         </li>
                         <li>
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                            Konsolidasi Laporan Keuangan Multi-Entitas &amp; Multi-Cabang
+                            Konsolidasi Laporan Keuangan Multi-Entitas, Multi-Cabang &amp; Multi-Gudang
                         </li>
                         <li>
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                            Format Penomoran &amp; Mata Uang Rupiah (IDR) Standardized
+                            Format Penomoran Dokumen Resmi, Pembulatan Pajak &amp; Mata Uang Rupiah (IDR)
                         </li>
                     </ul>
                 </div>
 
                 <div class="compliance-card" data-reveal-child>
-                    <h3 class="compliance-card-title">[ INDONESIA COMPLIANCE PACK ]</h3>
+                    <h3 class="compliance-card-title">PAKET KEPATUHAN INDONESIA</h3>
                     <div class="compliance-specs-grid">
                         <div class="comp-spec">
                             <span class="comp-spec-tag">PERPAJAKAN</span>
-                            <span class="comp-spec-val">e-Faktur Ready</span>
+                            <span class="comp-spec-val">e-Faktur DJP Ready</span>
                         </div>
                         <div class="comp-spec">
                             <span class="comp-spec-tag">AKUNTANSI</span>
-                            <span class="comp-spec-val">PSAK Standard</span>
+                            <span class="comp-spec-val">Standar PSAK</span>
                         </div>
                         <div class="comp-spec">
-                            <span class="comp-spec-tag">BAHASA</span>
-                            <span class="comp-spec-val">Bahasa Indonesia</span>
+                            <span class="comp-spec-tag">LOKALISASI</span>
+                            <span class="comp-spec-val">Bahasa &amp; Format IDR</span>
                         </div>
                         <div class="comp-spec">
                             <span class="comp-spec-tag">AUDIT</span>
-                            <span class="comp-spec-val">Audit-Trail Active</span>
+                            <span class="comp-spec-val">Audit Trail Immutable</span>
                         </div>
                     </div>
                 </div>
@@ -563,60 +569,83 @@
         </div>
     </section>
 
-    <!-- Testimonials / Social Proof Section -->
-    <section id="reviews" class="testimonials-section" data-reveal>
+    <!-- Certifications & Operational Readiness Section -->
+    <section id="certifications" class="certifications-section" data-reveal>
         <div class="section-container">
             <div class="section-head" data-reveal-child>
-                <span class="section-tag">[ VERIFIED ENTERPRISE REVIEWS ]</span>
-                <h2 class="section-title">Trusted by Operational Leaders</h2>
+                <span class="section-tag">SERTIFIKASI &amp; KESIAPAN OPERASIONAL</span>
+                <h2 class="section-title">Standar Kepatuhan &amp; Keandalan Teruji</h2>
+                <p class="section-sub">Odyssey ERP dibangun memenuhi kepatuhan regulasi finansial nasional dan standar keandalan infrastruktur enterprise.</p>
             </div>
-            <div class="testimonials-grid">
-                <div class="testimonial-card" data-reveal-child>
-                    <p class="testimonial-quote">"Proses penutupan buku bulanan kami berkurang dari 7 hari kerja menjadi hanya 2 jam. Integrasi antara sales dan ledger sangat presisi."</p>
-                    <div class="testimonial-author">
-                        <div class="author-avatar">BS</div>
-                        <div>
-                            <span class="author-name">Budi Santoso</span>
-                            <span class="author-role">CFO // Nusantara Group</span>
+            <div class="certifications-grid">
+                <!-- Card 1: PSAK -->
+                <div class="cert-card" data-reveal-child>
+                    <div class="cert-header">
+                        <div class="cert-badge">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                            <span>STANDAR KEUANGAN</span>
                         </div>
+                        <span class="cert-status">TERVERIFIKASI</span>
+                    </div>
+                    <h3 class="cert-title">Integritas Finansial PSAK</h3>
+                    <p class="cert-desc">Otomatisasi double-entry ledger dengan audit trail tamper-proof untuk menjamin konsistensi neraca, saldo buku besar, dan kepatuhan standar akuntansi keuangan.</p>
+                    <div class="cert-footer">
+                        <span class="cert-metric">PSAK 1, PSAK 73 · 0 Unbalanced Journals</span>
                     </div>
                 </div>
-                <div class="testimonial-card" data-reveal-child>
-                    <p class="testimonial-quote">"Pelacakan stok multi-gudang dan otomatisasi purchase order membuat kontrol inventaris kami 100% akurat tanpa selisih opname."</p>
-                    <div class="testimonial-author">
-                        <div class="author-avatar">SC</div>
-                        <div>
-                            <span class="author-name">Sarah Chen</span>
-                            <span class="author-role">CEO // Apex Logistics</span>
+
+                <!-- Card 2: DJP -->
+                <div class="cert-card" data-reveal-child>
+                    <div class="cert-header">
+                        <div class="cert-badge">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="16" y2="11"/></svg>
+                            <span>PERPAJAKAN NASIONAL</span>
                         </div>
+                        <span class="cert-status">TERVERIFIKASI</span>
+                    </div>
+                    <h3 class="cert-title">Kepatuhan Pajak DJP e-Faktur</h3>
+                    <p class="cert-desc">Validasi kalkulasi PPN 11% otomatis dan ekspor data faktur resmi siap impor ke aplikasi e-Faktur Direktorat Jenderal Pajak tanpa re-entry manual.</p>
+                    <div class="cert-footer">
+                        <span class="cert-metric">Format CSV/XML DJP · Rekonsiliasi SPT Masa</span>
                     </div>
                 </div>
-                <div class="testimonial-card" data-reveal-child>
-                    <p class="testimonial-quote">"Kecepatan generasi dokumen PDF via Gotenberg dan kemudahan ekspor e-Faktur sangat menghemat waktu tim finance kami."</p>
-                    <div class="testimonial-author">
-                        <div class="author-avatar">LW</div>
-                        <div>
-                            <span class="author-name">Lina Wijaya</span>
-                            <span class="author-role">COO // Global Trade Co.</span>
+
+                <!-- Card 3: Gotenberg -->
+                <div class="cert-card" data-reveal-child>
+                    <div class="cert-header">
+                        <div class="cert-badge">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                            <span>ENGINE DOKUMEN</span>
                         </div>
+                        <span class="cert-status">TERVERIFIKASI</span>
+                    </div>
+                    <h3 class="cert-title">Throughput Dokumen Gotenberg</h3>
+                    <p class="cert-desc">Generasi ribuan invoice, purchase order, dan surat jalan PDF/A dalam hitungan detik dengan arsitektur rendering berbasis Chromium berkecepatan tinggi.</p>
+                    <div class="cert-footer">
+                        <span class="cert-metric">Render &lt; 200ms · Standar Arsip PDF/A</span>
                     </div>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- CTA Command Pane -->
+    <!-- Executive Enterprise Onboarding Banner -->
     <section class="cta-section" data-reveal>
         <div class="section-container">
-            <div class="cta-terminal-pane" data-reveal-child>
+            <div class="cta-banner-pane" data-reveal-child>
                 <div class="cta-content">
-                    <span class="cta-command">$ odyssey init enterprise --mode=production</span>
-                    <h2 class="cta-heading">Ready to Modernize Your Operations?</h2>
-                    <p class="cta-sub">Mulai gunakan Odyssey ERP sekarang. Sistem terintegrasi untuk pertumbuhan bisnis enterprise Indonesia.</p>
+                    <span class="cta-eyebrow">TRANSFORMASI OPERASIONAL ENTERPRISE</span>
+                    <h2 class="cta-heading">Siap Meningkatkan Efisiensi Operasional Perusahaan Anda?</h2>
+                    <p class="cta-sub">Konsolidasikan rantai penjualan, kontrol multi-gudang, pengadaan, dan buku besar finansial perusahaan dalam satu ekosistem presisi tinggi.</p>
                 </div>
-                <a href="/auth/login" class="dev-btn dev-btn--primary dev-btn--lg">
-                    [ MASUK KE DASHBOARD → ]
-                </a>
+                <div class="cta-actions">
+                    <a href="/auth/login" class="btn btn--primary btn--lg">
+                        Mulai Eksplorasi Sistem →
+                    </a>
+                    <a href="#indonesia" class="btn btn--secondary btn--lg">
+                        Hubungi Tim Implementasi
+                    </a>
+                </div>
             </div>
         </div>
     </section>
@@ -631,12 +660,12 @@
                             <rect x="2" y="2" width="28" height="28" rx="2" stroke="currentColor" stroke-width="2.5" />
                             <path d="M10 16L15 21L22 10" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" />
                         </svg>
-                        <span>ODYSSEY_ERP</span>
+                        <span>Odyssey ERP</span>
                     </a>
                     <p>Sistem ERP profesional dan presisi tinggi untuk operasional bisnis Indonesia.</p>
                 </div>
                 <div>
-                    <h4 class="footer-heading">PRODUCT</h4>
+                    <h4 class="footer-heading">PRODUK</h4>
                     <ul class="footer-list">
                         <li><a href="#features">Spesifikasi Modul</a></li>
                         <li><a href="#roi">Kalkulator ROI</a></li>
@@ -644,25 +673,25 @@
                     </ul>
                 </div>
                 <div>
-                    <h4 class="footer-heading">SYSTEM</h4>
+                    <h4 class="footer-heading">SISTEM</h4>
                     <ul class="footer-list">
-                        <li><a href="/auth/login">Dashboard Login</a></li>
-                        <li><a href="#">API Documentation</a></li>
-                        <li><a href="#">Audit Logs Spec</a></li>
+                        <li><a href="/auth/login">Masuk Dashboard</a></li>
+                        <li><a href="#certifications">Sertifikasi Sistem</a></li>
+                        <li><a href="#features">Audit Trail Engine</a></li>
                     </ul>
                 </div>
                 <div>
-                    <h4 class="footer-heading">LEGAL</h4>
+                    <h4 class="footer-heading">LEGAL &amp; KEPATUHAN</h4>
                     <ul class="footer-list">
-                        <li><a href="#">Privacy Policy</a></li>
-                        <li><a href="#">Terms of Service</a></li>
-                        <li><a href="#">Security Statement</a></li>
+                        <li><a href="/legal/privacy">Kebijakan Privasi</a></li>
+                        <li><a href="/legal/terms">Syarat &amp; Ketentuan</a></li>
+                        <li><a href="/legal/security">Pernyataan Keamanan</a></li>
                     </ul>
                 </div>
             </div>
             <div class="footer-bottom">
-                <span>&copy; 2026 ODYSSEY ERP. ALL RIGHTS RESERVED.</span>
-                <span>STATUS: OPERATIONAL [BUILD 2026.2]</span>
+                <span>&copy; 2026 Odyssey ERP. All rights reserved.</span>
+                <span>STATUS: OPERASIONAL · VERSI 2026.2</span>
             </div>
         </div>
     </footer>
