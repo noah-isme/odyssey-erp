@@ -1,7 +1,370 @@
 {{ define "pages/hr/leave.html" }}{{ template "layouts/base.html" . }}{{ end }}
-{{ define "title" }}Leave{{ end }}
+{{ define "title" }}Leave Management{{ end }}
 {{ define "content" }}
-<div class="page-container"><header class="page-header"><div class="page-header__content"><h1 class="page-title">Leave Requests</h1><p class="page-subtitle">Requests route through the shared approval engine to your manager.</p></div></header>
-<div class="page-content"><section class="card"><div class="card__header"><h2 class="card__title">Request leave</h2></div><form method="post" action="/hr/leave" class="form-grid" data-component="form"><input type="hidden" name="csrf_token" value="{{ .CSRFToken }}"><label class="form-group"><span class="form-label">Leave type</span><select class="form-select" name="leave_type_id" required>{{ range .Data.Types }}<option value="{{ .ID }}">{{ .Name }}</option>{{ end }}</select></label><label class="form-group"><span class="form-label">Start date</span><input class="form-input" type="date" name="start_date" required></label><label class="form-group"><span class="form-label">End date</span><input class="form-input" type="date" name="end_date" required></label><label class="form-group"><span class="form-label">Reason</span><input class="form-input" name="reason"></label><div class="form-group form-group--actions"><button class="btn btn--primary">Request leave</button></div></form></section>
-<section class="card card-table" data-component="datatable"><div class="card__header"><h2 class="card__title">My requests</h2></div><div class="table-responsive"><table class="table table--sticky" data-datatable="hr-leave"><thead><tr><th>Type</th><th>Dates</th><th>Days</th><th>Status</th><th>Reason</th></tr></thead><tbody>{{ range .Data.Requests }}<tr><td>{{ .TypeName }}</td><td>{{ formatDate .StartDate }} – {{ formatDate .EndDate }}</td><td class="numeric">{{ formatDecimal .Days }}</td><td>{{ template "partials/ui/status_badge.html" .Status }}</td><td>{{ .Reason }}</td></tr>{{ else }}<tr><td colspan="5" class="table-empty">No leave requests found.</td></tr>{{ end }}</tbody></table></div></section></div></div>
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-title">Leave Management</h1>
+            <p class="page-subtitle">Track annual balances, submit self-service requests, and manage company policies.</p>
+        </div>
+        <div class="page-header__actions">
+            <button class="btn btn--primary" data-dialog-open="request-leave-dialog">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <span>Request Leave</span>
+            </button>
+        </div>
+    </header>
+
+    <div class="page-content">
+        <!-- Live Personal Leave Balance Cards -->
+        {{ if .Data.OwnBalances }}
+        <div class="hr-balance-cards">
+            {{ range .Data.OwnBalances }}
+            <div class="hr-balance-card">
+                <div class="hr-balance-card__header">
+                    <h3 class="hr-balance-card__title">{{ .TypeName }}</h3>
+                    <span class="hr-balance-card__code">{{ .TypeCode }} · {{ .Year }}</span>
+                </div>
+                <div class="hr-balance-card__days-wrap">
+                    <span class="hr-balance-card__days">{{ formatDecimal .Available }}</span>
+                    <span class="hr-balance-card__days-label">days available</span>
+                </div>
+                <div class="hr-balance-card__details">
+                    <div class="hr-balance-card__detail-item">
+                        <span>Entitled</span>
+                        <span>{{ formatDecimal .Entitled }}</span>
+                    </div>
+                    <div class="hr-balance-card__detail-item">
+                        <span>Used</span>
+                        <span>{{ formatDecimal .Used }}</span>
+                    </div>
+                    <div class="hr-balance-card__detail-item">
+                        <span>Pending</span>
+                        <span>{{ formatDecimal .Pending }}</span>
+                    </div>
+                </div>
+            </div>
+            {{ end }}
+        </div>
+        {{ end }}
+
+        <!-- Navigation Tabs -->
+        <div data-tabs="hr-leave" data-persist="true">
+            <div class="tabs-list" role="tablist">
+                <button type="button" data-tab="my-requests" class="btn tab{{ if eq .Data.Tab "my-requests" }} active{{ end }}">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                    <span>My Requests</span>
+                    <span class="tab-badge">{{ len .Data.Requests }}</span>
+                </button>
+                {{ if .Data.IsAdmin }}
+                <button type="button" data-tab="all-requests" class="btn tab{{ if eq .Data.Tab "all-requests" }} active{{ end }}">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    <span>Company Requests</span>
+                    <span class="tab-badge">{{ len .Data.AllRequests }}</span>
+                </button>
+                <button type="button" data-tab="balances" class="btn tab{{ if eq .Data.Tab "balances" }} active{{ end }}">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    <span>Balances & Types</span>
+                </button>
+                {{ end }}
+            </div>
+
+            <div class="tabs-content">
+                <!-- Panel 1: My Requests -->
+                <div data-tab-panel="my-requests" class="tab-panel{{ if eq .Data.Tab "my-requests" }} active{{ end }}">
+                    <section class="card card-table" data-component="datatable">
+                        <div class="card__header">
+                            <h2 class="card__title">My Leave History</h2>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table--sticky" data-datatable="hr-leave-own">
+                                <thead>
+                                    <tr>
+                                        <th>Leave Type</th>
+                                        <th>Period</th>
+                                        <th class="numeric">Days</th>
+                                        <th>Reason</th>
+                                        <th>Status</th>
+                                        <th class="table__actions">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {{ range .Data.Requests }}
+                                    <tr>
+                                        <td><strong>{{ .TypeName }}</strong></td>
+                                        <td>{{ formatDate .StartDate }} – {{ formatDate .EndDate }}</td>
+                                        <td class="numeric">{{ formatDecimal .Days }}</td>
+                                        <td>{{ if .Reason }}{{ .Reason }}{{ else }}<span class="text-muted">–</span>{{ end }}</td>
+                                        <td>{{ template "partials/ui/status_badge.html" .Status }}</td>
+                                        <td class="table__actions">
+                                            {{ if eq .Status "PENDING" }}
+                                            <form method="post" action="/hr/leave/{{ .ID }}/cancel">
+                                                <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
+                                                <button type="submit" class="btn btn--danger btn--sm">Cancel</button>
+                                            </form>
+                                            {{ else }}
+                                            <span class="text-muted">–</span>
+                                            {{ end }}
+                                        </td>
+                                    </tr>
+                                    {{ else }}
+                                    <tr><td colspan="6" class="table-empty">No leave requests recorded yet.</td></tr>
+                                    {{ end }}
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
+
+                {{ if .Data.IsAdmin }}
+                <!-- Panel 2: All Company Requests (Admin) -->
+                <div data-tab-panel="all-requests" class="tab-panel{{ if eq .Data.Tab "all-requests" }} active{{ end }}"{{ if ne .Data.Tab "all-requests" }} hidden{{ end }}>
+                    <section class="card">
+                        <div class="hr-actions-bar">
+                            <form method="get" action="/hr/leave" class="hr-filter-group" role="search">
+                                <input type="hidden" name="tab" value="all-requests">
+                                <input class="form-input" type="search" name="q" value="{{ .Data.Search }}" placeholder="Search employee...">
+                                <select class="form-select" name="status">
+                                    <option value="">All Statuses</option>
+                                    <option value="PENDING"{{ if eq .Data.StatusFilter "PENDING" }} selected{{ end }}>Pending</option>
+                                    <option value="APPROVED"{{ if eq .Data.StatusFilter "APPROVED" }} selected{{ end }}>Approved</option>
+                                    <option value="REJECTED"{{ if eq .Data.StatusFilter "REJECTED" }} selected{{ end }}>Rejected</option>
+                                    <option value="CANCELLED"{{ if eq .Data.StatusFilter "CANCELLED" }} selected{{ end }}>Cancelled</option>
+                                </select>
+                                <button class="btn btn--secondary" type="submit">Filter</button>
+                                {{ if or .Data.Search .Data.StatusFilter }}
+                                <a href="/hr/leave?tab=all-requests" class="btn btn--secondary">Reset</a>
+                                {{ end }}
+                            </form>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table--sticky" data-datatable="hr-leave-all">
+                                <thead>
+                                    <tr>
+                                        <th>Employee</th>
+                                        <th>Department</th>
+                                        <th>Type</th>
+                                        <th>Period</th>
+                                        <th class="numeric">Days</th>
+                                        <th>Reason</th>
+                                        <th>Status</th>
+                                        <th>Requested</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {{ range .Data.AllRequests }}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ .EmployeeName }}</strong>
+                                            <div><small class="text-muted">{{ .EmployeeNumber }}</small></div>
+                                        </td>
+                                        <td>{{ if .Department }}{{ .Department }}{{ else }}<span class="text-muted">–</span>{{ end }}</td>
+                                        <td>{{ .TypeName }}</td>
+                                        <td>{{ formatDate .StartDate }} – {{ formatDate .EndDate }}</td>
+                                        <td class="numeric">{{ formatDecimal .Days }}</td>
+                                        <td>{{ if .Reason }}{{ .Reason }}{{ else }}<span class="text-muted">–</span>{{ end }}</td>
+                                        <td>{{ template "partials/ui/status_badge.html" .Status }}</td>
+                                        <td>{{ formatDate .CreatedAt }}</td>
+                                    </tr>
+                                    {{ else }}
+                                    <tr><td colspan="8" class="table-empty">No leave requests found matching criteria.</td></tr>
+                                    {{ end }}
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- Panel 3: Balances & Types (Admin) -->
+                <div data-tab-panel="balances" class="tab-panel{{ if eq .Data.Tab "balances" }} active{{ end }}"{{ if ne .Data.Tab "balances" }} hidden{{ end }}>
+                    <div class="hr-section-header">
+                        <div>
+                            <h2 class="hr-section-title">Leave Policies & Allocation</h2>
+                            <p class="card__desc">Annual balances and configurable leave types for {{ .Data.Year }}.</p>
+                        </div>
+                        <div class="button-group">
+                            <button class="btn btn--secondary" data-dialog-open="add-leave-type-dialog">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                <span>Add Leave Type</span>
+                            </button>
+                            <button class="btn btn--primary" data-dialog-open="seed-balance-dialog">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                                <span>Allocate Balance</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="card mb-6">
+                        <div class="card__header"><h3 class="card__title">Leave Types</h3></div>
+                        <div class="table-responsive">
+                            <table class="table" data-datatable="hr-leave-types">
+                                <thead>
+                                    <tr>
+                                        <th>Code</th>
+                                        <th>Name</th>
+                                        <th class="numeric">Default Days</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {{ range .Data.Types }}
+                                    <tr>
+                                        <td><code>{{ .Code }}</code></td>
+                                        <td><strong>{{ .Name }}</strong></td>
+                                        <td class="numeric">{{ formatDecimal .DefaultDays }} days</td>
+                                    </tr>
+                                    {{ else }}
+                                    <tr><td colspan="3" class="table-empty">No leave types configured.</td></tr>
+                                    {{ end }}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card__header"><h3 class="card__title">Employee Annual Balances ({{ .Data.Year }})</h3></div>
+                        <div class="table-responsive">
+                            <table class="table table--sticky" data-datatable="hr-leave-balances">
+                                <thead>
+                                    <tr>
+                                        <th>Employee</th>
+                                        <th>Department</th>
+                                        <th>Leave Type</th>
+                                        <th class="numeric">Entitled</th>
+                                        <th class="numeric">Used</th>
+                                        <th class="numeric">Pending</th>
+                                        <th class="numeric">Available</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {{ range .Data.AllBalances }}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ .EmployeeName }}</strong>
+                                            <div><small class="text-muted">{{ .EmployeeNumber }}</small></div>
+                                        </td>
+                                        <td>{{ if .Department }}{{ .Department }}{{ else }}<span class="text-muted">–</span>{{ end }}</td>
+                                        <td>{{ .TypeName }}</td>
+                                        <td class="numeric">{{ formatDecimal .Entitled }}</td>
+                                        <td class="numeric">{{ formatDecimal .Used }}</td>
+                                        <td class="numeric">{{ formatDecimal .Pending }}</td>
+                                        <td class="numeric"><strong>{{ formatDecimal .Available }}</strong></td>
+                                    </tr>
+                                    {{ else }}
+                                    <tr><td colspan="7" class="table-empty">No balances recorded for {{ .Data.Year }}.</td></tr>
+                                    {{ end }}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                {{ end }}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Request Leave -->
+<dialog data-dialog id="request-leave-dialog" class="native-dialog">
+    <div class="native-dialog__header">
+        <h3 class="native-dialog__title">Submit Leave Request</h3>
+        <button type="button" class="btn btn--icon" data-dialog-close aria-label="Close dialog">✕</button>
+    </div>
+    <form method="post" action="/hr/leave" class="hr-modal-form native-dialog__content--padded">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+        <label class="form-group">
+            <span class="form-label">Leave Type</span>
+            <select class="form-select" name="leave_type_id" required>
+                {{ range .Data.Types }}
+                <option value="{{ .ID }}">{{ .Name }} ({{ .Code }})</option>
+                {{ end }}
+            </select>
+        </label>
+        <div class="hr-form-row">
+            <label class="form-group">
+                <span class="form-label">Start Date</span>
+                <input class="form-input" type="date" name="start_date" required>
+            </label>
+            <label class="form-group">
+                <span class="form-label">End Date</span>
+                <input class="form-input" type="date" name="end_date" required>
+            </label>
+        </div>
+        <label class="form-group">
+            <span class="form-label">Reason / Notes</span>
+            <textarea class="form-textarea" name="reason" placeholder="State reason for absence" rows="3"></textarea>
+        </label>
+        <div class="native-dialog__footer">
+            <button type="button" class="btn btn--secondary" data-dialog-close>Cancel</button>
+            <button type="submit" class="btn btn--primary">Submit Request</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- Modal: Allocate Balance (Admin) -->
+<dialog data-dialog id="seed-balance-dialog" class="native-dialog">
+    <div class="native-dialog__header">
+        <h3 class="native-dialog__title">Allocate Annual Balance</h3>
+        <button type="button" class="btn btn--icon" data-dialog-close aria-label="Close dialog">✕</button>
+    </div>
+    <form method="post" action="/hr/leave/balances" class="hr-modal-form native-dialog__content--padded">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+        <label class="form-group">
+            <span class="form-label">Employee</span>
+            <select class="form-select" name="employee_id" required>
+                {{ range .Data.ActiveEmployees }}
+                <option value="{{ .ID }}">{{ .Name }} ({{ .EmployeeNumber }}){{ if .Department }} – {{ .Department }}{{ end }}</option>
+                {{ end }}
+            </select>
+        </label>
+        <div class="hr-form-row">
+            <label class="form-group">
+                <span class="form-label">Leave Type</span>
+                <select class="form-select" name="leave_type_id" required>
+                    {{ range .Data.Types }}
+                    <option value="{{ .ID }}">{{ .Name }} (Default: {{ formatDecimal .DefaultDays }}d)</option>
+                    {{ end }}
+                </select>
+            </label>
+            <label class="form-group">
+                <span class="form-label">Year</span>
+                <input class="form-input" type="number" name="year" value="{{ .Data.Year }}" required>
+            </label>
+        </div>
+        <label class="form-group">
+            <span class="form-label">Entitled Days</span>
+            <input class="form-input" type="number" step="0.5" min="0" name="days" placeholder="e.g. 12" required>
+        </label>
+        <div class="native-dialog__footer">
+            <button type="button" class="btn btn--secondary" data-dialog-close>Cancel</button>
+            <button type="submit" class="btn btn--primary">Save Balance</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- Modal: Add Leave Type (Admin) -->
+<dialog data-dialog id="add-leave-type-dialog" class="native-dialog">
+    <div class="native-dialog__header">
+        <h3 class="native-dialog__title">Add Leave Type</h3>
+        <button type="button" class="btn btn--icon" data-dialog-close aria-label="Close dialog">✕</button>
+    </div>
+    <form method="post" action="/hr/leave/types" class="hr-modal-form native-dialog__content--padded">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+        <label class="form-group">
+            <span class="form-label">Code</span>
+            <input class="form-input" name="code" placeholder="e.g. MATERNITY" required>
+        </label>
+        <label class="form-group">
+            <span class="form-label">Leave Name</span>
+            <input class="form-input" name="name" placeholder="e.g. Maternity Leave" required>
+        </label>
+        <label class="form-group">
+            <span class="form-label">Default Entitled Days</span>
+            <input class="form-input" type="number" step="0.5" min="0" name="default_days" value="0" required>
+        </label>
+        <div class="native-dialog__footer">
+            <button type="button" class="btn btn--secondary" data-dialog-close>Cancel</button>
+            <button type="submit" class="btn btn--primary">Create Leave Type</button>
+        </div>
+    </form>
+</dialog>
 {{ end }}
