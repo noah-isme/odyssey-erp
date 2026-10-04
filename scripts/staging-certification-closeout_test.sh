@@ -55,15 +55,29 @@ fake_aws() {
 				echo 'An error occurred (404) when calling the HeadObject operation: Not Found' >&2
 				return 1
 			fi
+			# FAKE_AWS_RETAIN overrides the retain-until date reported for lane/*
+			# source objects so tests can exercise realistic and broken retention.
+			if [[ -n "${FAKE_AWS_RETAIN:-}" && "$key" == lane/* ]]; then
+				remote_retain=$FAKE_AWS_RETAIN
+			fi
 			if [[ "${FAKE_AWS_SOURCE_NO_LOCK:-0}" == 1 && "$key" == lane/* ]]; then
 				remote_mode=GOVERNANCE
 			fi
 			if [[ "${FAKE_AWS_FINAL_NO_LOCK:-0}" == 1 && "$key" == closeout/* ]]; then
 				remote_mode=GOVERNANCE
 			fi
+			# Source artifacts are uploaded before the closeout runs, so a
+			# realistic LastModified is in the past. FAKE_AWS_LAST_MODIFIED lets a
+			# test pin the upload time for every lane/* source object.
+			local last_modified=''
+			if [[ "$key" == lane/* ]]; then
+				last_modified=${FAKE_AWS_LAST_MODIFIED:-$(date -u '+%Y-%m-%dT%H:%M:%SZ')}
+			else
+				last_modified=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+			fi
 			[[ "$output" == json ]] || output=json
-			printf '{"ObjectLockMode":"%s","ObjectLockRetainUntilDate":"%s","Metadata":{"sha256":"%s"},"ContentLength":1}\n' \
-				"$remote_mode" "$remote_retain" "$digest"
+			printf '{"ObjectLockMode":"%s","ObjectLockRetainUntilDate":"%s","Metadata":{"sha256":"%s"},"ContentLength":1,"LastModified":"%s"}\n' \
+				"$remote_mode" "$remote_retain" "$digest" "$last_modified"
 			;;
 		put-object)
 			if [[ "${FAKE_AWS_PUT_FAIL:-0}" == 1 ]]; then
@@ -123,6 +137,23 @@ run_validator_with_flags() {
 		FAKE_AWS_STATE="$fake_aws_state" \
 		FAKE_AWS_SOURCE_NO_LOCK="$source_no_lock" \
 		FAKE_AWS_FINAL_NO_LOCK="$final_no_lock" \
+		"$validator" --automated "$auto_file" --operator "$operator_file" --output "$output" \
+		--candidate-tag "$candidate_tag" --candidate-sha "$candidate_sha" \
+		--prefix "closeout/$name" >"$tmp/$name.log" 2>&1
+}
+
+run_validator_with_fake_retention() {
+	local name=$1 auto_file=$2 operator_file=$3 source_last_modified=$4 source_retain=$5
+	local output="$tmp/out-$name"
+	env \
+		CERTIFICATION_AWS_CLI=fake_aws \
+		EVIDENCE_S3_BUCKET=bucket \
+		EVIDENCE_S3_ENDPOINT=http://fake-s3 \
+		EVIDENCE_S3_ACCESS_KEY_ID=test-access \
+		EVIDENCE_S3_SECRET_ACCESS_KEY=test-secret \
+		FAKE_AWS_STATE="$fake_aws_state" \
+		FAKE_AWS_LAST_MODIFIED="$source_last_modified" \
+		FAKE_AWS_RETAIN="$source_retain" \
 		"$validator" --automated "$auto_file" --operator "$operator_file" --output "$output" \
 		--candidate-tag "$candidate_tag" --candidate-sha "$candidate_sha" \
 		--prefix "closeout/$name" >"$tmp/$name.log" 2>&1
@@ -260,6 +291,36 @@ if run_validator_with_flags final-no-lock "$auto" "$operator" 0 1; then
 fi
 jq -e '(.collection.decision == "NO-GO") and any(.validation.errors[]; contains("COMPLIANCE"))' \
 	"$tmp/out-final-no-lock/evidence-index.json" >/dev/null
+
+# AUDIT-001: a realistic pre-existing source artifact was uploaded before this
+# closeout ran, so its retain-until date (LastModified+7y) is necessarily
+# earlier than closeout_time+7y. That must still verify and reach GO.
+uploaded_two_days_ago=$(date -u -d '2 days ago' '+%Y-%m-%dT%H:%M:%SZ')
+retained_seven_years_from_upload=$(date -u -d "$uploaded_two_days_ago + 7 years" '+%Y-%m-%dT%H:%M:%SZ')
+run_validator_with_fake_retention realistic-retention "$auto" "$operator" \
+	"$uploaded_two_days_ago" "$retained_seven_years_from_upload"
+jq -e '
+	.collection.decision == "GO" and
+	(.entries | length) == 25 and
+	(.validation.errors | length) == 0
+' "$tmp/out-realistic-retention/evidence-index.json" >/dev/null
+
+# A source artifact whose Object Lock has already expired can never certify.
+run_validator_with_fake_retention expired-retention "$auto" "$operator" \
+	"$uploaded_two_days_ago" "$(date -u -d '1 day ago' '+%Y-%m-%dT%H:%M:%SZ')" || true
+jq -e '
+	(.collection.decision == "NO-GO") and
+	any(.validation.errors[]; contains("Object Lock retention has expired"))
+' "$tmp/out-expired-retention/evidence-index.json" >/dev/null
+
+# A source artifact locked for less than 7 years from its upload time (beyond
+# the clock-skew tolerance) was never retained correctly and must fail.
+run_validator_with_fake_retention short-retention "$auto" "$operator" \
+	"$uploaded_two_days_ago" "$(date -u -d "$uploaded_two_days_ago + 6 years" '+%Y-%m-%dT%H:%M:%SZ')" || true
+jq -e '
+	(.collection.decision == "NO-GO") and
+	any(.validation.errors[]; contains("shorter than the 7-year retention required at upload time"))
+' "$tmp/out-short-retention/evidence-index.json" >/dev/null
 
 pending="$tmp/pending.json"
 jq '.entries[0].result = "PENDING"' "$auto" >"$pending"
