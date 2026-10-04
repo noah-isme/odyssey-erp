@@ -1,0 +1,21 @@
+# Allowlist for scripts/check-stale-candidate-refs.sh.
+#
+# The current candidate is v0.10.0-rc.9. References to the superseded
+# v0.10.0-rc.8 candidate (pattern: rc\.8|20cc13a) are allowed only in the
+# historical records below. Rule syntax is documented in the script header.
+
+# Historical identity record for rc.8 (rc.9 is appended on the certification branch).
+file docs/releases/v0.10-candidate-identity-reconciliation.md
+# Per-candidate release notes are point-in-time records.
+file docs/releases/v0.10.0-rc.*.md
+# Archived notes are historical by definition (AGENTS.md).
+file docs/archive/*
+
+# VERSION_HISTORY history sections.
+section docs/releases/VERSION_HISTORY.md ### v0.10.0-rc.8 — Divergent stabilization candidate (superseded)
+
+# Certification record: rc.8 identity kept as history below the rc.9 record.
+section docs/releases/v0.10-core-staging-certification.md ## Historical rc.8 candidate identity (superseded)
+
+# Lines that explicitly label the reference as superseded or historical.
+line superseded|historical

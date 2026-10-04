@@ -105,6 +105,7 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 
 | Version | Notes |
 |---------|-------|
+| [v0.10.0-rc.9](releases/VERSION_HISTORY.md#v0100-rc9--worker-idempotency-and-attribution-fixes) | **Current release candidate** — worker idempotency, attribution, and release-profile gating fixes on top of the superseded rc.8 tag; tag pending; migration ceiling `000124`; not production-certified |
 | [v0.10.0-rc.3](releases/v0.10.0-rc.3.md) | VPS deployment target and hosted-blueprint removal on top of Coretax/PPh 21 release-test completion (2026-08-10); superseded by the rc.8 line; not production-certified |
 | [v0.9.1](releases/v0.9.1.md) | **Latest named release** — Enterprise UI/UX overhaul (2026-05-28) |
 | [Version and Progress Report](releases/VERSION_HISTORY.md) | Differences between releases and post-v0.9.1 implementation progress |

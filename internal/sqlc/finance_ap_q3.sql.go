@@ -11,6 +11,31 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const aPExceptionExists = `-- name: APExceptionExists :one
+SELECT EXISTS (
+    SELECT 1
+    FROM ap_exceptions
+    WHERE ap_invoice_id = $1::BIGINT
+      AND ap_matching_run_id IS NOT DISTINCT FROM $2::BIGINT
+      AND exception_type = $3::TEXT
+) AS exists
+`
+
+type APExceptionExistsParams struct {
+	ApInvoiceID     int64       `json:"ap_invoice_id"`
+	ApMatchingRunID pgtype.Int8 `json:"ap_matching_run_id"`
+	ExceptionType   string      `json:"exception_type"`
+}
+
+// Reports whether an exception of the given type already exists for the
+// invoice and matching run (NULL run matches NULL), regardless of status.
+func (q *Queries) APExceptionExists(ctx context.Context, arg APExceptionExistsParams) (bool, error) {
+	row := q.db.QueryRow(ctx, aPExceptionExists, arg.ApInvoiceID, arg.ApMatchingRunID, arg.ExceptionType)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const createAPException = `-- name: CreateAPException :one
 INSERT INTO ap_exceptions (
     ap_invoice_id, ap_matching_run_id, exception_type, severity, status, 

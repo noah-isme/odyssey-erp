@@ -79,7 +79,7 @@ func (q payrollDeliveryQueue) EnqueuePayslip(ctx context.Context, line payroll.R
 	if err != nil {
 		return err
 	}
-	_, err = q.client.EnqueueContext(ctx, task, asynq.Queue(jobs.QueueDefault), asynq.MaxRetry(5), asynq.TaskID(fmt.Sprintf("payroll-payslip-%d", line.PayslipID)))
+	_, err = q.client.EnqueueContext(ctx, task, asynq.Queue(jobs.QueueDefault), asynq.MaxRetry(5), asynq.Timeout(3*time.Minute), asynq.TaskID(fmt.Sprintf("payroll-payslip-%d", line.PayslipID)))
 	if errors.Is(err, asynq.ErrTaskIDConflict) {
 		return nil
 	}
@@ -102,6 +102,78 @@ func (q notificationEmailQueue) EnqueueEmail(ctx context.Context, email notifica
 	return err
 }
 
+const (
+	// workerDefaultPoolMaxConns is the worker pool size when neither
+	// PG_MAX_CONNS nor pool_max_conns in PG_DSN is set.
+	workerDefaultPoolMaxConns int32 = 16
+	// workerPoolConnsPerTask budgets one connection held by a task (for
+	// example the AP processing lock) plus nested transactions.
+	workerPoolConnsPerTask = 3
+)
+
+// workerPoolUndersized reports whether the pool is below
+// workerPoolConnsPerTask connections per concurrent task.
+func workerPoolUndersized(maxConns int32, concurrency int) bool {
+	return int(maxConns) < workerPoolConnsPerTask*concurrency
+}
+
+// coreExcludedTaskTypes are task types with no v0.10-core producer: their
+// routes are v0.11-finance only (bankfeeds, cashforecast, treasury), or no
+// application code enqueues them at all (finance:automation_dispatch drains
+// finance_automation_outbox, which only the v0.11 automation surfaces would
+// fill; analytics:bi_export). They are neither registered nor scheduled under
+// v0.10-core, so an injected task converges as "handler not found" and is
+// archived after its retries.
+var coreExcludedTaskTypes = map[string]struct{}{
+	jobs.TypeBankFeedsSync:             {},
+	jobs.TypeBankFeedsEvent:            {},
+	jobs.TypeCashForecastRefresh:       {},
+	jobs.TaskFinanceAutomationDispatch: {},
+}
+
+// taskTypeEnabledForProfile reports whether a task type is registered and
+// scheduled under the release profile. Every profile except v0.10-core keeps
+// the full set.
+func taskTypeEnabledForProfile(profile app.ReleaseProfile, taskType string) bool {
+	if profile != app.ReleaseProfileV010Core {
+		return true
+	}
+	_, excluded := coreExcludedTaskTypes[taskType]
+	return !excluded
+}
+
+// workerHandlersForProfile filters the full handler set down to the handlers
+// registered for the release profile.
+func workerHandlersForProfile(profile app.ReleaseProfile, all []jobs.TaskHandler) []jobs.TaskHandler {
+	out := make([]jobs.TaskHandler, 0, len(all))
+	for _, h := range all {
+		if taskTypeEnabledForProfile(profile, h.Type) {
+			out = append(out, h)
+		}
+	}
+	return out
+}
+
+// workerCronForProfile drops periodic schedules whose task type is not
+// registered under the release profile. A schedule without a handler would
+// enqueue a task every period that can only fail with "handler not found".
+func workerCronForProfile(profile app.ReleaseProfile, all []jobs.CronRegistration) []jobs.CronRegistration {
+	out := make([]jobs.CronRegistration, 0, len(all))
+	for _, c := range all {
+		if c.Task != nil && !taskTypeEnabledForProfile(profile, c.Task.Type()) {
+			continue
+		}
+		out = append(out, c)
+	}
+	return out
+}
+
+// registerBIExportForProfile reports whether analytics:bi_export is
+// registered; it has no in-profile producer under v0.10-core.
+func registerBIExportForProfile(profile app.ReleaseProfile) bool {
+	return profile != app.ReleaseProfileV010Core
+}
+
 func main() {
 	if app.InTestMode() {
 		slog.Default().Info("test mode detected, skipping worker startup")
@@ -118,14 +190,26 @@ func main() {
 	}
 
 	logger := app.NewLogger(cfg)
+	profile, err := app.ParseReleaseProfile(cfg.ReleaseProfile)
+	if err != nil {
+		logger.Error("parse release profile", slog.Any("error", err))
+		os.Exit(1)
+	}
+	logger.Info("worker release profile", slog.String("profile", string(profile)))
 	mailClient := shared.NewMailClient(shared.MailConfig{Host: cfg.SMTPHost, Port: cfg.SMTPPort, From: cfg.SMTPFrom, Username: cfg.SMTPUsername, Password: cfg.SMTPPassword})
 
-	pool, err := db.New(ctx, cfg.PGDSN)
+	pool, err := db.NewWithMaxConns(ctx, cfg.PGDSN, cfg.PGMaxConns, workerDefaultPoolMaxConns)
 	if err != nil {
 		logger.Error("connect database", slog.Any("error", err))
 		os.Exit(1)
 	}
 	defer pool.Close()
+	if maxConns := pool.Config().MaxConns; workerPoolUndersized(maxConns, jobs.WorkerConcurrency) {
+		logger.Warn("worker database pool is smaller than 3 x task concurrency; set PG_MAX_CONNS",
+			slog.Int("max_conns", int(maxConns)),
+			slog.Int("concurrency", jobs.WorkerConcurrency),
+			slog.Int("recommended_min", workerPoolConnsPerTask*jobs.WorkerConcurrency))
+	}
 
 	redisClient, err := cache.New(ctx, cfg.RedisAddr)
 	if err != nil {
@@ -311,13 +395,13 @@ func main() {
 	apService := ap.NewService(apRepo, nil) // Dependencies omitted for simplicity in worker
 	matchingService := ap.NewMatchingService(apRepo)
 	exceptionService := ap.NewExceptionService(apRepo)
-	apOrchestrator := ap.NewOrchestrator(matchingService, exceptionService, apService)
+	apOrchestrator := ap.NewOrchestrator(matchingService, exceptionService, apService, apRepo)
 
 	worker, err := jobs.NewWorker(jobs.WorkerConfig{
 		RedisOpts: redisOpts,
 		Logger:    logger,
 		Mailer:    mailClient,
-		Handlers: []jobs.TaskHandler{
+		Handlers: workerHandlersForProfile(profile, []jobs.TaskHandler{
 			{Type: jobs.TaskAnalyticsInsightsWarmup, Handler: warmupJob.Handle},
 			{Type: jobs.TaskAnalyticsAnomalyScan, Handler: anomalyJob.Handle},
 			{Type: jobs.TaskConsolidateRefresh, Handler: consolidator.Handle},
@@ -343,15 +427,16 @@ func main() {
 			{Type: jobs.TaskDocumentOCR, Handler: jobs.HandleDocumentOCR(documentsService)},
 			{Type: jobs.TaskDocumentDisposition, Handler: jobs.HandleDocumentDisposition(documentsService)},
 			{Type: jobs.TaskConnectorOutboxSweep, Handler: jobs.HandleConnectorOutboxSweep(connectorsOutboxWorker)},
-			{Type: jobs.TaskProcessAPInvoice, Handler: jobs.HandleProcessAPInvoice(apOrchestrator.ProcessInvoice)},
-		},
-		FXFetcher:   fxJobFetcher{service: fxDailyService},
-		FXCompanies: fxRepo,
-		FXLocation:  mustLocation("Asia/Jakarta"),
-		FXLogger:    logger,
-		Analytics:   analyticsService,
-		Connectors:  connectorsService,
-		Cron: []jobs.CronRegistration{
+			{Type: jobs.TaskProcessAPInvoice, Handler: jobs.HandleProcessAPInvoice(apOrchestrator.ProcessInvoice, ap.ErrInvoiceNotFound, ap.ErrActorMismatch)},
+		}),
+		RegisterBIExport: registerBIExportForProfile(profile),
+		FXFetcher:        fxJobFetcher{service: fxDailyService},
+		FXCompanies:      fxRepo,
+		FXLocation:       mustLocation("Asia/Jakarta"),
+		FXLogger:         logger,
+		Analytics:        analyticsService,
+		Connectors:       connectorsService,
+		Cron: workerCronForProfile(profile, []jobs.CronRegistration{
 			{Spec: "15 1 * * *", Task: warmupTask, Options: []asynq.Option{asynq.MaxRetry(3)}},
 			{Spec: "30 1 * * *", Task: anomalyTask, Options: []asynq.Option{asynq.MaxRetry(3)}},
 			{Spec: "0 2 * * *", Task: consolidateTask, Options: []asynq.Option{asynq.MaxRetry(3)}},
@@ -370,7 +455,7 @@ func main() {
 			{Spec: "5 0 * * *", Task: func() *asynq.Task { task, _ := jobs.NewFXDailyRatesTask(time.Time{}, false); return task }(), Options: []asynq.Option{asynq.MaxRetry(5)}},
 			{Spec: "0 1 * * *", Task: asynq.NewTask(jobs.TaskDocumentDisposition, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
 			{Spec: "* * * * *", Task: asynq.NewTask(jobs.TaskConnectorOutboxSweep, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
-		},
+		}),
 	})
 	if err != nil {
 		logger.Error("init worker", slog.Any("error", err))

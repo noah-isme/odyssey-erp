@@ -137,6 +137,18 @@ func (r *PGRepository) GetPendingOutboxCommands(ctx context.Context, limit int32
 	return commands, nil
 }
 
+func (r *PGRepository) ClaimOutboxCommand(ctx context.Context, id int64) (OutboxCommand, error) {
+	row, err := r.queries.ClaimOutboxCommand(ctx, id)
+	if err != nil {
+		return OutboxCommand{}, err
+	}
+	return mapOutboxCommand(row), nil
+}
+
+func (r *PGRepository) DeadLetterExhaustedOutboxCommands(ctx context.Context) (int64, error) {
+	return r.queries.DeadLetterExhaustedOutboxCommands(ctx)
+}
+
 func (r *PGRepository) UpdateOutboxCommandState(ctx context.Context, update OutboxCommandStateUpdate) error {
 	_, err := r.queries.UpdateOutboxCommandState(ctx, sqlc.UpdateOutboxCommandStateParams{
 		ID:          update.ID,

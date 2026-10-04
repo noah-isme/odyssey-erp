@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"html/template"
+	"log/slog"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 	"github.com/odyssey-erp/odyssey-erp/web"
@@ -42,21 +43,29 @@ func (p *PayslipProcessor) Render(ctx context.Context, record PayslipRecord) ([]
 	return p.renderer.RenderHTML(ctx, html.String())
 }
 
+// DeliverPayslip renders and emails a payslip exactly once per successful
+// commit. A redelivered task for a payslip that is already delivered, or that
+// another worker is delivering right now, returns nil without rendering or
+// sending. Delivery is at-least-once: a crash or database failure after the
+// SMTP server accepted the message and before the delivery commit re-sends the
+// payslip on retry (see Repository.DeliverPayslipOnce).
 func (p *PayslipProcessor) DeliverPayslip(ctx context.Context, payslipID int64) error {
 	if p.store == nil || p.mailer == nil {
 		return ErrConfiguration
 	}
-	record, err := p.store.DeliveryPayslip(ctx, payslipID)
+	delivered, err := p.store.DeliverPayslipOnce(ctx, payslipID, func(ctx context.Context, record PayslipRecord) error {
+		pdf, err := p.Render(ctx, record)
+		if err != nil {
+			return err
+		}
+		attachment := &shared.Attachment{Filename: fmt.Sprintf("payslip-%s.pdf", record.PeriodCode), ContentType: "application/pdf", Data: pdf}
+		return p.mailer.SendEmail(ctx, record.Line.Email, "Payslip "+record.PeriodCode, "<p>Your payslip is attached. It is confidential.</p>", attachment)
+	})
 	if err != nil {
 		return err
 	}
-	pdf, err := p.Render(ctx, record)
-	if err != nil {
-		return err
+	if !delivered {
+		slog.InfoContext(ctx, "payslip already delivered or in flight", slog.Int64("payslip_id", payslipID))
 	}
-	attachment := &shared.Attachment{Filename: fmt.Sprintf("payslip-%s.pdf", record.PeriodCode), ContentType: "application/pdf", Data: pdf}
-	if err = p.mailer.SendEmail(ctx, record.Line.Email, "Payslip "+record.PeriodCode, "<p>Your payslip is attached. It is confidential.</p>", attachment); err != nil {
-		return err
-	}
-	return p.store.MarkPayslipDelivered(ctx, payslipID)
+	return nil
 }

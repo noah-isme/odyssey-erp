@@ -168,6 +168,43 @@ jobs:
         run: |
           if [ -f server.pid ]; then kill "$(cat server.pid)" 2>/dev/null || true; fi
 
+      # The database-backed duplicate-delivery suites carry the "integration"
+      # build tag, so `go test ./...` above never compiles or runs them. They
+      # run only for release-candidate refs (branches and tags matching the
+      # triggers above), after the application is stopped so their fixtures
+      # cannot touch the route sweep. They use only this job's Postgres service
+      # through the job-level PG_DSN (throwaway CI credentials, no secrets) and
+      # shell out to `migrate`, which "Install tools" installed at v4.18.3, the
+      # same pin as deploy-native.yml. Expected cost: about 2 minutes (test
+      # compile plus a few seconds of tests; migrations are already applied), far
+      # inside the 30-minute CI wait of deploy-native.yml.
+      #
+      # The run is filtered to the rc.9 suites: TestFXARAPDatabaseIntegration is
+      # stale (it posts an AP invoice without a matching run, which
+      # PostAPInvoice rejects; it fails identically at the rc.8 tag) and is not
+      # a gate.
+      - name: Integration tests (release candidates)
+        if: startsWith(github.ref, 'refs/heads/release/v0.10.0-rc.') || startsWith(github.ref, 'refs/tags/v0.10.0-rc.')
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          set -euo pipefail
+          MIGRATE_BIN="$(command -v migrate)"
+          export MIGRATE_BIN
+          go test -tags integration ./tests/e2e/ -count=1 -v -timeout 8m \
+            -run 'TestAPOrchestration|TestPayslipDelivery|TestConnectorOutboxClaim' \
+            2>&1 | tee integration.log
+          # A suite that skips (for example for a missing PG_DSN) or a filter
+          # that matches nothing would otherwise be a silent green.
+          if grep -q -- '--- SKIP' integration.log; then
+            echo "integration suite was skipped" >&2
+            exit 1
+          fi
+          if ! grep -q -- '--- PASS' integration.log; then
+            echo "no integration test ran" >&2
+            exit 1
+          fi
+
       - name: Application logs
         if: failure()
         run: tail -n 300 server.log || true
@@ -181,5 +218,6 @@ jobs:
             routes.json
             route-profile.json
             e2e.log
+            integration.log
             server.log
           if-no-files-found: ignore

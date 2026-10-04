@@ -72,6 +72,13 @@ type InboxRepository interface {
 type OutboxRepository interface {
 	GetConnection(ctx context.Context, companyID, connectionID int64) (Connection, error)
 	GetPendingOutboxCommands(ctx context.Context, limit int32) ([]OutboxCommand, error)
+	// ClaimOutboxCommand atomically claims a due, non-exhausted command: it
+	// bumps attempts and leases the row. It returns pgx.ErrNoRows when the
+	// command is owned by another run, not yet due, or exhausted.
+	ClaimOutboxCommand(ctx context.Context, id int64) (OutboxCommand, error)
+	// DeadLetterExhaustedOutboxCommands moves due commands whose attempts are
+	// exhausted to dead_letter and returns how many rows changed.
+	DeadLetterExhaustedOutboxCommands(ctx context.Context) (int64, error)
 	UpdateOutboxCommandState(ctx context.Context, update OutboxCommandStateUpdate) error
 }
 

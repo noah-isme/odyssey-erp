@@ -10,23 +10,25 @@
 **Revised:** 2026-08-02 (external integrations implementation plan)
 **Revised:** 2026-08-02 (linked execution plans for remaining module depth and administration)
 **Revised:** 2026-08-27 (v0.10.0 staging closeout handoff)
-**Revised:** 2026-09-02 (rc.8 candidate reconciliation)
-**Revised:** 2026-10-02 (Option A candidate-identity ruling: tag resolves to 20cc13a; dispatch branch created)
+**Revised:** 2026-09-02 (rc.8 candidate reconciliation; superseded by rc.9)
+**Revised:** 2026-10-02 (Option A candidate-identity ruling: tag resolves to 20cc13a; dispatch branch created; superseded by rc.9)
+**Revised:** 2026-10-04 (v0.10.0-rc.9 candidate: worker idempotency and attribution fixes)
 **Current Version:** v0.9.1
 
-> **Active release handoff (2026-09-02):** The bounded `v0.10-core` release
-> candidate is the immutable annotated `v0.10.0-rc.8` tag at
-> `20cc13a0f028e3b09573944bb9f7a1f943461253`, with migrations ending at `000124`.
-> The rc.8 line diverges from the superseded, never-certified rc.7 candidate at
-> merge-base `04ebd8a040ff3c5da6f90c6f8d0eab5f4a9ba336` and carries the rc.8
-> stabilization chain plus 33 further rc-line commits. Candidate CI
-> (`34007099245`) and the tag-push staging deployment (`34007099231`) have
-> passed for `20cc13a`, but staging certification and production promotion
-> remain open. The remaining blockers are certification preflight — which
-> lacks the staging identities, fixture variables, and immutable evidence store
-> configuration. The `certification/v0.10.0-rc.8` dispatch branch now exists on
-> origin (created 2026-10-02 from the tag commit under the Option A ruling).
-> Provision those staging-only inputs, verify the documented service
+> **Active release handoff (2026-10-04):** The bounded `v0.10-core` release
+> candidate is the annotated `v0.10.0-rc.9` tag (commit `<pending tag>`,
+> recorded when the tag is cut), with migrations ending at `000124`. Its
+> lineage is the superseded rc.8 tag `20cc13a` plus the rc.9 worker fix
+> commits: payslip delivery row lock and mail deadlines, AP invoice actor
+> binding and dedupe, worker pool sizing, connector outbox claim-before-execute,
+> bounded retry for variance and board-pack tasks, and release-profile gating
+> of worker handlers. Deferred worker findings are recorded as `FIND-001`–`FIND-007`
+> (and `FIND-008`, resolved in rc.9) in the [staging certification record](releases/v0.10-core-staging-certification.md).
+> Staging certification and production promotion remain open. The remaining
+> blockers are certification preflight — which lacks the staging identities,
+> fixture variables, and immutable evidence store configuration — and the
+> `certification/v0.10.0-rc.9` dispatch branch, created from the rc.9 tag after
+> it is cut. Provision those staging-only inputs, verify the documented service
 > supervision and `127.0.0.1:8180` health contract, then run the automated and
 > operator evidence lanes. No feature or migration work should be added to
 > this candidate; an application or schema change requires a new release
@@ -486,11 +488,11 @@ shared outbox/inbox, connection, secret, mapping, retry, and observability found
 then sequences payment gateways, carriers, marketplaces, messaging, BI, identity, and
 governed AI connectors.
 
-### Active execution sequence (2026-09-02)
+### Active execution sequence (2026-10-04)
 
 - **Close `v0.10-core`:** provision the staging certification identities, stable
    fixtures, and seven-year Object-Lock evidence store; rerun the automated and
-   operator lanes for immutable `v0.10.0-rc.8`; complete the 25-row evidence index;
+   operator lanes for immutable `v0.10.0-rc.9`; complete the 25-row evidence index;
    and promote only the exact certified artifact after the signed go/no-go decision.
 - **Start `v0.11-finance`:** branch from the released v0.10 baseline and finish
    treasury bank-feed/forecast operations, payment execution and settlement evidence,

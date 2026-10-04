@@ -138,6 +138,14 @@ func (m *memoryAPRepo) ListAPExceptions(ctx context.Context, status string, owne
 	return nil, nil
 }
 
+func (m *memoryAPRepo) AcquireProcessingLock(ctx context.Context, invoiceID int64) (func(), bool, error) {
+	return func() {}, true, nil
+}
+
+func (m *memoryAPRepo) ExceptionExists(ctx context.Context, invoiceID int64, matchingRunID *int64, exceptionType string) (bool, error) {
+	return false, nil
+}
+
 func (r *memoryAPRepo) ListAPInvoices(ctx context.Context, req ListAPInvoicesRequest) ([]APInvoice, error) {
 	var out []APInvoice
 	for _, inv := range r.invoices {

@@ -7,9 +7,10 @@
 
 For the bounded v0.10.0 release, use the [v0.10-core staging certification
 record](releases/v0.10-core-staging-certification.md) before promotion. The
-current candidate is the immutable annotated tag `v0.10.0-rc.8`, resolving to
-`20cc13a0f028e3b09573944bb9f7a1f943461253` on the divergent rc.8 release line
-(merge-base `04ebd8a` with the superseded rc.7 line; no `ec65cc0` baseline).
+current candidate is the immutable annotated tag `v0.10.0-rc.9` (commit
+`<pending tag>`, recorded when the tag is cut); its lineage is the
+superseded rc.8 tag `20cc13a` plus the rc.9 worker fix commits, with no
+migration above `000124`.
 Production promotion requires the explicit
 `RELEASE_PROFILE=v0.10-core` contract unless a separately approved `full`
 profile has certified every matrix row.
@@ -113,6 +114,46 @@ CSRF_TOKEN_LENGTH=32
 RATE_LIMIT_REQUESTS=100
 RATE_LIMIT_WINDOW=1m
 ```
+
+### Worker Database Pool and PostgreSQL Settings
+
+The worker opens its PostgreSQL pool with 16 connections by default. The
+worker runs 5 concurrent tasks and logs a startup warning when the effective
+pool is below 3 x that concurrency (15). The web process ignores the setting
+below and keeps pgx's default pool size (`max(4, NumCPU)`).
+
+To change the worker pool size, set `PG_MAX_CONNS` (a positive integer, for
+example `PG_MAX_CONNS=24`; omit the variable rather than leaving it empty). The
+worker resolves its pool size in this order:
+
+1. `PG_MAX_CONNS`, when set (the supported setting);
+2. pgx's `pool_max_conns` parameter in the worker's `PG_DSN`, if present;
+3. the built-in default of 16.
+
+Leave `pool_max_conns` out of any `PG_DSN` that is also used for migrations:
+`migrate` connects through `lib/pq`, which forwards unknown parameters to the
+server, and PostgreSQL rejects `pool_max_conns` as an unrecognized setting.
+`PG_MAX_CONNS` is a separate variable and is safe in an environment file shared
+with `migrate`.
+
+Before deploying, confirm:
+
+- `max_connections` headroom: the worker can hold up to 16 connections in
+  addition to the web pool, migrations, and operator sessions.
+- `SHOW idle_in_transaction_session_timeout;`: record the raw output; no
+  minimum is required. Payslip delivery keeps an open transaction holding the
+  payslip row lock while it renders and sends the email (10s SMTP dial
+  deadline, 60s SMTP I/O deadline, 3-minute task timeout), and AP invoice
+  processing keeps an idle transaction for its advisory lock. Both set a
+  transaction-local `idle_in_transaction_session_timeout` themselves (4 minutes
+  for payslip delivery, 6 minutes for the AP lock; just above their task
+  timeouts), which overrides the server, database, and role setting for those
+  transactions only. The database role must be allowed to set the parameter
+  (the default for ordinary roles).
+
+Payslip email delivery is at-least-once: `delivered_at` is committed only after
+the SMTP server accepts the message, so a crash or lost database connection
+between that acceptance and the commit re-sends the payslip on retry.
 
 ### Configuration File
 

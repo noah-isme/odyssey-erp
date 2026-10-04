@@ -51,12 +51,18 @@ type WorkerConfig struct {
 	FXLogger       *slog.Logger
 	Analytics      *analytics.Service
 	Connectors     *connectors.Service
+	// RegisterBIExport enables the analytics:bi_export handler (in addition
+	// to Analytics and Connectors being set).
+	RegisterBIExport bool
 }
+
+// WorkerConcurrency is the number of tasks a worker process runs at once.
+const WorkerConcurrency = 5
 
 // NewWorker constructs a Worker instance.
 func NewWorker(cfg WorkerConfig) (*Worker, error) {
 	srv := asynq.NewServer(cfg.RedisOpts, asynq.Config{
-		Concurrency:    5,
+		Concurrency:    WorkerConcurrency,
 		RetryDelayFunc: cfg.RetryDelayFunc,
 		Queues: map[string]int{
 			QueueDefault: 1,
@@ -70,7 +76,7 @@ func NewWorker(cfg WorkerConfig) (*Worker, error) {
 	if cfg.FXFetcher != nil && cfg.FXCompanies != nil {
 		mux.HandleFunc(TaskFXDailyRates, HandleFXDailyRatesTask(cfg.FXFetcher, cfg.FXCompanies, cfg.FXLocation, cfg.FXLogger))
 	}
-	if cfg.Analytics != nil && cfg.Connectors != nil {
+	if cfg.RegisterBIExport && cfg.Analytics != nil && cfg.Connectors != nil {
 		biExportJob := NewBIExportJob(cfg.Analytics, cfg.Connectors)
 		mux.HandleFunc(TaskBIExport, biExportJob.Handle)
 	}
@@ -159,22 +165,47 @@ func (c *Client) EnqueueSendEmail(ctx context.Context, payload SendEmailPayload)
 	return info, err
 }
 
-// EnqueueVarianceSnapshot enqueues a variance snapshot task.
+// VarianceSnapshotTaskID is the stable asynq TaskID for a variance snapshot.
+func VarianceSnapshotTaskID(snapshotID int64) string {
+	return "variance-snapshot:" + strconv.FormatInt(snapshotID, 10)
+}
+
+// BoardPackTaskID is the stable asynq TaskID for a board pack generation.
+func BoardPackTaskID(boardPackID int64) string {
+	return "board-pack:" + strconv.FormatInt(boardPackID, 10)
+}
+
+// boundedObjectTaskMaxRetry caps retries for tasks keyed by a single object
+// ID so a forged or deleted ID converges to archived instead of retrying for
+// weeks with the asynq default of 25.
+const boundedObjectTaskMaxRetry = 5
+
+// EnqueueVarianceSnapshot enqueues a variance snapshot task with a stable task
+// ID; a duplicate enqueue while the task exists returns (nil, nil).
 func (c *Client) EnqueueVarianceSnapshot(ctx context.Context, snapshotID int64) (*asynq.TaskInfo, error) {
 	task, err := NewVarianceSnapshotTask(snapshotID)
 	if err != nil {
 		return nil, err
 	}
-	return c.client.EnqueueContext(ctx, task, asynq.Queue(QueueDefault))
+	info, err := c.client.EnqueueContext(ctx, task, asynq.Queue(QueueDefault), asynq.MaxRetry(boundedObjectTaskMaxRetry), asynq.TaskID(VarianceSnapshotTaskID(snapshotID)))
+	if errors.Is(err, asynq.ErrTaskIDConflict) {
+		return nil, nil
+	}
+	return info, err
 }
 
-// EnqueueBoardPack enqueues a board pack generation task.
+// EnqueueBoardPack enqueues a board pack generation task with a stable task
+// ID; a duplicate enqueue while the task exists returns (nil, nil).
 func (c *Client) EnqueueBoardPack(ctx context.Context, boardPackID int64) (*asynq.TaskInfo, error) {
 	task, err := NewBoardPackTask(boardPackID)
 	if err != nil {
 		return nil, err
 	}
-	return c.client.EnqueueContext(ctx, task, asynq.Queue(QueueDefault))
+	info, err := c.client.EnqueueContext(ctx, task, asynq.Queue(QueueDefault), asynq.MaxRetry(boundedObjectTaskMaxRetry), asynq.TaskID(BoardPackTaskID(boardPackID)))
+	if errors.Is(err, asynq.ErrTaskIDConflict) {
+		return nil, nil
+	}
+	return info, err
 }
 
 // EnqueueBankFeedsEvent enqueues a callback consumer with a stable task ID so

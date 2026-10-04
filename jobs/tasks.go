@@ -3,9 +3,11 @@ package jobs
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/hibiken/asynq"
+	"github.com/odyssey-erp/odyssey-erp/internal/payroll"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 )
 
@@ -134,7 +136,11 @@ func HandlePayrollPayslipEmail(sender PayslipEmailer) asynq.HandlerFunc {
 		if err := json.Unmarshal(task.Payload(), &payload); err != nil || payload.PayslipID <= 0 {
 			return fmt.Errorf("invalid payslip task: %w", asynq.SkipRetry)
 		}
-		return sender.DeliverPayslip(ctx, payload.PayslipID)
+		err := sender.DeliverPayslip(ctx, payload.PayslipID)
+		if errors.Is(err, payroll.ErrPayslipNotFound) {
+			return fmt.Errorf("payslip %d: %w: %w", payload.PayslipID, err, asynq.SkipRetry)
+		}
+		return err
 	}
 }
 

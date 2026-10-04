@@ -11,6 +11,40 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const claimOutboxCommand = `-- name: ClaimOutboxCommand :one
+UPDATE connector_outbox_commands
+SET state = 'processing',
+    attempts = attempts + 1,
+    next_attempt = NOW() + INTERVAL '10 minutes',
+    updated_at = NOW()
+WHERE id = $1
+  AND state IN ('pending', 'processing')
+  AND next_attempt <= NOW()
+  AND attempts < 5
+RETURNING id, company_id, connection_id, command_type, correlation_id, payload, state, attempts, next_attempt, created_at, updated_at
+`
+
+// Claims one command for execution: CAS on state/next_attempt/attempts, bumps
+// attempts and leases the row for 10 minutes so an overlapping sweep skips it.
+func (q *Queries) ClaimOutboxCommand(ctx context.Context, id int64) (ConnectorOutboxCommand, error) {
+	row := q.db.QueryRow(ctx, claimOutboxCommand, id)
+	var i ConnectorOutboxCommand
+	err := row.Scan(
+		&i.ID,
+		&i.CompanyID,
+		&i.ConnectionID,
+		&i.CommandType,
+		&i.CorrelationID,
+		&i.Payload,
+		&i.State,
+		&i.Attempts,
+		&i.NextAttempt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createConnection = `-- name: CreateConnection :one
 INSERT INTO connector_connections (
     company_id, provider, type, name, secret_ref, status, token_expiry
@@ -135,6 +169,23 @@ func (q *Queries) CreateSyncRun(ctx context.Context, arg CreateSyncRunParams) (C
 		&i.ErrorMessage,
 	)
 	return i, err
+}
+
+const deadLetterExhaustedOutboxCommands = `-- name: DeadLetterExhaustedOutboxCommands :execrows
+UPDATE connector_outbox_commands
+SET state = 'dead_letter',
+    updated_at = NOW()
+WHERE state IN ('pending', 'processing')
+  AND attempts >= 5
+  AND next_attempt <= NOW()
+`
+
+func (q *Queries) DeadLetterExhaustedOutboxCommands(ctx context.Context) (int64, error) {
+	result, err := q.db.Exec(ctx, deadLetterExhaustedOutboxCommands)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const enqueueOutboxCommand = `-- name: EnqueueOutboxCommand :one
@@ -530,7 +581,6 @@ func (q *Queries) UpdateConnectionStatus(ctx context.Context, arg UpdateConnecti
 const updateOutboxCommandState = `-- name: UpdateOutboxCommandState :one
 UPDATE connector_outbox_commands
 SET state = $2,
-    attempts = attempts + 1,
     next_attempt = $3,
     updated_at = NOW()
 WHERE id = $1
