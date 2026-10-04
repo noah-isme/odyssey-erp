@@ -168,11 +168,18 @@ Before deploying rc.9, record in the preflight:
   (`SELECT count(*) FROM pg_stat_activity;`): the worker can now hold up to 16
   connections (up to 12 more than before) in addition to the web pool,
   `migrate`, and operator sessions; confirm the headroom.
-- `SHOW idle_in_transaction_session_timeout;`: it must be `0` (unset) or at
-  least `3min`. Payslip delivery holds the payslip row lock in an open
+- `SHOW idle_in_transaction_session_timeout;`: record the raw output; no
+  minimum is required. Payslip delivery holds the payslip row lock in an open
   transaction while it renders and sends the email (bounded by a 10s SMTP dial
-  deadline, a 60s SMTP I/O deadline, and the 3-minute task timeout); a lower
-  timeout kills the session mid-send and the retry sends the payslip again.
+  deadline, a 60s SMTP I/O deadline, and the 3-minute task timeout), and AP
+  invoice processing holds an idle transaction for its advisory lock. Both
+  set a transaction-local `idle_in_transaction_session_timeout` themselves
+  (4 minutes for payslip delivery, 6 minutes for the AP lock; just above their
+  task timeouts of 3 and 5 minutes), which overrides the server, database, and
+  role setting for those transactions only, so a lower or unset server value
+  neither kills a healthy send nor leaves an orphaned lock indefinitely. The
+  database role must be allowed to set the parameter (the default for ordinary
+  roles).
 
 Payslip email delivery is at-least-once: `delivered_at` is committed only after
 the SMTP server accepts the message, so a crash or lost database connection

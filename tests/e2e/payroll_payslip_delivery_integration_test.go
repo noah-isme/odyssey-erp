@@ -187,3 +187,83 @@ func TestPayslipDeliveryNotFound(t *testing.T) {
 	require.ErrorIs(t, err, payroll.ErrPayslipNotFound)
 	require.False(t, delivered)
 }
+
+// A payslip delivery task holds exactly one pool connection for its whole
+// duration: every statement, including the already-delivered / not-found
+// probe, runs on the delivery transaction. With a one-connection pool a second
+// connection would deadlock until the context expires. The transaction also
+// arms a transaction-local idle bound just above the 3-minute task timeout so
+// it does not depend on the server-wide idle_in_transaction_session_timeout.
+func TestPayslipDeliveryUsesOneConnectionAndBoundsIdleTimeout(t *testing.T) {
+	p := openPayslipPool(t)
+	suffix := fmt.Sprintf("one-%d", time.Now().UnixNano())
+
+	cfg, err := pgxpool.ParseConfig(os.Getenv("PG_DSN"))
+	require.NoError(t, err)
+	cfg.MaxConns = 1
+	rec := &sqlRecorder{}
+	cfg.ConnConfig.Tracer = rec
+	single, err := pgxpool.NewWithConfig(context.Background(), cfg)
+	require.NoError(t, err)
+	t.Cleanup(single.Close)
+	repo := payroll.NewRepository(single)
+
+	newCtx := func() (context.Context, context.CancelFunc) {
+		return context.WithTimeout(context.Background(), 10*time.Second)
+	}
+	noDeliver := func(context.Context, payroll.PayslipRecord) error {
+		t.Fatal("deliver must not be called")
+		return nil
+	}
+
+	t.Run("missing payslip", func(t *testing.T) {
+		ctx, cancel := newCtx()
+		defer cancel()
+		delivered, err := repo.DeliverPayslipOnce(ctx, 9_000_000_001, noDeliver)
+		require.ErrorIs(t, err, payroll.ErrPayslipNotFound, "the probe must reuse the delivery connection")
+		require.False(t, delivered)
+	})
+
+	t.Run("locked by another delivery", func(t *testing.T) {
+		payslipID := seedPayslip(t, p, suffix+"-locked")
+		holder, err := p.Begin(context.Background())
+		require.NoError(t, err)
+		defer func() { _ = holder.Rollback(context.Background()) }()
+		var id int64
+		require.NoError(t, holder.QueryRow(context.Background(), `SELECT id FROM payroll_payslips WHERE id=$1 FOR UPDATE`, payslipID).Scan(&id))
+
+		ctx, cancel := newCtx()
+		defer cancel()
+		delivered, err := repo.DeliverPayslipOnce(ctx, payslipID, noDeliver)
+		require.NoError(t, err, "a locked row is skipped, not an error")
+		require.False(t, delivered)
+	})
+
+	t.Run("delivery", func(t *testing.T) {
+		payslipID := seedPayslip(t, p, suffix+"-deliver")
+		ctx, cancel := newCtx()
+		defer cancel()
+		invoked := 0
+		delivered, err := repo.DeliverPayslipOnce(ctx, payslipID, func(context.Context, payroll.PayslipRecord) error {
+			invoked++
+			return nil
+		})
+		require.NoError(t, err)
+		require.True(t, delivered)
+		require.Equal(t, 1, invoked)
+		require.NotNil(t, payslipDeliveredAt(t, p, payslipID))
+
+		// Already delivered: the probe also runs on the single connection.
+		delivered, err = repo.DeliverPayslipOnce(ctx, payslipID, noDeliver)
+		require.NoError(t, err)
+		require.False(t, delivered)
+	})
+
+	// The transaction-local bound is armed before the payslip row is locked.
+	setIdx, setArgs := rec.index("idle_in_transaction_session_timeout")
+	lockIdx, _ := rec.index("FOR UPDATE OF ps SKIP LOCKED")
+	require.GreaterOrEqual(t, setIdx, 0, "delivery tx must set idle_in_transaction_session_timeout")
+	require.Less(t, setIdx, lockIdx)
+	require.Equal(t, []any{"240000ms"}, setArgs)
+	require.Contains(t, rec.sqls[setIdx], "true)", "the bound must be transaction-local")
+}

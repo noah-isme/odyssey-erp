@@ -346,6 +346,13 @@ func (r *Repository) PaymentInstructions(ctx context.Context, runID int64) ([]Pa
 	return out, rows.Err()
 }
 
+// payslipDeliveryIdleTimeout bounds how long the payslip delivery transaction
+// may sit idle (open, holding the row lock) while the email is rendered and
+// sent. It is just above the 3-minute payroll:payslip_email task timeout set by
+// the producers (cmd/odyssey, cmd/worker), so a healthy delivery is never cut
+// off and an orphaned session is terminated by PostgreSQL soon after.
+const payslipDeliveryIdleTimeout = 4 * time.Minute
+
 // DeliverPayslipOnce implements PayslipStore with a row lock held for the
 // duration of deliver.
 //
@@ -358,9 +365,15 @@ func (r *Repository) PaymentInstructions(ctx context.Context, runID int64) ([]Pa
 // Delivery is at-least-once: if the process or the database connection fails
 // after the SMTP server accepted the message and before COMMIT, the retry sends
 // the payslip again. The window is bounded by the mail dial/I-O deadlines and
-// the task timeout. The transaction is idle while deliver runs, so PostgreSQL's
-// idle_in_transaction_session_timeout must be unset or longer than the task
-// timeout.
+// the task timeout.
+//
+// The transaction is idle while deliver runs, and the task holds exactly one
+// pool connection for its whole duration (every statement uses tx). The
+// transaction sets its own transaction-local
+// idle_in_transaction_session_timeout (payslipDeliveryIdleTimeout), just above
+// the 3-minute task timeout the producers set, so it never depends on the
+// server-wide setting and PostgreSQL still terminates an orphaned session
+// (and releases the row lock) if the worker host is lost mid-send.
 func (r *Repository) DeliverPayslipOnce(ctx context.Context, payslipID int64, deliver func(context.Context, PayslipRecord) error) (delivered bool, err error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -369,12 +382,16 @@ func (r *Repository) DeliverPayslipOnce(ctx context.Context, payslipID int64, de
 	// Rollback after a successful Commit is a no-op.
 	defer func() { _ = tx.Rollback(ctx) }()
 
+	if _, err = tx.Exec(ctx, `SELECT set_config('idle_in_transaction_session_timeout', $1, true)`, fmt.Sprintf("%dms", payslipDeliveryIdleTimeout.Milliseconds())); err != nil {
+		return false, fmt.Errorf("bound payslip delivery idle timeout: %w", err)
+	}
+
 	var record PayslipRecord
 	var raw []byte
 	err = tx.QueryRow(ctx, `SELECT ps.id,l.id,l.run_id,l.employee_id,e.name,e.email,e.user_id,m.user_id,l.department_id,l.cost_center_id,l.breakdown,p.code FROM payroll_payslips ps JOIN payroll_run_lines l ON l.id=ps.run_line_id JOIN payroll_runs r ON r.id=l.run_id JOIN payroll_periods p ON p.id=r.period_id JOIN hr_employees e ON e.id=l.employee_id LEFT JOIN hr_employees m ON m.id=e.manager_id WHERE ps.id=$1 AND ps.delivered_at IS NULL FOR UPDATE OF ps SKIP LOCKED`, payslipID).Scan(&record.ID, &record.Line.ID, &record.Line.RunID, &record.Line.EmployeeID, &record.Line.EmployeeName, &record.Line.Email, &record.Line.UserID, &record.Line.ManagerUserID, &record.Line.DepartmentID, &record.Line.CostCenterID, &raw, &record.PeriodCode)
 	if errors.Is(err, pgx.ErrNoRows) {
 		var deliveredAt *time.Time
-		probeErr := r.pool.QueryRow(ctx, `SELECT delivered_at FROM payroll_payslips WHERE id=$1`, payslipID).Scan(&deliveredAt)
+		probeErr := tx.QueryRow(ctx, `SELECT delivered_at FROM payroll_payslips WHERE id=$1`, payslipID).Scan(&deliveredAt)
 		if errors.Is(probeErr, pgx.ErrNoRows) {
 			return false, ErrPayslipNotFound
 		}

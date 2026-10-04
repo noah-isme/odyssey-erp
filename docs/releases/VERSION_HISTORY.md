@@ -229,8 +229,11 @@ adds no migration. Fixes:
   skips and a failed send retries. Delivery is at-least-once: a crash after the
   SMTP server accepted the message and before COMMIT re-sends on retry. The mail
   client now has a 10s dial and 60s I/O deadline, and `payroll:payslip_email`
-  tasks a 3-minute timeout. PostgreSQL `idle_in_transaction_session_timeout`
-  must be unset or at least 3 minutes (staging preflight item).
+  tasks a 3-minute timeout. The delivery transaction uses a single pool
+  connection and sets its own transaction-local
+  `idle_in_transaction_session_timeout` (4 minutes, just above the task
+  timeout), so no server-wide minimum is required (the staging preflight only
+  records the server value).
 - **AP invoice processing** (`04af2a6`): the actor is bound to
   `ap_invoices.created_by` and a contradicting payload actor is rejected and
   archived without retry; a non-blocking, namespaced advisory lock and
