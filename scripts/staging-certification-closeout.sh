@@ -211,8 +211,9 @@ verify_locked_object() {
 }
 
 verify_source_artifacts() {
-	local minimum_retention
-	minimum_retention=$(date -u -d '+7 years' '+%Y-%m-%dT%H:%M:%SZ')
+	# Clock-skew tolerance (seconds) for comparing an artifact's retain-until
+	# date against the 7-year retention that must have been set at upload time.
+	local retention_skew_seconds=900
 	declare -A checked_artifacts=()
 	for record in "${artifact_records[@]}"; do
 		local id uri sha rest uri_bucket key response
@@ -233,7 +234,43 @@ verify_source_artifacts() {
 			append_gate_error "$id artifact URI is not reachable: $uri"
 			continue
 		fi
-		verify_locked_object "$id artifact $uri" "$response" "$sha" "$minimum_retention" || true
+		# Source artifacts were uploaded before this closeout ran, so their
+		# retain-until date can never reach closeout_time+7y. Verify them
+		# against their own upload time instead: the lock must still be active
+		# now, and must extend to at least LastModified+7y (minus skew),
+		# which proves the 7-year retention was applied at upload time.
+		local mode retained remote_sha content_length last_modified
+		if ! jq -e 'type == "object"' <<<"$response" >/dev/null 2>&1; then
+			append_gate_error "$id artifact $uri returned invalid S3 metadata"
+			continue
+		fi
+		mode=$(jq -r '.ObjectLockMode // ""' <<<"$response")
+		retained=$(jq -r '.ObjectLockRetainUntilDate // ""' <<<"$response")
+		remote_sha=$(jq -r '.Metadata.sha256 // .metadata.sha256 // ""' <<<"$response")
+		content_length=$(jq -r '.ContentLength // 0' <<<"$response")
+		last_modified=$(jq -r '.LastModified // ""' <<<"$response")
+		if [[ "$mode" != COMPLIANCE ]]; then
+			append_gate_error "$id artifact $uri is not protected by COMPLIANCE Object Lock (mode: ${mode:-missing})"
+		fi
+		if [[ "$remote_sha" != "$sha" ]]; then
+			append_gate_error "$id artifact $uri SHA-256 metadata does not match the recorded digest"
+		fi
+		if [[ ! "$content_length" =~ ^[0-9]+$ || ! "$content_length" -gt 0 ]]; then
+			append_gate_error "$id artifact $uri is empty or has invalid ContentLength"
+		fi
+		local now_epoch='' retained_epoch='' last_modified_epoch='' minimum_epoch=''
+		now_epoch=$(date -u '+%s')
+		if [[ -z "$retained" || "$retained" == None || "$retained" == null ]] || ! retained_epoch=$(date -u -d "$retained" '+%s' 2>/dev/null); then
+			append_gate_error "$id artifact $uri Object Lock retention is missing or unparsable"
+		elif ((retained_epoch <= now_epoch)); then
+			append_gate_error "$id artifact $uri Object Lock retention has expired (retain-until: $retained)"
+		elif ! last_modified_epoch=$(date -u -d "$last_modified" '+%s' 2>/dev/null); then
+			append_gate_error "$id artifact $uri LastModified is missing or unparsable, cannot prove upload-time retention"
+		elif ! minimum_epoch=$(date -u -d "$last_modified + 7 years" '+%s' 2>/dev/null); then
+			append_gate_error "$id artifact $uri 7-year upload-time retention floor cannot be computed from LastModified $last_modified"
+		elif ((retained_epoch < minimum_epoch - retention_skew_seconds)); then
+			append_gate_error "$id artifact $uri Object Lock retention ($retained) is shorter than the 7-year retention required at upload time (LastModified: $last_modified)"
+		fi
 	done
 }
 

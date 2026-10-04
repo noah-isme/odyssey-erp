@@ -6,11 +6,13 @@
 production-certified; the matrix below remains the authority for promotion evidence.
 
 **v0.10.0-rc.8 boundary:** the annotated rc.8 tag identifies the candidate
-commit `cdaa910b2d529d7dd6b8e05f259f533a28e32dd4`. The rc.8 line diverges from
+commit `20cc13a0f028e3b09573944bb9f7a1f943461253`. The rc.8 line diverges from
 the superseded, never-certified rc.7 candidate at merge-base
-`04ebd8a040ff3c5da6f90c6f8d0eab5f4a9ba336` and carries a 15-commit
-stabilization chain (staging certification workflow and gates, enterprise UI
-hardening, story-driven seed data, lint/CI fixes, and CSRF/module-UI fixes);
+`04ebd8a040ff3c5da6f90c6f8d0eab5f4a9ba336` and carries the rc.8 stabilization
+chain (staging certification workflow and gates, enterprise UI hardening,
+story-driven seed data, lint/CI fixes, and CSRF/module-UI fixes) plus 33
+further rc-line commits (POS, theme, MRP, CSRF/template, banking, reporting,
+and route-profile fixes);
 it has no `ec65cc0` baseline ancestry. The candidate includes migrations through
 `000124_scoped_rbac_global_compatibility`.
 Commit `1a8343e4499420467ba3dda04a2683782c6c79d7`, migration

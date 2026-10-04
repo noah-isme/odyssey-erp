@@ -7,11 +7,14 @@
 `v0.9.1` is the latest named production release in the repository. It is primarily
 a UI/UX release dated 2026-05-28. `v0.10.0-rc.8` is the current release candidate
 for the post-v0.9.1 platform work; it is not production-certified. Its exact
-candidate commit is `cdaa910b2d529d7dd6b8e05f259f533a28e32dd4` with the
-`v0.10-core` profile and the `000124` migration ceiling. The rc.8 line diverges
+candidate commit is `20cc13a0f028e3b09573944bb9f7a1f943461253` with the
+`v0.10-core` profile and the `000124` migration ceiling (candidate identity
+reconciled to the annotated tag under the 2026-10-02 Option A ruling). The
+rc.8 line diverges
 from the superseded, never-certified rc.7 candidate at merge-base
-`04ebd8a040ff3c5da6f90c6f8d0eab5f4a9ba336` and carries a 15-commit stabilization
-chain; it does not preserve the `ec65cc0` application baseline.
+`04ebd8a040ff3c5da6f90c6f8d0eab5f4a9ba336` and carries the rc.8 stabilization
+chain plus 33 further rc-line commits; it does not preserve the `ec65cc0`
+application baseline.
 
 In other words:
 
@@ -39,7 +42,7 @@ notes define the packaged scope without claiming production certification.
 | v0.10.0-rc.5 | 2026-08-13 | Bounded route-contract and deployment-gate hardening | Tagged E2E route-contract checks, core route-manifest/RBAC seed alignment, and deployment gate hardening | Superseded immutable tag at `1d81938`; the post-tag staging supervision fix is carried by later candidates |
 | v0.10.0-rc.6 | 2026-08-14 | Post-tag staging supervision fix | Release-branch head `d8b02b8` adds the deployment supervision fix after immutable rc.5; it preserves the `ec65cc0` application baseline and `000124` migration ceiling | Superseded candidate; the descendant rc.7 candidate carries the release-hygiene correction |
 | v0.10.0-rc.7 | 2026-08-26 | Immutable release-hygiene correction | Exact release candidate `5ed11da` adds the portable hygiene scan while preserving the `ec65cc0` application baseline and `000124` migration ceiling | Superseded by v0.10.0-rc.8; never production-certified |
-| v0.10.0-rc.8 | 2026-09-01 | Divergent stabilization candidate | Exact release candidate `cdaa910` on a line diverging from rc.7 at merge-base `04ebd8a`: staging certification workflow registration, scoped certification gates, enterprise UI hardening, story-driven seed data, lint/CI fixes, migration ceiling sync to `000124`, and CSRF/module-UI fixes | Current candidate; not production-certified; staging, provider, and operational certification remain open |
+| v0.10.0-rc.8 | 2026-09-06 | Divergent stabilization candidate | Exact release candidate `20cc13a` (annotated tag, tag object `f54a238`) on a line diverging from rc.7 at merge-base `04ebd8a`: staging certification workflow registration, scoped certification gates, enterprise UI hardening, story-driven seed data, lint/CI fixes, migration ceiling sync to `000124`, CSRF/module-UI fixes, and 33 further rc-line commits (POS, theme, MRP, banking, reporting, route profile). Identity reconciled to the tag under the 2026-10-02 Option A ruling; the earlier documented `cdaa910` pointer was superseded when the tag was re-cut | Current candidate; not production-certified; staging, provider, and operational certification remain open |
 
 ## Detailed version reports
 
@@ -172,7 +175,8 @@ provider, security, and operational evidence are still pending in the [staging
 certification record](v0.10-core-staging-certification.md).
 
 This entry is retained only for release lineage; the active certification record
-and current candidate are v0.10.0-rc.8 at `cdaa910`.
+and current candidate are v0.10.0-rc.8 at `20cc13a` (reconciled to the
+annotated tag under the 2026-10-02 Option A ruling).
 
 ### v0.10.0-rc.7 — Immutable release-hygiene correction (superseded)
 
@@ -192,15 +196,17 @@ certification workflow registration, scoped certification gates, enterprise UI
 hardening, story-driven seed data, lint/CI fixes, migration ceiling sync, and
 CSRF/module-UI fixes — as the current immutable candidate.
 
-The candidate commit is `cdaa910b2d529d7dd6b8e05f259f533a28e32dd4` (annotated
-tag `v0.10.0-rc.8`, tag object `56ed72159dc05e139d0571b1d484e86d47b17540`,
-dated 2026-09-01). Its line diverges from the superseded rc.7 candidate at
-merge-base `04ebd8a040ff3c5da6f90c6f8d0eab5f4a9ba336` and carries a 15-commit
-stabilization chain; it does not preserve the `ec65cc0` application baseline.
+The candidate commit is `20cc13a0f028e3b09573944bb9f7a1f943461253` (annotated
+tag `v0.10.0-rc.8`, tag object `f54a238051a9ffc07a1d105189563bf5a50fad60`,
+dated 2026-09-06; reconciled under the 2026-10-02 Option A ruling). Its line
+diverges from the superseded rc.7 candidate at
+merge-base `04ebd8a040ff3c5da6f90c6f8d0eab5f4a9ba336` and carries the rc.8
+stabilization chain plus 33 further rc-line commits; it does not preserve the
+`ec65cc0` application baseline.
 It keeps the `v0.10-core` scope and the `000124_scoped_rbac_global_compatibility`
 migration ceiling, excludes the v0.11-finance commit `1a8343e` and migration
-`000125`, and has a green CI run ([33452408431](https://github.com/noah-isme/odyssey-erp/actions/runs/33452408431))
-and a successful tag-push staging deployment run ([33452416384](https://github.com/noah-isme/odyssey-erp/actions/runs/33452416384))
+`000125`, and has a green CI run ([34007099245](https://github.com/noah-isme/odyssey-erp/actions/runs/34007099245))
+and a successful tag-push staging deployment run ([34007099231](https://github.com/noah-isme/odyssey-erp/actions/runs/34007099231))
 on the candidate commit. Staging, provider, security, migration, and
 operational certification remain pending in the [staging certification record](v0.10-core-staging-certification.md).
 

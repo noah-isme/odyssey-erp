@@ -1,9 +1,10 @@
 # Production Release Checklist
 
-**State:** `v0.10.0-rc.8` candidate prepared from `cdaa910` on the divergent
+**State:** `v0.10.0-rc.8` candidate prepared from `20cc13a` on the divergent
 rc.8 release line (merge-base `04ebd8a` with the superseded rc.7 line, no
-`ec65cc0` baseline); production promotion and final tag approval are
-still pending.
+`ec65cc0` baseline; candidate identity reconciled to the annotated tag under
+the 2026-10-02 Option A ruling); production promotion and final tag approval
+are still pending.
 
 **Reviewed:** 2026-09-02
 
@@ -15,10 +16,10 @@ its `production-certified` evidence is recorded there.
 ## 1. Release identity and scope
 
 - [x] Freeze `v0.10.0-rc.8` from the immutable release-head commit
-      `cdaa910b2d529d7dd6b8e05f259f533a28e32dd4` after reviewing the exact
+      `20cc13a0f028e3b09573944bb9f7a1f943461253` after reviewing the exact
       release diff on the rc.8 line, which diverges from the superseded rc.7
       candidate at merge-base `04ebd8a040ff3c5da6f90c6f8d0eab5f4a9ba336`
-      through a 15-commit stabilization chain.
+      through the rc.8 stabilization chain and 33 further rc-line commits.
 - [x] Set the candidate migration ceiling to
       `000124_scoped_rbac_global_compatibility`; migration
       `000125_payment_settlement_results`, v0.11-finance routes, and commit
@@ -44,8 +45,8 @@ The [v0.10-core staging certification record](v0.10-core-staging-certification.m
 is the evidence hook for the bounded profile. The final gate remains intentionally
 blocked until its scope and evidence are certified by the release owner. The
 candidate tag and exact commit recorded in that evidence must refer to rc.8 and
-`cdaa910`; the candidate-lineage field must match the recorded merge-base
-`04ebd8a` and 15-commit stabilization chain.
+`20cc13a`; the candidate-lineage field must match the recorded merge-base
+`04ebd8a` and the rc.8 stabilization chain through the tag commit.
 
 ## 2. Repeatable repository gates
 
@@ -83,7 +84,7 @@ CERTIFIED_CANDIDATE_TAG=v0.10.0-rc.8 \
 RELEASE_VERSION=v0.10.0 \
 RELEASE_PROFILE=v0.10-core \
 CERTIFICATION_EVIDENCE_INDEX_FILE=/secure/evidence/evidence-index.json \
-CERTIFICATION_EVIDENCE_INDEX_URI=s3://immutable-evidence/v0.10.0-rc.8/cdaa910/<run>/<attempt>/evidence-index.json \
+CERTIFICATION_EVIDENCE_INDEX_URI=s3://immutable-evidence/v0.10.0-rc.8/20cc13a/<run>/<attempt>/evidence-index.json \
 EVIDENCE_S3_ENDPOINT=https://object-lock.example.invalid \
 EVIDENCE_S3_REGION=us-east-1 \
 EVIDENCE_S3_ACCESS_KEY_ID=<managed-secret> \
@@ -198,7 +199,7 @@ in scope.
 The current repository deliberately does not claim production release readiness:
 
 - `v0.10.0-rc.8` is a release candidate, not a production-certified final release;
-- the candidate is frozen at `cdaa910` on the divergent rc.8 line (merge-base
+- the candidate is frozen at `20cc13a` on the divergent rc.8 line (merge-base
   `04ebd8a` with the superseded rc.7 line, no `ec65cc0` baseline) and
   must stop at migration `000124`; the
   v0.11-finance commit `1a8343e` and migration `000125` are excluded;
