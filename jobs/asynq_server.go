@@ -53,10 +53,13 @@ type WorkerConfig struct {
 	Connectors     *connectors.Service
 }
 
+// WorkerConcurrency is the number of tasks a worker process runs at once.
+const WorkerConcurrency = 5
+
 // NewWorker constructs a Worker instance.
 func NewWorker(cfg WorkerConfig) (*Worker, error) {
 	srv := asynq.NewServer(cfg.RedisOpts, asynq.Config{
-		Concurrency:    5,
+		Concurrency:    WorkerConcurrency,
 		RetryDelayFunc: cfg.RetryDelayFunc,
 		Queues: map[string]int{
 			QueueDefault: 1,

@@ -102,6 +102,21 @@ func (q notificationEmailQueue) EnqueueEmail(ctx context.Context, email notifica
 	return err
 }
 
+const (
+	// workerDefaultPoolMaxConns is the worker pool size when PG_DSN does not
+	// set pool_max_conns.
+	workerDefaultPoolMaxConns int32 = 16
+	// workerPoolConnsPerTask budgets one connection held by a task (for
+	// example the AP processing lock) plus nested transactions.
+	workerPoolConnsPerTask = 3
+)
+
+// workerPoolUndersized reports whether the pool is below
+// workerPoolConnsPerTask connections per concurrent task.
+func workerPoolUndersized(maxConns int32, concurrency int) bool {
+	return int(maxConns) < workerPoolConnsPerTask*concurrency
+}
+
 func main() {
 	if app.InTestMode() {
 		slog.Default().Info("test mode detected, skipping worker startup")
@@ -120,12 +135,18 @@ func main() {
 	logger := app.NewLogger(cfg)
 	mailClient := shared.NewMailClient(shared.MailConfig{Host: cfg.SMTPHost, Port: cfg.SMTPPort, From: cfg.SMTPFrom, Username: cfg.SMTPUsername, Password: cfg.SMTPPassword})
 
-	pool, err := db.New(ctx, cfg.PGDSN)
+	pool, err := db.NewWithDefaults(ctx, cfg.PGDSN, workerDefaultPoolMaxConns)
 	if err != nil {
 		logger.Error("connect database", slog.Any("error", err))
 		os.Exit(1)
 	}
 	defer pool.Close()
+	if maxConns := pool.Config().MaxConns; workerPoolUndersized(maxConns, jobs.WorkerConcurrency) {
+		logger.Warn("worker database pool is smaller than 3 x task concurrency; set pool_max_conns in PG_DSN",
+			slog.Int("pool_max_conns", int(maxConns)),
+			slog.Int("concurrency", jobs.WorkerConcurrency),
+			slog.Int("recommended_min", workerPoolConnsPerTask*jobs.WorkerConcurrency))
+	}
 
 	redisClient, err := cache.New(ctx, cfg.RedisAddr)
 	if err != nil {
