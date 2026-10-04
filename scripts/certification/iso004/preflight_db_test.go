@@ -139,6 +139,16 @@ func TestDBFullPreflightPassesAndEnqueues(t *testing.T) {
 	assert.Equal(t, exitOK, code, stderr)
 	assert.Contains(t, stderr, "ISO-004 scenario results:")
 	assert.Contains(t, stderr, "timing, not path")
+	assert.Contains(t, stderr, "ISO-004 evidence: PASS")
+	_, evRec := readEvidenceRecord(t, out)
+	assert.Equal(t, "PASS", evRec["result"])
+	assert.Equal(t, "9000000001", evRec["run_id"])
+	assertSumsVerify(t, out)
+	if pw := passwordOf(dsn); pw != "" {
+		runRaw, err := os.ReadFile(filepath.Join(out, runFileName))
+		require.NoError(t, err)
+		assert.NotContains(t, string(runRaw), ":"+pw+"@", "run.json redacts the DSN")
+	}
 	for _, id := range []string{"S01-unregistered-type", "S03-object-not-found"} {
 		res, af := readResult(t, out, id)
 		assert.Equal(t, resultPass, res.Result, "%s: %v", id, res.Reasons)

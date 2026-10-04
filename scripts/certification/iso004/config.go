@@ -23,6 +23,11 @@ const (
 	defaultSMTPPort        = "1025"      // internal/app/config.go SMTP_PORT default
 	workerQueue            = "default"
 	taskIDRoot             = "iso004"
+	// defaultReviewer is the placeholder written into the evidence details
+	// when --reviewer is not given. The operator replaces it when appending
+	// the record to the candidate's staging-certification.log.
+	defaultReviewer = "REVIEWER_PENDING"
+	maxReviewerLen  = 128
 )
 
 var (
@@ -68,6 +73,7 @@ type Config struct {
 	MailAPI         string
 	AllowEmail      bool
 	DryRun          bool
+	Reviewer        string
 }
 
 // TaskIDPrefix is the prefix every TaskID of this run carries.
@@ -104,6 +110,7 @@ func parseRunConfig(args []string, getenv func(string) string, stderr io.Writer)
 	fs.StringVar(&cfg.MailAPI, "mail-api", "", "Mailpit/MailHog HTTP API base URL, e.g. http://127.0.0.1:8025 (required with --allow-email)")
 	fs.BoolVar(&cfg.AllowEmail, "allow-email", false, "enable email scenarios (still gated by the SMTP sink preflight)")
 	fs.BoolVar(&cfg.DryRun, "dry-run", false, "print the scenario/enqueue plan without contacting Redis or Postgres")
+	fs.StringVar(&cfg.Reviewer, "reviewer", defaultReviewer, "reviewer name written into the evidence details (\"reviewed by <reviewer>\"); default is a placeholder the operator replaces")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, fmt.Errorf("%w: %w", errUsage, err)
@@ -159,6 +166,9 @@ func (c *Config) validate() error {
 	if err := validateScenarioSelection(c.Scenarios); err != nil {
 		errs = append(errs, err)
 	}
+	if err := validateReviewer(c.Reviewer); err != nil {
+		errs = append(errs, err)
+	}
 	if !c.DryRun {
 		if c.RedisAddr == "" {
 			errs = append(errs, errors.New("--redis (or REDIS_ADDR) is required"))
@@ -173,6 +183,23 @@ func (c *Config) validate() error {
 func validateCandidateTag(tag string) error {
 	if !candidateTagRe.MatchString(tag) {
 		return fmt.Errorf("--candidate-tag %q must match %s", tag, candidateTagRe)
+	}
+	return nil
+}
+
+// validateReviewer keeps the reviewer printable and on one line so it can be
+// embedded in the single evidence record line.
+func validateReviewer(r string) error {
+	if strings.TrimSpace(r) == "" {
+		return errors.New("--reviewer must not be empty")
+	}
+	if len(r) > maxReviewerLen {
+		return fmt.Errorf("--reviewer is longer than %d bytes", maxReviewerLen)
+	}
+	for _, c := range r {
+		if c < 0x20 || c == 0x7f || c == ';' || c == '<' || c == '>' {
+			return fmt.Errorf("--reviewer %q must not contain control characters, ';', '<' or '>'", r)
+		}
 	}
 	return nil
 }
@@ -230,6 +257,7 @@ type redactedConfig struct {
 	MailAPI         string        `json:"mail_api"`
 	AllowEmail      bool          `json:"allow_email"`
 	DryRun          bool          `json:"dry_run"`
+	Reviewer        string        `json:"reviewer"`
 }
 
 func (c *Config) redacted() redactedConfig {
@@ -251,6 +279,7 @@ func (c *Config) redacted() redactedConfig {
 		MailAPI:         c.MailAPI,
 		AllowEmail:      c.AllowEmail,
 		DryRun:          c.DryRun,
+		Reviewer:        c.Reviewer,
 	}
 }
 

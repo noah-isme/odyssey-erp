@@ -22,6 +22,7 @@ import (
 	"sort"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -55,6 +56,10 @@ type RunContext struct {
 	OpenDB func(ctx context.Context, dsn string) (*pgxpool.Pool, error)
 	// HTTP is the client for the mail sink API.
 	HTTP *http.Client
+	// StartedUTC is when the run began (before preflight); run.json records it.
+	StartedUTC time.Time
+	// ReadFile reads RELEASE_IDENTITY for run.json (nil: os.ReadFile).
+	ReadFile func(string) ([]byte, error)
 }
 
 // runExecutor enqueues and observes the enabled scenarios. enqueue.go
@@ -112,6 +117,7 @@ func runWithDeps(ctx context.Context, args []string, stdout, stderr io.Writer, d
 		fmt.Fprintf(stderr, "iso004: %v\n", err)
 		return exitUsage
 	}
+	started := deps.Now().UTC()
 	p := runPreflight(ctx, cfg, deps)
 	path, err := writePreflight(cfg.OutDir, p)
 	if err != nil {
@@ -127,7 +133,7 @@ func runWithDeps(ctx context.Context, args []string, stdout, stderr io.Writer, d
 		fmt.Fprintf(stderr, "iso004: %s\n", noExecutorExplainer)
 		return exitNoExecutor
 	}
-	code, err := runExecutor(ctx, &RunContext{Cfg: cfg, Preflight: p, Stdout: stdout, Stderr: stderr, OpenDB: deps.OpenDB, HTTP: deps.Email.HTTP})
+	code, err := runExecutor(ctx, &RunContext{Cfg: cfg, Preflight: p, Stdout: stdout, Stderr: stderr, OpenDB: deps.OpenDB, HTTP: deps.Email.HTTP, StartedUTC: started, ReadFile: deps.ReadFile})
 	if err != nil {
 		fmt.Fprintf(stderr, "iso004: %v\n", err)
 		if code == exitOK {

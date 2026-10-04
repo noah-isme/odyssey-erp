@@ -739,14 +739,33 @@ func executeRun(ctx context.Context, rc *RunContext) (int, error) {
 		obs := observerFactory(rc, insp, pool)
 		ex.Wait, ex.SQL, ex.Eval = obs.Wait, obs.SQL, obs.Eval
 	}
-	records, code, err := ex.Run(ctx)
+	records, code, runErr := ex.Run(ctx)
 	if code == exitNotEvaluated {
 		fmt.Fprintln(rc.Stderr, "iso004: tasks enqueued and recorded under scenarios/<id>/enqueue.json; this build has no convergence poller or SQL observer, so no scenario was evaluated")
 	}
 	if ex.Eval != nil {
 		printResults(rc.Stderr, records, cfg.MaxRetry)
 	}
-	return code, err
+	return finishRun(ctx, rc, records, code, runErr, insp)
+}
+
+// finishRun writes the output bundle (report.go) after the executor and
+// returns the run's exit code: a FAIL record always exits non-zero. The
+// bundle is written even when the context was cancelled, so an interrupted
+// run still leaves a sealed FAIL record.
+func finishRun(ctx context.Context, rc *RunContext, records []*EnqueueRecord, code int, runErr error, archived ArchivedLister) (int, error) {
+	bctx := context.WithoutCancel(ctx)
+	started := rc.StartedUTC
+	if started.IsZero() && rc.Preflight != nil {
+		started = rc.Preflight.StartedUTC
+	}
+	result, code, err := writeBundle(bctx, &Bundle{
+		Cfg: rc.Cfg, Preflight: rc.Preflight, Records: records, ExitCode: code, RunErr: runErr,
+		StartedUTC: started, Archived: archived, ReadFile: rc.ReadFile,
+	})
+	fmt.Fprintf(rc.Stderr, "ISO-004 evidence: %s (%s, %s)\n", result,
+		filepath.Join(rc.Cfg.OutDir, evidenceRecordName), filepath.Join(rc.Cfg.OutDir, sha256SumsFileName))
+	return code, errors.Join(runErr, err)
 }
 
 // printResults prints one line per evaluated scenario.

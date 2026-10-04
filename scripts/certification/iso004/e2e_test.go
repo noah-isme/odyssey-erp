@@ -65,6 +65,9 @@ type e2eRun struct {
 	out     string
 	code    int
 	records []*EnqueueRecord
+	cfg     *Config
+	insp    *asynq.Inspector
+	fx      *Fixtures
 }
 
 func runE2E(t *testing.T, mr *miniredis.Miniredis, runID string, scenarios []string) e2eRun {
@@ -98,7 +101,7 @@ func runE2E(t *testing.T, mr *miniredis.Miniredis, runID string, scenarios []str
 	}
 	records, code, err := ex.Run(context.Background())
 	require.NoError(t, err)
-	return e2eRun{out: out, code: code, records: records}
+	return e2eRun{out: out, code: code, records: records, cfg: cfg, insp: insp, fx: fx}
 }
 
 func readResult(t *testing.T, out, id string) (ScenarioResult, AssertionsFile) {
