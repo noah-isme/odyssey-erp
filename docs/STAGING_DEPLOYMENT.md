@@ -10,10 +10,11 @@ The v0.10.0 staging certification profile is `v0.10-core`. Complete the
 for the exact candidate before changing any feature-matrix row to
 `production-certified=yes`.
 
-The current candidate is the immutable annotated tag `v0.10.0-rc.8`, resolving
-to `20cc13a0f028e3b09573944bb9f7a1f943461253` on the divergent rc.8 release
-line (merge-base `04ebd8a` with the superseded rc.7 line; no `ec65cc0`
-baseline). Do not move, recreate, or replace that tag while collecting evidence.
+The current candidate is the immutable annotated tag `v0.10.0-rc.9` (commit
+`<pending tag>`, recorded when the tag is cut). Its lineage is the
+superseded rc.8 tag `20cc13a` plus the rc.9 worker fix commits; it adds no
+migration and keeps the `000124` ceiling. Do not move, recreate, or replace that tag while
+collecting evidence.
 
 The final release gate checks that this record names the exact candidate tag and
 contains completed evidence. An untouched template, unchecked checklist item,
@@ -26,7 +27,7 @@ application port, database, and Redis instance.
 ## Deployment contract
 
 The workflow deploys automatically after a successful `CI` workflow for the
-`staging` branch. Pushing the annotated `v0.10.0-rc.8` tag also starts the
+`staging` branch. Pushing the annotated `v0.10.0-rc.9` tag also starts the
 release-candidate deployment, so the candidate can run even before this
 workflow reaches the repository's default branch. A manual dispatch using the
 same tag remains available once the workflow is on the default branch. Every
@@ -48,7 +49,7 @@ provenance claim without that verification output is not sufficient for
 `REL-003`.
 
 An automatic `workflow_run` deployment is refused when the checked-out commit
-exceeds migration `000124`; use the annotated rc.8 tag path for v0.10-core
+exceeds migration `000124`; use the annotated candidate tag path for v0.10-core
 certification instead of allowing the v0.11-finance line to drift into staging.
 
 Configure a GitHub environment named `staging` with these secrets:
@@ -136,6 +137,44 @@ production `PG_DSN`, `REDIS_ADDR`, session secrets, or connector credentials.
 release gates. Accepted values are `v0.10-core` and `full`; staging uses
 `v0.10-core` so only the five bounded v0.10.0 capabilities are exposed for
 certification. Do not use an unset or ad-hoc profile in a staging evidence run.
+
+### Worker database pool and PostgreSQL settings
+
+From rc.9 the worker opens its PostgreSQL pool with 16 connections unless
+`PG_DSN` carries pgx's `pool_max_conns` parameter
+(`PG_DSN=postgres://...?sslmode=require&pool_max_conns=N`), which is then
+honored unchanged. The worker runs 5 concurrent tasks and logs a startup warning
+when the effective pool is below 3 x that concurrency (15): AP invoice
+processing holds one connection for its advisory lock while nested
+transactions borrow more. The web process keeps pgx's default pool size
+(`max(4, NumCPU)`) unless its own DSN sets `pool_max_conns`.
+
+The default needs no configuration. Do not add `pool_max_conns` to the shared
+`/opt/odyssey-staging/.env`: the deployment's `migrate` step connects with the
+same `PG_DSN` through `lib/pq`, which forwards unknown parameters to the server
+as run-time settings, and PostgreSQL rejects `pool_max_conns`. To override the
+worker pool only, add a worker drop-in
+(`systemctl edit odyssey-staging-worker`) with a second
+`EnvironmentFile=/opt/odyssey-staging/worker.env` that sets the full `PG_DSN`
+including `pool_max_conns`; a later `EnvironmentFile` overrides the earlier one.
+
+Before deploying rc.9, record in the preflight:
+
+- `SHOW max_connections;` and the current connection count
+  (`SELECT count(*) FROM pg_stat_activity;`): the worker can now hold up to 16
+  connections (up to 12 more than before) in addition to the web pool,
+  `migrate`, and operator sessions; confirm the headroom.
+- `SHOW idle_in_transaction_session_timeout;`: it must be `0` (unset) or at
+  least `3min`. Payslip delivery holds the payslip row lock in an open
+  transaction while it renders and sends the email (bounded by a 10s SMTP dial
+  deadline, a 60s SMTP I/O deadline, and the 3-minute task timeout); a lower
+  timeout kills the session mid-send and the retry sends the payslip again.
+
+Payslip email delivery is at-least-once: `delivered_at` is committed only after
+the SMTP server accepts the message, so a crash or lost database connection
+between that acceptance and the commit re-sends the payslip on retry (recorded
+as `FIND-006` in the certification record). A concurrent duplicate task skips
+the locked row instead of sending.
 
 ## Systemd services
 

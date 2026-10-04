@@ -1,25 +1,23 @@
 # Odyssey ERP Version and Progress Report
 
-**Reviewed:** 2026-09-02
+**Reviewed:** 2026-10-04
 
 ## How to read the version numbers
 
 `v0.9.1` is the latest named production release in the repository. It is primarily
-a UI/UX release dated 2026-05-28. `v0.10.0-rc.8` is the current release candidate
-for the post-v0.9.1 platform work; it is not production-certified. Its exact
-candidate commit is `20cc13a0f028e3b09573944bb9f7a1f943461253` with the
-`v0.10-core` profile and the `000124` migration ceiling (candidate identity
-reconciled to the annotated tag under the 2026-10-02 Option A ruling). The
-rc.8 line diverges
-from the superseded, never-certified rc.7 candidate at merge-base
-`04ebd8a040ff3c5da6f90c6f8d0eab5f4a9ba336` and carries the rc.8 stabilization
-chain plus 33 further rc-line commits; it does not preserve the `ec65cc0`
-application baseline.
+a UI/UX release dated 2026-05-28. `v0.10.0-rc.9` is the current release candidate
+for the post-v0.9.1 platform work; it is not production-certified. It keeps the
+`v0.10-core` profile and the `000124` migration ceiling. Its exact candidate
+commit is recorded when the annotated tag is cut (`<pending tag>`). Lineage:
+the superseded rc.8 tag `20cc13a` plus the rc.9 fix commits (worker idempotency,
+attribution, and profile gating; see the rc.9 entry below). The historical rc.8
+identity record (merge-base and stabilization chain) stays in the superseded rc.8
+entry below and in the [candidate identity reconciliation](v0.10-candidate-identity-reconciliation.md).
 
 In other words:
 
 - **Latest named production release:** v0.9.1.
-- **Current release candidate:** v0.10.0-rc.8 (2026-09-01).
+- **Current release candidate:** v0.10.0-rc.9 (2026-10-04; tag pending).
 - **Latest documented implementation progress:** Phase 10–14 and P7 work, reviewed 2026-08-01.
 - **Next final release:** v0.10.0, pending production certification. The release
   gates are tracked in the [Production Release Checklist](production-release-checklist.md).
@@ -42,7 +40,8 @@ notes define the packaged scope without claiming production certification.
 | v0.10.0-rc.5 | 2026-08-13 | Bounded route-contract and deployment-gate hardening | Tagged E2E route-contract checks, core route-manifest/RBAC seed alignment, and deployment gate hardening | Superseded immutable tag at `1d81938`; the post-tag staging supervision fix is carried by later candidates |
 | v0.10.0-rc.6 | 2026-08-14 | Post-tag staging supervision fix | Release-branch head `d8b02b8` adds the deployment supervision fix after immutable rc.5; it preserves the `ec65cc0` application baseline and `000124` migration ceiling | Superseded candidate; the descendant rc.7 candidate carries the release-hygiene correction |
 | v0.10.0-rc.7 | 2026-08-26 | Immutable release-hygiene correction | Exact release candidate `5ed11da` adds the portable hygiene scan while preserving the `ec65cc0` application baseline and `000124` migration ceiling | Superseded by v0.10.0-rc.8; never production-certified |
-| v0.10.0-rc.8 | 2026-09-06 | Divergent stabilization candidate | Exact release candidate `20cc13a` (annotated tag, tag object `f54a238`) on a line diverging from rc.7 at merge-base `04ebd8a`: staging certification workflow registration, scoped certification gates, enterprise UI hardening, story-driven seed data, lint/CI fixes, migration ceiling sync to `000124`, CSRF/module-UI fixes, and 33 further rc-line commits (POS, theme, MRP, banking, reporting, route profile). Identity reconciled to the tag under the 2026-10-02 Option A ruling; the earlier documented `cdaa910` pointer was superseded when the tag was re-cut | Current candidate; not production-certified; staging, provider, and operational certification remain open |
+| v0.10.0-rc.8 | 2026-09-06 | Divergent stabilization candidate | Exact release candidate `20cc13a` (annotated tag, tag object `f54a238`) on a line diverging from rc.7 at merge-base `04ebd8a`: staging certification workflow registration, scoped certification gates, enterprise UI hardening, story-driven seed data, lint/CI fixes, migration ceiling sync to `000124`, CSRF/module-UI fixes, and 33 further rc-line commits (POS, theme, MRP, banking, reporting, route profile). Identity reconciled to the tag under the 2026-10-02 Option A ruling; the earlier documented `cdaa910` pointer was superseded when the tag was re-cut | Superseded by v0.10.0-rc.9 before staging certification evidence was collected; never production-certified |
+| v0.10.0-rc.9 | 2026-10-04 (tag pending) | Worker idempotency and attribution fixes | Superseded rc.8 tag plus fix commits: payslip delivery row lock (at-least-once) with mail dial/I-O deadlines, AP invoice processing actor binding and dedupe, connector outbox claim-before-execute, bounded retry and TaskID dedupe for variance and board-pack tasks, out-of-profile worker handlers not registered under `v0.10-core`, worker DB pool default 16 (`pool_max_conns` knob); no new migration (ceiling `000124`) | Current candidate; not production-certified; staging, provider, and operational certification remain open |
 
 ## Detailed version reports
 
@@ -175,8 +174,7 @@ provider, security, and operational evidence are still pending in the [staging
 certification record](v0.10-core-staging-certification.md).
 
 This entry is retained only for release lineage; the active certification record
-and current candidate are v0.10.0-rc.8 at `20cc13a` (reconciled to the
-annotated tag under the 2026-10-02 Option A ruling).
+and current candidate are v0.10.0-rc.9 (see the rc.9 entry below).
 
 ### v0.10.0-rc.7 — Immutable release-hygiene correction (superseded)
 
@@ -187,9 +185,9 @@ The candidate commit is `5ed11da8aea342708be67284ea7a71224f90ccdc`. It preserved
 the reviewed application baseline `ec65cc08639c184030c63e3407791987eee92804`,
 the `v0.10-core` scope, and the `000124_scoped_rbac_global_compatibility`
 migration ceiling. It was superseded before any staging certification evidence
-was collected; the rc.8 candidate is the active line.
+was collected; the rc.8 candidate (itself superseded by rc.9) replaced it.
 
-### v0.10.0-rc.8 — Divergent stabilization candidate
+### v0.10.0-rc.8 — Divergent stabilization candidate (superseded)
 
 **Primary purpose:** carry the v0.10-core release hardening — the staging
 certification workflow registration, scoped certification gates, enterprise UI
@@ -210,7 +208,60 @@ and a successful tag-push staging deployment run ([34007099231](https://github.c
 on the candidate commit. Staging, provider, security, migration, and
 operational certification remain pending in the [staging certification record](v0.10-core-staging-certification.md).
 
-## Follow-up work after v0.10.0-rc.8
+It was superseded by v0.10.0-rc.9 before any staging certification evidence was
+collected, after the ISO-004 worker review found duplicate-effect and
+forged-actor paths in in-profile worker handlers.
+
+### v0.10.0-rc.9 — Worker idempotency and attribution fixes
+
+**Primary purpose:** ensure that every ISO-004 target worker handler reachable under
+the `v0.10-core` profile rejects forged input and produces no duplicate effect on
+redelivery, using only existing columns, row/advisory locks, and asynq TaskIDs.
+
+The candidate is the superseded rc.8 tag commit plus the rc.9 fix commits; the exact tagged
+commit is recorded at tag time (`<pending tag>`). It keeps the `v0.10-core`
+scope and the `000124_scoped_rbac_global_compatibility` migration ceiling and
+adds no migration. Fixes:
+
+- **Payslip delivery** (`76b4afa`): `DeliverPayslipOnce` locks the undelivered
+  payslip row (`FOR UPDATE ... SKIP LOCKED`) and writes `delivered_at` in the
+  same transaction only after the SMTP send succeeds, so a concurrent duplicate
+  skips and a failed send retries. Delivery is at-least-once: a crash after the
+  SMTP server accepted the message and before COMMIT re-sends on retry. The mail
+  client now has a 10s dial and 60s I/O deadline, and `payroll:payslip_email`
+  tasks a 3-minute timeout. PostgreSQL `idle_in_transaction_session_timeout`
+  must be unset or at least 3 minutes (staging preflight item).
+- **AP invoice processing** (`04af2a6`): the actor is bound to
+  `ap_invoices.created_by` and a contradicting payload actor is rejected and
+  archived without retry; a non-blocking, namespaced advisory lock and
+  per-(invoice, run, type) existence checks prevent duplicate matching runs and
+  exceptions; the producer sets a stable TaskID. `posted_by` on the legitimate
+  path is the invoice creator, as before. `ap_matching_runs.run_by` is not
+  persisted by `RunMatch` (unchanged; it was not persisted before this
+  candidate either).
+- **Connector outbox** (`c404c3a`): each command is claimed (CAS that bumps
+  `attempts` and leases it for 10 minutes) before the adapter runs; exhausted
+  commands dead-letter. External execution remains at-least-once.
+- **Bounded convergence** (`89abffe`): variance snapshot and board-pack tasks
+  use `MaxRetry(5)` and TaskID dedupe; a not-found snapshot archives without
+  retry.
+- **Profile-gated worker handlers** (`003ac71`): `bankfeeds:sync`,
+  `bankfeeds:event`, `cashforecast:refresh`, and `analytics:bi_export` are not
+  registered under `v0.10-core`; injected tasks archive as "handler not found".
+- **Worker DB pool** (`c307a35`): the worker pool defaults to 16 connections
+  unless `PG_DSN` carries `pool_max_conns=N`, and the worker logs a startup
+  warning when the pool is below 3 x its concurrency (5). Confirm PostgreSQL
+  `max_connections` headroom before deploying.
+
+Deferred findings (not fixed in rc.9; `FIND-001`–`FIND-008` in the [staging
+certification record](v0.10-core-staging-certification.md#findings)): CRM
+reminder select-to-mark race, overdue-invoice scan hardcoded recipient without
+a sent marker, `mail:send`/`email:deliver` recipient trust, `analytics:bi_export`
+company trust outside `v0.10-core`, connector outbox and payslip at-least-once
+windows, CMMS PM generator overlap without a duplicate guard, and
+`finance:automation_dispatch` registered on every profile.
+
+## Follow-up work after v0.10.0-rc.9
 
 This work is documented in the current [roadmap](../ROADMAP.md) and [module catalog](../reference/module-catalog.md); the candidate packages the current scope, while final promotion remains pending.
 
@@ -242,7 +293,7 @@ This work is documented in the current [roadmap](../ROADMAP.md) and [module cata
 
 ### Remaining release work
 
-- Promote `v0.10.0` only after the rc.8 candidate passes staging, provider, security,
+- Promote `v0.10.0` only after the rc.9 candidate passes staging, provider, security,
   migration, and operational certification gates.
 - Complete staging/production acceptance for FX and Horizon features.
 - Complete external Coretax validation.

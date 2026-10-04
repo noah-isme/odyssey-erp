@@ -1,12 +1,11 @@
 # Production Release Checklist
 
-**State:** `v0.10.0-rc.8` candidate prepared from `20cc13a` on the divergent
-rc.8 release line (merge-base `04ebd8a` with the superseded rc.7 line, no
-`ec65cc0` baseline; candidate identity reconciled to the annotated tag under
-the 2026-10-02 Option A ruling); production promotion and final tag approval
-are still pending.
+**State:** `v0.10.0-rc.9` candidate prepared on `release/v0.10.0-rc.9` from the
+superseded rc.8 tag `20cc13a` plus the rc.9 worker fix commits (no `ec65cc0`
+baseline, no migration above `000124`); the candidate tag (`<pending tag>`),
+production promotion, and final tag approval are still pending.
 
-**Reviewed:** 2026-09-02
+**Reviewed:** 2026-10-04
 
 This is the final-release runbook for Odyssey ERP. It does not turn local tests
 into production certification. The [authoritative feature matrix](../reference/feature-matrix.md)
@@ -15,11 +14,11 @@ its `production-certified` evidence is recorded there.
 
 ## 1. Release identity and scope
 
-- [x] Freeze `v0.10.0-rc.8` from the immutable release-head commit
-      `20cc13a0f028e3b09573944bb9f7a1f943461253` after reviewing the exact
-      release diff on the rc.8 line, which diverges from the superseded rc.7
-      candidate at merge-base `04ebd8a040ff3c5da6f90c6f8d0eab5f4a9ba336`
-      through the rc.8 stabilization chain and 33 further rc-line commits.
+- [ ] Freeze `v0.10.0-rc.9` from the immutable release-head commit
+      `<pending tag>` after reviewing the exact release diff against the
+      superseded rc.8 tag `20cc13a` (the rc.9 worker fix commits and the
+      certification docs/scripts commits only; the historical rc.8 lineage is
+      in the [candidate identity reconciliation](v0.10-candidate-identity-reconciliation.md)).
 - [x] Set the candidate migration ceiling to
       `000124_scoped_rbac_global_compatibility`; migration
       `000125_payment_settlement_results`, v0.11-finance routes, and commit
@@ -40,13 +39,13 @@ its `production-certified` evidence is recorded there.
 - [ ] Record the commit, image digest, migration range, and rollback target in
       the release notes.
 
-The `v0.10.0-rc.8` candidate is a packaging checkpoint, not a production approval.
+The `v0.10.0-rc.9` candidate is a packaging checkpoint, not a production approval.
 The [v0.10-core staging certification record](v0.10-core-staging-certification.md)
 is the evidence hook for the bounded profile. The final gate remains intentionally
 blocked until its scope and evidence are certified by the release owner. The
-candidate tag and exact commit recorded in that evidence must refer to rc.8 and
-`20cc13a`; the candidate-lineage field must match the recorded merge-base
-`04ebd8a` and the rc.8 stabilization chain through the tag commit.
+candidate tag and exact commit recorded in that evidence must refer to rc.9 and
+its tagged commit (`<pending tag>`); the candidate-lineage field must match
+the recorded lineage: the superseded rc.8 tag `20cc13a` plus the rc.9 fix commits.
 
 ## 2. Repeatable repository gates
 
@@ -80,11 +79,11 @@ and advertised route placeholder responses.
 Before release, run the final gate from a clean, tagged checkout:
 
 ```bash
-CERTIFIED_CANDIDATE_TAG=v0.10.0-rc.8 \
+CERTIFIED_CANDIDATE_TAG=v0.10.0-rc.9 \
 RELEASE_VERSION=v0.10.0 \
 RELEASE_PROFILE=v0.10-core \
 CERTIFICATION_EVIDENCE_INDEX_FILE=/secure/evidence/evidence-index.json \
-CERTIFICATION_EVIDENCE_INDEX_URI=s3://immutable-evidence/v0.10.0-rc.8/20cc13a/<run>/<attempt>/evidence-index.json \
+CERTIFICATION_EVIDENCE_INDEX_URI=s3://immutable-evidence/v0.10.0-rc.9/<short-sha>/<run>/<attempt>/evidence-index.json \
 EVIDENCE_S3_ENDPOINT=https://object-lock.example.invalid \
 EVIDENCE_S3_REGION=us-east-1 \
 EVIDENCE_S3_ACCESS_KEY_ID=<managed-secret> \
@@ -157,7 +156,7 @@ listed below.
 - [ ] Verify Gotenberg availability and the `production pdf` build artifact if PDF
       routes are in scope.
 
-For rc.8, Coretax authority acceptance, payroll/legal review, and connector checks
+For rc.9, Coretax authority acceptance, payroll/legal review, and connector checks
 that belong only to the v0.11-finance profile may be recorded as profile-scoped
 `N/A` only when the route manifest and runtime configuration prove that they are
 neither exposed nor required by the five v0.10-core journeys. Record the evidence
@@ -198,9 +197,9 @@ in scope.
 
 The current repository deliberately does not claim production release readiness:
 
-- `v0.10.0-rc.8` is a release candidate, not a production-certified final release;
-- the candidate is frozen at `20cc13a` on the divergent rc.8 line (merge-base
-  `04ebd8a` with the superseded rc.7 line, no `ec65cc0` baseline) and
+- `v0.10.0-rc.9` is a release candidate, not a production-certified final release;
+- the candidate is the superseded rc.8 tag `20cc13a` plus the rc.9 worker fix
+  commits (tag `<pending tag>`; no `ec65cc0` baseline) and
   must stop at migration `000124`; the
   v0.11-finance commit `1a8343e` and migration `000125` are excluded;
 - the feature matrix records `production-certified=no` for the current capability
@@ -210,7 +209,10 @@ The current repository deliberately does not claim production release readiness:
 - the self-managed VPS deployment still requires completed backup/restore,
   TLS, monitoring, smoke, and rollback evidence;
 - final staging, provider, security, migration, and operational evidence is still
-  required before promoting the candidate to `v0.10.0`.
+  required before promoting the candidate to `v0.10.0`;
+- the deferred worker findings `FIND-001`–`FIND-008` in the
+  [staging certification record](v0.10-core-staging-certification.md#findings)
+  need an owner, due date, and release-owner acceptance before promotion.
 
 These are release controls, not suggestions to bypass. Complete the evidence,
 then update the matrix and release notes together.

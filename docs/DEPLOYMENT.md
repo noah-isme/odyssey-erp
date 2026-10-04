@@ -7,9 +7,10 @@
 
 For the bounded v0.10.0 release, use the [v0.10-core staging certification
 record](releases/v0.10-core-staging-certification.md) before promotion. The
-current candidate is the immutable annotated tag `v0.10.0-rc.8`, resolving to
-`20cc13a0f028e3b09573944bb9f7a1f943461253` on the divergent rc.8 release line
-(merge-base `04ebd8a` with the superseded rc.7 line; no `ec65cc0` baseline).
+current candidate is the immutable annotated tag `v0.10.0-rc.9` (commit
+`<pending tag>`, recorded when the tag is cut); its lineage is the
+superseded rc.8 tag `20cc13a` plus the rc.9 worker fix commits, with no
+migration above `000124`.
 Production promotion requires the explicit
 `RELEASE_PROFILE=v0.10-core` contract unless a separately approved `full`
 profile has certified every matrix row.
@@ -113,6 +114,37 @@ CSRF_TOKEN_LENGTH=32
 RATE_LIMIT_REQUESTS=100
 RATE_LIMIT_WINDOW=1m
 ```
+
+### Worker Database Pool and PostgreSQL Settings
+
+The worker opens its PostgreSQL pool with 16 connections unless `PG_DSN`
+carries pgx's `pool_max_conns` parameter
+(`PG_DSN=postgres://...?sslmode=require&pool_max_conns=N`), which is then
+honored unchanged. The worker runs 5 concurrent tasks and logs a startup warning
+when the effective pool is below 3 x that concurrency (15). The web process
+keeps pgx's default pool size (`max(4, NumCPU)`) unless its DSN sets
+`pool_max_conns`.
+
+Leave `pool_max_conns` out of any `PG_DSN` that is also used for migrations:
+`migrate` connects through `lib/pq`, which forwards unknown parameters to the
+server, and PostgreSQL rejects `pool_max_conns` as an unrecognized setting.
+Override the worker pool only through a worker-specific environment file (for
+example a systemd drop-in that adds a second `EnvironmentFile=` after the
+shared one).
+
+Before deploying, confirm:
+
+- `max_connections` headroom: the worker can hold up to 16 connections in
+  addition to the web pool, migrations, and operator sessions.
+- `SHOW idle_in_transaction_session_timeout;` is `0` (unset) or at least
+  `3min`. Payslip delivery keeps an open transaction holding the payslip row
+  lock while it renders and sends the email (10s SMTP dial deadline, 60s SMTP
+  I/O deadline, 3-minute task timeout); a lower timeout kills the session
+  mid-send and the retry re-sends the payslip.
+
+Payslip email delivery is at-least-once: `delivered_at` is committed only after
+the SMTP server accepts the message, so a crash or lost database connection
+between that acceptance and the commit re-sends the payslip on retry.
 
 ### Configuration File
 

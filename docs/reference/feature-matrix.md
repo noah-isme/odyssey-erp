@@ -1,22 +1,25 @@
 # Authoritative Feature Matrix
 
-**Reviewed:** 2026-09-02
+**Reviewed:** 2026-10-04
 
-**Current release candidate:** `v0.10.0-rc.8`. This candidate is not
+**Current release candidate:** `v0.10.0-rc.9`. This candidate is not
 production-certified; the matrix below remains the authority for promotion evidence.
 
-**v0.10.0-rc.8 boundary:** the annotated rc.8 tag identifies the candidate
-commit `20cc13a0f028e3b09573944bb9f7a1f943461253`. The rc.8 line diverges from
-the superseded, never-certified rc.7 candidate at merge-base
-`04ebd8a040ff3c5da6f90c6f8d0eab5f4a9ba336` and carries the rc.8 stabilization
-chain (staging certification workflow and gates, enterprise UI hardening,
-story-driven seed data, lint/CI fixes, and CSRF/module-UI fixes) plus 33
-further rc-line commits (POS, theme, MRP, CSRF/template, banking, reporting,
-and route-profile fixes);
-it has no `ec65cc0` baseline ancestry. The candidate includes migrations through
-`000124_scoped_rbac_global_compatibility`.
+**v0.10.0-rc.9 boundary:** the annotated rc.9 tag identifies the candidate
+commit (`<pending tag>`, recorded when the tag is cut). The rc.9 line is the
+superseded rc.8 tag `20cc13a` plus the rc.9 worker fix commits (payslip
+delivery row lock and mail deadlines, AP invoice actor binding and dedupe,
+worker pool sizing, connector outbox claim-before-execute, bounded retry for
+variance and board-pack tasks, and release-profile gating of worker handlers);
+the historical rc.8 lineage is recorded in the
+[candidate identity reconciliation](../releases/v0.10-candidate-identity-reconciliation.md).
+It has no `ec65cc0` baseline ancestry and adds no migration: the candidate
+includes migrations through `000124_scoped_rbac_global_compatibility`.
 Commit `1a8343e4499420467ba3dda04a2683782c6c79d7`, migration
-`000125_payment_settlement_results`, and v0.11-only routes are excluded.
+`000125_payment_settlement_results`, and v0.11-only routes are excluded. Under
+`RELEASE_PROFILE=v0.10-core` the worker does not register the v0.11-only
+`bankfeeds:sync`, `bankfeeds:event`, and `cashforecast:refresh` handlers or
+`analytics:bi_export`.
 
 **Release profiles:** `v0.10-core` is the bounded v0.10.0 production profile and
 claims only rows marked `yes` in the **v0.10.0 scope** column. `full` is reserved
@@ -89,7 +92,7 @@ same rule to every row. Rows outside the selected profile are not release claims
 must remain unavailable to that profile's production route set. In particular, the
 Phase 14/P7 evidence guide records local verification; it does not certify staging or
 production. The VPS deployment target satisfies the infrastructure selection only; it
-does not certify incomplete feature workflows. For rc.8, selecting
+does not certify incomplete feature workflows. For rc.9, selecting
 `RELEASE_PROFILE=v0.10-core` must not expose v0.11-only routes or apply migration
 `000125`.
 
