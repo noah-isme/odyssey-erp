@@ -210,9 +210,10 @@ The current repository deliberately does not claim production release readiness:
   TLS, monitoring, smoke, and rollback evidence;
 - final staging, provider, security, migration, and operational evidence is still
   required before promoting the candidate to `v0.10.0`;
-- the deferred worker findings `FIND-001`–`FIND-008` in the
+- the deferred worker findings `FIND-001`–`FIND-007` in the
   [staging certification record](v0.10-core-staging-certification.md#findings)
-  need an owner, due date, and release-owner acceptance before promotion.
+  need an owner, due date, and release-owner acceptance before promotion
+  (`FIND-008` is resolved in rc.9).
 
 These are release controls, not suggestions to bypass. Complete the evidence,
 then update the matrix and release notes together.

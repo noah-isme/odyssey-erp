@@ -22,8 +22,8 @@
 > commits: payslip delivery row lock and mail deadlines, AP invoice actor
 > binding and dedupe, worker pool sizing, connector outbox claim-before-execute,
 > bounded retry for variance and board-pack tasks, and release-profile gating
-> of worker handlers. Deferred worker findings are recorded as `FIND-001`–`FIND-008`
-> in the [staging certification record](releases/v0.10-core-staging-certification.md).
+> of worker handlers. Deferred worker findings are recorded as `FIND-001`–`FIND-007`
+> (and `FIND-008`, resolved in rc.9) in the [staging certification record](releases/v0.10-core-staging-certification.md).
 > Staging certification and production promotion remain open. The remaining
 > blockers are certification preflight — which lacks the staging identities,
 > fixture variables, and immutable evidence store configuration — and the

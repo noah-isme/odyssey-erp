@@ -18,7 +18,8 @@ includes migrations through `000124_scoped_rbac_global_compatibility`.
 Commit `1a8343e4499420467ba3dda04a2683782c6c79d7`, migration
 `000125_payment_settlement_results`, and v0.11-only routes are excluded. Under
 `RELEASE_PROFILE=v0.10-core` the worker does not register the v0.11-only
-`bankfeeds:sync`, `bankfeeds:event`, and `cashforecast:refresh` handlers or
+`bankfeeds:sync`, `bankfeeds:event`, `cashforecast:refresh`, and
+`finance:automation_dispatch` handlers (nor the latter's schedule) or
 `analytics:bi_export`.
 
 **Release profiles:** `v0.10-core` is the bounded v0.10.0 production profile and

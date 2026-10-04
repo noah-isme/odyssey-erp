@@ -3,6 +3,7 @@ package main
 import (
 	"testing"
 
+	"github.com/hibiken/asynq"
 	"github.com/stretchr/testify/require"
 
 	"github.com/odyssey-erp/odyssey-erp/internal/app"
@@ -66,10 +67,12 @@ func TestWorkerHandlersForProfile(t *testing.T) {
 		{Type: jobs.TypeBankFeedsSync},
 		{Type: jobs.TypeBankFeedsEvent},
 		{Type: jobs.TypeCashForecastRefresh},
+		{Type: jobs.TaskFinanceAutomationDispatch},
 		{Type: jobs.TaskConnectorOutboxSweep},
 	}
 	inProfile := []string{jobs.TaskProcessAPInvoice, jobs.TaskBoardPackGenerate, jobs.TaskConnectorOutboxSweep}
-	full := append(append([]string(nil), inProfile...), jobs.TypeBankFeedsSync, jobs.TypeBankFeedsEvent, jobs.TypeCashForecastRefresh)
+	full := append(append([]string(nil), inProfile...),
+		jobs.TypeBankFeedsSync, jobs.TypeBankFeedsEvent, jobs.TypeCashForecastRefresh, jobs.TaskFinanceAutomationDispatch)
 
 	tests := []struct {
 		profile  app.ReleaseProfile
@@ -89,5 +92,61 @@ func TestWorkerHandlersForProfile(t *testing.T) {
 			require.ElementsMatch(t, tc.want, got)
 			require.Equal(t, tc.biExport, registerBIExportForProfile(tc.profile))
 		})
+	}
+}
+
+func TestWorkerCronForProfile(t *testing.T) {
+	cron := func(spec, taskType string) jobs.CronRegistration {
+		return jobs.CronRegistration{Spec: spec, Task: asynq.NewTask(taskType, nil)}
+	}
+	all := []jobs.CronRegistration{
+		cron("* * * * *", jobs.TaskConnectorOutboxSweep),
+		cron("* * * * *", jobs.TaskFinanceAutomationDispatch),
+		cron("*/5 * * * *", jobs.TaskPayrollPayslipDispatch),
+		{Spec: "0 * * * *"}, // nil task is passed through for NewWorker to skip
+	}
+	scheduled := func(profile app.ReleaseProfile) []string {
+		var got []string
+		for _, c := range workerCronForProfile(profile, all) {
+			if c.Task == nil {
+				got = append(got, "<nil task>")
+				continue
+			}
+			got = append(got, c.Task.Type())
+		}
+		return got
+	}
+
+	inProfile := []string{jobs.TaskConnectorOutboxSweep, jobs.TaskPayrollPayslipDispatch, "<nil task>"}
+	full := []string{jobs.TaskConnectorOutboxSweep, jobs.TaskFinanceAutomationDispatch, jobs.TaskPayrollPayslipDispatch, "<nil task>"}
+
+	tests := []struct {
+		profile app.ReleaseProfile
+		want    []string
+	}{
+		{app.ReleaseProfileV010Core, inProfile},
+		{app.ReleaseProfileV011Finance, full},
+		{app.ReleaseProfileFull, full},
+	}
+	for _, tc := range tests {
+		t.Run(string(tc.profile), func(t *testing.T) {
+			require.Equal(t, tc.want, scheduled(tc.profile))
+		})
+	}
+}
+
+func TestTaskTypeEnabledForProfile(t *testing.T) {
+	gated := []string{jobs.TypeBankFeedsSync, jobs.TypeBankFeedsEvent, jobs.TypeCashForecastRefresh, jobs.TaskFinanceAutomationDispatch}
+	always := []string{jobs.TaskProcessAPInvoice, jobs.TaskConnectorOutboxSweep, jobs.TaskTaxCaptureDispatch}
+
+	for _, taskType := range gated {
+		require.False(t, taskTypeEnabledForProfile(app.ReleaseProfileV010Core, taskType), taskType)
+		require.True(t, taskTypeEnabledForProfile(app.ReleaseProfileV011Finance, taskType), taskType)
+		require.True(t, taskTypeEnabledForProfile(app.ReleaseProfileFull, taskType), taskType)
+	}
+	for _, taskType := range always {
+		for _, profile := range []app.ReleaseProfile{app.ReleaseProfileV010Core, app.ReleaseProfileV011Finance, app.ReleaseProfileFull} {
+			require.True(t, taskTypeEnabledForProfile(profile, taskType), "%s under %s", taskType, profile)
+		}
 	}
 }

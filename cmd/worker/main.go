@@ -117,30 +117,53 @@ func workerPoolUndersized(maxConns int32, concurrency int) bool {
 	return int(maxConns) < workerPoolConnsPerTask*concurrency
 }
 
-// coreExcludedTaskTypes are handlers with no v0.10-core producer: their
-// routes are v0.11-finance only (bankfeeds, cashforecast) or no app code
-// enqueues them (analytics:bi_export). They are not registered under
+// coreExcludedTaskTypes are task types with no v0.10-core producer: their
+// routes are v0.11-finance only (bankfeeds, cashforecast, treasury), or no
+// application code enqueues them at all (finance:automation_dispatch drains
+// finance_automation_outbox, which only the v0.11 automation surfaces would
+// fill; analytics:bi_export). They are neither registered nor scheduled under
 // v0.10-core, so an injected task converges as "handler not found" and is
 // archived after its retries.
 var coreExcludedTaskTypes = map[string]struct{}{
-	jobs.TypeBankFeedsSync:       {},
-	jobs.TypeBankFeedsEvent:      {},
-	jobs.TypeCashForecastRefresh: {},
+	jobs.TypeBankFeedsSync:             {},
+	jobs.TypeBankFeedsEvent:            {},
+	jobs.TypeCashForecastRefresh:       {},
+	jobs.TaskFinanceAutomationDispatch: {},
+}
+
+// taskTypeEnabledForProfile reports whether a task type is registered and
+// scheduled under the release profile. Every profile except v0.10-core keeps
+// the full set.
+func taskTypeEnabledForProfile(profile app.ReleaseProfile, taskType string) bool {
+	if profile != app.ReleaseProfileV010Core {
+		return true
+	}
+	_, excluded := coreExcludedTaskTypes[taskType]
+	return !excluded
 }
 
 // workerHandlersForProfile filters the full handler set down to the handlers
-// registered for the release profile. Every profile except v0.10-core keeps
-// the full set.
+// registered for the release profile.
 func workerHandlersForProfile(profile app.ReleaseProfile, all []jobs.TaskHandler) []jobs.TaskHandler {
-	if profile != app.ReleaseProfileV010Core {
-		return all
-	}
 	out := make([]jobs.TaskHandler, 0, len(all))
 	for _, h := range all {
-		if _, excluded := coreExcludedTaskTypes[h.Type]; excluded {
+		if taskTypeEnabledForProfile(profile, h.Type) {
+			out = append(out, h)
+		}
+	}
+	return out
+}
+
+// workerCronForProfile drops periodic schedules whose task type is not
+// registered under the release profile. A schedule without a handler would
+// enqueue a task every period that can only fail with "handler not found".
+func workerCronForProfile(profile app.ReleaseProfile, all []jobs.CronRegistration) []jobs.CronRegistration {
+	out := make([]jobs.CronRegistration, 0, len(all))
+	for _, c := range all {
+		if c.Task != nil && !taskTypeEnabledForProfile(profile, c.Task.Type()) {
 			continue
 		}
-		out = append(out, h)
+		out = append(out, c)
 	}
 	return out
 }
@@ -413,7 +436,7 @@ func main() {
 		FXLogger:         logger,
 		Analytics:        analyticsService,
 		Connectors:       connectorsService,
-		Cron: []jobs.CronRegistration{
+		Cron: workerCronForProfile(profile, []jobs.CronRegistration{
 			{Spec: "15 1 * * *", Task: warmupTask, Options: []asynq.Option{asynq.MaxRetry(3)}},
 			{Spec: "30 1 * * *", Task: anomalyTask, Options: []asynq.Option{asynq.MaxRetry(3)}},
 			{Spec: "0 2 * * *", Task: consolidateTask, Options: []asynq.Option{asynq.MaxRetry(3)}},
@@ -432,7 +455,7 @@ func main() {
 			{Spec: "5 0 * * *", Task: func() *asynq.Task { task, _ := jobs.NewFXDailyRatesTask(time.Time{}, false); return task }(), Options: []asynq.Option{asynq.MaxRetry(5)}},
 			{Spec: "0 1 * * *", Task: asynq.NewTask(jobs.TaskDocumentDisposition, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
 			{Spec: "* * * * *", Task: asynq.NewTask(jobs.TaskConnectorOutboxSweep, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
-		},
+		}),
 	})
 	if err != nil {
 		logger.Error("init worker", slog.Any("error", err))
