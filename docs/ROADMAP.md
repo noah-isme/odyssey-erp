@@ -16,8 +16,8 @@
 **Current Version:** v0.9.1
 
 > **Active release handoff (2026-10-04):** The bounded `v0.10-core` release
-> candidate is the annotated `v0.10.0-rc.9` tag (commit `<pending tag>`,
-> recorded when the tag is cut), with migrations ending at `000124`. Its
+> candidate is the annotated `v0.10.0-rc.9` tag (commit `07d2ba2`,
+> recorded when the tag was cut), with migrations ending at `000124`. Its
 > lineage is the superseded rc.8 tag `20cc13a` plus the rc.9 worker fix
 > commits: payslip delivery row lock and mail deadlines, AP invoice actor
 > binding and dedupe, worker pool sizing, connector outbox claim-before-execute,

@@ -8,7 +8,7 @@
 For the bounded v0.10.0 release, use the [v0.10-core staging certification
 record](releases/v0.10-core-staging-certification.md) before promotion. The
 current candidate is the immutable annotated tag `v0.10.0-rc.9` (commit
-`<pending tag>`, recorded when the tag is cut); its lineage is the
+`07d2ba2`, recorded when the tag was cut); its lineage is the
 superseded rc.8 tag `20cc13a` plus the rc.9 worker fix commits, with no
 migration above `000124`.
 Production promotion requires the explicit

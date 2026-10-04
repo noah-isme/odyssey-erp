@@ -11,7 +11,7 @@ for the exact candidate before changing any feature-matrix row to
 `production-certified=yes`.
 
 The current candidate is the immutable annotated tag `v0.10.0-rc.9` (commit
-`<pending tag>`, recorded when the tag is cut). Its lineage is the
+`07d2ba2`, recorded when the tag was cut). Its lineage is the
 superseded rc.8 tag `20cc13a` plus the rc.9 worker fix commits; it adds no
 migration and keeps the `000124` ceiling. Do not move, recreate, or replace that tag while
 collecting evidence.

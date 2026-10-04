@@ -8,7 +8,7 @@
 a UI/UX release dated 2026-05-28. `v0.10.0-rc.9` is the current release candidate
 for the post-v0.9.1 platform work; it is not production-certified. It keeps the
 `v0.10-core` profile and the `000124` migration ceiling. Its exact candidate
-commit is recorded when the annotated tag is cut (`<pending tag>`). Lineage:
+commit, recorded when the annotated tag was cut, is `07d2ba2`. Lineage:
 the superseded rc.8 tag `20cc13a` plus the rc.9 fix commits (worker idempotency,
 attribution, and profile gating; see the rc.9 entry below). The historical rc.8
 identity record (merge-base and stabilization chain) stays in the superseded rc.8
@@ -219,7 +219,7 @@ the `v0.10-core` profile rejects forged input and produces no duplicate effect o
 redelivery, using only existing columns, row/advisory locks, and asynq TaskIDs.
 
 The candidate is the superseded rc.8 tag commit plus the rc.9 fix commits; the exact tagged
-commit is recorded at tag time (`<pending tag>`). It keeps the `v0.10-core`
+commit, recorded at tag time, is `07d2ba2`. It keeps the `v0.10-core`
 scope and the `000124_scoped_rbac_global_compatibility` migration ceiling and
 adds no migration. Fixes:
 
