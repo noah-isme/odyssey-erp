@@ -34,10 +34,31 @@ WHERE state IN ('pending', 'processing')
 ORDER BY next_attempt ASC
 LIMIT $1;
 
+-- name: ClaimOutboxCommand :one
+-- Claims one command for execution: CAS on state/next_attempt/attempts, bumps
+-- attempts and leases the row for 10 minutes so an overlapping sweep skips it.
+UPDATE connector_outbox_commands
+SET state = 'processing',
+    attempts = attempts + 1,
+    next_attempt = NOW() + INTERVAL '10 minutes',
+    updated_at = NOW()
+WHERE id = $1
+  AND state IN ('pending', 'processing')
+  AND next_attempt <= NOW()
+  AND attempts < 5
+RETURNING *;
+
+-- name: DeadLetterExhaustedOutboxCommands :execrows
+UPDATE connector_outbox_commands
+SET state = 'dead_letter',
+    updated_at = NOW()
+WHERE state IN ('pending', 'processing')
+  AND attempts >= 5
+  AND next_attempt <= NOW();
+
 -- name: UpdateOutboxCommandState :one
 UPDATE connector_outbox_commands
 SET state = $2,
-    attempts = attempts + 1,
     next_attempt = $3,
     updated_at = NOW()
 WHERE id = $1

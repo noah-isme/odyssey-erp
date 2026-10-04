@@ -43,6 +43,9 @@ type Querier interface {
 	CheckDuplicateInvoice(ctx context.Context, arg CheckDuplicateInvoiceParams) (CheckDuplicateInvoiceRow, error)
 	CheckWarehouseExists(ctx context.Context, id int64) (bool, error)
 	ClaimBankFeedEvent(ctx context.Context, id int64) (int64, error)
+	// Claims one command for execution: CAS on state/next_attempt/attempts, bumps
+	// attempts and leases the row for 10 minutes so an overlapping sweep skips it.
+	ClaimOutboxCommand(ctx context.Context, id int64) (ConnectorOutboxCommand, error)
 	CompareMonthlyNetRevenue(ctx context.Context, arg CompareMonthlyNetRevenueParams) ([]CompareMonthlyNetRevenueRow, error)
 	CompleteWorkOrderTask(ctx context.Context, arg CompleteWorkOrderTaskParams) error
 	ConfirmGoodsReturnGRN(ctx context.Context, arg ConfirmGoodsReturnGRNParams) error
@@ -227,6 +230,7 @@ type Querier interface {
 	CreateVehicle(ctx context.Context, arg CreateVehicleParams) (int64, error)
 	CreateWarehouse(ctx context.Context, arg CreateWarehouseParams) (Warehouse, error)
 	DeactivateRateCard(ctx context.Context, arg DeactivateRateCardParams) error
+	DeadLetterExhaustedOutboxCommands(ctx context.Context) (int64, error)
 	DeleteBankStatement(ctx context.Context, id int64) error
 	DeleteBranch(ctx context.Context, id int64) error
 	DeleteCategory(ctx context.Context, id int64) error
