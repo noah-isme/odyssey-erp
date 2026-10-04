@@ -18,6 +18,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/ap"
 	"github.com/odyssey-erp/odyssey-erp/internal/ar"
 	"github.com/odyssey-erp/odyssey-erp/internal/fx"
+	"github.com/odyssey-erp/odyssey-erp/internal/procurement"
 )
 
 // TestFXARAPDatabaseIntegration is intentionally SQL-backed. It validates the
@@ -67,8 +68,19 @@ func TestFXARAPDatabaseIntegration(t *testing.T) {
 	assertReversal(t, p, arRevaluation, ids.nextPeriodID)
 
 	apInvoice := createInvoice(t, p, "AP", ids.supplierID, ids.periodID, "AP-FX-"+suffix, "USD", "100.00", "15000.0000000000")
-	apService := ap.NewService(ap.NewRepository(p), nil)
+	seedAPMatchingFixture(t, p, ids, suffix, mustID(t, apInvoice), "100.00")
+	apRepo := ap.NewRepository(p)
+	// PO-backed invoices load their PO at payment time, so wire the real procurement reader.
+	apService := ap.NewService(apRepo, procurement.NewService(nil, procurement.NewRepository(p), nil, nil, nil, nil, nil))
 	apService.SetFXResolver(resolver)
+	// An AP invoice must pass three-way matching before it can be posted.
+	matchRun, err := ap.NewMatchingService(apRepo).RunMatch(ctx, mustID(t, apInvoice), ids.userID)
+	if err != nil {
+		t.Fatalf("run AP matching: %v", err)
+	}
+	if matchRun.Status != "MATCHED" {
+		t.Fatalf("AP matching status=%s reasons=%v, want MATCHED", matchRun.Status, matchRun.Reasons)
+	}
 	if err := apService.PostAPInvoice(ctx, ap.PostAPInvoiceInput{InvoiceID: mustID(t, apInvoice), PostedBy: ids.userID}); err != nil {
 		t.Fatal(err)
 	}
@@ -176,19 +188,35 @@ func createInvoice(t *testing.T, p *pgxpool.Pool, kind string, partyID, periodID
 	return fmt.Sprint(id)
 }
 
-func recordPayment(t *testing.T, p *pgxpool.Pool, kind string, periodID, partyID int64, invoiceID, number, amount, rate string) string {
+// seedAPMatchingFixture gives an AP invoice what the matching engine needs to
+// reach MATCHED: a supplier-specific active policy with zero tolerances, an
+// approved PO and a posted GRN for the supplier, and a single invoice line
+// linked to the PO and GRN lines at the same quantity and unit price. The
+// policy is scoped to the fixture supplier (company_id stays NULL because
+// MatchingService resolves policies with a nil company), so it cannot leak into
+// other suites that rely on suppliers having no policy.
+func seedAPMatchingFixture(t *testing.T, p *pgxpool.Pool, ids fxIDs, suffix string, invoiceID int64, amount string) {
 	t.Helper()
 	ctx := context.Background()
-	table, partyColumn := "ar_payments", "ar_invoice_id"
-	if kind == "AP" {
-		table, partyColumn = "ap_payments", "ap_invoice_id"
+	var categoryID, unitID, productID, branchID, warehouseID, poID, poLineID, grnID, grnLineID int64
+	scan := func(dest *int64, query string, args ...any) {
+		t.Helper()
+		if err := p.QueryRow(ctx, query, args...).Scan(dest); err != nil {
+			t.Fatal(err)
+		}
 	}
-	var id int64
-	query := fmt.Sprintf(`INSERT INTO %s(number,%s,amount,currency,paid_at,original_currency_amount,base_currency,base_amount,fx_rate,fx_rate_date,fx_rate_source,fx_rate_locked_at) VALUES($1,$2,$3::numeric,'USD','2026-01-20',$3::numeric,'IDR',$3::numeric*$4::numeric,$4::numeric,'2026-01-20','TEST','2026-01-20T12:00:00Z') RETURNING id`, table, partyColumn)
-	if err := p.QueryRow(ctx, query, number, invoiceID, amount, rate).Scan(&id); err != nil {
-		t.Fatal(err)
-	}
-	return fmt.Sprint(id)
+	mustQuery(t, p, `INSERT INTO ap_matching_policies(name,supplier_id) VALUES($1,$2)`, "FX-POLICY-"+suffix, ids.supplierID)
+	scan(&categoryID, `INSERT INTO categories(code,name) VALUES($1,'FX category') RETURNING id`, "FX-CAT-"+suffix)
+	scan(&unitID, `INSERT INTO units(code,name) VALUES($1,'Each') RETURNING id`, "FX-UNIT-"+suffix)
+	scan(&productID, `INSERT INTO products(sku,name,category_id,unit_id,price,company_id) VALUES($1,'FX product',$2,$3,$4::numeric,$5) RETURNING id`, "FX-SKU-"+suffix, categoryID, unitID, amount, ids.companyID)
+	scan(&branchID, `INSERT INTO branches(company_id,code,name) VALUES($1,$2,'FX branch') RETURNING id`, ids.companyID, "FX-BR-"+suffix)
+	scan(&warehouseID, `INSERT INTO warehouses(branch_id,code,name) VALUES($1,$2,'FX warehouse') RETURNING id`, branchID, "FX-WH-"+suffix)
+	scan(&poID, `INSERT INTO pos(number,supplier_id,status,currency,company_id) VALUES($1,$2,'APPROVED','USD',$3) RETURNING id`, "PO-FX-"+suffix, ids.supplierID, ids.companyID)
+	scan(&poLineID, `INSERT INTO po_lines(po_id,product_id,qty,price) VALUES($1,$2,1,$3::numeric) RETURNING id`, poID, productID, amount)
+	scan(&grnID, `INSERT INTO grns(number,po_id,supplier_id,warehouse_id,status,company_id) VALUES($1,$2,$3,$4,'POSTED',$5) RETURNING id`, "GRN-FX-"+suffix, poID, ids.supplierID, warehouseID, ids.companyID)
+	scan(&grnLineID, `INSERT INTO grn_lines(grn_id,product_id,qty,unit_cost) VALUES($1,$2,1,$3::numeric) RETURNING id`, grnID, productID, amount)
+	mustQuery(t, p, `UPDATE ap_invoices SET po_id=$2, grn_id=$3 WHERE id=$1`, invoiceID, poID, grnID)
+	mustQuery(t, p, `INSERT INTO ap_invoice_lines(ap_invoice_id,po_line_id,grn_line_id,product_id,description,quantity,unit_price,subtotal,total) VALUES($1,$2,$3,$4,'FX matched line',1,$5::numeric,$5::numeric,$5::numeric)`, invoiceID, poLineID, grnLineID, productID, amount)
 }
 
 func assertValuation(t *testing.T, p *pgxpool.Pool, table, id, original, rate string) {
