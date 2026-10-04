@@ -23,8 +23,10 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/platform/cache"
 )
 
-// exitNotEvaluated: tasks were enqueued and recorded, but this build has no
-// convergence poller / SQL observer (Step 4), so no scenario was evaluated.
+// exitNotEvaluated: tasks were enqueued and recorded, but the executor had no
+// convergence waiter, SQL observer or evaluator, so no scenario was
+// evaluated. A real run always has them (observerFactory); the code remains
+// for executors built without observers (tests).
 const exitNotEvaluated = 4
 
 // Outcomes of one submission in enqueue.json.
@@ -62,12 +64,23 @@ type SQLObserver interface {
 	Snapshot(ctx context.Context, sp *ScenarioPlan, scenarioDir, label string) error
 }
 
-// observerFactory is the Step 4 seam: when set it supplies the convergence
-// waiter and SQL observer for a real run. Nil means enqueue-only (the run
-// exits with exitNotEvaluated).
-var observerFactory func(rc *RunContext, insp *asynq.Inspector, db *pgxpool.Pool) (ConvergenceWaiter, SQLObserver)
+// Observers are the Step 4 components of a real run.
+type Observers struct {
+	Wait ConvergenceWaiter
+	SQL  SQLObserver
+	Eval ScenarioEvaluator
+}
 
-func init() { runExecutor = executeRun }
+// observerFactory supplies the observers of a real run (observe.go,
+// sqlobs.go). Nil means enqueue-only: the run exits with exitNotEvaluated.
+var observerFactory func(rc *RunContext, insp *asynq.Inspector, db *pgxpool.Pool) Observers
+
+func init() {
+	runExecutor = executeRun
+	observerFactory = func(rc *RunContext, insp *asynq.Inspector, db *pgxpool.Pool) Observers {
+		return newObservers(rc, insp, db)
+	}
+}
 
 // EnqueueOptions are the asynq options applied to one submission.
 type EnqueueOptions struct {
@@ -197,6 +210,9 @@ type EnqueueRecord struct {
 	MailAfter     string                  `json:"mail_after,omitempty"`
 	// Converged is true when every phase was awaited by a ConvergenceWaiter.
 	Converged bool `json:"converged"`
+	// Result is the evaluator's verdict (result.json); not part of
+	// enqueue.json.
+	Result *ScenarioResult `json:"-"`
 	// NotEvaluated explains why convergence/SQL were not observed.
 	NotEvaluated string   `json:"not_evaluated,omitempty"`
 	Errors       []string `json:"errors"`
@@ -231,6 +247,7 @@ type Executor struct {
 	Mail     MailRecorder  // required by scenarios with mail recipients
 	Wait     ConvergenceWaiter
 	SQL      SQLObserver
+	Eval     ScenarioEvaluator
 	Now      func() time.Time
 	Log      io.Writer
 }
@@ -248,10 +265,16 @@ func (e *Executor) logf(format string, args ...any) {
 	}
 }
 
-// Run executes every selected scenario in registry order. It returns the
-// records and the exit code: exitFail when any submission was unexpected or
-// a scenario errored, exitNotEvaluated when Step 4 observers are missing,
-// exitOK otherwise. Enqueue errors are data, never a crash.
+// Run executes every selected scenario in registry order and, with an
+// evaluator, writes each scenario's assertions.json and result.json. It
+// returns the records and the exit code:
+//   - exitOK (0): every selected scenario evaluated PASS;
+//   - exitFail (1): any scenario FAIL or EXCLUDED (an excluded scenario is
+//     never a pass), any unexpected submission, or an output error;
+//   - exitNotEvaluated (4): no waiter, SQL observer or evaluator was wired
+//     (enqueue-only executor) and nothing else failed.
+//
+// Enqueue errors are data, never a crash.
 func (e *Executor) Run(ctx context.Context) ([]*EnqueueRecord, int, error) {
 	var records []*EnqueueRecord
 	var errs []error
@@ -264,14 +287,27 @@ func (e *Executor) Run(ctx context.Context) ([]*EnqueueRecord, int, error) {
 		if err := writeJSONFile(filepath.Join(e.scenarioDir(s.ID), "enqueue.json"), rec); err != nil {
 			errs = append(errs, err)
 		}
+		if e.Eval != nil {
+			res, err := e.Eval.Evaluate(ctx, rec, e.scenarioDir(s.ID))
+			if err != nil {
+				errs = append(errs, fmt.Errorf("evaluate %s: %w", s.ID, err))
+			}
+			rec.Result = res
+			if res != nil {
+				e.logf("[%s] %s %s", s.ID, res.Result, strings.Join(res.Reasons, "; "))
+			}
+		}
 		records = append(records, rec)
 	}
 	code := exitOK
-	if e.Wait == nil || e.SQL == nil {
+	if e.Wait == nil || e.SQL == nil || e.Eval == nil {
 		code = exitNotEvaluated
 	}
 	for _, r := range records {
 		if r.unexpected() {
+			code = exitFail
+		}
+		if e.Eval != nil && (r.Result == nil || r.Result.Result != resultPass) {
 			code = exitFail
 		}
 	}
@@ -700,11 +736,28 @@ func executeRun(ctx context.Context, rc *RunContext) (int, error) {
 		ex.Mail = &mailAPIRecorder{Base: cfg.MailAPI, Sink: g.Probe.APISink, HTTP: httpClient}
 	}
 	if observerFactory != nil {
-		ex.Wait, ex.SQL = observerFactory(rc, insp, pool)
+		obs := observerFactory(rc, insp, pool)
+		ex.Wait, ex.SQL, ex.Eval = obs.Wait, obs.SQL, obs.Eval
 	}
-	_, code, err := ex.Run(ctx)
+	records, code, err := ex.Run(ctx)
 	if code == exitNotEvaluated {
 		fmt.Fprintln(rc.Stderr, "iso004: tasks enqueued and recorded under scenarios/<id>/enqueue.json; this build has no convergence poller or SQL observer, so no scenario was evaluated")
 	}
+	if ex.Eval != nil {
+		printResults(rc.Stderr, records, cfg.MaxRetry)
+	}
 	return code, err
+}
+
+// printResults prints one line per evaluated scenario.
+func printResults(w io.Writer, records []*EnqueueRecord, maxRetry int) {
+	fmt.Fprintln(w, "ISO-004 scenario results:")
+	for _, r := range records {
+		result := "NOT EVALUATED"
+		if r.Result != nil {
+			result = r.Result.Result
+		}
+		fmt.Fprintf(w, "  %-34s %s\n", r.Scenario, result)
+	}
+	fmt.Fprintf(w, "  timing: %s\n", timingFidelity(maxRetry).Note)
 }

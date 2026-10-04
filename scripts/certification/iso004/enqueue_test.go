@@ -104,6 +104,14 @@ func (f *fakeSQL) Snapshot(_ context.Context, sp *ScenarioPlan, _ string, label 
 	return nil
 }
 
+// passEval is an evaluator that passes every scenario, for tests about
+// enqueue behavior only (sqlobs_test.go covers the real evaluator).
+type passEval struct{}
+
+func (passEval) Evaluate(_ context.Context, rec *EnqueueRecord, _ string) (*ScenarioResult, error) {
+	return &ScenarioResult{Scenario: rec.Scenario, Result: resultPass}, nil
+}
+
 type execHarness struct {
 	mr   *miniredis.Miniredis
 	insp *asynq.Inspector
@@ -153,7 +161,7 @@ func submissionsByN(rec EnqueueRecord) map[int]Submission {
 func TestExecutorEnqueuesEveryScenarioWithOptions(t *testing.T) {
 	h := newHarness(t, nil)
 	waiter, sql := &fakeWaiter{}, &fakeSQL{}
-	h.ex.Wait, h.ex.SQL = waiter, sql
+	h.ex.Wait, h.ex.SQL, h.ex.Eval = waiter, sql, passEval{}
 
 	records, code, err := h.ex.Run(context.Background())
 	require.NoError(t, err)
@@ -354,7 +362,7 @@ func TestExecutorReleasesConcurrentGroupTogether(t *testing.T) {
 		atomic.AddInt32(&inflight, -1)
 		return real.EnqueueContext(ctx, task, opts...)
 	})
-	h.ex.Wait, h.ex.SQL = &fakeWaiter{}, &fakeSQL{}
+	h.ex.Wait, h.ex.SQL, h.ex.Eval = &fakeWaiter{}, &fakeSQL{}, passEval{}
 	_, code, err := h.ex.Run(context.Background())
 	require.NoError(t, err)
 	assert.Equal(t, exitOK, code)
@@ -368,7 +376,7 @@ func TestExecutorExcludedAndSkipped(t *testing.T) {
 	})
 	mail := &fakeMail{}
 	h.ex.Mail = mail
-	h.ex.Wait, h.ex.SQL = &fakeWaiter{}, &fakeSQL{}
+	h.ex.Wait, h.ex.SQL, h.ex.Eval = &fakeWaiter{}, &fakeSQL{}, passEval{}
 	_, code, err := h.ex.Run(context.Background())
 	require.NoError(t, err)
 	assert.Equal(t, exitOK, code, "exclusions are recorded, not enqueue failures")

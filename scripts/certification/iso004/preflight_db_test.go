@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/alicebob/miniredis/v2"
+	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -110,13 +111,16 @@ func TestDBFullPreflightPassesAndEnqueues(t *testing.T) {
 	dsn := iso004DSN(t)
 	run := func(t *testing.T) (string, int, string) {
 		mr := miniredis.RunT(t)
-		startWorker(t, mr)
+		// Stub handlers with rc.9 outcomes: variance and board pack not-found
+		// are SkipRetry, OCR not-found retries, S01's type is unregistered.
+		startStubWorker(t, mr, iso004StubMux(fmt.Errorf("variance snapshot not found: %w", asynq.SkipRetry)))
 		out := filepath.Join(t.TempDir(), "bundle")
 		deps := testDeps(t, nil, goodIdentity())
 		deps.OpenDB = openReadOnlyPool
 		args := []string{"--redis", mr.Addr(), "--dsn", dsn, "--run-id", "9000000001", "--out", out,
 			"--candidate-tag", "v0.10.0-rc.9", "--candidate-sha", testSHA, "--release-identity", identityPath,
-			"--fixtures", iso004FixturesFile()}
+			"--fixtures", iso004FixturesFile(), "--scenarios", "S01-unregistered-type,S03-object-not-found",
+			"--poll", "20ms", "--timeout", "60s"}
 		var stderr bytes.Buffer
 		code := runWithDeps(context.Background(), args, &bytes.Buffer{}, &stderr, deps)
 		return out, code, stderr.String()
@@ -132,8 +136,16 @@ func TestDBFullPreflightPassesAndEnqueues(t *testing.T) {
 	})
 
 	out, code, stderr := run(t)
-	assert.Equal(t, exitNotEvaluated, code, stderr)
-	assert.Contains(t, stderr, "no scenario was evaluated")
+	assert.Equal(t, exitOK, code, stderr)
+	assert.Contains(t, stderr, "ISO-004 scenario results:")
+	assert.Contains(t, stderr, "timing, not path")
+	for _, id := range []string{"S01-unregistered-type", "S03-object-not-found"} {
+		res, af := readResult(t, out, id)
+		assert.Equal(t, resultPass, res.Result, "%s: %v", id, res.Reasons)
+		for _, a := range af.Assertions {
+			assert.Equal(t, resultPass, a.Status, "%s/%s: %s", id, a.ID, a.Reason)
+		}
+	}
 
 	raw, err := os.ReadFile(filepath.Join(out, preflightFileName))
 	require.NoError(t, err)
