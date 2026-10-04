@@ -17,8 +17,7 @@ var (
 	ErrConfiguration = errors.New("payroll: regulatory or account configuration incomplete")
 	ErrUnauthorized  = errors.New("payroll: payslip access denied")
 
-	ErrPayslipNotFound         = errors.New("payroll: payslip not found")
-	ErrPayslipAlreadyDelivered = errors.New("payroll: payslip already delivered")
+	ErrPayslipNotFound = errors.New("payroll: payslip not found")
 )
 
 type Service struct {
