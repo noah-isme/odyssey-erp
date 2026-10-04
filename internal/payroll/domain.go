@@ -82,7 +82,13 @@ type PayslipRecord struct {
 	PeriodCode string
 }
 
+// PayslipStore delivers a payslip at most once per successful commit.
+//
+// DeliverPayslipOnce locks the undelivered payslip row, calls deliver with the
+// loaded record, and marks the payslip delivered only after deliver succeeds,
+// all inside one transaction. It returns (false, nil) when the payslip is
+// already delivered or is locked by another in-flight delivery, and
+// ErrPayslipNotFound when no payslip with that ID exists.
 type PayslipStore interface {
-	DeliveryPayslip(context.Context, int64) (PayslipRecord, error)
-	MarkPayslipDelivered(context.Context, int64) error
+	DeliverPayslipOnce(ctx context.Context, payslipID int64, deliver func(context.Context, PayslipRecord) error) (delivered bool, err error)
 }

@@ -3,9 +3,20 @@ package shared
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"errors"
 	"fmt"
+	"net"
 	"net/smtp"
 	"strings"
+	"time"
+)
+
+// Default SMTP deadlines used when MailConfig leaves them zero.
+const (
+	DefaultMailDialTimeout = 10 * time.Second
+	DefaultMailIOTimeout   = 60 * time.Second
 )
 
 // MailConfig holds SMTP configuration.
@@ -16,11 +27,18 @@ type MailConfig struct {
 	// Optional authentication
 	Username string
 	Password string
+	// DialTimeout bounds the TCP connect; zero means DefaultMailDialTimeout.
+	DialTimeout time.Duration
+	// IOTimeout bounds the whole SMTP conversation after connect; zero means
+	// DefaultMailIOTimeout.
+	IOTimeout time.Duration
 }
 
 // MailClient sends emails via SMTP.
 type MailClient struct {
 	config MailConfig
+	// rootCAs overrides the system roots for STARTTLS verification. Tests only.
+	rootCAs *x509.CertPool
 }
 
 // NewMailClient creates a new mail client.
@@ -77,12 +95,90 @@ func (c *MailClient) SendEmail(ctx context.Context, to, subject, body string, at
 		auth = smtp.PlainAuth("", c.config.Username, c.config.Password, c.config.Host)
 	}
 
-	err := smtp.SendMail(addr, auth, c.config.From, []string{to}, msg.Bytes())
+	err := c.sendMail(ctx, addr, auth, c.config.From, []string{to}, msg.Bytes())
 	if err != nil {
 		return fmt.Errorf("failed to send email: %w", err)
 	}
 
 	return nil
+}
+
+// sendMail mirrors net/smtp.SendMail (HELO localhost, opportunistic STARTTLS
+// verified against the configured host, PLAIN auth when credentials are set,
+// MAIL/RCPT/DATA/QUIT) but bounds the dial and the whole conversation with
+// deadlines so a stalled server cannot hang the caller indefinitely.
+func (c *MailClient) sendMail(ctx context.Context, addr string, auth smtp.Auth, from string, to []string, msg []byte) error {
+	dialTimeout := c.config.DialTimeout
+	if dialTimeout <= 0 {
+		dialTimeout = DefaultMailDialTimeout
+	}
+	ioTimeout := c.config.IOTimeout
+	if ioTimeout <= 0 {
+		ioTimeout = DefaultMailIOTimeout
+	}
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return err
+	}
+
+	dialer := net.Dialer{Timeout: dialTimeout}
+	conn, err := dialer.DialContext(ctx, "tcp", addr)
+	if err != nil {
+		return err
+	}
+	deadline := time.Now().Add(ioTimeout)
+	if ctxDeadline, ok := ctx.Deadline(); ok && ctxDeadline.Before(deadline) {
+		deadline = ctxDeadline
+	}
+	if err = conn.SetDeadline(deadline); err != nil {
+		_ = conn.Close()
+		return err
+	}
+
+	client, err := smtp.NewClient(conn, host)
+	if err != nil {
+		_ = conn.Close()
+		return err
+	}
+	defer func() { _ = client.Close() }()
+
+	if err = client.Hello("localhost"); err != nil {
+		return err
+	}
+	if ok, _ := client.Extension("STARTTLS"); ok {
+		if err = client.StartTLS(&tls.Config{ServerName: host, RootCAs: c.rootCAs}); err != nil {
+			return err
+		}
+	}
+	if auth != nil {
+		// net/smtp.SendMail refuses to send unauthenticated when credentials
+		// are configured but the server does not offer AUTH; keep that.
+		if ok, _ := client.Extension("AUTH"); !ok {
+			return errors.New("smtp: server doesn't support AUTH")
+		}
+		if err = client.Auth(auth); err != nil {
+			return err
+		}
+	}
+	if err = client.Mail(from); err != nil {
+		return err
+	}
+	for _, rcpt := range to {
+		if err = client.Rcpt(rcpt); err != nil {
+			return err
+		}
+	}
+	w, err := client.Data()
+	if err != nil {
+		return err
+	}
+	if _, err = w.Write(msg); err != nil {
+		return err
+	}
+	if err = w.Close(); err != nil {
+		return err
+	}
+	return client.Quit()
 }
 
 // SendEmailWithPDF sends an email with a PDF attachment.

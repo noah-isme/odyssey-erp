@@ -79,7 +79,7 @@ func (q payrollDeliveryQueue) EnqueuePayslip(ctx context.Context, line payroll.R
 	if err != nil {
 		return err
 	}
-	_, err = q.client.EnqueueContext(ctx, task, asynq.Queue(jobs.QueueDefault), asynq.MaxRetry(5), asynq.TaskID(fmt.Sprintf("payroll-payslip-%d", line.PayslipID)))
+	_, err = q.client.EnqueueContext(ctx, task, asynq.Queue(jobs.QueueDefault), asynq.MaxRetry(5), asynq.Timeout(3*time.Minute), asynq.TaskID(fmt.Sprintf("payroll-payslip-%d", line.PayslipID)))
 	if errors.Is(err, asynq.ErrTaskIDConflict) {
 		return nil
 	}

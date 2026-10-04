@@ -16,6 +16,9 @@ var (
 	ErrInvalidState  = errors.New("payroll: invalid run state")
 	ErrConfiguration = errors.New("payroll: regulatory or account configuration incomplete")
 	ErrUnauthorized  = errors.New("payroll: payslip access denied")
+
+	ErrPayslipNotFound         = errors.New("payroll: payslip not found")
+	ErrPayslipAlreadyDelivered = errors.New("payroll: payslip already delivered")
 )
 
 type Service struct {

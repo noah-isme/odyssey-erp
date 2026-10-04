@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -345,18 +346,59 @@ func (r *Repository) PaymentInstructions(ctx context.Context, runID int64) ([]Pa
 	return out, rows.Err()
 }
 
-func (r *Repository) DeliveryPayslip(ctx context.Context, payslipID int64) (PayslipRecord, error) {
+// DeliverPayslipOnce implements PayslipStore with a row lock held for the
+// duration of deliver.
+//
+// The undelivered payslip row is locked with FOR UPDATE OF ps SKIP LOCKED, so a
+// concurrent duplicate delivery skips immediately instead of waiting, and
+// delivered_at is written in the same transaction only after deliver returns
+// nil. Any error from deliver or from the update rolls the transaction back,
+// releasing the lock with delivered_at still NULL so the task can retry.
+//
+// Delivery is at-least-once: if the process or the database connection fails
+// after the SMTP server accepted the message and before COMMIT, the retry sends
+// the payslip again. The window is bounded by the mail dial/I-O deadlines and
+// the task timeout. The transaction is idle while deliver runs, so PostgreSQL's
+// idle_in_transaction_session_timeout must be unset or longer than the task
+// timeout.
+func (r *Repository) DeliverPayslipOnce(ctx context.Context, payslipID int64, deliver func(context.Context, PayslipRecord) error) (delivered bool, err error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return false, fmt.Errorf("begin payslip delivery: %w", err)
+	}
+	// Rollback after a successful Commit is a no-op.
+	defer func() { _ = tx.Rollback(ctx) }()
+
 	var record PayslipRecord
 	var raw []byte
-	err := r.pool.QueryRow(ctx, `SELECT ps.id,l.id,l.run_id,l.employee_id,e.name,e.email,e.user_id,m.user_id,l.department_id,l.cost_center_id,l.breakdown,p.code FROM payroll_payslips ps JOIN payroll_run_lines l ON l.id=ps.run_line_id JOIN payroll_runs r ON r.id=l.run_id JOIN payroll_periods p ON p.id=r.period_id JOIN hr_employees e ON e.id=l.employee_id LEFT JOIN hr_employees m ON m.id=e.manager_id WHERE ps.id=$1`, payslipID).Scan(&record.ID, &record.Line.ID, &record.Line.RunID, &record.Line.EmployeeID, &record.Line.EmployeeName, &record.Line.Email, &record.Line.UserID, &record.Line.ManagerUserID, &record.Line.DepartmentID, &record.Line.CostCenterID, &raw, &record.PeriodCode)
-	if err != nil {
-		return PayslipRecord{}, err
+	err = tx.QueryRow(ctx, `SELECT ps.id,l.id,l.run_id,l.employee_id,e.name,e.email,e.user_id,m.user_id,l.department_id,l.cost_center_id,l.breakdown,p.code FROM payroll_payslips ps JOIN payroll_run_lines l ON l.id=ps.run_line_id JOIN payroll_runs r ON r.id=l.run_id JOIN payroll_periods p ON p.id=r.period_id JOIN hr_employees e ON e.id=l.employee_id LEFT JOIN hr_employees m ON m.id=e.manager_id WHERE ps.id=$1 AND ps.delivered_at IS NULL FOR UPDATE OF ps SKIP LOCKED`, payslipID).Scan(&record.ID, &record.Line.ID, &record.Line.RunID, &record.Line.EmployeeID, &record.Line.EmployeeName, &record.Line.Email, &record.Line.UserID, &record.Line.ManagerUserID, &record.Line.DepartmentID, &record.Line.CostCenterID, &raw, &record.PeriodCode)
+	if errors.Is(err, pgx.ErrNoRows) {
+		var deliveredAt *time.Time
+		probeErr := r.pool.QueryRow(ctx, `SELECT delivered_at FROM payroll_payslips WHERE id=$1`, payslipID).Scan(&deliveredAt)
+		if errors.Is(probeErr, pgx.ErrNoRows) {
+			return false, ErrPayslipNotFound
+		}
+		if probeErr != nil {
+			return false, fmt.Errorf("probe payslip %d: %w", payslipID, probeErr)
+		}
+		// Already delivered, or locked by another in-flight delivery.
+		return false, nil
 	}
-	err = json.Unmarshal(raw, &record.Line.Result)
-	return record, err
-}
+	if err != nil {
+		return false, fmt.Errorf("lock payslip %d: %w", payslipID, err)
+	}
+	if err = json.Unmarshal(raw, &record.Line.Result); err != nil {
+		return false, fmt.Errorf("decode payslip %d breakdown: %w", payslipID, err)
+	}
 
-func (r *Repository) MarkPayslipDelivered(ctx context.Context, payslipID int64) error {
-	_, err := r.pool.Exec(ctx, `UPDATE payroll_payslips SET delivered_at=COALESCE(delivered_at,NOW()) WHERE id=$1`, payslipID)
-	return err
+	if err = deliver(ctx, record); err != nil {
+		return false, err
+	}
+	if _, err = tx.Exec(ctx, `UPDATE payroll_payslips SET delivered_at=NOW() WHERE id=$1`, payslipID); err != nil {
+		return false, fmt.Errorf("mark payslip %d delivered: %w", payslipID, err)
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return false, fmt.Errorf("commit payslip %d delivery: %w", payslipID, err)
+	}
+	return true, nil
 }
