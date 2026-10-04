@@ -97,6 +97,19 @@ grep -q '1 line(s) match' "$tmp/stale.err" || fail 'stale: missing failure summa
 printf '# Deployment\n\nHistorical: v0.10.0-rc.8 was the previous candidate.\n' >"$root/docs/DEPLOYMENT.md"
 run historical 0
 
+# 3b. NEXT_STEPS.md at the root is scanned too: a stale current-status line
+#    fails with a root-relative file:line, and fixing it passes. The earlier
+#    fixtures have no NEXT_STEPS.md, which is simply skipped.
+printf '# Next steps\n\n**Current candidate:** `v0.10.0-rc.8`\n' >"$root/NEXT_STEPS.md"
+run next-steps-stale 1
+grep -qx 'NEXT_STEPS.md:3: \*\*Current candidate:\*\* `v0.10.0-rc.8`' "$tmp/next-steps-stale.err" || fail "next-steps-stale: missing file:line report: $(cat "$tmp/next-steps-stale.err")"
+printf '# Next steps\n\n**Current candidate:** `v0.10.0-rc.9`\n' >"$root/NEXT_STEPS.md"
+run next-steps-fixed 0
+printf '# Next steps\n\nThe rc.8 record is historical.\n' >"$root/NEXT_STEPS.md"
+run next-steps-allowlisted 0
+grep -q '10 allowlisted line(s)' "$tmp/next-steps-allowlisted.out" || fail "next-steps-allowlisted: want 10 allowlisted lines, got: $(cat "$tmp/next-steps-allowlisted.out")"
+rm -f "$root/NEXT_STEPS.md"
+
 # 4. A section ends at the next heading of the same or higher level.
 cat >>"$root/docs/releases/VERSION_HISTORY.md" <<'EOF'
 
@@ -119,7 +132,8 @@ run bad-kind 2 --allowlist "$tmp/bad-kind.allowlist"
 grep -q "unknown rule kind 'bogus'" "$tmp/bad-kind.err" || fail 'bad-kind: message'
 run missing-allowlist 2 --allowlist "$tmp/does-not-exist"
 
-# 7. The committed allowlist passes against this repository's docs.
+# 7. The committed allowlist passes against this repository's docs and
+#    NEXT_STEPS.md.
 got=0
 bash "$checker" >"$tmp/repo.out" 2>"$tmp/repo.err" || got=$?
 [[ "$got" == 0 ]] || { cat "$tmp/repo.err" >&2; fail "repository docs: exit $got"; }

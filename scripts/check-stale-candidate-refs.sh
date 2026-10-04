@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
-# check-stale-candidate-refs.sh - fail when docs/ still names a superseded
-# release candidate outside an explicit allowlist.
+# check-stale-candidate-refs.sh - fail when docs/ or the root handoff file
+# NEXT_STEPS.md still names a superseded release candidate outside an
+# explicit allowlist.
 #
 # Usage: scripts/check-stale-candidate-refs.sh [--root DIR] [--allowlist FILE] [--pattern ERE]
 #
 # Defaults: --root is the repository root, --allowlist is
 # scripts/check-stale-candidate-refs.allowlist, and --pattern matches the
 # superseded v0.10.0-rc.8 candidate ('rc\.8|20cc13a'). Every Markdown/text
-# file under <root>/docs is scanned; each matching line must be covered by an
-# allowlist rule. Allowlist rules, one per line (blank lines and lines
-# starting with '#' are ignored):
+# file under <root>/docs, plus NEXT_STEPS.md at the root when it exists (it
+# carries current-status text outside docs/), is scanned; each matching line
+# must be covered by an allowlist rule. Allowlist paths are relative to the
+# root (for example 'NEXT_STEPS.md'). Allowlist rules, one per line (blank
+# lines and lines starting with '#' are ignored):
 #
 #   file <glob>                 whole file; glob is relative to the root and
 #                               '*' also matches '/'
@@ -25,7 +28,7 @@ allowlist=""
 pattern='rc\.8|20cc13a'
 
 usage() {
-	sed -n '2,20p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2
+	sed -n '2,22p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2
 	exit 2
 }
 
@@ -94,6 +97,19 @@ for re in "${line_patterns[@]}"; do
 	line_re+="${line_re:+|}($re)"
 done
 
+# Root-level files scanned in addition to docs/.
+extra_files=(NEXT_STEPS.md)
+
+list_scanned_files() {
+	find "$root_dir/docs" -type f \( -name '*.md' -o -name '*.txt' \) -print0
+	local extra
+	for extra in "${extra_files[@]}"; do
+		if [[ -f "$root_dir/$extra" ]]; then
+			printf '%s\0' "$root_dir/$extra"
+		fi
+	done
+}
+
 hits=0
 allowed=0
 report=""
@@ -141,7 +157,7 @@ while IFS= read -r -d '' file; do
 	allowed=$((allowed + ${counts%% *}))
 	hits=$((hits + ${counts##* }))
 	report+=$body
-done < <(find "$root_dir/docs" -type f \( -name '*.md' -o -name '*.txt' \) -print0 | sort -z)
+done < <(list_scanned_files | sort -z)
 
 if ((hits > 0)); then
 	printf '%s' "$report" >&2
