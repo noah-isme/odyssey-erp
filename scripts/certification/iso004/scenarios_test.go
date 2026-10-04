@@ -375,3 +375,71 @@ func TestWorkerPayloadSourcesCiteDeclarations(t *testing.T) {
 		}
 	}
 }
+
+const repoRoot = "../../.."
+
+// citationAnchors maps every source citation written into scenario text
+// (Expect.Text, Note, Observations) to a token the cited lines must contain.
+// A citation without an anchor fails the test, so a moved or removed line is
+// caught here instead of misleading the operator at run time.
+var citationAnchors = map[string]string{
+	"internal/variance/job.go:34-39":    "asynq.SkipRetry",
+	"internal/variance/job.go:44-47":    "ErrSnapshotNotFound",
+	"internal/boardpack/job.go:50-55":   "BoardPackID == 0",
+	"internal/boardpack/job.go:58-61":   "ErrBoardPackNotFound",
+	"internal/documents/ocr.go:83-86":   "GetOCRJob",
+	"internal/documents/ocr.go:106-107": "does not match document version",
+	"jobs/document_ocr.go:54":           "ProcessOCRJob",
+	"internal/ap/orchestrator.go:75-82": "ErrActorMismatch",
+	"jobs/ap_invoice.go:63-67":          "asynq.SkipRetry",
+	"cmd/worker/main.go:430":            "ap.ErrActorMismatch",
+	"cmd/worker/main.go:127-132":        "TypeCashForecastRefresh",
+	"cmd/worker/main.go:173-175":        "ReleaseProfileV010Core",
+	"jobs/asynq_server.go:79-81":        "TaskBIExport",
+	"jobs/asynq_server.go:157-164":      "TaskID(payload.CorrelationID)",
+	"jobs/bi_export.go:55-63":           "GenerateBIExport",
+	"jobs/tasks.go:140-142":             "ErrPayslipNotFound",
+}
+
+// TestScenarioTextCitationsMatchSource checks that every file:line citation
+// in the scenario table resolves to the code it claims to describe.
+func TestScenarioTextCitationsMatchSource(t *testing.T) {
+	citeRe := regexp.MustCompile(`(?:internal|jobs|cmd)/[A-Za-z0-9_/.-]+\.go:(\d+)(?:-(\d+))?`)
+	var texts []string
+	for _, s := range scenarioRegistry {
+		texts = append(texts, s.Observations...)
+		for _, task := range s.Tasks {
+			texts = append(texts, task.Expect.Text, task.Note)
+		}
+	}
+	seen := map[string]bool{}
+	for _, text := range texts {
+		for _, m := range citeRe.FindAllStringSubmatch(text, -1) {
+			seen[m[0]] = true
+		}
+	}
+	require.NotEmpty(t, seen, "scenario table cites no source lines")
+	for cite := range seen {
+		anchor, ok := citationAnchors[cite]
+		if !assert.True(t, ok, "citation %s has no anchor in citationAnchors", cite) {
+			continue
+		}
+		file, rng, _ := strings.Cut(cite, ":")
+		startStr, endStr, hasEnd := strings.Cut(rng, "-")
+		start, err := strconv.Atoi(startStr)
+		require.NoError(t, err, cite)
+		end := start
+		if hasEnd {
+			end, err = strconv.Atoi(endStr)
+			require.NoError(t, err, cite)
+		}
+		src, err := os.ReadFile(filepath.Join(repoRoot, file))
+		require.NoError(t, err, cite)
+		lines := strings.Split(string(src), "\n")
+		require.LessOrEqual(t, end, len(lines), cite)
+		assert.Contains(t, strings.Join(lines[start-1:end], "\n"), anchor, cite)
+	}
+	for cite := range citationAnchors {
+		assert.True(t, seen[cite], "citationAnchors entry %s is not cited by the scenario table", cite)
+	}
+}

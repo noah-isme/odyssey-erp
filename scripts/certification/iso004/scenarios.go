@@ -308,7 +308,7 @@ var scenarioRegistry = []Scenario{
 		Tasks: []TaskSpec{
 			{N: 1, Phase: 1, Type: jobs.TaskVarianceSnapshotProcess, Malformed: true,
 				Payload: []Field{{"snapshot_id", lit("x")}},
-				Expect:  Expectation{States: []string{stateArchived}, Retried: RetriedZero, Text: "archived, " + skipRetryNote + " (internal/variance/job.go:27-32)"}},
+				Expect:  Expectation{States: []string{stateArchived}, Retried: RetriedZero, Text: "archived, " + skipRetryNote + " (internal/variance/job.go:34-39)"}},
 			{N: 2, Phase: 1, Type: jobs.TaskBoardPackGenerate,
 				Payload: []Field{{"board_pack_id", lit(0)}},
 				Expect:  Expectation{States: []string{stateArchived}, Retried: RetriedZero, Text: "archived, " + skipRetryNote + " (internal/boardpack/job.go:50-55)"}},
@@ -325,13 +325,13 @@ var scenarioRegistry = []Scenario{
 		Tasks: []TaskSpec{
 			{N: 1, Phase: 1, Type: jobs.TaskVarianceSnapshotProcess,
 				Payload: []Field{{"snapshot_id", dyn(dynVarianceUnknown)}},
-				Expect:  Expectation{States: []string{stateArchived}, Retried: RetriedZero, Text: "archived, " + skipRetryNote + " under rc.9 (rc.9 plan Step 4b; rc.8 retried to MaxRetry)"}},
+				Expect:  Expectation{States: []string{stateArchived}, Retried: RetriedZero, Text: "archived, " + skipRetryNote + " under rc.9 (ErrSnapshotNotFound is wrapped with SkipRetry, internal/variance/job.go:44-47; rc.8 retried to MaxRetry)"}},
 			{N: 2, Phase: 1, Type: jobs.TaskBoardPackGenerate,
 				Payload: []Field{{"board_pack_id", dyn(dynBoardPackUnknown)}},
 				Expect:  Expectation{States: []string{stateArchived}, Retried: RetriedZero, Text: "archived, " + skipRetryNote + " (internal/boardpack/job.go:58-61)"}},
 			{N: 3, Phase: 1, Type: jobs.TaskDocumentOCR,
 				Payload: []Field{{"job_id", dyn(dynOCRJobUnknown)}},
-				Expect:  Expectation{States: []string{stateArchived}, Retried: RetriedMax, Text: "archived, " + maxRetryNote + " (unchanged in rc.9)"}},
+				Expect:  Expectation{States: []string{stateArchived}, Retried: RetriedMax, Text: "archived, " + maxRetryNote + " (unchanged in rc.9: a missing OCR job is a plain error, internal/documents/ocr.go:83-86, jobs/document_ocr.go:54)"}},
 		},
 		Queries: []QuerySpec{
 			qVarianceTotal, qBoardPackTotal, qOCRJobTotal,
@@ -421,11 +421,11 @@ var scenarioRegistry = []Scenario{
 			{N: 1, Phase: 1, Type: jobs.TypeCashForecastRefresh,
 				Payload: []Field{{"company_id", fxv(fxCompanyA)}, {"scenario_id", fxv(fxScenarioB)}},
 				Expect: Expectation{States: []string{stateArchived}, Retried: RetriedMax, LastErrAnyOf: []string{handlerNotFound},
-					Text: `archived, ` + maxRetryNote + `, "handler not found"; no forecast_runs for (A, scen_B)`}},
+					Text: `archived, ` + maxRetryNote + `, "handler not found" (cmd/worker/main.go:127-132); no forecast_runs for (A, scen_B)`}},
 			{N: 2, Phase: 1, Type: jobs.TypeBankFeedsEvent,
 				Payload: []Field{{"event_id", dyn(dynBankEventUnknown)}},
 				Expect: Expectation{States: []string{stateArchived}, Retried: RetriedMax, LastErrAnyOf: []string{handlerNotFound},
-					Text: `archived, ` + maxRetryNote + `, "handler not found"`}},
+					Text: `archived, ` + maxRetryNote + `, "handler not found" (cmd/worker/main.go:127-132)`}},
 		},
 		Queries: []QuerySpec{
 			{Name: "forecast_runs_forged_pair", Args: []Value{fxv(fxCompanyA), fxv(fxScenarioB)}, SQL: `SELECT COUNT(*) AS n FROM forecast_runs WHERE company_id = $1 AND scenario_id = $2`},
@@ -474,7 +474,7 @@ var scenarioRegistry = []Scenario{
 			N: 1, Phase: 1, Type: jobs.TaskProcessAPInvoice,
 			Payload: []Field{{"invoice_id", fxv(fxAPException)}, {"created_by", fxv(fxAdminUserA)}},
 			Expect: Expectation{States: []string{stateArchived}, Retried: RetriedZero, LastErrAnyOf: []string{"actor", "created_by"},
-				Text: "archived, " + skipRetryNote + ", LastErr names the actor mismatch; no new runs/exceptions"},
+				Text: "archived, " + skipRetryNote + ", LastErr names the actor mismatch; no new runs/exceptions (internal/ap/orchestrator.go:75-82, jobs/ap_invoice.go:63-67, cmd/worker/main.go:430)"},
 		}},
 		Queries: apQueries("exception", fxAPException),
 		Assertions: []AssertionSpec{
@@ -491,7 +491,7 @@ var scenarioRegistry = []Scenario{
 			N: 1, Phase: 1, Type: jobs.TaskBIExport,
 			Payload: []Field{{"company_id", fxv(fxCompanyB)}, {"period", dyn(dynCurrentPeriod)}, {"provider", lit("awss3")}},
 			Expect: Expectation{States: []string{stateArchived}, Retried: RetriedMax, LastErrAnyOf: []string{handlerNotFound},
-				Text: `archived, "handler not found" (rc.9 profile gating); rc.8 "no connection found" = FAIL`},
+				Text: `archived, "handler not found" (rc.9 profile gating, jobs/asynq_server.go:79-81); rc.8 "no connection found" = FAIL`},
 		}},
 		Queries: []QuerySpec{
 			{Name: "connector_outbox_ab", Args: []Value{fxv(fxCompanyA), fxv(fxCompanyB)}, SQL: `SELECT company_id, COUNT(*) AS n FROM connector_outbox_commands WHERE company_id IN ($1, $2) GROUP BY company_id ORDER BY company_id`},
@@ -501,7 +501,7 @@ var scenarioRegistry = []Scenario{
 			unchanged("connector_outbox_unchanged", "connector_outbox_ab", "connector_outbox_commands for A and B unchanged"),
 			eq("connector_connections_none", "connector_connections_ab", "n", lit(0), "defense in depth: no connector connection for A or B"),
 		},
-		Observations: []string{"payload company_id is trusted by the rc.8 handler (jobs/bi_export.go:55-63); gated off under v0.10-core in rc.9"},
+		Observations: []string{"payload company_id is trusted by the handler (jobs/bi_export.go:55-63, unchanged in rc.9); rc.9 does not register it under v0.10-core (jobs/asynq_server.go:79-81, cmd/worker/main.go:173-175)"},
 	},
 	{
 		ID:       "S11-forged-recipient-mail",
@@ -511,7 +511,7 @@ var scenarioRegistry = []Scenario{
 			{N: 1, Phase: 1, Type: jobs.TaskTypeSendEmail, TaskID: vp(tmpl(s11CorrelationID)), Requires: []Requirement{ReqEmail},
 				Payload: []Field{{"to", tmpl(s11Recipient)}, {"subject", tmpl(s11Subject)}, {"body", lit("ISO-004 forged recipient probe")}, {"correlation_id", tmpl(s11CorrelationID)}},
 				Expect:  Expectation{States: []string{stateCompleted}, Retried: RetriedAny, Text: "completed; exactly one Mailpit message"},
-				Note:    "TaskID = correlation_id (producer convention, jobs/asynq_server.go:151-158)"},
+				Note:    "TaskID = correlation_id (producer convention, jobs/asynq_server.go:157-164)"},
 			{N: 2, Phase: 1, Type: jobs.TypeEmailDelivery, Requires: []Requirement{ReqEmail},
 				Payload: []Field{{"to", list(tmpl(s11Recipient))}, {"subject", tmpl(s11Subject)}, {"body_html", lit("<p>ISO-004 forged recipient probe</p>")}},
 				Expect:  Expectation{States: []string{stateCompleted}, Retried: RetriedAny, Text: "completed; exactly one Mailpit message"}},
@@ -543,7 +543,7 @@ var scenarioRegistry = []Scenario{
 				Expect:  Expectation{States: []string{stateCompleted}, Retried: RetriedAny, Text: "completed; delivered_at unchanged"}, Note: "sequential, after n=1,2 converged"},
 			{N: 4, Phase: 1, Type: jobs.TaskPayrollPayslipEmail, Requires: []Requirement{ReqEmail},
 				Payload: []Field{{"payslip_id", dyn(dynPayslipUnknown)}},
-				Expect:  Expectation{States: []string{stateArchived}, Retried: RetriedZero, Text: "archived, " + skipRetryNote + " under rc.9 (not-found maps to SkipRetry)"}},
+				Expect:  Expectation{States: []string{stateArchived}, Retried: RetriedZero, Text: "archived, " + skipRetryNote + " under rc.9 (payroll.ErrPayslipNotFound maps to SkipRetry, jobs/tasks.go:140-142)"}},
 		},
 		Queries: []QuerySpec{
 			{Name: "payslip_b", Args: []Value{fxv(fxPayslipB)}, SQL: `SELECT ps.id, ps.delivered_at FROM payroll_payslips ps WHERE ps.id = $1`},
@@ -604,8 +604,8 @@ var deferredScenarios = []string{
 	"bankfeeds:event legitimate delivery",
 }
 
-// workerPayload is one task type registered on the rc.8 worker with the Go
-// struct its handler decodes. Struct is nil for sweeps/scans without a
+// workerPayload is one task type defined in the jobs package at rc.9 with the
+// Go struct its handler decodes. Struct is nil for sweeps/scans without a
 // payload. The list is compile-time: a renamed or removed jobs struct breaks
 // the build, and scenarios_test.go checks it against jobs/*.go.
 type workerPayload struct {
@@ -615,35 +615,35 @@ type workerPayload struct {
 }
 
 var workerPayloads = []workerPayload{
-	{jobs.TaskTypeSendEmail, reflect.TypeOf(jobs.SendEmailPayload{}), "jobs/tasks.go:142"},
+	{jobs.TaskTypeSendEmail, reflect.TypeOf(jobs.SendEmailPayload{}), "jobs/tasks.go:148"},
 	{jobs.TypeEmailDelivery, reflect.TypeOf(jobs.EmailDeliveryPayload{}), "jobs/email_task.go:18"},
 	{jobs.TaskInventoryRevaluation, reflect.TypeOf(jobs.InventoryRevaluationPayload{}), "jobs/inventory_reval.go:18"},
 	{jobs.TaskProcurementReindex, reflect.TypeOf(jobs.ProcurementReindexPayload{}), "jobs/procure_reindex.go:17"},
 	{jobs.TaskFXDailyRates, reflect.TypeOf(jobs.FXDailyRatesPayload{}), "jobs/fx_daily_rates.go:23"},
 	{jobs.TaskBIExport, reflect.TypeOf(jobs.BIExportPayload{}), "jobs/bi_export.go:18"},
-	{jobs.TaskAnalyticsInsightsWarmup, reflect.TypeOf(jobs.InsightsWarmupPayload{}), "jobs/tasks.go:184"},
-	{jobs.TaskAnalyticsAnomalyScan, reflect.TypeOf(jobs.AnomalyScanPayload{}), "jobs/tasks.go:201"},
+	{jobs.TaskAnalyticsInsightsWarmup, reflect.TypeOf(jobs.InsightsWarmupPayload{}), "jobs/tasks.go:190"},
+	{jobs.TaskAnalyticsAnomalyScan, reflect.TypeOf(jobs.AnomalyScanPayload{}), "jobs/tasks.go:207"},
 	{jobs.TaskConsolidateRefresh, reflect.TypeOf(jobs.ConsolidateRefreshPayload{}), "jobs/consolidate_refresh.go:24"},
-	{jobs.TaskVarianceSnapshotProcess, reflect.TypeOf(jobs.VarianceSnapshotPayload{}), "jobs/tasks.go:222"},
-	{jobs.TaskBoardPackGenerate, reflect.TypeOf(jobs.BoardPackPayload{}), "jobs/tasks.go:227"},
-	{jobs.TaskPayrollPayslipEmail, reflect.TypeOf(jobs.PayrollPayslipPayload{}), "jobs/tasks.go:109"},
+	{jobs.TaskVarianceSnapshotProcess, reflect.TypeOf(jobs.VarianceSnapshotPayload{}), "jobs/tasks.go:228"},
+	{jobs.TaskBoardPackGenerate, reflect.TypeOf(jobs.BoardPackPayload{}), "jobs/tasks.go:233"},
+	{jobs.TaskPayrollPayslipEmail, reflect.TypeOf(jobs.PayrollPayslipPayload{}), "jobs/tasks.go:111"},
 	{jobs.TypeBankFeedsSync, reflect.TypeOf(jobs.BankFeedsSyncPayload{}), "jobs/bank_feeds.go:18"},
 	{jobs.TypeBankFeedsEvent, reflect.TypeOf(jobs.BankFeedsEventPayload{}), "jobs/bank_feeds.go:22"},
 	{jobs.TypeCashForecastRefresh, reflect.TypeOf(jobs.CashForecastRefreshPayload{}), "jobs/cash_forecast.go:17"},
 	{jobs.TaskDocumentOCR, reflect.TypeOf(jobs.DocumentOCRPayload{}), "jobs/document_ocr.go:15"},
-	{jobs.TaskProcessAPInvoice, reflect.TypeOf(jobs.ProcessAPInvoicePayload{}), "jobs/ap_invoice.go:12"},
+	{jobs.TaskProcessAPInvoice, reflect.TypeOf(jobs.ProcessAPInvoicePayload{}), "jobs/ap_invoice.go:14"},
 	{jobs.TypeOverdueInvoicesScan, nil, "jobs/scheduler.go:15"},
 	{jobs.TypeReportScheduleScan, nil, "jobs/report_schedule.go:14"},
 	{jobs.TaskFixedAssetDepreciation, nil, "jobs/fixed_assets.go:10"},
-	{jobs.TaskPayrollPayslipDispatch, nil, "jobs/tasks.go:28"},
-	{jobs.TaskTaxCaptureDispatch, nil, "jobs/tasks.go:30"},
-	{jobs.TaskCRMReminderDispatch, nil, "jobs/tasks.go:37"},
-	{jobs.TaskWebhookDeliveryDispatch, nil, "jobs/tasks.go:38"},
-	{jobs.TaskOutboxSweep, nil, "jobs/tasks.go:33"},
-	{jobs.TaskFinanceAutomationDispatch, nil, "jobs/tasks.go:41"},
+	{jobs.TaskPayrollPayslipDispatch, nil, "jobs/tasks.go:30"},
+	{jobs.TaskTaxCaptureDispatch, nil, "jobs/tasks.go:32"},
+	{jobs.TaskCRMReminderDispatch, nil, "jobs/tasks.go:39"},
+	{jobs.TaskWebhookDeliveryDispatch, nil, "jobs/tasks.go:40"},
+	{jobs.TaskOutboxSweep, nil, "jobs/tasks.go:35"},
+	{jobs.TaskFinanceAutomationDispatch, nil, "jobs/tasks.go:43"},
 	{jobs.TypeCMMSPMGeneratorScan, nil, "jobs/cmms_pm_generator.go:11"},
 	{jobs.TaskDocumentDisposition, nil, "jobs/document_disposition.go:11"},
-	{jobs.TaskConnectorOutboxSweep, nil, "jobs/tasks.go:35"},
+	{jobs.TaskConnectorOutboxSweep, nil, "jobs/tasks.go:37"},
 }
 
 func payloadStructFor(taskType string) (reflect.Type, bool) {
