@@ -95,16 +95,29 @@ func readEvidenceRecord(t *testing.T, out string) (string, map[string]any) {
 	return strings.TrimSuffix(log, "\n"), recs[evidenceID]
 }
 
-func TestBundlePassRecordIsAcceptedByEvidenceRules(t *testing.T) {
+// TestBundleSubsetRunIsFailRehearsal: a --scenarios subset can never be
+// certification evidence. Even when every scenario it ran passed, the record
+// is FAIL with a non-zero exit, and it says it is a rehearsal and names the
+// scenarios that were not run. The real evidence script accepts the FAIL
+// record and fails the collection.
+func TestBundleSubsetRunIsFailRehearsal(t *testing.T) {
 	mr := miniredis.RunT(t)
 	startStubWorker(t, mr, iso004StubMux(nil))
 	run, code, stderr := bundleRun(t, mr, "9000000011", "", []string{"S01-unregistered-type"})
-	assert.Equal(t, exitOK, code, stderr)
-	assert.Contains(t, stderr, "ISO-004 evidence: PASS")
+	assert.Equal(t, exitFail, code, stderr)
+	assert.Contains(t, stderr, "ISO-004 evidence: FAIL")
+
+	var notRun []string
+	for _, id := range scenarioIDs() {
+		if id != "S01-unregistered-type" {
+			notRun = append(notRun, id)
+		}
+	}
+	require.NotEmpty(t, notRun)
 
 	line, rec := readEvidenceRecord(t, run.out)
-	assert.True(t, strings.HasPrefix(line, `CERTIFICATION_EVIDENCE evidence_id=ISO-004 {"evidence_id":"ISO-004","result":"PASS","run_id":"9000000011","collected_utc":"`), line)
-	assert.Equal(t, "PASS", rec["result"])
+	assert.True(t, strings.HasPrefix(line, `CERTIFICATION_EVIDENCE evidence_id=ISO-004 {"evidence_id":"ISO-004","result":"FAIL","run_id":"9000000011","collected_utc":"`), line)
+	assert.Equal(t, "FAIL", rec["result"])
 	assert.Equal(t, "9000000011", rec["run_id"])
 	assert.Regexp(t, closeoutUTCRe, rec["collected_utc"])
 	details := rec["details"].(string)
@@ -112,7 +125,8 @@ func TestBundlePassRecordIsAcceptedByEvidenceRules(t *testing.T) {
 	for _, want := range []string{
 		"candidate v0.10.0-rc.9 sha " + testSHA,
 		"S01-unregistered-type=PASS",
-		"subset 1 of",
+		"scenarios (subset 1 of",
+		"REHEARSAL/SUBSET RUN, NOT CERTIFICATION EVIDENCE (result is never PASS); scenarios not run: " + strings.Join(notRun, ", "),
 		"task ID prefix iso004:9000000011:",
 		"archived tasks with prefix: 1",
 		"company_a_id=3", "company_b_id=", "key=",
@@ -123,6 +137,7 @@ func TestBundlePassRecordIsAcceptedByEvidenceRules(t *testing.T) {
 	} {
 		assert.Contains(t, details, want)
 	}
+	assert.NotContains(t, details, "all Tier 1")
 	assert.NotContains(t, details, "@", "no recipient address in details")
 
 	// Every other bundle file exists and SHA256SUMS covers them.
@@ -147,7 +162,9 @@ func TestBundlePassRecordIsAcceptedByEvidenceRules(t *testing.T) {
 	assert.NotContains(t, string(raw), "redissecret")
 	var rf RunFile
 	require.NoError(t, json.Unmarshal(raw, &rf))
-	assert.Equal(t, "PASS", rf.Result)
+	assert.Equal(t, "FAIL", rf.Result)
+	assert.Equal(t, exitFail, rf.ExitCode)
+	assert.Contains(t, rf.Errors, subsetReason(notRun))
 	assert.Equal(t, "postgres://127.0.0.1:5432/odyssey", rf.Config.DSN)
 	assert.Equal(t, "v0.10-core", rf.ReleaseIdentity.Parsed["profile"])
 	assert.Contains(t, rf.ReleaseIdentity.Contents, "commit="+testSHA)
@@ -160,9 +177,11 @@ func TestBundlePassRecordIsAcceptedByEvidenceRules(t *testing.T) {
 	var sum SummaryFile
 	_, err = readJSONFile(filepath.Join(run.out, summaryJSONFileName), &sum)
 	require.NoError(t, err)
-	assert.Equal(t, "PASS", sum.Result)
+	assert.Equal(t, "FAIL", sum.Result)
+	assert.Equal(t, []string{subsetReason(notRun)}, sum.Reasons, "the only reason is the subset: the scenario itself passed")
 	require.Len(t, sum.Scenarios, 1)
 	row := sum.Scenarios[0]
+	assert.Equal(t, resultPass, row.Result, "the scenario row keeps its own verdict")
 	assert.Equal(t, []string{"iso004:9000000011:S01-unregistered-type:1"}, row.TaskIDs)
 	assert.Equal(t, stateArchived, row.FinalStates["iso004:9000000011:S01-unregistered-type:1"])
 	assert.NotNil(t, row.Assertions)
@@ -170,10 +189,74 @@ func TestBundlePassRecordIsAcceptedByEvidenceRules(t *testing.T) {
 
 	md, err := os.ReadFile(filepath.Join(run.out, summaryMDFileName))
 	require.NoError(t, err)
+	assert.Contains(t, string(md), "# ISO-004 worker injection: FAIL")
+	assert.Contains(t, string(md), "## Why the result is not PASS")
+	assert.Contains(t, string(md), "rehearsal/subset run, not certification evidence")
 	assert.Contains(t, string(md), "| S01-unregistered-type | PASS |")
 
 	assertSumsVerify(t, run.out)
-	runEvidenceScript(t, run.out, line, "PASS")
+	runEvidenceScript(t, run.out, line, "FAIL")
+}
+
+// TestBundleFullTier1RunIsPass: the only way to PASS is a run in which every
+// Tier 1 scenario ran and passed.
+func TestBundleFullTier1RunIsPass(t *testing.T) {
+	out := t.TempDir()
+	cfg := &Config{RunID: "9000000015", OutDir: out, MaxRetry: 2, CandidateTag: "v0.10.0-rc.9", CandidateSHA: testSHA,
+		ReleaseIdentity: filepath.Join(out, "absent")}
+	var recs []*EnqueueRecord
+	for _, id := range scenarioIDs() {
+		recs = append(recs, &EnqueueRecord{Scenario: id, Result: &ScenarioResult{Result: resultPass}})
+	}
+	result, code, err := writeBundle(context.Background(), &Bundle{Cfg: cfg, Records: recs, ExitCode: exitOK,
+		Archived: fakeArchived{}, GitDescribe: func() (string, error) { return "v", nil }})
+	require.NoError(t, err)
+	assert.Equal(t, resultPass, result)
+	assert.Equal(t, exitOK, code)
+
+	line, rec := readEvidenceRecord(t, out)
+	assert.Equal(t, "PASS", rec["result"])
+	details := rec["details"].(string)
+	assert.Contains(t, details, fmt.Sprintf("scenarios (all Tier 1): %s=PASS", scenarioIDs()[0]))
+	assert.NotContains(t, details, "subset")
+	assert.NotContains(t, details, "REHEARSAL")
+
+	var sum SummaryFile
+	_, err = readJSONFile(filepath.Join(out, summaryJSONFileName), &sum)
+	require.NoError(t, err)
+	assert.Equal(t, "PASS", sum.Result)
+	assert.Empty(t, sum.Reasons)
+	assert.Len(t, sum.Scenarios, len(scenarioRegistry))
+	assertSumsVerify(t, out)
+	runEvidenceScript(t, out, line, "PASS")
+}
+
+// TestBundleSubsetWithFailingScenarioKeepsBothReasons: a failing scenario in a
+// subset is reported next to the subset reason, and the details name every
+// scenario not run.
+func TestBundleSubsetWithFailingScenarioKeepsBothReasons(t *testing.T) {
+	out := t.TempDir()
+	cfg := &Config{RunID: "9000000016", OutDir: out, MaxRetry: 2, CandidateTag: "v0.10.0-rc.9", CandidateSHA: testSHA,
+		ReleaseIdentity: filepath.Join(out, "absent")}
+	ids := scenarioIDs()
+	require.GreaterOrEqual(t, len(ids), 3)
+	recs := []*EnqueueRecord{
+		{Scenario: ids[0], Result: &ScenarioResult{Result: resultPass}},
+		{Scenario: ids[1], Result: &ScenarioResult{Result: resultFail, Reasons: []string{"assertion failed"}}},
+	}
+	result, code, err := writeBundle(context.Background(), &Bundle{Cfg: cfg, Records: recs, ExitCode: exitFail,
+		Archived: fakeArchived{}, GitDescribe: func() (string, error) { return "v", nil }})
+	require.NoError(t, err)
+	assert.Equal(t, resultFail, result)
+	assert.Equal(t, exitFail, code)
+
+	var sum SummaryFile
+	_, err = readJSONFile(filepath.Join(out, summaryJSONFileName), &sum)
+	require.NoError(t, err)
+	assert.Contains(t, sum.Reasons, subsetReason(ids[2:]))
+	assert.Contains(t, sum.Reasons, "scenario "+ids[1]+" is FAIL")
+	_, rec := readEvidenceRecord(t, out)
+	assert.Contains(t, rec["details"], "scenarios not run: "+strings.Join(ids[2:], ", "))
 }
 
 func TestBundleFailScenarioYieldsFailRecordAndNonZeroExit(t *testing.T) {

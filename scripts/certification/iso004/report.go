@@ -262,11 +262,37 @@ func writeBundle(ctx context.Context, b *Bundle) (string, int, error) {
 	return result, code, errors.Join(errs...)
 }
 
+// notRunScenarios returns the Tier 1 scenario IDs, in registry order, that
+// have no row: the scenarios a --scenarios subset left out.
+func notRunScenarios(rows []SummaryRow) []string {
+	ran := make(map[string]bool, len(rows))
+	for _, r := range rows {
+		ran[r.Scenario] = true
+	}
+	var missing []string
+	for _, id := range scenarioIDs() {
+		if !ran[id] {
+			missing = append(missing, id)
+		}
+	}
+	return missing
+}
+
+// subsetReason says why a run that left Tier 1 scenarios out is never PASS.
+// A subset is a rehearsal: ISO-004 is certified only by one run of every Tier
+// 1 scenario, so the record is FAIL and names what was not run.
+func subsetReason(missing []string) string {
+	return fmt.Sprintf("rehearsal/subset run, not certification evidence: %d of %d Tier 1 scenarios not run: %s",
+		len(missing), len(scenarioRegistry), strings.Join(missing, ", "))
+}
+
 // overallReasons lists why the ISO-004 record is not PASS; empty means PASS.
 func overallReasons(b *Bundle, rows []SummaryRow, archived ArchivedTasksFile, branchErr error) []string {
 	reasons := []string{}
 	if len(rows) == 0 {
 		reasons = append(reasons, "no scenario was executed")
+	} else if missing := notRunScenarios(rows); len(missing) > 0 {
+		reasons = append(reasons, subsetReason(missing))
 	}
 	for _, r := range rows {
 		if r.Result != resultPass {
@@ -474,11 +500,15 @@ func evidenceDetails(b *Bundle, rows []SummaryRow, branch string, archived Archi
 		scen = append(scen, "none")
 	}
 	selection := "all Tier 1"
-	if len(rows) != len(scenarioRegistry) {
+	missing := notRunScenarios(rows)
+	if len(missing) > 0 {
 		selection = fmt.Sprintf("subset %d of %d Tier 1", len(rows), len(scenarioRegistry))
 	}
+	parts = append(parts, fmt.Sprintf("scenarios (%s): %s", selection, strings.Join(scen, ", ")))
+	if len(rows) > 0 && len(missing) > 0 {
+		parts = append(parts, "REHEARSAL/SUBSET RUN, NOT CERTIFICATION EVIDENCE (result is never PASS); scenarios not run: "+strings.Join(missing, ", "))
+	}
 	parts = append(parts,
-		fmt.Sprintf("scenarios (%s): %s", selection, strings.Join(scen, ", ")),
 		"task ID prefix "+cfg.TaskIDPrefix(),
 		fmt.Sprintf("archived tasks with prefix: %d", len(archived.Tasks)),
 		"fixtures "+fixtureSummary(b.Preflight),
