@@ -234,6 +234,7 @@ var nonPageSuffixes = []string{
 	"/export",
 	"/pdf",
 	"/download",
+	"/template", // /hr/attendance/template serves the CSV import template
 	"/stream",
 	"/health",
 	"/ping",
