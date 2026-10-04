@@ -6,7 +6,7 @@
 production-certified; the matrix below remains the authority for promotion evidence.
 
 **v0.10.0-rc.9 boundary:** the annotated rc.9 tag identifies the candidate
-commit (`<pending tag>`, recorded when the tag is cut). The rc.9 line is the
+commit (`07d2ba2`, recorded when the tag was cut). The rc.9 line is the
 superseded rc.8 tag `20cc13a` plus the rc.9 worker fix commits (payslip
 delivery row lock and mail deadlines, AP invoice actor binding and dedupe,
 worker pool sizing, connector outbox claim-before-execute, bounded retry for
