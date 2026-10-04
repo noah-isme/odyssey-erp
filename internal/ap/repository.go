@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"hash/fnv"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -47,6 +49,15 @@ type Repository interface {
 	GetAPException(ctx context.Context, id int64) (APException, error)
 	ListAPExceptions(ctx context.Context, status string, ownerID, invoiceID int64, limit, offset int) ([]APException, error)
 	GetLatestMatchingRun(ctx context.Context, invoiceID int64) (*MatchingRun, error)
+
+	// Worker idempotency (rc.9)
+	// AcquireProcessingLock takes a non-blocking, transaction-scoped advisory
+	// lock that serializes ProcessInvoice per invoice. acquired=false means
+	// another worker holds it. release must be called when acquired is true.
+	AcquireProcessingLock(ctx context.Context, invoiceID int64) (release func(), acquired bool, err error)
+	// ExceptionExists reports whether an exception of exceptionType exists for
+	// the invoice and matching run (nil matches a NULL run), in any status.
+	ExceptionExists(ctx context.Context, invoiceID int64, matchingRunID *int64, exceptionType string) (bool, error)
 }
 
 // TxRepository defines operations within a transaction.
@@ -978,4 +989,63 @@ func toStringPtr(t pgtype.Text) *string {
 		return nil
 	}
 	return &t.String
+}
+
+const (
+	processingLockAcquireTimeout = 5 * time.Second
+	processingLockReleaseTimeout = 5 * time.Second
+	processingLockNamespace      = "ap:invoice_process:"
+)
+
+// processingLockKey namespaces the advisory lock key so it cannot collide with
+// raw-ID advisory keys used elsewhere (internal/fx/revaluation_repository.go).
+func processingLockKey(invoiceID int64) int64 {
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(processingLockNamespace + strconv.FormatInt(invoiceID, 10)))
+	return int64(h.Sum64())
+}
+
+// AcquireProcessingLock holds one dedicated pool connection with an open
+// transaction carrying pg_try_advisory_xact_lock for the invoice. Nested
+// WithTx calls made while the lock is held use other pool connections.
+func (r *pgRepository) AcquireProcessingLock(ctx context.Context, invoiceID int64) (func(), bool, error) {
+	acquireCtx, cancel := context.WithTimeout(ctx, processingLockAcquireTimeout)
+	conn, err := r.pool.Acquire(acquireCtx)
+	cancel()
+	if err != nil {
+		return nil, false, fmt.Errorf("ap: acquire connection for processing lock: %w", err)
+	}
+	tx, err := conn.Begin(ctx)
+	if err != nil {
+		conn.Release()
+		return nil, false, fmt.Errorf("ap: begin processing lock tx: %w", err)
+	}
+	var acquired bool
+	if err := tx.QueryRow(ctx, `SELECT pg_try_advisory_xact_lock($1)`, processingLockKey(invoiceID)).Scan(&acquired); err != nil {
+		_ = tx.Rollback(context.WithoutCancel(ctx))
+		conn.Release()
+		return nil, false, fmt.Errorf("ap: try processing lock: %w", err)
+	}
+	if !acquired {
+		_ = tx.Rollback(context.WithoutCancel(ctx))
+		conn.Release()
+		return nil, false, nil
+	}
+	release := func() {
+		releaseCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), processingLockReleaseTimeout)
+		defer cancel()
+		if err := tx.Commit(releaseCtx); err != nil {
+			_ = tx.Rollback(releaseCtx)
+		}
+		conn.Release()
+	}
+	return release, true, nil
+}
+
+func (r *pgRepository) ExceptionExists(ctx context.Context, invoiceID int64, matchingRunID *int64, exceptionType string) (bool, error) {
+	return r.q.APExceptionExists(ctx, sqlc.APExceptionExistsParams{
+		ApInvoiceID:     invoiceID,
+		ApMatchingRunID: toNullInt64(matchingRunID),
+		ExceptionType:   exceptionType,
+	})
 }

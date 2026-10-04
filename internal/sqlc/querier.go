@@ -11,6 +11,9 @@ import (
 )
 
 type Querier interface {
+	// Reports whether an exception of the given type already exists for the
+	// invoice and matching run (NULL run matches NULL), regardless of status.
+	APExceptionExists(ctx context.Context, arg APExceptionExistsParams) (bool, error)
 	APInvoiceEligibleForTreasuryPayment(ctx context.Context, arg APInvoiceEligibleForTreasuryPaymentParams) (bool, error)
 	ActiveConsolidationPeriod(ctx context.Context) (string, error)
 	AddShipmentLine(ctx context.Context, arg AddShipmentLineParams) (int64, error)

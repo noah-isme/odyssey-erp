@@ -311,7 +311,7 @@ func main() {
 	apService := ap.NewService(apRepo, nil) // Dependencies omitted for simplicity in worker
 	matchingService := ap.NewMatchingService(apRepo)
 	exceptionService := ap.NewExceptionService(apRepo)
-	apOrchestrator := ap.NewOrchestrator(matchingService, exceptionService, apService)
+	apOrchestrator := ap.NewOrchestrator(matchingService, exceptionService, apService, apRepo)
 
 	worker, err := jobs.NewWorker(jobs.WorkerConfig{
 		RedisOpts: redisOpts,
@@ -343,7 +343,7 @@ func main() {
 			{Type: jobs.TaskDocumentOCR, Handler: jobs.HandleDocumentOCR(documentsService)},
 			{Type: jobs.TaskDocumentDisposition, Handler: jobs.HandleDocumentDisposition(documentsService)},
 			{Type: jobs.TaskConnectorOutboxSweep, Handler: jobs.HandleConnectorOutboxSweep(connectorsOutboxWorker)},
-			{Type: jobs.TaskProcessAPInvoice, Handler: jobs.HandleProcessAPInvoice(apOrchestrator.ProcessInvoice)},
+			{Type: jobs.TaskProcessAPInvoice, Handler: jobs.HandleProcessAPInvoice(apOrchestrator.ProcessInvoice, ap.ErrInvoiceNotFound, ap.ErrActorMismatch)},
 		},
 		FXFetcher:   fxJobFetcher{service: fxDailyService},
 		FXCompanies: fxRepo,

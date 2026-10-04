@@ -46,3 +46,14 @@ FROM ap_matching_runs
 WHERE ap_invoice_id = $1
 ORDER BY run_at DESC
 LIMIT 1;
+
+-- name: APExceptionExists :one
+-- Reports whether an exception of the given type already exists for the
+-- invoice and matching run (NULL run matches NULL), regardless of status.
+SELECT EXISTS (
+    SELECT 1
+    FROM ap_exceptions
+    WHERE ap_invoice_id = sqlc.arg(ap_invoice_id)::BIGINT
+      AND ap_matching_run_id IS NOT DISTINCT FROM sqlc.narg(ap_matching_run_id)::BIGINT
+      AND exception_type = sqlc.arg(exception_type)::TEXT
+) AS exists;
