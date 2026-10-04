@@ -474,7 +474,7 @@ var scenarioRegistry = []Scenario{
 			N: 1, Phase: 1, Type: jobs.TaskProcessAPInvoice,
 			Payload: []Field{{"invoice_id", fxv(fxAPException)}, {"created_by", fxv(fxAdminUserA)}},
 			Expect: Expectation{States: []string{stateArchived}, Retried: RetriedZero, LastErrAnyOf: []string{"actor", "created_by"},
-				Text: "archived, " + skipRetryNote + ", LastErr names the actor mismatch; no new runs/exceptions (internal/ap/orchestrator.go:75-82, jobs/ap_invoice.go:63-67, cmd/worker/main.go:430)"},
+				Text: "archived, " + skipRetryNote + ", LastErr names the actor mismatch; no new runs/exceptions (internal/ap/orchestrator.go:94-101, jobs/ap_invoice.go:103-107, cmd/worker/main.go:430)"},
 		}},
 		Queries: apQueries("exception", fxAPException),
 		Assertions: []AssertionSpec{
@@ -562,7 +562,8 @@ var scenarioRegistry = []Scenario{
 }
 
 // apDuplicateTasks declares S09: per fixture invoice two concurrent
-// deliveries (phase 1) and one sequential delivery (phase 2).
+// deliveries (phase 1) and one sequential delivery (phase 2). All must end
+// completed; a concurrent duplicate may first be retried (busy lock).
 func apDuplicateTasks() []TaskSpec {
 	paths := []struct {
 		invoice, expect string
@@ -577,10 +578,20 @@ func apDuplicateTasks() []TaskSpec {
 	for _, p := range paths {
 		for i, when := range []string{"concurrent", "concurrent", "sequential"} {
 			n++
+			// rc.9 returns the retryable ap.ErrInvoiceProcessingBusy when the
+			// per-invoice advisory lock is held (internal/ap/orchestrator.go),
+			// never nil: a concurrent duplicate that overlaps the lock holder
+			// is retried (Retried >= 1, the busy error in LastErr while it is
+			// in the retry state) and completes as a no-op. archived would
+			// mean the lock never cleared (an orphaned session): FAIL.
+			text := p.expect + "; completed, Retried 0 (no-op redelivery)"
+			if i < 2 {
+				text = p.expect + "; each concurrent delivery ends completed: the lock holder with Retried 0, a delivery that finds the lock busy (ap.ErrInvoiceProcessingBusy) is retried first (Retried >= 1, no effects of its own); archived = FAIL"
+			}
 			out = append(out, TaskSpec{
 				N: n, Phase: 1 + i/2, Concurrent: i < 2, Type: jobs.TaskProcessAPInvoice, Requires: p.reqs,
 				Payload: []Field{{"invoice_id", fxv(p.invoice)}, {"created_by", fxv(fxAPCreatedBy)}},
-				Expect:  Expectation{States: converged, Retried: RetriedAny, Text: p.expect},
+				Expect:  Expectation{States: []string{stateCompleted}, Retried: RetriedAny, Text: text},
 				Note:    when,
 			})
 		}

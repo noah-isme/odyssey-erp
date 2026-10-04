@@ -3,9 +3,14 @@ package ap
 import (
 	"context"
 	"errors"
+	"math"
 	"testing"
+	"time"
 
+	"github.com/hibiken/asynq"
 	"github.com/stretchr/testify/require"
+
+	"github.com/odyssey-erp/odyssey-erp/jobs"
 )
 
 // orchestratorFakeRepo records the writes ProcessInvoice performs so tests can
@@ -129,9 +134,10 @@ func TestOrchestrator_ProcessInvoice(t *testing.T) {
 		wantPostedBy   int64
 	}{
 		{
-			name:      "lock busy returns nil without any call",
+			name:      "lock busy returns retryable busy error without any call",
 			setup:     func(f *orchestratorFakeRepo) { f.lockBusy = true },
 			createdBy: 123,
+			wantErr:   ErrInvoiceProcessingBusy,
 			wantNoGet: true,
 		},
 		{
@@ -362,4 +368,70 @@ func TestOrchestrator_ProcessInvoiceRedeliveryIsIdempotent(t *testing.T) {
 			require.Len(t, f.posts, tc.wantPosts)
 		})
 	}
+}
+
+// A busy lock must be retryable. Returning nil would complete the task even
+// when the lock belongs to an orphaned session of a crashed worker, leaving
+// the invoice DRAFT with no matching run forever.
+func TestOrchestrator_ProcessInvoiceBusyIsRetryable(t *testing.T) {
+	ctx := context.Background()
+	f := newOrchestratorFakeRepo()
+	f.invoices[1] = APInvoice{ID: 1, Status: APStatusDraft, CreatedBy: 123}
+	orchestrator := NewOrchestrator(NewMatchingService(f), NewExceptionService(f), NewService(f, nil), f)
+
+	f.lockBusy = true
+	for i := 0; i < 3; i++ {
+		err := orchestrator.ProcessInvoice(ctx, 1, 123)
+		require.Error(t, err, "busy must not look like success")
+		require.ErrorIs(t, err, ErrInvoiceProcessingBusy)
+		require.NotErrorIs(t, err, asynq.SkipRetry, "busy must be retried, not archived on first delivery")
+		require.NotErrorIs(t, err, ErrInvoiceNotFound)
+		require.NotErrorIs(t, err, ErrActorMismatch)
+	}
+	require.Zero(t, f.writes(), "busy deliveries must not write")
+	require.Zero(t, f.getCalls, "busy deliveries must not load the invoice")
+	require.Zero(t, f.releaseCalls)
+
+	// Once the holder is gone a retry converges: exactly one run and one
+	// auto-post, and any later redelivery is a no-op.
+	f.lockBusy = false
+	require.NoError(t, orchestrator.ProcessInvoice(ctx, 1, 123))
+	require.NoError(t, orchestrator.ProcessInvoice(ctx, 1, 123))
+	require.Len(t, f.runs, 1)
+	require.Len(t, f.posts, 1)
+	require.Equal(t, 2, f.releaseCalls)
+}
+
+// The busy retries of ap:invoice_process must outlast an orphaned advisory
+// lock. The arithmetic is documented at jobs.APInvoiceProcessMaxRetry; this
+// test fails if the idle bound, the task timeout, the retry budget or asynq's
+// default backoff formula drifts apart.
+func TestAPInvoiceBusyRetryWindowOutlastsOrphanLock(t *testing.T) {
+	// The documented minimum delay n^4+15s and maximum n^4+15+29*(n+1)s must
+	// hold for asynq's real DefaultRetryDelayFunc.
+	for n := 0; n <= jobs.APInvoiceProcessMaxRetry; n++ {
+		lo := time.Duration(math.Pow(float64(n), 4)+15) * time.Second
+		hi := lo + time.Duration(29*(n+1))*time.Second
+		for i := 0; i < 500; i++ {
+			d := asynq.DefaultRetryDelayFunc(n, errors.New("busy"), nil)
+			require.GreaterOrEqual(t, d, lo, "asynq default retry delay for n=%d below the documented minimum", n)
+			require.LessOrEqual(t, d, hi, "asynq default retry delay for n=%d above the documented maximum", n)
+		}
+	}
+
+	require.Greater(t, processingLockIdleTimeout, jobs.APInvoiceProcessTimeout,
+		"a healthy holder (bounded by the task timeout) must never be cut off by the idle bound")
+	require.LessOrEqual(t, processingLockIdleTimeout, jobs.APInvoiceProcessTimeout+2*time.Minute,
+		"the idle bound should stay just above the task timeout")
+
+	var minWindow time.Duration
+	for n := 0; n < jobs.APInvoiceProcessMaxRetry; n++ {
+		minWindow += time.Duration(math.Pow(float64(n), 4)+15) * time.Second
+	}
+	const margin = time.Minute
+	require.Greater(t, minWindow, processingLockIdleTimeout+margin,
+		"even with zero jitter the busy retries must outlast an orphaned lock by %s", margin)
+	// One fewer retry would not be enough: MaxRetry is "just enough".
+	require.LessOrEqual(t, minWindow-time.Duration(math.Pow(float64(jobs.APInvoiceProcessMaxRetry-1), 4)+15)*time.Second,
+		processingLockIdleTimeout+margin)
 }

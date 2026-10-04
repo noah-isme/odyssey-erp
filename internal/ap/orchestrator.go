@@ -13,6 +13,15 @@ import (
 // contradicts the invoice's recorded creator.
 var ErrActorMismatch = errors.New("ap: task actor does not match invoice creator")
 
+// ErrInvoiceProcessingBusy is returned when another session holds the
+// per-invoice processing lock. It is deliberately retryable (the worker must
+// not wrap it with asynq.SkipRetry): returning nil would mark the task
+// complete even when the lock belongs to an orphaned session of a crashed
+// worker, leaving the invoice DRAFT with no matching run. Once the holder
+// finishes (or PostgreSQL terminates an orphaned holder, see
+// processingLockIdleTimeout) a retry converges without new effects.
+var ErrInvoiceProcessingBusy = errors.New("ap: invoice processing is held by another session")
+
 type Orchestrator struct {
 	matchingService  *MatchingService
 	exceptionService *ExceptionService
@@ -35,9 +44,19 @@ func NewOrchestrator(ms *MatchingService, es *ExceptionService, as *Service, rep
 // an exception or auto-posts it. It is safe under duplicate and concurrent
 // delivery of the ap:invoice_process task:
 //
-//  1. A non-blocking per-invoice advisory lock serializes processing; a
-//     concurrent duplicate returns nil immediately (if the holder crashes,
-//     PostgreSQL releases the lock and asynq redelivers the holder's task).
+//  1. A non-blocking per-invoice advisory lock serializes processing. A
+//     concurrent duplicate returns ErrInvoiceProcessingBusy immediately,
+//     without any write, so asynq retries it. It must not return nil: the
+//     holder may be an orphaned session of a crashed worker, in which case
+//     asynq redelivers the holder's own task and a nil return would complete
+//     it with the invoice still unprocessed. The lock transaction carries
+//     idle_in_transaction_session_timeout (processingLockIdleTimeout), so an
+//     orphan is terminated server-side and a later retry acquires the lock.
+//     Everything after the lock is idempotent (steps 2-3), so retries that
+//     run after the holder finished are no-ops, and a task whose retries are
+//     exhausted while the lock stays busy is archived (visible), never
+//     silently completed. The retry budget that outlasts the orphan bound is
+//     documented at jobs.APInvoiceProcessMaxRetry.
 //  2. Attribution integrity (not authorization): the actor recorded as run_by
 //     and posted_by is the invoice's created_by. A payload actor that
 //     contradicts a recorded creator returns ErrActorMismatch with no writes,
@@ -59,8 +78,8 @@ func (o *Orchestrator) ProcessInvoice(ctx context.Context, invoiceID, createdBy 
 		return fmt.Errorf("acquire AP processing lock: %w", err)
 	}
 	if !acquired {
-		o.logger.Info("AP invoice already processing; skipping duplicate", slog.Int64("invoice_id", invoiceID))
-		return nil
+		o.logger.Info("AP invoice processing lock is busy; task will be retried", slog.Int64("invoice_id", invoiceID))
+		return fmt.Errorf("%w: invoice %d", ErrInvoiceProcessingBusy, invoiceID)
 	}
 	defer release()
 

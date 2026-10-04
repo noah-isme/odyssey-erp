@@ -995,6 +995,18 @@ const (
 	processingLockAcquireTimeout = 5 * time.Second
 	processingLockReleaseTimeout = 5 * time.Second
 	processingLockNamespace      = "ap:invoice_process:"
+
+	// processingLockIdleTimeout bounds how long an orphaned lock can survive.
+	// The lock transaction is idle on its own connection while ProcessInvoice
+	// works on other connections, so if the worker host is lost or partitioned
+	// the backend stays idle in transaction, holding the xact-scoped advisory
+	// lock until TCP keepalive gives up (hours with Linux defaults). Setting
+	// idle_in_transaction_session_timeout on the transaction makes PostgreSQL
+	// terminate that backend itself. The value sits just above the
+	// ap:invoice_process task timeout (jobs.APInvoiceProcessTimeout, 5m) so a
+	// healthy holder is never cut off, and jobs.APInvoiceProcessMaxRetry is
+	// sized so the retries of a busy task outlast it.
+	processingLockIdleTimeout = 6 * time.Minute
 )
 
 // processingLockKey namespaces the advisory lock key so it cannot collide with
@@ -1007,7 +1019,10 @@ func processingLockKey(invoiceID int64) int64 {
 
 // AcquireProcessingLock holds one dedicated pool connection with an open
 // transaction carrying pg_try_advisory_xact_lock for the invoice. Nested
-// WithTx calls made while the lock is held use other pool connections.
+// WithTx calls made while the lock is held use other pool connections. The
+// transaction sets idle_in_transaction_session_timeout (transaction-local, so
+// it never leaks into the pooled connection) to processingLockIdleTimeout so
+// PostgreSQL terminates an orphaned holder.
 func (r *pgRepository) AcquireProcessingLock(ctx context.Context, invoiceID int64) (func(), bool, error) {
 	acquireCtx, cancel := context.WithTimeout(ctx, processingLockAcquireTimeout)
 	conn, err := r.pool.Acquire(acquireCtx)
@@ -1019,6 +1034,11 @@ func (r *pgRepository) AcquireProcessingLock(ctx context.Context, invoiceID int6
 	if err != nil {
 		conn.Release()
 		return nil, false, fmt.Errorf("ap: begin processing lock tx: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `SELECT set_config('idle_in_transaction_session_timeout', $1, true)`, fmt.Sprintf("%dms", processingLockIdleTimeout.Milliseconds())); err != nil {
+		_ = tx.Rollback(context.WithoutCancel(ctx))
+		conn.Release()
+		return nil, false, fmt.Errorf("ap: bound processing lock idle timeout: %w", err)
 	}
 	var acquired bool
 	if err := tx.QueryRow(ctx, `SELECT pg_try_advisory_xact_lock($1)`, processingLockKey(invoiceID)).Scan(&acquired); err != nil {

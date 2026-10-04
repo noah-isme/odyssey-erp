@@ -235,10 +235,18 @@ adds no migration. Fixes:
   `ap_invoices.created_by` and a contradicting payload actor is rejected and
   archived without retry; a non-blocking, namespaced advisory lock and
   per-(invoice, run, type) existence checks prevent duplicate matching runs and
-  exceptions; the producer sets a stable TaskID. `posted_by` on the legitimate
-  path is the invoice creator, as before. `ap_matching_runs.run_by` is not
-  persisted by `RunMatch` (unchanged; it was not persisted before this
-  candidate either).
+  exceptions; the producer sets a stable TaskID. A concurrent duplicate that
+  finds the lock held returns the retryable `ap.ErrInvoiceProcessingBusy`
+  (never success), so a lock orphaned by a crashed worker cannot complete the
+  redelivered task with the invoice unprocessed: the lock transaction sets
+  `idle_in_transaction_session_timeout` to 6 minutes so PostgreSQL terminates an
+  orphaned holder, `ap:invoice_process` uses `MaxRetry(5)` so its retries
+  outlast that bound, and exhausted retries are archived (visible). In ISO-004
+  `S09` a concurrent duplicate may therefore show `Retried >= 1` before it
+  completes; the final effects (one run, one exception or one post) are
+  unchanged. `posted_by` on the legitimate path is the invoice creator, as
+  before. `ap_matching_runs.run_by` is not persisted by `RunMatch` (unchanged;
+  it was not persisted before this candidate either).
 - **Connector outbox** (`c404c3a`): each command is claimed (CAS that bumps
   `attempts` and leases it for 10 minutes) before the adapter runs; exhausted
   commands dead-letter. External execution remains at-least-once.

@@ -19,11 +19,13 @@ import (
 var (
 	errTestInvoiceNotFound = errors.New("invoice not found")
 	errTestActorMismatch   = errors.New("ap: task actor does not match invoice creator")
+	errTestBusy            = errors.New("ap: invoice processing is held by another session")
 )
 
 type apProcessFake struct {
 	mu    sync.Mutex
 	err   error
+	seq   []error // consumed one per call before falling back to err
 	calls int
 }
 
@@ -31,6 +33,11 @@ func (f *apProcessFake) Process(context.Context, int64, int64) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.calls++
+	if len(f.seq) > 0 {
+		next := f.seq[0]
+		f.seq = f.seq[1:]
+		return next
+	}
 	return f.err
 }
 
@@ -64,6 +71,7 @@ func TestHandleProcessAPInvoiceErrorMapping(t *testing.T) {
 		{name: "negative invoice id skips retry", task: func(t *testing.T) *asynq.Task { return apInvoiceTask(t, -3, 1) }, wantSkip: true},
 		{name: "not found skips retry", task: func(t *testing.T) *asynq.Task { return apInvoiceTask(t, 5, 1) }, err: fmt.Errorf("%w: id 5", errTestInvoiceNotFound), wantErr: errTestInvoiceNotFound, wantSkip: true, wantCalls: 1},
 		{name: "actor mismatch skips retry", task: func(t *testing.T) *asynq.Task { return apInvoiceTask(t, 5, 999) }, err: fmt.Errorf("%w: invoice 5", errTestActorMismatch), wantErr: errTestActorMismatch, wantSkip: true, wantCalls: 1},
+		{name: "busy lock is retryable, not skipped", task: func(t *testing.T) *asynq.Task { return apInvoiceTask(t, 5, 1) }, err: fmt.Errorf("%w: invoice 5", errTestBusy), wantErr: errTestBusy, wantCalls: 1},
 		{name: "transient error retries", task: func(t *testing.T) *asynq.Task { return apInvoiceTask(t, 5, 1) }, err: transient, wantErr: transient, wantCalls: 1},
 	}
 	for _, tc := range tests {
@@ -98,7 +106,9 @@ func TestEnqueueProcessAPInvoiceUsesStableTaskID(t *testing.T) {
 	info, err := inspector.GetTaskInfo(QueueDefault, APInvoiceProcessTaskID(42))
 	require.NoError(t, err)
 	require.Equal(t, "ap-invoice-process:42", info.ID)
-	require.Equal(t, 3, info.MaxRetry)
+	require.Equal(t, APInvoiceProcessMaxRetry, info.MaxRetry)
+	require.Equal(t, 5, info.MaxRetry, "retry budget is sized to outlast the orphaned-lock bound; see APInvoiceProcessMaxRetry")
+	require.Equal(t, APInvoiceProcessTimeout, info.Timeout)
 	require.Equal(t, 5*time.Minute, info.Timeout)
 	pending, err := inspector.ListPendingTasks(QueueDefault)
 	require.NoError(t, err)
@@ -147,4 +157,66 @@ func TestWorkerArchivesForgedAPActorWithoutRetry(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("worker did not stop")
 	}
+}
+
+// runAPWorker starts an asynq server wired like the worker's ap:invoice_process
+// handler, with a 10ms retry delay and a 50ms retry-forwarder interval (the
+// asynq default of 5s per retry would make multi-retry tests slow), and
+// enqueues the invoice through EnqueueProcessAPInvoice so the production
+// MaxRetry and timeout apply. The server is shut down at test cleanup.
+func runAPWorker(t *testing.T, fake *apProcessFake, invoiceID int64) *asynq.Inspector {
+	t.Helper()
+	mr := miniredis.RunT(t)
+	redisOpts := asynq.RedisClientOpt{Addr: mr.Addr()}
+	srv := asynq.NewServer(redisOpts, asynq.Config{
+		Concurrency:              1,
+		DelayedTaskCheckInterval: 50 * time.Millisecond,
+		RetryDelayFunc:           func(int, error, *asynq.Task) time.Duration { return 10 * time.Millisecond },
+		Queues:                   map[string]int{QueueDefault: 1},
+	})
+	mux := asynq.NewServeMux()
+	mux.HandleFunc(TaskProcessAPInvoice, HandleProcessAPInvoice(fake.Process, errTestInvoiceNotFound, errTestActorMismatch))
+	require.NoError(t, srv.Start(mux))
+	t.Cleanup(srv.Shutdown)
+
+	client := asynq.NewClient(redisOpts)
+	t.Cleanup(func() { _ = client.Close() })
+	require.NoError(t, EnqueueProcessAPInvoice(client, invoiceID, 1))
+
+	inspector := asynq.NewInspector(redisOpts)
+	t.Cleanup(func() { _ = inspector.Close() })
+	return inspector
+}
+
+func TestWorkerRetriesBusyAPInvoiceUntilHolderFinishes(t *testing.T) {
+	busy := fmt.Errorf("%w: invoice 11", errTestBusy)
+	fake := &apProcessFake{seq: []error{busy, busy, busy}}
+	inspector := runAPWorker(t, fake, 11)
+
+	// A completed task is deleted (no retention), so the task disappears from
+	// the inspector once the fourth delivery returned nil.
+	require.Eventually(t, func() bool {
+		_, err := inspector.GetTaskInfo(QueueDefault, APInvoiceProcessTaskID(11))
+		return errors.Is(err, asynq.ErrTaskNotFound)
+	}, 15*time.Second, 20*time.Millisecond)
+	require.Equal(t, 4, fake.Calls(), "three busy deliveries are retried, the fourth converges")
+	archived, err := inspector.ListArchivedTasks(QueueDefault)
+	require.NoError(t, err)
+	require.Empty(t, archived, "a busy lock that clears must not archive the task")
+}
+
+func TestWorkerArchivesAPInvoiceWhenBusyLockNeverClears(t *testing.T) {
+	busy := fmt.Errorf("%w: invoice 12", errTestBusy)
+	fake := &apProcessFake{err: busy}
+	inspector := runAPWorker(t, fake, 12)
+
+	var info *asynq.TaskInfo
+	var err error
+	require.Eventually(t, func() bool {
+		info, err = inspector.GetTaskInfo(QueueDefault, APInvoiceProcessTaskID(12))
+		return err == nil && info.State == asynq.TaskStateArchived
+	}, 15*time.Second, 20*time.Millisecond)
+	require.Equal(t, APInvoiceProcessMaxRetry, info.Retried, "every retry is used before archiving")
+	require.Equal(t, APInvoiceProcessMaxRetry+1, fake.Calls())
+	require.Contains(t, info.LastErr, errTestBusy.Error(), "the archive must show why the task failed")
 }

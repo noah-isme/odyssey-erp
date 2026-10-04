@@ -248,6 +248,18 @@ func TestScenarioRenderedPayloadBytes(t *testing.T) {
 			assert.Equal(t, fmt.Sprintf(`{"invoice_id":%d,"created_by":6}`, inv), pt.Payload)
 			assert.Equal(t, j < 2, pt.Concurrent)
 			assert.Equal(t, 1+j/2, pt.Phase)
+			// A concurrent duplicate may find the advisory lock busy and be
+			// retried first (ap.ErrInvoiceProcessingBusy), so Retried is not
+			// constrained; every delivery must still end completed (archived
+			// means the lock never cleared).
+			assert.Equal(t, []string{stateCompleted}, pt.Expectation.States, "S09 task %d", i*3+j+1)
+			assert.Equal(t, RetriedAny, pt.Expectation.Retried)
+			if j < 2 {
+				assert.Contains(t, pt.Expectation.Text, "ap.ErrInvoiceProcessingBusy")
+				assert.Contains(t, pt.Expectation.Text, "Retried >= 1")
+			} else {
+				assert.NotContains(t, pt.Expectation.Text, "ErrInvoiceProcessingBusy")
+			}
 		}
 	}
 
@@ -383,22 +395,22 @@ const repoRoot = "../../.."
 // A citation without an anchor fails the test, so a moved or removed line is
 // caught here instead of misleading the operator at run time.
 var citationAnchors = map[string]string{
-	"internal/variance/job.go:34-39":    "asynq.SkipRetry",
-	"internal/variance/job.go:44-47":    "ErrSnapshotNotFound",
-	"internal/boardpack/job.go:50-55":   "BoardPackID == 0",
-	"internal/boardpack/job.go:58-61":   "ErrBoardPackNotFound",
-	"internal/documents/ocr.go:83-86":   "GetOCRJob",
-	"internal/documents/ocr.go:106-107": "does not match document version",
-	"jobs/document_ocr.go:54":           "ProcessOCRJob",
-	"internal/ap/orchestrator.go:75-82": "ErrActorMismatch",
-	"jobs/ap_invoice.go:63-67":          "asynq.SkipRetry",
-	"cmd/worker/main.go:430":            "ap.ErrActorMismatch",
-	"cmd/worker/main.go:127-132":        "TypeCashForecastRefresh",
-	"cmd/worker/main.go:173-175":        "ReleaseProfileV010Core",
-	"jobs/asynq_server.go:79-81":        "TaskBIExport",
-	"jobs/asynq_server.go:157-164":      "TaskID(payload.CorrelationID)",
-	"jobs/bi_export.go:55-63":           "GenerateBIExport",
-	"jobs/tasks.go:140-142":             "ErrPayslipNotFound",
+	"internal/variance/job.go:34-39":     "asynq.SkipRetry",
+	"internal/variance/job.go:44-47":     "ErrSnapshotNotFound",
+	"internal/boardpack/job.go:50-55":    "BoardPackID == 0",
+	"internal/boardpack/job.go:58-61":    "ErrBoardPackNotFound",
+	"internal/documents/ocr.go:83-86":    "GetOCRJob",
+	"internal/documents/ocr.go:106-107":  "does not match document version",
+	"jobs/document_ocr.go:54":            "ProcessOCRJob",
+	"internal/ap/orchestrator.go:94-101": "ErrActorMismatch",
+	"jobs/ap_invoice.go:103-107":         "asynq.SkipRetry",
+	"cmd/worker/main.go:430":             "ap.ErrActorMismatch",
+	"cmd/worker/main.go:127-132":         "TypeCashForecastRefresh",
+	"cmd/worker/main.go:173-175":         "ReleaseProfileV010Core",
+	"jobs/asynq_server.go:79-81":         "TaskBIExport",
+	"jobs/asynq_server.go:157-164":       "TaskID(payload.CorrelationID)",
+	"jobs/bi_export.go:55-63":            "GenerateBIExport",
+	"jobs/tasks.go:140-142":              "ErrPayslipNotFound",
 }
 
 // TestScenarioTextCitationsMatchSource checks that every file:line citation
