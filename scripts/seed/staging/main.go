@@ -42,6 +42,12 @@ func main() {
 		applyGH    = flag.Bool("apply-gh", false, "Automatically set variables in GitHub staging environment via gh CLI")
 		exportEnv  = flag.Bool("export", false, "Print shell export statements for fixture variables and secrets")
 		jsonOutput = flag.Bool("json", false, "Print JSON output of fixtures")
+
+		iso004        = flag.Bool("iso004", false, "Create ISO-004 worker-injection fixtures only (never runs the base seeder; requires --confirm-staging, --iso004-key and APP_ENV=staging)")
+		iso004Key     = flag.String("iso004-key", "", "Run key for ISO-004 fixtures (pass the ISO-004 --run-id); required with --iso004")
+		confirmTarget = flag.String("confirm-staging", "", "With --iso004: <db-name>@<db-host> that must match the DSN host and current_database()")
+		denyHostRegex = flag.String("deny-host-regex", iso004DefaultDenyHosts, "With --iso004: refuse when the DSN host matches this case-insensitive regex")
+		dryRun        = flag.Bool("dry-run", false, "With --iso004: run the guard and SELECT-only resolution, print the planned inserts, write nothing")
 	)
 	flag.Parse()
 
@@ -49,6 +55,27 @@ func main() {
 	if dsn == "" {
 		dsn = os.Getenv("PG_DSN")
 	}
+	explicitDSN := dsn != ""
+
+	if *dryRun && !*iso004 {
+		log.Fatalf("--dry-run is only supported with --iso004")
+	}
+	if *iso004 {
+		runISO004Main(iso004Options{
+			Guard: iso004GuardInput{
+				DSN:            dsn,
+				Confirm:        *confirmTarget,
+				AppEnv:         os.Getenv("APP_ENV"),
+				DenyHostRegex:  *denyHostRegex,
+				Key:            *iso004Key,
+				ExplicitDSNSet: explicitDSN,
+			},
+			AdminEmail: getenv("STAGING_CERT_ADMIN_EMAIL", "admin@staging.odyssey.local"),
+			DryRun:     *dryRun,
+		}, *applyGH, *exportEnv, *jsonOutput)
+		return
+	}
+
 	if dsn == "" {
 		dsn = "postgres://odyssey:odyssey@localhost:5432/odyssey?sslmode=disable"
 	}
@@ -592,6 +619,32 @@ func applyToGitHub(f *Fixtures) error {
 	}
 	fmt.Println("All 12 variables successfully set in GitHub staging environment!")
 	return nil
+}
+
+// runISO004Main runs the --iso004 extension and prints its outputs. It never
+// calls seedStagingFixtures.
+func runISO004Main(opts iso004Options, applyGH, exportEnv, jsonOutput bool) {
+	ctx := context.Background()
+	res, err := runISO004(ctx, opts)
+	if err != nil {
+		log.Fatalf("iso004 fixtures: %v", err)
+	}
+	if opts.DryRun {
+		printISO004Plan(os.Stdout, res)
+		return
+	}
+	if err := printISO004Summary(os.Stdout, os.Stderr, res, applyGH, exportEnv, jsonOutput); err != nil {
+		log.Fatalf("print iso004 summary: %v", err)
+	}
+	if applyGH {
+		progress := os.Stdout
+		if jsonOutput {
+			progress = os.Stderr
+		}
+		if err := applyISO004ToGitHub(progress, res); err != nil {
+			log.Fatalf("apply ISO-004 variables to GitHub staging environment: %v", err)
+		}
+	}
 }
 
 func getenv(key, fallback string) string {
