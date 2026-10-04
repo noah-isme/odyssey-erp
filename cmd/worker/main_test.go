@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/odyssey-erp/odyssey-erp/internal/app"
 	"github.com/odyssey-erp/odyssey-erp/internal/platform/db"
 	"github.com/odyssey-erp/odyssey-erp/jobs"
 )
@@ -46,6 +47,39 @@ func TestWorkerPoolDefaultsFromDSN(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, tc.wantConns, cfg.MaxConns)
 			require.Equal(t, tc.wantWarn, workerPoolUndersized(cfg.MaxConns, jobs.WorkerConcurrency))
+		})
+	}
+}
+
+func TestWorkerHandlersForProfile(t *testing.T) {
+	all := []jobs.TaskHandler{
+		{Type: jobs.TaskProcessAPInvoice},
+		{Type: jobs.TaskBoardPackGenerate},
+		{Type: jobs.TypeBankFeedsSync},
+		{Type: jobs.TypeBankFeedsEvent},
+		{Type: jobs.TypeCashForecastRefresh},
+		{Type: jobs.TaskConnectorOutboxSweep},
+	}
+	inProfile := []string{jobs.TaskProcessAPInvoice, jobs.TaskBoardPackGenerate, jobs.TaskConnectorOutboxSweep}
+	full := append(append([]string(nil), inProfile...), jobs.TypeBankFeedsSync, jobs.TypeBankFeedsEvent, jobs.TypeCashForecastRefresh)
+
+	tests := []struct {
+		profile  app.ReleaseProfile
+		want     []string
+		biExport bool
+	}{
+		{app.ReleaseProfileV010Core, inProfile, false},
+		{app.ReleaseProfileV011Finance, full, true},
+		{app.ReleaseProfileFull, full, true},
+	}
+	for _, tc := range tests {
+		t.Run(string(tc.profile), func(t *testing.T) {
+			var got []string
+			for _, h := range workerHandlersForProfile(tc.profile, all) {
+				got = append(got, h.Type)
+			}
+			require.ElementsMatch(t, tc.want, got)
+			require.Equal(t, tc.biExport, registerBIExportForProfile(tc.profile))
 		})
 	}
 }

@@ -51,6 +51,9 @@ type WorkerConfig struct {
 	FXLogger       *slog.Logger
 	Analytics      *analytics.Service
 	Connectors     *connectors.Service
+	// RegisterBIExport enables the analytics:bi_export handler (in addition
+	// to Analytics and Connectors being set).
+	RegisterBIExport bool
 }
 
 // WorkerConcurrency is the number of tasks a worker process runs at once.
@@ -73,7 +76,7 @@ func NewWorker(cfg WorkerConfig) (*Worker, error) {
 	if cfg.FXFetcher != nil && cfg.FXCompanies != nil {
 		mux.HandleFunc(TaskFXDailyRates, HandleFXDailyRatesTask(cfg.FXFetcher, cfg.FXCompanies, cfg.FXLocation, cfg.FXLogger))
 	}
-	if cfg.Analytics != nil && cfg.Connectors != nil {
+	if cfg.RegisterBIExport && cfg.Analytics != nil && cfg.Connectors != nil {
 		biExportJob := NewBIExportJob(cfg.Analytics, cfg.Connectors)
 		mux.HandleFunc(TaskBIExport, biExportJob.Handle)
 	}

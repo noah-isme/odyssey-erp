@@ -117,6 +117,40 @@ func workerPoolUndersized(maxConns int32, concurrency int) bool {
 	return int(maxConns) < workerPoolConnsPerTask*concurrency
 }
 
+// coreExcludedTaskTypes are handlers with no v0.10-core producer: their
+// routes are v0.11-finance only (bankfeeds, cashforecast) or no app code
+// enqueues them (analytics:bi_export). They are not registered under
+// v0.10-core, so an injected task converges as "handler not found" and is
+// archived after its retries.
+var coreExcludedTaskTypes = map[string]struct{}{
+	jobs.TypeBankFeedsSync:       {},
+	jobs.TypeBankFeedsEvent:      {},
+	jobs.TypeCashForecastRefresh: {},
+}
+
+// workerHandlersForProfile filters the full handler set down to the handlers
+// registered for the release profile. Every profile except v0.10-core keeps
+// the full set.
+func workerHandlersForProfile(profile app.ReleaseProfile, all []jobs.TaskHandler) []jobs.TaskHandler {
+	if profile != app.ReleaseProfileV010Core {
+		return all
+	}
+	out := make([]jobs.TaskHandler, 0, len(all))
+	for _, h := range all {
+		if _, excluded := coreExcludedTaskTypes[h.Type]; excluded {
+			continue
+		}
+		out = append(out, h)
+	}
+	return out
+}
+
+// registerBIExportForProfile reports whether analytics:bi_export is
+// registered; it has no in-profile producer under v0.10-core.
+func registerBIExportForProfile(profile app.ReleaseProfile) bool {
+	return profile != app.ReleaseProfileV010Core
+}
+
 func main() {
 	if app.InTestMode() {
 		slog.Default().Info("test mode detected, skipping worker startup")
@@ -133,6 +167,12 @@ func main() {
 	}
 
 	logger := app.NewLogger(cfg)
+	profile, err := app.ParseReleaseProfile(cfg.ReleaseProfile)
+	if err != nil {
+		logger.Error("parse release profile", slog.Any("error", err))
+		os.Exit(1)
+	}
+	logger.Info("worker release profile", slog.String("profile", string(profile)))
 	mailClient := shared.NewMailClient(shared.MailConfig{Host: cfg.SMTPHost, Port: cfg.SMTPPort, From: cfg.SMTPFrom, Username: cfg.SMTPUsername, Password: cfg.SMTPPassword})
 
 	pool, err := db.NewWithDefaults(ctx, cfg.PGDSN, workerDefaultPoolMaxConns)
@@ -338,7 +378,7 @@ func main() {
 		RedisOpts: redisOpts,
 		Logger:    logger,
 		Mailer:    mailClient,
-		Handlers: []jobs.TaskHandler{
+		Handlers: workerHandlersForProfile(profile, []jobs.TaskHandler{
 			{Type: jobs.TaskAnalyticsInsightsWarmup, Handler: warmupJob.Handle},
 			{Type: jobs.TaskAnalyticsAnomalyScan, Handler: anomalyJob.Handle},
 			{Type: jobs.TaskConsolidateRefresh, Handler: consolidator.Handle},
@@ -365,13 +405,14 @@ func main() {
 			{Type: jobs.TaskDocumentDisposition, Handler: jobs.HandleDocumentDisposition(documentsService)},
 			{Type: jobs.TaskConnectorOutboxSweep, Handler: jobs.HandleConnectorOutboxSweep(connectorsOutboxWorker)},
 			{Type: jobs.TaskProcessAPInvoice, Handler: jobs.HandleProcessAPInvoice(apOrchestrator.ProcessInvoice, ap.ErrInvoiceNotFound, ap.ErrActorMismatch)},
-		},
-		FXFetcher:   fxJobFetcher{service: fxDailyService},
-		FXCompanies: fxRepo,
-		FXLocation:  mustLocation("Asia/Jakarta"),
-		FXLogger:    logger,
-		Analytics:   analyticsService,
-		Connectors:  connectorsService,
+		}),
+		RegisterBIExport: registerBIExportForProfile(profile),
+		FXFetcher:        fxJobFetcher{service: fxDailyService},
+		FXCompanies:      fxRepo,
+		FXLocation:       mustLocation("Asia/Jakarta"),
+		FXLogger:         logger,
+		Analytics:        analyticsService,
+		Connectors:       connectorsService,
 		Cron: []jobs.CronRegistration{
 			{Spec: "15 1 * * *", Task: warmupTask, Options: []asynq.Option{asynq.MaxRetry(3)}},
 			{Spec: "30 1 * * *", Task: anomalyTask, Options: []asynq.Option{asynq.MaxRetry(3)}},
