@@ -325,7 +325,7 @@ func TestDryRunWithoutFixturesExitsNonZero(t *testing.T) {
 func TestDispatch(t *testing.T) {
 	var stderr bytes.Buffer
 	assert.Equal(t, exitUsage, dispatch(context.Background(), []string{"bogus"}, io.Discard, &stderr))
-	assert.Contains(t, stderr.String(), `unknown subcommand "bogus" (available: run)`)
+	assert.Contains(t, stderr.String(), `unknown subcommand "bogus" (available: cleanup, run, seal)`)
 
 	stderr.Reset()
 	assert.Equal(t, exitUsage, dispatch(context.Background(), []string{"run", "--run-id", "x"}, io.Discard, &stderr))

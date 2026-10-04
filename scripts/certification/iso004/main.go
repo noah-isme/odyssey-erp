@@ -5,10 +5,11 @@
 // Usage:
 //
 //	go run ./scripts/certification/iso004 [run] --run-id ... --out DIR ... [--dry-run]
+//	go run ./scripts/certification/iso004 seal --out DIR
+//	go run ./scripts/certification/iso004 cleanup --run-id ... --out DIR --redis ADDR [--queue Q ...]
 //
-// "run" is the default subcommand. Later steps register further subcommands
-// (seal, cleanup) in the commands table and the scenario executor through
-// runExecutor.
+// "run" is the default subcommand; the scenario executor is registered
+// through runExecutor.
 package main
 
 import (
@@ -41,9 +42,13 @@ const (
 // command is a subcommand entry point.
 type command func(ctx context.Context, args []string, stdout, stderr io.Writer) int
 
-// commands is the subcommand table. Step 6 adds "seal" and "cleanup".
+// commands is the subcommand table: "run" (default), "seal" (re-seal the
+// bundle after adding worker-journal.log) and "cleanup" (delete the run's
+// retained tasks after the sealed bundle is uploaded).
 var commands = map[string]command{
 	defaultSubcommand: cmdRun,
+	"seal":            cmdSeal,
+	"cleanup":         cmdCleanup,
 }
 
 // RunContext is handed to the scenario executor after preflight passed.
