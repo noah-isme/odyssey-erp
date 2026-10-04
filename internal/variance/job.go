@@ -3,6 +3,8 @@ package variance
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log/slog"
 
 	"github.com/hibiken/asynq"
@@ -10,9 +12,14 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/jobs"
 )
 
+// snapshotProcessor is the part of Service the job needs.
+type snapshotProcessor interface {
+	ProcessSnapshot(ctx context.Context, snapshotID int64) error
+}
+
 // SnapshotJob processes variance snapshot tasks.
 type SnapshotJob struct {
-	service *Service
+	service snapshotProcessor
 	logger  *slog.Logger
 }
 
@@ -33,6 +40,10 @@ func (j *SnapshotJob) Handle(ctx context.Context, task *asynq.Task) error {
 	if err := j.service.ProcessSnapshot(ctx, payload.SnapshotID); err != nil {
 		if j.logger != nil {
 			j.logger.Error("variance snapshot", slog.Int64("snapshot_id", payload.SnapshotID), slog.Any("error", err))
+		}
+		if errors.Is(err, ErrSnapshotNotFound) {
+			// A missing (forged or deleted) snapshot never appears on retry.
+			return fmt.Errorf("%w: %w", err, asynq.SkipRetry)
 		}
 		return err
 	}
