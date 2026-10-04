@@ -11,23 +11,26 @@
 **Revised:** 2026-08-02 (linked execution plans for remaining module depth and administration)
 **Revised:** 2026-08-27 (v0.10.0 staging closeout handoff)
 **Revised:** 2026-09-02 (rc.8 candidate reconciliation)
+**Revised:** 2026-10-02 (Option A candidate-identity ruling: tag resolves to 20cc13a; dispatch branch created)
 **Current Version:** v0.9.1
 
 > **Active release handoff (2026-09-02):** The bounded `v0.10-core` release
 > candidate is the immutable annotated `v0.10.0-rc.8` tag at
-> `cdaa910b2d529d7dd6b8e05f259f533a28e32dd4`, with migrations ending at `000124`.
+> `20cc13a0f028e3b09573944bb9f7a1f943461253`, with migrations ending at `000124`.
 > The rc.8 line diverges from the superseded, never-certified rc.7 candidate at
-> merge-base `04ebd8a040ff3c5da6f90c6f8d0eab5f4a9ba336` and carries a 15-commit
-> stabilization chain. Candidate CI (`33452408431`) and the tag-push staging
-> deployment (`33452416384`) have passed, but staging certification and production
-> promotion remain open. The remaining blockers are certification preflight —
-> which lacks the staging identities, fixture variables, and immutable evidence
-> store configuration — and the `certification/v0.10.0-rc.8` dispatch branch,
-> which does not exist yet. Provision those staging-only inputs and the dispatch
-> branch, verify the documented service supervision and `127.0.0.1:8180` health
-> contract, then rerun the automated and operator evidence lanes. No feature or
-> migration work should be added to this candidate; an application or schema
-> change requires a new release candidate and a fresh certification run.
+> merge-base `04ebd8a040ff3c5da6f90c6f8d0eab5f4a9ba336` and carries the rc.8
+> stabilization chain plus 33 further rc-line commits. Candidate CI
+> (`34007099245`) and the tag-push staging deployment (`34007099231`) have
+> passed for `20cc13a`, but staging certification and production promotion
+> remain open. The remaining blockers are certification preflight — which
+> lacks the staging identities, fixture variables, and immutable evidence store
+> configuration. The `certification/v0.10.0-rc.8` dispatch branch now exists on
+> origin (created 2026-10-02 from the tag commit under the Option A ruling).
+> Provision those staging-only inputs, verify the documented service
+> supervision and `127.0.0.1:8180` health contract, then run the automated and
+> operator evidence lanes. No feature or migration work should be added to
+> this candidate; an application or schema change requires a new release
+> candidate and a fresh certification run.
 
 > For current capability status, use the [Module Catalog](reference/module-catalog.md).
 > This roadmap tracks sequencing and release gates; it is not a second feature-status
