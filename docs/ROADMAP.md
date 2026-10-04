@@ -216,7 +216,10 @@ The FX implementation is complete, but Phase 14 is not production-certified unti
 following acceptance work is recorded:
 
 - [x] Add and pass a database-backed USD AR end-to-end test.
-- [x] Add and pass a database-backed USD AP end-to-end test.
+- [x] Add and pass a database-backed USD AP end-to-end test. (`TestFXARAPDatabaseIntegration`
+  went stale when AP posting began requiring a matching run on 2026-08-08; it fails at the
+  superseded rc.8 tag and at `v0.10.0-rc.9`. Fixed on `main` on 2026-10-04 to run matching
+  before posting; the fix is test-only and lands in the next candidate.)
 - [x] Run the complete local integration suite with the clean schema through migration `000061`.
 - [ ] Execute migration `000053_transaction_fx` on staging and verify the four FX account mappings.
 - [ ] Execute and verify the production migration and account mappings.
@@ -323,7 +326,7 @@ These can be implemented in 1-2 days each:
 ### Code Quality
 - [x] ✅ Fix template embedding issue — templates now embedded via `go:embed` (`web/embed.go`, `internal/view/templates.go`)
 - [x] ✅ Add comprehensive unit tests for AR module — `internal/ar/service_test.go` exists
-- [ ] Add integration tests for AR workflows — `internal/integration/` dir exists but is **empty**
+- [x] ✅ Add integration tests for AR workflows — `internal/integration/` holds AR/FX posting hooks with tests, and `tests/e2e/fx_ar_ap_integration_test.go` covers the database-backed USD AR invoice → payment → revaluation path
 - [ ] Refactor handler error responses to be consistent
 
 ### Performance
@@ -332,10 +335,10 @@ These can be implemented in 1-2 days each:
 - [ ] Optimize aging report query
 
 ### Security
-- [ ] Add rate limiting on login — a global limiter exists (`httprate`), but `POST /login` is **not** specifically throttled
+- [x] ✅ Add rate limiting on login — `POST /auth/login` and the MFA endpoints are throttled to 5 attempts/IP/minute (`internal/auth/handler.go`, `loginRateLimiter`)
 - [ ] Implement password complexity rules
-- [ ] Add 2FA support
-- [ ] Session timeout configuration
+- [x] ✅ Add 2FA support — TOTP setup and verification at `/auth/mfa/setup` and `/auth/mfa/verify`
+- [ ] Session timeout configuration — partial: `SESSION_TTL` is configurable but defaults to `720h` (30 days) and there is no idle timeout
 
 ### DevOps
 - [x] ✅ Add CI/CD pipeline — `.github/workflows/ci.yml` (build + Postgres/Redis services)
