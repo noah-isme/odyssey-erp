@@ -7,9 +7,11 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/smtp"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -103,10 +105,36 @@ func (c *MailClient) SendEmail(ctx context.Context, to, subject, body string, at
 	return nil
 }
 
+// heloTracker records whether the SMTP client fell back from EHLO to HELO.
+// net/smtp keeps that state private (Client.ext is nil only after a HELO
+// fallback) but net/smtp.SendMail branches on it, so sendMail observes the
+// commands the client writes to reproduce the same decision.
+type heloTracker struct {
+	net.Conn
+	sawHELO atomic.Bool
+}
+
+func (t *heloTracker) Write(p []byte) (int, error) {
+	// net/smtp flushes one command per write, so a HELO command starts a write.
+	if len(p) >= 5 && strings.EqualFold(string(p[:5]), "HELO ") {
+		t.sawHELO.Store(true)
+	}
+	return t.Conn.Write(p)
+}
+
 // sendMail mirrors net/smtp.SendMail (HELO localhost, opportunistic STARTTLS
 // verified against the configured host, PLAIN auth when credentials are set,
 // MAIL/RCPT/DATA/QUIT) but bounds the dial and the whole conversation with
 // deadlines so a stalled server cannot hang the caller indefinitely.
+//
+// Two behaviors follow net/smtp.SendMail on purpose:
+//   - Credentials are only enforced when the server answered EHLO. A server
+//     that only speaks HELO has no extension list (SendMail's c.ext == nil), so
+//     SendMail skips AUTH and sends unauthenticated; so does sendMail. An EHLO
+//     server that does not offer AUTH is still refused.
+//   - Once the server accepted DATA (the final dot), the message is sent. A
+//     failing QUIT afterwards is logged and ignored, because reporting it as a
+//     failure would make the caller retry and deliver the message twice.
 func (c *MailClient) sendMail(ctx context.Context, addr string, auth smtp.Auth, from string, to []string, msg []byte) error {
 	dialTimeout := c.config.DialTimeout
 	if dialTimeout <= 0 {
@@ -135,7 +163,8 @@ func (c *MailClient) sendMail(ctx context.Context, addr string, auth smtp.Auth, 
 		return err
 	}
 
-	client, err := smtp.NewClient(conn, host)
+	tracker := &heloTracker{Conn: conn}
+	client, err := smtp.NewClient(tracker, host)
 	if err != nil {
 		_ = conn.Close()
 		return err
@@ -150,9 +179,10 @@ func (c *MailClient) sendMail(ctx context.Context, addr string, auth smtp.Auth, 
 			return err
 		}
 	}
-	if auth != nil {
+	if auth != nil && !tracker.sawHELO.Load() {
 		// net/smtp.SendMail refuses to send unauthenticated when credentials
-		// are configured but the server does not offer AUTH; keep that.
+		// are configured but the EHLO server does not offer AUTH; keep that.
+		// With a HELO-only server it skips AUTH (see heloTracker).
 		if ok, _ := client.Extension("AUTH"); !ok {
 			return errors.New("smtp: server doesn't support AUTH")
 		}
@@ -178,7 +208,14 @@ func (c *MailClient) sendMail(ctx context.Context, addr string, auth smtp.Auth, 
 	if err = w.Close(); err != nil {
 		return err
 	}
-	return client.Quit()
+	// The server accepted the message. A QUIT failure (timeout, dropped
+	// connection) cannot undo that, so it must not be reported as a failed
+	// send: the caller would retry and deliver a duplicate.
+	if err = client.Quit(); err != nil {
+		slog.Warn("smtp: QUIT failed after the message was accepted; treating the send as successful",
+			slog.String("host", host), slog.String("error", err.Error()))
+	}
+	return nil
 }
 
 // SendEmailWithPDF sends an email with a PDF attachment.

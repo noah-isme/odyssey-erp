@@ -2,6 +2,7 @@ package shared
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -9,6 +10,8 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"fmt"
+	"log/slog"
 	"math/big"
 	"net"
 	"net/smtp"
@@ -28,6 +31,8 @@ type smtpStub struct {
 	tlsConfig *tls.Config // non-nil: advertise STARTTLS (and AUTH after TLS)
 	auth      bool        // advertise AUTH PLAIN
 	stallData bool        // never answer DATA
+	heloOnly  bool        // reject EHLO; answer HELO without extensions
+	quit      string      // "": reply 221; "drop": close without replying; "stall": never reply
 
 	mu       sync.Mutex
 	commands []string
@@ -84,6 +89,14 @@ func (s *smtpStub) serve() {
 		s.record(line)
 		switch verb {
 		case "EHLO", "HELO":
+			if s.heloOnly {
+				if verb == "EHLO" {
+					w("502 command not implemented")
+				} else {
+					w("250 stub")
+				}
+				continue
+			}
 			exts := []string{"stub"}
 			if s.tlsConfig != nil && !secure {
 				exts = append(exts, "STARTTLS")
@@ -135,7 +148,15 @@ func (s *smtpStub) serve() {
 			s.mu.Unlock()
 			w("250 queued")
 		case "QUIT":
-			w("221 bye")
+			switch s.quit {
+			case "drop":
+			case "stall":
+				// Never answer; the client gives up on its own deadline and
+				// closes the connection.
+				_, _ = r.ReadString('\n')
+			default:
+				w("221 bye")
+			}
 			return
 		default:
 			w("502 unknown")
@@ -265,4 +286,100 @@ func TestSendEmailIODeadlineWhenDataNeverAnswered(t *testing.T) {
 func TestMailClientDefaultDeadlines(t *testing.T) {
 	require.Equal(t, 10*time.Second, DefaultMailDialTimeout)
 	require.Equal(t, 60*time.Second, DefaultMailIOTimeout)
+}
+
+// captureSlog replaces the default logger for the test and returns its output.
+func captureSlog(t *testing.T) *bytes.Buffer {
+	t.Helper()
+	var buf bytes.Buffer
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+	return &buf
+}
+
+// Once the server accepted DATA the message is delivered; a QUIT that fails or
+// times out afterwards must not be reported as a failed send, or the payslip
+// task would retry and deliver a duplicate.
+func TestSendEmailQuitFailureAfterAcceptedDataIsSuccess(t *testing.T) {
+	cases := []struct {
+		name      string
+		quit      string
+		ioTimeout time.Duration
+	}{
+		{name: "connection dropped on QUIT", quit: "drop"},
+		{name: "QUIT never answered", quit: "stall", ioTimeout: 300 * time.Millisecond},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			logs := captureSlog(t)
+			stub := startSMTPStub(t, &smtpStub{quit: tc.quit})
+			client := NewMailClient(MailConfig{Host: "127.0.0.1", Port: stub.port(), From: "payroll@example.com", IOTimeout: tc.ioTimeout})
+
+			start := time.Now()
+			err := client.SendEmail(context.Background(), "ayu@example.com", "Payslip 2026-07", "<p>hi</p>", nil)
+			require.NoError(t, err, "a QUIT failure after accepted DATA must not fail the send")
+			require.Less(t, time.Since(start), 5*time.Second)
+
+			commands, data := stub.transcript()
+			require.Equal(t, []string{"EHLO", "MAIL", "RCPT", "DATA", "QUIT"}, verbs(commands))
+			require.Contains(t, data, "<p>hi</p>", "the message was accepted")
+			require.Contains(t, logs.String(), "QUIT failed after the message was accepted")
+			require.NotContains(t, logs.String(), "ayu@example.com", "the recipient is personal data and must not be logged")
+		})
+	}
+}
+
+// A failure before the server accepted DATA is still a failed send.
+func TestSendEmailFailureBeforeDataAcceptedStillFails(t *testing.T) {
+	stub := startSMTPStub(t, &smtpStub{stallData: true, quit: "drop"})
+	client := NewMailClient(MailConfig{Host: "127.0.0.1", Port: stub.port(), From: "a@example.com", IOTimeout: 300 * time.Millisecond})
+	require.Error(t, client.SendEmail(context.Background(), "b@example.com", "s", "b", nil))
+}
+
+// net/smtp.SendMail skips AUTH when the server only speaks HELO (no EHLO
+// extension list, Client.ext == nil) and sends unauthenticated, and refuses
+// only an EHLO server that does not offer AUTH. sendMail must make the same
+// decisions with credentials configured; the reference runs SendMail itself
+// against an identical stub.
+func TestSendEmailCredentialsFollowNetSMTPForHeloOnlyServer(t *testing.T) {
+	const addrFmt = "127.0.0.1:%d"
+	run := func(t *testing.T, newStub func() *smtpStub) (gotErr, wantErr error, gotCommands, wantCommands []string, gotData, wantData string) {
+		t.Helper()
+		got := startSMTPStub(t, newStub())
+		ref := startSMTPStub(t, newStub())
+
+		client := NewMailClient(MailConfig{Host: "127.0.0.1", Port: got.port(), From: "payroll@example.com", Username: "user", Password: "secret"})
+		gotErr = client.SendEmail(context.Background(), "ayu@example.com", "s", "b", nil)
+		msg := "From: payroll@example.com\r\nTo: ayu@example.com\r\nSubject: s\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=\"UTF-8\"\r\n\r\nb"
+		wantErr = smtp.SendMail(fmt.Sprintf(addrFmt, ref.port()), smtp.PlainAuth("", "user", "secret", "127.0.0.1"), "payroll@example.com", []string{"ayu@example.com"}, []byte(msg))
+		gotCommands, gotData = got.transcript()
+		wantCommands, wantData = ref.transcript()
+		return gotErr, wantErr, gotCommands, wantCommands, gotData, wantData
+	}
+
+	t.Run("HELO-only server is sent without AUTH", func(t *testing.T) {
+		gotErr, wantErr, gotCommands, wantCommands, gotData, wantData := run(t, func() *smtpStub { return &smtpStub{heloOnly: true} })
+		require.NoError(t, wantErr, "net/smtp.SendMail sends without AUTH to a HELO-only server")
+		require.NoError(t, gotErr)
+		require.Equal(t, []string{"EHLO", "HELO", "MAIL", "RCPT", "DATA", "QUIT"}, verbs(gotCommands))
+		require.Equal(t, wantCommands, gotCommands)
+		require.Equal(t, wantData, gotData)
+	})
+
+	t.Run("EHLO server without AUTH is refused", func(t *testing.T) {
+		gotErr, wantErr, gotCommands, wantCommands, _, _ := run(t, func() *smtpStub { return &smtpStub{} })
+		require.ErrorContains(t, wantErr, "smtp: server doesn't support AUTH")
+		require.ErrorContains(t, gotErr, "smtp: server doesn't support AUTH")
+		require.Equal(t, []string{"EHLO"}, verbs(wantCommands), "SendMail closes without QUIT")
+		require.Equal(t, wantCommands, gotCommands)
+	})
+
+	t.Run("EHLO server with AUTH authenticates", func(t *testing.T) {
+		gotErr, wantErr, gotCommands, wantCommands, _, _ := run(t, func() *smtpStub { return &smtpStub{auth: true} })
+		require.NoError(t, wantErr)
+		require.NoError(t, gotErr)
+		require.Equal(t, []string{"EHLO", "AUTH", "MAIL", "RCPT", "DATA", "QUIT"}, verbs(gotCommands))
+		require.Equal(t, verbs(wantCommands), verbs(gotCommands))
+	})
 }

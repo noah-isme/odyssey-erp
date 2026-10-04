@@ -228,8 +228,11 @@ adds no migration. Fixes:
   same transaction only after the SMTP send succeeds, so a concurrent duplicate
   skips and a failed send retries. Delivery is at-least-once: a crash after the
   SMTP server accepted the message and before COMMIT re-sends on retry. The mail
-  client now has a 10s dial and 60s I/O deadline, and `payroll:payslip_email`
-  tasks a 3-minute timeout. The delivery transaction uses a single pool
+  client now has a 10s dial and 60s I/O deadline (a QUIT failure after the
+  server accepted DATA is logged and ignored, so it cannot trigger a duplicate
+  send; credentials are skipped for a HELO-only server exactly as
+  `net/smtp.SendMail` does), and `payroll:payslip_email` tasks a 3-minute
+  timeout. The delivery transaction uses a single pool
   connection and sets its own transaction-local
   `idle_in_transaction_session_timeout` (4 minutes, just above the task
   timeout), so no server-wide minimum is required (the staging preflight only
