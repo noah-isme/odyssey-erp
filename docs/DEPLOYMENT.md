@@ -117,20 +117,24 @@ RATE_LIMIT_WINDOW=1m
 
 ### Worker Database Pool and PostgreSQL Settings
 
-The worker opens its PostgreSQL pool with 16 connections unless `PG_DSN`
-carries pgx's `pool_max_conns` parameter
-(`PG_DSN=postgres://...?sslmode=require&pool_max_conns=N`), which is then
-honored unchanged. The worker runs 5 concurrent tasks and logs a startup warning
-when the effective pool is below 3 x that concurrency (15). The web process
-keeps pgx's default pool size (`max(4, NumCPU)`) unless its DSN sets
-`pool_max_conns`.
+The worker opens its PostgreSQL pool with 16 connections by default. The
+worker runs 5 concurrent tasks and logs a startup warning when the effective
+pool is below 3 x that concurrency (15). The web process ignores the setting
+below and keeps pgx's default pool size (`max(4, NumCPU)`).
+
+To change the worker pool size, set `PG_MAX_CONNS` (a positive integer, for
+example `PG_MAX_CONNS=24`; omit the variable rather than leaving it empty). The
+worker resolves its pool size in this order:
+
+1. `PG_MAX_CONNS`, when set (the supported setting);
+2. pgx's `pool_max_conns` parameter in the worker's `PG_DSN`, if present;
+3. the built-in default of 16.
 
 Leave `pool_max_conns` out of any `PG_DSN` that is also used for migrations:
 `migrate` connects through `lib/pq`, which forwards unknown parameters to the
 server, and PostgreSQL rejects `pool_max_conns` as an unrecognized setting.
-Override the worker pool only through a worker-specific environment file (for
-example a systemd drop-in that adds a second `EnvironmentFile=` after the
-shared one).
+`PG_MAX_CONNS` is a separate variable and is safe in an environment file shared
+with `migrate`.
 
 Before deploying, confirm:
 

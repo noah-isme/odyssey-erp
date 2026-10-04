@@ -24,25 +24,41 @@ func New(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 	return newWithConfig(ctx, config)
 }
 
-// NewWithDefaults creates a pool like New, but when the DSN does not carry
-// pool_max_conns the pool size is defaultMaxConns instead of pgx's default
-// of max(4, NumCPU). An explicit pool_max_conns in the DSN is honored as is.
-func NewWithDefaults(ctx context.Context, dsn string, defaultMaxConns int32) (*pgxpool.Pool, error) {
-	config, err := ConfigWithDefaults(dsn, defaultMaxConns)
+// NewWithMaxConns creates a pool like New, but sizes it explicitly. The pool
+// size is resolved in this order: a positive override (for example the
+// PG_MAX_CONNS environment setting), then pool_max_conns in the DSN, then
+// defaultMaxConns, then pgx's own default of max(4, NumCPU).
+func NewWithMaxConns(ctx context.Context, dsn string, override, defaultMaxConns int32) (*pgxpool.Pool, error) {
+	config, err := ConfigWithMaxConns(dsn, override, defaultMaxConns)
 	if err != nil {
 		return nil, err
 	}
 	return newWithConfig(ctx, config)
 }
 
-// ConfigWithDefaults parses dsn and applies defaultMaxConns when the DSN does
-// not set pool_max_conns.
-func ConfigWithDefaults(dsn string, defaultMaxConns int32) (*pgxpool.Config, error) {
+// ConfigWithMaxConns parses dsn and resolves the pool size. Precedence:
+//
+//  1. override, when positive;
+//  2. pool_max_conns in the DSN;
+//  3. defaultMaxConns, when positive;
+//  4. pgx's default.
+//
+// pool_max_conns is a pgx-only parameter. A DSN that is shared with
+// golang-migrate must not carry it, because the migrate postgres driver
+// (lib/pq) forwards unknown keys to the server as run-time settings and
+// PostgreSQL rejects them. The override exists so the pool size can be
+// configured without touching that shared DSN.
+func ConfigWithMaxConns(dsn string, override, defaultMaxConns int32) (*pgxpool.Config, error) {
 	config, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
 		return nil, fmt.Errorf("platform/db: parse config: %w", err)
 	}
-	if defaultMaxConns > 0 && !dsnSetsPoolMaxConns(dsn) {
+	switch {
+	case override > 0:
+		config.MaxConns = override
+	case dsnSetsPoolMaxConns(dsn):
+		// pgx already applied the DSN value.
+	case defaultMaxConns > 0:
 		config.MaxConns = defaultMaxConns
 	}
 	return config, nil

@@ -26,6 +26,11 @@ type Config struct {
 	ReleaseProfile string `envconfig:"RELEASE_PROFILE" default:"full"`
 
 	PGDSN string `envconfig:"PG_DSN" default:"postgres://odyssey:odyssey@localhost:5432/odyssey?sslmode=disable"`
+	// PGMaxConns sets the worker's PostgreSQL pool size. Zero means unset: the
+	// worker then honors pool_max_conns in its PG_DSN and finally its built-in
+	// default (16). The web process ignores it. Prefer this over putting
+	// pool_max_conns into a PG_DSN that is shared with the migrate step.
+	PGMaxConns int32 `envconfig:"PG_MAX_CONNS" default:"0"`
 
 	RedisAddr     string        `envconfig:"REDIS_ADDR" default:"127.0.0.1:6379"`
 	SessionSecret string        `envconfig:"SESSION_SECRET" required:"true"`
@@ -81,6 +86,9 @@ func LoadConfig() (*Config, error) {
 	}
 	if _, err := ParseReleaseProfile(cfg.ReleaseProfile); err != nil {
 		return nil, err
+	}
+	if cfg.PGMaxConns < 0 {
+		return nil, errors.New("PG_MAX_CONNS must not be negative")
 	}
 	if cfg.GotenbergURL != "" && !strings.Contains(cfg.GotenbergURL, "://") {
 		cfg.GotenbergURL = "http://" + cfg.GotenbergURL

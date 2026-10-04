@@ -30,20 +30,28 @@ func TestWorkerPoolUndersized(t *testing.T) {
 	}
 }
 
-func TestWorkerPoolDefaultsFromDSN(t *testing.T) {
+func TestWorkerPoolSizePrecedence(t *testing.T) {
+	const plainDSN = "postgres://u:p@localhost/db?sslmode=disable"
 	tests := []struct {
 		name      string
 		dsn       string
+		envConns  int32
 		wantConns int32
 		wantWarn  bool
 	}{
-		{name: "no pool_max_conns uses worker default", dsn: "postgres://u:p@localhost/db?sslmode=disable", wantConns: 16, wantWarn: false},
-		{name: "explicit small pool warns", dsn: "postgres://u:p@localhost/db?pool_max_conns=8", wantConns: 8, wantWarn: true},
-		{name: "explicit sufficient pool", dsn: "postgres://u:p@localhost/db?pool_max_conns=15", wantConns: 15, wantWarn: false},
+		{name: "nothing set uses worker default", dsn: plainDSN, wantConns: 16, wantWarn: false},
+		{name: "env var beats default", dsn: plainDSN, envConns: 24, wantConns: 24, wantWarn: false},
+		{name: "env var beats dsn param", dsn: plainDSN + "&pool_max_conns=40", envConns: 20, wantConns: 20, wantWarn: false},
+		{name: "small env var beats large dsn param and warns", dsn: plainDSN + "&pool_max_conns=40", envConns: 8, wantConns: 8, wantWarn: true},
+		{name: "large env var beats small dsn param and clears the warning", dsn: plainDSN + "&pool_max_conns=4", envConns: 15, wantConns: 15, wantWarn: false},
+		{name: "dsn param honored without env var", dsn: plainDSN + "&pool_max_conns=8", wantConns: 8, wantWarn: true},
+		{name: "sufficient dsn param honored without env var", dsn: plainDSN + "&pool_max_conns=15", wantConns: 15, wantWarn: false},
+		{name: "unset env var (zero) falls through to dsn param", dsn: plainDSN + "&pool_max_conns=9", envConns: 0, wantConns: 9, wantWarn: true},
+		{name: "env var one below threshold warns", dsn: plainDSN, envConns: 14, wantConns: 14, wantWarn: true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			cfg, err := db.ConfigWithDefaults(tc.dsn, workerDefaultPoolMaxConns)
+			cfg, err := db.ConfigWithMaxConns(tc.dsn, tc.envConns, workerDefaultPoolMaxConns)
 			require.NoError(t, err)
 			require.Equal(t, tc.wantConns, cfg.MaxConns)
 			require.Equal(t, tc.wantWarn, workerPoolUndersized(cfg.MaxConns, jobs.WorkerConcurrency))

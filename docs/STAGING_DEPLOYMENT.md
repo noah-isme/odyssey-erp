@@ -140,23 +140,27 @@ certification. Do not use an unset or ad-hoc profile in a staging evidence run.
 
 ### Worker database pool and PostgreSQL settings
 
-From rc.9 the worker opens its PostgreSQL pool with 16 connections unless
-`PG_DSN` carries pgx's `pool_max_conns` parameter
-(`PG_DSN=postgres://...?sslmode=require&pool_max_conns=N`), which is then
-honored unchanged. The worker runs 5 concurrent tasks and logs a startup warning
-when the effective pool is below 3 x that concurrency (15): AP invoice
-processing holds one connection for its advisory lock while nested
-transactions borrow more. The web process keeps pgx's default pool size
-(`max(4, NumCPU)`) unless its own DSN sets `pool_max_conns`.
+From rc.9 the worker opens its PostgreSQL pool with 16 connections by default.
+The worker runs 5 concurrent tasks and logs a startup warning when the
+effective pool is below 3 x that concurrency (15): AP invoice processing holds
+one connection for its advisory lock while nested transactions borrow more. The
+web process ignores the setting below and keeps pgx's default pool size
+(`max(4, NumCPU)`).
 
-The default needs no configuration. Do not add `pool_max_conns` to the shared
-`/opt/odyssey-staging/.env`: the deployment's `migrate` step connects with the
-same `PG_DSN` through `lib/pq`, which forwards unknown parameters to the server
-as run-time settings, and PostgreSQL rejects `pool_max_conns`. To override the
-worker pool only, add a worker drop-in
-(`systemctl edit odyssey-staging-worker`) with a second
-`EnvironmentFile=/opt/odyssey-staging/worker.env` that sets the full `PG_DSN`
-including `pool_max_conns`; a later `EnvironmentFile` overrides the earlier one.
+To change the worker pool size, set `PG_MAX_CONNS` in
+`/opt/odyssey-staging/.env` (a positive integer, for example
+`PG_MAX_CONNS=24`; omit the variable rather than leaving it empty). The
+worker resolves its pool size in this order:
+
+1. `PG_MAX_CONNS`, when set (the supported setting);
+2. pgx's `pool_max_conns` parameter in the worker's `PG_DSN`, if present;
+3. the built-in default of 16.
+
+Do not put `pool_max_conns` into the shared `/opt/odyssey-staging/.env`
+`PG_DSN`: the deployment's `migrate` step connects with the same `PG_DSN`
+through `lib/pq`, which forwards unknown parameters to the server as run-time
+settings, and PostgreSQL rejects `pool_max_conns`. `PG_MAX_CONNS` is a separate
+variable, so it is safe in the shared file and does not reach `migrate`.
 
 Before deploying rc.9, record in the preflight:
 

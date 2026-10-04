@@ -41,7 +41,7 @@ notes define the packaged scope without claiming production certification.
 | v0.10.0-rc.6 | 2026-08-14 | Post-tag staging supervision fix | Release-branch head `d8b02b8` adds the deployment supervision fix after immutable rc.5; it preserves the `ec65cc0` application baseline and `000124` migration ceiling | Superseded candidate; the descendant rc.7 candidate carries the release-hygiene correction |
 | v0.10.0-rc.7 | 2026-08-26 | Immutable release-hygiene correction | Exact release candidate `5ed11da` adds the portable hygiene scan while preserving the `ec65cc0` application baseline and `000124` migration ceiling | Superseded by v0.10.0-rc.8; never production-certified |
 | v0.10.0-rc.8 | 2026-09-06 | Divergent stabilization candidate | Exact release candidate `20cc13a` (annotated tag, tag object `f54a238`) on a line diverging from rc.7 at merge-base `04ebd8a`: staging certification workflow registration, scoped certification gates, enterprise UI hardening, story-driven seed data, lint/CI fixes, migration ceiling sync to `000124`, CSRF/module-UI fixes, and 33 further rc-line commits (POS, theme, MRP, banking, reporting, route profile). Identity reconciled to the tag under the 2026-10-02 Option A ruling; the earlier documented `cdaa910` pointer was superseded when the tag was re-cut | Superseded by v0.10.0-rc.9 before staging certification evidence was collected; never production-certified |
-| v0.10.0-rc.9 | 2026-10-04 (tag pending) | Worker idempotency and attribution fixes | Superseded rc.8 tag plus fix commits: payslip delivery row lock (at-least-once) with mail dial/I-O deadlines, AP invoice processing actor binding and dedupe, connector outbox claim-before-execute, bounded retry and TaskID dedupe for variance and board-pack tasks, out-of-profile worker handlers not registered under `v0.10-core`, worker DB pool default 16 (`pool_max_conns` knob); no new migration (ceiling `000124`) | Current candidate; not production-certified; staging, provider, and operational certification remain open |
+| v0.10.0-rc.9 | 2026-10-04 (tag pending) | Worker idempotency and attribution fixes | Superseded rc.8 tag plus fix commits: payslip delivery row lock (at-least-once) with mail dial/I-O deadlines, AP invoice processing actor binding and dedupe, connector outbox claim-before-execute, bounded retry and TaskID dedupe for variance and board-pack tasks, out-of-profile worker handlers not registered under `v0.10-core`, worker DB pool default 16 (`PG_MAX_CONNS` knob); no new migration (ceiling `000124`) | Current candidate; not production-certified; staging, provider, and operational certification remain open |
 
 ## Detailed version reports
 
@@ -249,9 +249,12 @@ adds no migration. Fixes:
   `bankfeeds:event`, `cashforecast:refresh`, and `analytics:bi_export` are not
   registered under `v0.10-core`; injected tasks archive as "handler not found".
 - **Worker DB pool** (`c307a35`): the worker pool defaults to 16 connections
-  unless `PG_DSN` carries `pool_max_conns=N`, and the worker logs a startup
-  warning when the pool is below 3 x its concurrency (5). Confirm PostgreSQL
-  `max_connections` headroom before deploying.
+  and is configured with the `PG_MAX_CONNS` environment variable (precedence:
+  `PG_MAX_CONNS`, then `pool_max_conns` in the worker's `PG_DSN`, then 16). Do
+  not put `pool_max_conns` into a `PG_DSN` shared with the deploy `migrate`
+  step. The worker logs a startup warning when the pool is below 3 x its
+  concurrency (5). Confirm PostgreSQL `max_connections` headroom before
+  deploying.
 
 Deferred findings (not fixed in rc.9; `FIND-001`–`FIND-008` in the [staging
 certification record](v0.10-core-staging-certification.md#findings)): CRM

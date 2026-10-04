@@ -103,8 +103,8 @@ func (q notificationEmailQueue) EnqueueEmail(ctx context.Context, email notifica
 }
 
 const (
-	// workerDefaultPoolMaxConns is the worker pool size when PG_DSN does not
-	// set pool_max_conns.
+	// workerDefaultPoolMaxConns is the worker pool size when neither
+	// PG_MAX_CONNS nor pool_max_conns in PG_DSN is set.
 	workerDefaultPoolMaxConns int32 = 16
 	// workerPoolConnsPerTask budgets one connection held by a task (for
 	// example the AP processing lock) plus nested transactions.
@@ -175,15 +175,15 @@ func main() {
 	logger.Info("worker release profile", slog.String("profile", string(profile)))
 	mailClient := shared.NewMailClient(shared.MailConfig{Host: cfg.SMTPHost, Port: cfg.SMTPPort, From: cfg.SMTPFrom, Username: cfg.SMTPUsername, Password: cfg.SMTPPassword})
 
-	pool, err := db.NewWithDefaults(ctx, cfg.PGDSN, workerDefaultPoolMaxConns)
+	pool, err := db.NewWithMaxConns(ctx, cfg.PGDSN, cfg.PGMaxConns, workerDefaultPoolMaxConns)
 	if err != nil {
 		logger.Error("connect database", slog.Any("error", err))
 		os.Exit(1)
 	}
 	defer pool.Close()
 	if maxConns := pool.Config().MaxConns; workerPoolUndersized(maxConns, jobs.WorkerConcurrency) {
-		logger.Warn("worker database pool is smaller than 3 x task concurrency; set pool_max_conns in PG_DSN",
-			slog.Int("pool_max_conns", int(maxConns)),
+		logger.Warn("worker database pool is smaller than 3 x task concurrency; set PG_MAX_CONNS",
+			slog.Int("max_conns", int(maxConns)),
 			slog.Int("concurrency", jobs.WorkerConcurrency),
 			slog.Int("recommended_min", workerPoolConnsPerTask*jobs.WorkerConcurrency))
 	}
