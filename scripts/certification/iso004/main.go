@@ -16,11 +16,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/signal"
 	"sort"
 	"strings"
 	"syscall"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Exit codes.
@@ -48,11 +51,15 @@ type RunContext struct {
 	Preflight *Preflight
 	Stdout    io.Writer
 	Stderr    io.Writer
+	// OpenDB opens the read-only pool (nil: openReadOnlyPool).
+	OpenDB func(ctx context.Context, dsn string) (*pgxpool.Pool, error)
+	// HTTP is the client for the mail sink API.
+	HTTP *http.Client
 }
 
-// runExecutor enqueues and observes the enabled scenarios. It is nil until
-// the scenario steps register one (e.g. from an init function in
-// enqueue.go); with nil the run stops after preflight with exitNoExecutor.
+// runExecutor enqueues and observes the enabled scenarios. enqueue.go
+// registers executeRun from its init function; with nil the run stops after
+// preflight with exitNoExecutor.
 var runExecutor func(ctx context.Context, rc *RunContext) (exitCode int, err error)
 
 func main() {
@@ -120,7 +127,7 @@ func runWithDeps(ctx context.Context, args []string, stdout, stderr io.Writer, d
 		fmt.Fprintf(stderr, "iso004: %s\n", noExecutorExplainer)
 		return exitNoExecutor
 	}
-	code, err := runExecutor(ctx, &RunContext{Cfg: cfg, Preflight: p, Stdout: stdout, Stderr: stderr})
+	code, err := runExecutor(ctx, &RunContext{Cfg: cfg, Preflight: p, Stdout: stdout, Stderr: stderr, OpenDB: deps.OpenDB, HTTP: deps.Email.HTTP})
 	if err != nil {
 		fmt.Fprintf(stderr, "iso004: %v\n", err)
 		if code == exitOK {

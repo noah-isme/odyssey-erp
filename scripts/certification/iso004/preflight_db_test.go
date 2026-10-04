@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -104,20 +106,34 @@ func TestDBFixtureOwnership(t *testing.T) {
 	assert.ErrorContains(t, err, `payslip_b: got "<missing>"`)
 }
 
-func TestDBFullPreflightPassesAndStopsWithoutExecutor(t *testing.T) {
+func TestDBFullPreflightPassesAndEnqueues(t *testing.T) {
 	dsn := iso004DSN(t)
-	mr := miniredis.RunT(t)
-	startWorker(t, mr)
-	out := filepath.Join(t.TempDir(), "bundle")
-	deps := testDeps(t, nil, goodIdentity())
-	deps.OpenDB = openReadOnlyPool
-	args := []string{"--redis", mr.Addr(), "--dsn", dsn, "--run-id", "9000000001", "--out", out,
-		"--candidate-tag", "v0.10.0-rc.9", "--candidate-sha", testSHA, "--release-identity", identityPath,
-		"--fixtures", iso004FixturesFile()}
-	var stderr bytes.Buffer
-	code := runWithDeps(context.Background(), args, &bytes.Buffer{}, &stderr, deps)
-	assert.Equal(t, exitNoExecutor, code, stderr.String())
-	assert.Contains(t, stderr.String(), "nothing was enqueued")
+	run := func(t *testing.T) (string, int, string) {
+		mr := miniredis.RunT(t)
+		startWorker(t, mr)
+		out := filepath.Join(t.TempDir(), "bundle")
+		deps := testDeps(t, nil, goodIdentity())
+		deps.OpenDB = openReadOnlyPool
+		args := []string{"--redis", mr.Addr(), "--dsn", dsn, "--run-id", "9000000001", "--out", out,
+			"--candidate-tag", "v0.10.0-rc.9", "--candidate-sha", testSHA, "--release-identity", identityPath,
+			"--fixtures", iso004FixturesFile()}
+		var stderr bytes.Buffer
+		code := runWithDeps(context.Background(), args, &bytes.Buffer{}, &stderr, deps)
+		return out, code, stderr.String()
+	}
+
+	t.Run("without executor nothing is enqueued", func(t *testing.T) {
+		saved := runExecutor
+		runExecutor = nil
+		t.Cleanup(func() { runExecutor = saved })
+		_, code, stderr := run(t)
+		assert.Equal(t, exitNoExecutor, code, stderr)
+		assert.Contains(t, stderr, "nothing was enqueued")
+	})
+
+	out, code, stderr := run(t)
+	assert.Equal(t, exitNotEvaluated, code, stderr)
+	assert.Contains(t, stderr, "no scenario was evaluated")
 
 	raw, err := os.ReadFile(filepath.Join(out, preflightFileName))
 	require.NoError(t, err)
@@ -136,6 +152,31 @@ func TestDBFullPreflightPassesAndStopsWithoutExecutor(t *testing.T) {
 		assert.NotContains(t, string(raw), ":"+pw+"@", "DSN credentials are redacted")
 		assert.NotContains(t, string(raw), "password="+pw)
 	}
+
+	// Dynamic IDs were resolved by read-only SELECTs against the database.
+	var rec EnqueueRecord
+	data, err := os.ReadFile(filepath.Join(out, "scenarios", "S03-object-not-found", "enqueue.json"))
+	require.NoError(t, err)
+	require.NoError(t, json.Unmarshal(data, &rec))
+	require.Len(t, rec.DynamicValues, 3)
+	require.Len(t, rec.Submissions, 3)
+	for _, sub := range rec.Submissions {
+		assert.Equal(t, outcomeEnqueued, sub.Outcome)
+		assert.NotContains(t, sub.Payload, "<", "no placeholder left: %s", sub.Payload)
+		require.NotNil(t, sub.TaskInfo)
+		assert.Equal(t, sub.Payload, sub.TaskInfo.Payload)
+	}
+	var maxID int64
+	require.NoError(t, pool(t, dsn).QueryRow(context.Background(), `SELECT COALESCE(MAX(id), 0) + 100000 FROM variance_snapshots`).Scan(&maxID))
+	assert.Equal(t, fmt.Sprintf(`{"snapshot_id":%d}`, maxID), rec.Submissions[0].Payload)
+}
+
+func pool(t *testing.T, dsn string) *pgxpool.Pool {
+	t.Helper()
+	p, err := openReadOnlyPool(context.Background(), dsn)
+	require.NoError(t, err)
+	t.Cleanup(p.Close)
+	return p
 }
 
 func passwordOf(dsn string) string {

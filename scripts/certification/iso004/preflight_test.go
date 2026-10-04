@@ -374,7 +374,7 @@ func TestScenarioRegistryIDsAreUnique(t *testing.T) {
 		assert.False(t, seen[s.ID], s.ID)
 		seen[s.ID] = true
 		assert.NotContains(t, s.ID, ":")
-		assert.NotNil(t, s.Build)
+		assert.NotEmpty(t, s.Tasks)
 	}
 	assert.Equal(t, fmt.Sprint(scenarioIDs()), fmt.Sprint([]string{
 		"S01-unregistered-type", "S02-malformed-payload", "S03-object-not-found", "S05-forged-object-variance",
