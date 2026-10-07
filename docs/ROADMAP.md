@@ -17,8 +17,8 @@
 **Current Version:** v0.9.1
 
 > **Active release handoff (2026-10-07):** The bounded `v0.10-core` release
-> candidate is the annotated `v0.10.0-rc.10` tag (commit `<pending tag>`,
-> recorded when the tag is cut), with migrations ending at `000124`. Its
+> candidate is the annotated `v0.10.0-rc.10` tag (commit `0745957`,
+> recorded when the tag was cut), with migrations ending at `000124`. Its
 > lineage is the superseded rc.9 tag `07d2ba2` plus the approval finalization
 > fix: final approvals had reached module finalizers with a stale `PENDING`
 > status since rc.1, so approved leave was finalized as rejected, approved POs

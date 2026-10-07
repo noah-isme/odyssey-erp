@@ -6,7 +6,7 @@
 production-certified; the matrix below remains the authority for promotion evidence.
 
 **v0.10.0-rc.10 boundary:** the annotated rc.10 tag identifies the candidate
-commit (`<pending tag>`, recorded when the tag is cut). The rc.10 line is the
+commit (`0745957`, recorded when the tag was cut). The rc.10 line is the
 superseded rc.9 tag `07d2ba2` plus the approval finalization fix (`Decide`
 returns the post-decision request, and the step quorum count is scoped to the
 request) and its [remediation runbook](../releases/v0.10-approval-finalization-remediation.md).
