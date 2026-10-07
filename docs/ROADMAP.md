@@ -12,22 +12,26 @@
 **Revised:** 2026-08-27 (v0.10.0 staging closeout handoff)
 **Revised:** 2026-09-02 (rc.8 candidate reconciliation; superseded by rc.9)
 **Revised:** 2026-10-02 (Option A candidate-identity ruling: tag resolves to 20cc13a; dispatch branch created; superseded by rc.9)
-**Revised:** 2026-10-04 (v0.10.0-rc.9 candidate: worker idempotency and attribution fixes)
+**Revised:** 2026-10-04 (v0.10.0-rc.9 candidate: worker idempotency and attribution fixes; superseded by rc.10)
+**Revised:** 2026-10-07 (v0.10.0-rc.10 candidate: approval finalization fix)
 **Current Version:** v0.9.1
 
-> **Active release handoff (2026-10-04):** The bounded `v0.10-core` release
-> candidate is the annotated `v0.10.0-rc.9` tag (commit `07d2ba2`,
-> recorded when the tag was cut), with migrations ending at `000124`. Its
-> lineage is the superseded rc.8 tag `20cc13a` plus the rc.9 worker fix
-> commits: payslip delivery row lock and mail deadlines, AP invoice actor
-> binding and dedupe, worker pool sizing, connector outbox claim-before-execute,
-> bounded retry for variance and board-pack tasks, and release-profile gating
-> of worker handlers. Deferred worker findings are recorded as `FIND-001`–`FIND-007`
+> **Active release handoff (2026-10-07):** The bounded `v0.10-core` release
+> candidate is the annotated `v0.10.0-rc.10` tag (commit `<pending tag>`,
+> recorded when the tag is cut), with migrations ending at `000124`. Its
+> lineage is the superseded rc.9 tag `07d2ba2` plus the approval finalization
+> fix: final approvals had reached module finalizers with a stale `PENDING`
+> status since rc.1, so approved leave was finalized as rejected, approved POs
+> were cancelled, RFQ awards were rejected, and payroll runs stuck in
+> `APPROVAL`. Environments that ran rc.1 through rc.9 must run the **Find**
+> queries in the [approval finalization remediation runbook](releases/v0.10-approval-finalization-remediation.md)
+> after deploying rc.10. The superseded rc.9 tag was deployed to staging but
+> never certified. Deferred worker findings are recorded as `FIND-001`–`FIND-007`
 > (and `FIND-008`, resolved in rc.9) in the [staging certification record](releases/v0.10-core-staging-certification.md).
 > Staging certification and production promotion remain open. The remaining
 > blockers are certification preflight — which lacks the staging identities,
 > fixture variables, and immutable evidence store configuration — and the
-> `certification/v0.10.0-rc.9` dispatch branch, created from the rc.9 tag after
+> `certification/v0.10.0-rc.10` dispatch branch, created from the rc.10 tag after
 > it is cut. Provision those staging-only inputs, verify the documented service
 > supervision and `127.0.0.1:8180` health contract, then run the automated and
 > operator evidence lanes. No feature or migration work should be added to
@@ -219,7 +223,8 @@ following acceptance work is recorded:
 - [x] Add and pass a database-backed USD AP end-to-end test. (`TestFXARAPDatabaseIntegration`
   went stale when AP posting began requiring a matching run on 2026-08-08; it fails at the
   superseded rc.8 tag and at `v0.10.0-rc.9`. Fixed on `main` on 2026-10-04 to run matching
-  before posting; the fix is test-only and lands in the next candidate.)
+  before posting; the fix is test-only and is not in `v0.10.0-rc.10`,
+  which was cut from the superseded rc.9 tag.)
 - [x] Run the complete local integration suite with the clean schema through migration `000061`.
 - [ ] Execute migration `000053_transaction_fx` on staging and verify the four FX account mappings.
 - [ ] Execute and verify the production migration and account mappings.
@@ -491,11 +496,11 @@ shared outbox/inbox, connection, secret, mapping, retry, and observability found
 then sequences payment gateways, carriers, marketplaces, messaging, BI, identity, and
 governed AI connectors.
 
-### Active execution sequence (2026-10-04)
+### Active execution sequence (2026-10-07)
 
 - **Close `v0.10-core`:** provision the staging certification identities, stable
    fixtures, and seven-year Object-Lock evidence store; rerun the automated and
-   operator lanes for immutable `v0.10.0-rc.9`; complete the 25-row evidence index;
+   operator lanes for immutable `v0.10.0-rc.10`; complete the 25-row evidence index;
    and promote only the exact certified artifact after the signed go/no-go decision.
 - **Start `v0.11-finance`:** branch from the released v0.10 baseline and finish
    treasury bank-feed/forecast operations, payment execution and settlement evidence,

@@ -105,8 +105,9 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 
 | Version | Notes |
 |---------|-------|
-| [v0.10.0-rc.9](releases/VERSION_HISTORY.md#v0100-rc9--worker-idempotency-and-attribution-fixes) | **Current release candidate** — worker idempotency, attribution, and release-profile gating fixes on top of the superseded rc.8 tag; tag pending; migration ceiling `000124`; not production-certified |
+| [v0.10.0-rc.10](releases/VERSION_HISTORY.md#v0100-rc10--approval-finalization-fix) | **Current release candidate** — approval finalization fix on top of the superseded rc.9 tag; environments that ran rc.1 through rc.9 must run the remediation runbook's Find queries after deploying it; tag pending; migration ceiling `000124`; not production-certified |
 | [Approval Finalization Remediation](releases/v0.10-approval-finalization-remediation.md) | Find and repair LEAVE, PO, RFQ award, and payroll records finalized wrongly by the approval engine defect in v0.10.0-rc.1 through rc.9 |
+| [v0.10.0-rc.9](releases/VERSION_HISTORY.md#v0100-rc9--worker-idempotency-and-attribution-fixes-superseded) | Worker idempotency, attribution, and release-profile gating fixes (2026-10-04); tagged and deployed to staging, superseded by rc.10 before staging certification ran; never certified |
 | [v0.10.0-rc.3](releases/v0.10.0-rc.3.md) | VPS deployment target and hosted-blueprint removal on top of Coretax/PPh 21 release-test completion (2026-08-10); superseded by the rc.8 line; not production-certified |
 | [v0.9.1](releases/v0.9.1.md) | **Latest named release** — Enterprise UI/UX overhaul (2026-05-28) |
 | [Version and Progress Report](releases/VERSION_HISTORY.md) | Differences between releases and post-v0.9.1 implementation progress |

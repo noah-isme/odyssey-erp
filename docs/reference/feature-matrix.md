@@ -1,13 +1,16 @@
 # Authoritative Feature Matrix
 
-**Reviewed:** 2026-10-04
+**Reviewed:** 2026-10-07
 
-**Current release candidate:** `v0.10.0-rc.9`. This candidate is not
+**Current release candidate:** `v0.10.0-rc.10`. This candidate is not
 production-certified; the matrix below remains the authority for promotion evidence.
 
-**v0.10.0-rc.9 boundary:** the annotated rc.9 tag identifies the candidate
-commit (`07d2ba2`, recorded when the tag was cut). The rc.9 line is the
-superseded rc.8 tag `20cc13a` plus the rc.9 worker fix commits (payslip
+**v0.10.0-rc.10 boundary:** the annotated rc.10 tag identifies the candidate
+commit (`<pending tag>`, recorded when the tag is cut). The rc.10 line is the
+superseded rc.9 tag `07d2ba2` plus the approval finalization fix (`Decide`
+returns the post-decision request, and the step quorum count is scoped to the
+request) and its [remediation runbook](../releases/v0.10-approval-finalization-remediation.md).
+The superseded rc.9 tag carries the worker fix commits (payslip
 delivery row lock and mail deadlines, AP invoice actor binding and dedupe,
 worker pool sizing, connector outbox claim-before-execute, bounded retry for
 variance and board-pack tasks, and release-profile gating of worker handlers);
@@ -93,7 +96,7 @@ same rule to every row. Rows outside the selected profile are not release claims
 must remain unavailable to that profile's production route set. In particular, the
 Phase 14/P7 evidence guide records local verification; it does not certify staging or
 production. The VPS deployment target satisfies the infrastructure selection only; it
-does not certify incomplete feature workflows. For rc.9, selecting
+does not certify incomplete feature workflows. For rc.10, selecting
 `RELEASE_PROFILE=v0.10-core` must not expose v0.11-only routes or apply migration
 `000125`.
 

@@ -1,7 +1,7 @@
 # Odyssey ERP: Next Steps
 
-**Updated:** 2026-10-04
-**Current candidate:** `v0.10.0-rc.9` (tag pending; `v0.10-core`, migration ceiling `000124`)
+**Updated:** 2026-10-07
+**Current candidate:** `v0.10.0-rc.10` (tag pending; `v0.10-core`, migration ceiling `000124`)
 **Release state:** local repository gates pass; staging and production certification remain open
 
 This is the active handoff for continuing the roadmap. The release boundary and
@@ -10,7 +10,7 @@ keeps the execution order short and operational.
 
 ## 1. Close v0.10-core
 
-Do not add feature code or migrations to rc.9. Complete the staging evidence gate:
+Do not add feature code or migrations to rc.10. Complete the staging evidence gate:
 
 1. Provision staging-only certification identities, stable fixture IDs, host access,
    and the immutable S3-compatible evidence bucket with seven-year COMPLIANCE
@@ -18,24 +18,29 @@ Do not add feature code or migrations to rc.9. Complete the staging evidence gat
 2. Set `APP_ENV=staging`, `RELEASE_PROFILE=v0.10-core`, `APP_ADDR=127.0.0.1:8180`,
    `PG_DSN`, `REDIS_ADDR`, `SESSION_SECRET`, `CSRF_SECRET`, and
    `CONNECTORS_DEVELOPMENT_MODE=false` in the staging environment.
-3. Cut the annotated `v0.10.0-rc.9` tag, create the `certification/v0.10.0-rc.9`
+3. Cut the annotated `v0.10.0-rc.10` tag, create the `certification/v0.10.0-rc.10`
    dispatch branch from it, then run the fixed-candidate deployment and
    certification workflow from that ref. Verify the deployed revision, route
    profile, health endpoint, migrations through `000124`, and both automated and
    operator lanes.
-4. Merge the 25 contract rows with
+4. After rc.10 is deployed, run the read-only **Find** queries in the
+   [approval finalization remediation runbook](docs/releases/v0.10-approval-finalization-remediation.md)
+   in every environment that ran a build from rc.1 through rc.9 (staging
+   included), and record each repair a business owner confirms.
+5. Merge the 25 contract rows with
    [`scripts/staging-certification-closeout.sh`](scripts/staging-certification-closeout.sh).
    The final index must be write-once, every row `PASS`, and accompanied by its
    `SHA256SUMS` object. No `N/A`, local-only, mutable URI, missing artifact, or
    incomplete Object Lock metadata can produce `GO`.
-5. Run the production gate from a clean, exact tagged checkout with the final
+6. Run the production gate from a clean, exact tagged checkout with the final
    evidence index URI and local file. Promote only after signed approval, backup/
    restore, rollback, security, provider, and observation evidence is complete.
 
 Current external blocker: the configured staging identities, fixture variables,
 and immutable evidence-store inputs are not present, so the certification
-preflight cannot run to completion. rc.9 is not yet tagged or deployed to
-staging; deployment success alone is not certification.
+preflight cannot run to completion. rc.10 is not yet tagged or deployed to
+staging; deployment success alone is not certification. The superseded rc.9 tag
+was deployed to staging but never certified.
 
 ## 2. Start v0.11-finance after v0.10 promotion
 
@@ -56,13 +61,15 @@ Keep live provider execution and tenant/company feature flags disabled by defaul
 Require deterministic unit/integration coverage, provider sandbox evidence, staging
 journeys, scoped-access checks, migration rehearsal, and operational rollback before
 any live enablement. Record the new candidate, migration ceiling, route manifest,
-and evidence contract as a separate release line; do not reuse the rc.9 record.
+and evidence contract as a separate release line; do not reuse the rc.10 record.
+Carry the rc.10 approval finalization fix to the v0.11 line first; the
+`release/v0.11-finance-prep` branch does not have it.
 
 ## 3. Defer to v0.11.x
 
 Asset locations, custody and transfers, warranty/maintenance extensions, and asset
 capitalization operations are explicitly outside the first v0.11 release gate. Keep
-them as a follow-on tranche rather than widening either the rc.9 candidate or the
+them as a follow-on tranche rather than widening either the rc.10 candidate or the
 initial Treasury + P2P certification scope.
 
 ## Local verification before handoff

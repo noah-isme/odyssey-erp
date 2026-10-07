@@ -1,10 +1,12 @@
 # Allowlist for scripts/check-stale-candidate-refs.sh.
 #
-# The current candidate is v0.10.0-rc.9. References to the superseded
-# v0.10.0-rc.8 candidate (pattern: rc\.8|20cc13a) are allowed only in the
-# historical records below. Rule syntax is documented in the script header.
+# The current candidate is v0.10.0-rc.10. References to the superseded
+# v0.10.0-rc.8 and v0.10.0-rc.9 candidates (pattern: rc\.8|20cc13a|rc\.9|07d2ba2)
+# are allowed only in the historical records below. Rule syntax is documented
+# in the script header.
 
-# Historical identity record for rc.8 (rc.9 is appended on the certification branch).
+# Historical identity record for rc.8 (later candidates are recorded on their
+# certification branches).
 file docs/releases/v0.10-candidate-identity-reconciliation.md
 # Per-candidate release notes are point-in-time records.
 file docs/releases/v0.10.0-rc.*.md
@@ -13,9 +15,21 @@ file docs/archive/*
 
 # VERSION_HISTORY history sections.
 section docs/releases/VERSION_HISTORY.md ### v0.10.0-rc.8 — Divergent stabilization candidate (superseded)
+section docs/releases/VERSION_HISTORY.md ### v0.10.0-rc.9 — Worker idempotency and attribution fixes (superseded)
 
-# Certification record: rc.8 identity kept as history below the rc.9 record.
+# Certification record: rc.9 and rc.8 identities kept as history below the
+# rc.10 record.
+section docs/releases/v0.10-core-staging-certification.md ## Historical rc.9 candidate identity (superseded)
 section docs/releases/v0.10-core-staging-certification.md ## Historical rc.8 candidate identity (superseded)
 
 # Lines that explicitly label the reference as superseded or historical.
 line superseded|historical
+
+# The approval finalization defect range (rc.1 through rc.9), as written in the
+# remediation runbook and the rc.10 notes: "rc.1 through rc.9", "rc.1-rc.9",
+# "rc.1–rc.9", "`v0.10.0-rc.1` through `v0.10.0-rc.9`".
+line rc\.1`?( through | to |-|–)`?(v0\.10\.0-)?rc\.9
+
+# Behaviour attributed to the rc.9 change set, which later candidates keep
+# ("since rc.9", "before rc.9", "fixed in rc.9", "resolved in `v0.10.0-rc.9`").
+line (since|before|fixed in|resolved in|changed in) `?(v0\.10\.0-)?rc\.9

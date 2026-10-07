@@ -7,10 +7,14 @@
 
 For the bounded v0.10.0 release, use the [v0.10-core staging certification
 record](releases/v0.10-core-staging-certification.md) before promotion. The
-current candidate is the immutable annotated tag `v0.10.0-rc.9` (commit
-`07d2ba2`, recorded when the tag was cut); its lineage is the
-superseded rc.8 tag `20cc13a` plus the rc.9 worker fix commits, with no
-migration above `000124`.
+current candidate is the immutable annotated tag `v0.10.0-rc.10` (commit
+`<pending tag>`, recorded when the tag is cut); its lineage is the
+superseded rc.9 tag `07d2ba2` plus the rc.10 approval finalization fix, with no
+migration above `000124`. An environment that ran any build from
+rc.1 through rc.9 must run the read-only **Find** queries in the
+[approval finalization remediation runbook](releases/v0.10-approval-finalization-remediation.md)
+after deploying rc.10; the fix stops new damage but does not repair rows that
+are already wrong.
 Production promotion requires the explicit
 `RELEASE_PROFILE=v0.10-core` contract unless a separately approved `full`
 profile has certified every matrix row.
