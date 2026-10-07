@@ -8,10 +8,19 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type Repository struct{ pool *pgxpool.Pool }
+// dbPool is the subset of *pgxpool.Pool the repository uses; tests substitute pgxmock.
+type dbPool interface {
+	Begin(context.Context) (pgx.Tx, error)
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
+	Query(context.Context, string, ...any) (pgx.Rows, error)
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
+type Repository struct{ pool dbPool }
 
 func NewRepository(pool *pgxpool.Pool) *Repository { return &Repository{pool: pool} }
 
@@ -200,11 +209,10 @@ func (r *Repository) Decide(ctx context.Context, requestID, actorID int64, decis
 			_, err = tx.Exec(ctx, `UPDATE approval_requests SET status='REJECTED',completed_at=NOW(),updated_at=NOW() WHERE id=$1`, requestID)
 		}
 		req.Status = StatusRejected
-		result.Request = req
 		result.Finalized = true
 	} else {
 		var required, approved int
-		err = tx.QueryRow(ctx, `SELECT s.required_approvals,COUNT(a.id) FILTER(WHERE a.status='APPROVED') FROM approval_policy_steps s JOIN approval_assignments a ON a.policy_step_id=s.id WHERE s.id=$1 GROUP BY s.required_approvals`, stepID).Scan(&required, &approved)
+		err = tx.QueryRow(ctx, `SELECT s.required_approvals,COUNT(a.id) FILTER(WHERE a.status='APPROVED') FROM approval_policy_steps s JOIN approval_assignments a ON a.policy_step_id=s.id AND a.request_id=$2 WHERE s.id=$1 GROUP BY s.required_approvals`, stepID, requestID).Scan(&required, &approved)
 		if err != nil {
 			return DecisionResult{}, err
 		}
@@ -231,6 +239,9 @@ func (r *Repository) Decide(ctx context.Context, requestID, actorID int64, decis
 	if err != nil {
 		return DecisionResult{}, err
 	}
+	// Finalizers and notifiers act on result.Request, so it must carry the
+	// post-decision status and step for every path, not only rejection.
+	result.Request = req
 	if err = tx.Commit(ctx); err != nil {
 		return DecisionResult{}, err
 	}
