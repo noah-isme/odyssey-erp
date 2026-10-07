@@ -62,8 +62,8 @@ Require deterministic unit/integration coverage, provider sandbox evidence, stag
 journeys, scoped-access checks, migration rehearsal, and operational rollback before
 any live enablement. Record the new candidate, migration ceiling, route manifest,
 and evidence contract as a separate release line; do not reuse the rc.10 record.
-Carry the rc.10 approval finalization fix to the v0.11 line first; the
-`release/v0.11-finance-prep` branch does not have it.
+The rc.10 approval finalization fix is on `release/v0.11-finance-prep` as
+`305e83a` (carried 2026-10-07).
 
 ## 3. Defer to v0.11.x
 
