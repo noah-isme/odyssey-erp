@@ -8,7 +8,7 @@
 a UI/UX release dated 2026-05-28. `v0.10.0-rc.10` is the current release candidate
 for the post-v0.9.1 platform work; it is not production-certified. It keeps the
 `v0.10-core` profile and the `000124` migration ceiling. Its exact candidate
-commit is recorded when the annotated tag is cut (`<pending tag>`). Lineage:
+commit, recorded when the annotated tag was cut, is `0745957`. Lineage:
 the superseded rc.9 tag `07d2ba2` plus the rc.10 approval-finalization fix and
 its remediation runbook (see the rc.10 entry below). The superseded rc.9 and
 rc.8 entries below keep their identity records; the historical rc.8 lineage
@@ -297,7 +297,7 @@ documents as rejected or leaving them stuck, a defect present in every
 candidate since rc.1.
 
 The candidate is the superseded rc.9 tag commit `07d2ba2` plus the rc.10
-commits; the exact tagged commit is recorded at tag time (`<pending tag>`). It
+commits; the exact tagged commit, recorded at tag time, is `0745957`. It
 keeps the `v0.10-core` scope and the `000124_scoped_rbac_global_compatibility`
 migration ceiling and adds no migration. It carries no HR UI work from `main`.
 

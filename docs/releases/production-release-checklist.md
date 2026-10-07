@@ -3,7 +3,8 @@
 **State:** `v0.10.0-rc.10` candidate prepared on `release/v0.10.0-rc.10` from the
 superseded rc.9 tag `07d2ba2` plus the rc.10 approval finalization fix (no
 `ec65cc0` baseline, no migration above `000124`); the candidate tag
-(`<pending tag>`), production promotion, and final tag approval are still pending.
+`v0.10.0-rc.10` was cut at `0745957`; production promotion and final tag approval
+are still pending.
 
 **Reviewed:** 2026-10-07
 
@@ -15,7 +16,7 @@ its `production-certified` evidence is recorded there.
 ## 1. Release identity and scope
 
 - [ ] Freeze `v0.10.0-rc.10` from the immutable release-head commit
-      `<pending tag>` after reviewing the exact release diff against the
+      `0745957` after reviewing the exact release diff against the
       superseded rc.9 tag `07d2ba2` (the approval finalization fix in
       `internal/approvals`, its remediation runbook, and the release
       docs/scripts commits only; the superseded rc.9 identity is in the
@@ -47,7 +48,7 @@ The [v0.10-core staging certification record](v0.10-core-staging-certification.m
 is the evidence hook for the bounded profile. The final gate remains intentionally
 blocked until its scope and evidence are certified by the release owner. The
 candidate tag and exact commit recorded in that evidence must refer to rc.10 and
-its tagged commit (`<pending tag>`); the candidate-lineage field must match
+its tagged commit (`0745957`); the candidate-lineage field must match
 the recorded lineage: the superseded rc.9 tag `07d2ba2` plus the rc.10 commits.
 
 ## 2. Repeatable repository gates
@@ -202,7 +203,7 @@ The current repository deliberately does not claim production release readiness:
 
 - `v0.10.0-rc.10` is a release candidate, not a production-certified final release;
 - the candidate is the superseded rc.9 tag `07d2ba2` plus the rc.10 approval
-  finalization fix (tag `<pending tag>`; no `ec65cc0` baseline) and
+  finalization fix (tag `v0.10.0-rc.10` at `0745957`; no `ec65cc0` baseline) and
   must stop at migration `000124`; the
   v0.11-finance commit `1a8343e` and migration `000125` are excluded;
 - the feature matrix records `production-certified=no` for the current capability
