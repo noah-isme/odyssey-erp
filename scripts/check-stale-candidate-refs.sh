@@ -7,7 +7,8 @@
 #
 # Defaults: --root is the repository root, --allowlist is
 # scripts/check-stale-candidate-refs.allowlist, and --pattern matches the
-# superseded v0.10.0-rc.8 candidate ('rc\.8|20cc13a'). Every Markdown/text
+# superseded v0.10.0-rc.8 and v0.10.0-rc.9 candidates
+# ('rc\.8|20cc13a|rc\.9|07d2ba2'). Every Markdown/text
 # file under <root>/docs, plus NEXT_STEPS.md at the root when it exists (it
 # carries current-status text outside docs/), is scanned; each matching line
 # must be covered by an allowlist rule. Allowlist paths are relative to the
@@ -25,10 +26,10 @@ set -euo pipefail
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 root_dir=$(cd -- "$script_dir/.." && pwd)
 allowlist=""
-pattern='rc\.8|20cc13a'
+pattern='rc\.8|20cc13a|rc\.9|07d2ba2'
 
 usage() {
-	sed -n '2,22p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2
+	sed -n '2,23p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2
 	exit 2
 }
 
