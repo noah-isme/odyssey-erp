@@ -26,7 +26,10 @@ Do not add feature code or migrations to rc.10. Complete the staging evidence ga
 4. After rc.10 is deployed, run the read-only **Find** queries in the
    [approval finalization remediation runbook](docs/releases/v0.10-approval-finalization-remediation.md)
    in every environment that ran a build from rc.1 through rc.9 (staging
-   included), and record each repair a business owner confirms.
+   included), and record each repair a business owner confirms. Staging was
+   checked on 2026-10-07 after the rc.10 deploy (database at migration `000124`):
+   it has no approval policies or approval requests, and every Find query
+   returned zero rows, so staging needs no repair.
 5. Merge the 25 contract rows with
    [`scripts/staging-certification-closeout.sh`](scripts/staging-certification-closeout.sh).
    The final index must be write-once, every row `PASS`, and accompanied by its
