@@ -10,11 +10,18 @@ The v0.10.0 staging certification profile is `v0.10-core`. Complete the
 for the exact candidate before changing any feature-matrix row to
 `production-certified=yes`.
 
-The current candidate is the immutable annotated tag `v0.10.0-rc.9` (commit
+The current candidate is the immutable annotated tag `v0.10.0-rc.10` (commit
 `<pending tag>`, recorded when the tag is cut). Its lineage is the
-superseded rc.8 tag `20cc13a` plus the rc.9 worker fix commits; it adds no
+superseded rc.9 tag `07d2ba2` plus the rc.10 approval finalization fix; it adds no
 migration and keeps the `000124` ceiling. Do not move, recreate, or replace that tag while
 collecting evidence.
+
+Staging ran earlier candidates (most recently the superseded rc.9 tag), so
+after rc.10 is deployed run the read-only **Find** queries in the
+[approval finalization remediation runbook](releases/v0.10-approval-finalization-remediation.md)
+against the staging database and record every repair a business owner
+confirms. Deploying rc.10 stops new damage but does not repair rows that the
+approval engine already finalized wrongly.
 
 The final release gate checks that this record names the exact candidate tag and
 contains completed evidence. An untouched template, unchecked checklist item,
@@ -27,7 +34,7 @@ application port, database, and Redis instance.
 ## Deployment contract
 
 The workflow deploys automatically after a successful `CI` workflow for the
-`staging` branch. Pushing the annotated `v0.10.0-rc.9` tag also starts the
+`staging` branch. Pushing the annotated `v0.10.0-rc.10` tag also starts the
 release-candidate deployment, so the candidate can run even before this
 workflow reaches the repository's default branch. A manual dispatch using the
 same tag remains available once the workflow is on the default branch. Every
@@ -140,7 +147,7 @@ certification. Do not use an unset or ad-hoc profile in a staging evidence run.
 
 ### Worker database pool and PostgreSQL settings
 
-From rc.9 the worker opens its PostgreSQL pool with 16 connections by default.
+Since rc.9 the worker opens its PostgreSQL pool with 16 connections by default.
 The worker runs 5 concurrent tasks and logs a startup warning when the
 effective pool is below 3 x that concurrency (15): AP invoice processing holds
 one connection for its advisory lock while nested transactions borrow more. The
@@ -162,11 +169,11 @@ through `lib/pq`, which forwards unknown parameters to the server as run-time
 settings, and PostgreSQL rejects `pool_max_conns`. `PG_MAX_CONNS` is a separate
 variable, so it is safe in the shared file and does not reach `migrate`.
 
-Before deploying rc.9, record in the preflight:
+Before deploying the candidate, record in the preflight:
 
 - `SHOW max_connections;` and the current connection count
   (`SELECT count(*) FROM pg_stat_activity;`): the worker can now hold up to 16
-  connections (up to 12 more than before) in addition to the web pool,
+  connections (up to 12 more than before rc.9) in addition to the web pool,
   `migrate`, and operator sessions; confirm the headroom.
 - `SHOW idle_in_transaction_session_timeout;`: record the raw output; no
   minimum is required. Payslip delivery holds the payslip row lock in an open

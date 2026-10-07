@@ -1,23 +1,23 @@
 # Odyssey ERP Version and Progress Report
 
-**Reviewed:** 2026-10-04
+**Reviewed:** 2026-10-07
 
 ## How to read the version numbers
 
 `v0.9.1` is the latest named production release in the repository. It is primarily
-a UI/UX release dated 2026-05-28. `v0.10.0-rc.9` is the current release candidate
+a UI/UX release dated 2026-05-28. `v0.10.0-rc.10` is the current release candidate
 for the post-v0.9.1 platform work; it is not production-certified. It keeps the
 `v0.10-core` profile and the `000124` migration ceiling. Its exact candidate
 commit is recorded when the annotated tag is cut (`<pending tag>`). Lineage:
-the superseded rc.8 tag `20cc13a` plus the rc.9 fix commits (worker idempotency,
-attribution, and profile gating; see the rc.9 entry below). The historical rc.8
-identity record (merge-base and stabilization chain) stays in the superseded rc.8
-entry below and in the [candidate identity reconciliation](v0.10-candidate-identity-reconciliation.md).
+the superseded rc.9 tag `07d2ba2` plus the rc.10 approval-finalization fix and
+its remediation runbook (see the rc.10 entry below). The superseded rc.9 and
+rc.8 entries below keep their identity records; the historical rc.8 lineage
+(merge-base and stabilization chain) is also in the [candidate identity reconciliation](v0.10-candidate-identity-reconciliation.md).
 
 In other words:
 
 - **Latest named production release:** v0.9.1.
-- **Current release candidate:** v0.10.0-rc.9 (2026-10-04; tag pending).
+- **Current release candidate:** v0.10.0-rc.10 (2026-10-07; tag pending).
 - **Latest documented implementation progress:** Phase 10–14 and P7 work, reviewed 2026-08-01.
 - **Next final release:** v0.10.0, pending production certification. The release
   gates are tracked in the [Production Release Checklist](production-release-checklist.md).
@@ -41,7 +41,8 @@ notes define the packaged scope without claiming production certification.
 | v0.10.0-rc.6 | 2026-08-14 | Post-tag staging supervision fix | Release-branch head `d8b02b8` adds the deployment supervision fix after immutable rc.5; it preserves the `ec65cc0` application baseline and `000124` migration ceiling | Superseded candidate; the descendant rc.7 candidate carries the release-hygiene correction |
 | v0.10.0-rc.7 | 2026-08-26 | Immutable release-hygiene correction | Exact release candidate `5ed11da` adds the portable hygiene scan while preserving the `ec65cc0` application baseline and `000124` migration ceiling | Superseded by v0.10.0-rc.8; never production-certified |
 | v0.10.0-rc.8 | 2026-09-06 | Divergent stabilization candidate | Exact release candidate `20cc13a` (annotated tag, tag object `f54a238`) on a line diverging from rc.7 at merge-base `04ebd8a`: staging certification workflow registration, scoped certification gates, enterprise UI hardening, story-driven seed data, lint/CI fixes, migration ceiling sync to `000124`, CSRF/module-UI fixes, and 33 further rc-line commits (POS, theme, MRP, banking, reporting, route profile). Identity reconciled to the tag under the 2026-10-02 Option A ruling; the earlier documented `cdaa910` pointer was superseded when the tag was re-cut | Superseded by v0.10.0-rc.9 before staging certification evidence was collected; never production-certified |
-| v0.10.0-rc.9 | 2026-10-04 (tag pending) | Worker idempotency and attribution fixes | Superseded rc.8 tag plus fix commits: payslip delivery row lock (at-least-once) with mail dial/I-O deadlines, AP invoice processing actor binding and dedupe, connector outbox claim-before-execute, bounded retry and TaskID dedupe for variance and board-pack tasks, out-of-profile worker handlers and schedules not registered under `v0.10-core`, worker DB pool default 16 (`PG_MAX_CONNS` knob); no new migration (ceiling `000124`) | Current candidate; not production-certified; staging, provider, and operational certification remain open |
+| v0.10.0-rc.9 | 2026-10-04 | Worker idempotency and attribution fixes | Exact release candidate `07d2ba2` (annotated tag, tag object `7c47a3a`): superseded rc.8 tag plus fix commits: payslip delivery row lock (at-least-once) with mail dial/I-O deadlines, AP invoice processing actor binding and dedupe, connector outbox claim-before-execute, bounded retry and TaskID dedupe for variance and board-pack tasks, out-of-profile worker handlers and schedules not registered under `v0.10-core`, worker DB pool default 16 (`PG_MAX_CONNS` knob); no new migration (ceiling `000124`) | Superseded by v0.10.0-rc.10 after its staging deployment and before staging certification ran; never certified |
+| v0.10.0-rc.10 | 2026-10-07 (tag pending) | Approval finalization fix | Superseded rc.9 tag plus the approval engine fix: `Decide` returns the post-decision request, so final approvals reach module finalizers as `APPROVED` (LEAVE, PO, RFQ award, payroll), and the step quorum count is scoped to the request; data-remediation runbook for environments that ran rc.1–rc.9; no new migration (ceiling `000124`) | Current candidate; not production-certified; staging, provider, and operational certification remain open |
 
 ## Detailed version reports
 
@@ -174,7 +175,7 @@ provider, security, and operational evidence are still pending in the [staging
 certification record](v0.10-core-staging-certification.md).
 
 This entry is retained only for release lineage; the active certification record
-and current candidate are v0.10.0-rc.9 (see the rc.9 entry below).
+and current candidate are v0.10.0-rc.10 (see the rc.10 entry below).
 
 ### v0.10.0-rc.7 — Immutable release-hygiene correction (superseded)
 
@@ -185,7 +186,7 @@ The candidate commit is `5ed11da8aea342708be67284ea7a71224f90ccdc`. It preserved
 the reviewed application baseline `ec65cc08639c184030c63e3407791987eee92804`,
 the `v0.10-core` scope, and the `000124_scoped_rbac_global_compatibility`
 migration ceiling. It was superseded before any staging certification evidence
-was collected; the rc.8 candidate (itself superseded by rc.9) replaced it.
+was collected; the rc.8 candidate (itself superseded by rc.9, which rc.10 superseded) replaced it.
 
 ### v0.10.0-rc.8 — Divergent stabilization candidate (superseded)
 
@@ -212,14 +213,16 @@ It was superseded by v0.10.0-rc.9 before any staging certification evidence was
 collected, after the ISO-004 worker review found duplicate-effect and
 forged-actor paths in in-profile worker handlers.
 
-### v0.10.0-rc.9 — Worker idempotency and attribution fixes
+### v0.10.0-rc.9 — Worker idempotency and attribution fixes (superseded)
 
 **Primary purpose:** ensure that every ISO-004 target worker handler reachable under
 the `v0.10-core` profile rejects forged input and produces no duplicate effect on
 redelivery, using only existing columns, row/advisory locks, and asynq TaskIDs.
 
 The candidate is the superseded rc.8 tag commit plus the rc.9 fix commits; the exact tagged
-commit is recorded at tag time (`<pending tag>`). It keeps the `v0.10-core`
+commit is `07d2ba2bbb553a5594828771361e3ab546b35b70` (annotated tag
+`v0.10.0-rc.9`, tag object `7c47a3ab22ad832bbd8a182ab1468889472bc41d`, dated
+2026-10-04). It keeps the `v0.10-core`
 scope and the `000124_scoped_rbac_global_compatibility` migration ceiling and
 adds no migration. Fixes:
 
@@ -281,7 +284,62 @@ windows, and CMMS PM generator overlap without a duplicate guard. `FIND-008`
 (`finance:automation_dispatch` registered and scheduled on every profile) is
 resolved in rc.9 by the profile gating above.
 
-## Follow-up work after v0.10.0-rc.9
+rc.9 was tagged and deployed to staging, and its `certification/v0.10.0-rc.9`
+dispatch branch was created, but staging certification never ran: the operator
+lane was still waiting on the staging preflight inputs. It was superseded by
+v0.10.0-rc.10 before certification, after the approval finalization defect
+described in the rc.10 entry was found. rc.9 was never certified.
+
+### v0.10.0-rc.10 — Approval finalization fix
+
+**Primary purpose:** stop the approval engine from finalizing approved
+documents as rejected or leaving them stuck, a defect present in every
+candidate since rc.1.
+
+The candidate is the superseded rc.9 tag commit `07d2ba2` plus the rc.10
+commits; the exact tagged commit is recorded at tag time (`<pending tag>`). It
+keeps the `v0.10-core` scope and the `000124_scoped_rbac_global_compatibility`
+migration ceiling and adds no migration. It carries no HR UI work from `main`.
+
+**Defect.** `approvals.Repository.Decide` returned the request as it was before
+the decision; only a rejection refreshed it. On a final approval the approval
+engine row was correct (`approval_requests.status = 'APPROVED'`), but
+`Service.Decide` passed the stale status `PENDING` to the module finalizers and
+the notifier. The defect entered with the configurable approval engine
+(`6f50f41`) and is present in `v0.10.0-rc.1` through `v0.10.0-rc.9`.
+
+**Impact.**
+
+- `LEAVE`: approved leave requests were finalized as `REJECTED`, the pending
+  balance was released without incrementing `used`, and a false
+  `LEAVE_REJECTED` audit row was written under the approver.
+- `PO`: approved purchase orders were `CANCELLED` with no approver recorded.
+- `RFQ_AWARD`: approved awards were `REJECTED` and generated no POs.
+- `PAYROLL`: payroll runs stayed in `APPROVAL` with no journal, pointing at an
+  `APPROVED` request.
+- Requesters received an "approved" notification that said the document "was
+  PENDING", and approvers of step 2 and later on multi-step policies were never
+  sent an assignment notification.
+- The step quorum count counted approvals across every request rather than the
+  request being decided, so a step with `required_approvals > 1` could complete
+  early. The policy UI always creates `required_approvals = 1`, so only policies
+  inserted directly in the database are affected.
+
+**Fix** (`75289ba`, `fix(approvals): return post-decision request from
+Decide`): `Decide` returns the request as it is after the decision, so
+finalizers and notifications receive `APPROVED` and the next step's approvers
+are notified on advance, and the quorum count is scoped to the request. pgxmock
+tests in `internal/approvals/repository_test.go` cover final approval, advance,
+an unsatisfied quorum, and rejection.
+
+**Remediation.** Deploying rc.10 stops new damage but does not repair rows that
+are already wrong. Every environment that ran any build from rc.1 through rc.9
+must, after deploying rc.10, run the read-only **Find** queries in the
+[approval finalization remediation runbook](v0.10-approval-finalization-remediation.md)
+and repair each affected row only after a business owner confirms the intended
+outcome; record every repaired row in that environment's release evidence.
+
+## Follow-up work after v0.10.0-rc.10
 
 This work is documented in the current [roadmap](../ROADMAP.md) and [module catalog](../reference/module-catalog.md); the candidate packages the current scope, while final promotion remains pending.
 
@@ -313,7 +371,7 @@ This work is documented in the current [roadmap](../ROADMAP.md) and [module cata
 
 ### Remaining release work
 
-- Promote `v0.10.0` only after the rc.9 candidate passes staging, provider, security,
+- Promote `v0.10.0` only after the rc.10 candidate passes staging, provider, security,
   migration, and operational certification gates.
 - Complete staging/production acceptance for FX and Horizon features.
 - Complete external Coretax validation.
