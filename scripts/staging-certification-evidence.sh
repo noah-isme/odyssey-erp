@@ -322,6 +322,10 @@ if ((${#missing[@]} > 0)); then
 	exit 1
 fi
 
+if [[ -n "$endpoint" ]]; then
+	aws configure set default.s3.addressing_style virtual 2>/dev/null || true
+fi
+
 retain_until=$(date -u -d '+7 years' '+%Y-%m-%dT%H:%M:%SZ')
 aws_args=(--region "$region")
 [[ -n "$endpoint" ]] && aws_args+=(--endpoint-url "$endpoint")
