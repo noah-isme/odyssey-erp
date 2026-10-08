@@ -258,7 +258,6 @@ jobs:
           attestation_file="$candidate_dir/deployment-attestation.json"
           gh attestation verify "$bundle" \
             --repo "$GITHUB_REPOSITORY" \
-            --signer-repo "$GITHUB_REPOSITORY" \
             --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/deploy-native.yml" \
             --format json > "$attestation_file"
           jq -e '
