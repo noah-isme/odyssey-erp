@@ -470,6 +470,10 @@ jobs:
             printf '%s\n' "$bundle_sha" > "$release/.bundle.sha256"
           fi
 
+          mkdir -p "$release/data"
+          chmod 777 "$release" || true
+          chmod -R 777 "$release/data" || true
+
           rm -f "$incoming/$bundle_name" "$incoming/${bundle_name}.sha256"
           rmdir "$incoming"
 
