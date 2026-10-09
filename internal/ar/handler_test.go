@@ -2,9 +2,11 @@ package ar
 
 import (
 	"context"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -183,4 +185,56 @@ func (s *arNotificationsStore) MarkRead(context.Context, int64, int64, time.Time
 
 func (s *arNotificationsStore) MarkAllRead(context.Context, int64, time.Time) (int64, error) {
 	return 0, nil
+}
+
+// TestCreateARInvoiceFormPassesNumber: the invoice form's number, subtotal and
+// tax_amount fields reach the service (J-AR-001 posts number=CERT-AR-<nanos>).
+func TestCreateARInvoiceFormPassesNumber(t *testing.T) {
+	tests := []struct {
+		name         string
+		form         url.Values
+		wantNumber   string
+		wantSubtotal float64
+		wantTax      float64
+	}{
+		{
+			name:         "number and total only",
+			form:         url.Values{"number": {" CERT-AR-1 "}, "customer_id": {"5"}, "currency": {"IDR"}, "total": {"1500"}, "due_date": {"2026-12-31"}},
+			wantNumber:   "CERT-AR-1",
+			wantSubtotal: 1500,
+		},
+		{
+			name:         "explicit subtotal and tax",
+			form:         url.Values{"number": {"CERT-AR-2"}, "customer_id": {"5"}, "currency": {"IDR"}, "subtotal": {"1000"}, "tax_amount": {"110"}, "total": {"1110"}, "due_date": {"2026-12-31"}},
+			wantNumber:   "CERT-AR-2",
+			wantSubtotal: 1000,
+			wantTax:      110,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := newMemoryARRepo()
+			handler := &Handler{service: &Service{repo: repo}, logger: slog.Default()}
+
+			req := arRequest(t, http.MethodPost, "/finance/ar/invoices")
+			req.Body = io.NopCloser(strings.NewReader(tc.form.Encode()))
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			rec := httptest.NewRecorder()
+			handler.createARInvoice(rec, req)
+
+			if rec.Code != http.StatusSeeOther {
+				t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+			}
+			inv := repo.invoices[1]
+			if inv == nil {
+				t.Fatal("no invoice created")
+			}
+			if inv.Number != tc.wantNumber {
+				t.Fatalf("number=%q want %q", inv.Number, tc.wantNumber)
+			}
+			if inv.Subtotal != tc.wantSubtotal || inv.TaxAmount != tc.wantTax {
+				t.Fatalf("subtotal=%v tax=%v want %v/%v", inv.Subtotal, inv.TaxAmount, tc.wantSubtotal, tc.wantTax)
+			}
+		})
+	}
 }
