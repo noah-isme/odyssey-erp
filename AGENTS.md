@@ -27,6 +27,7 @@ Odyssey is a Go modular monolith. Key paths:
 - Set `ODYSSEY_TEST_MODE=1` and `GOTENBERG_URL=http://127.0.0.1:0` for fast, isolated runs.
 - Unit tests: `go test ./...` or `make test`.
 - Integration tests live beside the relevant module when present. Run the documented target package rather than assuming every module has an `integration_test.go` or uses `testify/suite`.
+- Database-backed RC11 integration suites (`tests/e2e`, build tag `integration`): `PG_DSN=<migrated DB> make integration-test`. Without `PG_DSN` they skip. They share ledger rows, so do not use `t.Parallel()`; CI runs the package with `-p 1`.
 
 ## Commit & Pull Request Guidelines
 - Commit style follows conventional commits: `type(scope): summary` (e.g., `feat(ui): ...`, `refactor(backend): ...`).

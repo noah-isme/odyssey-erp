@@ -191,8 +191,8 @@ jobs:
           set -euo pipefail
           MIGRATE_BIN="$(command -v migrate)"
           export MIGRATE_BIN
-          go test -tags integration ./tests/e2e/ -count=1 -v -timeout 8m \
-            -run 'TestAPOrchestration|TestPayslipDelivery|TestConnectorOutboxClaim' \
+          go test -tags integration ./tests/e2e/ -p 1 -count=1 -v -timeout 8m \
+            -run 'TestAPOrchestration|TestPayslipDelivery|TestConnectorOutboxClaim|TestRC11' \
             2>&1 | tee integration.log
           # A suite that skips (for example for a missing PG_DSN) or a filter
           # that matches nothing would otherwise be a silent green.
