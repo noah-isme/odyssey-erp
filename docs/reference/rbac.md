@@ -449,6 +449,30 @@ SELECT EXISTS(
 );
 ```
 
+## Workspace company scope
+
+Permissions (above) decide what a user may do; the workspace company scope
+decides which companies the user may work in. From `v0.10.0-rc.11`:
+
+- A user may select the companies of their **active**
+  `rbac_user_role_assignments` rows (company-wide or branch-scoped;
+  `valid_from <= NOW()` and `valid_to` NULL or in the future).
+- `RBAC_GLOBAL_ROLES` (environment, comma separated, case-insensitive, default
+  empty) lists role names whose holders, through `user_roles`, see every
+  company. Set it only for deliberately cross-company roles; the startup log
+  line `rbac global roles` shows the effective list.
+- `/api/me` returns the scoped `companies`, `activeCompanyID` (`0` when the
+  user has no company) and `releaseProfile`. `/company/select` refuses a
+  company outside the list.
+- Company-scoped route groups answer `403` to a signed-in user without an
+  active company.
+- `cmd/bootstrap-admin` and the dev seed grant company-wide assignments in
+  every existing company. Revoking a role must also expire the matching
+  assignments (`valid_to = NOW()`).
+
+Upgrade steps for existing users (backfill, revoked legacy roles, evidence) are
+in the [tenancy scope rollout runbook](../releases/v0.10-tenancy-scope-rollout.md).
+
 ## Security Considerations
 
 1. **Session Management** - All RBAC checks require valid session

@@ -101,6 +101,13 @@ GOTENBERG_URL=http://gotenberg:3000
 # 0 (the default) disables the scan with a logged warning.
 CMMS_SYSTEM_USER_ID=replace-with-the-system-user-id
 
+# Workspace tenancy: comma-separated role names (case-insensitive, matched
+# against user_roles) whose holders see every company. Everyone else sees only
+# the companies of their active rbac_user_role_assignments rows. Default empty;
+# set only for deliberately cross-company roles. See
+# docs/releases/v0.10-tenancy-scope-rollout.md before upgrading.
+RBAC_GLOBAL_ROLES=
+
 # TLS/HTTPS
 TLS_ENABLED=true
 TLS_CERT_FILE=/etc/odyssey/certs/server.crt
