@@ -164,23 +164,6 @@ func loadWorkspaceUser(ctx context.Context, pool *pgxpool.Pool, id int64) (works
 	return user, err
 }
 
-func loadWorkspaceCompanies(ctx context.Context, pool *pgxpool.Pool) ([]workspaceCompany, error) {
-	rows, err := pool.Query(ctx, "SELECT id, name FROM companies ORDER BY name, id")
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	companies := make([]workspaceCompany, 0)
-	for rows.Next() {
-		var company workspaceCompany
-		if err := rows.Scan(&company.ID, &company.Name); err != nil {
-			return nil, err
-		}
-		companies = append(companies, company)
-	}
-	return companies, rows.Err()
-}
-
 func activeCompanyMiddleware(pool *pgxpool.Pool, logger *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -778,7 +761,7 @@ func NewRouter(params RouterParams) http.Handler {
 			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 			return
 		}
-		companies, err := loadWorkspaceCompanies(r.Context(), params.Pool)
+		companies, err := loadWorkspaceCompanies(r.Context(), params.Pool, id, nil)
 		if err != nil {
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
