@@ -467,3 +467,84 @@ func TestRC11CMMSRunDue(t *testing.T) {
 	require.Zero(t, h.count(`SELECT COUNT(*) FROM work_orders WHERE pm_schedule_id=$1`, badID))
 	require.Equal(t, today, h.str(`SELECT next_due_date::text FROM pm_schedules WHERE id=$1`, badID))
 }
+
+// TestRC11CMMSCertificationJourney replays the CMMS section of
+// tests/staging/certification_test.go (J-CMMS-001, L998-1100) in order with
+// its request shapes and database assertions.
+func TestRC11CMMSCertificationJourney(t *testing.T) {
+	p, f := newRC11Fixture(t)
+	h := newRC11CMMSHarness(t, p, f)
+	ctx := context.Background()
+	date := time.Now().UTC().Format("2006-01-02")
+	id := func(location, prefix string) int64 {
+		t.Helper()
+		v, err := strconv.ParseInt(strings.TrimPrefix(location, prefix), 10, 64)
+		require.NoError(t, err, "redirect %q", location)
+		return v
+	}
+	queryID := func(sql string, args ...any) int64 {
+		t.Helper()
+		var v int64
+		require.NoError(t, p.QueryRow(ctx, sql, args...).Scan(&v), sql)
+		return v
+	}
+
+	assetCreate := h.post("/cmms/assets", "/cmms/assets/new", url.Values{
+		"code": {"CERT-ASSET-" + f.Suffix}, "name": {"v0.10-core certification asset"},
+		"description": {"staging certification asset"}, "asset_type": {"EQUIPMENT"},
+	})
+	require.Equal(t, http.StatusSeeOther, assetCreate.status)
+	assetID := id(assetCreate.location, "/cmms/assets/")
+	assetPath := fmt.Sprintf("/cmms/assets/%d", assetID)
+
+	meter := h.post(assetPath+"/meter-readings", assetPath, url.Values{
+		"reading_type": {"HOURS"}, "value": {"10.5"}, "reading_date": {date}, "notes": {"v0.10-core certification meter"},
+	})
+	require.Equal(t, http.StatusSeeOther, meter.status)
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM meter_readings WHERE asset_id=$1 AND reading_type='HOURS' AND value=10.5`, assetID))
+	require.Equal(t, http.StatusOK, h.get(assetPath+"/meter-readings").status)
+
+	pmCreate := h.post("/cmms/pm-schedules", "/cmms/pm-schedules/new", url.Values{
+		"asset_id": {strconv.FormatInt(assetID, 10)}, "name": {"v0.10-core daily preventive maintenance"},
+		"description": {"staging PM generation"}, "frequency_type": {"DAILY"}, "frequency_value": {"1"}, "active": {"true"},
+	})
+	require.Equal(t, http.StatusSeeOther, pmCreate.status)
+	pmID := id(pmCreate.location, "/cmms/pm-schedules/")
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM pm_schedules WHERE id=$1 AND company_id=$2`, pmID, f.CompanyID))
+	require.Equal(t, http.StatusSeeOther, h.post("/cmms/pm-schedules/run-due", "/cmms/pm-schedules", nil).status)
+	pmWorkOrderID := queryID(`SELECT id FROM work_orders WHERE company_id=$1 AND pm_schedule_id=$2 ORDER BY id DESC LIMIT 1`, f.CompanyID, pmID)
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM work_orders WHERE id=$1 AND category='PREVENTIVE' AND asset_id=$2`, pmWorkOrderID, assetID))
+	require.Equal(t, http.StatusSeeOther, h.post("/cmms/pm-schedules/run-due", "/cmms/pm-schedules", nil).status)
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM work_orders WHERE company_id=$1 AND pm_schedule_id=$2`, f.CompanyID, pmID))
+
+	workCreate := h.post("/cmms/work-orders", "/cmms/work-orders/new", url.Values{
+		"title": {"v0.10-core certification work order"}, "description": {"staging lifecycle test"},
+		"asset_id": {strconv.FormatInt(assetID, 10)}, "priority": {"MEDIUM"}, "category": {"CORRECTIVE"},
+	})
+	require.Equal(t, http.StatusSeeOther, workCreate.status)
+	workID := id(workCreate.location, "/cmms/work-orders/")
+	workPath := fmt.Sprintf("/cmms/work-orders/%d", workID)
+	require.Equal(t, http.StatusSeeOther, h.post(workPath+"/status", workPath, url.Values{"status": {"IN_PROGRESS"}}).status)
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM work_orders WHERE id=$1 AND company_id=$2 AND status='IN_PROGRESS'`, workID, f.CompanyID))
+
+	spareID := h.createSparePart("CERT-SPARE-J-" + f.Suffix)
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM spare_parts WHERE id=$1 AND company_id=$2`, spareID, f.CompanyID))
+	require.Equal(t, http.StatusSeeOther, h.post(workPath+"/spare-parts", workPath, url.Values{
+		"spare_part_id": {strconv.FormatInt(spareID, 10)}, "quantity": {"1"}, "unit_cost": {"12.50"},
+	}).status)
+	spareUsageID := queryID(`SELECT id FROM work_order_spare_parts WHERE work_order_id=$1 AND spare_part_id=$2 ORDER BY id DESC LIMIT 1`, workID, spareID)
+	require.Equal(t, http.StatusSeeOther, h.post(fmt.Sprintf("/cmms/work-order-spare-parts/%d/issue", spareUsageID), workPath, nil).status)
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM work_order_spare_parts WHERE id=$1 AND issued_at IS NOT NULL AND issued_by IS NOT NULL`, spareUsageID))
+
+	require.Equal(t, http.StatusSeeOther, h.post(workPath+"/complete", workPath, url.Values{"actual_hours": {"1.5"}}).status)
+	require.Equal(t, "COMPLETED", h.workOrderStatus(workID))
+	require.Equal(t, http.StatusSeeOther, h.post(workPath+"/complete", workPath, nil).status)
+	require.Equal(t, http.StatusSeeOther, h.post(workPath+"/close", workPath, nil).status)
+	require.Equal(t, "CLOSED", h.workOrderStatus(workID))
+
+	audit := h.count(`SELECT COUNT(*) FROM audit_logs WHERE entity IN ('cmms_asset','cmms_pm_schedule','cmms_work_order','cmms_meter_reading','cmms_spare_part','cmms_work_order_spare_part') AND (entity_id=$1 OR entity_id=$2 OR entity_id=$3)`,
+		strconv.FormatInt(assetID, 10), strconv.FormatInt(workID, 10), strconv.FormatInt(spareUsageID, 10))
+	require.GreaterOrEqual(t, audit, 4, "CMMS journey audit event count")
+	t.Logf("J-CMMS-001 asset_id=%d pm_schedule_id=%d generated_pm_work_order_id=%d work_order_id=%d spare_part_id=%d spare_usage_id=%d audit_events=%d",
+		assetID, pmID, pmWorkOrderID, workID, spareID, spareUsageID, audit)
+}
