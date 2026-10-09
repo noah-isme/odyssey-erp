@@ -277,3 +277,45 @@ func TestRC11CMMSWorkOrderLifecycle(t *testing.T) {
 	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM work_orders WHERE id=$1 AND status='IN_PROGRESS' AND actual_hours=0`, foreignID))
 	require.Zero(t, h.count(`SELECT COUNT(*) FROM audit_logs WHERE entity='cmms_work_order' AND entity_id=$1`, strconv.FormatInt(foreignID, 10)))
 }
+
+func TestRC11CMMSMeterReadings(t *testing.T) {
+	p, f := newRC11Fixture(t)
+	h := newRC11CMMSHarness(t, p, f)
+
+	assetPath := fmt.Sprintf("/cmms/assets/%d", f.AssetID)
+	readingsPath := assetPath + "/meter-readings"
+	date := time.Now().UTC().Format("2006-01-02")
+
+	// The strict test posts with the CSRF token of the asset page and later
+	// GETs the readings page.
+	res := h.post(readingsPath, assetPath, url.Values{
+		"reading_type": {"HOURS"}, "value": {"10.5"}, "reading_date": {date},
+		"notes": {"v0.10-core certification meter"},
+	})
+	h.requireFlash(res, "success")
+	require.Equal(t, readingsPath, res.location)
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM meter_readings WHERE asset_id=$1 AND reading_type='HOURS' AND value=10.5
+		AND reading_date=$2::date AND entered_by=$3 AND notes='v0.10-core certification meter'`, f.AssetID, date, f.AdminID))
+	var readingID int64
+	require.NoError(t, p.QueryRow(context.Background(), `SELECT id FROM meter_readings WHERE asset_id=$1 ORDER BY id DESC LIMIT 1`, f.AssetID).Scan(&readingID))
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM audit_logs WHERE entity='cmms_meter_reading' AND action='create' AND entity_id=$1 AND actor_id=$2`,
+		strconv.FormatInt(readingID, 10), f.AdminID))
+
+	// The readings page renders with a CSRF token and lists the reading.
+	page := h.get(readingsPath)
+	require.Equal(t, http.StatusOK, page.status)
+	require.Regexp(t, rc11CSRFPattern, string(page.body))
+	require.Contains(t, string(page.body), "v0.10-core certification meter")
+
+	// RFC3339 dates are accepted; an unparseable value is refused.
+	h.requireFlash(h.post(readingsPath, readingsPath, url.Values{"reading_type": {"CYCLES"}, "value": {"3"}, "reading_date": {time.Now().UTC().Format(time.RFC3339)}}), "success")
+	h.requireFlash(h.post(readingsPath, readingsPath, url.Values{"reading_type": {"HOURS"}, "value": {"lots"}}), "danger")
+	require.Equal(t, 2, h.count(`SELECT COUNT(*) FROM meter_readings WHERE asset_id=$1`, f.AssetID))
+
+	// An asset of another company: no row, and its page is not found.
+	_, foreignAssetID := h.foreignCompany()
+	foreignPath := fmt.Sprintf("/cmms/assets/%d/meter-readings", foreignAssetID)
+	h.requireFlash(h.post(foreignPath, readingsPath, url.Values{"reading_type": {"HOURS"}, "value": {"1"}, "reading_date": {date}}), "danger")
+	require.Zero(t, h.count(`SELECT COUNT(*) FROM meter_readings WHERE asset_id=$1`, foreignAssetID))
+	require.Equal(t, http.StatusNotFound, h.get(foreignPath).status)
+}
