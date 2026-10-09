@@ -3,6 +3,7 @@ package documents
 import (
 	"context"
 	"errors"
+	"net"
 	"net/netip"
 	"strings"
 	"time"
@@ -385,11 +386,17 @@ func (r *Repository) DeleteDocument(ctx context.Context, id int64, actorID int64
 // Document Versions
 
 func (r *Repository) InsertDocumentVersion(ctx context.Context, req CreateVersionRequest) (DocumentVersion, error) {
+	if req.BlobID == nil || *req.BlobID <= 0 {
+		return DocumentVersion{}, errors.New("documents: version blob required")
+	}
+	if req.ClassificationID <= 0 {
+		return DocumentVersion{}, errors.New("documents: version classification required")
+	}
 	id, err := r.queries.InsertDocumentVersion(ctx, sqlc.InsertDocumentVersionParams{
 		CompanyID:        req.CompanyID,
 		DocumentID:       req.DocumentID,
 		VersionNumber:    int32(req.VersionNumber),
-		BlobID:           req.DocumentID, // placeholder until blob upload wired
+		BlobID:           *req.BlobID,
 		ClassificationID: req.ClassificationID,
 		ChangeSummary:    pgtype.Text{String: req.Description, Valid: req.Description != ""},
 		Status:           string(StatusDraft),
@@ -561,6 +568,12 @@ func (r *Repository) InsertBlob(ctx context.Context, req CreateBlobRequest) (int
 		MalwareScanStatus:   req.MalwareScanStatus,
 		CreatedBy:           req.CreatedBy,
 	})
+}
+
+// DeleteBlob removes a blob row of the given company. It is used to undo a
+// blob registration when the version that would reference it is refused.
+func (r *Repository) DeleteBlob(ctx context.Context, id, companyID int64) error {
+	return r.queries.DeleteStorageBlob(ctx, sqlc.DeleteStorageBlobParams{ID: id, CompanyID: companyID})
 }
 
 func (r *Repository) GetBlob(ctx context.Context, id int64) (Blob, error) {
@@ -977,8 +990,11 @@ func (r *Repository) ReleaseLegalHold(ctx context.Context, holdID, releasedBy in
 
 // Access Events
 
+// RecordAccessEvent persists an access audit row. The IP address may be a
+// bare address or host:port; anything that does not parse as an IP is
+// stored as NULL rather than rejecting the event.
 func (r *Repository) RecordAccessEvent(ctx context.Context, event DocumentAccessEvent) error {
-	addr, _ := netip.ParseAddr(event.IPAddress)
+	addr := parseClientAddr(event.IPAddress)
 	return r.queries.InsertDocumentAccessEvent(ctx, sqlc.InsertDocumentAccessEventParams{
 		CompanyID:         event.CompanyID,
 		DocumentVersionID: event.DocumentVersionID,
@@ -990,6 +1006,20 @@ func (r *Repository) RecordAccessEvent(ctx context.Context, event DocumentAccess
 }
 
 // Helpers
+
+// parseClientAddr returns the IP of "ip" or "ip:port"; the zero Addr (stored
+// as NULL) when neither form parses.
+func parseClientAddr(raw string) netip.Addr {
+	raw = strings.TrimSpace(raw)
+	if host, _, err := net.SplitHostPort(raw); err == nil {
+		raw = host
+	}
+	addr, err := netip.ParseAddr(raw)
+	if err != nil {
+		return netip.Addr{}
+	}
+	return addr
+}
 
 var _ = statusPtr
 var _ = stringPtr

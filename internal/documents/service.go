@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"strconv"
 	"strings"
 	"time"
@@ -234,6 +235,14 @@ func (s *Service) CreateVersion(ctx context.Context, req CreateVersionRequest) (
 	if err != nil {
 		return DocumentVersion{}, err
 	}
+	if doc.CompanyID != req.CompanyID {
+		return DocumentVersion{}, ErrDocumentNotFound
+	}
+	// document_versions.classification_id is NOT NULL; a version inherits the
+	// document's classification unless the caller chose one.
+	if req.ClassificationID == 0 {
+		req.ClassificationID = doc.ClassificationID
+	}
 
 	// Check optimistic lock - ensure no concurrent version creation
 	latestVersion, err := s.repo.GetLatestVersion(ctx, req.DocumentID)
@@ -306,12 +315,33 @@ func (s *Service) UploadAndCreateVersion(ctx context.Context, file io.Reader, si
 		CreatedBy:           req.ActorID,
 	})
 	if err != nil {
+		s.discardBlob(ctx, req.CompanyID, 0, key)
 		return DocumentVersion{}, fmt.Errorf("insert blob: %w", err)
 	}
 
-	// 4. Create the document version
+	// 4. Create the document version. If it is refused, undo the blob so no
+	// orphan row or object remains.
 	req.BlobID = &blobID
-	return s.CreateVersion(ctx, req)
+	version, err := s.CreateVersion(ctx, req)
+	if err != nil {
+		s.discardBlob(ctx, req.CompanyID, blobID, key)
+		return DocumentVersion{}, err
+	}
+	return version, nil
+}
+
+// discardBlob removes a blob row and its stored object on a best-effort
+// basis; failures are logged because the caller already has an error to
+// report.
+func (s *Service) discardBlob(ctx context.Context, companyID, blobID int64, key string) {
+	if blobID > 0 {
+		if err := s.repo.DeleteBlob(ctx, blobID, companyID); err != nil {
+			slog.WarnContext(ctx, "documents: discard blob row", slog.Int64("blob_id", blobID), slog.Any("error", err))
+		}
+	}
+	if err := s.storage.Delete(ctx, key); err != nil {
+		slog.WarnContext(ctx, "documents: discard blob object", slog.String("storage_key", key), slog.Any("error", err))
+	}
 }
 
 // GetVersion loads a single document version.
@@ -332,8 +362,11 @@ func (s *Service) SetVersionStatus(ctx context.Context, versionID int64, status 
 	return s.repo.SetVersionStatus(ctx, versionID, status, actorID)
 }
 
-// DownloadVersion streams a document version's file content.
-func (s *Service) DownloadVersion(ctx context.Context, versionID int64, actorID int64) (io.ReadCloser, string, string, error) {
+// DownloadVersion opens a document version's file content. The DOWNLOAD
+// access event is mandatory: if it cannot be recorded the reader is closed
+// and the error returned, so no content leaves without an audit row.
+// ipAddress may be a bare IP or host:port; userAgent is stored as given.
+func (s *Service) DownloadVersion(ctx context.Context, versionID, actorID int64, ipAddress, userAgent string) (io.ReadCloser, string, string, error) {
 	version, err := s.repo.GetDocumentVersion(ctx, versionID)
 	if err != nil {
 		return nil, "", "", err
@@ -348,19 +381,21 @@ func (s *Service) DownloadVersion(ctx context.Context, versionID int64, actorID 
 		return nil, "", "", err
 	}
 
-	// Record access event
-	_ = s.repo.RecordAccessEvent(ctx, DocumentAccessEvent{
+	reader, err := s.storage.Get(ctx, blob.StorageKey)
+	if err != nil {
+		return nil, "", "", err
+	}
+
+	if err := s.repo.RecordAccessEvent(ctx, DocumentAccessEvent{
 		CompanyID:         blob.CompanyID,
 		DocumentVersionID: versionID,
 		ActorID:           actorID,
 		Action:            "DOWNLOAD",
-		IPAddress:         "", // TODO: extract from context
-		UserAgent:         "", // TODO: extract from context
-	})
-
-	reader, err := s.storage.Get(ctx, blob.StorageKey)
-	if err != nil {
-		return nil, "", "", err
+		IPAddress:         ipAddress,
+		UserAgent:         userAgent,
+	}); err != nil {
+		_ = reader.Close()
+		return nil, "", "", fmt.Errorf("documents: record download: %w", err)
 	}
 
 	return reader, blob.StorageKey, blob.DeclaredContentType, nil

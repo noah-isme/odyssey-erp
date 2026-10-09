@@ -248,6 +248,7 @@ type Querier interface {
 	DeleteRole(ctx context.Context, id int64) (int64, error)
 	DeleteSalesOrderLines(ctx context.Context, salesOrderID int64) error
 	DeleteSession(ctx context.Context, id string) error
+	DeleteStorageBlob(ctx context.Context, arg DeleteStorageBlobParams) error
 	DeleteSupplier(ctx context.Context, id int64) error
 	DeleteTax(ctx context.Context, id int64) error
 	DeleteUnit(ctx context.Context, id int64) error

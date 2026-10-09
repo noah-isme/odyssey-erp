@@ -466,6 +466,10 @@ INSERT INTO storage_blobs (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
 ) RETURNING id;
 
+-- name: DeleteStorageBlob :exec
+DELETE FROM storage_blobs
+WHERE id = $1 AND company_id = $2;
+
 -- name: CreateDocumentOCRJob :one
 INSERT INTO doc_ocr_jobs (
     company_id, document_version_id, blob_id, status, created_at

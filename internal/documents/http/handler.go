@@ -2,7 +2,11 @@ package documentshttp
 
 import (
 	"errors"
+	"fmt"
+	"io"
 	"log/slog"
+	"mime"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -52,6 +56,7 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Get("/{id}", h.getDocument)
 		r.Get("/{id}/versions", h.listVersions)
 		r.With(h.rbac.RequireAny(shared.PermDocumentsVersion)).Post("/{id}/versions", h.createVersion)
+		r.Get("/{id}/versions/{versionID}/download", h.downloadVersion)
 		r.With(h.rbac.RequireAny(shared.PermDocumentsSign)).Post("/{id}/versions/{versionID}/challenge", h.createChallenge)
 		r.With(h.rbac.RequireAny(shared.PermDocumentsSign)).Post("/{id}/versions/{versionID}/sign", h.signVersion)
 		r.With(h.rbac.RequireAny(shared.PermDocumentsAdmin)).Post("/{id}/versions/{versionID}/retention", h.applyRetention)
@@ -255,6 +260,61 @@ func (h *Handler) createVersion(w http.ResponseWriter, r *http.Request) {
 	}
 	h.redirectWithFlash(w, r, "/documents/library/"+strconv.FormatInt(id, 10), "success",
 		"Version "+strconv.Itoa(version.VersionNumber)+" created")
+}
+
+func (h *Handler) downloadVersion(w http.ResponseWriter, r *http.Request) {
+	documentID := parseInt64(chi.URLParam(r, "id"))
+	versionID := parseInt64(chi.URLParam(r, "versionID"))
+	companyID := currentCompany(r)
+	version, err := h.service.GetVersion(r.Context(), versionID)
+	if err != nil {
+		if errors.Is(err, documents.ErrDocumentVersionNotFound) {
+			http.NotFound(w, r)
+			return
+		}
+		h.logger.Error("get version for download", slog.Any("error", err))
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	// Another company's version, or a version of another document, is
+	// indistinguishable from a missing one.
+	if companyID <= 0 || version.CompanyID != companyID || version.DocumentID != documentID {
+		http.NotFound(w, r)
+		return
+	}
+
+	reader, _, contentType, err := h.service.DownloadVersion(r.Context(), versionID, currentUser(r), clientIP(r), r.UserAgent())
+	if err != nil {
+		h.logger.Error("download version", slog.Int64("version_id", versionID), slog.Any("error", err))
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	defer reader.Close()
+
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+	filename := fmt.Sprintf("%s-v%d", version.DocumentNumber, version.VersionNumber)
+	if version.DocumentNumber == "" {
+		filename = fmt.Sprintf("document-%d-v%d", documentID, version.VersionNumber)
+	}
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": filename}))
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.WriteHeader(http.StatusOK)
+	if _, err := io.Copy(w, reader); err != nil {
+		h.logger.Warn("stream version", slog.Int64("version_id", versionID), slog.Any("error", err))
+	}
+}
+
+// clientIP returns the request's client address as the router leaves it:
+// chi's RealIP middleware may already have replaced RemoteAddr with a bare
+// IP, otherwise it is host:port.
+func clientIP(r *http.Request) string {
+	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		return host
+	}
+	return r.RemoteAddr
 }
 
 // ============================================================================

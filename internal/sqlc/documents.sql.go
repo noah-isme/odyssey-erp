@@ -213,6 +213,21 @@ func (q *Queries) DeleteDocumentRetention(ctx context.Context, arg DeleteDocumen
 	return err
 }
 
+const deleteStorageBlob = `-- name: DeleteStorageBlob :exec
+DELETE FROM storage_blobs
+WHERE id = $1 AND company_id = $2
+`
+
+type DeleteStorageBlobParams struct {
+	ID        int64 `json:"id"`
+	CompanyID int64 `json:"company_id"`
+}
+
+func (q *Queries) DeleteStorageBlob(ctx context.Context, arg DeleteStorageBlobParams) error {
+	_, err := q.db.Exec(ctx, deleteStorageBlob, arg.ID, arg.CompanyID)
+	return err
+}
+
 const disableCollaborationSession = `-- name: DisableCollaborationSession :exec
 UPDATE doc_collaboration_sessions SET active = false WHERE id = $1
 `
