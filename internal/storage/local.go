@@ -159,11 +159,11 @@ func (s *LocalStorage) Stat(ctx context.Context, key string) (ObjectInfo, error)
 	}
 
 	return ObjectInfo{
-		Key:            key,
-		Size:           info.Size(),
-		ContentType:    "", // Would need magic detection
-		ChecksumSHA256: hex.EncodeToString(hasher.Sum(nil)),
-		CreatedAt:      info.ModTime().Format(time.RFC3339),
+		Key:               key,
+		Size:              info.Size(),
+		ContentType:       "", // Would need magic detection
+		ChecksumSHA256:    hex.EncodeToString(hasher.Sum(nil)),
+		CreatedAt:         info.ModTime().Format(time.RFC3339),
 		MalwareScanStatus: MalwareScanSkipped,
 	}, nil
 }
@@ -211,8 +211,35 @@ func randomString(n int) string {
 	}
 	return string(b)
 }
-// EnsureWritableDir is a test stub that keeps the v0.10.0-rc.10 behaviour
-// (no check at all).
+
+// EnsureWritableDir creates dir (and parents) with mode 0750 if missing and
+// proves the current user can create and remove a file in it. It never
+// changes the mode or owner of an existing directory.
 func EnsureWritableDir(dir string) error {
+	if strings.TrimSpace(dir) == "" {
+		return errors.New("storage: directory not configured")
+	}
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		return fmt.Errorf("storage: create directory: %w", err)
+	}
+	info, err := os.Stat(dir)
+	if err != nil {
+		return fmt.Errorf("storage: stat directory: %w", err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("storage: %s is not a directory", dir)
+	}
+	probe, err := os.CreateTemp(dir, ".odyssey-write-probe-*")
+	if err != nil {
+		return fmt.Errorf("storage: directory not writable: %w", err)
+	}
+	name := probe.Name()
+	closeErr := probe.Close()
+	if err := os.Remove(name); err != nil {
+		return fmt.Errorf("storage: remove write probe: %w", err)
+	}
+	if closeErr != nil {
+		return fmt.Errorf("storage: close write probe: %w", closeErr)
+	}
 	return nil
 }

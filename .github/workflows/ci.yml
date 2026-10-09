@@ -108,6 +108,7 @@ jobs:
           ODYSSEY_TEST_MODE: "0"
           ODYSSEY_DUMP_ROUTES: "1"
           RELEASE_PROFILE: v0.10-core
+          DOCUMENT_STORAGE_DIR: ${{ runner.temp }}/odyssey-storage
           SESSION_SECRET: ci-session-secret-not-for-production
           CSRF_SECRET: ci-csrf-secret-not-for-production
         run: |
@@ -133,6 +134,7 @@ jobs:
           SESSION_SECRET: ci-session-secret-not-for-production
           CSRF_SECRET: ci-csrf-secret-not-for-production
           APP_ADDR: 127.0.0.1:8080
+          DOCUMENT_STORAGE_DIR: ${{ runner.temp }}/odyssey-storage
         run: |
           ./bin/odyssey > server.log 2>&1 &
           echo $! > server.pid

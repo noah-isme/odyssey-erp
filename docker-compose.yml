@@ -44,6 +44,7 @@ services:
       REDIS_ADDR: redis:6379
       GOTENBERG_URL: http://gotenberg:3000
       ODYSSEY_TEST_MODE: "0"
+      DOCUMENT_STORAGE_DIR: /data/storage
     depends_on:
       postgres:
         condition: service_healthy
@@ -51,6 +52,8 @@ services:
         condition: service_started
       gotenberg:
         condition: service_started
+    volumes:
+      - documents:/data/storage
     ports:
       - "8080:8080"
 
@@ -63,6 +66,9 @@ services:
       PG_DSN: postgres://odyssey:odyssey@postgres:5432/odyssey?sslmode=disable
       REDIS_ADDR: redis:6379
       ODYSSEY_TEST_MODE: "0"
+      DOCUMENT_STORAGE_DIR: /data/storage
+    volumes:
+      - documents:/data/storage
     depends_on:
       - redis
 
@@ -82,3 +88,5 @@ services:
 
 volumes:
   pgdata:
+  # Document blobs shared by app and worker (DOCUMENT_STORAGE_DIR).
+  documents:

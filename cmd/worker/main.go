@@ -50,7 +50,6 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/sales/orders"
 	"github.com/odyssey-erp/odyssey-erp/internal/sales/quotations"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
-	"github.com/odyssey-erp/odyssey-erp/internal/storage"
 	"github.com/odyssey-erp/odyssey-erp/internal/tax"
 	"github.com/odyssey-erp/odyssey-erp/internal/variance"
 	"github.com/odyssey-erp/odyssey-erp/jobs"
@@ -319,13 +318,13 @@ func main() {
 
 	qmsService := qms.NewService(qms.NewRepository(pool))
 
-	docStorage, err := storage.NewStorage(ctx, storage.StorageConfig{
-		Driver:   cfg.BoardPackStorageDriver, // Share storage config for now
-		LocalDir: cfg.BoardPackStorageDir,
-	})
+	docStorage, documentStorageDir, err := openDocumentStorage(ctx, cfg)
 	if err != nil {
-		logger.Error("init documents storage", slog.Any("error", err))
-		os.Exit(1)
+		if app.DocumentStorageRequired(cfg) {
+			logger.Error("init documents storage", slog.String("dir", documentStorageDir), slog.Any("error", err))
+			os.Exit(1)
+		}
+		logger.Warn("init documents storage", slog.String("dir", documentStorageDir), slog.Any("error", err))
 	}
 	documentsService := documents.NewService(documents.NewRepository(pool), docStorage)
 
@@ -480,8 +479,7 @@ func mustLocation(name string) *time.Location {
 	return location
 }
 
-// openDocumentStorage is a test stub mirroring the v0.10.0-rc.10 wiring.
-var openDocumentStorage = func(ctx context.Context, cfg *app.Config) (storage.Storage, string, error) {
-	s, err := storage.NewStorage(ctx, storage.StorageConfig{Driver: cfg.BoardPackStorageDriver, LocalDir: cfg.BoardPackStorageDir})
-	return s, cfg.BoardPackStorageDir, err
-}
+// openDocumentStorage opens the documents storage. It must stay
+// app.OpenDocumentStorage, the function cmd/odyssey uses too, so both
+// processes share one blob directory.
+var openDocumentStorage = app.OpenDocumentStorage

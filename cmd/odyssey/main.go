@@ -92,7 +92,6 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/roles"
 	"github.com/odyssey-erp/odyssey-erp/internal/sales"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
-	"github.com/odyssey-erp/odyssey-erp/internal/storage"
 	"github.com/odyssey-erp/odyssey-erp/internal/tax"
 	"github.com/odyssey-erp/odyssey-erp/internal/users"
 	variancepkg "github.com/odyssey-erp/odyssey-erp/internal/variance"
@@ -539,12 +538,13 @@ func main() {
 	mrpHandler.SetOutboxRepository(outboxRepo)
 
 	documentsRepo := documents.NewRepository(dbpool)
-	sharedStorage, err := storage.NewStorage(ctx, storage.StorageConfig{
-		Driver:   "local",
-		LocalDir: "./data/storage", // Use a local directory for development
-	})
+	sharedStorage, documentStorageDir, err := openDocumentStorage(ctx, cfg)
 	if err != nil {
-		logger.Error("init shared storage", slog.Any("error", err))
+		if app.DocumentStorageRequired(cfg) {
+			logger.Error("init documents storage", slog.String("dir", documentStorageDir), slog.Any("error", err))
+			os.Exit(1)
+		}
+		logger.Warn("init documents storage", slog.String("dir", documentStorageDir), slog.Any("error", err))
 	}
 	documentsService := documents.NewService(documentsRepo, sharedStorage)
 	portalHandler.SetDocumentsService(documentsService)
@@ -762,8 +762,7 @@ func (m messagingAdapter) EnqueueMessage(ctx context.Context, msg notifications.
 	return m.svc.EnqueueMessage(ctx, 1, msg.Channel, msg.To, msg.Content, msg.CorrelationID)
 }
 
-// openDocumentStorage is a test stub mirroring the v0.10.0-rc.10 wiring.
-var openDocumentStorage = func(ctx context.Context, _ *app.Config) (storage.Storage, string, error) {
-	s, err := storage.NewStorage(ctx, storage.StorageConfig{Driver: "local", LocalDir: "./data/storage"})
-	return s, "./data/storage", err
-}
+// openDocumentStorage opens the documents storage. It must stay
+// app.OpenDocumentStorage, the function cmd/worker uses too, so both
+// processes share one blob directory.
+var openDocumentStorage = app.OpenDocumentStorage

@@ -60,6 +60,14 @@ type Config struct {
 	// worker runs the scan; 0 disables the scan with a logged warning.
 	CMMSSystemUserID int64 `envconfig:"CMMS_SYSTEM_USER_ID" default:"0"`
 
+	// DocumentStorageDriver selects the documents blob backend. Only "local"
+	// is supported for documents; board packs keep BOARD_PACK_STORAGE_DRIVER.
+	DocumentStorageDriver string `envconfig:"DOCUMENT_STORAGE_DRIVER" default:"local"`
+	// DocumentStorageDir is the directory both the web process and the
+	// worker read and write document blobs in. Empty means the APP_ENV
+	// default resolved by DocumentStorageDir.
+	DocumentStorageDir string `envconfig:"DOCUMENT_STORAGE_DIR" default:""`
+
 	GotenbergURL        string `envconfig:"GOTENBERG_URL" default:"http://127.0.0.1:3000"`
 	BoardPackStorageDir string `envconfig:"BOARD_PACK_STORAGE" default:"./var/boardpacks"`
 

@@ -40,6 +40,9 @@ COPY --from=builder /app/migrate /app/migrate
 COPY --from=builder /app/migrations ./migrations
 COPY --from=builder /app/web ./web
 
+# Mount point for the shared documents volume (DOCUMENT_STORAGE_DIR); a
+# named volume copies this ownership, so the odyssey user can write to it.
+RUN install -d -m 0750 -o odyssey -g odyssey /data/storage
 RUN chown -R odyssey:odyssey /app
 
 USER odyssey
