@@ -136,7 +136,12 @@ async function applyWorkspacePreferences() {
                 const option = new Option(company.name, String(company.id), false, company.id === workspace.activeCompanyID);
                 companySelect.add(option);
             });
-            companySelect.disabled = companySelect.options.length === 0;
+            if (companySelect.options.length === 0) {
+                companySelect.add(new Option('Tidak ada perusahaan yang ditugaskan', '', true, true));
+                companySelect.disabled = true;
+            } else {
+                companySelect.disabled = false;
+            }
             companySelect.addEventListener('change', () => companySelect.form?.requestSubmit(), { once: true });
         }
 

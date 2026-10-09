@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -97,7 +98,55 @@ func main() {
 		log.Fatalf("seed listing fixtures: %v", err)
 	}
 
+	// Runs after master data: assignments need the companies to exist.
+	fmt.Println("→ Seeding company assignments...")
+	if err := seedAssignments(ctx, pool); err != nil {
+		log.Fatalf("seed company assignments: %v", err)
+	}
+
 	fmt.Println("Seed complete at", time.Now().Format(time.RFC3339))
+}
+
+// seedAssignments gives every seeded user role a company-wide assignment in
+// every company (the shape migration 000124 materialised), so the seeded
+// users can select a company in the workspace. Idempotent.
+func seedAssignments(ctx context.Context, pool *pgxpool.Pool) error {
+	return pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `
+			SELECT ur.user_id, ur.role_id
+			FROM user_roles ur
+			JOIN users u ON u.id = ur.user_id
+			WHERE u.email = ANY($1)
+			ORDER BY ur.user_id, ur.role_id`, seededUserEmails())
+		if err != nil {
+			return err
+		}
+		type grant struct{ userID, roleID int64 }
+		var grants []grant
+		for rows.Next() {
+			var g grant
+			if err := rows.Scan(&g.userID, &g.roleID); err != nil {
+				rows.Close()
+				return err
+			}
+			grants = append(grants, g)
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
+			return err
+		}
+		q := sqlc.New(tx)
+		var total int64
+		for _, g := range grants {
+			n, err := q.GrantCompanyWideAssignment(ctx, sqlc.GrantCompanyWideAssignmentParams{UserID: g.userID, RoleID: g.roleID})
+			if err != nil {
+				return fmt.Errorf("grant user %d role %d: %w", g.userID, g.roleID, err)
+			}
+			total += n
+		}
+		fmt.Printf("  company-wide assignments: %d new\n", total)
+		return nil
+	})
 }
 
 // =============================================================================
@@ -326,11 +375,7 @@ func seedRBAC(ctx context.Context, pool *pgxpool.Pool) error {
 	}
 
 	// Assign roles to users
-	userRoles := map[string]string{
-		"admin@odyssey.local":      "admin",
-		"manager@odyssey.local":    "manager",
-		"accountant@odyssey.local": "viewer",
-	}
+	userRoles := seededUserRoles()
 	for email, roleName := range userRoles {
 		var userID int64
 		err := tx.QueryRow(ctx, `SELECT id FROM users WHERE email = $1`, email).Scan(&userID)
@@ -349,6 +394,23 @@ func seedRBAC(ctx context.Context, pool *pgxpool.Pool) error {
 	}
 
 	return tx.Commit(ctx)
+}
+
+// seededUserRoles maps each seeded user's email to its role name.
+func seededUserRoles() map[string]string {
+	return map[string]string{
+		"admin@odyssey.local":      "admin",
+		"manager@odyssey.local":    "manager",
+		"accountant@odyssey.local": "viewer",
+	}
+}
+
+func seededUserEmails() []string {
+	emails := make([]string, 0, len(seededUserRoles()))
+	for email := range seededUserRoles() {
+		emails = append(emails, email)
+	}
+	return emails
 }
 
 // =============================================================================

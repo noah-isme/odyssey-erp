@@ -106,6 +106,38 @@ func (q *Queries) GetRole(ctx context.Context, id int64) (Role, error) {
 	return i, err
 }
 
+const grantCompanyWideAssignment = `-- name: GrantCompanyWideAssignment :execrows
+INSERT INTO rbac_user_role_assignments (
+    company_id,
+    user_id,
+    role_id,
+    branch_id,
+    valid_from,
+    valid_to
+)
+SELECT c.id, $1::bigint, $2::bigint, NULL, TIMESTAMPTZ '1970-01-01 00:00:00+00', NULL
+FROM companies c
+ON CONFLICT (company_id, user_id, role_id, valid_from)
+    WHERE branch_id IS NULL
+DO NOTHING
+`
+
+type GrantCompanyWideAssignmentParams struct {
+	UserID int64 `json:"user_id"`
+	RoleID int64 `json:"role_id"`
+}
+
+// Same shape as migration 000124: one company-wide assignment per existing
+// company, starting at the fixed epoch marker, idempotent on the company
+// scope key.
+func (q *Queries) GrantCompanyWideAssignment(ctx context.Context, arg GrantCompanyWideAssignmentParams) (int64, error) {
+	result, err := q.db.Exec(ctx, grantCompanyWideAssignment, arg.UserID, arg.RoleID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const listPermissions = `-- name: ListPermissions :many
 SELECT id, name, description
 FROM permissions
@@ -150,6 +182,45 @@ func (q *Queries) ListRolePermissions(ctx context.Context, roleID int64) ([]Perm
 	for rows.Next() {
 		var i Permission
 		if err := rows.Scan(&i.ID, &i.Name, &i.Description); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUserCompanies = `-- name: ListUserCompanies :many
+
+SELECT DISTINCT c.id, c.name
+FROM rbac_user_role_assignments a
+JOIN companies c ON c.id = a.company_id
+WHERE a.user_id = $1
+  AND a.valid_from <= NOW()
+  AND (a.valid_to IS NULL OR a.valid_to > NOW())
+ORDER BY c.name, c.id
+`
+
+type ListUserCompaniesRow struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
+// Workspace tenancy (v0.10.0-rc.11). Company visibility comes from active
+// rbac_user_role_assignments rows, company-wide or branch-scoped; permission
+// evaluation stays on user_roles (UserEffectivePermissions).
+func (q *Queries) ListUserCompanies(ctx context.Context, userID int64) ([]ListUserCompaniesRow, error) {
+	rows, err := q.db.Query(ctx, listUserCompanies, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListUserCompaniesRow
+	for rows.Next() {
+		var i ListUserCompaniesRow
+		if err := rows.Scan(&i.ID, &i.Name); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -311,4 +382,55 @@ func (q *Queries) UserEffectivePermissions(ctx context.Context, userID int64) ([
 		return nil, err
 	}
 	return items, nil
+}
+
+const userGlobalRoleNames = `-- name: UserGlobalRoleNames :many
+SELECT DISTINCT r.name
+FROM user_roles ur
+JOIN roles r ON r.id = ur.role_id
+WHERE ur.user_id = $1
+ORDER BY r.name
+`
+
+func (q *Queries) UserGlobalRoleNames(ctx context.Context, userID int64) ([]string, error) {
+	rows, err := q.db.Query(ctx, userGlobalRoleNames, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		items = append(items, name)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const userHasActiveCompanyAssignment = `-- name: UserHasActiveCompanyAssignment :one
+SELECT EXISTS (
+    SELECT 1
+    FROM rbac_user_role_assignments a
+    WHERE a.user_id = $1
+      AND a.company_id = $2
+      AND a.valid_from <= NOW()
+      AND (a.valid_to IS NULL OR a.valid_to > NOW())
+)::boolean AS has_assignment
+`
+
+type UserHasActiveCompanyAssignmentParams struct {
+	UserID    int64 `json:"user_id"`
+	CompanyID int64 `json:"company_id"`
+}
+
+func (q *Queries) UserHasActiveCompanyAssignment(ctx context.Context, arg UserHasActiveCompanyAssignmentParams) (bool, error) {
+	row := q.db.QueryRow(ctx, userHasActiveCompanyAssignment, arg.UserID, arg.CompanyID)
+	var has_assignment bool
+	err := row.Scan(&has_assignment)
+	return has_assignment, err
 }

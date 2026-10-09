@@ -494,6 +494,10 @@ type Querier interface {
 	GetWorkOrder(ctx context.Context, id int64) (GetWorkOrderRow, error)
 	GetWorkOrderSparePart(ctx context.Context, id int64) (WorkOrderSparePart, error)
 	GetWorkOrderTask(ctx context.Context, id int64) (WorkOrderTask, error)
+	// Same shape as migration 000124: one company-wide assignment per existing
+	// company, starting at the fixed epoch marker, idempotent on the company
+	// scope key.
+	GrantCompanyWideAssignment(ctx context.Context, arg GrantCompanyWideAssignmentParams) (int64, error)
 	HasActiveLegalHold(ctx context.Context, companyID int64) (bool, error)
 	HasActiveLegalHoldForVersion(ctx context.Context, id int64) (bool, error)
 	HasOtherDocumentBlobReferences(ctx context.Context, arg HasOtherDocumentBlobReferencesParams) (bool, error)
@@ -806,6 +810,10 @@ type Querier interface {
 	ListTreasurySupplierBankAccounts(ctx context.Context, arg ListTreasurySupplierBankAccountsParams) ([]TreasurySupplierBankAccount, error)
 	ListTripStops(ctx context.Context, tripID int64) ([]TripStop, error)
 	ListTrips(ctx context.Context, arg ListTripsParams) ([]Trip, error)
+	// Workspace tenancy (v0.10.0-rc.11). Company visibility comes from active
+	// rbac_user_role_assignments rows, company-wide or branch-scoped; permission
+	// evaluation stays on user_roles (UserEffectivePermissions).
+	ListUserCompanies(ctx context.Context, userID int64) ([]ListUserCompaniesRow, error)
 	ListUsers(ctx context.Context) ([]ListUsersRow, error)
 	ListVarianceSnapshots(ctx context.Context, arg ListVarianceSnapshotsParams) ([]ListVarianceSnapshotsRow, error)
 	ListVehiclesByFleet(ctx context.Context, fleetID int64) ([]Vehicle, error)
@@ -974,6 +982,8 @@ type Querier interface {
 	UpsertFxRate(ctx context.Context, arg UpsertFxRateParams) error
 	UpsertRole(ctx context.Context, arg UpsertRoleParams) (Role, error)
 	UserEffectivePermissions(ctx context.Context, userID int64) ([]string, error)
+	UserGlobalRoleNames(ctx context.Context, userID int64) ([]string, error)
+	UserHasActiveCompanyAssignment(ctx context.Context, arg UserHasActiveCompanyAssignmentParams) (bool, error)
 	VarGetRule(ctx context.Context, id int64) (VarGetRuleRow, error)
 	VarInsertRule(ctx context.Context, arg VarInsertRuleParams) (VarInsertRuleRow, error)
 	VarListRules(ctx context.Context, companyID int64) ([]VarListRulesRow, error)

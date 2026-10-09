@@ -642,6 +642,10 @@ func main() {
 		return
 	}
 
+	// Workspace tenancy: holders of these roles see every company; everyone
+	// else sees the companies of their active role assignments.
+	logger.Info("rbac global roles", slog.Any("roles", cfg.GlobalRoleNames()))
+
 	server := &http.Server{
 		Addr:         cfg.AppAddr,
 		Handler:      router,

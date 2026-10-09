@@ -238,6 +238,21 @@ func TestRC11WorkspaceCompanyScope(t *testing.T) {
 		assert.Zero(t, noAccess.me().ActiveCompanyID, "no company may be assigned implicitly")
 	})
 
+	t.Run("AR permission without an assignment is still refused", func(t *testing.T) {
+		// Created after migration 000124, like a bootstrap or UI role grant:
+		// a user_roles row carrying finance.ar.view, but no assignment.
+		var roleID, userID int64
+		scan(&roleID, `INSERT INTO roles(name,description) VALUES($1,'RC11 AR viewer') RETURNING id`, "rc11-ar-viewer-"+f.Suffix)
+		exec(`INSERT INTO permissions(name,description) VALUES($1,'AR view') ON CONFLICT (name) DO NOTHING`, shared.PermFinanceARView)
+		exec(`INSERT INTO role_permissions(role_id,permission_id) SELECT $1, id FROM permissions WHERE name=$2`, roleID, shared.PermFinanceARView)
+		scan(&userID, `INSERT INTO users(email,password_hash) VALUES($1,'integration') RETURNING id`, "rc11-ar-viewer-"+f.Suffix+"@example.test")
+		exec(`INSERT INTO user_roles(user_id,role_id) VALUES($1,$2)`, userID, roleID)
+
+		viewer := h.login(userID, "10.11.0.7", 0)
+		assert.Zero(t, viewer.me().ActiveCompanyID)
+		assert.Equal(t, http.StatusForbidden, viewer.get("/finance/ar/invoices").Code, "requireActiveCompany must refuse before the handler runs with company 0")
+	})
+
 	t.Run("a pre-set company on a no-assignment session is cleared", func(t *testing.T) {
 		noAccess := h.login(f.OtherUserID, "10.11.0.4", f.CompanyID)
 		assert.Zero(t, noAccess.me().ActiveCompanyID)

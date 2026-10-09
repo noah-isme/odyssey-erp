@@ -6,6 +6,11 @@
 
 {{ define "content" }}
 <div class="dashboard">
+    {{ if .Data.NoCompanyAssigned }}
+    <div class="alert alert-warning" role="status" data-no-company-notice>
+        Belum ada perusahaan yang ditugaskan ke akun Anda. Hubungi administrator untuk mendapatkan akses perusahaan.
+    </div>
+    {{ end }}
     <!-- Dashboard Header -->
     <div class="dashboard-header">
         <div class="dashboard-header-content">

@@ -25,6 +25,12 @@ type Config struct {
 	// must set it explicitly so certification cannot silently drift.
 	ReleaseProfile string `envconfig:"RELEASE_PROFILE" default:"full"`
 
+	// RBACGlobalRoles lists role names (comma separated, case-insensitive)
+	// whose holders see every company in the workspace. Everyone else sees
+	// only the companies of their active rbac_user_role_assignments rows.
+	// Empty by default: no role is cross-company unless configured.
+	RBACGlobalRoles []string `envconfig:"RBAC_GLOBAL_ROLES" default:""`
+
 	PGDSN string `envconfig:"PG_DSN" default:"postgres://odyssey:odyssey@localhost:5432/odyssey?sslmode=disable"`
 	// PGMaxConns sets the worker's PostgreSQL pool size. Zero means unset: the
 	// worker then honors pool_max_conns in its PG_DSN and finally its built-in
@@ -99,6 +105,15 @@ func LoadConfig() (*Config, error) {
 		cfg.GotenbergURL = "http://" + cfg.GotenbergURL
 	}
 	return &cfg, nil
+}
+
+// GlobalRoleNames returns RBAC_GLOBAL_ROLES trimmed, lower-cased and
+// de-duplicated: the role names whose holders see every company.
+func (c *Config) GlobalRoleNames() []string {
+	if c == nil {
+		return nil
+	}
+	return normalizeGlobalRoles(c.RBACGlobalRoles)
 }
 
 // IsProduction returns true when the application runs in production.

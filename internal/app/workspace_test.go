@@ -2,10 +2,15 @@ package app
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/pashagolub/pgxmock/v4"
 	"github.com/stretchr/testify/require"
+
+	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 )
 
 // The workspace company scope reads rbac_user_role_assignments through the
@@ -130,4 +135,36 @@ func TestResolveWorkspaceCompanyFailsClosedWithoutAssignments(t *testing.T) {
 	require.NoError(t, err)
 	require.Zero(t, got, "no implicit lowest-id company")
 	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestRequireActiveCompany(t *testing.T) {
+	sessions := shared.NewSessionManager(nil, "s", "secret", time.Hour, false)
+	ok := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
+	cases := []struct {
+		name    string
+		user    string
+		company string
+		want    int
+	}{
+		{"signed in without company", "7", "", http.StatusForbidden},
+		{"signed in with company 0", "7", "0", http.StatusForbidden},
+		{"signed in with company", "7", "3", http.StatusNoContent},
+		{"anonymous passes to the route's own checks", "", "", http.StatusNoContent},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/finance/ar/invoices", nil)
+			sess, err := sessions.Load(context.Background(), req)
+			require.NoError(t, err)
+			if tc.user != "" {
+				sess.SetUser(tc.user)
+			}
+			if tc.company != "" {
+				sess.Set("company_id", tc.company)
+			}
+			rec := httptest.NewRecorder()
+			requireActiveCompany(ok).ServeHTTP(rec, req.WithContext(shared.ContextWithSession(req.Context(), sess)))
+			require.Equal(t, tc.want, rec.Code)
+		})
+	}
 }

@@ -164,21 +164,64 @@ func loadWorkspaceUser(ctx context.Context, pool *pgxpool.Pool, id int64) (works
 	return user, err
 }
 
-func activeCompanyMiddleware(pool *pgxpool.Pool, logger *slog.Logger) func(http.Handler) http.Handler {
+// activeCompanyMiddleware keeps the session's company inside the companies
+// the user may work in (see workspace.go). It re-evaluates on every request,
+// so an expired or revoked assignment takes effect on an already-issued
+// session: a company that is no longer permitted is replaced by the first
+// permitted one, or cleared when there is none (fail closed; there is no
+// implicit lowest-id company). A lookup error fails the request.
+func activeCompanyMiddleware(pool *pgxpool.Pool, logger *slog.Logger, globalRoles []string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			sess := shared.SessionFromContext(r.Context())
-			if pool != nil && sess != nil && sess.User() != "" && sess.Get("company_id") == "" {
-				var companyID int64
-				if err := pool.QueryRow(r.Context(), "SELECT id FROM companies ORDER BY id LIMIT 1").Scan(&companyID); err == nil {
-					sess.Set("company_id", strconv.FormatInt(companyID, 10))
-				} else if logger != nil {
-					logger.Warn("initialize active company", slog.Any("error", err))
+			if pool == nil || sess == nil || sess.User() == "" || r.URL.Path == "/healthz" || strings.HasPrefix(r.URL.Path, "/static/") {
+				next.ServeHTTP(w, r)
+				return
+			}
+			userID, err := strconv.ParseInt(sess.User(), 10, 64)
+			if err != nil {
+				sess.Delete("company_id")
+				next.ServeHTTP(w, r)
+				return
+			}
+			current, _ := strconv.ParseInt(sess.Get("company_id"), 10, 64)
+			resolved, err := resolveWorkspaceCompany(r.Context(), pool, userID, current, globalRoles)
+			if err != nil {
+				if logger != nil {
+					logger.Error("resolve active company", slog.Int64("user_id", userID), slog.Any("error", err))
 				}
+				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+				return
+			}
+			switch {
+			case resolved == 0:
+				if sess.Get("company_id") != "" {
+					sess.Delete("company_id")
+				}
+			case resolved != current || sess.Get("company_id") != strconv.FormatInt(resolved, 10):
+				sess.Set("company_id", strconv.FormatInt(resolved, 10))
 			}
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// requireActiveCompany refuses company-scoped routes with 403 when the
+// signed-in user has no active company. Several of those modules treat
+// company 0 as "every company" in SQL ("$1 = 0 OR ..."); this guard keeps
+// that value reachable by internal callers only. Anonymous requests pass
+// through to the routes' own authentication and RBAC checks.
+func requireActiveCompany(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sess := shared.SessionFromContext(r.Context())
+		if sess != nil && sess.User() != "" {
+			if companyID, err := strconv.ParseInt(sess.Get("company_id"), 10, 64); err != nil || companyID <= 0 {
+				shared.WriteHTTPError(w, http.StatusForbidden, "")
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func redirectBackToWorkspace(w http.ResponseWriter, r *http.Request) {
@@ -192,6 +235,15 @@ func redirectBackToWorkspace(w http.ResponseWriter, r *http.Request) {
 // NewRouter constructs the chi.Router with Odyssey defaults.
 func NewRouter(params RouterParams) http.Handler {
 	r := chi.NewRouter()
+
+	var globalRoles []string
+	releaseProfile := ""
+	if params.Config != nil {
+		globalRoles = params.Config.GlobalRoleNames()
+		if profile, err := ParseReleaseProfile(params.Config.ReleaseProfile); err == nil {
+			releaseProfile = string(profile)
+		}
+	}
 
 	if params.Config != nil {
 		// Apply the release boundary before session, company, and auth work so
@@ -210,7 +262,7 @@ func NewRouter(params RouterParams) http.Handler {
 	}
 
 	r.Use(chimw.Logger)
-	r.Use(activeCompanyMiddleware(params.Pool, params.Logger))
+	r.Use(activeCompanyMiddleware(params.Pool, params.Logger, globalRoles))
 
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -312,7 +364,8 @@ func NewRouter(params RouterParams) http.Handler {
 			CSRFToken: csrfToken,
 			Flash:     flash,
 			Data: map[string]any{
-				"AppEnv": appEnv,
+				"AppEnv":            appEnv,
+				"NoCompanyAssigned": params.Pool != nil && sess.Get("company_id") == "",
 			},
 		}
 		if err := params.Templates.Render(w, "pages/home.html", data); err != nil {
@@ -554,14 +607,20 @@ func NewRouter(params RouterParams) http.Handler {
 			http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
 			return
 		}
+		userID, userErr := strconv.ParseInt(sess.User(), 10, 64)
 		companyID, err := strconv.ParseInt(r.PostFormValue("company_id"), 10, 64)
-		if err != nil || companyID <= 0 || params.Pool == nil {
+		if userErr != nil || err != nil || companyID <= 0 || params.Pool == nil {
 			sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Perusahaan tidak valid"})
 			redirectBackToWorkspace(w, r)
 			return
 		}
-		var exists bool
-		if err := params.Pool.QueryRow(r.Context(), "SELECT EXISTS(SELECT 1 FROM companies WHERE id = $1)", companyID).Scan(&exists); err != nil || !exists {
+		// Only a company the user may work in can be selected; any other id,
+		// existing or not, gets the same answer.
+		permitted, err := workspaceCompanyPermitted(r.Context(), params.Pool, userID, companyID, globalRoles)
+		if err != nil && params.Logger != nil {
+			params.Logger.Error("check selected company", slog.Int64("user_id", userID), slog.Any("error", err))
+		}
+		if err != nil || !permitted {
 			sess.AddFlash(shared.FlashMessage{Kind: "error", Message: "Perusahaan tidak ditemukan"})
 			redirectBackToWorkspace(w, r)
 			return
@@ -761,15 +820,29 @@ func NewRouter(params RouterParams) http.Handler {
 			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 			return
 		}
-		companies, err := loadWorkspaceCompanies(r.Context(), params.Pool, id, nil)
+		companies, err := loadWorkspaceCompanies(r.Context(), params.Pool, id, globalRoles)
 		if err != nil {
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
 		activeCompanyID, _ := strconv.ParseInt(sess.Get("company_id"), 10, 64)
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{"user": user, "companies": companies, "activeCompanyID": activeCompanyID})
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"user":            user,
+			"companies":       companies,
+			"activeCompanyID": activeCompanyID,
+			"releaseProfile":  releaseProfile,
+		})
 	})
+	// Company-scoped route groups refuse a signed-in user without an active
+	// company (requireActiveCompany). "/", "/auth/*", "/api/me",
+	// "/company/select", "/settings" and "/healthz" stay reachable.
+	companyScoped := func(mount func(chi.Router)) func(chi.Router) {
+		return func(r chi.Router) {
+			r.Use(requireActiveCompany)
+			mount(r)
+		}
+	}
 	if params.NotificationHandler != nil {
 		params.NotificationHandler.MountRoutes(r)
 	}
@@ -777,13 +850,13 @@ func NewRouter(params RouterParams) http.Handler {
 		r.Route("/approvals", params.ApprovalsHandler.MountRoutes)
 	}
 	if params.HREmployeesHandler != nil {
-		r.Route("/hr/employees", params.HREmployeesHandler.MountRoutes)
+		r.Route("/hr/employees", companyScoped(params.HREmployeesHandler.MountRoutes))
 	}
 	if params.HRLeaveHandler != nil {
-		r.Route("/hr/leave", params.HRLeaveHandler.MountRoutes)
+		r.Route("/hr/leave", companyScoped(params.HRLeaveHandler.MountRoutes))
 	}
 	if params.HRAttendanceHandler != nil {
-		r.Route("/hr/attendance", params.HRAttendanceHandler.MountRoutes)
+		r.Route("/hr/attendance", companyScoped(params.HRAttendanceHandler.MountRoutes))
 	}
 	if params.PayrollHandler != nil {
 		r.Route("/payroll", params.PayrollHandler.MountRoutes)
@@ -800,14 +873,10 @@ func NewRouter(params RouterParams) http.Handler {
 		})
 	}
 	if params.ARHandler != nil {
-		r.Route("/finance/ar", func(r chi.Router) {
-			params.ARHandler.MountRoutes(r)
-		})
+		r.Route("/finance/ar", companyScoped(params.ARHandler.MountRoutes))
 	}
 	if params.APHandler != nil {
-		r.Route("/finance/ap", func(r chi.Router) {
-			params.APHandler.MountRoutes(r)
-		})
+		r.Route("/finance/ap", companyScoped(params.APHandler.MountRoutes))
 	}
 	if params.RolesHandler != nil {
 		r.Route("/roles", func(r chi.Router) {
@@ -820,19 +889,19 @@ func NewRouter(params RouterParams) http.Handler {
 		})
 	}
 	if params.CloseHandler != nil {
-		params.CloseHandler.MountRoutes(r)
+		r.Group(companyScoped(params.CloseHandler.MountRoutes))
 	}
 	if params.BoardPackHandler != nil {
-		params.BoardPackHandler.MountRoutes(r)
+		r.Group(companyScoped(params.BoardPackHandler.MountRoutes))
 	}
 	if params.EliminationHandler != nil {
 		params.EliminationHandler.MountRoutes(r)
 	}
 	if params.VarianceHandler != nil {
-		params.VarianceHandler.MountRoutes(r)
+		r.Group(companyScoped(params.VarianceHandler.MountRoutes))
 	}
 	if params.InventoryHandler != nil {
-		r.Route("/inventory", params.InventoryHandler.MountRoutes)
+		r.Route("/inventory", companyScoped(params.InventoryHandler.MountRoutes))
 	}
 	if params.DistributionHandler != nil {
 		r.Route("/distribution", params.DistributionHandler.MountRoutes)
@@ -841,7 +910,7 @@ func NewRouter(params RouterParams) http.Handler {
 		r.Route("/procurement", params.ProcurementHandler.MountRoutes)
 	}
 	if params.SalesHandler != nil {
-		r.Route("/sales", params.SalesHandler.MountRoutes)
+		r.Route("/sales", companyScoped(params.SalesHandler.MountRoutes))
 	}
 	if params.MasterDataHandler != nil {
 		r.Route("/masterdata", params.MasterDataHandler.MountRoutes)
@@ -865,10 +934,10 @@ func NewRouter(params RouterParams) http.Handler {
 		r.Route("/mrp", params.MRPHandler.MountRoutes)
 	}
 	if params.DocumentsHandler != nil {
-		r.Route("/documents", params.DocumentsHandler.MountRoutes)
+		r.Route("/documents", companyScoped(params.DocumentsHandler.MountRoutes))
 	}
 	if params.CMMSHandler != nil {
-		r.Route("/cmms", params.CMMSHandler.MountRoutes)
+		r.Route("/cmms", companyScoped(params.CMMSHandler.MountRoutes))
 	}
 	if params.QMSHandler != nil {
 		r.Route("/qms", params.QMSHandler.MountRoutes)
@@ -878,6 +947,7 @@ func NewRouter(params RouterParams) http.Handler {
 	}
 	if params.InventoryService != nil {
 		r.Route("/delivery", func(r chi.Router) {
+			r.Use(requireActiveCompany)
 			delivery.MountRoutes(r, params.Pool, params.Logger, params.Templates, params.CSRFManager, params.RBACMiddleware, params.InventoryService)
 		})
 	}
@@ -888,10 +958,10 @@ func NewRouter(params RouterParams) http.Handler {
 		params.ConsolHandler.MountRoutes(r)
 	}
 	if params.BankingHandler != nil {
-		r.Route("/finance/banking", params.BankingHandler.MountRoutes)
-		r.Route("/finance/bankfeeds", params.BankFeedsHandler.MountRoutes)
-		r.Route("/finance/forecasting", params.ForecastingHandler.MountRoutes)
-		r.Route("/finance/treasury", params.TreasuryHandler.MountRoutes)
+		r.Route("/finance/banking", companyScoped(params.BankingHandler.MountRoutes))
+		r.Route("/finance/bankfeeds", companyScoped(params.BankFeedsHandler.MountRoutes))
+		r.Route("/finance/forecasting", companyScoped(params.ForecastingHandler.MountRoutes))
+		r.Route("/finance/treasury", companyScoped(params.TreasuryHandler.MountRoutes))
 	}
 	if params.JobHandler != nil {
 		r.Route("/jobs", params.JobHandler.MountRoutes)

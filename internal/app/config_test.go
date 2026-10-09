@@ -111,3 +111,32 @@ func TestLoadConfigCMMSSystemUserID(t *testing.T) {
 		t.Fatalf("CMMSSystemUserID = %d, want 42", config.CMMSSystemUserID)
 	}
 }
+
+func TestLoadConfigRBACGlobalRoles(t *testing.T) {
+	t.Setenv("APP_ENV", "staging")
+	t.Setenv("SESSION_SECRET", "test-session-secret")
+	t.Setenv("CSRF_SECRET", "test-csrf-secret")
+	t.Setenv("RELEASE_PROFILE", string(ReleaseProfileV010Core))
+
+	t.Setenv("RBAC_GLOBAL_ROLES", "")
+	if err := os.Unsetenv("RBAC_GLOBAL_ROLES"); err != nil {
+		t.Fatal(err)
+	}
+	config, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig() error = %v", err)
+	}
+	if got := normalizeGlobalRoles(config.RBACGlobalRoles); len(got) != 0 {
+		t.Fatalf("RBACGlobalRoles default = %q, want none", got)
+	}
+
+	t.Setenv("RBAC_GLOBAL_ROLES", " Group Operator ,,auditor, group operator")
+	config, err = LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig() error = %v", err)
+	}
+	got := normalizeGlobalRoles(config.RBACGlobalRoles)
+	if len(got) != 2 || got[0] != "group operator" || got[1] != "auditor" {
+		t.Fatalf("normalized RBACGlobalRoles = %q, want [group operator auditor]", got)
+	}
+}

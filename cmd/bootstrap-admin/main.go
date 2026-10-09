@@ -125,6 +125,19 @@ func bootstrapAdmin(ctx context.Context, q *sqlc.Queries, email, passwordHash st
 		return fmt.Errorf("assign admin role: %w", err)
 	}
 
+	// 5. Company-wide assignments in every existing company (same rows as
+	// migration 000124), so the administrator can select a company in the
+	// workspace. Companies created later need their own assignment or a role
+	// listed in RBAC_GLOBAL_ROLES; re-running this command grants them.
+	granted, err := q.GrantCompanyWideAssignment(ctx, sqlc.GrantCompanyWideAssignmentParams{
+		UserID: userID,
+		RoleID: role.ID,
+	})
+	if err != nil {
+		return fmt.Errorf("grant company assignments: %w", err)
+	}
+	log.Printf("company-wide assignments granted: %d new", granted)
+
 	if !force {
 		log.Println("administrator role assigned; password not changed")
 	}
