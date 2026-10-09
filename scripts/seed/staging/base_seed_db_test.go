@@ -12,6 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	closepkg "github.com/odyssey-erp/odyssey-erp/internal/close"
 	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -763,5 +764,28 @@ func TestBaseSeedDBRefusesScopeConflicts(t *testing.T) {
 				t.Fatalf("refused run modified the database")
 			}
 		})
+	}
+}
+
+// TestBaseSeedDBPeriodAcceptedByPostingGuard: the period the seeder provides
+// for today must pass the period-close guard that journals.Service.PostJournal
+// runs before every non-transactional posting (inventory adjustments, such as
+// the J-SALES-001 delivery confirmation). The guard reads the accounting
+// period linked to the ledger period, which the product's own period creation
+// (close.Repository.InsertPeriod) always writes; a ledger period without one
+// fails the posting with "no rows in result set".
+func TestBaseSeedDBPeriodAcceptedByPostingGuard(t *testing.T) {
+	d := newBaseTestDB(t)
+	ctx := context.Background()
+	if _, err := runBaseSeed(ctx, d.opts()); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	var periodID int64
+	if err := d.Pool.QueryRow(ctx, `SELECT id FROM periods WHERE status = 'OPEN' AND CURRENT_DATE BETWEEN start_date AND end_date ORDER BY start_date, id LIMIT 1`).Scan(&periodID); err != nil {
+		t.Fatalf("seeded period: %v", err)
+	}
+	guard := closepkg.NewService(closepkg.NewRepository(d.Pool))
+	if err := guard.EnsurePeriodOpenForPosting(ctx, periodID); err != nil {
+		t.Fatalf("posting guard refused the seeded period %d: %v", periodID, err)
 	}
 }
