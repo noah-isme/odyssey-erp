@@ -761,3 +761,9 @@ func (m messagingAdapter) EnqueueMessage(ctx context.Context, msg notifications.
 	// We'll assume CompanyID = 1 for system notifications.
 	return m.svc.EnqueueMessage(ctx, 1, msg.Channel, msg.To, msg.Content, msg.CorrelationID)
 }
+
+// openDocumentStorage is a test stub mirroring the v0.10.0-rc.10 wiring.
+var openDocumentStorage = func(ctx context.Context, _ *app.Config) (storage.Storage, string, error) {
+	s, err := storage.NewStorage(ctx, storage.StorageConfig{Driver: "local", LocalDir: "./data/storage"})
+	return s, "./data/storage", err
+}

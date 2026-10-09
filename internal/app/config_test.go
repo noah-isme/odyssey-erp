@@ -2,6 +2,7 @@ package app
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -138,5 +139,71 @@ func TestLoadConfigRBACGlobalRoles(t *testing.T) {
 	got := normalizeGlobalRoles(config.RBACGlobalRoles)
 	if len(got) != 2 || got[0] != "group operator" || got[1] != "auditor" {
 		t.Fatalf("normalized RBACGlobalRoles = %q, want [group operator auditor]", got)
+	}
+}
+
+func TestDocumentStorageDir(t *testing.T) {
+	explicit := filepath.Join(t.TempDir(), "shared-storage")
+	tests := []struct {
+		appEnv   string
+		explicit string
+	}{
+		{appEnv: "development"},
+		{appEnv: "development", explicit: explicit},
+		{appEnv: "test"},
+		{appEnv: "test", explicit: explicit},
+		{appEnv: "staging"},
+		{appEnv: "staging", explicit: explicit},
+		{appEnv: "staging", explicit: "   "},
+		{appEnv: "production"},
+		{appEnv: "production", explicit: explicit},
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd: %v", err)
+	}
+	for _, tc := range tests {
+		name := tc.appEnv + "/empty"
+		if strings.TrimSpace(tc.explicit) != "" {
+			name = tc.appEnv + "/explicit"
+		} else if tc.explicit != "" {
+			name = tc.appEnv + "/blank"
+		}
+		t.Run(name, func(t *testing.T) {
+			t.Setenv("APP_ENV", tc.appEnv)
+			t.Setenv("SESSION_SECRET", "test-session-secret")
+			t.Setenv("CSRF_SECRET", "test-csrf-secret")
+			t.Setenv("RELEASE_PROFILE", string(ReleaseProfileV010Core))
+			t.Setenv("DOCUMENT_STORAGE_DIR", tc.explicit)
+
+			cfg, err := LoadConfig()
+			if err != nil {
+				t.Fatalf("LoadConfig() error = %v", err)
+			}
+			got := DocumentStorageDir(cfg)
+
+			if strings.TrimSpace(tc.explicit) != "" {
+				if got != tc.explicit {
+					t.Fatalf("DocumentStorageDir() = %q, want explicit %q", got, tc.explicit)
+				}
+				return
+			}
+			switch tc.appEnv {
+			case "staging", "production":
+				if !filepath.IsAbs(got) {
+					t.Fatalf("DocumentStorageDir() = %q, want an absolute path in %s", got, tc.appEnv)
+				}
+				if rel, err := filepath.Rel(cwd, got); err == nil && !strings.HasPrefix(rel, "..") {
+					t.Fatalf("DocumentStorageDir() = %q is inside the working directory %q", got, cwd)
+				}
+			default:
+				if filepath.IsAbs(got) {
+					t.Fatalf("DocumentStorageDir() = %q, want a relative development path", got)
+				}
+				if filepath.Clean(got) != filepath.Join("data", "storage") {
+					t.Fatalf("DocumentStorageDir() = %q, want data/storage", got)
+				}
+			}
+		})
 	}
 }

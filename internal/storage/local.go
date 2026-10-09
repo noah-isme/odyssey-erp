@@ -211,3 +211,8 @@ func randomString(n int) string {
 	}
 	return string(b)
 }
+// EnsureWritableDir is a test stub that keeps the v0.10.0-rc.10 behaviour
+// (no check at all).
+func EnsureWritableDir(dir string) error {
+	return nil
+}

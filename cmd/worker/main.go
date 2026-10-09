@@ -479,3 +479,9 @@ func mustLocation(name string) *time.Location {
 	}
 	return location
 }
+
+// openDocumentStorage is a test stub mirroring the v0.10.0-rc.10 wiring.
+var openDocumentStorage = func(ctx context.Context, cfg *app.Config) (storage.Storage, string, error) {
+	s, err := storage.NewStorage(ctx, storage.StorageConfig{Driver: cfg.BoardPackStorageDriver, LocalDir: cfg.BoardPackStorageDir})
+	return s, cfg.BoardPackStorageDir, err
+}
