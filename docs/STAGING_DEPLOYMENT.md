@@ -101,6 +101,9 @@ sudo install -d -o odyssey-deploy -g odyssey -m 0755 \
   /opt/odyssey-staging/releases
 sudo install -o odyssey -g odyssey -m 0640 /dev/null \
   /opt/odyssey-staging/.env
+sudo install -d -o odyssey -g odyssey -m 0750 /var/lib/odyssey-staging
+sudo install -d -o odyssey -g odyssey -m 0750 \
+  /var/lib/odyssey-staging/storage
 ```
 
 The deployment layout is:
@@ -137,7 +140,31 @@ CONNECTORS_DEVELOPMENT_MODE=false
 GOTENBERG_URL=http://127.0.0.1:3000
 
 CMMS_SYSTEM_USER_ID=replace-with-the-seeded-admin-user-id
+
+DOCUMENT_STORAGE_DRIVER=local
+DOCUMENT_STORAGE_DIR=/var/lib/odyssey-staging/storage
 ```
+
+`DOCUMENT_STORAGE_DIR` is the single directory in which the web process and the
+worker read and write document blobs (uploads, OCR and disposition jobs). It
+must be outside `/opt/odyssey-staging/releases/` and `current`, which are
+replaced on every deploy, and owned `odyssey:odyssey` with mode `0750`. When it
+is empty, staging and production fall back to `/var/lib/odyssey/storage`;
+development uses the relative `data/storage`. Both binaries create a missing
+directory with mode `0750` and probe that they can write it at start, never
+changing its mode; in staging and production a failed check stops the process.
+The deployment host script reads the value from `.env` and, before migrating or
+restarting anything, fails unless the directory exists and is
+`odyssey:odyssey 750` (systemd units) or writable by the deploy account
+(supervised-process fallback). It does not create the directory: the operator
+does, as root, with the commands above. Board packs keep `BOARD_PACK_STORAGE`.
+
+Releases up to v0.10.0-rc.10 wrote document blobs under the release-relative
+`./data/storage`. Those blobs are orphaned by this setting. On an environment
+that keeps its database, copy the previous release's `data/storage` into
+`DOCUMENT_STORAGE_DIR` (preserving the `company-<id>/` layout, owned
+`odyssey:odyssey`) before restarting; a staging database rebuilt from empty
+needs no copy.
 
 `CMMS_SYSTEM_USER_ID` is the `users.id` the worker's hourly CMMS PM scan
 records as requester and actor of the work orders it generates. It is required
@@ -218,6 +245,8 @@ Type=simple
 User=odyssey
 Group=odyssey
 WorkingDirectory=/opt/odyssey-staging/current
+StateDirectory=odyssey-staging
+StateDirectoryMode=0750
 EnvironmentFile=/opt/odyssey-staging/.env
 ExecStart=/opt/odyssey-staging/current/odyssey
 Restart=on-failure
@@ -250,6 +279,8 @@ Type=simple
 User=odyssey
 Group=odyssey
 WorkingDirectory=/opt/odyssey-staging/current
+StateDirectory=odyssey-staging
+StateDirectoryMode=0750
 EnvironmentFile=/opt/odyssey-staging/.env
 ExecStart=/opt/odyssey-staging/current/worker
 Restart=on-failure

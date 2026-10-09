@@ -108,6 +108,17 @@ CMMS_SYSTEM_USER_ID=replace-with-the-system-user-id
 # docs/releases/v0.10-tenancy-scope-rollout.md before upgrading.
 RBAC_GLOBAL_ROLES=
 
+# Document storage: one directory shared by the web process and the worker
+# for document blobs, outside the release directories, owned by the service
+# user (mode 0750). Only the local driver is supported for documents. Empty
+# means /var/lib/odyssey/storage in staging and production and the relative
+# data/storage elsewhere. In staging and production both binaries exit at
+# start when the directory cannot be created or written. Blobs written by
+# releases up to v0.10.0-rc.10 under the release's ./data/storage must be
+# copied here before the first restart. Board packs keep BOARD_PACK_STORAGE.
+DOCUMENT_STORAGE_DRIVER=local
+DOCUMENT_STORAGE_DIR=/var/lib/odyssey/storage
+
 # TLS/HTTPS
 TLS_ENABLED=true
 TLS_CERT_FILE=/etc/odyssey/certs/server.crt
