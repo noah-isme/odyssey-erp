@@ -100,7 +100,12 @@ const baseRevokeRoleOneSQL = `DELETE FROM role_permissions rp
 	RETURNING r.name, p.name`
 
 // baseLedgerAccounts is the minimal chart of accounts the AR, AP and
-// inventory-adjustment posting hooks need. An existing code is reused as is.
+// inventory-adjustment posting hooks need, keyed by code. An account is
+// created or checked only when an absent mapping needs it (see
+// ensureLedgerPrerequisites). An existing code is reused as is, but only when
+// it is active and of the listed type (4900 gain REVENUE, 5900 loss EXPENSE,
+// 1xxx ASSET, 2100 LIABILITY, 4000 REVENUE, 5000 EXPENSE): a mapping is never
+// pointed at an inactive or wrongly typed account.
 var baseLedgerAccounts = []struct{ Code, Name, Type string }{
 	{"1100", "Cash", "ASSET"},
 	{"1200", "Accounts Receivable", "ASSET"},
@@ -346,35 +351,57 @@ func (s *baseSeeder) ensureCertificationGRN(ctx context.Context, r baseGRNRefs) 
 	return grnID, poID, true, nil
 }
 
-// ensureLedgerPrerequisites seeds the chart of accounts, the account
-// mappings and an OPEN period covering today, each only when absent.
+// ensureLedgerPrerequisites seeds the account mappings, the accounts that
+// absent mappings need and an OPEN period covering today, each only when
+// absent. An existing mapping is reused whatever account it points at, and
+// its account code is then neither created nor inspected.
 func (s *baseSeeder) ensureLedgerPrerequisites(ctx context.Context) error {
-	accountIDs := map[string]int64{}
+	accounts := map[string]struct{ Name, Type string }{}
 	for _, a := range baseLedgerAccounts {
-		id, err := s.mustEnsure(ctx, baseFixture{
-			Name: "account " + a.Code, Table: "accounts",
-			Insert:      `INSERT INTO accounts (code, name, type, is_active) VALUES ($1, $2, $3::account_type, TRUE) ON CONFLICT DO NOTHING RETURNING id`,
-			InsertArgs:  []any{a.Code, a.Name, a.Type},
-			Lookup:      `SELECT id, 'ok' FROM accounts WHERE code = $1`,
-			LookupArgs:  []any{a.Code},
-			Want:        "ok",
-			LookupFirst: true,
-		})
-		if err != nil {
-			return err
-		}
-		accountIDs[a.Code] = id
+		accounts[a.Code] = struct{ Name, Type string }{a.Name, a.Type}
 	}
+	accountIDs := map[string]int64{}
 	for _, m := range baseLedgerMappings {
-		if _, err := s.mustEnsure(ctx, baseFixture{
+		mapping := baseFixture{
 			Name: "mapping " + m.Module + "/" + m.Key, Table: "account_mappings",
 			Insert:      `INSERT INTO account_mappings (module, key, account_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING RETURNING id`,
-			InsertArgs:  []any{m.Module, m.Key, accountIDs[m.Code]},
 			Lookup:      `SELECT id, 'ok' FROM account_mappings WHERE module = $1 AND key = $2`,
 			LookupArgs:  []any{m.Module, m.Key},
 			Want:        "ok",
 			LookupFirst: true,
-		}); err != nil {
+		}
+		if id, state, found, err := s.lookup(ctx, mapping); err != nil {
+			return err
+		} else if found {
+			if _, _, err := s.reuse(mapping, id, state); err != nil {
+				return err
+			}
+			continue
+		}
+
+		accountID, ok := accountIDs[m.Code]
+		if !ok {
+			a, known := accounts[m.Code]
+			if !known {
+				return fmt.Errorf("mapping %s/%s names account %s, which is not in baseLedgerAccounts", m.Module, m.Key, m.Code)
+			}
+			id, err := s.mustEnsure(ctx, baseFixture{
+				Name: "account " + m.Code, Table: "accounts",
+				Insert:     `INSERT INTO accounts (code, name, type, is_active) VALUES ($1, $2, $3::account_type, TRUE) ON CONFLICT DO NOTHING RETURNING id`,
+				InsertArgs: []any{m.Code, a.Name, a.Type},
+				Lookup: `SELECT id, type::text || CASE WHEN is_active THEN '' ELSE ' inactive' END
+					FROM accounts WHERE code = $1`,
+				LookupArgs:  []any{m.Code},
+				Want:        a.Type,
+				LookupFirst: true,
+			})
+			if err != nil {
+				return fmt.Errorf("mapping %s/%s needs an active %s account %s: %w", m.Module, m.Key, a.Type, m.Code, err)
+			}
+			accountIDs[m.Code], accountID = id, id
+		}
+		mapping.InsertArgs = []any{m.Module, m.Key, accountID}
+		if _, err := s.mustEnsure(ctx, mapping); err != nil {
 			return err
 		}
 	}

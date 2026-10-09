@@ -322,9 +322,10 @@ func TestBaseSeedDBIdempotentRerun(t *testing.T) {
 		t.Fatalf("second run: %v", err)
 	}
 	// The PO and GRN lines are only inserted together with a new PO and GRN,
-	// so a rerun has two steps fewer than the first run and every step is a
-	// reuse; nothing is left to revoke.
-	if second.count("created") != 0 || second.count("reused") != len(second.Steps) || len(second.Steps) != len(first.Steps)-2 || len(second.Revoked) != 0 || second.GRNCreated || second.POID != first.POID {
+	// and accounts are only looked at for absent mappings, so a rerun has
+	// two plus len(baseLedgerAccounts) steps fewer than the first run and
+	// every step is a reuse; nothing is left to revoke.
+	if second.count("created") != 0 || second.count("reused") != len(second.Steps) || len(second.Steps) != len(first.Steps)-2-len(baseLedgerAccounts) || len(second.Revoked) != 0 || second.GRNCreated || second.POID != first.POID {
 		t.Fatalf("second run: %d created, %d reused of %d steps; want a no-op", second.count("created"), second.count("reused"), len(second.Steps))
 	}
 	if *first.Fixtures != *second.Fixtures {
@@ -631,6 +632,49 @@ func TestBaseSeedDBNeverOverwritesOperatorRows(t *testing.T) {
 	}
 }
 
+// TestBaseSeedDBCreatesOnlyAccountsForMissingMappings: accounts are created
+// (or verified) only for the codes that an absent mapping needs. Codes whose
+// mappings already exist are neither created nor inspected, even when an
+// operator account with that code has a type the seeder would refuse.
+func TestBaseSeedDBCreatesOnlyAccountsForMissingMappings(t *testing.T) {
+	d := newBaseTestDB(t)
+	ctx := context.Background()
+	// Operator chart: every mapping except the inventory gain points at an
+	// operator account, and code 1100 is an inactive expense account that
+	// the seeder must leave alone because ap.payment.cash is already mapped.
+	d.exec(t, `INSERT INTO accounts (code, name, type) VALUES ('OPS-ANY', 'Operator account', 'ASSET')`)
+	d.exec(t, `INSERT INTO accounts (code, name, type, is_active) VALUES ('1100', 'Operator retired expense', 'EXPENSE', FALSE)`)
+	for _, m := range baseLedgerMappings {
+		if m.Key == "inventory.adjustment.gain" {
+			continue
+		}
+		d.exec(t, `INSERT INTO account_mappings (module, key, account_id) SELECT $1, $2, id FROM accounts WHERE code = 'OPS-ANY'`, m.Module, m.Key)
+	}
+
+	res, err := runBaseSeed(ctx, d.opts())
+	if err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	var accountSteps []string
+	for _, s := range res.Steps {
+		if s.Table == "accounts" {
+			accountSteps = append(accountSteps, s.Name+"="+s.Status)
+		}
+	}
+	if got, want := strings.Join(accountSteps, ","), "account 4900=created"; got != want {
+		t.Errorf("account steps = %q, want %q", got, want)
+	}
+	for name, c := range map[string]struct{ sql, want string }{
+		"chart":         {`SELECT string_agg(code || ':' || type::text || ':' || is_active::text, ',' ORDER BY code) FROM accounts`, "1100:EXPENSE:false,4900:REVENUE:true,OPS-ANY:ASSET:true"},
+		"gain mapping":  {`SELECT a.code FROM account_mappings m JOIN accounts a ON a.id = m.account_id WHERE m.module = 'INVENTORY' AND m.key = 'inventory.adjustment.gain'`, "4900"},
+		"mapping count": {`SELECT COUNT(*)::text FROM account_mappings`, fmt.Sprint(len(baseLedgerMappings))},
+	} {
+		if got := d.scalar(t, c.sql); got != c.want {
+			t.Errorf("%s: got %q, want %q", name, got, c.want)
+		}
+	}
+}
+
 // TestBaseSeedDBRefusesScopeConflicts: rows that would break the tenancy or
 // ledger fixtures abort the run, roll back and stay untouched.
 func TestBaseSeedDBRefusesScopeConflicts(t *testing.T) {
@@ -669,6 +713,34 @@ func TestBaseSeedDBRefusesScopeConflicts(t *testing.T) {
 				d.exec(t, `INSERT INTO periods (code, start_date, end_date, status) VALUES ('OPS-CLOSED', date_trunc('month', CURRENT_DATE)::date, (date_trunc('month', CURRENT_DATE) + INTERVAL '1 month - 1 day')::date, 'CLOSED')`)
 			},
 			wantErr: "overlaps existing period(s) OPS-CLOSED (CLOSED)",
+		},
+		{
+			name: "gain account 4900 of the wrong type",
+			plant: func(t *testing.T, d *baseTestDB) {
+				d.exec(t, `INSERT INTO accounts (code, name, type) VALUES ('4900', 'Operator Expense', 'EXPENSE')`)
+			},
+			wantErr: "account 4900 (accounts) already exists as \"EXPENSE\" but the seeder expects \"REVENUE\"",
+		},
+		{
+			name: "loss account 5900 of the wrong type",
+			plant: func(t *testing.T, d *baseTestDB) {
+				d.exec(t, `INSERT INTO accounts (code, name, type) VALUES ('5900', 'Operator Revenue', 'REVENUE')`)
+			},
+			wantErr: "account 5900 (accounts) already exists as \"REVENUE\" but the seeder expects \"EXPENSE\"",
+		},
+		{
+			name: "inactive AP account 2100",
+			plant: func(t *testing.T, d *baseTestDB) {
+				d.exec(t, `INSERT INTO accounts (code, name, type, is_active) VALUES ('2100', 'Operator AP', 'LIABILITY', FALSE)`)
+			},
+			wantErr: "account 2100 (accounts) already exists as \"LIABILITY inactive\" but the seeder expects \"LIABILITY\"",
+		},
+		{
+			name: "cash account 1100 that is a liability",
+			plant: func(t *testing.T, d *baseTestDB) {
+				d.exec(t, `INSERT INTO accounts (code, name, type) VALUES ('1100', 'Operator Loan', 'LIABILITY')`)
+			},
+			wantErr: "account 1100 (accounts) already exists as \"LIABILITY\" but the seeder expects \"ASSET\"",
 		},
 		{
 			name: "branch role that holds permissions",

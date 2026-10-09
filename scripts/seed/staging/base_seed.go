@@ -88,6 +88,8 @@ type baseOptions struct {
 	Creds baseCredentials
 	// Check runs every step in a transaction that is rolled back, so the
 	// report says which prerequisites are present and which are missing.
+	// No row is committed, but sequences used by the rolled-back inserts
+	// stay advanced (sequence increments are not transactional).
 	Check bool
 }
 
@@ -162,7 +164,7 @@ func runBaseSeed(ctx context.Context, opts baseOptions) (*baseResult, error) {
 // "created" rows as missing (their ids were never committed).
 func printBaseSteps(w io.Writer, res *baseResult) {
 	if res.Check {
-		_, _ = fmt.Fprintf(w, "Base seeder check on %s@%s (rolled back, nothing written): %d present, %d missing, %d role 1 grant(s) to revoke\n",
+		_, _ = fmt.Fprintf(w, "Base seeder check on %s@%s (rolled back, no rows committed; sequences may have advanced): %d present, %d missing, %d role 1 grant(s) to revoke\n",
 			res.Target.Database, res.Target.Host, res.count("reused"), res.count("created"), len(res.Revoked))
 		for _, s := range res.Steps {
 			status, id := "present", fmt.Sprintf("id=%d", s.ID)
