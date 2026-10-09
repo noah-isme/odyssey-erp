@@ -164,21 +164,28 @@ func (s *Service) PostAdjustment(ctx context.Context, input AdjustmentInput) (St
 	if err != nil {
 		return StockCardEntry{}, err
 	}
-	if s.audit != nil {
-		_ = s.audit.Record(ctx, shared.AuditLog{
-			ActorID:  input.ActorID,
-			Action:   fmt.Sprintf("inventory:%s", TransactionTypeAdjust),
-			Entity:   "inventory_tx",
-			EntityID: fmt.Sprintf("%s:%d", TransactionTypeAdjust, input.ProductID),
-			Meta: map[string]any{
-				"warehouse_id": input.WarehouseID,
-				"product_id":   input.ProductID,
-				"qty":          input.Qty,
-				"note":         input.Note,
-			},
-		})
-	}
+	s.auditAdjustment(ctx, input)
 	return entry, nil
+}
+
+// auditAdjustment records a committed stock adjustment in the same shape as
+// the other inventory_tx movement audits.
+func (s *Service) auditAdjustment(ctx context.Context, input AdjustmentInput) {
+	if s.audit == nil {
+		return
+	}
+	_ = s.audit.Record(ctx, shared.AuditLog{
+		ActorID:  input.ActorID,
+		Action:   fmt.Sprintf("inventory:%s", TransactionTypeAdjust),
+		Entity:   "inventory_tx",
+		EntityID: fmt.Sprintf("%s:%d", TransactionTypeAdjust, input.ProductID),
+		Meta: map[string]any{
+			"warehouse_id": input.WarehouseID,
+			"product_id":   input.ProductID,
+			"qty":          input.Qty,
+			"note":         input.Note,
+		},
+	})
 }
 
 // PostAdjustmentTx applies an adjustment using a caller-owned transaction.
@@ -561,7 +568,9 @@ func (s *Service) AddStockTakeLine(ctx context.Context, input AddStockTakeLineIn
 
 // PostStockTake finalizes session and posts adjustments.
 func (s *Service) PostStockTake(ctx context.Context, id int64, postedBy int64) error {
-	return s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
+	var posted []AdjustmentInput
+	err := s.repo.WithTx(ctx, func(ctx context.Context, tx TxRepository) error {
+		posted = posted[:0]
 		st, err := tx.GetStockTake(ctx, id)
 		if err != nil {
 			return err
@@ -589,6 +598,7 @@ func (s *Service) PostStockTake(ctx context.Context, id int64, postedBy int64) e
 			if _, err := s.postAdjustmentInternal(ctx, tx, adjInput); err != nil {
 				return fmt.Errorf("failed to post adjustment for product %d: %w", line.ProductID, err)
 			}
+			posted = append(posted, adjInput)
 		}
 
 		// 2. Update status
@@ -599,6 +609,14 @@ func (s *Service) PostStockTake(ctx context.Context, id int64, postedBy int64) e
 			PostedAt: time.Now().UTC(),
 		})
 	})
+	if err != nil {
+		return err
+	}
+	// 3. Audit the committed adjustments.
+	for _, adj := range posted {
+		s.auditAdjustment(ctx, adj)
+	}
+	return nil
 }
 
 func (s *Service) GetValuation(ctx context.Context, warehouseID int64) ([]ValuationEntry, error) {
