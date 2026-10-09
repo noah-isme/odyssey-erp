@@ -98,6 +98,13 @@ func main() {
 		log.Fatalf("seed listing fixtures: %v", err)
 	}
 
+	// Runs after master data and accounting: the policy needs the supplier,
+	// the mappings need the chart of accounts.
+	fmt.Println("→ Seeding AP matching policy and inventory mappings...")
+	if err := seedMatchingPolicyAndInventoryMappings(ctx, pool); err != nil {
+		log.Fatalf("seed matching policy and inventory mappings: %v", err)
+	}
+
 	// Runs after master data: assignments need the companies to exist.
 	fmt.Println("→ Seeding company assignments...")
 	if err := seedAssignments(ctx, pool); err != nil {
@@ -145,6 +152,54 @@ func seedAssignments(ctx context.Context, pool *pgxpool.Pool) error {
 			total += n
 		}
 		fmt.Printf("  company-wide assignments: %d new\n", total)
+		return nil
+	})
+}
+
+// devInventoryMappings are the INVENTORY account mappings the inventory
+// adjustment posting hook resolves (delivery confirm, stock-take post),
+// pointed at accounts of the dev chart above.
+var devInventoryMappings = []struct{ key, code string }{
+	{"inventory.adjustment.inventory", "1300"},
+	{"inventory.adjustment.gain", "4200"},
+	{"inventory.adjustment.loss", "5300"},
+}
+
+// seedMatchingPolicyAndInventoryMappings adds, only when absent, a
+// zero-tolerance AP matching policy scoped to the dev supplier (company_id
+// NULL; a global policy would trip the ISO-004 seeder guard) and the INVENTORY
+// account mappings. An existing mapping is never overwritten.
+func seedMatchingPolicyAndInventoryMappings(ctx context.Context, pool *pgxpool.Pool) error {
+	return pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
+		var supplierID int64
+		err := tx.QueryRow(ctx, `SELECT id FROM suppliers WHERE code = 'SUP-001'`).Scan(&supplierID)
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			fmt.Println("  AP matching policy: skipped (supplier SUP-001 absent)")
+		case err != nil:
+			return err
+		default:
+			tag, err := tx.Exec(ctx, `
+				INSERT INTO ap_matching_policies (name, company_id, supplier_id, effective_from)
+				SELECT 'DEV-MATCH-SUP-001', NULL, $1, DATE '2000-01-01'
+				WHERE NOT EXISTS (SELECT 1 FROM ap_matching_policies WHERE name = 'DEV-MATCH-SUP-001' AND supplier_id = $1)`, supplierID)
+			if err != nil {
+				return fmt.Errorf("ap matching policy: %w", err)
+			}
+			fmt.Printf("  AP matching policy for SUP-001: %d new\n", tag.RowsAffected())
+		}
+		var created int64
+		for _, m := range devInventoryMappings {
+			tag, err := tx.Exec(ctx, `
+				INSERT INTO account_mappings (module, key, account_id)
+				SELECT 'INVENTORY', $1, a.id FROM accounts a WHERE a.code = $2
+				ON CONFLICT (module, key) DO NOTHING`, m.key, m.code)
+			if err != nil {
+				return fmt.Errorf("inventory mapping %s: %w", m.key, err)
+			}
+			created += tag.RowsAffected()
+		}
+		fmt.Printf("  INVENTORY account mappings: %d new\n", created)
 		return nil
 	})
 }
