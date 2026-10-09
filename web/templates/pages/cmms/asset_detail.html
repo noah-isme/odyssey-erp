@@ -11,7 +11,10 @@
       <h1 class="h3 text-success mb-1">Asset: {{ .Data.Asset.Code }}</h1>
       <p class="text-muted">{{ .Data.Asset.Name }}</p>
     </div>
-    <a href="/cmms/assets" class="btn btn-outline-secondary">Back to Assets</a>
+    <div class="d-flex gap-2">
+      <a href="/cmms/assets/{{ .Data.Asset.ID }}/meter-readings" class="btn btn-outline-success">Meter readings</a>
+      <a href="/cmms/assets" class="btn btn-outline-secondary">Back to Assets</a>
+    </div>
   </div>
 
   <div class="card shadow-sm mb-4">

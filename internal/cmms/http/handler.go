@@ -60,6 +60,8 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Get("/new", h.newAssetForm)
 		r.With(h.rbac.RequireAny(shared.PermCMMSAssetManage)).Post("/", h.createAsset)
 		r.Get("/{id}", h.getAsset)
+		r.Get("/{id}/meter-readings", h.listMeterReadings)
+		r.With(h.rbac.RequireAny(shared.PermCMMSAssetManage)).Post("/{id}/meter-readings", h.recordMeterReading)
 	})
 
 	// Preventive Maintenance Schedules
@@ -389,6 +391,89 @@ func (h *Handler) getAsset(w http.ResponseWriter, r *http.Request) {
 		"WorkOrders": wos,
 		"Schedules":  schedules,
 	})
+}
+
+// meterReadingTypes are the reading types offered on the meter-readings form.
+var meterReadingTypes = []string{"HOURS", "CYCLES", "DISTANCE", "TEMPERATURE", "PRESSURE", "VOLTAGE"}
+
+func (h *Handler) listMeterReadings(w http.ResponseWriter, r *http.Request) {
+	id := parseInt64(chi.URLParam(r, "id"))
+	asset, err := h.service.AssetForCompany(r.Context(), id, currentCompany(r))
+	if err != nil {
+		if errors.Is(err, cmms.ErrAssetNotFound) {
+			http.NotFound(w, r)
+			return
+		}
+		h.logger.Error("get asset for meter readings", slog.Any("error", err))
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	readings, err := h.service.GetMeterReadings(r.Context(), asset.ID, "", 100)
+	if err != nil {
+		h.logger.Error("list meter readings", slog.Any("error", err))
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	h.render(w, r, "pages/cmms/meter_readings.html", "Meter Readings "+asset.Code, map[string]any{
+		"Asset":        asset,
+		"Readings":     readings,
+		"ReadingTypes": meterReadingTypes,
+		"Today":        time.Now().UTC().Format("2006-01-02"),
+	})
+}
+
+func (h *Handler) recordMeterReading(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+	id := parseInt64(chi.URLParam(r, "id"))
+	path := "/cmms/assets/" + strconv.FormatInt(id, 10) + "/meter-readings"
+	actorID := currentUser(r)
+
+	value, err := strconv.ParseFloat(strings.TrimSpace(r.PostFormValue("value")), 64)
+	if err != nil {
+		h.redirectWithFlash(w, r, path, "danger", "Reading value must be a number.")
+		return
+	}
+	readingDate, err := parseReadingDate(r.PostFormValue("reading_date"))
+	if err != nil {
+		h.redirectWithFlash(w, r, path, "danger", "Reading date must be YYYY-MM-DD or RFC3339.")
+		return
+	}
+	req := cmms.CreateMeterReadingRequest{
+		CompanyID:   currentCompany(r),
+		AssetID:     id,
+		ReadingType: strings.ToUpper(strings.TrimSpace(r.PostFormValue("reading_type"))),
+		Value:       value,
+		ReadingDate: readingDate,
+		EnteredBy:   actorID,
+		Notes:       strings.TrimSpace(r.PostFormValue("notes")),
+		ActorID:     actorID,
+	}
+	if _, err := h.service.RecordMeterReading(r.Context(), req); err != nil {
+		h.logger.Warn("record meter reading", slog.Int64("asset_id", id), slog.Any("error", err))
+		h.redirectWithFlash(w, r, path, "danger", cmmsErrorMessage(err))
+		return
+	}
+	h.redirectWithFlash(w, r, path, "success", "Meter reading recorded")
+}
+
+// parseReadingDate accepts 2006-01-02 or RFC3339 and defaults to the zero
+// time (the service then uses today) when empty.
+func parseReadingDate(raw string) (time.Time, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return time.Time{}, nil
+	}
+	if t, err := time.Parse("2006-01-02", raw); err == nil {
+		return t, nil
+	}
+	t, err := time.Parse(time.RFC3339, raw)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return t.UTC(), nil
 }
 
 // ============================================================================

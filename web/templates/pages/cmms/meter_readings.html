@@ -1,0 +1,76 @@
+{{ define "pages/cmms/meter_readings.html" }}
+{{ template "layouts/base.html" . }}
+{{ end }}
+
+{{ define "title" }}Meter Readings{{ end }}
+
+{{ define "content" }}
+<div class="container-fluid mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h1 class="h3 text-success mb-1">Meter Readings: {{ .Data.Asset.Code }}</h1>
+      <p class="text-muted">{{ .Data.Asset.Name }}</p>
+    </div>
+    <a href="/cmms/assets/{{ .Data.Asset.ID }}" class="btn btn-outline-secondary">Back to Asset</a>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-light fw-bold">Record Reading</div>
+    <div class="card-body">
+      <form action="/cmms/assets/{{ .Data.Asset.ID }}/meter-readings" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+        <div class="row mb-3">
+          <div class="col-md-3">
+            <label class="form-label fw-bold" for="reading_type">Reading type</label>
+            <select id="reading_type" name="reading_type" class="form-select">
+              {{ range .Data.ReadingTypes }}<option value="{{ . }}">{{ . }}</option>{{ end }}
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label fw-bold" for="value">Value</label>
+            <input type="number" step="any" id="value" name="value" class="form-input" required>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label fw-bold" for="reading_date">Reading date</label>
+            <input type="date" id="reading_date" name="reading_date" class="form-input" value="{{ .Data.Today }}">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label fw-bold" for="notes">Notes</label>
+            <input type="text" id="notes" name="notes" class="form-input">
+          </div>
+        </div>
+        <button type="submit" class="btn btn-success">Record reading</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-hover table-striped mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Date</th>
+            <th>Type</th>
+            <th>Value</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{ if .Data.Readings }}
+            {{ range .Data.Readings }}
+            <tr>
+              <td>{{ .ReadingDate.Format "2006-01-02" }}</td>
+              <td>{{ .ReadingType }}</td>
+              <td>{{ .Value }}</td>
+              <td>{{ .Notes }}</td>
+            </tr>
+            {{ end }}
+          {{ else }}
+            <tr><td colspan="4" class="text-center text-muted py-4">No meter readings recorded.</td></tr>
+          {{ end }}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{{ end }}

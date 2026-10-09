@@ -247,6 +247,21 @@ func (s *Service) CreateAsset(ctx context.Context, req CreateAssetRequest) (Asse
 	return asset, nil
 }
 
+// AssetForCompany loads an asset and hides one of another company.
+func (s *Service) AssetForCompany(ctx context.Context, id, companyID int64) (Asset, error) {
+	if companyID <= 0 {
+		return Asset{}, errors.New("cmms: company id required")
+	}
+	asset, err := s.repo.GetAsset(ctx, id)
+	if err != nil {
+		return Asset{}, err
+	}
+	if asset.CompanyID != companyID {
+		return Asset{}, ErrAssetNotFound
+	}
+	return asset, nil
+}
+
 // GetAsset loads a single asset.
 func (s *Service) GetAsset(ctx context.Context, id int64) (Asset, error) {
 	return s.repo.GetAsset(ctx, id)
@@ -364,6 +379,12 @@ func (s *Service) GenerateAllPMWorkOrders(ctx context.Context) ([]WorkOrder, err
 func (s *Service) RecordMeterReading(ctx context.Context, req CreateMeterReadingRequest) (MeterReading, error) {
 	if err := req.Validate(); err != nil {
 		return MeterReading{}, err
+	}
+	if _, err := s.AssetForCompany(ctx, req.AssetID, req.CompanyID); err != nil {
+		return MeterReading{}, err
+	}
+	if req.ReadingDate.IsZero() {
+		req.ReadingDate = s.now().UTC()
 	}
 	reading, err := s.repo.InsertMeterReading(ctx, req)
 	if err != nil {
@@ -558,6 +579,7 @@ func (r CreatePMScheduleRequest) Validate() error {
 
 // CreateMeterReadingRequest defines the payload for creating a meter reading.
 type CreateMeterReadingRequest struct {
+	CompanyID   int64 // the asset must belong to this company
 	AssetID     int64
 	ReadingType string
 	Value       float64
@@ -568,6 +590,12 @@ type CreateMeterReadingRequest struct {
 }
 
 func (r CreateMeterReadingRequest) Validate() error {
+	if r.CompanyID <= 0 {
+		return errors.New("cmms: company id required")
+	}
+	if math.IsNaN(r.Value) || math.IsInf(r.Value, 0) {
+		return errors.New("cmms: reading value must be finite")
+	}
 	if r.AssetID <= 0 {
 		return errors.New("cmms: asset id required")
 	}

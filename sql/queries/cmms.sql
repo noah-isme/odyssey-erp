@@ -306,10 +306,10 @@ WHERE id = $1;
 -- name: ListMeterReadings :many
 SELECT id, asset_id, reading_type, value, reading_date, entered_by, notes, created_at
 FROM meter_readings
-WHERE asset_id = $1
-  AND ($2::text IS NULL OR reading_type = $2)
-ORDER BY reading_date DESC
-LIMIT $3;
+WHERE asset_id = sqlc.arg(asset_id)
+  AND (sqlc.narg(reading_type)::text IS NULL OR reading_type = sqlc.narg(reading_type))
+ORDER BY reading_date DESC, id DESC
+LIMIT sqlc.arg(row_limit);
 
 
 -- name: CreateIoTSensor :one

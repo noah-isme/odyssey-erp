@@ -605,9 +605,9 @@ func (r *Repository) GetMeterReading(ctx context.Context, id int64) (MeterReadin
 
 func (r *Repository) GetMeterReadings(ctx context.Context, assetID int64, readingType string, limit int) ([]MeterReading, error) {
 	rows, err := r.queries.ListMeterReadings(ctx, sqlc.ListMeterReadingsParams{
-		AssetID: assetID,
-		Column2: readingType,
-		Limit:   int32(limit),
+		AssetID:     assetID,
+		ReadingType: pgtype.Text{String: readingType, Valid: readingType != ""},
+		RowLimit:    int32(limit),
 	})
 	if err != nil {
 		return nil, err

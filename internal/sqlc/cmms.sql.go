@@ -1236,18 +1236,18 @@ SELECT id, asset_id, reading_type, value, reading_date, entered_by, notes, creat
 FROM meter_readings
 WHERE asset_id = $1
   AND ($2::text IS NULL OR reading_type = $2)
-ORDER BY reading_date DESC
+ORDER BY reading_date DESC, id DESC
 LIMIT $3
 `
 
 type ListMeterReadingsParams struct {
-	AssetID int64  `json:"asset_id"`
-	Column2 string `json:"column_2"`
-	Limit   int32  `json:"limit"`
+	AssetID     int64       `json:"asset_id"`
+	ReadingType pgtype.Text `json:"reading_type"`
+	RowLimit    int32       `json:"row_limit"`
 }
 
 func (q *Queries) ListMeterReadings(ctx context.Context, arg ListMeterReadingsParams) ([]MeterReading, error) {
-	rows, err := q.db.Query(ctx, listMeterReadings, arg.AssetID, arg.Column2, arg.Limit)
+	rows, err := q.db.Query(ctx, listMeterReadings, arg.AssetID, arg.ReadingType, arg.RowLimit)
 	if err != nil {
 		return nil, err
 	}
