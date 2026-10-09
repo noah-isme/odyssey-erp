@@ -89,6 +89,50 @@ invalidated and it was never certified.
   fallbacks and unscoped GET-by-id checks, AP invoice handlers without
   matching).
 
+## Merge-back plan after rc.11 is tagged
+
+Start only after `v0.10.0-rc.11` is tagged. rc.11 adds no migration, so
+`migrations/` is untouched by both merges. Each merge is its own PR with the
+full test matrix (`go test ./...`, `make integration-test`, lint, docs checks)
+and a line in `docs/releases/VERSION_HISTORY.md`.
+
+1. **`release/v0.10.0-rc.11` into `main`** (`main` carries post-tag HR work;
+   merge-base: the superseded rc.10 tag commit `0745957`):
+   - `internal/app/router.go`: both win. Keep rc.11's
+     `loadWorkspaceCompanies`, `requireActiveCompany` and `releaseProfile`
+     and main's HR routes.
+   - `cmd/odyssey/main.go`: union of the wiring (rc.11 audit loggers, document
+     storage and AP orchestrator, plus main's HR wiring).
+   - `scripts/seed/*`: rc.11 wins.
+   - `internal/hr/employees/service.go`: main wins (rc.11 does not change it
+     after the middleware-guard decision).
+   - `tests/e2e/*`: both.
+   - Verify with `go test ./...`, `make integration-test`, and main's
+     `tests/staging/hr_core_test.go` suite.
+2. **`release/v0.10.0-rc.11` into `release/v0.11-finance-prep`** (merge-base
+   with v0.11 is `e582cd3`; v0.11's diff against the superseded rc.10 tag:
+   `internal/ap/orchestrator.go` 182 lines, `internal/ap/matching.go` 49,
+   `internal/ap/handler.go` 205, `internal/rbac/*` about 1500 added,
+   `internal/app/router.go` 442, `cmd/worker/main.go` 556,
+   `cmd/odyssey/main.go` 107, `internal/cmms/service.go` 158; v0.11 has no
+   `scripts/seed/staging/`):
+   - `internal/ap/orchestrator.go`, `matching.go`, `handler.go`: **v0.11
+     semantics win**. Re-apply rc.11's three behaviours on top as a follow-up
+     commit with the same tests: inline `ProcessInvoice` before the enqueue,
+     `ErrGRNHasNoPO`, and PO-line resolution by product.
+   - `internal/rbac/*`: v0.11 wins untouched (rc.11 does not modify it).
+   - `internal/app/router.go`: v0.11's router wins; re-apply rc.11's company
+     scoping, `requireActiveCompany` and `releaseProfile` on top, and verify
+     that v0.11's `ScopedRoute` reads the same session company.
+   - `cmd/worker/main.go`: v0.11 wins; re-apply the worker AP wiring
+     (`newWorkerAPStack`, ledger hooks and audit) and the CMMS audit logger and
+     `CMMS_SYSTEM_USER_ID`.
+   - `internal/cmms/*`: both (rc.11 routes and transitions plus v0.11's
+     predictive additions).
+   - `scripts/seed/staging/`: added wholesale from rc.11.
+   - `sql/queries` and `internal/sqlc`: merge the queries, then `make sqlc-gen`.
+   - `migrations/`: untouched (rc.11 adds none).
+
 ## 2. Start v0.11-finance after v0.10 promotion
 
 Branch from the released v0.10 baseline and use the cumulative
@@ -109,8 +153,9 @@ Require deterministic unit/integration coverage, provider sandbox evidence, stag
 journeys, scoped-access checks, migration rehearsal, and operational rollback before
 any live enablement. Record the new candidate, migration ceiling, route manifest,
 and evidence contract as a separate release line; do not reuse the v0.10-core record.
-Carry the approval finalization fix and the rc.11 fixes to the v0.11 line first;
-the `release/v0.11-finance-prep` branch has neither.
+Carry the approval finalization fix and the rc.11 fixes to the v0.11 line first
+(see the merge-back plan above); the `release/v0.11-finance-prep` branch has
+neither.
 
 ## 3. Defer to v0.11.x
 
