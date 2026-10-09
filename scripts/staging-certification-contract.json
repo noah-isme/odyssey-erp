@@ -21,7 +21,7 @@
     {
       "evidence_id": "REL-003",
       "lane": "automated",
-      "description": "SPDX SBOM and signature/provenance attestation for the release bundle digest"
+      "description": "Signature/provenance attestation for the release bundle digest, with the SPDX SBOM attested alongside the bundle (sibling subject, own digest)"
     },
     {
       "evidence_id": "REL-004",

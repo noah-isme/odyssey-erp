@@ -19,6 +19,13 @@ Production promotion requires the explicit
 `RELEASE_PROFILE=v0.10-core` contract unless a separately approved `full`
 profile has certified every matrix row.
 
+The v0.10-core release bundle is built by `.github/workflows/deploy-native.yml`
+(see the [staging deployment guide](STAGING_DEPLOYMENT.md)). The bundle is
+reproducible for a given commit and toolchain; its SPDX SBOM is a sibling file,
+`odyssey-v010-core-<sha>.sbom.spdx.json`, attested alongside the bundle with its
+own digest rather than packed inside it. Record both digests when promoting a
+release.
+
 ---
 
 ## Table of Contents

@@ -38,20 +38,28 @@ The workflow deploys automatically after a successful `CI` workflow for the
 release-candidate deployment, so the candidate can run even before this
 workflow reaches the repository's default branch. A manual dispatch using the
 same tag remains available once the workflow is on the default branch. Every
-path verifies that the tag resolves to the checked-out commit and that the same
+deployment path verifies that the tag resolves to the checked-out commit and that the same
 commit has a successful `CI` run before building.
-It builds the Linux release artifacts once, creates `SHA256SUMS`, migration and
-web manifests, and an SPDX SBOM, then creates a GitHub build-provenance
-attestation whose subject is the content-addressed release bundle. It retains
-the bundle and recorded digest as a workflow artifact, then uploads that exact
-bundle to the VPS.
+It builds the Linux release artifacts once, creates `SHA256SUMS` and the
+migration and web manifests, and packs them into the content-addressed release
+bundle with `scripts/release/bundle.sh` (sorted names, fixed mtime and owner,
+`gzip -n`). It then generates the SPDX SBOM *next to* the bundle as
+`odyssey-v010-core-<sha>.sbom.spdx.json` with a commit-pinned
+`anchore/sbom-action`. The SBOM is not inside the bundle and not in
+`SHA256SUMS`: it carries a creation time and a random namespace, so including
+it would give every rebuild of the same commit a new bundle digest, and the
+VPS refuses a differing digest for a release that already exists. One GitHub
+build-provenance attestation names both files as subjects, each with its own
+digest. The workflow retains the bundle, the SBOM and both `.sha256` files as
+a workflow artifact, then uploads the exact bundle to the VPS.
 The VPS verifies the digests and profile/migration boundary before running
 migrations, switching the release symlink atomically, restarting the staging
 services, and verifying `http://127.0.0.1:8180/healthz`.
 
 The certification lane must run `gh attestation verify` against the downloaded
-bundle, constrain the signer to this repository's `deploy-native.yml` workflow,
-and retain the JSON verification result beside the evidence log. A textual
+bundle and the sibling SBOM, constrain the signer to this repository's
+`deploy-native.yml` workflow, and retain both JSON verification results beside
+the evidence log. A textual
 provenance claim without that verification output is not sufficient for
 `REL-003`.
 
@@ -80,9 +88,31 @@ the deployment target remains staging and runtime configuration uses
 For the v0.10-core candidate, the uploaded bundle must contain migrations only
 through `000124_scoped_rbac_global_compatibility`; migration `000125` and
 v0.11-finance-only routes are outside this deployment profile. Keep the workflow
-artifact URL, component and SBOM digests, provenance-attestation URL and
-verification output, and deployment run output in the certification evidence
+artifact URL, component digests, the sibling SBOM digest, provenance-attestation
+URL and verification output for both subjects, and deployment run output in the certification evidence
 record.
+
+### Build-only reproducibility check
+
+Before a candidate tag is pushed, dispatch `deploy-native.yml` twice from the
+release branch with `build_only=true` and the same fixed `identity_tag` (for
+example `v0.10.0-rc.11-repro`):
+
+```bash
+gh workflow run deploy-native.yml --ref release/v0.10.0-rc.11 \
+  -f candidate_tag=v0.10.0-rc.11 -f build_only=true -f identity_tag=v0.10.0-rc.11-repro
+```
+
+A build-only run checks out the dispatch commit, takes the latest successful
+push `CI` run for that commit on the branch instead of validating a tag, builds
+the bundle and SBOM, and uploads `bundle-digest-<identity_tag>-<sha>` (the
+bundle `.sha256` plus `BUILD_ENV` with `go version`). The second run downloads
+the first run's digest artifact and fails, printing both digests and both build
+environments, if the bundle digest differs; the first run records a baseline.
+A build-only run has no `staging` environment, mints no attestation and skips
+every host step, so its bundle is never deployed. The new inputs default to the
+normal deployment path, so the certification lane's `candidate_tag` dispatch is
+unchanged.
 
 ## VPS layout
 
