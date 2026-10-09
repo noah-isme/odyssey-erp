@@ -356,6 +356,7 @@ func (tx *memoryAPTx) CreateAPInvoiceLine(ctx context.Context, input CreateAPInv
 		ID:          tx.repo.nextLineID,
 		APInvoiceID: invoiceID,
 		GRNLineID:   input.GRNLineID,
+		POLineID:    input.POLineID,
 		ProductID:   input.ProductID,
 		Description: input.Description,
 		Quantity:    input.Quantity,
@@ -557,6 +558,10 @@ func TestCreateAPInvoiceFromGRN(t *testing.T) {
 		Status:     procurement.POStatusApproved,
 		Currency:   "USD",
 	}
+	procRepo.poLines[22] = []procurement.POLine{
+		{ID: 220, POID: 22, ProductID: 100, Qty: 2, Price: 50},
+		{ID: 221, POID: 22, ProductID: 101, Qty: 1, Price: 25},
+	}
 	procSvc := procurement.NewService(nil, procRepo, nil, nil, nil, nil, nil)
 	svc := NewService(apRepo, procSvc)
 
@@ -576,6 +581,75 @@ func TestCreateAPInvoiceFromGRN(t *testing.T) {
 	require.Equal(t, "USD", inv.Currency)
 	require.InDelta(t, 125.0, inv.Total, 0.001)
 	require.Len(t, apRepo.lines[inv.ID], 2)
+}
+
+// TestCreateAPInvoiceFromGRNLinksPOLines: grn_lines carry no po_line_id, so
+// each invoice line is linked to the GRN's PO line for the same product
+// (lowest id first); a GRN without a PO, or a product missing from the PO, is
+// refused before anything is written.
+func TestCreateAPInvoiceFromGRNLinksPOLines(t *testing.T) {
+	tests := []struct {
+		name        string
+		grnPOID     int64
+		grnLines    []procurement.GRNLine
+		poLines     []procurement.POLine
+		wantErr     error
+		wantLinkIDs []int64
+	}{
+		{
+			name:        "one line per product",
+			grnPOID:     22,
+			grnLines:    []procurement.GRNLine{{ID: 1, ProductID: 100, Qty: 2, UnitCost: 50}, {ID: 2, ProductID: 101, Qty: 1, UnitCost: 25}},
+			poLines:     []procurement.POLine{{ID: 221, ProductID: 101, Qty: 1, Price: 25}, {ID: 220, ProductID: 100, Qty: 2, Price: 50}},
+			wantLinkIDs: []int64{220, 221},
+		},
+		{
+			name:        "repeated product links the lowest line id",
+			grnPOID:     22,
+			grnLines:    []procurement.GRNLine{{ID: 1, ProductID: 100, Qty: 2, UnitCost: 50}},
+			poLines:     []procurement.POLine{{ID: 230, ProductID: 100, Qty: 1, Price: 50}, {ID: 225, ProductID: 100, Qty: 1, Price: 50}},
+			wantLinkIDs: []int64{225},
+		},
+		{
+			name:     "product missing from the PO",
+			grnPOID:  22,
+			grnLines: []procurement.GRNLine{{ID: 1, ProductID: 100, Qty: 2, UnitCost: 50}, {ID: 2, ProductID: 999, Qty: 1, UnitCost: 25}},
+			poLines:  []procurement.POLine{{ID: 220, ProductID: 100, Qty: 2, Price: 50}},
+			wantErr:  ErrGRNLineHasNoPOLine,
+		},
+		{
+			name:     "GRN without a PO",
+			grnPOID:  0,
+			grnLines: []procurement.GRNLine{{ID: 1, ProductID: 100, Qty: 2, UnitCost: 50}},
+			wantErr:  ErrGRNHasNoPO,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			apRepo := newMemoryAPRepo()
+			procRepo := newStubProcRepo()
+			procRepo.grns[1] = procurement.GoodsReceipt{ID: 1, SupplierID: 10, POID: tc.grnPOID, Status: procurement.GRNStatusPosted}
+			procRepo.grnLines[1] = tc.grnLines
+			procRepo.pos[22] = procurement.PurchaseOrder{ID: 22, SupplierID: 10, Status: procurement.POStatusApproved}
+			procRepo.poLines[22] = tc.poLines
+			svc := NewService(apRepo, procurement.NewService(nil, procRepo, nil, nil, nil, nil, nil))
+
+			inv, err := svc.CreateAPInvoiceFromGRN(context.Background(), CreateAPInvoiceFromGRNInput{GRNID: 1, CreatedBy: 5, Number: "INV-GRN-1"})
+			if tc.wantErr != nil {
+				require.ErrorIs(t, err, tc.wantErr)
+				require.Empty(t, apRepo.invoices, "no invoice may be written")
+				require.Empty(t, apRepo.lines, "no invoice line may be written")
+				return
+			}
+			require.NoError(t, err)
+			var got []int64
+			for _, line := range apRepo.lines[inv.ID] {
+				require.NotNil(t, line.POLineID, "line %d has no PO line", line.ID)
+				got = append(got, *line.POLineID)
+			}
+			require.Equal(t, tc.wantLinkIDs, got)
+		})
+	}
 }
 
 func TestCreateAPInvoiceFromPO(t *testing.T) {

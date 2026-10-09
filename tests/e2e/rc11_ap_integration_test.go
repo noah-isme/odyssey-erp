@@ -119,7 +119,7 @@ func TestRC11APGRNWithoutPOIsRefused(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = svc.CreateAPInvoiceFromGRN(ctx, ap.CreateAPInvoiceFromGRNInput{GRNID: grnID, DueDate: time.Now().AddDate(0, 0, 30), CreatedBy: f.AdminID, Number: "RC11-AP-NOPO-" + f.Suffix})
-	assert.Error(t, err, "a GRN without a purchase order must not be invoiced")
+	require.ErrorIs(t, err, ap.ErrGRNHasNoPO, "a GRN without a purchase order must not be invoiced")
 
 	var rows int
 	require.NoError(t, p.QueryRow(ctx, `SELECT COUNT(*) FROM ap_invoices WHERE grn_id=$1`, grnID).Scan(&rows))

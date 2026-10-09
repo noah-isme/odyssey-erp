@@ -8,6 +8,7 @@ import (
 
 	"github.com/odyssey-erp/odyssey-erp/internal/app"
 	"github.com/odyssey-erp/odyssey-erp/internal/platform/db"
+	"github.com/odyssey-erp/odyssey-erp/internal/tax"
 	"github.com/odyssey-erp/odyssey-erp/jobs"
 )
 
@@ -148,5 +149,23 @@ func TestTaskTypeEnabledForProfile(t *testing.T) {
 		for _, profile := range []app.ReleaseProfile{app.ReleaseProfileV010Core, app.ReleaseProfileV011Finance, app.ReleaseProfileFull} {
 			require.True(t, taskTypeEnabledForProfile(profile, taskType), "%s under %s", taskType, profile)
 		}
+	}
+}
+
+func TestNewWorkerAPStackWiresLedgerAndAudit(t *testing.T) {
+	apService, orchestrator := newWorkerAPStack(nil, tax.NewService(tax.NewRepository(nil), nil))
+	require.NotNil(t, orchestrator)
+
+	tests := []struct {
+		name string
+		got  bool
+	}{
+		{name: "integration hooks", got: apService.IntegrationHandlerConfigured()},
+		{name: "audit logger", got: apService.AuditLoggerConfigured()},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			require.True(t, tc.got, "worker AP service has no %s: MATCHED invoices would post without it", tc.name)
+		})
 	}
 }

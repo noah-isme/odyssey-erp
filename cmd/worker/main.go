@@ -395,11 +395,7 @@ func main() {
 	)
 	forecastProcessor := jobs.NewCashForecastProcessor(forecastService, logger)
 
-	apRepo := ap.NewRepository(pool)
-	apService := ap.NewService(apRepo, nil) // Dependencies omitted for simplicity in worker
-	matchingService := ap.NewMatchingService(apRepo)
-	exceptionService := ap.NewExceptionService(apRepo)
-	apOrchestrator := ap.NewOrchestrator(matchingService, exceptionService, apService, apRepo)
+	_, apOrchestrator := newWorkerAPStack(pool, taxService)
 
 	worker, err := jobs.NewWorker(jobs.WorkerConfig{
 		RedisOpts: redisOpts,

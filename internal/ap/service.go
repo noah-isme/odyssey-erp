@@ -19,7 +19,18 @@ var (
 	ErrPaymentNotFound = errors.New("payment not found")
 	ErrInvalidStatus   = errors.New("invalid status for operation")
 	ErrAlreadyInvoiced = errors.New("invoice already exists for GRN")
+	// ErrGRNHasNoPO refuses to invoice a GRN without a purchase order: its
+	// lines cannot be linked to PO lines, so matching can never pass.
+	ErrGRNHasNoPO = errors.New("ap: GRN has no purchase order")
+	// ErrGRNLineHasNoPOLine is returned when a GRN line's product is not on
+	// the GRN's purchase order.
+	ErrGRNLineHasNoPOLine = errors.New("ap: GRN line product is not on the purchase order")
 )
+
+func init() {
+	shared.RegisterUserSafeMessage(ErrGRNHasNoPO, "GRN has no purchase order; create a PO-backed GRN or a PO invoice.")
+	shared.RegisterUserSafeMessage(ErrGRNLineHasNoPOLine, "A GRN line's product is not on the purchase order.")
+}
 
 type Service struct {
 	repo               Repository
@@ -122,6 +133,10 @@ func (s *Service) SetAuditLogger(audit AuditPort)        { s.audit = audit }
 // the composition-root wiring tests.
 func (s *Service) AuditLoggerConfigured() bool { return s.audit != nil }
 
+// IntegrationHandlerConfigured reports whether ledger hooks are attached;
+// without them a posted invoice has no journal. Used by wiring tests.
+func (s *Service) IntegrationHandlerConfigured() bool { return s.integration != nil }
+
 // CreateAPInvoice creates a new AP invoice manually.
 func (s *Service) CreateAPInvoice(ctx context.Context, input CreateAPInvoiceInput) (APInvoice, error) {
 	if len(input.Lines) == 0 {
@@ -223,40 +238,46 @@ func (s *Service) CreateAPInvoiceFromGRN(ctx context.Context, input CreateAPInvo
 	if grn.Status != procurement.GRNStatusPosted {
 		return APInvoice{}, errors.New("GRN must be posted before invoicing")
 	}
+	if grn.POID == 0 {
+		return APInvoice{}, ErrGRNHasNoPO
+	}
 
 	// 2. Prepare Invoice Input
 	currency := "IDR"
 	invInput := CreateAPInvoiceInput{
 		SupplierID: grn.SupplierID,
 		GRNID:      &grn.ID,
-		POID:       nil,
 		DueDate:    input.DueDate,
 		CreatedBy:  input.CreatedBy,
 		Currency:   currency,
 		Number:     input.Number,
 	}
-	if grn.POID != 0 {
-		po, _, err := s.procurementService.GetPOWithLines(ctx, grn.POID)
-		if err != nil {
-			return APInvoice{}, fmt.Errorf("failed to load PO for GRN: %w", err)
-		}
-		if po.SupplierID != grn.SupplierID {
-			return APInvoice{}, errors.New("GRN supplier does not match PO supplier")
-		}
-		if po.Status != procurement.POStatusApproved && po.Status != procurement.POStatusClosed {
-			return APInvoice{}, errors.New("PO must be approved before invoicing GRN")
-		}
-		if po.Currency != "" {
-			currency = po.Currency
-			invInput.Currency = currency
-		}
-		poID := grn.POID
-		invInput.POID = &poID
+	po, poLines, err := s.procurementService.GetPOWithLines(ctx, grn.POID)
+	if err != nil {
+		return APInvoice{}, fmt.Errorf("failed to load PO for GRN: %w", err)
 	}
+	if po.SupplierID != grn.SupplierID {
+		return APInvoice{}, errors.New("GRN supplier does not match PO supplier")
+	}
+	if po.Status != procurement.POStatusApproved && po.Status != procurement.POStatusClosed {
+		return APInvoice{}, errors.New("PO must be approved before invoicing GRN")
+	}
+	if po.Currency != "" {
+		currency = po.Currency
+		invInput.Currency = currency
+	}
+	poID := grn.POID
+	invInput.POID = &poID
 
-	// 3. Map Lines
+	// 3. Map Lines. grn_lines has no po_line_id, so each line is linked to
+	// the PO line for the same product; matching needs that link.
 	for _, l := range lines {
+		poLineID, ok := poLineForProduct(poLines, l.ProductID)
+		if !ok {
+			return APInvoice{}, fmt.Errorf("%w: GRN %d product %d, PO %d", ErrGRNLineHasNoPOLine, grn.ID, l.ProductID, grn.POID)
+		}
 		invInput.Lines = append(invInput.Lines, CreateAPInvoiceLineInput{
+			POLineID:    &poLineID,
 			GRNLineID:   &l.ID,
 			ProductID:   l.ProductID,
 			Description: fmt.Sprintf("Product %d", l.ProductID), // Should fetch product name ideally
@@ -269,6 +290,20 @@ func (s *Service) CreateAPInvoiceFromGRN(ctx context.Context, input CreateAPInvo
 
 	// 4. Create Invoice
 	return s.CreateAPInvoice(ctx, invInput)
+}
+
+// poLineForProduct returns the lowest-id PO line for productID. A PO that
+// repeats a product is ambiguous; the first line by id is used and no
+// billed-quantity filter is applied, so re-invoicing a fresh PO behaves the
+// same way every time.
+func poLineForProduct(poLines []procurement.POLine, productID int64) (int64, bool) {
+	var id int64
+	for _, pl := range poLines {
+		if pl.ProductID == productID && (id == 0 || pl.ID < id) {
+			id = pl.ID
+		}
+	}
+	return id, id != 0
 }
 
 // CreateAPInvoiceFromPO creates an invoice from an approved PO.

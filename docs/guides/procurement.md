@@ -31,6 +31,21 @@ Menjamin alur pengadaan PR → PO → GRN → AP berjalan konsisten, terdokument
 4. **Buat Invoice AP**
    - Akses `/procurement/ap/invoices`, masukkan GRN yang sudah diposting dan tanggal jatuh tempo.
    - Invoice dibuat dalam status `DRAFT`. Gunakan `POST /procurement/ap/invoices/{id}/post` untuk mengubah ke `POSTED`.
+   - GRN harus berasal dari PO. GRN tanpa PO ditolak saat pembuatan invoice
+     ("GRN has no purchase order"); buat GRN dari PO atau invoice dari PO.
+     Invoice `DRAFT` lama dari GRN tanpa PO tidak dapat diposting (status
+     matching bukan `MATCHED`) dan sebaiknya di-void.
+   - Setiap baris invoice ditautkan ke baris PO dengan produk yang sama
+     (`grn_lines` tidak menyimpan `po_line_id`). Jika PO memuat produk yang sama
+     lebih dari sekali, baris PO dengan id terkecil yang dipakai; produk GRN yang
+     tidak ada di PO ditolak.
+   - Matching 3-way dijalankan langsung saat invoice dibuat lewat form, lalu
+     task `ap:invoice_process` diantrekan sebagai retry. Matching memerlukan
+     baris `ap_matching_policies` yang aktif untuk supplier (atau company) ini;
+     tanpa policy, invoice tetap `DRAFT` dengan exception `MISSING_MAPPING`.
+     Jangan membuat policy global (company dan supplier `NULL`) di staging:
+     seeder ISO-004 menolaknya. Pada hasil `MATCHED`, invoice langsung diposting
+     beserta jurnal `PROCUREMENT.AP_INVOICE` dan audit `ap_invoice`.
 
 5. **Catat Pembayaran**
    - Form `/procurement/ap/payments` mencatat pembayaran terhadap invoice.

@@ -100,3 +100,33 @@ func TestARHooksFailWithoutLedger(t *testing.T) {
 		})
 	}
 }
+
+// TestAPInvoiceHooksFailWithoutLedger: the AP invoice posting hooks refuse
+// instead of letting the invoice post with no journal.
+func TestAPInvoiceHooksFailWithoutLedger(t *testing.T) {
+	postedAt := time.Date(2026, 7, 30, 9, 0, 0, 0, time.UTC)
+	period := periodFake{period: periods.Period{ID: 1, StartDate: postedAt, EndDate: postedAt, Status: periods.PeriodStatusOpen}}
+	mapping := mappingFake{"ap.invoice.inventory": 10, "ap.invoice.ap": 20}
+	evt := procurement.APInvoicePostedEvent{ID: 3, Number: "AP-3", GRNID: 4, Total: 100, PostedAt: postedAt}
+
+	tests := []struct {
+		name  string
+		hooks *Hooks
+	}{
+		{name: "nil hooks", hooks: nil},
+		{name: "no ledger", hooks: NewHooks(nil, period, mapping)},
+		{name: "no period repository", hooks: NewHooks(&ledgerCapture{}, nil, mapping)},
+		{name: "no mapping repository", hooks: NewHooks(&ledgerCapture{}, period, nil)},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+			require.ErrorIs(t, tc.hooks.HandleAPInvoicePosted(ctx, evt), ErrLedgerNotConfigured)
+			require.ErrorIs(t, tc.hooks.HandleAPInvoicePostedTx(ctx, nil, evt), ErrLedgerNotConfigured)
+		})
+	}
+
+	ledger := &ledgerCapture{}
+	require.NoError(t, NewHooks(ledger, period, mapping).HandleAPInvoicePosted(context.Background(), evt))
+	require.Equal(t, []journals.PostingLineInput{{AccountID: 10, Debit: 100}, {AccountID: 20, Credit: 100}}, ledger.postings[0].Lines)
+}

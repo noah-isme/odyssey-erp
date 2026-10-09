@@ -394,6 +394,10 @@ func main() {
 	apService.SetIntegrationHandler(integrationHooks)
 	apService.SetTaxService(taxService)
 	apHandler := ap.NewHandler(logger, apService, templates, csrfManager, sessionManager, rbacMiddleware)
+	// Match (and, on a match, post) new invoices inside the create request;
+	// the queued ap:invoice_process task is the retry path.
+	apOrchestrator := ap.NewOrchestrator(ap.NewMatchingService(apRepo), ap.NewExceptionService(apRepo), apService, apRepo)
+	apHandler.SetInlineProcessor(apOrchestrator.ProcessInvoice)
 	apHandler.SetEnqueueJob(func(invoiceID, createdBy int64) error {
 		return jobs.EnqueueProcessAPInvoice(jobClient.AsynqClient(), invoiceID, createdBy)
 	})

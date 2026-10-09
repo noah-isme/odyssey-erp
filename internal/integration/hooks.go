@@ -232,8 +232,8 @@ func (h *Hooks) HandlePOSRefunded(ctx context.Context, evt pos.SalePostedEvent) 
 
 // HandleAPInvoicePosted posts the accounting entry for an AP invoice.
 func (h *Hooks) HandleAPInvoicePosted(ctx context.Context, evt procurement.APInvoicePostedEvent) error {
-	if h == nil || h.ledger == nil || h.periodRepo == nil || h.mappingRepo == nil {
-		return nil
+	if err := h.ledgerReady(); err != nil {
+		return err
 	}
 	if evt.PostedAt.IsZero() {
 		return errors.New("integration: AP invoice post date required")
@@ -279,8 +279,8 @@ func (h *Hooks) HandleAPInvoicePosted(ctx context.Context, evt procurement.APInv
 }
 
 func (h *Hooks) HandleAPInvoicePostedTx(ctx context.Context, tx pgx.Tx, evt procurement.APInvoicePostedEvent) error {
-	if h == nil || h.ledger == nil || h.periodRepo == nil || h.mappingRepo == nil {
-		return nil
+	if err := h.ledgerReady(); err != nil {
+		return err
 	}
 	if evt.PostedAt.IsZero() {
 		return errors.New("integration: AP invoice post date required")

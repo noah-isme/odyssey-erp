@@ -404,7 +404,7 @@ var citationAnchors = map[string]string{
 	"jobs/document_ocr.go:54":            "ProcessOCRJob",
 	"internal/ap/orchestrator.go:94-101": "ErrActorMismatch",
 	"jobs/ap_invoice.go:103-107":         "asynq.SkipRetry",
-	"cmd/worker/main.go:438":             "ap.ErrActorMismatch",
+	"cmd/worker/main.go:434":             "ap.ErrActorMismatch",
 	"cmd/worker/main.go:127-132":         "TypeCashForecastRefresh",
 	"cmd/worker/main.go:173-175":         "ReleaseProfileV010Core",
 	"jobs/asynq_server.go:79-81":         "TaskBIExport",

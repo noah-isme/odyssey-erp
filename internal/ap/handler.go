@@ -1,6 +1,7 @@
 package ap
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -25,6 +26,9 @@ type Handler struct {
 	rbac         rbac.Middleware
 	debitNotePDF DebitNotePDFRenderer
 	enqueueJob   func(int64, int64) error
+	// processInline runs matching (and, on a match, posting) for a new
+	// invoice inside the create request; see SetInlineProcessor.
+	processInline func(ctx context.Context, invoiceID, createdBy int64) error
 }
 
 // NewHandler builds Handler instance.
@@ -195,18 +199,35 @@ func (h *Handler) createAPInvoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Match inline first so the invoice is postable when the user lands on
+	// it, then enqueue as the retry path. The orchestrator only processes
+	// DRAFT invoices, reuses an existing run and accepts only the invoice
+	// creator as actor, so the queued task is a no-op once this succeeded.
+	flashKind, flashMessage := "success", "AP Invoice created"
+	if h.processInline != nil {
+		if err := h.processInline(r.Context(), invoice.ID, invoice.CreatedBy); err != nil {
+			h.logger.Warn("inline AP invoice matching failed; the queued task will retry", slog.Any("error", err), slog.Int64("invoice_id", invoice.ID))
+			flashKind, flashMessage = "warning", "AP Invoice created; matching did not complete and will be retried in the background"
+		}
+	}
 	if h.enqueueJob != nil {
 		if err := h.enqueueJob(invoice.ID, invoice.CreatedBy); err != nil {
 			h.logger.Error("failed to enqueue AP invoice processing", slog.Any("error", err))
 		}
 	}
 
-	h.redirectWithFlash(w, r, "/finance/ap/invoices/"+strconv.FormatInt(invoice.ID, 10), "success", "AP Invoice created")
+	h.redirectWithFlash(w, r, "/finance/ap/invoices/"+strconv.FormatInt(invoice.ID, 10), flashKind, flashMessage)
 }
 
 // SetEnqueueJob sets the callback for enqueuing AP jobs.
 func (h *Handler) SetEnqueueJob(fn func(int64, int64) error) {
 	h.enqueueJob = fn
+}
+
+// SetInlineProcessor sets the matching step run in the create request before
+// the job is enqueued, normally (*Orchestrator).ProcessInvoice.
+func (h *Handler) SetInlineProcessor(fn func(ctx context.Context, invoiceID, createdBy int64) error) {
+	h.processInline = fn
 }
 
 // createInvoiceFromGRN creates invoice from goods receipt.
