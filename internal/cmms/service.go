@@ -4,15 +4,57 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math"
+	"strconv"
 	"strings"
 	"time"
+
+	"github.com/odyssey-erp/odyssey-erp/internal/shared"
+)
+
+// AuditPort records audit events for CMMS writes.
+type AuditPort interface {
+	Record(ctx context.Context, log shared.AuditLog) error
+}
+
+// Audit entities written by the CMMS service.
+const (
+	AuditEntityAsset              = "cmms_asset"
+	AuditEntityWorkOrder          = "cmms_work_order"
+	AuditEntityPMSchedule         = "cmms_pm_schedule"
+	AuditEntityMeterReading       = "cmms_meter_reading"
+	AuditEntitySparePart          = "cmms_spare_part"
+	AuditEntityWorkOrderSparePart = "cmms_work_order_spare_part"
 )
 
 // Service orchestrates CMMS operations.
 type Service struct {
-	repo *Repository
-	now  func() time.Time
+	repo  *Repository
+	now   func() time.Time
+	audit AuditPort
+}
+
+// SetAuditLogger attaches the audit sink. Without one, writes are not audited.
+func (s *Service) SetAuditLogger(audit AuditPort) {
+	s.audit = audit
+}
+
+// record writes an audit event after a successful write. The write has
+// already committed, so a failing audit sink is logged rather than returned.
+func (s *Service) record(ctx context.Context, actorID int64, entity, action string, entityID int64, meta map[string]any) {
+	if s.audit == nil {
+		return
+	}
+	if err := s.audit.Record(ctx, shared.AuditLog{
+		ActorID:  actorID,
+		Action:   action,
+		Entity:   entity,
+		EntityID: strconv.FormatInt(entityID, 10),
+		Meta:     meta,
+	}); err != nil {
+		slog.Default().Warn("cmms: record audit event", slog.String("entity", entity), slog.String("action", action), slog.Int64("entity_id", entityID), slog.Any("error", err))
+	}
 }
 
 // NewService constructs a Service instance.
@@ -43,6 +85,7 @@ func (s *Service) CreateWorkOrder(ctx context.Context, req CreateWorkOrderReques
 	if err != nil {
 		return WorkOrder{}, err
 	}
+	s.record(ctx, req.ActorID, AuditEntityWorkOrder, "create", wo.ID, map[string]any{"number": wo.Number, "company_id": wo.CompanyID, "category": wo.Category})
 	return wo, nil
 }
 
@@ -75,12 +118,102 @@ func (s *Service) UpdateWorkOrder(ctx context.Context, id int64, req UpdateWorkO
 	return s.repo.UpdateWorkOrder(ctx, id, req)
 }
 
-// UpdateWorkOrderStatus transitions a work order's status.
-func (s *Service) UpdateWorkOrderStatus(ctx context.Context, id int64, status Status, actorID int64) (WorkOrder, error) {
-	if err := validateWorkOrderStatusTransition(status); err != nil {
+// UpdateWorkOrderStatus transitions a work order of the company along the
+// transition map. COMPLETED and CLOSED are owned by CompleteWorkOrder and
+// CloseWorkOrder and are refused here. Setting the current status is an
+// idempotent no-op.
+func (s *Service) UpdateWorkOrderStatus(ctx context.Context, id, companyID int64, status Status, actorID int64) (WorkOrder, error) {
+	if status == WorkOrderStatusCompleted || status == WorkOrderStatusClosed {
+		return WorkOrder{}, fmt.Errorf("%w: use the complete or close action for %s", ErrInvalidStatus, status)
+	}
+	if _, known := workOrderTransitions[status]; !known {
+		return WorkOrder{}, fmt.Errorf("%w: unknown status %s", ErrInvalidStatus, status)
+	}
+	if actorID <= 0 {
+		return WorkOrder{}, errors.New("cmms: actor id required")
+	}
+	wo, err := s.workOrderForCompany(ctx, id, companyID)
+	if err != nil {
 		return WorkOrder{}, err
 	}
-	return s.repo.UpdateWorkOrderStatus(ctx, id, status, actorID)
+	if err := validateWorkOrderStatusTransition(wo.Status, status); err != nil {
+		return WorkOrder{}, err
+	}
+	if wo.Status == status {
+		return wo, nil
+	}
+	updated, err := s.repo.UpdateWorkOrderStatus(ctx, id, companyID, wo.Status, status)
+	if err != nil {
+		return WorkOrder{}, err
+	}
+	if !updated {
+		return WorkOrder{}, fmt.Errorf("%w: work order %d changed concurrently", ErrInvalidStatus, id)
+	}
+	s.record(ctx, actorID, AuditEntityWorkOrder, "status", id, map[string]any{"from": string(wo.Status), "to": string(status)})
+	return s.repo.GetWorkOrder(ctx, id)
+}
+
+// CompleteWorkOrder moves an IN_PROGRESS or ON_HOLD work order of the
+// company to COMPLETED, recording actualHours when given. Completing an
+// already COMPLETED work order succeeds without changing it.
+func (s *Service) CompleteWorkOrder(ctx context.Context, id, companyID, actorID int64, actualHours *float64) (WorkOrder, error) {
+	if actorID <= 0 {
+		return WorkOrder{}, errors.New("cmms: actor id required")
+	}
+	if actualHours != nil && (*actualHours < 0 || math.IsNaN(*actualHours) || math.IsInf(*actualHours, 0)) {
+		return WorkOrder{}, errors.New("cmms: actual hours must be a non-negative number")
+	}
+	return s.finishWorkOrder(ctx, id, companyID, actorID, WorkOrderStatusCompleted, "complete", func() (bool, error) {
+		return s.repo.CompleteWorkOrder(ctx, id, companyID, actualHours)
+	}, map[string]any{"actual_hours": actualHours})
+}
+
+// CloseWorkOrder moves a COMPLETED work order of the company to CLOSED.
+// Closing an already CLOSED work order succeeds without changing it.
+func (s *Service) CloseWorkOrder(ctx context.Context, id, companyID, actorID int64) (WorkOrder, error) {
+	if actorID <= 0 {
+		return WorkOrder{}, errors.New("cmms: actor id required")
+	}
+	return s.finishWorkOrder(ctx, id, companyID, actorID, WorkOrderStatusClosed, "close", func() (bool, error) {
+		return s.repo.CloseWorkOrder(ctx, id, companyID)
+	}, nil)
+}
+
+// finishWorkOrder runs a conditional status update. When no row matched it
+// reloads the work order: already being in the target state is success,
+// anything else is a transition error.
+func (s *Service) finishWorkOrder(ctx context.Context, id, companyID, actorID int64, target Status, action string, update func() (bool, error), meta map[string]any) (WorkOrder, error) {
+	updated, err := update()
+	if err != nil {
+		return WorkOrder{}, err
+	}
+	wo, err := s.workOrderForCompany(ctx, id, companyID)
+	if err != nil {
+		return WorkOrder{}, err
+	}
+	if !updated {
+		if wo.Status == target {
+			return wo, nil
+		}
+		return WorkOrder{}, validateWorkOrderStatusTransition(wo.Status, target)
+	}
+	s.record(ctx, actorID, AuditEntityWorkOrder, action, id, meta)
+	return wo, nil
+}
+
+// workOrderForCompany loads a work order and hides one of another company.
+func (s *Service) workOrderForCompany(ctx context.Context, id, companyID int64) (WorkOrder, error) {
+	if companyID <= 0 {
+		return WorkOrder{}, errors.New("cmms: company id required")
+	}
+	wo, err := s.repo.GetWorkOrder(ctx, id)
+	if err != nil {
+		return WorkOrder{}, err
+	}
+	if wo.CompanyID != companyID {
+		return WorkOrder{}, ErrWorkOrderNotFound
+	}
+	return wo, nil
 }
 
 // AddTask adds a task to a work order.
@@ -106,7 +239,12 @@ func (s *Service) CreateAsset(ctx context.Context, req CreateAssetRequest) (Asse
 	if err := req.Validate(); err != nil {
 		return Asset{}, err
 	}
-	return s.repo.InsertAsset(ctx, req)
+	asset, err := s.repo.InsertAsset(ctx, req)
+	if err != nil {
+		return Asset{}, err
+	}
+	s.record(ctx, req.ActorID, AuditEntityAsset, "create", asset.ID, map[string]any{"code": asset.Code, "company_id": asset.CompanyID})
+	return asset, nil
 }
 
 // GetAsset loads a single asset.
@@ -147,7 +285,12 @@ func (s *Service) CreatePMSchedule(ctx context.Context, req CreatePMScheduleRequ
 	if err := req.Validate(); err != nil {
 		return PreventiveMaintenanceSchedule{}, err
 	}
-	return s.repo.InsertPMSchedule(ctx, req)
+	sched, err := s.repo.InsertPMSchedule(ctx, req)
+	if err != nil {
+		return PreventiveMaintenanceSchedule{}, err
+	}
+	s.record(ctx, req.ActorID, AuditEntityPMSchedule, "create", sched.ID, map[string]any{"asset_id": sched.AssetID, "frequency_type": sched.FrequencyType, "frequency_value": sched.FrequencyValue})
+	return sched, nil
 }
 
 // GetPMSchedule loads a PM schedule.
@@ -222,7 +365,12 @@ func (s *Service) RecordMeterReading(ctx context.Context, req CreateMeterReading
 	if err := req.Validate(); err != nil {
 		return MeterReading{}, err
 	}
-	return s.repo.InsertMeterReading(ctx, req)
+	reading, err := s.repo.InsertMeterReading(ctx, req)
+	if err != nil {
+		return MeterReading{}, err
+	}
+	s.record(ctx, req.ActorID, AuditEntityMeterReading, "create", reading.ID, map[string]any{"asset_id": reading.AssetID, "reading_type": reading.ReadingType, "value": reading.Value})
+	return reading, nil
 }
 
 // GetMeterReadings returns meter readings for an asset.
@@ -235,7 +383,12 @@ func (s *Service) CreateSparePart(ctx context.Context, req CreateSparePartReques
 	if err := req.Validate(); err != nil {
 		return SparePart{}, err
 	}
-	return s.repo.InsertSparePart(ctx, req)
+	part, err := s.repo.InsertSparePart(ctx, req)
+	if err != nil {
+		return SparePart{}, err
+	}
+	s.record(ctx, req.ActorID, AuditEntitySparePart, "create", part.ID, map[string]any{"code": part.Code, "company_id": part.CompanyID})
+	return part, nil
 }
 
 // GetSparePart loads a spare part.
@@ -253,12 +406,22 @@ func (s *Service) AddSparePartToWorkOrder(ctx context.Context, req AddSparePartR
 	if err := req.Validate(); err != nil {
 		return WorkOrderSparePart{}, err
 	}
-	return s.repo.InsertWorkOrderSparePart(ctx, req)
+	usage, err := s.repo.InsertWorkOrderSparePart(ctx, req)
+	if err != nil {
+		return WorkOrderSparePart{}, err
+	}
+	s.record(ctx, req.ActorID, AuditEntityWorkOrderSparePart, "add", usage.ID, map[string]any{"work_order_id": usage.WorkOrderID, "spare_part_id": usage.SparePartID, "quantity": usage.Quantity})
+	return usage, nil
 }
 
 // IssueSparePart issues a spare part from inventory.
 func (s *Service) IssueSparePart(ctx context.Context, id int64, actorID int64) (WorkOrderSparePart, error) {
-	return s.repo.IssueSparePart(ctx, id, actorID)
+	usage, err := s.repo.IssueSparePart(ctx, id, actorID)
+	if err != nil {
+		return WorkOrderSparePart{}, err
+	}
+	s.record(ctx, actorID, AuditEntityWorkOrderSparePart, "issue", usage.ID, map[string]any{"work_order_id": usage.WorkOrderID})
+	return usage, nil
 }
 
 // UpdateWorkOrderRequest defines the payload for updating a work order.
@@ -478,18 +641,41 @@ func (r AddSparePartRequest) Validate() error {
 	return nil
 }
 
-func validateWorkOrderStatusTransition(newStatus Status) error {
-	validStatuses := []Status{
-		WorkOrderStatusDraft, WorkOrderStatusPlanned, WorkOrderStatusScheduled,
-		WorkOrderStatusInProgress, WorkOrderStatusOnHold, WorkOrderStatusCompleted,
-		WorkOrderStatusCancelled, WorkOrderStatusClosed,
+// workOrderTransitions lists the statuses each work-order status may move to.
+// CLOSED and CANCELLED are terminal. COMPLETED is reached only from
+// IN_PROGRESS or ON_HOLD and CLOSED only from COMPLETED.
+var workOrderTransitions = map[Status][]Status{
+	WorkOrderStatusDraft:      {WorkOrderStatusPlanned, WorkOrderStatusScheduled, WorkOrderStatusInProgress, WorkOrderStatusCancelled},
+	WorkOrderStatusRequested:  {WorkOrderStatusPlanned, WorkOrderStatusScheduled, WorkOrderStatusInProgress, WorkOrderStatusCancelled},
+	WorkOrderStatusPlanned:    {WorkOrderStatusScheduled, WorkOrderStatusInProgress, WorkOrderStatusOnHold, WorkOrderStatusCancelled},
+	WorkOrderStatusScheduled:  {WorkOrderStatusInProgress, WorkOrderStatusOnHold, WorkOrderStatusCancelled},
+	WorkOrderStatusInProgress: {WorkOrderStatusOnHold, WorkOrderStatusCompleted, WorkOrderStatusCancelled},
+	WorkOrderStatusOnHold:     {WorkOrderStatusInProgress, WorkOrderStatusCompleted, WorkOrderStatusCancelled},
+	WorkOrderStatusCompleted:  {WorkOrderStatusClosed},
+	WorkOrderStatusClosed:     nil,
+	WorkOrderStatusCancelled:  nil,
+}
+
+// validateWorkOrderStatusTransition reports whether a work order may move
+// from one status to another. from == to is an idempotent no-op for any known
+// status.
+func validateWorkOrderStatusTransition(from, to Status) error {
+	allowed, known := workOrderTransitions[from]
+	if !known {
+		return fmt.Errorf("%w: unknown status %s", ErrInvalidStatus, from)
 	}
-	for _, s := range validStatuses {
-		if s == newStatus {
+	if _, ok := workOrderTransitions[to]; !ok {
+		return fmt.Errorf("%w: unknown status %s", ErrInvalidStatus, to)
+	}
+	if from == to {
+		return nil
+	}
+	for _, s := range allowed {
+		if s == to {
 			return nil
 		}
 	}
-	return fmt.Errorf("cmms: invalid status %s", newStatus)
+	return fmt.Errorf("%w: %s to %s", ErrInvalidStatus, from, to)
 }
 
 // =============================================================================

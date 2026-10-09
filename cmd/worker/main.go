@@ -307,6 +307,7 @@ func main() {
 	taxService := tax.NewService(tax.NewRepository(pool), nil)
 	crmService := crm.NewService(crm.NewRepository(pool), nil, nil, crm.NewNotificationAdapter(notificationDispatcher))
 	cmmsService := cmms.NewService(cmms.NewRepository(pool))
+	cmmsService.SetAuditLogger(shared.NewAuditLogger(pool))
 	fxRepo := fxservice.NewRepository(pool)
 	fxProvider := fxservice.NewExchangeRateAPI(fxservice.ProviderConfig{BaseURL: cfg.FXAPIBaseURL, APIKey: cfg.FXAPIKey, Timeout: cfg.FXFetchTimeout})
 	fxDailyService := &fxservice.Service{Provider: fxProvider, Repo: fxRepo, MaxRateAge: cfg.FXMaxRateAge}

@@ -10,7 +10,10 @@ import (
 type Status string
 
 const (
-	WorkOrderStatusDraft      Status = "DRAFT"
+	WorkOrderStatusDraft Status = "DRAFT"
+	// WorkOrderStatusRequested is the status GeneratePMWorkOrderTx gives work
+	// orders generated from PM schedules; it behaves like DRAFT.
+	WorkOrderStatusRequested  Status = "REQUESTED"
 	WorkOrderStatusPlanned    Status = "PLANNED"
 	WorkOrderStatusScheduled  Status = "SCHEDULED"
 	WorkOrderStatusInProgress Status = "IN_PROGRESS"
@@ -316,7 +319,7 @@ var (
 func NormaliseStatus(v string) Status {
 	v = strings.TrimSpace(strings.ToUpper(v))
 	switch Status(v) {
-	case WorkOrderStatusDraft, WorkOrderStatusPlanned, WorkOrderStatusScheduled,
+	case WorkOrderStatusDraft, WorkOrderStatusRequested, WorkOrderStatusPlanned, WorkOrderStatusScheduled,
 		WorkOrderStatusInProgress, WorkOrderStatusOnHold, WorkOrderStatusCompleted,
 		WorkOrderStatusCancelled, WorkOrderStatusClosed:
 		return Status(v)

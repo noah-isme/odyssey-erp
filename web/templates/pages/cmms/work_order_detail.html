@@ -50,6 +50,23 @@
               <button class="btn btn-primary" type="submit">Update</button>
             </div>
           </form>
+          {{ if or (eq (printf "%s" .Data.WorkOrder.Status) "IN_PROGRESS") (eq (printf "%s" .Data.WorkOrder.Status) "ON_HOLD") }}
+          <form action="/cmms/work-orders/{{ .Data.WorkOrder.ID }}/complete" method="POST" class="mt-3">
+            <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+            <label class="form-label" for="actual_hours">Actual hours</label>
+            <div class="input-group">
+              <input type="number" step="0.01" min="0" id="actual_hours" name="actual_hours" class="form-input" value="{{ .Data.WorkOrder.ActualHours }}">
+              <button class="btn btn-success" type="submit">Complete</button>
+            </div>
+          </form>
+          {{ end }}
+          {{ if eq (printf "%s" .Data.WorkOrder.Status) "COMPLETED" }}
+          <form action="/cmms/work-orders/{{ .Data.WorkOrder.ID }}/close" method="POST" class="mt-3">
+            <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+            <p class="mb-2">Actual hours: {{ .Data.WorkOrder.ActualHours }}</p>
+            <button class="btn btn-dark" type="submit">Close work order</button>
+          </form>
+          {{ end }}
         </div>
       </div>
     </div>

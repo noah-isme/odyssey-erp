@@ -548,6 +548,7 @@ func main() {
 
 	cmmsRepo := cmms.NewRepository(dbpool)
 	cmmsService := cmms.NewService(cmmsRepo)
+	cmmsService.SetAuditLogger(auditLogger)
 	cmmsHandler := cmmshttp.NewHandler(logger, cmmsService, templates, csrfManager, rbacMiddleware, dbpool)
 
 	qmsRepo := qms.NewRepository(dbpool)

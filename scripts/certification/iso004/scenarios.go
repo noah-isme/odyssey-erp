@@ -474,7 +474,7 @@ var scenarioRegistry = []Scenario{
 			N: 1, Phase: 1, Type: jobs.TaskProcessAPInvoice,
 			Payload: []Field{{"invoice_id", fxv(fxAPException)}, {"created_by", fxv(fxAdminUserA)}},
 			Expect: Expectation{States: []string{stateArchived}, Retried: RetriedZero, LastErrAnyOf: []string{"actor", "created_by"},
-				Text: "archived, " + skipRetryNote + ", LastErr names the actor mismatch; no new runs/exceptions (internal/ap/orchestrator.go:94-101, jobs/ap_invoice.go:103-107, cmd/worker/main.go:430)"},
+				Text: "archived, " + skipRetryNote + ", LastErr names the actor mismatch; no new runs/exceptions (internal/ap/orchestrator.go:94-101, jobs/ap_invoice.go:103-107, cmd/worker/main.go:431)"},
 		}},
 		Queries: apQueries("exception", fxAPException),
 		Assertions: []AssertionSpec{

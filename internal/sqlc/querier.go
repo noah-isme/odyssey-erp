@@ -46,7 +46,9 @@ type Querier interface {
 	// Claims one command for execution: CAS on state/next_attempt/attempts, bumps
 	// attempts and leases the row for 10 minutes so an overlapping sweep skips it.
 	ClaimOutboxCommand(ctx context.Context, id int64) (ConnectorOutboxCommand, error)
+	CloseWorkOrder(ctx context.Context, arg CloseWorkOrderParams) (int64, error)
 	CompareMonthlyNetRevenue(ctx context.Context, arg CompareMonthlyNetRevenueParams) ([]CompareMonthlyNetRevenueRow, error)
+	CompleteWorkOrder(ctx context.Context, arg CompleteWorkOrderParams) (int64, error)
 	CompleteWorkOrderTask(ctx context.Context, arg CompleteWorkOrderTaskParams) error
 	ConfirmGoodsReturnGRN(ctx context.Context, arg ConfirmGoodsReturnGRNParams) error
 	ConsolBalancesByType(ctx context.Context, arg ConsolBalancesByTypeParams) ([]ConsolBalancesByTypeRow, error)
@@ -958,7 +960,8 @@ type Querier interface {
 	UpdateVehicleStatus(ctx context.Context, arg UpdateVehicleStatusParams) error
 	UpdateWarehouse(ctx context.Context, arg UpdateWarehouseParams) error
 	UpdateWorkOrder(ctx context.Context, arg UpdateWorkOrderParams) error
-	UpdateWorkOrderStatus(ctx context.Context, arg UpdateWorkOrderStatusParams) error
+	// Compare-and-set on the status the caller validated the transition from.
+	UpdateWorkOrderStatus(ctx context.Context, arg UpdateWorkOrderStatusParams) (int64, error)
 	UpdateWorkOrderTask(ctx context.Context, arg UpdateWorkOrderTaskParams) error
 	UpsertAdminUser(ctx context.Context, arg UpsertAdminUserParams) (int64, error)
 	UpsertBalance(ctx context.Context, arg UpsertBalanceParams) error

@@ -46,10 +46,21 @@ SET title = $2, description = $3, asset_id = $4, location_id = $5, priority = $6
     estimated_hours = $11, updated_at = NOW()
 WHERE id = $1;
 
--- name: UpdateWorkOrderStatus :exec
+-- name: UpdateWorkOrderStatus :execrows
+-- Compare-and-set on the status the caller validated the transition from.
 UPDATE work_orders
-SET status = $2, updated_at = NOW()
-WHERE id = $1;
+SET status = sqlc.arg(status), updated_at = NOW()
+WHERE id = sqlc.arg(id) AND company_id = sqlc.arg(company_id) AND status = sqlc.arg(from_status);
+
+-- name: CompleteWorkOrder :execrows
+UPDATE work_orders
+SET status = 'COMPLETED', actual_hours = COALESCE(sqlc.narg(actual_hours)::double precision, actual_hours), updated_at = NOW()
+WHERE id = sqlc.arg(id) AND company_id = sqlc.arg(company_id) AND status IN ('IN_PROGRESS', 'ON_HOLD');
+
+-- name: CloseWorkOrder :execrows
+UPDATE work_orders
+SET status = 'CLOSED', updated_at = NOW()
+WHERE id = sqlc.arg(id) AND company_id = sqlc.arg(company_id) AND status = 'COMPLETED';
 
 -- name: CountWorkOrdersWithPrefix :one
 SELECT COUNT(*) FROM work_orders WHERE company_id = $1 AND number LIKE $2 || '%';

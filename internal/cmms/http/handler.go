@@ -49,6 +49,8 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.With(h.rbac.RequireAny(shared.PermCMMSRequestCreate)).Post("/", h.createWorkOrder)
 		r.Get("/{id}", h.getWorkOrder)
 		r.With(h.rbac.RequireAny(shared.PermCMMSWorkOrderExecute)).Post("/{id}/status", h.updateWorkOrderStatus)
+		r.With(h.rbac.RequireAny(shared.PermCMMSWorkOrderExecute)).Post("/{id}/complete", h.completeWorkOrder)
+		r.With(h.rbac.RequireAny(shared.PermCMMSWorkOrderClose)).Post("/{id}/close", h.closeWorkOrder)
 	})
 
 	// Assets
@@ -208,10 +210,10 @@ func (h *Handler) getWorkOrder(w http.ResponseWriter, r *http.Request) {
 	}
 	h.render(w, r, "pages/cmms/work_order_detail.html", "Work Order "+wo.Number, map[string]any{
 		"WorkOrder": wo,
+		// COMPLETED and CLOSED have their own actions (complete, close).
 		"Statuses": []cmms.Status{
-			cmms.WorkOrderStatusPlanned, cmms.WorkOrderStatusInProgress,
-			cmms.WorkOrderStatusOnHold, cmms.WorkOrderStatusCompleted, cmms.WorkOrderStatusClosed,
-			cmms.WorkOrderStatusCancelled,
+			cmms.WorkOrderStatusPlanned, cmms.WorkOrderStatusScheduled, cmms.WorkOrderStatusInProgress,
+			cmms.WorkOrderStatusOnHold, cmms.WorkOrderStatusCancelled,
 		},
 	})
 }
@@ -222,15 +224,68 @@ func (h *Handler) updateWorkOrderStatus(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	id := parseInt64(chi.URLParam(r, "id"))
-	status := cmms.NormaliseStatus(r.PostFormValue("status"))
+	status := cmms.Status(strings.ToUpper(strings.TrimSpace(r.PostFormValue("status"))))
 	actorID := currentUser(r)
+	path := "/cmms/work-orders/" + strconv.FormatInt(id, 10)
 
-	if _, err := h.service.UpdateWorkOrderStatus(r.Context(), id, status, actorID); err != nil {
-		h.logger.Warn("update work order status", slog.Any("error", err))
-		h.redirectWithFlash(w, r, "/cmms/work-orders/"+strconv.FormatInt(id, 10), "danger", shared.UserSafeMessage(err))
+	if _, err := h.service.UpdateWorkOrderStatus(r.Context(), id, currentCompany(r), status, actorID); err != nil {
+		h.logger.Warn("update work order status", slog.Int64("work_order_id", id), slog.Any("error", err))
+		h.redirectWithFlash(w, r, path, "danger", cmmsErrorMessage(err))
 		return
 	}
-	h.redirectWithFlash(w, r, "/cmms/work-orders/"+strconv.FormatInt(id, 10), "success", "Status updated")
+	h.redirectWithFlash(w, r, path, "success", "Status updated")
+}
+
+func (h *Handler) completeWorkOrder(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+	id := parseInt64(chi.URLParam(r, "id"))
+	path := "/cmms/work-orders/" + strconv.FormatInt(id, 10)
+	var actualHours *float64
+	if raw := strings.TrimSpace(r.PostFormValue("actual_hours")); raw != "" {
+		v, err := strconv.ParseFloat(raw, 64)
+		if err != nil {
+			h.redirectWithFlash(w, r, path, "danger", "Actual hours must be a number.")
+			return
+		}
+		actualHours = &v
+	}
+	if _, err := h.service.CompleteWorkOrder(r.Context(), id, currentCompany(r), currentUser(r), actualHours); err != nil {
+		h.logger.Warn("complete work order", slog.Int64("work_order_id", id), slog.Any("error", err))
+		h.redirectWithFlash(w, r, path, "danger", cmmsErrorMessage(err))
+		return
+	}
+	h.redirectWithFlash(w, r, path, "success", "Work order completed")
+}
+
+func (h *Handler) closeWorkOrder(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+	id := parseInt64(chi.URLParam(r, "id"))
+	path := "/cmms/work-orders/" + strconv.FormatInt(id, 10)
+	if _, err := h.service.CloseWorkOrder(r.Context(), id, currentCompany(r), currentUser(r)); err != nil {
+		h.logger.Warn("close work order", slog.Int64("work_order_id", id), slog.Any("error", err))
+		h.redirectWithFlash(w, r, path, "danger", cmmsErrorMessage(err))
+		return
+	}
+	h.redirectWithFlash(w, r, path, "success", "Work order closed")
+}
+
+// cmmsErrorMessage maps CMMS sentinel errors to flash messages.
+func cmmsErrorMessage(err error) string {
+	switch {
+	case errors.Is(err, cmms.ErrInvalidStatus):
+		return "That status change is not allowed for this work order."
+	case errors.Is(err, cmms.ErrWorkOrderNotFound):
+		return "Work order not found."
+	case errors.Is(err, cmms.ErrAssetNotFound):
+		return "Asset not found."
+	}
+	return shared.UserSafeMessage(err)
 }
 
 // ============================================================================

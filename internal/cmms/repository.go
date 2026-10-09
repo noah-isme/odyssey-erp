@@ -110,15 +110,45 @@ func (r *Repository) UpdateWorkOrder(ctx context.Context, id int64, req UpdateWo
 	return r.GetWorkOrder(ctx, id)
 }
 
-func (r *Repository) UpdateWorkOrderStatus(ctx context.Context, id int64, status Status, actorID int64) (WorkOrder, error) {
-	err := r.queries.UpdateWorkOrderStatus(ctx, sqlc.UpdateWorkOrderStatusParams{
-		ID:     id,
-		Status: string(status),
+// UpdateWorkOrderStatus moves a work order of the company from one status to
+// another. It reports false when no row matched (unknown id, other company or
+// the status changed since it was read).
+func (r *Repository) UpdateWorkOrderStatus(ctx context.Context, id, companyID int64, from, to Status) (bool, error) {
+	n, err := r.queries.UpdateWorkOrderStatus(ctx, sqlc.UpdateWorkOrderStatusParams{
+		ID:         id,
+		CompanyID:  companyID,
+		FromStatus: string(from),
+		Status:     string(to),
 	})
 	if err != nil {
-		return WorkOrder{}, err
+		return false, err
 	}
-	return r.GetWorkOrder(ctx, id)
+	return n == 1, nil
+}
+
+// CompleteWorkOrder sets an IN_PROGRESS or ON_HOLD work order of the company
+// to COMPLETED, recording actualHours when given. It reports false when no
+// row matched.
+func (r *Repository) CompleteWorkOrder(ctx context.Context, id, companyID int64, actualHours *float64) (bool, error) {
+	n, err := r.queries.CompleteWorkOrder(ctx, sqlc.CompleteWorkOrderParams{
+		ID:          id,
+		CompanyID:   companyID,
+		ActualHours: pgtype.Float8{Float64: valueOrZeroFloat(actualHours), Valid: actualHours != nil},
+	})
+	if err != nil {
+		return false, err
+	}
+	return n == 1, nil
+}
+
+// CloseWorkOrder sets a COMPLETED work order of the company to CLOSED. It
+// reports false when no row matched.
+func (r *Repository) CloseWorkOrder(ctx context.Context, id, companyID int64) (bool, error) {
+	n, err := r.queries.CloseWorkOrder(ctx, sqlc.CloseWorkOrderParams{ID: id, CompanyID: companyID})
+	if err != nil {
+		return false, err
+	}
+	return n == 1, nil
 }
 
 func (r *Repository) CountWorkOrdersWithPrefix(ctx context.Context, companyID int64, prefix string) (int64, error) {

@@ -11,6 +11,45 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const closeWorkOrder = `-- name: CloseWorkOrder :execrows
+UPDATE work_orders
+SET status = 'CLOSED', updated_at = NOW()
+WHERE id = $1 AND company_id = $2 AND status = 'COMPLETED'
+`
+
+type CloseWorkOrderParams struct {
+	ID        int64 `json:"id"`
+	CompanyID int64 `json:"company_id"`
+}
+
+func (q *Queries) CloseWorkOrder(ctx context.Context, arg CloseWorkOrderParams) (int64, error) {
+	result, err := q.db.Exec(ctx, closeWorkOrder, arg.ID, arg.CompanyID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const completeWorkOrder = `-- name: CompleteWorkOrder :execrows
+UPDATE work_orders
+SET status = 'COMPLETED', actual_hours = COALESCE($1::double precision, actual_hours), updated_at = NOW()
+WHERE id = $2 AND company_id = $3 AND status IN ('IN_PROGRESS', 'ON_HOLD')
+`
+
+type CompleteWorkOrderParams struct {
+	ActualHours pgtype.Float8 `json:"actual_hours"`
+	ID          int64         `json:"id"`
+	CompanyID   int64         `json:"company_id"`
+}
+
+func (q *Queries) CompleteWorkOrder(ctx context.Context, arg CompleteWorkOrderParams) (int64, error) {
+	result, err := q.db.Exec(ctx, completeWorkOrder, arg.ActualHours, arg.ID, arg.CompanyID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const completeWorkOrderTask = `-- name: CompleteWorkOrderTask :exec
 UPDATE work_order_tasks
 SET status = 'COMPLETED', actual_hours = $2, completed_at = NOW(), updated_at = NOW()
@@ -1800,20 +1839,31 @@ func (q *Queries) UpdateWorkOrder(ctx context.Context, arg UpdateWorkOrderParams
 	return err
 }
 
-const updateWorkOrderStatus = `-- name: UpdateWorkOrderStatus :exec
+const updateWorkOrderStatus = `-- name: UpdateWorkOrderStatus :execrows
 UPDATE work_orders
-SET status = $2, updated_at = NOW()
-WHERE id = $1
+SET status = $1, updated_at = NOW()
+WHERE id = $2 AND company_id = $3 AND status = $4
 `
 
 type UpdateWorkOrderStatusParams struct {
-	ID     int64  `json:"id"`
-	Status string `json:"status"`
+	Status     string `json:"status"`
+	ID         int64  `json:"id"`
+	CompanyID  int64  `json:"company_id"`
+	FromStatus string `json:"from_status"`
 }
 
-func (q *Queries) UpdateWorkOrderStatus(ctx context.Context, arg UpdateWorkOrderStatusParams) error {
-	_, err := q.db.Exec(ctx, updateWorkOrderStatus, arg.ID, arg.Status)
-	return err
+// Compare-and-set on the status the caller validated the transition from.
+func (q *Queries) UpdateWorkOrderStatus(ctx context.Context, arg UpdateWorkOrderStatusParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateWorkOrderStatus,
+		arg.Status,
+		arg.ID,
+		arg.CompanyID,
+		arg.FromStatus,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const updateWorkOrderTask = `-- name: UpdateWorkOrderTask :exec
