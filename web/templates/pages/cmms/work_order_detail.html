@@ -32,6 +32,71 @@
           </div>
         </div>
       </div>
+
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light fw-bold">Spare Parts</div>
+        <div class="table-responsive">
+          <table class="table table-sm mb-0 align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>Part</th>
+                <th>Quantity</th>
+                <th>Unit cost</th>
+                <th>Total</th>
+                <th>Issued</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{ if .Data.SparePartUsages }}
+                {{ range .Data.SparePartUsages }}
+                <tr>
+                  <td>#{{ .SparePartID }}</td>
+                  <td>{{ .Quantity }}</td>
+                  <td>{{ .UnitCost }}</td>
+                  <td>{{ .TotalCost }}</td>
+                  <td>
+                    {{ if .IssuedAt }}{{ .IssuedAt.Format "2006-01-02 15:04" }}{{ else }}
+                    <form action="/cmms/work-order-spare-parts/{{ .ID }}/issue" method="POST">
+                      <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
+                      <button class="btn btn-sm btn-outline-primary" type="submit">Issue</button>
+                    </form>
+                    {{ end }}
+                  </td>
+                </tr>
+                {{ end }}
+              {{ else }}
+                <tr><td colspan="5" class="text-center text-muted py-3">No spare parts recorded.</td></tr>
+              {{ end }}
+            </tbody>
+          </table>
+        </div>
+        {{ if .Data.SpareParts }}
+        <div class="card-body">
+          <form action="/cmms/work-orders/{{ .Data.WorkOrder.ID }}/spare-parts" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+            <div class="row g-2 align-items-end">
+              <div class="col-md-5">
+                <label class="form-label" for="spare_part_id">Spare part</label>
+                <select id="spare_part_id" name="spare_part_id" class="form-select">
+                  {{ range .Data.SpareParts }}<option value="{{ .ID }}">{{ .Code }} - {{ .Name }}</option>{{ end }}
+                </select>
+              </div>
+              <div class="col-md-2">
+                <label class="form-label" for="quantity">Quantity</label>
+                <input type="number" step="any" min="0" id="quantity" name="quantity" class="form-input" value="1" required>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label" for="unit_cost">Unit cost</label>
+                <input type="number" step="0.01" min="0" id="unit_cost" name="unit_cost" class="form-input" value="0">
+              </div>
+              <div class="col-md-2">
+                <button class="btn btn-primary" type="submit">Add</button>
+              </div>
+            </div>
+          </form>
+        </div>
+        {{ end }}
+      </div>
     </div>
     
     <div class="col-lg-4">

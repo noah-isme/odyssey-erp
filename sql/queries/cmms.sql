@@ -284,10 +284,11 @@ SELECT id, work_order_id, spare_part_id, quantity, unit_cost, total_cost, issued
 FROM work_order_spare_parts
 WHERE work_order_id = $1;
 
--- name: IssueWorkOrderSparePart :exec
+-- name: IssueWorkOrderSparePart :execrows
+-- Issues a usage once; a second call matches no row.
 UPDATE work_order_spare_parts
 SET issued_at = NOW(), issued_by = $2
-WHERE id = $1;
+WHERE id = $1 AND issued_at IS NULL;
 
 -- =============================================================================
 -- METER READINGS

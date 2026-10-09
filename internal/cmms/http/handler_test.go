@@ -32,6 +32,8 @@ func TestRoutesRequireAuthenticatedPermission(t *testing.T) {
 		{http.MethodPost, "/cmms/work-orders/1/close"},
 		{http.MethodGet, "/cmms/assets/1/meter-readings"},
 		{http.MethodPost, "/cmms/assets/1/meter-readings"},
+		{http.MethodPost, "/cmms/work-orders/1/spare-parts"},
+		{http.MethodPost, "/cmms/work-order-spare-parts/1/issue"},
 	}
 	for _, route := range routes {
 		t.Run(route.method+" "+route.path, func(t *testing.T) {
@@ -57,6 +59,8 @@ func TestWriteRoutesRequireWritePermission(t *testing.T) {
 		"/cmms/work-orders/1/complete",
 		"/cmms/work-orders/1/close",
 		"/cmms/assets/1/meter-readings",
+		"/cmms/work-orders/1/spare-parts",
+		"/cmms/work-order-spare-parts/1/issue",
 	} {
 		t.Run(path, func(t *testing.T) {
 			rec := httptest.NewRecorder()

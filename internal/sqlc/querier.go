@@ -672,7 +672,8 @@ type Querier interface {
 	// =============================================================================
 	InsertWorkOrderTask(ctx context.Context, arg InsertWorkOrderTaskParams) (int64, error)
 	IsAPPaymentPosted(ctx context.Context, arg IsAPPaymentPostedParams) (bool, error)
-	IssueWorkOrderSparePart(ctx context.Context, arg IssueWorkOrderSparePartParams) error
+	// Issues a usage once; a second call matches no row.
+	IssueWorkOrderSparePart(ctx context.Context, arg IssueWorkOrderSparePartParams) (int64, error)
 	KpiSummary(ctx context.Context, arg KpiSummaryParams) (KpiSummaryRow, error)
 	ListAPDebitNoteAllocations(ctx context.Context, apDebitNoteID int64) ([]ApDebitNoteAllocation, error)
 	ListAPDebitNoteLines(ctx context.Context, apDebitNoteID int64) ([]ApDebitNoteLine, error)

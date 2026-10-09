@@ -422,10 +422,26 @@ func (s *Service) ListSpareParts(ctx context.Context, companyID int64) ([]SpareP
 	return s.repo.ListSpareParts(ctx, companyID)
 }
 
-// AddSparePartToWorkOrder adds a spare part to a work order.
+// AddSparePartToWorkOrder adds a spare part of the company to an open work
+// order of the same company. No stock movement is created:
+// work_order_spare_parts carries no stock columns.
 func (s *Service) AddSparePartToWorkOrder(ctx context.Context, req AddSparePartRequest) (WorkOrderSparePart, error) {
 	if err := req.Validate(); err != nil {
 		return WorkOrderSparePart{}, err
+	}
+	wo, err := s.workOrderForCompany(ctx, req.WorkOrderID, req.CompanyID)
+	if err != nil {
+		return WorkOrderSparePart{}, err
+	}
+	if !workOrderOpen(wo.Status) {
+		return WorkOrderSparePart{}, ErrWorkOrderNotOpen
+	}
+	part, err := s.repo.GetSparePart(ctx, req.SparePartID)
+	if err != nil {
+		return WorkOrderSparePart{}, err
+	}
+	if part.CompanyID != req.CompanyID {
+		return WorkOrderSparePart{}, ErrSparePartNotFound
 	}
 	usage, err := s.repo.InsertWorkOrderSparePart(ctx, req)
 	if err != nil {
@@ -435,14 +451,49 @@ func (s *Service) AddSparePartToWorkOrder(ctx context.Context, req AddSparePartR
 	return usage, nil
 }
 
-// IssueSparePart issues a spare part from inventory.
-func (s *Service) IssueSparePart(ctx context.Context, id int64, actorID int64) (WorkOrderSparePart, error) {
-	usage, err := s.repo.IssueSparePart(ctx, id, actorID)
+// ListWorkOrderSpareParts returns the spare-part usages of a work order.
+func (s *Service) ListWorkOrderSpareParts(ctx context.Context, workOrderID int64) ([]WorkOrderSparePart, error) {
+	return s.repo.ListWorkOrderSpareParts(ctx, workOrderID)
+}
+
+// IssueSparePart marks a spare-part usage of an open work order of the
+// company as issued by actorID. A usage that is already issued is returned
+// unchanged with ErrSparePartAlreadyIssued.
+func (s *Service) IssueSparePart(ctx context.Context, id, companyID, actorID int64) (WorkOrderSparePart, error) {
+	if actorID <= 0 {
+		return WorkOrderSparePart{}, errors.New("cmms: actor id required")
+	}
+	usage, err := s.repo.GetWorkOrderSparePart(ctx, id)
 	if err != nil {
 		return WorkOrderSparePart{}, err
 	}
-	s.record(ctx, actorID, AuditEntityWorkOrderSparePart, "issue", usage.ID, map[string]any{"work_order_id": usage.WorkOrderID})
-	return usage, nil
+	wo, err := s.workOrderForCompany(ctx, usage.WorkOrderID, companyID)
+	if err != nil {
+		if errors.Is(err, ErrWorkOrderNotFound) {
+			return WorkOrderSparePart{}, ErrSparePartUsageNotFound
+		}
+		return WorkOrderSparePart{}, err
+	}
+	if usage.IssuedAt != nil {
+		return usage, ErrSparePartAlreadyIssued
+	}
+	if !workOrderOpen(wo.Status) {
+		return usage, ErrWorkOrderNotOpen
+	}
+	issued, err := s.repo.IssueSparePart(ctx, id, actorID)
+	if err != nil {
+		return WorkOrderSparePart{}, err
+	}
+	if !issued {
+		return usage, ErrSparePartAlreadyIssued
+	}
+	s.record(ctx, actorID, AuditEntityWorkOrderSparePart, "issue", id, map[string]any{"work_order_id": usage.WorkOrderID})
+	return s.repo.GetWorkOrderSparePart(ctx, id)
+}
+
+// workOrderOpen reports whether spare parts may still be added or issued.
+func workOrderOpen(status Status) bool {
+	return status != WorkOrderStatusClosed && status != WorkOrderStatusCancelled
 }
 
 // UpdateWorkOrderRequest defines the payload for updating a work order.
@@ -646,6 +697,7 @@ func (r CreateSparePartRequest) Validate() error {
 
 // AddSparePartRequest defines the payload for adding a spare part to a work order.
 type AddSparePartRequest struct {
+	CompanyID   int64 // work order and spare part must belong to it
 	WorkOrderID int64
 	SparePartID int64
 	Quantity    float64
@@ -654,6 +706,12 @@ type AddSparePartRequest struct {
 }
 
 func (r AddSparePartRequest) Validate() error {
+	if r.CompanyID <= 0 {
+		return errors.New("cmms: company id required")
+	}
+	if math.IsNaN(r.Quantity) || math.IsInf(r.Quantity, 0) || math.IsNaN(r.UnitCost) || math.IsInf(r.UnitCost, 0) || r.UnitCost < 0 {
+		return errors.New("cmms: quantity and unit cost must be finite and unit cost non-negative")
+	}
 	if r.WorkOrderID <= 0 {
 		return errors.New("cmms: work order id required")
 	}

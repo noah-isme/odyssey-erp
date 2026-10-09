@@ -313,6 +313,11 @@ var (
 	ErrAssetNotFound     = errors.New("cmms: asset not found")
 	ErrLocationNotFound  = errors.New("cmms: location not found")
 	ErrInvalidStatus     = errors.New("cmms: invalid status transition")
+
+	ErrSparePartNotFound      = errors.New("cmms: spare part not found")
+	ErrSparePartUsageNotFound = errors.New("cmms: work order spare part not found")
+	ErrSparePartAlreadyIssued = errors.New("cmms: spare part already issued")
+	ErrWorkOrderNotOpen       = errors.New("cmms: work order is closed or cancelled")
 )
 
 // NormaliseStatus uppercases and trims the provided status string.

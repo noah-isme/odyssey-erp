@@ -502,7 +502,7 @@ func (r *Repository) GetSparePart(ctx context.Context, id int64) (SparePart, err
 	row, err := r.queries.GetSparePart(ctx, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return SparePart{}, errors.New("cmms: spare part not found")
+			return SparePart{}, ErrSparePartNotFound
 		}
 		return SparePart{}, err
 	}
@@ -543,7 +543,7 @@ func (r *Repository) GetWorkOrderSparePart(ctx context.Context, id int64) (WorkO
 	row, err := r.queries.GetWorkOrderSparePart(ctx, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return WorkOrderSparePart{}, errors.New("cmms: work order spare part not found")
+			return WorkOrderSparePart{}, ErrSparePartUsageNotFound
 		}
 		return WorkOrderSparePart{}, err
 	}
@@ -562,15 +562,17 @@ func (r *Repository) ListWorkOrderSpareParts(ctx context.Context, workOrderID in
 	return items, nil
 }
 
-func (r *Repository) IssueSparePart(ctx context.Context, id int64, actorID int64) (WorkOrderSparePart, error) {
-	err := r.queries.IssueWorkOrderSparePart(ctx, sqlc.IssueWorkOrderSparePartParams{
+// IssueSparePart marks a usage issued by actorID. It reports false when the
+// usage was already issued (or does not exist).
+func (r *Repository) IssueSparePart(ctx context.Context, id int64, actorID int64) (bool, error) {
+	n, err := r.queries.IssueWorkOrderSparePart(ctx, sqlc.IssueWorkOrderSparePartParams{
 		ID:       id,
 		IssuedBy: pgtype.Int8{Int64: actorID, Valid: true},
 	})
 	if err != nil {
-		return WorkOrderSparePart{}, err
+		return false, err
 	}
-	return r.GetWorkOrderSparePart(ctx, id)
+	return n == 1, nil
 }
 
 // =============================================================================

@@ -952,10 +952,10 @@ func (q *Queries) InsertWorkOrderTask(ctx context.Context, arg InsertWorkOrderTa
 	return id, err
 }
 
-const issueWorkOrderSparePart = `-- name: IssueWorkOrderSparePart :exec
+const issueWorkOrderSparePart = `-- name: IssueWorkOrderSparePart :execrows
 UPDATE work_order_spare_parts
 SET issued_at = NOW(), issued_by = $2
-WHERE id = $1
+WHERE id = $1 AND issued_at IS NULL
 `
 
 type IssueWorkOrderSparePartParams struct {
@@ -963,9 +963,13 @@ type IssueWorkOrderSparePartParams struct {
 	IssuedBy pgtype.Int8 `json:"issued_by"`
 }
 
-func (q *Queries) IssueWorkOrderSparePart(ctx context.Context, arg IssueWorkOrderSparePartParams) error {
-	_, err := q.db.Exec(ctx, issueWorkOrderSparePart, arg.ID, arg.IssuedBy)
-	return err
+// Issues a usage once; a second call matches no row.
+func (q *Queries) IssueWorkOrderSparePart(ctx context.Context, arg IssueWorkOrderSparePartParams) (int64, error) {
+	result, err := q.db.Exec(ctx, issueWorkOrderSparePart, arg.ID, arg.IssuedBy)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const listAllDuePMSchedules = `-- name: ListAllDuePMSchedules :many

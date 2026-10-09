@@ -51,7 +51,9 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.With(h.rbac.RequireAny(shared.PermCMMSWorkOrderExecute)).Post("/{id}/status", h.updateWorkOrderStatus)
 		r.With(h.rbac.RequireAny(shared.PermCMMSWorkOrderExecute)).Post("/{id}/complete", h.completeWorkOrder)
 		r.With(h.rbac.RequireAny(shared.PermCMMSWorkOrderClose)).Post("/{id}/close", h.closeWorkOrder)
+		r.With(h.rbac.RequireAny(shared.PermCMMSWorkOrderExecute)).Post("/{id}/spare-parts", h.addWorkOrderSparePart)
 	})
+	r.With(h.rbac.RequireAny(shared.PermCMMSWorkOrderExecute)).Post("/work-order-spare-parts/{id}/issue", h.issueWorkOrderSparePart)
 
 	// Assets
 	r.Route("/assets", func(r chi.Router) {
@@ -210,8 +212,18 @@ func (h *Handler) getWorkOrder(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
+	usages, err := h.service.ListWorkOrderSpareParts(r.Context(), wo.ID)
+	if err != nil {
+		h.logger.Error("list work order spare parts", slog.Any("error", err))
+	}
+	parts, err := h.service.ListSpareParts(r.Context(), wo.CompanyID)
+	if err != nil {
+		h.logger.Error("list spare parts", slog.Any("error", err))
+	}
 	h.render(w, r, "pages/cmms/work_order_detail.html", "Work Order "+wo.Number, map[string]any{
-		"WorkOrder": wo,
+		"WorkOrder":       wo,
+		"SparePartUsages": usages,
+		"SpareParts":      parts,
 		// COMPLETED and CLOSED have their own actions (complete, close).
 		"Statuses": []cmms.Status{
 			cmms.WorkOrderStatusPlanned, cmms.WorkOrderStatusScheduled, cmms.WorkOrderStatusInProgress,
@@ -277,6 +289,61 @@ func (h *Handler) closeWorkOrder(w http.ResponseWriter, r *http.Request) {
 	h.redirectWithFlash(w, r, path, "success", "Work order closed")
 }
 
+func (h *Handler) addWorkOrderSparePart(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+	id := parseInt64(chi.URLParam(r, "id"))
+	path := "/cmms/work-orders/" + strconv.FormatInt(id, 10)
+	quantity, qErr := strconv.ParseFloat(strings.TrimSpace(r.PostFormValue("quantity")), 64)
+	unitCost := 0.0
+	var cErr error
+	if raw := strings.TrimSpace(r.PostFormValue("unit_cost")); raw != "" {
+		unitCost, cErr = strconv.ParseFloat(raw, 64)
+	}
+	if qErr != nil || cErr != nil {
+		h.redirectWithFlash(w, r, path, "danger", "Quantity and unit cost must be numbers.")
+		return
+	}
+	req := cmms.AddSparePartRequest{
+		CompanyID:   currentCompany(r),
+		WorkOrderID: id,
+		SparePartID: parseInt64(r.PostFormValue("spare_part_id")),
+		Quantity:    quantity,
+		UnitCost:    unitCost,
+		ActorID:     currentUser(r),
+	}
+	if _, err := h.service.AddSparePartToWorkOrder(r.Context(), req); err != nil {
+		h.logger.Warn("add work order spare part", slog.Int64("work_order_id", id), slog.Any("error", err))
+		h.redirectWithFlash(w, r, path, "danger", cmmsErrorMessage(err))
+		return
+	}
+	h.redirectWithFlash(w, r, path, "success", "Spare part added")
+}
+
+func (h *Handler) issueWorkOrderSparePart(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+	id := parseInt64(chi.URLParam(r, "id"))
+	usage, err := h.service.IssueSparePart(r.Context(), id, currentCompany(r), currentUser(r))
+	path := "/cmms/work-orders"
+	if usage.WorkOrderID > 0 {
+		path += "/" + strconv.FormatInt(usage.WorkOrderID, 10)
+	}
+	switch {
+	case errors.Is(err, cmms.ErrSparePartAlreadyIssued):
+		h.redirectWithFlash(w, r, path, "info", "Spare part was already issued")
+	case err != nil:
+		h.logger.Warn("issue work order spare part", slog.Int64("usage_id", id), slog.Any("error", err))
+		h.redirectWithFlash(w, r, path, "danger", cmmsErrorMessage(err))
+	default:
+		h.redirectWithFlash(w, r, path, "success", "Spare part issued")
+	}
+}
+
 // cmmsErrorMessage maps CMMS sentinel errors to flash messages.
 func cmmsErrorMessage(err error) string {
 	switch {
@@ -286,6 +353,12 @@ func cmmsErrorMessage(err error) string {
 		return "Work order not found."
 	case errors.Is(err, cmms.ErrAssetNotFound):
 		return "Asset not found."
+	case errors.Is(err, cmms.ErrSparePartNotFound):
+		return "Spare part not found."
+	case errors.Is(err, cmms.ErrSparePartUsageNotFound):
+		return "Work-order spare part not found."
+	case errors.Is(err, cmms.ErrWorkOrderNotOpen):
+		return "The work order is closed or cancelled."
 	}
 	return shared.UserSafeMessage(err)
 }
