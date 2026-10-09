@@ -161,7 +161,24 @@ func (s *Service) PostAdjustment(ctx context.Context, input AdjustmentInput) (St
 		entry, err = s.postAdjustmentInternal(ctx, tx, input)
 		return err
 	})
-	return entry, err
+	if err != nil {
+		return StockCardEntry{}, err
+	}
+	if s.audit != nil {
+		_ = s.audit.Record(ctx, shared.AuditLog{
+			ActorID:  input.ActorID,
+			Action:   fmt.Sprintf("inventory:%s", TransactionTypeAdjust),
+			Entity:   "inventory_tx",
+			EntityID: fmt.Sprintf("%s:%d", TransactionTypeAdjust, input.ProductID),
+			Meta: map[string]any{
+				"warehouse_id": input.WarehouseID,
+				"product_id":   input.ProductID,
+				"qty":          input.Qty,
+				"note":         input.Note,
+			},
+		})
+	}
+	return entry, nil
 }
 
 // PostAdjustmentTx applies an adjustment using a caller-owned transaction.
