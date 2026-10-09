@@ -561,6 +561,42 @@ jobs:
             exit 1
           }
 
+          # Document blobs live in one directory shared by the web process
+          # and the worker, outside the immutable releases. The operator
+          # creates it as root; this script only verifies it, before
+          # migrating or restarting anything. systemd units run as odyssey,
+          # so the directory must be odyssey:odyssey 750; supervised
+          # processes run as this deploy account, which must be able to
+          # write it (checked again right before they start).
+          document_storage_dir="${DOCUMENT_STORAGE_DIR:-}"
+          [[ "$document_storage_dir" == /* ]] || {
+            echo 'staging must set DOCUMENT_STORAGE_DIR to an absolute path in /opt/odyssey-staging/.env' >&2
+            exit 1
+          }
+          case "${document_storage_dir%/}/" in
+            /opt/odyssey-staging/releases/*|/opt/odyssey-staging/current/*)
+              echo "DOCUMENT_STORAGE_DIR=$document_storage_dir must be outside the release directories" >&2
+              exit 1
+              ;;
+          esac
+          test -d "$document_storage_dir" || {
+            echo "DOCUMENT_STORAGE_DIR=$document_storage_dir does not exist; create it as root before deploying" >&2
+            exit 1
+          }
+          if sudo -n -l systemctl restart odyssey-staging.service >/dev/null 2>&1 && \
+             sudo -n -l systemctl restart odyssey-staging-worker.service >/dev/null 2>&1; then
+            document_storage_identity=$(stat -c '%U:%G %a' "$document_storage_dir")
+            [[ "$document_storage_identity" == 'odyssey:odyssey 750' ]] || {
+              echo "DOCUMENT_STORAGE_DIR=$document_storage_dir is $document_storage_identity, want odyssey:odyssey 750" >&2
+              exit 1
+            }
+          else
+            test -w "$document_storage_dir" || {
+              echo "DOCUMENT_STORAGE_DIR=$document_storage_dir is not writable by $(id -un) for supervised processes" >&2
+              exit 1
+            }
+          fi
+
           "$release/migrate" \
             -path "$release/migrations" \
             -database "$PG_DSN" \
@@ -607,6 +643,10 @@ jobs:
              sudo -n systemctl restart odyssey-staging-worker.service >/dev/null 2>&1; then
             runtime_mode=systemd
           else
+            test -w "$document_storage_dir" || {
+              echo "DOCUMENT_STORAGE_DIR=$document_storage_dir is not writable by $(id -un); refusing to start supervised processes" >&2
+              exit 1
+            }
             sudo -n systemctl stop odyssey-staging.service >/dev/null 2>&1 || true
             sudo -n systemctl stop odyssey-staging-worker.service >/dev/null 2>&1 || true
             runtime_mode=supervised-process
