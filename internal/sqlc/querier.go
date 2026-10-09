@@ -342,7 +342,7 @@ type Querier interface {
 	// =============================================================================
 	// DOCUMENT REVIEW STEPS
 	// =============================================================================
-	GetDocumentReviewStepsForDocument(ctx context.Context, documentID int64) ([]DocumentReviewStep, error)
+	GetDocumentReviewStep(ctx context.Context, id int64) (DocumentReviewStep, error)
 	GetDocumentSignatureChallenge(ctx context.Context, challengeID pgtype.UUID) (GetDocumentSignatureChallengeRow, error)
 	GetDocumentVersion(ctx context.Context, id int64) (GetDocumentVersionRow, error)
 	GetDriver(ctx context.Context, id int64) (Driver, error)
@@ -809,6 +809,8 @@ type Querier interface {
 	LoadPeriodByLedgerID(ctx context.Context, periodID int64) (LoadPeriodByLedgerIDRow, error)
 	LoadPeriodForUpdate(ctx context.Context, id int64) (LoadPeriodForUpdateRow, error)
 	LockChecklistItemRun(ctx context.Context, id int64) (int64, error)
+	// Serialises review transitions on one version within a transaction.
+	LockDocumentVersionStatus(ctx context.Context, id int64) (string, error)
 	LookupAccountID(ctx context.Context, code string) (int64, error)
 	MarkChallengeUsed(ctx context.Context, id int64) error
 	MarkDocumentRetentionExpired(ctx context.Context, id int64) error

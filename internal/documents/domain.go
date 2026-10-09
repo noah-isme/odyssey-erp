@@ -490,6 +490,18 @@ var (
 	ErrAccessDenied            = errors.New("documents: access denied")
 	ErrVersionConflict         = errors.New("documents: version conflict (optimistic lock)")
 	ErrNoOpenDisposition       = errors.New("documents: no open disposition request")
+	// ErrReviewStepNotFound reports an unknown review step id.
+	ErrReviewStepNotFound = fmt.Errorf("documents: review step not found: %w", shared.ErrNotFound)
+	// ErrReviewNotOpen reports a review action on a version or step in the
+	// wrong state (not DRAFT to submit, not UNDER_REVIEW/PENDING to decide).
+	ErrReviewNotOpen = fmt.Errorf("documents: review is not open for this version: %w", shared.ErrConflict)
+	// ErrReviewInProgress reports a version that already has review steps.
+	ErrReviewInProgress = fmt.Errorf("documents: version already submitted for review: %w", shared.ErrConflict)
+	// ErrReviewAlreadyDecided reports a second decision by the same reviewer.
+	ErrReviewAlreadyDecided = fmt.Errorf("documents: reviewer already recorded a decision on this step: %w", shared.ErrDuplicate)
+	// ErrInvalidReviewDecision reports a step, decision or reviewer that does
+	// not fit the version under review.
+	ErrInvalidReviewDecision = fmt.Errorf("documents: invalid review decision: %w", shared.ErrInvalidInput)
 	// ErrACLExists reports a grant that duplicates an existing entry.
 	ErrACLExists = fmt.Errorf("documents: access entry already exists: %w", shared.ErrDuplicate)
 	// ErrInvalidACL reports an access entry with missing or unknown fields.

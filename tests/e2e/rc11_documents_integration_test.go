@@ -361,3 +361,128 @@ func TestRC11DocumentACLRoute(t *testing.T) {
 	require.Equal(t, "danger", res.flash.Kind)
 	require.Zero(t, aclRows(foreignID))
 }
+
+func TestRC11DocumentReviewFlow(t *testing.T) {
+	p, f := newRC11Fixture(t)
+	h := newRC11DocsHarness(t, p, f)
+	ctx := context.Background()
+
+	status := func(versionID int64) string {
+		var s string
+		require.NoError(t, p.QueryRow(ctx, `SELECT status FROM document_versions WHERE id=$1`, versionID).Scan(&s))
+		return s
+	}
+	newVersion := func(title string) (int64, int64) {
+		documentID := h.createDocument(title)
+		res, versionID := h.uploadVersion(documentID, []byte("review evidence "+title))
+		require.Equal(t, http.StatusSeeOther, res.status)
+		require.NotZero(t, versionID, "version upload flash %+v", res.flash)
+		return documentID, versionID
+	}
+
+	documentID, versionID := newVersion("RC11 review " + f.Suffix)
+	docPath := fmt.Sprintf("/documents/library/%d", documentID)
+	versionsPath := docPath + "/versions"
+	versionPath := fmt.Sprintf("%s/%d", versionsPath, versionID)
+	sequence := []string{status(versionID)}
+
+	// Submit: one default PENDING step for this version.
+	submit := h.postForm(versionPath+"/submit-review", url.Values{"csrf_token": {h.fetchCSRF(versionsPath)}})
+	require.Equal(t, http.StatusSeeOther, submit.status)
+	require.Equal(t, versionsPath, submit.location)
+	require.NotNil(t, submit.flash)
+	require.Equal(t, "success", submit.flash.Kind, submit.flash.Message)
+	sequence = append(sequence, status(versionID))
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM document_review_steps WHERE document_version_id=$1`, versionID))
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM document_review_steps WHERE document_version_id=$1 AND company_id=$2
+		AND step_order=1 AND name='Review' AND required_approvals=1 AND status='PENDING'`, versionID, f.CompanyID))
+
+	// Submitting again is refused: the version is no longer DRAFT.
+	again := h.postForm(versionPath+"/submit-review", url.Values{"csrf_token": {h.fetchCSRF(versionsPath)}})
+	require.Equal(t, http.StatusSeeOther, again.status)
+	require.NotNil(t, again.flash)
+	require.Equal(t, "danger", again.flash.Kind)
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM document_review_steps WHERE document_version_id=$1`, versionID))
+
+	// The strict test reads the step id from the database.
+	var stepID int64
+	require.NoError(t, p.QueryRow(ctx, `SELECT id FROM document_review_steps WHERE document_version_id=$1 ORDER BY step_order LIMIT 1`, versionID).Scan(&stepID))
+
+	// A step of another version cannot be decided through this version.
+	_, otherVersionID := newVersion("RC11 review other " + f.Suffix)
+	otherDocPath := fmt.Sprintf("/documents/library/%d", h.documentOf(otherVersionID))
+	otherSubmit := h.postForm(fmt.Sprintf("%s/versions/%d/submit-review", otherDocPath, otherVersionID), url.Values{"csrf_token": {h.fetchCSRF(otherDocPath + "/versions")}})
+	require.Equal(t, http.StatusSeeOther, otherSubmit.status)
+	var otherStepID int64
+	require.NoError(t, p.QueryRow(ctx, `SELECT id FROM document_review_steps WHERE document_version_id=$1`, otherVersionID).Scan(&otherStepID))
+	crossed := h.postForm(versionPath+"/review", url.Values{
+		"csrf_token": {h.fetchCSRF(versionsPath)}, "step_id": {strconv.FormatInt(otherStepID, 10)},
+		"decision": {"APPROVED"}, "comments": {"wrong version"},
+	})
+	require.Equal(t, http.StatusSeeOther, crossed.status)
+	require.NotNil(t, crossed.flash)
+	require.Equal(t, "danger", crossed.flash.Kind)
+	require.Equal(t, "PENDING", h.stepStatus(otherStepID))
+	require.Zero(t, h.count(`SELECT COUNT(*) FROM document_review_decisions WHERE review_step_id=$1`, otherStepID))
+
+	// An unknown decision is refused.
+	bogus := h.postForm(versionPath+"/review", url.Values{
+		"csrf_token": {h.fetchCSRF(versionsPath)}, "step_id": {strconv.FormatInt(stepID, 10)},
+		"decision": {"MAYBE"}, "comments": {"?"},
+	})
+	require.Equal(t, http.StatusSeeOther, bogus.status)
+	require.NotNil(t, bogus.flash)
+	require.Equal(t, "danger", bogus.flash.Kind)
+
+	// Approve exactly as the strict test does.
+	review := h.postForm(versionPath+"/review", url.Values{
+		"csrf_token": {h.fetchCSRF(versionsPath)},
+		"step_id":    {strconv.FormatInt(stepID, 10)},
+		"decision":   {"APPROVED"},
+		"comments":   {"v0.10-core certification review"},
+	})
+	require.Equal(t, http.StatusSeeOther, review.status)
+	require.Equal(t, versionsPath, review.location)
+	require.NotNil(t, review.flash)
+	require.Equal(t, "success", review.flash.Kind, review.flash.Message)
+	sequence = append(sequence, status(versionID))
+	require.Equal(t, []string{"DRAFT", "UNDER_REVIEW", "APPROVED"}, sequence)
+	require.Equal(t, "APPROVED", h.stepStatus(stepID))
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM document_review_decisions WHERE review_step_id=$1 AND reviewer_id=$2 AND decision='APPROVED' AND company_id=$3`, stepID, f.AdminID, f.CompanyID))
+
+	// A second decision by the same reviewer adds nothing.
+	second := h.postForm(versionPath+"/review", url.Values{
+		"csrf_token": {h.fetchCSRF(versionsPath)}, "step_id": {strconv.FormatInt(stepID, 10)},
+		"decision": {"APPROVED"}, "comments": {"again"},
+	})
+	require.Equal(t, http.StatusSeeOther, second.status)
+	require.NotNil(t, second.flash)
+	require.Equal(t, "danger", second.flash.Kind)
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM document_review_decisions WHERE review_step_id=$1`, stepID))
+	require.Equal(t, "APPROVED", status(versionID))
+
+	// Rejecting the other version marks it REJECTED.
+	reject := h.postForm(fmt.Sprintf("%s/versions/%d/review", otherDocPath, otherVersionID), url.Values{
+		"csrf_token": {h.fetchCSRF(otherDocPath + "/versions")}, "step_id": {strconv.FormatInt(otherStepID, 10)},
+		"decision": {"REJECTED"}, "comments": {"not ready"},
+	})
+	require.Equal(t, http.StatusSeeOther, reject.status)
+	require.NotNil(t, reject.flash)
+	require.Equal(t, "success", reject.flash.Kind, reject.flash.Message)
+	require.Equal(t, "REJECTED", status(otherVersionID))
+	require.Equal(t, "REJECTED", h.stepStatus(otherStepID))
+}
+
+func (h *rc11DocsHarness) documentOf(versionID int64) int64 {
+	h.t.Helper()
+	var id int64
+	require.NoError(h.t, h.pool.QueryRow(context.Background(), `SELECT document_id FROM document_versions WHERE id=$1`, versionID).Scan(&id))
+	return id
+}
+
+func (h *rc11DocsHarness) stepStatus(stepID int64) string {
+	h.t.Helper()
+	var s string
+	require.NoError(h.t, h.pool.QueryRow(context.Background(), `SELECT status FROM document_review_steps WHERE id=$1`, stepID).Scan(&s))
+	return s
+}

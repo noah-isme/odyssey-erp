@@ -752,8 +752,7 @@ func (r *Repository) InsertACL(ctx context.Context, req CreateACLRequest) (Docum
 	if err != nil {
 		// No row: the NOT EXISTS guard found the same grant. 23505: the
 		// table's own UNIQUE key (classification grants) did.
-		var pgErr *pgconn.PgError
-		if errors.Is(err, pgx.ErrNoRows) || (errors.As(err, &pgErr) && pgErr.Code == "23505") {
+		if errors.Is(err, pgx.ErrNoRows) || isUniqueViolation(err) {
 			return DocumentACL{}, ErrACLExists
 		}
 		return DocumentACL{}, err
@@ -878,32 +877,45 @@ func (r *Repository) ListLinks(ctx context.Context, documentVersionID int64) ([]
 
 // Review Steps
 
-func (r *Repository) GetReviewStepsForDocument(ctx context.Context, documentID int64) ([]DocumentReviewStep, error) {
-	rows, err := r.queries.GetDocumentReviewStepsForDocument(ctx, documentID)
+// GetReviewStep loads one review step.
+func (r *Repository) GetReviewStep(ctx context.Context, id int64) (DocumentReviewStep, error) {
+	row, err := r.queries.GetDocumentReviewStep(ctx, id)
 	if err != nil {
-		return nil, err
-	}
-	items := make([]DocumentReviewStep, len(rows))
-	for i, row := range rows {
-		var dueAt *time.Time
-		if row.DueAt.Valid {
-			dueAt = &row.DueAt.Time
+		if errors.Is(err, pgx.ErrNoRows) {
+			return DocumentReviewStep{}, ErrReviewStepNotFound
 		}
-		items[i] = DocumentReviewStep{
-			ID:                row.ID,
-			CompanyID:         row.CompanyID,
-			DocumentVersionID: row.DocumentVersionID,
-			StepOrder:         int(row.StepOrder),
-			Name:              row.Name,
-			ReviewerRoleID:    int64Ptr(row.ReviewerRoleID),
-			ReviewerUserID:    int64Ptr(row.ReviewerUserID),
-			RequiredApprovals: int(row.RequiredApprovals),
-			Status:            row.Status,
-			DueAt:             dueAt,
-			CreatedAt:         row.CreatedAt.Time,
-		}
+		return DocumentReviewStep{}, err
 	}
-	return items, nil
+	var dueAt *time.Time
+	if row.DueAt.Valid {
+		dueAt = &row.DueAt.Time
+	}
+	return DocumentReviewStep{
+		ID:                row.ID,
+		CompanyID:         row.CompanyID,
+		DocumentVersionID: row.DocumentVersionID,
+		StepOrder:         int(row.StepOrder),
+		Name:              row.Name,
+		ReviewerRoleID:    int64Ptr(row.ReviewerRoleID),
+		ReviewerUserID:    int64Ptr(row.ReviewerUserID),
+		RequiredApprovals: int(row.RequiredApprovals),
+		Status:            row.Status,
+		DueAt:             dueAt,
+		CreatedAt:         row.CreatedAt.Time,
+	}, nil
+}
+
+// LockVersionStatus locks a version row for the rest of the transaction
+// and returns its current status.
+func (r *Repository) LockVersionStatus(ctx context.Context, versionID int64) (Status, error) {
+	status, err := r.queries.LockDocumentVersionStatus(ctx, versionID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", ErrDocumentVersionNotFound
+		}
+		return "", err
+	}
+	return Status(status), nil
 }
 
 func (r *Repository) InsertReviewStep(ctx context.Context, step DocumentReviewStep) error {
@@ -918,7 +930,7 @@ func (r *Repository) InsertReviewStep(ctx context.Context, step DocumentReviewSt
 	if step.DueAt != nil {
 		dueAt = pgtype.Timestamptz{Time: *step.DueAt, Valid: true}
 	}
-	return r.queries.InsertDocumentReviewStep(ctx, sqlc.InsertDocumentReviewStepParams{
+	err := r.queries.InsertDocumentReviewStep(ctx, sqlc.InsertDocumentReviewStepParams{
 		CompanyID:         step.CompanyID,
 		DocumentVersionID: step.DocumentVersionID,
 		StepOrder:         int32(step.StepOrder),
@@ -929,6 +941,10 @@ func (r *Repository) InsertReviewStep(ctx context.Context, step DocumentReviewSt
 		Status:            step.Status,
 		DueAt:             dueAt,
 	})
+	if isUniqueViolation(err) {
+		return ErrReviewInProgress
+	}
+	return err
 }
 
 func (r *Repository) UpdateReviewStepStatus(ctx context.Context, stepID int64, decision string, decidedBy int64) error {
@@ -953,6 +969,9 @@ func (r *Repository) InsertReviewDecision(ctx context.Context, req ReviewDecisio
 		Comment:      pgtype.Text{String: req.Comments, Valid: req.Comments != ""},
 	})
 	if err != nil {
+		if isUniqueViolation(err) {
+			return DocumentReviewDecision{}, ErrReviewAlreadyDecided
+		}
 		return DocumentReviewDecision{}, err
 	}
 	return DocumentReviewDecision{
@@ -1020,6 +1039,28 @@ func (r *Repository) RecordAccessEvent(ctx context.Context, event DocumentAccess
 }
 
 // Helpers
+
+// InTx runs fn with a Repository whose queries share one transaction,
+// committing when fn returns nil and rolling back otherwise.
+func (r *Repository) InTx(ctx context.Context, fn func(tx *Repository) error) error {
+	if r.pool == nil {
+		return errors.New("documents: repository has no connection pool")
+	}
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := fn(&Repository{pool: r.pool, queries: r.queries.WithTx(tx)}); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
+}
 
 // parseClientAddr returns the IP of "ip" or "ip:port"; the zero Addr (stored
 // as NULL) when neither form parses.

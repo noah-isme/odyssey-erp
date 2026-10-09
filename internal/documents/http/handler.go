@@ -58,6 +58,8 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Get("/{id}/versions", h.listVersions)
 		r.With(h.rbac.RequireAny(shared.PermDocumentsVersion)).Post("/{id}/versions", h.createVersion)
 		r.Get("/{id}/versions/{versionID}/download", h.downloadVersion)
+		r.With(h.rbac.RequireAny(shared.PermDocumentsVersion, shared.PermDocumentsReview)).Post("/{id}/versions/{versionID}/submit-review", h.submitReview)
+		r.With(h.rbac.RequireAny(shared.PermDocumentsReview, shared.PermDocumentsApprove)).Post("/{id}/versions/{versionID}/review", h.recordReview)
 		r.Get("/{id}/acl", h.listACL)
 		r.With(h.rbac.RequireAny(shared.PermDocumentsAdmin)).Post("/{id}/acl", h.createACL)
 		r.With(h.rbac.RequireAny(shared.PermDocumentsSign)).Post("/{id}/versions/{versionID}/challenge", h.createChallenge)
@@ -308,6 +310,82 @@ func (h *Handler) downloadVersion(w http.ResponseWriter, r *http.Request) {
 	if _, err := io.Copy(w, reader); err != nil {
 		h.logger.Warn("stream version", slog.Int64("version_id", versionID), slog.Any("error", err))
 	}
+}
+
+// ============================================================================
+// Review
+// ============================================================================
+
+// versionOfDocument resolves the {versionID} path parameter and checks that
+// it belongs to the {id} document of the current company.
+func (h *Handler) versionOfDocument(r *http.Request) (documents.DocumentVersion, bool) {
+	documentID := parseInt64(chi.URLParam(r, "id"))
+	version, err := h.service.GetVersion(r.Context(), parseInt64(chi.URLParam(r, "versionID")))
+	if err != nil {
+		return documents.DocumentVersion{}, false
+	}
+	companyID := currentCompany(r)
+	if companyID <= 0 || version.CompanyID != companyID || version.DocumentID != documentID {
+		return documents.DocumentVersion{}, false
+	}
+	return version, true
+}
+
+func (h *Handler) submitReview(w http.ResponseWriter, r *http.Request) {
+	versionsPath := "/documents/library/" + chi.URLParam(r, "id") + "/versions"
+	version, ok := h.versionOfDocument(r)
+	if !ok {
+		h.redirectWithFlash(w, r, versionsPath, "danger", "Document version not found.")
+		return
+	}
+	if _, err := h.service.SubmitForReview(r.Context(), currentCompany(r), version.ID, currentUser(r)); err != nil {
+		h.logger.Warn("submit for review", slog.Int64("version_id", version.ID), slog.Any("error", err))
+		h.redirectWithFlash(w, r, versionsPath, "danger", reviewErrorMessage(err))
+		return
+	}
+	h.redirectWithFlash(w, r, versionsPath, "success", "Version "+strconv.Itoa(version.VersionNumber)+" submitted for review")
+}
+
+func (h *Handler) recordReview(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+	versionsPath := "/documents/library/" + chi.URLParam(r, "id") + "/versions"
+	version, ok := h.versionOfDocument(r)
+	if !ok {
+		h.redirectWithFlash(w, r, versionsPath, "danger", "Document version not found.")
+		return
+	}
+	req := documents.ReviewDecisionRequest{
+		CompanyID:         currentCompany(r),
+		DocumentVersionID: version.ID,
+		StepID:            parseInt64(r.PostFormValue("step_id")),
+		ReviewerID:        currentUser(r),
+		Decision:          r.PostFormValue("decision"),
+		Comments:          strings.TrimSpace(r.PostFormValue("comments")),
+	}
+	decision, err := h.service.RecordReviewDecision(r.Context(), req)
+	if err != nil {
+		h.logger.Warn("record review decision", slog.Int64("version_id", version.ID), slog.Any("error", err))
+		h.redirectWithFlash(w, r, versionsPath, "danger", reviewErrorMessage(err))
+		return
+	}
+	h.redirectWithFlash(w, r, versionsPath, "success", "Review decision "+decision.Decision+" recorded")
+}
+
+func reviewErrorMessage(err error) string {
+	switch {
+	case errors.Is(err, documents.ErrReviewAlreadyDecided):
+		return "You have already recorded a decision on this review step."
+	case errors.Is(err, documents.ErrReviewInProgress):
+		return "This version has already been submitted for review."
+	case errors.Is(err, documents.ErrReviewNotOpen):
+		return "This version is not open for that review action."
+	case errors.Is(err, documents.ErrInvalidReviewDecision), errors.Is(err, documents.ErrReviewStepNotFound):
+		return "Choose a pending review step of this version and a decision of APPROVED or REJECTED."
+	}
+	return shared.UserSafeMessage(err)
 }
 
 // ============================================================================

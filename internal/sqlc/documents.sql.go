@@ -514,49 +514,34 @@ func (q *Queries) GetDocumentOCRJob(ctx context.Context, id int64) (DocOcrJob, e
 	return i, err
 }
 
-const getDocumentReviewStepsForDocument = `-- name: GetDocumentReviewStepsForDocument :many
+const getDocumentReviewStep = `-- name: GetDocumentReviewStep :one
 
-SELECT rs.id, rs.company_id, rs.document_version_id, rs.step_order, rs.name,
-       rs.reviewer_role_id, rs.reviewer_user_id, rs.required_approvals, rs.status, rs.due_at, rs.created_at
-FROM document_review_steps rs
-JOIN document_versions dv ON dv.id = rs.document_version_id
-WHERE dv.document_id = $1 AND rs.status = 'PENDING'
-ORDER BY rs.step_order
+SELECT id, company_id, document_version_id, step_order, name,
+       reviewer_role_id, reviewer_user_id, required_approvals, status, due_at, created_at
+FROM document_review_steps
+WHERE id = $1
 `
 
 // =============================================================================
 // DOCUMENT REVIEW STEPS
 // =============================================================================
-func (q *Queries) GetDocumentReviewStepsForDocument(ctx context.Context, documentID int64) ([]DocumentReviewStep, error) {
-	rows, err := q.db.Query(ctx, getDocumentReviewStepsForDocument, documentID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []DocumentReviewStep
-	for rows.Next() {
-		var i DocumentReviewStep
-		if err := rows.Scan(
-			&i.ID,
-			&i.CompanyID,
-			&i.DocumentVersionID,
-			&i.StepOrder,
-			&i.Name,
-			&i.ReviewerRoleID,
-			&i.ReviewerUserID,
-			&i.RequiredApprovals,
-			&i.Status,
-			&i.DueAt,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+func (q *Queries) GetDocumentReviewStep(ctx context.Context, id int64) (DocumentReviewStep, error) {
+	row := q.db.QueryRow(ctx, getDocumentReviewStep, id)
+	var i DocumentReviewStep
+	err := row.Scan(
+		&i.ID,
+		&i.CompanyID,
+		&i.DocumentVersionID,
+		&i.StepOrder,
+		&i.Name,
+		&i.ReviewerRoleID,
+		&i.ReviewerUserID,
+		&i.RequiredApprovals,
+		&i.Status,
+		&i.DueAt,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const getDocumentSignatureChallenge = `-- name: GetDocumentSignatureChallenge :one
@@ -2000,6 +1985,18 @@ func (q *Queries) ListExpiredDocumentRetention(ctx context.Context) ([]ListExpir
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockDocumentVersionStatus = `-- name: LockDocumentVersionStatus :one
+SELECT status FROM document_versions WHERE id = $1 FOR UPDATE
+`
+
+// Serialises review transitions on one version within a transaction.
+func (q *Queries) LockDocumentVersionStatus(ctx context.Context, id int64) (string, error) {
+	row := q.db.QueryRow(ctx, lockDocumentVersionStatus, id)
+	var status string
+	err := row.Scan(&status)
+	return status, err
 }
 
 const markDocumentRetentionExpired = `-- name: MarkDocumentRetentionExpired :exec

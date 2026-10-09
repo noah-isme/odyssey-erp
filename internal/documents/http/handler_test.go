@@ -28,6 +28,9 @@ func TestRoutesRequireAuthenticatedPermission(t *testing.T) {
 		{http.MethodGet, "/documents/classifications/"},
 		{http.MethodGet, "/documents/library/1/acl"},
 		{http.MethodPost, "/documents/library/1/acl"},
+		{http.MethodGet, "/documents/library/1/versions/2/download"},
+		{http.MethodPost, "/documents/library/1/versions/2/submit-review"},
+		{http.MethodPost, "/documents/library/1/versions/2/review"},
 	} {
 		t.Run(tc.method+" "+tc.path, func(t *testing.T) {
 			rec := httptest.NewRecorder()

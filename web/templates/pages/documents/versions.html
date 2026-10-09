@@ -38,8 +38,12 @@
                   <td>{{ .ChangeSummary }}</td>
                   <td>{{ .CreatedAt.Format "Jan 02, 2006 15:04" }}</td>
                   <td>
-                    <button class="btn btn-sm btn-outline-primary" disabled><i class="bi bi-download"></i> Download</button>
+                    <a class="btn btn-sm btn-outline-primary" href="/documents/library/{{ $.Data.Document.ID }}/versions/{{ .ID }}/download"><i class="bi bi-download"></i> Download</a>
                     {{ if eq .Status "DRAFT" }}
+                      <form action="/documents/library/{{ $.Data.Document.ID }}/versions/{{ .ID }}/submit-review" method="POST" class="d-inline mt-1">
+                        <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
+                        <button class="btn btn-sm btn-outline-success" type="submit"><i class="bi bi-send-check"></i> Submit for Review</button>
+                      </form>
                       <form action="/documents/library/{{ $.Data.Document.ID }}/versions/{{ .ID }}/challenge" method="POST" class="d-inline mt-1">
                         <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
                         <button class="btn btn-sm btn-outline-warning" type="submit"><i class="bi bi-shield-lock"></i> Request Sign</button>

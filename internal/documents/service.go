@@ -524,64 +524,115 @@ func (s *Service) ListLinks(ctx context.Context, documentVersionID int64) ([]Doc
 	return s.repo.ListLinks(ctx, documentVersionID)
 }
 
-// SubmitForReview submits a document version for review workflow.
-func (s *Service) SubmitForReview(ctx context.Context, versionID int64, actorID int64) (DocumentVersion, error) {
-	version, err := s.repo.GetDocumentVersion(ctx, versionID)
-	if err != nil {
-		return DocumentVersion{}, err
-	}
+// DefaultReviewStepName names the single review step a submission creates.
+const DefaultReviewStepName = "Review"
 
-	if version.Status != StatusDraft {
-		return DocumentVersion{}, fmt.Errorf("documents: only draft versions can be submitted for review")
+// SubmitForReview moves a DRAFT version of the company to UNDER_REVIEW and
+// creates its one default PENDING review step (no assigned reviewer), in one
+// transaction.
+func (s *Service) SubmitForReview(ctx context.Context, companyID, versionID, actorID int64) (DocumentVersion, error) {
+	if companyID <= 0 || versionID <= 0 || actorID <= 0 {
+		return DocumentVersion{}, errors.New("documents: company, version and actor are required")
 	}
-
-	// Create review steps based on document's classification/category workflow
-	steps, err := s.repo.GetReviewStepsForDocument(ctx, version.DocumentID)
-	if err != nil {
-		return DocumentVersion{}, err
-	}
-
-	for _, step := range steps {
-		if err := s.repo.InsertReviewStep(ctx, DocumentReviewStep{
+	err := s.repo.InTx(ctx, func(tx *Repository) error {
+		status, err := tx.LockVersionStatus(ctx, versionID)
+		if err != nil {
+			return err
+		}
+		version, err := tx.GetDocumentVersion(ctx, versionID)
+		if err != nil {
+			return err
+		}
+		if version.CompanyID != companyID {
+			return ErrDocumentVersionNotFound
+		}
+		if status != StatusDraft {
+			return ErrReviewNotOpen
+		}
+		if err := tx.InsertReviewStep(ctx, DocumentReviewStep{
+			CompanyID:         version.CompanyID,
 			DocumentVersionID: versionID,
-			StepOrder:         step.StepOrder,
-			ReviewerRoleID:    step.ReviewerRoleID,
-			ReviewerUserID:    step.ReviewerUserID,
-			RequiredApprovals: step.RequiredApprovals,
+			StepOrder:         1,
+			Name:              DefaultReviewStepName,
+			RequiredApprovals: 1,
 			Status:            "PENDING",
 		}); err != nil {
-			return DocumentVersion{}, err
+			return err
 		}
+		_, err = tx.SetVersionStatus(ctx, versionID, StatusUnderReview, actorID)
+		return err
+	})
+	if err != nil {
+		return DocumentVersion{}, err
 	}
-
-	return s.SetVersionStatus(ctx, versionID, StatusUnderReview, actorID)
+	return s.repo.GetDocumentVersion(ctx, versionID)
 }
 
-// RecordReviewDecision records a review decision.
+// RecordReviewDecision records one reviewer's APPROVED or REJECTED decision
+// on a PENDING step of an UNDER_REVIEW version of the company, then moves
+// the version to APPROVED when every step is approved or to REJECTED on a
+// rejection, in one transaction.
 func (s *Service) RecordReviewDecision(ctx context.Context, req ReviewDecisionRequest) (DocumentReviewDecision, error) {
-	decision, err := s.repo.InsertReviewDecision(ctx, req)
+	req.Decision = strings.ToUpper(strings.TrimSpace(req.Decision))
+	if req.Decision != "APPROVED" && req.Decision != "REJECTED" {
+		return DocumentReviewDecision{}, ErrInvalidReviewDecision
+	}
+	if req.CompanyID <= 0 || req.DocumentVersionID <= 0 || req.StepID <= 0 || req.ReviewerID <= 0 {
+		return DocumentReviewDecision{}, ErrInvalidReviewDecision
+	}
+	var decision DocumentReviewDecision
+	err := s.repo.InTx(ctx, func(tx *Repository) error {
+		status, err := tx.LockVersionStatus(ctx, req.DocumentVersionID)
+		if err != nil {
+			return err
+		}
+		version, err := tx.GetDocumentVersion(ctx, req.DocumentVersionID)
+		if err != nil {
+			return err
+		}
+		if version.CompanyID != req.CompanyID {
+			return ErrDocumentVersionNotFound
+		}
+		step, err := tx.GetReviewStep(ctx, req.StepID)
+		if err != nil {
+			return err
+		}
+		if step.DocumentVersionID != req.DocumentVersionID || step.CompanyID != req.CompanyID {
+			return ErrInvalidReviewDecision
+		}
+		if step.ReviewerUserID != nil && *step.ReviewerUserID != req.ReviewerID {
+			return ErrInvalidReviewDecision
+		}
+		// Insert before the state check so a repeat by the same reviewer
+		// reports ErrReviewAlreadyDecided (UNIQUE(review_step_id,
+		// reviewer_id)); any refusal below rolls the insert back.
+		decision, err = tx.InsertReviewDecision(ctx, req)
+		if err != nil {
+			return err
+		}
+		if status != StatusUnderReview || step.Status != "PENDING" {
+			return ErrReviewNotOpen
+		}
+		if err := tx.UpdateReviewStepStatus(ctx, req.StepID, req.Decision, req.ReviewerID); err != nil {
+			return err
+		}
+		if req.Decision == "REJECTED" {
+			_, err = tx.SetVersionStatus(ctx, req.DocumentVersionID, StatusRejected, req.ReviewerID)
+			return err
+		}
+		allApproved, err := tx.AreAllReviewStepsApproved(ctx, req.DocumentVersionID)
+		if err != nil {
+			return err
+		}
+		if allApproved {
+			_, err = tx.SetVersionStatus(ctx, req.DocumentVersionID, StatusApproved, req.ReviewerID)
+		}
+		return err
+	})
 	if err != nil {
 		return DocumentReviewDecision{}, err
 	}
-
-	// Update step status
-	if err := s.repo.UpdateReviewStepStatus(ctx, req.StepID, req.Decision, req.ReviewerID); err != nil {
-		return DocumentReviewDecision{}, err
-	}
-
-	// Check if all steps are complete
-	allApproved, err := s.repo.AreAllReviewStepsApproved(ctx, req.DocumentVersionID)
-	if err != nil {
-		return DocumentReviewDecision{}, err
-	}
-
-	if allApproved {
-		_, err = s.SetVersionStatus(ctx, req.DocumentVersionID, StatusApproved, req.ReviewerID)
-	} else if req.Decision == "REJECTED" {
-		_, err = s.SetVersionStatus(ctx, req.DocumentVersionID, StatusRejected, req.ReviewerID)
-	}
-
-	return decision, err
+	return decision, nil
 }
 
 // Signatures

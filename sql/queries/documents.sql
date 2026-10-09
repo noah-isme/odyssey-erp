@@ -177,6 +177,10 @@ UPDATE documents
 SET current_version_id = $2, updated_at = NOW()
 WHERE id = $1;
 
+-- name: LockDocumentVersionStatus :one
+-- Serialises review transitions on one version within a transaction.
+SELECT status FROM document_versions WHERE id = $1 FOR UPDATE;
+
 -- name: UpdateDocumentVersionStatus :exec
 UPDATE document_versions
 SET status = $2
@@ -259,13 +263,11 @@ ORDER BY created_at DESC;
 -- DOCUMENT REVIEW STEPS
 -- =============================================================================
 
--- name: GetDocumentReviewStepsForDocument :many
-SELECT rs.id, rs.company_id, rs.document_version_id, rs.step_order, rs.name,
-       rs.reviewer_role_id, rs.reviewer_user_id, rs.required_approvals, rs.status, rs.due_at, rs.created_at
-FROM document_review_steps rs
-JOIN document_versions dv ON dv.id = rs.document_version_id
-WHERE dv.document_id = $1 AND rs.status = 'PENDING'
-ORDER BY rs.step_order;
+-- name: GetDocumentReviewStep :one
+SELECT id, company_id, document_version_id, step_order, name,
+       reviewer_role_id, reviewer_user_id, required_approvals, status, due_at, created_at
+FROM document_review_steps
+WHERE id = $1;
 
 -- name: InsertDocumentReviewStep :exec
 INSERT INTO document_review_steps (company_id, document_version_id, step_order, name, reviewer_role_id, reviewer_user_id, required_approvals, status, due_at)
