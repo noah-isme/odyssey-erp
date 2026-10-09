@@ -31,6 +31,22 @@ jobs:
     timeout-minutes: 90
     environment:
       name: staging
+    # Disposable reference database for the schema checksum gate. Its major
+    # must equal staging's (PG17); the gate aborts on any major mismatch.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: reference
+          POSTGRES_PASSWORD: reference
+          POSTGRES_DB: reference
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U reference -d reference"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
 
     steps:
       - name: Checkout certification tooling
@@ -337,6 +353,42 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+
+      # Aborts the dispatch before any test runs when the staging schema is
+      # not exactly what the candidate's migrations produce (FIND-010). The
+      # migrations come from the checksum-verified deployment bundle. Staging
+      # is only read; migrate runs against the fresh reference service only.
+      - name: Schema checksum gate
+        env:
+          STAGING_PG_DSN: ${{ secrets.STAGING_CERT_PG_DSN }}
+          REFERENCE_PG_DSN: postgres://reference:reference@127.0.0.1:5432/reference?sslmode=disable
+        shell: bash
+        run: |
+          set -euo pipefail
+          exec > >(tee -a staging-certification.log) 2>&1
+          [[ -n "$STAGING_PG_DSN" ]] || { echo 'STAGING_CERT_PG_DSN is required' >&2; exit 1; }
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          # shellcheck disable=SC1091
+          . /etc/os-release
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" |
+            sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends postgresql-client-17
+          GOBIN="$RUNNER_TEMP/bin" go install -tags postgres \
+            github.com/golang-migrate/migrate/v4/cmd/migrate@v4.18.3
+          migrations=staging-certification-candidate/deployment-artifact/extracted/migrations
+          test -d "$migrations"
+          PG_DUMP_CMD=/usr/lib/postgresql/17/bin/pg_dump \
+            PSQL_CMD=/usr/lib/postgresql/17/bin/psql \
+            MIGRATE_CMD="$RUNNER_TEMP/bin/migrate" \
+            scripts/staging-schema-checksum.sh \
+              --staging-dsn "$STAGING_PG_DSN" \
+              --reference-dsn "$REFERENCE_PG_DSN" \
+              --migrations "$migrations" \
+              --ceiling 124 \
+              --out staging-certification-candidate/schema-checksum
 
       - name: Run staging certification tests
         env:
