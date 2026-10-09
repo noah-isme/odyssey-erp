@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -25,7 +24,8 @@ import (
 //     and rolls back (fail closed);
 //   - it never UPDATEs or DELETEs a row, so a row it did not create in this
 //     run is never changed (base_seed_sql_test.go enforces this by scanning
-//     the SQL literals in this file).
+//     the SQL literals in this file and base_seed_prereqs.go). The single
+//     reviewed exception is baseRevokeRoleOneSQL (base_seed_prereqs.go).
 //
 // The schema notes below are for migration ceiling 000124.
 
@@ -86,6 +86,9 @@ func baseCredentialsFromEnv() baseCredentials {
 type baseOptions struct {
 	Guard stagingGuardInput
 	Creds baseCredentials
+	// Check runs every step in a transaction that is rolled back, so the
+	// report says which prerequisites are present and which are missing.
+	Check bool
 }
 
 // baseStep records what happened to one fixture row.
@@ -101,6 +104,17 @@ type baseResult struct {
 	Target   stagingTarget
 	Fixtures *Fixtures
 	Steps    []baseStep
+	// Check is set when the run was rolled back (--check).
+	Check bool
+	// AdminPermissions are the names granted to the admin role.
+	AdminPermissions []string
+	// RevokedRole and Revoked report baseRevokeRoleOneSQL.
+	RevokedRole string
+	Revoked     []string
+	// POID is the purchase order of the certification GRN; GRNCreated says
+	// whether this run provisioned a fresh PO and GRN.
+	POID       int64
+	GRNCreated bool
 }
 
 func (r *baseResult) count(status string) int {
@@ -135,19 +149,48 @@ func runBaseSeed(ctx context.Context, opts baseOptions) (*baseResult, error) {
 		return nil, fmt.Errorf("staging guard: %w", err)
 	}
 
-	fixtures, steps, err := seedStagingFixtures(ctx, pool, opts.Creds)
+	res, err := seedStagingFixtures(ctx, pool, opts.Creds, opts.Check)
 	if err != nil {
 		return nil, err
 	}
-	return &baseResult{Target: target, Fixtures: fixtures, Steps: steps}, nil
+	res.Target = target
+	return res, nil
 }
 
-// printBaseSteps prints the per-row created/reused report.
+// printBaseSteps prints the per-row created/reused report. In --check mode
+// the run was rolled back: "reused" rows are reported as present and
+// "created" rows as missing (their ids were never committed).
 func printBaseSteps(w io.Writer, res *baseResult) {
+	if res.Check {
+		_, _ = fmt.Fprintf(w, "Base seeder check on %s@%s (rolled back, nothing written): %d present, %d missing, %d role 1 grant(s) to revoke\n",
+			res.Target.Database, res.Target.Host, res.count("reused"), res.count("created"), len(res.Revoked))
+		for _, s := range res.Steps {
+			status, id := "present", fmt.Sprintf("id=%d", s.ID)
+			if s.Status == "created" {
+				status, id = "missing", ""
+			}
+			_, _ = fmt.Fprintf(w, "  %-8s %-44s %-28s %s\n", status, s.Name, s.Table, id)
+		}
+		for _, p := range res.Revoked {
+			_, _ = fmt.Fprintf(w, "  %-8s %-44s %-28s role 1 (%s)\n", "revoke", p, "role_permissions", res.RevokedRole)
+		}
+		return
+	}
 	_, _ = fmt.Fprintf(w, "Base seeder on %s@%s: %d created, %d reused\n",
 		res.Target.Database, res.Target.Host, res.count("created"), res.count("reused"))
 	for _, s := range res.Steps {
-		_, _ = fmt.Fprintf(w, "  %-8s %-28s %-30s id=%d\n", s.Status, s.Name, s.Table, s.ID)
+		_, _ = fmt.Fprintf(w, "  %-8s %-44s %-28s id=%d\n", s.Status, s.Name, s.Table, s.ID)
+	}
+	_, _ = fmt.Fprintf(w, "Admin role granted %d permission(s): %s\n", len(res.AdminPermissions), strings.Join(res.AdminPermissions, ", "))
+	if len(res.Revoked) == 0 {
+		_, _ = fmt.Fprintln(w, "Role 1 cmms/qms/documents grants revoked: none")
+	} else {
+		_, _ = fmt.Fprintf(w, "Role 1 (%s) cmms/qms/documents grants revoked: %d: %s\n", res.RevokedRole, len(res.Revoked), strings.Join(res.Revoked, ", "))
+	}
+	if res.GRNCreated {
+		_, _ = fmt.Fprintf(w, "Certification GRN: fresh grn id=%d (po id=%d); update STAGING_CERT_GRN_ID=%d before the next dispatch\n", res.Fixtures.GRNID, res.POID, res.Fixtures.GRNID)
+	} else {
+		_, _ = fmt.Fprintf(w, "Certification GRN: reused un-invoiced grn id=%d (po id=%d); STAGING_CERT_GRN_ID=%d\n", res.Fixtures.GRNID, res.POID, res.Fixtures.GRNID)
 	}
 }
 
@@ -322,38 +365,39 @@ func companyState(id int64) string { return fmt.Sprintf("company:%d", id) }
 // seedStagingFixtures seeds the base certification fixtures in one
 // transaction. Callers must have passed the staging guard (runBaseSeed does).
 // The returned steps say which rows were created in this run and which
-// pre-existing rows were verified and reused.
-func seedStagingFixtures(ctx context.Context, pool *pgxpool.Pool, creds baseCredentials) (*Fixtures, []baseStep, error) {
+// pre-existing rows were verified and reused. With check set the transaction
+// is rolled back instead of committed.
+func seedStagingFixtures(ctx context.Context, pool *pgxpool.Pool, creds baseCredentials, check bool) (*baseResult, error) {
 	seen := map[string]string{}
 	for _, id := range []struct{ label, email string }{
 		{"admin", creds.AdminEmail}, {"branch", creds.BranchEmail}, {"no-access", creds.NoAccessEmail},
 	} {
 		key := strings.ToLower(strings.TrimSpace(id.email))
 		if key == "" {
-			return nil, nil, fmt.Errorf("%s test identity email is empty", id.label)
+			return nil, fmt.Errorf("%s test identity email is empty", id.label)
 		}
 		if other, dup := seen[key]; dup {
-			return nil, nil, fmt.Errorf("%s and %s test identities share the email %q; they must be distinct", other, id.label, id.email)
+			return nil, fmt.Errorf("%s and %s test identities share the email %q; they must be distinct", other, id.label, id.email)
 		}
 		seen[key] = id.label
 	}
 
 	tx, err := pool.Begin(ctx)
 	if err != nil {
-		return nil, nil, fmt.Errorf("begin tx: %w", err)
+		return nil, fmt.Errorf("begin tx: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	// Serialize concurrent seeds so lookup-then-insert on tables without a
 	// usable unique key cannot race.
 	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('odyssey:seed:staging'))`); err != nil {
-		return nil, nil, fmt.Errorf("acquire seed advisory lock: %w", err)
+		return nil, fmt.Errorf("acquire seed advisory lock: %w", err)
 	}
 	if _, err := tx.Exec(ctx, `SET LOCAL statement_timeout = '60s'`); err != nil {
-		return nil, nil, fmt.Errorf("set statement_timeout: %w", err)
+		return nil, fmt.Errorf("set statement_timeout: %w", err)
 	}
 	if _, err := tx.Exec(ctx, `SET LOCAL lock_timeout = '15s'`); err != nil {
-		return nil, nil, fmt.Errorf("set lock_timeout: %w", err)
+		return nil, fmt.Errorf("set lock_timeout: %w", err)
 	}
 
 	s := &baseSeeder{tx: tx}
@@ -362,15 +406,15 @@ func seedStagingFixtures(ctx context.Context, pool *pgxpool.Pool, creds baseCred
 	// tables require created_by NOT NULL.
 	adminUserID, err := s.ensureUser(ctx, "user_admin", creds.AdminEmail, creds.AdminPassword)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	branchUserID, err := s.ensureUser(ctx, "user_branch", creds.BranchEmail, creds.BranchPassword)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	noAccessUserID, err := s.ensureUser(ctx, "user_no_access", creds.NoAccessEmail, creds.NoAccessPassword)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// Admin role: reuse any existing 'admin' role, create it only if missing.
@@ -388,10 +432,10 @@ func seedStagingFixtures(ctx context.Context, pool *pgxpool.Pool, creds baseCred
 			Want:       "ok",
 		})
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 	default:
-		return nil, nil, fmt.Errorf("look up admin role: %w", err)
+		return nil, fmt.Errorf("look up admin role: %w", err)
 	}
 
 	if _, _, err := s.ensure(ctx, baseFixture{
@@ -402,16 +446,28 @@ func seedStagingFixtures(ctx context.Context, pool *pgxpool.Pool, creds baseCred
 		LookupArgs: []any{adminUserID, adminRoleID},
 		Want:       "ok",
 	}); err != nil {
-		return nil, nil, err
+		return nil, err
+	}
+
+	// Admin permissions: create every missing name, then grant all of them.
+	// Then revoke the 000083 cmms/qms/documents grants from role id 1 when
+	// that role is not an administrator role.
+	granted, err := s.ensureAdminPermissions(ctx, adminRoleID)
+	if err != nil {
+		return nil, err
+	}
+	revokedRole, revoked, err := s.revokeRoleOneModulePermissions(ctx)
+	if err != nil {
+		return nil, err
 	}
 
 	// The branch and no-access users must have no global roles (the ISO-003
 	// fixtures prove scoped, not global, access). Verified, never deleted.
 	if err := s.requireNoGlobalRoles(ctx, "user_branch", branchUserID); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	if err := s.requireNoGlobalRoles(ctx, "user_no_access", noAccessUserID); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// 2. Companies. companies.code is globally unique.
@@ -424,7 +480,7 @@ func seedStagingFixtures(ctx context.Context, pool *pgxpool.Pool, creds baseCred
 		Want:       baseCompanyName,
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	otherCompanyID, err := s.mustEnsure(ctx, baseFixture{
 		Name: "company_other", Table: "companies",
@@ -435,7 +491,7 @@ func seedStagingFixtures(ctx context.Context, pool *pgxpool.Pool, creds baseCred
 		Want:       baseOtherCompanyName,
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// 3. Branches. branches.code is globally unique, so an existing code must
@@ -449,7 +505,7 @@ func seedStagingFixtures(ctx context.Context, pool *pgxpool.Pool, creds baseCred
 		Want:       companyState(primaryCompanyID),
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	otherBranchID, err := s.mustEnsure(ctx, baseFixture{
 		Name: "branch_other", Table: "branches",
@@ -460,7 +516,7 @@ func seedStagingFixtures(ctx context.Context, pool *pgxpool.Pool, creds baseCred
 		Want:       companyState(otherCompanyID),
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// 4. Warehouse. warehouses.code is globally unique; its company is the
@@ -474,7 +530,7 @@ func seedStagingFixtures(ctx context.Context, pool *pgxpool.Pool, creds baseCred
 		Want:       fmt.Sprintf("branch:%d", primaryBranchID),
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// 5. Master data. Units are global reference data; categories and
@@ -488,7 +544,7 @@ func seedStagingFixtures(ctx context.Context, pool *pgxpool.Pool, creds baseCred
 		Want:       "ok",
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	categoryID, err := s.mustEnsure(ctx, baseFixture{
 		Name: "category", Table: "categories",
@@ -499,7 +555,7 @@ func seedStagingFixtures(ctx context.Context, pool *pgxpool.Pool, creds baseCred
 		Want:       companyState(primaryCompanyID),
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	productID, err := s.mustEnsure(ctx, baseFixture{
 		Name: "product", Table: "products",
@@ -512,7 +568,7 @@ func seedStagingFixtures(ctx context.Context, pool *pgxpool.Pool, creds baseCred
 		Want:       companyState(primaryCompanyID),
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// Stock for the product in the warehouse (stock take and valuation). The
@@ -528,7 +584,7 @@ func seedStagingFixtures(ctx context.Context, pool *pgxpool.Pool, creds baseCred
 		LookupArgs: []any{warehouseID, productID, baseMinAvgCost},
 		Want:       "ok",
 	}); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// 6. Customer and supplier in the primary company; customers are unique
@@ -544,7 +600,7 @@ func seedStagingFixtures(ctx context.Context, pool *pgxpool.Pool, creds baseCred
 		Want:       companyState(primaryCompanyID),
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	supplierID, err := s.mustEnsure(ctx, baseFixture{
 		Name: "supplier_primary", Table: "suppliers",
@@ -557,7 +613,16 @@ func seedStagingFixtures(ctx context.Context, pool *pgxpool.Pool, creds baseCred
 		Want:       companyState(primaryCompanyID),
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, err
+	}
+
+	// Supplier-scoped zero-tolerance AP matching policy and the ledger
+	// prerequisites (accounts, account mappings, an OPEN period for today).
+	if _, err := s.ensureMatchingPolicy(ctx, supplierID); err != nil {
+		return nil, err
+	}
+	if err := s.ensureLedgerPrerequisites(ctx); err != nil {
+		return nil, err
 	}
 
 	// 7. Customer and AR invoice in the other company (tenant isolation).
@@ -572,7 +637,7 @@ func seedStagingFixtures(ctx context.Context, pool *pgxpool.Pool, creds baseCred
 		Want:       companyState(otherCompanyID),
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	if _, _, err := s.ensure(ctx, baseFixture{
 		Name: "ar_invoice_other", Table: "ar_invoices",
@@ -584,34 +649,20 @@ func seedStagingFixtures(ctx context.Context, pool *pgxpool.Pool, creds baseCred
 		LookupArgs: []any{baseOtherInvoiceNo},
 		Want:       companyState(otherCompanyID),
 	}); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	// 8. Un-invoiced POSTED GRN in the primary company. Only a GRN this
-	// seeder created (same note, supplier and warehouse) is reused, so a real
-	// GRN of the company is never claimed for the certification.
-	grnID, grnCreated, err := s.ensure(ctx, baseFixture{
-		Name: "grn_primary", Table: "grns",
-		Insert: `INSERT INTO grns (number, supplier_id, warehouse_id, status, received_at, note, created_at, company_id)
-			VALUES ($1, $2, $3, 'POSTED', NOW(), $4, NOW(), $5) ON CONFLICT DO NOTHING RETURNING id`,
-		InsertArgs: []any{fmt.Sprintf("GRN-STG-%d", time.Now().UnixNano()), supplierID, warehouseID, baseGRNNote, primaryCompanyID},
-		Lookup: `SELECT g.id, 'company:' || g.company_id FROM grns g
-			WHERE g.company_id = $1 AND g.status = 'POSTED' AND g.supplier_id = $2 AND g.warehouse_id = $3 AND g.note = $4
-			  AND NOT EXISTS (SELECT 1 FROM ap_invoices ai WHERE ai.grn_id = g.id)
-			ORDER BY g.id DESC LIMIT 1`,
-		LookupArgs:  []any{primaryCompanyID, supplierID, warehouseID, baseGRNNote},
-		Want:        companyState(primaryCompanyID),
-		LookupFirst: true,
+	// 8. Un-invoiced POSTED GRN in the primary company, backed by its own
+	// APPROVED PO. Only a GRN this seeder created (same note, supplier,
+	// warehouse and PO note) is reused, so a real GRN of the company is never
+	// claimed for the certification; an invoiced or PO-less one is replaced
+	// by a fresh PO and GRN.
+	grnID, poID, grnCreated, err := s.ensureCertificationGRN(ctx, baseGRNRefs{
+		CompanyID: primaryCompanyID, SupplierID: supplierID, WarehouseID: warehouseID,
+		ProductID: productID, AdminUserID: adminUserID,
 	})
 	if err != nil {
-		return nil, nil, err
-	}
-	if grnCreated {
-		if err := s.insertChild(ctx, "grn_line_primary", "grn_lines",
-			`INSERT INTO grn_lines (grn_id, product_id, qty, unit_cost) VALUES ($1, $2, 10.0000, 50000.0000) ON CONFLICT DO NOTHING RETURNING id`,
-			grnID, productID); err != nil {
-			return nil, nil, err
-		}
+		return nil, err
 	}
 
 	// 9. Expired branch role assignment and completed REVOKE access review
@@ -630,7 +681,7 @@ func seedStagingFixtures(ctx context.Context, pool *pgxpool.Pool, creds baseCred
 		Want:        "ok",
 		LookupFirst: true,
 	}); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	if _, _, err := s.ensure(ctx, baseFixture{
 		Name: "rbac_access_review_revoke", Table: "rbac_access_reviews",
@@ -648,7 +699,28 @@ func seedStagingFixtures(ctx context.Context, pool *pgxpool.Pool, creds baseCred
 		LookupArgs: []any{primaryCompanyID, branchUserID, baseReviewKey},
 		Want:       "COMPLETED/REVOKE",
 	}); err != nil {
-		return nil, nil, err
+		return nil, err
+	}
+
+	// Active assignments: the admin company-wide in the primary company only,
+	// the branch user branch-scoped in the primary branch under a
+	// permission-less role. No identity may hold an active assignment outside
+	// that scope (the no-access user none at all).
+	if err := s.ensureAssignments(ctx, primaryCompanyID, primaryBranchID, adminUserID, adminRoleID, branchUserID); err != nil {
+		return nil, err
+	}
+	for _, c := range []struct {
+		name      string
+		userID    int64
+		companyID int64
+	}{
+		{"user_admin", adminUserID, primaryCompanyID},
+		{"user_branch", branchUserID, primaryCompanyID},
+		{"user_no_access", noAccessUserID, 0},
+	} {
+		if err := s.requireActiveAssignmentsOnlyIn(ctx, c.name, c.userID, c.companyID); err != nil {
+			return nil, err
+		}
 	}
 
 	// 10. Document management and the 7-year retention policy (J-DOC-001).
@@ -665,7 +737,7 @@ func seedStagingFixtures(ctx context.Context, pool *pgxpool.Pool, creds baseCred
 		LookupArgs: []any{primaryCompanyID, baseNumberingCode},
 		Want:       companyState(primaryCompanyID),
 	}); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	docClassID, err := s.mustEnsure(ctx, baseFixture{
 		Name: "document_classification", Table: "document_classifications",
@@ -678,7 +750,7 @@ func seedStagingFixtures(ctx context.Context, pool *pgxpool.Pool, creds baseCred
 		Want:       companyState(primaryCompanyID),
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	// UNIQUE (company_id, parent_id, code) treats NULL parents as distinct,
 	// so a root category is never caught by ON CONFLICT: look it up first.
@@ -695,7 +767,7 @@ func seedStagingFixtures(ctx context.Context, pool *pgxpool.Pool, creds baseCred
 		LookupFirst: true,
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	if _, _, err := s.ensure(ctx, baseFixture{
 		Name: "retention_policy", Table: "retention_policies",
@@ -717,14 +789,16 @@ func seedStagingFixtures(ctx context.Context, pool *pgxpool.Pool, creds baseCred
 		LookupArgs: []any{primaryCompanyID, baseRetentionCode, baseRetentionDays, docClassID, docCategoryID},
 		Want:       companyState(primaryCompanyID),
 	}); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	if err := tx.Commit(ctx); err != nil {
-		return nil, nil, fmt.Errorf("commit tx: %w", err)
+	if !check {
+		if err := tx.Commit(ctx); err != nil {
+			return nil, fmt.Errorf("commit tx: %w", err)
+		}
 	}
 
-	return &Fixtures{
+	fixtures := &Fixtures{
 		CompanyID:          primaryCompanyID,
 		BranchID:           primaryBranchID,
 		OtherCompanyID:     otherCompanyID,
@@ -743,5 +817,10 @@ func seedStagingFixtures(ctx context.Context, pool *pgxpool.Pool, creds baseCred
 		BranchPassword:     creds.BranchPassword,
 		NoAccessEmail:      creds.NoAccessEmail,
 		NoAccessPassword:   creds.NoAccessPassword,
-	}, s.steps, nil
+	}
+	return &baseResult{
+		Fixtures: fixtures, Steps: s.steps, Check: check,
+		AdminPermissions: granted, RevokedRole: revokedRole, Revoked: revoked,
+		POID: poID, GRNCreated: grnCreated,
+	}, nil
 }

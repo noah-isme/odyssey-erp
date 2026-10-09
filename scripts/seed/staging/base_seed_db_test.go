@@ -12,6 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -36,6 +37,8 @@ var baseWrittenTables = []string{
 	"customers", "suppliers", "ar_invoices", "grns", "grn_lines", "users", "roles", "user_roles",
 	"rbac_user_role_assignments", "rbac_access_reviews", "document_numbering_rules",
 	"document_classifications", "document_categories", "retention_policies",
+	"permissions", "role_permissions", "pos", "po_lines", "ap_matching_policies",
+	"accounts", "account_mappings", "periods",
 }
 
 type baseTestDB struct {
@@ -175,12 +178,31 @@ func TestBaseSeedDBCleanApply(t *testing.T) {
 	d := newBaseTestDB(t)
 	ctx := context.Background()
 
+	// On a migrations-only database some admin permissions already exist
+	// (migrations insert them) and role 1 holds the 000083 module grants.
+	migrationPerms := d.scalar(t, `SELECT COUNT(*)::text FROM permissions WHERE name = ANY($1)`, baseAdminPermissions)
+	roleOneGrants := d.scalar(t, `SELECT COUNT(*)::text FROM role_permissions rp JOIN permissions p ON p.id = rp.permission_id
+		WHERE rp.role_id = 1 AND (p.name LIKE 'cmms.%' OR p.name LIKE 'qms.%' OR p.name LIKE 'documents.%')`)
+	roleOneName := d.scalar(t, `SELECT name FROM roles WHERE id = 1`)
+
 	res, err := runBaseSeed(ctx, d.opts())
 	if err != nil {
 		t.Fatalf("clean apply: %v", err)
 	}
-	if res.count("reused") != 0 || res.count("created") != len(res.Steps) || len(res.Steps) < 20 {
-		t.Fatalf("clean apply: %d created, %d reused of %d steps; want all created", res.count("created"), res.count("reused"), len(res.Steps))
+	// Only pre-existing permission rows (from migrations) are reused.
+	for _, s := range res.Steps {
+		if s.Status == "reused" && s.Table != "permissions" {
+			t.Errorf("clean apply reused %s (%s)", s.Name, s.Table)
+		}
+	}
+	if fmt.Sprint(res.count("reused")) != migrationPerms || res.count("created")+res.count("reused") != len(res.Steps) || len(res.Steps) < 20 {
+		t.Fatalf("clean apply: %d created, %d reused of %d steps; want all created except the %s migration permissions", res.count("created"), res.count("reused"), len(res.Steps), migrationPerms)
+	}
+	if fmt.Sprint(len(res.Revoked)) != roleOneGrants || roleOneGrants == "0" || res.RevokedRole != roleOneName {
+		t.Errorf("revoked %d grant(s) from %q; want the %s cmms/qms/documents grants of role 1 %q", len(res.Revoked), res.RevokedRole, roleOneGrants, roleOneName)
+	}
+	if !res.GRNCreated || res.POID <= 0 {
+		t.Errorf("clean apply: GRNCreated=%v POID=%d; want a fresh PO and GRN", res.GRNCreated, res.POID)
 	}
 	f := res.Fixtures
 	for name, id := range map[string]int64{
@@ -219,11 +241,56 @@ func TestBaseSeedDBCleanApply(t *testing.T) {
 		{"admin has the admin role", `SELECT COUNT(*)::text FROM user_roles ur JOIN users u ON u.id = ur.user_id JOIN roles r ON r.id = ur.role_id WHERE u.email = $1 AND LOWER(r.name) = 'admin'`, []any{baseTestCreds.AdminEmail}, "1"},
 		{"branch and no-access users have no global roles", `SELECT COUNT(*)::text FROM user_roles ur JOIN users u ON u.id = ur.user_id WHERE u.email IN ($1, $2)`, []any{baseTestCreds.BranchEmail, baseTestCreds.NoAccessEmail}, "0"},
 		{"branch user has an expired scoped assignment", `SELECT COUNT(*)::text FROM rbac_user_role_assignments a JOIN users u ON u.id = a.user_id WHERE u.email = $1 AND a.company_id = $2 AND a.branch_id = $3 AND a.valid_to <= NOW()`, []any{baseTestCreds.BranchEmail, f.CompanyID, f.BranchID}, "1"},
+		// Admin permissions: the granted list equals the enumerated set.
+		{"admin role holds exactly the enumerated permissions", `SELECT string_agg(p.name, ',' ORDER BY p.name) FROM role_permissions rp JOIN permissions p ON p.id = rp.permission_id JOIN roles r ON r.id = rp.role_id WHERE LOWER(r.name) = 'admin'`, nil, strings.Join(baseAdminPermissions, ",")},
+		{"every enumerated permission exists once", `SELECT COUNT(*)::text FROM permissions WHERE name = ANY($1)`, []any{baseAdminPermissions}, fmt.Sprint(len(baseAdminPermissions))},
+		{"role 1 keeps no cmms/qms/documents grants", `SELECT COUNT(*)::text FROM role_permissions rp JOIN permissions p ON p.id = rp.permission_id WHERE rp.role_id = 1 AND (p.name LIKE 'cmms.%' OR p.name LIKE 'qms.%' OR p.name LIKE 'documents.%')`, nil, "0"},
+		// Assignments.
+		{"admin has exactly one active assignment, company-wide in the primary company", `SELECT string_agg(a.company_id || '/' || COALESCE(a.branch_id::text, 'company-wide'), ',') FROM rbac_user_role_assignments a JOIN users u ON u.id = a.user_id WHERE u.email = $1 AND a.valid_from <= NOW() AND (a.valid_to IS NULL OR a.valid_to > NOW())`, []any{baseTestCreds.AdminEmail}, fmt.Sprintf("%d/company-wide", f.CompanyID)},
+		{"branch user has exactly one active assignment, in the primary branch", `SELECT string_agg(a.company_id || '/' || COALESCE(a.branch_id::text, 'company-wide'), ',') FROM rbac_user_role_assignments a JOIN users u ON u.id = a.user_id WHERE u.email = $1 AND a.valid_from <= NOW() AND (a.valid_to IS NULL OR a.valid_to > NOW())`, []any{baseTestCreds.BranchEmail}, fmt.Sprintf("%d/%d", f.CompanyID, f.BranchID)},
+		{"branch user's active role has no permissions", `SELECT r.name || ':' || (SELECT COUNT(*) FROM role_permissions rp WHERE rp.role_id = r.id) FROM rbac_user_role_assignments a JOIN users u ON u.id = a.user_id JOIN roles r ON r.id = a.role_id WHERE u.email = $1 AND a.valid_to IS NULL`, []any{baseTestCreds.BranchEmail}, "staging-branch-user:0"},
+		{"no-access user has no assignment", `SELECT COUNT(*)::text FROM rbac_user_role_assignments a JOIN users u ON u.id = a.user_id WHERE u.email = $1`, []any{baseTestCreds.NoAccessEmail}, "0"},
+		// AP matching policy, PO and GRN.
+		{"one supplier-scoped zero-tolerance matching policy", `SELECT COUNT(*)::text FROM ap_matching_policies WHERE supplier_id = $1 AND company_id IS NULL AND qty_tolerance_pct = 0 AND price_tolerance_pct = 0 AND total_tolerance_amt = 0 AND effective_from <= CURRENT_DATE`, []any{f.SupplierID}, "1"},
+		{"no global matching policy (ISO-004 guard)", `SELECT COUNT(*)::text FROM ap_matching_policies WHERE company_id IS NULL AND supplier_id IS NULL`, nil, "0"},
+		{"grn references an approved PO of the same company and supplier", `SELECT (po.status = 'APPROVED' AND po.company_id = g.company_id AND po.supplier_id = g.supplier_id)::text FROM grns g JOIN pos po ON po.id = g.po_id WHERE g.id = $1`, []any{f.GRNID}, "true"},
+		{"po has one line matching the grn line", `SELECT COUNT(*)::text FROM grns g JOIN po_lines pl ON pl.po_id = g.po_id JOIN grn_lines gl ON gl.grn_id = g.id AND gl.product_id = pl.product_id AND gl.qty = pl.qty AND gl.unit_cost = pl.price WHERE g.id = $1 AND pl.product_id = $2`, []any{f.GRNID, f.ProductID}, "1"},
+		// Ledger prerequisites.
+		{"chart of accounts", `SELECT string_agg(code, ',' ORDER BY code) FROM accounts`, nil, "1100,1200,1300,2100,4000,4900,5000,5900"},
+		{"account mappings", `SELECT string_agg(m.module || '/' || m.key || '=' || a.code, ',' ORDER BY m.module, m.key) FROM account_mappings m JOIN accounts a ON a.id = m.account_id`, nil,
+			"AP/ap.invoice.ap=2100,AP/ap.invoice.expense=5000,AP/ap.invoice.inventory=1300,AP/ap.payment.ap=2100,AP/ap.payment.cash=1100,AR/ar.invoice.ar=1200,AR/ar.invoice.revenue=4000,INVENTORY/inventory.adjustment.gain=4900,INVENTORY/inventory.adjustment.inventory=1300,INVENTORY/inventory.adjustment.loss=5900"},
+		{"one OPEN period covers today", `SELECT COUNT(*)::text FROM periods WHERE status = 'OPEN' AND CURRENT_DATE BETWEEN start_date AND end_date`, nil, "1"},
 		{"branch user has a completed REVOKE review", `SELECT COUNT(*)::text FROM rbac_access_reviews r JOIN users u ON u.id = r.subject_user_id WHERE u.email = $1 AND r.company_id = $2 AND r.status = 'COMPLETED' AND r.decision = 'REVOKE' AND r.decided_by_user_id IS NOT NULL AND r.decided_at IS NOT NULL`, []any{baseTestCreds.BranchEmail, f.CompanyID}, "1"},
 	}
 	for _, c := range checks {
 		if got := d.scalar(t, c.sql, c.args...); got != c.want {
 			t.Errorf("%s: got %q, want %q", c.name, got, c.want)
+		}
+	}
+
+	// /api/me lists the companies of ListUserCompanies when
+	// RBAC_GLOBAL_ROLES is empty (internal/app/workspace.go): the admin sees
+	// exactly the primary company, the no-access user none.
+	q := sqlc.New(d.Pool)
+	for email, want := range map[string]string{
+		baseTestCreds.AdminEmail:    fmt.Sprintf("[%d]", f.CompanyID),
+		baseTestCreds.BranchEmail:   fmt.Sprintf("[%d]", f.CompanyID),
+		baseTestCreds.NoAccessEmail: "[]",
+	} {
+		var uid int64
+		if err := d.Pool.QueryRow(ctx, `SELECT id FROM users WHERE email = $1`, email).Scan(&uid); err != nil {
+			t.Fatal(err)
+		}
+		rows, err := q.ListUserCompanies(ctx, uid)
+		if err != nil {
+			t.Fatalf("ListUserCompanies(%s): %v", email, err)
+		}
+		ids := []int64{}
+		for _, r := range rows {
+			ids = append(ids, r.ID)
+		}
+		if got := fmt.Sprint(ids); got != want {
+			t.Errorf("workspace companies of %s = %s, want %s", email, got, want)
 		}
 	}
 
@@ -254,9 +321,10 @@ func TestBaseSeedDBIdempotentRerun(t *testing.T) {
 	if err != nil {
 		t.Fatalf("second run: %v", err)
 	}
-	// The GRN line is only inserted together with a new GRN, so a rerun has
-	// one step fewer than the first run and every step is a reuse.
-	if second.count("created") != 0 || second.count("reused") != len(second.Steps) || len(second.Steps) != len(first.Steps)-1 {
+	// The PO and GRN lines are only inserted together with a new PO and GRN,
+	// so a rerun has two steps fewer than the first run and every step is a
+	// reuse; nothing is left to revoke.
+	if second.count("created") != 0 || second.count("reused") != len(second.Steps) || len(second.Steps) != len(first.Steps)-2 || len(second.Revoked) != 0 || second.GRNCreated || second.POID != first.POID {
 		t.Fatalf("second run: %d created, %d reused of %d steps; want a no-op", second.count("created"), second.count("reused"), len(second.Steps))
 	}
 	if *first.Fixtures != *second.Fixtures {
@@ -438,5 +506,190 @@ func TestBaseSeedDBRefusedWithoutStagingConfirmation(t *testing.T) {
 	}
 	if got := d.counts(t); fmt.Sprint(got) != fmt.Sprint(before) {
 		t.Fatalf("guard refusals changed row counts:\nbefore %v\nafter  %v", before, got)
+	}
+}
+
+// TestBaseSeedDBFreshGRNAfterInvoicing: a dispatch consumes the GRN
+// (ErrAlreadyInvoiced), so the next run provisions a fresh PO and GRN and
+// leaves the invoiced pair untouched. A PO-less GRN left by the rc.10 seeder
+// is never reused or rebound.
+func TestBaseSeedDBFreshGRNAfterInvoicing(t *testing.T) {
+	d := newBaseTestDB(t)
+	ctx := context.Background()
+
+	first, err := runBaseSeed(ctx, d.opts())
+	if err != nil {
+		t.Fatalf("first run: %v", err)
+	}
+	f := first.Fixtures
+	d.exec(t, `INSERT INTO ap_invoices (number, supplier_id, grn_id, total, status) VALUES ('AP-CONSUMED-1', $1, $2, 500000, 'DRAFT')`, f.SupplierID, f.GRNID)
+	// An rc.10-shaped certification GRN: same note, no PO.
+	d.exec(t, `INSERT INTO grns (number, supplier_id, warehouse_id, status, note, company_id) VALUES ('GRN-LEGACY-1', $1, $2, 'POSTED', $3, $4)`, f.SupplierID, f.WarehouseID, baseGRNNote, f.CompanyID)
+	invoicedSnap := d.scalar(t, `SELECT g::text || '|' || po::text FROM grns g JOIN pos po ON po.id = g.po_id WHERE g.id = $1`, f.GRNID)
+
+	second, err := runBaseSeed(ctx, d.opts())
+	if err != nil {
+		t.Fatalf("second run: %v", err)
+	}
+	if !second.GRNCreated || second.Fixtures.GRNID == f.GRNID || second.POID == first.POID {
+		t.Fatalf("second run: GRNCreated=%v grn %d->%d po %d->%d; want a fresh PO and GRN", second.GRNCreated, f.GRNID, second.Fixtures.GRNID, first.POID, second.POID)
+	}
+	created := map[string]bool{}
+	for _, s := range second.Steps {
+		if s.Status == "created" {
+			created[s.Name] = true
+		}
+	}
+	if fmt.Sprint(created) != fmt.Sprint(map[string]bool{"po_primary": true, "po_line_primary": true, "grn_primary": true, "grn_line_primary": true}) {
+		t.Errorf("second run created %v; want only the fresh PO, PO line, GRN and GRN line", created)
+	}
+	if got := d.scalar(t, `SELECT g::text || '|' || po::text FROM grns g JOIN pos po ON po.id = g.po_id WHERE g.id = $1`, f.GRNID); got != invoicedSnap {
+		t.Errorf("invoiced GRN or its PO changed:\nbefore %s\nafter  %s", invoicedSnap, got)
+	}
+	if got := d.scalar(t, `SELECT COALESCE(po_id::text, 'NULL') FROM grns WHERE number = 'GRN-LEGACY-1'`); got != "NULL" {
+		t.Errorf("legacy PO-less GRN was rebound to po %s", got)
+	}
+	if got := d.scalar(t, `SELECT (g.po_id <> $2 AND NOT EXISTS (SELECT 1 FROM ap_invoices a WHERE a.grn_id = g.id))::text FROM grns g WHERE g.id = $1`, second.Fixtures.GRNID, first.POID); got != "true" {
+		t.Errorf("fresh GRN must be un-invoiced with its own PO")
+	}
+
+	// A third run reuses the fresh pair.
+	third, err := runBaseSeed(ctx, d.opts())
+	if err != nil {
+		t.Fatalf("third run: %v", err)
+	}
+	if third.GRNCreated || third.Fixtures.GRNID != second.Fixtures.GRNID || third.count("created") != 0 {
+		t.Errorf("third run: GRNCreated=%v grn=%d created=%d; want a reuse of grn %d", third.GRNCreated, third.Fixtures.GRNID, third.count("created"), second.Fixtures.GRNID)
+	}
+}
+
+// TestBaseSeedDBCheckMode: --check rolls back, so it writes nothing and
+// reports missing rows on an unseeded database and none after a seed.
+func TestBaseSeedDBCheckMode(t *testing.T) {
+	d := newBaseTestDB(t)
+	ctx := context.Background()
+	check := d.opts()
+	check.Check = true
+
+	before := d.snapshot(t)
+	res, err := runBaseSeed(ctx, check)
+	if err != nil {
+		t.Fatalf("check on unseeded db: %v", err)
+	}
+	if !res.Check || res.count("created") == 0 || len(res.Revoked) == 0 {
+		t.Fatalf("check on unseeded db: check=%v missing=%d revoke=%d; want missing rows and pending revocations", res.Check, res.count("created"), len(res.Revoked))
+	}
+	if got := d.snapshot(t); fmt.Sprint(got) != fmt.Sprint(before) {
+		t.Fatalf("--check wrote to the database")
+	}
+
+	if _, err := runBaseSeed(ctx, d.opts()); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	afterSeed := d.snapshot(t)
+	res, err = runBaseSeed(ctx, check)
+	if err != nil {
+		t.Fatalf("check after seed: %v", err)
+	}
+	if res.count("created") != 0 || len(res.Revoked) != 0 {
+		t.Fatalf("check after seed: %d missing, %d to revoke; want none", res.count("created"), len(res.Revoked))
+	}
+	if got := d.snapshot(t); fmt.Sprint(got) != fmt.Sprint(afterSeed) {
+		t.Fatalf("--check after seed wrote to the database")
+	}
+}
+
+// TestBaseSeedDBNeverOverwritesOperatorRows: existing accounts, mappings and
+// an OPEN period are reused as they are, and role 1 named Administrator keeps
+// its grants.
+func TestBaseSeedDBNeverOverwritesOperatorRows(t *testing.T) {
+	d := newBaseTestDB(t)
+	ctx := context.Background()
+	d.exec(t, `INSERT INTO accounts (code, name, type) VALUES ('1200', 'Operator AR', 'ASSET'), ('1299', 'Operator Other AR', 'ASSET')`)
+	d.exec(t, `INSERT INTO account_mappings (module, key, account_id) SELECT 'AR', 'ar.invoice.ar', id FROM accounts WHERE code = '1299'`)
+	d.exec(t, `INSERT INTO periods (code, start_date, end_date, status) VALUES ('OPS-WIDE', CURRENT_DATE - 400, CURRENT_DATE + 400, 'OPEN')`)
+	d.exec(t, `UPDATE roles SET name = 'Administrator' WHERE id = 1`)
+	roleOne := d.scalar(t, `SELECT COUNT(*)::text FROM role_permissions WHERE role_id = 1`)
+
+	res, err := runBaseSeed(ctx, d.opts())
+	if err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	if len(res.Revoked) != 0 {
+		t.Errorf("revoked %v from a role 1 named Administrator", res.Revoked)
+	}
+	for name, c := range map[string]struct{ sql, want string }{
+		"role 1 grants kept":       {`SELECT COUNT(*)::text FROM role_permissions WHERE role_id = 1`, roleOne},
+		"operator account 1200":    {`SELECT name FROM accounts WHERE code = '1200'`, "Operator AR"},
+		"operator mapping kept":    {`SELECT a.code FROM account_mappings m JOIN accounts a ON a.id = m.account_id WHERE m.module = 'AR' AND m.key = 'ar.invoice.ar'`, "1299"},
+		"no extra period":          {`SELECT string_agg(code, ',') FROM periods`, "OPS-WIDE"},
+		"other mappings completed": {`SELECT COUNT(*)::text FROM account_mappings`, fmt.Sprint(len(baseLedgerMappings))},
+	} {
+		if got := d.scalar(t, c.sql); got != c.want {
+			t.Errorf("%s: got %q, want %q", name, got, c.want)
+		}
+	}
+}
+
+// TestBaseSeedDBRefusesScopeConflicts: rows that would break the tenancy or
+// ledger fixtures abort the run, roll back and stay untouched.
+func TestBaseSeedDBRefusesScopeConflicts(t *testing.T) {
+	cases := []struct {
+		name    string
+		plant   func(t *testing.T, d *baseTestDB)
+		wantErr string
+	}{
+		{
+			name: "admin with an active assignment in the other company",
+			plant: func(t *testing.T, d *baseTestDB) {
+				if _, err := runBaseSeed(context.Background(), d.opts()); err != nil {
+					t.Fatalf("seed: %v", err)
+				}
+				d.exec(t, `INSERT INTO rbac_user_role_assignments (company_id, user_id, role_id, valid_from)
+					SELECT c.id, u.id, r.id, NOW() - INTERVAL '1 day' FROM companies c, users u, roles r
+					WHERE c.code = 'ODY-02' AND u.email = $1 AND LOWER(r.name) = 'admin'`, baseTestCreds.AdminEmail)
+			},
+			wantErr: "user_admin (id=",
+		},
+		{
+			name: "no-access user with an active assignment",
+			plant: func(t *testing.T, d *baseTestDB) {
+				if _, err := runBaseSeed(context.Background(), d.opts()); err != nil {
+					t.Fatalf("seed: %v", err)
+				}
+				d.exec(t, `INSERT INTO rbac_user_role_assignments (company_id, user_id, role_id, valid_from)
+					SELECT c.id, u.id, r.id, NOW() - INTERVAL '1 day' FROM companies c, users u, roles r
+					WHERE c.code = 'ODY-01' AND u.email = $1 AND r.name = 'staging-branch-user'`, baseTestCreds.NoAccessEmail)
+			},
+			wantErr: "user_no_access (id=",
+		},
+		{
+			name: "closed period overlapping the current month",
+			plant: func(t *testing.T, d *baseTestDB) {
+				d.exec(t, `INSERT INTO periods (code, start_date, end_date, status) VALUES ('OPS-CLOSED', date_trunc('month', CURRENT_DATE)::date, (date_trunc('month', CURRENT_DATE) + INTERVAL '1 month - 1 day')::date, 'CLOSED')`)
+			},
+			wantErr: "overlaps existing period(s) OPS-CLOSED (CLOSED)",
+		},
+		{
+			name: "branch role that holds permissions",
+			plant: func(t *testing.T, d *baseTestDB) {
+				d.exec(t, `INSERT INTO roles (name) VALUES ('staging-branch-user')`)
+				d.exec(t, `INSERT INTO role_permissions (role_id, permission_id) SELECT r.id, p.id FROM roles r, permissions p WHERE r.name = 'staging-branch-user' AND p.name = 'finance.ap.view'`)
+			},
+			wantErr: "role_branch_user (roles) already exists as \"has permissions\"",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			d := newBaseTestDB(t)
+			tc.plant(t, d)
+			snap := d.snapshot(t)
+			if _, err := runBaseSeed(context.Background(), d.opts()); err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+				t.Fatalf("error = %v, want containing %q", err, tc.wantErr)
+			}
+			if got := d.snapshot(t); fmt.Sprint(got) != fmt.Sprint(snap) {
+				t.Fatalf("refused run modified the database")
+			}
+		})
 	}
 }

@@ -43,6 +43,7 @@ func main() {
 		confirmTarget = flag.String("confirm-staging", "", "<db-name>@<db-host> that must match the DSN host and current_database(); required by the base seeder and by --iso004")
 		denyHostRegex = flag.String("deny-host-regex", stagingDefaultDenyHosts, "Refuse when the DSN host matches this case-insensitive regex (base seeder and --iso004)")
 		dryRun        = flag.Bool("dry-run", false, "With --iso004: run the guard and SELECT-only resolution, print the planned inserts, write nothing")
+		check         = flag.Bool("check", false, "Base seeder only: run every step in a transaction that is rolled back and list each prerequisite as present/missing (stderr); exits 1 when anything is missing or a role 1 grant would be revoked")
 	)
 	flag.Parse()
 
@@ -54,6 +55,9 @@ func main() {
 
 	if *dryRun && !*iso004 {
 		log.Fatalf("--dry-run is only supported with --iso004")
+	}
+	if *check && (*iso004 || *applyGH || *exportEnv || *jsonOutput) {
+		log.Fatalf("--check runs the base seeder only and cannot be combined with --iso004, --apply-gh, --export or --json")
 	}
 	if *iso004 {
 		runISO004Main(iso004Options{
@@ -81,6 +85,7 @@ func main() {
 			ExplicitDSNSet: explicitDSN,
 		},
 		Creds: baseCredentialsFromEnv(),
+		Check: *check,
 	}, *applyGH, *exportEnv, *jsonOutput)
 }
 
@@ -94,6 +99,12 @@ func runBaseMain(opts baseOptions, applyGH, exportEnv, jsonOutput bool) {
 		log.Fatalf("seed staging fixtures: %v", err)
 	}
 	printBaseSteps(os.Stderr, res)
+	if res.Check {
+		if res.count("created") != 0 || len(res.Revoked) != 0 {
+			os.Exit(1)
+		}
+		return
+	}
 
 	printSummary(res.Fixtures, applyGH, exportEnv, jsonOutput)
 
@@ -145,7 +156,7 @@ func printSummary(f *Fixtures, applied bool, export bool, jsonOut bool) {
 	fmt.Println("--------------------------------------------------------------------------------")
 	fmt.Println("Test Identities Seeded:")
 	fmt.Printf("  Admin:     %s / (configured password)\n", f.AdminEmail)
-	fmt.Printf("  Branch:    %s / (configured password) [Expired ISO-003 Role + Completed Revoke]\n", f.BranchEmail)
+	fmt.Printf("  Branch:    %s / (configured password) [Active branch-scoped permission-less role + Expired ISO-003 Role + Completed Revoke]\n", f.BranchEmail)
 	fmt.Printf("  No-Access: %s / (configured password) [No Company Membership]\n", f.NoAccessEmail)
 	fmt.Println("================================================================================")
 
