@@ -319,3 +319,86 @@ func TestRC11CMMSMeterReadings(t *testing.T) {
 	require.Zero(t, h.count(`SELECT COUNT(*) FROM meter_readings WHERE asset_id=$1`, foreignAssetID))
 	require.Equal(t, http.StatusNotFound, h.get(foreignPath).status)
 }
+
+// createSparePart posts the strict test's spare-part form and returns the id.
+func (h *rc11CMMSHarness) createSparePart(code string) int64 {
+	h.t.Helper()
+	res := h.post("/cmms/spare-parts", "/cmms/spare-parts/new", url.Values{
+		"code": {code}, "name": {"v0.10-core certification spare"},
+		"category": {"MAINTENANCE"}, "unit_of_measure": {"EA"}, "unit_cost": {"12.50"},
+		"min_quantity": {"0"}, "reorder_point": {"0"},
+	})
+	require.Equal(h.t, http.StatusSeeOther, res.status)
+	id, err := strconv.ParseInt(strings.TrimPrefix(res.location, "/cmms/spare-parts/"), 10, 64)
+	require.NoError(h.t, err, "create spare part redirect %q flash %+v", res.location, res.flash)
+	return id
+}
+
+func TestRC11CMMSSparePartIssue(t *testing.T) {
+	p, f := newRC11Fixture(t)
+	h := newRC11CMMSHarness(t, p, f)
+	ctx := context.Background()
+
+	workID := h.createWorkOrder("RC11 spare parts " + f.Suffix)
+	workPath := fmt.Sprintf("/cmms/work-orders/%d", workID)
+	h.requireFlash(h.post(workPath+"/status", workPath, url.Values{"status": {"IN_PROGRESS"}}), "success")
+	spareID := h.createSparePart("CERT-SPARE-" + f.Suffix)
+
+	add := h.post(workPath+"/spare-parts", workPath, url.Values{
+		"spare_part_id": {strconv.FormatInt(spareID, 10)}, "quantity": {"1"}, "unit_cost": {"12.50"},
+	})
+	h.requireFlash(add, "success")
+	require.Equal(t, workPath, add.location)
+	var usageID int64
+	require.NoError(t, p.QueryRow(ctx, `SELECT id FROM work_order_spare_parts WHERE work_order_id=$1 AND spare_part_id=$2 ORDER BY id DESC LIMIT 1`, workID, spareID).Scan(&usageID))
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM work_order_spare_parts WHERE id=$1 AND quantity=1 AND unit_cost=12.5 AND total_cost=12.5 AND issued_at IS NULL`, usageID))
+	usagePath := fmt.Sprintf("/cmms/work-order-spare-parts/%d/issue", usageID)
+
+	issue := h.post(usagePath, workPath, nil)
+	h.requireFlash(issue, "success")
+	require.Equal(t, workPath, issue.location)
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM work_order_spare_parts WHERE id=$1 AND issued_at IS NOT NULL AND issued_by=$2`, usageID, f.AdminID))
+	issuedAt := h.str(`SELECT issued_at::text FROM work_order_spare_parts WHERE id=$1`, usageID)
+
+	// A second issue is an idempotent 303 that changes nothing.
+	again := h.post(usagePath, workPath, nil)
+	h.requireFlash(again, "info")
+	require.Equal(t, workPath, again.location)
+	require.Equal(t, issuedAt, h.str(`SELECT issued_at::text FROM work_order_spare_parts WHERE id=$1`, usageID))
+
+	usageKey := strconv.FormatInt(usageID, 10)
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM audit_logs WHERE entity='cmms_work_order_spare_part' AND entity_id=$1 AND action='add' AND actor_id=$2`, usageKey, f.AdminID))
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM audit_logs WHERE entity='cmms_work_order_spare_part' AND entity_id=$1 AND action='issue' AND actor_id=$2`, usageKey, f.AdminID))
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM audit_logs WHERE entity='cmms_spare_part' AND entity_id=$1 AND action='create'`, strconv.FormatInt(spareID, 10)))
+
+	// Invalid quantity is refused.
+	h.requireFlash(h.post(workPath+"/spare-parts", workPath, url.Values{"spare_part_id": {strconv.FormatInt(spareID, 10)}, "quantity": {"0"}}), "danger")
+
+	// Cross-company: a foreign spare part on our work order, our spare part
+	// on a foreign work order, and issuing a foreign usage are all refused.
+	foreignCompanyID, _ := h.foreignCompany()
+	var foreignSpareID int64
+	require.NoError(t, p.QueryRow(ctx, `INSERT INTO spare_parts(company_id,code,name) VALUES($1,$2,'RC11 foreign spare') RETURNING id`, foreignCompanyID, "SP-O-"+f.Suffix).Scan(&foreignSpareID))
+	h.requireFlash(h.post(workPath+"/spare-parts", workPath, url.Values{"spare_part_id": {strconv.FormatInt(foreignSpareID, 10)}, "quantity": {"1"}}), "danger")
+	require.Zero(t, h.count(`SELECT COUNT(*) FROM work_order_spare_parts WHERE spare_part_id=$1`, foreignSpareID))
+
+	foreignWorkID := h.foreignWorkOrder("IN_PROGRESS")
+	h.requireFlash(h.post(fmt.Sprintf("/cmms/work-orders/%d/spare-parts", foreignWorkID), workPath, url.Values{"spare_part_id": {strconv.FormatInt(spareID, 10)}, "quantity": {"1"}}), "danger")
+	require.Zero(t, h.count(`SELECT COUNT(*) FROM work_order_spare_parts WHERE work_order_id=$1`, foreignWorkID))
+
+	var foreignUsageID int64
+	require.NoError(t, p.QueryRow(ctx, `INSERT INTO work_order_spare_parts(work_order_id,spare_part_id,quantity) VALUES($1,$2,1) RETURNING id`, foreignWorkID, foreignSpareID).Scan(&foreignUsageID))
+	h.requireFlash(h.post(fmt.Sprintf("/cmms/work-order-spare-parts/%d/issue", foreignUsageID), workPath, nil), "danger")
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM work_order_spare_parts WHERE id=$1 AND issued_at IS NULL AND issued_by IS NULL`, foreignUsageID))
+
+	// A closed work order takes no more spare parts.
+	h.requireFlash(h.post(workPath+"/complete", workPath, url.Values{"actual_hours": {"1.5"}}), "success")
+	h.requireFlash(h.post(workPath+"/close", workPath, nil), "success")
+	h.requireFlash(h.post(workPath+"/spare-parts", workPath, url.Values{"spare_part_id": {strconv.FormatInt(spareID, 10)}, "quantity": {"1"}}), "danger")
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM work_order_spare_parts WHERE work_order_id=$1`, workID))
+
+	// The strict test's audit query (certification_test.go L1097-1100) over
+	// the asset, work order and spare usage.
+	require.GreaterOrEqual(t, h.count(`SELECT COUNT(*) FROM audit_logs WHERE entity IN ('cmms_asset','cmms_pm_schedule','cmms_work_order','cmms_meter_reading','cmms_spare_part','cmms_work_order_spare_part') AND (entity_id=$1 OR entity_id=$2 OR entity_id=$3)`,
+		strconv.FormatInt(f.AssetID, 10), strconv.FormatInt(workID, 10), usageKey), 4)
+}
