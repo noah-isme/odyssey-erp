@@ -515,3 +515,33 @@ func TestCalculateARAging(t *testing.T) {
 	require.Equal(t, 200.0, bucket.Bucket30)
 	require.Equal(t, 300.0, bucket.Bucket60)
 }
+
+type arAccountingCapture struct{ postedBy []int64 }
+
+func (a *arAccountingCapture) CreateARPostingJournal(_ context.Context, invoice *ARInvoice) error {
+	var by int64
+	if invoice.PostedBy != nil {
+		by = *invoice.PostedBy
+	}
+	a.postedBy = append(a.postedBy, by)
+	return nil
+}
+
+func (a *arAccountingCapture) CreateARCreditNoteJournal(context.Context, *ARCreditNote) error {
+	return nil
+}
+
+// TestPostARInvoiceJournalCarriesPoster: the journal is posted as the posting
+// user (audit_logs.actor_id cannot be 0).
+func TestPostARInvoiceJournalCarriesPoster(t *testing.T) {
+	ctx := context.Background()
+	repo := newMemoryARRepo()
+	svc := NewService(repo)
+	accounting := &arAccountingCapture{}
+	svc.SetAccountingService(accounting)
+
+	inv, err := svc.CreateARInvoice(ctx, CreateARInvoiceInput{CustomerID: 100, Number: "INV-ACT", Total: 500, CreatedBy: 1})
+	require.NoError(t, err)
+	require.NoError(t, svc.PostARInvoice(ctx, PostARInvoiceInput{InvoiceID: inv.ID, PostedBy: 2}))
+	require.Equal(t, []int64{2}, accounting.postedBy)
+}

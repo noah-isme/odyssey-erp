@@ -376,6 +376,10 @@ func (s *Service) PostARInvoice(ctx context.Context, input PostARInvoiceInput) e
 	if invoice.Status != ARStatusDraft {
 		return ErrInvalidStatus
 	}
+	// The journal is posted (and audited) as the posting user; the invoice
+	// was loaded before posting, so its PostedBy is still empty.
+	postedBy := input.PostedBy
+	invoice.PostedBy = &postedBy
 	valuation, err := s.resolveInvoiceValuation(ctx, invoice)
 	if err != nil {
 		return err

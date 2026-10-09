@@ -31,6 +31,8 @@ type APInvoicePostedEvent struct {
 	Total      float64
 	BaseAmount float64
 	PostedAt   time.Time
+	// PostedBy is the posting user; the journal and its audit row record it.
+	PostedBy int64
 }
 
 // APPaymentPostedEvent describes AP payment details for integration.

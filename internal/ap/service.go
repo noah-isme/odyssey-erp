@@ -398,7 +398,7 @@ func (s *Service) PostAPInvoice(ctx context.Context, input PostAPInvoiceInput) e
 		if handle, ok := tx.(interface{ PGXTx() pgx.Tx }); ok {
 			if accounting, ok := s.integration.(TransactionalAPAccountingPort); ok {
 				baseTotal, _ := strconv.ParseFloat(valuation.BaseAmount.String(), 64)
-				evt := procurement.APInvoicePostedEvent{ID: inv.ID, Number: inv.Number, SupplierID: inv.SupplierID, Total: inv.Total, BaseAmount: baseTotal, PostedAt: time.Now()}
+				evt := procurement.APInvoicePostedEvent{ID: inv.ID, Number: inv.Number, SupplierID: inv.SupplierID, Total: inv.Total, BaseAmount: baseTotal, PostedAt: time.Now(), PostedBy: input.PostedBy}
 				if inv.GRNID != nil {
 					evt.GRNID = *inv.GRNID
 				}
@@ -441,6 +441,7 @@ func (s *Service) PostAPInvoice(ctx context.Context, input PostAPInvoiceInput) e
 			Total:      invoice.Total,
 			BaseAmount: baseTotal,
 			PostedAt:   *postedAt,
+			PostedBy:   input.PostedBy,
 		}); err != nil {
 			return err
 		}

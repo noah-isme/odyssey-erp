@@ -127,6 +127,8 @@ func TestAPInvoiceHooksFailWithoutLedger(t *testing.T) {
 	}
 
 	ledger := &ledgerCapture{}
+	evt.PostedBy = 7
 	require.NoError(t, NewHooks(ledger, period, mapping).HandleAPInvoicePosted(context.Background(), evt))
 	require.Equal(t, []journals.PostingLineInput{{AccountID: 10, Debit: 100}, {AccountID: 20, Credit: 100}}, ledger.postings[0].Lines)
+	require.Equal(t, int64(7), ledger.postings[0].PostedBy, "the journal is posted as the posting user")
 }

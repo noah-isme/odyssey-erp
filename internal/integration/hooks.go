@@ -270,6 +270,7 @@ func (h *Hooks) HandleAPInvoicePosted(ctx context.Context, evt procurement.APInv
 		SourceModule: "PROCUREMENT.AP_INVOICE",
 		SourceID:     sourceID,
 		Memo:         fmt.Sprintf("AP Invoice %s", evt.Number),
+		PostedBy:     evt.PostedBy,
 		Lines: []journals.PostingLineInput{
 			{AccountID: debitAccount, Debit: amount},
 			{AccountID: apAccount, Credit: amount},
@@ -308,7 +309,7 @@ func (h *Hooks) HandleAPInvoicePostedTx(ctx context.Context, tx pgx.Tx, evt proc
 	if evt.BaseAmount > 0 {
 		amount = round2(evt.BaseAmount)
 	}
-	return h.postTx(ctx, tx, journals.PostingInput{PeriodID: period.ID, Date: evt.PostedAt, SourceModule: "PROCUREMENT.AP_INVOICE", SourceID: uuid.NewSHA1(uuid.Nil, []byte(fmt.Sprintf("APINV:%d", evt.ID))), Memo: fmt.Sprintf("AP Invoice %s", evt.Number), Lines: []journals.PostingLineInput{{AccountID: debit, Debit: amount}, {AccountID: ap, Credit: amount}}})
+	return h.postTx(ctx, tx, journals.PostingInput{PeriodID: period.ID, Date: evt.PostedAt, SourceModule: "PROCUREMENT.AP_INVOICE", SourceID: uuid.NewSHA1(uuid.Nil, []byte(fmt.Sprintf("APINV:%d", evt.ID))), Memo: fmt.Sprintf("AP Invoice %s", evt.Number), PostedBy: evt.PostedBy, Lines: []journals.PostingLineInput{{AccountID: debit, Debit: amount}, {AccountID: ap, Credit: amount}}})
 }
 
 // HandleAPPaymentPosted posts the accounting entry for an AP payment.
