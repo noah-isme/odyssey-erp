@@ -400,16 +400,24 @@ func (h *Handler) renderFormError(w http.ResponseWriter, r *http.Request, errors
 	})
 }
 
+// getUserID returns the signed-in user from the session, or 0 when there is
+// none (writes then fail on the users foreign key instead of using a
+// fabricated actor).
 func getUserID(r *http.Request) int64 {
-	if id, ok := r.Context().Value("user_id").(int64); ok {
-		return id
+	if sess := shared.SessionFromContext(r.Context()); sess != nil {
+		if id, err := strconv.ParseInt(sess.User(), 10, 64); err == nil && id > 0 {
+			return id
+		}
 	}
 	return 0
 }
 
+// getCompanyID returns the session's active company.
 func getCompanyID(r *http.Request) int64 {
-	if id, ok := r.Context().Value("company_id").(int64); ok {
-		return id
+	if sess := shared.SessionFromContext(r.Context()); sess != nil {
+		if id, err := strconv.ParseInt(sess.Get("company_id"), 10, 64); err == nil && id > 0 {
+			return id
+		}
 	}
 	return 1 // Default to 1 (MAIN) if not set
 }
