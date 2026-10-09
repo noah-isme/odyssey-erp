@@ -621,3 +621,66 @@ func TestRC11DocumentSignatureReplay(t *testing.T) {
 	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM document_signatures WHERE challenge_id=$1::uuid`, racing))
 	require.Equal(t, 2, signatures())
 }
+
+// TestRC11DocumentCertificationJourney replays J-DOC-001 of
+// tests/staging/certification_test.go (L919-994) in order, with its request
+// shapes and database assertions.
+func TestRC11DocumentCertificationJourney(t *testing.T) {
+	p, f := newRC11Fixture(t)
+	h := newRC11DocsHarness(t, p, f)
+	ctx := context.Background()
+	queryInt := func(sql string, args ...any) int64 {
+		t.Helper()
+		var v int64
+		require.NoError(t, p.QueryRow(ctx, sql, args...).Scan(&v), sql)
+		return v
+	}
+
+	documentID := h.createDocument("v0.10-core certification document")
+	documentPath := fmt.Sprintf("/documents/library/%d", documentID)
+	require.Equal(t, http.StatusOK, h.get(documentPath).status)
+	version, versionID := h.uploadVersion(documentID, []byte("v0.10-core staging certification evidence\n"))
+	require.Equal(t, http.StatusSeeOther, version.status)
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM document_versions WHERE document_id=$1`, documentID))
+
+	aclPath := documentPath + "/acl"
+	acl := h.postForm(aclPath, url.Values{
+		"csrf_token": {h.fetchCSRF(aclPath)}, "principal_type": {"USER"},
+		"principal_id": {strconv.FormatInt(f.AdminID, 10)}, "permission": {"READ"}, "effect": {"ALLOW"},
+		"expires_at": {time.Now().UTC().Add(time.Hour).Format(time.RFC3339)},
+	})
+	require.Equal(t, http.StatusSeeOther, acl.status)
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM document_acls WHERE company_id=$1 AND document_id=$2 AND principal_id=$3 AND permission='READ' AND effect='ALLOW' AND expires_at IS NOT NULL`, f.CompanyID, documentID, f.AdminID))
+
+	versionPath := fmt.Sprintf("%s/versions/%d", documentPath, versionID)
+	submit := h.postForm(versionPath+"/submit-review", url.Values{"csrf_token": {h.fetchCSRF(documentPath + "/versions")}})
+	require.Equal(t, http.StatusSeeOther, submit.status)
+	stepID := queryInt(`SELECT id FROM document_review_steps WHERE document_version_id=$1 ORDER BY step_order LIMIT 1`, versionID)
+	review := h.postForm(versionPath+"/review", url.Values{
+		"csrf_token": {h.fetchCSRF(documentPath + "/versions")}, "step_id": {strconv.FormatInt(stepID, 10)},
+		"decision": {"APPROVED"}, "comments": {"v0.10-core certification review"},
+	})
+	require.Equal(t, http.StatusSeeOther, review.status)
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM document_versions WHERE id=$1 AND status='APPROVED'`, versionID))
+
+	challenge := h.postForm(versionPath+"/challenge", url.Values{"csrf_token": {h.fetchCSRF(documentPath + "/versions")}})
+	require.Equal(t, http.StatusSeeOther, challenge.status)
+	var challengeID string
+	require.NoError(t, p.QueryRow(ctx, `SELECT challenge_id::text FROM document_signature_challenges WHERE document_version_id=$1 ORDER BY created_at DESC LIMIT 1`, versionID).Scan(&challengeID))
+	sign := h.postForm(versionPath+"/sign", url.Values{
+		"csrf_token": {h.fetchCSRF(documentPath + "/versions")}, "challenge_id": {challengeID},
+		"meaning": {"Approved as effective version"},
+	})
+	require.Equal(t, http.StatusSeeOther, sign.status)
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM document_signature_challenges WHERE challenge_id=$1::uuid AND used=true`, challengeID))
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM document_signatures WHERE document_version_id=$1 AND meaning=$2`, versionID, "Approved as effective version"))
+
+	retention := h.postForm(versionPath+"/retention", url.Values{"csrf_token": {h.fetchCSRF(documentPath + "/versions")}})
+	require.Equal(t, http.StatusSeeOther, retention.status)
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM document_retention WHERE document_version_id=$1 AND status='ACTIVE'`, versionID))
+
+	download := h.get(versionPath + "/download")
+	require.Equal(t, http.StatusOK, download.status)
+	require.NotEmpty(t, download.body)
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM document_access_events WHERE document_version_id=$1 AND actor_id=$2 AND action='DOWNLOAD'`, versionID, f.AdminID))
+}
