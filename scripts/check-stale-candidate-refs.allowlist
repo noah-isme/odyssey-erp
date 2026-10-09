@@ -1,9 +1,10 @@
 # Allowlist for scripts/check-stale-candidate-refs.sh.
 #
-# The current candidate is v0.10.0-rc.10. References to the superseded
-# v0.10.0-rc.8 and v0.10.0-rc.9 candidates (pattern: rc\.8|20cc13a|rc\.9|07d2ba2)
-# are allowed only in the historical records below. Rule syntax is documented
-# in the script header.
+# The current candidate is v0.10.0-rc.11. References to the superseded
+# v0.10.0-rc.8, v0.10.0-rc.9 and v0.10.0-rc.10 candidates (pattern:
+# rc\.8|20cc13a|rc\.9|07d2ba2|rc\.10|0745957) are allowed only in the
+# historical records below. Prefer section rules for historical sections over
+# line rules. Rule syntax is documented in the script header.
 
 # Historical identity record for rc.8 (later candidates are recorded on their
 # certification branches).
@@ -16,14 +17,21 @@ file docs/archive/*
 # VERSION_HISTORY history sections.
 section docs/releases/VERSION_HISTORY.md ### v0.10.0-rc.8 — Divergent stabilization candidate (superseded)
 section docs/releases/VERSION_HISTORY.md ### v0.10.0-rc.9 — Worker idempotency and attribution fixes (superseded)
+section docs/releases/VERSION_HISTORY.md ### v0.10.0-rc.10 — Approval finalization fix (superseded)
 
-# Certification record: rc.9 and rc.8 identities kept as history below the
-# rc.10 record.
+# Certification record: the rc.10, rc.9 and rc.8 identities kept as history
+# below the rc.11 record, the invalidated rc.10 run, and the findings table,
+# whose rows are point-in-time defect records (FIND-011 to FIND-018 cite the
+# rc.10 tag).
+section docs/releases/v0.10-core-staging-certification.md ## Historical rc.10 candidate identity (superseded)
 section docs/releases/v0.10-core-staging-certification.md ## Historical rc.9 candidate identity (superseded)
 section docs/releases/v0.10-core-staging-certification.md ## Historical rc.8 candidate identity (superseded)
+section docs/releases/v0.10-core-staging-certification.md ## Invalidated certification runs
+section docs/releases/v0.10-core-staging-certification.md ## Findings
 
-# Lines that explicitly label the reference as superseded or historical.
-line superseded|historical
+# Lines that explicitly label the reference as superseded, historical, or
+# invalidated.
+line superseded|historical|invalidated
 
 # The approval finalization defect range (rc.1 through rc.9), as written in the
 # remediation runbook and the rc.10 notes: "rc.1 through rc.9", "rc.1-rc.9",
@@ -33,3 +41,18 @@ line rc\.1`?( through | to |-|–)`?(v0\.10\.0-)?rc\.9
 # Behaviour attributed to the rc.9 change set, which later candidates keep
 # ("since rc.9", "before rc.9", "fixed in rc.9", "resolved in `v0.10.0-rc.9`").
 line (since|before|fixed in|resolved in|changed in) `?(v0\.10\.0-)?rc\.9
+
+# Behaviour attributed to the rc.10 change set or to releases up to it ("first
+# shipped in `v0.10.0-rc.10`", "releases up to v0.10.0-rc.10", "`v0.10.0-rc.10`
+# (or earlier)").
+line (first shipped in|up to) `?(v0\.10\.0-)?rc\.10
+line rc\.10`? \(or earlier\)
+
+# rc.11 lineage and proof wording: "rc.10 tag plus the rc.11 fix commits",
+# "a test that fails at the rc.10 tag".
+line rc\.10 tag plus the rc\.11
+line fails? at (the )?`?(v0\.10\.0-)?rc\.10`? tag
+
+# The rc.10 forensic dump of the pre-rebuild staging database, kept under the
+# rc.10 evidence prefix ("v0.10.0-rc.10/forensics/", "the rc.10 forensic dump").
+line rc\.10(/forensics| forensic)

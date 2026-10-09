@@ -32,7 +32,7 @@ mkdir -p "$root/docs/releases" "$root/docs/archive" "$root/scripts"
 cat >"$root/docs/releases/VERSION_HISTORY.md" <<'EOF'
 # History
 
-**Current release candidate:** v0.10.0-rc.10
+**Current release candidate:** v0.10.0-rc.11
 
 ## Detailed reports
 
@@ -54,12 +54,53 @@ Still inside the rc.8 section.
 The candidate commit is `07d2ba2bbb553a5594828771361e3ab546b35b70`
 on the rc.9 line.
 
-### v0.10.0-rc.10 — Current
+### v0.10.0-rc.10 — Approval fix (superseded)
+
+The candidate commit is `074595735f82a063c3c9e0a176658ed2f04581d6`.
+Deploying rc.10 stops new damage.
+
+### v0.10.0-rc.11 — Current
 
 Lineage: the superseded rc.9 tag plus fixes.
 The defect is present in `v0.10.0-rc.1` through `v0.10.0-rc.9`.
 Affected builds: rc.1–rc.9.
 Payslip locking is unchanged since rc.9.
+Approval finalization first shipped in `v0.10.0-rc.10`.
+Every fix has a test that fails at the rc.10 tag.
+EOF
+
+# The certification record keeps the rc.10 identity, the invalidated rc.10
+# run and the findings table (file references at the rc.10 tag) as sections.
+cat >"$root/docs/releases/v0.10-core-staging-certification.md" <<'EOF'
+# Certification record
+
+**Candidate:** `v0.10.0-rc.11`
+
+**Candidate lineage:** rc.10 tag plus the rc.11 fix commits; no migration.
+
+## Invalidated certification runs
+
+| Run | Evidence location |
+|---|---|
+| `37820191861` from `certification/v0.10.0-rc.10` | `s3://evidence/v0.10.0-rc.10/0745957/37820191861/1` |
+
+## Findings
+
+| `FIND-011` | Fails at `0745957`. |
+| `FIND-013` | Routes do not exist in rc.10. |
+
+### Finding notes
+
+Nested under Findings: rc.10 reproduction.
+
+## Approval and promotion decision
+
+Approve the exact rc.11 candidate.
+
+## Historical rc.10 candidate identity (superseded)
+
+`v0.10.0-rc.10` resolved to `074595735f82a063c3c9e0a176658ed2f04581d6`.
+Its forensic dump is under `v0.10.0-rc.10/forensics/`.
 EOF
 
 cat >"$root/docs/releases/v0.10.0-rc.4.md" <<'EOF'
@@ -82,22 +123,46 @@ file docs/archive/*
 
 section docs/releases/VERSION_HISTORY.md ### v0.10.0-rc.8 — Old candidate (superseded)
 section docs/releases/VERSION_HISTORY.md ### v0.10.0-rc.9 — Previous candidate (superseded)
-line superseded|historical
+section docs/releases/VERSION_HISTORY.md ### v0.10.0-rc.10 — Approval fix (superseded)
+section docs/releases/v0.10-core-staging-certification.md ## Invalidated certification runs
+section docs/releases/v0.10-core-staging-certification.md ## Findings
+section docs/releases/v0.10-core-staging-certification.md ## Historical rc.10 candidate identity (superseded)
+line superseded|historical|invalidated
 line rc\.1`?( through | to |-|–)`?(v0\.10\.0-)?rc\.9
 line (since|before|fixed in|resolved in|changed in) `?(v0\.10\.0-)?rc\.9
+line (first shipped in|up to) `?(v0\.10\.0-)?rc\.10
+line rc\.10 tag plus the rc\.11
+line fails? at (the )?`?(v0\.10\.0-)?rc\.10`? tag
 EOF
 
-# 1. Clean fixture passes; every hit is allowlisted: file and archive rules
-#    (2), the rc.8 section incl. nested heading and fenced line (5), the rc.9
-#    section (3), and the 'superseded', defect-range (backtick and en-dash
-#    forms) and 'since rc.9' line rules (4). The current rc.10 heading and
-#    status line do not match the default pattern.
+# 1. Clean fixture passes; every hit is allowlisted. VERSION_HISTORY (17):
+#    the rc.8 section incl. nested heading and fenced line (5), the rc.9
+#    section (3), the rc.10 section incl. its full commit (3), and the
+#    'superseded', defect-range (backtick and en-dash forms), 'since rc.9',
+#    'first shipped in rc.10' and 'fails at the rc.10 tag' line rules (6) in
+#    the rc.11 section, whose heading does not match. Certification record
+#    (8): the lineage line rule (1), the invalidated-run table row (1), the
+#    Findings rows and a line under its nested heading (3), and the historical
+#    rc.10 heading and lines (3); the current rc.11 lines and the approval
+#    section do not match. File and archive rules (2).
 run clean 0
 grep -q 'stale candidate refs: OK' "$tmp/clean.out" || fail 'clean: missing OK summary'
-grep -q '14 allowlisted line(s)' "$tmp/clean.out" || fail "clean: want 14 allowlisted lines, got: $(cat "$tmp/clean.out")"
+grep -q '27 allowlisted line(s)' "$tmp/clean.out" || fail "clean: want 27 allowlisted lines, got: $(cat "$tmp/clean.out")"
+grep -qF 'rc\.10|0745957' "$tmp/clean.out" || fail "clean: default pattern must include rc.10 and 0745957: $(cat "$tmp/clean.out")"
 
-# 2. Current-status lines naming rc.8, rc.9, or the rc.9 commit outside the
-#    allowlist fail with file:line output; an rc.10 line is not a hit.
+# 1b. A section rule ends at the next heading of the same level: an rc.10
+#    line in the certification record's current approval section fails.
+cert="$root/docs/releases/v0.10-core-staging-certification.md"
+cp "$cert" "$tmp/cert.md"
+sed -i 's/^Approve the exact rc.11 candidate.$/Approve the exact rc.10 candidate./' "$cert"
+run cert-section-end 1
+grep -q 'v0.10-core-staging-certification.md:.*Approve the exact rc.10 candidate.' "$tmp/cert-section-end.err" || fail "cert-section-end: rc.10 line outside the sections must be reported: $(cat "$tmp/cert-section-end.err")"
+grep -q '1 line(s) match' "$tmp/cert-section-end.err" || fail "cert-section-end: want 1 hit, got: $(cat "$tmp/cert-section-end.err")"
+cp "$tmp/cert.md" "$cert"
+
+# 2. Current-status lines naming rc.8, rc.9, rc.10, or the rc.9 or rc.10
+#    commit outside the allowlist fail with file:line output; an rc.11 line is
+#    not a hit.
 cat >"$root/docs/DEPLOYMENT.md" <<'EOF'
 # Deployment
 
@@ -105,14 +170,18 @@ The current candidate is v0.10.0-rc.8.
 Line two is fine.
 The current candidate is v0.10.0-rc.9.
 The candidate commit is `07d2ba2`.
+The current candidate is v0.10.0-rc.11.
 The current candidate is v0.10.0-rc.10.
+The candidate commit is `0745957`.
 EOF
 run stale 1
 grep -qx 'docs/DEPLOYMENT.md:3: The current candidate is v0.10.0-rc.8.' "$tmp/stale.err" || fail "stale: missing rc.8 file:line report: $(cat "$tmp/stale.err")"
 grep -qx 'docs/DEPLOYMENT.md:5: The current candidate is v0.10.0-rc.9.' "$tmp/stale.err" || fail "stale: missing rc.9 file:line report: $(cat "$tmp/stale.err")"
 grep -qx 'docs/DEPLOYMENT.md:6: The candidate commit is `07d2ba2`.' "$tmp/stale.err" || fail "stale: missing 07d2ba2 file:line report: $(cat "$tmp/stale.err")"
-if grep -q 'DEPLOYMENT.md:7:' "$tmp/stale.err"; then fail 'stale: the rc.10 line must not be reported'; fi
-grep -q '3 line(s) match' "$tmp/stale.err" || fail "stale: want 3 hits, got: $(cat "$tmp/stale.err")"
+grep -qx 'docs/DEPLOYMENT.md:8: The current candidate is v0.10.0-rc.10.' "$tmp/stale.err" || fail "stale: missing rc.10 file:line report: $(cat "$tmp/stale.err")"
+grep -qx 'docs/DEPLOYMENT.md:9: The candidate commit is `0745957`.' "$tmp/stale.err" || fail "stale: missing 0745957 file:line report: $(cat "$tmp/stale.err")"
+if grep -q 'DEPLOYMENT.md:7:' "$tmp/stale.err"; then fail 'stale: the rc.11 line must not be reported'; fi
+grep -q '5 line(s) match' "$tmp/stale.err" || fail "stale: want 5 hits, got: $(cat "$tmp/stale.err")"
 
 # 3. The 'historical' line rule is case-insensitive.
 printf '# Deployment\n\nHistorical: v0.10.0-rc.8 was the previous candidate.\n' >"$root/docs/DEPLOYMENT.md"
@@ -121,14 +190,14 @@ run historical 0
 # 3b. NEXT_STEPS.md at the root is scanned too: a stale current-status line
 #    fails with a root-relative file:line, and fixing it passes. The earlier
 #    fixtures have no NEXT_STEPS.md, which is simply skipped.
-printf '# Next steps\n\n**Current candidate:** `v0.10.0-rc.9`\n' >"$root/NEXT_STEPS.md"
-run next-steps-stale 1
-grep -qx 'NEXT_STEPS.md:3: \*\*Current candidate:\*\* `v0.10.0-rc.9`' "$tmp/next-steps-stale.err" || fail "next-steps-stale: missing file:line report: $(cat "$tmp/next-steps-stale.err")"
 printf '# Next steps\n\n**Current candidate:** `v0.10.0-rc.10`\n' >"$root/NEXT_STEPS.md"
+run next-steps-stale 1
+grep -qx 'NEXT_STEPS.md:3: \*\*Current candidate:\*\* `v0.10.0-rc.10`' "$tmp/next-steps-stale.err" || fail "next-steps-stale: missing file:line report: $(cat "$tmp/next-steps-stale.err")"
+printf '# Next steps\n\n**Current candidate:** `v0.10.0-rc.11`\n' >"$root/NEXT_STEPS.md"
 run next-steps-fixed 0
-printf '# Next steps\n\nThe rc.9 record is historical.\n' >"$root/NEXT_STEPS.md"
+printf '# Next steps\n\nThe rc.10 record is historical.\n' >"$root/NEXT_STEPS.md"
 run next-steps-allowlisted 0
-grep -q '16 allowlisted line(s)' "$tmp/next-steps-allowlisted.out" || fail "next-steps-allowlisted: want 16 allowlisted lines, got: $(cat "$tmp/next-steps-allowlisted.out")"
+grep -q '29 allowlisted line(s)' "$tmp/next-steps-allowlisted.out" || fail "next-steps-allowlisted: want 29 allowlisted lines, got: $(cat "$tmp/next-steps-allowlisted.out")"
 rm -f "$root/NEXT_STEPS.md"
 
 # 4. A section ends at the next heading of the same or higher level, and the
