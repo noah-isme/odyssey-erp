@@ -153,7 +153,7 @@ LEFT JOIN storage_blobs b ON dv.blob_id = b.id
 LEFT JOIN users u ON dv.created_by = u.id
 WHERE dv.company_id = $1
   AND dv.document_id = $2
-  AND ($3::text IS NULL OR dv.status = $3)
+  AND ($3::text = '' OR dv.status = $3)
 ORDER BY dv.version_number DESC
 LIMIT $4 OFFSET $5;
 
@@ -399,14 +399,22 @@ WHERE id = $1 AND company_id = $2 AND active = TRUE;
 -- =============================================================================
 
 -- name: InsertDocumentSignatureChallenge :one
-INSERT INTO document_signature_challenges (company_id, document_version_id, signer_id, expiry)
-VALUES ($1, $2, $3, $4)
+INSERT INTO document_signature_challenges (company_id, challenge_id, document_version_id, signer_id, meaning, policy_version, expiry)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING challenge_id;
 
 -- name: GetDocumentSignatureChallenge :one
-SELECT challenge_id, company_id, document_version_id, signer_id, expiry, created_at
+SELECT challenge_id, company_id, document_version_id, signer_id, meaning, policy_version, expiry, used, created_at
 FROM document_signature_challenges
 WHERE challenge_id = $1;
+
+-- name: ConsumeDocumentSignatureChallenge :one
+-- Atomically marks an unused, unexpired challenge as used. No row means the
+-- challenge is unknown, already used or expired.
+UPDATE document_signature_challenges
+SET used = TRUE
+WHERE challenge_id = $1 AND used = FALSE AND expiry > NOW()
+RETURNING challenge_id, company_id, document_version_id, signer_id, meaning, policy_version, expiry, used, created_at;
 
 -- name: InsertDocumentSignature :one
 INSERT INTO document_signatures (company_id, document_version_id, challenge_id, signer_id, record_version, record_hash, meaning, policy_version, auth_method)

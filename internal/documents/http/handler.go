@@ -294,7 +294,7 @@ func (h *Handler) downloadVersion(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	if contentType == "" {
 		contentType = "application/octet-stream"
@@ -518,20 +518,30 @@ func (h *Handler) newCategoryForm(w http.ResponseWriter, r *http.Request) {
 // Signatures & Retention
 // ============================================================================
 
-func (h *Handler) createChallenge(w http.ResponseWriter, r *http.Request) {
-	docID := chi.URLParam(r, "id")
-	versionID := parseInt64(chi.URLParam(r, "versionID"))
-	actorID := currentUser(r)
-	companyID := currentCompany(r)
+// signatureChallengeTTL is how long an issued signature challenge stays
+// usable.
+const signatureChallengeTTL = 5 * time.Minute
 
-	// Issue a 5-minute challenge
-	challenge, err := h.service.CreateSignatureChallenge(r.Context(), companyID, versionID, actorID, 5*60*1000*1000*1000)
-	if err != nil {
-		h.redirectWithFlash(w, r, "/documents/library/"+docID+"/versions", "danger", shared.UserSafeMessage(err))
+func (h *Handler) createChallenge(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+	versionsPath := "/documents/library/" + chi.URLParam(r, "id") + "/versions"
+	version, ok := h.versionOfDocument(r)
+	if !ok {
+		h.redirectWithFlash(w, r, versionsPath, "danger", "Document version not found.")
 		return
 	}
 
-	h.redirectWithFlash(w, r, "/documents/library/"+docID+"/versions", "success", "Signature challenge generated (check your email/SMS). POC ID: "+challenge.ChallengeID)
+	challenge, err := h.service.CreateSignatureChallenge(r.Context(), currentCompany(r), version.ID, currentUser(r), r.PostFormValue("meaning"), signatureChallengeTTL)
+	if err != nil {
+		h.logger.Warn("create signature challenge", slog.Int64("version_id", version.ID), slog.Any("error", err))
+		h.redirectWithFlash(w, r, versionsPath, "danger", shared.UserSafeMessage(err))
+		return
+	}
+
+	h.redirectWithFlash(w, r, versionsPath, "success", "Signature challenge "+challenge.ChallengeID+" issued for \""+challenge.Meaning+"\"; it expires in 5 minutes and can be used once.")
 }
 
 func (h *Handler) signVersion(w http.ResponseWriter, r *http.Request) {
@@ -540,7 +550,12 @@ func (h *Handler) signVersion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	docID := chi.URLParam(r, "id")
-	versionID := parseInt64(chi.URLParam(r, "versionID"))
+	version, ok := h.versionOfDocument(r)
+	if !ok {
+		h.redirectWithFlash(w, r, "/documents/library/"+docID+"/versions", "danger", "Document version not found.")
+		return
+	}
+	versionID := version.ID
 	actorID := currentUser(r)
 	companyID := currentCompany(r)
 
@@ -556,7 +571,15 @@ func (h *Handler) signVersion(w http.ResponseWriter, r *http.Request) {
 
 	_, err := h.service.SignDocument(r.Context(), req)
 	if err != nil {
-		h.redirectWithFlash(w, r, "/documents/library/"+docID+"/versions", "danger", shared.UserSafeMessage(err))
+		h.logger.Warn("sign version", slog.Int64("version_id", versionID), slog.Any("error", err))
+		msg := shared.UserSafeMessage(err)
+		switch {
+		case errors.Is(err, documents.ErrChallengeUnavailable):
+			msg = "The signature challenge is unknown, expired, already used or not yours for this version. Request a new one."
+		case errors.Is(err, documents.ErrSignatureMeaningRequired):
+			msg = "State the meaning of your signature."
+		}
+		h.redirectWithFlash(w, r, "/documents/library/"+docID+"/versions", "danger", msg)
 		return
 	}
 

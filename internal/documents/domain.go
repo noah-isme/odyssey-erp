@@ -215,7 +215,10 @@ type DocumentSignatureChallenge struct {
 	CompanyID         int64
 	DocumentVersionID int64
 	SignerID          int64
+	Meaning           string
+	PolicyVersion     int
 	Expiry            time.Time
+	Used              bool
 	CreatedAt         time.Time
 }
 
@@ -513,6 +516,11 @@ var (
 	// ErrInvalidReviewDecision reports a step, decision or reviewer that does
 	// not fit the version under review.
 	ErrInvalidReviewDecision = fmt.Errorf("documents: invalid review decision: %w", shared.ErrInvalidInput)
+	// ErrChallengeUnavailable reports a signature challenge that is unknown,
+	// already used, expired, or issued for another company, version or signer.
+	ErrChallengeUnavailable = fmt.Errorf("documents: signature challenge is not available: %w", shared.ErrConflict)
+	// ErrSignatureMeaningRequired reports a sign request without a meaning.
+	ErrSignatureMeaningRequired = fmt.Errorf("documents: signature meaning required: %w", shared.ErrInvalidInput)
 	// ErrACLExists reports a grant that duplicates an existing entry.
 	ErrACLExists = fmt.Errorf("documents: access entry already exists: %w", shared.ErrDuplicate)
 	// ErrInvalidACL reports an access entry with missing or unknown fields.

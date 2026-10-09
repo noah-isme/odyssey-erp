@@ -50,6 +50,9 @@ type Querier interface {
 	CompleteWorkOrderTask(ctx context.Context, arg CompleteWorkOrderTaskParams) error
 	ConfirmGoodsReturnGRN(ctx context.Context, arg ConfirmGoodsReturnGRNParams) error
 	ConsolBalancesByType(ctx context.Context, arg ConsolBalancesByTypeParams) ([]ConsolBalancesByTypeRow, error)
+	// Atomically marks an unused, unexpired challenge as used. No row means the
+	// challenge is unknown, already used or expired.
+	ConsumeDocumentSignatureChallenge(ctx context.Context, challengeID pgtype.UUID) (ConsumeDocumentSignatureChallengeRow, error)
 	ContributionByBranch(ctx context.Context, arg ContributionByBranchParams) ([]ContributionByBranchRow, error)
 	CountARInvoicesByDelivery(ctx context.Context, deliveryOrderID pgtype.Int8) (int64, error)
 	CountAuditsWithPrefix(ctx context.Context, arg CountAuditsWithPrefixParams) (int64, error)

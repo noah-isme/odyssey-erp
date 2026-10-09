@@ -637,15 +637,40 @@ func (s *Service) RecordReviewDecision(ctx context.Context, req ReviewDecisionRe
 
 // Signatures
 
-func (s *Service) CreateSignatureChallenge(ctx context.Context, companyID, versionID, signerID int64, expiry time.Duration) (DocumentSignatureChallenge, error) {
-	// Generate challenge expiry
-	exp := time.Now().Add(expiry)
+const (
+	// DefaultSignatureMeaning is the challenge meaning when the request gives
+	// none.
+	DefaultSignatureMeaning = "Approved as effective version"
+	// SignaturePolicyVersion is the signature policy recorded on challenges
+	// and signatures.
+	SignaturePolicyVersion = 1
+)
+
+// CreateSignatureChallenge issues a one-time challenge for a version of the
+// company. An empty meaning becomes DefaultSignatureMeaning.
+func (s *Service) CreateSignatureChallenge(ctx context.Context, companyID, versionID, signerID int64, meaning string, expiry time.Duration) (DocumentSignatureChallenge, error) {
+	if companyID <= 0 || versionID <= 0 || signerID <= 0 || expiry <= 0 {
+		return DocumentSignatureChallenge{}, errors.New("documents: company, version, signer and expiry are required")
+	}
+	version, err := s.repo.GetDocumentVersion(ctx, versionID)
+	if err != nil {
+		return DocumentSignatureChallenge{}, err
+	}
+	if version.CompanyID != companyID {
+		return DocumentSignatureChallenge{}, ErrDocumentVersionNotFound
+	}
+	meaning = strings.TrimSpace(meaning)
+	if meaning == "" {
+		meaning = DefaultSignatureMeaning
+	}
 
 	challengeID, err := s.repo.InsertSignatureChallenge(ctx, SignatureChallengeRequest{
 		CompanyID:         companyID,
 		DocumentVersionID: versionID,
 		SignerID:          signerID,
-		Expiry:            exp,
+		Meaning:           meaning,
+		PolicyVersion:     SignaturePolicyVersion,
+		Expiry:            s.now().Add(expiry),
 	})
 	if err != nil {
 		return DocumentSignatureChallenge{}, err
@@ -654,29 +679,22 @@ func (s *Service) CreateSignatureChallenge(ctx context.Context, companyID, versi
 	return s.repo.GetSignatureChallenge(ctx, challengeID)
 }
 
+// SignDocument signs a version with a challenge issued to the signer. The
+// request's meaning (required) is what the signature records. The challenge
+// is consumed atomically with the signature insert: a used, expired or
+// foreign challenge returns ErrChallengeUnavailable and nothing is written.
 func (s *Service) SignDocument(ctx context.Context, req SignDocumentRequest) (DocumentSignature, error) {
-	challenge, err := s.repo.GetSignatureChallenge(ctx, req.ChallengeID)
-	if err != nil {
-		return DocumentSignature{}, err
+	req.Meaning = strings.TrimSpace(req.Meaning)
+	if req.Meaning == "" {
+		return DocumentSignature{}, ErrSignatureMeaningRequired
 	}
 
-	if challenge.CompanyID != req.CompanyID {
-		return DocumentSignature{}, errors.New("documents: challenge company mismatch")
-	}
-	if challenge.DocumentVersionID != req.DocumentVersionID {
-		return DocumentSignature{}, errors.New("documents: challenge version mismatch")
-	}
-	if challenge.SignerID != req.SignerID {
-		return DocumentSignature{}, errors.New("documents: signer mismatch")
-	}
-	if time.Now().After(challenge.Expiry) {
-		return DocumentSignature{}, errors.New("documents: challenge expired")
-	}
-
-	// Fetch document version to get checksum
 	version, err := s.repo.GetDocumentVersion(ctx, req.DocumentVersionID)
 	if err != nil {
 		return DocumentSignature{}, err
+	}
+	if version.CompanyID != req.CompanyID {
+		return DocumentSignature{}, ErrChallengeUnavailable
 	}
 
 	var recordHash string
@@ -687,23 +705,7 @@ func (s *Service) SignDocument(ctx context.Context, req SignDocumentRequest) (Do
 		}
 	}
 
-	// Create signature
-	sig, err := s.repo.InsertSignature(ctx, req, strconv.Itoa(version.VersionNumber), recordHash, 1, "password")
-	if err != nil {
-		return DocumentSignature{}, err
-	}
-
-	// Record audit access event
-	_ = s.repo.RecordAccessEvent(ctx, DocumentAccessEvent{
-		CompanyID:         req.CompanyID,
-		DocumentVersionID: req.DocumentVersionID,
-		ActorID:           req.SignerID,
-		Action:            "SIGNED",
-		IPAddress:         req.IPAddress,
-		UserAgent:         req.UserAgent,
-	})
-
-	return sig, nil
+	return s.repo.SignWithChallenge(ctx, req, strconv.Itoa(version.VersionNumber), recordHash, SignaturePolicyVersion, "password")
 }
 
 // ApplyRetention applies retention policies to a document version.

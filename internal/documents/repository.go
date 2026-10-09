@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -1140,51 +1141,62 @@ func derefInt64(i *int64) int64 {
 
 // Signatures
 
+// InsertSignatureChallenge issues a one-time challenge. The challenge id is
+// generated here and returned in canonical UUID form.
 func (r *Repository) InsertSignatureChallenge(ctx context.Context, req SignatureChallengeRequest) (string, error) {
-	var expiryTs pgtype.Timestamptz
-	expiryTs.Time = req.Expiry
-	expiryTs.Valid = true
-
-	challengeID, err := r.queries.InsertDocumentSignatureChallenge(ctx, sqlc.InsertDocumentSignatureChallengeParams{
+	id := uuid.New()
+	if _, err := r.queries.InsertDocumentSignatureChallenge(ctx, sqlc.InsertDocumentSignatureChallengeParams{
 		CompanyID:         req.CompanyID,
+		ChallengeID:       pgtype.UUID{Bytes: id, Valid: true},
 		DocumentVersionID: req.DocumentVersionID,
 		SignerID:          req.SignerID,
-		Expiry:            expiryTs,
-	})
-	if err != nil {
+		Meaning:           req.Meaning,
+		PolicyVersion:     int32(req.PolicyVersion),
+		Expiry:            pgtype.Timestamptz{Time: req.Expiry, Valid: true},
+	}); err != nil {
 		return "", err
 	}
+	return id.String(), nil
+}
 
-	var uuidStr [16]byte = challengeID.Bytes
-	// very hacky uuid to string
-	return string(uuidStr[:]), nil
+// parseChallengeID converts a canonical UUID string to its database form;
+// anything else is an unavailable challenge.
+func parseChallengeID(challengeID string) (pgtype.UUID, error) {
+	id, err := uuid.Parse(strings.TrimSpace(challengeID))
+	if err != nil {
+		return pgtype.UUID{}, ErrChallengeUnavailable
+	}
+	return pgtype.UUID{Bytes: id, Valid: true}, nil
 }
 
 func (r *Repository) GetSignatureChallenge(ctx context.Context, challengeID string) (DocumentSignatureChallenge, error) {
-	// Not implementing uuid parse here, we just pass string
-	// But sqlc uses pgtype.UUID
-	var pgUUID pgtype.UUID
-	if err := pgUUID.Scan(challengeID); err != nil {
-		return DocumentSignatureChallenge{}, err
-	}
-
-	row, err := r.queries.GetDocumentSignatureChallenge(ctx, pgUUID)
+	pgUUID, err := parseChallengeID(challengeID)
 	if err != nil {
 		return DocumentSignatureChallenge{}, err
 	}
+	row, err := r.queries.GetDocumentSignatureChallenge(ctx, pgUUID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return DocumentSignatureChallenge{}, ErrChallengeUnavailable
+		}
+		return DocumentSignatureChallenge{}, err
+	}
 	return DocumentSignatureChallenge{
-		ChallengeID:       challengeID,
+		ChallengeID:       uuid.UUID(row.ChallengeID.Bytes).String(),
 		CompanyID:         row.CompanyID,
 		DocumentVersionID: row.DocumentVersionID,
 		SignerID:          row.SignerID,
+		Meaning:           row.Meaning,
+		PolicyVersion:     int(row.PolicyVersion),
 		Expiry:            row.Expiry.Time,
+		Used:              row.Used,
 		CreatedAt:         row.CreatedAt.Time,
 	}, nil
 }
 
 func (r *Repository) InsertSignature(ctx context.Context, req SignDocumentRequest, recordVersion string, recordHash string, policyVersion int, authMethod string) (DocumentSignature, error) {
-	var pgUUID pgtype.UUID
-	if err := pgUUID.Scan(req.ChallengeID); err != nil {
+	pgUUID, err := parseChallengeID(req.ChallengeID)
+	if err != nil {
 		return DocumentSignature{}, err
 	}
 
@@ -1207,7 +1219,7 @@ func (r *Repository) InsertSignature(ctx context.Context, req SignDocumentReques
 		ID:                row.ID,
 		CompanyID:         row.CompanyID,
 		DocumentVersionID: row.DocumentVersionID,
-		ChallengeID:       req.ChallengeID,
+		ChallengeID:       uuid.UUID(row.ChallengeID.Bytes).String(),
 		SignerID:          row.SignerID,
 		RecordVersion:     row.RecordVersion,
 		RecordHash:        row.RecordHash,
@@ -1216,6 +1228,47 @@ func (r *Repository) InsertSignature(ctx context.Context, req SignDocumentReques
 		AuthMethod:        row.AuthMethod,
 		SignedAt:          row.SignedAt.Time,
 	}, nil
+}
+
+// SignWithChallenge consumes the challenge and records the signature and its
+// SIGNED access event in one transaction. The consume is a conditional
+// UPDATE (unused and unexpired), so of concurrent attempts with one
+// challenge exactly one can sign; a challenge of another company, version or
+// signer is refused without being consumed.
+func (r *Repository) SignWithChallenge(ctx context.Context, req SignDocumentRequest, recordVersion, recordHash string, policyVersion int, authMethod string) (DocumentSignature, error) {
+	pgUUID, err := parseChallengeID(req.ChallengeID)
+	if err != nil {
+		return DocumentSignature{}, err
+	}
+	var sig DocumentSignature
+	err = r.InTx(ctx, func(tx *Repository) error {
+		challenge, err := tx.queries.ConsumeDocumentSignatureChallenge(ctx, pgUUID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrChallengeUnavailable
+			}
+			return err
+		}
+		if challenge.CompanyID != req.CompanyID || challenge.DocumentVersionID != req.DocumentVersionID || challenge.SignerID != req.SignerID {
+			return ErrChallengeUnavailable
+		}
+		sig, err = tx.InsertSignature(ctx, req, recordVersion, recordHash, policyVersion, authMethod)
+		if err != nil {
+			return err
+		}
+		return tx.RecordAccessEvent(ctx, DocumentAccessEvent{
+			CompanyID:         req.CompanyID,
+			DocumentVersionID: req.DocumentVersionID,
+			ActorID:           req.SignerID,
+			Action:            "SIGNED",
+			IPAddress:         req.IPAddress,
+			UserAgent:         req.UserAgent,
+		})
+	})
+	if err != nil {
+		return DocumentSignature{}, err
+	}
+	return sig, nil
 }
 
 // Retention

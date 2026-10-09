@@ -27,6 +27,44 @@ func (q *Queries) AreAllReviewStepsApproved(ctx context.Context, documentVersion
 	return not_exists, err
 }
 
+const consumeDocumentSignatureChallenge = `-- name: ConsumeDocumentSignatureChallenge :one
+UPDATE document_signature_challenges
+SET used = TRUE
+WHERE challenge_id = $1 AND used = FALSE AND expiry > NOW()
+RETURNING challenge_id, company_id, document_version_id, signer_id, meaning, policy_version, expiry, used, created_at
+`
+
+type ConsumeDocumentSignatureChallengeRow struct {
+	ChallengeID       pgtype.UUID        `json:"challenge_id"`
+	CompanyID         int64              `json:"company_id"`
+	DocumentVersionID int64              `json:"document_version_id"`
+	SignerID          int64              `json:"signer_id"`
+	Meaning           string             `json:"meaning"`
+	PolicyVersion     int32              `json:"policy_version"`
+	Expiry            pgtype.Timestamptz `json:"expiry"`
+	Used              bool               `json:"used"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+}
+
+// Atomically marks an unused, unexpired challenge as used. No row means the
+// challenge is unknown, already used or expired.
+func (q *Queries) ConsumeDocumentSignatureChallenge(ctx context.Context, challengeID pgtype.UUID) (ConsumeDocumentSignatureChallengeRow, error) {
+	row := q.db.QueryRow(ctx, consumeDocumentSignatureChallenge, challengeID)
+	var i ConsumeDocumentSignatureChallengeRow
+	err := row.Scan(
+		&i.ChallengeID,
+		&i.CompanyID,
+		&i.DocumentVersionID,
+		&i.SignerID,
+		&i.Meaning,
+		&i.PolicyVersion,
+		&i.Expiry,
+		&i.Used,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createCollaborationChange = `-- name: CreateCollaborationChange :one
 INSERT INTO doc_collaboration_changes (session_id, actor_id, operation, payload, occurred_at)
 VALUES ($1, $2, $3, $4, $5)
@@ -545,7 +583,7 @@ func (q *Queries) GetDocumentReviewStep(ctx context.Context, id int64) (Document
 }
 
 const getDocumentSignatureChallenge = `-- name: GetDocumentSignatureChallenge :one
-SELECT challenge_id, company_id, document_version_id, signer_id, expiry, created_at
+SELECT challenge_id, company_id, document_version_id, signer_id, meaning, policy_version, expiry, used, created_at
 FROM document_signature_challenges
 WHERE challenge_id = $1
 `
@@ -555,7 +593,10 @@ type GetDocumentSignatureChallengeRow struct {
 	CompanyID         int64              `json:"company_id"`
 	DocumentVersionID int64              `json:"document_version_id"`
 	SignerID          int64              `json:"signer_id"`
+	Meaning           string             `json:"meaning"`
+	PolicyVersion     int32              `json:"policy_version"`
 	Expiry            pgtype.Timestamptz `json:"expiry"`
+	Used              bool               `json:"used"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 }
 
@@ -567,7 +608,10 @@ func (q *Queries) GetDocumentSignatureChallenge(ctx context.Context, challengeID
 		&i.CompanyID,
 		&i.DocumentVersionID,
 		&i.SignerID,
+		&i.Meaning,
+		&i.PolicyVersion,
 		&i.Expiry,
+		&i.Used,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -1347,15 +1391,18 @@ func (q *Queries) InsertDocumentSignature(ctx context.Context, arg InsertDocumen
 
 const insertDocumentSignatureChallenge = `-- name: InsertDocumentSignatureChallenge :one
 
-INSERT INTO document_signature_challenges (company_id, document_version_id, signer_id, expiry)
-VALUES ($1, $2, $3, $4)
+INSERT INTO document_signature_challenges (company_id, challenge_id, document_version_id, signer_id, meaning, policy_version, expiry)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING challenge_id
 `
 
 type InsertDocumentSignatureChallengeParams struct {
 	CompanyID         int64              `json:"company_id"`
+	ChallengeID       pgtype.UUID        `json:"challenge_id"`
 	DocumentVersionID int64              `json:"document_version_id"`
 	SignerID          int64              `json:"signer_id"`
+	Meaning           string             `json:"meaning"`
+	PolicyVersion     int32              `json:"policy_version"`
 	Expiry            pgtype.Timestamptz `json:"expiry"`
 }
 
@@ -1365,8 +1412,11 @@ type InsertDocumentSignatureChallengeParams struct {
 func (q *Queries) InsertDocumentSignatureChallenge(ctx context.Context, arg InsertDocumentSignatureChallengeParams) (pgtype.UUID, error) {
 	row := q.db.QueryRow(ctx, insertDocumentSignatureChallenge,
 		arg.CompanyID,
+		arg.ChallengeID,
 		arg.DocumentVersionID,
 		arg.SignerID,
+		arg.Meaning,
+		arg.PolicyVersion,
 		arg.Expiry,
 	)
 	var challenge_id pgtype.UUID
@@ -1747,7 +1797,7 @@ LEFT JOIN storage_blobs b ON dv.blob_id = b.id
 LEFT JOIN users u ON dv.created_by = u.id
 WHERE dv.company_id = $1
   AND dv.document_id = $2
-  AND ($3::text IS NULL OR dv.status = $3)
+  AND ($3::text = '' OR dv.status = $3)
 ORDER BY dv.version_number DESC
 LIMIT $4 OFFSET $5
 `
