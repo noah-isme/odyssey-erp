@@ -455,15 +455,10 @@ jobs:
               echo "existing release path is not a verified immutable release: $release" >&2
               exit 1
             }
-            if [[ "$(cat "$release/.bundle.sha256")" != "$bundle_sha" ]]; then
-              [[ -f "$release/REVISION" && "$(tr -d '[:space:]' < "$release/REVISION")" == "$candidate_sha" ]] || {
-                echo "existing release digest differs and revision does not match candidate $candidate_sha" >&2
-                exit 1
-              }
-              echo "refreshing verified candidate release bundle for $candidate_sha"
-              tar -xzf "$incoming/$bundle_name" -C "$release"
-              printf '%s\n' "$bundle_sha" > "$release/.bundle.sha256"
-            fi
+            [[ "$(cat "$release/.bundle.sha256")" == "$bundle_sha" ]] || {
+              echo "existing release digest differs for candidate $candidate_sha" >&2
+              exit 1
+            }
           else
             install -d -m 0755 "$release"
             tar -xzf "$incoming/$bundle_name" -C "$release"
