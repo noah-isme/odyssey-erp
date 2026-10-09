@@ -208,8 +208,22 @@ SELECT EXISTS (
 -- =============================================================================
 
 -- name: InsertDocumentACL :one
-INSERT INTO document_acls (company_id, document_id, classification_id, principal_type, principal_id, permission, effect, granted_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+-- The table's UNIQUE key includes the nullable document_id/classification_id,
+-- so it never fires for document grants (classification_id IS NULL); the
+-- NOT EXISTS guard makes a repeated grant return no row instead.
+INSERT INTO document_acls (company_id, document_id, classification_id, principal_type, principal_id, permission, effect, granted_by, expires_at)
+SELECT sqlc.arg(company_id)::bigint, sqlc.narg(document_id)::bigint, sqlc.narg(classification_id)::bigint,
+       sqlc.arg(principal_type)::varchar, sqlc.arg(principal_id)::bigint, sqlc.arg(permission)::varchar,
+       sqlc.arg(effect)::varchar, sqlc.arg(granted_by)::bigint, sqlc.narg(expires_at)::timestamptz
+WHERE NOT EXISTS (
+    SELECT 1 FROM document_acls a
+    WHERE a.company_id = sqlc.arg(company_id)::bigint
+      AND a.document_id IS NOT DISTINCT FROM sqlc.narg(document_id)::bigint
+      AND a.classification_id IS NOT DISTINCT FROM sqlc.narg(classification_id)::bigint
+      AND a.principal_type = sqlc.arg(principal_type)::varchar
+      AND a.principal_id = sqlc.arg(principal_id)::bigint
+      AND a.permission = sqlc.arg(permission)::varchar
+)
 RETURNING id;
 
 -- name: DeleteDocumentACL :exec

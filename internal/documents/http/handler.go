@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -57,6 +58,8 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Get("/{id}/versions", h.listVersions)
 		r.With(h.rbac.RequireAny(shared.PermDocumentsVersion)).Post("/{id}/versions", h.createVersion)
 		r.Get("/{id}/versions/{versionID}/download", h.downloadVersion)
+		r.Get("/{id}/acl", h.listACL)
+		r.With(h.rbac.RequireAny(shared.PermDocumentsAdmin)).Post("/{id}/acl", h.createACL)
 		r.With(h.rbac.RequireAny(shared.PermDocumentsSign)).Post("/{id}/versions/{versionID}/challenge", h.createChallenge)
 		r.With(h.rbac.RequireAny(shared.PermDocumentsSign)).Post("/{id}/versions/{versionID}/sign", h.signVersion)
 		r.With(h.rbac.RequireAny(shared.PermDocumentsAdmin)).Post("/{id}/versions/{versionID}/retention", h.applyRetention)
@@ -305,6 +308,97 @@ func (h *Handler) downloadVersion(w http.ResponseWriter, r *http.Request) {
 	if _, err := io.Copy(w, reader); err != nil {
 		h.logger.Warn("stream version", slog.Int64("version_id", versionID), slog.Any("error", err))
 	}
+}
+
+// ============================================================================
+// Access control entries
+// ============================================================================
+
+func (h *Handler) listACL(w http.ResponseWriter, r *http.Request) {
+	documentID := parseInt64(chi.URLParam(r, "id"))
+	companyID := currentCompany(r)
+	doc, err := h.service.Get(r.Context(), documentID)
+	if err != nil {
+		if errors.Is(err, documents.ErrDocumentNotFound) {
+			http.NotFound(w, r)
+			return
+		}
+		h.logger.Error("get document for acl", slog.Any("error", err))
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	if companyID <= 0 || doc.CompanyID != companyID {
+		http.NotFound(w, r)
+		return
+	}
+	acls, err := h.service.ListACLs(r.Context(), companyID, &doc.ID, nil)
+	if err != nil {
+		h.logger.Error("list acls", slog.Any("error", err))
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	h.render(w, r, "pages/documents/acl.html", "Document Access", map[string]any{
+		"Document":       doc,
+		"ACLs":           acls,
+		"PrincipalTypes": []string{"USER", "ROLE"},
+		"Effects":        []string{"ALLOW", "DENY"},
+	})
+}
+
+func (h *Handler) createACL(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+	documentID := parseInt64(chi.URLParam(r, "id"))
+	aclPath := "/documents/library/" + strconv.FormatInt(documentID, 10) + "/acl"
+
+	expiresAt, err := parseACLExpiry(r.PostFormValue("expires_at"))
+	if err != nil {
+		h.redirectWithFlash(w, r, aclPath, "danger", "Expiry must be a date and time (RFC 3339 or YYYY-MM-DDTHH:MM).")
+		return
+	}
+	principalID := parseInt64(r.PostFormValue("principal_id"))
+	req := documents.CreateACLRequest{
+		CompanyID:     currentCompany(r),
+		DocumentID:    &documentID,
+		PrincipalType: r.PostFormValue("principal_type"),
+		PrincipalID:   &principalID,
+		Permission:    r.PostFormValue("permission"),
+		Effect:        r.PostFormValue("effect"),
+		GrantedBy:     currentUser(r),
+		ExpiresAt:     expiresAt,
+	}
+	if _, err := h.service.AddACL(r.Context(), req); err != nil {
+		h.logger.Warn("create acl", slog.Int64("document_id", documentID), slog.Any("error", err))
+		msg := shared.UserSafeMessage(err)
+		switch {
+		case errors.Is(err, documents.ErrACLExists):
+			msg = "This principal already has that permission on the document."
+		case errors.Is(err, documents.ErrInvalidACL):
+			msg = "Principal type (USER or ROLE), principal id, permission and effect (ALLOW or DENY) are required."
+		}
+		h.redirectWithFlash(w, r, aclPath, "danger", msg)
+		return
+	}
+	h.redirectWithFlash(w, r, aclPath, "success", "Access entry added")
+}
+
+// parseACLExpiry accepts an empty value (no expiry), RFC 3339, or the
+// datetime-local form value YYYY-MM-DDTHH:MM (interpreted as UTC).
+func parseACLExpiry(raw string) (*time.Time, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, nil
+	}
+	if t, err := time.Parse(time.RFC3339, raw); err == nil {
+		return &t, nil
+	}
+	t, err := time.Parse("2006-01-02T15:04", raw)
+	if err != nil {
+		return nil, err
+	}
+	return &t, nil
 }
 
 // clientIP returns the request's client address as the router leaves it:

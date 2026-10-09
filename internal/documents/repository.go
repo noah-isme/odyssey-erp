@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -733,7 +734,11 @@ func (r *Repository) InsertACL(ctx context.Context, req CreateACLRequest) (Docum
 	if effect == "" {
 		effect = "ALLOW"
 	}
-	_, err := r.queries.InsertDocumentACL(ctx, sqlc.InsertDocumentACLParams{
+	var expiresAt pgtype.Timestamptz
+	if req.ExpiresAt != nil {
+		expiresAt = pgtype.Timestamptz{Time: *req.ExpiresAt, Valid: true}
+	}
+	id, err := r.queries.InsertDocumentACL(ctx, sqlc.InsertDocumentACLParams{
 		CompanyID:        req.CompanyID,
 		DocumentID:       documentID,
 		ClassificationID: classificationID,
@@ -742,12 +747,21 @@ func (r *Repository) InsertACL(ctx context.Context, req CreateACLRequest) (Docum
 		Permission:       req.Permission,
 		Effect:           effect,
 		GrantedBy:        req.GrantedBy,
+		ExpiresAt:        expiresAt,
 	})
 	if err != nil {
+		// No row: the NOT EXISTS guard found the same grant. 23505: the
+		// table's own UNIQUE key (classification grants) did.
+		var pgErr *pgconn.PgError
+		if errors.Is(err, pgx.ErrNoRows) || (errors.As(err, &pgErr) && pgErr.Code == "23505") {
+			return DocumentACL{}, ErrACLExists
+		}
 		return DocumentACL{}, err
 	}
 	// Return a constructed domain object (no GET query defined)
 	return DocumentACL{
+		ID:               id,
+		ExpiresAt:        req.ExpiresAt,
 		CompanyID:        req.CompanyID,
 		DocumentID:       req.DocumentID,
 		ClassificationID: req.ClassificationID,

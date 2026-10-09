@@ -2,8 +2,11 @@ package documents
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"time"
+
+	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 )
 
 // Status captures the state of a document.
@@ -487,6 +490,10 @@ var (
 	ErrAccessDenied            = errors.New("documents: access denied")
 	ErrVersionConflict         = errors.New("documents: version conflict (optimistic lock)")
 	ErrNoOpenDisposition       = errors.New("documents: no open disposition request")
+	// ErrACLExists reports a grant that duplicates an existing entry.
+	ErrACLExists = fmt.Errorf("documents: access entry already exists: %w", shared.ErrDuplicate)
+	// ErrInvalidACL reports an access entry with missing or unknown fields.
+	ErrInvalidACL = fmt.Errorf("documents: invalid access entry: %w", shared.ErrInvalidInput)
 )
 
 // NormaliseStatus uppercases and trims the provided status string.

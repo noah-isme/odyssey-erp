@@ -533,6 +533,9 @@ type Querier interface {
 	// =============================================================================
 	// DOCUMENT ACLS
 	// =============================================================================
+	// The table's UNIQUE key includes the nullable document_id/classification_id,
+	// so it never fires for document grants (classification_id IS NULL); the
+	// NOT EXISTS guard makes a repeated grant return no row instead.
 	InsertDocumentACL(ctx context.Context, arg InsertDocumentACLParams) (int64, error)
 	// =============================================================================
 	// DOCUMENT ACCESS EVENTS

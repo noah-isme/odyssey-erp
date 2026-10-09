@@ -199,6 +199,24 @@ func (h *rc11DocsHarness) createDocument(title string) int64 {
 	return id
 }
 
+// foreignDocument inserts a document owned by a second company (created
+// on first use) and returns its id.
+func (h *rc11DocsHarness) foreignDocument() int64 {
+	h.t.Helper()
+	ctx := context.Background()
+	var companyID, classID, docID int64
+	err := h.pool.QueryRow(ctx, `SELECT id FROM companies WHERE code=$1`, "RC11O-"+h.f.Suffix).Scan(&companyID)
+	if err != nil {
+		require.NoError(h.t, h.pool.QueryRow(ctx, `INSERT INTO companies(code,name,base_currency) VALUES($1,'RC11 other','IDR') RETURNING id`, "RC11O-"+h.f.Suffix).Scan(&companyID))
+		require.NoError(h.t, h.pool.QueryRow(ctx, `INSERT INTO document_classifications(company_id,code,name,created_by) VALUES($1,$2,'RC11 other',$3) RETURNING id`, companyID, "CLSO-"+h.f.Suffix, h.f.AdminID).Scan(&classID))
+	} else {
+		require.NoError(h.t, h.pool.QueryRow(ctx, `SELECT id FROM document_classifications WHERE company_id=$1 ORDER BY id LIMIT 1`, companyID).Scan(&classID))
+	}
+	require.NoError(h.t, h.pool.QueryRow(ctx, `INSERT INTO documents(company_id,classification_id,document_number,title,owner_id,created_by,updated_by)
+		VALUES($1,$2,'FOREIGN-'||nextval('documents_id_seq'),'RC11 foreign',$3,$3,$3) RETURNING id`, companyID, classID, h.f.AdminID).Scan(&docID))
+	return docID
+}
+
 // uploadVersion posts a multipart version as the strict test does and
 // returns the newest version id for the document (0 when none exists).
 func (h *rc11DocsHarness) uploadVersion(documentID int64, content []byte) (rc11Result, int64) {
@@ -213,7 +231,6 @@ func (h *rc11DocsHarness) uploadVersion(documentID int64, content []byte) (rc11R
 func TestRC11DocumentVersionLifecycle(t *testing.T) {
 	p, f := newRC11Fixture(t)
 	h := newRC11DocsHarness(t, p, f)
-	ctx := context.Background()
 
 	documentID := h.createDocument("RC11 version lifecycle " + f.Suffix)
 	docPath := fmt.Sprintf("/documents/library/%d", documentID)
@@ -264,12 +281,7 @@ func TestRC11DocumentVersionLifecycle(t *testing.T) {
 
 	// A document of another company: the upload is refused and the blob it
 	// stored is removed, so no orphan remains.
-	var otherCompanyID, otherDocID int64
-	require.NoError(t, p.QueryRow(ctx, `INSERT INTO companies(code,name,base_currency) VALUES($1,'RC11 other','IDR') RETURNING id`, "RC11O-"+f.Suffix).Scan(&otherCompanyID))
-	var otherClassID int64
-	require.NoError(t, p.QueryRow(ctx, `INSERT INTO document_classifications(company_id,code,name,created_by) VALUES($1,$2,'RC11 other',$3) RETURNING id`, otherCompanyID, "CLSO-"+f.Suffix, f.AdminID).Scan(&otherClassID))
-	require.NoError(t, p.QueryRow(ctx, `INSERT INTO documents(company_id,classification_id,document_number,title,owner_id,created_by,updated_by)
-		VALUES($1,$2,$3,'RC11 foreign',$4,$4,$4) RETURNING id`, otherCompanyID, otherClassID, "FOREIGN-"+f.Suffix, f.AdminID).Scan(&otherDocID))
+	otherDocID := h.foreignDocument()
 	blobsBefore := h.count(`SELECT COUNT(*) FROM storage_blobs WHERE company_id=$1`, f.CompanyID)
 	foreign := h.postMultipart(fmt.Sprintf("/documents/library/%d/versions", otherDocID), h.fetchCSRF(docPath), "foreign", content)
 	require.Equal(t, http.StatusSeeOther, foreign.status)
@@ -277,4 +289,75 @@ func TestRC11DocumentVersionLifecycle(t *testing.T) {
 	require.Equal(t, "danger", foreign.flash.Kind)
 	require.Zero(t, h.count(`SELECT COUNT(*) FROM document_versions WHERE document_id=$1`, otherDocID))
 	require.Equal(t, blobsBefore, h.count(`SELECT COUNT(*) FROM storage_blobs WHERE company_id=$1`, f.CompanyID), "orphan blob left behind")
+}
+
+func TestRC11DocumentACLRoute(t *testing.T) {
+	p, f := newRC11Fixture(t)
+	h := newRC11DocsHarness(t, p, f)
+
+	documentID := h.createDocument("RC11 ACL " + f.Suffix)
+	aclPath := fmt.Sprintf("/documents/library/%d/acl", documentID)
+	expires := time.Now().UTC().Add(time.Hour).Format(time.RFC3339)
+	grant := func(path string, overrides url.Values) rc11Result {
+		values := url.Values{
+			"csrf_token":     {h.fetchCSRF(aclPath)},
+			"principal_type": {"USER"},
+			"principal_id":   {strconv.FormatInt(f.AdminID, 10)},
+			"permission":     {"READ"},
+			"effect":         {"ALLOW"},
+			"expires_at":     {expires},
+		}
+		for k, v := range overrides {
+			values[k] = v
+		}
+		return h.postForm(path, values)
+	}
+	aclRows := func(docID int64) int {
+		return h.count(`SELECT COUNT(*) FROM document_acls WHERE document_id=$1`, docID)
+	}
+
+	// The page renders (the strict test scrapes its CSRF token) and the
+	// create posts back to it.
+	created := grant(aclPath, nil)
+	require.Equal(t, http.StatusSeeOther, created.status)
+	require.Equal(t, aclPath, created.location)
+	require.NotNil(t, created.flash)
+	require.Equal(t, "success", created.flash.Kind, created.flash.Message)
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM document_acls WHERE company_id=$1 AND document_id=$2 AND principal_type='USER'
+		AND principal_id=$3 AND permission='READ' AND effect='ALLOW' AND granted_by=$3 AND expires_at IS NOT NULL`, f.CompanyID, documentID, f.AdminID))
+	page := h.get(aclPath)
+	require.Equal(t, http.StatusOK, page.status)
+	require.Contains(t, string(page.body), "READ")
+
+	// A duplicate grant is refused with a flash, not a 500.
+	dup := grant(aclPath, nil)
+	require.Equal(t, http.StatusSeeOther, dup.status)
+	require.NotNil(t, dup.flash)
+	require.Equal(t, "danger", dup.flash.Kind)
+	require.Equal(t, 1, aclRows(documentID))
+
+	// Invalid input is refused.
+	for name, bad := range map[string]url.Values{
+		"principal type": {"principal_type": {"GROUP"}},
+		"principal id":   {"principal_id": {"0"}},
+		"permission":     {"permission": {"  "}},
+		"effect":         {"effect": {"MAYBE"}},
+		"expires_at":     {"expires_at": {"tomorrow"}},
+	} {
+		res := grant(aclPath, bad)
+		require.Equal(t, http.StatusSeeOther, res.status, name)
+		require.NotNil(t, res.flash, name)
+		require.Equal(t, "danger", res.flash.Kind, name)
+	}
+	require.Equal(t, 1, aclRows(documentID))
+
+	// Another company's document: no page, no row.
+	foreignID := h.foreignDocument()
+	foreignPath := fmt.Sprintf("/documents/library/%d/acl", foreignID)
+	require.Equal(t, http.StatusNotFound, h.get(foreignPath).status)
+	res := grant(foreignPath, nil)
+	require.Equal(t, http.StatusSeeOther, res.status)
+	require.NotNil(t, res.flash)
+	require.Equal(t, "danger", res.flash.Kind)
+	require.Zero(t, aclRows(foreignID))
 }

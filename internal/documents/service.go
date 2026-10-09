@@ -401,8 +401,37 @@ func (s *Service) DownloadVersion(ctx context.Context, versionID, actorID int64,
 	return reader, blob.StorageKey, blob.DeclaredContentType, nil
 }
 
-// AddACL adds an access control entry.
+// AddACL adds an access control entry for a document of the request's
+// company. Principal type is USER or ROLE, effect ALLOW (default) or DENY;
+// the permission is trimmed and upper-cased and otherwise stored as sent.
 func (s *Service) AddACL(ctx context.Context, req CreateACLRequest) (DocumentACL, error) {
+	req.PrincipalType = strings.ToUpper(strings.TrimSpace(req.PrincipalType))
+	req.Permission = strings.ToUpper(strings.TrimSpace(req.Permission))
+	req.Effect = strings.ToUpper(strings.TrimSpace(req.Effect))
+	if req.Effect == "" {
+		req.Effect = "ALLOW"
+	}
+	switch {
+	case req.CompanyID <= 0 || req.GrantedBy <= 0:
+		return DocumentACL{}, ErrInvalidACL
+	case req.DocumentID == nil || *req.DocumentID <= 0:
+		return DocumentACL{}, ErrInvalidACL
+	case req.PrincipalType != "USER" && req.PrincipalType != "ROLE":
+		return DocumentACL{}, ErrInvalidACL
+	case req.PrincipalID == nil || *req.PrincipalID <= 0:
+		return DocumentACL{}, ErrInvalidACL
+	case req.Permission == "":
+		return DocumentACL{}, ErrInvalidACL
+	case req.Effect != "ALLOW" && req.Effect != "DENY":
+		return DocumentACL{}, ErrInvalidACL
+	}
+	doc, err := s.repo.GetDocument(ctx, *req.DocumentID)
+	if err != nil {
+		return DocumentACL{}, err
+	}
+	if doc.CompanyID != req.CompanyID {
+		return DocumentACL{}, ErrDocumentNotFound
+	}
 	return s.repo.InsertACL(ctx, req)
 }
 

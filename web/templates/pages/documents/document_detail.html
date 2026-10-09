@@ -13,6 +13,7 @@
     </div>
     <div>
       <a href="/documents/library" class="btn btn-outline-secondary me-2">Back to Library</a>
+      <a href="/documents/library/{{ .Data.Document.ID }}/acl" class="btn btn-outline-secondary shadow-sm"><i class="bi bi-shield-lock"></i> Access</a>
       <a href="/documents/library/{{ .Data.Document.ID }}/versions" class="btn btn-primary shadow-sm"><i class="bi bi-clock-history"></i> Manage Versions</a>
     </div>
   </div>

@@ -1,6 +1,7 @@
 package documentshttp
 
 import (
+	"context"
 	"io"
 	"log/slog"
 	"net/http"
@@ -20,15 +21,42 @@ func TestRoutesRequireAuthenticatedPermission(t *testing.T) {
 	h := NewHandler(nil, nil, nil, nil, rbac.Middleware{}, nil, nil)
 	router.Route("/documents", h.MountRoutes)
 
-	for _, path := range []string{"/documents/library/", "/documents/search/", "/documents/categories/", "/documents/classifications/"} {
-		t.Run(path, func(t *testing.T) {
+	for _, tc := range []struct{ method, path string }{
+		{http.MethodGet, "/documents/library/"},
+		{http.MethodGet, "/documents/search/"},
+		{http.MethodGet, "/documents/categories/"},
+		{http.MethodGet, "/documents/classifications/"},
+		{http.MethodGet, "/documents/library/1/acl"},
+		{http.MethodPost, "/documents/library/1/acl"},
+	} {
+		t.Run(tc.method+" "+tc.path, func(t *testing.T) {
 			rec := httptest.NewRecorder()
-			router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+			router.ServeHTTP(rec, httptest.NewRequest(tc.method, tc.path, nil))
 			if rec.Code != http.StatusForbidden {
 				t.Fatalf("status=%d want %d", rec.Code, http.StatusForbidden)
 			}
 		})
 	}
+}
+
+// A user with documents.view but not documents.admin can read the ACL page
+// route but not create entries.
+func TestACLCreateRequiresAdminPermission(t *testing.T) {
+	router := chi.NewRouter()
+	h := NewHandler(nil, nil, nil, nil, rbac.Middleware{Service: staticPerms{shared.PermDocumentsView}}, nil, nil)
+	router.Route("/documents", h.MountRoutes)
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, documentsRequestWithSession(t, http.MethodPost, "/documents/library/1/acl", "7", "3"))
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status=%d want %d", rec.Code, http.StatusForbidden)
+	}
+}
+
+type staticPerms []string
+
+func (p staticPerms) EffectivePermissions(context.Context, int64) ([]string, error) {
+	return p, nil
 }
 
 func TestCreateDocumentRedirectsForInvalidInput(t *testing.T) {

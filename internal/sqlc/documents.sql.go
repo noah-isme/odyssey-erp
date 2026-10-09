@@ -1087,25 +1087,40 @@ func (q *Queries) InsertDocument(ctx context.Context, arg InsertDocumentParams) 
 
 const insertDocumentACL = `-- name: InsertDocumentACL :one
 
-INSERT INTO document_acls (company_id, document_id, classification_id, principal_type, principal_id, permission, effect, granted_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO document_acls (company_id, document_id, classification_id, principal_type, principal_id, permission, effect, granted_by, expires_at)
+SELECT $1::bigint, $2::bigint, $3::bigint,
+       $4::varchar, $5::bigint, $6::varchar,
+       $7::varchar, $8::bigint, $9::timestamptz
+WHERE NOT EXISTS (
+    SELECT 1 FROM document_acls a
+    WHERE a.company_id = $1::bigint
+      AND a.document_id IS NOT DISTINCT FROM $2::bigint
+      AND a.classification_id IS NOT DISTINCT FROM $3::bigint
+      AND a.principal_type = $4::varchar
+      AND a.principal_id = $5::bigint
+      AND a.permission = $6::varchar
+)
 RETURNING id
 `
 
 type InsertDocumentACLParams struct {
-	CompanyID        int64       `json:"company_id"`
-	DocumentID       pgtype.Int8 `json:"document_id"`
-	ClassificationID pgtype.Int8 `json:"classification_id"`
-	PrincipalType    string      `json:"principal_type"`
-	PrincipalID      int64       `json:"principal_id"`
-	Permission       string      `json:"permission"`
-	Effect           string      `json:"effect"`
-	GrantedBy        int64       `json:"granted_by"`
+	CompanyID        int64              `json:"company_id"`
+	DocumentID       pgtype.Int8        `json:"document_id"`
+	ClassificationID pgtype.Int8        `json:"classification_id"`
+	PrincipalType    string             `json:"principal_type"`
+	PrincipalID      int64              `json:"principal_id"`
+	Permission       string             `json:"permission"`
+	Effect           string             `json:"effect"`
+	GrantedBy        int64              `json:"granted_by"`
+	ExpiresAt        pgtype.Timestamptz `json:"expires_at"`
 }
 
 // =============================================================================
 // DOCUMENT ACLS
 // =============================================================================
+// The table's UNIQUE key includes the nullable document_id/classification_id,
+// so it never fires for document grants (classification_id IS NULL); the
+// NOT EXISTS guard makes a repeated grant return no row instead.
 func (q *Queries) InsertDocumentACL(ctx context.Context, arg InsertDocumentACLParams) (int64, error) {
 	row := q.db.QueryRow(ctx, insertDocumentACL,
 		arg.CompanyID,
@@ -1116,6 +1131,7 @@ func (q *Queries) InsertDocumentACL(ctx context.Context, arg InsertDocumentACLPa
 		arg.Permission,
 		arg.Effect,
 		arg.GrantedBy,
+		arg.ExpiresAt,
 	)
 	var id int64
 	err := row.Scan(&id)
