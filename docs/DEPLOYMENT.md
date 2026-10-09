@@ -7,14 +7,20 @@
 
 For the bounded v0.10.0 release, use the [v0.10-core staging certification
 record](releases/v0.10-core-staging-certification.md) before promotion. The
-current candidate is the immutable annotated tag `v0.10.0-rc.10` (commit
-`<pending tag>`, recorded when the tag is cut); its lineage is the
-superseded rc.9 tag `07d2ba2` plus the rc.10 approval finalization fix, with no
-migration above `000124`. An environment that ran any build from
+current candidate is `v0.10.0-rc.11` (annotated tag and commit `<short-sha>`,
+recorded when the tag is cut); its lineage is the
+superseded rc.10 tag `0745957` plus the rc.11 fix commits (document versions,
+signatures, document and CMMS journey routes, AR/AP posting and audit, workspace company scoping,
+shared document storage, reproducible bundle, delivery actor, stock-movement
+audit, staging seeder and the schema checksum gate), with no migration above
+`000124`. An environment that ran any build from
 rc.1 through rc.9 must run the read-only **Find** queries in the
 [approval finalization remediation runbook](releases/v0.10-approval-finalization-remediation.md)
-after deploying rc.10; the fix stops new damage but does not repair rows that
-are already wrong.
+after deploying the candidate; the fix stops new damage but does not repair rows that
+are already wrong. Before upgrading an environment that ran an earlier
+candidate, follow the [tenancy scope rollout runbook](releases/v0.10-tenancy-scope-rollout.md):
+from rc.11 workspace companies come from active role assignments, and users
+without one lose access until they are backfilled.
 Production promotion requires the explicit
 `RELEASE_PROFILE=v0.10-core` contract unless a separately approved `full`
 profile has certified every matrix row.

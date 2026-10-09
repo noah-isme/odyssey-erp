@@ -1,11 +1,11 @@
 # Production Release Checklist
 
-**State:** `v0.10.0-rc.10` candidate prepared on `release/v0.10.0-rc.10` from the
-superseded rc.9 tag `07d2ba2` plus the rc.10 approval finalization fix (no
+**State:** `v0.10.0-rc.11` candidate prepared on `release/v0.10.0-rc.11` from the
+superseded rc.10 tag `0745957` plus the rc.11 fix commits (no
 `ec65cc0` baseline, no migration above `000124`); the candidate tag
-(`<pending tag>`), production promotion, and final tag approval are still pending.
+(`<short-sha>`), production promotion, and final tag approval are still pending.
 
-**Reviewed:** 2026-10-07
+**Reviewed:** 2026-10-09
 
 This is the final-release runbook for Odyssey ERP. It does not turn local tests
 into production certification. The [authoritative feature matrix](../reference/feature-matrix.md)
@@ -14,12 +14,14 @@ its `production-certified` evidence is recorded there.
 
 ## 1. Release identity and scope
 
-- [ ] Freeze `v0.10.0-rc.10` from the immutable release-head commit
-      `<pending tag>` after reviewing the exact release diff against the
-      superseded rc.9 tag `07d2ba2` (the approval finalization fix in
-      `internal/approvals`, its remediation runbook, and the release
-      docs/scripts commits only; the superseded rc.9 identity is in the
-      [staging certification record](v0.10-core-staging-certification.md#historical-rc9-candidate-identity-superseded)
+- [ ] Freeze `v0.10.0-rc.11` from the immutable release-head commit
+      `<short-sha>` after reviewing the exact release diff against the
+      superseded rc.10 tag `0745957` (the rc.11 fix commits for `FIND-011` to
+      `FIND-018`, `FIND-021`, `FIND-023` and `FIND-025` to `FIND-027`, their
+      tests, the staging seeder, the schema checksum gate, and the release
+      docs/scripts commits only; no `migrations/` change; the superseded rc.10
+      identity is in the
+      [staging certification record](v0.10-core-staging-certification.md#historical-rc10-candidate-identity-superseded)
       and the historical rc.8 lineage is in the
       [candidate identity reconciliation](v0.10-candidate-identity-reconciliation.md)).
 - [x] Set the candidate migration ceiling to
@@ -42,13 +44,13 @@ its `production-certified` evidence is recorded there.
 - [ ] Record the commit, image digest, migration range, and rollback target in
       the release notes.
 
-The `v0.10.0-rc.10` candidate is a packaging checkpoint, not a production approval.
+The `v0.10.0-rc.11` candidate is a packaging checkpoint, not a production approval.
 The [v0.10-core staging certification record](v0.10-core-staging-certification.md)
 is the evidence hook for the bounded profile. The final gate remains intentionally
 blocked until its scope and evidence are certified by the release owner. The
-candidate tag and exact commit recorded in that evidence must refer to rc.10 and
-its tagged commit (`<pending tag>`); the candidate-lineage field must match
-the recorded lineage: the superseded rc.9 tag `07d2ba2` plus the rc.10 commits.
+candidate tag and exact commit recorded in that evidence must refer to rc.11 and
+its tagged commit (`<short-sha>`); the candidate-lineage field must match
+the recorded lineage: the superseded rc.10 tag `0745957` plus the rc.11 commits.
 
 ## 2. Repeatable repository gates
 
@@ -82,11 +84,11 @@ and advertised route placeholder responses.
 Before release, run the final gate from a clean, tagged checkout:
 
 ```bash
-CERTIFIED_CANDIDATE_TAG=v0.10.0-rc.10 \
+CERTIFIED_CANDIDATE_TAG=v0.10.0-rc.11 \
 RELEASE_VERSION=v0.10.0 \
 RELEASE_PROFILE=v0.10-core \
 CERTIFICATION_EVIDENCE_INDEX_FILE=/secure/evidence/evidence-index.json \
-CERTIFICATION_EVIDENCE_INDEX_URI=s3://immutable-evidence/v0.10.0-rc.10/<short-sha>/<run>/<attempt>/evidence-index.json \
+CERTIFICATION_EVIDENCE_INDEX_URI=s3://immutable-evidence/v0.10.0-rc.11/<short-sha>/<run>/<attempt>/evidence-index.json \
 EVIDENCE_S3_ENDPOINT=https://object-lock.example.invalid \
 EVIDENCE_S3_REGION=us-east-1 \
 EVIDENCE_S3_ACCESS_KEY_ID=<managed-secret> \
@@ -159,7 +161,7 @@ listed below.
 - [ ] Verify Gotenberg availability and the `production pdf` build artifact if PDF
       routes are in scope.
 
-For rc.10, Coretax authority acceptance, payroll/legal review, and connector checks
+For rc.11, Coretax authority acceptance, payroll/legal review, and connector checks
 that belong only to the v0.11-finance profile may be recorded as profile-scoped
 `N/A` only when the route manifest and runtime configuration prove that they are
 neither exposed nor required by the five v0.10-core journeys. Record the evidence
@@ -200,9 +202,9 @@ in scope.
 
 The current repository deliberately does not claim production release readiness:
 
-- `v0.10.0-rc.10` is a release candidate, not a production-certified final release;
-- the candidate is the superseded rc.9 tag `07d2ba2` plus the rc.10 approval
-  finalization fix (tag `<pending tag>`; no `ec65cc0` baseline) and
+- `v0.10.0-rc.11` is a release candidate, not a production-certified final release;
+- the candidate is the superseded rc.10 tag `0745957` plus the rc.11 fix
+  commits (tag `<short-sha>`; no `ec65cc0` baseline) and
   must stop at migration `000124`; the
   v0.11-finance commit `1a8343e` and migration `000125` are excluded;
 - the feature matrix records `production-certified=no` for the current capability
@@ -216,9 +218,15 @@ The current repository deliberately does not claim production release readiness:
 - the deferred worker findings `FIND-001`–`FIND-007` in the
   [staging certification record](v0.10-core-staging-certification.md#findings)
   need an owner, due date, and release-owner acceptance before promotion
-  (`FIND-008` is resolved in rc.9);
+  (`FIND-008` is resolved in rc.9); the open rc.11 findings `FIND-028` to
+  `FIND-033` and the accepted `FIND-019`, `FIND-022` and `FIND-024` need the
+  same before promotion;
+- staging must be rebuilt from an empty database before rc.11 is certified
+  (`FIND-020`), and every environment that keeps its database must follow the
+  [tenancy scope rollout runbook](v0.10-tenancy-scope-rollout.md) before
+  upgrading, because workspace companies now come from active role assignments;
 - every environment that ran a build from rc.1 through rc.9 must, after
-  deploying rc.10, run the read-only **Find** queries in the
+  deploying the candidate, run the read-only **Find** queries in the
   [approval finalization remediation runbook](v0.10-approval-finalization-remediation.md)
   and record each confirmed repair in that environment's release evidence; the
   fix stops new damage but does not repair rows already finalized wrongly.

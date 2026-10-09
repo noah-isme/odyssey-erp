@@ -1,23 +1,23 @@
 # Odyssey ERP Version and Progress Report
 
-**Reviewed:** 2026-10-07
+**Reviewed:** 2026-10-09
 
 ## How to read the version numbers
 
 `v0.9.1` is the latest named production release in the repository. It is primarily
-a UI/UX release dated 2026-05-28. `v0.10.0-rc.10` is the current release candidate
+a UI/UX release dated 2026-05-28. `v0.10.0-rc.11` is the current release candidate
 for the post-v0.9.1 platform work; it is not production-certified. It keeps the
 `v0.10-core` profile and the `000124` migration ceiling. Its exact candidate
-commit is recorded when the annotated tag is cut (`<pending tag>`). Lineage:
-the superseded rc.9 tag `07d2ba2` plus the rc.10 approval-finalization fix and
-its remediation runbook (see the rc.10 entry below). The superseded rc.9 and
+commit is recorded when the annotated tag is cut (`<short-sha>`). Lineage:
+the superseded rc.10 tag `0745957` plus the rc.11 fix commits; no migration
+(see the rc.11 entry below). The superseded rc.10, rc.9 and
 rc.8 entries below keep their identity records; the historical rc.8 lineage
 (merge-base and stabilization chain) is also in the [candidate identity reconciliation](v0.10-candidate-identity-reconciliation.md).
 
 In other words:
 
 - **Latest named production release:** v0.9.1.
-- **Current release candidate:** v0.10.0-rc.10 (2026-10-07; tag pending).
+- **Current release candidate:** v0.10.0-rc.11 (2026-10-09; tag pending).
 - **Latest documented implementation progress:** Phase 10–14 and P7 work, reviewed 2026-08-01.
 - **Next final release:** v0.10.0, pending production certification. The release
   gates are tracked in the [Production Release Checklist](production-release-checklist.md).
@@ -42,7 +42,8 @@ notes define the packaged scope without claiming production certification.
 | v0.10.0-rc.7 | 2026-08-26 | Immutable release-hygiene correction | Exact release candidate `5ed11da` adds the portable hygiene scan while preserving the `ec65cc0` application baseline and `000124` migration ceiling | Superseded by v0.10.0-rc.8; never production-certified |
 | v0.10.0-rc.8 | 2026-09-06 | Divergent stabilization candidate | Exact release candidate `20cc13a` (annotated tag, tag object `f54a238`) on a line diverging from rc.7 at merge-base `04ebd8a`: staging certification workflow registration, scoped certification gates, enterprise UI hardening, story-driven seed data, lint/CI fixes, migration ceiling sync to `000124`, CSRF/module-UI fixes, and 33 further rc-line commits (POS, theme, MRP, banking, reporting, route profile). Identity reconciled to the tag under the 2026-10-02 Option A ruling; the earlier documented `cdaa910` pointer was superseded when the tag was re-cut | Superseded by v0.10.0-rc.9 before staging certification evidence was collected; never production-certified |
 | v0.10.0-rc.9 | 2026-10-04 | Worker idempotency and attribution fixes | Exact release candidate `07d2ba2` (annotated tag, tag object `7c47a3a`): superseded rc.8 tag plus fix commits: payslip delivery row lock (at-least-once) with mail dial/I-O deadlines, AP invoice processing actor binding and dedupe, connector outbox claim-before-execute, bounded retry and TaskID dedupe for variance and board-pack tasks, out-of-profile worker handlers and schedules not registered under `v0.10-core`, worker DB pool default 16 (`PG_MAX_CONNS` knob); no new migration (ceiling `000124`) | Superseded by v0.10.0-rc.10 after its staging deployment and before staging certification ran; never certified |
-| v0.10.0-rc.10 | 2026-10-07 (tag pending) | Approval finalization fix | Superseded rc.9 tag plus the approval engine fix: `Decide` returns the post-decision request, so final approvals reach module finalizers as `APPROVED` (LEAVE, PO, RFQ award, payroll), and the step quorum count is scoped to the request; data-remediation runbook for environments that ran rc.1–rc.9; no new migration (ceiling `000124`) | Current candidate; not production-certified; staging, provider, and operational certification remain open |
+| v0.10.0-rc.10 | 2026-10-07 | Approval finalization fix | Exact release candidate `0745957` (annotated tag, tag object `6d9b1e1`): superseded rc.9 tag plus the approval engine fix: `Decide` returns the post-decision request, so final approvals reach module finalizers as `APPROVED` (LEAVE, PO, RFQ award, payroll), and the step quorum count is scoped to the request; data-remediation runbook for environments that ran rc.1–rc.9; no new migration (ceiling `000124`) | Superseded by v0.10.0-rc.11; certification run `37820191861` invalid (fabricated outcomes, out-of-band staging schema objects); never certified |
+| v0.10.0-rc.11 | 2026-10-09 (tag pending) | Certification defect fixes | Superseded rc.10 tag plus fixes for the defects the invalidated rc.10 run hid: document version upload and classification, atomic signature challenges, document ACL/review/download and CMMS meter/PM run-due/spare-part/complete/close routes with CMMS audit, balanced and audited AR/AP posting as the posting user, PO-linked GRN AP invoices with inline matching, workspace companies scoped to active role assignments (`RBAC_GLOBAL_ROLES`) and `releaseProfile` on `/api/me`, one shared `DOCUMENT_STORAGE_DIR`, a reproducible bundle with a sibling attested SBOM, delivery actor and company from the session, audited stock adjustments and stock takes, a staging seeder for the certification prerequisites, and a schema checksum gate for DB-002; no new migration (ceiling `000124`) | Current candidate; not production-certified; staging rebuild, staging, provider, and operational certification remain open |
 
 ## Detailed version reports
 
@@ -175,7 +176,7 @@ provider, security, and operational evidence are still pending in the [staging
 certification record](v0.10-core-staging-certification.md).
 
 This entry is retained only for release lineage; the active certification record
-and current candidate are v0.10.0-rc.10 (see the rc.10 entry below).
+and current candidate are v0.10.0-rc.11 (see the rc.11 entry below).
 
 ### v0.10.0-rc.7 — Immutable release-hygiene correction (superseded)
 
@@ -186,7 +187,7 @@ The candidate commit is `5ed11da8aea342708be67284ea7a71224f90ccdc`. It preserved
 the reviewed application baseline `ec65cc08639c184030c63e3407791987eee92804`,
 the `v0.10-core` scope, and the `000124_scoped_rbac_global_compatibility`
 migration ceiling. It was superseded before any staging certification evidence
-was collected; the rc.8 candidate (itself superseded by rc.9, which rc.10 superseded) replaced it.
+was collected; the rc.8 candidate (itself superseded by rc.9, which rc.10 superseded, which rc.11 superseded) replaced it.
 
 ### v0.10.0-rc.8 — Divergent stabilization candidate (superseded)
 
@@ -290,14 +291,16 @@ lane was still waiting on the staging preflight inputs. It was superseded by
 v0.10.0-rc.10 before certification, after the approval finalization defect
 described in the rc.10 entry was found. rc.9 was never certified.
 
-### v0.10.0-rc.10 — Approval finalization fix
+### v0.10.0-rc.10 — Approval finalization fix (superseded)
 
 **Primary purpose:** stop the approval engine from finalizing approved
 documents as rejected or leaving them stuck, a defect present in every
 candidate since rc.1.
 
 The candidate is the superseded rc.9 tag commit `07d2ba2` plus the rc.10
-commits; the exact tagged commit is recorded at tag time (`<pending tag>`). It
+commits; the exact tagged commit is `074595735f82a063c3c9e0a176658ed2f04581d6`
+(annotated tag `v0.10.0-rc.10`, tag object
+`6d9b1e1f245d3be0a4d8718c13d2ba7063fad189`, dated 2026-10-07). It
 keeps the `v0.10-core` scope and the `000124_scoped_rbac_global_compatibility`
 migration ceiling and adds no migration. It carries no HR UI work from `main`.
 
@@ -339,7 +342,88 @@ must, after deploying rc.10, run the read-only **Find** queries in the
 and repair each affected row only after a business owner confirms the intended
 outcome; record every repaired row in that environment's release evidence.
 
-## Follow-up work after v0.10.0-rc.10
+rc.10 was tagged and deployed to staging and its `certification/v0.10.0-rc.10`
+dispatch branch was created on 2026-10-07. Its only certification run,
+`37820191861` (2026-10-08), is invalid: the certification test had been changed
+to write the asserted outcomes into the staging database when an action
+failed, staging carried objects created outside the migration chain, and the
+deploy used a workflow whose immutable-release digest check had been bypassed
+(`FIND-009`, `FIND-010` in the
+[staging certification record](v0.10-core-staging-certification.md#invalidated-certification-runs)).
+The product defects the run hid are fixed in rc.11. rc.10 was never certified.
+
+### v0.10.0-rc.11 — Certification defect fixes
+
+**Primary purpose:** fix the product defects that the invalidated rc.10
+certification run covered up, so that the unmodified strict certification test
+(the only reviewed correction is the AR `PAID` status) passes against a staging
+database rebuilt from empty with migrations `000001`–`000124` only.
+
+The candidate is the superseded rc.10 tag commit `0745957` plus the rc.11
+commits; the exact tagged commit is recorded at tag time (`<short-sha>`). It
+keeps the `v0.10-core` scope and the `000124_scoped_rbac_global_compatibility`
+migration ceiling and adds no migration. Every product fix landed with a test
+that fails at the rc.10 tag. Fixes (findings in the
+[staging certification record](v0.10-core-staging-certification.md#findings)):
+
+- **Document versions** (`FIND-011`; `920f238`): versions store the uploaded
+  blob and inherit the document's classification; version download route with
+  a mandatory `DOWNLOAD` access event.
+- **Signature challenges** (`FIND-012`; `4ea2576`, `089f97e`): challenges are
+  issued with every required column and consumed atomically, so a used,
+  expired or foreign challenge cannot sign again.
+- **Document and CMMS journey routes** (`FIND-013`): document ACL, review
+  submit and decision (`1550a12`, `3a54b4e`); CMMS audit, work-order
+  transitions, complete and close (`2a34a49`), meter readings (`8caa308`),
+  work-order spare-part add and issue (`6df4912`), and company-scoped PM
+  run-due with `CMMS_SYSTEM_USER_ID` for the worker (`10fad90`).
+- **AR/AP posting** (`FIND-014`, `FIND-015`, `FIND-023`): the AR form's number
+  is honoured, totals balance and duplicates are refused (`8ba21d2`); GRN AP
+  invoice lines link to PO lines, PO-less GRNs are refused and matching runs
+  inline (`cb4c101`); AR/AP journals post as the posting user (`ea436aa`); AR,
+  AP and CMMS services get the audit logger, and the worker's AP service gets
+  ledger hooks and audit.
+- **Workspace company scope** (`FIND-016`, `FIND-021`; `5d2e366`, `5d5c647`):
+  workspace companies come from active role assignments, `RBAC_GLOBAL_ROLES`
+  (default empty) names roles that see every company, a signed-in user with no
+  company gets `403` on the module route groups, and `/api/me` reports
+  `releaseProfile`. See the [tenancy scope rollout runbook](v0.10-tenancy-scope-rollout.md).
+- **Document storage** (`FIND-017`; `d92220a`, `5003eec`, `ef373b7`): the web
+  process and the worker share one `DOCUMENT_STORAGE_DIR`; the deploy host
+  script verifies it before migrating.
+- **Reproducible bundle** (`FIND-018`; `f491cb8`, `031af7f`): the SPDX SBOM is
+  an attested sibling of the bundle, the SBOM action is pinned, and a
+  `build_only` dispatch compares rebuild digests.
+- **Delivery actor** (`FIND-025`; `8fe8c59`): delivery handlers take the user
+  and company from the session.
+- **Stock-movement audit** (`FIND-026`; `a99c809`, `cba8064`): stock
+  adjustments (delivery confirm and others) and posted stock takes write an
+  `inventory_tx` audit row.
+- **Staging seeder** (`FIND-022`, `FIND-027`; `b75d361`, `0c3bbe3`,
+  `e22abb8`, `6e6f63f`): admin permissions, scoped assignments, a
+  supplier-scoped matching policy, a PO-backed GRN, ledger accounts, mappings
+  and an OPEN period linked to an OPEN accounting period; `--check` lists
+  every prerequisite.
+- **Schema checksum gate** (`FIND-010`; `1545f59`, `a05cef4`, `83a3685`):
+  DB-002 compares the staging schema with a fresh PG17 reference before any
+  test runs.
+- **Test correction** (`ef89fb3`): after a full AR payment the strict test
+  expects `PAID`.
+
+Open in rc.11 (`FIND-028` to `FIND-033`): AR/AP post-commit tax capture on a
+database without reviewed tax configuration, delivery document numbering
+(needs a migration, v0.11), delivery confirm atomicity and journal gaps, the
+period guard on the last day of a month, sales/freight actor fallbacks and
+unscoped GET-by-id checks, and GRN/PO AP invoice handlers that do not run
+matching.
+
+**Operations.** Staging is rebuilt from an empty database before rc.11 is
+certified (`FIND-020`; [preflight checklist](v0.10-staging-preflight-checklist.md)
+section 0). Every environment that keeps its database follows the
+[tenancy scope rollout runbook](v0.10-tenancy-scope-rollout.md) before
+upgrading, and creates `DOCUMENT_STORAGE_DIR` as root.
+
+## Follow-up work after v0.10.0-rc.11
 
 This work is documented in the current [roadmap](../ROADMAP.md) and [module catalog](../reference/module-catalog.md); the candidate packages the current scope, while final promotion remains pending.
 
@@ -371,7 +455,7 @@ This work is documented in the current [roadmap](../ROADMAP.md) and [module cata
 
 ### Remaining release work
 
-- Promote `v0.10.0` only after the rc.10 candidate passes staging, provider, security,
+- Promote `v0.10.0` only after the rc.11 candidate passes staging, provider, security,
   migration, and operational certification gates.
 - Complete staging/production acceptance for FX and Horizon features.
 - Complete external Coretax validation.

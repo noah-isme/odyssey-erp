@@ -13,30 +13,34 @@
 **Revised:** 2026-09-02 (rc.8 candidate reconciliation; superseded by rc.9)
 **Revised:** 2026-10-02 (Option A candidate-identity ruling: tag resolves to 20cc13a; dispatch branch created; superseded by rc.9)
 **Revised:** 2026-10-04 (v0.10.0-rc.9 candidate: worker idempotency and attribution fixes; superseded by rc.10)
-**Revised:** 2026-10-07 (v0.10.0-rc.10 candidate: approval finalization fix)
+**Revised:** 2026-10-07 (v0.10.0-rc.10 candidate: approval finalization fix; superseded by rc.11)
+**Revised:** 2026-10-09 (v0.10.0-rc.11 candidate: certification defect fixes)
 **Current Version:** v0.9.1
 
-> **Active release handoff (2026-10-07):** The bounded `v0.10-core` release
-> candidate is the annotated `v0.10.0-rc.10` tag (commit `<pending tag>`,
-> recorded when the tag is cut), with migrations ending at `000124`. Its
-> lineage is the superseded rc.9 tag `07d2ba2` plus the approval finalization
-> fix: final approvals had reached module finalizers with a stale `PENDING`
-> status since rc.1, so approved leave was finalized as rejected, approved POs
-> were cancelled, RFQ awards were rejected, and payroll runs stuck in
-> `APPROVAL`. Environments that ran rc.1 through rc.9 must run the **Find**
-> queries in the [approval finalization remediation runbook](releases/v0.10-approval-finalization-remediation.md)
-> after deploying rc.10. The superseded rc.9 tag was deployed to staging but
-> never certified. Deferred worker findings are recorded as `FIND-001`–`FIND-007`
-> (and `FIND-008`, resolved in rc.9) in the [staging certification record](releases/v0.10-core-staging-certification.md).
-> Staging certification and production promotion remain open. The remaining
-> blockers are certification preflight — which lacks the staging identities,
-> fixture variables, and immutable evidence store configuration — and the
-> `certification/v0.10.0-rc.10` dispatch branch, created from the rc.10 tag after
-> it is cut. Provision those staging-only inputs, verify the documented service
-> supervision and `127.0.0.1:8180` health contract, then run the automated and
-> operator evidence lanes. No feature or migration work should be added to
-> this candidate; an application or schema change requires a new release
-> candidate and a fresh certification run.
+> **Active release handoff (2026-10-09):** The bounded `v0.10-core` release
+> candidate is the annotated `v0.10.0-rc.11` tag (commit `<short-sha>`,
+> recorded when the tag is cut), with migrations ending at `000124`. Its lineage
+> is the superseded rc.10 tag `0745957` plus the rc.11 fix commits, with no
+> migration. The rc.10 certification run `37820191861` was invalidated: the test
+> had been changed to fabricate outcomes and staging carried out-of-band schema
+> objects (`FIND-009`, `FIND-010`). rc.11 fixes the product defects that run hid
+> (`FIND-011` to `FIND-018`, `FIND-021`, `FIND-023`, `FIND-025` to `FIND-027`):
+> document versions and signatures, the document and CMMS journey routes, AR/AP
+> posting and audit, workspace company scoping, one shared document storage
+> directory, a reproducible bundle, the delivery actor, stock-movement audit and
+> the staging seeder, and adds a schema checksum gate to DB-002. Open findings
+> `FIND-028` to `FIND-033` and accepted `FIND-019`, `FIND-022`, `FIND-024` are
+> in the [staging certification record](releases/v0.10-core-staging-certification.md).
+> Before certification, staging is rebuilt from an empty database (`FIND-020`)
+> and the `certification/v0.10.0-rc.11` dispatch branch is created from the rc.11
+> tag after it is cut. Environments that ran rc.1 through rc.9 still run the
+> **Find** queries in the [approval finalization remediation runbook](releases/v0.10-approval-finalization-remediation.md),
+> and environments that keep their database follow the
+> [tenancy scope rollout runbook](releases/v0.10-tenancy-scope-rollout.md). The
+> remaining blockers are certification preflight — staging identities, fixture
+> variables, and immutable evidence store configuration — and the rebuild. No
+> feature or migration work should be added to this candidate; an application or
+> schema change requires a new release candidate and a fresh certification run.
 
 > For current capability status, use the [Module Catalog](reference/module-catalog.md).
 > This roadmap tracks sequencing and release gates; it is not a second feature-status
@@ -492,11 +496,11 @@ shared outbox/inbox, connection, secret, mapping, retry, and observability found
 then sequences payment gateways, carriers, marketplaces, messaging, BI, identity, and
 governed AI connectors.
 
-### Active execution sequence (2026-10-07)
+### Active execution sequence (2026-10-09)
 
 - **Close `v0.10-core`:** provision the staging certification identities, stable
    fixtures, and seven-year Object-Lock evidence store; rerun the automated and
-   operator lanes for immutable `v0.10.0-rc.10`; complete the 25-row evidence index;
+   operator lanes for immutable `v0.10.0-rc.11`; complete the 25-row evidence index;
    and promote only the exact certified artifact after the signed go/no-go decision.
 - **Start `v0.11-finance`:** branch from the released v0.10 baseline and finish
    treasury bank-feed/forecast operations, payment execution and settlement evidence,

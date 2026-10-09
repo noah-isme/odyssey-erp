@@ -10,18 +10,25 @@ The v0.10.0 staging certification profile is `v0.10-core`. Complete the
 for the exact candidate before changing any feature-matrix row to
 `production-certified=yes`.
 
-The current candidate is the immutable annotated tag `v0.10.0-rc.10` (commit
-`<pending tag>`, recorded when the tag is cut). Its lineage is the
-superseded rc.9 tag `07d2ba2` plus the rc.10 approval finalization fix; it adds no
+The current candidate is `v0.10.0-rc.11` (annotated tag and commit
+`<short-sha>`, recorded when the tag is cut). Its lineage is the
+superseded rc.10 tag `0745957` plus the rc.11 fix commits; it adds no
 migration and keeps the `000124` ceiling. Do not move, recreate, or replace that tag while
 collecting evidence.
 
-Staging ran earlier candidates (most recently the superseded rc.9 tag), so
-after rc.10 is deployed run the read-only **Find** queries in the
+Staging carried rows fabricated by the invalidated rc.10 certification run and
+out-of-band schema objects (`FIND-009`, `FIND-010`), so before rc.11 is
+deployed staging is rebuilt from an empty database: forensic dump, drop and
+recreate, `migrate up` to `000124`, least-privileged certification role,
+schema checksum, password rotation and `go run ./scripts/seed/staging`
+(never `cmd/bootstrap-admin` for the certification identity). The
+[staging preflight checklist](releases/v0.10-staging-preflight-checklist.md)
+lists the rebuild as a prerequisite. On an environment that keeps its
+database instead, run the read-only **Find** queries in the
 [approval finalization remediation runbook](releases/v0.10-approval-finalization-remediation.md)
-against the staging database and record every repair a business owner
-confirms. Deploying rc.10 stops new damage but does not repair rows that the
-approval engine already finalized wrongly.
+(any build from rc.1 through rc.9 was affected) and follow the
+[tenancy scope rollout runbook](releases/v0.10-tenancy-scope-rollout.md)
+before restarting on rc.11.
 
 The final release gate checks that this record names the exact candidate tag and
 contains completed evidence. An untouched template, unchecked checklist item,
@@ -34,7 +41,7 @@ application port, database, and Redis instance.
 ## Deployment contract
 
 The workflow deploys automatically after a successful `CI` workflow for the
-`staging` branch. Pushing the annotated `v0.10.0-rc.10` tag also starts the
+`staging` branch. Pushing the annotated `v0.10.0-rc.11` tag also starts the
 release-candidate deployment, so the candidate can run even before this
 workflow reaches the repository's default branch. A manual dispatch using the
 same tag remains available once the workflow is on the default branch. Every

@@ -1,15 +1,25 @@
 # Authoritative Feature Matrix
 
-**Reviewed:** 2026-10-07
+**Reviewed:** 2026-10-09
 
-**Current release candidate:** `v0.10.0-rc.10`. This candidate is not
+**Current release candidate:** `v0.10.0-rc.11`. This candidate is not
 production-certified; the matrix below remains the authority for promotion evidence.
 
-**v0.10.0-rc.10 boundary:** the annotated rc.10 tag identifies the candidate
-commit (`<pending tag>`, recorded when the tag is cut). The rc.10 line is the
-superseded rc.9 tag `07d2ba2` plus the approval finalization fix (`Decide`
-returns the post-decision request, and the step quorum count is scoped to the
-request) and its [remediation runbook](../releases/v0.10-approval-finalization-remediation.md).
+**v0.10.0-rc.11 boundary:** the annotated rc.11 tag identifies the candidate
+commit (`<short-sha>`, recorded when the tag is cut). The rc.11 line is the
+superseded rc.10 tag `0745957` plus the rc.11 fix commits for the defects the
+invalidated rc.10 certification run hid (`FIND-011` to `FIND-018`, `FIND-021`,
+`FIND-023`, `FIND-025` to `FIND-027` in the
+[certification record](../releases/v0.10-core-staging-certification.md#findings)):
+document version upload, signature challenges, the document and CMMS journey
+routes, AR/AP posting balance, actor and audit, workspace company scoping
+([tenancy scope rollout](../releases/v0.10-tenancy-scope-rollout.md)), one
+shared `DOCUMENT_STORAGE_DIR`, a reproducible release bundle with a sibling
+SBOM, the delivery actor and company, stock-movement audit, the staging
+seeder, and the schema checksum gate. The superseded rc.10 tag carries the
+approval finalization fix (`Decide` returns the post-decision request, and the
+step quorum count is scoped to the request) and its
+[remediation runbook](../releases/v0.10-approval-finalization-remediation.md).
 The superseded rc.9 tag carries the worker fix commits (payslip
 delivery row lock and mail deadlines, AP invoice actor binding and dedupe,
 worker pool sizing, connector outbox claim-before-execute, bounded retry for
@@ -96,7 +106,7 @@ same rule to every row. Rows outside the selected profile are not release claims
 must remain unavailable to that profile's production route set. In particular, the
 Phase 14/P7 evidence guide records local verification; it does not certify staging or
 production. The VPS deployment target satisfies the infrastructure selection only; it
-does not certify incomplete feature workflows. For rc.10, selecting
+does not certify incomplete feature workflows. For rc.11, selecting
 `RELEASE_PROFILE=v0.10-core` must not expose v0.11-only routes or apply migration
 `000125`.
 
