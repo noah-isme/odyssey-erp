@@ -284,6 +284,43 @@ func TestCreateARInvoice(t *testing.T) {
 	require.Equal(t, "Product A", lines[0].Description)
 }
 
+func TestCreateARInvoiceTotals(t *testing.T) {
+	tests := []struct {
+		name                       string
+		subtotal, taxAmount, total float64
+		number                     string
+		wantErr                    error
+		wantSubtotal, wantTax      float64
+		wantNumber                 string
+	}{
+		{name: "total only defaults subtotal to total", total: 1500, number: "CERT-AR-1", wantSubtotal: 1500, wantNumber: "CERT-AR-1"},
+		{name: "explicit balanced split", subtotal: 1000, taxAmount: 110, total: 1110, number: "CERT-AR-2", wantSubtotal: 1000, wantTax: 110, wantNumber: "CERT-AR-2"},
+		{name: "rounding within tolerance", subtotal: 1000.004, taxAmount: 0, total: 1000, number: "CERT-AR-3", wantSubtotal: 1000.004, wantNumber: "CERT-AR-3"},
+		{name: "subtotal without tax below total", subtotal: 900, total: 1000, number: "CERT-AR-4", wantErr: ErrInvoiceTotalsMismatch},
+		{name: "tax only does not default subtotal", taxAmount: 100, total: 1100, number: "CERT-AR-5", wantErr: ErrInvoiceTotalsMismatch},
+		{name: "blank number is generated", total: 10, number: "   ", wantSubtotal: 10, wantNumber: "INV-TEST-1"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := newMemoryARRepo()
+			svc := NewService(repo)
+			inv, err := svc.CreateARInvoice(context.Background(), CreateARInvoiceInput{
+				CustomerID: 1, Number: tc.number, Currency: "IDR",
+				Subtotal: tc.subtotal, TaxAmount: tc.taxAmount, Total: tc.total,
+			})
+			if tc.wantErr != nil {
+				require.ErrorIs(t, err, tc.wantErr)
+				require.Empty(t, repo.invoices, "no invoice may be written")
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.wantNumber, inv.Number)
+			require.Equal(t, tc.wantSubtotal, inv.Subtotal)
+			require.Equal(t, tc.wantTax, inv.TaxAmount)
+		})
+	}
+}
+
 func TestCreateARInvoiceRequiresCustomerID(t *testing.T) {
 	ctx := context.Background()
 	repo := newMemoryARRepo()

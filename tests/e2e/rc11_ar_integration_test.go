@@ -66,7 +66,7 @@ func TestRC11ARFormInvoicePostsBalanced(t *testing.T) {
 
 	// The same number again: refused with a user-facing message, no second row.
 	_, err = svc.CreateARInvoice(ctx, input)
-	require.Error(t, err)
+	require.ErrorIs(t, err, ar.ErrDuplicateInvoiceNumber)
 	require.Equal(t, "Invoice number already exists.", shared.UserSafeMessage(err))
 	var rows int
 	require.NoError(t, p.QueryRow(ctx, `SELECT COUNT(*) FROM ar_invoices WHERE number=$1`, number).Scan(&rows))

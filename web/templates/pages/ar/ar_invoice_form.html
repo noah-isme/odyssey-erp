@@ -16,9 +16,9 @@
 
     <div class="form-group">
         <label class="form-label" for="number">Invoice Number</label>
-        <input class="form-input" type="text" id="number" name="number" required placeholder="e.g. INV-2023-001"
+        <input class="form-input" type="text" id="number" name="number" placeholder="e.g. INV-2023-001"
             aria-describedby="number-hint">
-        <span id="number-hint" class="field-hint">Unique invoice identifier</span>
+        <span id="number-hint" class="field-hint">Optional. Must be unique; leave blank to generate the next number.</span>
     </div>
 
     <div class="form-grid">
@@ -44,6 +44,19 @@
             <input class="form-input" type="number" step="0.01" id="total" name="total" required>
         </div>
     </div>
+
+    <div class="form-grid">
+        <div class="form-group">
+            <label class="form-label" for="subtotal">Subtotal</label>
+            <input class="form-input" type="number" step="0.01" id="subtotal" name="subtotal" aria-describedby="split-hint">
+        </div>
+
+        <div class="form-group">
+            <label class="form-label" for="tax_amount">Tax Amount</label>
+            <input class="form-input" type="number" step="0.01" id="tax_amount" name="tax_amount" aria-describedby="split-hint">
+        </div>
+    </div>
+    <span id="split-hint" class="field-hint">Optional. Leave both blank to book the whole total as revenue; otherwise subtotal plus tax must equal the total.</span>
 
     <div class="form-group">
         <label class="form-label" for="due_date">Due Date</label>

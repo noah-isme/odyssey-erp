@@ -16,8 +16,8 @@ import (
 )
 
 func (h *Hooks) CreateARPostingJournal(ctx context.Context, invoice *ar.ARInvoice) error {
-	if h == nil || h.ledger == nil || h.periodRepo == nil || h.mappingRepo == nil {
-		return nil
+	if err := h.ledgerReady(); err != nil {
+		return err
 	}
 	postingDate := time.Now()
 	if invoice.PostedAt != nil {
@@ -57,8 +57,8 @@ func (h *Hooks) CreateARPostingJournal(ctx context.Context, invoice *ar.ARInvoic
 // invoice posting. It deliberately shares the same source key as the normal
 // path so retries remain idempotent.
 func (h *Hooks) CreateARPostingJournalTx(ctx context.Context, tx pgx.Tx, invoice *ar.ARInvoice) error {
-	if h == nil || h.ledger == nil || h.periodRepo == nil || h.mappingRepo == nil {
-		return nil
+	if err := h.ledgerReady(); err != nil {
+		return err
 	}
 	postingDate := time.Now()
 	if invoice.PostedAt != nil {
@@ -95,8 +95,8 @@ func (h *Hooks) CreateARPostingJournalTx(ctx context.Context, tx pgx.Tx, invoice
 }
 
 func (h *Hooks) CreateARCreditNoteJournal(ctx context.Context, note *ar.ARCreditNote) error {
-	if h == nil || h.ledger == nil || h.periodRepo == nil || h.mappingRepo == nil {
-		return nil
+	if err := h.ledgerReady(); err != nil {
+		return err
 	}
 	postingDate := time.Now()
 	if note.PostedAt != nil {

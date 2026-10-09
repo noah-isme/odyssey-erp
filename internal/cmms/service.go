@@ -40,6 +40,10 @@ func (s *Service) SetAuditLogger(audit AuditPort) {
 	s.audit = audit
 }
 
+// AuditLoggerConfigured reports whether an audit sink is attached; used by
+// the composition-root wiring tests.
+func (s *Service) AuditLoggerConfigured() bool { return s.audit != nil }
+
 // record writes an audit event after a successful write. The write has
 // already committed, so a failing audit sink is logged rather than returned.
 func (s *Service) record(ctx context.Context, actorID int64, entity, action string, entityID int64, meta map[string]any) {

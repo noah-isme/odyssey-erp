@@ -51,6 +51,19 @@ type Hooks struct {
 	connectorsSvc  ConnectorsService
 }
 
+// ErrLedgerNotConfigured is returned by a posting hook whose ledger, period
+// repository or account mapping repository is missing. Such a hook must not
+// report success: the document would be posted with no journal.
+var ErrLedgerNotConfigured = errors.New("integration: ledger, period repository and account mapping repository are required to post a journal")
+
+// ledgerReady reports whether the hooks can post a journal.
+func (h *Hooks) ledgerReady() error {
+	if h == nil || h.ledger == nil || h.periodRepo == nil || h.mappingRepo == nil {
+		return ErrLedgerNotConfigured
+	}
+	return nil
+}
+
 // NewHooks constructs integration hooks.
 func NewHooks(ledger Ledger, periodRepo PeriodRepository, mappingRepo AccountMappingRepository) *Hooks {
 	return &Hooks{ledger: ledger, periodRepo: periodRepo, mappingRepo: mappingRepo}

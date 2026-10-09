@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -21,7 +23,22 @@ var (
 	ErrInvalidStatus      = errors.New("ar: invalid invoice status for this operation")
 	ErrInsufficientAmount = errors.New("ar: payment amount exceeds invoice balance")
 	ErrAlreadyInvoiced    = errors.New("ar: delivery order already invoiced")
+	// ErrDuplicateInvoiceNumber is returned when ar_invoices.number (globally
+	// unique) is already taken.
+	ErrDuplicateInvoiceNumber = errors.New("ar: invoice number already exists")
+	// ErrInvoiceTotalsMismatch is returned when subtotal + tax does not equal
+	// the total, which would post an unbalanced journal.
+	ErrInvoiceTotalsMismatch = errors.New("ar: subtotal plus tax must equal total")
 )
+
+func init() {
+	shared.RegisterUserSafeMessage(ErrDuplicateInvoiceNumber, "Invoice number already exists.")
+	shared.RegisterUserSafeMessage(ErrInvoiceTotalsMismatch, "Subtotal plus tax must equal the total.")
+}
+
+// invoiceTotalsTolerance is the rounding slack allowed between subtotal + tax
+// and total.
+const invoiceTotalsTolerance = 0.005
 
 // RepositoryPort defines data access methods for AR.
 type RepositoryPort interface {
@@ -193,6 +210,10 @@ func (s *Service) SetTaxService(service TaxServicePort) { s.tax = service }
 func (s *Service) SetFXResolver(resolver FXRateResolver) { s.fxResolver = resolver }
 func (s *Service) SetAuditLogger(audit AuditPort)        { s.audit = audit }
 
+// AuditLoggerConfigured reports whether an audit sink is attached; used by
+// the composition-root wiring tests.
+func (s *Service) AuditLoggerConfigured() bool { return s.audit != nil }
+
 // CreateARInvoice creates a new AR invoice with lines.
 func (s *Service) CreateARInvoice(ctx context.Context, input CreateARInvoiceInput) (*ARInvoice, error) {
 	if input.CustomerID == 0 {
@@ -201,8 +222,18 @@ func (s *Service) CreateARInvoice(ctx context.Context, input CreateARInvoiceInpu
 	if input.Total <= 0 {
 		return nil, errors.New("total must be positive")
 	}
+	// A total-only invoice (the manual form) has no tax split: the whole
+	// total is revenue. Posting credits subtotal + tax against a debit of
+	// total, so the three must agree.
+	if input.Subtotal == 0 && input.TaxAmount == 0 {
+		input.Subtotal = input.Total
+	}
+	if math.Abs(input.Subtotal+input.TaxAmount-input.Total) > invoiceTotalsTolerance {
+		return nil, ErrInvoiceTotalsMismatch
+	}
 
 	// Generate number if not provided
+	input.Number = strings.TrimSpace(input.Number)
 	if input.Number == "" {
 		num, err := s.repo.GenerateInvoiceNumber(ctx)
 		if err != nil {

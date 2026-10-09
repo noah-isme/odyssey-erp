@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	accountingmoney "github.com/odyssey-erp/odyssey-erp/internal/accounting/money"
@@ -75,6 +76,10 @@ func (r *Repository) CreateARInvoice(ctx context.Context, input CreateARInvoiceI
 	).Scan(&inv.ID, &inv.CreatedAt, &inv.UpdatedAt)
 
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "ar_invoices_number_key" {
+			return nil, fmt.Errorf("%w: %s", ErrDuplicateInvoiceNumber, number)
+		}
 		return nil, err
 	}
 

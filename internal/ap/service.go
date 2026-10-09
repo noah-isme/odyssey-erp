@@ -118,6 +118,10 @@ func (s *Service) SetTaxService(service TaxServicePort) { s.tax = service }
 func (s *Service) SetFXResolver(resolver FXRateResolver) { s.fxResolver = resolver }
 func (s *Service) SetAuditLogger(audit AuditPort)        { s.audit = audit }
 
+// AuditLoggerConfigured reports whether an audit sink is attached; used by
+// the composition-root wiring tests.
+func (s *Service) AuditLoggerConfigured() bool { return s.audit != nil }
+
 // CreateAPInvoice creates a new AP invoice manually.
 func (s *Service) CreateAPInvoice(ctx context.Context, input CreateAPInvoiceInput) (APInvoice, error) {
 	if len(input.Lines) == 0 {

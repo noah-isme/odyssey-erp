@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log/slog"
 	"strings"
+	"sync"
 )
 
 // ============================================================================
@@ -80,6 +81,21 @@ var userSafeMessages = map[error]string{
 	ErrConflict:           "This action cannot be completed due to a conflict.",
 }
 
+// userSafeMu guards userSafeMessages against registrations from package
+// initialisation racing with lookups.
+var userSafeMu sync.RWMutex
+
+// RegisterUserSafeMessage maps a domain sentinel error to a message that is
+// safe to show to end users. Domain packages call it from a package-level
+// var or init so that UserSafeMessage recognises their sentinels. The
+// sentinel should not wrap another registered sentinel, or the message
+// chosen for it is unspecified.
+func RegisterUserSafeMessage(sentinel error, message string) {
+	userSafeMu.Lock()
+	defer userSafeMu.Unlock()
+	userSafeMessages[sentinel] = message
+}
+
 // UserSafeMessage returns a user-friendly error message.
 // It maps known sentinel errors to safe messages and returns a generic
 // message for unknown errors to prevent leaking internal details.
@@ -93,6 +109,8 @@ func UserSafeMessage(err error) string {
 	}
 
 	// Check for known sentinel errors
+	userSafeMu.RLock()
+	defer userSafeMu.RUnlock()
 	for sentinel, message := range userSafeMessages {
 		if errors.Is(err, sentinel) {
 			return message

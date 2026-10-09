@@ -72,3 +72,31 @@ func TestDebitNotePostsAPAgainstGRNInventory(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []journals.PostingLineInput{{AccountID: 10, Debit: 110}, {AccountID: 20, Credit: 110}}, ledger.postings[0].Lines)
 }
+
+// TestARHooksFailWithoutLedger: an AR hook built without its ledger
+// dependencies must refuse instead of letting the invoice post with no journal.
+func TestARHooksFailWithoutLedger(t *testing.T) {
+	postedAt := time.Date(2026, 7, 30, 9, 0, 0, 0, time.UTC)
+	period := periodFake{period: periods.Period{ID: 1, StartDate: postedAt, EndDate: postedAt, Status: periods.PeriodStatusOpen}}
+	mapping := mappingFake{"ar.invoice.ar": 10, "ar.invoice.revenue": 20}
+	invoice := &ar.ARInvoice{ID: 8, Number: "INV-8", Subtotal: 100, Total: 100, PostedAt: &postedAt}
+	note := &ar.ARCreditNote{ID: 9, Number: "CN-9", Subtotal: 20, Total: 20, PostedAt: &postedAt}
+
+	tests := []struct {
+		name  string
+		hooks *Hooks
+	}{
+		{name: "nil hooks", hooks: nil},
+		{name: "no ledger", hooks: NewHooks(nil, period, mapping)},
+		{name: "no period repository", hooks: NewHooks(&ledgerCapture{}, nil, mapping)},
+		{name: "no mapping repository", hooks: NewHooks(&ledgerCapture{}, period, nil)},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+			require.ErrorIs(t, tc.hooks.CreateARPostingJournal(ctx, invoice), ErrLedgerNotConfigured)
+			require.ErrorIs(t, tc.hooks.CreateARPostingJournalTx(ctx, nil, invoice), ErrLedgerNotConfigured)
+			require.ErrorIs(t, tc.hooks.CreateARCreditNoteJournal(ctx, note), ErrLedgerNotConfigured)
+		})
+	}
+}

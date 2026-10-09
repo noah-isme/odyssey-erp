@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -166,6 +167,10 @@ func (h *Handler) createARInvoice(w http.ResponseWriter, r *http.Request) {
 	customerID, _ := strconv.ParseInt(r.PostFormValue("customer_id"), 10, 64)
 	soID, _ := strconv.ParseInt(r.PostFormValue("so_id"), 10, 64)
 	total, _ := strconv.ParseFloat(r.PostFormValue("total"), 64)
+	// subtotal and tax_amount are optional: when both are absent the service
+	// treats the whole total as revenue.
+	subtotal, _ := strconv.ParseFloat(r.PostFormValue("subtotal"), 64)
+	taxAmount, _ := strconv.ParseFloat(r.PostFormValue("tax_amount"), 64)
 	dueDate, _ := time.Parse("2006-01-02", r.PostFormValue("due_date"))
 
 	sess := shared.SessionFromContext(r.Context())
@@ -174,7 +179,10 @@ func (h *Handler) createARInvoice(w http.ResponseWriter, r *http.Request) {
 	invoice, err := h.service.CreateARInvoice(r.Context(), CreateARInvoiceInput{
 		CustomerID: customerID,
 		SOID:       soID,
+		Number:     strings.TrimSpace(r.PostFormValue("number")),
 		Currency:   r.PostFormValue("currency"),
+		Subtotal:   subtotal,
+		TaxAmount:  taxAmount,
 		Total:      total,
 		DueDate:    dueDate,
 		CreatedBy:  userID,
