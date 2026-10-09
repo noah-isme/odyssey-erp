@@ -825,8 +825,8 @@ func TestStagingCoreJourneys(t *testing.T) {
 		"method":        {"TRANSFER"},
 	})
 	assertStatus(t, payment, http.StatusSeeOther, http.MethodPost, "/finance/ar/payments")
-	if status := queryString(t, db, "SELECT status FROM ar_invoices WHERE id=$1", arID); status != "POSTED" {
-		t.Fatalf("AR invoice %d status after payment = %q, want POSTED", arID, status)
+	if status := queryString(t, db, "SELECT status FROM ar_invoices WHERE id=$1", arID); status != "PAID" {
+		t.Fatalf("AR invoice %d status after payment = %q, want PAID", arID, status)
 	}
 	if allocated := queryCount(t, db, "SELECT COUNT(*) FROM ar_payment_allocations WHERE ar_invoice_id=$1", arID); allocated != 1 {
 		t.Fatalf("AR invoice %d allocation count = %d, want 1", arID, allocated)
