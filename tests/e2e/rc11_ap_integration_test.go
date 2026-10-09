@@ -18,6 +18,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/mappings"
 	"github.com/odyssey-erp/odyssey-erp/internal/accounting/periods"
 	"github.com/odyssey-erp/odyssey-erp/internal/ap"
+	closepkg "github.com/odyssey-erp/odyssey-erp/internal/close"
 	"github.com/odyssey-erp/odyssey-erp/internal/integration"
 	"github.com/odyssey-erp/odyssey-erp/internal/procurement"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
@@ -30,10 +31,18 @@ import (
 // matching policy (never a company-wide one) and posted. They compile against
 // tag v0.10.0-rc.10 so the same file shows the failure there.
 
+// rc11LedgerHooks builds the ledger hooks the way cmd/odyssey (and, since
+// rc.11, cmd/worker) do: the journal service records a journal_entry audit
+// row inside the posting transaction and checks the period-close guard.
+func rc11LedgerHooks(p *pgxpool.Pool) *integration.Hooks {
+	journalService := journals.NewService(journals.NewRepository(p), shared.NewAuditLogger(p), closepkg.NewService(closepkg.NewRepository(p)))
+	return integration.NewHooks(journalService, periods.NewRepository(p), mappings.NewRepository(p))
+}
+
 // rc11APServer builds the AP service and orchestrator the way cmd/odyssey
 // wires them: procurement for GRN/PO lookups, ledger hooks, audit and tax.
 func rc11APServer(p *pgxpool.Pool) (*ap.Service, *ap.Orchestrator) {
-	hooks := integration.NewHooks(journals.NewService(journals.NewRepository(p), nil, nil), periods.NewRepository(p), mappings.NewRepository(p))
+	hooks := rc11LedgerHooks(p)
 	procSvc := procurement.NewService(slog.Default(), procurement.NewRepository(p), nil, nil, shared.NewAuditLogger(p), nil, hooks)
 	repo := ap.NewRepository(p)
 	svc := ap.NewService(repo, procSvc)
@@ -43,10 +52,23 @@ func rc11APServer(p *pgxpool.Pool) (*ap.Service, *ap.Orchestrator) {
 	return svc, ap.NewOrchestrator(ap.NewMatchingService(repo), ap.NewExceptionService(repo), svc, repo)
 }
 
+// rc11APWorker builds the orchestrator the way cmd/worker's newWorkerAPStack
+// does (package main cannot be imported here; TestNewWorkerAPStackWiresLedgerAndAudit
+// pins the helper itself): no procurement service, ledger hooks with the
+// period-close guard, audit and tax.
+func rc11APWorker(p *pgxpool.Pool) *ap.Orchestrator {
+	repo := ap.NewRepository(p)
+	svc := ap.NewService(repo, nil)
+	svc.SetIntegrationHandler(rc11LedgerHooks(p))
+	svc.SetAuditLogger(shared.NewAuditLogger(p))
+	svc.SetTaxService(tax.NewService(tax.NewRepository(p), nil))
+	return ap.NewOrchestrator(ap.NewMatchingService(repo), ap.NewExceptionService(repo), svc, repo)
+}
+
 // rc11AssertAPJournal asserts the posted invoice has a balanced
-// PROCUREMENT.AP_INVOICE journal with the certification memo and an
-// ap_invoice audit row.
-func rc11AssertAPJournal(t *testing.T, p *pgxpool.Pool, invoiceID int64, number string) {
+// PROCUREMENT.AP_INVOICE journal with the certification memo, posted and
+// audited as the invoice's actor, and an ap_invoice audit row.
+func rc11AssertAPJournal(t *testing.T, p *pgxpool.Pool, invoiceID int64, number string, actorID int64) {
 	t.Helper()
 	ctx := context.Background()
 	var journalID int64
@@ -55,6 +77,7 @@ func rc11AssertAPJournal(t *testing.T, p *pgxpool.Pool, invoiceID int64, number 
 	require.NoError(t, p.QueryRow(ctx, `SELECT COALESCE(SUM(debit),0)::float8, COALESCE(SUM(credit),0)::float8 FROM journal_lines WHERE je_id=$1`, journalID).Scan(&debit, &credit))
 	require.Greater(t, debit, 0.0)
 	require.LessOrEqual(t, math.Abs(debit-credit), 0.005, "journal %d is not balanced: debit=%.2f credit=%.2f", journalID, debit, credit)
+	rc11AssertJournalActor(t, p, journalID, actorID)
 	var audits int
 	require.NoError(t, p.QueryRow(ctx, `SELECT COUNT(*) FROM audit_logs WHERE entity='ap_invoice' AND entity_id=$1`, strconv.FormatInt(invoiceID, 10)).Scan(&audits))
 	require.GreaterOrEqual(t, audits, 1, "posting must write an ap_invoice audit row")
@@ -105,7 +128,7 @@ func TestRC11APGRNInvoicePostsJournal(t *testing.T) {
 	require.NoError(t, p.QueryRow(ctx, `SELECT status FROM ap_invoices WHERE id=$1`, inv.ID).Scan(&status))
 	require.Equal(t, string(ap.APStatusPosted), status, "matching run=%q exceptions=%v", run, exceptions)
 
-	rc11AssertAPJournal(t, p, inv.ID, number)
+	rc11AssertAPJournal(t, p, inv.ID, number, f.AdminID)
 }
 
 func TestRC11APGRNWithoutPOIsRefused(t *testing.T) {
@@ -124,4 +147,68 @@ func TestRC11APGRNWithoutPOIsRefused(t *testing.T) {
 	var rows int
 	require.NoError(t, p.QueryRow(ctx, `SELECT COUNT(*) FROM ap_invoices WHERE grn_id=$1`, grnID).Scan(&rows))
 	require.Zero(t, rows, "no DRAFT invoice may be written for a PO-less GRN")
+}
+
+// TestRC11APWorkerOrchestratorPostsJournal: when the queued
+// ap:invoice_process task (not the create request) matches and auto-posts the
+// invoice, the journal and audit row are still written.
+func TestRC11APWorkerOrchestratorPostsJournal(t *testing.T) {
+	p, f := newRC11Fixture(t)
+	ctx := context.Background()
+	server, _ := rc11APServer(p)
+
+	number := "RC11-AP-WRK-" + f.Suffix
+	inv, err := server.CreateAPInvoiceFromGRN(ctx, ap.CreateAPInvoiceFromGRNInput{GRNID: f.GRNID, DueDate: time.Now().AddDate(0, 0, 30), CreatedBy: f.AdminID, Number: number})
+	require.NoError(t, err)
+
+	require.NoError(t, rc11APWorker(p).ProcessInvoice(ctx, inv.ID, f.AdminID))
+	run, exceptions := rc11APMatchingState(t, p, inv.ID)
+	var status string
+	require.NoError(t, p.QueryRow(ctx, `SELECT status FROM ap_invoices WHERE id=$1`, inv.ID).Scan(&status))
+	require.Equal(t, string(ap.APStatusPosted), status, "matching run=%q exceptions=%v", run, exceptions)
+	require.Equal(t, "MATCHED", run)
+	require.Empty(t, exceptions)
+
+	rc11AssertAPJournal(t, p, inv.ID, number, f.AdminID)
+}
+
+// rc11AssertJournalActor asserts the journal records the posting user and has
+// a journal_entry audit row by that user (audit_logs.actor_id is NOT NULL and
+// references users, so actor 0 cannot be written).
+func rc11AssertJournalActor(t *testing.T, p *pgxpool.Pool, journalID, actorID int64) {
+	t.Helper()
+	ctx := context.Background()
+	var postedBy *int64
+	require.NoError(t, p.QueryRow(ctx, `SELECT posted_by FROM journal_entries WHERE id=$1`, journalID).Scan(&postedBy))
+	require.NotNil(t, postedBy, "journal %d has no posted_by", journalID)
+	require.Equal(t, actorID, *postedBy, "journal %d posted_by", journalID)
+	var audits int
+	require.NoError(t, p.QueryRow(ctx, `SELECT COUNT(*) FROM audit_logs WHERE entity='journal_entry' AND entity_id=$1 AND actor_id=$2`, strconv.FormatInt(journalID, 10), actorID).Scan(&audits))
+	require.Equal(t, 1, audits, "journal %d must have one journal_entry audit row by the poster", journalID)
+}
+
+// TestRC11APPostJournalAuditActor: posting a PO-linked AP invoice through the
+// production ledger wiring (journal audit inside the posting transaction)
+// records the posting user on the journal. Lines are linked to the PO line
+// directly, so this isolates the journal actor from the GRN linking fix.
+func TestRC11APPostJournalAuditActor(t *testing.T) {
+	p, f := newRC11Fixture(t)
+	ctx := context.Background()
+	svc, orchestrator := rc11APServer(p)
+
+	number := "RC11-AP-ACT-" + f.Suffix
+	inv, err := svc.CreateAPInvoice(ctx, ap.CreateAPInvoiceInput{
+		SupplierID: f.SupplierID, POID: &f.POID, Number: number, Currency: "IDR",
+		DueDate: time.Now().AddDate(0, 0, 30), CreatedBy: f.AdminID,
+		Lines: []ap.CreateAPInvoiceLineInput{{POLineID: &f.POLineID, ProductID: f.ProductID, Description: "Widget", Quantity: 10, UnitPrice: 100}},
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, orchestrator.ProcessInvoice(ctx, inv.ID, f.AdminID))
+	run, exceptions := rc11APMatchingState(t, p, inv.ID)
+	var status string
+	require.NoError(t, p.QueryRow(ctx, `SELECT status FROM ap_invoices WHERE id=$1`, inv.ID).Scan(&status))
+	require.Equal(t, string(ap.APStatusPosted), status, "matching run=%q exceptions=%v", run, exceptions)
+
+	rc11AssertAPJournal(t, p, inv.ID, number, f.AdminID)
 }
