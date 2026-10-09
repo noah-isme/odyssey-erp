@@ -402,3 +402,68 @@ func TestRC11CMMSSparePartIssue(t *testing.T) {
 	require.GreaterOrEqual(t, h.count(`SELECT COUNT(*) FROM audit_logs WHERE entity IN ('cmms_asset','cmms_pm_schedule','cmms_work_order','cmms_meter_reading','cmms_spare_part','cmms_work_order_spare_part') AND (entity_id=$1 OR entity_id=$2 OR entity_id=$3)`,
 		strconv.FormatInt(f.AssetID, 10), strconv.FormatInt(workID, 10), usageKey), 4)
 }
+
+func TestRC11CMMSRunDue(t *testing.T) {
+	p, f := newRC11Fixture(t)
+	h := newRC11CMMSHarness(t, p, f)
+	ctx := context.Background()
+	today := time.Now().UTC().Format("2006-01-02")
+	tomorrow := time.Now().UTC().AddDate(0, 0, 1).Format("2006-01-02")
+	runDue := func() rc11Result {
+		return h.post("/cmms/pm-schedules/run-due", "/cmms/pm-schedules", nil)
+	}
+
+	// A schedule of another company that is already due must stay untouched.
+	foreignCompanyID, foreignAssetID := h.foreignCompany()
+	var foreignSchedID int64
+	require.NoError(t, p.QueryRow(ctx, `INSERT INTO pm_schedules(company_id,asset_id,name,frequency_type,frequency_value,next_due_date,active)
+		VALUES($1,$2,'RC11 foreign PM','DAILY',1,$3::date - 1,true) RETURNING id`, foreignCompanyID, foreignAssetID, today).Scan(&foreignSchedID))
+
+	// The strict test's schedule: DAILY/1, active, no next_due_date.
+	create := h.post("/cmms/pm-schedules", "/cmms/pm-schedules/new", url.Values{
+		"asset_id": {strconv.FormatInt(f.AssetID, 10)}, "name": {"v0.10-core daily preventive maintenance"},
+		"description": {"staging PM generation"}, "frequency_type": {"DAILY"}, "frequency_value": {"1"}, "active": {"true"},
+	})
+	require.Equal(t, http.StatusSeeOther, create.status)
+	schedID, err := strconv.ParseInt(strings.TrimPrefix(create.location, "/cmms/pm-schedules/"), 10, 64)
+	require.NoError(t, err, "create PM schedule redirect %q flash %+v", create.location, create.flash)
+	require.Equal(t, today, h.str(`SELECT next_due_date::text FROM pm_schedules WHERE id=$1 AND company_id=$2`, schedID, f.CompanyID),
+		"a calendar schedule without a first due date is due today (UTC)")
+
+	first := runDue()
+	h.requireFlash(first, "success")
+	require.Equal(t, "/cmms/pm-schedules", first.location)
+	require.Contains(t, first.flash.Message, "Generated 1 ")
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM work_orders WHERE company_id=$1 AND pm_schedule_id=$2`, f.CompanyID, schedID))
+	var workID int64
+	require.NoError(t, p.QueryRow(ctx, `SELECT id FROM work_orders WHERE company_id=$1 AND pm_schedule_id=$2`, f.CompanyID, schedID).Scan(&workID))
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM work_orders WHERE id=$1 AND category='PREVENTIVE' AND asset_id=$2 AND status='REQUESTED'
+		AND requester_id=$3 AND created_by=$3`, workID, f.AssetID, f.AdminID))
+	require.Equal(t, tomorrow, h.str(`SELECT next_due_date::text FROM pm_schedules WHERE id=$1`, schedID))
+
+	// The retry finds nothing due: still one work order.
+	retry := runDue()
+	h.requireFlash(retry, "success")
+	require.Contains(t, retry.flash.Message, "Generated 0 ")
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM work_orders WHERE company_id=$1 AND pm_schedule_id=$2`, f.CompanyID, schedID))
+	require.Equal(t, tomorrow, h.str(`SELECT next_due_date::text FROM pm_schedules WHERE id=$1`, schedID))
+
+	// The other company's due schedule was not touched.
+	require.Zero(t, h.count(`SELECT COUNT(*) FROM work_orders WHERE pm_schedule_id=$1`, foreignSchedID))
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM pm_schedules WHERE id=$1 AND next_due_date = $2::date - 1`, foreignSchedID, today))
+
+	// Audit: schedule create, one run_due, one generated work-order create.
+	sched := strconv.FormatInt(schedID, 10)
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM audit_logs WHERE entity='cmms_pm_schedule' AND entity_id=$1 AND action='create' AND actor_id=$2`, sched, f.AdminID))
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM audit_logs WHERE entity='cmms_pm_schedule' AND entity_id=$1 AND action='run_due' AND actor_id=$2`, sched, f.AdminID))
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM audit_logs WHERE entity='cmms_work_order' AND entity_id=$1 AND action='create' AND actor_id=$2`, strconv.FormatInt(workID, 10), f.AdminID))
+
+	// A due schedule that cannot be advanced (unknown frequency) is reported,
+	// generates nothing and stays due.
+	var badID int64
+	require.NoError(t, p.QueryRow(ctx, `INSERT INTO pm_schedules(company_id,asset_id,name,frequency_type,frequency_value,next_due_date,active)
+		VALUES($1,$2,'RC11 bad PM','YEARLY',1,$3::date,true) RETURNING id`, f.CompanyID, f.AssetID, today).Scan(&badID))
+	h.requireFlash(runDue(), "danger")
+	require.Zero(t, h.count(`SELECT COUNT(*) FROM work_orders WHERE pm_schedule_id=$1`, badID))
+	require.Equal(t, today, h.str(`SELECT next_due_date::text FROM pm_schedules WHERE id=$1`, badID))
+}
