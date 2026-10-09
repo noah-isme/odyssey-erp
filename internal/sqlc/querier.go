@@ -675,6 +675,7 @@ type Querier interface {
 	// Issues a usage once; a second call matches no row.
 	IssueWorkOrderSparePart(ctx context.Context, arg IssueWorkOrderSparePartParams) (int64, error)
 	KpiSummary(ctx context.Context, arg KpiSummaryParams) (KpiSummaryRow, error)
+	LinkWorkOrderPMSchedule(ctx context.Context, arg LinkWorkOrderPMScheduleParams) error
 	ListAPDebitNoteAllocations(ctx context.Context, apDebitNoteID int64) ([]ApDebitNoteAllocation, error)
 	ListAPDebitNoteLines(ctx context.Context, apDebitNoteID int64) ([]ApDebitNoteLine, error)
 	ListAPDebitNotes(ctx context.Context) ([]ListAPDebitNotesRow, error)
@@ -696,7 +697,8 @@ type Querier interface {
 	ListARPayments(ctx context.Context) ([]ListARPaymentsRow, error)
 	ListActiveContractsBySupplier(ctx context.Context, arg ListActiveContractsBySupplierParams) ([]SupplierContract, error)
 	ListAdjustments(ctx context.Context) ([]ListAdjustmentsRow, error)
-	ListAllDuePMSchedules(ctx context.Context) ([]ListAllDuePMSchedulesRow, error)
+	// as_of is the caller's UTC date (see ListDuePMSchedules).
+	ListAllDuePMSchedules(ctx context.Context, asOf pgtype.Date) ([]ListAllDuePMSchedulesRow, error)
 	ListAssets(ctx context.Context, arg ListAssetsParams) ([]ListAssetsRow, error)
 	ListAuditEventsByCompany(ctx context.Context, arg ListAuditEventsByCompanyParams) ([]AuditEvent, error)
 	ListAuditEventsByCorrelation(ctx context.Context, correlationID pgtype.UUID) ([]AuditEvent, error)
@@ -739,7 +741,9 @@ type Querier interface {
 	ListDocumentVersions(ctx context.Context, arg ListDocumentVersionsParams) ([]ListDocumentVersionsRow, error)
 	ListDocuments(ctx context.Context, arg ListDocumentsParams) ([]ListDocumentsRow, error)
 	ListDrivers(ctx context.Context, arg ListDriversParams) ([]Driver, error)
-	ListDuePMSchedules(ctx context.Context, companyID int64) ([]ListDuePMSchedulesRow, error)
+	// as_of is the caller's UTC date, so due-ness does not depend on the
+	// session time zone.
+	ListDuePMSchedules(ctx context.Context, arg ListDuePMSchedulesParams) ([]ListDuePMSchedulesRow, error)
 	ListExpiredChallenges(ctx context.Context, limit int32) ([]ListExpiredChallengesRow, error)
 	ListExpiredDocumentRetention(ctx context.Context) ([]ListExpiredDocumentRetentionRow, error)
 	ListFleets(ctx context.Context, companyID int64) ([]Fleet, error)

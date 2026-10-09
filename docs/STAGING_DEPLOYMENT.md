@@ -135,7 +135,16 @@ CSRF_SECRET=replace-with-a-different-staging-only-secret
 
 CONNECTORS_DEVELOPMENT_MODE=false
 GOTENBERG_URL=http://127.0.0.1:3000
+
+CMMS_SYSTEM_USER_ID=replace-with-the-seeded-admin-user-id
 ```
+
+`CMMS_SYSTEM_USER_ID` is the `users.id` the worker's hourly CMMS PM scan
+records as requester and actor of the work orders it generates. It is required
+wherever the worker runs: with `0` (the default) the scan is disabled and the
+worker logs a warning at start and on every scheduled run. Staging uses the
+seeded admin user. The `POST /cmms/pm-schedules/run-due` route does not use it;
+it records the signed-in user.
 
 Use a staging-only database and Redis namespace. Never point staging at the
 production `PG_DSN`, `REDIS_ADDR`, session secrets, or connector credentials.

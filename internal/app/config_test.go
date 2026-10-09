@@ -82,3 +82,32 @@ func TestLoadConfigPGMaxConns(t *testing.T) {
 		})
 	}
 }
+
+func TestLoadConfigCMMSSystemUserID(t *testing.T) {
+	t.Setenv("APP_ENV", "staging")
+	t.Setenv("SESSION_SECRET", "test-session-secret")
+	t.Setenv("CSRF_SECRET", "test-csrf-secret")
+	t.Setenv("RELEASE_PROFILE", string(ReleaseProfileV010Core))
+
+	// t.Setenv restores the original value; Unsetenv tests the default.
+	t.Setenv("CMMS_SYSTEM_USER_ID", "")
+	if err := os.Unsetenv("CMMS_SYSTEM_USER_ID"); err != nil {
+		t.Fatal(err)
+	}
+	config, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig() error = %v", err)
+	}
+	if config.CMMSSystemUserID != 0 {
+		t.Fatalf("CMMSSystemUserID default = %d, want 0 (PM scan disabled)", config.CMMSSystemUserID)
+	}
+
+	t.Setenv("CMMS_SYSTEM_USER_ID", "42")
+	config, err = LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig() error = %v", err)
+	}
+	if config.CMMSSystemUserID != 42 {
+		t.Fatalf("CMMSSystemUserID = %d, want 42", config.CMMSSystemUserID)
+	}
+}

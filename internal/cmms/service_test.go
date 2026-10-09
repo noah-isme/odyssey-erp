@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestServiceRejectsInvalidRequestsWithoutRepository(t *testing.T) {
@@ -131,6 +132,69 @@ func TestWorkOrderTransitions(t *testing.T) {
 		t.Run("status action refuses "+string(to), func(t *testing.T) {
 			if _, err := svc.UpdateWorkOrderStatus(context.Background(), 1, 1, to, 1); !errors.Is(err, ErrInvalidStatus) {
 				t.Fatalf("want ErrInvalidStatus, got %v", err)
+			}
+		})
+	}
+}
+
+func TestNextDueDate(t *testing.T) {
+	day := func(s string) time.Time {
+		t.Helper()
+		d, err := time.Parse("2006-01-02", s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return d
+	}
+	ptrDate := func(s string) *time.Time { d := day(s); return &d }
+	ptrMeter := func(v float64) *float64 { return &v }
+
+	tests := []struct {
+		name      string
+		sched     PreventiveMaintenanceSchedule
+		asOf      string
+		wantDate  string // "" = zero date
+		wantMeter float64
+		wantErr   bool
+	}{
+		{"daily", PreventiveMaintenanceSchedule{FrequencyType: "DAILY", FrequencyValue: 1, NextDueDate: ptrDate("2026-10-09")}, "2026-10-09", "2026-10-10", 0, false},
+		{"every 3 days", PreventiveMaintenanceSchedule{FrequencyType: "DAILY", FrequencyValue: 3, NextDueDate: ptrDate("2026-10-09")}, "2026-10-09", "2026-10-12", 0, false},
+		{"weekly", PreventiveMaintenanceSchedule{FrequencyType: "WEEKLY", FrequencyValue: 2, NextDueDate: ptrDate("2026-10-09")}, "2026-10-09", "2026-10-23", 0, false},
+		{"monthly", PreventiveMaintenanceSchedule{FrequencyType: "MONTHLY", FrequencyValue: 1, NextDueDate: ptrDate("2026-10-09")}, "2026-10-09", "2026-11-09", 0, false},
+		{"monthly clamps to month end", PreventiveMaintenanceSchedule{FrequencyType: "MONTHLY", FrequencyValue: 1, NextDueDate: ptrDate("2027-01-31")}, "2027-01-31", "2027-02-28", 0, false},
+		{"quarterly", PreventiveMaintenanceSchedule{FrequencyType: "QUARTERLY", FrequencyValue: 1, NextDueDate: ptrDate("2026-10-09")}, "2026-10-09", "2027-01-09", 0, false},
+		{"semi-annual", PreventiveMaintenanceSchedule{FrequencyType: "SEMI_ANNUAL", FrequencyValue: 1, NextDueDate: ptrDate("2026-10-09")}, "2026-10-09", "2027-04-09", 0, false},
+		{"annual", PreventiveMaintenanceSchedule{FrequencyType: "ANNUAL", FrequencyValue: 1, NextDueDate: ptrDate("2026-10-09")}, "2026-10-09", "2027-10-09", 0, false},
+		{"annual from leap day", PreventiveMaintenanceSchedule{FrequencyType: "ANNUAL", FrequencyValue: 1, NextDueDate: ptrDate("2028-02-29")}, "2028-02-29", "2029-02-28", 0, false},
+		{"overdue skips to first occurrence after as-of", PreventiveMaintenanceSchedule{FrequencyType: "DAILY", FrequencyValue: 1, NextDueDate: ptrDate("2026-10-01")}, "2026-10-09", "2026-10-10", 0, false},
+		{"overdue monthly", PreventiveMaintenanceSchedule{FrequencyType: "MONTHLY", FrequencyValue: 1, NextDueDate: ptrDate("2026-07-15")}, "2026-10-20", "2026-11-15", 0, false},
+		{"meter based advances meter only", PreventiveMaintenanceSchedule{FrequencyType: "METER_BASED", FrequencyValue: 250, NextDueMeter: ptrMeter(1000)}, "2026-10-09", "", 1250, false},
+		{"meter based without meter", PreventiveMaintenanceSchedule{FrequencyType: "METER_BASED", FrequencyValue: 250}, "2026-10-09", "", 0, true},
+		{"calendar without date", PreventiveMaintenanceSchedule{FrequencyType: "DAILY", FrequencyValue: 1}, "2026-10-09", "", 0, true},
+		{"zero value", PreventiveMaintenanceSchedule{FrequencyType: "DAILY", FrequencyValue: 0, NextDueDate: ptrDate("2026-10-09")}, "2026-10-09", "", 0, true},
+		{"unknown type", PreventiveMaintenanceSchedule{FrequencyType: "YEARLY", FrequencyValue: 1, NextDueDate: ptrDate("2026-10-09")}, "2026-10-09", "", 0, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotDate, gotMeter, err := nextDueDate(tt.sched, day(tt.asOf))
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("want error, got %s %v", gotDate.Format("2006-01-02"), gotMeter)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tt.wantDate == "" {
+				if !gotDate.IsZero() {
+					t.Fatalf("date=%s want zero", gotDate.Format("2006-01-02"))
+				}
+			} else if !gotDate.Equal(day(tt.wantDate)) {
+				t.Fatalf("date=%s want %s", gotDate.Format("2006-01-02"), tt.wantDate)
+			}
+			if gotMeter != tt.wantMeter {
+				t.Fatalf("meter=%v want %v", gotMeter, tt.wantMeter)
 			}
 		})
 	}

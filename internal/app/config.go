@@ -49,6 +49,11 @@ type Config struct {
 	SMTPUsername string `envconfig:"SMTP_USERNAME"`
 	SMTPPassword string `envconfig:"SMTP_PASSWORD"`
 
+	// CMMSSystemUserID is the users.id the worker's hourly PM scan records
+	// as requester and actor of generated work orders. Required wherever the
+	// worker runs the scan; 0 disables the scan with a logged warning.
+	CMMSSystemUserID int64 `envconfig:"CMMS_SYSTEM_USER_ID" default:"0"`
+
 	GotenbergURL        string `envconfig:"GOTENBERG_URL" default:"http://127.0.0.1:3000"`
 	BoardPackStorageDir string `envconfig:"BOARD_PACK_STORAGE" default:"./var/boardpacks"`
 

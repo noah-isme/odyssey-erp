@@ -96,6 +96,11 @@ APP_MASTER_KEY=replace-with-a-long-random-secret
 CONNECTORS_DEVELOPMENT_MODE=false
 GOTENBERG_URL=http://gotenberg:3000
 
+# CMMS: users.id of the system user that the worker's hourly PM scan records
+# as requester/actor of generated work orders. Required for the worker;
+# 0 (the default) disables the scan with a logged warning.
+CMMS_SYSTEM_USER_ID=replace-with-the-system-user-id
+
 # TLS/HTTPS
 TLS_ENABLED=true
 TLS_CERT_FILE=/etc/odyssey/certs/server.crt

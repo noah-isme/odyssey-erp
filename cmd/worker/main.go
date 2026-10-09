@@ -308,6 +308,9 @@ func main() {
 	crmService := crm.NewService(crm.NewRepository(pool), nil, nil, crm.NewNotificationAdapter(notificationDispatcher))
 	cmmsService := cmms.NewService(cmms.NewRepository(pool))
 	cmmsService.SetAuditLogger(shared.NewAuditLogger(pool))
+	if cfg.CMMSSystemUserID <= 0 {
+		logger.Warn("CMMS_SYSTEM_USER_ID is not set: the hourly CMMS PM schedule scan is disabled")
+	}
 	fxRepo := fxservice.NewRepository(pool)
 	fxProvider := fxservice.NewExchangeRateAPI(fxservice.ProviderConfig{BaseURL: cfg.FXAPIBaseURL, APIKey: cfg.FXAPIKey, Timeout: cfg.FXFetchTimeout})
 	fxDailyService := &fxservice.Service{Provider: fxProvider, Repo: fxRepo, MaxRateAge: cfg.FXMaxRateAge}
@@ -422,7 +425,11 @@ func main() {
 			{Type: jobs.TypeBankFeedsEvent, Handler: bankFeedsProcessor.ProcessEventTask},
 			{Type: jobs.TypeCashForecastRefresh, Handler: forecastProcessor.ProcessRefreshTask},
 			{Type: jobs.TypeCMMSPMGeneratorScan, Handler: jobs.HandleCMMSPMGeneratorScanTask(logger, func(ctx context.Context) error {
-				_, err := cmmsService.GenerateAllPMWorkOrders(ctx)
+				if cfg.CMMSSystemUserID <= 0 {
+					logger.Warn("cmms pm schedule scan disabled: CMMS_SYSTEM_USER_ID is not set")
+					return nil
+				}
+				_, err := cmmsService.GenerateAllPMWorkOrders(ctx, cfg.CMMSSystemUserID)
 				return err
 			})},
 			{Type: jobs.TaskDocumentOCR, Handler: jobs.HandleDocumentOCR(documentsService)},

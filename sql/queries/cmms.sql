@@ -177,12 +177,14 @@ WHERE asset_id = $1
 ORDER BY created_at;
 
 -- name: ListDuePMSchedules :many
+-- as_of is the caller's UTC date, so due-ness does not depend on the
+-- session time zone.
 SELECT id, company_id, asset_id, name, description, frequency_type, frequency_value,
        meter_reading_type, task_template_id, next_due_date, next_due_meter, active, created_at, updated_at
 FROM pm_schedules
-WHERE company_id = $1
+WHERE company_id = sqlc.arg(company_id)
   AND active = true
-  AND (next_due_date IS NOT NULL AND next_due_date <= NOW()
+  AND (next_due_date IS NOT NULL AND next_due_date <= sqlc.arg(as_of)::date
        OR next_due_meter IS NOT NULL AND next_due_meter <= (
            SELECT value FROM meter_readings WHERE asset_id = pm_schedules.asset_id
            AND reading_type = pm_schedules.meter_reading_type
@@ -191,17 +193,21 @@ WHERE company_id = $1
 ORDER BY next_due_date ASC NULLS LAST;
 
 -- name: ListAllDuePMSchedules :many
+-- as_of is the caller's UTC date (see ListDuePMSchedules).
 SELECT id, company_id, asset_id, name, description, frequency_type, frequency_value,
        meter_reading_type, task_template_id, next_due_date, next_due_meter, active, created_at, updated_at
 FROM pm_schedules
 WHERE active = true
-  AND (next_due_date IS NOT NULL AND next_due_date <= NOW()
+  AND (next_due_date IS NOT NULL AND next_due_date <= sqlc.arg(as_of)::date
        OR next_due_meter IS NOT NULL AND next_due_meter <= (
            SELECT value FROM meter_readings WHERE asset_id = pm_schedules.asset_id
            AND reading_type = pm_schedules.meter_reading_type
            ORDER BY reading_date DESC LIMIT 1
        ))
 ORDER BY company_id ASC, next_due_date ASC NULLS LAST;
+
+-- name: LinkWorkOrderPMSchedule :exec
+UPDATE work_orders SET pm_schedule_id = $2 WHERE id = $1;
 
 -- name: UpdatePMScheduleNextDue :exec
 UPDATE pm_schedules

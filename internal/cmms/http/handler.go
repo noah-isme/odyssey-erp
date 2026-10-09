@@ -2,6 +2,7 @@ package cmmshttp
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -72,6 +73,7 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Get("/", h.listPMSchedules)
 		r.Get("/new", h.newPMScheduleForm)
 		r.With(h.rbac.RequireAny(shared.PermCMMSPlanManage)).Post("/", h.createPMSchedule)
+		r.With(h.rbac.RequireAny(shared.PermCMMSPlanManage)).Post("/run-due", h.runDuePMSchedules)
 		r.Get("/{id}", h.getPMSchedule)
 	})
 
@@ -607,6 +609,14 @@ func (h *Handler) createPMSchedule(w http.ResponseWriter, r *http.Request) {
 		Active:           r.PostFormValue("active") == "true",
 		ActorID:          actorID,
 	}
+	if raw := strings.TrimSpace(r.PostFormValue("next_due_date")); raw != "" {
+		due, err := time.Parse("2006-01-02", raw)
+		if err != nil {
+			h.redirectWithFlash(w, r, "/cmms/pm-schedules/new", "danger", "Next due date must be YYYY-MM-DD.")
+			return
+		}
+		req.NextDueDate = &due
+	}
 
 	sched, err := h.service.CreatePMSchedule(r.Context(), req)
 	if err != nil {
@@ -615,6 +625,19 @@ func (h *Handler) createPMSchedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.redirectWithFlash(w, r, "/cmms/pm-schedules/"+strconv.FormatInt(sched.ID, 10), "success", "PM schedule created")
+}
+
+// runDuePMSchedules generates the preventive work orders of every schedule of
+// the active company that is due today (UTC) or earlier.
+func (h *Handler) runDuePMSchedules(w http.ResponseWriter, r *http.Request) {
+	const path = "/cmms/pm-schedules"
+	orders, err := h.service.GenerateDuePMWorkOrders(r.Context(), currentCompany(r), currentUser(r))
+	if err != nil {
+		h.logger.Warn("run due pm schedules", slog.Int("generated", len(orders)), slog.Any("error", err))
+		h.redirectWithFlash(w, r, path, "danger", fmt.Sprintf("Generated %d preventive work order(s); some due schedules failed and stay due.", len(orders)))
+		return
+	}
+	h.redirectWithFlash(w, r, path, "success", fmt.Sprintf("Generated %d preventive work order(s)", len(orders)))
 }
 
 func (h *Handler) getPMSchedule(w http.ResponseWriter, r *http.Request) {

@@ -300,6 +300,12 @@ func (s *Service) CreatePMSchedule(ctx context.Context, req CreatePMScheduleRequ
 	if err := req.Validate(); err != nil {
 		return PreventiveMaintenanceSchedule{}, err
 	}
+	// A calendar schedule without a first due date is due today (UTC), so
+	// the next run-due picks it up; meter schedules keep a nil date.
+	if req.NextDueDate == nil && req.FrequencyType != FrequencyMeterBased {
+		today := utcDate(s.now())
+		req.NextDueDate = &today
+	}
 	sched, err := s.repo.InsertPMSchedule(ctx, req)
 	if err != nil {
 		return PreventiveMaintenanceSchedule{}, err
@@ -318,61 +324,171 @@ func (s *Service) ListPMSchedules(ctx context.Context, assetID int64) ([]Prevent
 	return s.repo.ListPMSchedules(ctx, assetID)
 }
 
-// GenerateAllPMWorkOrders generates work orders from all due PM schedules across all companies.
-func (s *Service) GenerateAllPMWorkOrders(ctx context.Context) ([]WorkOrder, error) {
-	schedules, err := s.repo.ListAllDuePMSchedules(ctx)
-	if err != nil {
-		return nil, err
+// GenerateDuePMWorkOrders generates one PREVENTIVE work order for every
+// schedule of the company due on or before today (UTC), with the actor as
+// requester, and advances each schedule. Failures of individual schedules are
+// joined into the returned error; the work orders that were created are
+// returned alongside it.
+func (s *Service) GenerateDuePMWorkOrders(ctx context.Context, companyID, actorID int64) ([]WorkOrder, error) {
+	if companyID <= 0 {
+		return nil, errors.New("cmms: company id required")
 	}
+	if actorID <= 0 {
+		return nil, errors.New("cmms: actor id required")
+	}
+	asOf := utcDate(s.now())
+	schedules, err := s.repo.ListDuePMSchedules(ctx, companyID, asOf)
+	if err != nil {
+		return nil, fmt.Errorf("cmms: list due PM schedules: %w", err)
+	}
+	return s.generateWorkOrdersForSchedules(ctx, schedules, actorID, asOf)
+}
 
-	var workOrders []WorkOrder
+// GenerateAllPMWorkOrders generates work orders from all due PM schedules
+// across all companies (the worker's hourly scan), with actorID (the
+// configured CMMS system user) as requester. Like GenerateDuePMWorkOrders it
+// returns the joined per-schedule failures. Overlapping scans are not
+// serialised (FIND-007, deferred).
+func (s *Service) GenerateAllPMWorkOrders(ctx context.Context, actorID int64) ([]WorkOrder, error) {
+	if actorID <= 0 {
+		return nil, errors.New("cmms: system user id required for the PM scan")
+	}
+	asOf := utcDate(s.now())
+	schedules, err := s.repo.ListAllDuePMSchedules(ctx, asOf)
+	if err != nil {
+		return nil, fmt.Errorf("cmms: list due PM schedules: %w", err)
+	}
+	return s.generateWorkOrdersForSchedules(ctx, schedules, actorID, asOf)
+}
+
+func (s *Service) generateWorkOrdersForSchedules(ctx context.Context, schedules []PreventiveMaintenanceSchedule, actorID int64, asOf time.Time) ([]WorkOrder, error) {
+	var (
+		workOrders []WorkOrder
+		errs       []error
+	)
 	for _, sched := range schedules {
-		req := CreateWorkOrderRequest{
-			CompanyID:   sched.CompanyID,
-			Title:       sched.Name,
-			Description: sched.Description,
-			AssetID:     &sched.AssetID,
-			Priority:    PriorityMedium,
-			Category:    "PREVENTIVE",
-			RequesterID: 1, // system user placeholder
-			ActorID:     1, // system user placeholder
-		}
-
-		// Calculate next due values
-		nextDate := time.Time{}
-		if sched.NextDueDate != nil && sched.FrequencyType != "" && sched.FrequencyValue > 0 {
-			nextDate = *sched.NextDueDate
-			switch sched.FrequencyType {
-			case "DAILY":
-				nextDate = nextDate.AddDate(0, 0, sched.FrequencyValue)
-			case "WEEKLY":
-				nextDate = nextDate.AddDate(0, 0, 7*sched.FrequencyValue)
-			case "MONTHLY":
-				nextDate = nextDate.AddDate(0, sched.FrequencyValue, 0)
-			case "YEARLY":
-				nextDate = nextDate.AddDate(sched.FrequencyValue, 0, 0)
-			}
-		}
-
-		nextMeter := float64(0)
-		if sched.NextDueMeter != nil && sched.FrequencyType == "METER" && sched.FrequencyValue > 0 {
-			nextMeter = *sched.NextDueMeter + float64(sched.FrequencyValue)
-		}
-
-		number, err := s.generateWorkOrderNumber(ctx, sched.CompanyID)
+		wo, err := s.generateWorkOrderForSchedule(ctx, sched, actorID, asOf)
 		if err != nil {
-			continue // skip on failure
+			errs = append(errs, fmt.Errorf("cmms: PM schedule %d: %w", sched.ID, err))
+			continue
 		}
-
-		wo, err := s.repo.GeneratePMWorkOrderTx(ctx, req, number, sched.ID, nextDate, nextMeter)
-		if err != nil {
-			continue // skip on failure
-		}
-
 		workOrders = append(workOrders, wo)
 	}
+	return workOrders, errors.Join(errs...)
+}
 
-	return workOrders, nil
+func (s *Service) generateWorkOrderForSchedule(ctx context.Context, sched PreventiveMaintenanceSchedule, actorID int64, asOf time.Time) (WorkOrder, error) {
+	nextDate, nextMeter, err := nextDueDate(sched, asOf)
+	if err != nil {
+		return WorkOrder{}, err
+	}
+	assetID := sched.AssetID
+	req := CreateWorkOrderRequest{
+		CompanyID:   sched.CompanyID,
+		Title:       sched.Name,
+		Description: sched.Description,
+		AssetID:     &assetID,
+		Priority:    PriorityMedium,
+		Category:    "PREVENTIVE",
+		RequesterID: actorID,
+		ActorID:     actorID,
+	}
+	number, err := s.generateWorkOrderNumber(ctx, sched.CompanyID)
+	if err != nil {
+		return WorkOrder{}, fmt.Errorf("number work order: %w", err)
+	}
+	wo, err := s.repo.GeneratePMWorkOrderTx(ctx, req, number, sched.ID, nextDate, nextMeter)
+	if err != nil {
+		return WorkOrder{}, fmt.Errorf("generate work order: %w", err)
+	}
+	s.record(ctx, actorID, AuditEntityWorkOrder, "create", wo.ID, map[string]any{"number": wo.Number, "company_id": wo.CompanyID, "category": wo.Category, "pm_schedule_id": sched.ID})
+	meta := map[string]any{"work_order_id": wo.ID}
+	if !nextDate.IsZero() {
+		meta["next_due_date"] = nextDate.Format("2006-01-02")
+	}
+	if nextMeter > 0 {
+		meta["next_due_meter"] = nextMeter
+	}
+	s.record(ctx, actorID, AuditEntityPMSchedule, "run_due", sched.ID, meta)
+	return wo, nil
+}
+
+// PM schedule frequency types (domain.go PreventiveMaintenanceSchedule).
+const (
+	FrequencyDaily      = "DAILY"
+	FrequencyWeekly     = "WEEKLY"
+	FrequencyMonthly    = "MONTHLY"
+	FrequencyQuarterly  = "QUARTERLY"
+	FrequencySemiAnnual = "SEMI_ANNUAL"
+	FrequencyAnnual     = "ANNUAL"
+	FrequencyMeterBased = "METER_BASED"
+)
+
+// nextDueDate computes the values a schedule advances to once it has fired.
+// Calendar schedules step from their current next_due_date by the frequency
+// until the first occurrence after asOf (missed occurrences are not
+// generated one by one); month-based steps keep the day of month, clamped to
+// the month's last day. METER_BASED advances next_due_meter only and returns
+// a zero date. Unknown frequency types and non-positive values are errors.
+func nextDueDate(sched PreventiveMaintenanceSchedule, asOf time.Time) (time.Time, float64, error) {
+	n := sched.FrequencyValue
+	if n <= 0 {
+		return time.Time{}, 0, fmt.Errorf("frequency value %d must be positive", n)
+	}
+	var months, days int
+	switch sched.FrequencyType {
+	case FrequencyDaily:
+		days = n
+	case FrequencyWeekly:
+		days = 7 * n
+	case FrequencyMonthly:
+		months = n
+	case FrequencyQuarterly:
+		months = 3 * n
+	case FrequencySemiAnnual:
+		months = 6 * n
+	case FrequencyAnnual:
+		months = 12 * n
+	case FrequencyMeterBased:
+		if sched.NextDueMeter == nil {
+			return time.Time{}, 0, errors.New("meter-based schedule has no next due meter")
+		}
+		return time.Time{}, *sched.NextDueMeter + float64(n), nil
+	default:
+		return time.Time{}, 0, fmt.Errorf("unknown frequency type %q", sched.FrequencyType)
+	}
+	if sched.NextDueDate == nil {
+		return time.Time{}, 0, errors.New("calendar schedule has no next due date")
+	}
+	base := utcDate(*sched.NextDueDate)
+	asOf = utcDate(asOf)
+	for k := 1; ; k++ {
+		next := base.AddDate(0, 0, k*days)
+		if months > 0 {
+			next = addMonthsClamped(base, k*months)
+		}
+		if next.After(asOf) {
+			return next, 0, nil
+		}
+	}
+}
+
+// addMonthsClamped adds months to t, clamping the day to the target month's
+// last day (Jan 31 + 1 month = Feb 28/29, not Mar 3).
+func addMonthsClamped(t time.Time, months int) time.Time {
+	first := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC).AddDate(0, months, 0)
+	lastDay := first.AddDate(0, 1, -1).Day()
+	day := t.Day()
+	if day > lastDay {
+		day = lastDay
+	}
+	return time.Date(first.Year(), first.Month(), day, 0, 0, 0, 0, time.UTC)
+}
+
+// utcDate truncates t to its UTC calendar date.
+func utcDate(t time.Time) time.Time {
+	t = t.UTC()
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
 }
 
 // RecordMeterReading records a meter reading for an asset.
@@ -605,6 +721,7 @@ type CreatePMScheduleRequest struct {
 	FrequencyValue   int
 	MeterReadingType string
 	TaskTemplateID   *int64
+	NextDueDate      *time.Time // first due date; defaults to today (UTC) for calendar schedules
 	Active           bool
 	ActorID          int64
 }

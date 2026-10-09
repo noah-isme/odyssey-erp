@@ -42,6 +42,18 @@
           </div>
         </div>
 
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <label class="form-label fw-bold" for="next_due_date">First due date</label>
+            <input type="date" id="next_due_date" name="next_due_date" class="form-input">
+            <small class="text-muted">Leave empty to make a calendar schedule due today (UTC).</small>
+          </div>
+          <div class="col-md-6 form-check mt-4">
+            <input type="checkbox" class="checkbox-input" id="active" name="active" value="true" checked>
+            <label class="form-check-label fw-bold" for="active">Active</label>
+          </div>
+        </div>
+
         <div class="d-flex justify-content-end gap-2 mt-4">
           <a href="/cmms/pm-schedules" class="btn btn-light border">Cancel</a>
           <button type="submit" class="btn btn-info text-white">Save Schedule</button>

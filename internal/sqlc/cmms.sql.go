@@ -972,12 +972,26 @@ func (q *Queries) IssueWorkOrderSparePart(ctx context.Context, arg IssueWorkOrde
 	return result.RowsAffected(), nil
 }
 
+const linkWorkOrderPMSchedule = `-- name: LinkWorkOrderPMSchedule :exec
+UPDATE work_orders SET pm_schedule_id = $2 WHERE id = $1
+`
+
+type LinkWorkOrderPMScheduleParams struct {
+	ID           int64       `json:"id"`
+	PmScheduleID pgtype.Int8 `json:"pm_schedule_id"`
+}
+
+func (q *Queries) LinkWorkOrderPMSchedule(ctx context.Context, arg LinkWorkOrderPMScheduleParams) error {
+	_, err := q.db.Exec(ctx, linkWorkOrderPMSchedule, arg.ID, arg.PmScheduleID)
+	return err
+}
+
 const listAllDuePMSchedules = `-- name: ListAllDuePMSchedules :many
 SELECT id, company_id, asset_id, name, description, frequency_type, frequency_value,
        meter_reading_type, task_template_id, next_due_date, next_due_meter, active, created_at, updated_at
 FROM pm_schedules
 WHERE active = true
-  AND (next_due_date IS NOT NULL AND next_due_date <= NOW()
+  AND (next_due_date IS NOT NULL AND next_due_date <= $1::date
        OR next_due_meter IS NOT NULL AND next_due_meter <= (
            SELECT value FROM meter_readings WHERE asset_id = pm_schedules.asset_id
            AND reading_type = pm_schedules.meter_reading_type
@@ -1003,8 +1017,9 @@ type ListAllDuePMSchedulesRow struct {
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
 
-func (q *Queries) ListAllDuePMSchedules(ctx context.Context) ([]ListAllDuePMSchedulesRow, error) {
-	rows, err := q.db.Query(ctx, listAllDuePMSchedules)
+// as_of is the caller's UTC date (see ListDuePMSchedules).
+func (q *Queries) ListAllDuePMSchedules(ctx context.Context, asOf pgtype.Date) ([]ListAllDuePMSchedulesRow, error) {
+	rows, err := q.db.Query(ctx, listAllDuePMSchedules, asOf)
 	if err != nil {
 		return nil, err
 	}
@@ -1134,7 +1149,7 @@ SELECT id, company_id, asset_id, name, description, frequency_type, frequency_va
 FROM pm_schedules
 WHERE company_id = $1
   AND active = true
-  AND (next_due_date IS NOT NULL AND next_due_date <= NOW()
+  AND (next_due_date IS NOT NULL AND next_due_date <= $2::date
        OR next_due_meter IS NOT NULL AND next_due_meter <= (
            SELECT value FROM meter_readings WHERE asset_id = pm_schedules.asset_id
            AND reading_type = pm_schedules.meter_reading_type
@@ -1142,6 +1157,11 @@ WHERE company_id = $1
        ))
 ORDER BY next_due_date ASC NULLS LAST
 `
+
+type ListDuePMSchedulesParams struct {
+	CompanyID int64       `json:"company_id"`
+	AsOf      pgtype.Date `json:"as_of"`
+}
 
 type ListDuePMSchedulesRow struct {
 	ID               int64              `json:"id"`
@@ -1160,8 +1180,10 @@ type ListDuePMSchedulesRow struct {
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
 
-func (q *Queries) ListDuePMSchedules(ctx context.Context, companyID int64) ([]ListDuePMSchedulesRow, error) {
-	rows, err := q.db.Query(ctx, listDuePMSchedules, companyID)
+// as_of is the caller's UTC date, so due-ness does not depend on the
+// session time zone.
+func (q *Queries) ListDuePMSchedules(ctx context.Context, arg ListDuePMSchedulesParams) ([]ListDuePMSchedulesRow, error) {
+	rows, err := q.db.Query(ctx, listDuePMSchedules, arg.CompanyID, arg.AsOf)
 	if err != nil {
 		return nil, err
 	}

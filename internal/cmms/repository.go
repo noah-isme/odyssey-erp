@@ -362,7 +362,7 @@ func (r *Repository) InsertPMSchedule(ctx context.Context, req CreatePMScheduleR
 		FrequencyValue:   int32(req.FrequencyValue),
 		MeterReadingType: pgtype.Text{String: req.MeterReadingType, Valid: req.MeterReadingType != ""},
 		TaskTemplateID:   pgtype.Int8{Int64: valueOrZero(req.TaskTemplateID), Valid: req.TaskTemplateID != nil},
-		NextDueDate:      pgtype.Date{Time: time.Now(), Valid: false},
+		NextDueDate:      pgtype.Date{Time: valueOrZeroTime(req.NextDueDate), Valid: req.NextDueDate != nil},
 		NextDueMeter:     pgtype.Float8{Float64: 0, Valid: false},
 		Active:           req.Active,
 	})
@@ -395,8 +395,13 @@ func (r *Repository) ListPMSchedules(ctx context.Context, assetID int64) ([]Prev
 	return items, nil
 }
 
-func (r *Repository) ListDuePMSchedules(ctx context.Context, companyID int64) ([]PreventiveMaintenanceSchedule, error) {
-	rows, err := r.queries.ListDuePMSchedules(ctx, companyID)
+// ListDuePMSchedules returns the active schedules of a company due on or
+// before asOf (a UTC date).
+func (r *Repository) ListDuePMSchedules(ctx context.Context, companyID int64, asOf time.Time) ([]PreventiveMaintenanceSchedule, error) {
+	rows, err := r.queries.ListDuePMSchedules(ctx, sqlc.ListDuePMSchedulesParams{
+		CompanyID: companyID,
+		AsOf:      pgtype.Date{Time: asOf, Valid: true},
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -1059,8 +1064,11 @@ func priorityStringOrEmpty(p *Priority) string {
 	}
 	return string(*p)
 }
-func (r *Repository) ListAllDuePMSchedules(ctx context.Context) ([]PreventiveMaintenanceSchedule, error) {
-	rows, err := r.queries.ListAllDuePMSchedules(ctx)
+
+// ListAllDuePMSchedules returns the active schedules of every company due on
+// or before asOf (a UTC date).
+func (r *Repository) ListAllDuePMSchedules(ctx context.Context, asOf time.Time) ([]PreventiveMaintenanceSchedule, error) {
+	rows, err := r.queries.ListAllDuePMSchedules(ctx, pgtype.Date{Time: asOf, Valid: true})
 	if err != nil {
 		return nil, err
 	}
@@ -1098,6 +1106,12 @@ func (r *Repository) GeneratePMWorkOrderTx(ctx context.Context, req CreateWorkOr
 		CreatedBy:      req.ActorID,
 	})
 	if err != nil {
+		return WorkOrder{}, err
+	}
+	if err := qtx.LinkWorkOrderPMSchedule(ctx, sqlc.LinkWorkOrderPMScheduleParams{
+		ID:           woID,
+		PmScheduleID: pgtype.Int8{Int64: schedID, Valid: true},
+	}); err != nil {
 		return WorkOrder{}, err
 	}
 
