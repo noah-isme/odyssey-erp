@@ -352,10 +352,10 @@ func (s *baseSeeder) ensureCertificationGRN(ctx context.Context, r baseGRNRefs) 
 }
 
 // ensureLedgerPrerequisites seeds the account mappings, the accounts that
-// absent mappings need and an OPEN period covering today, each only when
-// absent. An existing mapping is reused whatever account it points at, and
+// absent mappings need and an OPEN period covering today with its OPEN
+// accounting period, each only when absent. An existing mapping is reused whatever account it points at, and
 // its account code is then neither created nor inspected.
-func (s *baseSeeder) ensureLedgerPrerequisites(ctx context.Context) error {
+func (s *baseSeeder) ensureLedgerPrerequisites(ctx context.Context, primaryCompanyID int64) error {
 	accounts := map[string]struct{ Name, Type string }{}
 	for _, a := range baseLedgerAccounts {
 		accounts[a.Code] = struct{ Name, Type string }{a.Name, a.Type}
@@ -434,6 +434,27 @@ func (s *baseSeeder) ensureLedgerPrerequisites(ctx context.Context) error {
 			return fmt.Errorf("no OPEN period covers today and the current month overlaps existing period(s) %s; the seeder never inserts an overlapping period or reopens one, so refusing", overlap)
 		}
 	}
-	_, err := s.mustEnsure(ctx, period)
+	periodID, err := s.mustEnsure(ctx, period)
+	if err != nil {
+		return err
+	}
+
+	// The posting close guard (journals.Service.PostJournal ->
+	// close.Service.EnsurePeriodOpenForPosting) reads the accounting period
+	// linked to the ledger period, which the product's period creation
+	// (close.Repository.InsertPeriod) always writes. An existing link is
+	// reused only while it is OPEN; otherwise one is created for the primary
+	// company with the ledger period's code and dates.
+	_, err = s.mustEnsure(ctx, baseFixture{
+		Name: "accounting_period_open_today", Table: "accounting_periods",
+		Insert: `INSERT INTO accounting_periods (period_id, company_id, name, start_date, end_date, status)
+			SELECT p.id, $2, p.code, p.start_date, p.end_date, 'OPEN' FROM periods p WHERE p.id = $1
+			ON CONFLICT DO NOTHING RETURNING id`,
+		InsertArgs:  []any{periodID, primaryCompanyID},
+		Lookup:      `SELECT id, status::text FROM accounting_periods WHERE period_id = $1`,
+		LookupArgs:  []any{periodID},
+		Want:        "OPEN",
+		LookupFirst: true,
+	})
 	return err
 }

@@ -623,7 +623,7 @@ func seedStagingFixtures(ctx context.Context, pool *pgxpool.Pool, creds baseCred
 	if _, err := s.ensureMatchingPolicy(ctx, supplierID); err != nil {
 		return nil, err
 	}
-	if err := s.ensureLedgerPrerequisites(ctx); err != nil {
+	if err := s.ensureLedgerPrerequisites(ctx, primaryCompanyID); err != nil {
 		return nil, err
 	}
 

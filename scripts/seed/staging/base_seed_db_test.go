@@ -39,7 +39,7 @@ var baseWrittenTables = []string{
 	"rbac_user_role_assignments", "rbac_access_reviews", "document_numbering_rules",
 	"document_classifications", "document_categories", "retention_policies",
 	"permissions", "role_permissions", "pos", "po_lines", "ap_matching_policies",
-	"accounts", "account_mappings", "periods",
+	"accounts", "account_mappings", "periods", "accounting_periods",
 }
 
 type baseTestDB struct {
