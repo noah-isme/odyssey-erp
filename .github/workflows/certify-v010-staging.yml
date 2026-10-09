@@ -249,12 +249,21 @@ jobs:
           gh run download "$run_id" --name "odyssey-v010-core-$EXPECTED_SHA" --dir "$artifact_dir"
           bundle="$artifact_dir/odyssey-v010-core-${EXPECTED_SHA}.tar.gz"
           bundle_checksum="$bundle.sha256"
+          sbom="$artifact_dir/odyssey-v010-core-${EXPECTED_SHA}.sbom.spdx.json"
+          sbom_checksum="$sbom.sha256"
           test -s "$bundle"
           test -s "$bundle_checksum"
+          test -s "$sbom"
+          test -s "$sbom_checksum"
           (
             cd "$artifact_dir"
             sha256sum -c "$(basename "$bundle_checksum")"
+            sha256sum -c "$(basename "$sbom_checksum")"
           )
+          jq -e '.spdxVersion | type == "string" and startswith("SPDX-")' "$sbom" >/dev/null || {
+            echo 'deployment SBOM is not an SPDX JSON document' >&2
+            exit 1
+          }
           attestation_file="$candidate_dir/deployment-attestation.json"
           gh attestation verify "$bundle" \
             --repo "$GITHUB_REPOSITORY" \
@@ -267,6 +276,22 @@ jobs:
               (.verificationResult.statement.subject | type == "array" and length > 0))
           ' "$attestation_file" >/dev/null
           attestation_sha=$(sha256sum "$attestation_file" | awk '{print $1}')
+          # The SBOM is not inside the bundle (it would make the bundle digest
+          # irreproducible); it is attested beside it as its own subject.
+          sbom_sha=$(awk '{print $1}' "$sbom_checksum")
+          sbom_attestation_file="$candidate_dir/deployment-sbom-attestation.json"
+          gh attestation verify "$sbom" \
+            --repo "$GITHUB_REPOSITORY" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/deploy-native.yml" \
+            --format json > "$sbom_attestation_file"
+          jq -e --arg digest "$sbom_sha" '
+            type == "array" and length > 0 and
+            any(.[]; any(.verificationResult.statement.subject[]?; .digest.sha256 == $digest))
+          ' "$sbom_attestation_file" >/dev/null || {
+            echo "SBOM attestation does not name the SBOM digest $sbom_sha" >&2
+            exit 1
+          }
+          sbom_attestation_sha=$(sha256sum "$sbom_attestation_file" | awk '{print $1}')
           extracted_dir="$artifact_dir/extracted"
           mkdir -p "$extracted_dir"
           tar -xzf "$bundle" -C "$extracted_dir"
@@ -274,6 +299,7 @@ jobs:
           test -s "$extracted_dir/SHA256SUMS"
           test -s "$extracted_dir/MIGRATION_SHA256SUMS"
           test -s "$extracted_dir/WEB_SHA256SUMS"
+          test ! -e "$extracted_dir/SBOM.spdx.json"
           (
             cd "$extracted_dir"
             sha256sum -c SHA256SUMS
@@ -304,7 +330,7 @@ jobs:
           }
           emit_evidence REL-001 "annotated tag ${CANDIDATE_TAG} resolved to ${EXPECTED_SHA}; deployment run ${run_id}"
           emit_evidence REL-002 "downloaded and checksum-verified deployment bundle odyssey-v010-core-${EXPECTED_SHA}; extracted SHA256SUMS, REVISION, and component manifests verified from deployment run ${run_id}"
-          emit_evidence REL-003 "gh attestation verify cryptographically validated the deployment bundle and preserved ${attestation_file} (SHA-256 ${attestation_sha}); extracted bundle contains SBOM.spdx.json"
+          emit_evidence REL-003 "gh attestation verify cryptographically validated the deployment bundle and preserved ${attestation_file} (SHA-256 ${attestation_sha}); SPDX SBOM odyssey-v010-core-${EXPECTED_SHA}.sbom.spdx.json (SHA-256 ${sbom_sha}) attested alongside the bundle (sibling subject, own digest), verified in ${sbom_attestation_file} (SHA-256 ${sbom_attestation_sha})"
 
       - name: Setup Go
         uses: actions/setup-go@v5

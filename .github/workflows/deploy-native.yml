@@ -10,6 +10,22 @@ on:
         description: Annotated v0.10 release-candidate tag to deploy (for example v0.10.0-rc.5)
         required: true
         type: string
+      build_only:
+        description: >-
+          Build, bundle, SBOM and digest only, from the dispatch branch's commit;
+          no attestation, no staging environment, no host step. Used to prove
+          the bundle is reproducible before the tag push.
+        required: false
+        default: false
+        type: boolean
+      identity_tag:
+        description: >-
+          build_only: tag= value written to RELEASE_IDENTITY (default candidate_tag).
+          Use the same fixed value (for example v0.10.0-rc.11-repro) for both
+          comparison builds; such a bundle is never deployed.
+        required: false
+        default: ''
+        type: string
   workflow_run:
     workflows:
       - CI
@@ -25,7 +41,9 @@ permissions:
   attestations: write
 
 concurrency:
-  group: staging
+  # Build-only runs never touch the host, so they must not queue behind (or,
+  # as a newer pending run, cancel) a pending staging deployment.
+  group: ${{ github.event_name == 'workflow_dispatch' && inputs.build_only && format('deploy-build-only-{0}', github.ref) || 'staging' }}
   cancel-in-progress: false
 
 jobs:
@@ -40,14 +58,15 @@ jobs:
       }}
 
     runs-on: ubuntu-latest
+    # A build-only run gets no environment, so no staging secret is exposed.
     environment:
-      name: staging
+      name: ${{ !(github.event_name == 'workflow_dispatch' && inputs.build_only) && 'staging' || '' }}
 
     steps:
       - name: Checkout tested commit
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'push' && github.ref || (github.event_name == 'workflow_dispatch' && inputs.candidate_tag || github.event.workflow_run.head_sha) }}
+          ref: ${{ github.event_name == 'push' && github.ref || (github.event_name == 'workflow_dispatch' && (inputs.build_only && github.sha || inputs.candidate_tag) || github.event.workflow_run.head_sha) }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -56,13 +75,48 @@ jobs:
           CANDIDATE_TAG: ${{ github.event_name == 'push' && github.ref_name || (github.event_name == 'workflow_dispatch' && inputs.candidate_tag || '') }}
           WORKFLOW_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || '' }}
           WORKFLOW_RUN_ID: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || '' }}
+          BUILD_ONLY: ${{ github.event_name == 'workflow_dispatch' && inputs.build_only && 'true' || 'false' }}
+          IDENTITY_TAG: ${{ github.event_name == 'workflow_dispatch' && (inputs.identity_tag || inputs.candidate_tag) || '' }}
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
 
           candidate_sha=$(git rev-parse HEAD)
-          if [[ -n "$CANDIDATE_TAG" ]]; then
+          if [[ "$BUILD_ONLY" == true ]]; then
+            # Reproducibility build of a branch commit before its tag exists:
+            # no tag validation; the CI evidence is the latest successful
+            # push CI run for this exact SHA on the dispatch branch.
+            [[ "$GITHUB_REF" == refs/heads/* ]] || {
+              echo "build_only must be dispatched from a branch; got $GITHUB_REF" >&2
+              exit 1
+            }
+            [[ "$candidate_sha" == "$GITHUB_SHA" ]] || {
+              echo "build_only checked out $candidate_sha, expected dispatch commit $GITHUB_SHA" >&2
+              exit 1
+            }
+            [[ "$IDENTITY_TAG" =~ ^v0\.10\.0-rc\.[1-9][0-9]*(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]] || {
+              echo "identity_tag must match v0.10.0-rc.N or v0.10.0-rc.N-<suffix>; got $IDENTITY_TAG" >&2
+              exit 1
+            }
+            ci_runs=$(gh api \
+              "/repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?head_sha=${candidate_sha}&branch=${GITHUB_REF_NAME}&event=push&status=success&per_page=100")
+            ci_run_id=$(jq -r \
+              --arg sha "$candidate_sha" \
+              --arg branch "$GITHUB_REF_NAME" \
+              '[.workflow_runs[] | select(
+                .head_sha == $sha and
+                .head_branch == $branch and
+                .event == "push" and
+                .conclusion == "success"
+              )] | sort_by(.created_at) | last | .id // empty' \
+              <<<"$ci_runs")
+            [[ -n "$ci_run_id" ]] || {
+              echo "no successful CI run for $candidate_sha on $GITHUB_REF_NAME" >&2
+              exit 1
+            }
+            CANDIDATE_TAG=$IDENTITY_TAG
+          elif [[ -n "$CANDIDATE_TAG" ]]; then
             [[ "$CANDIDATE_TAG" =~ ^v0\.10\.0-rc\.[1-9][0-9]*$ ]] || {
               echo "candidate tag must match v0.10.0-rc.N (N >= 1)" >&2
               exit 1
@@ -140,6 +194,7 @@ jobs:
             echo "CI_RUN_ID=$ci_run_id"
           } >> "$GITHUB_ENV"
           printf 'candidate=%s\n' "$candidate_sha"
+          printf 'build_only=%s\n' "$BUILD_ONLY"
           [[ -n "$CANDIDATE_TAG" ]] && printf 'tag=%s\n' "$CANDIDATE_TAG"
 
       - name: Enforce v0.10 migration boundary
@@ -216,6 +271,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+          check-latest: false
           cache: true
 
       - name: Build Odyssey staging artifact
@@ -287,58 +343,91 @@ jobs:
               xargs -0 sha256sum
           ) > dist/WEB_SHA256SUMS
 
-      - name: Generate SPDX SBOM
-        uses: anchore/sbom-action@v0
-        with:
-          path: dist
-          format: spdx-json
-          output-file: dist/SBOM.spdx.json
-          upload-artifact: false
-
-      - name: Finalize release digests
-        shell: bash
-        run: |
-          set -euo pipefail
-          (
-            cd dist
-            sha256sum \
-              REVISION \
-              RELEASE_IDENTITY \
-              MIGRATION_SHA256SUMS \
-              WEB_SHA256SUMS \
-              ROUTE_PROFILE.json \
-              SBOM.spdx.json \
-              odyssey \
-              worker \
-              bootstrap-admin \
-              migrate
-          ) > dist/SHA256SUMS
-
       - name: Create content-addressed release bundle
         id: bundle
         shell: bash
         run: |
           set -euo pipefail
-          bundle="odyssey-v010-core-${CANDIDATE_SHA}.tar.gz"
-          tar \
-            --sort=name \
-            --mtime='UTC 1970-01-01' \
-            --owner=0 \
-            --group=0 \
-            --numeric-owner \
-            -C dist \
-            -cf - . | gzip -n > "$bundle"
-          sha256sum "$bundle" > "${bundle}.sha256"
-          bundle_sha=$(sha256sum "$bundle" | awk '{print $1}')
+          # Writes dist/SHA256SUMS and the deterministic tar bundle plus its
+          # .sha256. The SBOM is deliberately not in the bundle (it carries a
+          # creation time and random namespace); it is generated next and
+          # attested beside the bundle as its own subject.
+          bash scripts/release/bundle.sh bundle dist "$CANDIDATE_SHA" . >> "$GITHUB_OUTPUT"
+
+      - name: Generate SPDX SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0 (the v0 tag on 2026-10-09)
+        with:
+          path: dist
+          format: spdx-json
+          output-file: odyssey-v010-core-${{ env.CANDIDATE_SHA }}.sbom.spdx.json
+          upload-artifact: false
+
+      - name: Record SBOM digest
+        id: sbom
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/release/bundle.sh sbom-digest \
+            "odyssey-v010-core-${CANDIDATE_SHA}.sbom.spdx.json" >> "$GITHUB_OUTPUT"
+
+      - name: Compare with the previous build-only digest
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_only }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUNDLE_NAME: ${{ steps.bundle.outputs.name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          artifact_name="bundle-digest-${CANDIDATE_TAG}-${CANDIDATE_SHA}"
+          mkdir -p bundle-digest/current bundle-digest/previous
+          cp "${BUNDLE_NAME}.sha256" bundle-digest/current/
           {
-            echo "name=$bundle"
-            echo "sha256=$bundle_sha"
-          } >> "$GITHUB_OUTPUT"
+            printf 'go_version=%s\n' "$(go version)"
+            printf 'migrate=v4.18.3\n'
+            printf 'identity_tag=%s\n' "$CANDIDATE_TAG"
+            printf 'commit=%s\n' "$CANDIDATE_SHA"
+            printf 'ci_run_id=%s\n' "$CI_RUN_ID"
+            printf 'run_id=%s\n' "$GITHUB_RUN_ID"
+          } > bundle-digest/current/BUILD_ENV
+          echo "artifact_name=$artifact_name" >> "$GITHUB_ENV"
+
+          # There is no API to list attestations by subject, so the previous
+          # build-only run is found through its digest artifact.
+          previous_run=$(gh api \
+            "/repos/${GITHUB_REPOSITORY}/actions/artifacts?name=${artifact_name}&per_page=100" |
+            jq -r --arg run "$GITHUB_RUN_ID" --arg sha "$CANDIDATE_SHA" \
+              '[.artifacts[] | select(
+                .expired == false and
+                (.workflow_run.id | tostring) != $run and
+                .workflow_run.head_sha == $sha
+              )] | sort_by(.created_at) | last | .workflow_run.id // empty')
+          if [[ -n "$previous_run" ]]; then
+            echo "previous build-only run: $previous_run"
+            gh run download "$previous_run" \
+              --repo "$GITHUB_REPOSITORY" \
+              --name "$artifact_name" \
+              --dir bundle-digest/previous
+          fi
+          bash scripts/release/bundle.sh compare \
+            bundle-digest/previous bundle-digest/current "$BUNDLE_NAME" |
+            tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload build-only digest
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_only }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.artifact_name }}
+          path: bundle-digest/current/
+          if-no-files-found: error
+          retention-days: 90
 
       - name: Attest release provenance
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.build_only) }}
         uses: actions/attest-build-provenance@v2
         with:
-          subject-path: ${{ steps.bundle.outputs.name }}
+          subject-path: |
+            ${{ steps.bundle.outputs.name }}
+            ${{ steps.sbom.outputs.name }}
 
       - name: Upload immutable staging artifact
         id: release-artifact
@@ -348,6 +437,8 @@ jobs:
           path: |
             ${{ steps.bundle.outputs.name }}
             ${{ steps.bundle.outputs.name }}.sha256
+            ${{ steps.sbom.outputs.name }}
+            ${{ steps.sbom.outputs.name }}.sha256
           if-no-files-found: error
           retention-days: 90
 
@@ -359,20 +450,27 @@ jobs:
           ARTIFACT_DIGEST: ${{ steps.release-artifact.outputs.artifact-digest }}
           BUNDLE_NAME: ${{ steps.bundle.outputs.name }}
           BUNDLE_SHA256: ${{ steps.bundle.outputs.sha256 }}
+          SBOM_NAME: ${{ steps.sbom.outputs.name }}
+          SBOM_SHA256: ${{ steps.sbom.outputs.sha256 }}
+          BUILD_ONLY: ${{ github.event_name == 'workflow_dispatch' && inputs.build_only && 'true' || 'false' }}
         run: |
           set -euo pipefail
           {
             echo '### Staging release artifact'
             echo "- Candidate: ${CANDIDATE_TAG:-automatic staging} / ${CANDIDATE_SHA}"
+            echo "- Build only (no attestation, no deployment): ${BUILD_ONLY}"
             echo "- CI run: ${CI_RUN_ID}"
             echo "- Bundle: ${BUNDLE_NAME}"
             echo "- Bundle SHA-256: ${BUNDLE_SHA256}"
+            echo "- SBOM (sibling, not in the bundle): ${SBOM_NAME}"
+            echo "- SBOM SHA-256: ${SBOM_SHA256}"
             echo "- Artifact ID: ${ARTIFACT_ID}"
             echo "- Artifact digest: ${ARTIFACT_DIGEST}"
             echo "- Artifact URL: ${ARTIFACT_URL}"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Configure SSH
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.build_only) }}
         env:
           STAGING_HOST: ${{ secrets.STAGING_HOST }}
           STAGING_SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
@@ -396,6 +494,7 @@ jobs:
           }
 
       - name: Upload release
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.build_only) }}
         env:
           STAGING_HOST: ${{ secrets.STAGING_HOST }}
           STAGING_USER: ${{ secrets.STAGING_USER }}
@@ -419,6 +518,7 @@ jobs:
             "${remote}:${incoming_dir}/"
 
       - name: Deploy release
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.build_only) }}
         env:
           STAGING_HOST: ${{ secrets.STAGING_HOST }}
           STAGING_USER: ${{ secrets.STAGING_USER }}
@@ -475,7 +575,6 @@ jobs:
           test -f "$release/REVISION"
           test -d "$release/migrations"
           test -d "$release/web"
-          test -f "$release/SBOM.spdx.json"
           test -f "$release/RELEASE_IDENTITY"
           test -f "$release/MIGRATION_SHA256SUMS"
           test -f "$release/WEB_SHA256SUMS"
