@@ -1140,15 +1140,15 @@ func derefInt64(i *int64) int64 {
 
 // Signatures
 
-func (r *Repository) InsertSignatureChallenge(ctx context.Context, companyID, versionID, signerID int64, expiry time.Time) (string, error) {
+func (r *Repository) InsertSignatureChallenge(ctx context.Context, req SignatureChallengeRequest) (string, error) {
 	var expiryTs pgtype.Timestamptz
-	expiryTs.Time = expiry
+	expiryTs.Time = req.Expiry
 	expiryTs.Valid = true
 
 	challengeID, err := r.queries.InsertDocumentSignatureChallenge(ctx, sqlc.InsertDocumentSignatureChallengeParams{
-		CompanyID:         companyID,
-		DocumentVersionID: versionID,
-		SignerID:          signerID,
+		CompanyID:         req.CompanyID,
+		DocumentVersionID: req.DocumentVersionID,
+		SignerID:          req.SignerID,
 		Expiry:            expiryTs,
 	})
 	if err != nil {

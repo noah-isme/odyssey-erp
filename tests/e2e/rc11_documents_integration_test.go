@@ -66,6 +66,7 @@ type rc11DocsHarness struct {
 	f      rc11Fixture
 	router http.Handler
 	sess   *shared.Session
+	svc    *documents.Service
 }
 
 type rc11Result struct {
@@ -119,7 +120,7 @@ func newRC11DocsHarness(t *testing.T, p *pgxpool.Pool, f rc11Fixture) *rc11DocsH
 	})
 	r.Route("/documents", h.MountRoutes)
 
-	return &rc11DocsHarness{t: t, pool: p, f: f, router: r, sess: sess}
+	return &rc11DocsHarness{t: t, pool: p, f: f, router: r, sess: sess, svc: svc}
 }
 
 func (h *rc11DocsHarness) do(req *http.Request) rc11Result {
@@ -421,6 +422,7 @@ func TestRC11DocumentReviewFlow(t *testing.T) {
 	})
 	require.Equal(t, http.StatusSeeOther, crossed.status)
 	require.NotNil(t, crossed.flash)
+	require.NotNil(t, crossed.flash)
 	require.Equal(t, "danger", crossed.flash.Kind)
 	require.Equal(t, "PENDING", h.stepStatus(otherStepID))
 	require.Zero(t, h.count(`SELECT COUNT(*) FROM document_review_decisions WHERE review_step_id=$1`, otherStepID))
@@ -485,4 +487,137 @@ func (h *rc11DocsHarness) stepStatus(stepID int64) string {
 	var s string
 	require.NoError(h.t, h.pool.QueryRow(context.Background(), `SELECT status FROM document_review_steps WHERE id=$1`, stepID).Scan(&s))
 	return s
+}
+
+var rc11UUIDPattern = regexp.MustCompile(`[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`)
+
+func TestRC11DocumentSignatureReplay(t *testing.T) {
+	p, f := newRC11Fixture(t)
+	h := newRC11DocsHarness(t, p, f)
+	ctx := context.Background()
+
+	documentID := h.createDocument("RC11 signature " + f.Suffix)
+	res, versionID := h.uploadVersion(documentID, []byte("signature evidence"))
+	require.Equal(t, http.StatusSeeOther, res.status)
+	require.NotZero(t, versionID, "version upload flash %+v", res.flash)
+	docPath := fmt.Sprintf("/documents/library/%d", documentID)
+	versionsPath := docPath + "/versions"
+	versionPath := fmt.Sprintf("%s/%d", versionsPath, versionID)
+	const meaning = "Approved as effective version"
+
+	// challenge issues one through the route and returns the id shown in
+	// the flash, checking it against the row's challenge_id::text.
+	challenge := func(path string, extra url.Values) string {
+		t.Helper()
+		values := url.Values{"csrf_token": {h.fetchCSRF(versionsPath)}}
+		for k, v := range extra {
+			values[k] = v
+		}
+		res := h.postForm(path+"/challenge", values)
+		require.Equal(t, http.StatusSeeOther, res.status)
+		require.NotNil(t, res.flash)
+		require.Equal(t, "success", res.flash.Kind, res.flash.Message)
+		shown := rc11UUIDPattern.FindString(res.flash.Message)
+		require.NotEmpty(t, shown, "flash %q carries no challenge id", res.flash.Message)
+		require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM document_signature_challenges WHERE challenge_id::text=$1 AND used=false`, shown))
+		return shown
+	}
+	sign := func(path, challengeID, meaning string) rc11Result {
+		t.Helper()
+		return h.postForm(path+"/sign", url.Values{
+			"csrf_token":   {h.fetchCSRF(versionsPath)},
+			"challenge_id": {challengeID},
+			"meaning":      {meaning},
+		})
+	}
+	used := func(challengeID string) bool {
+		t.Helper()
+		var u bool
+		require.NoError(t, p.QueryRow(ctx, `SELECT used FROM document_signature_challenges WHERE challenge_id=$1::uuid`, challengeID).Scan(&u))
+		return u
+	}
+	signatures := func() int {
+		return h.count(`SELECT COUNT(*) FROM document_signatures WHERE document_version_id=$1`, versionID)
+	}
+
+	// Without a meaning the challenge carries the default one and policy 1.
+	first := challenge(versionPath, nil)
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM document_signature_challenges WHERE challenge_id=$1::uuid
+		AND company_id=$2 AND document_version_id=$3 AND signer_id=$4 AND meaning=$5 AND policy_version=1 AND expiry > NOW()`,
+		first, f.CompanyID, versionID, f.AdminID, meaning))
+	custom := challenge(versionPath, url.Values{"meaning": {"Reviewed for accuracy"}})
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM document_signature_challenges WHERE challenge_id=$1::uuid AND meaning='Reviewed for accuracy'`, custom))
+
+	// Sign as the strict test does: the challenge is consumed, one signature.
+	signed := sign(versionPath, first, meaning)
+	require.Equal(t, http.StatusSeeOther, signed.status)
+	require.NotNil(t, signed.flash)
+	require.Equal(t, "success", signed.flash.Kind, signed.flash.Message)
+	require.True(t, used(first))
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM document_signatures WHERE document_version_id=$1 AND meaning=$2 AND challenge_id=$3::uuid AND signer_id=$4 AND policy_version=1`, versionID, meaning, first, f.AdminID))
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM document_access_events WHERE document_version_id=$1 AND action='SIGNED' AND actor_id=$2`, versionID, f.AdminID))
+
+	// Replay of a used challenge is refused.
+	replay := sign(versionPath, first, meaning)
+	require.Equal(t, http.StatusSeeOther, replay.status)
+	require.NotNil(t, replay.flash)
+	require.Equal(t, "danger", replay.flash.Kind)
+	require.Equal(t, 1, signatures())
+
+	// A meaning is required on the sign request; the challenge stays usable.
+	blank := sign(versionPath, custom, "  ")
+	require.Equal(t, http.StatusSeeOther, blank.status)
+	require.NotNil(t, blank.flash)
+	require.Equal(t, "danger", blank.flash.Kind)
+	require.False(t, used(custom))
+
+	// A challenge for this version cannot sign another version, and the
+	// refused attempt does not consume it.
+	res2, version2ID := h.uploadVersion(documentID, []byte("signature evidence v2"))
+	require.Equal(t, http.StatusSeeOther, res2.status)
+	require.NotEqual(t, versionID, version2ID)
+	crossed := sign(fmt.Sprintf("%s/%d", versionsPath, version2ID), custom, meaning)
+	require.Equal(t, http.StatusSeeOther, crossed.status)
+	require.NotNil(t, crossed.flash)
+	require.Equal(t, "danger", crossed.flash.Kind)
+	require.False(t, used(custom))
+	require.Zero(t, h.count(`SELECT COUNT(*) FROM document_signatures WHERE document_version_id=$1`, version2ID))
+
+	// An expired challenge is refused and not consumed.
+	expired := challenge(versionPath, nil)
+	_, err := p.Exec(ctx, `UPDATE document_signature_challenges SET expiry = NOW() - interval '1 minute' WHERE challenge_id=$1::uuid`, expired)
+	require.NoError(t, err)
+	late := sign(versionPath, expired, meaning)
+	require.Equal(t, http.StatusSeeOther, late.status)
+	require.NotNil(t, late.flash)
+	require.Equal(t, "danger", late.flash.Kind)
+	require.False(t, used(expired))
+	require.Equal(t, 1, signatures())
+
+	// Concurrent use of one challenge yields exactly one signature.
+	racing := challenge(versionPath, nil)
+	const attempts = 8
+	errs := make(chan error, attempts)
+	start := make(chan struct{})
+	for i := 0; i < attempts; i++ {
+		go func() {
+			<-start
+			_, err := h.svc.SignDocument(ctx, documents.SignDocumentRequest{
+				CompanyID: f.CompanyID, DocumentVersionID: versionID, ChallengeID: racing,
+				SignerID: f.AdminID, Meaning: meaning, IPAddress: "192.0.2.20:4000", UserAgent: "rc11-race",
+			})
+			errs <- err
+		}()
+	}
+	close(start)
+	succeeded := 0
+	for i := 0; i < attempts; i++ {
+		if <-errs == nil {
+			succeeded++
+		}
+	}
+	require.Equal(t, 1, succeeded)
+	require.True(t, used(racing))
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM document_signatures WHERE challenge_id=$1::uuid`, racing))
+	require.Equal(t, 2, signatures())
 }

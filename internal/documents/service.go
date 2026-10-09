@@ -641,7 +641,12 @@ func (s *Service) CreateSignatureChallenge(ctx context.Context, companyID, versi
 	// Generate challenge expiry
 	exp := time.Now().Add(expiry)
 
-	challengeID, err := s.repo.InsertSignatureChallenge(ctx, companyID, versionID, signerID, exp)
+	challengeID, err := s.repo.InsertSignatureChallenge(ctx, SignatureChallengeRequest{
+		CompanyID:         companyID,
+		DocumentVersionID: versionID,
+		SignerID:          signerID,
+		Expiry:            exp,
+	})
 	if err != nil {
 		return DocumentSignatureChallenge{}, err
 	}

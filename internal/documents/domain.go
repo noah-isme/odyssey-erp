@@ -219,6 +219,17 @@ type DocumentSignatureChallenge struct {
 	CreatedAt         time.Time
 }
 
+// SignatureChallengeRequest defines the payload for issuing a one-time
+// signature challenge.
+type SignatureChallengeRequest struct {
+	CompanyID         int64
+	DocumentVersionID int64
+	SignerID          int64
+	Meaning           string
+	PolicyVersion     int
+	Expiry            time.Time
+}
+
 // DocumentSignature represents an electronic signature on a document.
 type DocumentSignature struct {
 	ID                int64
