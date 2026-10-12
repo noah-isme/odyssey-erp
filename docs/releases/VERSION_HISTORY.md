@@ -43,7 +43,7 @@ notes define the packaged scope without claiming production certification.
 | v0.10.0-rc.8 | 2026-09-06 | Divergent stabilization candidate | Exact release candidate `20cc13a` (annotated tag, tag object `f54a238`) on a line diverging from rc.7 at merge-base `04ebd8a`: staging certification workflow registration, scoped certification gates, enterprise UI hardening, story-driven seed data, lint/CI fixes, migration ceiling sync to `000124`, CSRF/module-UI fixes, and 33 further rc-line commits (POS, theme, MRP, banking, reporting, route profile). Identity reconciled to the tag under the 2026-10-02 Option A ruling; the earlier documented `cdaa910` pointer was superseded when the tag was re-cut | Superseded by v0.10.0-rc.9 before staging certification evidence was collected; never production-certified |
 | v0.10.0-rc.9 | 2026-10-04 | Worker idempotency and attribution fixes | Exact release candidate `07d2ba2` (annotated tag, tag object `7c47a3a`): superseded rc.8 tag plus fix commits: payslip delivery row lock (at-least-once) with mail dial/I-O deadlines, AP invoice processing actor binding and dedupe, connector outbox claim-before-execute, bounded retry and TaskID dedupe for variance and board-pack tasks, out-of-profile worker handlers and schedules not registered under `v0.10-core`, worker DB pool default 16 (`PG_MAX_CONNS` knob); no new migration (ceiling `000124`) | Superseded by v0.10.0-rc.10 after its staging deployment and before staging certification ran; never certified |
 | v0.10.0-rc.10 | 2026-10-07 | Approval finalization fix | Exact release candidate `0745957` (annotated tag, tag object `6d9b1e1`): superseded rc.9 tag plus the approval engine fix: `Decide` returns the post-decision request, so final approvals reach module finalizers as `APPROVED` (LEAVE, PO, RFQ award, payroll), and the step quorum count is scoped to the request; data-remediation runbook for environments that ran rc.1–rc.9; no new migration (ceiling `000124`) | Superseded by v0.10.0-rc.11; certification run `37820191861` invalid (fabricated outcomes, out-of-band staging schema objects); never certified |
-| v0.10.0-rc.11 | 2026-10-09 (tag pending) | Certification defect fixes | Superseded rc.10 tag plus fixes for the defects the invalidated rc.10 run hid: document version upload and classification, atomic signature challenges, document ACL/review/download and CMMS meter/PM run-due/spare-part/complete/close routes with CMMS audit, balanced and audited AR/AP posting as the posting user, PO-linked GRN AP invoices with inline matching, workspace companies scoped to active role assignments (`RBAC_GLOBAL_ROLES`) and `releaseProfile` on `/api/me`, one shared `DOCUMENT_STORAGE_DIR`, a reproducible bundle with a sibling attested SBOM, delivery actor and company from the session, audited stock adjustments and stock takes, a staging seeder for the certification prerequisites, and a schema checksum gate for DB-002; no new migration (ceiling `000124`) | Current candidate; not production-certified; staging rebuild, staging, provider, and operational certification remain open |
+| v0.10.0-rc.11 | 2026-10-09 (tag pending) | Certification defect fixes | Superseded rc.10 tag plus fixes for the defects the invalidated rc.10 run hid: document version upload and classification, atomic signature challenges, document ACL/review/download and CMMS meter/PM run-due/spare-part/complete/close routes with CMMS audit, balanced and audited AR/AP posting as the posting user, PO-linked GRN AP invoices with inline matching, workspace companies scoped to active role assignments (`RBAC_GLOBAL_ROLES`) and `releaseProfile` on `/api/me`, one shared `DOCUMENT_STORAGE_DIR`, a reproducible bundle with a sibling attested SBOM, delivery actor and creating company from the session (delivery show/edit/status changes by id are still not company-checked, `FIND-036`), audited stock adjustments and stock takes, a staging seeder for the certification prerequisites, and a schema checksum gate for DB-002; no new migration (ceiling `000124`) | Current candidate; not production-certified; staging rebuild, staging, provider, and operational certification remain open |
 
 ## Detailed version reports
 
@@ -395,7 +395,10 @@ that fails at the rc.10 tag. Fixes (findings in the
   an attested sibling of the bundle, the SBOM action is pinned, and a
   `build_only` dispatch compares rebuild digests.
 - **Delivery actor** (`FIND-025`; `8fe8c59`): delivery handlers take the user
-  and company from the session.
+  from the session, and the list and new orders take the company from it.
+  This does not scope delivery writes: show, edit, confirm, ship, complete and
+  cancel load the order by id alone and do not check its company (`FIND-036`,
+  open).
 - **Stock-movement audit** (`FIND-026`; `a99c809`, `cba8064`): stock
   adjustments (delivery confirm and others) and posted stock takes write an
   `inventory_tx` audit row.
@@ -410,19 +413,25 @@ that fails at the rc.10 tag. Fixes (findings in the
 - **Test correction** (`ef89fb3`): after a full AR payment the strict test
   expects `PAID`.
 - **Review fixes** (`FIND-032` in part, `FIND-016`, `FIND-035`; `9300de8`,
-  `53981ac`, `0fb64d7`, `be91f64`, `1b88c88`): document retention checks the
-  version's company and document; the CMMS work-order page returns `404` for
-  another company; delivery handlers no longer fall back to company 1; a
-  failed company lookup clears the session company; signatures record
-  `auth_method = 'session'`.
+  `53981ac`, `0fb64d7`, `be91f64`, `c993207`, `1b88c88`): document retention
+  checks the version's company and document; the CMMS work-order page returns
+  `404` for another company; delivery handlers no longer fall back to company
+  1 when listing or creating orders; a failed company lookup answers `500`
+  and leaves the session company unchanged (`be91f64` cleared it, which
+  silently switched the company on the next request; `c993207` restores it);
+  signatures record `auth_method = 'session'` (older rows keep `'password'`,
+  `FIND-035`).
 
-Open in rc.11 (`FIND-028` to `FIND-035`): AR/AP post-commit tax capture on a
+Open in rc.11 (`FIND-028` to `FIND-036`): AR/AP post-commit tax capture on a
 database without reviewed tax configuration, delivery document numbering
 (needs a migration, v0.11), delivery confirm atomicity and journal gaps, the
 period guard on the last day of a month, sales/freight actor fallbacks and
 the remaining unscoped GET-by-id checks, GRN/PO AP invoice handlers that do
 not run matching, document ACLs that are stored but not enforced, and the
-signature meaning that is not compared with the challenge (user decision).
+signature meaning that is not compared with the challenge (user decision),
+and delivery orders that can be viewed, edited, confirmed, shipped, completed
+or cancelled by id from another company (`FIND-036`, high, blocks
+promotion).
 `FIND-019`, `FIND-022` and `FIND-024` stay `OPEN` until the release owner
 signs their proposed acceptance.
 

@@ -29,7 +29,7 @@
 > posting and audit, workspace company scoping, one shared document storage
 > directory, a reproducible bundle, the delivery actor, stock-movement audit and
 > the staging seeder, and adds a schema checksum gate to DB-002. Open findings
-> `FIND-028` to `FIND-035` and `FIND-019`, `FIND-022`, `FIND-024` (acceptance
+> `FIND-028` to `FIND-036` and `FIND-019`, `FIND-022`, `FIND-024` (acceptance
 > proposed, release-owner sign-off pending) are in the [staging certification record](releases/v0.10-core-staging-certification.md).
 > Before certification, staging is rebuilt from an empty database (`FIND-020`)
 > and the `certification/v0.10.0-rc.11` dispatch branch is created from the rc.11

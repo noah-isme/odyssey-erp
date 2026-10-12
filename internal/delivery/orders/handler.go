@@ -413,8 +413,12 @@ func getUserID(r *http.Request) int64 {
 }
 
 // getCompanyID returns the session's active company, or 0 when there is
-// none (fail closed: there is no implicit company; the delivery queries
-// match company_id exactly, so 0 matches nothing and writes are refused).
+// none (fail closed: there is no implicit company). It is used only to scope
+// the list and to set the company of a new order or return, where 0 matches
+// nothing and the sales-order company check refuses the create. It does not
+// scope writes to existing orders: show, edit, confirm, ship, complete and
+// cancel load the order by id alone without checking its company (FIND-036,
+// open).
 func getCompanyID(r *http.Request) int64 {
 	if sess := shared.SessionFromContext(r.Context()); sess != nil {
 		if id, err := strconv.ParseInt(sess.Get("company_id"), 10, 64); err == nil && id > 0 {
