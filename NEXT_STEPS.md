@@ -57,8 +57,9 @@ the staging rebuild (step 2) must be finished first.
 7. Run the production gate from a clean, exact tagged checkout with the final
    evidence index URI and local file. Promote only after signed approval, backup/
    restore, rollback, security, provider, and observation evidence is complete,
-   with `FIND-028` to `FIND-033` dispositioned and `FIND-019`, `FIND-022` and
-   `FIND-024` signed off by the release owner.
+   with `FIND-028` to `FIND-035` dispositioned and `FIND-019`, `FIND-022` and
+   `FIND-024` (acceptance proposed, still `OPEN`) signed off by the release
+   owner, which makes them `ACCEPTED`.
 
 Environments other than staging that keep their database: follow the
 [tenancy scope rollout runbook](docs/releases/v0.10-tenancy-scope-rollout.md)
@@ -83,11 +84,22 @@ invalidated and it was never certified.
   `000083` (`FIND-022`).
 - Scoped permission evaluation (`FIND-019`, the v0.11 design:
   `ScopedPermissionReader.EffectivePermissionsInScope` / `ScopedRoute`).
-- The open rc.11 findings `FIND-028` to `FIND-033` (tax configuration after
+- The open rc.11 findings `FIND-028` to `FIND-035` (tax configuration after
   posting, delivery document numbering migration, delivery confirm atomicity
   and journal gaps, the last-day-of-month period guard, sales/freight actor
-  fallbacks and unscoped GET-by-id checks, AP invoice handlers without
-  matching).
+  fallbacks and the remaining unscoped GET-by-id checks, AP invoice handlers
+  without matching, document ACLs not enforced on download, signature meaning
+  not compared with the challenge).
+- Make the UI role grant (`rbac.Service.AssignRole`) create the matching
+  company-wide `rbac_user_role_assignments` row for the active company. Until
+  then a newly onboarded user sees no company and gets `403` until an operator
+  inserts the assignment (see "Granting access from rc.11 on" in the
+  [tenancy scope rollout runbook](docs/releases/v0.10-tenancy-scope-rollout.md)).
+- Anchor the `.gitignore` rule `worker` (line 10) to `/worker`: unanchored, it
+  ignores every path named `worker`, including `cmd/worker/`, so new files
+  there are hidden from `git status` (`cmd/worker/ap_wiring.go` had to be
+  force-added in rc.11). Not changed in rc.11 because it changes the ignore
+  status of the tracked `cmd/worker/` files.
 
 ## Merge-back plan after rc.11 is tagged
 
