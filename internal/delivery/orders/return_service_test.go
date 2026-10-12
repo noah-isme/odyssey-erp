@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -95,15 +96,21 @@ func (t *returnTxFake) UpdateReturnStatus(_ context.Context, _ int64, status Ret
 }
 func (*returnTxFake) DeleteReturnLines(context.Context, int64) error { return nil }
 
-type inventoryFake struct{ restocked []InventoryItem }
+// inventoryFake records every stock movement and reports ample stock, so a
+// test that expects no movement fails on the recorded call, not on a
+// stock shortage.
+type inventoryFake struct{ reduced, restocked []InventoryItem }
 
-func (f *inventoryFake) Reduce(context.Context, []InventoryItem) error { return nil }
+func (f *inventoryFake) Reduce(_ context.Context, items []InventoryItem) error {
+	f.reduced = append(f.reduced, items...)
+	return nil
+}
 func (f *inventoryFake) Restock(_ context.Context, items []InventoryItem) error {
 	f.restocked = append(f.restocked, items...)
 	return nil
 }
 func (f *inventoryFake) CheckAvailability(context.Context, int64, int64) (float64, error) {
-	return 0, nil
+	return 1e9, nil
 }
 
 func TestCreateReturnRejectsCumulativeQuantityAboveDelivered(t *testing.T) {
@@ -227,6 +234,7 @@ func TestOrderActionsHideOtherCompany(t *testing.T) {
 		_, err = service.CreateReturnDeliveryOrder(ctx, CreateReturnRequest{CompanyID: companyID, OriginalDeliveryOrderID: 10}, 3)
 		require.ErrorIs(t, err, ErrNotFound)
 		require.Empty(t, stock.restocked)
+		require.Empty(t, stock.reduced)
 	}
 }
 
@@ -295,11 +303,14 @@ func TestDeliveryConfirmCancelRefuseWarehouseOutsideCompany(t *testing.T) {
 	service := NewService(&returnRepoFake{delivery: order})
 	service.SetInventory(stock)
 	_, err := service.Confirm(context.Background(), 10, 1, 3)
-	require.ErrorIs(t, err, ErrWarehouseNotFound)
+	assert.ErrorIs(t, err, ErrWarehouseNotFound)
+	assert.Empty(t, stock.reduced, "confirm must not reduce stock in another company's warehouse")
 	order.Status = StatusConfirmed
+	stock.reduced = nil
 	_, err = service.Cancel(context.Background(), 10, 1, CancelRequest{Reason: "x", CancelledBy: 3})
-	require.ErrorIs(t, err, ErrWarehouseNotFound)
-	require.Empty(t, stock.restocked)
+	assert.ErrorIs(t, err, ErrWarehouseNotFound)
+	assert.Empty(t, stock.reduced, "cancel must not restore stock in another company's warehouse")
+	assert.Empty(t, stock.restocked)
 }
 
 // TestReturnCancelRefusesWarehouseOutsideCompany: cancelling a confirmed
@@ -315,7 +326,7 @@ func TestReturnCancelRefusesWarehouseOutsideCompany(t *testing.T) {
 		service := NewService(&returnRepoFake{returned: rdo})
 		service.SetInventory(stock)
 		_, err := service.CancelReturnDeliveryOrder(context.Background(), 1, 1, 3, "x")
-		require.ErrorIs(t, err, ErrRestockWarehouse, rdo.Number)
-		require.Empty(t, stock.restocked, rdo.Number)
+		assert.ErrorIs(t, err, ErrRestockWarehouse, rdo.Number)
+		assert.Empty(t, stock.restocked, "%s: cancel must not reverse a restock in another company's warehouse", rdo.Number)
 	}
 }
