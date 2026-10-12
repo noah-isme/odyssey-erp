@@ -40,6 +40,7 @@ var baseWrittenTables = []string{
 	"document_classifications", "document_categories", "retention_policies",
 	"permissions", "role_permissions", "pos", "po_lines", "ap_matching_policies",
 	"accounts", "account_mappings", "periods", "accounting_periods",
+	"tax_rule_versions", "tax_codes", "company_tax_identities", "tax_account_mappings", "tax_invoice_number_ranges",
 }
 
 type baseTestDB struct {
@@ -257,10 +258,17 @@ func TestBaseSeedDBCleanApply(t *testing.T) {
 		{"grn references an approved PO of the same company and supplier", `SELECT (po.status = 'APPROVED' AND po.company_id = g.company_id AND po.supplier_id = g.supplier_id)::text FROM grns g JOIN pos po ON po.id = g.po_id WHERE g.id = $1`, []any{f.GRNID}, "true"},
 		{"po has one line matching the grn line", `SELECT COUNT(*)::text FROM grns g JOIN po_lines pl ON pl.po_id = g.po_id JOIN grn_lines gl ON gl.grn_id = g.id AND gl.product_id = pl.product_id AND gl.qty = pl.qty AND gl.unit_cost = pl.price WHERE g.id = $1 AND pl.product_id = $2`, []any{f.GRNID, f.ProductID}, "1"},
 		// Ledger prerequisites.
-		{"chart of accounts", `SELECT string_agg(code, ',' ORDER BY code) FROM accounts`, nil, "1100,1200,1300,2100,4000,4900,5000,5900"},
+		{"chart of accounts", `SELECT string_agg(code, ',' ORDER BY code) FROM accounts`, nil, "1100,1200,1300,1410,2100,2110,4000,4900,5000,5900"},
 		{"account mappings", `SELECT string_agg(m.module || '/' || m.key || '=' || a.code, ',' ORDER BY m.module, m.key) FROM account_mappings m JOIN accounts a ON a.id = m.account_id`, nil,
 			"AP/ap.invoice.ap=2100,AP/ap.invoice.expense=5000,AP/ap.invoice.inventory=1300,AP/ap.payment.ap=2100,AP/ap.payment.cash=1100,AR/ar.invoice.ar=1200,AR/ar.invoice.revenue=4000,INVENTORY/inventory.adjustment.gain=4900,INVENTORY/inventory.adjustment.inventory=1300,INVENTORY/inventory.adjustment.loss=5900"},
 		{"one OPEN period covers today", `SELECT COUNT(*)::text FROM periods WHERE status = 'OPEN' AND CURRENT_DATE BETWEEN start_date AND end_date`, nil, "1"},
+		// Reviewed tax configuration (FIND-028).
+		{"one reviewed staging VAT rule version effective today", `SELECT COUNT(*)::text FROM tax_rule_versions WHERE rule_kind = 'VAT' AND version_code = $1 AND reviewed_at IS NOT NULL AND reviewed_by = (SELECT id FROM users WHERE email = $2) AND effective_from <= CURRENT_DATE AND effective_to IS NULL AND source_url LIKE 'urn:odyssey:staging-certification-fixture%'`, []any{baseTaxRuleVersionCode, baseTestCreds.AdminEmail}, "1"},
+		{"VAT output and input tax codes", `SELECT string_agg(tc.code || '=' || tc.tax_kind, ',' ORDER BY tc.code) FROM tax_codes tc JOIN tax_rule_versions rv ON rv.id = tc.rule_version_id WHERE rv.version_code = $1`, []any{baseTaxRuleVersionCode}, "STG-VAT-IN=VAT_INPUT,STG-VAT-OUT=VAT_OUTPUT"},
+		{"company tax identity effective today", `SELECT COUNT(*)::text FROM company_tax_identities WHERE company_id = $1 AND effective_from <= CURRENT_DATE AND effective_to IS NULL`, []any{f.CompanyID}, "1"},
+		{"tax account mappings", `SELECT string_agg(m.category || '=' || a.code, ',' ORDER BY m.category) FROM tax_account_mappings m JOIN accounts a ON a.id = m.account_id WHERE m.company_id = $1 AND m.effective_from <= CURRENT_DATE AND m.effective_to IS NULL`, []any{f.CompanyID}, "VAT_INPUT=1410,VAT_OUTPUT=2110"},
+		{"usable tax invoice number range", `SELECT COUNT(*)::text FROM tax_invoice_number_ranges WHERE company_id = $1 AND next_number <= range_end AND effective_from <= CURRENT_DATE AND effective_to IS NULL`, []any{f.CompanyID}, "1"},
+		{"customer and supplier carry a tax id", `SELECT (c.tax_id = $3 AND s.tax_id = $4)::text FROM customers c, suppliers s WHERE c.id = $1 AND s.id = $2`, []any{f.CustomerID, f.SupplierID, baseCustomerTaxID, baseSupplierTaxID}, "true"},
 		{"branch user has a completed REVOKE review", `SELECT COUNT(*)::text FROM rbac_access_reviews r JOIN users u ON u.id = r.subject_user_id WHERE u.email = $1 AND r.company_id = $2 AND r.status = 'COMPLETED' AND r.decision = 'REVOKE' AND r.decided_by_user_id IS NOT NULL AND r.decided_at IS NOT NULL`, []any{baseTestCreds.BranchEmail, f.CompanyID}, "1"},
 	}
 	for _, c := range checks {
@@ -323,10 +331,11 @@ func TestBaseSeedDBIdempotentRerun(t *testing.T) {
 		t.Fatalf("second run: %v", err)
 	}
 	// The PO and GRN lines are only inserted together with a new PO and GRN,
-	// and accounts are only looked at for absent mappings, so a rerun has
-	// two plus len(baseLedgerAccounts) steps fewer than the first run and
-	// every step is a reuse; nothing is left to revoke.
-	if second.count("created") != 0 || second.count("reused") != len(second.Steps) || len(second.Steps) != len(first.Steps)-2-len(baseLedgerAccounts) || len(second.Revoked) != 0 || second.GRNCreated || second.POID != first.POID {
+	// and accounts are only looked at for absent (ledger or tax) mappings,
+	// so a rerun has two plus len(baseLedgerAccounts) plus
+	// len(baseTaxAccounts) steps fewer than the first run and every step is
+	// a reuse; nothing is left to revoke.
+	if second.count("created") != 0 || second.count("reused") != len(second.Steps) || len(second.Steps) != len(first.Steps)-2-len(baseLedgerAccounts)-len(baseTaxAccounts) || len(second.Revoked) != 0 || second.GRNCreated || second.POID != first.POID {
 		t.Fatalf("second run: %d created, %d reused of %d steps; want a no-op", second.count("created"), second.count("reused"), len(second.Steps))
 	}
 	if *first.Fixtures != *second.Fixtures {
@@ -662,11 +671,11 @@ func TestBaseSeedDBCreatesOnlyAccountsForMissingMappings(t *testing.T) {
 			accountSteps = append(accountSteps, s.Name+"="+s.Status)
 		}
 	}
-	if got, want := strings.Join(accountSteps, ","), "account 4900=created"; got != want {
+	if got, want := strings.Join(accountSteps, ","), "account 4900=created,account 2110=created,account 1410=created"; got != want {
 		t.Errorf("account steps = %q, want %q", got, want)
 	}
 	for name, c := range map[string]struct{ sql, want string }{
-		"chart":         {`SELECT string_agg(code || ':' || type::text || ':' || is_active::text, ',' ORDER BY code) FROM accounts`, "1100:EXPENSE:false,4900:REVENUE:true,OPS-ANY:ASSET:true"},
+		"chart":         {`SELECT string_agg(code || ':' || type::text || ':' || is_active::text, ',' ORDER BY code) FROM accounts`, "1100:EXPENSE:false,1410:ASSET:true,2110:LIABILITY:true,4900:REVENUE:true,OPS-ANY:ASSET:true"},
 		"gain mapping":  {`SELECT a.code FROM account_mappings m JOIN accounts a ON a.id = m.account_id WHERE m.module = 'INVENTORY' AND m.key = 'inventory.adjustment.gain'`, "4900"},
 		"mapping count": {`SELECT COUNT(*)::text FROM account_mappings`, fmt.Sprint(len(baseLedgerMappings))},
 	} {

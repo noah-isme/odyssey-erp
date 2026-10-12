@@ -590,13 +590,16 @@ func seedStagingFixtures(ctx context.Context, pool *pgxpool.Pool, creds baseCred
 	}
 
 	// 6. Customer and supplier in the primary company; customers are unique
-	// per (company_id, code) and require created_by.
+	// per (company_id, code) and require created_by. Both carry a tax_id:
+	// AR and AP tax capture refuse a counterparty without one
+	// (base_seed_tax.go), so an existing row without one is refused.
 	customerID, err := s.mustEnsure(ctx, baseFixture{
 		Name: "customer_primary", Table: "customers",
-		Insert: `INSERT INTO customers (code, name, phone, email, address_line1, is_active, company_id, created_by)
-			VALUES ($1, $2, $3, $4, $5, TRUE, $6, $7) ON CONFLICT DO NOTHING RETURNING id`,
-		InsertArgs: []any{baseCustomerCode, "PT Pelanggan Sertifikasi Staging", "081234567890", "customer.staging@odyssey.local", "Jl. Pelanggan No. 1", primaryCompanyID, adminUserID},
+		Insert: `INSERT INTO customers (code, name, phone, email, address_line1, is_active, company_id, created_by, tax_id)
+			VALUES ($1, $2, $3, $4, $5, TRUE, $6, $7, $8) ON CONFLICT DO NOTHING RETURNING id`,
+		InsertArgs: []any{baseCustomerCode, "PT Pelanggan Sertifikasi Staging", "081234567890", "customer.staging@odyssey.local", "Jl. Pelanggan No. 1", primaryCompanyID, adminUserID, baseCustomerTaxID},
 		Lookup: `SELECT id, 'company:' || company_id || CASE WHEN is_active THEN '' ELSE ' inactive' END
+				|| CASE WHEN COALESCE(tax_id, '') = '' THEN ' without tax_id' ELSE '' END
 			FROM customers WHERE company_id = $1 AND code = $2`,
 		LookupArgs: []any{primaryCompanyID, baseCustomerCode},
 		Want:       companyState(primaryCompanyID),
@@ -606,10 +609,11 @@ func seedStagingFixtures(ctx context.Context, pool *pgxpool.Pool, creds baseCred
 	}
 	supplierID, err := s.mustEnsure(ctx, baseFixture{
 		Name: "supplier_primary", Table: "suppliers",
-		Insert: `INSERT INTO suppliers (code, name, phone, email, address, is_active, company_id)
-			VALUES ($1, $2, $3, $4, $5, TRUE, $6) ON CONFLICT DO NOTHING RETURNING id`,
-		InsertArgs: []any{baseSupplierCode, "PT Pemasok Sertifikasi Staging", "081234567891", "supplier.staging@odyssey.local", "Jl. Pemasok No. 1", primaryCompanyID},
+		Insert: `INSERT INTO suppliers (code, name, phone, email, address, is_active, company_id, tax_id)
+			VALUES ($1, $2, $3, $4, $5, TRUE, $6, $7) ON CONFLICT DO NOTHING RETURNING id`,
+		InsertArgs: []any{baseSupplierCode, "PT Pemasok Sertifikasi Staging", "081234567891", "supplier.staging@odyssey.local", "Jl. Pemasok No. 1", primaryCompanyID, baseSupplierTaxID},
 		Lookup: `SELECT id, 'company:' || COALESCE(company_id::text, 'NULL') || CASE WHEN is_active THEN '' ELSE ' inactive' END
+				|| CASE WHEN tax_id = '' THEN ' without tax_id' ELSE '' END
 			FROM suppliers WHERE code = $1`,
 		LookupArgs: []any{baseSupplierCode},
 		Want:       companyState(primaryCompanyID),
@@ -624,6 +628,10 @@ func seedStagingFixtures(ctx context.Context, pool *pgxpool.Pool, creds baseCred
 		return nil, err
 	}
 	if err := s.ensureLedgerPrerequisites(ctx, primaryCompanyID); err != nil {
+		return nil, err
+	}
+	// Reviewed tax configuration for AR and AP tax capture (FIND-028).
+	if err := s.ensureTaxConfiguration(ctx, primaryCompanyID, adminUserID); err != nil {
 		return nil, err
 	}
 

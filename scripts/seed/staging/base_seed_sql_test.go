@@ -14,7 +14,7 @@ import (
 )
 
 // baseSeedSourceFiles are the files that hold base seeder SQL.
-var baseSeedSourceFiles = []string{"base_seed.go", "base_seed_prereqs.go"}
+var baseSeedSourceFiles = []string{"base_seed.go", "base_seed_prereqs.go", "base_seed_tax.go"}
 
 // baseSQLLiterals returns the string literals of the base seeder files that
 // start with a SQL keyword.
