@@ -400,3 +400,70 @@ func TestRC11DeliveryRefusesOtherCompanyWarehouse(t *testing.T) {
 		"a return that falls back to company B's warehouse must not be stored")
 	assert.Equal(t, movementsBefore, movementsInB(), "company A's requests must not move company B's stock")
 }
+
+// TestRC11DeliveryConfirmCancelRefuseOtherCompanyWarehouse: a delivery order
+// of company A whose stored warehouse is company B's (legacy data, planted
+// directly) must not be confirmed or cancelled by company A: both answer
+// `warehouse not found` (as Create does), leave the status unchanged and post
+// no stock movement in B. Company A's orders from its own warehouse still
+// confirm and cancel.
+func TestRC11DeliveryConfirmCancelRefuseOtherCompanyWarehouse(t *testing.T) {
+	p, fA := newRC11Fixture(t)
+	_, fB := newRC11Fixture(t)
+	ctx := context.Background()
+	for _, wh := range []int64{fA.WarehouseID, fB.WarehouseID} {
+		_, err := p.Exec(ctx, `INSERT INTO inventory_balances(warehouse_id,product_id,qty,avg_cost) VALUES($1,$2,10,100)`, wh, fA.ProductID)
+		require.NoError(t, err)
+	}
+	inv := inventory.NewService(inventory.NewRepository(p), shared.NewAuditLogger(p), shared.NewIdempotencyStore(p), inventory.ServiceConfig{}, nil)
+	client := rc11DeliveryClient(t, p, fA.AdminID, fA.CompanyID, inv)
+	count := func(sql string, args ...any) int {
+		t.Helper()
+		var n int
+		require.NoError(t, p.QueryRow(ctx, sql, args...).Scan(&n), sql)
+		return n
+	}
+	status := func(id int64) string {
+		t.Helper()
+		var s string
+		require.NoError(t, p.QueryRow(ctx, `SELECT status::text FROM delivery_orders WHERE id = $1`, id).Scan(&s))
+		return s
+	}
+	var soID, soLineID int64
+	require.NoError(t, p.QueryRow(ctx, `INSERT INTO sales_orders(doc_number,company_id,customer_id,order_date,status,currency,created_by)
+		VALUES($1,$2,$3,CURRENT_DATE,'CONFIRMED','IDR',$4) RETURNING id`, "SO-CCWH-"+fA.Suffix, fA.CompanyID, fA.CustomerID, fA.AdminID).Scan(&soID))
+	require.NoError(t, p.QueryRow(ctx, `INSERT INTO sales_order_lines(sales_order_id,product_id,quantity,uom,unit_price,line_total,fulfillment_warehouse_id)
+		VALUES($1,$2,10,'EA',100,1000,$3) RETURNING id`, soID, fA.ProductID, fA.WarehouseID).Scan(&soLineID))
+	plant := func(tag, st string, warehouseID int64) int64 {
+		t.Helper()
+		var id int64
+		require.NoError(t, p.QueryRow(ctx, `INSERT INTO delivery_orders(doc_number,company_id,sales_order_id,warehouse_id,customer_id,delivery_date,status,created_by)
+			VALUES($1,$2,$3,$4,$5,CURRENT_DATE,$6::delivery_order_status,$7) RETURNING id`, "DO-CCWH-"+tag+"-"+fA.Suffix, fA.CompanyID, soID, warehouseID, fA.CustomerID, st, fA.AdminID).Scan(&id))
+		_, err := p.Exec(ctx, `INSERT INTO delivery_order_lines(delivery_order_id,sales_order_line_id,product_id,quantity_to_deliver,quantity_delivered,uom,unit_price)
+			VALUES($1,$2,$3,1,0,'EA',100)`, id, soLineID, fA.ProductID)
+		require.NoError(t, err)
+		return id
+	}
+	path := func(id int64, action string) string {
+		return "/delivery/orders/" + strconv.FormatInt(id, 10) + "/" + action
+	}
+	movements := func(wh int64) int { return count(`SELECT COUNT(*) FROM inventory_tx WHERE warehouse_id = $1`, wh) }
+	inB := movements(fB.WarehouseID)
+
+	foreignDraft := plant("BDRAFT", "DRAFT", fB.WarehouseID)
+	foreignConfirmed := plant("BCONF", "CONFIRMED", fB.WarehouseID)
+	client(http.MethodPost, path(foreignDraft, "confirm"), url.Values{})
+	client(http.MethodPost, path(foreignConfirmed, "cancel"), url.Values{"cancellation_reason": {"legacy"}})
+	assert.Equal(t, "DRAFT", status(foreignDraft), "confirm of an order stored with company B's warehouse must be refused")
+	assert.Equal(t, "CONFIRMED", status(foreignConfirmed), "cancel of an order stored with company B's warehouse must be refused")
+	assert.Equal(t, inB, movements(fB.WarehouseID), "company A's confirm and cancel must not move company B's stock")
+
+	// Company A's own warehouse still works.
+	inA := movements(fA.WarehouseID)
+	ownDraft := plant("ADRAFT", "DRAFT", fA.WarehouseID)
+	client(http.MethodPost, path(ownDraft, "confirm"), url.Values{})
+	assert.Equal(t, "CONFIRMED", status(ownDraft))
+	client(http.MethodPost, path(ownDraft, "cancel"), url.Values{"cancellation_reason": {"own"}})
+	assert.Equal(t, "CANCELLED", status(ownDraft))
+	assert.Equal(t, inA+2, movements(fA.WarehouseID), "the owner's confirm and cancel post their stock movements")
+}

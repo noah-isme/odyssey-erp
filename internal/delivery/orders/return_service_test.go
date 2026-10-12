@@ -285,3 +285,37 @@ func TestCreateRefusesWarehouseOutsideCompany(t *testing.T) {
 		require.Zero(t, repo.created, "warehouse %d", warehouseID)
 	}
 }
+
+// TestDeliveryConfirmCancelRefuseWarehouseOutsideCompany: an order whose
+// stored warehouse is not the company's is neither confirmed nor cancelled,
+// and no stock moves.
+func TestDeliveryConfirmCancelRefuseWarehouseOutsideCompany(t *testing.T) {
+	order := &DeliveryOrder{ID: 10, CompanyID: 1, Status: StatusDraft, WarehouseID: 500, Lines: []Line{{ID: 7, ProductID: 9, QuantityToDeliver: 1}}}
+	stock := &inventoryFake{}
+	service := NewService(&returnRepoFake{delivery: order})
+	service.SetInventory(stock)
+	_, err := service.Confirm(context.Background(), 10, 1, 3)
+	require.ErrorIs(t, err, ErrWarehouseNotFound)
+	order.Status = StatusConfirmed
+	_, err = service.Cancel(context.Background(), 10, 1, CancelRequest{Reason: "x", CancelledBy: 3})
+	require.ErrorIs(t, err, ErrWarehouseNotFound)
+	require.Empty(t, stock.restocked)
+}
+
+// TestReturnCancelRefusesWarehouseOutsideCompany: cancelling a confirmed
+// return reverses its restock; a restock (or fallback) warehouse outside the
+// company is refused and no stock moves.
+func TestReturnCancelRefusesWarehouseOutsideCompany(t *testing.T) {
+	foreign := int64(500)
+	for _, rdo := range []*ReturnDeliveryOrder{
+		{ID: 1, CompanyID: 1, Number: "RDO-7", WarehouseID: 4, Status: ReturnStatusConfirmed, Lines: []ReturnLine{{ProductID: 9, QuantityReturned: 1, RestockWarehouseID: &foreign}}},
+		{ID: 1, CompanyID: 1, Number: "RDO-8", WarehouseID: 500, Status: ReturnStatusConfirmed, Lines: []ReturnLine{{ProductID: 9, QuantityReturned: 1}}},
+	} {
+		stock := &inventoryFake{}
+		service := NewService(&returnRepoFake{returned: rdo})
+		service.SetInventory(stock)
+		_, err := service.CancelReturnDeliveryOrder(context.Background(), 1, 1, 3, "x")
+		require.ErrorIs(t, err, ErrRestockWarehouse, rdo.Number)
+		require.Empty(t, stock.restocked, rdo.Number)
+	}
+}
