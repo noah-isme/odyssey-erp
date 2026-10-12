@@ -412,14 +412,16 @@ func getUserID(r *http.Request) int64 {
 	return 0
 }
 
-// getCompanyID returns the session's active company.
+// getCompanyID returns the session's active company, or 0 when there is
+// none (fail closed: there is no implicit company; the delivery queries
+// match company_id exactly, so 0 matches nothing and writes are refused).
 func getCompanyID(r *http.Request) int64 {
 	if sess := shared.SessionFromContext(r.Context()); sess != nil {
 		if id, err := strconv.ParseInt(sess.Get("company_id"), 10, 64); err == nil && id > 0 {
 			return id
 		}
 	}
-	return 1 // Default to 1 (MAIN) if not set
+	return 0
 }
 
 func parseLines(r *http.Request) ([]CreateLineReq, map[string]string) {
