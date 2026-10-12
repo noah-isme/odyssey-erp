@@ -644,6 +644,9 @@ const (
 	// SignaturePolicyVersion is the signature policy recorded on challenges
 	// and signatures.
 	SignaturePolicyVersion = 1
+	// SignatureAuthMethodSession is the auth_method recorded on signatures:
+	// the signer is authenticated by the session, no password is re-entered.
+	SignatureAuthMethodSession = "session"
 )
 
 // CreateSignatureChallenge issues a one-time challenge for a version of the
@@ -705,7 +708,9 @@ func (s *Service) SignDocument(ctx context.Context, req SignDocumentRequest) (Do
 		}
 	}
 
-	return s.repo.SignWithChallenge(ctx, req, strconv.Itoa(version.VersionNumber), recordHash, SignaturePolicyVersion, "password")
+	// The signer re-enters no credential: the logged-in session and the
+	// one-time challenge are the only authentication, so record "session".
+	return s.repo.SignWithChallenge(ctx, req, strconv.Itoa(version.VersionNumber), recordHash, SignaturePolicyVersion, SignatureAuthMethodSession)
 }
 
 // ApplyRetention applies retention policies to a document version.
