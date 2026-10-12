@@ -30,7 +30,10 @@ var (
 	ErrSONotDeliverable   = errors.New("sales order must be CONFIRMED or PROCESSING")
 	ErrCompanyMismatch    = errors.New("sales order belongs to different company")
 	ErrWarehouseNotFound  = errors.New("warehouse not found")
-	ErrNoLines            = errors.New("cannot confirm without lines")
+	// ErrRestockWarehouse: a return line names a restock warehouse outside
+	// the return's company.
+	ErrRestockWarehouse = errors.New("restock warehouse not found in this company")
+	ErrNoLines          = errors.New("cannot confirm without lines")
 
 	// External service errors.
 	ErrInventoryFailed = errors.New("inventory service operation failed")

@@ -560,6 +560,10 @@ func (s *Service) CreateReturnDeliveryOrder(ctx context.Context, req CreateRetur
 		}
 	}
 
+	if err := s.checkRestockWarehouses(ctx, req.CompanyID, req.Lines); err != nil {
+		return nil, err
+	}
+
 	number, err := s.repo.GenerateReturnDocNumber(ctx, req.CompanyID, req.ReturnDate)
 	if err != nil {
 		return nil, fmt.Errorf("generate doc number: %w", err)
@@ -613,6 +617,31 @@ func (s *Service) CreateReturnDeliveryOrder(ctx context.Context, req CreateRetur
 	return s.repo.GetReturnByID(ctx, rdoID)
 }
 
+// checkRestockWarehouses refuses a return line whose restock warehouse
+// (a form field) is not a warehouse of the company; 0 or nil means the
+// original delivery's warehouse.
+func (s *Service) checkRestockWarehouses(ctx context.Context, companyID int64, lines []CreateReturnLineReq) error {
+	for _, line := range lines {
+		if line.RestockWarehouseID != nil && *line.RestockWarehouseID > 0 {
+			if err := s.requireCompanyWarehouse(ctx, *line.RestockWarehouseID, companyID); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (s *Service) requireCompanyWarehouse(ctx context.Context, warehouseID, companyID int64) error {
+	ok, err := s.repo.WarehouseBelongsToCompany(ctx, warehouseID, companyID)
+	if err != nil {
+		return fmt.Errorf("check restock warehouse: %w", err)
+	}
+	if !ok {
+		return ErrRestockWarehouse
+	}
+	return nil
+}
+
 // ConfirmReturnDeliveryOrder confirms a return DO of the company and
 // restocks inventory.
 func (s *Service) ConfirmReturnDeliveryOrder(ctx context.Context, id, companyID, confirmedBy int64) (*ReturnDeliveryOrder, error) {
@@ -627,6 +656,13 @@ func (s *Service) ConfirmReturnDeliveryOrder(ctx context.Context, id, companyID,
 
 	if len(existing.Lines) == 0 {
 		return nil, fmt.Errorf("cannot confirm without lines")
+	}
+	for _, line := range existing.Lines {
+		if line.RestockWarehouseID != nil && *line.RestockWarehouseID > 0 {
+			if err := s.requireCompanyWarehouse(ctx, *line.RestockWarehouseID, companyID); err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	items := make([]InventoryItem, 0, len(existing.Lines))

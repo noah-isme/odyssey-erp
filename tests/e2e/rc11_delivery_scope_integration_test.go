@@ -308,10 +308,15 @@ func TestRC11DeliveryReturnRefusesOtherCompanyWarehouse(t *testing.T) {
 			WHERE r.original_delivery_order_id = $1 AND l.restock_warehouse_id = $2`, orderID, warehouseID).Scan(&n))
 		return n
 	}
+	// generate_return_delivery_order_number numbers per company and month
+	// while return_delivery_orders.number is globally unique (as for
+	// delivery numbers, FIND-029), so each run uses its own far-future month.
+	n := time.Now().UnixNano()
+	returnDate := time.Date(2100+int(n%800), time.Month(1+(n/800)%12), 1, 0, 0, 0, 0, time.UTC).Format("2006-01-02")
 	post := func(warehouseID int64) {
 		t.Helper()
 		client(http.MethodPost, "/delivery/orders/"+strconv.FormatInt(orderID, 10)+"/returns", url.Values{
-			"return_date": {time.Now().Format("2006-01-02")}, "reason": {"damaged"},
+			"return_date": {returnDate}, "reason": {"damaged"},
 			"delivery_order_line_id[]": {strconv.FormatInt(lineID, 10)}, "product_id[]": {strconv.FormatInt(fA.ProductID, 10)},
 			"quantity[]": {"1"}, "unit_price[]": {"100"}, "restock_warehouse_id[]": {strconv.FormatInt(warehouseID, 10)},
 		})

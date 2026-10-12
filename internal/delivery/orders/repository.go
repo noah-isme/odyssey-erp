@@ -35,6 +35,7 @@ type Repository interface {
 	GenerateDocNumber(ctx context.Context, companyID int64, date time.Time) (string, error)
 	GetSalesOrderDetails(ctx context.Context, salesOrderID int64) (*SalesOrderInfo, error)
 	CheckWarehouseExists(ctx context.Context, warehouseID int64) (bool, error)
+	WarehouseBelongsToCompany(ctx context.Context, warehouseID, companyID int64) (bool, error)
 	GenerateReturnDocNumber(ctx context.Context, companyID int64, date time.Time) (string, error)
 }
 
@@ -497,6 +498,14 @@ func (r *repository) GetSalesOrderDetails(ctx context.Context, salesOrderID int6
 		CustomerID: row.CustomerID,
 		Status:     string(row.Status),
 	}, nil
+}
+
+// WarehouseBelongsToCompany reports whether the warehouse's branch belongs
+// to the company.
+func (r *repository) WarehouseBelongsToCompany(ctx context.Context, warehouseID, companyID int64) (bool, error) {
+	var ok bool
+	err := r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM warehouses w JOIN branches b ON b.id = w.branch_id WHERE w.id = $1 AND b.company_id = $2)`, warehouseID, companyID).Scan(&ok)
+	return ok, err
 }
 
 // CheckWarehouseExists validates warehouse existence.

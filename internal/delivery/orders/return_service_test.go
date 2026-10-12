@@ -52,6 +52,12 @@ func (r *returnRepoFake) GetSalesOrderDetails(context.Context, int64) (*SalesOrd
 	return nil, nil
 }
 func (r *returnRepoFake) CheckWarehouseExists(context.Context, int64) (bool, error) { return true, nil }
+
+// WarehouseBelongsToCompany: warehouses 1-99 belong to company 1, others to
+// no company the tests use.
+func (r *returnRepoFake) WarehouseBelongsToCompany(_ context.Context, warehouseID, companyID int64) (bool, error) {
+	return companyID == 1 && warehouseID < 100, nil
+}
 func (r *returnRepoFake) GenerateReturnDocNumber(context.Context, int64, time.Time) (string, error) {
 	return "RDO-1", nil
 }
@@ -222,4 +228,23 @@ func TestOrderActionsHideOtherCompany(t *testing.T) {
 		require.ErrorIs(t, err, ErrNotFound)
 		require.Empty(t, stock.restocked)
 	}
+}
+
+// TestReturnRefusesRestockWarehouseOfAnotherCompany: creating or confirming
+// a return whose restock warehouse is not the company's is refused and
+// moves no stock.
+func TestReturnRefusesRestockWarehouseOfAnotherCompany(t *testing.T) {
+	foreign := int64(500)
+	repo := &returnRepoFake{delivery: &DeliveryOrder{ID: 10, CompanyID: 1, CustomerID: 2, Status: StatusDelivered, WarehouseID: 4, Lines: []Line{{ID: 7, ProductID: 9, QuantityDelivered: 5}}}}
+	service := NewService(repo)
+	_, err := service.CreateReturnDeliveryOrder(context.Background(), CreateReturnRequest{CompanyID: 1, OriginalDeliveryOrderID: 10, ReturnDate: time.Now(),
+		Lines: []CreateReturnLineReq{{DeliveryOrderLineID: 7, ProductID: 9, QuantityReturned: 1, RestockWarehouseID: &foreign}}}, 3)
+	require.ErrorIs(t, err, ErrRestockWarehouse)
+
+	repo.returned = &ReturnDeliveryOrder{ID: 1, CompanyID: 1, Number: "RDO-5", WarehouseID: 4, Status: ReturnStatusDraft, Lines: []ReturnLine{{ProductID: 9, QuantityReturned: 1, RestockWarehouseID: &foreign}}}
+	stock := &inventoryFake{}
+	service.SetInventory(stock)
+	_, err = service.ConfirmReturnDeliveryOrder(context.Background(), 1, 1, 3)
+	require.ErrorIs(t, err, ErrRestockWarehouse)
+	require.Empty(t, stock.restocked)
 }
