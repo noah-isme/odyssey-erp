@@ -555,6 +555,8 @@ func TestRC11DocumentSignatureReplay(t *testing.T) {
 	require.Equal(t, "success", signed.flash.Kind, signed.flash.Message)
 	require.True(t, used(first))
 	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM document_signatures WHERE document_version_id=$1 AND meaning=$2 AND challenge_id=$3::uuid AND signer_id=$4 AND policy_version=1`, versionID, meaning, first, f.AdminID))
+	// No password is re-entered: the signer is authenticated by the session.
+	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM document_signatures WHERE challenge_id=$1::uuid AND auth_method='session'`, first))
 	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM document_access_events WHERE document_version_id=$1 AND action='SIGNED' AND actor_id=$2`, versionID, f.AdminID))
 
 	// Replay of a used challenge is refused.
