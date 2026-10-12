@@ -214,6 +214,11 @@ func (h *Handler) getWorkOrder(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
+	// Another company's work order (or no active company) is not found.
+	if wo.CompanyID != currentCompany(r) {
+		http.NotFound(w, r)
+		return
+	}
 	usages, err := h.service.ListWorkOrderSpareParts(r.Context(), wo.ID)
 	if err != nil {
 		h.logger.Error("list work order spare parts", slog.Any("error", err))
