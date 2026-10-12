@@ -273,6 +273,9 @@ func (s *Service) Confirm(ctx context.Context, id, companyID, confirmedBy int64)
 	if len(existing.Lines) == 0 {
 		return nil, fmt.Errorf("cannot confirm without lines")
 	}
+	if err := s.requireOrderWarehouse(ctx, existing); err != nil {
+		return nil, err
+	}
 
 	// Check stock availability if inventory client is set
 	if s.inventory != nil {
@@ -404,6 +407,11 @@ func (s *Service) Cancel(ctx context.Context, id, companyID int64, req CancelReq
 
 	if !existing.Status.CanCancel() {
 		return nil, fmt.Errorf("%w: %s", ErrCannotCancel, existing.Status)
+	}
+	// The reversal restocks the stored warehouse, which must be the
+	// company's like any other stock movement.
+	if err := s.requireOrderWarehouse(ctx, existing); err != nil {
+		return nil, err
 	}
 
 	wasConfirmed := existing.Status == StatusConfirmed || existing.Status == StatusInTransit
@@ -635,6 +643,35 @@ func (s *Service) checkRestockWarehouses(ctx context.Context, companyID, fallbac
 	return nil
 }
 
+// requireOrderWarehouse refuses a stock movement in an order's stored
+// warehouse when it is not a warehouse of the order's company (legacy rows
+// from before Create checked it), with Create's error.
+func (s *Service) requireOrderWarehouse(ctx context.Context, order *DeliveryOrder) error {
+	ok, err := s.repo.WarehouseBelongsToCompany(ctx, order.WarehouseID, order.CompanyID)
+	if err != nil {
+		return fmt.Errorf("check warehouse: %w", err)
+	}
+	if !ok {
+		return ErrWarehouseNotFound
+	}
+	return nil
+}
+
+// requireReturnWarehouses checks every line's restock warehouse (or the
+// fallback to the return's warehouse) against the company.
+func (s *Service) requireReturnWarehouses(ctx context.Context, rdo *ReturnDeliveryOrder, companyID int64) error {
+	for _, line := range rdo.Lines {
+		warehouseID := rdo.WarehouseID
+		if line.RestockWarehouseID != nil && *line.RestockWarehouseID > 0 {
+			warehouseID = *line.RestockWarehouseID
+		}
+		if err := s.requireCompanyWarehouse(ctx, warehouseID, companyID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *Service) requireCompanyWarehouse(ctx context.Context, warehouseID, companyID int64) error {
 	ok, err := s.repo.WarehouseBelongsToCompany(ctx, warehouseID, companyID)
 	if err != nil {
@@ -661,14 +698,8 @@ func (s *Service) ConfirmReturnDeliveryOrder(ctx context.Context, id, companyID,
 	if len(existing.Lines) == 0 {
 		return nil, fmt.Errorf("cannot confirm without lines")
 	}
-	for _, line := range existing.Lines {
-		warehouseID := existing.WarehouseID
-		if line.RestockWarehouseID != nil && *line.RestockWarehouseID > 0 {
-			warehouseID = *line.RestockWarehouseID
-		}
-		if err := s.requireCompanyWarehouse(ctx, warehouseID, companyID); err != nil {
-			return nil, err
-		}
+	if err := s.requireReturnWarehouses(ctx, existing, companyID); err != nil {
+		return nil, err
 	}
 
 	items := make([]InventoryItem, 0, len(existing.Lines))
@@ -737,6 +768,11 @@ func (s *Service) CancelReturnDeliveryOrder(ctx context.Context, id, companyID, 
 	}
 
 	wasConfirmed := existing.Status == ReturnStatusConfirmed
+	if wasConfirmed {
+		if err := s.requireReturnWarehouses(ctx, existing, companyID); err != nil {
+			return nil, err
+		}
+	}
 	items := make([]InventoryItem, 0, len(existing.Lines))
 	if wasConfirmed && s.inventory != nil {
 		for _, line := range existing.Lines {
