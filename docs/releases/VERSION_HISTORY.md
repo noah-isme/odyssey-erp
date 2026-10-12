@@ -409,13 +409,22 @@ that fails at the rc.10 tag. Fixes (findings in the
   test runs.
 - **Test correction** (`ef89fb3`): after a full AR payment the strict test
   expects `PAID`.
+- **Review fixes** (`FIND-032` in part, `FIND-016`, `FIND-035`; `9300de8`,
+  `53981ac`, `0fb64d7`, `be91f64`, `1b88c88`): document retention checks the
+  version's company and document; the CMMS work-order page returns `404` for
+  another company; delivery handlers no longer fall back to company 1; a
+  failed company lookup clears the session company; signatures record
+  `auth_method = 'session'`.
 
-Open in rc.11 (`FIND-028` to `FIND-033`): AR/AP post-commit tax capture on a
+Open in rc.11 (`FIND-028` to `FIND-035`): AR/AP post-commit tax capture on a
 database without reviewed tax configuration, delivery document numbering
 (needs a migration, v0.11), delivery confirm atomicity and journal gaps, the
 period guard on the last day of a month, sales/freight actor fallbacks and
-unscoped GET-by-id checks, and GRN/PO AP invoice handlers that do not run
-matching.
+the remaining unscoped GET-by-id checks, GRN/PO AP invoice handlers that do
+not run matching, document ACLs that are stored but not enforced, and the
+signature meaning that is not compared with the challenge (user decision).
+`FIND-019`, `FIND-022` and `FIND-024` stay `OPEN` until the release owner
+signs their proposed acceptance.
 
 **Operations.** Staging is rebuilt from an empty database before rc.11 is
 certified (`FIND-020`; [preflight checklist](v0.10-staging-preflight-checklist.md)
