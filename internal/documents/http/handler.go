@@ -588,9 +588,13 @@ func (h *Handler) signVersion(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) applyRetention(w http.ResponseWriter, r *http.Request) {
 	docID := chi.URLParam(r, "id")
-	versionID := parseInt64(chi.URLParam(r, "versionID"))
+	version, ok := h.versionOfDocument(r)
+	if !ok {
+		h.redirectWithFlash(w, r, "/documents/library/"+docID+"/versions", "danger", "Document version not found.")
+		return
+	}
 
-	err := h.service.ApplyRetention(r.Context(), versionID)
+	err := h.service.ApplyRetention(r.Context(), version.ID)
 	if err != nil {
 		h.redirectWithFlash(w, r, "/documents/library/"+docID+"/versions", "danger", shared.UserSafeMessage(err))
 		return
