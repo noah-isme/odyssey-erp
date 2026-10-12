@@ -1,6 +1,7 @@
 package orders
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -160,7 +161,7 @@ func (h *Handler) show(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	order, err := h.service.GetWithDetails(ctx, id)
+	order, err := h.service.GetWithDetails(ctx, id, getCompanyID(r))
 	if err != nil {
 		h.logger.Error("get order failed", "error", err, "id", id)
 		http.Error(w, "Not Found", http.StatusNotFound)
@@ -238,7 +239,7 @@ func (h *Handler) showEditForm(w http.ResponseWriter, r *http.Request) {
 
 	// The edit form shows the sales order number and warehouse name, which only
 	// the joined view carries; GetByID returns the bare record without them.
-	order, err := h.service.GetWithDetails(ctx, id)
+	order, err := h.service.GetWithDetails(ctx, id, getCompanyID(r))
 	if err != nil {
 		http.Error(w, "Not Found", http.StatusNotFound)
 		return
@@ -271,8 +272,12 @@ func (h *Handler) update(w http.ResponseWriter, r *http.Request) {
 		req.Notes = &v
 	}
 
-	if _, err := h.service.Update(ctx, id, req); err != nil {
+	if _, err := h.service.Update(ctx, id, getCompanyID(r), req); err != nil {
 		h.logger.Error("update failed", "error", err, "id", id)
+		if errors.Is(err, ErrNotFound) {
+			http.Error(w, "Not Found", http.StatusNotFound)
+			return
+		}
 		h.renderFormError(w, r, map[string]string{"_form": shared.UserSafeMessage(err)})
 		return
 	}
@@ -286,9 +291,9 @@ func (h *Handler) confirm(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	userID := getUserID(r)
 
-	if _, err := h.service.Confirm(ctx, id, userID); err != nil {
+	if _, err := h.service.Confirm(ctx, id, getCompanyID(r), userID); err != nil {
 		h.logger.Error("confirm failed", "error", err, "id", id)
-		h.redirect(w, r, "/delivery/orders/"+strconv.FormatInt(id, 10), shared.UserSafeMessage(err))
+		h.actionFailed(w, r, err, "/delivery/orders/"+strconv.FormatInt(id, 10))
 		return
 	}
 
@@ -306,9 +311,9 @@ func (h *Handler) ship(w http.ResponseWriter, r *http.Request) {
 		req.TrackingNumber = &t
 	}
 
-	if _, err := h.service.MarkInTransit(ctx, id, req); err != nil {
+	if _, err := h.service.MarkInTransit(ctx, id, getCompanyID(r), req); err != nil {
 		h.logger.Error("ship failed", "error", err, "id", id)
-		h.redirect(w, r, "/delivery/orders/"+strconv.FormatInt(id, 10), shared.UserSafeMessage(err))
+		h.actionFailed(w, r, err, "/delivery/orders/"+strconv.FormatInt(id, 10))
 		return
 	}
 
@@ -331,9 +336,9 @@ func (h *Handler) complete(w http.ResponseWriter, r *http.Request) {
 		UpdatedBy:   userID,
 	}
 
-	if _, err := h.service.MarkDelivered(ctx, id, req); err != nil {
+	if _, err := h.service.MarkDelivered(ctx, id, getCompanyID(r), req); err != nil {
 		h.logger.Error("complete failed", "error", err, "id", id)
-		h.redirect(w, r, "/delivery/orders/"+strconv.FormatInt(id, 10), shared.UserSafeMessage(err))
+		h.actionFailed(w, r, err, "/delivery/orders/"+strconv.FormatInt(id, 10))
 		return
 	}
 
@@ -354,9 +359,9 @@ func (h *Handler) cancel(w http.ResponseWriter, r *http.Request) {
 
 	req := CancelRequest{Reason: reason, CancelledBy: userID}
 
-	if _, err := h.service.Cancel(ctx, id, req); err != nil {
+	if _, err := h.service.Cancel(ctx, id, getCompanyID(r), req); err != nil {
 		h.logger.Error("cancel failed", "error", err, "id", id)
-		h.redirect(w, r, "/delivery/orders/"+strconv.FormatInt(id, 10), shared.UserSafeMessage(err))
+		h.actionFailed(w, r, err, "/delivery/orders/"+strconv.FormatInt(id, 10))
 		return
 	}
 
@@ -393,6 +398,17 @@ func (h *Handler) redirect(w http.ResponseWriter, r *http.Request, url, message 
 	http.Redirect(w, r, url, http.StatusSeeOther)
 }
 
+// actionFailed answers a failed action on an order or return: 404 when it
+// is unknown or belongs to another company (ErrNotFound), otherwise a
+// redirect to url with the error as the flash message.
+func (h *Handler) actionFailed(w http.ResponseWriter, r *http.Request, err error, url string) {
+	if errors.Is(err, ErrNotFound) {
+		http.Error(w, "Not Found", http.StatusNotFound)
+		return
+	}
+	h.redirect(w, r, url, shared.UserSafeMessage(err))
+}
+
 func (h *Handler) renderFormError(w http.ResponseWriter, r *http.Request, errors map[string]string) {
 	h.render(w, r, "pages/delivery/order_form.html", map[string]interface{}{
 		"Errors":   errors,
@@ -413,12 +429,11 @@ func getUserID(r *http.Request) int64 {
 }
 
 // getCompanyID returns the session's active company, or 0 when there is
-// none (fail closed: there is no implicit company). It is used only to scope
-// the list and to set the company of a new order or return, where 0 matches
-// nothing and the sales-order company check refuses the create. It does not
-// scope writes to existing orders: show, edit, confirm, ship, complete and
-// cancel load the order by id alone without checking its company (FIND-036,
-// open).
+// none (fail closed: there is no implicit company). It scopes the list, sets
+// the company of a new order or return, and is passed to every by-id service
+// call (show, edit, update, confirm, ship, complete, cancel and the return
+// routes), which answer ErrNotFound for an order or return of another
+// company and for 0 (FIND-036).
 func getCompanyID(r *http.Request) int64 {
 	if sess := shared.SessionFromContext(r.Context()); sess != nil {
 		if id, err := strconv.ParseInt(sess.Get("company_id"), 10, 64); err == nil && id > 0 {

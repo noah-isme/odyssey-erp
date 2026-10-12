@@ -110,12 +110,12 @@ func TestCreateReturnRejectsCumulativeQuantityAboveDelivered(t *testing.T) {
 
 func TestConfirmReturnRestocksSelectedWarehouse(t *testing.T) {
 	warehouseID := int64(8)
-	repo := &returnRepoFake{returned: &ReturnDeliveryOrder{ID: 1, Number: "RDO-1", WarehouseID: 4, Status: ReturnStatusDraft, Lines: []ReturnLine{{ProductID: 9, QuantityReturned: 2, UnitPrice: 30, RestockWarehouseID: &warehouseID}}}}
+	repo := &returnRepoFake{returned: &ReturnDeliveryOrder{ID: 1, CompanyID: 1, Number: "RDO-1", WarehouseID: 4, Status: ReturnStatusDraft, Lines: []ReturnLine{{ProductID: 9, QuantityReturned: 2, UnitPrice: 30, RestockWarehouseID: &warehouseID}}}}
 	stock := &inventoryFake{}
 	service := NewService(repo)
 	service.SetInventory(stock)
 
-	returned, err := service.ConfirmReturnDeliveryOrder(context.Background(), 1, 3)
+	returned, err := service.ConfirmReturnDeliveryOrder(context.Background(), 1, 1, 3)
 	require.NoError(t, err)
 	require.Equal(t, ReturnStatusConfirmed, returned.Status)
 	require.Len(t, stock.restocked, 1)
@@ -124,12 +124,12 @@ func TestConfirmReturnRestocksSelectedWarehouse(t *testing.T) {
 }
 
 func TestConfirmReturnReversesOnCancel(t *testing.T) {
-	repo := &returnRepoFake{returned: &ReturnDeliveryOrder{ID: 1, Number: "RDO-2", WarehouseID: 4, Status: ReturnStatusConfirmed, Lines: []ReturnLine{{ProductID: 9, QuantityReturned: 2, UnitPrice: 30}}}}
+	repo := &returnRepoFake{returned: &ReturnDeliveryOrder{ID: 1, CompanyID: 1, Number: "RDO-2", WarehouseID: 4, Status: ReturnStatusConfirmed, Lines: []ReturnLine{{ProductID: 9, QuantityReturned: 2, UnitPrice: 30}}}}
 	stock := &inventoryFake{}
 	service := NewService(repo)
 	service.SetInventory(stock)
 
-	returned, err := service.CancelReturnDeliveryOrder(context.Background(), 1, 3, "customer rejected")
+	returned, err := service.CancelReturnDeliveryOrder(context.Background(), 1, 1, 3, "customer rejected")
 	require.NoError(t, err)
 	require.Equal(t, ReturnStatusCancelled, returned.Status)
 	require.Len(t, stock.restocked, 1)
@@ -163,9 +163,63 @@ func TestCreateReturnRejectsDuplicateLinesBeyondDelivered(t *testing.T) {
 }
 
 func TestConfirmReturnRejectsInvalidStatus(t *testing.T) {
-	repo := &returnRepoFake{returned: &ReturnDeliveryOrder{ID: 1, Number: "RDO-3", WarehouseID: 4, Status: ReturnStatusCancelled, Lines: []ReturnLine{{ProductID: 9, QuantityReturned: 2, UnitPrice: 30}}}}
+	repo := &returnRepoFake{returned: &ReturnDeliveryOrder{ID: 1, CompanyID: 1, Number: "RDO-3", WarehouseID: 4, Status: ReturnStatusCancelled, Lines: []ReturnLine{{ProductID: 9, QuantityReturned: 2, UnitPrice: 30}}}}
 	service := NewService(repo)
-	_, err := service.ConfirmReturnDeliveryOrder(context.Background(), 1, 3)
+	_, err := service.ConfirmReturnDeliveryOrder(context.Background(), 1, 1, 3)
 	require.Error(t, err)
 	require.ErrorContains(t, err, "cannot confirm return delivery order")
+}
+
+// TestReturnActionsHideOtherCompany: confirming or cancelling a return of
+// another company, or with no company, answers ErrNotFound and moves no
+// stock (FIND-036).
+func TestReturnActionsHideOtherCompany(t *testing.T) {
+	for _, companyID := range []int64{2, 0} {
+		repo := &returnRepoFake{returned: &ReturnDeliveryOrder{ID: 1, CompanyID: 1, Number: "RDO-4", WarehouseID: 4, Status: ReturnStatusConfirmed, Lines: []ReturnLine{{ProductID: 9, QuantityReturned: 2, UnitPrice: 30}}}}
+		stock := &inventoryFake{}
+		service := NewService(repo)
+		service.SetInventory(stock)
+
+		_, err := service.CancelReturnDeliveryOrder(context.Background(), 1, companyID, 3, "reason")
+		require.ErrorIs(t, err, ErrNotFound, "company %d", companyID)
+		repo.returned.Status = ReturnStatusDraft
+		_, err = service.ConfirmReturnDeliveryOrder(context.Background(), 1, companyID, 3)
+		require.ErrorIs(t, err, ErrNotFound, "company %d", companyID)
+		_, err = service.GetReturnByID(context.Background(), 1, companyID)
+		require.ErrorIs(t, err, ErrNotFound, "company %d", companyID)
+		require.Empty(t, stock.restocked, "company %d", companyID)
+	}
+}
+
+// TestOrderActionsHideOtherCompany: every by-id delivery order action of
+// another company, or with no company, answers ErrNotFound and moves no
+// stock (FIND-036).
+func TestOrderActionsHideOtherCompany(t *testing.T) {
+	for _, companyID := range []int64{2, 0} {
+		order := &DeliveryOrder{ID: 10, CompanyID: 1, Status: StatusDraft, WarehouseID: 4, Lines: []Line{{ID: 7, ProductID: 9, QuantityToDeliver: 1}}}
+		repo := &returnRepoFake{delivery: order}
+		stock := &inventoryFake{}
+		service := NewService(repo)
+		service.SetInventory(stock)
+		ctx := context.Background()
+
+		_, err := service.GetByID(ctx, 10, companyID)
+		require.ErrorIs(t, err, ErrNotFound)
+		_, err = service.Update(ctx, 10, companyID, UpdateRequest{})
+		require.ErrorIs(t, err, ErrNotFound)
+		_, err = service.Confirm(ctx, 10, companyID, 3)
+		require.ErrorIs(t, err, ErrNotFound)
+		order.Status = StatusConfirmed
+		_, err = service.MarkInTransit(ctx, 10, companyID, MarkInTransitRequest{})
+		require.ErrorIs(t, err, ErrNotFound)
+		_, err = service.Cancel(ctx, 10, companyID, CancelRequest{Reason: "x"})
+		require.ErrorIs(t, err, ErrNotFound)
+		order.Status = StatusInTransit
+		_, err = service.MarkDelivered(ctx, 10, companyID, MarkDeliveredRequest{})
+		require.ErrorIs(t, err, ErrNotFound)
+		order.Status = StatusDelivered
+		_, err = service.CreateReturnDeliveryOrder(ctx, CreateReturnRequest{CompanyID: companyID, OriginalDeliveryOrderID: 10}, 3)
+		require.ErrorIs(t, err, ErrNotFound)
+		require.Empty(t, stock.restocked)
+	}
 }

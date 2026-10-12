@@ -159,11 +159,11 @@ func (s *Service) Create(ctx context.Context, req CreateRequest, createdBy int64
 	return s.repo.GetByID(ctx, doID)
 }
 
-// Update updates a DRAFT delivery order.
-func (s *Service) Update(ctx context.Context, id int64, req UpdateRequest) (*DeliveryOrder, error) {
-	existing, err := s.repo.GetByID(ctx, id)
+// Update updates a DRAFT delivery order of the company.
+func (s *Service) Update(ctx context.Context, id, companyID int64, req UpdateRequest) (*DeliveryOrder, error) {
+	existing, err := s.orderForCompany(ctx, id, companyID)
 	if err != nil {
-		return nil, fmt.Errorf("get delivery order: %w", err)
+		return nil, err
 	}
 
 	if !existing.Status.CanEdit() {
@@ -257,11 +257,11 @@ func validateDeliveryLine(reqLine CreateLineReq, deliverable *DeliverableSOLine,
 	return nil
 }
 
-// Confirm confirms a delivery order and reduces inventory.
-func (s *Service) Confirm(ctx context.Context, id int64, confirmedBy int64) (*DeliveryOrder, error) {
-	existing, err := s.repo.GetByID(ctx, id)
+// Confirm confirms a delivery order of the company and reduces inventory.
+func (s *Service) Confirm(ctx context.Context, id, companyID, confirmedBy int64) (*DeliveryOrder, error) {
+	existing, err := s.orderForCompany(ctx, id, companyID)
 	if err != nil {
-		return nil, fmt.Errorf("get delivery order: %w", err)
+		return nil, err
 	}
 
 	if !existing.Status.CanConfirm() {
@@ -329,11 +329,11 @@ func (s *Service) Confirm(ctx context.Context, id int64, confirmedBy int64) (*De
 	return s.repo.GetByID(ctx, id)
 }
 
-// MarkInTransit marks a delivery order as in transit.
-func (s *Service) MarkInTransit(ctx context.Context, id int64, req MarkInTransitRequest) (*DeliveryOrder, error) {
-	existing, err := s.repo.GetByID(ctx, id)
+// MarkInTransit marks a delivery order of the company as in transit.
+func (s *Service) MarkInTransit(ctx context.Context, id, companyID int64, req MarkInTransitRequest) (*DeliveryOrder, error) {
+	existing, err := s.orderForCompany(ctx, id, companyID)
 	if err != nil {
-		return nil, fmt.Errorf("get delivery order: %w", err)
+		return nil, err
 	}
 
 	if existing.Status != StatusConfirmed {
@@ -356,11 +356,11 @@ func (s *Service) MarkInTransit(ctx context.Context, id int64, req MarkInTransit
 	return s.repo.GetByID(ctx, id)
 }
 
-// MarkDelivered marks a delivery order as delivered.
-func (s *Service) MarkDelivered(ctx context.Context, id int64, req MarkDeliveredRequest) (*DeliveryOrder, error) {
-	existing, err := s.repo.GetByID(ctx, id)
+// MarkDelivered marks a delivery order of the company as delivered.
+func (s *Service) MarkDelivered(ctx context.Context, id, companyID int64, req MarkDeliveredRequest) (*DeliveryOrder, error) {
+	existing, err := s.orderForCompany(ctx, id, companyID)
 	if err != nil {
-		return nil, fmt.Errorf("get delivery order: %w", err)
+		return nil, err
 	}
 
 	if existing.Status != StatusInTransit {
@@ -392,11 +392,12 @@ func (s *Service) MarkDelivered(ctx context.Context, id int64, req MarkDelivered
 	return s.repo.GetByID(ctx, id)
 }
 
-// Cancel cancels a delivery order and restores inventory if it was confirmed.
-func (s *Service) Cancel(ctx context.Context, id int64, req CancelRequest) (*DeliveryOrder, error) {
-	existing, err := s.repo.GetByID(ctx, id)
+// Cancel cancels a delivery order of the company and restores inventory if
+// it was confirmed.
+func (s *Service) Cancel(ctx context.Context, id, companyID int64, req CancelRequest) (*DeliveryOrder, error) {
+	existing, err := s.orderForCompany(ctx, id, companyID)
 	if err != nil {
-		return nil, fmt.Errorf("get delivery order: %w", err)
+		return nil, err
 	}
 
 	if !existing.Status.CanCancel() {
@@ -448,21 +449,45 @@ func (s *Service) Cancel(ctx context.Context, id int64, req CancelRequest) (*Del
 	return s.repo.GetByID(ctx, id)
 }
 
-// GetByID retrieves a delivery order by ID.
-func (s *Service) GetByID(ctx context.Context, id int64) (*DeliveryOrder, error) {
+// GetByID retrieves a delivery order of the company by ID.
+func (s *Service) GetByID(ctx context.Context, id, companyID int64) (*DeliveryOrder, error) {
+	return s.orderForCompany(ctx, id, companyID)
+}
+
+// orderForCompany loads a delivery order and hides one of another company:
+// an order whose company is not companyID (or a companyID of 0, a session
+// without a company) answers ErrNotFound, as an unknown id does.
+func (s *Service) orderForCompany(ctx context.Context, id, companyID int64) (*DeliveryOrder, error) {
+	if companyID <= 0 {
+		return nil, ErrNotFound
+	}
 	do, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			return nil, ErrOrderNotFound
+			return nil, ErrNotFound
 		}
-		return nil, err
+		return nil, fmt.Errorf("get delivery order: %w", err)
+	}
+	if do.CompanyID != companyID {
+		return nil, ErrNotFound
 	}
 	return do, nil
 }
 
-// GetWithDetails retrieves a delivery order with enriched details.
-func (s *Service) GetWithDetails(ctx context.Context, id int64) (*WithDetails, error) {
-	return s.repo.GetWithDetails(ctx, id)
+// GetWithDetails retrieves a delivery order of the company with enriched
+// details; another company's order answers ErrNotFound.
+func (s *Service) GetWithDetails(ctx context.Context, id, companyID int64) (*WithDetails, error) {
+	if companyID <= 0 {
+		return nil, ErrNotFound
+	}
+	do, err := s.repo.GetWithDetails(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if do.CompanyID != companyID {
+		return nil, ErrNotFound
+	}
+	return do, nil
 }
 
 // GetLinesWithDetails retrieves lines with product details.
@@ -489,18 +514,16 @@ func (s *Service) GetDeliverableSOLines(ctx context.Context, salesOrderID int64)
 	return s.repo.GetDeliverableSOLines(ctx, salesOrderID)
 }
 
-// CreateReturnDeliveryOrder creates a new return delivery order from an original DO.
+// CreateReturnDeliveryOrder creates a new return delivery order from an
+// original DO of req.CompanyID; another company's DO answers ErrNotFound.
 func (s *Service) CreateReturnDeliveryOrder(ctx context.Context, req CreateReturnRequest, createdBy int64) (*ReturnDeliveryOrder, error) {
-	original, err := s.repo.GetByID(ctx, req.OriginalDeliveryOrderID)
+	original, err := s.orderForCompany(ctx, req.OriginalDeliveryOrderID, req.CompanyID)
 	if err != nil {
-		return nil, fmt.Errorf("get original delivery order: %w", err)
+		return nil, err
 	}
 
 	if original.Status != StatusDelivered {
 		return nil, fmt.Errorf("original delivery order must be delivered")
-	}
-	if req.CompanyID != original.CompanyID {
-		return nil, fmt.Errorf("original delivery order belongs to another company")
 	}
 
 	if len(req.Lines) == 0 {
@@ -590,11 +613,12 @@ func (s *Service) CreateReturnDeliveryOrder(ctx context.Context, req CreateRetur
 	return s.repo.GetReturnByID(ctx, rdoID)
 }
 
-// ConfirmReturnDeliveryOrder confirms a return DO and restocks inventory.
-func (s *Service) ConfirmReturnDeliveryOrder(ctx context.Context, id int64, confirmedBy int64) (*ReturnDeliveryOrder, error) {
-	existing, err := s.repo.GetReturnByID(ctx, id)
+// ConfirmReturnDeliveryOrder confirms a return DO of the company and
+// restocks inventory.
+func (s *Service) ConfirmReturnDeliveryOrder(ctx context.Context, id, companyID, confirmedBy int64) (*ReturnDeliveryOrder, error) {
+	existing, err := s.returnForCompany(ctx, id, companyID)
 	if err != nil {
-		return nil, fmt.Errorf("get return delivery order: %w", err)
+		return nil, err
 	}
 
 	if !existing.Status.CanConfirm() {
@@ -651,11 +675,12 @@ func (s *Service) ConfirmReturnDeliveryOrder(ctx context.Context, id int64, conf
 	return s.repo.GetReturnByID(ctx, id)
 }
 
-// CancelReturnDeliveryOrder cancels a return DO and reverses the stock if confirmed.
-func (s *Service) CancelReturnDeliveryOrder(ctx context.Context, id int64, cancelledBy int64, reason string) (*ReturnDeliveryOrder, error) {
-	existing, err := s.repo.GetReturnByID(ctx, id)
+// CancelReturnDeliveryOrder cancels a return DO of the company and reverses
+// the stock if confirmed.
+func (s *Service) CancelReturnDeliveryOrder(ctx context.Context, id, companyID, cancelledBy int64, reason string) (*ReturnDeliveryOrder, error) {
+	existing, err := s.returnForCompany(ctx, id, companyID)
 	if err != nil {
-		return nil, fmt.Errorf("get return delivery order: %w", err)
+		return nil, err
 	}
 
 	if !existing.Status.CanCancel() {
@@ -716,9 +741,28 @@ func (s *Service) CancelReturnDeliveryOrder(ctx context.Context, id int64, cance
 	return s.repo.GetReturnByID(ctx, id)
 }
 
-// GetReturnByID retrieves a return delivery order by ID.
-func (s *Service) GetReturnByID(ctx context.Context, id int64) (*ReturnDeliveryOrder, error) {
-	return s.repo.GetReturnByID(ctx, id)
+// GetReturnByID retrieves a return delivery order of the company by ID.
+func (s *Service) GetReturnByID(ctx context.Context, id, companyID int64) (*ReturnDeliveryOrder, error) {
+	return s.returnForCompany(ctx, id, companyID)
+}
+
+// returnForCompany loads a return delivery order and hides one of another
+// company (or any, for a companyID of 0) behind ErrNotFound.
+func (s *Service) returnForCompany(ctx context.Context, id, companyID int64) (*ReturnDeliveryOrder, error) {
+	if companyID <= 0 {
+		return nil, ErrNotFound
+	}
+	rdo, err := s.repo.GetReturnByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("get return delivery order: %w", err)
+	}
+	if rdo.CompanyID != companyID {
+		return nil, ErrNotFound
+	}
+	return rdo, nil
 }
 
 // ListReturns returns a paginated list of return delivery orders.

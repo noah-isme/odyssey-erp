@@ -6,8 +6,6 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-
-	"github.com/odyssey-erp/odyssey-erp/internal/shared"
 )
 
 func (h *Handler) showReturnForm(w http.ResponseWriter, r *http.Request) {
@@ -16,7 +14,7 @@ func (h *Handler) showReturnForm(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid delivery ID", http.StatusBadRequest)
 		return
 	}
-	order, err := h.service.GetByID(r.Context(), id)
+	order, err := h.service.GetByID(r.Context(), id, getCompanyID(r))
 	if err != nil {
 		http.Error(w, "Delivery order not found", http.StatusNotFound)
 		return
@@ -61,7 +59,7 @@ func (h *Handler) createReturn(w http.ResponseWriter, r *http.Request) {
 		Reason: r.FormValue("reason"), Lines: lines,
 	}, getUserID(r))
 	if err != nil {
-		h.redirect(w, r, "/delivery/orders/"+strconv.FormatInt(id, 10)+"/returns/new", shared.UserSafeMessage(err))
+		h.actionFailed(w, r, err, "/delivery/orders/"+strconv.FormatInt(id, 10)+"/returns/new")
 		return
 	}
 	h.redirect(w, r, "/delivery/orders/returns/"+strconv.FormatInt(returned.ID, 10), "Return delivery order created")
@@ -73,7 +71,7 @@ func (h *Handler) showReturn(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid return ID", http.StatusBadRequest)
 		return
 	}
-	returned, err := h.service.GetReturnByID(r.Context(), id)
+	returned, err := h.service.GetReturnByID(r.Context(), id, getCompanyID(r))
 	if err != nil {
 		http.Error(w, "Return delivery order not found", http.StatusNotFound)
 		return
@@ -87,8 +85,8 @@ func (h *Handler) confirmReturn(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid return ID", http.StatusBadRequest)
 		return
 	}
-	if _, err := h.service.ConfirmReturnDeliveryOrder(r.Context(), id, getUserID(r)); err != nil {
-		h.redirect(w, r, returnURL(id), shared.UserSafeMessage(err))
+	if _, err := h.service.ConfirmReturnDeliveryOrder(r.Context(), id, getCompanyID(r), getUserID(r)); err != nil {
+		h.actionFailed(w, r, err, returnURL(id))
 		return
 	}
 	h.redirect(w, r, returnURL(id), "Inventory restocked")
@@ -100,8 +98,8 @@ func (h *Handler) cancelReturn(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid return ID", http.StatusBadRequest)
 		return
 	}
-	if _, err := h.service.CancelReturnDeliveryOrder(r.Context(), id, getUserID(r), r.FormValue("reason")); err != nil {
-		h.redirect(w, r, returnURL(id), shared.UserSafeMessage(err))
+	if _, err := h.service.CancelReturnDeliveryOrder(r.Context(), id, getCompanyID(r), getUserID(r), r.FormValue("reason")); err != nil {
+		h.actionFailed(w, r, err, returnURL(id))
 		return
 	}
 	h.redirect(w, r, returnURL(id), "Return delivery order cancelled")
