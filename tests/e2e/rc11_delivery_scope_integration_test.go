@@ -267,3 +267,59 @@ func TestRC11DeliveryRefusesOtherCompanyOrders(t *testing.T) {
 	require.Equal(t, movementsBefore+2, movementsOwner, "the owner's confirm and cancel post their stock movements")
 	require.Equal(t, qtyBefore, qtyOwner)
 }
+
+// insertRC11DeliveredOrder inserts, for fixture f, a CONFIRMED sales order
+// and a DELIVERED delivery order of 2 units with no returns, and returns the
+// order and its line.
+func insertRC11DeliveredOrder(t *testing.T, p *pgxpool.Pool, f rc11Fixture, tag string) (orderID, lineID int64) {
+	t.Helper()
+	ctx := context.Background()
+	var soID, soLineID int64
+	require.NoError(t, p.QueryRow(ctx, `INSERT INTO sales_orders(doc_number,company_id,customer_id,order_date,status,currency,created_by)
+		VALUES($1,$2,$3,CURRENT_DATE,'CONFIRMED','IDR',$4) RETURNING id`, "SO-"+tag+"-"+f.Suffix, f.CompanyID, f.CustomerID, f.AdminID).Scan(&soID))
+	require.NoError(t, p.QueryRow(ctx, `INSERT INTO sales_order_lines(sales_order_id,product_id,quantity,uom,unit_price,line_total,fulfillment_warehouse_id)
+		VALUES($1,$2,2,'EA',100,200,$3) RETURNING id`, soID, f.ProductID, f.WarehouseID).Scan(&soLineID))
+	require.NoError(t, p.QueryRow(ctx, `INSERT INTO delivery_orders(doc_number,company_id,sales_order_id,warehouse_id,customer_id,delivery_date,status,created_by)
+		VALUES($1,$2,$3,$4,$5,CURRENT_DATE,'DELIVERED',$6) RETURNING id`, "DO-"+tag+"-"+f.Suffix, f.CompanyID, soID, f.WarehouseID, f.CustomerID, f.AdminID).Scan(&orderID))
+	require.NoError(t, p.QueryRow(ctx, `INSERT INTO delivery_order_lines(delivery_order_id,sales_order_line_id,product_id,quantity_to_deliver,quantity_delivered,uom,unit_price)
+		VALUES($1,$2,$3,2,2,'EA',100) RETURNING id`, orderID, soLineID, f.ProductID).Scan(&lineID))
+	return orderID, lineID
+}
+
+// TestRC11DeliveryReturnRefusesOtherCompanyWarehouse: a return of company
+// A's own delivered order may only restock into a warehouse of company A.
+// Naming company B's warehouse (restock_warehouse_id[] is a form field) must
+// be refused without creating the return, so confirming it can never post
+// stock into company B; company A's own warehouse still works. Before the
+// fix the return was stored with B's warehouse, and confirming it restocks
+// that warehouse through inventory PostAdjustment, which checks no company
+// (return confirm is currently unreachable because of FIND-039).
+func TestRC11DeliveryReturnRefusesOtherCompanyWarehouse(t *testing.T) {
+	p, fA := newRC11Fixture(t)
+	_, fB := newRC11Fixture(t)
+	ctx := context.Background()
+	orderID, lineID := insertRC11DeliveredOrder(t, p, fA, "RETWH")
+	inv := inventory.NewService(inventory.NewRepository(p), shared.NewAuditLogger(p), shared.NewIdempotencyStore(p), inventory.ServiceConfig{}, nil)
+	client := rc11DeliveryClient(t, p, fA.AdminID, fA.CompanyID, inv)
+	restockLines := func(warehouseID int64) int {
+		t.Helper()
+		var n int
+		require.NoError(t, p.QueryRow(ctx, `SELECT COUNT(*) FROM return_delivery_order_lines l JOIN return_delivery_orders r ON r.id = l.return_delivery_order_id
+			WHERE r.original_delivery_order_id = $1 AND l.restock_warehouse_id = $2`, orderID, warehouseID).Scan(&n))
+		return n
+	}
+	post := func(warehouseID int64) {
+		t.Helper()
+		client(http.MethodPost, "/delivery/orders/"+strconv.FormatInt(orderID, 10)+"/returns", url.Values{
+			"return_date": {time.Now().Format("2006-01-02")}, "reason": {"damaged"},
+			"delivery_order_line_id[]": {strconv.FormatInt(lineID, 10)}, "product_id[]": {strconv.FormatInt(fA.ProductID, 10)},
+			"quantity[]": {"1"}, "unit_price[]": {"100"}, "restock_warehouse_id[]": {strconv.FormatInt(warehouseID, 10)},
+		})
+	}
+
+	post(fB.WarehouseID)
+	require.Zero(t, restockLines(fB.WarehouseID), "a return of company A must not be stored with company B's restock warehouse")
+
+	post(fA.WarehouseID)
+	require.Equal(t, 1, restockLines(fA.WarehouseID), "company A's own restock warehouse must be accepted")
+}
