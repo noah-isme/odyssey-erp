@@ -24,12 +24,13 @@
 > migration. The rc.10 certification run `37820191861` was invalidated: the test
 > had been changed to fabricate outcomes and staging carried out-of-band schema
 > objects (`FIND-009`, `FIND-010`). rc.11 fixes the product defects that run hid
-> (`FIND-011` to `FIND-018`, `FIND-021`, `FIND-023`, `FIND-025` to `FIND-027`):
+> (`FIND-011` to `FIND-018`, `FIND-021`, `FIND-023`, `FIND-025` to `FIND-027`,
+> `FIND-036`):
 > document versions and signatures, the document and CMMS journey routes, AR/AP
 > posting and audit, workspace company scoping, one shared document storage
 > directory, a reproducible bundle, the delivery actor, stock-movement audit and
-> the staging seeder, and adds a schema checksum gate to DB-002. Open findings
-> `FIND-028` to `FIND-036` and `FIND-019`, `FIND-022`, `FIND-024` (acceptance
+> the staging seeder and delivery company scoping, and adds a schema checksum
+> gate to DB-002. Open findings `FIND-028` to `FIND-035` and `FIND-019`, `FIND-022`, `FIND-024` (acceptance
 > proposed, release-owner sign-off pending) are in the [staging certification record](releases/v0.10-core-staging-certification.md).
 > Before certification, staging is rebuilt from an empty database (`FIND-020`)
 > and the `certification/v0.10.0-rc.11` dispatch branch is created from the rc.11

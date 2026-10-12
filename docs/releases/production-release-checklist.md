@@ -219,10 +219,9 @@ The current repository deliberately does not claim production release readiness:
   [staging certification record](v0.10-core-staging-certification.md#findings)
   need an owner, due date, and release-owner acceptance before promotion
   (`FIND-008` is resolved in rc.9); the open rc.11 findings `FIND-028` to
-  `FIND-036` and `FIND-019`, `FIND-022` and `FIND-024` (acceptance proposed,
-  `OPEN` until the release owner signs) need the same before promotion, and
-  `FIND-036` is `high`, so it must be fixed before promotion (zero open
-  critical or high findings);
+  `FIND-035` and `FIND-019`, `FIND-022` and `FIND-024` (acceptance proposed,
+  `OPEN` until the release owner signs) need the same before promotion
+  (`FIND-036`, `high`, is resolved in rc.11);
 - staging must be rebuilt from an empty database before rc.11 is certified
   (`FIND-020`), and every environment that keeps its database must follow the
   [tenancy scope rollout runbook](v0.10-tenancy-scope-rollout.md) before
