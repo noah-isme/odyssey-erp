@@ -61,6 +61,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/sales"
 	"github.com/odyssey-erp/odyssey-erp/internal/search"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
+	"github.com/odyssey-erp/odyssey-erp/internal/sqlc"
 	"github.com/odyssey-erp/odyssey-erp/internal/tax"
 	"github.com/odyssey-erp/odyssey-erp/internal/users"
 	"github.com/odyssey-erp/odyssey-erp/internal/variance"
@@ -171,10 +172,19 @@ func loadWorkspaceUser(ctx context.Context, pool *pgxpool.Pool, id int64) (works
 // permitted one, or cleared when there is none (fail closed; there is no
 // implicit lowest-id company). A lookup error fails the request.
 func activeCompanyMiddleware(pool *pgxpool.Pool, logger *slog.Logger, globalRoles []string) func(http.Handler) http.Handler {
+	if pool == nil {
+		return func(next http.Handler) http.Handler { return next }
+	}
+	return activeCompanyScope(pool, logger, globalRoles)
+}
+
+// activeCompanyScope is activeCompanyMiddleware over any sqlc.DBTX, so the
+// unit tests can drive it with pgxmock.
+func activeCompanyScope(db sqlc.DBTX, logger *slog.Logger, globalRoles []string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			sess := shared.SessionFromContext(r.Context())
-			if pool == nil || sess == nil || sess.User() == "" || r.URL.Path == "/healthz" || strings.HasPrefix(r.URL.Path, "/static/") {
+			if sess == nil || sess.User() == "" || r.URL.Path == "/healthz" || strings.HasPrefix(r.URL.Path, "/static/") {
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -185,7 +195,7 @@ func activeCompanyMiddleware(pool *pgxpool.Pool, logger *slog.Logger, globalRole
 				return
 			}
 			current, _ := strconv.ParseInt(sess.Get("company_id"), 10, 64)
-			resolved, err := resolveWorkspaceCompany(r.Context(), pool, userID, current, globalRoles)
+			resolved, err := resolveWorkspaceCompany(r.Context(), db, userID, current, globalRoles)
 			if err != nil {
 				if logger != nil {
 					logger.Error("resolve active company", slog.Int64("user_id", userID), slog.Any("error", err))
