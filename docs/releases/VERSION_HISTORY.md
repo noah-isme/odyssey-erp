@@ -397,13 +397,16 @@ that fails at the rc.10 tag. Fixes (findings in the
 - **Delivery actor** (`FIND-025`; `8fe8c59`): delivery handlers take the user
   from the session, and the list and new orders take the company from it.
 - **Delivery company scope** (`FIND-036`; `5e7c569`, `d2ef000`, `5f0319a`,
-  `b31ad7b`): show, edit, update, confirm, ship, complete, cancel, the return
-  form and create-return load an order only within the session company and
-  answer `404` otherwise, with no status or stock change; a delivery order may
-  only use a warehouse of its company, and a return may only restock into one
-  (form value or fallback to the delivery's warehouse). Return show, confirm
-  and cancel still fail for every company (`FIND-039`); the sales-order line
-  fulfillment warehouse is unchecked (`FIND-040`).
+  `b31ad7b`, `16dee4e`): show, edit, update, confirm, ship, complete, cancel,
+  the return form and create-return load an order only within the session
+  company and answer `404` otherwise, with no status or stock change; a
+  delivery order's warehouse must be its company's on create, confirm and
+  cancel, and a return's restock warehouse (form value or fallback to the
+  delivery's warehouse) on create, confirm and cancel of a confirmed
+  return. Return show, confirm
+  and cancel still fail for every company through the routes (`FIND-039`), so
+  the return confirm and cancel checks are proven at service level only; the
+  sales-order line fulfillment warehouse is unchecked (`FIND-040`).
 - **Staging tax configuration** (`FIND-028`; `874e84b`): the staging seeder
   seeds a reviewed tax configuration (VAT rule version marked as a staging
   fixture, VAT output and input codes, company tax identity, VAT account
