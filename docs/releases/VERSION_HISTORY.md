@@ -400,6 +400,11 @@ that fails at the rc.10 tag. Fixes (findings in the
   update, confirm, ship, complete, cancel and the return routes load an order
   or return only within the session company and answer `404` otherwise, with
   no status or stock change.
+- **Staging tax configuration** (`FIND-028`; `874e84b`): the staging seeder
+  seeds a reviewed tax configuration (VAT rule version marked as a staging
+  fixture, VAT output and input codes, company tax identity, VAT account
+  mappings, tax invoice number range, customer and supplier tax ids). AR and
+  AP tax capture then still fail on `FIND-038`.
 - **Stock-movement audit** (`FIND-026`; `a99c809`, `cba8064`): stock
   adjustments (delivery confirm and others) and posted stock takes write an
   `inventory_tx` audit row.
@@ -423,8 +428,10 @@ that fails at the rc.10 tag. Fixes (findings in the
   signatures record `auth_method = 'session'` (older rows keep `'password'`,
   `FIND-035`).
 
-Open in rc.11 (`FIND-028` to `FIND-035`): AR/AP post-commit tax capture on a
-database without reviewed tax configuration, delivery document numbering
+Open in rc.11 (`FIND-028` to `FIND-035`, `FIND-037`, `FIND-038`): AR/AP
+tax capture (configuration now seeded for staging, but the capture fails on
+a multi-statement SQL call, `FIND-038`, high, blocks promotion; the
+post-commit capture behaviour is deferred to v0.11, `FIND-037`), delivery document numbering
 (needs a migration, v0.11), delivery confirm atomicity and journal gaps, the
 period guard on the last day of a month, sales/freight actor fallbacks and
 the remaining unscoped GET-by-id checks, GRN/PO AP invoice handlers that do
