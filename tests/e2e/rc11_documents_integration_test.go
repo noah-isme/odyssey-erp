@@ -684,3 +684,50 @@ func TestRC11DocumentCertificationJourney(t *testing.T) {
 	require.NotEmpty(t, download.body)
 	require.Equal(t, 1, h.count(`SELECT COUNT(*) FROM document_access_events WHERE document_version_id=$1 AND actor_id=$2 AND action='DOWNLOAD'`, versionID, f.AdminID))
 }
+
+// TestRC11DocumentRetentionCrossCompany applies retention to a version from
+// a session whose active company does not own it, and through the path of
+// another document: neither creates a document_retention row.
+func TestRC11DocumentRetentionCrossCompany(t *testing.T) {
+	p, f := newRC11Fixture(t)
+	h := newRC11DocsHarness(t, p, f)
+	ctx := context.Background()
+
+	documentID := h.createDocument("RC11 retention scope " + f.Suffix)
+	res, versionID := h.uploadVersion(documentID, []byte("retention scope evidence"))
+	require.Equal(t, http.StatusSeeOther, res.status)
+	require.NotZero(t, versionID, "version upload flash %+v", res.flash)
+	docPath := fmt.Sprintf("/documents/library/%d", documentID)
+	versionPath := fmt.Sprintf("%s/versions/%d", docPath, versionID)
+	rows := func() int {
+		return h.count(`SELECT COUNT(*) FROM document_retention WHERE document_version_id=$1`, versionID)
+	}
+	csrf := h.fetchCSRF(docPath + "/versions")
+
+	// The version through another document's path: refused.
+	otherDocID := h.createDocument("RC11 retention other " + f.Suffix)
+	mismatched := h.postForm(fmt.Sprintf("/documents/library/%d/versions/%d/retention", otherDocID, versionID), url.Values{"csrf_token": {csrf}})
+	require.Equal(t, http.StatusSeeOther, mismatched.status)
+	require.NotNil(t, mismatched.flash)
+	require.Equal(t, "danger", mismatched.flash.Kind, mismatched.flash.Message)
+	require.Zero(t, rows())
+
+	// Another company active in the session: refused, no row.
+	h.foreignDocument()
+	var otherCompanyID int64
+	require.NoError(t, p.QueryRow(ctx, `SELECT id FROM companies WHERE code=$1`, "RC11O-"+f.Suffix).Scan(&otherCompanyID))
+	h.sess.Set("company_id", strconv.FormatInt(otherCompanyID, 10))
+	crossed := h.postForm(versionPath+"/retention", url.Values{"csrf_token": {csrf}})
+	require.Equal(t, http.StatusSeeOther, crossed.status)
+	require.NotNil(t, crossed.flash)
+	require.Equal(t, "danger", crossed.flash.Kind, crossed.flash.Message)
+	require.Zero(t, rows())
+
+	// Back in the owning company the same request applies retention.
+	h.sess.Set("company_id", strconv.FormatInt(f.CompanyID, 10))
+	owned := h.postForm(versionPath+"/retention", url.Values{"csrf_token": {csrf}})
+	require.Equal(t, http.StatusSeeOther, owned.status)
+	require.NotNil(t, owned.flash)
+	require.Equal(t, "success", owned.flash.Kind, owned.flash.Message)
+	require.Equal(t, 1, rows())
+}
