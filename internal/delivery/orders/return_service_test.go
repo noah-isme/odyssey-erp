@@ -53,10 +53,10 @@ func (r *returnRepoFake) GetSalesOrderDetails(context.Context, int64) (*SalesOrd
 }
 func (r *returnRepoFake) CheckWarehouseExists(context.Context, int64) (bool, error) { return true, nil }
 
-// WarehouseBelongsToCompany: warehouses 1-99 belong to company 1, others to
+// WarehouseBelongsToCompany: warehouses 1-99 belong to company 1; 0 and others to
 // no company the tests use.
 func (r *returnRepoFake) WarehouseBelongsToCompany(_ context.Context, warehouseID, companyID int64) (bool, error) {
-	return companyID == 1 && warehouseID < 100, nil
+	return companyID == 1 && warehouseID > 0 && warehouseID < 100, nil
 }
 func (r *returnRepoFake) GenerateReturnDocNumber(context.Context, int64, time.Time) (string, error) {
 	return "RDO-1", nil
@@ -247,4 +247,41 @@ func TestReturnRefusesRestockWarehouseOfAnotherCompany(t *testing.T) {
 	_, err = service.ConfirmReturnDeliveryOrder(context.Background(), 1, 1, 3)
 	require.ErrorIs(t, err, ErrRestockWarehouse)
 	require.Empty(t, stock.restocked)
+}
+
+// TestReturnRefusesFallbackWarehouseOfAnotherCompany: a return without a
+// restock warehouse falls back to the delivery's warehouse; when that is not
+// a warehouse of the return's company, create and confirm are refused and
+// no stock moves.
+func TestReturnRefusesFallbackWarehouseOfAnotherCompany(t *testing.T) {
+	zero := int64(0)
+	repo := &returnRepoFake{delivery: &DeliveryOrder{ID: 10, CompanyID: 1, CustomerID: 2, Status: StatusDelivered, WarehouseID: 500, Lines: []Line{{ID: 7, ProductID: 9, QuantityDelivered: 5}}}}
+	service := NewService(repo)
+	_, err := service.CreateReturnDeliveryOrder(context.Background(), CreateReturnRequest{CompanyID: 1, OriginalDeliveryOrderID: 10, ReturnDate: time.Now(),
+		Lines: []CreateReturnLineReq{{DeliveryOrderLineID: 7, ProductID: 9, QuantityReturned: 1, RestockWarehouseID: &zero}}}, 3)
+	require.ErrorIs(t, err, ErrRestockWarehouse)
+
+	repo.returned = &ReturnDeliveryOrder{ID: 1, CompanyID: 1, Number: "RDO-6", WarehouseID: 500, Status: ReturnStatusDraft, Lines: []ReturnLine{{ProductID: 9, QuantityReturned: 1}}}
+	stock := &inventoryFake{}
+	service.SetInventory(stock)
+	_, err = service.ConfirmReturnDeliveryOrder(context.Background(), 1, 1, 3)
+	require.ErrorIs(t, err, ErrRestockWarehouse)
+	require.Empty(t, stock.restocked)
+}
+
+// TestCreateRefusesWarehouseOutsideCompany: a delivery order may only ship
+// from a warehouse of the order's company; a missing and a foreign warehouse
+// get the same error.
+func TestCreateRefusesWarehouseOutsideCompany(t *testing.T) {
+	for _, warehouseID := range []int64{500, 0} {
+		repo := &createCountingRepo{fulfillmentWarehouseRepoFake: fulfillmentWarehouseRepoFake{
+			returnRepoFake: returnRepoFake{delivery: &DeliveryOrder{ID: 99, CompanyID: 1}},
+			salesOrder:     &SalesOrderInfo{ID: 1, CompanyID: 1, CustomerID: 7, Status: "CONFIRMED"},
+			lines:          []DeliverableSOLine{{SalesOrderLineID: 1, ProductID: 3, Quantity: 2, RemainingQuantity: 2, FulfillmentWarehouseID: &warehouseID}},
+		}}
+		_, err := NewService(repo).Create(context.Background(), CreateRequest{CompanyID: 1, SalesOrderID: 1, WarehouseID: warehouseID, DeliveryDate: time.Now(),
+			Lines: []CreateLineReq{{SalesOrderLineID: 1, ProductID: 3, QuantityToDeliver: 1}}}, 7)
+		require.ErrorIs(t, err, ErrWarehouseNotFound, "warehouse %d", warehouseID)
+		require.Zero(t, repo.created, "warehouse %d", warehouseID)
+	}
 }

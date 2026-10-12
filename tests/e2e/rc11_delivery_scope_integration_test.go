@@ -328,3 +328,75 @@ func TestRC11DeliveryReturnRefusesOtherCompanyWarehouse(t *testing.T) {
 	post(fA.WarehouseID)
 	require.Equal(t, 1, restockLines(fA.WarehouseID), "company A's own restock warehouse must be accepted")
 }
+
+// rc11FarFutureDate is a delivery or return date in its own far-future month:
+// delivery and return numbers are per company and month but globally unique
+// (FIND-029), so each run uses a fresh month.
+func rc11FarFutureDate() string {
+	n := time.Now().UnixNano()
+	return time.Date(2100+int(n%800), time.Month(1+(n/800)%12), 1, 0, 0, 0, 0, time.UTC).Format("2006-01-02")
+}
+
+// TestRC11DeliveryRefusesOtherCompanyWarehouse: company A may not ship from
+// or restock into company B's warehouse through the delivery routes.
+// (a) A delivery order of A's sales order naming B's warehouse (the sales
+// order line names it too, as legacy or unchecked sales data can) is refused:
+// no delivery row is stored and B's stock does not move. (b) A return of A's
+// delivered order whose own warehouse is B's (planted legacy data) with no
+// restock warehouse falls back to that warehouse and is refused on create.
+// Confirming such a return cannot run through the routes because of
+// FIND-039; the confirm-side check is covered by
+// TestReturnRefusesFallbackWarehouseOfAnotherCompany.
+func TestRC11DeliveryRefusesOtherCompanyWarehouse(t *testing.T) {
+	p, fA := newRC11Fixture(t)
+	_, fB := newRC11Fixture(t)
+	ctx := context.Background()
+	_, err := p.Exec(ctx, `INSERT INTO inventory_balances(warehouse_id,product_id,qty,avg_cost) VALUES($1,$2,10,100)`, fB.WarehouseID, fA.ProductID)
+	require.NoError(t, err)
+	inv := inventory.NewService(inventory.NewRepository(p), shared.NewAuditLogger(p), shared.NewIdempotencyStore(p), inventory.ServiceConfig{}, nil)
+	client := rc11DeliveryClient(t, p, fA.AdminID, fA.CompanyID, inv)
+	count := func(sql string, args ...any) int {
+		t.Helper()
+		var n int
+		require.NoError(t, p.QueryRow(ctx, sql, args...).Scan(&n), sql)
+		return n
+	}
+	movementsInB := func() int {
+		return count(`SELECT COUNT(*) FROM inventory_tx WHERE warehouse_id = $1`, fB.WarehouseID)
+	}
+	movementsBefore := movementsInB()
+
+	// (a) delivery order from B's warehouse.
+	var soID, soLineID int64
+	require.NoError(t, p.QueryRow(ctx, `INSERT INTO sales_orders(doc_number,company_id,customer_id,order_date,status,currency,created_by)
+		VALUES($1,$2,$3,CURRENT_DATE,'CONFIRMED','IDR',$4) RETURNING id`, "SO-FWH-"+fA.Suffix, fA.CompanyID, fA.CustomerID, fA.AdminID).Scan(&soID))
+	require.NoError(t, p.QueryRow(ctx, `INSERT INTO sales_order_lines(sales_order_id,product_id,quantity,uom,unit_price,line_total,fulfillment_warehouse_id)
+		VALUES($1,$2,1,'EA',100,100,$3) RETURNING id`, soID, fA.ProductID, fB.WarehouseID).Scan(&soLineID))
+	client(http.MethodPost, "/delivery/orders", url.Values{
+		"sales_order_id": {strconv.FormatInt(soID, 10)}, "warehouse_id": {strconv.FormatInt(fB.WarehouseID, 10)},
+		"delivery_date": {rc11FarFutureDate()}, "so_line_id[]": {strconv.FormatInt(soLineID, 10)},
+		"product_id[]": {strconv.FormatInt(fA.ProductID, 10)}, "quantity[]": {"1"},
+	})
+	if created := count(`SELECT COUNT(*) FROM delivery_orders WHERE sales_order_id = $1`, soID); created != 0 {
+		// Show what the stored order allows: confirming it moves B's stock.
+		var deliveryID int64
+		require.NoError(t, p.QueryRow(ctx, `SELECT id FROM delivery_orders WHERE sales_order_id = $1`, soID).Scan(&deliveryID))
+		client(http.MethodPost, "/delivery/orders/"+strconv.FormatInt(deliveryID, 10)+"/confirm", url.Values{})
+		assert.Failf(t, "delivery order stored with another company's warehouse", "company A created delivery order %d from company B's warehouse; after its confirm B has %d new stock movement(s)", deliveryID, movementsInB()-movementsBefore)
+	}
+
+	// (b) return falling back to the delivery's warehouse, which is B's.
+	var deliveryID, lineID int64
+	require.NoError(t, p.QueryRow(ctx, `INSERT INTO delivery_orders(doc_number,company_id,sales_order_id,warehouse_id,customer_id,delivery_date,status,created_by)
+		VALUES($1,$2,$3,$4,$5,CURRENT_DATE,'DELIVERED',$6) RETURNING id`, "DO-FWH-"+fA.Suffix, fA.CompanyID, soID, fB.WarehouseID, fA.CustomerID, fA.AdminID).Scan(&deliveryID))
+	require.NoError(t, p.QueryRow(ctx, `INSERT INTO delivery_order_lines(delivery_order_id,sales_order_line_id,product_id,quantity_to_deliver,quantity_delivered,uom,unit_price)
+		VALUES($1,$2,$3,1,1,'EA',100) RETURNING id`, deliveryID, soLineID, fA.ProductID).Scan(&lineID))
+	client(http.MethodPost, "/delivery/orders/"+strconv.FormatInt(deliveryID, 10)+"/returns", url.Values{
+		"return_date": {rc11FarFutureDate()}, "reason": {"damaged"},
+		"delivery_order_line_id[]": {strconv.FormatInt(lineID, 10)}, "product_id[]": {strconv.FormatInt(fA.ProductID, 10)},
+		"quantity[]": {"1"}, "unit_price[]": {"100"}, "restock_warehouse_id[]": {"0"},
+	})
+	assert.Zero(t, count(`SELECT COUNT(*) FROM return_delivery_orders WHERE original_delivery_order_id = $1`, deliveryID),
+		"a return that falls back to company B's warehouse must not be stored")
+	assert.Equal(t, movementsBefore, movementsInB(), "company A's requests must not move company B's stock")
+}
