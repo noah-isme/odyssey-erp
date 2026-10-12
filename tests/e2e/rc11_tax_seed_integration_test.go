@@ -23,11 +23,10 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/tax"
 )
 
-// newRC11StagingSeededDB creates an empty database on the PG_DSN server,
-// migrates it and runs the staging seeder (scripts/seed/staging, base
-// fixtures) against it, exactly as the staging rebuild does. The database is
-// dropped when the test ends. It returns a pool on the new database.
-func newRC11StagingSeededDB(t *testing.T) *pgxpool.Pool {
+// newRC11ScratchDB creates an empty database on the PG_DSN server and
+// migrates it. The database is dropped when the test ends. It returns the
+// database's DSN, name and host.
+func newRC11ScratchDB(t *testing.T) (dbDSN, name, host string) {
 	t.Helper()
 	dsn := os.Getenv("PG_DSN")
 	if dsn == "" {
@@ -42,7 +41,7 @@ func newRC11StagingSeededDB(t *testing.T) *pgxpool.Pool {
 	require.NoError(t, err)
 	defer func() { _ = conn.Close(ctx) }()
 
-	name := fmt.Sprintf("rc11_taxseed_%d", time.Now().UnixNano())
+	name = fmt.Sprintf("rc11_scratch_%d", time.Now().UnixNano())
 	_, err = conn.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{name}.Sanitize())
 	require.NoError(t, err)
 	t.Cleanup(func() {
@@ -60,8 +59,19 @@ func newRC11StagingSeededDB(t *testing.T) *pgxpool.Pool {
 	u, err := url.Parse(dsn)
 	require.NoError(t, err)
 	u.Path = "/" + name
-	dbDSN := u.String()
+	dbDSN = u.String()
 	applyAllMigrations(t, dbDSN)
+	return dbDSN, name, cfg.Host
+}
+
+// newRC11StagingSeededDB creates an empty database on the PG_DSN server,
+// migrates it and runs the staging seeder (scripts/seed/staging, base
+// fixtures) against it, exactly as the staging rebuild does. The database is
+// dropped when the test ends. It returns a pool on the new database.
+func newRC11StagingSeededDB(t *testing.T) *pgxpool.Pool {
+	t.Helper()
+	ctx := context.Background()
+	dbDSN, name, host := newRC11ScratchDB(t)
 
 	_, file, _, _ := runtime.Caller(0)
 	root := filepath.Join(filepath.Dir(file), "..", "..")
@@ -70,7 +80,7 @@ func newRC11StagingSeededDB(t *testing.T) *pgxpool.Pool {
 	build.Dir = root
 	out, err := build.CombinedOutput()
 	require.NoError(t, err, "build the staging seeder: %s", out)
-	seed := exec.Command(bin, "--dsn", dbDSN, "--confirm-staging", name+"@"+cfg.Host)
+	seed := exec.Command(bin, "--dsn", dbDSN, "--confirm-staging", name+"@"+host)
 	seed.Env = append(os.Environ(), "APP_ENV=staging")
 	out, err = seed.CombinedOutput()
 	require.NoError(t, err, "run the staging seeder: %s", out)
