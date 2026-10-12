@@ -396,10 +396,14 @@ that fails at the rc.10 tag. Fixes (findings in the
   `build_only` dispatch compares rebuild digests.
 - **Delivery actor** (`FIND-025`; `8fe8c59`): delivery handlers take the user
   from the session, and the list and new orders take the company from it.
-- **Delivery company scope** (`FIND-036`; `5e7c569`, `d2ef000`): show, edit,
-  update, confirm, ship, complete, cancel and the return routes load an order
-  or return only within the session company and answer `404` otherwise, with
-  no status or stock change.
+- **Delivery company scope** (`FIND-036`; `5e7c569`, `d2ef000`, `5f0319a`,
+  `b31ad7b`): show, edit, update, confirm, ship, complete, cancel, the return
+  form and create-return load an order only within the session company and
+  answer `404` otherwise, with no status or stock change; a delivery order may
+  only use a warehouse of its company, and a return may only restock into one
+  (form value or fallback to the delivery's warehouse). Return show, confirm
+  and cancel still fail for every company (`FIND-039`); the sales-order line
+  fulfillment warehouse is unchecked (`FIND-040`).
 - **Staging tax configuration** (`FIND-028`; `874e84b`): the staging seeder
   seeds a reviewed tax configuration (VAT rule version marked as a staging
   fixture, VAT output and input codes, company tax identity, VAT account
@@ -410,6 +414,8 @@ that fails at the rc.10 tag. Fixes (findings in the
   and replace ran several parameterised statements in one `Exec`, which
   PostgreSQL refuses (SQLSTATE 42601), so no tax document was ever written;
   each statement now runs separately in the same transaction.
+  This product change was explicitly approved by the user as an exception to
+  the seed-only brief for `FIND-028`.
 - **Stock-movement audit** (`FIND-026`; `a99c809`, `cba8064`): stock
   adjustments (delivery confirm and others) and posted stock takes write an
   `inventory_tx` audit row.
@@ -433,10 +439,11 @@ that fails at the rc.10 tag. Fixes (findings in the
   signatures record `auth_method = 'session'` (older rows keep `'password'`,
   `FIND-035`).
 
-Open in rc.11 (`FIND-029` to `FIND-035`, `FIND-037`, `FIND-039`): the
+Open in rc.11 (`FIND-029` to `FIND-035`, `FIND-037`, `FIND-039`, `FIND-040`): the
 post-commit AR/AP tax capture behaviour (deferred to v0.11, `FIND-037`),
 return delivery orders that cannot be loaded (`products.code`, deferred to
-v0.11, `FIND-039`), delivery document numbering
+v0.11, `FIND-039`), sales-order line fulfillment warehouses not checked
+against the order's company (deferred to v0.11, `FIND-040`), delivery document numbering
 (needs a migration, v0.11), delivery confirm atomicity and journal gaps, the
 period guard on the last day of a month, sales/freight actor fallbacks and
 the remaining unscoped GET-by-id checks, GRN/PO AP invoice handlers that do

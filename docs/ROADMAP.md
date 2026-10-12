@@ -31,7 +31,7 @@
 > directory, a reproducible bundle, the delivery actor, stock-movement audit and
 > the staging seeder (including a reviewed staging tax configuration), tax
 > capture and delivery company scoping, and adds a schema checksum gate to
-> DB-002. Open findings `FIND-029` to `FIND-035`, `FIND-037`, `FIND-039` and
+> DB-002. Open findings `FIND-029` to `FIND-035`, `FIND-037`, `FIND-039`, `FIND-040` and
 > `FIND-019`, `FIND-022`, `FIND-024` (acceptance
 > proposed, release-owner sign-off pending) are in the [staging certification record](releases/v0.10-core-staging-certification.md).
 > Before certification, staging is rebuilt from an empty database (`FIND-020`)
