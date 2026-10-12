@@ -172,7 +172,8 @@ func TestRequireActiveCompany(t *testing.T) {
 
 // TestActiveCompanyScopeLookupErrorFailsClosed: when the assignment lookup
 // fails, the request is refused with 500, the handler does not run and the
-// session no longer carries the company it held.
+// session company is left untouched. Clearing it would make the next request
+// fall back to the first permitted company by name: a silent company switch.
 func TestActiveCompanyScopeLookupErrorFailsClosed(t *testing.T) {
 	mock := newWorkspaceMock(t)
 	mock.ExpectQuery(sqlUserHasActiveAssignment).
@@ -196,6 +197,6 @@ func TestActiveCompanyScopeLookupErrorFailsClosed(t *testing.T) {
 
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 	require.False(t, reached, "the route must not run on a lookup error")
-	require.Empty(t, sess.Get("company_id"), "the session must not keep an unverified company")
+	require.Equal(t, "3", sess.Get("company_id"), "a lookup error must not change the session company")
 	require.NoError(t, mock.ExpectationsWereMet())
 }
