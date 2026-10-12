@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -167,4 +168,34 @@ func TestRequireActiveCompany(t *testing.T) {
 			require.Equal(t, tc.want, rec.Code)
 		})
 	}
+}
+
+// TestActiveCompanyScopeLookupErrorFailsClosed: when the assignment lookup
+// fails, the request is refused with 500, the handler does not run and the
+// session no longer carries the company it held.
+func TestActiveCompanyScopeLookupErrorFailsClosed(t *testing.T) {
+	mock := newWorkspaceMock(t)
+	mock.ExpectQuery(sqlUserHasActiveAssignment).
+		WithArgs(int64(7), int64(3)).
+		WillReturnError(errors.New("connection reset"))
+
+	sessions := shared.NewSessionManager(nil, "s", "secret", time.Hour, false)
+	req := httptest.NewRequest(http.MethodGet, "/finance/ar/invoices", nil)
+	sess, err := sessions.Load(context.Background(), req)
+	require.NoError(t, err)
+	sess.SetUser("7")
+	sess.Set("company_id", "3")
+
+	reached := false
+	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		reached = true
+		w.WriteHeader(http.StatusNoContent)
+	})
+	rec := httptest.NewRecorder()
+	activeCompanyScope(mock, nil, nil)(next).ServeHTTP(rec, req.WithContext(shared.ContextWithSession(req.Context(), sess)))
+
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+	require.False(t, reached, "the route must not run on a lookup error")
+	require.Empty(t, sess.Get("company_id"), "the session must not keep an unverified company")
+	require.NoError(t, mock.ExpectationsWereMet())
 }
