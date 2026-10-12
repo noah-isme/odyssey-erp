@@ -171,7 +171,8 @@ func loadWorkspaceUser(ctx context.Context, pool *pgxpool.Pool, id int64) (works
 // session: a company that is no longer permitted is replaced by the first
 // permitted one, or cleared when there is none (fail closed; there is no
 // implicit lowest-id company). A lookup error fails the request with 500
-// and clears the session company.
+// and leaves the session company untouched: clearing it would make the next
+// request fall back to the first permitted company, a silent company switch.
 func activeCompanyMiddleware(pool *pgxpool.Pool, logger *slog.Logger, globalRoles []string) func(http.Handler) http.Handler {
 	if pool == nil {
 		return func(next http.Handler) http.Handler { return next }
@@ -201,8 +202,6 @@ func activeCompanyScope(db sqlc.DBTX, logger *slog.Logger, globalRoles []string)
 				if logger != nil {
 					logger.Error("resolve active company", slog.Int64("user_id", userID), slog.Any("error", err))
 				}
-				// Do not keep a company that could not be re-verified.
-				sess.Delete("company_id")
 				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 				return
 			}
