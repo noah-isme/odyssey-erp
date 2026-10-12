@@ -29,7 +29,9 @@ the staging rebuild (step 2) must be finished first.
    ```
 
 2. Rebuild staging from an empty database after written user approval
-   (`FIND-020`; section 0 of the
+   (`FIND-020`; follow the
+   [rc.11 staging rebuild runbook](docs/releases/v0.10-rc11-staging-rebuild.md);
+   section 0 of the
    [staging preflight checklist](docs/releases/v0.10-staging-preflight-checklist.md)):
    forensic dump to `v0.10.0-rc.10/forensics/<UTC timestamp>/` with its key and
    SHA-256 recorded in `FIND-010`, drop/recreate, `migrate up` to `000124`,
