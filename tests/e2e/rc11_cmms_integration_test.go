@@ -548,3 +548,31 @@ func TestRC11CMMSCertificationJourney(t *testing.T) {
 	t.Logf("J-CMMS-001 asset_id=%d pm_schedule_id=%d generated_pm_work_order_id=%d work_order_id=%d spare_part_id=%d spare_usage_id=%d audit_events=%d",
 		assetID, pmID, pmWorkOrderID, workID, spareID, spareUsageID, audit)
 }
+
+// TestRC11CMMSWorkOrderDetailCrossCompany opens another company's work order
+// page: it is not found, and neither that work order nor the other
+// company's spare-part catalogue is rendered.
+func TestRC11CMMSWorkOrderDetailCrossCompany(t *testing.T) {
+	p, f := newRC11Fixture(t)
+	h := newRC11CMMSHarness(t, p, f)
+	ctx := context.Background()
+
+	// Our own work order still renders.
+	workID := h.createWorkOrder("RC11 detail scope " + f.Suffix)
+	require.Equal(t, http.StatusOK, h.get(fmt.Sprintf("/cmms/work-orders/%d", workID)).status)
+
+	foreignCompanyID, _ := h.foreignCompany()
+	spareCode := "SP-DETAIL-O-" + f.Suffix
+	_, err := p.Exec(ctx, `INSERT INTO spare_parts(company_id,code,name) VALUES($1,$2,'RC11 foreign catalogue spare')`, foreignCompanyID, spareCode)
+	require.NoError(t, err)
+	foreignID := h.foreignWorkOrder("IN_PROGRESS")
+	var foreignNumber string
+	require.NoError(t, p.QueryRow(ctx, `SELECT number FROM work_orders WHERE id=$1`, foreignID).Scan(&foreignNumber))
+
+	res := h.get(fmt.Sprintf("/cmms/work-orders/%d", foreignID))
+	require.Equal(t, http.StatusNotFound, res.status)
+	body := string(res.body)
+	require.NotContains(t, body, foreignNumber)
+	require.NotContains(t, body, spareCode)
+	require.NotContains(t, body, "RC11 foreign catalogue spare")
+}
