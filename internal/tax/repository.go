@@ -98,8 +98,15 @@ func (r *Repository) capture(ctx context.Context, sourceID, actorID int64, query
 		if err != nil {
 			return err
 		}
-		_, err = tx.Exec(ctx, `INSERT INTO tax_document_events(tax_document_id,event_type,actor_id) VALUES($1,'ISSUED',$2); INSERT INTO tax_ledger_entries(company_id,tax_period_id,category,tax_document_id,account_id,source_type,source_id,source_date,taxable_base,tax_amount,sign) VALUES($3,$4,$5,$1,$6,$7,$8,$9,$10,$11,$12); INSERT INTO tax_audit_events(company_id,entity_type,entity_id,action,actor_id) VALUES($3,'TAX_DOCUMENT',$1,'ISSUED',$2)`, result.ID, actorID, s.companyID, periodID, category, accountID, s.sourceType, s.sourceID, s.postedAt, s.base, s.vat, s.sign)
-		if err != nil {
+		// PostgreSQL refuses several parameterised statements in one Exec
+		// (SQLSTATE 42601), so each runs on its own inside this transaction.
+		if _, err = tx.Exec(ctx, `INSERT INTO tax_document_events(tax_document_id,event_type,actor_id) VALUES($1,'ISSUED',$2)`, result.ID, actorID); err != nil {
+			return err
+		}
+		if _, err = tx.Exec(ctx, `INSERT INTO tax_ledger_entries(company_id,tax_period_id,category,tax_document_id,account_id,source_type,source_id,source_date,taxable_base,tax_amount,sign) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, s.companyID, periodID, category, result.ID, accountID, s.sourceType, s.sourceID, s.postedAt, s.base, s.vat, s.sign); err != nil {
+			return err
+		}
+		if _, err = tx.Exec(ctx, `INSERT INTO tax_audit_events(company_id,entity_type,entity_id,action,actor_id) VALUES($1,'TAX_DOCUMENT',$2,'ISSUED',$3)`, s.companyID, result.ID, actorID); err != nil {
 			return err
 		}
 		if s.sourceType == "AP_INVOICE" {
@@ -230,7 +237,10 @@ func (r *Repository) CancelDocument(ctx context.Context, documentID, actorID int
 		if locked {
 			return ErrPeriodLocked
 		}
-		if _, err := tx.Exec(ctx, `INSERT INTO tax_document_events(tax_document_id,event_type,reason,actor_id) VALUES($1,'CANCELLED',$2,$3); INSERT INTO tax_audit_events(company_id,entity_type,entity_id,action,actor_id,details) VALUES($4,'TAX_DOCUMENT',$1,'CANCELLED',$3,jsonb_build_object('reason',$2))`, documentID, reason, actorID, companyID); err != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO tax_document_events(tax_document_id,event_type,reason,actor_id) VALUES($1,'CANCELLED',$2,$3)`, documentID, reason, actorID); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO tax_audit_events(company_id,entity_type,entity_id,action,actor_id,details) VALUES($1,'TAX_DOCUMENT',$2,'CANCELLED',$3,jsonb_build_object('reason',$4::text))`, companyID, documentID, actorID, reason); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(ctx, `INSERT INTO tax_ledger_entries(company_id,tax_period_id,category,tax_document_id,account_id,source_type,source_id,source_date,taxable_base,tax_amount,sign) VALUES($1,$2,$3,$4,$5,$6,$4,CURRENT_DATE,$7,$8,$9)`, companyID, periodID, category, documentID, accountID, sourceType+"_CANCEL", base, amount, -sign); err != nil {
@@ -276,12 +286,22 @@ func (r *Repository) ReplaceDocument(ctx context.Context, originalID, replacemen
 		if locked {
 			return ErrPeriodLocked
 		}
-		_, err = tx.Exec(ctx, `INSERT INTO tax_document_events(tax_document_id,event_type,reason,replacement_document_id,actor_id) VALUES($1,'REPLACED',$3,$2,$4); INSERT INTO tax_ledger_entries(company_id,tax_period_id,category,tax_document_id,account_id,source_type,source_id,source_date,taxable_base,tax_amount,sign) VALUES($5,$6,$7,$1,$8,$9,$1,CURRENT_DATE,$10,$11,$12); INSERT INTO tax_audit_events(company_id,entity_type,entity_id,action,actor_id,details) VALUES($5,'TAX_DOCUMENT',$1,'REPLACED',$4,jsonb_build_object('replacement_document_id',$2,'reason',$3))`, originalID, replacementID, reason, actorID, companyID, periodID, category, accountID, sourceType+"_REPLACE", base, amount, -sign)
-		if err != nil {
+		// PostgreSQL refuses several parameterised statements in one Exec
+		// (SQLSTATE 42601), so each runs on its own inside this transaction.
+		if _, err = tx.Exec(ctx, `INSERT INTO tax_document_events(tax_document_id,event_type,reason,replacement_document_id,actor_id) VALUES($1,'REPLACED',$2,$3,$4)`, originalID, reason, replacementID, actorID); err != nil {
+			return err
+		}
+		if _, err = tx.Exec(ctx, `INSERT INTO tax_ledger_entries(company_id,tax_period_id,category,tax_document_id,account_id,source_type,source_id,source_date,taxable_base,tax_amount,sign) VALUES($1,$2,$3,$4,$5,$6,$4,CURRENT_DATE,$7,$8,$9)`, companyID, periodID, category, originalID, accountID, sourceType+"_REPLACE", base, amount, -sign); err != nil {
+			return err
+		}
+		if _, err = tx.Exec(ctx, `INSERT INTO tax_audit_events(company_id,entity_type,entity_id,action,actor_id,details) VALUES($1,'TAX_DOCUMENT',$2,'REPLACED',$3,jsonb_build_object('replacement_document_id',$4::bigint,'reason',$5::text))`, companyID, originalID, actorID, replacementID, reason); err != nil {
 			return err
 		}
 		if sourceType == "AR_INVOICE" {
-			_, err = tx.Exec(ctx, `UPDATE ar_invoices SET faktur_status='REPLACED' WHERE id=$1; UPDATE ar_invoices SET replacement_of_tax_document_id=$2 WHERE tax_document_id=$3`, sourceID, originalID, replacementID)
+			if _, err = tx.Exec(ctx, `UPDATE ar_invoices SET faktur_status='REPLACED' WHERE id=$1`, sourceID); err != nil {
+				return err
+			}
+			_, err = tx.Exec(ctx, `UPDATE ar_invoices SET replacement_of_tax_document_id=$1 WHERE tax_document_id=$2`, originalID, replacementID)
 		}
 		return err
 	})
