@@ -29,6 +29,14 @@ and HR coverage, and their certification sequence are planned in the
 | Attendance | Partial | `/hr/attendance` | Attendance records/imports | Company, employee, period | Not catalogued |
 | Payroll | Partial | `/payroll` | Payroll runs and payslips | Company, period, employee | Payslip PDF; run export is CSV |
 | Leave report | Partial | `/hr/leave` | Leave requests and balances | Company, employee, period, status | Not catalogued |
+| HR dashboard | Implemented | `/hr/dashboard` | Employees, job history, attendance, leave balances, payroll runs | Company; year-to-date and 30-day windows | HTML; requires `hr.reports.view` |
+| HR headcount | Implemented | `/hr/reports/headcount.csv` | Employees and effective-dated job history | `as_of` (default today) | CSV; requires `hr.reports.view` |
+| HR hires and leavers | Implemented | `/hr/reports/hires-leavers.csv` | Employee hire and termination dates | `from`, `to` (default year-to-date) | CSV; requires `hr.reports.view` |
+| HR turnover | Implemented | `/hr/reports/turnover.csv` | Leavers and average headcount | `from`, `to` (default year-to-date) | CSV; requires `hr.reports.view` |
+| HR absenteeism | Implemented | `/hr/reports/absenteeism.csv` | ABSENT attendance over scheduled working days | `from`, `to` (default year-to-date) | CSV; requires `hr.reports.view` |
+| HR leave liability | Implemented | `/hr/reports/leave-liability.csv` | Leave balances and base salary | `year` (default current year) | CSV; requires `hr.reports.view` and `hr.compensation.view` |
+| HR overtime cost | Implemented | `/hr/reports/overtime-cost.csv` | POSTED payroll run overtime plus approved unrun overtime | `from`, `to` (default year-to-date) | CSV; requires `hr.reports.view` and `hr.compensation.view` |
+| HR contract and probation expiries | Implemented | `/hr/reports/expiries.csv` | Employee contract and probation end dates | `days` (default 30) | CSV; requires `hr.reports.view` |
 | Gross margin | Partial | Analytics/insights | Revenue and cost/valuation data | Company, period | Analytics CSV/PDF |
 | ROI | Not mapped | — | — | — | — |
 | Inventory turnover | Not mapped | — | — | — | — |
@@ -36,3 +44,14 @@ and HR coverage, and their certification sequence are planned in the
 | Net profit | Implemented | P&L / analytics | Posted GL journals | Company, period, dimensions | CSV/PDF via report surfaces |
 
 Route and export claims should be verified against handlers when a report is changed. The catalog intentionally distinguishes “implemented report” from “requested business report”; unsupported rows are documentation backlog items, not implied features.
+
+## HR dashboard and reports
+
+All HR report routes require `hr.reports.view`, which migration 000134 grants to the Admin role only; grant it to other roles deliberately. Leave liability and overtime cost, and their dashboard cards, additionally require `hr.compensation.view`. The handler checks this server-side: without it the dashboard omits those cards and never computes them, and the two CSV routes return 403.
+
+- Filters: `as_of` (headcount), `year` (leave liability), `days` (expiries, default 30), and `from`/`to` for the remaining reports (default year-to-date). Dates use `YYYY-MM-DD`; an unparsable or invalid filter returns 400.
+- Every export is audited as `HR_REPORT_EXPORT` with the report name and filter. Auditing is best effort: a failed audit write is logged and the export still succeeds.
+- No CSV contains national ID, tax ID, date of birth or address.
+- CSV injection protection: any cell that starts with `=`, `+`, `-`, `@`, tab or CR (after trimming leading spaces) is prefixed with a single quote. Server-formatted negative numbers are therefore exported with a leading apostrophe (for example `'-12.5`); consumers that need the numeric value must strip it. A department named `=HYPERLINK(...)` exports as `'=HYPERLINK(...)`.
+- Leave liability is available days x base salary / 21, summed per department. It counts all leave types because leave types have no paid-leave flag.
+- Overtime cost combines overtime on POSTED payroll run lines with approved overtime not yet covered by a POSTED run, priced with the current company payroll policy. The unrun portion is an estimate and may differ from the eventual payslip.

@@ -401,6 +401,9 @@ Sizing legend: S <2w · M 2–4w · L 1–2m · XL 2m+ (rough, single team).
   balances/requests, and validated attendance CSV imports.
 - ✅ Large-PO threshold routing and manager-routed leave share one engine;
   approval finalizes the document, balance, audit record, and notification.
+- ✅ HR dashboard (`/hr/dashboard`) and seven HR CSV reports (headcount,
+  hires/leavers, turnover, absenteeism, leave liability, overtime cost, expiries)
+  under `hr.reports.view`; compensation figures also need `hr.compensation.view`.
 - Payroll remains exclusively in P4.
 
 ### P4 — Payroll Indonesia — ✅ DONE

@@ -250,12 +250,24 @@ GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO odyssey_user;
 
 ### 2. Run Migrations
 
+`make migrate-up`, `make migrate-down`, and `make test-migrate` depend on
+`migrate-guard`, which exits 1 unless the effective `PG_DSN` host is
+`localhost`, `127.0.0.1`, or `::1`. `make migrate-up-remote` and
+`make migrate-down-remote` skip the guard and exist only for deliberate deploys.
+
+`migrate-guard` also refuses any `PG_DSN` containing `host=`, `hostaddr=` or `service=`, because libpq/pq let those parameters override the URL host.
+
+**Release order:** apply migrations before the new code; to reverse a release, roll the code back first and only then run `migrate down`. Before the HRIS release, run the payroll-period overlap query from [`docs/guides/payroll.md`](guides/payroll.md#deployment-order) on staging and production.
+
+**Migration ordering gate:** 000130+ must not reach main or staging until 000125-000129 are applied there; verify with `SELECT version FROM schema_migrations` >= 129 before deploying; if you applied 000130+ locally before pulling finance-prep, run `migrate down` to 000124 first.
+
 ```bash
 # Connect to production database
 export PG_DSN="postgres://odyssey_user:password@db-host:5432/odyssey?sslmode=require"
 
-# Run all migrations
-make migrate-up
+# Run all migrations. `make migrate-up` is guarded and refuses non-local
+# hosts; deliberate deploys use the unguarded remote variant.
+make migrate-up-remote
 
 # Verify migration status
 make migrate-status
@@ -598,8 +610,8 @@ curl -s https://app.odyssey.com/health
 # List applied migrations
 make migrate-status
 
-# Rollback specific migration
-make migrate-down steps=1
+# Rollback one migration (unguarded remote variant)
+make migrate-down-remote
 
 # Verify state
 psql $PG_DSN -c "\d"
