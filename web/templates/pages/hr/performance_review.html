@@ -1,0 +1,218 @@
+{{ define "pages/hr/performance_review.html" }}{{ template "layouts/base.html" . }}{{ end }}
+{{ define "title" }}{{ .Title }}{{ end }}
+{{ define "content" }}
+{{ $v := .Data.Review }}
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-title">{{ $v.EmployeeName }}</h1>
+            <p class="page-subtitle">{{ $v.CycleName }} · {{ formatDatePtr $v.PeriodStart }} – {{ formatDatePtr $v.PeriodEnd }} · {{ template "partials/ui/status_badge.html" $v.Status }}</p>
+        </div>
+        <div class="page-header__actions">
+            {{ if .Data.IsAdmin }}<a href="/hr/performance/cycles/{{ $v.CycleID }}" class="btn btn--secondary">Cycle</a>{{ end }}
+            <a href="/hr/performance{{ if and .Data.IsReviewer (not .Data.IsOwn) }}?tab=team{{ end }}" class="btn btn--secondary">Back to Performance</a>
+        </div>
+    </header>
+
+    <div class="page-content">
+        {{ if .Data.Error }}<div class="alert alert-error" role="alert">Some review data could not be loaded.</div>{{ end }}
+        <div class="hr-stats-grid">
+            <div class="hr-stat-card">
+                <span class="hr-stat-card__value">{{ if $v.ReviewerName }}{{ $v.ReviewerName }}{{ else }}–{{ end }}</span>
+                <span class="hr-stat-card__label">Reviewer</span>
+            </div>
+            <div class="hr-stat-card">
+                <span class="hr-stat-card__value">{{ formatDatePtr $v.SelfReviewDue }}</span>
+                <span class="hr-stat-card__label">Self Review Due</span>
+            </div>
+            <div class="hr-stat-card">
+                <span class="hr-stat-card__value">{{ formatDatePtr $v.ManagerReviewDue }}</span>
+                <span class="hr-stat-card__label">Manager Review Due</span>
+            </div>
+            {{ if $v.ShowFinal }}
+            <div class="hr-stat-card" data-final-rating>
+                <span class="hr-stat-card__value">{{ with $v.FinalRating }}{{ . }} / 5{{ else }}–{{ end }}</span>
+                <span class="hr-stat-card__label">Final Rating</span>
+            </div>
+            {{ end }}
+        </div>
+
+        <section class="card card-table" data-component="datatable">
+            <div class="card__header">
+                <h2 class="card__title">Goals</h2>
+            </div>
+            <div class="table-responsive">
+                <table class="table table--sticky" data-datatable="hr-performance-goals">
+                    <thead>
+                        <tr>
+                            <th class="numeric">#</th>
+                            <th>Goal</th>
+                            <th>KPI Target</th>
+                            <th class="numeric">Weight (%)</th>
+                            {{ if $v.ShowSelf }}<th class="numeric">Self Score</th>{{ end }}
+                            {{ if $v.ShowManager }}<th class="numeric">Manager Score</th>{{ end }}
+                            {{ if .Data.CanEditGoals }}<th class="table__actions">Actions</th>{{ end }}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{ range .Data.Goals }}
+                        <tr>
+                            <td class="numeric">{{ .Seq }}</td>
+                            <td>{{ .Title }}{{ if .Description }}<div><small class="text-muted">{{ .Description }}</small></div>{{ end }}</td>
+                            <td>{{ if .KPITarget }}{{ .KPITarget }}{{ else }}<span class="text-muted">–</span>{{ end }}</td>
+                            <td class="numeric">{{ .Weight }}</td>
+                            {{ if .ShowSelfScore }}<td class="numeric">{{ with .SelfScore }}{{ . }}{{ else }}<span class="text-muted">–</span>{{ end }}</td>{{ end }}
+                            {{ if .ShowManagerScore }}<td class="numeric">{{ with .ManagerScore }}{{ . }}{{ else }}<span class="text-muted">–</span>{{ end }}</td>{{ end }}
+                            {{ if $.Data.CanEditGoals }}
+                            <td class="table__actions">
+                                <button type="button" class="btn btn--secondary btn--sm" data-dialog-open="edit-goal-{{ .ID }}">Edit</button>
+                                <form method="post" action="/hr/performance/reviews/{{ $v.ID }}/goals/{{ .ID }}/delete" class="hr-inline-form">
+                                    <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
+                                    <button type="submit" class="btn btn--danger btn--sm">Delete</button>
+                                </form>
+                            </td>
+                            {{ end }}
+                        </tr>
+                        {{ else }}
+                        <tr><td colspan="7" class="table-empty">No goals have been set for this review.</td></tr>
+                        {{ end }}
+                    </tbody>
+                </table>
+            </div>
+            {{ if .Data.CanEditGoals }}
+            <form method="post" action="/hr/performance/reviews/{{ $v.ID }}/goals" class="hr-modal-form">
+                <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+                <div class="hr-form-row">
+                    <label class="form-group"><span class="form-label">Goal</span><input class="form-input" name="title" required></label>
+                    <label class="form-group"><span class="form-label">KPI Target</span><input class="form-input" name="kpi_target"></label>
+                    <label class="form-group"><span class="form-label">Weight (%)</span><input class="form-input" type="number" name="weight" min="0" max="100" step="0.01" value="0"></label>
+                </div>
+                <label class="form-group"><span class="form-label">Description</span><textarea class="form-textarea" name="description" rows="2"></textarea></label>
+                <div class="hr-actions-bar"><button type="submit" class="btn btn--secondary">Add Goal</button></div>
+            </form>
+            {{ end }}
+        </section>
+
+        {{ if $v.ShowSelf }}
+        <section class="card" data-self-review>
+            <div class="hr-section-header">
+                <div>
+                    <h2 class="hr-section-title">Self review</h2>
+                    {{ if $v.SelfSubmittedAt }}<p class="card__desc">Submitted {{ formatDate $v.SelfSubmittedAt }}</p>{{ end }}
+                </div>
+            </div>
+            {{ if $v.SelfSubmittedAt }}
+            <p><strong>Rating:</strong> {{ with $v.SelfRating }}{{ . }} / 5{{ else }}–{{ end }}</p>
+            {{ if $v.SelfComments }}<p class="card__desc">{{ $v.SelfComments }}</p>{{ end }}
+            {{ else if not .Data.CanSelf }}
+            <p class="card__desc">The self review has not been submitted.</p>
+            {{ end }}
+            {{ if .Data.CanSelf }}
+            <form method="post" action="/hr/performance/reviews/{{ $v.ID }}/self" class="hr-modal-form" data-self-review-form>
+                <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+                {{ template "performance_review_fields" .Data }}
+                <div class="hr-actions-bar"><button type="submit" class="btn btn--primary">Submit Self Review</button></div>
+            </form>
+            {{ end }}
+        </section>
+        {{ end }}
+
+        {{ if $v.ShowManager }}
+        <section class="card" data-manager-review>
+            <div class="hr-section-header">
+                <div>
+                    <h2 class="hr-section-title">Manager review</h2>
+                    {{ if $v.ManagerSubmittedAt }}<p class="card__desc">Submitted {{ formatDate $v.ManagerSubmittedAt }}</p>{{ end }}
+                </div>
+            </div>
+            {{ if $v.ManagerSubmittedAt }}
+            <p><strong>Rating:</strong> {{ with $v.ManagerRating }}{{ . }} / 5{{ else }}–{{ end }}</p>
+            {{ if $v.ManagerComments }}<p class="card__desc">{{ $v.ManagerComments }}</p>{{ end }}
+            {{ else if .Data.SelfPending }}
+            <p class="card__desc">Waiting for the self review. The manager review opens once it is submitted or after {{ formatDatePtr $v.SelfReviewDue }}.</p>
+            {{ else if not .Data.CanManager }}
+            <p class="card__desc">The manager review has not been submitted.</p>
+            {{ end }}
+            {{ if .Data.CanManager }}
+            <form method="post" action="/hr/performance/reviews/{{ $v.ID }}/manager" class="hr-modal-form" data-manager-review-form>
+                <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+                {{ template "performance_review_fields" .Data }}
+                <div class="hr-actions-bar"><button type="submit" class="btn btn--primary">Submit Manager Review</button></div>
+            </form>
+            {{ end }}
+        </section>
+        {{ end }}
+
+        {{ if .Data.CanComplete }}
+        <section class="card" data-complete-review>
+            <div class="hr-section-header">
+                <div>
+                    <h2 class="hr-section-title">Complete review</h2>
+                    <p class="card__desc">Records the final rating, writes the summary to the employee's review history with the manager comments, and shows the final rating to the employee.</p>
+                </div>
+            </div>
+            <form method="post" action="/hr/performance/reviews/{{ $v.ID }}/complete" class="hr-modal-form">
+                <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+                <div class="hr-form-row">
+                    <label class="form-group">
+                        <span class="form-label">Final Rating</span>
+                        <select class="form-select" name="final_rating" required>
+                            {{ range $r := .Data.Ratings }}<option value="{{ $r }}"{{ if eq $r $.Data.DefaultFinalRating }} selected{{ end }}>{{ $r }}</option>{{ end }}
+                        </select>
+                    </label>
+                </div>
+                <div class="hr-actions-bar"><button type="submit" class="btn btn--primary">Complete Review</button></div>
+            </form>
+        </section>
+        {{ end }}
+    </div>
+</div>
+
+{{ if .Data.CanEditGoals }}
+{{ range .Data.Goals }}
+<!-- Modal: Edit goal -->
+<dialog data-dialog id="edit-goal-{{ .ID }}" class="native-dialog">
+    <div class="native-dialog__header">
+        <h3 class="native-dialog__title">Edit Goal</h3>
+        <button type="button" class="btn btn--icon" data-dialog-close aria-label="Close dialog">✕</button>
+    </div>
+    <form method="post" action="/hr/performance/reviews/{{ $v.ID }}/goals/{{ .ID }}/update" class="hr-modal-form native-dialog__content--padded">
+        <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
+        <label class="form-group"><span class="form-label">Goal</span><input class="form-input" name="title" value="{{ .Title }}" required></label>
+        <div class="hr-form-row">
+            <label class="form-group"><span class="form-label">KPI Target</span><input class="form-input" name="kpi_target" value="{{ .KPITarget }}"></label>
+            <label class="form-group"><span class="form-label">Weight (%)</span><input class="form-input" type="number" name="weight" min="0" max="100" step="0.01" value="{{ .Weight }}"></label>
+        </div>
+        <label class="form-group"><span class="form-label">Description</span><textarea class="form-textarea" name="description" rows="3">{{ .Description }}</textarea></label>
+        <div class="native-dialog__footer">
+            <button type="button" class="btn btn--secondary" data-dialog-close>Cancel</button>
+            <button type="submit" class="btn btn--primary">Save Goal</button>
+        </div>
+    </form>
+</dialog>
+{{ end }}
+{{ end }}
+{{ end }}
+
+{{ define "performance_review_fields" }}
+<div class="hr-form-row">
+    <label class="form-group">
+        <span class="form-label">Overall Rating</span>
+        <select class="form-select" name="rating" required>
+            <option value="">Select 1-5</option>
+            {{ range .Ratings }}<option value="{{ . }}">{{ . }}</option>{{ end }}
+        </select>
+    </label>
+</div>
+{{ $ratings := .Ratings }}
+{{ range .Goals }}
+<label class="form-group">
+    <span class="form-label">Score: {{ .Title }}</span>
+    <select class="form-select" name="goal_score_{{ .ID }}">
+        <option value="">Not scored</option>
+        {{ range $ratings }}<option value="{{ . }}">{{ . }}</option>{{ end }}
+    </select>
+</label>
+{{ end }}
+<label class="form-group"><span class="form-label">Comments</span><textarea class="form-textarea" name="comments" rows="4"></textarea></label>
+{{ end }}

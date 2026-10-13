@@ -38,8 +38,17 @@ func (l *AuditLogger) RecordTx(ctx context.Context, tx pgx.Tx, log AuditLog) err
 	if err != nil {
 		return err
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO audit_logs (actor_id, action, entity, entity_id, meta, occurred_at) VALUES ($1, $2, $3, $4, $5, COALESCE($6, NOW()))`, log.ActorID, log.Action, log.Entity, log.EntityID, metaJSON, log.At)
+	_, err = tx.Exec(ctx, `INSERT INTO audit_logs (actor_id, action, entity, entity_id, meta, occurred_at) VALUES ($1, $2, $3, $4, $5, COALESCE($6, NOW()))`, log.ActorID, log.Action, log.Entity, log.EntityID, metaJSON, auditTimeArg(log.At))
 	return err
+}
+
+// auditTimeArg returns nil for a zero time so COALESCE($n, NOW()) applies the
+// database clock; a zero time.Time would otherwise be sent as 0001-01-01.
+func auditTimeArg(t time.Time) any {
+	if t.IsZero() {
+		return nil
+	}
+	return t
 }
 
 // NewAuditLogger returns a new AuditLogger.
@@ -59,6 +68,6 @@ func (l *AuditLogger) Record(ctx context.Context, log AuditLog) error {
 	if err != nil {
 		return err
 	}
-	_, err = l.pool.Exec(ctx, `INSERT INTO audit_logs (actor_id, action, entity, entity_id, meta, occurred_at) VALUES ($1, $2, $3, $4, $5, COALESCE($6, NOW()))`, log.ActorID, log.Action, log.Entity, log.EntityID, metaJSON, log.At)
+	_, err = l.pool.Exec(ctx, `INSERT INTO audit_logs (actor_id, action, entity, entity_id, meta, occurred_at) VALUES ($1, $2, $3, $4, $5, COALESCE($6, NOW()))`, log.ActorID, log.Action, log.Entity, log.EntityID, metaJSON, auditTimeArg(log.At))
 	return err
 }

@@ -287,6 +287,8 @@ Offers use `DRAFT → APPROVAL → SENT → ACCEPTED/DECLINED/EXPIRED`.
 
 ### 4.2 Performance management
 
+> **Partially implemented.** A simpler cycle flow (`DRAFT -> ACTIVE -> CLOSED` cycles, goals, self and manager review, admin completion into `hr_performance_reviews`) is live under `/hr/performance`; see [Performance review cycles](approvals-hr-core.md#performance-review-cycles). Templates, competencies, peer input, calibration, and acknowledgements below remain planned.
+
 Add versioned review templates, competencies, rating scales, cycles, participants,
 goals, check-ins, self reviews, manager reviews, peer inputs, calibration decisions,
 acknowledgements, and development actions.

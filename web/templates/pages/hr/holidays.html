@@ -1,0 +1,87 @@
+{{ define "pages/hr/holidays.html" }}{{ template "layouts/base.html" . }}{{ end }}
+{{ define "title" }}Company Holidays{{ end }}
+{{ define "content" }}
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-title">Company Holidays</h1>
+            <p class="page-subtitle">Public and company holidays are excluded from leave working-day counts, attendance and payroll.</p>
+        </div>
+        <div class="page-header__actions">
+            <button type="button" class="btn btn--primary" data-dialog-open="add-holiday-dialog">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <span>Add Holiday</span>
+            </button>
+        </div>
+    </header>
+
+    <div class="page-content">
+        <section class="card card-table" data-component="datatable">
+            <div class="hr-actions-bar">
+                <form method="get" action="/hr/holidays" class="hr-filter-group">
+                    <a href="/hr/holidays?year={{ .Data.PrevYear }}" class="btn btn--secondary" aria-label="Previous year">‹ {{ .Data.PrevYear }}</a>
+                    <input class="form-input" type="number" name="year" min="1900" max="9999" value="{{ .Data.Year }}" aria-label="Year">
+                    <button class="btn btn--secondary" type="submit">Show</button>
+                    <a href="/hr/holidays?year={{ .Data.NextYear }}" class="btn btn--secondary" aria-label="Next year">{{ .Data.NextYear }} ›</a>
+                </form>
+            </div>
+            <div class="card__header">
+                <h2 class="card__title" id="hr-holidays-title">Holidays in {{ .Data.Year }}</h2>
+            </div>
+            <div class="table-responsive">
+                <table class="table table--sticky" data-datatable="hr-holidays" aria-labelledby="hr-holidays-title">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Day</th>
+                            <th>Name</th>
+                            <th class="table__actions">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{ range .Data.Holidays }}
+                        <tr>
+                            <td>{{ .Date.Format "02 Jan 2006" }}</td>
+                            <td>{{ .Date.Weekday }}</td>
+                            <td><strong>{{ .Name }}</strong></td>
+                            <td class="table__actions">
+                                <form method="post" action="/hr/holidays/{{ .ID }}/delete">
+                                    <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
+                                    <input type="hidden" name="year" value="{{ $.Data.Year }}">
+                                    <button type="submit" class="btn btn--danger btn--sm">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {{ else }}
+                        <tr><td colspan="4" class="table-empty">No holidays recorded for {{ .Data.Year }}.</td></tr>
+                        {{ end }}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</div>
+
+<!-- Modal: Add Holiday -->
+<dialog data-dialog id="add-holiday-dialog" class="native-dialog">
+    <div class="native-dialog__header">
+        <h3 class="native-dialog__title">Add Holiday</h3>
+        <button type="button" class="btn btn--icon" data-dialog-close aria-label="Close dialog">✕</button>
+    </div>
+    <form method="post" action="/hr/holidays" class="hr-modal-form native-dialog__content--padded">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+        <label class="form-group">
+            <span class="form-label">Date</span>
+            <input class="form-input" type="date" name="holiday_date" required>
+        </label>
+        <label class="form-group">
+            <span class="form-label">Name</span>
+            <input class="form-input" name="name" placeholder="e.g. Independence Day" maxlength="200" required>
+        </label>
+        <div class="native-dialog__footer">
+            <button type="button" class="btn btn--secondary" data-dialog-close>Cancel</button>
+            <button type="submit" class="btn btn--primary">Save Holiday</button>
+        </div>
+    </form>
+</dialog>
+{{ end }}

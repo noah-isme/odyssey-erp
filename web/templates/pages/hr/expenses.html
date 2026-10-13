@@ -1,0 +1,84 @@
+{{ define "pages/hr/expenses.html" }}{{ template "layouts/base.html" . }}{{ end }}
+{{ define "title" }}Expense Claims{{ end }}
+{{ define "content" }}
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-title">Expense Claims</h1>
+            <p class="page-subtitle">Employee expense claims submitted from the portal. Approve or reject them in <a href="/approvals">Approvals</a>; approved claims are not posted to AP or payroll.</p>
+        </div>
+    </header>
+
+    <div class="page-content">
+        {{ if .Data.Error }}
+        <div class="alert alert--danger" role="alert">Expense claims could not be loaded. Try again later.</div>
+        {{ end }}
+        <section class="card">
+            <div class="hr-actions-bar">
+                <form method="get" action="/hr/expenses" class="hr-filter-group" role="search">
+                    <input class="form-input" type="search" name="q" value="{{ .Data.Search }}" placeholder="Search employee or category..." aria-label="Search employee or category">
+                    <select class="form-select" name="status" aria-label="Status">
+                        <option value="">All Statuses</option>
+                        <option value="PENDING"{{ if eq .Data.StatusFilter "PENDING" }} selected{{ end }}>Pending</option>
+                        <option value="APPROVED"{{ if eq .Data.StatusFilter "APPROVED" }} selected{{ end }}>Approved</option>
+                        <option value="REJECTED"{{ if eq .Data.StatusFilter "REJECTED" }} selected{{ end }}>Rejected</option>
+                        <option value="CANCELLED"{{ if eq .Data.StatusFilter "CANCELLED" }} selected{{ end }}>Cancelled</option>
+                    </select>
+                    <input class="form-input" type="date" name="from" value="{{ .Data.From }}" aria-label="Claim date from">
+                    <input class="form-input" type="date" name="to" value="{{ .Data.To }}" aria-label="Claim date to">
+                    <button class="btn btn--secondary" type="submit">Filter</button>
+                    {{ if .Data.Filtered }}
+                    <a href="/hr/expenses" class="btn btn--secondary">Reset</a>
+                    {{ end }}
+                </form>
+            </div>
+            <div class="table-responsive">
+                <table class="table table--sticky" data-datatable="hr-expenses-all">
+                    <thead>
+                        <tr>
+                            <th>Employee</th>
+                            <th>Claim Date</th>
+                            <th>Category</th>
+                            <th>Description</th>
+                            <th class="numeric">Amount</th>
+                            <th>Receipt</th>
+                            <th>Status</th>
+                            <th>Apply Error</th>
+                            <th class="table__actions">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{ range .Data.Claims }}
+                        <tr>
+                            <td>
+                                <strong>{{ .EmployeeName }}</strong>
+                                <div><small class="text-muted">{{ .EmployeeNumber }}{{ if .Department }} · {{ .Department }}{{ end }}</small></div>
+                            </td>
+                            <td>{{ .ClaimDate.Format "02 Jan 2006" }}</td>
+                            <td>{{ .Category }}</td>
+                            <td>{{ if .Description }}{{ .Description }}{{ else }}<span class="text-muted">–</span>{{ end }}</td>
+                            <td class="numeric">{{ .Currency }} {{ .Amount }}</td>
+                            <td>{{ if .DocumentID }}<a href="/documents/library/{{ .DocumentID }}">Document #{{ .DocumentID }}</a>{{ else }}<span class="text-muted">–</span>{{ end }}</td>
+                            <td>{{ template "partials/ui/status_badge.html" .Status }}</td>
+                            <td>{{ if .ApplyError }}<small>{{ .ApplyError }}</small>{{ else }}<span class="text-muted">–</span>{{ end }}</td>
+                            <td class="table__actions">
+                                {{ if and (eq .Status "PENDING") .ApprovalRequestID }}
+                                <form method="post" action="/hr/expenses/{{ .ID }}/retry">
+                                    <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
+                                    <button type="submit" class="btn btn--secondary btn--sm" title="Re-run the approval outcome once the approval is decided">Retry apply</button>
+                                </form>
+                                {{ else }}
+                                <span class="text-muted">–</span>
+                                {{ end }}
+                            </td>
+                        </tr>
+                        {{ else }}
+                        <tr><td colspan="9" class="table-empty">No expense claims found matching criteria.</td></tr>
+                        {{ end }}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</div>
+{{ end }}

@@ -421,11 +421,11 @@ var scenarioRegistry = []Scenario{
 			{N: 1, Phase: 1, Type: jobs.TypeCashForecastRefresh,
 				Payload: []Field{{"company_id", fxv(fxCompanyA)}, {"scenario_id", fxv(fxScenarioB)}},
 				Expect: Expectation{States: []string{stateArchived}, Retried: RetriedMax, LastErrAnyOf: []string{handlerNotFound},
-					Text: `archived, ` + maxRetryNote + `, "handler not found" (cmd/worker/main.go:127-132); no forecast_runs for (A, scen_B)`}},
+					Text: `archived, ` + maxRetryNote + `, "handler not found" (cmd/worker/main.go:128-133); no forecast_runs for (A, scen_B)`}},
 			{N: 2, Phase: 1, Type: jobs.TypeBankFeedsEvent,
 				Payload: []Field{{"event_id", dyn(dynBankEventUnknown)}},
 				Expect: Expectation{States: []string{stateArchived}, Retried: RetriedMax, LastErrAnyOf: []string{handlerNotFound},
-					Text: `archived, ` + maxRetryNote + `, "handler not found" (cmd/worker/main.go:127-132)`}},
+					Text: `archived, ` + maxRetryNote + `, "handler not found" (cmd/worker/main.go:128-133)`}},
 		},
 		Queries: []QuerySpec{
 			{Name: "forecast_runs_forged_pair", Args: []Value{fxv(fxCompanyA), fxv(fxScenarioB)}, SQL: `SELECT COUNT(*) AS n FROM forecast_runs WHERE company_id = $1 AND scenario_id = $2`},
@@ -474,7 +474,7 @@ var scenarioRegistry = []Scenario{
 			N: 1, Phase: 1, Type: jobs.TaskProcessAPInvoice,
 			Payload: []Field{{"invoice_id", fxv(fxAPException)}, {"created_by", fxv(fxAdminUserA)}},
 			Expect: Expectation{States: []string{stateArchived}, Retried: RetriedZero, LastErrAnyOf: []string{"actor", "created_by"},
-				Text: "archived, " + skipRetryNote + ", LastErr names the actor mismatch; no new runs/exceptions (internal/ap/orchestrator.go:94-101, jobs/ap_invoice.go:103-107, cmd/worker/main.go:430)"},
+				Text: "archived, " + skipRetryNote + ", LastErr names the actor mismatch; no new runs/exceptions (internal/ap/orchestrator.go:94-101, jobs/ap_invoice.go:103-107, cmd/worker/main.go:434)"},
 		}},
 		Queries: apQueries("exception", fxAPException),
 		Assertions: []AssertionSpec{
@@ -501,7 +501,7 @@ var scenarioRegistry = []Scenario{
 			unchanged("connector_outbox_unchanged", "connector_outbox_ab", "connector_outbox_commands for A and B unchanged"),
 			eq("connector_connections_none", "connector_connections_ab", "n", lit(0), "defense in depth: no connector connection for A or B"),
 		},
-		Observations: []string{"payload company_id is trusted by the handler (jobs/bi_export.go:55-63, unchanged in rc.9); rc.9 does not register it under v0.10-core (jobs/asynq_server.go:79-81, cmd/worker/main.go:173-175)"},
+		Observations: []string{"payload company_id is trusted by the handler (jobs/bi_export.go:55-63, unchanged in rc.9); rc.9 does not register it under v0.10-core (jobs/asynq_server.go:79-81, cmd/worker/main.go:174-176)"},
 	},
 	{
 		ID:       "S11-forged-recipient-mail",
@@ -655,6 +655,8 @@ var workerPayloads = []workerPayload{
 	{jobs.TypeCMMSPMGeneratorScan, nil, "jobs/cmms_pm_generator.go:11"},
 	{jobs.TaskDocumentDisposition, nil, "jobs/document_disposition.go:11"},
 	{jobs.TaskConnectorOutboxSweep, nil, "jobs/tasks.go:37"},
+	{jobs.TaskHRChecklistReminders, nil, "jobs/hr_checklist.go:11"},
+	{jobs.TaskHRApplyJobChanges, nil, "jobs/hr_job_changes.go:14"},
 }
 
 func payloadStructFor(taskType string) (reflect.Type, bool) {

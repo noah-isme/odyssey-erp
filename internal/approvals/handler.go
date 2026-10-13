@@ -1,6 +1,7 @@
 package approvals
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/odyssey-erp/odyssey-erp/internal/rbac"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
@@ -78,10 +80,81 @@ func (h *Handler) decide(w http.ResponseWriter, r *http.Request, decision string
 		_, err = h.service.Decide(r.Context(), id, userID(r), decision, r.PostFormValue("note"))
 	}
 	if err != nil {
-		flashRedirect(w, r, "/approvals", "error", shared.UserSafeMessage(err))
+		var finErr *FinalizeError
+		if errors.As(err, &finErr) {
+			// The decision is committed; only applying the result failed.
+			if h.logger != nil {
+				h.logger.Error("approval finalizer failed after decision", slog.Any("error", finErr.Err))
+			}
+			flashRedirect(w, r, "/approvals", "error", finalizeFailureMessage(decision, finErr.Err))
+			return
+		}
+		flashRedirect(w, r, "/approvals", "error", h.decisionErrorMessage(err))
 		return
 	}
 	flashRedirect(w, r, "/approvals", "success", "Approval decision recorded")
+}
+
+// decisionErrorMessage maps decision failures that users can cause (double
+// click, a late second approver, a stale link) to specific safe messages; the
+// cause of anything else is logged and hidden behind the generic message.
+func (h *Handler) decisionErrorMessage(err error) string {
+	switch {
+	case errors.Is(err, ErrAlreadyDecided):
+		return "This request has already been decided."
+	case errors.Is(err, ErrNotAssigned):
+		return "This request is not assigned to you."
+	case errors.Is(err, pgx.ErrNoRows):
+		return "The requested item was not found."
+	case errors.Is(err, ErrInvalid):
+		return "The provided input is invalid."
+	}
+	if msg := shared.UserSafeMessage(err); msg != "An unexpected error occurred. Please try again." {
+		return msg
+	}
+	if h.logger != nil {
+		h.logger.Error("approval decision failed", slog.Any("error", err))
+	}
+	return shared.UserSafeMessage(err)
+}
+
+const genericFinalizeReason = "an unexpected error occurred"
+
+// finalizeFailureMessage builds the flash shown when the decision committed
+// but the module finalizer failed. The finalizer's text is shown only when it
+// is a plain "hr: " user-safe error; wrapped errors (which may carry database
+// or internal detail) and everything else get a generic reason.
+func finalizeFailureMessage(decision string, err error) string {
+	verb := "Approved"
+	if decision == DecisionReject {
+		verb = "Rejected"
+	}
+	return verb + ", but applying the result failed: " + safeFinalizeReason(err) + ". HR can retry from the request page."
+}
+
+// safeFinalizeReason walks the wrap chain and returns the first plain
+// "hr: " sentinel message, so a sentinel wrapped with extra context (for
+// example ErrPayrollAwaitingApproval) is still shown.
+func safeFinalizeReason(err error) string {
+	for e := err; e != nil; e = errors.Unwrap(e) {
+		if reason, ok := plainHRReason(e); ok {
+			return reason
+		}
+	}
+	return genericFinalizeReason
+}
+
+func plainHRReason(err error) (string, bool) {
+	msg := strings.TrimSpace(err.Error())
+	const prefix = "hr: "
+	if !strings.HasPrefix(msg, prefix) || len(msg) > 200 || strings.ContainsAny(msg, "\r\n") {
+		return "", false
+	}
+	reason := strings.TrimRight(strings.TrimPrefix(msg, prefix), ". ")
+	if reason == "" || strings.Contains(reason, ": ") {
+		return "", false
+	}
+	return reason, true
 }
 func (h *Handler) approve(w http.ResponseWriter, r *http.Request) { h.decide(w, r, DecisionApprove) }
 func (h *Handler) reject(w http.ResponseWriter, r *http.Request)  { h.decide(w, r, DecisionReject) }

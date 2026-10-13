@@ -68,8 +68,16 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/freight"
 	fxservice "github.com/odyssey-erp/odyssey-erp/internal/fx"
 	hrattendance "github.com/odyssey-erp/odyssey-erp/internal/hr/attendance"
+	hrchecklists "github.com/odyssey-erp/odyssey-erp/internal/hr/checklists"
+	hrcompensation "github.com/odyssey-erp/odyssey-erp/internal/hr/compensation"
 	hremployees "github.com/odyssey-erp/odyssey-erp/internal/hr/employees"
+	hrexpenses "github.com/odyssey-erp/odyssey-erp/internal/hr/expenses"
 	hrleave "github.com/odyssey-erp/odyssey-erp/internal/hr/leave"
+	hrovertime "github.com/odyssey-erp/odyssey-erp/internal/hr/overtime"
+	hrperformance "github.com/odyssey-erp/odyssey-erp/internal/hr/performance"
+	hrprofilechanges "github.com/odyssey-erp/odyssey-erp/internal/hr/profilechanges"
+	hrreports "github.com/odyssey-erp/odyssey-erp/internal/hr/reports"
+	hrschedule "github.com/odyssey-erp/odyssey-erp/internal/hr/schedule"
 	"github.com/odyssey-erp/odyssey-erp/internal/insights"
 	insightshhtp "github.com/odyssey-erp/odyssey-erp/internal/insights/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/integration"
@@ -363,13 +371,33 @@ func main() {
 	sourcingService := procurement.NewSourcingService(procurement.NewSourcingRepository(dbpool), approvalService, auditLogger, idempotencyStore, procurement.NewAsynqRFQEmailQueue(jobClient.AsynqClient()))
 	approvalService.RegisterFinalizer("RFQ_AWARD", sourcingService)
 	approvalsHandler := approvalengine.NewHandler(logger, approvalService, templates, csrfManager, rbacMiddleware, dbpool)
-	hrEmployeeService := hremployees.NewService(dbpool)
-	hrEmployeesHandler := hremployees.NewHandler(logger, hrEmployeeService, templates, csrfManager, rbacMiddleware)
-	hrLeaveService := hrleave.NewService(dbpool, approvalService, auditLogger)
+	hrCompensationService := hrcompensation.NewService(dbpool, auditLogger)
+	hrEmployeeService := hremployees.NewService(dbpool, auditLogger)
+	hrEmployeeService.SetCompensationCreator(hrCompensationService)
+	hrEmployeesHandler := hremployees.NewHandler(logger, hrEmployeeService, hrCompensationService, templates, csrfManager, rbacMiddleware)
+	hrScheduleService := hrschedule.NewService(dbpool, auditLogger)
+	hrScheduleHandler := hrschedule.NewHandler(logger, hrScheduleService, templates, csrfManager, rbacMiddleware)
+	hrLeaveService := hrleave.NewService(dbpool, approvalService, auditLogger, hrScheduleService)
 	approvalService.RegisterFinalizer("LEAVE", hrLeaveService)
 	hrLeaveHandler := hrleave.NewHandler(logger, hrLeaveService, templates, csrfManager, rbacMiddleware)
+	hrOvertimeService := hrovertime.NewService(dbpool, approvalService, auditLogger, notificationDispatcher)
+	approvalService.RegisterFinalizer("OVERTIME", hrOvertimeService)
+	hrOvertimeHandler := hrovertime.NewHandler(logger, hrOvertimeService, templates, csrfManager, rbacMiddleware)
+	hrExpenseService := hrexpenses.NewService(dbpool, approvalService, auditLogger)
+	approvalService.RegisterFinalizer("EXPENSE", hrExpenseService)
+	hrProfileChangeService := hrprofilechanges.NewService(dbpool, approvalService, auditLogger, hrCompensationService)
+	approvalService.RegisterFinalizer(hrprofilechanges.Module, hrProfileChangeService)
+	hrExpensesHandler := hrexpenses.NewHandler(logger, hrExpenseService, templates, csrfManager, rbacMiddleware)
+	hrProfileChangeHandler := hrprofilechanges.NewHandler(logger, hrProfileChangeService, hrEmployeeService, hrCompensationService, templates, csrfManager, rbacMiddleware)
 	hrAttendanceService := hrattendance.NewService(dbpool)
 	hrAttendanceHandler := hrattendance.NewHandler(logger, hrAttendanceService, templates, csrfManager, rbacMiddleware)
+	hrChecklistService := hrchecklists.NewService(dbpool, auditLogger, hrEmployeeService, notificationDispatcher)
+	hrChecklistsHandler := hrchecklists.NewHandler(logger, hrChecklistService, hrEmployeeService, templates, csrfManager, rbacMiddleware)
+	hrEmployeesHandler.SetChecklists(hrchecklists.NewEmployeeDetailSource(hrChecklistService))
+	hrPerformanceService := hrperformance.NewService(dbpool, hrEmployeeService, auditLogger)
+	hrPerformanceHandler := hrperformance.NewHandler(logger, hrPerformanceService, hrEmployeeService, templates, csrfManager, rbacMiddleware)
+	hrReportsService := hrreports.NewService(dbpool, hrScheduleService)
+	hrReportsHandler := hrreports.NewHandler(logger, hrReportsService, auditLogger, templates, csrfManager, rbacMiddleware)
 	payrollRepo := payroll.NewRepository(dbpool)
 	payrollService := payroll.NewService(payrollRepo, approvalService, journalService, payrollDeliveryQueue{client: jobClient})
 	approvalService.RegisterFinalizer("PAYROLL", payrollService)
@@ -523,7 +551,9 @@ func main() {
 	wmsHandler := wms.NewHandler(wms.NewService(wms.NewRepository(dbpool)), rbacMiddleware, dbpool)
 	wmsHandler.SetInventoryService(inventoryService)
 	apiHandler := apihttp.NewHandler(dbpool, []byte(cfg.SessionSecret))
-	portalHandler := portal.NewHandler(dbpool, templates, rbacMiddleware)
+	portalHandler := portal.NewHandler(dbpool, templates, csrfManager, rbacMiddleware)
+	portalHandler.SetHRServices(hrLeaveService, hrOvertimeService, hrExpenseService, hrProfileChangeService, hrScheduleService)
+	portalHandler.SetEmployeeProfileService(hrEmployeeService)
 	posHandler := pos.NewHandler(pos.NewService(pos.NewRepository(dbpool)), rbacMiddleware, dbpool)
 	posHandler.SetInventoryService(inventoryService)
 	posHandler.SetAccountingService(integrationHooks)
@@ -610,6 +640,13 @@ func main() {
 		HREmployeesHandler:     hrEmployeesHandler,
 		HRLeaveHandler:         hrLeaveHandler,
 		HRAttendanceHandler:    hrAttendanceHandler,
+		HRScheduleHandler:      hrScheduleHandler,
+		HROvertimeHandler:      hrOvertimeHandler,
+		HRExpensesHandler:      hrExpensesHandler,
+		HRProfileChangeHandler: hrProfileChangeHandler,
+		HRChecklistsHandler:    hrChecklistsHandler,
+		HRPerformanceHandler:   hrPerformanceHandler,
+		HRReportsHandler:       hrReportsHandler,
 		PayrollHandler:         payrollHandler,
 		TaxHandler:             taxHandler,
 		CRMHandler:             crmHandler,

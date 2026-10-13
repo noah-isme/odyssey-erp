@@ -11,7 +11,7 @@ import (
 )
 
 func TestSubmitRejectsInvalidDateRangeBeforeDatabaseAccess(t *testing.T) {
-	service := NewService(nil, nil, nil)
+	service := NewService(nil, nil, nil, nil)
 	_, err := service.Submit(context.Background(), CreateInput{
 		UserID: 1, LeaveTypeID: 1,
 		StartDate: time.Date(2026, 7, 31, 0, 0, 0, 0, time.UTC),
@@ -21,7 +21,7 @@ func TestSubmitRejectsInvalidDateRangeBeforeDatabaseAccess(t *testing.T) {
 }
 
 func TestSubmitRejectsMissingIdentityAndLeaveType(t *testing.T) {
-	service := NewService(nil, nil, nil)
+	service := NewService(nil, nil, nil, nil)
 	for name, input := range map[string]CreateInput{
 		"user":       {LeaveTypeID: 1, StartDate: time.Now(), EndDate: time.Now()},
 		"leave type": {UserID: 1, StartDate: time.Now(), EndDate: time.Now()},
@@ -38,15 +38,15 @@ func TestGetOwnBalancesCalculatesAvailable(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Close()
 
-	service := NewService(nil, nil, nil)
+	service := NewService(nil, nil, nil, nil)
 	service.pool = db
 
 	db.ExpectQuery("SELECT b.leave_type_id, t.code, t.name, b.year, b.entitled, b.used, b.pending, GREATEST").
-		WithArgs(int64(42), 2026).
+		WithArgs(int64(42), int64(7), 2026).
 		WillReturnRows(pgxmock.NewRows([]string{"leave_type_id", "code", "name", "year", "entitled", "used", "pending", "available"}).
 			AddRow(int64(1), "ANNUAL", "Annual Leave", 2026, 12.0, 3.0, 2.0, 7.0))
 
-	balances, err := service.GetOwnBalances(context.Background(), 42, 2026)
+	balances, err := service.GetOwnBalances(context.Background(), 7, 42, 2026)
 	require.NoError(t, err)
 	require.Len(t, balances, 1)
 	require.Equal(t, "ANNUAL", balances[0].TypeCode)
@@ -67,7 +67,7 @@ func TestCancelPendingLeaveRequest(t *testing.T) {
 
 	db.ExpectBegin()
 	db.ExpectQuery("SELECT r.employee_id, r.leave_type_id, r.days, r.status, r.start_date, r.approval_request_id").
-		WithArgs(int64(99), int64(42)).
+		WithArgs(int64(99), int64(42), int64(7)).
 		WillReturnRows(pgxmock.NewRows([]string{"employee_id", "leave_type_id", "days", "status", "start_date", "approval_request_id"}).
 			AddRow(int64(8), int64(1), 3.0, "PENDING", start, &apprID))
 	db.ExpectExec("UPDATE hr_leave_requests SET status='CANCELLED'").
@@ -79,9 +79,12 @@ func TestCancelPendingLeaveRequest(t *testing.T) {
 	db.ExpectExec("UPDATE approval_requests SET status='CANCELLED'").
 		WithArgs(int64(101)).
 		WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+	db.ExpectExec("UPDATE approval_assignments SET status='CANCELLED'").
+		WithArgs(int64(101)).
+		WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 	db.ExpectCommit()
 
-	err = service.Cancel(context.Background(), 99, 42)
+	err = service.Cancel(context.Background(), 7, 99, 42)
 	require.NoError(t, err)
 	require.Len(t, audit.logs, 1)
 	require.Equal(t, "LEAVE_CANCELLED", audit.logs[0].Action)
@@ -98,12 +101,12 @@ func TestCancelRejectsNonPendingRequest(t *testing.T) {
 
 	db.ExpectBegin()
 	db.ExpectQuery("SELECT r.employee_id, r.leave_type_id, r.days, r.status, r.start_date, r.approval_request_id").
-		WithArgs(int64(99), int64(42)).
+		WithArgs(int64(99), int64(42), int64(7)).
 		WillReturnRows(pgxmock.NewRows([]string{"employee_id", "leave_type_id", "days", "status", "start_date", "approval_request_id"}).
 			AddRow(int64(8), int64(1), 3.0, "APPROVED", start, nil))
 	db.ExpectRollback()
 
-	err = service.Cancel(context.Background(), 99, 42)
+	err = service.Cancel(context.Background(), 7, 99, 42)
 	require.EqualError(t, err, "hr: only pending leave requests can be cancelled")
 	require.NoError(t, db.ExpectationsWereMet())
 }
@@ -137,7 +140,7 @@ func TestCancelRollbackOnApprovalError(t *testing.T) {
 
 	db.ExpectBegin()
 	db.ExpectQuery("SELECT r.employee_id, r.leave_type_id, r.days, r.status, r.start_date, r.approval_request_id").
-		WithArgs(int64(99), int64(42)).
+		WithArgs(int64(99), int64(42), int64(7)).
 		WillReturnRows(pgxmock.NewRows([]string{"employee_id", "leave_type_id", "days", "status", "start_date", "approval_request_id"}).
 			AddRow(int64(8), int64(1), 3.0, "PENDING", start, &apprID))
 	db.ExpectExec("UPDATE hr_leave_requests SET status='CANCELLED'").
@@ -151,7 +154,7 @@ func TestCancelRollbackOnApprovalError(t *testing.T) {
 		WillReturnError(errors.New("db error"))
 	db.ExpectRollback()
 
-	err = service.Cancel(context.Background(), 99, 42)
+	err = service.Cancel(context.Background(), 7, 99, 42)
 	require.Error(t, err)
 	require.NoError(t, db.ExpectationsWereMet())
 }

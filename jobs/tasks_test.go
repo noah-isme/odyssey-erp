@@ -2,7 +2,9 @@ package jobs
 
 import (
 	"context"
+	"errors"
 	"testing"
+	"time"
 
 	"github.com/hibiken/asynq"
 	"github.com/odyssey-erp/odyssey-erp/internal/shared"
@@ -100,4 +102,56 @@ func TestHandleFinanceAutomationDispatchUsesSharedOutboxBoundary(t *testing.T) {
 	require.NoError(t, HandleFinanceAutomationDispatch(fake)(context.Background(), asynq.NewTask(TaskFinanceAutomationDispatch, nil)))
 	require.Equal(t, 100, fake.limit)
 	require.ErrorIs(t, HandleFinanceAutomationDispatch(nil)(context.Background(), asynq.NewTask(TaskFinanceAutomationDispatch, nil)), asynq.SkipRetry)
+}
+
+type hrChecklistReminderFake struct{ limit int }
+
+func (f *hrChecklistReminderFake) DispatchOverdueReminders(_ context.Context, limit int) error {
+	f.limit = limit
+	return nil
+}
+
+func TestHandleHRChecklistRemindersUsesCap(t *testing.T) {
+	fake := &hrChecklistReminderFake{}
+	require.NoError(t, HandleHRChecklistReminders(fake)(context.Background(), asynq.NewTask(TaskHRChecklistReminders, nil)))
+	require.Equal(t, 200, fake.limit)
+}
+
+type hrJobChangeFake struct {
+	asOf time.Time
+	n    int
+	err  error
+}
+
+func (f *hrJobChangeFake) ApplyDueJobChanges(_ context.Context, asOf time.Time) (int, error) {
+	f.asOf = asOf
+	return f.n, f.err
+}
+
+func TestHandleHRApplyJobChangesUsesBusinessDate(t *testing.T) {
+	// 20:00 UTC on 31 May is already 1 June in Jakarta (UTC+7).
+	now := time.Date(2026, 5, 31, 20, 0, 0, 0, time.UTC)
+	prev := hrJobChangeClock
+	hrJobChangeClock = func() time.Time { return now }
+	t.Cleanup(func() { hrJobChangeClock = prev })
+
+	jakarta, err := time.LoadLocation("Asia/Jakarta")
+	require.NoError(t, err)
+	task := asynq.NewTask(TaskHRApplyJobChanges, nil)
+	for name, loc := range map[string]*time.Location{"explicit": jakarta, "default": nil} {
+		fake := &hrJobChangeFake{n: 2}
+		require.NoError(t, HandleHRApplyJobChanges(fake, loc)(context.Background(), task), name)
+		y, m, d := fake.asOf.Date()
+		require.Equal(t, []int{2026, 6, 1}, []int{y, int(m), d}, name)
+	}
+
+	fake := &hrJobChangeFake{}
+	require.NoError(t, HandleHRApplyJobChanges(fake, time.UTC)(context.Background(), task))
+	y, m, d := fake.asOf.Date()
+	require.Equal(t, []int{2026, 5, 31}, []int{y, int(m), d}, "an explicit UTC location is honoured")
+
+	boom := errors.New("boom")
+	fake.err = boom
+	require.ErrorIs(t, HandleHRApplyJobChanges(fake, jakarta)(context.Background(), task), boom, "errors are returned so asynq retries")
+	require.ErrorIs(t, HandleHRApplyJobChanges(nil, jakarta)(context.Background(), task), asynq.SkipRetry)
 }

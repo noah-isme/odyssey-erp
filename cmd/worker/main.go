@@ -40,6 +40,7 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/forecasting"
 	"github.com/odyssey-erp/odyssey-erp/internal/fixedassets"
 	fxservice "github.com/odyssey-erp/odyssey-erp/internal/fx"
+	"github.com/odyssey-erp/odyssey-erp/internal/hr/checklists"
 	"github.com/odyssey-erp/odyssey-erp/internal/notifications"
 	"github.com/odyssey-erp/odyssey-erp/internal/outbox"
 	"github.com/odyssey-erp/odyssey-erp/internal/payroll"
@@ -307,6 +308,8 @@ func main() {
 	taxService := tax.NewService(tax.NewRepository(pool), nil)
 	crmService := crm.NewService(crm.NewRepository(pool), nil, nil, crm.NewNotificationAdapter(notificationDispatcher))
 	cmmsService := cmms.NewService(cmms.NewRepository(pool))
+	// Reminders need no employee lookups, so the employees dependency is nil.
+	checklistService := checklists.NewService(pool, shared.NewAuditLogger(pool), nil, notificationDispatcher)
 	fxRepo := fxservice.NewRepository(pool)
 	fxProvider := fxservice.NewExchangeRateAPI(fxservice.ProviderConfig{BaseURL: cfg.FXAPIBaseURL, APIKey: cfg.FXAPIKey, Timeout: cfg.FXFetchTimeout})
 	fxDailyService := &fxservice.Service{Provider: fxProvider, Repo: fxRepo, MaxRateAge: cfg.FXMaxRateAge}
@@ -427,7 +430,9 @@ func main() {
 			{Type: jobs.TaskDocumentOCR, Handler: jobs.HandleDocumentOCR(documentsService)},
 			{Type: jobs.TaskDocumentDisposition, Handler: jobs.HandleDocumentDisposition(documentsService)},
 			{Type: jobs.TaskConnectorOutboxSweep, Handler: jobs.HandleConnectorOutboxSweep(connectorsOutboxWorker)},
+			{Type: jobs.TaskHRChecklistReminders, Handler: jobs.HandleHRChecklistReminders(checklistService)},
 			{Type: jobs.TaskProcessAPInvoice, Handler: jobs.HandleProcessAPInvoice(apOrchestrator.ProcessInvoice, ap.ErrInvoiceNotFound, ap.ErrActorMismatch)},
+			{Type: jobs.TaskHRApplyJobChanges, Handler: jobs.HandleHRApplyJobChanges(newHRJobChangeApplier(pool), mustLocation("Asia/Jakarta"))},
 		}),
 		RegisterBIExport: registerBIExportForProfile(profile),
 		FXFetcher:        fxJobFetcher{service: fxDailyService},
@@ -455,6 +460,9 @@ func main() {
 			{Spec: "5 0 * * *", Task: func() *asynq.Task { task, _ := jobs.NewFXDailyRatesTask(time.Time{}, false); return task }(), Options: []asynq.Option{asynq.MaxRetry(5)}},
 			{Spec: "0 1 * * *", Task: asynq.NewTask(jobs.TaskDocumentDisposition, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
 			{Spec: "* * * * *", Task: asynq.NewTask(jobs.TaskConnectorOutboxSweep, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
+			{Spec: "0 8 * * *", Task: asynq.NewTask(jobs.TaskHRChecklistReminders, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
+			// Mirror job changes that have become effective since the last run
+			{Spec: "10 17 * * *", Task: asynq.NewTask(jobs.TaskHRApplyJobChanges, nil), Options: []asynq.Option{asynq.MaxRetry(3)}},
 		}),
 	})
 	if err != nil {

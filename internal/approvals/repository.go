@@ -182,7 +182,7 @@ func (r *Repository) Decide(ctx context.Context, requestID, actorID int64, decis
 		return DecisionResult{}, err
 	}
 	if req.Status != StatusPending {
-		return DecisionResult{}, ErrInvalid
+		return DecisionResult{}, ErrAlreadyDecided
 	}
 	var assignmentID, stepID int64
 	err = tx.QueryRow(ctx, `SELECT id,policy_step_id FROM approval_assignments WHERE request_id=$1 AND step_order=$2 AND approver_id=$3 AND status='PENDING' FOR UPDATE`, requestID, req.CurrentStep, actorID).Scan(&assignmentID, &stepID)

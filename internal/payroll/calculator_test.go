@@ -1,6 +1,7 @@
 package payroll
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -165,4 +166,35 @@ func TestOvertimeTHRAdjustmentAndRoundingTables(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, Money(4500000), result.Gross)
 	require.Equal(t, Money(4400000), result.NetPay)
+}
+
+func TestLeaveDaysExactSurvivesIntoBreakdown(t *testing.T) {
+	rounded, exact, err := normalizeLeaveDays("1.5")
+	require.NoError(t, err)
+	require.Equal(t, int64(2), rounded)
+	require.Equal(t, "1.5", exact)
+	result, err := Calculate(Input{EmployeeID: 1, PTKPCode: "TK/0", BaseSalary: 5000000, LeaveDays: rounded, LeaveDaysExact: exact}, testRules(), testPolicy())
+	require.NoError(t, err)
+	require.Equal(t, int64(2), result.LeaveDays)
+	require.Equal(t, "1.5", result.LeaveDaysExact)
+	raw, err := json.Marshal(result)
+	require.NoError(t, err)
+	var breakdown map[string]any
+	require.NoError(t, json.Unmarshal(raw, &breakdown))
+	require.Equal(t, "1.5", breakdown["LeaveDaysExact"])
+	require.EqualValues(t, 2, breakdown["LeaveDays"])
+}
+
+func TestNormalizeLeaveDays(t *testing.T) {
+	for raw, want := range map[string]struct {
+		days  int64
+		exact string
+	}{"0": {0, "0"}, "2.0": {2, "2"}, "0.5": {1, "0.5"}, "3": {3, "3"}} {
+		days, exact, err := normalizeLeaveDays(raw)
+		require.NoError(t, err, raw)
+		require.Equal(t, want.days, days, raw)
+		require.Equal(t, want.exact, exact, raw)
+	}
+	_, _, err := normalizeLeaveDays("abc")
+	require.Error(t, err)
 }

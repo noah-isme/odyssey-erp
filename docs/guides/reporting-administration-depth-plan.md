@@ -235,13 +235,21 @@ Publish these reports only after their source modules are implemented:
 ### 5.1 Initial HR reports
 
 - Headcount by effective company, department, position, manager, and status.
+  Delivered (as-of headcount by department and employment type, `/hr/reports/headcount.csv`).
 - New hires, inactive employees, and tenure bands.
+  Delivered in part: hires and leavers by month and turnover; tenure bands remain planned.
 - Attendance detail/summary, absence, lateness where captured, and import-quality
   exceptions.
+  Delivered in part: absenteeism rate by department; lateness and import-quality
+  exceptions remain planned.
 - Leave request status, usage, balance, pending reservation, and expiry where policy
   supports it.
+  Delivered in part: leave liability by department (`hr.compensation.view` required);
+  request status, usage and pending reservation reports remain planned.
 - Payroll run summary, variance, exception, liability, payment, and payslip-delivery
   status.
+  Delivered in part: overtime cost (POSTED run lines plus approved unrun estimate);
+  contract and probation expiries are also delivered. The rest remains planned.
 - Organization hierarchy and manager span.
 
 ### 5.2 Reports enabled by planned HR depth

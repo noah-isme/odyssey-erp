@@ -21,6 +21,7 @@ make migrate-up                   # Run migrations
 make migrate-down                 # Rollback migration
 make seed                         # Create test account
 make seed-phase4                  # Seed finance data
+make seed-realistic               # Realistic demo data; HR phase also writes one hr_employee_job_history row per employee (idempotent)
 make refresh-mv                   # Refresh materialized views
 ```
 

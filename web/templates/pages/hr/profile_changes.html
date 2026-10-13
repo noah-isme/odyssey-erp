@@ -1,0 +1,111 @@
+{{ define "pages/hr/profile_changes.html" }}{{ template "layouts/base.html" . }}{{ end }}
+{{ define "title" }}Profile Changes{{ end }}
+{{ define "content" }}
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-title">Profile Changes</h1>
+            <p class="page-subtitle">Address, bank, and emergency contact changes requested by employees. Approve or reject them in <a href="/approvals">Approvals</a>; approved changes are applied automatically.</p>
+        </div>
+    </header>
+
+    <div class="page-content">
+        {{ if .Data.Error }}
+        <div class="alert alert--danger" role="alert">Profile change requests could not be loaded. Try again later.</div>
+        {{ end }}
+        {{ if not .Data.ShowSensitive }}
+        <p class="text-muted" data-masked-notice>Address and bank values are masked. Viewing them requires the hr.employee.sensitive permission.</p>
+        {{ end }}
+        <section class="card">
+            <div class="hr-actions-bar">
+                <form method="get" action="/hr/profile-changes" class="hr-filter-group" role="search">
+                    <input class="form-input" type="search" name="q" value="{{ .Data.Search }}" placeholder="Search employee..." aria-label="Search employee">
+                    <select class="form-select" name="type" aria-label="Change type">
+                        <option value="">All Types</option>
+                        <option value="ADDRESS"{{ if eq .Data.TypeFilter "ADDRESS" }} selected{{ end }}>Address</option>
+                        <option value="BANK"{{ if eq .Data.TypeFilter "BANK" }} selected{{ end }}>Bank</option>
+                        <option value="EMERGENCY_CONTACT"{{ if eq .Data.TypeFilter "EMERGENCY_CONTACT" }} selected{{ end }}>Emergency contact</option>
+                    </select>
+                    <select class="form-select" name="status" aria-label="Status">
+                        <option value="">All Statuses</option>
+                        <option value="PENDING"{{ if eq .Data.StatusFilter "PENDING" }} selected{{ end }}>Pending</option>
+                        <option value="APPROVED"{{ if eq .Data.StatusFilter "APPROVED" }} selected{{ end }}>Approved</option>
+                        <option value="REJECTED"{{ if eq .Data.StatusFilter "REJECTED" }} selected{{ end }}>Rejected</option>
+                        <option value="CANCELLED"{{ if eq .Data.StatusFilter "CANCELLED" }} selected{{ end }}>Cancelled</option>
+                    </select>
+                    <button class="btn btn--secondary" type="submit">Filter</button>
+                    {{ if .Data.Filtered }}
+                    <a href="/hr/profile-changes" class="btn btn--secondary">Reset</a>
+                    {{ end }}
+                </form>
+            </div>
+            <div class="table-responsive">
+                <table class="table table--sticky" data-datatable="hr-profile-changes-all">
+                    <thead>
+                        <tr>
+                            <th>Employee</th>
+                            <th>Type</th>
+                            <th>Submitted</th>
+                            <th>Changes</th>
+                            <th>Status</th>
+                            <th>Apply Error</th>
+                            <th class="table__actions">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{ range .Data.Rows }}
+                        <tr>
+                            <td>
+                                <strong><a href="/hr/employees/{{ .EmployeeID }}">{{ .EmployeeName }}</a></strong>
+                                <div><small class="text-muted">{{ .EmployeeNumber }}</small></div>
+                            </td>
+                            <td>{{ if eq .ChangeType "EMERGENCY_CONTACT" }}Emergency contact{{ else if eq .ChangeType "BANK" }}Bank{{ else }}Address{{ end }}</td>
+                            <td>{{ .CreatedAt.Format "02 Jan 2006" }}</td>
+                            <td>
+                                {{ if .Diff }}
+                                {{ if .NewEntry }}<div><small class="text-muted">New contact</small></div>{{ end }}
+                                <ul class="hr-diff-list">
+                                    {{ range .Diff }}
+                                    <li class="hr-diff-list__item{{ if .Changed }} hr-diff-list__item--changed{{ end }}" data-field="{{ .Field }}">
+                                        <span class="hr-diff-list__label">{{ .Label }}</span>
+                                        <span class="hr-diff-list__current">{{ if .Current }}{{ .Current }}{{ else }}–{{ end }}</span>
+                                        <span class="hr-diff-list__arrow" aria-hidden="true">→</span>
+                                        <span class="hr-diff-list__proposed">{{ if .Proposed }}{{ .Proposed }}{{ else }}–{{ end }}</span>
+                                    </li>
+                                    {{ end }}
+                                </ul>
+                                {{ else }}
+                                <ul class="hr-diff-list">
+                                    {{ $payload := .Payload }}
+                                    {{ range .PayloadKeys }}{{ if ne . "contact_id" }}
+                                    <li class="hr-diff-list__item" data-field="{{ . }}">
+                                        <span class="hr-diff-list__label">{{ . }}</span>
+                                        <span class="hr-diff-list__proposed">{{ index $payload . }}</span>
+                                    </li>
+                                    {{ end }}{{ end }}
+                                </ul>
+                                {{ end }}
+                            </td>
+                            <td>{{ template "partials/ui/status_badge.html" .Status }}</td>
+                            <td>{{ if .ApplyError }}<small>{{ .ApplyError }}</small>{{ else }}<span class="text-muted">–</span>{{ end }}</td>
+                            <td class="table__actions">
+                                {{ if and (eq .Status "PENDING") .ApprovalRequestID }}
+                                <form method="post" action="/hr/profile-changes/{{ .ID }}/retry">
+                                    <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
+                                    <button type="submit" class="btn btn--secondary btn--sm" title="Re-run the approval outcome once the approval is decided">Retry apply</button>
+                                </form>
+                                {{ else }}
+                                <span class="text-muted">–</span>
+                                {{ end }}
+                            </td>
+                        </tr>
+                        {{ else }}
+                        <tr><td colspan="7" class="table-empty">No profile change requests found matching criteria.</td></tr>
+                        {{ end }}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</div>
+{{ end }}

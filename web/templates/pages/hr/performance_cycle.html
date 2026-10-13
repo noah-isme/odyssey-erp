@@ -1,0 +1,112 @@
+{{ define "pages/hr/performance_cycle.html" }}{{ template "layouts/base.html" . }}{{ end }}
+{{ define "title" }}{{ .Title }}{{ end }}
+{{ define "content" }}
+{{ $c := .Data.Cycle }}
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-title">{{ $c.Name }}</h1>
+            <p class="page-subtitle">{{ formatDatePtr $c.PeriodStart }} – {{ formatDatePtr $c.PeriodEnd }} · {{ template "partials/ui/status_badge.html" $c.Status }}</p>
+        </div>
+        <div class="page-header__actions">
+            <a href="/hr/performance?tab=cycles" class="btn btn--secondary">Back to Cycles</a>
+        </div>
+    </header>
+
+    <div class="page-content">
+        {{ if .Data.Error }}<div class="alert alert-error" role="alert">Some cycle data could not be loaded.</div>{{ end }}
+        <div class="hr-stats-grid">
+            <div class="hr-stat-card">
+                <span class="hr-stat-card__value">{{ formatDatePtr $c.SelfReviewDue }}</span>
+                <span class="hr-stat-card__label">Self Review Due</span>
+            </div>
+            <div class="hr-stat-card">
+                <span class="hr-stat-card__value">{{ formatDatePtr $c.ManagerReviewDue }}</span>
+                <span class="hr-stat-card__label">Manager Review Due</span>
+            </div>
+            <div class="hr-stat-card">
+                <span class="hr-stat-card__value">{{ $c.ParticipantCount }}</span>
+                <span class="hr-stat-card__label">Participants</span>
+            </div>
+            <div class="hr-stat-card">
+                <span class="hr-stat-card__value">{{ $c.CompletedCount }}</span>
+                <span class="hr-stat-card__label">Completed</span>
+            </div>
+        </div>
+
+        {{ if or .Data.CanActivate .Data.CanClose }}
+        <div class="hr-actions-bar">
+            {{ if .Data.CanActivate }}
+            <form method="post" action="/hr/performance/cycles/{{ $c.ID }}/activate" class="hr-inline-form">
+                <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+                <button type="submit" class="btn btn--primary">Activate Cycle</button>
+            </form>
+            <small class="text-muted">Participants see their review once the cycle is active. At least one participant is required.</small>
+            {{ end }}
+            {{ if .Data.CanClose }}
+            <form method="post" action="/hr/performance/cycles/{{ $c.ID }}/close" class="hr-inline-form">
+                <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+                <button type="submit" class="btn btn--danger">Close Cycle</button>
+            </form>
+            <small class="text-muted">Closing stops goal edits and review submissions; reviews with a submitted manager review can still be completed.</small>
+            {{ end }}
+        </div>
+        {{ end }}
+
+        <section class="card card-table" data-component="datatable">
+            <div class="card__header">
+                <h2 class="card__title">Participants</h2>
+            </div>
+            <div class="table-responsive">
+                <table class="table table--sticky" data-datatable="hr-performance-participants">
+                    <thead>
+                        <tr>
+                            <th>Employee</th>
+                            <th>Reviewer</th>
+                            <th>Status</th>
+                            <th class="numeric">Final Rating</th>
+                            <th class="table__actions">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{ range .Data.Participants }}
+                        <tr>
+                            <td><strong>{{ .EmployeeName }}</strong></td>
+                            <td>{{ if .ReviewerName }}{{ .ReviewerName }}{{ else }}<span class="text-muted">None</span>{{ end }}</td>
+                            <td>{{ template "partials/ui/status_badge.html" .Status }}</td>
+                            <td class="numeric">{{ with .FinalRating }}{{ . }} / 5{{ else }}<span class="text-muted">–</span>{{ end }}</td>
+                            <td class="table__actions"><a href="/hr/performance/reviews/{{ .ParticipantID }}" class="btn btn--secondary btn--sm">Open</a></td>
+                        </tr>
+                        {{ else }}
+                        <tr><td colspan="5" class="table-empty">No participants yet.</td></tr>
+                        {{ end }}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        {{ if .Data.CanEnroll }}
+        <section class="card">
+            <div class="hr-section-header">
+                <div>
+                    <h2 class="hr-section-title">Add participants</h2>
+                    <p class="card__desc">Active employees not yet enrolled. Each participant's reviewer is their manager on the job record effective at the period end; participants without one need an admin to submit the manager review.</p>
+                </div>
+            </div>
+            <form method="post" action="/hr/performance/cycles/{{ $c.ID }}/participants" class="hr-modal-form">
+                <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+                <label class="form-group">
+                    <span class="form-label">Employees</span>
+                    <select class="form-select" name="employee_ids" multiple size="8" required>
+                        {{ range .Data.Employees }}<option value="{{ .ID }}">{{ .Name }}{{ if .EmployeeNumber }} ({{ .EmployeeNumber }}){{ end }}</option>{{ end }}
+                    </select>
+                </label>
+                <div class="hr-actions-bar">
+                    <button type="submit" class="btn btn--primary">Add Participants</button>
+                </div>
+            </form>
+        </section>
+        {{ end }}
+    </div>
+</div>
+{{ end }}

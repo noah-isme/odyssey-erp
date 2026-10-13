@@ -185,3 +185,19 @@ func TestRepositoryDecideRejectReturnsRejectedRequest(t *testing.T) {
 	require.Equal(t, StatusRejected, result.Request.Status)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
+
+func TestRepositoryDecideOnAlreadyDecidedRequestReturnsErrAlreadyDecided(t *testing.T) {
+	for _, status := range []string{StatusApproved, StatusRejected, "CANCELLED"} {
+		mock := newDecideMock(t)
+		mock.ExpectBegin()
+		mock.ExpectQuery(regexp.QuoteMeta(`FROM approval_requests WHERE id=$1 FOR UPDATE`)).WithArgs(int64(5)).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "policy_id", "module", "document_id", "company_id", "amount", "requester_id", "current_step", "status", "submitted_at"}).
+				AddRow(int64(5), int64(3), "LEAVE", int64(77), (*int64)(nil), float64(2), int64(40), 1, status, time.Now()))
+		mock.ExpectRollback()
+		service := NewService(&Repository{pool: mock}, nil)
+		_, err := service.Decide(context.Background(), 5, 50, DecisionApprove, "")
+		require.ErrorIs(t, err, ErrAlreadyDecided, status)
+		require.ErrorIs(t, err, ErrInvalid, "still matches the legacy sentinel")
+		require.NoError(t, mock.ExpectationsWereMet())
+	}
+}

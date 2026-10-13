@@ -175,6 +175,19 @@
     gap: var(--space-3);
 }
 
+.hr-form-fieldset {
+    display: grid;
+    gap: var(--space-3);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-2);
+    padding: var(--space-3);
+    margin: 0;
+}
+
+.hr-inline-form {
+    display: inline;
+}
+
 .hr-section-header {
     display: flex;
     align-items: center;
@@ -187,4 +200,40 @@
     font-weight: var(--weight-semibold);
     color: var(--text-primary);
     margin: 0;
+}
+
+/* Profile change diff (current -> proposed) */
+.hr-diff-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--space-1);
+    font-size: var(--text-xs);
+}
+
+.hr-diff-list__item {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+    align-items: baseline;
+}
+
+.hr-diff-list__label {
+    color: var(--text-muted);
+    min-width: 8rem;
+}
+
+.hr-diff-list__current,
+.hr-diff-list__arrow {
+    color: var(--text-secondary);
+}
+
+.hr-diff-list__item--changed .hr-diff-list__current {
+    text-decoration: line-through;
+}
+
+.hr-diff-list__item--changed .hr-diff-list__proposed {
+    font-weight: var(--weight-semibold);
+    color: var(--text-primary);
 }

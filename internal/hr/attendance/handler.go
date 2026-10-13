@@ -52,14 +52,13 @@ func hrFlashError(err error) string {
 	return shared.UserSafeMessage(err)
 }
 
-func identity(r *http.Request) (int64, int64) {
-	s := shared.SessionFromContext(r.Context())
-	if s == nil {
-		return 0, 0
+func identity(w http.ResponseWriter, r *http.Request) (int64, int64, bool) {
+	ident, ok := shared.IdentityFromContext(r.Context())
+	if !ok {
+		shared.WriteHTTPError(w, http.StatusUnauthorized, shared.ErrUnauthorized.Error())
+		return 0, 0, false
 	}
-	u, _ := strconv.ParseInt(s.User(), 10, 64)
-	c, _ := strconv.ParseInt(s.Get("company_id"), 10, 64)
-	return u, c
+	return ident.UserID, ident.CompanyID, true
 }
 
 func opt(v string) *int64 {
@@ -71,7 +70,10 @@ func opt(v string) *int64 {
 }
 
 func (h *Handler) page(w http.ResponseWriter, r *http.Request) {
-	_, company := identity(r)
+	_, company, ok := identity(w, r)
+	if !ok {
+		return
+	}
 
 	dateStr := strings.TrimSpace(r.URL.Query().Get("date"))
 	var targetDate time.Time
@@ -135,7 +137,10 @@ func (h *Handler) page(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) recordManual(w http.ResponseWriter, r *http.Request) {
-	_, company := identity(r)
+	_, company, ok := identity(w, r)
+	if !ok {
+		return
+	}
 
 	empID, _ := strconv.ParseInt(r.FormValue("employee_id"), 10, 64)
 	dateStr := strings.TrimSpace(r.FormValue("date"))
@@ -188,7 +193,10 @@ func (h *Handler) downloadTemplate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) importCSV(w http.ResponseWriter, r *http.Request) {
-	user, company := identity(r)
+	user, company, ok := identity(w, r)
+	if !ok {
+		return
+	}
 	err := r.ParseMultipartForm(5 << 20)
 	var result ImportResult
 	if err == nil {

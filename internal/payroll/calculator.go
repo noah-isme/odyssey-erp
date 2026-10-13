@@ -2,6 +2,9 @@ package payroll
 
 import (
 	"errors"
+	"fmt"
+	"math"
+	"strconv"
 )
 
 var (
@@ -52,7 +55,9 @@ type Input struct {
 	BPJSWage                     Money
 	OvertimeMinutes              int64
 	AttendanceDays, LeaveDays    int64
-	BPJSHealth, BPJSEmployment   bool
+	// LeaveDaysExact is the unrounded approved leave total (e.g. "1.5"); informational only.
+	LeaveDaysExact             string
+	BPJSHealth, BPJSEmployment bool
 }
 
 type Contribution struct {
@@ -74,6 +79,7 @@ type Result struct {
 	TERRateBPS                            int64
 	Contributions                         []Contribution
 	AttendanceDays, LeaveDays             int64
+	LeaveDaysExact                        string
 }
 
 func Calculate(in Input, rules Rules, policy Policy) (Result, error) {
@@ -90,7 +96,7 @@ func Calculate(in Input, rules Rules, policy Policy) (Result, error) {
 	if gross < 0 {
 		return Result{}, ErrInvalidInput
 	}
-	result := Result{EmployeeID: in.EmployeeID, TaxVersionID: rules.TaxVersionID, BPJSVersionID: rules.BPJSVersionID, PolicyID: policy.VersionID, PTKPCode: in.PTKPCode, PTKPAnnual: ptkpAnnual, TERCategory: category, BaseSalary: in.BaseSalary, Allowances: in.Allowances, Overtime: overtime, THR: in.THR, Adjustments: in.Adjustments, Gross: gross, OtherDeductions: in.OtherDeductions, AttendanceDays: in.AttendanceDays, LeaveDays: in.LeaveDays}
+	result := Result{EmployeeID: in.EmployeeID, TaxVersionID: rules.TaxVersionID, BPJSVersionID: rules.BPJSVersionID, PolicyID: policy.VersionID, PTKPCode: in.PTKPCode, PTKPAnnual: ptkpAnnual, TERCategory: category, BaseSalary: in.BaseSalary, Allowances: in.Allowances, Overtime: overtime, THR: in.THR, Adjustments: in.Adjustments, Gross: gross, OtherDeductions: in.OtherDeductions, AttendanceDays: in.AttendanceDays, LeaveDays: in.LeaveDays, LeaveDaysExact: in.LeaveDaysExact}
 	taxableEmployer := Money(0)
 	for _, rule := range rules.BPJS {
 		if rule.Program == "HEALTH" && !in.BPJSHealth || rule.Program != "HEALTH" && !in.BPJSEmployment {
@@ -178,4 +184,15 @@ func divRoundHalfAway(numerator, denominator int64) int64 {
 		return -((-numerator + denominator/2) / denominator)
 	}
 	return (numerator + denominator/2) / denominator
+}
+
+// normalizeLeaveDays parses a NUMERIC leave-day total and returns the value
+// rounded half away from zero (as PostgreSQL's ::bigint did) plus a canonical
+// decimal string such as "1.5". Leave days never affect pay.
+func normalizeLeaveDays(raw string) (int64, string, error) {
+	value, err := strconv.ParseFloat(raw, 64)
+	if err != nil || math.IsNaN(value) || math.IsInf(value, 0) {
+		return 0, "", fmt.Errorf("invalid leave days %q", raw)
+	}
+	return int64(math.Round(value)), strconv.FormatFloat(value, 'f', -1, 64), nil
 }

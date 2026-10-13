@@ -42,6 +42,12 @@ func (r *Repository) CreateDraft(ctx context.Context, companyID, periodID, actor
 	return run, err
 }
 
+// payrollEligibleEmployeeSQL selects the employees a payroll run covers for
+// period p: active staff, plus leavers whose termination date is on or after
+// the period start (their final period). A rehired employee has
+// termination_date cleared by RecordJobChange, so they are covered again.
+const payrollEligibleEmployeeSQL = `(e.termination_date IS NULL OR e.termination_date >= p.starts_on) AND (e.status='ACTIVE' OR e.termination_date IS NOT NULL)`
+
 func (r *Repository) Calculate(ctx context.Context, runID int64) (Run, error) {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
 	if err != nil {
@@ -64,35 +70,57 @@ func (r *Repository) Calculate(ctx context.Context, runID int64) (Run, error) {
 	if _, err = tx.Exec(ctx, `DELETE FROM payroll_run_lines WHERE run_id=$1`, runID); err != nil {
 		return Run{}, err
 	}
-	rows, err := tx.Query(ctx, `SELECT e.id,e.department_id,c.base_salary::bigint,c.ptkp_code,c.bpjs_health,c.bpjs_employment,
+	rows, err := tx.Query(ctx, `SELECT e.id,COALESCE(jh.department_id, e.department_id),c.base_salary::bigint,c.ptkp_code,c.bpjs_health,c.bpjs_employment,
 		COALESCE((SELECT SUM(rc.amount) FROM payroll_recurring_components rc JOIN payroll_components pc ON pc.id=rc.component_id WHERE rc.assignment_id=c.id AND pc.kind='EARNING' AND rc.effective_from<=p.pay_date AND (rc.effective_to IS NULL OR rc.effective_to>=p.pay_date)),0)::bigint,
 		COALESCE((SELECT SUM(rc.amount) FROM payroll_recurring_components rc JOIN payroll_components pc ON pc.id=rc.component_id WHERE rc.assignment_id=c.id AND pc.kind='DEDUCTION' AND rc.effective_from<=p.pay_date AND (rc.effective_to IS NULL OR rc.effective_to>=p.pay_date)),0)::bigint,
 		COALESCE((SELECT SUM(rc.amount) FROM payroll_recurring_components rc JOIN payroll_components pc ON pc.id=rc.component_id WHERE rc.assignment_id=c.id AND pc.bpjs_base AND rc.effective_from<=p.pay_date AND (rc.effective_to IS NULL OR rc.effective_to>=p.pay_date)),0)::bigint,
 		COALESCE((SELECT SUM(a.amount) FROM payroll_adjustments a JOIN payroll_components pc ON pc.id=a.component_id WHERE a.employee_id=e.id AND a.period_id=p.id AND pc.kind='EARNING'),0)::bigint,
 		COALESCE((SELECT SUM(ABS(a.amount)) FROM payroll_adjustments a JOIN payroll_components pc ON pc.id=a.component_id WHERE a.employee_id=e.id AND a.period_id=p.id AND pc.kind='DEDUCTION'),0)::bigint,
-		COALESCE((SELECT SUM(o.minutes) FROM payroll_overtime o WHERE o.employee_id=e.id AND o.period_id=p.id AND o.approved_by IS NOT NULL),0)::bigint,
+		(COALESCE((SELECT SUM(o.minutes) FROM payroll_overtime o WHERE o.employee_id=e.id AND o.period_id=p.id AND o.approved_by IS NOT NULL),0) + COALESCE((SELECT SUM(h.minutes) FROM hr_overtime_requests h WHERE h.employee_id=e.id AND h.status='APPROVED' AND h.worked_on BETWEEN p.starts_on AND p.ends_on),0))::bigint,
 		COALESCE((SELECT amount FROM payroll_thr t WHERE t.employee_id=e.id AND t.period_id=p.id),0)::bigint,
 		COALESCE((SELECT COUNT(*) FROM hr_attendance a WHERE a.employee_id=e.id AND a.attendance_date BETWEEN p.starts_on AND p.ends_on AND a.status='PRESENT'),0)::bigint,
-		COALESCE((SELECT SUM(lr.days) FROM hr_leave_requests lr WHERE lr.employee_id=e.id AND lr.status='APPROVED' AND lr.start_date<=p.ends_on AND lr.end_date>=p.starts_on),0)::bigint
-	FROM payroll_runs pr JOIN payroll_periods p ON p.id=pr.period_id JOIN hr_employees e ON e.company_id=pr.company_id AND e.status='ACTIVE'
+		COALESCE((SELECT SUM(lr.days) FROM hr_leave_requests lr WHERE lr.employee_id=e.id AND lr.status='APPROVED' AND lr.start_date<=p.ends_on AND lr.end_date>=p.starts_on),0)::numeric::text
+	FROM payroll_runs pr JOIN payroll_periods p ON p.id=pr.period_id JOIN hr_employees e ON e.company_id=pr.company_id AND `+payrollEligibleEmployeeSQL+`
+	LEFT JOIN LATERAL (SELECT department_id FROM hr_employee_job_history jh WHERE jh.employee_id=e.id AND jh.valid_from<=p.pay_date AND (jh.valid_to IS NULL OR jh.valid_to>=p.pay_date) ORDER BY jh.valid_from DESC LIMIT 1) jh ON TRUE
 	JOIN LATERAL (SELECT * FROM payroll_compensation_assignments ca WHERE ca.employee_id=e.id AND ca.effective_from<=p.pay_date AND (ca.effective_to IS NULL OR ca.effective_to>=p.pay_date) ORDER BY ca.effective_from DESC LIMIT 1) c ON TRUE
 	WHERE pr.id=$1 ORDER BY e.id`, runID)
 	if err != nil {
 		return Run{}, err
 	}
-	defer rows.Close()
-	count := 0
+	// Read every row and close the cursor before issuing any other statement:
+	// a pgx connection cannot run Exec while a result set is still open
+	// ("conn busy").
+	type draftRow struct {
+		employeeID                                                                        int64
+		departmentID                                                                      *int64
+		base, allowances, recurringDeductions, bpjsAllowance, adjustment, oneOffDeduction Money
+		thr                                                                               Money
+		ptkp                                                                              string
+		health, employment                                                                bool
+		overtimeMinutes, attendanceDays                                                   int64
+		leaveDaysExact                                                                    string
+	}
+	var drafts []draftRow
 	for rows.Next() {
-		var employeeID int64
-		var departmentID *int64
-		var base, allowances, recurringDeductions, bpjsAllowance, adjustment, oneOffDeduction, thr Money
-		var ptkp string
-		var health, employment bool
-		var overtimeMinutes, attendanceDays, leaveDays int64
-		if err = rows.Scan(&employeeID, &departmentID, &base, &ptkp, &health, &employment, &allowances, &recurringDeductions, &bpjsAllowance, &adjustment, &oneOffDeduction, &overtimeMinutes, &thr, &attendanceDays, &leaveDays); err != nil {
+		var d draftRow
+		if err = rows.Scan(&d.employeeID, &d.departmentID, &d.base, &d.ptkp, &d.health, &d.employment, &d.allowances, &d.recurringDeductions, &d.bpjsAllowance, &d.adjustment, &d.oneOffDeduction, &d.overtimeMinutes, &d.thr, &d.attendanceDays, &d.leaveDaysExact); err != nil {
+			rows.Close()
 			return Run{}, err
 		}
-		result, calcErr := Calculate(Input{EmployeeID: employeeID, PTKPCode: ptkp, BaseSalary: base, Allowances: allowances, Adjustments: adjustment, OtherDeductions: recurringDeductions + oneOffDeduction, THR: thr, BPJSWage: base + bpjsAllowance, OvertimeMinutes: overtimeMinutes, BPJSHealth: health, BPJSEmployment: employment, AttendanceDays: attendanceDays, LeaveDays: leaveDays}, rules, policy)
+		drafts = append(drafts, d)
+	}
+	rows.Close()
+	if err = rows.Err(); err != nil {
+		return Run{}, err
+	}
+	count := 0
+	for _, d := range drafts {
+		employeeID, departmentID := d.employeeID, d.departmentID
+		leaveDays, leaveDaysExact, leaveErr := normalizeLeaveDays(d.leaveDaysExact)
+		if leaveErr != nil {
+			return Run{}, fmt.Errorf("employee %d: %w", employeeID, leaveErr)
+		}
+		result, calcErr := Calculate(Input{EmployeeID: employeeID, PTKPCode: d.ptkp, BaseSalary: d.base, Allowances: d.allowances, Adjustments: d.adjustment, OtherDeductions: d.recurringDeductions + d.oneOffDeduction, THR: d.thr, BPJSWage: d.base + d.bpjsAllowance, OvertimeMinutes: d.overtimeMinutes, BPJSHealth: d.health, BPJSEmployment: d.employment, AttendanceDays: d.attendanceDays, LeaveDays: leaveDays, LeaveDaysExact: leaveDaysExact}, rules, policy)
 		if calcErr != nil {
 			return Run{}, fmt.Errorf("employee %d: %w", employeeID, calcErr)
 		}
@@ -102,9 +130,6 @@ func (r *Repository) Calculate(ctx context.Context, runID int64) (Run, error) {
 			return Run{}, err
 		}
 		count++
-	}
-	if err = rows.Err(); err != nil {
-		return Run{}, err
 	}
 	if count == 0 {
 		return Run{}, ErrConfiguration
