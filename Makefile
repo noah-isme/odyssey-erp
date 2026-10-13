@@ -22,7 +22,7 @@ BRANCH_QUERY=$(if $(BRANCH_ID),&branch_id=$(BRANCH_ID),)
 export APP_ENV?=development
 export PG_DSN?=postgres://odyssey:odyssey@localhost:5434/odyssey?sslmode=disable
 
-.PHONY: dev air lint vet vet-consol test build docs-check release-check pdf-release-check production-build-check production-release-check midtrans-sandbox-certify migrate-up migrate-down sqlc-gen seed seed-phase3 seed-phase4 seed-realistic refresh-mv reports-demo pdf-sample export-demo fx-tools analytics-dashboard analytics-dashboard-pdf analytics-dashboard-csv prom-up grafana-load alert-test monitor-demo release-phase6
+.PHONY: dev air lint vet vet-consol test build docs-check release-check pdf-release-check production-build-check production-release-check midtrans-sandbox-certify migrate-guard migrate-up migrate-down migrate-up-remote migrate-down-remote test-migrate sqlc-gen seed seed-phase3 seed-phase4 seed-realistic refresh-mv reports-demo pdf-sample export-demo fx-tools analytics-dashboard analytics-dashboard-pdf analytics-dashboard-csv prom-up grafana-load alert-test monitor-demo release-phase6
 
 dev:
 	docker compose up --build
@@ -82,10 +82,36 @@ midtrans-sandbox-certify:
 	@mkdir -p "$(CERT_GO_TMP)" "$(CERT_GO_CACHE)"
 	GOTMPDIR="$(CERT_GO_TMP)" GOCACHE="$(CERT_GO_CACHE)" ODYSSEY_TEST_MODE=1 GOTENBERG_URL='http://127.0.0.1:0' $(GO_BIN) test ./internal/connectors/providers/midtrans -run '^TestMidtransSandboxCertification$$' -count=1 -v
 
-migrate-up:
+# migrate-guard refuses to run unless the effective PG_DSN (command line,
+# environment, or the default above) points at localhost, 127.0.0.1, or ::1.
+# The host is parsed from the authority component, so a lookalike in the
+# password or path cannot satisfy the check. libpq/pq let query parameters
+# override the URL host (postgres://localhost/db?host=prod, also hostaddr= and
+# service=) and keyword/value DSNs carry host= directly, so any DSN that
+# mentions those keys is refused outright (it fails closed, even for a
+# password that happens to contain "host=").
+migrate-guard:
+	@dsn="$$PG_DSN"; lc=$$(printf '%s' "$$dsn" | tr 'A-Z' 'a-z'); \
+	case "$$lc" in \
+		*host=*|*hostaddr=*|*service=*) echo "refusing to migrate: PG_DSN must not set host=, hostaddr= or service= (they override the URL host); use migrate-up-remote/migrate-down-remote for deliberate deploys" >&2; exit 1;; \
+	esac; \
+	rest="$${dsn#*://}"; auth="$${rest%%[/?]*}"; hostport="$${auth##*@}"; \
+	case "$$hostport" in \
+		localhost|localhost:*|127.0.0.1|127.0.0.1:*|\[::1\]|\[::1\]:*) ;; \
+		*) echo "refusing to migrate non-local host; set PG_DSN explicitly (use migrate-up-remote/migrate-down-remote for deliberate deploys)" >&2; exit 1;; \
+	esac
+
+migrate-up: migrate-guard
 	$(MIGRATE_BIN) -path migrations -database "$(PG_DSN)" up
 
-migrate-down:
+migrate-down: migrate-guard
+	$(MIGRATE_BIN) -path migrations -database "$(PG_DSN)" down 1
+
+# Unguarded variants for deliberate deploys against non-local databases.
+migrate-up-remote:
+	$(MIGRATE_BIN) -path migrations -database "$(PG_DSN)" up
+
+migrate-down-remote:
 	$(MIGRATE_BIN) -path migrations -database "$(PG_DSN)" down 1
 
 sqlc-gen:
@@ -169,7 +195,7 @@ monitor-demo:
 release-phase6: lint test build
 	@echo "Phase 6 release checklist complete. Tag with v0.6.0-final."
 
-test-migrate:
+test-migrate: migrate-guard
 	@echo "test-migrate dummy"
 migrate-status:
 	@echo "migrate-status dummy"
