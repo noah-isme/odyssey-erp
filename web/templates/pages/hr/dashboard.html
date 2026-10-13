@@ -1,0 +1,272 @@
+{{ define "pages/hr/dashboard.html" }}{{ template "layouts/base.html" . }}{{ end }}
+{{ define "title" }}HR Dashboard{{ end }}
+{{ define "content" }}
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-title">HR Dashboard</h1>
+            <p class="page-subtitle">Workforce figures for the active company as of {{ .Data.Today.Format "02 Jan 2006" }}; period figures run from {{ .Data.YearStart.Format "02 Jan 2006" }}.</p>
+        </div>
+    </header>
+
+    <div class="page-content">
+        {{ if .Data.Failed }}
+        <div class="alert alert-error" role="alert">Some figures could not be loaded: {{ range $i, $f := .Data.Failed }}{{ if $i }}, {{ end }}{{ $f }}{{ end }}.</div>
+        {{ end }}
+
+        <div class="kpi-grid">
+            <div class="kpi-card" data-kpi="headcount">
+                <div class="kpi-content">
+                    <p class="kpi-label">Headcount</p>
+                    <p class="kpi-value">{{ .Data.Headcount.Total }}</p>
+                    <p class="kpi-subtitle">Active employees today</p>
+                </div>
+            </div>
+            <div class="kpi-card" data-kpi="hires-leavers">
+                <div class="kpi-content">
+                    <p class="kpi-label">Hires / Leavers</p>
+                    <p class="kpi-value">{{ .Data.HiresThisMonth }} / {{ .Data.LeaversThisMonth }}</p>
+                    <p class="kpi-subtitle">{{ .Data.MonthLabel }}</p>
+                </div>
+            </div>
+            <div class="kpi-card" data-kpi="turnover">
+                <div class="kpi-content">
+                    <p class="kpi-label">Turnover YTD</p>
+                    <p class="kpi-value">{{ printf "%.1f%%" (mulf .Data.Turnover.Rate 100) }}</p>
+                    <p class="kpi-subtitle">{{ .Data.Turnover.Leavers }} leavers, average headcount {{ printf "%.1f" .Data.Turnover.AverageHeadcount }}</p>
+                </div>
+            </div>
+            <div class="kpi-card" data-kpi="absenteeism">
+                <div class="kpi-content">
+                    <p class="kpi-label">Absenteeism YTD</p>
+                    <p class="kpi-value">{{ printf "%.1f%%" (mulf .Data.Absenteeism.Rate 100) }}</p>
+                    <p class="kpi-subtitle">{{ .Data.Absenteeism.AbsentDays }} absent of {{ printf "%.0f" .Data.Absenteeism.ScheduledDays }} scheduled days</p>
+                </div>
+            </div>
+            <div class="kpi-card" data-kpi="expiries">
+                <div class="kpi-content">
+                    <p class="kpi-label">Expiries</p>
+                    <p class="kpi-value">{{ len .Data.Expiries }}</p>
+                    <p class="kpi-subtitle">Contracts and probations ending in {{ .Data.ExpiryDays }} days</p>
+                </div>
+            </div>
+            {{ if .Data.LeaveLiability }}
+            <div class="kpi-card" data-kpi="leave-liability">
+                <div class="kpi-content">
+                    <p class="kpi-label">Leave Liability</p>
+                    <p class="kpi-value">IDR {{ .Data.LeaveLiability.Amount }}</p>
+                    <p class="kpi-subtitle">{{ .Data.LeaveLiability.AvailableDays }} available days in {{ .Data.LeaveLiability.Year }}</p>
+                </div>
+            </div>
+            {{ end }}
+            {{ if .Data.OvertimeCost }}
+            <div class="kpi-card" data-kpi="overtime-cost">
+                <div class="kpi-content">
+                    <p class="kpi-label">Overtime Cost YTD</p>
+                    <p class="kpi-value">IDR {{ printf "%d" .Data.OvertimeCost.Total }}</p>
+                    <p class="kpi-subtitle">Posted {{ printf "%d" .Data.OvertimeCost.Posted }}, approved not yet run {{ printf "%d" .Data.OvertimeCost.Unrun }}</p>
+                </div>
+            </div>
+            {{ end }}
+        </div>
+
+        <section class="card card-table">
+            <div class="card__header">
+                <h2 class="card__title" id="hr-headcount-title">Headcount by Department</h2>
+                <a href="/hr/reports/headcount.csv" class="btn btn--secondary btn--sm">Export CSV</a>
+            </div>
+            <div class="table-responsive">
+                <table class="table" aria-labelledby="hr-headcount-title">
+                    <thead>
+                        <tr>
+                            <th scope="col">Department</th>
+                            <th scope="col">Employment Type</th>
+                            <th scope="col" class="numeric">Headcount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{ range .Data.Headcount.Rows }}
+                        <tr>
+                            <td>{{ if .Department }}{{ .Department }}{{ else }}<span class="text-muted">No department</span>{{ end }}</td>
+                            <td>{{ .EmploymentType }}</td>
+                            <td class="numeric">{{ .Count }}</td>
+                        </tr>
+                        {{ else }}
+                        <tr><td colspan="3" class="table-empty">No active employees.</td></tr>
+                        {{ end }}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="card card-table">
+            <div class="card__header">
+                <h2 class="card__title" id="hr-hires-leavers-title">Hires and Leavers by Month</h2>
+                <div class="page-header__actions">
+                    <a href="/hr/reports/hires-leavers.csv" class="btn btn--secondary btn--sm">Export CSV</a>
+                    <a href="/hr/reports/turnover.csv" class="btn btn--secondary btn--sm">Turnover CSV</a>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table" aria-labelledby="hr-hires-leavers-title">
+                    <thead>
+                        <tr>
+                            <th scope="col">Month</th>
+                            <th scope="col">Department</th>
+                            <th scope="col" class="numeric">Hires</th>
+                            <th scope="col" class="numeric">Leavers</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{ range .Data.HiresLeavers }}
+                        <tr>
+                            <td>{{ .Month }}</td>
+                            <td>{{ if .Department }}{{ .Department }}{{ else }}<span class="text-muted">No department</span>{{ end }}</td>
+                            <td class="numeric">{{ .Hires }}</td>
+                            <td class="numeric">{{ .Leavers }}</td>
+                        </tr>
+                        {{ else }}
+                        <tr><td colspan="4" class="table-empty">No hires or leavers this year.</td></tr>
+                        {{ end }}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="card card-table">
+            <div class="card__header">
+                <h2 class="card__title" id="hr-absenteeism-title">Absenteeism by Department</h2>
+                <a href="/hr/reports/absenteeism.csv" class="btn btn--secondary btn--sm">Export CSV</a>
+            </div>
+            <div class="table-responsive">
+                <table class="table" aria-labelledby="hr-absenteeism-title">
+                    <thead>
+                        <tr>
+                            <th scope="col">Department</th>
+                            <th scope="col" class="numeric">Employees</th>
+                            <th scope="col" class="numeric">Absent Days</th>
+                            <th scope="col" class="numeric">Scheduled Days</th>
+                            <th scope="col" class="numeric">Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{ range .Data.Absenteeism.ByDepartment }}
+                        <tr>
+                            <td>{{ if .Department }}{{ .Department }}{{ else }}<span class="text-muted">No department</span>{{ end }}</td>
+                            <td class="numeric">{{ .Employees }}</td>
+                            <td class="numeric">{{ .AbsentDays }}</td>
+                            <td class="numeric">{{ printf "%.0f" .ScheduledDays }}</td>
+                            <td class="numeric">{{ printf "%.1f%%" (mulf .Rate 100) }}</td>
+                        </tr>
+                        {{ else }}
+                        <tr><td colspan="5" class="table-empty">No attendance data for this year.</td></tr>
+                        {{ end }}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="card card-table">
+            <div class="card__header">
+                <h2 class="card__title" id="hr-expiries-title">Contract and Probation Expiries</h2>
+                <a href="/hr/reports/expiries.csv" class="btn btn--secondary btn--sm">Export CSV</a>
+            </div>
+            <div class="table-responsive">
+                <table class="table" aria-labelledby="hr-expiries-title">
+                    <thead>
+                        <tr>
+                            <th scope="col">Employee</th>
+                            <th scope="col">Department</th>
+                            <th scope="col">Ends</th>
+                            <th scope="col">Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{ range .Data.Expiries }}
+                        <tr>
+                            <td><a href="/hr/employees/{{ .EmployeeID }}">{{ .Name }}</a> <small class="text-muted">{{ .EmployeeNumber }}</small></td>
+                            <td>{{ if .Department }}{{ .Department }}{{ else }}<span class="text-muted">No department</span>{{ end }}</td>
+                            <td>{{ if eq .Kind "CONTRACT_END" }}Contract{{ else }}Probation{{ end }}</td>
+                            <td>{{ .ExpiresOn.Format "02 Jan 2006" }}</td>
+                        </tr>
+                        {{ else }}
+                        <tr><td colspan="4" class="table-empty">Nothing expires in the next {{ .Data.ExpiryDays }} days.</td></tr>
+                        {{ end }}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        {{ with .Data.LeaveLiability }}
+        <section class="card card-table" data-section="leave-liability">
+            <div class="card__header">
+                <h2 class="card__title" id="hr-leave-liability-title">Leave Liability {{ .Year }}</h2>
+                <a href="/hr/reports/leave-liability.csv" class="btn btn--secondary btn--sm">Export CSV</a>
+            </div>
+            <div class="table-responsive">
+                <table class="table" aria-labelledby="hr-leave-liability-title">
+                    <thead>
+                        <tr>
+                            <th scope="col">Department</th>
+                            <th scope="col" class="numeric">Employees</th>
+                            <th scope="col" class="numeric">Without Salary</th>
+                            <th scope="col" class="numeric">Available Days</th>
+                            <th scope="col" class="numeric">Liability (IDR)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{ range .Rows }}
+                        <tr>
+                            <td>{{ if .Department }}{{ .Department }}{{ else }}<span class="text-muted">No department</span>{{ end }}</td>
+                            <td class="numeric">{{ .Employees }}</td>
+                            <td class="numeric">{{ .EmployeesWithoutSalary }}</td>
+                            <td class="numeric">{{ .AvailableDays }}</td>
+                            <td class="numeric">{{ .Amount }}</td>
+                        </tr>
+                        {{ else }}
+                        <tr><td colspan="5" class="table-empty">No leave balances for this year.</td></tr>
+                        {{ end }}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+        {{ end }}
+
+        {{ with .Data.OvertimeCost }}
+        <section class="card card-table" data-section="overtime-cost">
+            <div class="card__header">
+                <h2 class="card__title" id="hr-overtime-cost-title">Overtime Cost YTD</h2>
+                <a href="/hr/reports/overtime-cost.csv" class="btn btn--secondary btn--sm">Export CSV</a>
+            </div>
+            {{ if .PolicyMissing }}<p class="text-muted">No current payroll policy: approved overtime not yet run is not priced.</p>{{ end }}
+            <div class="table-responsive">
+                <table class="table" aria-labelledby="hr-overtime-cost-title">
+                    <thead>
+                        <tr>
+                            <th scope="col">Department</th>
+                            <th scope="col" class="numeric">Posted (IDR)</th>
+                            <th scope="col" class="numeric">Not Yet Run (IDR)</th>
+                            <th scope="col" class="numeric">Total (IDR)</th>
+                            <th scope="col" class="numeric">Unrun Minutes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{ range .ByDepartment }}
+                        <tr>
+                            <td>{{ if .Department }}{{ .Department }}{{ else }}<span class="text-muted">No department</span>{{ end }}</td>
+                            <td class="numeric">{{ printf "%d" .Posted }}</td>
+                            <td class="numeric">{{ printf "%d" .Unrun }}</td>
+                            <td class="numeric">{{ printf "%d" .Total }}</td>
+                            <td class="numeric">{{ .UnrunMinutes }}</td>
+                        </tr>
+                        {{ else }}
+                        <tr><td colspan="5" class="table-empty">No overtime cost this year.</td></tr>
+                        {{ end }}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+        {{ end }}
+    </div>
+</div>
+{{ end }}

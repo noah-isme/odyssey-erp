@@ -113,7 +113,7 @@
                                         data-hire-date="{{ formatDate .HireDate }}"
                                         data-status="{{ .Status }}">
                                         <td><code>{{ .EmployeeNumber }}</code></td>
-                                        <td><strong>{{ .Name }}</strong></td>
+                                        <td><a href="/hr/employees/{{ .ID }}"><strong>{{ .Name }}</strong></a></td>
                                         <td>{{ .Email }}</td>
                                         <td>{{ if .Department }}{{ .Department }}{{ else }}<span class="text-muted">–</span>{{ end }}</td>
                                         <td>{{ if .Position }}{{ .Position }}{{ else }}<span class="text-muted">–</span>{{ end }}</td>
@@ -121,6 +121,7 @@
                                         <td>{{ formatDate .HireDate }}</td>
                                         <td>{{ template "partials/ui/status_badge.html" .Status }}</td>
                                         <td class="table__actions">
+                                            <a href="/hr/employees/{{ .ID }}" class="btn btn--secondary btn--sm">View</a>
                                             <button type="button" class="btn btn--secondary btn--sm" data-dialog-open="edit-employee-dialog" data-edit-employee>Edit</button>
                                         </td>
                                     </tr>
@@ -286,6 +287,69 @@
                 </select>
             </label>
         </div>
+        <div class="hr-form-row">
+            <label class="form-group">
+                <span class="form-label">Employment Type</span>
+                <select class="form-select" name="employment_type">
+                    {{ range .Data.EmploymentTypes }}
+                    <option value="{{ . }}">{{ . }}</option>
+                    {{ end }}
+                </select>
+            </label>
+            <label class="form-group">
+                <span class="form-label">Grade</span>
+                <input class="form-input" name="grade" placeholder="Optional">
+            </label>
+        </div>
+        <div class="hr-form-row">
+            <label class="form-group">
+                <span class="form-label">Contract Start</span>
+                <input class="form-input" type="date" name="contract_start_date">
+            </label>
+            <label class="form-group">
+                <span class="form-label">Contract End</span>
+                <input class="form-input" type="date" name="contract_end_date">
+            </label>
+            <label class="form-group">
+                <span class="form-label">Probation End</span>
+                <input class="form-input" type="date" name="probation_end_date">
+            </label>
+        </div>
+        {{ if .Data.CanAdminCompensation }}
+        <fieldset class="hr-form-fieldset" data-initial-compensation>
+            <legend class="form-label">Initial compensation (optional, effective from hire date)</legend>
+            <div class="hr-form-row">
+                <label class="form-group">
+                    <span class="form-label">Base Salary</span>
+                    <input class="form-input" name="base_salary" inputmode="decimal" pattern="[0-9]+(\.[0-9]{1,2})?" placeholder="Leave empty to skip">
+                </label>
+                <label class="form-group">
+                    <span class="form-label">PTKP Code</span>
+                    <select class="form-select" name="ptkp_code">
+                        {{ range .Data.PTKPCodes }}
+                        <option value="{{ . }}">{{ . }}</option>
+                        {{ end }}
+                    </select>
+                </label>
+                <label class="checkbox-label"><input class="checkbox-input" type="checkbox" name="bpjs_health" value="on" checked><span class="checkbox-text">BPJS Health</span></label>
+                <label class="checkbox-label"><input class="checkbox-input" type="checkbox" name="bpjs_employment" value="on" checked><span class="checkbox-text">BPJS Employment</span></label>
+            </div>
+            <div class="hr-form-row">
+                <label class="form-group">
+                    <span class="form-label">Bank Code</span>
+                    <input class="form-input" name="bank_code">
+                </label>
+                <label class="form-group">
+                    <span class="form-label">Account Number</span>
+                    <input class="form-input" name="bank_account_number" autocomplete="off">
+                </label>
+                <label class="form-group">
+                    <span class="form-label">Account Name</span>
+                    <input class="form-input" name="bank_account_name">
+                </label>
+            </div>
+        </fieldset>
+        {{ end }}
         <div class="native-dialog__footer">
             <button type="button" class="btn btn--secondary" data-dialog-close>Cancel</button>
             <button type="submit" class="btn btn--primary">Create Employee</button>

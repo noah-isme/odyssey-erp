@@ -4,6 +4,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ .CSRFToken }}">
     <title>{{ .Title }} · Odyssey B2B Portal</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -152,6 +153,27 @@
         }
         .chat-input input { flex: 1; }
 
+
+        /* Employee self-service */
+        .hr-section h3 { margin-top: 0; }
+        .hr-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 1.5rem; }
+        .hr-row { display: flex; gap: 0.75rem; }
+        .hr-row .form-group { flex: 1; }
+        .hr-msg { min-height: 1.25rem; margin: 0.5rem 0 0; font-size: 0.9rem; color: var(--text-muted); }
+        .hr-msg.error { color: #b91c1c; }
+        .hr-msg.ok { color: #047857; }
+        .hr-hint { font-size: 0.85rem; color: #92400e; margin: 0.25rem 0 0; }
+        .hr-list { list-style: none; margin: 1rem 0 0; padding: 0; }
+        .hr-list li { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; padding: 0.625rem 0; border-top: 1px solid var(--border); }
+        .hr-status { font-size: 0.75rem; font-weight: 600; padding: 0.125rem 0.5rem; border-radius: 999px; background: #e5e7eb; }
+        .hr-status.PENDING { background: #fef3c7; color: #92400e; }
+        .hr-status.APPROVED { background: #d1fae5; color: #065f46; }
+        .hr-status.REJECTED { background: #fee2e2; color: #991b1b; }
+        .hr-balances { font-size: 0.9rem; color: var(--text-muted); margin: 0 0 1rem; }
+        .checkbox-label { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+        .btn-sm { padding: 0.375rem 0.875rem; font-size: 0.85rem; }
+        [hidden] { display: none !important; }
+
         /* Hide views by default */
         .view { display: none; }
         .view.active { display: block; }
@@ -160,10 +182,11 @@
 <body>
     <aside class="sidebar">
         <div class="brand"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:middle; margin-right:8px;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>Odyssey Portal</div>
-        <a class="nav-link active" onclick="switchTab('dashboard')">Dashboard</a>
-        <a class="nav-link" onclick="switchTab('profile')">My Profile</a>
-        <a class="nav-link" onclick="switchTab('rfq')">RFQ Negotiations</a>
-        <a class="nav-link" onclick="switchTab('chat')">Messages</a>
+        <a class="nav-link active" data-tab="dashboard">Dashboard</a>
+        <a class="nav-link" data-tab="profile">My Profile</a>
+        <a class="nav-link" data-tab="rfq">RFQ Negotiations</a>
+        <a class="nav-link" data-tab="chat">Messages</a>
+        <a class="nav-link" id="nav-hr">My HR</a>
     </aside>
 
     <main class="main-content">
@@ -228,7 +251,7 @@
                             <td style="padding: 1rem;">$500.00</td>
                             <td style="padding: 1rem;">$520.00</td>
                             <td style="padding: 1rem;">
-                                <button class="btn" style="padding: 0.5rem 1rem;" onclick="negotiate(1)">Revise Offer</button>
+                                <button class="btn" style="padding: 0.5rem 1rem;" data-rfq-id="1">Revise Offer</button>
                             </td>
                         </tr>
                     </table>
@@ -249,105 +272,128 @@
                 </form>
             </div>
         </div>
+
+        <!-- Employee self-service View -->
+        <div id="view-hr" class="view">
+            <p id="hr-unavailable" class="hr-msg error" hidden></p>
+            <div class="hr-grid">
+                <section id="section-leave-request" class="card hr-section">
+                    <h3>Request leave</h3>
+                    <p id="leave-balances" class="hr-balances"></p>
+                    <form id="leaveForm">
+                        <div class="form-group">
+                            <label for="leaveType">Leave type</label>
+                            <select id="leaveType" class="form-select form-control" required></select>
+                        </div>
+                        <div class="hr-row">
+                            <div class="form-group"><label for="leaveStart">Start date</label><input type="date" id="leaveStart" class="form-input form-control" required></div>
+                            <div class="form-group"><label for="leaveEnd">End date</label><input type="date" id="leaveEnd" class="form-input form-control" required></div>
+                        </div>
+                        <label class="checkbox-label"><input class="checkbox-input" type="checkbox" id="leaveStartHalf"><span class="checkbox-text">Start date is a half day</span></label>
+                        <label class="checkbox-label"><input class="checkbox-input" type="checkbox" id="leaveEndHalf"><span class="checkbox-text">End date is a half day</span></label>
+                        <p id="leave-holiday-hint" class="hr-hint" hidden></p>
+                        <div class="form-group">
+                            <label for="leaveReason">Reason</label>
+                            <input type="text" id="leaveReason" class="form-input form-control">
+                        </div>
+                        <button type="submit" class="btn">Submit request</button>
+                        <p id="leave-msg" class="hr-msg" role="status"></p>
+                    </form>
+                    <ul id="leave-list" class="hr-list"></ul>
+                </section>
+
+                <section id="section-overtime-request" class="card hr-section">
+                    <h3>Request overtime</h3>
+                    <form id="overtimeForm">
+                        <div class="hr-row">
+                            <div class="form-group"><label for="otDate">Date worked</label><input type="date" id="otDate" class="form-input form-control" required></div>
+                            <div class="form-group"><label for="otMinutes">Minutes</label><input type="number" id="otMinutes" class="form-input form-control" min="1" max="720" required></div>
+                        </div>
+                        <div class="form-group">
+                            <label for="otReason">Reason</label>
+                            <input type="text" id="otReason" class="form-input form-control">
+                        </div>
+                        <button type="submit" class="btn">Submit request</button>
+                        <p id="overtime-msg" class="hr-msg" role="status"></p>
+                    </form>
+                    <ul id="overtime-list" class="hr-list"></ul>
+                </section>
+
+                <section id="section-expense-claim" class="card hr-section">
+                    <h3>Expense claim</h3>
+                    <form id="expenseForm">
+                        <div class="hr-row">
+                            <div class="form-group"><label for="exDate">Claim date</label><input type="date" id="exDate" class="form-input form-control" required></div>
+                            <div class="form-group"><label for="exAmount">Amount</label><input type="text" inputmode="decimal" id="exAmount" class="form-input form-control" placeholder="125000.50" required></div>
+                        </div>
+                        <div class="form-group">
+                            <label for="exCategory">Category</label>
+                            <input type="text" id="exCategory" class="form-input form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="exDescription">Description</label>
+                            <input type="text" id="exDescription" class="form-input form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="exDocument">Receipt document ID (optional)</label>
+                            <input type="number" id="exDocument" class="form-input form-control" min="1">
+                        </div>
+                        <button type="submit" class="btn">Submit claim</button>
+                        <p id="expense-msg" class="hr-msg" role="status"></p>
+                    </form>
+                    <ul id="expense-list" class="hr-list"></ul>
+                </section>
+
+                <section id="section-profile-change" class="card hr-section">
+                    <h3>Request a profile change</h3>
+                    <p id="profile-current" class="hr-balances"></p>
+                    <form id="profileChangeForm">
+                        <div class="form-group">
+                            <label for="pcType">Change type</label>
+                            <select id="pcType" class="form-select form-control">
+                                <option value="ADDRESS">Address</option>
+                                <option value="BANK">Bank account</option>
+                                <option value="EMERGENCY_CONTACT">Emergency contact</option>
+                            </select>
+                        </div>
+                        <div data-pc-type="ADDRESS">
+                            <div class="form-group"><label for="pc-address_line1">Address line 1</label><input type="text" id="pc-address_line1" class="form-input form-control" data-field="address_line1"></div>
+                            <div class="form-group"><label for="pc-address_line2">Address line 2</label><input type="text" id="pc-address_line2" class="form-input form-control" data-field="address_line2"></div>
+                            <div class="hr-row">
+                                <div class="form-group"><label for="pc-city">City</label><input type="text" id="pc-city" class="form-input form-control" data-field="city"></div>
+                                <div class="form-group"><label for="pc-province">Province</label><input type="text" id="pc-province" class="form-input form-control" data-field="province"></div>
+                            </div>
+                            <div class="hr-row">
+                                <div class="form-group"><label for="pc-postal_code">Postal code</label><input type="text" id="pc-postal_code" class="form-input form-control" data-field="postal_code"></div>
+                                <div class="form-group"><label for="pc-country">Country</label><input type="text" id="pc-country" class="form-input form-control" data-field="country"></div>
+                            </div>
+                            <div class="form-group"><label for="pc-phone">Phone</label><input type="text" id="pc-phone" class="form-input form-control" data-field="phone"></div>
+                        </div>
+                        <div data-pc-type="BANK" hidden>
+                            <div class="form-group"><label for="pc-bank_code">Bank code</label><input type="text" id="pc-bank_code" class="form-input form-control" data-field="bank_code"></div>
+                            <div class="form-group"><label for="pc-bank_account_number">Account number</label><input type="text" id="pc-bank_account_number" class="form-input form-control" data-field="bank_account_number" autocomplete="off"></div>
+                            <div class="form-group"><label for="pc-bank_account_name">Account holder name</label><input type="text" id="pc-bank_account_name" class="form-input form-control" data-field="bank_account_name"></div>
+                        </div>
+                        <div data-pc-type="EMERGENCY_CONTACT" hidden>
+                            <div class="form-group"><label for="pc-contact_id">Existing contact to update</label><select id="pc-contact_id" class="form-select form-control" data-field="contact_id"><option value="">New contact</option></select></div>
+                            <div class="form-group"><label for="pc-name">Name</label><input type="text" id="pc-name" class="form-input form-control" data-field="name"></div>
+                            <div class="form-group"><label for="pc-relationship">Relationship</label><input type="text" id="pc-relationship" class="form-input form-control" data-field="relationship"></div>
+                            <div class="hr-row">
+                                <div class="form-group"><label for="pc-contact-phone">Phone</label><input type="text" id="pc-contact-phone" class="form-input form-control" data-field="phone"></div>
+                                <div class="form-group"><label for="pc-email">Email</label><input type="email" id="pc-email" class="form-input form-control" data-field="email"></div>
+                            </div>
+                            <label class="checkbox-label"><input class="checkbox-input" type="checkbox" id="pc-is_primary" data-field="is_primary"><span class="checkbox-text">Primary contact</span></label>
+                        </div>
+                        <button type="submit" class="btn">Submit for approval</button>
+                        <p id="profile-change-msg" class="hr-msg" role="status"></p>
+                    </form>
+                    <ul id="profile-change-list" class="hr-list"></ul>
+                </section>
+            </div>
+        </div>
     </main>
 
-    <script>
-        // Track analytics automatically
-        function trackEvent(eventType, metadata = {}) {
-            fetch('/portal/analytics/event', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ event_type: eventType, metadata: metadata })
-            }).catch(e => console.error("Analytics skipped", e));
-        }
-
-        function switchTab(tabId) {
-            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-            document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
-            
-            document.getElementById('view-' + tabId).classList.add('active');
-            event.currentTarget.classList.add('active');
-            
-            const titles = {
-                'dashboard': 'Welcome back, Partner!',
-                'profile': 'My Profile',
-                'rfq': 'RFQ Negotiations',
-                'chat': 'Messages'
-            };
-            document.getElementById('pageTitle').textContent = titles[tabId];
-            trackEvent('page_view', { page: tabId });
-        }
-
-        // Profile Form
-        document.getElementById('profileForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const btn = e.target.querySelector('.btn');
-            btn.textContent = 'Saving...';
-            
-            try {
-                await fetch('/portal/profile', {
-                    method: 'PUT',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        display_name: document.getElementById('profName').value,
-                        phone: document.getElementById('profPhone').value
-                    })
-                });
-                btn.textContent = 'Saved!';
-                setTimeout(() => btn.textContent = 'Save Changes', 2000);
-                trackEvent('profile_updated');
-            } catch (err) {
-                alert("Failed to update profile");
-                btn.textContent = 'Save Changes';
-            }
-        });
-
-        // Chat Form
-        document.getElementById('chatForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const input = document.getElementById('chatMsg');
-            const msg = input.value;
-            if (!msg) return;
-
-            // Optimistic UI
-            const chatList = document.getElementById('chatList');
-            chatList.innerHTML += `<div class="msg sent">${msg}</div>`;
-            chatList.scrollTop = chatList.scrollHeight;
-            input.value = '';
-
-            try {
-                await fetch('/portal/chat', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ context: 'general', message: msg })
-                });
-                trackEvent('chat_sent');
-            } catch (err) {
-                console.error("Chat failed to send");
-            }
-        });
-
-        // RFQ Negotation
-        async function negotiate(rfqId) {
-            const price = prompt("Enter your proposed price:");
-            if (!price) return;
-
-            try {
-                await fetch('/portal/rfq/negotiate', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ rfq_id: rfqId, supplier_id: 1, proposed_price: parseFloat(price) })
-                });
-                alert("Proposal sent successfully!");
-                trackEvent('rfq_negotiated', { rfq_id: rfqId, price: price });
-            } catch (err) {
-                alert("Failed to send proposal");
-            }
-        }
-
-        // Initial tracking
-        trackEvent('portal_login');
-    </script>
+    <script src="/static/js/pages/portal.js" defer></script>
 </body>
 </html>
 {{ end }}

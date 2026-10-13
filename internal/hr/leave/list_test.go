@@ -25,8 +25,8 @@ func TestTypesAndOwnRequestsMapRows(t *testing.T) {
 	}
 	approvalID := int64(55)
 	db.ExpectQuery("SELECT r.id,r.employee_id,r.leave_type_id,t.name").WithArgs(int64(9)).
-		WillReturnRows(pgxmock.NewRows([]string{"id", "employee_id", "leave_type_id", "name", "start_date", "end_date", "days", "reason", "status", "approval_request_id"}).
-			AddRow(int64(3), int64(8), int64(1), "Annual", start, end, 3.0, "Travel", "PENDING", &approvalID))
+		WillReturnRows(pgxmock.NewRows([]string{"id", "employee_id", "leave_type_id", "name", "start_date", "end_date", "days", "start_half_day", "end_half_day", "reason", "status", "approval_request_id"}).
+			AddRow(int64(3), int64(8), int64(1), "Annual", start, end, 3.0, true, false, "Travel", "PENDING", &approvalID))
 	requests, err := service.ListOwn(context.Background(), 9)
 	if err != nil || len(requests) != 1 || requests[0].ApprovalRequestID == nil || *requests[0].ApprovalRequestID != 55 {
 		t.Fatalf("ListOwn() = %#v, %v", requests, err)

@@ -124,6 +124,11 @@ func (h *Handler) payslip(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) redirect(w http.ResponseWriter, r *http.Request, err error, success string) {
 	s := shared.SessionFromContext(r.Context())
 	if err != nil {
+		// UserSafeMessage hides unknown errors from the user; keep the cause in
+		// the log so "An unexpected error occurred" is diagnosable.
+		if h.logger != nil {
+			h.logger.Error("payroll action failed", slog.String("path", r.URL.Path), slog.Any("error", err))
+		}
 		s.AddFlash(shared.FlashMessage{Kind: "error", Message: shared.UserSafeMessage(err)})
 	} else {
 		s.AddFlash(shared.FlashMessage{Kind: "success", Message: success})

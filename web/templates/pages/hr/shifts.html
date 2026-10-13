@@ -1,0 +1,204 @@
+{{ define "pages/hr/shifts.html" }}{{ template "layouts/base.html" . }}{{ end }}
+{{ define "title" }}Work Shifts{{ end }}
+{{ define "content" }}
+<div class="page-container">
+    <header class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-title">Work Shifts</h1>
+            <p class="page-subtitle">Define shift hours and work days, and assign employees to shifts from an effective date.</p>
+        </div>
+        <div class="page-header__actions">
+            <button type="button" class="btn btn--secondary" data-dialog-open="assign-shift-dialog">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+                <span>Assign Shift</span>
+            </button>
+            <button type="button" class="btn btn--primary" data-dialog-open="create-shift-dialog">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <span>New Shift</span>
+            </button>
+        </div>
+    </header>
+
+    <div class="page-content">
+        <div data-tabs="hr-shifts" data-persist="true">
+            <div class="tabs-list" role="tablist">
+                <button type="button" data-tab="shifts" class="btn tab{{ if eq .Data.Tab "shifts" }} active{{ end }}">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    <span>Shifts</span>
+                    <span class="tab-badge">{{ len .Data.Shifts }}</span>
+                </button>
+                <button type="button" data-tab="assignments" class="btn tab{{ if eq .Data.Tab "assignments" }} active{{ end }}">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    <span>Employee Assignments</span>
+                    <span class="tab-badge">{{ len .Data.Employees }}</span>
+                </button>
+            </div>
+
+            <div class="tabs-content">
+                <div data-tab-panel="shifts" class="tab-panel{{ if eq .Data.Tab "shifts" }} active{{ end }}"{{ if ne .Data.Tab "shifts" }} hidden{{ end }}>
+                    <section class="card card-table" data-component="datatable">
+                        <div class="card__header">
+                            <h2 class="card__title">Shifts</h2>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table--sticky" data-datatable="hr-shifts">
+                                <thead>
+                                    <tr>
+                                        <th>Code</th>
+                                        <th>Name</th>
+                                        <th>Hours</th>
+                                        <th class="numeric">Break (min)</th>
+                                        <th>Work Days</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {{ range .Data.Shifts }}
+                                    <tr>
+                                        <td><code>{{ .Code }}</code></td>
+                                        <td><strong>{{ .Name }}</strong></td>
+                                        <td>{{ .StartTime }} – {{ .EndTime }}{{ if lt .EndTime .StartTime }} <small class="text-muted">(overnight)</small>{{ end }}</td>
+                                        <td class="numeric">{{ .BreakMinutes }}</td>
+                                        <td>{{ .WorkDaysLabel }}</td>
+                                        <td>{{ if .IsActive }}{{ template "partials/ui/status_badge.html" "ACTIVE" }}{{ else }}{{ template "partials/ui/status_badge.html" "INACTIVE" }}{{ end }}</td>
+                                    </tr>
+                                    {{ else }}
+                                    <tr><td colspan="6" class="table-empty">No shifts defined yet. Employees without a shift work Monday to Friday.</td></tr>
+                                    {{ end }}
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
+
+                <div data-tab-panel="assignments" class="tab-panel{{ if eq .Data.Tab "assignments" }} active{{ end }}"{{ if ne .Data.Tab "assignments" }} hidden{{ end }}>
+                    <section class="card card-table" data-component="datatable">
+                        <div class="card__header">
+                            <h2 class="card__title">Current Shift per Employee</h2>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table--sticky" data-datatable="hr-shift-assignments">
+                                <thead>
+                                    <tr>
+                                        <th>Employee</th>
+                                        <th>Department</th>
+                                        <th>Shift</th>
+                                        <th>Effective From</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {{ range .Data.Employees }}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ .Name }}</strong>
+                                            <div><small class="text-muted">{{ .EmployeeNumber }}</small></div>
+                                        </td>
+                                        <td>{{ if .Department }}{{ .Department }}{{ else }}<span class="text-muted">–</span>{{ end }}</td>
+                                        {{ if .Shift }}
+                                        <td>{{ .Shift.Shift.Name }} <small class="text-muted">({{ .Shift.Shift.Code }} · {{ .Shift.Shift.StartTime }}–{{ .Shift.Shift.EndTime }})</small></td>
+                                        <td>{{ .Shift.ValidFrom.Format "02 Jan 2006" }}</td>
+                                        {{ else }}
+                                        <td><span class="text-muted">Default (Mon–Fri)</span></td>
+                                        <td><span class="text-muted">–</span></td>
+                                        {{ end }}
+                                    </tr>
+                                    {{ else }}
+                                    <tr><td colspan="4" class="table-empty">No active employees.</td></tr>
+                                    {{ end }}
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: New Shift -->
+<dialog data-dialog id="create-shift-dialog" class="native-dialog">
+    <div class="native-dialog__header">
+        <h3 class="native-dialog__title">New Shift</h3>
+        <button type="button" class="btn btn--icon" data-dialog-close aria-label="Close dialog">✕</button>
+    </div>
+    <form method="post" action="/hr/shifts" class="hr-modal-form native-dialog__content--padded">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+        <div class="hr-form-row">
+            <label class="form-group">
+                <span class="form-label">Code</span>
+                <input class="form-input" name="code" placeholder="e.g. DAY" required>
+            </label>
+            <label class="form-group">
+                <span class="form-label">Name</span>
+                <input class="form-input" name="name" placeholder="e.g. Day shift" required>
+            </label>
+        </div>
+        <div class="hr-form-row">
+            <label class="form-group">
+                <span class="form-label">Start Time</span>
+                <input class="form-input" type="time" name="start_time" value="08:00" required>
+            </label>
+            <label class="form-group">
+                <span class="form-label">End Time</span>
+                <input class="form-input" type="time" name="end_time" value="17:00" required>
+            </label>
+        </div>
+        <label class="form-group">
+            <span class="form-label">Break (minutes)</span>
+            <input class="form-input" type="number" name="break_minutes" min="0" max="1440" step="1" value="60" required>
+        </label>
+        <fieldset class="form-group">
+            <legend class="form-label">Work Days</legend>
+            {{ range .Data.Weekdays }}
+            <label class="checkbox-label"><input class="checkbox-input" type="checkbox" name="work_days" value="{{ .Value }}"{{ if .Default }} checked{{ end }}><span class="checkbox-text">{{ .Label }}</span></label>
+            {{ end }}
+            <small class="text-muted">An end time earlier than the start time means the shift crosses midnight.</small>
+        </fieldset>
+        <div class="form-group">
+            <label class="checkbox-label"><input class="checkbox-input" type="checkbox" name="is_active" value="1" checked><span class="checkbox-text">Active</span></label>
+        </div>
+        <div class="native-dialog__footer">
+            <button type="button" class="btn btn--secondary" data-dialog-close>Cancel</button>
+            <button type="submit" class="btn btn--primary">Create Shift</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- Modal: Assign Shift -->
+<dialog data-dialog id="assign-shift-dialog" class="native-dialog">
+    <div class="native-dialog__header">
+        <h3 class="native-dialog__title">Assign Shift</h3>
+        <button type="button" class="btn btn--icon" data-dialog-close aria-label="Close dialog">✕</button>
+    </div>
+    <form method="post" action="/hr/shifts/assign" class="hr-modal-form native-dialog__content--padded">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+        <label class="form-group">
+            <span class="form-label">Employee</span>
+            <select class="form-select" name="employee_id" required>
+                {{ range .Data.Employees }}
+                <option value="{{ .EmployeeID }}">{{ .Name }} ({{ .EmployeeNumber }}){{ if .Department }} – {{ .Department }}{{ end }}</option>
+                {{ end }}
+            </select>
+        </label>
+        <div class="hr-form-row">
+            <label class="form-group">
+                <span class="form-label">Shift</span>
+                <select class="form-select" name="shift_id" required>
+                    {{ range .Data.ActiveShifts }}
+                    <option value="{{ .ID }}">{{ .Name }} ({{ .Code }} · {{ .StartTime }}–{{ .EndTime }})</option>
+                    {{ end }}
+                </select>
+            </label>
+            <label class="form-group">
+                <span class="form-label">Effective From</span>
+                <input class="form-input" type="date" name="valid_from" value="{{ .Data.Today }}" required>
+            </label>
+        </div>
+        <small class="text-muted">The employee's current assignment ends the day before the new one starts.</small>
+        <div class="native-dialog__footer">
+            <button type="button" class="btn btn--secondary" data-dialog-close>Cancel</button>
+            <button type="submit" class="btn btn--primary">Assign</button>
+        </div>
+    </form>
+</dialog>
+{{ end }}

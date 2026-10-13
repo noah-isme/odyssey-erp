@@ -411,6 +411,21 @@ func seedPhase09HRPayroll(ctx context.Context, sctx *SeedContext) error {
 			}
 		}
 
+		// Job history: one row per seeded employee, effective from hire date.
+		// Idempotent on (employee_id, valid_from); new columns use defaults.
+		for _, e := range employees {
+			empID := empIDMap[e.empNumber]
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO hr_employee_job_history
+					(company_id, employee_id, department_id, position_id, manager_id, status, employment_type, valid_from, reason)
+				SELECT company_id, id, department_id, position_id, manager_id, status, employment_type, hire_date, 'Initial record'
+				FROM hr_employees
+				WHERE id = $1
+				ON CONFLICT (employee_id, valid_from) DO NOTHING`, empID); err != nil {
+				return fmt.Errorf("seed job history for employee %q: %w", e.empNumber, err)
+			}
+		}
+
 		// -------------------------------------------------------------------------
 		// 4. Leave Types (Annual, Sick, Maternity, Unpaid)
 		// -------------------------------------------------------------------------
@@ -617,6 +632,83 @@ func seedPhase09HRPayroll(ctx context.Context, sctx *SeedContext) error {
 				return fmt.Errorf("upsert payroll_period %q: %w", pCode, err)
 			}
 			payrollPeriodMap[pCode] = ppID
+		}
+
+		// HRIS time and checklist reference data (migrations 000131, 000133).
+		// Idempotent: every insert is ON CONFLICT DO NOTHING.
+		holidays := []struct {
+			date time.Time
+			name string
+		}{
+			{time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC), "Tahun Baru"},
+			{time.Date(2026, time.August, 17, 0, 0, 0, 0, time.UTC), "Hari Kemerdekaan RI"},
+			{time.Date(2026, time.December, 25, 0, 0, 0, 0, time.UTC), "Hari Natal"},
+		}
+		for _, h := range holidays {
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO hr_holidays (company_id, holiday_date, name)
+				VALUES ($1, $2, $3)
+				ON CONFLICT (company_id, holiday_date) DO NOTHING`,
+				companyID, h.date, h.name); err != nil {
+				return fmt.Errorf("seed hr_holidays %q: %w", h.name, err)
+			}
+		}
+
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO hr_shifts (company_id, code, name, start_time, end_time, break_minutes, work_days)
+			VALUES ($1, 'DAY', 'Day Shift', '09:00', '17:00', 60, '{1,2,3,4,5}')
+			ON CONFLICT (company_id, code) DO NOTHING`, companyID); err != nil {
+			return fmt.Errorf("seed hr_shifts: %w", err)
+		}
+
+		type checklistItemSeed struct {
+			seq    int
+			title  string
+			role   string
+			due    int
+			action string // empty means NULL
+		}
+		checklistSeeds := []struct {
+			code  string
+			name  string
+			kind  string
+			items []checklistItemSeed
+		}{
+			{"ONBOARD-STD", "Standard Onboarding", "ONBOARDING", []checklistItemSeed{
+				{1, "Collect signed contract and ID documents", "HR", 0, ""},
+				{2, "Provision laptop and accounts", "IT", 1, ""},
+				{3, "Manager welcome and first-week plan", "MANAGER", 3, ""},
+			}},
+			{"OFFBOARD-STD", "Standard Offboarding", "OFFBOARDING", []checklistItemSeed{
+				{1, "Return company assets", "IT", 0, "RETURN_ASSETS"},
+				{2, "Close leave balances", "HR", 0, "CLOSE_LEAVE"},
+				{3, "Deactivate user account", "IT", 1, "DEACTIVATE_USER"},
+			}},
+		}
+		for _, cs := range checklistSeeds {
+			var tplID int64
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO hr_checklist_templates (company_id, code, name, kind)
+				VALUES ($1, $2, $3, $4)
+				ON CONFLICT (company_id, code) DO NOTHING`,
+				companyID, cs.code, cs.name, cs.kind); err != nil {
+				return fmt.Errorf("seed hr_checklist_templates %q: %w", cs.code, err)
+			}
+			if err := tx.QueryRow(ctx,
+				`SELECT id FROM hr_checklist_templates WHERE company_id = $1 AND code = $2`,
+				companyID, cs.code).Scan(&tplID); err != nil {
+				return fmt.Errorf("lookup hr_checklist_templates %q: %w", cs.code, err)
+			}
+			for _, it := range cs.items {
+				if _, err := tx.Exec(ctx, `
+					INSERT INTO hr_checklist_template_items
+						(company_id, template_id, seq, title, assignee_role, due_offset_days, action_key)
+					VALUES ($1, $2, $3, $4, $5, $6, NULLIF($7, ''))
+					ON CONFLICT (template_id, seq) DO NOTHING`,
+					companyID, tplID, it.seq, it.title, it.role, it.due, it.action); err != nil {
+					return fmt.Errorf("seed hr_checklist_template_items %q/%d: %w", cs.code, it.seq, err)
+				}
+			}
 		}
 
 		// Payroll Components

@@ -31,6 +31,19 @@ type Handler struct {
 		UploadAndCreateVersion(ctx context.Context, file io.Reader, size int64, mimeType string, req documents.CreateVersionRequest) (documents.DocumentVersion, error)
 	}
 	templates *view.Engine
+	csrf      *shared.CSRFManager
+
+	// Employee self-service dependencies (see employee_selfservice.go).
+	leave           LeaveService
+	overtime        OvertimeService
+	expenses        ExpenseService
+	profileChanges  ProfileChangeService
+	holidays        HolidayService
+	employeeProfile EmployeeProfileService
+
+	// resolveEmployee overrides the hr_employees lookup used by
+	// access(r, "EMPLOYEE"); nil uses the database.
+	resolveEmployee func(ctx context.Context, userID, companyID int64) (int64, error)
 }
 
 // =============================================================================
@@ -159,12 +172,14 @@ func (h *Handler) recordAnalyticsEvent(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-func NewHandler(pool *pgxpool.Pool, templates *view.Engine, middleware ...rbac.Middleware) *Handler {
+// NewHandler builds the portal handler. csrf issues the token rendered into
+// /portal/app so its JSON writes can send X-CSRF-Token.
+func NewHandler(pool *pgxpool.Pool, templates *view.Engine, csrf *shared.CSRFManager, middleware ...rbac.Middleware) *Handler {
 	var m rbac.Middleware
 	if len(middleware) > 0 {
 		m = middleware[0]
 	}
-	return &Handler{pool: pool, templates: templates, rbac: m}
+	return &Handler{pool: pool, templates: templates, csrf: csrf, rbac: m}
 }
 
 func (h *Handler) SetDocumentsService(docs interface {
@@ -176,9 +191,7 @@ func (h *Handler) SetDocumentsService(docs interface {
 
 func (h *Handler) MountRoutes(r chi.Router) {
 	r.Route("/portal", func(r chi.Router) {
-		r.Get("/app", func(w http.ResponseWriter, r *http.Request) {
-			_ = h.templates.Render(w, "pages/portal_app.html", view.TemplateData{Title: "Portal"})
-		})
+		r.Get("/app", h.app)
 
 		r.Group(func(r chi.Router) {
 			r.Use(h.rbac.RequireAny("portal.manage"))
@@ -199,6 +212,19 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Get("/employee/payslips", h.employeePayslips)
 		r.Get("/employee/leave", h.employeeLeave)
 		r.Get("/employee/attendance", h.employeeAttendance)
+		r.Post("/employee/leave", h.employeeLeaveSubmit)
+		r.Post("/employee/leave/{id}/cancel", h.employeeLeaveCancel)
+		r.Get("/employee/overtime", h.employeeOvertimeList)
+		r.Post("/employee/overtime", h.employeeOvertimeSubmit)
+		r.Post("/employee/overtime/{id}/cancel", h.employeeOvertimeCancel)
+		r.Get("/employee/expenses", h.employeeExpenseList)
+		r.Post("/employee/expenses", h.employeeExpenseSubmit)
+		r.Post("/employee/expenses/{id}/cancel", h.employeeExpenseCancel)
+		r.Get("/employee/profile", h.employeeProfileGet)
+		r.Get("/employee/profile-changes", h.employeeProfileChangeList)
+		r.Post("/employee/profile-changes", h.employeeProfileChangeSubmit)
+		r.Post("/employee/profile-changes/{id}/cancel", h.employeeProfileChangeCancel)
+		r.Get("/employee/holidays", h.employeeHolidays)
 
 		// Advanced Portal Features
 		r.Put("/profile", h.updateProfile)
@@ -207,6 +233,20 @@ func (h *Handler) MountRoutes(r chi.Router) {
 		r.Post("/rfq/negotiate", h.negotiateRFQ)
 		r.Post("/analytics/event", h.recordAnalyticsEvent)
 	})
+}
+
+// app renders the portal shell with the session CSRF token so the page's
+// postJSON helper can send X-CSRF-Token on every write.
+func (h *Handler) app(w http.ResponseWriter, r *http.Request) {
+	token := shared.CSRFTokenFromContext(r.Context())
+	if h.csrf != nil {
+		if sess := shared.SessionFromContext(r.Context()); sess != nil {
+			if t, err := h.csrf.EnsureToken(r.Context(), sess); err == nil {
+				token = t
+			}
+		}
+	}
+	_ = h.templates.Render(w, "pages/portal_app.html", view.TemplateData{Title: "Portal", CSRFToken: token})
 }
 
 func invitationToken() (string, string, error) {
@@ -342,7 +382,20 @@ func (h *Handler) access(r *http.Request, kind string) (int64, int64, int64, err
 		query = `SELECT COALESCE(pu.supplier_id,0) FROM portal_users pu JOIN suppliers s ON s.id=pu.supplier_id AND s.company_id=pu.company_id WHERE pu.user_id=$1 AND pu.company_id=$2 AND pu.portal_type=$3 AND pu.active`
 	}
 	if kind == "EMPLOYEE" {
+		if h.resolveEmployee != nil {
+			id, err := h.resolveEmployee(r.Context(), uid, cid)
+			if err != nil {
+				return 0, 0, 0, err
+			}
+			if id <= 0 {
+				return 0, 0, 0, shared.ErrUnauthorized
+			}
+			return uid, cid, id, nil
+		}
 		query = `SELECT id FROM hr_employees WHERE user_id=$1 AND company_id=$2 AND status='ACTIVE'`
+	}
+	if h.pool == nil {
+		return 0, 0, 0, shared.ErrUnauthorized
 	}
 	var row pgx.Row
 	if kind == "EMPLOYEE" {
@@ -420,11 +473,14 @@ func (h *Handler) supplier(w http.ResponseWriter, r *http.Request) {
 	portalJSON(w, map[string]any{"portal": "supplier", "company_id": cid, "supplier_id": id, "invoices": invoices, "internal_routes": "unavailable"})
 }
 func (h *Handler) employee(w http.ResponseWriter, r *http.Request) {
-	uid, cid, _, err := h.access(r, "EMPLOYEE")
+	uid, cid, employeeID, err := h.access(r, "EMPLOYEE")
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 		return
 	}
+	// timesheets.employee_id references users(id) (000055), so timesheets are
+	// keyed by the session user; employee_id in the response is the resolved
+	// hr_employees id.
 	rows, err := h.pool.Query(r.Context(), `SELECT id,project_id,task_id,work_date::text,hours::float8,status FROM timesheets WHERE company_id=$1 AND employee_id=$2 ORDER BY work_date DESC LIMIT 100`, cid, uid)
 	if err != nil {
 		http.Error(w, http.StatusText(500), 500)
@@ -446,7 +502,7 @@ func (h *Handler) employee(w http.ResponseWriter, r *http.Request) {
 		}
 		sheets = append(sheets, x)
 	}
-	portalJSON(w, map[string]any{"portal": "employee", "company_id": cid, "employee_id": uid, "timesheets": sheets, "internal_routes": "unavailable"})
+	portalJSON(w, map[string]any{"portal": "employee", "company_id": cid, "employee_id": employeeID, "user_id": uid, "timesheets": sheets, "internal_routes": "unavailable"})
 }
 
 func (h *Handler) customerOrders(w http.ResponseWriter, r *http.Request) {
@@ -537,6 +593,10 @@ func (h *Handler) employeePayslips(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) employeeLeave(w http.ResponseWriter, r *http.Request) {
+	if h.leave != nil {
+		h.employeeLeaveList(w, r)
+		return
+	}
 	uid, cid, _, err := h.access(r, "EMPLOYEE")
 	if err != nil {
 		http.Error(w, http.StatusText(401), 401)

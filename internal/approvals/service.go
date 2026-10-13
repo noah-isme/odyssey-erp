@@ -3,6 +3,7 @@ package approvals
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 )
 
@@ -10,6 +11,11 @@ var (
 	ErrNoPolicy    = errors.New("approvals: no matching policy")
 	ErrNotAssigned = errors.New("approvals: user is not assigned to current step")
 	ErrInvalid     = errors.New("approvals: invalid input")
+	// ErrAlreadyDecided means the request is no longer PENDING (approved,
+	// rejected or cancelled), e.g. a double click or a second approver acting
+	// late. It wraps ErrInvalid so existing errors.Is(err, ErrInvalid) checks
+	// still match.
+	ErrAlreadyDecided = fmt.Errorf("%w: request already decided", ErrInvalid)
 )
 
 type Store interface {
@@ -69,6 +75,14 @@ func (s *Service) Submit(ctx context.Context, in Submission) (Request, error) {
 	return request, nil
 }
 
+// FinalizeError reports that the decision was committed but the module
+// finalizer failed afterwards. Error() and Unwrap() expose the finalizer's
+// error unchanged, so existing errors.Is checks and messages still work.
+type FinalizeError struct{ Err error }
+
+func (e *FinalizeError) Error() string { return e.Err.Error() }
+func (e *FinalizeError) Unwrap() error { return e.Err }
+
 func (s *Service) Decide(ctx context.Context, requestID, actorID int64, decision, note string) (DecisionResult, error) {
 	decision = strings.ToUpper(strings.TrimSpace(decision))
 	if requestID <= 0 || actorID <= 0 || (decision != DecisionApprove && decision != DecisionReject) {
@@ -86,7 +100,7 @@ func (s *Service) Decide(ctx context.Context, requestID, actorID int64, decision
 	if result.Finalized {
 		if f := s.finalizers[result.Request.Module]; f != nil {
 			if err := f.FinalizeApproval(ctx, result.Request, result.Request.Status, actorID, note); err != nil {
-				return DecisionResult{}, err
+				return DecisionResult{}, &FinalizeError{Err: err}
 			}
 		}
 		if s.notifier != nil {

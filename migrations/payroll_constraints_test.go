@@ -63,3 +63,42 @@ func TestPayrollDraftSelectionRequiresReviewedRulesAndLatestEffectiveVersion(t *
 		}
 	}
 }
+
+func TestPayrollDraftUsesAsOfDepartmentAndFinalPeriodFilter(t *testing.T) {
+	data, err := os.ReadFile("../internal/payroll/repository.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(data)
+	for _, want := range []string{
+		"hr_employee_job_history",
+		"COALESCE(jh.department_id, e.department_id)",
+		"(e.termination_date IS NULL OR e.termination_date >= p.starts_on) AND (e.status='ACTIVE' OR e.termination_date IS NOT NULL)",
+	} {
+		if !strings.Contains(content, want) {
+			t.Errorf("payroll draft employee selection missing %q", want)
+		}
+	}
+}
+
+func TestPayrollDraftReadsHROvertimeAndExactLeaveDays(t *testing.T) {
+	data, err := os.ReadFile("../internal/payroll/repository.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(data)
+	for _, want := range []string{
+		"hr_overtime_requests",
+		"h.status='APPROVED'",
+		"h.worked_on BETWEEN p.starts_on AND p.ends_on",
+		"SELECT SUM(lr.days) FROM hr_leave_requests",
+		"::numeric::text",
+	} {
+		if !strings.Contains(content, want) {
+			t.Errorf("payroll draft query missing %q", want)
+		}
+	}
+	if strings.Contains(content, "lr.end_date>=p.starts_on),0)::bigint") {
+		t.Error("payroll draft query must not cast SUM(lr.days) directly to bigint")
+	}
+}

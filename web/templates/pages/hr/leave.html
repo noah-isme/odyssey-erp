@@ -93,7 +93,7 @@
                                     <tr>
                                         <td><strong>{{ .TypeName }}</strong></td>
                                         <td>{{ formatDate .StartDate }} – {{ formatDate .EndDate }}</td>
-                                        <td class="numeric">{{ formatDecimal .Days }}</td>
+                                        <td class="numeric">{{ formatDecimal .Days }}{{ if .StartHalfDay }} <small class="text-muted" title="Starts with a half day">(½ start)</small>{{ end }}{{ if .EndHalfDay }} <small class="text-muted" title="Ends with a half day">(½ end)</small>{{ end }}</td>
                                         <td>{{ if .Reason }}{{ .Reason }}{{ else }}<span class="text-muted">–</span>{{ end }}</td>
                                         <td>{{ template "partials/ui/status_badge.html" .Status }}</td>
                                         <td class="table__actions">
@@ -161,7 +161,7 @@
                                         <td>{{ if .Department }}{{ .Department }}{{ else }}<span class="text-muted">–</span>{{ end }}</td>
                                         <td>{{ .TypeName }}</td>
                                         <td>{{ formatDate .StartDate }} – {{ formatDate .EndDate }}</td>
-                                        <td class="numeric">{{ formatDecimal .Days }}</td>
+                                        <td class="numeric">{{ formatDecimal .Days }}{{ if .StartHalfDay }} <small class="text-muted" title="Starts with a half day">(½ start)</small>{{ end }}{{ if .EndHalfDay }} <small class="text-muted" title="Ends with a half day">(½ end)</small>{{ end }}</td>
                                         <td>{{ if .Reason }}{{ .Reason }}{{ else }}<span class="text-muted">–</span>{{ end }}</td>
                                         <td>{{ template "partials/ui/status_badge.html" .Status }}</td>
                                         <td>{{ formatDate .CreatedAt }}</td>
@@ -288,6 +288,11 @@
                 <span class="form-label">End Date</span>
                 <input class="form-input" type="date" name="end_date" required>
             </label>
+        </div>
+        <div class="form-group">
+            <label class="checkbox-label"><input class="checkbox-input" type="checkbox" name="start_half_day" value="1"><span class="checkbox-text">Start date is a half day</span></label>
+            <label class="checkbox-label"><input class="checkbox-input" type="checkbox" name="end_half_day" value="1"><span class="checkbox-text">End date is a half day</span></label>
+            <small class="text-muted">Only working days count: weekends (per your shift) and company holidays are excluded.</small>
         </div>
         <label class="form-group">
             <span class="form-label">Reason / Notes</span>

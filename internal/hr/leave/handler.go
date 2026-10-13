@@ -39,15 +39,6 @@ func (h *Handler) MountRoutes(r chi.Router) {
 	})
 }
 
-func uid(r *http.Request) int64 {
-	s := shared.SessionFromContext(r.Context())
-	if s == nil {
-		return 0
-	}
-	id, _ := strconv.ParseInt(s.User(), 10, 64)
-	return id
-}
-
 func (h *Handler) hasLeaveAdmin(r *http.Request, userID int64) bool {
 	if h.rbac.Service == nil {
 		return false
@@ -66,8 +57,13 @@ func (h *Handler) hasLeaveAdmin(r *http.Request, userID int64) bool {
 
 func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 	s := shared.SessionFromContext(r.Context())
-	company, _ := strconv.ParseInt(s.Get("company_id"), 10, 64)
-	currentUserID := uid(r)
+	ident, ok := shared.IdentityFromContext(r.Context())
+	if !ok {
+		shared.WriteHTTPError(w, http.StatusUnauthorized, shared.ErrUnauthorized.Error())
+		return
+	}
+	company := ident.CompanyID
+	currentUserID := ident.UserID
 	year := time.Now().Year()
 
 	activeTab := strings.TrimSpace(r.URL.Query().Get("tab"))
@@ -75,7 +71,7 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 		activeTab = "my-requests"
 	}
 
-	ownBalances, _ := h.service.GetOwnBalances(r.Context(), currentUserID, year)
+	ownBalances, _ := h.service.GetOwnBalances(r.Context(), company, currentUserID, year)
 	items, err := h.service.ListOwn(r.Context(), currentUserID)
 	types, _ := h.service.Types(r.Context(), company)
 
@@ -133,16 +129,24 @@ func hrFlashError(err error) string {
 }
 
 func (h *Handler) submit(w http.ResponseWriter, r *http.Request) {
+	ident, ok := shared.IdentityFromContext(r.Context())
+	if !ok {
+		shared.WriteHTTPError(w, http.StatusUnauthorized, shared.ErrUnauthorized.Error())
+		return
+	}
 	start, _ := time.Parse("2006-01-02", r.FormValue("start_date"))
 	end, _ := time.Parse("2006-01-02", r.FormValue("end_date"))
 	typeID, _ := strconv.ParseInt(r.FormValue("leave_type_id"), 10, 64)
 
 	_, err := h.service.Submit(r.Context(), CreateInput{
-		UserID:      uid(r),
-		LeaveTypeID: typeID,
-		StartDate:   start,
-		EndDate:     end,
-		Reason:      r.FormValue("reason"),
+		CompanyID:    ident.CompanyID,
+		UserID:       ident.UserID,
+		LeaveTypeID:  typeID,
+		StartDate:    start,
+		EndDate:      end,
+		Reason:       r.FormValue("reason"),
+		StartHalfDay: r.FormValue("start_half_day") != "",
+		EndHalfDay:   r.FormValue("end_half_day") != "",
 	})
 
 	s := shared.SessionFromContext(r.Context())
@@ -155,8 +159,13 @@ func (h *Handler) submit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) cancel(w http.ResponseWriter, r *http.Request) {
+	ident, ok := shared.IdentityFromContext(r.Context())
+	if !ok {
+		shared.WriteHTTPError(w, http.StatusUnauthorized, shared.ErrUnauthorized.Error())
+		return
+	}
 	requestID, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
-	err := h.service.Cancel(r.Context(), requestID, uid(r))
+	err := h.service.Cancel(r.Context(), ident.CompanyID, requestID, ident.UserID)
 
 	s := shared.SessionFromContext(r.Context())
 	if err != nil {
@@ -169,7 +178,12 @@ func (h *Handler) cancel(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) seedBalance(w http.ResponseWriter, r *http.Request) {
 	s := shared.SessionFromContext(r.Context())
-	company, _ := strconv.ParseInt(s.Get("company_id"), 10, 64)
+	ident, ok := shared.IdentityFromContext(r.Context())
+	if !ok {
+		shared.WriteHTTPError(w, http.StatusUnauthorized, shared.ErrUnauthorized.Error())
+		return
+	}
+	company := ident.CompanyID
 	employeeID, _ := strconv.ParseInt(r.FormValue("employee_id"), 10, 64)
 	typeID, _ := strconv.ParseInt(r.FormValue("leave_type_id"), 10, 64)
 	year, _ := strconv.Atoi(r.FormValue("year"))
@@ -189,7 +203,12 @@ func (h *Handler) seedBalance(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) createType(w http.ResponseWriter, r *http.Request) {
 	s := shared.SessionFromContext(r.Context())
-	company, _ := strconv.ParseInt(s.Get("company_id"), 10, 64)
+	ident, ok := shared.IdentityFromContext(r.Context())
+	if !ok {
+		shared.WriteHTTPError(w, http.StatusUnauthorized, shared.ErrUnauthorized.Error())
+		return
+	}
+	company := ident.CompanyID
 	code := r.FormValue("code")
 	name := r.FormValue("name")
 	defaultDays, _ := strconv.ParseFloat(r.FormValue("default_days"), 64)

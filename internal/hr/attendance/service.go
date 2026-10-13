@@ -159,6 +159,9 @@ func ParseCSV(reader io.Reader) ([]Row, []string, error) {
 }
 
 func (s *Service) Import(ctx context.Context, companyID, userID int64, filename string, reader io.Reader) (ImportResult, error) {
+	if companyID <= 0 {
+		return ImportResult{}, errCompanyRequired
+	}
 	rows, problems, err := ParseCSV(reader)
 	if err != nil {
 		return ImportResult{}, err
@@ -201,6 +204,9 @@ func (s *Service) Import(ctx context.Context, companyID, userID int64, filename 
 }
 
 func (s *Service) Recent(ctx context.Context, companyID int64) ([]ImportResult, error) {
+	if companyID <= 0 {
+		return nil, errCompanyRequired
+	}
 	rows, err := s.pool.Query(ctx, `SELECT id,total_rows,accepted_rows,rejected_rows,errors FROM hr_attendance_imports WHERE company_id=$1 ORDER BY created_at DESC LIMIT 20`, companyID)
 	if err != nil {
 		return nil, err
@@ -220,12 +226,15 @@ func (s *Service) Recent(ctx context.Context, companyID int64) ([]ImportResult, 
 }
 
 func (s *Service) ListRecords(ctx context.Context, companyID int64, filter AttendanceFilter) ([]AttendanceRecord, AttendanceStats, error) {
+	if companyID <= 0 {
+		return nil, AttendanceStats{}, errCompanyRequired
+	}
 	if filter.Date.IsZero() {
 		filter.Date = time.Now()
 	}
 	targetDate := time.Date(filter.Date.Year(), filter.Date.Month(), filter.Date.Day(), 0, 0, 0, 0, time.UTC)
 
-	query := `SELECT a.id, a.employee_id, e.employee_number, e.name, COALESCE(d.name,''), a.attendance_date, a.check_in, a.check_out, a.status, a.source, a.import_id FROM hr_attendance a JOIN hr_employees e ON e.id=a.employee_id LEFT JOIN hr_departments d ON d.id=e.department_id WHERE ($1=0 OR e.company_id=$1) AND a.attendance_date=$2`
+	query := `SELECT a.id, a.employee_id, e.employee_number, e.name, COALESCE(d.name,''), a.attendance_date, a.check_in, a.check_out, a.status, a.source, a.import_id FROM hr_attendance a JOIN hr_employees e ON e.id=a.employee_id LEFT JOIN hr_departments d ON d.id=e.department_id WHERE e.company_id=$1 AND a.attendance_date=$2`
 	args := []any{companyID, targetDate}
 
 	if filter.DepartmentID != nil && *filter.DepartmentID > 0 {
@@ -263,18 +272,21 @@ func (s *Service) ListRecords(ctx context.Context, companyID int64, filter Atten
 	}
 
 	var stats AttendanceStats
-	_ = s.pool.QueryRow(ctx, `SELECT COUNT(*) FROM hr_employees WHERE ($1=0 OR company_id=$1) AND status='ACTIVE'`, companyID).Scan(&stats.TotalActive)
+	_ = s.pool.QueryRow(ctx, `SELECT COUNT(*) FROM hr_employees WHERE company_id=$1 AND status='ACTIVE'`, companyID).Scan(&stats.TotalActive)
 	_ = s.pool.QueryRow(ctx, `SELECT 
 		COUNT(*) FILTER (WHERE a.status='PRESENT'),
 		COUNT(*) FILTER (WHERE a.status='ABSENT'),
 		COUNT(*) FILTER (WHERE a.status='LEAVE')
-		FROM hr_attendance a JOIN hr_employees e ON e.id=a.employee_id WHERE ($1=0 OR e.company_id=$1) AND a.attendance_date=$2`, companyID, targetDate).Scan(&stats.Present, &stats.Absent, &stats.OnLeave)
+		FROM hr_attendance a JOIN hr_employees e ON e.id=a.employee_id WHERE e.company_id=$1 AND a.attendance_date=$2`, companyID, targetDate).Scan(&stats.Present, &stats.Absent, &stats.OnLeave)
 
 	return records, stats, rows.Err()
 }
 
 func (s *Service) RecordManual(ctx context.Context, companyID int64, in ManualRecordInput) error {
-	if companyID <= 0 || in.EmployeeID <= 0 || in.Date.IsZero() {
+	if companyID <= 0 {
+		return errCompanyRequired
+	}
+	if in.EmployeeID <= 0 || in.Date.IsZero() {
 		return errors.New("hr: invalid attendance record parameters")
 	}
 	in.Status = strings.ToUpper(strings.TrimSpace(in.Status))
@@ -310,7 +322,10 @@ func (s *Service) CSVTemplate() []byte {
 }
 
 func (s *Service) ListEmployees(ctx context.Context, companyID int64) ([]EmployeeOption, error) {
-	rows, err := s.pool.Query(ctx, `SELECT e.id, e.employee_number, e.name, COALESCE(d.name,'') FROM hr_employees e LEFT JOIN hr_departments d ON d.id=e.department_id WHERE ($1=0 OR e.company_id=$1) AND e.status='ACTIVE' ORDER BY e.name`, companyID)
+	if companyID <= 0 {
+		return nil, errCompanyRequired
+	}
+	rows, err := s.pool.Query(ctx, `SELECT e.id, e.employee_number, e.name, COALESCE(d.name,'') FROM hr_employees e LEFT JOIN hr_departments d ON d.id=e.department_id WHERE e.company_id=$1 AND e.status='ACTIVE' ORDER BY e.name`, companyID)
 	if err != nil {
 		return nil, err
 	}
@@ -327,7 +342,10 @@ func (s *Service) ListEmployees(ctx context.Context, companyID int64) ([]Employe
 }
 
 func (s *Service) ListDepartments(ctx context.Context, companyID int64) ([]DepartmentOption, error) {
-	rows, err := s.pool.Query(ctx, `SELECT id, code, name FROM hr_departments WHERE ($1=0 OR company_id=$1) ORDER BY name`, companyID)
+	if companyID <= 0 {
+		return nil, errCompanyRequired
+	}
+	rows, err := s.pool.Query(ctx, `SELECT id, code, name FROM hr_departments WHERE company_id=$1 ORDER BY name`, companyID)
 	if err != nil {
 		return nil, err
 	}
@@ -342,5 +360,7 @@ func (s *Service) ListDepartments(ctx context.Context, companyID int64) ([]Depar
 	}
 	return out, rows.Err()
 }
+
+var errCompanyRequired = errors.New("hr: company required")
 
 func ParseCompany(raw string) int64 { id, _ := strconv.ParseInt(raw, 10, 64); return id }

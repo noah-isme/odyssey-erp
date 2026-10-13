@@ -41,8 +41,15 @@ import (
 	"github.com/odyssey-erp/odyssey-erp/internal/finance/treasury"
 	"github.com/odyssey-erp/odyssey-erp/internal/freight"
 	hrattendance "github.com/odyssey-erp/odyssey-erp/internal/hr/attendance"
+	hrchecklists "github.com/odyssey-erp/odyssey-erp/internal/hr/checklists"
 	hremployees "github.com/odyssey-erp/odyssey-erp/internal/hr/employees"
+	hrexpenses "github.com/odyssey-erp/odyssey-erp/internal/hr/expenses"
 	hrleave "github.com/odyssey-erp/odyssey-erp/internal/hr/leave"
+	hrovertime "github.com/odyssey-erp/odyssey-erp/internal/hr/overtime"
+	hrperformance "github.com/odyssey-erp/odyssey-erp/internal/hr/performance"
+	hrprofilechanges "github.com/odyssey-erp/odyssey-erp/internal/hr/profilechanges"
+	hrreports "github.com/odyssey-erp/odyssey-erp/internal/hr/reports"
+	hrschedule "github.com/odyssey-erp/odyssey-erp/internal/hr/schedule"
 	insightshhtp "github.com/odyssey-erp/odyssey-erp/internal/insights/http"
 	"github.com/odyssey-erp/odyssey-erp/internal/inventory"
 	"github.com/odyssey-erp/odyssey-erp/internal/logistics"
@@ -116,6 +123,13 @@ type RouterParams struct {
 	HREmployeesHandler     *hremployees.Handler
 	HRLeaveHandler         *hrleave.Handler
 	HRAttendanceHandler    *hrattendance.Handler
+	HRScheduleHandler      *hrschedule.Handler
+	HROvertimeHandler      *hrovertime.Handler
+	HRExpensesHandler      *hrexpenses.Handler
+	HRProfileChangeHandler *hrprofilechanges.Handler
+	HRChecklistsHandler    *hrchecklists.Handler
+	HRPerformanceHandler   *hrperformance.Handler
+	HRReportsHandler       *hrreports.Handler
 	PayrollHandler         *payroll.Handler
 	TaxHandler             *tax.Handler
 	CRMHandler             *crm.Handler
@@ -227,6 +241,7 @@ func NewRouter(params RouterParams) http.Handler {
 	}
 
 	r.Use(chimw.Logger)
+	r.Use(activeUserMiddleware(poolUserActiveLookup(params.Pool), params.SessionManager, params.Logger))
 	r.Use(activeCompanyMiddleware(params.Pool, params.Logger))
 
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -801,6 +816,28 @@ func NewRouter(params RouterParams) http.Handler {
 	}
 	if params.HRAttendanceHandler != nil {
 		r.Route("/hr/attendance", params.HRAttendanceHandler.MountRoutes)
+	}
+	if params.HRScheduleHandler != nil {
+		r.Route("/hr/holidays", params.HRScheduleHandler.MountHolidayRoutes)
+		r.Route("/hr/shifts", params.HRScheduleHandler.MountShiftRoutes)
+	}
+	if params.HROvertimeHandler != nil {
+		r.Route("/hr/overtime", params.HROvertimeHandler.MountRoutes)
+	}
+	if params.HRExpensesHandler != nil {
+		r.Route("/hr/expenses", params.HRExpensesHandler.MountRoutes)
+	}
+	if params.HRProfileChangeHandler != nil {
+		r.Route("/hr/profile-changes", params.HRProfileChangeHandler.MountRoutes)
+	}
+	if params.HRChecklistsHandler != nil {
+		r.Route("/hr/checklists", params.HRChecklistsHandler.MountRoutes)
+	}
+	if params.HRPerformanceHandler != nil {
+		r.Route("/hr/performance", params.HRPerformanceHandler.MountRoutes)
+	}
+	if params.HRReportsHandler != nil {
+		params.HRReportsHandler.MountRoutes(r)
 	}
 	if params.PayrollHandler != nil {
 		r.Route("/payroll", params.PayrollHandler.MountRoutes)
