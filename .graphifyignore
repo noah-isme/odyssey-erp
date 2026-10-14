@@ -1,0 +1,8 @@
+# historical material: recover via git history, not the graph
+docs/archive/
+# task-level plans and agent scaffolding
+.plans/
+.agents/
+.codex/
+# generated
+internal/sqlc/
