@@ -57,4 +57,3 @@ unknown infrastructure errors are not serialized to clients.
 - [Handler Guidelines](../guides/handlers.md)
 - [Architecture Overview](../architecture/arsitektur.md)
 - [Shared HTTP boundary](../../internal/shared/http.go)
-- [Platform HTTP errors](../../internal/platform/httpx/errors.go)
