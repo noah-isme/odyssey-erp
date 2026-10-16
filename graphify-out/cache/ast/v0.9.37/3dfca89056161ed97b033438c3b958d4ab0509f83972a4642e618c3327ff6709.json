@@ -1,1 +1,0 @@
-{"nodes": [{"id": "$graphify-root$_migrations_000030_accounting_banks_down_sql", "label": "000030_accounting_banks.down.sql", "file_type": "code", "source_file": "migrations/000030_accounting_banks.down.sql", "source_location": null}], "edges": []}

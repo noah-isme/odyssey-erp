@@ -1,1 +1,0 @@
-{"nodes": [{"id": "$graphify-root$_migrations_000011_phase9_1_sales_quotation_so_down_sql", "label": "000011_phase9_1_sales_quotation_so.down.sql", "file_type": "code", "source_file": "migrations/000011_phase9_1_sales_quotation_so.down.sql", "source_location": null}], "edges": []}
