@@ -24,7 +24,7 @@ func TestAlertSimulationProducesFiringAndResolvedLogs(t *testing.T) {
 			threshold:  0.02,
 			actual:     0.05,
 			window:     5 * time.Minute,
-			runbookRef: "docs/runbook-ops-finance.md#high-error-rate",
+			runbookRef: "docs/operations/runbook-ops-finance.md#higherrorrate",
 		},
 		{
 			name:       "HighLatency",
@@ -32,7 +32,7 @@ func TestAlertSimulationProducesFiringAndResolvedLogs(t *testing.T) {
 			threshold:  0.8,
 			actual:     0.92,
 			window:     10 * time.Minute,
-			runbookRef: "docs/runbook-ops-finance.md#high-latency",
+			runbookRef: "docs/operations/runbook-ops-finance.md#highlatency",
 		},
 		{
 			name:       "AnomalySpike",
@@ -40,7 +40,7 @@ func TestAlertSimulationProducesFiringAndResolvedLogs(t *testing.T) {
 			threshold:  3,
 			actual:     5,
 			window:     15 * time.Minute,
-			runbookRef: "docs/runbook-ops-finance.md#anomaly-spike",
+			runbookRef: "docs/operations/runbook-ops-finance.md#anomalyspike",
 		},
 	}
 
