@@ -124,14 +124,17 @@ type ErrorResponse struct {
 
 // POST /api/freight/rate-cards
 func (h *Handler) CreateRateCard(w http.ResponseWriter, r *http.Request) {
+	ident, ok := requireIdentity(w, r)
+	if !ok {
+		return
+	}
 	var req CreateRateCardRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeErrorFrom(w, http.StatusBadRequest, "Invalid request body", err)
 		return
 	}
 
-	companyID := r.Context().Value("company_id").(int64)
-	userID := r.Context().Value("user_id").(int64)
+	companyID, userID := ident.CompanyID, ident.UserID
 
 	// Parse Money values
 	baseRate, err := accountingmoney.Parse(req.BaseRate, 2)
@@ -195,7 +198,11 @@ func (h *Handler) CreateRateCard(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/freight/rate-cards/:id
 func (h *Handler) GetRateCard(w http.ResponseWriter, r *http.Request) {
-	companyID := r.Context().Value("company_id").(int64)
+	ident, ok := requireIdentity(w, r)
+	if !ok {
+		return
+	}
+	companyID := ident.CompanyID
 	rateCardID, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
 
 	rateCard, err := h.svc.GetRateCard(r.Context(), companyID, rateCardID)
@@ -209,7 +216,11 @@ func (h *Handler) GetRateCard(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/freight/rate-cards
 func (h *Handler) ListRateCards(w http.ResponseWriter, r *http.Request) {
-	companyID := r.Context().Value("company_id").(int64)
+	ident, ok := requireIdentity(w, r)
+	if !ok {
+		return
+	}
+	companyID := ident.CompanyID
 
 	filter := RateCardFilter{
 		Limit:  50,
@@ -245,13 +256,17 @@ func (h *Handler) ListRateCards(w http.ResponseWriter, r *http.Request) {
 
 // POST /api/freight/charges/calculate
 func (h *Handler) CalculateFreightCharge(w http.ResponseWriter, r *http.Request) {
+	ident, ok := requireIdentity(w, r)
+	if !ok {
+		return
+	}
 	var req CalculateFreightRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeErrorFrom(w, http.StatusBadRequest, "Invalid request body", err)
 		return
 	}
 
-	companyID := r.Context().Value("company_id").(int64)
+	companyID := ident.CompanyID
 
 	var weightKg, volumeCbm *accountingmoney.Money
 	if req.WeightKg != nil {
@@ -287,7 +302,11 @@ func (h *Handler) CalculateFreightCharge(w http.ResponseWriter, r *http.Request)
 
 // GET /api/freight/charges/:id
 func (h *Handler) GetFreightCharge(w http.ResponseWriter, r *http.Request) {
-	companyID := r.Context().Value("company_id").(int64)
+	ident, ok := requireIdentity(w, r)
+	if !ok {
+		return
+	}
+	companyID := ident.CompanyID
 	chargeID, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
 
 	charge, err := h.svc.GetFreightCharge(r.Context(), companyID, chargeID)
@@ -301,7 +320,11 @@ func (h *Handler) GetFreightCharge(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/freight/charges
 func (h *Handler) ListFreightCharges(w http.ResponseWriter, r *http.Request) {
-	companyID := r.Context().Value("company_id").(int64)
+	ident, ok := requireIdentity(w, r)
+	if !ok {
+		return
+	}
+	companyID := ident.CompanyID
 
 	filter := FreightChargeFilter{
 		Limit:  50,
@@ -332,7 +355,11 @@ func (h *Handler) ListFreightCharges(w http.ResponseWriter, r *http.Request) {
 
 // POST /api/freight/charges/:id/invoice
 func (h *Handler) MarkFreightChargeInvoiced(w http.ResponseWriter, r *http.Request) {
-	companyID := r.Context().Value("company_id").(int64)
+	ident, ok := requireIdentity(w, r)
+	if !ok {
+		return
+	}
+	companyID := ident.CompanyID
 	chargeID, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
 
 	var req struct {
@@ -362,7 +389,11 @@ func (h *Handler) MarkFreightChargeInvoiced(w http.ResponseWriter, r *http.Reque
 
 // POST /api/freight/charges/:id/paid
 func (h *Handler) MarkFreightChargePaid(w http.ResponseWriter, r *http.Request) {
-	companyID := r.Context().Value("company_id").(int64)
+	ident, ok := requireIdentity(w, r)
+	if !ok {
+		return
+	}
+	companyID := ident.CompanyID
 	chargeID, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
 
 	charge, err := h.svc.MarkFreightChargePaid(r.Context(), companyID, chargeID)
@@ -380,7 +411,11 @@ func (h *Handler) MarkFreightChargePaid(w http.ResponseWriter, r *http.Request) 
 
 // POST /api/freight/cost-centers
 func (h *Handler) CreateCostCenter(w http.ResponseWriter, r *http.Request) {
-	companyID := r.Context().Value("company_id").(int64)
+	ident, ok := requireIdentity(w, r)
+	if !ok {
+		return
+	}
+	companyID := ident.CompanyID
 
 	var req CreateCostCenterInput
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -399,7 +434,11 @@ func (h *Handler) CreateCostCenter(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/freight/cost-centers
 func (h *Handler) ListCostCenters(w http.ResponseWriter, r *http.Request) {
-	companyID := r.Context().Value("company_id").(int64)
+	ident, ok := requireIdentity(w, r)
+	if !ok {
+		return
+	}
+	companyID := ident.CompanyID
 
 	costCenters, err := h.svc.ListCostCenters(r.Context(), companyID)
 	if err != nil {
@@ -475,6 +514,17 @@ func timePtr(t *time.Time) *string {
 	}
 	s := t.Format("2006-01-02")
 	return &s
+}
+
+// requireIdentity returns the authenticated user and active company from the
+// session, writing a 401 response when either is missing or invalid.
+func requireIdentity(w http.ResponseWriter, r *http.Request) (shared.RequestIdentity, bool) {
+	ident, ok := shared.IdentityFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "Unauthorized", shared.ErrUnauthorized.Error())
+		return shared.RequestIdentity{}, false
+	}
+	return ident, true
 }
 
 func writeJSON(w http.ResponseWriter, status int, data interface{}) {
