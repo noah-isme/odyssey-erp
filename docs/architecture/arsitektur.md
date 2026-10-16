@@ -45,7 +45,6 @@ HTTP translation is centralized in `internal/shared/http.go`:
 - `UserSafeMessage` prevents database, driver, and infrastructure details from
   reaching users; handlers should log the original error separately.
 
-`internal/platform/httpx` uses the same classification for RFC 7807 responses.
 Module-specific JSON envelopes may remain where they are part of an existing API
 contract, but their internal error message must use the shared safe-message
 policy.
