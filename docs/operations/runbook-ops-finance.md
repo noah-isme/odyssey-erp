@@ -60,7 +60,7 @@ This runbook provides the operational response steps for finance observability a
 
 ### Weekly
 
-* Review SLO error budget burn-down in `docs/slo-finance.md`.
+* Review SLO error budget burn-down in `docs/reference/slo-finance.md`.
 * Test alert routing via `make alert-test`.
 * Refresh cache warm-up job schedule.
 
@@ -71,6 +71,5 @@ This runbook provides the operational response steps for finance observability a
 
 ## References
 
-* `docs/slo-finance.md` – canonical SLO/SLA definitions.
-* `docs/observability-overview.md` – architecture overview.
-* `security-checklist-phase6.md` – release security gates.
+* `docs/reference/slo-finance.md` – canonical SLO/SLA definitions.
+* `docs/reference/observability.md` – architecture overview.

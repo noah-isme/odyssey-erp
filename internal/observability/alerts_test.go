@@ -3,6 +3,8 @@ package observability
 import (
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 
 	"gopkg.in/yaml.v3"
@@ -56,9 +58,9 @@ func TestFinanceAlertRules(t *testing.T) {
 		severity string
 		runbook  string
 	}{
-		"HighErrorRate": {severity: "critical", runbook: "docs/runbook-ops-finance.md#high-error-rate"},
-		"HighLatency":   {severity: "warning", runbook: "docs/runbook-ops-finance.md#high-latency"},
-		"AnomalySpike":  {severity: "warning", runbook: "docs/runbook-ops-finance.md#anomaly-spike"},
+		"HighErrorRate": {severity: "critical", runbook: "docs/operations/runbook-ops-finance.md#higherrorrate"},
+		"HighLatency":   {severity: "warning", runbook: "docs/operations/runbook-ops-finance.md#highlatency"},
+		"AnomalySpike":  {severity: "warning", runbook: "docs/operations/runbook-ops-finance.md#anomalyspike"},
 	}
 
 	if len(financeGroup.Rules) != len(expected) {
@@ -75,6 +77,14 @@ func TestFinanceAlertRules(t *testing.T) {
 		}
 		if rule.Annotations["runbook"] != want.runbook {
 			t.Fatalf("rule %s runbook mismatch: %s", rule.Alert, rule.Annotations["runbook"])
+		}
+		runbookPath, _, _ := strings.Cut(rule.Annotations["runbook"], "#")
+		runbook, err := os.ReadFile(filepath.Join("..", "..", runbookPath))
+		if err != nil {
+			t.Fatalf("rule %s runbook not readable: %v", rule.Alert, err)
+		}
+		if !slices.Contains(strings.Split(string(runbook), "\n"), "### "+rule.Alert) {
+			t.Fatalf("rule %s runbook %s has no %q heading", rule.Alert, runbookPath, "### "+rule.Alert)
 		}
 		if rule.Annotations["summary"] == "" || rule.Annotations["description"] == "" {
 			t.Fatalf("rule %s must include summary and description annotations", rule.Alert)
