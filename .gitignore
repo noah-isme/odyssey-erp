@@ -1,6 +1,10 @@
 # Environment files
 .env
 .env.local
+test.env
+
+# Local AI tool settings
+.qwen/
 
 # Redis dump
 dump.rdb
