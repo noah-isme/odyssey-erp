@@ -16,7 +16,6 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 | Document | Description |
 |----------|-------------|
 | [Overview](architecture/arsitektur.md) | Arsitektur modular monolith |
-| [Directory Structure](architecture/directory-structure.txt) | Struktur folder project |
 
 ## 📖 Guides
 
