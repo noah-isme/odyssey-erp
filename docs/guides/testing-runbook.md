@@ -19,6 +19,9 @@ Use `go test ./internal/<module>/...` to focus on a module. Tests that require a
 database or an external acceptance environment document their own prerequisites
 beside the relevant module or release guide.
 
+For manual login, SSO, and TOTP checks against a local instance, follow
+[Testing Authentication & Security Flows Locally](testing_auth_flow.md).
+
 ## Coverage maintenance
 
 Use focused coverage runs when changing a high-risk module. The following
