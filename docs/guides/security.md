@@ -91,8 +91,8 @@ sessions.
 | IP restrictions | Unsupported | Rate limiting is documented, but allowlists/denylists and trusted-network policy are not |
 | Device/session management | Partial | Redis-backed sessions and logout exist; device inventory, session listing, revocation UI, and anomaly detection are not documented |
 | Secrets management | Partial | Secrets are environment-configured and should not be logged; a managed vault/KMS policy is not documented |
-| Backup and restore | Implemented | Automated backup script (`disaster_recovery_backup.sh`) dumps DB and pushes encrypted to S3 |
-| Disaster recovery | Implemented | Runbook created (`disaster_recovery.md`) outlining RPO/RTO targets, restore drills, and regional recovery procedures |
+| Backup and restore | Partial | Draft scripts exist (`scripts/disaster_recovery_backup.sh`, `scripts/dr/`), but they target Docker containers rather than the native PostgreSQL + systemd production host, nothing in the repo schedules them, and no restore has been drilled |
+| Disaster recovery | Partial | [`disaster_recovery.md`](../architecture/disaster_recovery.md) states RTO/RPO targets; its procedures assume managed cloud infrastructure that the VPS deployment does not use |
 | Compliance (21 CFR Part 11) | Implemented | E-signatures and strict non-repudiation audit trails implemented in `shared.ESignatureManager`. See [`manufacturing_compliance.md`](../architecture/manufacturing_compliance.md) |
 | Data retention | Planned | Audit/tax immutability exists, but retention periods, legal holds, deletion/anonymization, and purge ownership are not defined |
 | GDPR/privacy | Unsupported | No data inventory, subject-access, erasure, consent, breach, or processor-control procedure is documented |

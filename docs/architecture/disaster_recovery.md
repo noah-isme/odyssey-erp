@@ -1,5 +1,13 @@
 # Disaster Recovery & Business Continuity
 
+> **Status: target design, not implemented.** Production runs on a single VPS
+> with native PostgreSQL and systemd ([DEPLOYMENT.md](../DEPLOYMENT.md)); there is
+> no RDS/PITR, Kubernetes, Terraform, or Route53 setup. No backup schedule is
+> installed by this repository, and `scripts/disaster_recovery_backup.sh` and
+> `scripts/dr/` are unverified drafts that assume Docker containers. Do not rely
+> on the RTO/RPO below until a VPS backup and restore procedure exists and has
+> been drilled.
+
 ## Overview
 This runbook defines the procedures for recovering the Odyssey ERP system in the event of a critical failure (e.g., region outage, data corruption, or infrastructure compromise).
 
