@@ -26,7 +26,6 @@ Dokumentasi lengkap untuk Odyssey ERP - Modern ERP system built with Go.
 | [Handler Guidelines](guides/handlers.md) | Pola handler HTTP |
 | [Testing Guide](guides/testing-runbook.md) | Menjalankan tests |
 | [Test Coverage Hardening Audit (2026-08-09)](archive/audits/test-coverage-hardening-2026-08-09.md) | Coverage baseline dan tindak lanjut modul berisiko tinggi |
-| [E2E Browser Testing](guides/e2e-browser-testing.md) | Setup Playwright, test data, dan CI integration |
 
 ### Operations
 | Document | Description |
